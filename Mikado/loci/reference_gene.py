@@ -159,7 +159,7 @@ class Gene:
                         self.transcripts[tid].add_exon(row)
                     break
             if not found:
-                raise AssertionError("{}\n{}".format(parent, row))
+                raise AssertionError("{}\n{}".format(parent, self.transcripts, row))
 
     def __getitem__(self, tid: str) -> Transcript:
         return self.transcripts[tid]

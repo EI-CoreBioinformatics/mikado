@@ -356,6 +356,33 @@ Chr2    TAIR10    three_prime_UTR    629070    629176    .    +    .    Parent=A
                          exons,
                          self.tr.exons)
 
+    def test_no_exons(self):
+
+        self.tr.finalized = False
+        self.tr.exons = []
+        self.tr.finalize()
+        self.assertEqual(self.tr.chrom, "Chr2")
+        self.assertEqual(self.tr.strand, "+")
+        self.assertEqual(self.tr.exon_num, 12)
+        self.assertEqual(self.tr.exon_num, len(self.tr.exons))
+        self.assertEqual(self.tr.start, 626642)
+        self.assertEqual(self.tr.end, 629176)
+        exons = [(626642, 626780),
+                 (626842, 626880),
+                 (626963, 627059),
+                 (627137, 627193),
+                 (627312, 627397),
+                 (627488, 627559),
+                 (627696, 627749),
+                 (627840, 627915),
+                 (628044, 628105),
+                 (628182, 628241),
+                 (628465, 628676),
+                 (629070, 629176)]
+        self.assertEqual(self.tr.exons,
+                         exons,
+                         self.tr.exons)
+
     def test_cds(self):
         self.assertEqual(self.tr.combined_cds, self.tr.selected_cds)
         cds = [(626878, 626880),
@@ -754,10 +781,10 @@ Chr4\tCufflinks\texon\t15495994\t15495994\t.\t+\t.\tgene_id "cufflinks_star_at.1
 
         self.tr.load_orfs([self.bed1, self.bed2])
 
-        self.assertEqual(self.tr.selected_cds_start, 15490903)
-        self.assertEqual(self.tr.selected_cds_end, 15493007)
+        self.assertEqual(self.tr.selected_cds_start, 15494127)
+        self.assertEqual(self.tr.selected_cds_end, 15495994)
 
-        self.assertEqual(self.tr.combined_cds_end, 15495994)
+        self.assertEqual(self.tr.combined_cds_start, 15490903)
         # The other CDS starts at 15494127
 
         logger = create_default_logger(self.tr.id)

@@ -13,6 +13,7 @@ import re
 import inspect
 import intervaltree
 from ..utilities.log_utils import create_null_logger
+from ..utilities.intervaltree import Interval, IntervalTree
 from sqlalchemy.sql.expression import desc, asc  # SQLAlchemy imports
 from sqlalchemy import and_
 from sqlalchemy.ext import baked
@@ -158,6 +159,8 @@ class Transcript:
         self.__cdna_length = None
         self._combined_cds_introns = set()
         self._selected_cds_introns = set()
+        self.__selected_cds_locus_fraction = 0
+        self.__combined_cds_locus_fraction = 0
         self._trust_orf = trust_orf  # This is used inside finalizing.__check_internal_orf
         self.__combined_utr = []
         # pylint: enable=invalid-name
@@ -201,6 +204,7 @@ class Transcript:
         # Initialisation of the CDS segments used for finding retained introns
         self.__cds_tree = None
         self.__expandable = False
+        self.__cds_introntree = IntervalTree()
         # self.query_id = None
 
         if len(args) == 0:
@@ -221,9 +225,8 @@ class Transcript:
         if not isinstance(transcript_row, (GffLine, GtfLine)):
             raise TypeError("Invalid data type: {0}".format(type(transcript_row)))
         self.chrom = intern(transcript_row.chrom)
-        self.feature = intern(transcript_row.feature)
-        # pylint: disable=invalid-name
 
+        # pylint: disable=invalid-name
         # pylint: enable=invalid-name
         self.name = transcript_row.name
         if self.source is None:
@@ -251,6 +254,7 @@ class Transcript:
         else:
             self.parent = transcript_row.parent
             self.id = transcript_row.id
+            self.feature = intern(transcript_row.feature)
 
     def __str__(self, to_gtf=False, print_cds=True):
         """
@@ -379,6 +383,10 @@ class Transcript:
         elif isinstance(gffline, intervaltree.Interval):
             start, end = gffline[0], gffline[1]
             phase = None
+            if feature is None:
+                feature = "exon"
+        elif isinstance(gffline, Interval):
+            start, end = gffline.start, gffline.end
             if feature is None:
                 feature = "exon"
         elif not isinstance(gffline, (GtfLine, GffLine)):
@@ -1383,7 +1391,6 @@ class Transcript:
         if ((not isinstance(combined, list)) or
                 any(self.__wrong_combined_entry(comb) for comb in combined)):
             raise TypeError("Invalid value for combined CDS: {0}".format(combined))
-
         # if len(combined) > 0:
         #     if isinstance(combined[0], tuple):
         #         try:
@@ -1447,6 +1454,18 @@ class Transcript:
             return self.combined_cds[-1][1]
 
     @property
+    def _cds_introntree(self):
+
+        """
+        :rtype: intervaltree.IntervalTree
+        """
+
+        if len(self.__cds_introntree) != len(self.combined_cds_introns):
+            self.__cds_introntree = IntervalTree.from_tuples(
+                [(_[0], _[1] + 1) for _ in self.combined_cds_introns])
+        return self.__cds_introntree
+
+    @property
     def selected_cds(self):
         """This property return the CDS exons of the ORF selected as best
          inside the cDNA, in the form of duplices (start, end)"""
@@ -1455,6 +1474,7 @@ class Transcript:
         else:
             self.__selected_cds = [segment[1] for segment in self.selected_internal_orf if
                                    segment[0] == "CDS"]
+
         return self.__selected_cds
 
     @property
@@ -1536,8 +1556,7 @@ index {3}, internal ORFs: {4}".format(
 
         if segments is None:
             pass
-
-        elif isinstance(segments, intervaltree.IntervalTree):
+        elif isinstance(segments, IntervalTree):
             assert len(segments) == len(self.combined_cds)
         else:
             raise TypeError("Invalid cds segments: %s, type %s",
@@ -1806,7 +1825,7 @@ index {3}, internal ORFs: {4}".format(
     def has_start_codon(self):
         """Boolean. True if the selected ORF has a start codon.
         :rtype: bool"""
-        return self.__has_start_codon
+        return self.__has_start_codon and (self.combined_cds_length > 0)
 
     @has_start_codon.setter
     def has_start_codon(self, value):
@@ -1827,7 +1846,7 @@ index {3}, internal ORFs: {4}".format(
         """Boolean. True if the selected ORF has a stop codon.
         :rtype bool
         """
-        return self.__has_stop_codon
+        return self.__has_stop_codon and (self.combined_cds_length > 0)
 
     @has_stop_codon.setter
     def has_stop_codon(self, value):
@@ -1839,6 +1858,7 @@ index {3}, internal ORFs: {4}".format(
         if value not in (None, False, True):
             raise TypeError(
                 "Invalid value for has_stop_codon: {0}".format(type(value)))
+
         self.__has_stop_codon = value
 
     has_stop_codon.category = "CDS"
@@ -1846,7 +1866,7 @@ index {3}, internal ORFs: {4}".format(
     @Metric
     def is_complete(self):
         """Boolean. True if the selected ORF has both start and end."""
-        return (self.__has_start_codon is True) and (self.__has_stop_codon is True)
+        return (self.has_start_codon is True) and (self.has_stop_codon is True)
 
     is_complete.category = "CDS"
 
@@ -1901,6 +1921,38 @@ index {3}, internal ORFs: {4}".format(
         self.__intron_fraction = args[0]
 
     intron_fraction.category = "Locus"
+
+    @Metric
+    def combined_cds_locus_fraction(self):
+        """This metric returns the fraction of CDS bases of the transcript
+        vs. the total of CDS bases in the locus."""
+        return self.__combined_cds_locus_fraction
+
+    @combined_cds_locus_fraction.setter
+    def combined_cds_locus_fraction(self, value):
+        if not isinstance(value, (int, float)) and 0 <= value <= 1:
+            raise TypeError("The fraction should be a number between 0 and 1")
+        elif self.combined_cds_length == 0 and value > 0:
+            raise ValueError("{} has no CDS, its CDS fraction cannot be greater than 0!")
+        self.__combined_cds_locus_fraction = value
+
+    combined_cds_locus_fraction.category = "Locus"
+
+    @Metric
+    def selected_cds_locus_fraction(self):
+        """This metric returns the fraction of CDS bases of the transcript
+        vs. the total of CDS bases in the locus."""
+        return self.__combined_cds_locus_fraction
+
+    @selected_cds_locus_fraction.setter
+    def selected_cds_locus_fraction(self, value):
+        if not isinstance(value, (int, float)) and 0 <= value <= 1:
+            raise TypeError("The fraction should be a number between 0 and 1")
+        elif self.selected_cds_length == 0 and value > 0:
+            raise ValueError("{} has no CDS, its CDS fraction cannot be greater than 0!")
+        self.__selected_cds_locus_fraction = value
+
+    selected_cds_locus_fraction.category = "Locus"
 
     @Metric
     def max_intron_length(self):
@@ -2194,7 +2246,7 @@ index {3}, internal ORFs: {4}".format(
         """This metric returns, as a fraction, how many of the transcript introns
         are validated by external data. Monoexonic transcripts are set to 1."""
         if self.monoexonic is True:
-            return 1
+            return 0
         else:
             return len(self.verified_introns) / len(self.introns)
 

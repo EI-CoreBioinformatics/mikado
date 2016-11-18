@@ -50,8 +50,8 @@ setup(
                                      [path.join("Mikado", "scales", "f1.pyx")]),
                            Extension(path.join("Mikado.scales.contrast"),
                                      [path.join("Mikado", "scales", "contrast.pyx")]),
-                           Extension(path.join("Mikado.scales.intervaltree"),
-                                     [path.join("Mikado", "scales", "intervaltree.pyx")]),
+                           Extension(path.join("Mikado.utilities.intervaltree"),
+                                     [path.join("Mikado", "utilities", "intervaltree.pyx")]),
                            ]),
     zip_safe=False,
     keywords="rna-seq annotation genomics transcriptomics",
@@ -59,11 +59,13 @@ setup(
     # scripts=glob.glob("bin/*.py") + glob.glob("util/*.py"),
     scripts=glob.glob("util/*.py"),
     entry_points={"console_scripts": ["mikado = Mikado:main",
-                                      "daijin = Mikado.daijin:main"]},
+                                      "daijin = Mikado.daijin:main",
+                                      ]},
     install_requires=[line.rstrip() for line in open("requirements.txt", "rt")],
     extras_require={
         "postgresql": ["psycopg2"],
         "mysql": ["mysqlclient>=1.3.6"],
+        "bam": ["pysam>=0.8"]
     },
     test_suite="Mikado.test",
     package_data={

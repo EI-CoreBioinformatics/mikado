@@ -183,6 +183,7 @@ def create_config(args):
         default = configurator.to_json("")
         del default["scoring"]
         del default["requirements"]
+        del default["not_fragmentary"]
         config = default
     else:
         config = create_simple_config()

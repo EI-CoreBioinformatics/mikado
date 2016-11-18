@@ -365,9 +365,6 @@ class TestRetrieval(unittest.TestCase):
 
         retrieval._connect_to_db(self.tr)
         reflector = reflection.Inspector.from_engine(self.tr.engine)
-        print(self.tr.session.query(Orf).count())
-        print(reflector.get_table_names())
-
 
 if __name__ == '__main__':
     unittest.main()

@@ -129,13 +129,27 @@ Chr1\tTAIR10\tfive_prime_UTR\t8667\t8737\t.\t-\t.\tID=AT1G01020.1.five_prime_UTR
     def test_empty(self):
 
         """
-        Test that a transcript with no exons inside is invalid.
+        Test that the inference of exons is valid.
         :return:
         """
 
         self.tr.exons = []
         self.tr.finalized = False
-        self.assertRaises(Mikado.exceptions.InvalidTranscript, self.tr.finalize)
+        self.tr.finalize()
+        self.assertEqual(self.tr.strand, "-")
+        self.assertEqual(self.tr.number_internal_orfs, 1)
+        self.assertEqual(self.tr.exon_num, 10)
+        self.assertEqual(self.tr.exon_num, len(self.tr.exons))
+        self.assertEqual(self.tr.start, 5928)
+        self.assertEqual(self.tr.end, 8737)
+        exons = [(5928, 6263), (6437, 7069), (7157, 7232),
+                 (7384, 7450), (7564, 7649), (7762, 7835),
+                 (7942, 7987), (8236, 8325), (8417, 8464), (8571, 8737)]
+        # exons = [intervaltree.Interval(*exon) for exon in exons]
+        self.assertEqual(self.tr.exons,
+                         exons,
+                         self.tr.exons)
+        # self.assertRaises(Mikado.exceptions.InvalidTranscript, self.tr.finalize)
 
     def test_invalid_utr(self):
 

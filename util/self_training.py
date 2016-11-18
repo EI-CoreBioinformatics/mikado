@@ -4,7 +4,8 @@ import re
 import argparse
 import csv
 import pickle
-from sklearn.ensemble import RandomForestRegressor
+import pandas
+from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
 import numpy as np
 from scipy.stats import hmean
 from Mikado.scales.resultstorer import ResultStorer
@@ -13,6 +14,7 @@ import operator
 import random
 from math import floor
 import yaml
+import json
 
 
 class MetricEntry:
@@ -22,7 +24,7 @@ class MetricEntry:
     """
 
     metrics = [_ for _ in Transcript.get_available_metrics() if
-               _ not in ["tid", "parent", "score", "best_bits", "snowy_blast_score"]]
+               _ not in ["tid", "parent", "score"]]
 
     def __init__(self, row):
 
@@ -139,9 +141,13 @@ def main():
     subset.add_argument("-p", "--proportion", type=float,
                         default=None,
                         help="Proportion of the models to be used for training.")
-    parser.add_argument("-t", "--tmap",
-                        help="The TMAP file with the comparison results.",
-                        required=True)
+    parser.add_argument("-c", "--conf",
+                        required=True,
+                        help="File with the configuration for selecting best and worst transcripts.")
+    parser.add_argument("--regress", action="store_true", default=False)
+    # parser.add_argument("-t", "--tmap",
+    #                     help="The TMAP file with the comparison results.",
+    #                     required=True)
     parser.add_argument("-m", "--metrics", help="The metrics file.", required=True)
     parser.add_argument("-o", "--out", help="Output file.", default="forest.model")
     parser.add_argument("-s", "--scoring", help="The original scoring file, to retrieve info on fragments.")
@@ -153,27 +159,45 @@ def main():
 
     # Load tab file and produce matrix
     # bed, tab = loadtab(args.input)
-    tmap_results = load_tmap(args.tmap)
-    scores = dict()
-    for tid in tmap_results:
-        if tmap_results[tid].ccode == ("u",):
-            continue
-        recall = np.mean([tmap_results[tid].j_recall,
-                          tmap_results[tid].e_recall,
-                          tmap_results[tid].n_recall])
-        precision = np.mean([tmap_results[tid].j_prec,
-                             tmap_results[tid].e_prec,
-                             tmap_results[tid].n_prec])
-        if min(recall, precision) > 0:
-            scores[tid] = hmean([recall, precision])
-        else:
-            scores[tid] = 0
-
-    print("# TMAP results: " + str(len(tmap_results)))
+    # tmap_results = load_tmap(args.tmap)
+    # scores = dict()
+    # for tid in tmap_results:
+    #     if tmap_results[tid].ccode == ("u",):
+    #         continue
+    #     recall = np.mean([tmap_results[tid].j_recall,
+    #                       tmap_results[tid].e_recall,
+    #                       tmap_results[tid].n_recall])
+    #     precision = np.mean([tmap_results[tid].j_prec,
+    #                          tmap_results[tid].e_prec,
+    #                          tmap_results[tid].n_prec])
+    #     if min(recall, precision) > 0:
+    #         scores[tid] = hmean([recall, precision])
+    #     else:
+    #         scores[tid] = 0
+    #
+    # print("# TMAP results: " + str(len(tmap_results)))
 
     # Load reference and add labels
     # ref = bed12.loadbed(args.reference, False, False)
+    # metrics = pandas.read_csv(args.metrics, delimiter="\t")
+
+    metrics_pandas = pandas.read_csv(args.metrics, delimiter="\t")
+
+    try:
+        zeros = metrics_pandas[(((metrics_pandas.exon_num==1) & (metrics_pandas.combined_cds_length==0) & (metrics_pandas.cdna_length < 300 )) | ((metrics_pandas.exon_num>1) & (metrics_pandas.combined_cds_intron_fraction==0) & (metrics_pandas.retained_fraction>0.5 )) )].tid
+    except AttributeError as exc:
+        raise AttributeError("\n".join([str(exc), str("\n\t".join(list(metrics_pandas.columns)))]))
+    hundreds = metrics_pandas[(metrics_pandas.proportion_verified_introns_inlocus==1) & (metrics_pandas.snowy_blast_score>10) & (metrics_pandas.retained_fraction==0) & (((metrics_pandas.exon_num>1) & (metrics_pandas.verified_introns_num>2)) | ((metrics_pandas.exon_num==1) & (metrics_pandas.utr_num==2)) )].tid
+
     metrics = load_metrics(args.metrics)
+
+    scores = dict()
+
+    for z in zeros:
+        scores[z] = 0
+    for h in hundreds:
+        scores[h] = 100
+
     print("# metered transcripts:", len(metrics))
 
     if args.random is not None or args.proportion is not None:
@@ -193,10 +217,17 @@ def main():
         X[index] = metrics[tid].matrix_row
         y.append(score)
 
-    clf = RandomForestRegressor(n_estimators=int(len(MetricEntry.metrics)/3),
-                                max_depth=None,
-                                n_jobs=10,
-                                random_state=0)
+    if args.regress is True:
+
+        clf = RandomForestRegressor(n_estimators=int(len(MetricEntry.metrics)/3),
+                                    max_depth=None,
+                                    n_jobs=10,
+                                    random_state=0)
+    else:
+        clf = RandomForestClassifier(n_estimators=int(len(MetricEntry.metrics)/3),
+                                        max_depth=None,
+                                        n_jobs=10,
+                                        random_state=0)
 
     clf.fit(X, y)
     clf.metrics = MetricEntry.metrics
@@ -223,7 +254,7 @@ def main():
     #     ))
 
     # Create the dictionary
-    clf = dict(("scoring", clf))
+    clf = {"scoring": clf}
     with open(args.scoring) as sco:
         orig = yaml.load(sco)
     clf["requirements"] = orig["requirements"]

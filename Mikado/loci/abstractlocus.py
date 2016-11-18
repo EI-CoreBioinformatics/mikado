@@ -8,16 +8,16 @@ import operator
 import abc
 import random
 import logging
+import itertools
 from sys import maxsize
 from .clique_methods import find_cliques, find_communities, define_graph
-import intervaltree
 import networkx
 from ..exceptions import NotInLocusError
-from ..utilities import overlap
+from ..utilities import overlap, merge_ranges
 from ..utilities.log_utils import create_null_logger
+from ..utilities.intervaltree import Interval, IntervalTree
 from .transcript import Transcript
-from sklearn.ensemble import RandomForestRegressor
-
+from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
 
 # I do not care that there are too many attributes: this IS a massive class!
 # pylint: disable=too-many-instance-attributes,too-many-public-methods
@@ -51,10 +51,12 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         self.monoexonic = True
         self.chrom = None
         self.cds_introns = set()
+        self.__locus_verified_introns = set()
         self.json_conf = dict()
-        self.__cds_introntree = intervaltree.IntervalTree()
+        self.__cds_introntree = IntervalTree()
         self.__regressor = None
         self.session = None
+        self.metrics_calculated = False
 
     @abc.abstractmethod
     def __str__(self, *args, **kwargs):
@@ -146,6 +148,14 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                     "<json>", "eval")
         # Set the logger to NullHandler
         self.logger = create_null_logger(self)
+
+    def __iter__(self):
+        return iter(self.transcripts.keys())
+
+    def __getitem__(self, item):
+
+        return self.transcripts[item]
+
 
     # #### Static methods #######
     @staticmethod
@@ -267,7 +277,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         if inters is None:
             inters = self.is_intersecting
 
-        return define_graph(objects, inters)
+        return define_graph(objects, inters, **kwargs)
 
     def find_communities(self, graph: networkx.Graph) -> list:
         """
@@ -376,6 +386,12 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         self.selected_cds_introns.update(transcript.selected_cds_introns)
 
         self.exons.update(set(transcript.exons))
+        assert isinstance(self.locus_verified_introns, set)
+        assert isinstance(transcript.verified_introns, set)
+        self.locus_verified_introns = set.union(self.locus_verified_introns,
+                                                transcript.verified_introns)
+        if transcript.verified_introns_num > 0:
+            assert len(self.locus_verified_introns) > 0
 
         if self.initialized is False:
             self.initialized = True
@@ -502,32 +518,61 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
         if transcript.cds_tree is None:
             # Enlarge the CDS segments if they are of length 1
-            transcript.cds_tree = intervaltree.IntervalTree(
-                [intervaltree.Interval(cds[0], max(cds[1], cds[0]+1))
-                 for cds in transcript.combined_cds])
+            transcript.cds_tree = IntervalTree.from_tuples(
+                [(cds[0], max(cds[1], cds[0] + 1)) for cds in transcript.combined_cds])
+
+            # transcript.cds_tree = intervaltree.IntervalTree(
+            #     [intervaltree.Interval(cds[0], max(cds[1], cds[0]+1))
+            #      for cds in transcript.combined_cds])
 
         for exon in iter(_ for _ in transcript.exons if _ not in transcript.combined_cds):
-            # Monobase exons are a problem
-            if exon[0] == exon[1]:
-                self.logger.debug("Monobase exon found in %s: %s:%d-%d",
-                                  self.id, self.chrom, exon[0], exon[1])
+            # Ignore stuff that is at the 5'
+            if transcript.combined_cds_length > 0:
+                if transcript.strand == "+" and exon[1] < transcript.combined_cds_start:
+                    continue
+                elif transcript.strand == "-" and exon[0] > transcript.combined_cds_start:
+                    continue
+
+            cds_segments = sorted(transcript.cds_tree.search(*exon))
+            if not cds_segments:
+                frags = [exon]
+            else:
+                frags = []
+                if cds_segments[0].start > exon[0]:
+                    frags.append((exon[0], cds_segments[0].start -1))
+                for before, after in zip(cds_segments[:-1], cds_segments[1:]):
+                    frags.append((before.end + 1, max(after.start -1, before.end + 1)))
+                if cds_segments[-1].end < exon[1]:
+                    frags.append((cds_segments[-1].end + 1, exon[1]))
+
+            if not frags:
                 continue
 
-            exon_interval = intervaltree.IntervalTree([
-                intervaltree.Interval(exon[0], max(exon[1], exon[0] + 1))])
-
-            for cds_segment in transcript.cds_tree.search(*exon):
-                exon_interval.chop(cds_segment[0], cds_segment[1])
-
-            # Exclude from consideration any exon which is fully coding
-            for frag in exon_interval:
-                self.logger.debug("Checking %s from exon %s for retained introns for %s",
-                                  frag, exon, transcript.id)
-                if self._cds_introntree.overlaps_range(frag[0], frag[1]):
-                    self.logger.debug("Exon %s of %s is a retained intron",
-                                      exon, transcript.id)
-                    retained_introns.append(exon)
+            is_retained = False
+            for tid in self.transcripts:
+                if is_retained:
                     break
+                if tid == transcript.id or transcript.strand != self.transcripts[tid].strand:
+                    # We cannot call retained introns against oneself or against stuff on the opposite strand
+                    continue
+
+                cds_introns = self.transcripts[tid]._cds_introntree.find(exon[0],
+                                                                         exon[1],
+                                                                         strict=True)
+                # cds_introns = [_ for _ in cds_introns if _.start >= exon[0] and _.end <= exon[1]]
+
+                for frag in frags:
+                    if is_retained:
+                        break
+                    for intr in cds_introns:
+                        if overlap((frag[0], frag[1]), (intr[0], intr[1])) > 0:
+                            self.logger.debug("Exon %s of %s is a retained intron",
+                                              exon, transcript.id)
+                            is_retained = True
+                            break
+
+            if is_retained:
+                retained_introns.append(exon)
 
         # Sort the exons marked as retained introns
         # self.logger.info("Finished calculating retained introns for %s", transcript.id)
@@ -561,6 +606,144 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             yield row
 
         return
+
+    def get_metrics(self):
+
+        """Quick wrapper to calculate the metrics for all the transcripts."""
+
+        # TODO: Find an intelligent way ot restoring this check
+        # I disabled it because otherwise the values for surviving transcripts would be wrong
+        # But this effectively leads to a doubling of run time. A possibility would be to cache the results.
+        if self.metrics_calculated is True:
+            return
+
+        assert len(self._cds_introntree) == len(self.combined_cds_introns)
+
+        for tid in sorted(self.transcripts):
+            self.calculate_metrics(tid)
+
+        self.logger.debug("Finished to calculate the metrics for %s", self.id)
+
+        self.metrics_calculated = True
+        return
+
+    def calculate_metrics(self, tid: str):
+        """
+        :param tid: the name of the transcript to be analysed
+        :type tid: str
+
+        This function will calculate the metrics for a transcript which are relative in nature
+        i.e. that depend on the other transcripts in the sublocus. Examples include the fraction
+        of introns or exons in the sublocus, or the number/fraction of retained introns.
+        """
+
+        self.logger.debug("Calculating metrics for %s", tid)
+        # The transcript must be finalized before we can calculate the score.
+        # self.transcripts[tid].finalize()
+
+        if len(self.locus_verified_introns) == 0 and self.transcripts[tid].verified_introns_num > 0:
+            raise ValueError("Locus {} has 0 verified introns, but its transcript {} has {}!".format(
+                self.id, tid, len(self.transcripts[tid].verified_introns)))
+
+        if self.transcripts[tid].verified_introns_num > 0:
+            verified = len(
+                set.intersection(self.transcripts[tid].verified_introns,
+                                 self.locus_verified_introns))
+            fraction = verified / len(self.locus_verified_introns)
+
+            self.transcripts[tid].proportion_verified_introns_inlocus = fraction
+        else:
+            self.transcripts[tid].proportion_verified_introns_inlocus = 1
+
+        if len(self.locus_verified_introns) and self.transcripts[tid].verified_introns_num > 0:
+            assert self.transcripts[tid].proportion_verified_introns_inlocus > 0
+
+        _ = len(set.intersection(self.exons, self.transcripts[tid].exons))
+        fraction = _ / len(self.exons)
+
+        self.transcripts[tid].exon_fraction = fraction
+
+        cds_bases = sum(_[1] - _[0] + 1 for _ in merge_ranges(
+            itertools.chain(*[
+                self.transcripts[_].combined_cds for _ in self.transcripts
+                if self.transcripts[_].combined_cds])))
+
+        selected_bases = sum(_[1] - _[0] + 1 for _ in merge_ranges(
+            itertools.chain(*[
+                self.transcripts[_].selected_cds for _ in self.transcripts
+                if self.transcripts[_].selected_cds])))
+
+        for tid in self.transcripts:
+            if cds_bases == 0:
+                self.transcripts[tid].combined_cds_locus_fraction = 0
+                self.transcripts[tid].selected_cds_locus_fraction = 0
+            else:
+                self.transcripts[tid].combined_cds_locus_fraction = self.transcripts[tid].combined_cds_length / cds_bases
+                self.transcripts[tid].selected_cds_locus_fraction = self.transcripts[tid].selected_cds_length / selected_bases
+
+        if len(self.introns) > 0:
+            _ = len(set.intersection(self.transcripts[tid].introns, self.introns))
+            fraction = _ / len(self.introns)
+            self.transcripts[tid].intron_fraction = fraction
+        else:
+            self.transcripts[tid].intron_fraction = 0
+        if len(self.selected_cds_introns) > 0:
+            intersecting_introns = len(set.intersection(
+                self.transcripts[tid].selected_cds_introns,
+                set(self.selected_cds_introns)))
+            fraction = intersecting_introns / len(self.selected_cds_introns)
+            self.transcripts[tid].selected_cds_intron_fraction = fraction
+        else:
+            self.transcripts[tid].selected_cds_intron_fraction = 0
+
+        if len(self.combined_cds_introns) > 0:
+            intersecting_introns = len(
+                set.intersection(
+                    set(self.transcripts[tid].combined_cds_introns),
+                    set(self.combined_cds_introns)))
+            fraction = intersecting_introns / len(self.combined_cds_introns)
+            self.transcripts[tid].combined_cds_intron_fraction = fraction
+        else:
+            self.transcripts[tid].combined_cds_intron_fraction = 0
+
+        self.find_retained_introns(self.transcripts[tid])
+        assert isinstance(self.transcripts[tid], Transcript)
+        retained_bases = sum(e[1] - e[0] + 1
+                             for e in self.transcripts[tid].retained_introns)
+        fraction = retained_bases / self.transcripts[tid].cdna_length
+        self.transcripts[tid].retained_fraction = fraction
+        self.logger.debug("Calculated metrics for {0}".format(tid))
+
+    def _check_not_passing(self, previous_not_passing=set()):
+        """
+        This private method will identify all transcripts which do not pass
+        the minimum muster specified in the configuration. It will *not* delete them;
+        how to deal with them is left to the specifics of the subclass.
+        :return:
+        """
+
+        self.get_metrics()
+        if ("compiled" not in self.json_conf["requirements"] or
+                self.json_conf["requirements"]["compiled"] is None):
+            self.json_conf["requirements"]["compiled"] = compile(
+                self.json_conf["requirements"]["expression"], "<json>",
+                "eval")
+
+        not_passing = set()
+        not_passing = set()
+        for tid in iter(tid for tid in self.transcripts if
+                        tid not in previous_not_passing):
+            evaluated = dict()
+            for key in self.json_conf["requirements"]["parameters"]:
+                value = getattr(self.transcripts[tid],
+                                self.json_conf["requirements"]["parameters"][key]["name"])
+                evaluated[key] = self.evaluate(
+                    value,
+                    self.json_conf["requirements"]["parameters"][key])
+            # pylint: disable=eval-used
+            if eval(self.json_conf["requirements"]["compiled"]) is False:
+                not_passing.add(tid)
+        return not_passing
 
     @classmethod
     @abc.abstractmethod
@@ -672,12 +855,12 @@ class Abstractlocus(metaclass=abc.ABCMeta):
     def _cds_introntree(self):
 
         """
-        :rtype: intervaltree.IntervalTree
+        :rtype: IntervalTree
         """
 
         if len(self.__cds_introntree) != len(self.combined_cds_introns):
-            self.__cds_introntree = intervaltree.IntervalTree(
-                [intervaltree.Interval(_[0], _[1] + 1) for _ in self.combined_cds_introns])
+            self.__cds_introntree = IntervalTree.from_tuples(
+                [(_[0], _[1] + 1) for _ in self.combined_cds_introns])
         return self.__cds_introntree
 
     @property
@@ -691,8 +874,24 @@ class Abstractlocus(metaclass=abc.ABCMeta):
     @regressor.setter
     def regressor(self, regr):
 
-        if not (isinstance(regr, RandomForestRegressor) or regr is None):
+        if isinstance(regr, dict) and isinstance(regr["scoring"], (RandomForestRegressor, RandomForestClassifier)):
+            self.__regressor = regr["scoring"]
+        elif regr is None or isinstance(regr, (RandomForestRegressor, RandomForestClassifier)):
+            self.__regressor = regr
+        else:
             raise TypeError("Invalid regressor provided, type: %s", type(regr))
 
         self.logger.debug("Set regressor")
-        self.__regressor = regr
+
+    @property
+    def locus_verified_introns(self):
+        return self.__locus_verified_introns
+
+    @locus_verified_introns.setter
+    def locus_verified_introns(self, *args):
+
+        if not isinstance(args[0], set):
+            raise ValueError("Invalid value for verified introns: %s",
+                             type(args[0]))
+
+        self.__locus_verified_introns = args[0]

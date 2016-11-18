@@ -7,12 +7,16 @@ i.e. the locus.
 
 import itertools
 import operator
+# import functools
+from collections import deque
 from .transcript import Transcript
 from ..scales.assigner import Assigner
 from .sublocus import Sublocus
 from .abstractlocus import Abstractlocus
 from ..parsers.GFF import GffLine
 import collections
+from ..utilities import overlap
+import pyfaidx
 from sys import version_info
 if version_info.minor < 5:
     from sortedcontainers import SortedDict
@@ -62,6 +66,10 @@ class Locus(Sublocus, Abstractlocus):
         self.attributes["is_fragment"] = False
         self.metric_lines_store = []
         self.__id = None
+        if self.json_conf["reference"]["genome"]:
+            self.fai = pyfaidx.Fasta(self.json_conf["reference"]["genome"])
+        else:
+            self.fai = None
 
     def __str__(self, print_cds=True) -> str:
 
@@ -158,7 +166,7 @@ class Locus(Sublocus, Abstractlocus):
                 self.calculate_scores()
 
         self.logger.debug("Now checking the retained introns")
-        if self.json_conf["pick"]["alternative_splicing"]["keep_retained_introns"] is False:
+        while True:
             to_remove = set()
             for tid, transcript in self.transcripts.items():
                 if tid == self.primary_transcript_id:
@@ -168,7 +176,8 @@ class Locus(Sublocus, Abstractlocus):
                     to_remove.add(tid)
                 else:
                     continue
-            if to_remove:
+            if (self.json_conf["pick"]["alternative_splicing"]["keep_retained_introns"] is False
+                and to_remove):
                 self.logger.debug("Removing {} because they contain retained introns".format(
                     ", ".join(list(to_remove))))
                 for tid in to_remove:
@@ -176,6 +185,13 @@ class Locus(Sublocus, Abstractlocus):
                 self.metrics_calculated = False
                 self.scores_calculated = False
                 self.calculate_scores()
+            elif self.json_conf["pick"]["alternative_splicing"]["keep_retained_introns"] is True:
+                for tid in to_remove:
+                    self.transcripts[tid].attributes["retained_intron"] = True
+                break
+            elif not to_remove:
+                break
+        return
 
     def add_transcript_to_locus(self, transcript: Transcript, **kwargs):
         """Implementation of the add_transcript_to_locus method.
@@ -581,6 +597,120 @@ class Locus(Sublocus, Abstractlocus):
                     break
 
         return is_valid, main_ccode, main_result
+
+    def pad_transcripts(self):
+
+        """
+        """
+
+        five_graph = self.define_graph(self.transcripts, self.__share_extreme, three_prime=False)
+        three_graph = self.define_graph(self.transcripts, self.__share_extreme, three_prime=True)
+
+        five_comm = deque(sorted(self.find_communities(five_graph),
+                              key=lambda clique: min(self[_].start for _ in clique)))
+        three_comm = deque(sorted(self.find_cliques(three_graph),
+                              key=lambda clique: max(self[_].end for _ in clique),
+                               reverse=True))
+
+        five_found = set()
+
+        # First do the 5' end
+
+        while five_comm:
+
+            comm = five_comm.popleft()
+            comm = deque(sorted(list(set.difference(set(comm), five_found)),
+                         key=lambda tid: self[tid].start))
+            if len(comm) == 1:
+                continue
+            first = comm.popleft()
+            five_found.add(first)
+            comm_start = self[first].start
+            for tid in comm:
+                if ((self[tid].start - comm_start + 1) <
+                        self.json_conf["pick"]["alternative_splicing"]["ts_distance"] and
+                        len([_ for _ in self.splices if comm_start <= _ <= self[tid].start]) <
+                        self.json_conf["pick"]["alternative_splicing"]["ts_max_splices"]):
+                    self[tid].unfinalize()
+                    self[tid].start = comm_start
+                    self[tid].finalize()
+                    comm.popleft()
+                    five_found.add(tid)
+                else:
+                    continue
+            if comm:
+                five_comm.appendleft(comm)
+
+        # Then do the 3' end
+
+        three_found = set()
+
+        while three_comm:
+
+            comm = five_comm.popleft()
+            comm = deque(sorted(list(set.difference(set(comm), three_found)),
+                         key=lambda tid: self[tid].end, reverse=True))
+            if len(comm) == 1:
+                continue
+            first = comm.popleft()
+            three_found.add(first)
+            comm_end = self[first].end
+            for tid in comm:
+                if ((self[tid].end - comm_end + 1) <
+                        self.json_conf["pick"]["alternative_splicing"]["ts_distance"] and
+                        len([_ for _ in self.splices if self[tid].end <= _ <= comm_end]) <
+                        self.json_conf["pick"]["alternative_splicing"]["ts_max_splices"]):
+                    self[tid].unfinalize()
+                    if self[tid].cds_length > 0:
+                        # Case + strand
+                        three_exon = self.fai[self.chrom][self[tid].exons[-1]-1:comm_end]
+
+                        # if self.strand == "-":
+                        #     three_exon = three_exon.reverse.complement
+                        #
+                        #
+                        #
+                        #     if self[tid].cds_start == self[tid].end:
+                        #         first_codon = three_exon[0+self[tid].phases[0]:0+self[tid].phases[0]+3]
+                        #         # TODO: this should allow flexibility for different species
+                        #         if first_codon == "ATG":
+                        #
+                        #
+                        # else:
+                        #
+                        #
+                        #
+
+
+                    self[tid].end = comm_end
+                    self[tid].finalize()
+                    comm.popleft()
+                    five_found.add(tid)
+                else:
+                    continue
+            if comm:
+                three_comm.appendleft(comm)
+
+    def __share_extreme(self, first, second, three_prime=False):
+
+        """
+
+        :param first:
+        :param second:
+        :return:
+        """
+
+        if not three_prime:
+            return (overlap(first.exons[0], second.exons[0]) > 0 and
+                    max(first.start, second.start) + 1 - min(first.start, second.start) < self.json_conf[
+                        "pick"]["alternative_splicing"]["ts_distance"])
+        else:
+            return (overlap(first.exons[-1], second.exons[-1]) > 0 and
+                    max(first.end, second.end) + 1 - min(first.end, second.end) < self.json_conf[
+                        "pick"]["alternative_splicing"]["ts_distance"])
+
+
+
 
     @property
     def __name__(self):

@@ -81,15 +81,11 @@
           "type": "array",
           "required": true,
           "default": [],
-          "items": {"type": "string", "enum": ["fr-firststrand", "fr-secondstrand", "fr-unstranded"]}
-        },
-        "min_intron": {
-          "type": "integer", "required": true,
-          "default": 20, "minimum": 1
-        },
-        "max_intron": {
-          "type": "integer", "required": true,
-          "default": 10000, "minimum": 1
+          "items": {"type": "string",
+            "enum": ["fr-firststrand",
+              "fr-secondstrand",
+              "fr-unstranded",
+            "f", "r"]}
         }
       }
     },
@@ -121,18 +117,59 @@
     "align_methods": {
       "type": "object",
       "anyOf": [
-        {"required":["tophat2"]},
-        {"required":["hisat"]},
-        {"required":["star"]},
-        {"required":["gsnap"]}
-      ],
-       "additionalProperties": false,
-      "properties": {
-          "tophat2": {"type": "array", "items": {"type": "string"}, "minItems": 1},
-          "hisat": {"type": "array", "items": {"type": "string"}, "minItems": 1},
-          "star": {"type": "array", "items": {"type": "string"}, "minItems": 1}},
-          "gsnap": {"type": "array", "items": {"type": "string"}, "minItems": 1}
+        {
+          "required": [
+            "tophat"
+          ]
         },
+        {
+          "required": [
+            "hisat"
+          ]
+        },
+        {
+          "required": [
+            "star"
+          ]
+        },
+        {
+          "required": [
+            "gsnap"
+          ]
+        }
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "tophat": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1
+        },
+        "hisat": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1
+        },
+        "star": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1
+        },
+        "gsnap": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1
+        }
+      }
+    },
     "asm_methods": {
       "type": "object",
       "anyOf": [

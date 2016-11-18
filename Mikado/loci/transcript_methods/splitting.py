@@ -11,7 +11,7 @@ else:
     from collections import OrderedDict as SortedDict
 import collections
 import operator
-from intervaltree import IntervalTree, Interval
+from ...utilities.intervaltree import IntervalTree, Interval
 from ...utilities import overlap
 from ...exceptions import InvalidTranscript
 from ...parsers.blast_utils import merge
@@ -145,9 +145,12 @@ def check_common_hits(transcript, cds_hits, old_hits):
         # if len(set.intersection(old_hsps, cds_hsps)) > 0:
         #     to_break = False
         #     break
-        old_query_boundaries = IntervalTree([Interval(h["query_hsp_start"],
-                                                      h["query_hsp_end"])
-                                             for h in old_hsps])
+        old_query_boundaries = IntervalTree.from_tuples(
+            [(h["query_hsp_start"], h["query_hsp_end"]) for h in old_hsps])
+
+        # old_query_boundaries = IntervalTree([Interval(h["query_hsp_start"],
+        #                                               h["query_hsp_end"])
+        #                                      for h in old_hsps])
         # Look for HSPs that span the two ORFs
         if any([len(
                 old_query_boundaries.search(new_cds["query_hsp_start"],
@@ -155,8 +158,8 @@ def check_common_hits(transcript, cds_hits, old_hits):
                for new_cds in cds_hsps):
             to_break = False
 
-        old_target_boundaries = IntervalTree([
-            Interval(h["target_hsp_start"], h["target_hsp_end"]) for h in old_hsps])
+        old_target_boundaries = IntervalTree.from_tuples([
+            (h["target_hsp_start"], h["target_hsp_end"]) for h in old_hsps])
         for cds_hsp in cds_hsps:
             boundary = (cds_hsp["target_hsp_start"], cds_hsp["target_hsp_end"])
             for target_hit in old_target_boundaries.search(*boundary):

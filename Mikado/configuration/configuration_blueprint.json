@@ -179,7 +179,7 @@
         "max_regression": {"type": "number",
           "minimum": 0,
           "maximum": 1,
-          "default": 0},
+          "default": 0.1},
         "max_target_seqs": {"type": "integer", "default": 100000, "minimum": 1},
         "discard_definition": {"type": "boolean", "default": false},
         "force": {"type": "boolean", "default": false},
@@ -304,7 +304,7 @@
               "type": "number",
               "minimum": 0,
               "maximum": 1,
-              "default": 0.5
+              "default": 0.3
             },
             "min_cdna_overlap": {
               "type": "number",
@@ -398,7 +398,7 @@
             },
             "min_score_perc": {
               "type": "number",
-              "default": 0.6,
+              "default": 0.5,
               "minimum": 0,
               "maximum": 1
             },
@@ -723,7 +723,15 @@
       "transcriptome": {
         "type": ["string"],
         "default": ""
-      }
+      },
+      "min_intron": {
+          "type": "integer", "required": true,
+          "default": 20, "minimum": 1
+        },
+        "max_intron": {
+          "type": "integer", "required": true,
+          "default": 10000, "minimum": 1
+        }
      }
     }
   }

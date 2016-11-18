@@ -135,7 +135,6 @@ class Superlocus(Abstractlocus):
 
         # Objects used during computation
         self.subloci = []
-        self.locus_verified_introns = []
         self.loci = SortedDict()
         self.sublocus_metrics = []
         self.monosubloci = []
@@ -417,7 +416,6 @@ class Superlocus(Abstractlocus):
         :return:
         """
 
-        self.locus_verified_introns = []
         if len(self.introns) == 0:
             if self.monoexonic is False:
                 raise ValueError("%s is multiexonic but has no introns defined!",
@@ -457,9 +455,9 @@ class Superlocus(Abstractlocus):
                 if (intron[0], intron[1]) in ver_introns:
                     self.logger.debug("Verified intron %s:%d-%d",
                                       self.chrom, intron[0], intron[1])
-                    self.locus_verified_introns.append((intron[0],
-                                                        intron[1],
-                                                        ver_introns[(intron[0], intron[1])]))
+                    self.locus_verified_introns.add((intron[0],
+                                                     intron[1],
+                                                     ver_introns[(intron[0], intron[1])]))
         else:
             for intron in self.introns:
                 self.logger.debug("Checking %s%s:%d-%d",
@@ -472,9 +470,9 @@ class Superlocus(Abstractlocus):
                                       data_dict["junctions"][key],
                                       intron[0], intron[1])
                     # Start, Stop, Strand
-                    self.locus_verified_introns.append((intron[0],
-                                                        intron[1],
-                                                        data_dict["junctions"][key]))
+                    self.locus_verified_introns.add((intron[0],
+                                                     intron[1],
+                                                     data_dict["junctions"][key]))
 
     def load_all_transcript_data(self, engine=None, data_dict=None):
 
@@ -654,28 +652,9 @@ class Superlocus(Abstractlocus):
         :return:
         """
 
-        not_passing = set()
         self.excluded_transcripts = None
 
-        if "requirements" in self.json_conf:
-            for tid in self.transcripts:
-                evaluated = dict()
-                for key in self.json_conf["requirements"]["parameters"]:
-                    name = self.json_conf["requirements"]["parameters"][key]["name"]
-                    value = getattr(self.transcripts[tid], name)
-                    evaluated[key] = self.evaluate(
-                        value,
-                        self.json_conf["requirements"]["parameters"][key])
-
-                # This is by design
-                # pylint: disable=eval-used
-                if eval(self.json_conf["requirements"]["compiled"]) is False:
-                    self.logger.debug("Discarding %s", tid)
-                    not_passing.add(tid)
-                    self.transcripts[tid].score = 0
-                # pylint: enable=eval-used
-        else:
-            return
+        not_passing = self._check_not_passing()
 
         if len(not_passing) > 0 and self.purge is True:
             tid = not_passing.pop()

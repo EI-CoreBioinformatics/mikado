@@ -7,7 +7,7 @@ Module that implements the Reid/Daid/Hurley algorithm for community finding.
 import networkx
 from ..utilities.log_utils import create_null_logger
 from collections import defaultdict
-from itertools import chain
+from itertools import chain, combinations
 
 __all__ = ["reid_daid_hurley"]
 
@@ -70,11 +70,10 @@ def define_graph(objects: dict, inters, **kwargs) -> networkx.Graph:
     # memory usage to increase too much
     graph.add_nodes_from(objects.keys())
 
-    for obj in objects:
-        for other_obj in iter(x for x in objects if x != obj):
-            if inters(objects[obj], objects[other_obj], **kwargs):
-                # Connections are not directional
-                graph.add_edge(*tuple(sorted([obj, other_obj])))
+    for obj, other_obj in combinations(objects.keys(), 2):
+        if inters(objects[obj], objects[other_obj], **kwargs):
+            # Connections are not directional
+            graph.add_edge(*tuple(sorted([obj, other_obj])))
 
     return graph
 

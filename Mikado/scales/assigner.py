@@ -6,7 +6,7 @@ This class is the main workhorse of the compare.py utility.
 
 import sys
 import csv
-from .intervaltree import IntervalTree
+from ..utilities.intervaltree import IntervalTree
 from logging import handlers as log_handlers
 import queue
 import logging
@@ -140,7 +140,7 @@ class Assigner:
         """
         This class method is used to find the possible matches of a given prediction key.
         :param keys: the start
-        :type keys: Mikado.scales.intervaltree.IntervalTree
+        :type keys: Mikado.utilities.intervaltree.IntervalTree
 
         :param position: the position of my prediction in the genome
         :type position: (int, int)
@@ -746,11 +746,22 @@ class Assigner:
         self.logger.info("Starting printing RefMap")
         # noinspection PyUnresolvedReferences
         with open("{0}.refmap".format(self.args.out), 'wt') as out:
-            fields = ["ref_id", "ccode", "tid", "gid",
-                      "nF1", "jF1", "eF1",
-                      "ref_gene",
-                      "best_ccode", "best_tid", "best_gid",
-                      "best_nF1", "best_jF1", "best_eF1"]
+            if self.args.extended_refmap is True:
+                fields = ["ref_id", "ccode", "tid", "gid",
+                          "nRecall", "nPrecision", "nF1",
+                          "jRecall", "jPrecision", "jF1",
+                          "eRecall", "ePrecision", "eF1",
+                          "ref_gene",
+                          "best_ccode", "best_tid", "best_gid",
+                          "best_nRecall", "best_nPrecision", "best_nF1",
+                          "best_jRecall", "best_jPrecision", "best_jF1",
+                          "best_eRecall", "best_ePrecision", "best_eF1"]
+            else:
+                fields = ["ref_id", "ccode", "tid", "gid",
+                          "nF1", "jF1", "eF1",
+                          "ref_gene",
+                          "best_ccode", "best_tid", "best_gid",
+                          "best_nF1", "best_jF1", "best_eF1"]
             out_tuple = namedtuple("refmap", fields)
 
             rower = csv.DictWriter(out, fields, delimiter="\t")
@@ -777,9 +788,16 @@ class Assigner:
                                           reverse=False)[0]
                         best_picks.append(best)
                         # Store the result for the transcript
-                        row = tuple([tid, gid, ",".join(best.ccode),
-                                     best.tid, best.gid,
-                                     best.n_f1[0], best.j_f1[0], best.e_f1[0]])
+                        if self.args.extended_refmap is True:
+                            row = tuple([tid, gid, ",".join(best.ccode),
+                                         best.tid, best.gid,
+                                         best.n_recall[0], best.n_prec[0], best.n_f1[0],
+                                         best.j_recall[0], best.j_prec[0], best.j_f1[0],
+                                         best.e_recall[0], best.e_prec[0], best.e_f1[0]])
+                        else:
+                            row = tuple([tid, gid, ",".join(best.ccode),
+                                         best.tid, best.gid,
+                                         best.n_f1[0], best.j_f1[0], best.e_f1[0]])
 
                     rows.append(row)
 
@@ -794,20 +812,38 @@ class Assigner:
                     if best_pick is not None:
                         if self.self_analysis is False:
                             assert row[2] != "NA", row
-                        row = out_tuple(row[0],  # Ref TID
-                                        row[2],  # class code
-                                        row[3],  # Pred TID
-                                        row[4],  # Pred GID
-                                        row[5], row[6], row[7],  # Pred F1
-                                        row[1],
-                                        ",".join(best_pick.ccode),
-                                        best_pick.tid,
-                                        best_pick.gid,
-                                        best_pick.n_f1[0], best_pick.j_f1[0],
-                                        best_pick.e_f1[0])
+                        if self.args.extended_refmap is True:
+                            row = out_tuple(row[0],  # Ref TID
+                                            row[2],  # class code
+                                            row[3],  # Pred TID
+                                            row[4],  # Pred GID
+                                            row[5], row[6], row[7],  # N
+                                            row[8], row[9], row[10], #J
+                                            row[11], row[12], row[13], #E
+                                            row[1],
+                                            ",".join(best_pick.ccode),
+                                            best_pick.tid,
+                                            best_pick.gid,
+                                            best_pick.n_recall[0], best_pick.n_prec[0], best_pick.n_f1[0],
+                                            best_pick.j_recall[0], best_pick.j_prec[0], best_pick.j_f1[0],
+                                            best_pick.e_recall[0], best_pick.e_prec[0], best_pick.e_f1[0])
+                        else:
+                            row = out_tuple(row[0],  # Ref TID
+                                            row[2],  # class code
+                                            row[3],  # Pred TID
+                                            row[4],  # Pred GID
+                                            row[5], row[6], row[7],  # Pred F1
+                                            row[1],
+                                            ",".join(best_pick.ccode),
+                                            best_pick.tid,
+                                            best_pick.gid,
+                                            best_pick.n_f1[0], best_pick.j_f1[0],
+                                            best_pick.e_f1[0])
                     else:
-                        row = out_tuple(row[0], "NA", "NA", "NA", "NA", "NA", "NA",
-                                        row[1], "NA", "NA", "NA", "NA", "NA", "NA")
+                        if self.args.extended_refmap is True:
+                            row = out_tuple(*[row[0]] + ["NA"] * 12 + [row[1]] + ["NA"] * 12)
+                        else:
+                            row = out_tuple(*[row[0]] + ["NA"] * 6 + [row[1]] + ["NA"] * 6)
                     # noinspection PyProtectedMember,PyProtectedMember
                     rower.writerow(row._asdict())
         self.logger.info("Finished printing RefMap")

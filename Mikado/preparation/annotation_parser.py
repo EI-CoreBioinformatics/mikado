@@ -1,13 +1,10 @@
 import multiprocessing
 from ..utilities import to_gff
 from ..utilities.log_utils import create_queue_logger
-import collections
 import logging
 import logging.handlers
 from .. import exceptions
 from sys import intern
-import pickle
-import os
 import shelve
 
 __author__ = 'Luca Venturini'
@@ -148,7 +145,7 @@ def load_from_gff(shelf_name,
                   strand_specific=False):
     """
     Method to load the exon lines from GFF3 files.
-    :param exon_lines: the defaultdict which stores the exon lines.
+    :param shelf_name: the name of the shelf DB to use.
     :param gff_handle: The handle for the GTF to be parsed.
     :param label: label to be attached to all transcripts.
     :type label: str
@@ -163,7 +160,7 @@ def load_from_gff(shelf_name,
     :return:
     """
 
-    exon_lines = shelve.open(shelf_name, flag="n", writeback=True)
+    exon_lines = dict()
 
     transcript2genes = dict()
     new_ids = set()
@@ -248,6 +245,8 @@ def load_from_gff(shelf_name,
                 continue
     gff_handle.close()
 
+    with shelve.open(shelf_name, flag="n", writeback=True) as shelf:
+        shelf.update(exon_lines)
     # if shelf_name is not None:
     #     with shelve.open(shelf_name, flag="n") as shelf:
     #         for tid in exon_lines:
@@ -266,8 +265,7 @@ def load_from_gtf(shelf_name,
                   strand_specific=False):
     """
     Method to load the exon lines from GTF files.
-    :param exon_lines: the defaultdict which stores the exon lines.
-    :type exon_lines: (collections.defaultdict|None)
+    :param shelf_name: the name of the shelf DB to use.
     :param gff_handle: The handle for the GTF to be parsed.
     :param label: label to be attached to all transcripts.
     :type label: str
@@ -282,7 +280,7 @@ def load_from_gtf(shelf_name,
     :return:
     """
 
-    exon_lines = shelve.open(shelf_name, flag="n", writeback=True)
+    exon_lines = dict()
 
     # Reduce memory footprint
     [intern(_) for _ in ["chrom", "features", "strand", "attributes", "tid", "parent", "attributes"]]
@@ -307,7 +305,6 @@ def load_from_gtf(shelf_name,
                 exon_lines[row.transcript]["source"] = label
             else:
                 exon_lines[row.transcript]["source"] = row.source
-            exon_lines.sync()
 
             exon_lines[row.transcript]["features"] = dict()
             exon_lines[row.transcript]["chrom"] = row.chrom
@@ -318,9 +315,8 @@ def load_from_gtf(shelf_name,
             exon_lines[row.transcript]["strand_specific"] = strand_specific
             if "exon_number" in exon_lines[row.transcript]["attributes"]:
                 del exon_lines[row.id]["attributes"]["exon_number"]
-
-
             continue
+
         if row.is_exon is False or (row.is_cds is True and strip_cds is True):
             continue
         if label != '':
@@ -356,5 +352,8 @@ def load_from_gtf(shelf_name,
         exon_lines[row.transcript]["features"][row.feature].append((row.start, row.end))
         new_ids.add(row.transcript)
     gff_handle.close()
+
+    with shelve.open(shelf_name, flag="n", writeback=True) as shelf:
+        shelf.update(exon_lines)
 
     return new_ids

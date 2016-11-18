@@ -8,7 +8,6 @@ import operator
 import collections
 import io
 from .. import exceptions
-import pickle
 import logging.handlers
 import random
 import functools
@@ -29,8 +28,8 @@ def store_transcripts(shelf_stacks, logger, min_length=0):
     """
     Function that analyses the exon lines from the original file
     and organises the data into a proper dictionary.
-    :param exon_lines: dictionary of exon lines, ordered by TID
-    :type exon_lines: dict
+    :param shelf_stacks: dictionary containing the name and the handles of the shelf DBs
+    :type shelf_stacks: dict
 
     :param logger: logger instance.
     :type logger: logging.Logger
@@ -123,7 +122,7 @@ def perform_check(keys, shelve_stacks, args, logger):
     This is also the point at which we start using multithreading, if
     so requested.
     :param keys: sorted list of [tid, sequence]
-    :param exon_lines: dictionary hosting the exon lines, indexed by TID
+    :param shelve_stacks: dictionary containing the name and the handles of the shelf DBs
     :param args: the namespace
     :param logger: logger
     :return:
@@ -133,8 +132,6 @@ def perform_check(keys, shelve_stacks, args, logger):
 
     # FASTA extraction *has* to be done at the main process level, it's too slow
     # to create an index in each process.
-
-
 
     if args.json_conf["prepare"]["single"] is True or args.procs == 1:
 
@@ -221,6 +218,7 @@ def load_exon_lines(args, shelve_names, logger):
     """This function loads all exon lines from the GFF inputs into a
      defaultdict instance.
     :param args: the Namespace from the command line.
+    :param shelve_names: list of names of the shelf DB files.
     :param logger: the logger instance.
     :type logger: logging.Logger
     :return: exon_lines
@@ -288,8 +286,8 @@ def load_exon_lines(args, shelve_names, logger):
 
         tid_counter = Counter()
         for shelf in shelve_names:
-            with shelve.open(shelf, flag="r") as shelf:
-                tid_counter.update(shelf.keys())
+            with shelve.open(shelf, flag="r") as shelf_handle:
+                tid_counter.update(shelf_handle.keys())
                 if tid_counter.most_common()[0][1] > 1:
                     if set(args.json_conf["prepare"]["files"]["labels"]) == {""}:
                         exception = exceptions.RedundantNames(

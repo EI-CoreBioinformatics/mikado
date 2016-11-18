@@ -7,7 +7,8 @@ i.e. the locus.
 
 import itertools
 import operator
-import functools
+# import functools
+from collections import deque
 from .transcript import Transcript
 from ..scales.assigner import Assigner
 from .sublocus import Sublocus
@@ -15,6 +16,7 @@ from .abstractlocus import Abstractlocus
 from ..parsers.GFF import GffLine
 import collections
 from ..utilities import overlap
+import pyfaidx
 from sys import version_info
 if version_info.minor < 5:
     from sortedcontainers import SortedDict
@@ -64,6 +66,10 @@ class Locus(Sublocus, Abstractlocus):
         self.attributes["is_fragment"] = False
         self.metric_lines_store = []
         self.__id = None
+        if self.json_conf["reference"]["genome"]:
+            self.fai = pyfaidx.Fasta(self.json_conf["reference"]["genome"])
+        else:
+            self.fai = None
 
     def __str__(self, print_cds=True) -> str:
 
@@ -594,68 +600,116 @@ class Locus(Sublocus, Abstractlocus):
 
     def pad_transcripts(self):
 
-        """This method will pad the genomic coordinates of transcripts,
-        so to uniform their 5' and 3' ends. It will perform such an operation
-        *only if*:
-        - either two transcripts share the same terminal exon boundary
-        OR
-        - there is an intron retention, ie the boundary is either upstream (5') or downstream (3')
-        of the final boundary.
+        """
         """
 
-        # start by sorting transcripts by their start site
+        five_graph = self.define_graph(self.transcripts, self.__share_extreme, three_prime=False)
+        three_graph = self.define_graph(self.transcripts, self.__share_extreme, three_prime=True)
 
-        __sorted_transcripts = sorted(self.transcripts.keys,
-                                      key=lambda tid: self.transcripts[tid].splices  )
+        five_comm = deque(sorted(self.find_communities(five_graph),
+                              key=lambda clique: min(self[_].start for _ in clique)))
+        three_comm = deque(sorted(self.find_cliques(three_graph),
+                              key=lambda clique: max(self[_].end for _ in clique),
+                               reverse=True))
 
-        sharing_five = self.define_graph(self.transcripts, self._share_extreme, five_prime=True)
-        cliques_five = self.find_cliques(sharing_five)
+        five_found = set()
 
-        sharing_three = self.define_graph(self.transcripts, self._share_extreme, five_prime=False)
-        cliques_three = self.find_cliques(sharing_three)
+        # First do the 5' end
 
-        # Now we have to expand
+        while five_comm:
 
-    def _share_extreme(self, first, second, five_prime=True):
+            comm = five_comm.popleft()
+            comm = deque(sorted(list(set.difference(set(comm), five_found)),
+                         key=lambda tid: self[tid].start))
+            if len(comm) == 1:
+                continue
+            first = comm.popleft()
+            five_found.add(first)
+            comm_start = self[first].start
+            for tid in comm:
+                if ((self[tid].start - comm_start + 1) <
+                        self.json_conf["pick"]["alternative_splicing"]["ts_distance"] and
+                        len([_ for _ in self.splices if comm_start <= _ <= self[tid].start]) <
+                        self.json_conf["pick"]["alternative_splicing"]["ts_max_splices"]):
+                    self[tid].unfinalize()
+                    self[tid].start = comm_start
+                    self[tid].finalize()
+                    comm.popleft()
+                    five_found.add(tid)
+                else:
+                    continue
+            if comm:
+                five_comm.appendleft(comm)
 
-        """Private method to verify that two transcripts should be considered as sharing a final
-        coordinate, for padding."""
+        # Then do the 3' end
 
-        # Logical XOR
-        if five_prime ^ (first.strand == "+"):
-            attribute = "end"
+        three_found = set()
+
+        while three_comm:
+
+            comm = five_comm.popleft()
+            comm = deque(sorted(list(set.difference(set(comm), three_found)),
+                         key=lambda tid: self[tid].end, reverse=True))
+            if len(comm) == 1:
+                continue
+            first = comm.popleft()
+            three_found.add(first)
+            comm_end = self[first].end
+            for tid in comm:
+                if ((self[tid].end - comm_end + 1) <
+                        self.json_conf["pick"]["alternative_splicing"]["ts_distance"] and
+                        len([_ for _ in self.splices if self[tid].end <= _ <= comm_end]) <
+                        self.json_conf["pick"]["alternative_splicing"]["ts_max_splices"]):
+                    self[tid].unfinalize()
+                    if self[tid].cds_length > 0:
+                        # Case + strand
+                        three_exon = self.fai[self.chrom][self[tid].exons[-1]-1:comm_end]
+
+                        if self.strand == "-":
+                            three_exon = three_exon.reverse.complement
+                            codons =
+
+
+                            if self[tid].cds_start == self[tid].end:
+                                first_codon = three_exon[0+self[tid].phases[0]:0+self[tid].phases[0]+3]
+                                # TODO: this should allow flexibility for different species
+                                if first_codon == "ATG":
+
+
+                        else:
+
+
+
+
+
+                    self[tid].end = comm_end
+                    self[tid].finalize()
+                    comm.popleft()
+                    five_found.add(tid)
+                else:
+                    continue
+            if comm:
+                three_comm.appendleft(comm)
+
+    def __share_extreme(self, first, second, three_prime=False):
+
+        """
+
+        :param first:
+        :param second:
+        :return:
+        """
+
+        if not three_prime:
+            return (overlap(first.exons[0], second.exons[0]) > 0 and
+                    max(first.start, second.start) + 1 - min(first.start, second.start) < self.json_conf[
+                        "pick"]["alternative_splicing"]["ts_distance"])
         else:
-            attribute = "start"
-        first, second = sorted([first, second], key=operator.attrgetter(attribute))
-        sorter = functools.partial(sorted, reverse=(five_prime ^ (first.strand == "+")))
+            return (overlap(first.exons[-1], second.exons[-1]) > 0 and
+                    max(first.end, second.end) + 1 - min(first.end, second.end) < self.json_conf[
+                        "pick"]["alternative_splicing"]["ts_distance"])
 
-        first_exons = sorter(first.exons)
-        second_exons = sorter(second.exons)
 
-        if first.splices:
-            first_splices = sorter(first.splices)
-        if second.splices:
-            second_splices = sorter(second.splices)
-
-        if first.splices and second.splices:
-            if first_splices[0] == second_splices[0]:
-                return True
-            # elif attribute == "start" and first.start < second_splices[0]:
-            #    return True
-            elif overlap(first_exons[0], second_exons[0]) > 0 and second_splices[0] in first_splices:
-                return True
-            elif (overlap(first_exons[0], second_exons[0]) > 0 and
-                      (overlap(first_exons[0], second_exons[1]) > 0 or
-                               overlap(first_exons[1], second_exons[0]) > 0)):
-                return True
-
-            # elif attribute == "end" and second.end > first_splices[0]:
-            #    return True
-            else:
-                return False
-        elif overlap(first_exons[0], second_exons[0]) > 0:
-            return True
-        return False
 
 
     @property

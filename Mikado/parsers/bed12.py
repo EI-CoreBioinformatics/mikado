@@ -148,7 +148,6 @@ class BED12:
             self.header = True
             return
 
-
         self.header = False
 
         self.__set_values_from_fields()
@@ -519,6 +518,77 @@ class BED12:
             raise ValueError(
                 "Invalid value specified for _max_regression (must be between 0 and 1): {}".format(value))
         self.__max_regression = value
+
+    def expand(self, sequence, upstream, downstream):
+
+        """This method will expand a """
+        assert len(sequence) >= len(self)
+        assert len(sequence) == len(self) + upstream + downstream, (len(sequence),
+                                                                    len(self) + upstream + downstream)
+        if len(self) == len(sequence):
+            return
+        if self.transcriptomic is False:
+            raise ValueError("I cannot expand a non-transcriptomic BED12!")
+        if self.strand == "-":
+            raise NotImplementedError("I can only expand ORFs on the sense strand for the moment")
+
+        # I presume that the sequence is already in the right orientation
+
+        old_sequence = sequence[upstream:len(self) + upstream]
+
+        self.start_codon = str(old_sequence[self.thick_start + self.phase:self.thick_start + self.phase + 3]).upper()
+        self.stop_codon = str(old_sequence[self.thick_end - 3 - self.phase:self.thick_end - self.phase]).upper()
+
+        print(self.start_codon)
+        print(self.stop_codon)
+
+        last_codon_start = self.thick_end - 3 + (3 - (self.thick_end - self.thick_start + 1) % 3)
+
+        self.stop_codon = str(old_sequence[(last_codon_start - 1):(
+            self.thick_end)])[-3:].upper()
+
+        # Now expand
+        self.end = len(sequence)
+        self.thick_start += upstream
+        self.thick_end += upstream
+        last_codon_start += upstream
+        if self.start_codon != "ATG":
+            for pos in range(self.thick_start - self.phase,
+                             0,
+                             -3):
+                codon = sequence[pos:pos + 3]
+                self.thick_start = pos
+                if codon == "ATG":
+                    # self.thick_start = pos
+                    self.start_codon = codon
+                    self.__has_start = True
+                    break
+
+        if self.start_codon != "ATG":
+            self.phase = self.thick_start % 3
+            self.thick_start = 1
+        else:
+            self.phase = 0
+            self.__has_start = True
+
+        if self.stop_codon not in ("TAA", "TGA", "TAG"):
+            for pos in range(last_codon_start,
+                             self.end,
+                             3):
+                codon = sequence[pos:pos + 3]
+                if codon in ("TAA", "TGA", "TAG"):
+                    self.thick_end = pos + 3
+                    self.stop_codon = codon
+                    self.__has_stop = True
+                    break
+        if self.stop_codon not in ("TAA", "TGA", "TAG"):
+            self.thick_end = self.end
+
+
+        self.block_sizes = [self.thick_end - self.thick_start]
+        self.block_starts = [self.thick_start]
+
+        return
 
 
 class Bed12Parser(Parser):

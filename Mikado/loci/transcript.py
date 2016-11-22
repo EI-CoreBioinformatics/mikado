@@ -24,6 +24,7 @@ from ..serializers.orf import Orf
 from .clique_methods import find_communities, define_graph
 from ..parsers.GTF import GtfLine
 from ..parsers.GFF import GffLine
+from ..parsers.bed12 import BED12
 from .transcript_methods import splitting, retrieval
 from .transcript_methods.printing import create_lines_cds
 from .transcript_methods.printing import create_lines_no_cds, create_lines_bed, as_bed12
@@ -507,6 +508,47 @@ class Transcript:
                 lines = create_lines_no_cds(self, to_gtf=to_gtf, with_introns=with_introns)
 
         return "\n".join(lines)
+
+    def get_internal_orf_beds(self):
+        """This method will return all internal ORFs as BED12 objects"""
+
+        if not self.internal_orfs:
+            yield
+        else:
+            for index, iorf in enumerate(self.internal_orfs):
+                row = BED12(transcriptomic=True)
+                row.header = False
+                row.chrom = self.id
+                row.strand = "+"
+                row.start = 1
+                row.end = self.cdna_length
+                row.block_count = 1
+                # print(iorf)
+                # print([_[1][1] + 1 - _[1][0] for _ in iorf if _[0] == "CDS"])
+                cds_len = sum(_[1][1] + 1 - _[1][0] for _ in iorf if _[0] == "CDS")
+                # print(cds_len)
+                if self.strand == "-":
+                    __cds_start = sorted([_ for _ in iorf if _[0] == "CDS"], key=lambda x: x[1][1],
+                                   reverse=True)[0]
+
+                    cds_start, row.phase = __cds_start[1][1], __cds_start[2]
+                    row.thick_start = 1 + sum(_[1][1] + 1 - _[1][0] for _ in iorf if
+                                              _[0] == "UTR" and _[1][0] > cds_start)
+
+                else:
+                    __cds_start = sorted([_ for _ in iorf if _[0] == "CDS"], key=lambda x: x[1][0],
+                                         reverse=False)[0]
+                    cds_start, row.phase = __cds_start[1][1], __cds_start[2]
+                    row.thick_start = 1 + sum(_[1][1] + 1 - _[1][0] for _ in iorf if
+                                              _[0] == "UTR" and _[1][1] < cds_start)
+                row.thick_end = row.thick_start + cds_len - 1
+                row.name = "{}_orf{}".format(self.tid, index)
+                row.block_starts = [row.thick_start]
+                row.block_sizes = [cds_len]
+
+                assert row.invalid is False, ("\n".join([str(row), row.invalid_reason]))
+
+                yield row
 
     def split_by_cds(self):
         """This method is used for transcripts that have multiple ORFs.

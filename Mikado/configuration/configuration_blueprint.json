@@ -304,13 +304,13 @@
               "type": "number",
               "minimum": 0,
               "maximum": 1,
-              "default": 0.3
+              "default": 0.75
             },
             "min_cdna_overlap": {
               "type": "number",
               "minimum": 0,
               "maximum": 1,
-              "default": 0.3
+              "default": 0.5
             },
             "keep_retained_introns": {
               "type": "boolean",
@@ -323,17 +323,17 @@
             },
             "max_utr_length": {
               "type": "integer",
-              "default": 1000000,
+              "default": 2500,
               "minimum": 1
             },
             "max_fiveutr_length": {
               "type": "integer",
-              "default": 1000000,
+              "default": 2500,
               "minimum": 1
             },
             "max_threeutr_length": {
               "type": "integer",
-              "default": 1000000,
+              "default": 2500,
               "minimum": 1
             },
             "valid_ccodes": {
@@ -405,6 +405,20 @@
             "only_confirmed_introns":{
               "type": "boolean",
               "default": true
+            },
+            "ts_distance": {
+              "type": "integer",
+              "default": 300,
+              "minimum": 0
+            },
+            "pad": {
+              "type": "boolean",
+              "default": false
+            },
+            "ts_max_splices": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 1
             }
           }
         },
@@ -482,6 +496,10 @@
             "execute": {
               "type": "boolean",
               "default": true
+            },
+            "skip": {
+              "type": "array",
+              "default": []
             },
             "blast_params": {
               "type": "object",

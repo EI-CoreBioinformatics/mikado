@@ -132,14 +132,17 @@ def load_orfs(args, logger):
     :return:
     """
 
-    if args.json_conf["serialise"]["files"]["orfs"] is not None:
+    if len(args.json_conf["serialise"]["files"]["orfs"]) > 0:
         logger.info("Starting to load ORF data")
         for orf_file in args.json_conf["serialise"]["files"]["orfs"]:
+            logger.info("Starting to load ORFs from %s", orf_file)
             serializer = orf.OrfSerializer(orf_file,
                                            json_conf=args.json_conf,
                                            logger=logger)
             serializer.serialize()
         logger.info("Finished loading ORF data")
+    else:
+        logger.info("No ORF data provided, skipping")
 
 
 def setup(args):
@@ -391,7 +394,6 @@ def serialise_parser():
     generic.add_argument("-lv", "--log_level", default=None,
                          choices=["DEBUG", "INFO", "WARN", "ERROR"],
                          help="Log level. Default: derived from the configuration; if absent, INFO")
-
     generic.add_argument("db", type=str, default=None,
                          nargs='?',
                          help="Optional output database. Default: derived from json_conf")

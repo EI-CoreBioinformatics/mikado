@@ -193,6 +193,10 @@ class Locus(Sublocus, Abstractlocus):
                 break
             elif not to_remove:
                 break
+
+        if self.json_conf["pick"]["alternative_splicing"]["pad"] is True:
+            self.pad_transcripts()
+
         return
 
     def add_transcript_to_locus(self, transcript: Transcript, **kwargs):
@@ -618,7 +622,9 @@ class Locus(Sublocus, Abstractlocus):
 
         # First do the 5' end
 
-        while five_comm:
+        __to_modify = dict()
+
+        while len(five_comm) > 0:
 
             comm = five_comm.popleft()
             comm = deque(sorted(list(set.difference(set(comm), five_found)),
@@ -628,18 +634,18 @@ class Locus(Sublocus, Abstractlocus):
             first = comm.popleft()
             five_found.add(first)
             comm_start = self[first].start
+            # self[first].strip_cds()
             for tid in comm:
                 if ((self[tid].start - comm_start + 1) <
                         self.json_conf["pick"]["alternative_splicing"]["ts_distance"] and
                         len([_ for _ in self.splices if comm_start <= _ <= self[tid].start]) <
                         self.json_conf["pick"]["alternative_splicing"]["ts_max_splices"]):
-                    self[tid].unfinalize()
-                    self[tid].start = comm_start
-                    self[tid].finalize()
-                    comm.popleft()
+                    __to_modify[tid] = [comm_start, False]
                     five_found.add(tid)
                 else:
                     continue
+            comm = deque([_ for _ in comm if _ not in five_found])
+
             if comm:
                 five_comm.appendleft(comm)
 
@@ -647,9 +653,9 @@ class Locus(Sublocus, Abstractlocus):
 
         three_found = set()
 
-        while three_comm:
+        while len(three_comm) > 0:
 
-            comm = five_comm.popleft()
+            comm = three_comm.popleft()
             comm = deque(sorted(list(set.difference(set(comm), three_found)),
                          key=lambda tid: self[tid].end, reverse=True))
             if len(comm) == 1:
@@ -662,36 +668,54 @@ class Locus(Sublocus, Abstractlocus):
                         self.json_conf["pick"]["alternative_splicing"]["ts_distance"] and
                         len([_ for _ in self.splices if self[tid].end <= _ <= comm_end]) <
                         self.json_conf["pick"]["alternative_splicing"]["ts_max_splices"]):
-                    self[tid].unfinalize()
-                    if self[tid].cds_length > 0:
-                        # Case + strand
-                        three_exon = self.fai[self.chrom][self[tid].exons[-1]-1:comm_end]
 
-                        # if self.strand == "-":
-                        #     three_exon = three_exon.reverse.complement
-                        #
-                        #
-                        #
-                        #     if self[tid].cds_start == self[tid].end:
-                        #         first_codon = three_exon[0+self[tid].phases[0]:0+self[tid].phases[0]+3]
-                        #         # TODO: this should allow flexibility for different species
-                        #         if first_codon == "ATG":
-                        #
-                        #
-                        # else:
-                        #
-                        #
-                        #
+                    if tid in __to_modify:
+                        __to_modify[tid][1] = comm_end
+                    else:
+                        __to_modify[tid] = [False, comm_end]
 
-
-                    self[tid].end = comm_end
-                    self[tid].finalize()
-                    comm.popleft()
-                    five_found.add(tid)
+                    three_found.add(tid)
                 else:
                     continue
+            comm = deque([_ for _ in comm if _ not in three_found ])
             if comm:
                 three_comm.appendleft(comm)
+
+        # Now we can do the proper modification
+        for tid in __to_modify:
+
+            # First get the ORFs
+
+
+
+            self[tid].unfinalize()
+            if __to_modify[tid][0]:
+                __new_exon = (__to_modify[tid][0], self[tid].exons[0][1])
+                self[tid].start = __to_modify[tid][0]
+                self[tid].remove_exon(self[tid].exons[0])
+                self[tid].add_exon(__new_exon)
+            if __to_modify[tid][1]:
+                __new_exon = (self[tid].exons[-1][0], __to_modify[tid][1])
+                self[tid].end = __to_modify[tid][1]
+                self[tid].remove_exon(self[tid].exons[-1])
+                self[tid].add_exon(__new_exon)
+            # Now for the difficult part
+            if self[tid].combined_cds_length > 0:
+
+                seq = ''
+                for exon in self[tid].exons:
+                    seq += self.fai[self.chrom][exon[0] - 1:exon[1]].seq
+                seq = pyfaidx.Sequence(tid, seq)
+                if self.strand == "-":
+                    seq = seq.reverse.complement
+                for orf in self[tid].get_internal_orfs:
+                    pass
+
+            # Now finalize again
+            self[tid].finalize()
+
+
+
 
     def __share_extreme(self, first, second, three_prime=False):
 

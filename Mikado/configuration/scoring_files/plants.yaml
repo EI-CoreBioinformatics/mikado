@@ -29,8 +29,13 @@ scoring:
   cdna_length: {rescaling: max}
   cds_not_maximal: {rescaling: min}
   cds_not_maximal_fraction: {rescaling: min}
-  exon_fraction: {rescaling: max}
-  exon_num: {rescaling: max}
+  # exon_fraction: {rescaling: max}
+  exon_num: {
+    rescaling: max,
+    filter: {
+    operator: ge,
+    value: 3}
+  }
   five_utr_length:
     filter: {operator: le, value: 2500}
     rescaling: target
@@ -46,7 +51,8 @@ scoring:
   intron_fraction: {rescaling: max}
   is_complete: {rescaling: target, value: true}
   number_internal_orfs: {rescaling: target, value: 1}
-  proportion_verified_introns: {rescaling: max}
+  # proportion_verified_introns: {rescaling: max}
+  non_verified_introns_num: {rescaling: min}
   proportion_verified_introns_inlocus: {rescaling: max}
   retained_fraction: {rescaling: min}
   retained_intron_num: {rescaling: min}

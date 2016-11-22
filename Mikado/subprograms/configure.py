@@ -318,6 +318,12 @@ def create_config(args):
                 config["pick"]["chimera_split"]["blast_check"] = True
                 config["pick"]["chimera_split"]["blast_params"]["leniency"] = args.mode.upper()
 
+    if args.skip_split:
+        if not all(_ in config["prepare"]["files"]["labels"] for _ in args.skip_split):
+            raise InvalidJson("Some of the labels to skip for splitting are invalid: {}".format(
+                [_ for _ in args.skip_split if _ not in config["prepare"]["files"]["labels"]]
+            ))
+        config["pick"]["chimera_split"]["skip_split"] = args.skip_split
 
     # Check that the configuration file is correct
     tempcheck = tempfile.NamedTemporaryFile("wt", suffix=".yaml")
@@ -388,6 +394,8 @@ def configure_parser():
            either of the ORFs lacks a BLAST hit (but not both).
 - permissive: like lenient, but also split when both ORFs lack BLAST hits
 - split: split multi-orf transcripts regardless of what BLAST data is available.""")
+    parser.add_argument("--skip-split", dest="skip_split", default=[], nargs="+",
+                        help="List of labels for which splitting will be disabled (eg long reads such as PacBio)")
     parser.add_argument("-j", "--json", action="store_true", default=False,
                         help="Output will be in JSON instead of YAML format.")
     parser.add_argument("out", nargs='?', default=sys.stdout, type=argparse.FileType('w'))

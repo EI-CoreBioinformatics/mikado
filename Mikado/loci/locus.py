@@ -708,12 +708,8 @@ class Locus(Sublocus, Abstractlocus):
                 seq = pyfaidx.Sequence(tid, seq)
                 if self.strand == "-":
                     seq = seq.reverse.complement
-                # for orf in self[tid].
-                # for orf in self[tid].internal_orfs:
-
-
-
-
+                for orf in self[tid].get_internal_orfs:
+                    pass
 
             # Now finalize again
             self[tid].finalize()

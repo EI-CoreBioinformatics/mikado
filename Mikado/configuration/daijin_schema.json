@@ -47,6 +47,20 @@
         "star_index": {"type": "string", "default": "", "required": true}
       }
     },
+    "long_reads": {
+      "type": "object",
+      "SimpleComment": ["Parameters related to long reads to use for the assemblies."],
+      "properties": {
+        "files": {"type": "array", "default": []},
+        "samples": {"type": "array", "default": []},
+        "strandedness": {"type": "array", "default": [], "items": {"type": "string",
+            "enum": ["fr-firststrand",
+              "fr-secondstrand",
+              "fr-unstranded",
+            "f", "r"]}},
+        "skip_split": {"type": "boolean", "default": true}
+      }
+    },
     "short_reads": {
       "SimpleComment": ["Parameters related to the reads to use for the assemblies. Voices:",
           "- r1: array of left read files.",

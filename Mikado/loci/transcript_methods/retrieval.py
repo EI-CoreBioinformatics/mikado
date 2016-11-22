@@ -416,8 +416,19 @@ def find_overlapping_cds(transcript, candidates: list) -> list:
     transcript.logger.debug("Minimal orf loading: %d", minimal_secondary_orf_length)
 
     transcript.logger.debug("{0} input ORFs for {1}".format(len(candidates), transcript.id))
+    if any(corf.transcriptomic is False for corf in candidates):
+        transcript.logger.debug("%d non-transcriptomic ORFs in the candidates",
+                                len([corf.transcriptomic is False for corf in candidates]))
+    if any(corf.invalid is True for corf in candidates):
+        for corf in candidates:
+            if not corf.invalid is True:
+                continue
+            else:
+                transcript.logger.debug("Invalid ORF, reason: %s", corf.invalid_reason)
+
     candidates = list(corf for corf in candidates if (
         corf.invalid is False and corf.transcriptomic is True))
+
     transcript.logger.debug("{0} filtered ORFs for {1}".format(len(candidates), transcript.id))
     if len(candidates) == 0:
         return []

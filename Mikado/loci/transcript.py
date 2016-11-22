@@ -592,7 +592,8 @@ class Transcript:
 
         if exon in self.exons:
             self.exons.remove(exon)
-            self.segments.remove(("exon", exon))
+            if ("exon", exon) in self.segments:
+                self.segments.remove(("exon", exon))
             tr = set()
             for segment in self.segments:
                 if self.overlap(segment[1], exon) >= 0:

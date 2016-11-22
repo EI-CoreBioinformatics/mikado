@@ -66,12 +66,13 @@ class Locus(Sublocus, Abstractlocus):
         self.attributes["is_fragment"] = False
         self.metric_lines_store = []
         self.__id = None
-        if (isinstance(self.json_conf, dict) and
-                "reference" in self.json_conf and
-                self.json_conf["reference"]["genome"]):
-            self.fai = pyfaidx.Fasta(self.json_conf["reference"]["genome"])
-        else:
-            self.fai = None
+        self.fai = None
+
+        # if (isinstance(self.json_conf, dict) and
+        #         "reference" in self.json_conf):
+        #
+        # else:
+        #     self.fai = None
 
     def __str__(self, print_cds=True) -> str:
 
@@ -609,6 +610,11 @@ class Locus(Sublocus, Abstractlocus):
         """
         """
 
+        try:
+            self.fai = pyfaidx.Fasta(self.json_conf["reference"]["genome"])
+        except KeyError:
+            raise KeyError(self.json_conf.keys())
+
         five_graph = self.define_graph(self.transcripts, self.__share_extreme, three_prime=False)
         three_graph = self.define_graph(self.transcripts, self.__share_extreme, three_prime=True)
 
@@ -639,7 +645,8 @@ class Locus(Sublocus, Abstractlocus):
                 if ((self[tid].start - comm_start + 1) <
                         self.json_conf["pick"]["alternative_splicing"]["ts_distance"] and
                         len([_ for _ in self.splices if comm_start <= _ <= self[tid].start]) <
-                        self.json_conf["pick"]["alternative_splicing"]["ts_max_splices"]):
+                        self.json_conf["pick"]["alternative_splicing"]["ts_max_splices"] and
+                        self[tid].start > comm_start):
                     __to_modify[tid] = [comm_start, False]
                     five_found.add(tid)
                 else:
@@ -667,7 +674,8 @@ class Locus(Sublocus, Abstractlocus):
                 if ((self[tid].end - comm_end + 1) <
                         self.json_conf["pick"]["alternative_splicing"]["ts_distance"] and
                         len([_ for _ in self.splices if self[tid].end <= _ <= comm_end]) <
-                        self.json_conf["pick"]["alternative_splicing"]["ts_max_splices"]):
+                        self.json_conf["pick"]["alternative_splicing"]["ts_max_splices"] and
+                        self[tid].end < comm_end):
 
                     if tid in __to_modify:
                         __to_modify[tid][1] = comm_end
@@ -683,39 +691,62 @@ class Locus(Sublocus, Abstractlocus):
 
         # Now we can do the proper modification
         for tid in __to_modify:
-
+            new_transcript = self[tid].copy()
+            old_length = new_transcript.cdna_length
             # First get the ORFs
+            if new_transcript.combined_cds_length > 0:
+                internal_orfs = list(new_transcript.get_internal_orf_beds())
+            else:
+                internal_orfs = []
+            # Remove the CDS and unfinalize
+            new_transcript.strip_cds()
+            new_transcript.unfinalize()
 
-
-
-            self[tid].unfinalize()
+            upstream = 0
+            downstream = 0
             if __to_modify[tid][0]:
-                __new_exon = (__to_modify[tid][0], self[tid].exons[0][1])
-                self[tid].start = __to_modify[tid][0]
-                self[tid].remove_exon(self[tid].exons[0])
-                self[tid].add_exon(__new_exon)
+                __new_exon = (__to_modify[tid][0], new_transcript.exons[0][1])
+                upstream = new_transcript.start - __to_modify[tid][0]
+                new_transcript.start = __to_modify[tid][0]
+                new_transcript.remove_exon(new_transcript.exons[0])
+                new_transcript.add_exon(__new_exon)
+                new_transcript.exons = sorted(new_transcript.exons)
             if __to_modify[tid][1]:
-                __new_exon = (self[tid].exons[-1][0], __to_modify[tid][1])
-                self[tid].end = __to_modify[tid][1]
-                self[tid].remove_exon(self[tid].exons[-1])
-                self[tid].add_exon(__new_exon)
+                __new_exon = (new_transcript.exons[-1][0], __to_modify[tid][1])
+                downstream = __to_modify[tid][1] - new_transcript.end
+                new_transcript.end = __to_modify[tid][1]
+                new_transcript.remove_exon(new_transcript.exons[-1])
+                new_transcript.add_exon(__new_exon)
+                new_transcript.exons = sorted(new_transcript.exons)
             # Now for the difficult part
-            if self[tid].combined_cds_length > 0:
+            if internal_orfs and (__to_modify[tid][1] or __to_modify[tid][0]):
+                self.logger.warning("Enlarging the ORFs for TID %s (%s)",
+                                    tid, __to_modify[tid])
 
+                new_orfs = []
                 seq = ''
-                for exon in self[tid].exons:
+                for exon in new_transcript.exons:
                     seq += self.fai[self.chrom][exon[0] - 1:exon[1]].seq
                 seq = pyfaidx.Sequence(tid, seq)
+                self.logger.warning("For TID %s we have new length %d, old length %d, exons:\n%s",
+                                    tid, len(seq), old_length, new_transcript.exons)
                 if self.strand == "-":
                     seq = seq.reverse.complement
-                for orf in self[tid].get_internal_orfs:
-                    pass
+                    upstream, downstream = downstream, upstream
+                for orf in internal_orfs:
+                    self.logger.warning("Old ORF: %s", str(orf))
+                    orf.expand(seq, upstream, downstream)
+                    self.logger.warning("New ORF: %s", str(orf))
+                    new_orfs.append(orf)
+                from ..utilities.log_utils import create_default_logger
+                new_transcript.logger = create_default_logger("TEMP")
+                new_transcript.logger.setLevel("DEBUG")
+                new_transcript.load_orfs(new_orfs)
+                new_transcript.logger.setLevel("WARNING")
 
             # Now finalize again
-            self[tid].finalize()
-
-
-
+            new_transcript.finalize()
+            self.transcripts[tid] = new_transcript
 
     def __share_extreme(self, first, second, three_prime=False):
 
@@ -734,9 +765,6 @@ class Locus(Sublocus, Abstractlocus):
             return (overlap(first.exons[-1], second.exons[-1]) > 0 and
                     max(first.end, second.end) + 1 - min(first.end, second.end) < self.json_conf[
                         "pick"]["alternative_splicing"]["ts_distance"])
-
-
-
 
     @property
     def __name__(self):

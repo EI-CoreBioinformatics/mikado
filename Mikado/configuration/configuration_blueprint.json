@@ -413,7 +413,7 @@
             },
             "pad": {
               "type": "boolean",
-              "default": false
+              "default": true
             },
             "ts_max_splices": {
               "type": "integer",

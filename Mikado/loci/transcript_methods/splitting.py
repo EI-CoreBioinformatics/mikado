@@ -764,7 +764,7 @@ def split_by_cds(transcript):
 
     if transcript.number_internal_orfs < 2:
         new_transcripts = [transcript]  # If we only have one ORF this is easy
-    elif transcript.id.split("_")[0] in transcript.json_conf["pick"]["chimera_split"]["skip_split"]:
+    elif transcript.id.split("_")[0] in transcript.json_conf["pick"]["chimera_split"]["skip"]:
         # Disable splitting for transcripts with certain tags
         transcript.logger.warning("%s (label %s) to be skipped for splitting",
                                   transcript.id,

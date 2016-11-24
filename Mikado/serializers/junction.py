@@ -36,7 +36,7 @@ class Chrom(DBBASE):
     __table_args__ = {"extend_existing": True}
 
     chrom_id = Column(Integer, primary_key=True)
-    name = Column(String(200))
+    name = Column(String(200), unique=True)
     length = Column(Integer, nullable=True)
 
     def __init__(self, name, length=None):

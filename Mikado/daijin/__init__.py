@@ -101,6 +101,8 @@ if running on a HPC and DRMAA is not available, or if running locally on your ow
     parser.add_argument("--dag", action='store_true', default=False,
                         help="Do not execute anything and print the redirected acylic graph \
                         of jobs in the dot language.")
+    parser.add_argument("--nolock", action="store_true", default=False,
+                        help="Do not lock the working directory. Use with caution!")
     return parser
 
 
@@ -298,7 +300,8 @@ def assemble_transcripts_pipeline(args):
         latency_wait=60 if SCHEDULER else 1,
         printdag=args.dag,
         forceall=args.dag,
-        forcerun=args.forcerun)
+        forcerun=args.forcerun,
+        lock=(not args.nolock))
 # pylint: enable=too-many-locals
 
 
@@ -362,7 +365,8 @@ def mikado_pipeline(args):
         latency_wait=60 if not SCHEDULER == "" else 1,
         printdag=args.dag,
         forceall=args.dag,
-        forcerun=args.forcerun)
+        forcerun=args.forcerun,
+        lock=(not args.nolock))
 
 
 def main(call_args=None):

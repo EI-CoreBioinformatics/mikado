@@ -143,7 +143,8 @@ class Locus(Sublocus, Abstractlocus):
             for tid, score in order:
                 if len(to_keep) == max_isoforms:
                     self.logger.debug(
-                        "Discarding {} from the locus because we have reached the maximum number of isoforms for the locus".format(
+                        "Discarding {} from the locus because we have \
+reached the maximum number of isoforms for the locus".format(
                             ", ".join(list(set.difference(set(self.transcripts.keys()),
                                                           to_keep)))
                         ))
@@ -624,9 +625,21 @@ class Locus(Sublocus, Abstractlocus):
                               key=lambda clique: max(self[_].end for _ in clique),
                                reverse=True))
 
-        five_found = set()
+        __to_modify = self._find_communities_boundaries(five_comm, three_comm)
 
-        # First do the 5' end
+        # Now we can do the proper modification
+        for tid in __to_modify:
+            new_transcript = expand_transcript(self[tid].copy(),
+                                               __to_modify[tid][0],
+                                               __to_modify[tid][1],
+                                               self.fai,
+                                               self.logger)
+
+            self.transcripts[tid] = new_transcript
+
+    def _find_communities_boundaries(self, five_comm, three_comm):
+
+        five_found = set()
 
         __to_modify = dict()
 
@@ -689,64 +702,7 @@ class Locus(Sublocus, Abstractlocus):
             if comm:
                 three_comm.appendleft(comm)
 
-        # Now we can do the proper modification
-        for tid in __to_modify:
-            new_transcript = self[tid].copy()
-            old_length = new_transcript.cdna_length
-            # First get the ORFs
-            if new_transcript.combined_cds_length > 0:
-                internal_orfs = list(new_transcript.get_internal_orf_beds())
-            else:
-                internal_orfs = []
-            # Remove the CDS and unfinalize
-            new_transcript.strip_cds()
-            new_transcript.unfinalize()
-
-            upstream = 0
-            downstream = 0
-            if __to_modify[tid][0]:
-                __new_exon = (__to_modify[tid][0], new_transcript.exons[0][1])
-                upstream = new_transcript.start - __to_modify[tid][0]
-                new_transcript.start = __to_modify[tid][0]
-                new_transcript.remove_exon(new_transcript.exons[0])
-                new_transcript.add_exon(__new_exon)
-                new_transcript.exons = sorted(new_transcript.exons)
-            if __to_modify[tid][1]:
-                __new_exon = (new_transcript.exons[-1][0], __to_modify[tid][1])
-                downstream = __to_modify[tid][1] - new_transcript.end
-                new_transcript.end = __to_modify[tid][1]
-                new_transcript.remove_exon(new_transcript.exons[-1])
-                new_transcript.add_exon(__new_exon)
-                new_transcript.exons = sorted(new_transcript.exons)
-            # Now for the difficult part
-            if internal_orfs and (__to_modify[tid][1] or __to_modify[tid][0]):
-                self.logger.warning("Enlarging the ORFs for TID %s (%s)",
-                                    tid, __to_modify[tid])
-
-                new_orfs = []
-                seq = ''
-                for exon in new_transcript.exons:
-                    seq += self.fai[self.chrom][exon[0] - 1:exon[1]].seq
-                seq = pyfaidx.Sequence(tid, seq)
-                self.logger.warning("For TID %s we have new length %d, old length %d, exons:\n%s",
-                                    tid, len(seq), old_length, new_transcript.exons)
-                if self.strand == "-":
-                    seq = seq.reverse.complement
-                    upstream, downstream = downstream, upstream
-                for orf in internal_orfs:
-                    self.logger.warning("Old ORF: %s", str(orf))
-                    orf.expand(seq, upstream, downstream)
-                    self.logger.warning("New ORF: %s", str(orf))
-                    new_orfs.append(orf)
-                from ..utilities.log_utils import create_default_logger
-                new_transcript.logger = create_default_logger("TEMP")
-                new_transcript.logger.setLevel("DEBUG")
-                new_transcript.load_orfs(new_orfs)
-                new_transcript.logger.setLevel("WARNING")
-
-            # Now finalize again
-            new_transcript.finalize()
-            self.transcripts[tid] = new_transcript
+        return __to_modify
 
     def __share_extreme(self, first, second, three_prime=False):
 
@@ -864,3 +820,61 @@ class Locus(Sublocus, Abstractlocus):
         :rtype : Transcript
         """
         return self.transcripts[self.primary_transcript_id]
+
+
+def expand_transcript(transcript, new_start, new_end, fai, logger):
+    old_length = transcript.cdna_length
+    # First get the ORFs
+    if transcript.combined_cds_length > 0:
+        internal_orfs = list(transcript.get_internal_orf_beds())
+    else:
+        internal_orfs = []
+    # Remove the CDS and unfinalize
+    transcript.strip_cds()
+    transcript.unfinalize()
+
+    upstream = 0
+    downstream = 0
+    if new_start:
+        __new_exon = (new_start, transcript.exons[0][1])
+        upstream = transcript.start - new_start
+        transcript.start = new_start
+        transcript.remove_exon(transcript.exons[0])
+        transcript.add_exon(__new_exon)
+        transcript.exons = sorted(transcript.exons)
+    if new_end:
+        __new_exon = (transcript.exons[-1][0], new_end)
+        downstream = new_end - transcript.end
+        transcript.end = new_end
+        transcript.remove_exon(transcript.exons[-1])
+        transcript.add_exon(__new_exon)
+        transcript.exons = sorted(transcript.exons)
+    # Now for the difficult part
+    if internal_orfs and (new_start or new_end):
+        logger.warning("Enlarging the ORFs for TID %s (%s)",
+                       transcript.id, (new_start, new_end))
+
+        new_orfs = []
+        seq = ''
+        for exon in transcript.exons:
+            seq += fai[transcript.chrom][exon[0]:exon[1]+1].seq
+        seq = pyfaidx.Sequence(transcript.id, seq)
+        logger.warning("For TID %s we have new length %d, old length %d, exons:\n%s",
+                        transcript.id, len(seq), old_length, transcript.exons)
+        if transcript.strand == "-":
+            seq = seq.reverse.complement
+            upstream, downstream = downstream, upstream
+        for orf in internal_orfs:
+            logger.warning("Old ORF: %s", str(orf))
+            orf.expand(seq, upstream, downstream)
+            logger.warning("New ORF: %s", str(orf))
+            new_orfs.append(orf)
+        from ..utilities.log_utils import create_default_logger
+        transcript.logger = create_default_logger("TEMP")
+        transcript.logger.setLevel("DEBUG")
+        transcript.load_orfs(new_orfs)
+        transcript.logger.setLevel("WARNING")
+
+    # Now finalize again
+    transcript.finalize()
+    return transcript

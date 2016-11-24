@@ -323,7 +323,13 @@ def create_config(args):
             raise InvalidJson("Some of the labels to skip for splitting are invalid: {}".format(
                 [_ for _ in args.skip_split if _ not in config["prepare"]["files"]["labels"]]
             ))
-        config["pick"]["chimera_split"]["skip_split"] = args.skip_split
+        config["pick"]["chimera_split"]["skip"] = args.skip_split
+
+    if args.pad is True:
+        config["pick"]["alternative_splicing"]["pad"] = True
+
+    if args.intron_range is not None:
+        config["pick"]["run_options"]["intron_range"] = tuple(sorted(args.intron_range))
 
     # Check that the configuration file is correct
     tempcheck = tempfile.NamedTemporaryFile("wt", suffix=".yaml")
@@ -360,6 +366,16 @@ def configure_parser():
     scoring.add_argument("--copy-scoring", default=False,
                          type=str, dest="copy_scoring",
                          help="File into which to copy the selected scoring file, for modification.")
+    picking = parser.add_argument_group("Options related to the picking")
+    picking.add_argument("-i", "--intron-range",
+                         dest="intron_range", type=int, nargs=2,
+                         default=None,
+                         help="""Range into which intron lengths should fall, as a couple of integers.
+                             Transcripts with intron lengths outside of this range will be penalised.
+                             Default: (60, 900)""")
+    picking.add_argument("--pad", default=False,
+                         action="store_true",
+                         help="Whether to pad transcripts in loci.")
     parser.add_argument("--strand-specific", default=False,
                         action="store_true",
                         help="""Boolean flag indicating whether all the assemblies are strand-specific.""")

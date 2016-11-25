@@ -10,6 +10,7 @@ import operator
 # import functools
 from collections import deque
 from .transcript import Transcript
+from .transcriptchecker import TranscriptChecker
 from ..scales.assigner import Assigner
 from .sublocus import Sublocus
 from .abstractlocus import Abstractlocus
@@ -208,14 +209,22 @@ reached the maximum number of isoforms for the locus".format(
 
         The checks performed are, in order:
 
-        #. whether the locus already has the maximum number of acceptable isoforms ("max_isoforms")
-        #. (optional) whether all the introns *specific to the transcript when compared with the primary transcript* are confirmed by external validation tools (eg Portcullis)
-        #. Whether the score of the proposed AS event has a score over the minimum percentage of the primary transcript score (eg if the minimum percentage is 0.6 and the primary is scored 20, a model with a score of 11 would be rejected and one with a score of 12 would be accepted)
+        #. whether the locus already has the maximum number of acceptable
+           isoforms ("max_isoforms")
+        #. (optional) whether all the introns *specific to the transcript when
+           compared with the primary transcript* are confirmed by external
+           validation tools (eg Portcullis)
+        #. Whether the score of the proposed AS event has a score over the
+           minimum percentage of the primary transcript score (eg if the minimum
+           percentage is 0.6 and the primary is scored 20, a model with a score
+           of 11 would be rejected and one with a score of 12 would be accepted)
         #. Whether the strand of the candidate is the same as the one of the locus
         #. Whether the AS event is classified (ie has a class code) which is acceptable as valid AS
         #. Whether the transcript shares enough cDNA with the primary transcript ("min_cdna_overlap")
         #. Whether the proposed model has too much UTR
-        #. (optional) Whether the proposed model has a retained intron compared to the primary, ie part of its non-coding regions overlaps one intron of the primary model
+        #. (optional) Whether the proposed model has a retained intron compared
+           to the primary, ie part of its 3' non-coding regions overlaps
+           one intron of the primary model
         #. Whether the proposed model shares enough CDS with the primary model (min_cds_overlap)
 
         :param transcript: the candidate transcript
@@ -849,31 +858,41 @@ def expand_transcript(transcript, new_start, new_end, fai, logger):
         transcript.remove_exon(transcript.exons[-1])
         transcript.add_exon(__new_exon)
         transcript.exons = sorted(transcript.exons)
+
+    transcript.finalize()
     # Now for the difficult part
     if internal_orfs and (new_start or new_end):
         logger.warning("Enlarging the ORFs for TID %s (%s)",
                        transcript.id, (new_start, new_end))
 
         new_orfs = []
-        seq = ''
-        for exon in transcript.exons:
-            seq += fai[transcript.chrom][exon[0]:exon[1]+1].seq
-        seq = pyfaidx.Sequence(transcript.id, seq)
-        logger.warning("For TID %s we have new length %d, old length %d, exons:\n%s",
-                        transcript.id, len(seq), old_length, transcript.exons)
-        if transcript.strand == "-":
-            seq = seq.reverse.complement
-            upstream, downstream = downstream, upstream
+        seq = "".join(
+            TranscriptChecker(
+                transcript,
+                fai[transcript.chrom][transcript.start-1:transcript.end].seq
+            ).fasta.split("\n")[1:])
+        assert len(seq) == transcript.cdna_length, (len(seq), transcript.cdna_length, transcript.exons)
         for orf in internal_orfs:
             logger.warning("Old ORF: %s", str(orf))
-            orf.expand(seq, upstream, downstream)
+            try:
+                orf.expand(seq, upstream, downstream)
+            except AssertionError as err:
+                logger.error(err)
+                logger.error("%s, %s, %s, %s, %s, %s",
+                             new_start,
+                             new_end,
+                             upstream,
+                             downstream,
+                             transcript.exons,
+                             transcript.cdna_length)
+                raise AssertionError(err)
             logger.warning("New ORF: %s", str(orf))
             new_orfs.append(orf)
-        from ..utilities.log_utils import create_default_logger
-        transcript.logger = create_default_logger("TEMP")
-        transcript.logger.setLevel("DEBUG")
+        # from ..utilities.log_utils import create_default_logger
+        # transcript.logger = create_default_logger("TEMP")
+        # transcript.logger.setLevel("DEBUG")
         transcript.load_orfs(new_orfs)
-        transcript.logger.setLevel("WARNING")
+        # transcript.logger.setLevel("WARNING")
 
     # Now finalize again
     transcript.finalize()

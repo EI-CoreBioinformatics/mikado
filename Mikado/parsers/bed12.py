@@ -522,7 +522,7 @@ class BED12:
     def expand(self, sequence, upstream, downstream):
 
         """This method will expand a """
-        assert len(sequence) >= len(self)
+        # assert len(sequence) >= len(self)
         assert len(sequence) == len(self) + upstream + downstream, (len(sequence),
                                                                     len(self),
                                                                     upstream,
@@ -542,52 +542,49 @@ class BED12:
         old_sequence = sequence[upstream:len(self) + upstream]
 
         self.start_codon = str(old_sequence[self.thick_start + self.phase:self.thick_start + self.phase + 3]).upper()
-        self.stop_codon = str(old_sequence[self.thick_end - 3 - self.phase:self.thick_end - self.phase]).upper()
+        last_codon_start = self.thick_end + ((self.thick_end - self.thick_start + 1 + self.phase) % 3 - 3) + 1
 
-        print(self.start_codon)
-        print(self.stop_codon)
+        self.stop_codon = str(old_sequence[last_codon_start:self.thick_end + 1]).upper()
 
-        last_codon_start = self.thick_end - 3 + (3 - (self.thick_end - self.thick_start + 1) % 3)
-
-        self.stop_codon = str(old_sequence[(last_codon_start - 1):(
-            self.thick_end)])[-3:].upper()
+        assert len(self.stop_codon) == 3
 
         # Now expand
         self.end = len(sequence)
         self.thick_start += upstream
         self.thick_end += upstream
         last_codon_start += upstream
-        # if self.start_codon != "ATG":
-        #     for pos in range(self.thick_start - self.phase,
-        #                      0,
-        #                      -3):
-        #         codon = sequence[pos:pos + 3]
-        #         self.thick_start = pos
-        #         if codon == "ATG":
-        #             # self.thick_start = pos
-        #             self.start_codon = codon
-        #             self.__has_start = True
-        #             break
-        #
-        # if self.start_codon != "ATG":
-        #     self.phase = self.thick_start % 3
-        #     self.thick_start = 1
-        # else:
-        #     self.phase = 0
-        #     self.__has_start = True
-        #
-        # if self.stop_codon not in ("TAA", "TGA", "TAG"):
-        #     for pos in range(last_codon_start,
-        #                      self.end,
-        #                      3):
-        #         codon = sequence[pos:pos + 3]
-        #         if codon in ("TAA", "TGA", "TAG"):
-        #             self.thick_end = pos + 3
-        #             self.stop_codon = codon
-        #             self.__has_stop = True
-        #             break
-        # if self.stop_codon not in ("TAA", "TGA", "TAG"):
-        #     self.thick_end = self.end
+        if self.start_codon != "ATG":
+            print(self.start_codon)
+            for pos in range(self.thick_start - self.phase,
+                             0,
+                             -3):
+                codon = sequence[pos:pos + 3]
+                self.thick_start = pos
+                if codon == "ATG":
+                    # self.thick_start = pos
+                    self.start_codon = codon
+                    self.__has_start = True
+                    break
+
+        if self.start_codon != "ATG":
+            self.phase = self.thick_start % 3
+            self.thick_start = 1
+        else:
+            self.phase = 0
+            self.__has_start = True
+
+        if self.stop_codon not in ("TAA", "TGA", "TAG"):
+            for pos in range(last_codon_start,
+                             self.end,
+                             3):
+                codon = sequence[pos:pos + 3]
+                if codon in ("TAA", "TGA", "TAG"):
+                    self.thick_end = pos + 3
+                    self.stop_codon = codon
+                    self.__has_stop = True
+                    break
+        if self.stop_codon not in ("TAA", "TGA", "TAG"):
+            self.thick_end = self.end
 
 
         self.block_sizes = [self.thick_end - self.thick_start]

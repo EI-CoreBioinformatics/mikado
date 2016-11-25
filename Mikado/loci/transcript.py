@@ -523,23 +523,20 @@ class Transcript:
                 row.start = 1
                 row.end = self.cdna_length
                 row.block_count = 1
-                # print(iorf)
-                # print([_[1][1] + 1 - _[1][0] for _ in iorf if _[0] == "CDS"])
                 cds_len = sum(_[1][1] + 1 - _[1][0] for _ in iorf if _[0] == "CDS")
-                # print(cds_len)
                 if self.strand == "-":
                     __cds_start = sorted([_ for _ in iorf if _[0] == "CDS"], key=lambda x: x[1][1],
                                    reverse=True)[0]
 
                     cds_start, row.phase = __cds_start[1][1], __cds_start[2]
-                    row.thick_start = 1 + sum(_[1][1] + 1 - _[1][0] for _ in iorf if
+                    row.thick_start = sum(_[1][1] + 1 - _[1][0] for _ in iorf if
                                               _[0] == "UTR" and _[1][0] > cds_start)
 
                 else:
                     __cds_start = sorted([_ for _ in iorf if _[0] == "CDS"], key=lambda x: x[1][0],
                                          reverse=False)[0]
                     cds_start, row.phase = __cds_start[1][1], __cds_start[2]
-                    row.thick_start = 1 + sum(_[1][1] + 1 - _[1][0] for _ in iorf if
+                    row.thick_start = sum(_[1][1] + 1 - _[1][0] for _ in iorf if
                                               _[0] == "UTR" and _[1][1] < cds_start)
                 row.thick_end = row.thick_start + cds_len - 1
                 row.name = "{}_orf{}".format(self.tid, index)

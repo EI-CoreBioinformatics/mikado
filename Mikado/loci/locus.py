@@ -170,6 +170,12 @@ reached the maximum number of isoforms for the locus".format(
                 self.scores_calculated = False
                 self.calculate_scores()
 
+        if self.json_conf["pick"]["alternative_splicing"]["pad"] is True:
+            self.pad_transcripts()
+            self.metrics_calculated = False
+            self.scores_calculated = False
+            self.calculate_scores()
+
         self.logger.debug("Now checking the retained introns")
         while True:
             to_remove = set()
@@ -196,9 +202,6 @@ reached the maximum number of isoforms for the locus".format(
                 break
             elif not to_remove:
                 break
-
-        if self.json_conf["pick"]["alternative_splicing"]["pad"] is True:
-            self.pad_transcripts()
 
         return
 
@@ -631,8 +634,8 @@ reached the maximum number of isoforms for the locus".format(
         five_comm = deque(sorted(self.find_communities(five_graph),
                               key=lambda clique: min(self[_].start for _ in clique)))
         three_comm = deque(sorted(self.find_cliques(three_graph),
-                              key=lambda clique: max(self[_].end for _ in clique),
-                               reverse=True))
+                           key=lambda clique: max(self[_].end for _ in clique),
+                           reverse=True))
 
         __to_modify = self._find_communities_boundaries(five_comm, three_comm)
 
@@ -643,8 +646,11 @@ reached the maximum number of isoforms for the locus".format(
                                                __to_modify[tid][1],
                                                self.fai,
                                                self.logger)
-
             self.transcripts[tid] = new_transcript
+
+        self.exons = set()
+        for tid in self:
+            self.exons.update(self[tid].exons)
 
     def _find_communities_boundaries(self, five_comm, three_comm):
 
@@ -716,7 +722,6 @@ reached the maximum number of isoforms for the locus".format(
     def __share_extreme(self, first, second, three_prime=False):
 
         """
-
         :param first:
         :param second:
         :return:
@@ -832,7 +837,7 @@ reached the maximum number of isoforms for the locus".format(
 
 
 def expand_transcript(transcript, new_start, new_end, fai, logger):
-    old_length = transcript.cdna_length
+
     # First get the ORFs
     if transcript.combined_cds_length > 0:
         internal_orfs = list(transcript.get_internal_orf_beds())
@@ -862,9 +867,8 @@ def expand_transcript(transcript, new_start, new_end, fai, logger):
     transcript.finalize()
     # Now for the difficult part
     if internal_orfs and (new_start or new_end):
-        logger.warning("Enlarging the ORFs for TID %s (%s)",
+        logger.debug("Enlarging the ORFs for TID %s (%s)",
                        transcript.id, (new_start, new_end))
-
         new_orfs = []
         seq = "".join(
             TranscriptChecker(
@@ -873,7 +877,7 @@ def expand_transcript(transcript, new_start, new_end, fai, logger):
             ).fasta.split("\n")[1:])
         assert len(seq) == transcript.cdna_length, (len(seq), transcript.cdna_length, transcript.exons)
         for orf in internal_orfs:
-            logger.warning("Old ORF: %s", str(orf))
+            logger.warn("Old ORF: %s", str(orf))
             try:
                 orf.expand(seq, upstream, downstream)
             except AssertionError as err:
@@ -886,7 +890,7 @@ def expand_transcript(transcript, new_start, new_end, fai, logger):
                              transcript.exons,
                              transcript.cdna_length)
                 raise AssertionError(err)
-            logger.warning("New ORF: %s", str(orf))
+            logger.warn("New ORF: %s", str(orf))
             new_orfs.append(orf)
         # from ..utilities.log_utils import create_default_logger
         # transcript.logger = create_default_logger("TEMP")

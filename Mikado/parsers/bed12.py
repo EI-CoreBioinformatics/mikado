@@ -546,8 +546,7 @@ class BED12:
 
         self.stop_codon = str(old_sequence[last_codon_start:self.thick_end]).upper()
 
-        print(self.start_codon, self.stop_codon)
-        assert len(self.stop_codon) == 3
+        assert len(self.stop_codon) <= 3 and len(self.stop_codon) > 0, self.stop_codon
 
         # Now expand
         self.end = len(sequence)
@@ -555,7 +554,6 @@ class BED12:
         self.thick_end += upstream
         last_codon_start += upstream
         if self.start_codon != "ATG":
-            print(self.start_codon)
             for pos in range(self.thick_start - self.phase,
                              0,
                              -3):

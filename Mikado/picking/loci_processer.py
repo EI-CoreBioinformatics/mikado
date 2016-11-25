@@ -55,10 +55,10 @@ def print_gene(current_gene, gene_counter, handle, prefix):
             # transcript_counter = int(re.sub("\.orf[0-9]+", "", first))
             transcript_counter = int(re.sub("\.orf[0-9]+", "",
                                             current_transcript.id).split(".")[-1])
-        except ValueError:
+        except ValueError as exc:
             assert isinstance(current_transcript.parent, list),\
                 type(current_transcript.parent)
-            raise
+            raise ValueError((exc, str(current_transcript)))
         assert transcript_counter >= 1
 
         tid = "{0}.{1}G{2}.{3}".format(prefix,

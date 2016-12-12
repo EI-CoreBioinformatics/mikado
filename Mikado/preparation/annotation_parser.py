@@ -5,7 +5,11 @@ import logging
 import logging.handlers
 from .. import exceptions
 from sys import intern
-import shelve
+# import shelve
+import ujson
+import sqlite3
+import os
+
 
 __author__ = 'Luca Venturini'
 
@@ -16,11 +20,13 @@ class AnnotationParser(multiprocessing.Process):
                  submission_queue,
                  logging_queue,
                  identifier,
+                 min_length=0,
                  log_level="WARNING",
                  strip_cds=False):
 
         super().__init__()
         self.submission_queue = submission_queue
+        self.min_length = min_length
         self.__strip_cds = strip_cds
         self.logging_queue = logging_queue
         self.log_level = log_level
@@ -74,6 +80,7 @@ class AnnotationParser(multiprocessing.Process):
                                             label,
                                             found_ids,
                                             self.logger,
+                                            min_length=self.min_length,
                                             strip_cds=self.__strip_cds,
                                             strand_specific=strand_specific)
                 else:
@@ -82,6 +89,7 @@ class AnnotationParser(multiprocessing.Process):
                                             label,
                                             found_ids,
                                             self.logger,
+                                            min_length=self.min_length,
                                             strip_cds=self.__strip_cds,
                                             strand_specific=strand_specific)
                 if len(new_ids) == 0:
@@ -136,11 +144,65 @@ def __raise_invalid(row_id, name, label):
             "(label: {0})".format(label) if label != '' else ""))
 
 
+def load_into_storage(shelf_name, exon_lines, min_length, logger):
+
+    """Function to load the exon_lines dictionary into the temporary storage."""
+
+    conn = sqlite3.connect(shelf_name)
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            "CREATE TABLE dump (chrom text, start integer, end integer, strand text, tid text, features blob)")
+    except sqlite3.OperationalError:
+        # Table already exists
+        logger.error("Shelf %s already exists (maybe from a previous aborted run?), dropping its contents", shelf_name)
+        cursor.close()
+        conn.close()
+        os.remove(shelf_name)
+        conn = sqlite3.connect(shelf_name)
+        cursor = conn.cursor()
+        cursor.execute(
+            "CREATE TABLE dump (chrom text, start integer, end integer, strand text, tid text, features blob)")
+
+    cursor.execute("CREATE INDEX idx ON dump (tid)")
+
+    for tid in exon_lines:
+        if "features" not in exon_lines[tid]:
+            raise KeyError("{0}: {1}\n{2}".format(tid, "features", exon_lines[tid]))
+        if ("exon" not in exon_lines[tid]["features"] or
+                    len(exon_lines[tid]["features"]["exon"]) == 0):
+            logger.warning("No valid exon feature for %s, continuing", tid)
+        tlength = sum(exon[1] + 1 - exon[0] for exon in exon_lines[tid]["features"]["exon"])
+        # Discard transcript under a certain size
+        if tlength < min_length:
+            logger.debug("Discarding %s because its size (%d) is under the minimum of %d",
+                         tid, tlength, min_length)
+            continue
+
+        values = ujson.dumps(exon_lines[tid])
+
+        start = min((_[0] for _ in exon_lines[tid]["features"]["exon"]))
+        end = max((_[1] for _ in exon_lines[tid]["features"]["exon"]))
+        logger.debug("Inserting %s into shelf %s", tid, shelf_name)
+        cursor.execute("INSERT INTO dump VALUES (?, ?, ?, ?, ?, ?)", (exon_lines[tid]["chrom"],
+                                                                   start,
+                                                                   end,
+                                                                   exon_lines[tid]["strand"],
+                                                                   tid,
+                                                                   values))
+
+    cursor.close()
+    conn.commit()
+    conn.close()
+    return
+
+
 def load_from_gff(shelf_name,
                   gff_handle,
                   label,
                   found_ids,
                   logger,
+                  min_length = 0,
                   strip_cds=False,
                   strand_specific=False):
     """
@@ -254,13 +316,7 @@ def load_from_gff(shelf_name,
                 continue
     gff_handle.close()
 
-    with shelve.open(shelf_name, flag="n", writeback=True) as shelf:
-        shelf.update(exon_lines)
-    # if shelf_name is not None:
-    #     with shelve.open(shelf_name, flag="n") as shelf:
-    #         for tid in exon_lines:
-    #             shelf[tid] = exon_lines[tid]
-    #     exon_lines = collections.defaultdict(dict)
+    load_into_storage(shelf_name, exon_lines, logger=logger, min_length=min_length)
 
     return new_ids
 
@@ -270,6 +326,7 @@ def load_from_gtf(shelf_name,
                   label,
                   found_ids,
                   logger,
+                  min_length = 0,
                   strip_cds=False,
                   strand_specific=False):
     """
@@ -361,8 +418,6 @@ def load_from_gtf(shelf_name,
         exon_lines[row.transcript]["features"][row.feature].append((row.start, row.end))
         new_ids.add(row.transcript)
     gff_handle.close()
-
-    with shelve.open(shelf_name, flag="n", writeback=True) as shelf:
-        shelf.update(exon_lines)
+    load_into_storage(shelf_name, exon_lines, logger=logger, min_length=min_length)
 
     return new_ids

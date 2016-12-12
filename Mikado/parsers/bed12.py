@@ -425,14 +425,17 @@ class BED12:
             return True
 
         if self.thick_start < self.start or self.thick_end > self.end:
-            invalid = "thickStart {0} <start {1}: {2}; end {3} <thickEnd {4} {5}"
-            self.invalid_reason = invalid.format(self.thick_start,
-                                                 self.start,
-                                                 self.thick_start < self.start,
-                                                 self.end,
-                                                 self.thick_end,
-                                                 self.thick_end > self.end)
-            return True
+            if self.thick_start == self.thick_end == self.block_sizes[0] == 0:
+                pass
+            else:
+                invalid = "thickStart {0} <start {1}: {2}; end {3} <thickEnd {4} {5}"
+                self.invalid_reason = invalid.format(self.thick_start,
+                                                     self.start,
+                                                     self.thick_start < self.start,
+                                                     self.end,
+                                                     self.thick_end,
+                                                     self.thick_end > self.end)
+                return True
 
         if self.fasta_length is None:
             self.fasta_length = len(self)

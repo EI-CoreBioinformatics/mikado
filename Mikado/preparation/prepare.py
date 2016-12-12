@@ -19,11 +19,13 @@ import shelve
 import logging
 from ..utilities import path_join, to_gff, merge_partial
 from collections import Counter
+import sqlite3
+import ujson
 
 __author__ = 'Luca Venturini'
 
 
-def store_transcripts(shelf_stacks, logger, min_length=0):
+def store_transcripts(shelf_stacks, logger):
 
     """
     Function that analyses the exon lines from the original file
@@ -34,42 +36,19 @@ def store_transcripts(shelf_stacks, logger, min_length=0):
     :param logger: logger instance.
     :type logger: logging.Logger
 
-    :param min_length: minimal length of the transcript.
-    If it is not met, the transcript will be discarded.
-    :type min_length: int
-
     :return: transcripts: dictionary which will be the final output
     :rtype: transcripts
     """
 
     transcripts = collections.defaultdict(dict)
 
-    for shelf_name, exon_lines in shelf_stacks.items():
-        for tid in exon_lines:
-            if "features" not in exon_lines[tid]:
-                raise KeyError("{0}: {1}\n{2}".format(tid, "features", exon_lines[tid]))
+    for shelf_name in shelf_stacks:
 
-            if ("exon" not in exon_lines[tid]["features"] or
-                    len(exon_lines[tid]["features"]["exon"]) == 0):
-                logger.warning("No valid exon feature for %s, continuing", tid)
-
-            chrom = exon_lines[tid]["chrom"]
-            start = min((_[0] for _ in exon_lines[tid]["features"]["exon"]))
-            end = max((_[1] for _ in exon_lines[tid]["features"]["exon"]))
-            tlength = sum(exon[1] + 1 - exon[0] for exon in exon_lines[tid]["features"]["exon"])
-            # Discard transcript under a certain size
-            if tlength < min_length:
-                logger.debug("Discarding %s because its size (%d) is under the minimum of %d",
-                             tid, tlength, min_length)
-                continue
-
+        for values in shelf_stacks[shelf_name]["cursor"].execute("SELECT chrom, start, end, strand, tid FROM dump"):
+            chrom, start, end, strand, tid = values
             if (start, end) not in transcripts[chrom]:
                 transcripts[chrom][(start, end)] = []
             transcripts[chrom][(start, end)].append((tid, shelf_name))
-
-    # logger.info("Starting to sort %d transcripts", len(exon_lines))
-    # keys = []
-    # counter = 0
 
     for chrom in sorted(transcripts.keys()):
 
@@ -83,10 +62,17 @@ def store_transcripts(shelf_stacks, logger, min_length=0):
             if len(tids) > 1:
                 exons = collections.defaultdict(list)
                 for tid, shelf in tids:
-                    exon_set = tuple(sorted(
-                        [(exon[0], exon[1], shelf_stacks[shelf][tid]["strand"]) for exon in
-                         shelf_stacks[shelf][tid]["features"]["exon"]],
-                        key=operator.itemgetter(0, 1)))
+                    strand, features = next(shelf_stacks[shelf]["cursor"].execute(
+                        "select strand, features from dump where tid = ?", (tid,)))
+                    features = ujson.loads(features)
+                    exon_set = tuple(sorted([(exon[0], exon[1], strand) for exon in
+                                            features["features"]["exon"]],
+                                            key=operator.itemgetter(0, 1)))
+
+                    # exon_set = tuple(sorted(
+                    #     [(exon[0], exon[1], shelf_stacks[shelf][tid]["strand"]) for exon in
+                    #      shelf_stacks[shelf][tid]["features"]["exon"]],
+
                     exons[exon_set].append((tid, shelf))
                 tids = []
                 logger.debug("%d intron chains for pos %s",
@@ -146,11 +132,17 @@ def perform_check(keys, shelve_stacks, args, logger):
 
         for tid, chrom, key in keys:
             tid, shelf_name = tid
+            try:
+                tobj = ujson.loads(next(shelve_stacks[shelf_name]["cursor"].execute(
+                    "SELECT features FROM dump WHERE tid = ?", (tid,)))[0])
+            except sqlite3.ProgrammingError as exc:
+                raise sqlite3.ProgrammingError("{}. Tids: {}".format(exc, tid))
+
             transcript_object = partial_checker(
-                shelve_stacks[shelf_name][tid],
+                tobj,
                 str(args.json_conf["reference"]["genome"][chrom][key[0]-1:key[1]]),
                 key[0], key[1],
-                strand_specific=shelve_stacks[shelf_name][tid]["strand_specific"])
+                strand_specific=tobj["strand_specific"])
             if transcript_object is None:
                 continue
             counter += 1
@@ -185,7 +177,9 @@ def perform_check(keys, shelve_stacks, args, logger):
         for counter, keys in enumerate(keys):
             tid, chrom, (pos) = keys
             tid, shelf_name = tid
-            submission_queue.put((shelve_stacks[shelf_name][tid], pos[0], pos[1], counter + 1))
+            tobj = ujson.loads(next(shelve_stacks[shelf_name]["cursor"].execute(
+                "SELECT features FROM dump WHERE tid = ?", (tid,)))[0])
+            submission_queue.put((tobj, pos[0], pos[1], counter + 1))
 
         submission_queue.put(tuple(["EXIT"]*4))
 
@@ -213,7 +207,7 @@ def perform_check(keys, shelve_stacks, args, logger):
     return
 
 
-def load_exon_lines(args, shelve_names, logger):
+def load_exon_lines(args, shelve_names, logger, min_length=0):
 
     """This function loads all exon lines from the GFF inputs into a
      defaultdict instance.
@@ -221,6 +215,10 @@ def load_exon_lines(args, shelve_names, logger):
     :param shelve_names: list of names of the shelf DB files.
     :param logger: the logger instance.
     :type logger: logging.Logger
+    :param min_length: minimal length of the transcript.
+    If it is not met, the transcript will be discarded.
+    :type min_length: int
+
     :return: exon_lines
     :rtype: collections.defaultdict[list]
     """
@@ -247,6 +245,7 @@ def load_exon_lines(args, shelve_names, logger):
                                         label,
                                         found_ids,
                                         logger,
+                                        min_length=min_length,
                                         strip_cds=strip_cds,
                                         strand_specific=strand_specific)
             else:
@@ -255,6 +254,7 @@ def load_exon_lines(args, shelve_names, logger):
                                         label,
                                         found_ids,
                                         logger,
+                                        min_length=min_length,
                                         strip_cds=strip_cds,
                                         strand_specific=strand_specific)
 
@@ -269,6 +269,7 @@ def load_exon_lines(args, shelve_names, logger):
             args.logging_queue,
             _ + 1,
             log_level=args.level,
+            min_length=min_length,
             strip_cds=strip_cds) for _ in range(threads)]
 
         [_.start() for _ in working_processes]
@@ -331,7 +332,10 @@ def prepare(args, logger):
         args.json_conf["reference"]["genome"] = args.json_conf["reference"]["genome"].name
 
     assert len(args.json_conf["prepare"]["files"]["gff"]) > 0
-    assert len(args.json_conf["prepare"]["files"]["gff"]) == len(args.json_conf["prepare"]["files"]["labels"])
+    assert len(args.json_conf["prepare"]["files"]["gff"]) == len(args.json_conf["prepare"]["files"]["labels"]), (
+        args.json_conf["prepare"]["files"]["gff"],
+        args.json_conf["prepare"]["files"]["labels"]
+    )
 
     if args.json_conf["prepare"]["strand_specific"] is True:
         args.json_conf["prepare"]["files"]["strand_specific_assemblies"] = [True] * len(
@@ -342,7 +346,7 @@ def prepare(args, logger):
             for member in args.json_conf["prepare"]["files"]["gff"]]
 
     shelve_names = [path_join(args.json_conf["prepare"]["files"]["output_dir"],
-                              "mikado_shelf_{}.shelf".format(str(_).zfill(5))) for _ in
+                              "mikado_shelf_{}.db".format(str(_).zfill(5))) for _ in
                     range(len(args.json_conf["prepare"]["files"]["gff"]))]
 
     logger.propagate = False
@@ -372,7 +376,10 @@ def prepare(args, logger):
     logger.info("Started loading exon lines")
 
     try:
-        load_exon_lines(args, shelve_names, logger)
+        load_exon_lines(args,
+                        shelve_names,
+                        logger,
+                        min_length=args.json_conf["prepare"]["minimum_length"])
 
         logger.info("Finished loading exon lines")
 
@@ -380,11 +387,16 @@ def prepare(args, logger):
         sorter = functools.partial(
             store_transcripts,
             logger=logger,
-            min_length=args.json_conf["prepare"]["minimum_length"]
+            # min_length=args.json_conf["prepare"]["minimum_length"]
         )
 
         try:
-            shelf_stacks = dict((_, shelve.open(_, flag="r")) for _ in shelve_names)
+            shelf_stacks = dict()
+            for shelf in shelve_names:
+                conn = sqlite3.connect(shelf)
+                conn = sqlite3.connect(shelf)
+                shelf_stacks[shelf] = {"conn": conn, "cursor": conn.cursor()}
+            # shelf_stacks = dict((_, shelve.open(_, flag="r")) for _ in shelve_names)
         except Exception as exc:
             raise TypeError((shelve_names, exc))
         perform_check(sorter(shelf_stacks), shelf_stacks, args, logger)
@@ -408,12 +420,9 @@ def prepare(args, logger):
         args.listener.enqueue_sentinel()
 
     logger.setLevel(logging.INFO)
-    for fn in os.listdir(args.json_conf["prepare"]["files"]["output_dir"]):
-        if ("shelf" in fn and
-                (path_join(args.json_conf["prepare"]["files"]["output_dir"], fn) in shelve_names or
-                         path_join(args.json_conf["prepare"]["files"]["output_dir"],
-                                   os.path.splitext(os.path.basename(fn))[0]) in shelve_names)):
-            os.remove(path_join(args.json_conf["prepare"]["files"]["output_dir"], os.path.basename(fn)))
+    for fn in shelf_stacks:
+        os.remove(fn)
+
     logger.info("Finished")
     sys.exit(0)
     # for handler in logger.handlers:

@@ -58,7 +58,7 @@ def __create_cds_lines(transcript,
         except IndexError:
             raise IndexError(cds_run)
         assert exon_line.start >= transcript.start, (transcript.start, segment, cds_run)
-        assert exon_line.end <= transcript.end
+        assert exon_line.end <= transcript.end, (transcript.end, segment, cds_run)
         if segment[0] == "CDS":
             assert len(segment) == 3, (segment, cds_run)
             if to_gtf is False:
@@ -156,7 +156,8 @@ def __create_exon_line(transcript, segment, counter, cds_begin,
 def create_lines_cds(transcript,
                      to_gtf=False,
                      with_introns=False,
-                     all_orfs=False):
+                     all_orfs=False,
+                     transcriptomic=False):
 
     """
     Method to create the GTF/GFF lines for printing in the presence of CDS information.
@@ -201,23 +202,70 @@ def create_lines_cds(transcript,
                 tid = transcript.id
             cds_run = transcript.internal_orfs[index]
 
-            for attr in ["chrom", "source", "feature", "start", "end",
-                         "score", "strand", "attributes", "parent"]:
-                setattr(parent_line, attr, getattr(transcript, attr))
+            if transcriptomic is False:
+                for attr in ["chrom", "source", "feature", "start", "end",
+                             "score", "strand", "attributes", "parent"]:
+                    setattr(parent_line, attr, getattr(transcript, attr))
 
-            parent_line.phase = '.'
+                parent_line.phase = '.'
 
-            parent_line.id = tid
-            parent_line.name = transcript.id
+                parent_line.id = tid
+                parent_line.name = transcript.id
 
-            exon_lines = __create_cds_lines(transcript,
-                                            cds_run,
-                                            tid,
-                                            to_gtf=to_gtf,
-                                            with_introns=with_introns)
+                exon_lines = __create_cds_lines(transcript,
+                                                cds_run,
+                                                tid,
+                                                to_gtf=to_gtf,
+                                                with_introns=with_introns)
 
-            lines.append(str(parent_line))
-            lines.extend(exon_lines)
+                lines.append(str(parent_line))
+                lines.extend(exon_lines)
+            else:
+                for attr in ["source", "feature", "score", "attributes", "parent"]:
+                    setattr(parent_line, attr, getattr(transcript, attr))
+
+                parent_line.chrom = transcript.id
+                parent_line.start = 1
+                parent_line.end = transcript.cdna_length
+                parent_line.strand = "+"
+                parent_line.phase = "."
+                parent_line.id = tid
+                parent_line.parent = "{}_gene".format(tid)
+                lines.append(str(parent_line))
+
+                new_cds_run = []
+
+                cds = sorted([_ for _ in cds_run if _[0] == "CDS"])
+
+                if transcript.strand == "+":
+                    cds_start = cds[0][1][0]
+                    phase = cds[0][2]
+                    five_utr = [_[1] for _ in cds_run if _[0] == "UTR" and _[1][1] < cds_start]
+                else:
+                    cds_start = cds[-1][1][1]
+                    phase = cds[-1][2]
+                    five_utr = [_[1] for _ in cds_run if _[0] == "UTR" and _[1][0] > cds_start]
+                if five_utr:
+                    five_utr = sum([_[1] - _[0] + 1 for _ in five_utr])
+                else:
+                    five_utr = 0
+                if five_utr:
+                    cds_start = five_utr + 1
+                else:
+                    cds_start = 1
+                cds_end = sum([_[1][1] - _[1][0] + 1 for _ in cds]) + cds_start - 1
+
+                if five_utr:
+                    new_cds_run.append(("UTR", (1, five_utr)))
+                new_cds_run.append(("CDS", (cds_start, cds_end), phase))
+                if cds_end < transcript.cdna_length:
+                    new_cds_run.append(("UTR", (cds_end + 1, transcript.cdna_length)))
+                exon_lines = __create_cds_lines(parent_line,
+                                                new_cds_run,
+                                                tid,
+                                                to_gtf=to_gtf,
+                                                with_introns=False)
+                lines.extend(exon_lines)
 
     return lines
 

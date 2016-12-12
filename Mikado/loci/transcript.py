@@ -469,7 +469,8 @@ class Transcript:
     def format(self, format_name,
                with_introns=False,
                with_cds=True,
-               all_orfs=False):
+               all_orfs=False,
+               transcriptomic=False):
 
         """
         Method to format the string representation of the object. Available formats:
@@ -502,48 +503,63 @@ class Transcript:
                 lines = create_lines_cds(self,
                                          to_gtf=to_gtf,
                                          with_introns=with_introns,
-                                         all_orfs=all_orfs
+                                         all_orfs=all_orfs,
+                                         transcriptomic=transcriptomic
                                          )
             else:
-                lines = create_lines_no_cds(self, to_gtf=to_gtf, with_introns=with_introns)
+                lines = create_lines_no_cds(self,
+                                            to_gtf=to_gtf,
+                                            with_introns=with_introns,
+                                            transcriptomic=transcriptomic)
 
         return "\n".join(lines)
 
     def get_internal_orf_beds(self):
         """This method will return all internal ORFs as BED12 objects"""
 
+        row = BED12(transcriptomic=True)
+        row.header = False
+        row.chrom = self.id
+        row.strand = "+"
+        row.start = 1
+        row.end = self.cdna_length
+
         if not self.internal_orfs:
-            yield
+            row.block_count = 0
+            row.thick_start = 1 # Necessary b/c I am subtracting one
+            row.thick_end = 0
+            row.name = self.tid
+            row.block_count = 0
+            row.block_starts = [0]
+            row.block_sizes = [0]
+            assert row.invalid is False, ("\n".join([str(row), row.invalid_reason]))
+            yield row
+
         else:
             for index, iorf in enumerate(self.internal_orfs):
-                row = BED12(transcriptomic=True)
-                row.header = False
-                row.chrom = self.id
-                row.strand = "+"
-                row.start = 1
-                row.end = self.cdna_length
-                row.block_count = 1
+                new_row = row.copy()
+                new_row.block_count = 1
                 cds_len = sum(_[1][1] + 1 - _[1][0] for _ in iorf if _[0] == "CDS")
                 if self.strand == "-":
                     __cds_start = sorted([_ for _ in iorf if _[0] == "CDS"], key=lambda x: x[1][1],
                                         reverse=True)[0]
 
                     cds_start, row.phase = __cds_start[1][1], __cds_start[2]
-                    row.thick_start = 1 + sum(_[1][1] + 1 - _[1][0] for _ in iorf if
+                    new_row.thick_start = 1 + sum(_[1][1] + 1 - _[1][0] for _ in iorf if
                                               _[0] == "UTR" and _[1][0] > cds_start)
 
                 else:
                     __cds_start = sorted([_ for _ in iorf if _[0] == "CDS"], key=lambda x: x[1][0],
                                          reverse=False)[0]
                     cds_start, row.phase = __cds_start[1][1], __cds_start[2]
-                    row.thick_start = 1 + sum(_[1][1] + 1 - _[1][0] for _ in iorf if
+                    new_row.thick_start = 1 + sum(_[1][1] + 1 - _[1][0] for _ in iorf if
                                               _[0] == "UTR" and _[1][1] < cds_start)
-                row.thick_end = row.thick_start + cds_len - 1
-                row.name = "{}_orf{}".format(self.tid, index)
-                row.block_starts = [row.thick_start]
-                row.block_sizes = [cds_len]
+                new_row.thick_end = row.thick_start + cds_len - 1
+                new_row.name = "{}_orf{}".format(self.tid, index)
+                new_row.block_starts = [row.thick_start]
+                new_row.block_sizes = [cds_len]
 
-                assert row.invalid is False, ("\n".join([str(row), row.invalid_reason]))
+                assert new_row.invalid is False, ("\n".join([str(new_row), new_row.invalid_reason]))
 
                 yield row
 
@@ -2409,8 +2425,8 @@ index {3}, internal ORFs: {4}".format(
         """
         Metric that indicates how good a hit is compared to the competition, in terms of BLAST
         similarities.
-        As in SnowyOwl, the score for each hit is calculated by taking the percentage of positive
-        matches and dividing it by (2 * len(self.blast_hits)).
+        As in SnowyOwl, the score for each hit is calculated by taking the coverage of the target
+        and dividing it by (2 * len(self.blast_hits)).
         IMPORTANT: when splitting transcripts by ORF, a blast hit is added to the new transcript
         only if it is contained within the new transcript.
         This WILL screw up a bit the homology score.
@@ -2420,9 +2436,16 @@ index {3}, internal ORFs: {4}".format(
         if len(self.blast_hits) == 0:
             self.__blast_score = 0
         elif self.__blast_score == 0 and len(self.blast_hits) > 0:
+
             score = 0
             for hit in self.blast_hits:
-                score += hit["global_positives"]/(2 * len(self.blast_hits))
+                score += (hit["target_aligned_length"]) / (hit["target_length"] * len(self.blast_hits))
+            #
+            #
+            #
+            # score = 0
+            # for hit in self.blast_hits:
+            #     score += hit["global_positives"]/(2 * len(self.blast_hits))
             self.__blast_score = score
 
         return self.__blast_score

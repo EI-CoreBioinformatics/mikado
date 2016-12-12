@@ -147,16 +147,16 @@
           "properties": {
             "junctions": {
               "type": "array",
-              "default": [""],
+              "default": [],
               "optional": false
             },
             "xml": {
               "type": "array",
-              "default": [""]
+              "default": []
             },
             "orfs": {
               "type": "array",
-              "default": [""]
+              "default": []
             },
             "transcripts": {
               "type": "string",
@@ -168,7 +168,7 @@
             },
             "blast_targets": {
               "type": "array",
-              "default": [""]
+              "default": []
             },
             "output_dir": {
               "type": "string",

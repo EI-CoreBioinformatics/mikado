@@ -14,18 +14,20 @@ requirements:
     min_intron_length: {operator: ge, value: 5}
     proportion_verified_introns_inlocus: {operator: gt, value: 0}
 not_fragmentary:
-#  expression: [((exon_num.multi and (cdna_length.multi or combined_cds_length.multi)), or, (exon_num.mono and combined_cds_length.mono))]
-#  parameters:
-#    exon_num.multi: {operator: gt, value: 1}
-#    cdna_length.multi: {operator: ge, value: 200}
-#    combined_cds_length.multi: {operator: gt, value: 150}
-#    exon_num.mono: {operator: eq, value: 1}
-#    combined_cds_length.mono: {operator: gt, value: 200}
-  expression: [combined_cds_length]
-  parameters:
-    combined_cds_length: {operator: gt, value: 300}
+ expression: [is_complete and ((exon_num.multi and (cdna_length.multi or combined_cds_length.multi)), or, (exon_num.mono and combined_cds_length.mono))]
+ parameters:
+   is_complete: {operator: eq, value: true}
+   exon_num.multi: {operator: gt, value: 1}
+   cdna_length.multi: {operator: ge, value: 200}
+   combined_cds_length.multi: {operator: gt, value: 150}
+   exon_num.mono: {operator: eq, value: 1}
+   combined_cds_length.mono: {operator: gt, value: 200}
+  # expression: [combined_cds_length]
+  # parameters:
+  #   combined_cds_length: {operator: gt, value: 300}
 scoring:
-  blast_score: {rescaling: max}
+  # blast_score: {rescaling: max}
+  snowy_blast_score: {rescaling: max}
   cdna_length: {rescaling: max}
   cds_not_maximal: {rescaling: min}
   cds_not_maximal_fraction: {rescaling: min}

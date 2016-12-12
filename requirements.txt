@@ -18,3 +18,4 @@ drmaa
 snakemake
 docutils
 tabulate
+ujson

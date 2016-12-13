@@ -526,7 +526,7 @@ class Transcript:
 
         if not self.internal_orfs:
             row.block_count = 0
-            row.thick_start = 1 # Necessary b/c I am subtracting one
+            row.thick_start = 1  # Necessary b/c I am subtracting one
             row.thick_end = 0
             row.name = self.tid
             row.block_count = 0
@@ -538,30 +538,45 @@ class Transcript:
         else:
             for index, iorf in enumerate(self.internal_orfs):
                 new_row = row.copy()
-                new_row.block_count = 1
-                cds_len = sum(_[1][1] + 1 - _[1][0] for _ in iorf if _[0] == "CDS")
+                cds_len = 0
+                cds_start = float("inf")
+                cds_end = float("-inf")
                 if self.strand == "-":
-                    __cds_start = sorted([_ for _ in iorf if _[0] == "CDS"], key=lambda x: x[1][1],
-                                        reverse=True)[0]
-
-                    cds_start, row.phase = __cds_start[1][1], __cds_start[2]
-                    new_row.thick_start = 1 + sum(_[1][1] + 1 - _[1][0] for _ in iorf if
-                                              _[0] == "UTR" and _[1][0] > cds_start)
-
+                    cds_start, cds_end = cds_end, cds_start
+                phase = None
+                for tag, seg, ph in (_ for _ in iorf if _[0] == "CDS"):
+                    cds_len += seg[1] - seg[0] + 1
+                    if self.strand == "-":
+                        cds_start = max(seg[1], cds_start)
+                        cds_end = min(seg[0], cds_end)
+                        if cds_start == seg[1]:
+                            phase = ph
+                    else:
+                        cds_start = min(seg[0], cds_start)
+                        cds_end = max(seg[1], cds_end)
+                        if cds_start == seg[0]:
+                            phase = ph
+                if (cds_len + phase) % 3 != 0 and cds_end not in (self.start, self.end):
+                    raise AssertionError("Invalid CDS length for {}".format(self.id))
+                # Now convert to transcriptomic coordinates
+                if self.strand == "-":
+                    utr = sum(_[1][1] - _[1][0] + 1 for _ in iorf if _[0] == "UTR" and _[1][0] > cds_start)
                 else:
-                    __cds_start = sorted([_ for _ in iorf if _[0] == "CDS"], key=lambda x: x[1][0],
-                                         reverse=False)[0]
-                    cds_start, row.phase = __cds_start[1][1], __cds_start[2]
-                    new_row.thick_start = 1 + sum(_[1][1] + 1 - _[1][0] for _ in iorf if
-                                              _[0] == "UTR" and _[1][1] < cds_start)
-                new_row.thick_end = row.thick_start + cds_len - 1
+                    utr = sum(_[1][1] - _[1][0] + 1 for _ in iorf if _[0] == "UTR" and _[1][1] < cds_start)
+                new_row.thick_start = utr + 1 - phase
+                new_row.thick_end = new_row.thick_start + cds_len - 1
                 new_row.name = "{}_orf{}".format(self.tid, index)
                 new_row.block_starts = [row.thick_start]
                 new_row.block_sizes = [cds_len]
+                self.logger.warning(new_row)
 
-                assert new_row.invalid is False, ("\n".join([str(new_row), new_row.invalid_reason]))
+                if new_row.invalid is True:
+                    self.logger.exception("Invalid ORF:")
+                    self.logger.exception(iorf)
+                    self.logger.exception(new_row)
+                    assert new_row.invalid is False, ("\n".join([str(new_row), new_row.invalid_reason]))
 
-                yield row
+                yield new_row
 
     def split_by_cds(self):
         """This method is used for transcripts that have multiple ORFs.

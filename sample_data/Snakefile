@@ -112,7 +112,7 @@ rule pick:
     threads: 10
     output: "mikado.loci.gff3", "mikado.subloci.gff3", "mikado.monoloci.gff3"
     message: "mikado pick --json-conf configuration.yaml -lv INFO --subloci_out mikado.subloci.gff3 --monoloci_out mikado.monoloci.gff3 -p {threads}"
-    shell: "mikado pick --json-conf configuration.yaml -lv INFO --subloci_out mikado.subloci.gff3 --monoloci_out mikado.monoloci.gff3 -p {threads}"
+    shell: "mikado pick --json-conf configuration.yaml -lv INFO --subloci_out mikado.subloci.gff3 --monoloci_out mikado.monoloci.gff3 -p {threads} --pad"
 
 rule index_reference:
     input: reference="reference.gff3"

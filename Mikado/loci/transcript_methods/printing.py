@@ -313,7 +313,8 @@ def create_lines_bed(transcript):
 
 def create_lines_no_cds(transcript,
                         to_gtf=False,
-                        with_introns=False):
+                        with_introns=False,
+                        transcriptomic=False):
 
     """
     Method to create the GTF/GFF lines for printing in the absence of CDS information.
@@ -356,15 +357,34 @@ def create_lines_no_cds(transcript,
                                         "tid": transcript.id,
                                         "cds_begin": False})
 
-    for exon, intron in zip_longest(sorted(transcript.exons),
-                                    intron_list):
-        exon_line, counter, _ = line_creator(("exon", exon), counter)
+    if transcriptomic is False:
 
+        for exon, intron in zip_longest(sorted(transcript.exons),
+                                        intron_list):
+            exon_line, counter, _ = line_creator(("exon", exon), counter)
+
+            exon_lines.append(str(exon_line))
+            if intron is not None:
+                intron_line, counter, _ = line_creator(("intron", intron), counter)
+                exon_lines.append(str(intron_line))
+
+        lines.extend(exon_lines)
+    else:
+        for attr in ["source", "feature", "score", "attributes", "parent"]:
+            setattr(parent_line, attr, getattr(transcript, attr))
+
+        parent_line.chrom = transcript.id
+        parent_line.start = 1
+        parent_line.end = transcript.cdna_length
+        parent_line.strand = "+"
+        parent_line.phase = "."
+        parent_line.id = transcript.id
+        parent_line.parent = "{}_gene".format(transcript.id)
+        lines.append(str(parent_line))
+
+        exon_line, _, _ = line_creator(("exon", (1, transcript.cdna_length)), 0)
         exon_lines.append(str(exon_line))
-        if intron is not None:
-            intron_line, counter, _ = line_creator(("intron", intron), counter)
-            exon_lines.append(str(intron_line))
 
-    lines.extend(exon_lines)
+        lines.extend(exon_lines)
 
     return lines

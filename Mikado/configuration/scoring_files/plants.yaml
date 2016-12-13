@@ -22,9 +22,9 @@ not_fragmentary:
    combined_cds_length.multi: {operator: gt, value: 150}
    exon_num.mono: {operator: eq, value: 1}
    combined_cds_length.mono: {operator: gt, value: 200}
-  # expression: [combined_cds_length]
-  # parameters:
-  #   combined_cds_length: {operator: gt, value: 300}
+#   expression: [combined_cds_length]
+#   parameters:
+#     combined_cds_length: {operator: gt, value: 300}
 scoring:
   # blast_score: {rescaling: max}
   snowy_blast_score: {rescaling: max}

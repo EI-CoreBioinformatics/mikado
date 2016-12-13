@@ -839,6 +839,7 @@ reached the maximum number of isoforms for the locus".format(
 def expand_transcript(transcript, new_start, new_end, fai, logger):
 
     # First get the ORFs
+    transcript.logger = logger
     if transcript.combined_cds_length > 0:
         internal_orfs = list(transcript.get_internal_orf_beds())
     else:

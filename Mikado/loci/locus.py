@@ -878,7 +878,7 @@ def expand_transcript(transcript, new_start, new_end, fai, logger):
             ).fasta.split("\n")[1:])
         assert len(seq) == transcript.cdna_length, (len(seq), transcript.cdna_length, transcript.exons)
         for orf in internal_orfs:
-            logger.warn("Old ORF: %s", str(orf))
+            logger.debug("Old ORF: %s", str(orf))
             try:
                 orf.expand(seq, upstream, downstream)
             except AssertionError as err:
@@ -891,7 +891,7 @@ def expand_transcript(transcript, new_start, new_end, fai, logger):
                              transcript.exons,
                              transcript.cdna_length)
                 raise AssertionError(err)
-            logger.warn("New ORF: %s", str(orf))
+            logger.debug("New ORF: %s", str(orf))
             new_orfs.append(orf)
         # from ..utilities.log_utils import create_default_logger
         # transcript.logger = create_default_logger("TEMP")

@@ -556,19 +556,24 @@ class Transcript:
                         cds_end = max(seg[1], cds_end)
                         if cds_start == seg[0]:
                             phase = ph
-                if (cds_len + phase) % 3 != 0 and cds_end not in (self.start, self.end):
-                    raise AssertionError("Invalid CDS length for {}".format(self.id))
+
                 # Now convert to transcriptomic coordinates
                 if self.strand == "-":
                     utr = sum(_[1][1] - _[1][0] + 1 for _ in iorf if _[0] == "UTR" and _[1][0] > cds_start)
                 else:
                     utr = sum(_[1][1] - _[1][0] + 1 for _ in iorf if _[0] == "UTR" and _[1][1] < cds_start)
-                new_row.thick_start = utr + 1 - phase
+                new_row.thick_start = utr + 1
                 new_row.thick_end = new_row.thick_start + cds_len - 1
                 new_row.name = "{}_orf{}".format(self.tid, index)
                 new_row.block_starts = [row.thick_start]
                 new_row.block_sizes = [cds_len]
-                self.logger.warning(new_row)
+                new_row.phase = phase
+                self.logger.debug(new_row)
+
+                if (cds_len - phase) % 3 != 0 and cds_end not in (self.start, self.end):
+                    raise AssertionError("Invalid CDS length for {}:\n{}\n{}".format(self.id,
+                                                                                     iorf,
+                                                                                     new_row))
 
                 if new_row.invalid is True:
                     self.logger.exception("Invalid ORF:")

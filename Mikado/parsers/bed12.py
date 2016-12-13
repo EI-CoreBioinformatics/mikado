@@ -544,7 +544,7 @@ class BED12:
 
         old_sequence = sequence[upstream:len(self) + upstream]
 
-        self.start_codon = str(old_sequence[self.thick_start -1 + self.phase:self.thick_start + self.phase + 2]).upper()
+        self.start_codon = str(old_sequence[self.thick_start + self.phase:self.thick_start + self.phase + 3]).upper()
         last_codon_start = self.thick_end + ((self.thick_end - self.thick_start + 1 + self.phase) % 3 - 3)
 
         self.stop_codon = str(old_sequence[last_codon_start:self.thick_end]).upper()

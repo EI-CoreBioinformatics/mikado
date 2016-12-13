@@ -329,7 +329,7 @@ def create_config(args):
         config["pick"]["alternative_splicing"]["pad"] = True
 
     if args.intron_range is not None:
-        config["pick"]["run_options"]["intron_range"] = tuple(sorted(args.intron_range))
+        config["pick"]["run_options"]["intron_range"] = sorted(args.intron_range)
 
     # Check that the configuration file is correct
     tempcheck = tempfile.NamedTemporaryFile("wt", suffix=".yaml")

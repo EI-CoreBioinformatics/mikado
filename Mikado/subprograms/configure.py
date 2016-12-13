@@ -13,7 +13,10 @@ import sys
 from ..configuration import configurator
 from ..exceptions import InvalidJson
 from ..utilities import comma_split  # , merge_dictionaries
-import json
+try:
+    import ujson as json
+except ImportError:
+    import json
 from collections import Counter
 import tempfile
 

@@ -1,4 +1,7 @@
-import json
+try:
+    import ujson as json
+except ImportError:
+    import json
 import os
 import io
 import yaml
@@ -9,6 +12,7 @@ from ..subprograms.configure import print_config, check_has_requirements
 from ..exceptions import InvalidJson
 from ..utilities.log_utils import create_default_logger
 import sys
+
 
 
 def create_daijin_validator():

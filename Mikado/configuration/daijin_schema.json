@@ -247,7 +247,7 @@
       "type": "object",
       "properties": {
         "min_protein_len": {"type": "integer", "minimum": 1, "default": 30, "required": true},
-        "execute": {"type": "boolean", "default": true}
+        "execute": {"type": "boolean", "default": true, "required": true}
       },
       "required": ["min_protein_len"]
     },

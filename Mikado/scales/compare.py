@@ -23,7 +23,10 @@ from ..parsers.GFF import GFF3
 from ..utilities.log_utils import create_default_logger
 from ..exceptions import CorruptIndex
 from ..utilities import to_gff
-import json
+try:
+    import ujson as json
+except ImportError:
+    import json
 import gzip
 import itertools
 

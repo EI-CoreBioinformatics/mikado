@@ -15,12 +15,14 @@ import multiprocessing
 import multiprocessing.connection
 import multiprocessing.sharedctypes
 import pyfaidx
-import shelve
 import logging
 from ..utilities import path_join, to_gff, merge_partial
 from collections import Counter
 import sqlite3
-import ujson
+try:
+    import ujson as json
+except ImportError:
+    import json
 
 __author__ = 'Luca Venturini'
 
@@ -64,7 +66,7 @@ def store_transcripts(shelf_stacks, logger):
                 for tid, shelf in tids:
                     strand, features = next(shelf_stacks[shelf]["cursor"].execute(
                         "select strand, features from dump where tid = ?", (tid,)))
-                    features = ujson.loads(features)
+                    features = json.loads(features)
                     exon_set = tuple(sorted([(exon[0], exon[1], strand) for exon in
                                             features["features"]["exon"]],
                                             key=operator.itemgetter(0, 1)))
@@ -133,7 +135,7 @@ def perform_check(keys, shelve_stacks, args, logger):
         for tid, chrom, key in keys:
             tid, shelf_name = tid
             try:
-                tobj = ujson.loads(next(shelve_stacks[shelf_name]["cursor"].execute(
+                tobj = json.loads(next(shelve_stacks[shelf_name]["cursor"].execute(
                     "SELECT features FROM dump WHERE tid = ?", (tid,)))[0])
             except sqlite3.ProgrammingError as exc:
                 raise sqlite3.ProgrammingError("{}. Tids: {}".format(exc, tid))
@@ -177,7 +179,7 @@ def perform_check(keys, shelve_stacks, args, logger):
         for counter, keys in enumerate(keys):
             tid, chrom, (pos) = keys
             tid, shelf_name = tid
-            tobj = ujson.loads(next(shelve_stacks[shelf_name]["cursor"].execute(
+            tobj = json.loads(next(shelve_stacks[shelf_name]["cursor"].execute(
                 "SELECT features FROM dump WHERE tid = ?", (tid,)))[0])
             submission_queue.put((tobj, pos[0], pos[1], counter + 1))
 
@@ -395,7 +397,6 @@ def prepare(args, logger):
             shelf_stacks = dict()
             for shelf in shelve_names:
                 conn = sqlite3.connect(shelf)
-                conn = sqlite3.connect(shelf)
                 shelf_stacks[shelf] = {"conn": conn, "cursor": conn.cursor()}
             # shelf_stacks = dict((_, shelve.open(_, flag="r")) for _ in shelve_names)
         except Exception as exc:
@@ -403,12 +404,8 @@ def prepare(args, logger):
         perform_check(sorter(shelf_stacks), shelf_stacks, args, logger)
     except Exception as exc:
         logger.exception(exc)
-        for fn in os.listdir(args.json_conf["prepare"]["files"]["output_dir"]):
-            if ("shelf" in fn and
-                    (path_join(args.json_conf["prepare"]["files"]["output_dir"], fn) in shelve_names or
-                     path_join(args.json_conf["prepare"]["files"]["output_dir"],
-                              os.path.splitext(os.path.basename(fn))[0]) in shelve_names)):
-                os.remove(path_join(args.json_conf["prepare"]["files"]["output_dir"], os.path.basename(fn)))
+
+        [os.remove(fname) for fname in shelve_names]
 
         logger.error("Mikado has encountered an error, exiting")
         sys.exit(1)

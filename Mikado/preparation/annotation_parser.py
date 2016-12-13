@@ -5,8 +5,10 @@ import logging
 import logging.handlers
 from .. import exceptions
 from sys import intern
-# import shelve
-import ujson
+try:
+    import ujson as json
+except ImportError:
+    import json
 import sqlite3
 import os
 
@@ -170,7 +172,7 @@ def load_into_storage(shelf_name, exon_lines, min_length, logger):
         if "features" not in exon_lines[tid]:
             raise KeyError("{0}: {1}\n{2}".format(tid, "features", exon_lines[tid]))
         if ("exon" not in exon_lines[tid]["features"] or
-                    len(exon_lines[tid]["features"]["exon"]) == 0):
+                len(exon_lines[tid]["features"]["exon"]) == 0):
             logger.warning("No valid exon feature for %s, continuing", tid)
         tlength = sum(exon[1] + 1 - exon[0] for exon in exon_lines[tid]["features"]["exon"])
         # Discard transcript under a certain size
@@ -179,17 +181,17 @@ def load_into_storage(shelf_name, exon_lines, min_length, logger):
                          tid, tlength, min_length)
             continue
 
-        values = ujson.dumps(exon_lines[tid])
+        values = json.dumps(exon_lines[tid])
 
         start = min((_[0] for _ in exon_lines[tid]["features"]["exon"]))
         end = max((_[1] for _ in exon_lines[tid]["features"]["exon"]))
         logger.debug("Inserting %s into shelf %s", tid, shelf_name)
         cursor.execute("INSERT INTO dump VALUES (?, ?, ?, ?, ?, ?)", (exon_lines[tid]["chrom"],
-                                                                   start,
-                                                                   end,
-                                                                   exon_lines[tid]["strand"],
-                                                                   tid,
-                                                                   values))
+                                                                      start,
+                                                                      end,
+                                                                      exon_lines[tid]["strand"],
+                                                                      tid,
+                                                                      values))
 
     cursor.close()
     conn.commit()
@@ -202,7 +204,7 @@ def load_from_gff(shelf_name,
                   label,
                   found_ids,
                   logger,
-                  min_length = 0,
+                  min_length=0,
                   strip_cds=False,
                   strand_specific=False):
     """
@@ -215,6 +217,8 @@ def load_from_gff(shelf_name,
     :type found_ids: set
     :param logger: a logger to be used to pass messages
     :type logger: logging.Logger
+    :param min_length: minimum length for a cDNA to be considered as valid
+    :type min_length: int
     :param strip_cds: boolean flag. If true, all CDS lines will be ignored.
     :type strip_cds: bool
     :param strand_specific: whether the assembly is strand-specific or not.
@@ -326,7 +330,7 @@ def load_from_gtf(shelf_name,
                   label,
                   found_ids,
                   logger,
-                  min_length = 0,
+                  min_length=0,
                   strip_cds=False,
                   strand_specific=False):
     """
@@ -339,6 +343,8 @@ def load_from_gtf(shelf_name,
     :type found_ids: set
     :param logger: a logger to be used to pass messages
     :type logger: logging.Logger
+    :param min_length: minimum length for a cDNA to be considered as valid
+    :type min_length: int
     :param strip_cds: boolean flag. If true, all CDS lines will be ignored.
     :type strip_cds: bool
     :param strand_specific: whether the assembly is strand-specific or not.

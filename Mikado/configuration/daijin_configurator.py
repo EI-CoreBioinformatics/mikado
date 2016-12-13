@@ -164,11 +164,12 @@ def create_daijin_config(args):
     if args.flank is not None:
         config["mikado"]["pick"]["run_options"]["flank"] = args.flank
 
-    if args.prot_db:
-        config["blastx"]["prot_db"] = args.prot_db
+    config["blastx"]["prot_db"] = args.prot_db
+    assert "prot_db" in config["blastx"]
 
     final_config = config.copy()
     check_config(config, logger)
+    assert "prot_db" in config["blastx"]
 
     if args.cluster_config is not None:
         with open(args.cluster_config, "wb") as out:

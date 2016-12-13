@@ -285,22 +285,22 @@ def load_exon_lines(args, shelve_names, logger, min_length=0):
 
         [_.join() for _ in working_processes]
 
-        tid_counter = Counter()
-        for shelf in shelve_names:
-            with shelve.open(shelf, flag="r") as shelf_handle:
-                tid_counter.update(shelf_handle.keys())
-                if tid_counter.most_common()[0][1] > 1:
-                    if set(args.json_conf["prepare"]["files"]["labels"]) == {""}:
-                        exception = exceptions.RedundantNames(
-                            """Found redundant names during multiprocessed file analysis.
-                            Please repeat using distinct labels for your input files. Aborting.""")
-                    else:
-                        exception = exceptions.RedundantNames(
-                            """Found redundant names during multiprocessed file analysis, even if
-                            unique labels were provided. Please try to repeat with a different and
-                            more unique set of labels. Aborting.""")
-                    logger.exception(exception)
-                    raise exception
+        # tid_counter = Counter()
+        # for shelf in shelve_names:
+        #     with shelve.open(shelf, flag="r") as shelf_handle:
+        #         tid_counter.update(shelf_handle.keys())
+        #         if tid_counter.most_common()[0][1] > 1:
+        #             if set(args.json_conf["prepare"]["files"]["labels"]) == {""}:
+        #                 exception = exceptions.RedundantNames(
+        #                     """Found redundant names during multiprocessed file analysis.
+        #                     Please repeat using distinct labels for your input files. Aborting.""")
+        #             else:
+        #                 exception = exceptions.RedundantNames(
+        #                     """Found redundant names during multiprocessed file analysis, even if
+        #                     unique labels were provided. Please try to repeat with a different and
+        #                     more unique set of labels. Aborting.""")
+        #             logger.exception(exception)
+        #             raise exception
 
         del working_processes
         gc.collect()

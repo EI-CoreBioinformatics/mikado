@@ -246,18 +246,20 @@
     "transdecoder": {
       "type": "object",
       "properties": {
-        "min_protein_len": {"type": "integer", "minimum": 1, "default": 30, "required": true}
+        "min_protein_len": {"type": "integer", "minimum": 1, "default": 30, "required": true},
+        "execute": {"type": "boolean", "default": true}
       },
       "required": ["min_protein_len"]
     },
     "blastx": {
       "type":"object",
       "properties":{
-        "prot_db": {"type": "array", "required": true},
+        "prot_db": {"type": "array", "required": true, "default": []},
         "evalue": {"type": "number", "minimum": 0, "default": 0.0000001},
         "max_target_seqs": {"type": "integer", "minimum": 1, "default": 10},
         "chunks": {"type": "integer", "minimum": 1, "default": 10}
-      }
+      },
+      "required": ["prot_db", "evalue", "chunks"]
     },
     "mikado": {
       "type": "object",

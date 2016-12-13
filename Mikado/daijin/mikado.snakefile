@@ -161,7 +161,6 @@ rule blast_all:
 	output: BLAST_DIR + "/blastx.all.done"
 	shell: "touch {output}"
 
-
 rule transdecoder_lo:
 	input: rules.mikado_prepare.output.fa
 	output: TDC_DIR+"/transcripts.fasta.transdecoder_dir/longest_orfs.gff3"
@@ -174,7 +173,11 @@ rule transdecoder_lo:
 		# ss="-S" if MIKADO_STRAND else ""
 	threads: 1
 	message: "Running transdecoder longorf on Mikado prepared transcripts: {input}"
-	shell: "{params.load} cd {params.outdir} && ln -sf {params.tr_in} {params.tr} && TransDecoder.LongOrfs -m {params.minprot} -t {params.tr} > {log} 2>&1"
+	run:
+	    if config["transdecoder"]["execute"] is True:
+	        shell("{params.load} cd {params.outdir} && ln -sf {params.tr_in} {params.tr} && TransDecoder.LongOrfs -m {params.minprot} -t {params.tr} > {log} 2>&1")
+	    else:
+	        shell("mkdir -p $(dirname {output}) && touch {output}")
 
 rule transdecoder_pred:
 	input: 
@@ -191,7 +194,11 @@ rule transdecoder_pred:
 	log: TDC_DIR_FULL+"/transdecoder.predict.log"
 	threads: THREADS
 	message: "Running transdecoder predict on Mikado prepared transcripts: {input}"
-	shell: "{params.load} cd {params.outdir} && TransDecoder.Predict -t {params.tr} --cpu {threads} > {log} 2>&1"
+	run:
+	    if config["transdecoder"]["execute"] is True:
+	        shell("{params.load} cd {params.outdir} && TransDecoder.Predict -t {params.tr} --cpu {threads} > {log} 2>&1")
+	    else:
+	        shell("mkdir -p $(dirname {output}) && touch {output}")
 
 rule genome_index:
 	input: os.path.abspath(REF)
@@ -217,7 +224,12 @@ rule mikado_serialise:
 		blast_target="--blast_targets=" + BLAST_DIR+"/index/blastdb-proteins.fa" if len(BLASTX_TARGET) > 0 else ""
 	threads: THREADS
 	message: "Running Mikado serialise to move numerous data sources into a single database"
-	shell: "{params.load} mikado serialise {params.blast} {params.blast_target} --start-method=spawn --transcripts={input.transcripts} --genome_fai={input.fai} --json-conf={params.cfg} --force --orfs {input.orfs} -od {MIKADO_DIR} --procs={threads} > {log} 2>&1"
+	run:
+	    if config["transdecoder"]["execute"] is True:
+	        params.orfs = "--orfs={input.orfs}"
+	    else:
+	        params.orfs = ""
+	    shell("{params.load} mikado serialise {params.blast} {params.blast_target} --start-method=spawn --transcripts={input.transcripts} --genome_fai={input.fai} --json-conf={params.cfg} --force {params.orfs} -od {MIKADO_DIR} --procs={threads} > {log} 2>&1")
 
 rule mikado_pick:
 	input:

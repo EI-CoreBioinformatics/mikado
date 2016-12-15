@@ -79,6 +79,10 @@ the internal junction has been recovered.""")
     parser.add_argument("-v", "--verbose",
                         action="store_true",
                         default=False)
+    parser.add_argument("-z", "--gzip",
+                        action="store_true",
+                        default=False,
+                        help="Flag. If set, TMAP and REFMAP files will be GZipped.")
     parser.set_defaults(func=compare)
 
     return parser

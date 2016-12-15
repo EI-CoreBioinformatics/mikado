@@ -269,7 +269,10 @@ def parse_self(args, genes, queue_logger):
 
     queue_logger.info("Performing a self-comparison.")
 
-    tmap_out = open("{0}.tmap".format(args.out), 'wt')
+    if args.gzip is False:
+        tmap_out = open("{0}.tmap".format(args.out), 'wt')
+    else:
+        tmap_out = gzip.open("{0}.tmap.gz".format(args.out), 'wt')
     tmap_rower = csv.DictWriter(tmap_out, ResultStorer.__slots__, delimiter="\t")
     tmap_rower.writeheader()
 

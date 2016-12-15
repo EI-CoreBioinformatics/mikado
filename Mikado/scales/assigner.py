@@ -19,6 +19,8 @@ from ..loci.transcript import Transcript
 from ..exceptions import InvalidTranscript, InvalidCDS
 from .accountant import Accountant
 from .contrast import compare as c_compare
+from functools import partial
+import gzip
 
 
 # noinspection PyPropertyAccess,PyPropertyAccess
@@ -115,7 +117,10 @@ class Assigner:
             self.indexer[chrom] = IntervalTree.from_tuples(self.positions[chrom].keys())
 
         # noinspection PyUnresolvedReferences
-        self.tmap_out = open("{0}.tmap".format(args.out), 'wt')
+        if self.args.gzip is False:
+            self.tmap_out = open("{0}.tmap".format(args.out), 'wt')
+        else:
+            self.tmap_out = gzip.open("{0}.tmap.gz".format(args.out), 'wt')
         self.tmap_rower = csv.DictWriter(self.tmap_out, ResultStorer.__slots__, delimiter="\t")
         self.tmap_rower.writeheader()
         self.done = 0
@@ -745,7 +750,12 @@ class Assigner:
         """Function to print out the best match for each gene."""
         self.logger.info("Starting printing RefMap")
         # noinspection PyUnresolvedReferences
-        with open("{0}.refmap".format(self.args.out), 'wt') as out:
+        if self.args.gzip is False:
+            opening_function = partial(open, "{0}.refmap".format(self.args.out), 'wt')
+        else:
+            opening_function = partial(gzip.open, "{0}.refmap.gz".format(self.args.out), 'wt')
+
+        with opening_function() as out:
             if self.args.extended_refmap is True:
                 fields = ["ref_id", "ccode", "tid", "gid",
                           "nRecall", "nPrecision", "nF1",

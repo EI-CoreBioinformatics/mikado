@@ -38,7 +38,8 @@ def main():
         current_exon = None
 
         r_length = record.inferred_length  # Read length
-        edit_distance = [_[1] for _ in record.tags if _[0] == "NM" ][0]  # Excluding clipping
+        # Upper because of STAR
+        edit_distance = [_[1] for _ in record.tags if _[0].upper() == "NM"][0]  # Excluding clipping
         matches = 0
         alen = 0
 
@@ -54,7 +55,7 @@ def main():
                 exons.append(current_exon)
                 current_exon = None
                 current += length
-            elif cigar in  (0, 2):  # Match or deletion
+            elif cigar in (0, 2):  # Match or deletion
                 if current_exon is None:
                     current_exon = (current + 1, current + length)
                 else:

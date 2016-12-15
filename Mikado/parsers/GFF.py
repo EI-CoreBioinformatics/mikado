@@ -278,6 +278,11 @@ class GffLine(GFAnnotation):
         if self.is_derived is False:
             return None
         else:
+            if "Derives_from" not in self.attributes:
+                key = [_ for _ in self.attributes.keys() if _.lower() == "derives_from"]
+                assert len(key) == 1, (str(self), key)
+                self.attributes["Derives_from"] = self.attributes[key[0]]
+
             return self.attributes["Derives_from"].split(",")
 
 

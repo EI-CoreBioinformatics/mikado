@@ -13,7 +13,7 @@ from ...loci import Transcript, Gene
 from ...parsers import GFF
 import numpy
 from collections import namedtuple, Counter
-from ...utilities.log_utils import create_null_logger
+from ...utilities.log_utils import create_default_logger
 from collections import defaultdict
 
 __author__ = "Luca Venturini"
@@ -185,7 +185,10 @@ class Calculator:
             self.is_gff = True
         else:
             self.is_gff = False
-        self.__logger = create_null_logger("calculator")
+
+        self.__logger = create_default_logger("calculator")
+        if parsed_args.verbose is True:
+            self.__logger.setLevel("DEBUG")
         self.only_coding = parsed_args.only_coding
         self.tab_handle = parsed_args.tab_stats
         if self.tab_handle is not None:
@@ -255,7 +258,7 @@ class Calculator:
                 assert current_gene is not None, record
                 current_gene.transcripts[record.id] = TranscriptComputer(record,
                                                                          logger=self.__logger)
-            elif record.is_derived is True:
+            elif record.is_derived is True and record.is_exon is False:
                 derived_features.add(record.id)
             elif record.is_exon is True:
                 if self.is_gff is False:
@@ -680,6 +683,7 @@ def stats_parser():
                         default=None,
                         type=argparse.FileType('w'),
                         help="Optional tabular file to write statistics for each transcript.")
+    parser.add_argument("-v", "--verbose", action="store_true", default=False)
     parser.add_argument('gff', type=to_gff, help="GFF file to parse.")
     parser.add_argument('out', type=argparse.FileType('w'), default=sys.stdout, nargs='?')
     parser.set_defaults(func=launch)

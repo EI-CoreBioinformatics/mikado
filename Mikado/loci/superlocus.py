@@ -1061,6 +1061,8 @@ class Superlocus(Abstractlocus):
 
         for locus in sorted(loci):
             self.loci[locus.id] = locus
+            self.loci[locus.id].logger = self.logger
+            self.loci[locus.id].set_json_conf(self.json_conf)
 
         self.loci_defined = True
         if self.json_conf["pick"]["alternative_splicing"]["report"] is True:
@@ -1095,8 +1097,6 @@ class Superlocus(Abstractlocus):
         loci_cliques = dict()
 
         for lid, locus_instance in self.loci.items():
-            self.loci[lid].logger = self.logger
-            self.loci[lid].set_json_conf(self.json_conf)
             loci_cliques[lid] = set()
             for clique in cliques:
                 if locus_instance.primary_transcript_id in clique:

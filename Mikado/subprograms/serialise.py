@@ -62,7 +62,7 @@ def load_junctions(args, logger):
     :return:
     """
 
-    if args.json_conf["serialise"]["files"]["junctions"] is None:
+    if not args.json_conf["serialise"]["files"]["junctions"]:
         logger.info("Skipping junction loading as no junctions have been provided.")
         return
 

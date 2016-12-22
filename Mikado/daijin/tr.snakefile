@@ -642,7 +642,7 @@ rule asm_map_trinitygg:
 		load=loadPre(config["load"]["gmap"]),
 		gff=ASM_DIR+"/trinity-{run2}-{alrun}/trinity-{run2}-{alrun}.gff",
 		link_src="../trinity-{run2}-{alrun}/trinity-{run2}-{alrun}.gff",
-		intron_length=gmap_intron_lengths(MAX_INTRON)
+		intron_length=gmap_intron_lengths(loadPre(confid["load"]["gmap"], MAX_INTRON))
 	log: ASM_DIR+"/trinitygmap-{run2}-{alrun}.log"
 	threads: THREADS
 	message: "Mapping trinity transcripts to the genome (run {wildcards.run2}): {input.transcripts}"

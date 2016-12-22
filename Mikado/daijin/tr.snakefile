@@ -328,6 +328,16 @@ def loadPre(command):
         else:
                 return "set +u && {} &&".format(cc)
 
+def trinity_bam_tag(command):
+        cmd = "set +u && {} && Trinity --version && set -u".format(command)
+        output = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE).stdout.read().decode()
+        version = [_ for _ in output.split("\n") if re.match("Trinity version:")][0]
+        version = re.sub("Trinity version: [^_]*_(r|v)", "", version)
+        if version.startswith("2."):
+            return "genome_guided_use_bam"
+        else:
+            return "genome_guided_bam"
+
 
 #########################
 Rules
@@ -580,10 +590,11 @@ rule asm_trinitygg:
 		load=loadPre(config["load"]["trinity"]),
 		extra=lambda wildcards: config["asm_methods"]["trinity"][int(wildcards.run2)],
 		strand=lambda wildcards: trinityStrandOption(extractSample(wildcards.alrun))
+		genome_bam=trinity_bam_tag(config["load"]["trinity"])
 	log: ASM_DIR+"/trinity-{run2}-{alrun}.log"
 	threads: THREADS
 	message: "Using trinity in genome guided mode to assemble (run {wildcards.run2}): {input.bam}"
-	shell: "{params.load} Trinity --seqType=fq {params.strand} --output={params.outdir} --genome_guided_bam={input.bam} {params.extra} --full_cleanup --genome_guided_max_intron={MAX_INTRON} --max_memory={TGG_MAX_MEM} --CPU={threads} > {log} 2>&1"
+	shell: "{params.load} Trinity --seqType=fq {params.strand} --output={params.outdir} {params.genome_bam}={input.bam} {params.extra} --full_cleanup --genome_guided_max_intron={MAX_INTRON} --max_memory={TGG_MAX_MEM} --CPU={threads} > {log} 2>&1"
 
 rule gmap_index:
         input: REF

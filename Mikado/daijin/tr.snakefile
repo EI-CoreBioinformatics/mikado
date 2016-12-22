@@ -350,11 +350,19 @@ def trinityParameters(command, sample, REF, TGG_MAX_MEM):
     if version.startswith("201"):   # Old versions
         reads = trinityInput(sample)
         memory = "--JM={}".format(TGG_MAX_MEM)
-        cmd = "{reads} --genome={ref} {memory} --genome_guided_use_bam=".format(reads=reads, ref=REF, memory=memory)
+        cmd = "{reads} --genome={ref} {memory} --genome_guided_use_bam".format(reads=reads, ref=REF, memory=memory)
     else:
-        memory="--max_memory=".format(TGG_MAX_MEM)
-        cmd = " {memory} --genome_guided_bam=".format(memory=memory)
+        memory="--max_memory={}".format(TGG_MAX_MEM)
+        cmd = " {memory} --genome_guided_bam".format(memory=memory)
     return cmd
+
+def gmap_intron_length(MAX_INTRON, command):
+    cmd = "{} gmap --help".format(command)
+    output = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE).stdout.read().decode()
+    if "--max-intronlength-middle" in output:
+        return "--max-intronlength-middle={} --max-intronlength-ends={}".format(MAX_INTRON)
+    else:
+        return "--intronlength={}".format(MAX_INTRON)
 
 
 #########################
@@ -633,11 +641,12 @@ rule asm_map_trinitygg:
 	params: 
 		load=loadPre(config["load"]["gmap"]),
 		gff=ASM_DIR+"/trinity-{run2}-{alrun}/trinity-{run2}-{alrun}.gff",
-		link_src="../trinity-{run2}-{alrun}/trinity-{run2}-{alrun}.gff"
+		link_src="../trinity-{run2}-{alrun}/trinity-{run2}-{alrun}.gff",
+		intron_length=gmap_intron_lengths(MAX_INTRON)
 	log: ASM_DIR+"/trinitygmap-{run2}-{alrun}.log"
 	threads: THREADS
 	message: "Mapping trinity transcripts to the genome (run {wildcards.run2}): {input.transcripts}"
-	shell: "{params.load} gmap --dir={ALIGN_DIR}/gmap/index --db={NAME} --min-intronlength={MIN_INTRON}  --max-intronlength-middle={MAX_INTRON} --max-intronlength-ends={MAX_INTRON} --format=3 {input.transcripts} > {params.gff} 2> {log} && ln -sf {params.link_src} {output.gff} && touch -h {output.gff}"
+	shell: "{params.load} gmap --dir={ALIGN_DIR}/gmap/index --db={NAME} --min-intronlength={MIN_INTRON} {params.intron_length}  --format=3 {input.transcripts} > {params.gff} 2> {log} && ln -sf {params.link_src} {output.gff} && touch -h {output.gff}"
 
 rule trinity_all:
 	input: expand(ASM_DIR+"/output/trinity-{run2}-{alrun}.gff", run2=TRINITY_RUNS, alrun=ALIGN_RUNS)

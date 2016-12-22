@@ -353,14 +353,14 @@ def trinityParameters(command, sample, REF, TGG_MAX_MEM):
         cmd = "{reads} --genome={ref} {memory} --genome_guided_use_bam".format(reads=reads, ref=REF, memory=memory)
     else:
         memory="--max_memory={}".format(TGG_MAX_MEM)
-        cmd = " {memory} --genome_guided_bam".format(memory=memory)
+        cmd = "--full_cleanup {memory} --genome_guided_bam".format(memory=memory)
     return cmd
 
-def gmap_intron_length(MAX_INTRON, command):
+def gmap_intron_lengths(command, MAX_INTRON):
     cmd = "{} gmap --help".format(command)
-    output = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE).stdout.read().decode()
+    output = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL).stdout.read().decode()
     if "--max-intronlength-middle" in output:
-        return "--max-intronlength-middle={} --max-intronlength-ends={}".format(MAX_INTRON)
+        return "--max-intronlength-middle={mi} --max-intronlength-ends={mi}".format(MAX_INTRON)
     else:
         return "--intronlength={}".format(MAX_INTRON)
 
@@ -620,7 +620,7 @@ rule asm_trinitygg:
 	log: ASM_DIR+"/trinity-{run2}-{alrun}.log"
 	threads: THREADS
 	message: "Using trinity in genome guided mode to assemble (run {wildcards.run2}): {input.bam}"
-	shell: "{params.load} Trinity --seqType=fq {params.strand} --output={params.outdir} {params.extra} --full_cleanup --genome_guided_max_intron={MAX_INTRON}  --CPU={threads}  {params.base_parameters}={input.bam} > {log} 2>&1"
+	shell: "{params.load} Trinity --seqType=fq {params.strand} --output={params.outdir} {params.extra} --genome_guided_max_intron={MAX_INTRON}  --CPU={threads}  {params.base_parameters}={input.bam} > {log} 2>&1"
 
 rule gmap_index:
         input: REF
@@ -642,7 +642,7 @@ rule asm_map_trinitygg:
 		load=loadPre(config["load"]["gmap"]),
 		gff=ASM_DIR+"/trinity-{run2}-{alrun}/trinity-{run2}-{alrun}.gff",
 		link_src="../trinity-{run2}-{alrun}/trinity-{run2}-{alrun}.gff",
-		intron_length=gmap_intron_lengths(loadPre(confid["load"]["gmap"], MAX_INTRON))
+		intron_length=gmap_intron_lengths(loadPre(config["load"]["gmap"]), MAX_INTRON)
 	log: ASM_DIR+"/trinitygmap-{run2}-{alrun}.log"
 	threads: THREADS
 	message: "Mapping trinity transcripts to the genome (run {wildcards.run2}): {input.transcripts}"

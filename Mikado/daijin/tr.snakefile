@@ -311,15 +311,20 @@ def trinityStrandOption(sample):
 	else:
 		return ""
 
-def portcullisStrandOption(run):
+def portcullisStrandOption(run, command, step):
 	parts=run.split("-")
 	sample=parts[1]
-	if SAMPLE_MAP[sample] == "fr-firststrand":
-		return "--strandedness=firststrand"
-	elif SAMPLE_MAP[sample] == "fr-secondstrand":
-		return "--strandedness=secondstrand"
-	else:
-		return "--strandedness=unstranded"
+	cmd = subprocess.Popen("{} portcullis {} --help".format(command, step),
+	                       shell=True, stdout=subprocess.PIPE).stdout.read().decode()
+    if not any("strandedness" in _ for _ in cmd.split("\n")):
+        return ""
+    else:
+	    if SAMPLE_MAP[sample] == "fr-firststrand":
+		    return "--strandedness=firststrand"
+	    elif SAMPLE_MAP[sample] == "fr-secondstrand":
+		    return "--strandedness=secondstrand"
+	    else:
+		    return "--strandedness=unstranded"
 
 def loadPre(command):
         cc = command.strip()
@@ -331,12 +336,22 @@ def loadPre(command):
 def trinity_bam_tag(command):
         cmd = "set +u && {} && Trinity --version && set -u".format(command)
         output = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE).stdout.read().decode()
-        version = [_ for _ in output.split("\n") if re.match("Trinity version:")][0]
+        version = [_ for _ in output.split("\n") if re.match("Trinity version:", _)][0]
         version = re.sub("Trinity version: [^_]*_(r|v)", "", version)
-        if version.startswith("2."):
-            return "genome_guided_use_bam"
+        if not version.startswith("2."):
+            return "--genome_guided_use_bam"
         else:
-            return "genome_guided_bam"
+            return "--genome_guided_bam"
+
+def trinity_memory_tag(command):
+        cmd = "set +u && {} && Trinity --version && set -u".format(command)
+        output = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE).stdout.read().decode()
+        version = [_ for _ in output.split("\n") if re.match("Trinity version:", _)][0]
+        version = re.sub("Trinity version: [^_]*_(r|v)", "", version)
+        if not version.startswith("2."):
+            return "--JM"
+        else:
+            return "--max_memory"
 
 
 #########################
@@ -589,12 +604,13 @@ rule asm_trinitygg:
 		outdir=ASM_DIR+"/trinity-{run2}-{alrun}",
 		load=loadPre(config["load"]["trinity"]),
 		extra=lambda wildcards: config["asm_methods"]["trinity"][int(wildcards.run2)],
-		strand=lambda wildcards: trinityStrandOption(extractSample(wildcards.alrun))
-		genome_bam=trinity_bam_tag(config["load"]["trinity"])
+		strand=lambda wildcards: trinityStrandOption(extractSample(wildcards.alrun)),
+		genome_bam=trinity_bam_tag(config["load"]["trinity"]),
+		memory_tag=trinity_memory_tag(config["load"]["trinity"])
 	log: ASM_DIR+"/trinity-{run2}-{alrun}.log"
 	threads: THREADS
 	message: "Using trinity in genome guided mode to assemble (run {wildcards.run2}): {input.bam}"
-	shell: "{params.load} Trinity --seqType=fq {params.strand} --output={params.outdir} {params.genome_bam}={input.bam} {params.extra} --full_cleanup --genome_guided_max_intron={MAX_INTRON} --max_memory={TGG_MAX_MEM} --CPU={threads} > {log} 2>&1"
+	shell: "{params.load} Trinity --seqType=fq {params.strand} --output={params.outdir} {params.genome_bam}={input.bam} {params.extra} --full_cleanup --genome_guided_max_intron={MAX_INTRON} {params.memory_tag}={TGG_MAX_MEM} --CPU={threads} > {log} 2>&1"
 
 rule gmap_index:
         input: REF
@@ -767,7 +783,7 @@ rule portcullis_prep:
 		outdir=PORTCULLIS_DIR+"/portcullis_{aln_method}/1-prep",
 		load=loadPre(config["load"]["portcullis"]),
 		files=lambda wildcards: PORTCULLIS_IN[wildcards.aln_method],
-		strand=lambda wildcards: portcullisStrandOption(wildcards.aln_method)
+		strand=lambda wildcards: portcullisStrandOption(wildcards.aln_method, loadPre(config["load"]["portcullis"]), "prep")
 	log: PORTCULLIS_DIR+"/portcullis_{aln_method}-prep.log"
 	threads: THREADS
 	message: "Using portcullis to prepare: {wildcards.aln_method}"
@@ -782,7 +798,7 @@ rule portcullis_junc:
 		prepdir=PORTCULLIS_DIR+"/portcullis_{aln_method}/1-prep",
 		outdir=PORTCULLIS_DIR+"/portcullis_{aln_method}/2-junc",
 		load=loadPre(config["load"]["portcullis"]),
-		strand=lambda wildcards: portcullisStrandOption(wildcards.aln_method)
+		strand=lambda wildcards: portcullisStrandOption(wildcards.aln_method, loadPre(config["load"]["portcullis"]), "junc")
 	log: PORTCULLIS_DIR+"/portcullis_{aln_method}-junc.log"
 	threads: THREADS
 	message: "Using portcullis to analyse potential junctions: {wildcards.aln_method}"

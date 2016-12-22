@@ -298,7 +298,6 @@ def extractSample(align_run):
 	parts = align_run.split("-")
 	return parts[1]
 
-
 def trinityStrandOption(sample):
 	if SAMPLE_MAP[sample] == "fr-firststrand":
 		return "--SS_lib_type=RF"
@@ -312,19 +311,19 @@ def trinityStrandOption(sample):
 		return ""
 
 def portcullisStrandOption(run, command, step):
-	parts=run.split("-")
-	sample=parts[1]
-	cmd = subprocess.Popen("{} portcullis {} --help".format(command, step),
+    parts=run.split("-")
+    sample=parts[1]
+    cmd = subprocess.Popen("{} portcullis {} --help".format(command, step),
 	                       shell=True, stdout=subprocess.PIPE).stdout.read().decode()
     if not any("strandedness" in _ for _ in cmd.split("\n")):
         return ""
     else:
-	    if SAMPLE_MAP[sample] == "fr-firststrand":
-		    return "--strandedness=firststrand"
-	    elif SAMPLE_MAP[sample] == "fr-secondstrand":
-		    return "--strandedness=secondstrand"
-	    else:
-		    return "--strandedness=unstranded"
+        if SAMPLE_MAP[sample] == "fr-firststrand":
+            return "--strandedness=firststrand"
+        elif SAMPLE_MAP[sample] == "fr-secondstrand":
+            return "--strandedness=secondstrand"
+        else:
+            return "--strandedness=unstranded"
 
 def loadPre(command):
         cc = command.strip()
@@ -352,6 +351,26 @@ def trinity_memory_tag(command):
             return "--JM"
         else:
             return "--max_memory"
+
+def trinityInput(sample):
+    if not seSample(sample):
+        return "--left={} --right={}".format(INPUT_1_MAP[sample], INPUT_2_MAP[sample])
+    else:
+        return "--single={} ".format(INPUT_1_MAP[sample])
+
+def trinityParameters(command, sample, REF, TGG_MAX_MEM):
+    cmd = "set +u && {} && Trinity --version && set -u".format(command)
+    output = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE).stdout.read().decode()
+    version = [_ for _ in output.split("\n") if re.match("Trinity version:", _)][0]
+    version = re.sub("Trinity version: [^_]*_(r|v)", "", version)
+    if version.startswith("201"):   # Old versions
+        reads = trinityInput(sample)
+        memory = "--JM={}".format(TGG_MAX_MEM)
+        cmd = "{reads} --genome={ref} {memory} --genome_guided_use_bam=".format(reads=reads, ref=REF, memory=memory)
+    else:
+        memory="--max_memory=".format(TGG_MAX_MEM)
+        cmd = " {memory} --genome_guided_bam=".format(memory=memory)
+    return cmd
 
 
 #########################
@@ -605,12 +624,11 @@ rule asm_trinitygg:
 		load=loadPre(config["load"]["trinity"]),
 		extra=lambda wildcards: config["asm_methods"]["trinity"][int(wildcards.run2)],
 		strand=lambda wildcards: trinityStrandOption(extractSample(wildcards.alrun)),
-		genome_bam=trinity_bam_tag(config["load"]["trinity"]),
-		memory_tag=trinity_memory_tag(config["load"]["trinity"])
+		base_parameters=lambda wildcards: trinityParameters(config["load"]["trinity"], extractSample(wildcards.alrun), REF, TGG_MAX_MEM)
 	log: ASM_DIR+"/trinity-{run2}-{alrun}.log"
 	threads: THREADS
 	message: "Using trinity in genome guided mode to assemble (run {wildcards.run2}): {input.bam}"
-	shell: "{params.load} Trinity --seqType=fq {params.strand} --output={params.outdir} {params.genome_bam}={input.bam} {params.extra} --full_cleanup --genome_guided_max_intron={MAX_INTRON} {params.memory_tag}={TGG_MAX_MEM} --CPU={threads} > {log} 2>&1"
+	shell: "{params.load} Trinity --seqType=fq {params.strand} --output={params.outdir} {params.extra} --full_cleanup --genome_guided_max_intron={MAX_INTRON}  --CPU={threads}  {params.base_parameters}={input.bam} > {log} 2>&1"
 
 rule gmap_index:
         input: REF

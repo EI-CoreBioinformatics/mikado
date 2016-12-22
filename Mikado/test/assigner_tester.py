@@ -1010,6 +1010,7 @@ class AssignerTester(unittest.TestCase):
         args.index = False
         args.self = False
         args.extended_refmap = False
+        args.gzip = False
 
         Mikado.scales.compare.compare(args)
 

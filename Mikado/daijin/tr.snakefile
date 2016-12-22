@@ -332,26 +332,6 @@ def loadPre(command):
         else:
                 return "set +u && {} &&".format(cc)
 
-def trinity_bam_tag(command):
-        cmd = "set +u && {} && Trinity --version && set -u".format(command)
-        output = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE).stdout.read().decode()
-        version = [_ for _ in output.split("\n") if re.match("Trinity version:", _)][0]
-        version = re.sub("Trinity version: [^_]*_(r|v)", "", version)
-        if not version.startswith("2."):
-            return "--genome_guided_use_bam"
-        else:
-            return "--genome_guided_bam"
-
-def trinity_memory_tag(command):
-        cmd = "set +u && {} && Trinity --version && set -u".format(command)
-        output = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE).stdout.read().decode()
-        version = [_ for _ in output.split("\n") if re.match("Trinity version:", _)][0]
-        version = re.sub("Trinity version: [^_]*_(r|v)", "", version)
-        if not version.startswith("2."):
-            return "--JM"
-        else:
-            return "--max_memory"
-
 def trinityInput(sample):
     if not seSample(sample):
         return "--left={} --right={}".format(INPUT_1_MAP[sample], INPUT_2_MAP[sample])
@@ -363,6 +343,10 @@ def trinityParameters(command, sample, REF, TGG_MAX_MEM):
     output = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE).stdout.read().decode()
     version = [_ for _ in output.split("\n") if re.match("Trinity version:", _)][0]
     version = re.sub("Trinity version: [^_]*_(r|v)", "", version)
+    if str(TGG_MAX_MEM).isdigit() is True:
+        TGG_MAX_MEM = int(TGG_MAX_MEM)
+        if TGG_MAX_MEM >= 1000:
+            TGG_MAX_MEM = "{}G".format(int(TGG_MAX_MEM/1000))
     if version.startswith("201"):   # Old versions
         reads = trinityInput(sample)
         memory = "--JM={}".format(TGG_MAX_MEM)

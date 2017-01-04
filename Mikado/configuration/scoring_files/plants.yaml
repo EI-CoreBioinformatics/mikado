@@ -26,8 +26,8 @@ not_fragmentary:
 #   parameters:
 #     combined_cds_length: {operator: gt, value: 300}
 scoring:
-  # blast_score: {rescaling: max}
-  snowy_blast_score: {rescaling: max}
+  blast_score: {rescaling: max}
+  # snowy_blast_score: {rescaling: max}
   cdna_length: {rescaling: max}
   cds_not_maximal: {rescaling: min}
   cds_not_maximal_fraction: {rescaling: min}
@@ -44,6 +44,7 @@ scoring:
     value: 100
   five_utr_num:
     filter: {operator: lt, value: 4}
+    use_raw: true
     rescaling: target
     value: 2
   end_distance_from_junction:

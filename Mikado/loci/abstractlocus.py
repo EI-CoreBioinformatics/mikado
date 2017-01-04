@@ -494,39 +494,29 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         :rtype : None
         """
 
-        # introns = intervaltree.IntervalTree([
-        #     intervaltree.Interval(*intron) for intron in self.combined_cds_introns
-        # ])
-
         self.logger.debug("Starting to calculate retained introns for %s", transcript.id)
-        if len(self._cds_introntree) == 0:
+        if len(self.introns) == 0 or len(self._cds_introntree) == 0:
             transcript.retained_introns = tuple()
-            self.logger.debug("No CDS intron found in %s, exiting for %s",
-                              self.id,
-                              transcript.id)
+            self.logger.debug("No introns in the locus to check against. Exiting.")
             return
 
-        # self.logger.debug("Introns: %d (%d orig, %d (%d, %d CDS segs) transcript)",
-        #                   len(self._cds_introntree), len(self.combined_cds_introns),
-        #                   len(transcript.combined_cds_introns),
-        #                   len(transcript.selected_cds_introns),
-        #                   len(transcript.selected_cds))
-
         retained_introns = []
-        if len(self.introns) == 0:
-            self.logger.debug("No introns in the locus to check against. Exiting.")
 
         if transcript.cds_tree is None:
             # Enlarge the CDS segments if they are of length 1
             transcript.cds_tree = IntervalTree.from_tuples(
                 [(cds[0], max(cds[1], cds[0] + 1)) for cds in transcript.combined_cds])
 
-            # transcript.cds_tree = intervaltree.IntervalTree(
-            #     [intervaltree.Interval(cds[0], max(cds[1], cds[0]+1))
-            #      for cds in transcript.combined_cds])
-
-        for exon in iter(_ for _ in transcript.exons if _ not in transcript.combined_cds):
+        for exon in iter(_ for _ in transcript.exons if
+                         (_ not in transcript.combined_cds or
+                              (_ in transcript.combined_cds and
+                                   (_[0] == transcript.combined_cds_end or _[1] == transcript.combined_cds_end)))):
             # Ignore stuff that is at the 5'
+            if exon not in transcript.combined_cds:
+                strict = True
+            else:
+                strict = False
+
             if transcript.combined_cds_length > 0:
                 if transcript.strand == "+" and exon[1] < transcript.combined_cds_start:
                     continue
@@ -534,7 +524,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                     continue
 
             cds_segments = sorted(transcript.cds_tree.search(*exon))
-            if not cds_segments:
+            if not cds_segments or not strict:
                 frags = [exon]
             else:
                 frags = []
@@ -558,18 +548,18 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
                 cds_introns = self.transcripts[tid]._cds_introntree.find(exon[0],
                                                                          exon[1],
-                                                                         strict=True)
+                                                                         strict=strict)
                 # cds_introns = [_ for _ in cds_introns if _.start >= exon[0] and _.end <= exon[1]]
-
-                for frag in frags:
-                    if is_retained:
-                        break
-                    for intr in cds_introns:
-                        if overlap((frag[0], frag[1]), (intr[0], intr[1])) > 0:
-                            self.logger.debug("Exon %s of %s is a retained intron",
-                                              exon, transcript.id)
-                            is_retained = True
+                if len(cds_introns) > 0:
+                    for frag in frags:
+                        if is_retained:
                             break
+                        for intr in cds_introns:
+                            if overlap((frag[0], frag[1]), (intr[0], intr[1])) > 0:
+                                self.logger.debug("Exon %s of %s is a retained intron",
+                                                  exon, transcript.id)
+                                is_retained = True
+                                break
 
             if is_retained:
                 retained_introns.append(exon)
@@ -821,6 +811,10 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             logger = create_null_logger(self)
         elif not isinstance(logger, logging.Logger):
             raise TypeError("Invalid logger: {0}".format(type(logger)))
+        else:
+            while len(logger.handlers) > 1:
+                logger.handlers.pop()
+            logger.propagate = False
         self.__logger = logger
 
     @logger.deleter

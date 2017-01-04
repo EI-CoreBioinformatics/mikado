@@ -5,6 +5,7 @@
     "rescaling": {"type": "string", "enum": ["max", "min", "target"]},
     "value": {"oneOf": [{"type": "number"}, {"type": "boolean"}]},
     "multiplier": {"type": "number", "default": 1, "minVal": 0.00001},
+    "use_raw": {"type": "boolean", "default": false},
     "filter": {
       "type": "object",
       "properties":{

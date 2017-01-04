@@ -33,6 +33,16 @@ import itertools
 __author__ = 'Luca Venturini'
 
 
+# Hack to give the ujson library this exception class
+# This becomes necessary when we happen to have a corrupted index
+if not hasattr(json, "decoder"):
+
+    class decoder:
+        class JSONDecodeError(TypeError):
+            pass
+    json.decoder = decoder
+
+
 def setup_logger(args, manager):
 
     """

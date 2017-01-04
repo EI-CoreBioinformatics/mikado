@@ -187,8 +187,9 @@ reached the maximum number of isoforms for the locus".format(
                     to_remove.add(tid)
                 else:
                     continue
-            if (self.json_conf["pick"]["alternative_splicing"]["keep_retained_introns"] is False
-                and to_remove):
+            if not to_remove:
+                break
+            elif self.json_conf["pick"]["alternative_splicing"]["keep_retained_introns"] is False:
                 self.logger.debug("Removing {} because they contain retained introns".format(
                     ", ".join(list(to_remove))))
                 for tid in to_remove:
@@ -199,8 +200,6 @@ reached the maximum number of isoforms for the locus".format(
             elif self.json_conf["pick"]["alternative_splicing"]["keep_retained_introns"] is True:
                 for tid in to_remove:
                     self.transcripts[tid].attributes["retained_intron"] = True
-                break
-            elif not to_remove:
                 break
 
         return

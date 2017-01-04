@@ -34,7 +34,14 @@ import functools
 
 class Metric(property):
     """Simple aliasing of property. All transcript metrics
-    should use this alias, not "property", as a decorator."""
+    should use this alias, not "property", as a decorator.
+    Any metric has two properties of its own:
+    - "category": this is just a string which acts as a general label for the metric
+    (e.g., "CDS", "Locus", etc.)
+    - "usable_raw": a boolean flag that indicates whether the metric can be used as
+    a raw score in itself. *Only metrics whose possible values are between 0 and 1 can be used
+      this way*.
+    """
 
     __category__ = None
 
@@ -49,6 +56,22 @@ class Metric(property):
     category = property(lambda self: self.category_getter(),
                         lambda self, v: self.category_setter(v),
                         lambda self: None)
+
+    # The "raw_valid"
+    __usable_raw__ = False
+
+    def raw_getter(self):
+
+        return self.__usable_raw__
+
+    def raw_setter(self, boolean):
+        if not isinstance(boolean, bool):
+            raise ValueError("The \"usable_raw\" property must be boolean!")
+        self.__usable_raw__ = boolean
+
+    usable_raw = property(lambda self: self.raw_getter(),
+                          lambda self, v: self.raw_setter(v),
+                          lambda self: None)
 
     pass
 
@@ -375,15 +398,14 @@ class Transcript:
         :type feature: flag to indicate what kind of feature we are adding
         """
 
+        phase = None
         if isinstance(gffline, (tuple, list)):
             assert len(gffline) == 2
             start, end = sorted(gffline)
-            phase = None
             if feature is None:
                 feature = "exon"
         elif isinstance(gffline, intervaltree.Interval):
             start, end = gffline[0], gffline[1]
-            phase = None
             if feature is None:
                 feature = "exon"
         elif isinstance(gffline, Interval):
@@ -1682,6 +1704,7 @@ index {3}, internal ORFs: {4}".format(
         return len(self.combined_cds) / len(self.exons)
 
     combined_cds_num_fraction.category = "CDS"
+    combined_cds_num_fraction.usable_raw = True
 
     @Metric
     def combined_cds_fraction(self):
@@ -1690,6 +1713,7 @@ index {3}, internal ORFs: {4}".format(
         return self.combined_cds_length / self.cdna_length
 
     combined_cds_fraction.category = "CDS"
+    combined_cds_fraction.usable_raw = True
 
     @Metric
     def combined_utr_length(self):
@@ -1704,7 +1728,8 @@ index {3}, internal ORFs: {4}".format(
         to any ORF. Complement of combined_cds_fraction"""
         return 1 - self.combined_cds_fraction
 
-    combined_utr_fraction.__category = "UTR"
+    combined_utr_fraction.category = "UTR"
+    combined_utr_fraction.usable_raw = True
 
     @Metric
     def cdna_length(self):
@@ -1752,6 +1777,7 @@ index {3}, internal ORFs: {4}".format(
         return self.selected_cds_length / self.cdna_length
 
     selected_cds_fraction.category = "CDS"
+    selected_cds_fraction.usable_raw = True
 
     @Metric
     def highest_cds_exons_num(self):
@@ -1772,6 +1798,7 @@ index {3}, internal ORFs: {4}".format(
         #                        self.selected_internal_orf))) / len(self.exons)
 
     selected_cds_exons_fraction.category = "CDS"
+    selected_cds_exons_fraction.usable_raw = True
 
     @Metric
     def highest_cds_exon_number(self):
@@ -1817,6 +1844,7 @@ index {3}, internal ORFs: {4}".format(
             return self.cds_not_maximal / self.combined_cds_length
 
     cds_not_maximal_fraction.category = "CDS"
+    cds_not_maximal_fraction.usable_raw = True
 
     @Metric
     def five_utr_length(self):
@@ -1889,6 +1917,7 @@ index {3}, internal ORFs: {4}".format(
         return 1 - self.selected_cds_fraction
 
     utr_fraction.category = "UTR"
+    utr_fraction.usable_raw = True
 
     @Metric
     def utr_length(self):
@@ -1973,6 +2002,7 @@ index {3}, internal ORFs: {4}".format(
         self.__exon_fraction = args[0]
 
     exon_fraction.category = "Locus"
+    exon_fraction.usable_raw = True
 
     @Metric
     def intron_fraction(self):
@@ -1997,6 +2027,7 @@ index {3}, internal ORFs: {4}".format(
         self.__intron_fraction = args[0]
 
     intron_fraction.category = "Locus"
+    intron_fraction.usable_raw = True
 
     @Metric
     def combined_cds_locus_fraction(self):
@@ -2013,12 +2044,13 @@ index {3}, internal ORFs: {4}".format(
         self.__combined_cds_locus_fraction = value
 
     combined_cds_locus_fraction.category = "Locus"
+    combined_cds_locus_fraction.usable_raw = True
 
     @Metric
     def selected_cds_locus_fraction(self):
         """This metric returns the fraction of CDS bases of the transcript
         vs. the total of CDS bases in the locus."""
-        return self.__combined_cds_locus_fraction
+        return self.__selected_cds_locus_fraction
 
     @selected_cds_locus_fraction.setter
     def selected_cds_locus_fraction(self, value):
@@ -2029,6 +2061,7 @@ index {3}, internal ORFs: {4}".format(
         self.__selected_cds_locus_fraction = value
 
     selected_cds_locus_fraction.category = "Locus"
+    selected_cds_locus_fraction.usable_raw = True
 
     @Metric
     def max_intron_length(self):
@@ -2265,6 +2298,7 @@ index {3}, internal ORFs: {4}".format(
         self.__combined_cds_intron_fraction = value
 
     combined_cds_intron_fraction.category = "Locus"
+    combined_cds_intron_fraction.usable_raw = True
 
     @Metric
     def selected_cds_intron_fraction(self):
@@ -2288,6 +2322,7 @@ index {3}, internal ORFs: {4}".format(
         self.__selected_cds_intron_fraction = args[0]
 
     selected_cds_intron_fraction.category = "CDS"
+    selected_cds_intron_fraction.usable_raw = True
 
     @Metric
     def retained_intron_num(self):
@@ -2316,6 +2351,7 @@ index {3}, internal ORFs: {4}".format(
         self.__retained_fraction = args[0]
 
     retained_fraction.category = "Locus"
+    retained_fraction.usable_raw = True
 
     @Metric
     def proportion_verified_introns(self):
@@ -2327,6 +2363,7 @@ index {3}, internal ORFs: {4}".format(
             return len(self.verified_introns) / len(self.introns)
 
     proportion_verified_introns.category = "External"
+    proportion_verified_introns.usable_raw = True
 
     @Metric
     def non_verified_introns_num(self):
@@ -2403,6 +2440,7 @@ index {3}, internal ORFs: {4}".format(
         self.__proportion_verified_introns_inlocus = value
 
     proportion_verified_introns_inlocus.category = "Locus"
+    proportion_verified_introns_inlocus.usable_raw = True
 
     @Metric
     def num_introns_greater_than_max(self):
@@ -2504,3 +2542,4 @@ index {3}, internal ORFs: {4}".format(
         return float(self.attributes.get("canonical_proportion", 0))
 
     canonical_intron_proportion.category = "Intron"
+    canonical_intron_proportion.usable_raw = True

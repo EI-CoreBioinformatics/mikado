@@ -293,6 +293,8 @@ class Sublocus(Abstractlocus):
         """
 
         if self.scores_calculated is True:
+            self.logger.debug("Scores calculation already effectuated for %s",
+                              self.id)
             return
 
         self.get_metrics()
@@ -382,19 +384,35 @@ class Sublocus(Abstractlocus):
         """
 
         rescaling = self.json_conf["scoring"][param]["rescaling"]
-        metrics = [getattr(self.transcripts[tid], param) for tid in self.transcripts]
+        use_raw = self.json_conf["scoring"][param]["use_raw"]
+
+        if use_raw is True and getattr(Transcript, param).usable_raw is False:
+            self.logger.debug("The \"%s\" metric cannot be used as a raw score for %s, switching to False",
+                              param, self.id)
+            use_raw = False
+        if use_raw is True and rescaling == "target":
+            self.logger.debug("I cannot use a raw score for %s in %s when looking for a target. Switching to False",
+                              param, self.id)
+            use_raw = False
+
+        metrics = dict((tid, getattr(self.transcripts[tid], param)) for tid in self.transcripts)
         if rescaling == "target":
             target = self.json_conf["scoring"][param]["value"]
-            denominator = max(abs(x - target) for x in metrics)
+            denominator = max(abs(x - target) for x in metrics.values())
         else:
             target = None
-            denominator = (max(metrics) - min(metrics))
+            if use_raw is True and rescaling == "max":
+                denominator = 1
+            elif use_raw is True and rescaling == "min":
+                denominator = -1
+            else:
+                denominator = (max(metrics.values()) - min(metrics.values()))
         if denominator == 0:
             denominator = 1
 
         scores = []
-        for tid in self.transcripts:
-            tid_metric = getattr(self.transcripts[tid], param)
+        for tid in metrics:
+            tid_metric = metrics[tid]
             score = 0
             check = True
             if ("filter" in self.json_conf["scoring"][param] and
@@ -402,15 +420,18 @@ class Sublocus(Abstractlocus):
                 check = self.evaluate(tid_metric, self.json_conf["scoring"][param]["filter"])
 
             if check is True:
-                if rescaling == "target":
+                if use_raw is True:
+                    assert isinstance(tid_metric, (float, int)) and 0 <= tid_metric <= 1, (tid_metric, score)
+                    score = tid_metric / denominator
+                elif rescaling == "target":
                     score = 1 - abs(tid_metric - target) / denominator
                 else:
-                    if min(metrics) == max(metrics):
+                    if min(metrics.values()) == max(metrics.values()):
                         score = 1
                     elif rescaling == "max":
-                        score = abs((tid_metric - min(metrics)) / denominator)
+                        score = abs((tid_metric - min(metrics.values())) / denominator)
                     elif rescaling == "min":
-                        score = abs(1 - (tid_metric - min(metrics)) / denominator)
+                        score = abs(1 - (tid_metric - min(metrics.values())) / denominator)
 
             score *= self.json_conf["scoring"][param]["multiplier"]
             self.scores[tid][param] = round(score, 2)

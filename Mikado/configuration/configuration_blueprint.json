@@ -657,6 +657,10 @@
               "type": "boolean",
               "default": false
             },
+            "consider_truncated_for_retained": {
+              "type": "boolean",
+              "default": false
+            },
             "procs": {
               "type": "integer",
               "default": 1,

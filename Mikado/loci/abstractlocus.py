@@ -512,7 +512,8 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                               (_ in transcript.combined_cds and
                                    (_[0] == transcript.combined_cds_end or _[1] == transcript.combined_cds_end)))):
             # Ignore stuff that is at the 5'
-            if exon not in transcript.combined_cds:
+            if (exon not in transcript.combined_cds or
+                    not self.json_conf["pick"]["run_options"]["consider_truncated_for_retained"]):
                 strict = True
             else:
                 strict = False

@@ -1,0 +1,183 @@
+##gff-version	3
+Chr5	tair10	cDNA_match	26578496	26578518	.	-	.	ID=c73_g1_i1.mrna1.160;Name=c73_g1_i1.mrna1.160;Target=c73_g1_i1.mrna1.160
+Chr5	tair10	cDNA_match	26579301	26579563	.	-	.	ID=c73_g1_i1.mrna1.160;Name=c73_g1_i1.mrna1.160;Target=c73_g1_i1.mrna1.160
+###
+Chr5	tair10	cDNA_match	26581225	26581528	.	-	.	ID=c11_g1_i2.mrna1.111;Name=c11_g1_i2.mrna1.111;Target=c11_g1_i2.mrna1.111
+Chr5	tair10	cDNA_match	26583335	26583874	.	-	.	ID=c11_g1_i2.mrna1.111;Name=c11_g1_i2.mrna1.111;Target=c11_g1_i2.mrna1.111
+###
+Chr5	tair10	cDNA_match	26583216	26583874	.	-	.	ID=c11_g1_i1.mrna1.350;Name=c11_g1_i1.mrna1.350;Target=c11_g1_i1.mrna1.350
+###
+Chr5	tair10	cDNA_match	26584173	26584278	.	-	.	ID=c3_g1_i2.mrna1.181;Name=c3_g1_i2.mrna1.181;Target=c3_g1_i2.mrna1.181
+Chr5	tair10	cDNA_match	26584358	26584464	.	-	.	ID=c3_g1_i2.mrna1.181;Name=c3_g1_i2.mrna1.181;Target=c3_g1_i2.mrna1.181
+###
+Chr5	tair10	cDNA_match	26584173	26584464	.	+	.	ID=c3_g1_i1.mrna1.716;Name=c3_g1_i1.mrna1.716;Target=c3_g1_i1.mrna1.716
+###
+Chr5	tair10	cDNA_match	26584797	26584879	.	+	.	ID=c58_g1_i3.mrna1.19;Name=c58_g1_i3.mrna1.19;Target=c58_g1_i3.mrna1.19
+Chr5	tair10	cDNA_match	26585220	26585273	.	+	.	ID=c58_g1_i3.mrna1.19;Name=c58_g1_i3.mrna1.19;Target=c58_g1_i3.mrna1.19
+Chr5	tair10	cDNA_match	26585345	26585889	.	+	.	ID=c58_g1_i3.mrna1.19;Name=c58_g1_i3.mrna1.19;Target=c58_g1_i3.mrna1.19
+Chr5	tair10	cDNA_match	26585982	26586294	.	+	.	ID=c58_g1_i3.mrna1.19;Name=c58_g1_i3.mrna1.19;Target=c58_g1_i3.mrna1.19
+Chr5	tair10	cDNA_match	26586420	26586524	.	+	.	ID=c58_g1_i3.mrna1.19;Name=c58_g1_i3.mrna1.19;Target=c58_g1_i3.mrna1.19
+Chr5	tair10	cDNA_match	26586638	26586850	.	+	.	ID=c58_g1_i3.mrna1.19;Name=c58_g1_i3.mrna1.19;Target=c58_g1_i3.mrna1.19
+Chr5	tair10	cDNA_match	26586934	26586996	.	+	.	ID=c58_g1_i3.mrna1.19;Name=c58_g1_i3.mrna1.19;Target=c58_g1_i3.mrna1.19
+Chr5	tair10	cDNA_match	26587084	26587202	.	+	.	ID=c58_g1_i3.mrna1.19;Name=c58_g1_i3.mrna1.19;Target=c58_g1_i3.mrna1.19
+Chr5	tair10	cDNA_match	26587287	26587345	.	+	.	ID=c58_g1_i3.mrna1.19;Name=c58_g1_i3.mrna1.19;Target=c58_g1_i3.mrna1.19
+Chr5	tair10	cDNA_match	26587427	26587472	.	+	.	ID=c58_g1_i3.mrna1.19;Name=c58_g1_i3.mrna1.19;Target=c58_g1_i3.mrna1.19
+Chr5	tair10	cDNA_match	26595411	26595528	.	+	.	ID=c58_g1_i3.mrna1.19;Name=c58_g1_i3.mrna1.19;Target=c58_g1_i3.mrna1.19
+###
+Chr5	tair10	cDNA_match	26585507	26585889	.	+	.	ID=c58_g1_i2.mrna1.35;Name=c58_g1_i2.mrna1.35;Target=c58_g1_i2.mrna1.35
+Chr5	tair10	cDNA_match	26585982	26586102	.	+	.	ID=c58_g1_i2.mrna1.35;Name=c58_g1_i2.mrna1.35;Target=c58_g1_i2.mrna1.35
+Chr5	tair10	cDNA_match	26586217	26586294	.	+	.	ID=c58_g1_i2.mrna1.35;Name=c58_g1_i2.mrna1.35;Target=c58_g1_i2.mrna1.35
+Chr5	tair10	cDNA_match	26586420	26586524	.	+	.	ID=c58_g1_i2.mrna1.35;Name=c58_g1_i2.mrna1.35;Target=c58_g1_i2.mrna1.35
+Chr5	tair10	cDNA_match	26586638	26586850	.	+	.	ID=c58_g1_i2.mrna1.35;Name=c58_g1_i2.mrna1.35;Target=c58_g1_i2.mrna1.35
+###
+Chr5	tair10	cDNA_match	26586851	26586996	.	+	.	ID=c58_g1_i1.mrna1.190;Name=c58_g1_i1.mrna1.190;Target=c58_g1_i1.mrna1.190
+Chr5	tair10	cDNA_match	26587084	26587202	.	+	.	ID=c58_g1_i1.mrna1.190;Name=c58_g1_i1.mrna1.190;Target=c58_g1_i1.mrna1.190
+Chr5	tair10	cDNA_match	26587287	26587345	.	+	.	ID=c58_g1_i1.mrna1.190;Name=c58_g1_i1.mrna1.190;Target=c58_g1_i1.mrna1.190
+Chr5	tair10	cDNA_match	26587427	26587472	.	+	.	ID=c58_g1_i1.mrna1.190;Name=c58_g1_i1.mrna1.190;Target=c58_g1_i1.mrna1.190
+Chr5	tair10	cDNA_match	26595411	26595457	.	+	.	ID=c58_g1_i1.mrna1.190;Name=c58_g1_i1.mrna1.190;Target=c58_g1_i1.mrna1.190
+###
+Chr5	tair10	cDNA_match	26586851	26587202	.	+	.	ID=c58_g1_i7.mrna1.1;Name=c58_g1_i7.mrna1.1;Target=c58_g1_i7.mrna1.1
+Chr5	tair10	cDNA_match	26587287	26587345	.	+	.	ID=c58_g1_i7.mrna1.1;Name=c58_g1_i7.mrna1.1;Target=c58_g1_i7.mrna1.1
+Chr5	tair10	cDNA_match	26587427	26587472	.	+	.	ID=c58_g1_i7.mrna1.1;Name=c58_g1_i7.mrna1.1;Target=c58_g1_i7.mrna1.1
+Chr5	tair10	cDNA_match	26595411	26595457	.	+	.	ID=c58_g1_i7.mrna1.1;Name=c58_g1_i7.mrna1.1;Target=c58_g1_i7.mrna1.1
+###
+Chr5	tair10	cDNA_match	26587455	26587912	.	+	.	ID=c108_g1_i1.mrna1.104;Name=c108_g1_i1.mrna1.104;Target=c108_g1_i1.mrna1.104
+###
+Chr5	tair10	cDNA_match	26588408	26588625	.	+	.	ID=c58_g1_i11.mrna1;Name=c58_g1_i11.mrna1;Target=c58_g1_i11.mrna1
+Chr5	tair10	cDNA_match	26589196	26589279	.	+	.	ID=c58_g1_i11.mrna1;Name=c58_g1_i11.mrna1;Target=c58_g1_i11.mrna1
+Chr5	tair10	cDNA_match	26589386	26590167	.	+	.	ID=c58_g1_i11.mrna1;Name=c58_g1_i11.mrna1;Target=c58_g1_i11.mrna1
+Chr5	tair10	cDNA_match	26590261	26590393	.	+	.	ID=c58_g1_i11.mrna1;Name=c58_g1_i11.mrna1;Target=c58_g1_i11.mrna1
+Chr5	tair10	cDNA_match	26594172	26594243	.	+	.	ID=c58_g1_i11.mrna1;Name=c58_g1_i11.mrna1;Target=c58_g1_i11.mrna1
+Chr5	tair10	cDNA_match	26594318	26594772	.	+	.	ID=c58_g1_i11.mrna1;Name=c58_g1_i11.mrna1;Target=c58_g1_i11.mrna1
+###
+Chr5	tair10	cDNA_match	26588408	26588625	.	+	.	ID=c58_g1_i5.mrna1.3;Name=c58_g1_i5.mrna1.3;Target=c58_g1_i5.mrna1.3
+Chr5	tair10	cDNA_match	26589196	26589279	.	+	.	ID=c58_g1_i5.mrna1.3;Name=c58_g1_i5.mrna1.3;Target=c58_g1_i5.mrna1.3
+Chr5	tair10	cDNA_match	26589386	26590167	.	+	.	ID=c58_g1_i5.mrna1.3;Name=c58_g1_i5.mrna1.3;Target=c58_g1_i5.mrna1.3
+Chr5	tair10	cDNA_match	26590261	26590393	.	+	.	ID=c58_g1_i5.mrna1.3;Name=c58_g1_i5.mrna1.3;Target=c58_g1_i5.mrna1.3
+Chr5	tair10	cDNA_match	26590495	26590566	.	+	.	ID=c58_g1_i5.mrna1.3;Name=c58_g1_i5.mrna1.3;Target=c58_g1_i5.mrna1.3
+Chr5	tair10	cDNA_match	26590641	26590739	.	+	.	ID=c58_g1_i5.mrna1.3;Name=c58_g1_i5.mrna1.3;Target=c58_g1_i5.mrna1.3
+Chr5	tair10	cDNA_match	26590880	26591092	.	+	.	ID=c58_g1_i5.mrna1.3;Name=c58_g1_i5.mrna1.3;Target=c58_g1_i5.mrna1.3
+Chr5	tair10	cDNA_match	26591174	26591236	.	+	.	ID=c58_g1_i5.mrna1.3;Name=c58_g1_i5.mrna1.3;Target=c58_g1_i5.mrna1.3
+Chr5	tair10	cDNA_match	26591324	26591442	.	+	.	ID=c58_g1_i5.mrna1.3;Name=c58_g1_i5.mrna1.3;Target=c58_g1_i5.mrna1.3
+Chr5	tair10	cDNA_match	26591520	26591578	.	+	.	ID=c58_g1_i5.mrna1.3;Name=c58_g1_i5.mrna1.3;Target=c58_g1_i5.mrna1.3
+Chr5	tair10	cDNA_match	26591681	26592026	.	+	.	ID=c58_g1_i5.mrna1.3;Name=c58_g1_i5.mrna1.3;Target=c58_g1_i5.mrna1.3
+Chr5	tair10	cDNA_match	26595712	26598230	.	+	.	ID=c58_g1_i5.mrna1.3;Name=c58_g1_i5.mrna1.3;Target=c58_g1_i5.mrna1.3
+###
+Chr5	tair10	cDNA_match	26588408	26588625	.	+	.	ID=c58_g1_i10.mrna1;Name=c58_g1_i10.mrna1;Target=c58_g1_i10.mrna1
+Chr5	tair10	cDNA_match	26589196	26589279	.	+	.	ID=c58_g1_i10.mrna1;Name=c58_g1_i10.mrna1;Target=c58_g1_i10.mrna1
+Chr5	tair10	cDNA_match	26589386	26590167	.	+	.	ID=c58_g1_i10.mrna1;Name=c58_g1_i10.mrna1;Target=c58_g1_i10.mrna1
+Chr5	tair10	cDNA_match	26590261	26590393	.	+	.	ID=c58_g1_i10.mrna1;Name=c58_g1_i10.mrna1;Target=c58_g1_i10.mrna1
+Chr5	tair10	cDNA_match	26594172	26594243	.	+	.	ID=c58_g1_i10.mrna1;Name=c58_g1_i10.mrna1;Target=c58_g1_i10.mrna1
+Chr5	tair10	cDNA_match	26594318	26594416	.	+	.	ID=c58_g1_i10.mrna1;Name=c58_g1_i10.mrna1;Target=c58_g1_i10.mrna1
+Chr5	tair10	cDNA_match	26594569	26594772	.	+	.	ID=c58_g1_i10.mrna1;Name=c58_g1_i10.mrna1;Target=c58_g1_i10.mrna1
+Chr5	tair10	cDNA_match	26594860	26594877	.	+	.	ID=c58_g1_i10.mrna1;Name=c58_g1_i10.mrna1;Target=c58_g1_i10.mrna1
+Chr5	tair10	cDNA_match	26601005	26601049	.	+	.	ID=c58_g1_i10.mrna1;Name=c58_g1_i10.mrna1;Target=c58_g1_i10.mrna1
+###
+Chr5	tair10	cDNA_match	26588603	26588854	.	+	.	ID=c68_g1_i1.mrna1.173;Name=c68_g1_i1.mrna1.173;Target=c68_g1_i1.mrna1.173
+Chr5	tair10	cDNA_match	26589196	26589218	.	+	.	ID=c68_g1_i1.mrna1.173;Name=c68_g1_i1.mrna1.173;Target=c68_g1_i1.mrna1.173
+###
+Chr5	tair10	cDNA_match	26591174	26591236	.	+	.	ID=c58_g1_i11.mrna2;Name=c58_g1_i11.mrna2;Target=c58_g1_i11.mrna2
+Chr5	tair10	cDNA_match	26591324	26591442	.	+	.	ID=c58_g1_i11.mrna2;Name=c58_g1_i11.mrna2;Target=c58_g1_i11.mrna2
+Chr5	tair10	cDNA_match	26591520	26591578	.	+	.	ID=c58_g1_i11.mrna2;Name=c58_g1_i11.mrna2;Target=c58_g1_i11.mrna2
+Chr5	tair10	cDNA_match	26591681	26591770	.	+	.	ID=c58_g1_i11.mrna2;Name=c58_g1_i11.mrna2;Target=c58_g1_i11.mrna2
+Chr5	tair10	cDNA_match	26595456	26595528	.	+	.	ID=c58_g1_i11.mrna2;Name=c58_g1_i11.mrna2;Target=c58_g1_i11.mrna2
+###
+Chr5	tair10	cDNA_match	26591324	26591442	.	+	.	ID=c58_g1_i8.mrna2;Name=c58_g1_i8.mrna2;Target=c58_g1_i8.mrna2
+Chr5	tair10	cDNA_match	26591520	26591578	.	+	.	ID=c58_g1_i8.mrna2;Name=c58_g1_i8.mrna2;Target=c58_g1_i8.mrna2
+Chr5	tair10	cDNA_match	26591681	26591845	.	+	.	ID=c58_g1_i8.mrna2;Name=c58_g1_i8.mrna2;Target=c58_g1_i8.mrna2
+Chr5	tair10	cDNA_match	26591942	26591981	.	+	.	ID=c58_g1_i8.mrna2;Name=c58_g1_i8.mrna2;Target=c58_g1_i8.mrna2
+###
+Chr5	tair10	cDNA_match	26591324	26591442	.	+	.	ID=c58_g1_i10.mrna2;Name=c58_g1_i10.mrna2;Target=c58_g1_i10.mrna2
+Chr5	tair10	cDNA_match	26591520	26591578	.	+	.	ID=c58_g1_i10.mrna2;Name=c58_g1_i10.mrna2;Target=c58_g1_i10.mrna2
+Chr5	tair10	cDNA_match	26591681	26591845	.	+	.	ID=c58_g1_i10.mrna2;Name=c58_g1_i10.mrna2;Target=c58_g1_i10.mrna2
+Chr5	tair10	cDNA_match	26591942	26591981	.	+	.	ID=c58_g1_i10.mrna2;Name=c58_g1_i10.mrna2;Target=c58_g1_i10.mrna2
+###
+Chr5	tair10	cDNA_match	26591981	26592002	.	+	.	ID=c58_g1_i12.mrna1;Name=c58_g1_i12.mrna1;Target=c58_g1_i12.mrna1
+Chr5	tair10	cDNA_match	26592528	26593365	.	+	.	ID=c58_g1_i12.mrna1;Name=c58_g1_i12.mrna1;Target=c58_g1_i12.mrna1
+Chr5	tair10	cDNA_match	26593449	26593836	.	+	.	ID=c58_g1_i12.mrna1;Name=c58_g1_i12.mrna1;Target=c58_g1_i12.mrna1
+Chr5	tair10	cDNA_match	26593930	26594062	.	+	.	ID=c58_g1_i12.mrna1;Name=c58_g1_i12.mrna1;Target=c58_g1_i12.mrna1
+Chr5	tair10	cDNA_match	26594172	26594243	.	+	.	ID=c58_g1_i12.mrna1;Name=c58_g1_i12.mrna1;Target=c58_g1_i12.mrna1
+Chr5	tair10	cDNA_match	26594318	26594589	.	+	.	ID=c58_g1_i12.mrna1;Name=c58_g1_i12.mrna1;Target=c58_g1_i12.mrna1
+###
+Chr5	tair10	cDNA_match	26591981	26592002	.	+	.	ID=c58_g1_i9.mrna1;Name=c58_g1_i9.mrna1;Target=c58_g1_i9.mrna1
+Chr5	tair10	cDNA_match	26592528	26593365	.	+	.	ID=c58_g1_i9.mrna1;Name=c58_g1_i9.mrna1;Target=c58_g1_i9.mrna1
+Chr5	tair10	cDNA_match	26593449	26593836	.	+	.	ID=c58_g1_i9.mrna1;Name=c58_g1_i9.mrna1;Target=c58_g1_i9.mrna1
+Chr5	tair10	cDNA_match	26593930	26594062	.	+	.	ID=c58_g1_i9.mrna1;Name=c58_g1_i9.mrna1;Target=c58_g1_i9.mrna1
+Chr5	tair10	cDNA_match	26594172	26594243	.	+	.	ID=c58_g1_i9.mrna1;Name=c58_g1_i9.mrna1;Target=c58_g1_i9.mrna1
+Chr5	tair10	cDNA_match	26594318	26594416	.	+	.	ID=c58_g1_i9.mrna1;Name=c58_g1_i9.mrna1;Target=c58_g1_i9.mrna1
+Chr5	tair10	cDNA_match	26594569	26594922	.	+	.	ID=c58_g1_i9.mrna1;Name=c58_g1_i9.mrna1;Target=c58_g1_i9.mrna1
+Chr5	tair10	cDNA_match	26595003	26595084	.	+	.	ID=c58_g1_i9.mrna1;Name=c58_g1_i9.mrna1;Target=c58_g1_i9.mrna1
+###
+Chr5	tair10	cDNA_match	26591981	26592002	.	+	.	ID=c58_g1_i4.mrna1.6;Name=c58_g1_i4.mrna1.6;Target=c58_g1_i4.mrna1.6
+Chr5	tair10	cDNA_match	26592528	26593365	.	+	.	ID=c58_g1_i4.mrna1.6;Name=c58_g1_i4.mrna1.6;Target=c58_g1_i4.mrna1.6
+Chr5	tair10	cDNA_match	26593449	26593836	.	+	.	ID=c58_g1_i4.mrna1.6;Name=c58_g1_i4.mrna1.6;Target=c58_g1_i4.mrna1.6
+Chr5	tair10	cDNA_match	26593930	26594062	.	+	.	ID=c58_g1_i4.mrna1.6;Name=c58_g1_i4.mrna1.6;Target=c58_g1_i4.mrna1.6
+Chr5	tair10	cDNA_match	26594172	26594243	.	+	.	ID=c58_g1_i4.mrna1.6;Name=c58_g1_i4.mrna1.6;Target=c58_g1_i4.mrna1.6
+Chr5	tair10	cDNA_match	26594318	26594416	.	+	.	ID=c58_g1_i4.mrna1.6;Name=c58_g1_i4.mrna1.6;Target=c58_g1_i4.mrna1.6
+Chr5	tair10	cDNA_match	26594569	26594772	.	+	.	ID=c58_g1_i4.mrna1.6;Name=c58_g1_i4.mrna1.6;Target=c58_g1_i4.mrna1.6
+Chr5	tair10	cDNA_match	26594860	26594922	.	+	.	ID=c58_g1_i4.mrna1.6;Name=c58_g1_i4.mrna1.6;Target=c58_g1_i4.mrna1.6
+Chr5	tair10	cDNA_match	26595003	26595121	.	+	.	ID=c58_g1_i4.mrna1.6;Name=c58_g1_i4.mrna1.6;Target=c58_g1_i4.mrna1.6
+Chr5	tair10	cDNA_match	26595210	26595268	.	+	.	ID=c58_g1_i4.mrna1.6;Name=c58_g1_i4.mrna1.6;Target=c58_g1_i4.mrna1.6
+Chr5	tair10	cDNA_match	26595366	26598230	.	+	.	ID=c58_g1_i4.mrna1.6;Name=c58_g1_i4.mrna1.6;Target=c58_g1_i4.mrna1.6
+###
+Chr5	tair10	cDNA_match	26591981	26592002	.	+	.	ID=c58_g1_i6.mrna1.3;Name=c58_g1_i6.mrna1.3;Target=c58_g1_i6.mrna1.3
+Chr5	tair10	cDNA_match	26592528	26593836	.	+	.	ID=c58_g1_i6.mrna1.3;Name=c58_g1_i6.mrna1.3;Target=c58_g1_i6.mrna1.3
+Chr5	tair10	cDNA_match	26593930	26594062	.	+	.	ID=c58_g1_i6.mrna1.3;Name=c58_g1_i6.mrna1.3;Target=c58_g1_i6.mrna1.3
+Chr5	tair10	cDNA_match	26594172	26594243	.	+	.	ID=c58_g1_i6.mrna1.3;Name=c58_g1_i6.mrna1.3;Target=c58_g1_i6.mrna1.3
+Chr5	tair10	cDNA_match	26594318	26594416	.	+	.	ID=c58_g1_i6.mrna1.3;Name=c58_g1_i6.mrna1.3;Target=c58_g1_i6.mrna1.3
+Chr5	tair10	cDNA_match	26594569	26594772	.	+	.	ID=c58_g1_i6.mrna1.3;Name=c58_g1_i6.mrna1.3;Target=c58_g1_i6.mrna1.3
+Chr5	tair10	cDNA_match	26594860	26594922	.	+	.	ID=c58_g1_i6.mrna1.3;Name=c58_g1_i6.mrna1.3;Target=c58_g1_i6.mrna1.3
+Chr5	tair10	cDNA_match	26595003	26595121	.	+	.	ID=c58_g1_i6.mrna1.3;Name=c58_g1_i6.mrna1.3;Target=c58_g1_i6.mrna1.3
+Chr5	tair10	cDNA_match	26595210	26595268	.	+	.	ID=c58_g1_i6.mrna1.3;Name=c58_g1_i6.mrna1.3;Target=c58_g1_i6.mrna1.3
+Chr5	tair10	cDNA_match	26595366	26598230	.	+	.	ID=c58_g1_i6.mrna1.3;Name=c58_g1_i6.mrna1.3;Target=c58_g1_i6.mrna1.3
+###
+Chr5	tair10	cDNA_match	26591981	26592002	.	+	.	ID=c58_g1_i8.mrna1;Name=c58_g1_i8.mrna1;Target=c58_g1_i8.mrna1
+Chr5	tair10	cDNA_match	26592528	26593365	.	+	.	ID=c58_g1_i8.mrna1;Name=c58_g1_i8.mrna1;Target=c58_g1_i8.mrna1
+Chr5	tair10	cDNA_match	26593449	26593836	.	+	.	ID=c58_g1_i8.mrna1;Name=c58_g1_i8.mrna1;Target=c58_g1_i8.mrna1
+Chr5	tair10	cDNA_match	26593930	26594062	.	+	.	ID=c58_g1_i8.mrna1;Name=c58_g1_i8.mrna1;Target=c58_g1_i8.mrna1
+Chr5	tair10	cDNA_match	26594172	26594243	.	+	.	ID=c58_g1_i8.mrna1;Name=c58_g1_i8.mrna1;Target=c58_g1_i8.mrna1
+Chr5	tair10	cDNA_match	26594318	26594416	.	+	.	ID=c58_g1_i8.mrna1;Name=c58_g1_i8.mrna1;Target=c58_g1_i8.mrna1
+Chr5	tair10	cDNA_match	26594569	26594772	.	+	.	ID=c58_g1_i8.mrna1;Name=c58_g1_i8.mrna1;Target=c58_g1_i8.mrna1
+Chr5	tair10	cDNA_match	26594860	26594877	.	+	.	ID=c58_g1_i8.mrna1;Name=c58_g1_i8.mrna1;Target=c58_g1_i8.mrna1
+Chr5	tair10	cDNA_match	26601005	26601049	.	+	.	ID=c58_g1_i8.mrna1;Name=c58_g1_i8.mrna1;Target=c58_g1_i8.mrna1
+###
+Chr5	tair10	cDNA_match	26592043	26592421	.	+	.	ID=c113_g1_i1.mrna1.94;Name=c113_g1_i1.mrna1.94;Target=c113_g1_i1.mrna1.94
+###
+Chr5	tair10	cDNA_match	26599401	26599654	.	+	.	ID=c77_g1_i1.mrna1.153;Name=c77_g1_i1.mrna1.153;Target=c77_g1_i1.mrna1.153
+Chr5	tair10	cDNA_match	26599767	26600053	.	+	.	ID=c77_g1_i1.mrna1.153;Name=c77_g1_i1.mrna1.153;Target=c77_g1_i1.mrna1.153
+Chr5	tair10	cDNA_match	26600151	26600244	.	+	.	ID=c77_g1_i1.mrna1.153;Name=c77_g1_i1.mrna1.153;Target=c77_g1_i1.mrna1.153
+###
+Chr5	tair10	cDNA_match	26600325	26600394	.	+	.	ID=c109_g1_i1.mrna1.102;Name=c109_g1_i1.mrna1.102;Target=c109_g1_i1.mrna1.102
+Chr5	tair10	cDNA_match	26600497	26600616	.	+	.	ID=c109_g1_i1.mrna1.102;Name=c109_g1_i1.mrna1.102;Target=c109_g1_i1.mrna1.102
+Chr5	tair10	cDNA_match	26600696	26600815	.	+	.	ID=c109_g1_i1.mrna1.102;Name=c109_g1_i1.mrna1.102;Target=c109_g1_i1.mrna1.102
+###
+Chr5	tair10	cDNA_match	26602733	26603638	.	-	.	ID=c60_g1_i1.mrna1.189;Name=c60_g1_i1.mrna1.189;Target=c60_g1_i1.mrna1.189
+Chr5	tair10	cDNA_match	26603727	26604736	.	-	.	ID=c60_g1_i1.mrna1.189;Name=c60_g1_i1.mrna1.189;Target=c60_g1_i1.mrna1.189
+###
+Chr5	tair10	cDNA_match	26604728	26604970	.	-	.	ID=c115_g1_i1.mrna1.88;Name=c115_g1_i1.mrna1.88;Target=c115_g1_i1.mrna1.88
+###
+Chr5	tair10	cDNA_match	26604953	26605502	.	+	.	ID=c152_g1_i1.mrna1.66;Name=c152_g1_i1.mrna1.66;Target=c152_g1_i1.mrna1.66
+###
+Chr5	tair10	cDNA_match	26605481	26605955	.	+	.	ID=c21_g1_i1.mrna1.302;Name=c21_g1_i1.mrna1.302;Target=c21_g1_i1.mrna1.302
+###
+Chr5	tair10	cDNA_match	26605932	26606539	.	+	.	ID=c41_g1_i1.mrna1.224;Name=c41_g1_i1.mrna1.224;Target=c41_g1_i1.mrna1.224
+###
+Chr5	tair10	cDNA_match	26609249	26610543	.	+	.	ID=c6_g1_i1.mrna1.412;Name=c6_g1_i1.mrna1.412;Target=c6_g1_i1.mrna1.412
+###
+Chr5	tair10	cDNA_match	26611512	26611831	.	-	.	ID=c74_g1_i1.mrna1.154;Name=c74_g1_i1.mrna1.154;Target=c74_g1_i1.mrna1.154
+###
+Chr5	tair10	cDNA_match	26611810	26612012	.	-	.	ID=c71_g1_i1.mrna1.167;Name=c71_g1_i1.mrna1.167;Target=c71_g1_i1.mrna1.167
+###
+Chr5	tair10	cDNA_match	26612157	26612362	.	-	.	ID=c114_g1_i1.mrna1.89;Name=c114_g1_i1.mrna1.89;Target=c114_g1_i1.mrna1.89
+###
+Chr5	tair10	cDNA_match	26612358	26612727	.	-	.	ID=c137_g1_i1.mrna1.77;Name=c137_g1_i1.mrna1.77;Target=c137_g1_i1.mrna1.77
+Chr5	tair10	cDNA_match	26612846	26613194	.	-	.	ID=c137_g1_i1.mrna1.77;Name=c137_g1_i1.mrna1.77;Target=c137_g1_i1.mrna1.77
+Chr5	tair10	cDNA_match	26613900	26613923	.	-	.	ID=c137_g1_i1.mrna1.77;Name=c137_g1_i1.mrna1.77;Target=c137_g1_i1.mrna1.77
+###
+Chr5	tair10	cDNA_match	26612911	26612932	.	-	.	ID=c37_g1_i2.mrna1.66;Name=c37_g1_i2.mrna1.66;Target=c37_g1_i2.mrna1.66
+Chr5	tair10	cDNA_match	26613900	26614294	.	-	.	ID=c37_g1_i2.mrna1.66;Name=c37_g1_i2.mrna1.66;Target=c37_g1_i2.mrna1.66
+###
+Chr5	tair10	cDNA_match	26613846	26614294	.	+	.	ID=c37_g1_i1.mrna1.234;Name=c37_g1_i1.mrna1.234;Target=c37_g1_i1.mrna1.234
+###
+Chr5	tair10	cDNA_match	26614714	26614982	.	+	.	ID=c120_g1_i1.mrna1.89;Name=c120_g1_i1.mrna1.89;Target=c120_g1_i1.mrna1.89
+###

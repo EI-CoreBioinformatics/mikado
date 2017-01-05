@@ -280,7 +280,7 @@ def load_from_gff(shelf_name,
                     else:
                         __tid = "{0}_{1}".format(label, row.id)
                     row.parent = __tid
-                    transcript2genes[__tid] = "{}_match".format(row.transcript)
+                    transcript2genes[__tid] = "{}_match".format(__tid)
                     row.feature = "exon"
                 elif label != '':
                     row.transcript = ["{0}_{1}".format(label, tid) for tid in row.transcript]

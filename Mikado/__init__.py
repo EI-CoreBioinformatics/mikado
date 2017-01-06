@@ -37,6 +37,7 @@ import argparse
 import sys
 from . import subprograms
 from .utilities.log_utils import create_default_logger
+from multiprocessing import freeze_support
 # import pkg_resources
 
 # __spec__ = "Mikado"
@@ -117,4 +118,5 @@ by Cufflinks's cuffcompare and ParsEval.")
 
 if __name__ == '__main__':
     # __spec__ = "Mikado"
+    freeze_support()
     main()

@@ -1,6 +1,5 @@
 requirements:
-  expression: [((exon_num.multi and (cdna_length.multi or combined_cds_length.multi) and max_intron_length and min_intron_length and proportion_verified_introns_inlocus), or, (exon_num.mono and (combined_cds_len\
-gth.mono or cdna_length.mono)))]
+  expression: [((exon_num.multi and (cdna_length.multi or combined_cds_length.multi) and max_intron_length and min_intron_length and proportion_verified_introns_inlocus), or, (exon_num.mono and (combined_cds_length.mono or cdna_length.mono)))]
   parameters:
     cdna_length.mono: {operator: gt, value: 400}
     cdna_length.multi: {operator: ge, value: 400}

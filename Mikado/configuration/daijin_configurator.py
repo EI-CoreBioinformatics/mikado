@@ -171,6 +171,8 @@ def create_daijin_config(args):
     config["blastx"]["prot_db"] = args.prot_db
     assert "prot_db" in config["blastx"]
 
+    config["mikado"]["use_diamond"] = args.use_diamond
+
     final_config = config.copy()
     check_config(config, logger)
     assert "prot_db" in config["blastx"]

@@ -173,6 +173,8 @@ def create_config_parser():
                         help="Amount of flanking for grouping transcripts in superloci during the pick phase of Mikado.")
     mikado.add_argument("--prot-db", dest="prot_db", default=[], nargs="+",
                         help="Protein database to compare against, for Mikado.")
+    mikado.add_argument("--use-diamond", dest="use_diamond", action="store_true",
+                        default=False, help="Flag. If set, Daijin will use Diamond instead of BLAST.")
     parser.set_defaults(func=create_daijin_config)
     return parser
 

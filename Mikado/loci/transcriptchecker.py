@@ -179,26 +179,30 @@ class TranscriptChecker(Transcript):
                         self.id))
 
             elif canonical_counter["+"] > 0 and canonical_counter["-"] > 0:
-                # if self.lenient is False:
-                err_messg = """Transcript {0} has {1} positive and {2} negative splice junctions. \
-Aborting.""".format(self.id,
-                    canonical_counter["+"],
-                    canonical_counter["-"])
-                self.logger.warning(err_messg)
-                raise IncorrectStrandError(err_messg)
+                if self.lenient is False:
+                    err_messg = """Transcript {0} has {1} positive and {2} negative splice junctions. \
+    Aborting.""".format(self.id,
+                        canonical_counter["+"],
+                        canonical_counter["-"])
+                    self.logger.warning(err_messg)
+                    raise IncorrectStrandError(err_messg)
 
-                # else:
-                #     self.mixed_splices = True
-                #
-                #     if canonical_counter["+"] >= canonical_counter["-"]:
-                #         self.mixed_attribute = "{0}concordant,{1}discordant".format(
-                #             canonical_counter["+"],
-                #             canonical_counter["-"])
-                #     else:
-                #         self.reverse_strand()
-                #         self.mixed_attribute = "{0}concordant,{1}discordant".format(
-                #             canonical_counter["-"],
-                #             canonical_counter["+"])
+                else:
+                    self.mixed_splices = True
+                    self.logger.warning("Transcript %s has %d positive and %s negative splice junctions",
+                                        self.id,
+                                        canonical_counter["+"],
+                                        canonical_counter["-"])
+
+                    if canonical_counter["+"] >= canonical_counter["-"]:
+                        self.mixed_attribute = "{0}concordant,{1}discordant".format(
+                            canonical_counter["+"],
+                            canonical_counter["-"])
+                    else:
+                        self.reverse_strand()
+                        self.mixed_attribute = "{0}concordant,{1}discordant".format(
+                            canonical_counter["-"],
+                            canonical_counter["+"])
 
             elif canonical_counter["-"] > 0:
                 self.reverse_strand()

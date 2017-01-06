@@ -249,9 +249,13 @@ reached the maximum number of isoforms for the locus".format(
         #                       transcript.id)
         #     to_be_added = False
 
+        if to_be_added and transcript.strand != self.strand:
+            self.logger.debug("%s not added because it has a different strand from %s (%s vs. %s)",
+                              transcript.id, self.id, transcript.strand, self.strand)
+            to_be_added = False
+
         if self.json_conf["pick"]["alternative_splicing"]["only_confirmed_introns"] is True:
-            to_check = transcript.introns - self.primary_transcript.introns
-            to_check -= transcript.verified_introns
+            to_check = (transcript.introns - transcript.verified_introns) - self.primary_transcript.introns
             if len(to_check) > 0:
                 self.logger.debug(
                     "%s not added because it has %d non-confirmed intron%s",
@@ -259,11 +263,6 @@ reached the maximum number of isoforms for the locus".format(
                     len(to_check),
                     "s" * min(1, len(to_check) - 1))
                 to_be_added = False
-
-        if to_be_added and transcript.strand != self.strand:
-            self.logger.debug("%s not added because it has a different strand from %s (%s vs. %s)",
-                              transcript.id, self.id, transcript.strand, self.strand)
-            to_be_added = False
 
         if to_be_added:
             is_alternative, ccode, comparison = self.is_alternative_splicing(transcript)
@@ -282,6 +281,24 @@ reached the maximum number of isoforms for the locus".format(
                         transcript.id,
                         round(overlap * 100, 2))
                     to_be_added = False
+
+        # Add a check similar to what we do for the minimum requirements and the fragments
+        if to_be_added and "as_requirements" in self.json_conf:
+            if ("compiled" not in self.json_conf["as_requirements"] or
+                        self.json_conf["as_requirements"]["compiled"] is None):
+                self.json_conf["as_requirements"]["compiled"] = compile(
+                    self.json_conf["as_requirements"]["expression"], "<json>",
+                    "eval")
+            evaluated = dict()
+            for key in self.json_conf["as_requirements"]["parameters"]:
+                value = getattr(transcript,
+                                self.json_conf["as_requirements"]["parameters"][key]["name"])
+                evaluated[key] = self.evaluate(
+                        value,
+                        self.json_conf["as_requirements"]["parameters"][key])
+                # pylint: disable=eval-used
+            if eval(self.json_conf["as_requirements"]["compiled"]) is False:
+                to_be_added = False
 
         if to_be_added and transcript.combined_utr_length > max_utr_lenghts["total"]:
             self.logger.debug("%s not added because it has too much UTR (%d).",

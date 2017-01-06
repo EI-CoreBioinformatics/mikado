@@ -203,6 +203,13 @@ def check_all_requirements(json_conf):
     else:
         json_conf["not_fragmentary"] = json_conf["requirements"].copy()
 
+    if "as_requirements" in json_conf:
+        json_conf = check_requirements(json_conf,
+                                       require_schema,
+                                       "as_requirements")
+    else:
+        json_conf["as_requirements"] = json_conf["requirements"].copy()
+
     return json_conf
 
 
@@ -278,7 +285,7 @@ def check_requirements(json_conf, require_schema, index):
                     "\n\t".join(list(diff_params))))
 
     for key in keys:  # Create the final expression
-        newexpr = re.sub(key, "evaluated[\"{0}\"]".format(key), newexpr)
+        newexpr = re.sub(r"\b{}\b".format(key), "evaluated[\"{0}\"]".format(key), newexpr)
 
     # Test the expression
     try:

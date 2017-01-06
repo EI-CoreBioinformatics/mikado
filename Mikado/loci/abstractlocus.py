@@ -123,8 +123,10 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         self.logger = logger
 
         if hasattr(self, "json_conf"):
-            if "requirements" in self.json_conf and "compiled" in self.json_conf["requirements"]:
-                del state["json_conf"]["requirements"]["compiled"]
+            # This removes unpicklable compiled attributes, eg in "requirements" or "as_requirements"
+            for key in self.json_conf:
+                if "compiled" in self.json_conf[key]:
+                    del state["json_conf"][key]["compiled"]
 
         if hasattr(self, "session"):
             if self.session is not None:
@@ -720,7 +722,6 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                 self.json_conf["requirements"]["expression"], "<json>",
                 "eval")
 
-        not_passing = set()
         not_passing = set()
         for tid in iter(tid for tid in self.transcripts if
                         tid not in previous_not_passing):

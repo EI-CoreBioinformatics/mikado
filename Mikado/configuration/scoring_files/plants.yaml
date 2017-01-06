@@ -13,6 +13,13 @@ requirements:
     max_intron_length: {operator: le, value: 20000}
     min_intron_length: {operator: ge, value: 5}
     proportion_verified_introns_inlocus: {operator: gt, value: 0}
+as_requirements:
+  expression: [ cdna_length and three_utr_length and five_utr_length and utr_length ]
+  parameters:
+    cdna_length: {operator: ge, value: 200}
+    utr_length: {operator: le, value: 2500}
+    five_utr_length: {operator: le, value: 2500}
+    three_utr_length: {operator: le, value: 2500}
 not_fragmentary:
  expression: [is_complete and ((exon_num.multi and (cdna_length.multi or combined_cds_length.multi)), or, (exon_num.mono and combined_cds_length.mono))]
  parameters:

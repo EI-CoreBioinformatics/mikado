@@ -266,6 +266,14 @@
             "score": {"type": "number"}
           }
         },
+        "external_scores": {
+          "type": "object",
+          "default": {},
+          "properties": {
+            "source": {"type": "string"},
+            "multiplier": {"type": "number"}
+          }
+        },
         "alternative_splicing": {
           "Comment": [
             "Parameters related to alternative splicing reporting.",

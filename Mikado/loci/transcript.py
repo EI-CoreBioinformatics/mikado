@@ -20,6 +20,7 @@ from sqlalchemy.ext import baked
 from sqlalchemy import bindparam
 from ..exceptions import ModificationError, InvalidTranscript, CorruptIndex
 from ..serializers.blast_serializer import Query, Hit
+from ..serializers.external import External
 from ..serializers.orf import Orf
 from .clique_methods import find_communities, define_graph
 from ..parsers.GTF import GtfLine
@@ -134,6 +135,12 @@ class Transcript:
         Orf.cds_len >= bindparam("cds_len"))
     orf_baked += lambda q: q.order_by(desc(Orf.cds_len))
 
+    # External scores
+    external_baked = bakery(lambda session: session.query(External))
+    external_baked += lambda q: q.filter()
+
+
+
     # ######## Class special methods ####################
 
     def __init__(self, *args,
@@ -237,6 +244,7 @@ class Transcript:
             self.__initialize_with_line(args[0])
 
         self.feature = intern(self.feature)
+        self.__external_scores = dict()
 
     def __initialize_with_line(self, transcript_row):
         """
@@ -1671,6 +1679,11 @@ index {3}, internal ORFs: {4}".format(
         """
 
         return self.__derived_children
+
+    @property
+    def external_scores(self):
+        return self.__external_scores
+
 
     # ################### Class metrics ##################################
 

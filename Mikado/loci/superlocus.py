@@ -18,6 +18,7 @@ from sqlalchemy import bindparam
 from sqlalchemy.ext import baked
 from ..serializers.junction import Junction, Chrom
 from ..serializers.blast_serializer import Hit, Query, Target
+from ..serializers.external import External
 from ..serializers.orf import Orf
 from .abstractlocus import Abstractlocus
 from .monosublocus import Monosublocus
@@ -515,14 +516,23 @@ class Superlocus(Abstractlocus):
             data_dict = dict()
             data_dict["hits"] = collections.defaultdict(list)
             data_dict["orfs"] = collections.defaultdict(list)
+            data_dict["external"] = collections.defaultdict(dict)
             for tid_group in grouper(tid_keys, 100):
                 query_ids = dict((query.query_id, query) for query in
                                  self.session.query(Query).filter(
                                      Query.query_name.in_(tid_group)))
+                # Retrieve the external scores
+                external = self.session.query(External).filter(External.query_id.in_(query_ids.keys()))
+
+                for ext in external:
+                    data_dict["external"][ext.query][ext.source] = ext.score
+
+                # Load the ORFs from the table
                 orfs = self.session.query(Orf).filter(Orf.query_id.in_(query_ids.keys()))
                 for orf in orfs:
                     data_dict["orfs"][orf.query].append(orf.as_bed12())
 
+                # Now retrieve the HSPs from the BLAST HSP table
                 hsp_command = " ".join([
                     "select * from hsp where",
                     "hsp_evalue <= {0} and query_id in {1} order by query_id;"]).format(
@@ -539,6 +549,7 @@ class Superlocus(Abstractlocus):
                     hsps[hsp.query_id][hsp.target_id].append(hsp)
                     targets.add(hsp.target_id)
 
+                # Now that we have the HSPs, load the corresponding HITs
                 hit_command = " ".join([
                     "select * from hit where evalue <= {0}",
                     "and hit_number <= {1} and query_id in {2}",
@@ -549,7 +560,6 @@ class Superlocus(Abstractlocus):
                     "({0})".format(", ".join([str(_) for _ in query_ids.keys()])))
 
                 if len(targets) > 0:
-
                     target_ids = dict((target.target_id, target) for target in
                                       self.session.query(Target).filter(
                                           Target.target_id.in_(targets)))
@@ -575,28 +585,6 @@ class Superlocus(Abstractlocus):
                             my_target
                         )
                     )
-                    # hit_counter += 1
-                    # if hit_counter >= 2*10**4 and hit_counter % (2*10**4) == 0:
-                    #     self.main_logger.debug("Loaded %d BLAST hits in database",
-                    #                            hit_counter)
-
-                # " ".join(
-                #     ["select * from hit where evalue <= {0}",
-                #      "and hit_number <= {1} and query_id in {2}",
-                #      "order by query_id, evalue asc;"]).format(
-                #     self.json_conf["pick"]["chimera_split"]["blast_params"]["evalue"],
-                #     self.json_conf["pick"]["chimera_split"]["blast_params"]["max_target_seqs"])))
-                #
-                # hits = self.hit_baked(self.session).params(
-                #     query_id=tid_id,
-                #     evalue=self.json_conf["pick"]["chimera_split"]["blast_params"]["evalue"],
-                #     hit_number=self.json_conf[
-                #         "pick"]["chimera_split"]["blast_params"]["max_target_seqs"]
-                #     )
-                # self.logger.debug("Starting to load hits for %s",
-                #                   tid)
-                # for ccc, hit in enumerate(hits):
-                #     data_dict["hits"][hit.query].append(hit.as_dict())
 
             self.logger.debug("Finished retrieving data for %d transcripts",
                               len(tid_keys))

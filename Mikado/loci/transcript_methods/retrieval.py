@@ -292,8 +292,13 @@ def load_information_from_db(transcript, json_conf, introns=None, session=None,
             transcript.session = session
         candidate_orfs = []
         transcript.logger.debug("Retrieving the ORFs for %s", transcript.id)
+        ext_results = transcript.external_baked(transcript.session).params(query=transcript.id).all()
+        for row in ext_results:
+            transcript.external_scores[row.source] = row.score
+
         for orf in retrieve_orfs(transcript):
             candidate_orfs.append(orf)
+
         transcript.logger.debug("Retrieved the ORFs for %s", transcript.id)
 
         transcript.logger.debug("Loading the ORFs for %s", transcript.id)
@@ -347,6 +352,10 @@ def retrieve_from_dict(transcript, data_dict):
 
     transcript.logger.debug("Retrieving ORF information from DB dictionary for %s",
                             transcript.id)
+
+    if transcript.id in data_dict["external"]:
+        transcript.external_scores.update(data_dict["external"][transcript.id])
+
     if transcript.id in data_dict["orfs"]:
         candidate_orfs = list(orf for orf in data_dict["orfs"][transcript.id] if
                               orf.cds_len >= min_cds_len)

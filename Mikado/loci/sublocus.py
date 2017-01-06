@@ -317,6 +317,10 @@ class Sublocus(Abstractlocus):
             # Add the score for the transcript source
             self.scores[tid]["source_score"] = self.transcripts[tid].source_score
 
+            for source in self.json_conf["pick"]["external_scores"]:
+                # Each score from external files also contains a multiplier.
+                self.scores[tid][source] = self.transcripts[tid].external_scores.get(source, 0) * self.json_conf["pick"]["external_scores"][source]
+
         if self.regressor is None:
             for param in self.json_conf["scoring"]:
                 self._calculate_score(param)

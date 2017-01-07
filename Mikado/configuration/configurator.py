@@ -134,7 +134,12 @@ def check_scoring(json_conf):
 
     for parameter in json_conf["scoring"]:
         if parameter not in available_metrics:
-            parameters_not_found.append(parameter)
+            # Leniency for external_scores
+            if "." in parameter and len(parameter.split(".")) == 2 and parameter.split(".")[0] == "external_scores":
+                pass
+            else:
+                parameters_not_found.append(parameter)
+
         if parameter in parameters_found:
             double_parameters.append(parameter)
 
@@ -238,10 +243,25 @@ def check_requirements(json_conf, require_schema, index):
         raise InvalidJson(
             "The {} field must have a \"parameters\" subfield!".format(index))
     for key in json_conf[index]["parameters"]:
-        key_name = key.split(".")[0]
+        key_value = None
+        dots = key.split(".")
+        if dots[0] == "external_scores":
+            if len(dots) == 1 or len(dots) > 3:
+                parameters_not_found.append(dots[0])
+                continue
+            elif len(dots) == 2:
+                key_name = ".".join(dots)
+            else:
+                key_name = ".".join(dots[:-1])
+            key_value = dots[1]
+        else:
+            key_name = dots[0]
         if key_name not in available_metrics:
-            parameters_not_found.append(key_name)
-            continue
+            if key_value is not None:
+                pass
+            else:
+                parameters_not_found.append(key_name)
+                continue
         if not jsonschema.Draft4Validator(require_schema["definitions"]["parameter"]).is_valid(
                 json_conf[index]["parameters"][key]):
             errors = list(jsonschema.Draft4Validator(require_schema).iter_errors(
@@ -251,6 +271,8 @@ def check_requirements(json_conf, require_schema, index):
                 key, index, errors))
 
         json_conf[index]["parameters"][key]["name"] = key_name
+        if key_value:
+            json_conf[index]["parameters"][key]["source"] = key_value
 
     if len(parameters_not_found) > 0:
         raise InvalidJson(

@@ -291,8 +291,11 @@ reached the maximum number of isoforms for the locus".format(
                     "eval")
             evaluated = dict()
             for key in self.json_conf["as_requirements"]["parameters"]:
-                value = getattr(transcript,
-                                self.json_conf["as_requirements"]["parameters"][key]["name"])
+                if "source" in self.json_conf["as_requirements"]["parameters"][key]:
+                    value = transcript.external_scores[self.json_conf["as_requirements"]["parameters"][key]["source"]]
+                else:
+                    value = getattr(transcript,
+                                    self.json_conf["as_requirements"]["parameters"][key]["name"])
                 evaluated[key] = self.evaluate(
                         value,
                         self.json_conf["as_requirements"]["parameters"][key])

@@ -33,6 +33,18 @@ from .transcript_methods.finalizing import finalize
 import functools
 
 
+class namespace:
+
+    def __init__(self, default=0):
+        self.__default = default
+
+    def __getitem__(self, item):
+        return self.__dict__.setdefault(item, self.__default)
+
+    def __getattr__(self, item):
+        return self.__dict__.setdefault(item, self.__default)
+
+
 class Metric(property):
     """Simple aliasing of property. All transcript metrics
     should use this alias, not "property", as a decorator.
@@ -200,6 +212,7 @@ class Transcript:
         self.__phases = dict()  # will contain (start, phase) for each CDS exon
         self.__blast_score = 0  # Homology score
         self.__derived_children = set()
+        self.__external_scores = namespace(default=0)
 
         # Starting settings for everything else
         self.chrom = None
@@ -244,7 +257,6 @@ class Transcript:
             self.__initialize_with_line(args[0])
 
         self.feature = intern(self.feature)
-        self.__external_scores = dict()
 
     def __initialize_with_line(self, transcript_row):
         """

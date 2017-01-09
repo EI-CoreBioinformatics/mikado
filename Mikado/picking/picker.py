@@ -131,7 +131,7 @@ class Picker:
         engine = create_engine("{0}://".format(self.json_conf["db_settings"]["dbtype"]), creator=self.db_connection)
         dbutils.DBBASE.metadata.create_all(engine)
         engine.dispose()
-        
+
         self.logger_queue_handler = logging_handlers.QueueHandler(self.logging_queue)
         self.queue_logger = logging.getLogger("parser")
         self.queue_logger.addHandler(self.logger_queue_handler)

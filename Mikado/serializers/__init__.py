@@ -5,3 +5,4 @@
 from . import blast_serializer
 from . import orf
 from . import junction
+from . import external

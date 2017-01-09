@@ -19,8 +19,10 @@ from ..utilities import path_join, comma_split
 from ..utilities.log_utils import create_default_logger, formatter
 from ..utilities import dbutils
 from ..serializers import orf, blast_serializer, junction
+from ..serializers import external
 from ..exceptions import InvalidJson
 import pyfaidx
+from csv import DictReader
 
 __author__ = 'Luca Venturini'
 
@@ -139,10 +141,26 @@ def load_orfs(args, logger):
             serializer = orf.OrfSerializer(orf_file,
                                            json_conf=args.json_conf,
                                            logger=logger)
-            serializer.serialize()
+            serializer()
         logger.info("Finished loading ORF data")
     else:
         logger.info("No ORF data provided, skipping")
+
+
+def load_external(args, logger):
+
+    """Function to load external data from."""
+
+    if args.json_conf["serialise"]["external_scores"] is None:
+        logger.debug("No external scores to load, returning")
+        return
+    else:
+        logger.info("Starting to load external data")
+        serializer = external.ExternalSerializer(args.json_conf["serialise"]["external_scores"],
+                                                 json_conf=args.json_conf,
+                                                 logger=logger)
+        serializer()
+        logger.info("Finished loading external data")
 
 
 def setup(args):
@@ -238,6 +256,10 @@ def setup(args):
                 logger.critical("Missing FAI file for junction loading!")
                 sys.exit(1)
 
+    # File with the external scores
+    if args.external_scores is not None:
+        args.json_conf["serialise"]["external_scores"] = args.external_scores
+
     if args.max_regression is not None:
         args.json_conf["serialise"]["max_regression"] = args.max_regression
 
@@ -296,6 +318,7 @@ def serialise(args):
     load_junctions(args, logger)
     load_orfs(args, logger)
     load_blast(args, logger)
+    load_external(args, logger)
     logger.info("Finished")
     try:
         return 0
@@ -372,6 +395,13 @@ def serialise_parser():
     junctions = parser.add_argument_group()
     junctions.add_argument("--genome_fai", default=None)
     junctions.add_argument("--junctions", type=str, default=None)
+
+    external = parser.add_argument_group()
+    external.add_argument("--external-scores", dest="external_scores",
+                          help="""Tabular file containing external scores for the transcripts.
+                               Each column should have a distinct name, and transcripts have to be listed
+                               on the first column.""")
+
     generic = parser.add_argument_group()
     generic.add_argument("-mo", "--max-objects", dest="max_objects",
                          type=int, default=None,  # So it can actually be set through the JSON

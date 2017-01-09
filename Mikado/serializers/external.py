@@ -24,7 +24,7 @@ from ..utilities.log_utils import check_logger, create_default_logger
 from csv import DictReader
 
 
-class ExternalSources(DBBASE):
+class ExternalSource(DBBASE):
 
     __tablename__ = "external_sources"
 
@@ -43,10 +43,10 @@ class External(DBBASE):
     __tablename__ = "external"
 
     query_id = Column(Integer, ForeignKey(Query.query_id), unique=False)
-    source_id = Column(Integer, ForeignKey(ExternalSources.source_id), unique=False)
+    source_id = Column(Integer, ForeignKey(ExternalSource.source_id), unique=False)
     ext_constraint = PrimaryKeyConstraint("query_id", "source_id", name="source_key")
-    source = column_property(select([ExternalSources.source]).where(
-        ExternalSources.source_id == source_id))
+    source = column_property(select([ExternalSource.source]).where(
+        ExternalSource.source_id == source_id))
     score = Column(Float)
 
     query = column_property(select([Query.query_name]).where(
@@ -134,13 +134,13 @@ class ExternalSerializer:
         sources = dict()
         self.session.begin(subtransactions=True)
         for source in self.parser.fieldnames[1:]:
-            source = ExternalSources(source)
+            source = ExternalSource(source)
             self.session.add(source)
         self.session.commit()
 
         # Now retrieve the values from the dictionary
         cache = dict()
-        for source in self.session.query(ExternalSources):
+        for source in self.session.query(ExternalSource):
             sources[source.source] = source.source_id
             continue
         for record in self.session.query(Query):

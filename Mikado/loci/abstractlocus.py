@@ -595,7 +595,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                     row[key] = round(row[key], 2)
                 elif row[key] is None or row[key] == "":
                     row[key] = "NA"
-            for source in self.json_conf["pick"]["external_scores"]:
+            for source in self.transcripts[tid].external_scores:
                 # Each score from external files also contains a multiplier.
                 row["external.{}".format(source)] = self.transcripts[tid].external_scores.get(source)
 

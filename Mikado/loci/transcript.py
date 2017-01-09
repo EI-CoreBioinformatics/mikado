@@ -37,18 +37,27 @@ class Namespace:
 
     def __init__(self, default=0):
         self.__default = default
+        self.__values = dict()
 
     def __getitem__(self, item):
-        return self.__dict__.setdefault(item, self.__default)
+        self.__dict__.setdefault(item, self.__default)
+        self.__values[item] = self.__dict__[item]
+        return self.__values[item]
 
     def __getattr__(self, item):
-        return self.__dict__.setdefault(item, self.__default)
+        self.__dict__.setdefault(item, self.__default)
+        self.__values[item] = self.__dict__[item]
+        return self.__values[item]
 
     def update(self, dictionary):
         self.__dict__.update(dictionary)
+        self.__values.update(dictionary)
 
     def get(self, item):
         return self.__getitem__(item)
+
+    def __iter__(self):
+        return iter(_ for _ in self.__values)
 
 
 class Metric(property):

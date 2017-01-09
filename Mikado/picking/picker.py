@@ -28,6 +28,7 @@ from ..parsers.GFF import GFF3
 from ..serializers.blast_serializer import Hit, Query
 from ..serializers.junction import Junction, Chrom
 from ..serializers.orf import Orf
+from ..serializers.external import ExternalSource
 from ..loci.superlocus import Superlocus, Transcript
 from ..configuration.configurator import to_json  # Necessary for nosetests
 from ..utilities import dbutils, merge_partial
@@ -338,7 +339,7 @@ memory intensive, proceed with caution!")
             dbutils.DBBASE.metadata.create_all(engine)
 
         metrics = Superlocus.available_metrics[3:]
-        metrics.extend(["external.{}".format(_) for _ in self.json_conf["pick"]["external_scores"]])
+        metrics.extend(["external.{}".format(_.source) for _ in session.query(ExternalSource.source).all()])
         metrics = Superlocus.available_metrics[:3] + sorted(metrics)
 
         if self.sub_out != '':
@@ -442,9 +443,15 @@ memory intensive, proceed with caution!")
         locus_scores_file = open(re.sub("$", ".scores.tsv", re.sub(
             ".gff.?$", "", self.locus_out)), "w")
 
+        engine = create_engine("{0}://".format(self.json_conf["db_settings"]["dbtype"]),
+                               creator=self.db_connection)
+        session = sqlalchemy.orm.sessionmaker(bind=engine)()
+
         metrics = Superlocus.available_metrics[3:]
-        metrics.extend(["external.{}".format(_) for _ in self.json_conf["pick"]["external_scores"]])
+        metrics.extend(["external.{}".format(_.source) for _ in session.query(ExternalSource.source).all()])
         metrics = Superlocus.available_metrics[:3] + sorted(metrics)
+        session.close()
+        engine.dispose()
 
         locus_metrics = csv.DictWriter(
             locus_metrics_file,

@@ -126,6 +126,12 @@ class Picker:
             dbutils.create_connector,
             self.json_conf,
             self.logger)
+
+        # Update the database if necessary
+        engine = create_engine("{0}://".format(self.json_conf["db_settings"]["dbtype"]), creator=self.db_connection)
+        dbutils.DBBASE.metadata.create_all(engine)
+        engine.dispose()
+        
         self.logger_queue_handler = logging_handlers.QueueHandler(self.logging_queue)
         self.queue_logger = logging.getLogger("parser")
         self.queue_logger.addHandler(self.logger_queue_handler)
@@ -649,6 +655,7 @@ memory intensive, proceed with caution!")
         data_dict = dict()
         engine = create_engine("{0}://".format(self.json_conf["db_settings"]["dbtype"]),
                                creator=self.db_connection)
+        dbutils.DBBASE.metadata.create_all(self.engine)
         session = sqlalchemy.orm.sessionmaker(bind=engine)()
 
         junc_dict = dict()

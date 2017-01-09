@@ -81,6 +81,8 @@ class ExternalSerializer:
         else:
             self.logger = create_default_logger("external")
 
+        self.handle = None
+
         if handle is None:
             self.logger.warning("No input file specified. Exiting.")
             self.close()
@@ -100,7 +102,7 @@ class ExternalSerializer:
             assert isinstance(fasta_index, pyfaidx.Fasta)
             self.fasta_index = fasta_index
 
-        self.parser = DictReader(handle, delimiter="\t")
+        self.parser = DictReader(self.handle, delimiter="\t")
         if not len(self.parser.fieldnames) > 1:
             error = TypeError("Not enough fields specified for the external file! Header: {}".format(
                 self.parser.fieldnames))
@@ -135,7 +137,8 @@ class ExternalSerializer:
             source = ExternalSources(source)
             self.session.add(source)
         self.session.commit()
-        self.session.begin(subtransactions=True)
+
+        # Now retrieve the values from the dictionary
         cache = dict()
         for source in self.session.query(ExternalSources):
             sources[source.source] = source.source_id
@@ -152,19 +155,19 @@ class ExternalSerializer:
         for row in self.parser:
             tid = cache[row[tid_column]]
             for source in sources:
-                objects.append(External(sources[source], float(row[sources])))
+                objects.append(External(tid, sources[source], float(row[source])))
             if len(objects) >= self.maxobjects:
                 self.session.begin(subtransactions=True)
                 done += len(objects)
                 self.session.bulk_save_objects(objects)
-                self.logger.info("Serialised %d values", done)
+                self.logger.warning("Serialised %d values", done)
                 self.session.commit()
                 objects = []
         self.session.begin(subtransactions=True)
         self.session.bulk_save_objects(objects)
         done += len(objects)
         self.session.commit()
-        self.logger.info("Finished serialising %d values", done)
+        self.logger.warning("Finished serialising %d values", done)
         self.close()
 
     def __call__(self):
@@ -186,11 +189,9 @@ class ExternalSerializer:
         :return:
         """
 
-        if self.bed12_parser is not None:
-            self.bed12_parser.close()
-        if self.fai is not None:
-            self.fai.close()
-
+        if self.handle is not None:
+            self.handle.close()
+        return
 
     def load_fasta(self, cache):
         """

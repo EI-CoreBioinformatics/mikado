@@ -154,6 +154,10 @@
               "type": "array",
               "default": []
             },
+            "external_scores": {
+              "type": ["string", "null"],
+              "default": null
+            },
             "orfs": {
               "type": "array",
               "default": []

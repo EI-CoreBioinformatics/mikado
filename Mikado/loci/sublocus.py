@@ -317,10 +317,6 @@ class Sublocus(Abstractlocus):
             # Add the score for the transcript source
             self.scores[tid]["source_score"] = self.transcripts[tid].source_score
 
-            for source in self.json_conf["pick"]["external_scores"]:
-                # Each score from external files also contains a multiplier.
-                self.scores[tid][source] = self.transcripts[tid].external_scores.get(source, 0) * self.json_conf["pick"]["external_scores"][source]
-
         if self.regressor is None:
             for param in self.json_conf["scoring"]:
                 self._calculate_score(param)
@@ -342,6 +338,9 @@ class Sublocus(Abstractlocus):
                     assert self.transcripts[tid].score == sum(self.scores[tid].values()), (
                         tid, self.transcripts[tid].score, sum(self.scores[tid].values())
                     )
+                # if self.json_conf["pick"]["external_scores"]:
+                #     assert any("external" in _ for _ in self.scores[tid].keys()), self.scores[tid].keys()
+
                 self.scores[tid]["score"] = self.transcripts[tid].score
 
         else:
@@ -390,7 +389,14 @@ class Sublocus(Abstractlocus):
         rescaling = self.json_conf["scoring"][param]["rescaling"]
         use_raw = self.json_conf["scoring"][param]["use_raw"]
 
-        if use_raw is True and getattr(Transcript, param).usable_raw is False:
+        if param.startswith("external"):
+            key = param.split(".")[1]
+            param = "external.{}".format(key)
+            metrics = dict((tid, self.transcripts[tid].external_scores[key]) for tid in self.transcripts)
+        else:
+            metrics = dict((tid, getattr(self.transcripts[tid], param)) for tid in self.transcripts)
+
+        if use_raw is True and not param.startswith("external") and getattr(Transcript, param).usable_raw is False:
             self.logger.debug("The \"%s\" metric cannot be used as a raw score for %s, switching to False",
                               param, self.id)
             use_raw = False
@@ -399,7 +405,6 @@ class Sublocus(Abstractlocus):
                               param, self.id)
             use_raw = False
 
-        metrics = dict((tid, getattr(self.transcripts[tid], param)) for tid in self.transcripts)
         if rescaling == "target":
             target = self.json_conf["scoring"][param]["value"]
             denominator = max(abs(x - target) for x in metrics.values())
@@ -487,21 +492,28 @@ class Sublocus(Abstractlocus):
             calculate_total = (self.regressor is None)
             for key in score_keys:
                 if calculate_total:
-                    assert self.scores[tid][key] != "NA" and self.scores[tid][key] is not None
+                    assert key in self.scores[tid] and self.scores[tid][key] != "NA" and self.scores[tid][key] is not None, (key, self.scores[tid].keys())
                     row[key] = round(self.scores[tid][key], 2)
+
             if calculate_total is True:
                 score_sum = sum(row[key] for key in score_keys)
-                #
-                assert round(score_sum, 2) == round(self.scores[tid]["score"], 2), (
-                    "Tid: {}; Sum: {}; Calculated: {}\nScores: {}\nRecalculated: {}".format(
+
+                if round(score_sum, 2) != round(self.scores[tid]["score"], 2):
+                    try:
+                        scores = dict(_ for _ in self.scores[tid].items())
+                    except KeyError as exc:
+                        raise KeyError((exc, row.keys()))
+                    recalc = dict(_ for _ in row.items() if _[0] not in ["tid", "parent", "score"])
+                    error = AssertionError("Tid: {}; Sum: {}; Calculated: {}\nScores: {}\nRecalculated: {}".format(
                         tid,
                         score_sum,
                         self.transcripts[tid].score,
-                        dict(_ for _ in self.scores[tid].items() if
-                             self.scores[tid][_[0]] != row[_[0]]),
-                        dict(_ for _ in row.items() if
-                             self.scores[tid][_[0]] != row[_[0]])
+                        scores,
+                        recalc
                     ))
+                    self.logger.exception(error)
+                    raise error
+
             yield row
 
     # ############## Class methods ################

@@ -151,12 +151,12 @@ def load_external(args, logger):
 
     """Function to load external data from."""
 
-    if args.json_conf["serialise"]["external_scores"] is None:
+    if args.json_conf["serialise"]["files"]["external_scores"] is None:
         logger.debug("No external scores to load, returning")
         return
     else:
         logger.info("Starting to load external data")
-        serializer = external.ExternalSerializer(args.json_conf["serialise"]["external_scores"],
+        serializer = external.ExternalSerializer(args.json_conf["serialise"]["files"]["external_scores"],
                                                  json_conf=args.json_conf,
                                                  logger=logger)
         serializer()
@@ -258,14 +258,15 @@ def setup(args):
 
     # File with the external scores
     if args.external_scores is not None:
-        args.json_conf["serialise"]["external_scores"] = args.external_scores
+        args.json_conf["serialise"]["files"]["external_scores"] = args.external_scores
 
     if args.max_regression is not None:
         args.json_conf["serialise"]["max_regression"] = args.max_regression
 
-    logger.setLevel(args.log_level)
+    logger.setLevel("INFO")
     logger.info("Command line: %s",
                 " ".join(sys.argv))
+    logger.setLevel(args.log_level)
 
     # Add sqlalchemy logging
     sql_logger = logging.getLogger("sqlalchemy.engine")

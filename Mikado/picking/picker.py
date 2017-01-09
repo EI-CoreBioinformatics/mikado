@@ -337,6 +337,10 @@ memory intensive, proceed with caution!")
             session = sqlalchemy.orm.sessionmaker(bind=engine)()
             dbutils.DBBASE.metadata.create_all(engine)
 
+        metrics = Superlocus.available_metrics[3:]
+        metrics.extend(["external.{}".format(_) for _ in self.json_conf["pick"]["external_scores"]])
+        metrics = Superlocus.available_metrics[:3] + sorted(metrics)
+
         if self.sub_out != '':
             assert isinstance(self.sub_out, str)
             sub_metrics_file = open(re.sub("$", ".metrics.tsv",
@@ -345,7 +349,7 @@ memory intensive, proceed with caution!")
                                    re.sub(".gff.?$", "", self.sub_out)), "w")
             sub_metrics = csv.DictWriter(
                 sub_metrics_file,
-                Superlocus.available_metrics,
+                metrics,
                 delimiter="\t")
             sub_metrics.writeheader()
             sub_scores = csv.DictWriter(
@@ -381,7 +385,7 @@ memory intensive, proceed with caution!")
                                     re.sub(".gff.?$", "", self.monolocus_out)), "w")          
             mono_metrics = csv.DictWriter(
                 mono_metrics_file,
-                Superlocus.available_metrics,
+                metrics,
                 delimiter="\t")
             mono_metrics.writeheader()
             mono_scores = csv.DictWriter(
@@ -437,11 +441,15 @@ memory intensive, proceed with caution!")
             ".gff.?$", "", self.locus_out)), "w")
         locus_scores_file = open(re.sub("$", ".scores.tsv", re.sub(
             ".gff.?$", "", self.locus_out)), "w")
+
+        metrics = Superlocus.available_metrics[3:]
+        metrics.extend(["external.{}".format(_) for _ in self.json_conf["pick"]["external_scores"]])
+        metrics = Superlocus.available_metrics[:3] + sorted(metrics)
+
         locus_metrics = csv.DictWriter(
             locus_metrics_file,
-            Superlocus.available_metrics,
+            metrics,
             delimiter="\t")
-
         locus_metrics.writeheader()
         locus_scores = csv.DictWriter(locus_scores_file, score_keys, delimiter="\t")
         locus_scores.writeheader()

@@ -33,7 +33,7 @@ from .transcript_methods.finalizing import finalize
 import functools
 
 
-class namespace:
+class Namespace:
 
     def __init__(self, default=0):
         self.__default = default
@@ -43,6 +43,12 @@ class namespace:
 
     def __getattr__(self, item):
         return self.__dict__.setdefault(item, self.__default)
+
+    def update(self, dictionary):
+        self.__dict__.update(dictionary)
+
+    def get(self, item):
+        return self.__getitem__(item)
 
 
 class Metric(property):
@@ -212,7 +218,7 @@ class Transcript:
         self.__phases = dict()  # will contain (start, phase) for each CDS exon
         self.__blast_score = 0  # Homology score
         self.__derived_children = set()
-        self.__external_scores = namespace(default=0)
+        self.__external_scores = Namespace(default=0)
 
         # Starting settings for everything else
         self.chrom = None

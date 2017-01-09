@@ -354,7 +354,8 @@ def retrieve_from_dict(transcript, data_dict):
                             transcript.id)
 
     if transcript.id in data_dict["external"]:
-        transcript.external_scores.update(data_dict["external"][transcript.id])
+        ext_score = data_dict["external"][transcript.id]
+        transcript.external_scores.update(ext_score)
 
     if transcript.id in data_dict["orfs"]:
         candidate_orfs = list(orf for orf in data_dict["orfs"][transcript.id] if

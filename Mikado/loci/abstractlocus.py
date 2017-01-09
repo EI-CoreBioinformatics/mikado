@@ -597,7 +597,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                     row[key] = "NA"
             for source in self.json_conf["pick"]["external_scores"]:
                 # Each score from external files also contains a multiplier.
-                row[source] = self.transcripts[tid].external_scores.get(source, 0)
+                row["external.{}".format(source)] = self.transcripts[tid].external_scores.get(source)
 
             assert row != {}
             yield row

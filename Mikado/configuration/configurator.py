@@ -135,7 +135,7 @@ def check_scoring(json_conf):
     for parameter in json_conf["scoring"]:
         if parameter not in available_metrics:
             # Leniency for external_scores
-            if "." in parameter and len(parameter.split(".")) == 2 and parameter.split(".")[0] == "external_scores":
+            if "." in parameter and len(parameter.split(".")) == 2 and parameter.split(".")[0] == "external":
                 pass
             else:
                 parameters_not_found.append(parameter)
@@ -245,7 +245,7 @@ def check_requirements(json_conf, require_schema, index):
     for key in json_conf[index]["parameters"]:
         key_value = None
         dots = key.split(".")
-        if dots[0] == "external_scores":
+        if dots[0] == "external":
             if len(dots) == 1 or len(dots) > 3:
                 parameters_not_found.append(dots[0])
                 continue

@@ -430,7 +430,10 @@ class Sublocus(Abstractlocus):
 
             if check is True:
                 if use_raw is True:
-                    assert isinstance(tid_metric, (float, int)) and 0 <= tid_metric <= 1, (tid_metric, score)
+                    if not isinstance(tid_metric, (float, int)) and 0 <= tid_metric <= 1:
+                        error = ValueError("Only scores with values between 0 and 1 can be used raw. Please recheck your values.")
+                        self.logger.exception(error)
+                        raise error
                     score = tid_metric / denominator
                 elif rescaling == "target":
                     score = 1 - abs(tid_metric - target) / denominator

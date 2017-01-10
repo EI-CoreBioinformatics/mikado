@@ -5,7 +5,6 @@ from Mikado.parsers.bed12 import BED12
 from Mikado.configuration.configurator import to_json
 import os
 from sqlalchemy.engine import reflection
-from Mikado.serializers.orf import Orf
 
 
 class WrongLoadedOrf(unittest.TestCase):

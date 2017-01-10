@@ -211,6 +211,9 @@
       "required": ["files", "strand_specific", "procs"],
       "properties":
       {
+        "keep_redundant": {
+          "type": "boolean", "default": false
+        },
         "minimum_length": {
           "type": "integer", "default": 200, "minimum": 1
         },

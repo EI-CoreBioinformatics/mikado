@@ -27,7 +27,7 @@ except ImportError:
 __author__ = 'Luca Venturini'
 
 
-def store_transcripts(shelf_stacks, logger):
+def store_transcripts(shelf_stacks, logger, keep_redundant=False):
 
     """
     Function that analyses the exon lines from the original file
@@ -37,6 +37,9 @@ def store_transcripts(shelf_stacks, logger):
 
     :param logger: logger instance.
     :type logger: logging.Logger
+
+    :param keep_redundant: boolean flag. If set to True, redundant transcripts will be kept in the output.
+    :type keep_redundant: bool
 
     :return: transcripts: dictionary which will be the final output
     :rtype: transcripts
@@ -80,7 +83,7 @@ def store_transcripts(shelf_stacks, logger):
                 logger.debug("%d intron chains for pos %s",
                              len(exons), "{}:{}-{}".format(chrom, key[0], key[1]))
                 for tid_list in exons.values():
-                    if len(tid_list) > 1:
+                    if len(tid_list) > 1 and keep_redundant is False:
                         logger.debug("The following transcripts are redundant: %s",
                                      ",".join([_[0] for _ in tid_list]))
                         to_keep = random.choice(tid_list)
@@ -390,6 +393,7 @@ def prepare(args, logger):
         sorter = functools.partial(
             store_transcripts,
             logger=logger,
+            keep_redundant=args.json_conf["prepare"]["keep_redundant"]
             # min_length=args.json_conf["prepare"]["minimum_length"]
         )
 

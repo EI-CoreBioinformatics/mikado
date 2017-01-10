@@ -59,6 +59,11 @@ class Namespace:
     def __iter__(self):
         return iter(_ for _ in self.__values)
 
+    def __deepcopy__(self, memodict={}):
+        new = Namespace(default=self.__default)
+        new.update(self.__values)
+        return new
+
 
 class Metric(property):
     """Simple aliasing of property. All transcript metrics

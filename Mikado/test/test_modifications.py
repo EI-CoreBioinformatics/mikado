@@ -89,7 +89,8 @@ class TestTrimming(unittest.TestCase):
 
     def test_noncoding(self):
 
-        transcript = Transcript()
+        logger = Mikado.utilities.log_utils.create_null_logger("correct_cds2")
+        transcript = Transcript(logger=logger)
         transcript.chrom = "Chr1"
         transcript.source = "test"
         transcript.start = 10000
@@ -103,8 +104,6 @@ class TestTrimming(unittest.TestCase):
         transcript.add_exons(exons)
         transcript.strand = "+"
         transcript.finalize()
-
-        logger = Mikado.utilities.log_utils.create_null_logger("correct_cds2")
 
         copied = transcript.deepcopy()
 

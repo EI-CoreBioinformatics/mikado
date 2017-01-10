@@ -18,6 +18,10 @@ __author__ = 'Luca Venturini'
 # pylint: disable=too-many-instance-attributes
 class GFAnnotation(metaclass=abc.ABCMeta):
 
+    __negative_order = []
+    __positive_order = []
+
+
     """
     This abstract class describes a generic GTF/GFF annotation line.
     The parsers for those two type of files inherit from this abstract class,

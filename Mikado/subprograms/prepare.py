@@ -33,8 +33,7 @@ def setup(args):
         args.json_conf["multiprocessing_method"] = args.start_method
 
     if args.output_dir is not None:
-        args.json_conf["prepare"]["files"]["output_dir"] = getattr(args,
-                                                          "output_dir")
+        args.json_conf["prepare"]["files"]["output_dir"] = getattr(args, "output_dir")
     if not os.path.exists(args.json_conf["prepare"]["files"]["output_dir"]):
         try:
             os.makedirs(args.json_conf["prepare"]["files"]["output_dir"])
@@ -212,11 +211,11 @@ def prepare_parser():
     parser.add_argument("--lenient", action="store_true", default=None,
                         help="""Flag. If set, transcripts with only non-canonical
                         splices will be output as well.""")
-    parser.add_argument("-m", "--minimum_length", default=200, type=positive,
+    parser.add_argument("-m", "--minimum_length", default=0, type=positive,
                         help="Minimum length for transcripts. Default: 200 bps.")
     parser.add_argument("-p", "--procs",
                         help="Number of processors to use (default %(default)s)",
-                        type=to_cpu_count, default=1)
+                        type=to_cpu_count, default=None)
     parser.add_argument("-scds", "--strip_cds", action="store_true", default=False,
                         help="Boolean flag. If set, ignores any CDS/UTR segment.")
     parser.add_argument("--labels", type=str, default="",
@@ -225,7 +224,7 @@ def prepare_parser():
     parser.add_argument("--single", action="store_true", default=False,
                         help="Disable multi-threading. Useful for debugging.")
     parser.add_argument("-od", "--output-dir", dest="output_dir",
-                        type=str, default=".",
+                        type=str, default=None,
                         help="Output directory. Default: current working directory")
     parser.add_argument("-o", "--out", default=None,
                         help="Output file. Default: mikado_prepared.gtf.")

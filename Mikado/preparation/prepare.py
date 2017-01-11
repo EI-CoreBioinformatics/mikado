@@ -124,7 +124,7 @@ def perform_check(keys, shelve_stacks, args, logger):
     # FASTA extraction *has* to be done at the main process level, it's too slow
     # to create an index in each process.
 
-    if args.json_conf["prepare"]["single"] is True or args.procs == 1:
+    if args.json_conf["prepare"]["single"] is True or args.json_conf["prepare"]["procs"] == 1:
 
         # Use functools to pre-configure the function
         # with all necessary arguments aside for the lines
@@ -175,7 +175,7 @@ def perform_check(keys, shelve_stacks, args, logger):
             lenient=args.json_conf["prepare"]["lenient"],
             # strand_specific=args.json_conf["prepare"]["strand_specific"],
             canonical_splices=args.json_conf["prepare"]["canonical"],
-            log_level=args.level) for _ in range(args.procs)]
+            log_level=args.level) for _ in range(args.json_conf["prepare"]["procs"])]
 
         [_.start() for _ in working_processes]
 
@@ -193,13 +193,13 @@ def perform_check(keys, shelve_stacks, args, logger):
         partial_gtf = [os.path.join(args.tempdir.name,
                                     "{0}-{1}".format(
                                         os.path.basename(args.json_conf["prepare"]["files"]["out"].name),
-                                        _ + 1)) for _ in range(args.procs)]
+                                        _ + 1)) for _ in range(args.json_conf["prepare"]["procs"])]
         merge_partial(partial_gtf, args.json_conf["prepare"]["files"]["out"])
 
         partial_fasta = [os.path.join(
             args.tempdir.name,
             "{0}-{1}".format(os.path.basename(args.json_conf["prepare"]["files"]["out_fasta"].name), _ + 1))
-                         for _ in range(args.procs)]
+                         for _ in range(args.json_conf["prepare"]["procs"])]
         merge_partial(partial_fasta, args.json_conf["prepare"]["files"]["out_fasta"])
 
     args.json_conf["prepare"]["files"]["out_fasta"].close()
@@ -228,7 +228,8 @@ def load_exon_lines(args, shelve_names, logger, min_length=0):
     :rtype: collections.defaultdict[list]
     """
 
-    threads = min([len(args.json_conf["prepare"]["files"]["gff"]), args.procs])
+    threads = min([len(args.json_conf["prepare"]["files"]["gff"]),
+                   args.json_conf["prepare"]["procs"]])
     strip_cds = args.json_conf["prepare"]["strip_cds"]
 
     if args.json_conf["prepare"]["single"] is True or threads == 1:
@@ -356,7 +357,7 @@ def prepare(args, logger):
                     range(len(args.json_conf["prepare"]["files"]["gff"]))]
 
     logger.propagate = False
-    if args.json_conf["prepare"]["single"] is False and args.procs > 1:
+    if args.json_conf["prepare"]["single"] is False and args.json_conf["prepare"]["procs"] > 1:
         multiprocessing.set_start_method(args.json_conf["multiprocessing_method"],
                                          force=True)
         args.logging_queue = multiprocessing.Queue(-1)
@@ -417,7 +418,7 @@ def prepare(args, logger):
     # args.json_conf["prepare"]["files"]["out"].close()
     # args.json_conf["prepare"]["files"]["out_fasta"].close()
 
-    if args.json_conf["prepare"]["single"] is False and args.procs > 1:
+    if args.json_conf["prepare"]["single"] is False and args.json_conf["prepare"]["procs"] > 1:
         args.tempdir.cleanup()
         args.listener.enqueue_sentinel()
 

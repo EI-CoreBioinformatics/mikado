@@ -13,7 +13,8 @@ import logging.handlers
 from ..utilities import path_join
 from ..utilities.log_utils import formatter
 from ..preparation.prepare import prepare
-from ..configuration.configurator import to_json
+from ..configuration.configurator import to_json, check_json
+from Mikado.exceptions import InvalidJson
 
 
 __author__ = 'Luca Venturini'
@@ -128,8 +129,9 @@ def setup(args):
 
     for option in ["out", "out_fasta",
                    "minimum_length", "procs", "single"]:
-        if ((getattr(args, option) or getattr(args, option) == 0) and
-                getattr(args, option) is not False):
+        if getattr(args, option) is None or getattr(args, option) is False:
+            continue
+        else:
             args.json_conf["prepare"][option] = getattr(args, option)
 
     if ((getattr(args, "fasta") or getattr(args, "fasta") == 0) and
@@ -141,6 +143,17 @@ def setup(args):
 
     if args.strip_cds is True:
         args.json_conf["prepare"]["strip_cds"] = True
+
+    if args.out is not None:
+        args.json_conf["prepare"]["files"]["out"] = args.out
+    if args.out_fasta is not None:
+        args.json_conf["prepare"]["files"]["out_fasta"] = args.out_fasta
+
+    try:
+        args.json_conf = check_json(args.json_conf)
+    except InvalidJson as exc:
+        logger.exception(exc)
+        raise exc
 
     return args, logger
 
@@ -211,7 +224,7 @@ def prepare_parser():
     parser.add_argument("--lenient", action="store_true", default=None,
                         help="""Flag. If set, transcripts with only non-canonical
                         splices will be output as well.""")
-    parser.add_argument("-m", "--minimum_length", default=0, type=positive,
+    parser.add_argument("-m", "--minimum_length", default=None, type=positive,
                         help="Minimum length for transcripts. Default: 200 bps.")
     parser.add_argument("-p", "--procs",
                         help="Number of processors to use (default %(default)s)",

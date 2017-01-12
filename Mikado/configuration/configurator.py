@@ -194,26 +194,40 @@ def check_all_requirements(json_conf):
                                           "requirements_blueprint.json")) as rs_blueprint:
         require_schema = json.load(rs_blueprint)
 
-    if "requirements" in json_conf:
-        json_conf = check_requirements(json_conf,
-                                       require_schema,
-                                       "requirements")
-    else:
+    if "requirements" not in json_conf:
         raise InvalidJson("No minimal requirements specified!")
 
-    if "not_fragmentary" in json_conf:
+    if "not_fragmentary" not in json_conf:
+        json_conf["not_fragmentary"] = dict()
+        json_conf["not_fragmentary"].update(json_conf["requirements"])
+        # print("Original:", json_conf["not_fragmentary"]["expression"])
+        # print("Original:", type(json_conf["not_fragmentary"]["expression"]))
+
+    try:
+        # print("Original:", json_conf["not_fragmentary"]["expression"])
+        # print("Original:", type(json_conf["not_fragmentary"]["expression"]))
         json_conf = check_requirements(json_conf,
                                        require_schema,
                                        "not_fragmentary")
-    else:
-        json_conf["not_fragmentary"] = json_conf["requirements"].copy()
+    except InvalidJson as exc:
+        print(json_conf["not_fragmentary"]["expression"])
+        print(type(json_conf["not_fragmentary"]["expression"]))
+        raise exc
 
-    if "as_requirements" in json_conf:
-        json_conf = check_requirements(json_conf,
-                                       require_schema,
-                                       "as_requirements")
-    else:
-        json_conf["as_requirements"] = json_conf["requirements"].copy()
+    if "as_requirements" not in json_conf:
+        json_conf["as_requirements"] = dict()
+        json_conf["as_requirements"].update(json_conf["requirements"])
+
+    # Check requirements will MODIFY IN PLACE the expression, so the copying
+    # must happend before, not after.
+
+    json_conf = check_requirements(json_conf,
+                                   require_schema,
+                                   "as_requirements")
+
+    json_conf = check_requirements(json_conf,
+                                   require_schema,
+                                   "requirements")
 
     return json_conf
 
@@ -281,17 +295,23 @@ def check_requirements(json_conf, require_schema, index):
             ))
 
     # Create automatically a filtering expression
+    if "__expression" in json_conf[index]:
+        json_conf[index]["expression"] = json_conf[index]["__expression"][:]
+
     if "expression" not in json_conf[index]:
         json_conf[index]["expression"] = " and ".join(
             list(json_conf[index]["parameters"].keys()))
         keys = json_conf[index]["parameters"].keys()
         newexpr = json_conf[index]["expression"][:]
+        json_conf[index]["__expression"] = json_conf[index]["expression"][:]
     else:
-
         if not jsonschema.Draft4Validator(
                 require_schema["definitions"]["expression"]).is_valid(
                     json_conf[index]["expression"]):
             raise InvalidJson("Invalid expression field")
+
+        json_conf[index]["__expression"] = json_conf[index]["expression"][:]
+
         expr = " ".join(json_conf[index]["expression"])
         newexpr = expr[:]
 

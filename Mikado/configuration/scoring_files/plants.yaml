@@ -51,7 +51,6 @@ scoring:
     value: 100
   five_utr_num:
     filter: {operator: lt, value: 4}
-    use_raw: true
     rescaling: target
     value: 2
   end_distance_from_junction:

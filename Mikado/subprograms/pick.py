@@ -5,6 +5,7 @@
 
 import argparse
 import sys
+import os
 from ..picking import Picker
 from ..configuration.configurator import to_json, check_json
 from ..exceptions import UnsortedInput  # , InvalidJson
@@ -111,6 +112,11 @@ def check_run_options(args):
 
                 args.json_conf["pick"]["files"][key] = val
 
+    if args.scoring_file is not None:
+        if not os.path.exists(args.scoring_file) and os.path.isfile(args.scoring_file):
+            raise ValueError("Invalid/inexistent scoring file: {}".format(args.scoring_file))
+        args.json_conf["pick"]["scoring_file"] = args.scoring_file
+
     args.json_conf = check_json(args.json_conf)
 
     return args
@@ -149,7 +155,11 @@ def pick_parser():
                         Default: look in the configuration file (1 if undefined)""")
     parser.add_argument("--json-conf", dest="json_conf",
                         type=to_json, required=True,
-                        help="JSON/YAML configuration file for scoring transcripts.")
+                        help="JSON/YAML configuration file for Mikado.")
+    parser.add_argument("--scoring-file", dest="scoring_file",
+                        type=str, default=None,
+                        required=False,
+                        help="Optional scoring file for the run. It will override ")
     parser.add_argument("-i", "--intron-range",
                         dest="intron_range", type=int, nargs=2,
                         default=None,

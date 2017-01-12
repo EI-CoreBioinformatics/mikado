@@ -39,13 +39,32 @@ class Namespace:
         self.__default = default
         self.__values = dict()
 
+    @property
+    def default(self):
+        return self.__default
+
     def __getitem__(self, item):
-        self.__dict__.setdefault(item, self.__default)
+        self.__dict__.setdefault(item, self.default)
         self.__values[item] = self.__dict__[item]
         return self.__values[item]
 
+    def __getstate__(self):
+
+        default = self.default
+        del self.__default
+        state = dict()
+        state.update(self.__dict__)
+        state["default"] = default
+        self.__default = default
+        return state
+
+    def __setstate__(self, state):
+        self.__default = state["default"]
+        del state["default"]
+        self.__dict__.update(state)
+
     def __getattr__(self, item):
-        self.__dict__.setdefault(item, self.__default)
+        self.__dict__.setdefault(item, self.default)
         self.__values[item] = self.__dict__[item]
         return self.__values[item]
 
@@ -60,7 +79,7 @@ class Namespace:
         return iter(_ for _ in self.__values)
 
     def __deepcopy__(self, memodict={}):
-        new = Namespace(default=self.__default)
+        new = Namespace(default=self.default)
         new.update(self.__values)
         return new
 
@@ -312,8 +331,13 @@ class Transcript:
             elif transcript_row.is_exon is True and isinstance(transcript_row, GffLine) and transcript_row.feature != "cDNA_match":
                 raise TypeError("GFF files should not provide orphan exons")
             self.__expandable = True
-            self.parent = transcript_row.gene
-            self.id = transcript_row.transcript
+            if "match" in transcript_row.feature and isinstance(transcript_row, GffLine):
+                self.parent = transcript_row.id
+                self.id = transcript_row.id
+                self.__expandable = True
+            else:
+                self.parent = transcript_row.gene
+                self.id = transcript_row.transcript
             self.add_exon(transcript_row)
         else:
             self.parent = transcript_row.parent
@@ -404,9 +428,10 @@ class Transcript:
         state = self.__dict__.copy()
         self.logger = logger
 
-        # if hasattr(self, "json_conf") and self.json_conf is not None:
-        #     if "requirements" in self.json_conf and "compiled" in self.json_conf["requirements"]:
-        #         del state["json_conf"]["requirements"]["compiled"]
+        if hasattr(self, "json_conf") and self.json_conf is not None:
+            for key in state["json_conf"]:
+                if "compiled" in state["json_conf"][key]:
+                    del state["json_conf"][key]["compiled"]
 
         if hasattr(self, "session"):
             if state["session"] is not None:
@@ -418,9 +443,24 @@ class Transcript:
             del state["sessionmaker"]
             del state["engine"]
 
-        # if "blast_baked" in state:
-        #     del state["blast_baked"]
-        #     del state["query_baked"]
+        if "blast_baked" in state:
+            del state["blast_baked"]
+            del state["query_baked"]
+
+        # import pickle
+        # try:
+        #     _ = pickle.dumps(state)
+        # except (pickle.PicklingError, TypeError):
+        #     failed = []
+        #     for obj in state:
+        #         try:
+        #             _ = pickle.dumps(state[obj])
+        #         except (pickle.PicklingError, TypeError):
+        #             failed.append(obj)
+        #
+        #     raise pickle.PicklingError("Failed to serialise {}, because of the following fields: {}".format(
+        #         self.id,
+        #     "\t\n".join([""]+failed)))
 
         return state
 
@@ -428,6 +468,13 @@ class Transcript:
         self.__dict__.update(state)
         # Set the logger to NullHandler
         self.logger = None
+
+    def __getattribute__(self, item):
+
+        if "external" in item and item != "external" and "." in item:
+            return getattr(self.external_scores, item.split(".")[1])
+        else:
+            return super().__getattribute__(item)
 
     # ######## Class instance methods ####################
 
@@ -459,6 +506,9 @@ class Transcript:
             start, end = sorted([gffline.start, gffline.end])
             if feature is None:
                 feature = gffline.feature
+            if isinstance(gffline, GffLine) and "match" in gffline.feature:
+                gffline.parent = gffline.id
+
             if self.id not in gffline.parent:
                 raise InvalidTranscript(
                     """Mismatch between transcript and exon:
@@ -480,7 +530,7 @@ class Transcript:
 
         elif "combined_utr" in feature or "UTR" in feature.upper():
             store = self.combined_utr
-        elif feature.endswith("exon"):
+        elif feature.endswith("exon") or "match" in feature:
             store = self.exons
         elif feature == "start_codon":
             self.has_start_codon = True
@@ -1077,6 +1127,7 @@ class Transcript:
         else:
             assert isinstance(logger, logging.Logger)
             self.__logger = logger
+        self.__logger.propagate = False
 
     @property
     def json_conf(self):

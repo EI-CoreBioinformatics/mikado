@@ -125,6 +125,7 @@ def check_scoring(json_conf):
     parameters_found = set()
     parameters_not_found = []
     double_parameters = []
+    invalid_raw = set()
     invalid_filter = set()
     available_metrics = Transcript.get_available_metrics()
     if "scoring" not in json_conf or len(json_conf["scoring"].keys()) == 0:
@@ -154,14 +155,22 @@ def check_scoring(json_conf):
             validator(scoring_schema).validate(json_conf["scoring"][parameter])
         except Exception as err:
             raise ValueError(parameter, err)
+
+        if ("external" not in parameter and
+                    getattr(Transcript, parameter).usable_raw is False and
+                    json_conf["scoring"][parameter]["use_raw"] is True):
+            invalid_raw.add(parameter)
+
         if json_conf["scoring"][parameter]["rescaling"] == "target":
             if "value" not in json_conf["scoring"][parameter]:
                 message = """Target rescaling requested for {0} but no target value specified.
                     Please specify it with the \"value\" keyword.\n{1}"""
                 message = message.format(parameter, json_conf["scoring"][parameter])
                 raise UnrecognizedRescaler(message)
+            elif json_conf["scoring"][parameter]["use_raw"] is True:
+                invalid_raw.add(parameter)
 
-    if len(parameters_not_found) > 0 or len(double_parameters) > 0 or len(invalid_filter) > 0:
+    if len(parameters_not_found) > 0 or len(double_parameters) > 0 or len(invalid_filter) > 0 or len(invalid_raw) > 0:
         err_message = ''
         if len(parameters_not_found) > 0:
             err_message = """The following parameters, present in the JSON file,
@@ -174,6 +183,10 @@ def check_scoring(json_conf):
             err_message += """The following parameters have an invalid filter,
             please correct:
             \t{0}""".format("\n\t".join(list(invalid_filter)))
+        if len(invalid_raw) > 0:
+            err_message += """The following parameters cannot be used as raw scores, either
+            because they are not normalized on their own, or because a "target" rescaling has been asked for:
+            \t{0}""".format("\n\t".join(list(invalid_raw)))
         raise InvalidJson(err_message)
 
     return json_conf
@@ -464,7 +477,8 @@ def check_json(json_conf, simple=False, external_dict=None):
                                                          json_conf["pick"]["scoring_file"]))):
             json_conf["pick"]["scoring_file"] = resource_filename(
                 __name__,
-                os.path.join("scoring_files", json_conf["pick"]["scoring_file"]))
+                os.path.join("scoring_files",
+                             json_conf["pick"]["scoring_file"]))
         else:
             raise InvalidJson(
                 "Scoring file not found: {0}".format(

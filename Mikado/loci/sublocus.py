@@ -389,20 +389,15 @@ class Sublocus(Abstractlocus):
         rescaling = self.json_conf["scoring"][param]["rescaling"]
         use_raw = self.json_conf["scoring"][param]["use_raw"]
 
-        if param.startswith("external"):
-            key = param.split(".")[1]
-            param = "external.{}".format(key)
-            metrics = dict((tid, self.transcripts[tid].external_scores[key]) for tid in self.transcripts)
-        else:
-            metrics = dict((tid, getattr(self.transcripts[tid], param)) for tid in self.transcripts)
+        metrics = dict((tid, getattr(self.transcripts[tid], param)) for tid in self.transcripts)
 
         if use_raw is True and not param.startswith("external") and getattr(Transcript, param).usable_raw is False:
-            self.logger.debug("The \"%s\" metric cannot be used as a raw score for %s, switching to False",
-                              param, self.id)
+            self.logger.warning("The \"%s\" metric cannot be used as a raw score for %s, switching to False",
+                                param, self.id)
             use_raw = False
         if use_raw is True and rescaling == "target":
-            self.logger.debug("I cannot use a raw score for %s in %s when looking for a target. Switching to False",
-                              param, self.id)
+            self.logger.warning("I cannot use a raw score for %s in %s when looking for a target. Switching to False",
+                                param, self.id)
             use_raw = False
 
         if rescaling == "target":
@@ -431,7 +426,8 @@ class Sublocus(Abstractlocus):
             if check is True:
                 if use_raw is True:
                     if not isinstance(tid_metric, (float, int)) and 0 <= tid_metric <= 1:
-                        error = ValueError("Only scores with values between 0 and 1 can be used raw. Please recheck your values.")
+                        error = ValueError(
+                            "Only scores with values between 0 and 1 can be used raw. Please recheck your values.")
                         self.logger.exception(error)
                         raise error
                     score = tid_metric / denominator

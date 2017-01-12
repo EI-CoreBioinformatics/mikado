@@ -138,18 +138,24 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         if hasattr(self, "engine"):
             del state["engine"]
 
+        # import pickle
+        # try:
+        #     _ = pickle.dumps(state)
+        # except pickle.PicklingError:
+        #     raise pickle.PicklingError("Failed to serialise {}".format(self.id))
         return state
 
     def __setstate__(self, state):
         """Method to recreate the object after serialisation."""
         self.__dict__.update(state)
+
         if hasattr(self, "json_conf"):
             if "requirements" in self.json_conf and "expression" in self.json_conf["requirements"]:
                 self.json_conf["requirements"]["compiled"] = compile(
                     self.json_conf["requirements"]["expression"],
                     "<json>", "eval")
         # Set the logger to NullHandler
-        self.logger = create_null_logger(self)
+        self.logger = None
 
     def __iter__(self):
         return iter(self.transcripts.keys())
@@ -570,6 +576,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         # Sort the exons marked as retained introns
         # self.logger.info("Finished calculating retained introns for %s", transcript.id)
         transcript.retained_introns = tuple(sorted(retained_introns))
+        transcript.logger = self.logger
         # self.logger.info("Returning retained introns for %s", transcript.id)
         # return transcript
 
@@ -733,6 +740,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             for key in self.json_conf["requirements"]["parameters"]:
                 value = getattr(self.transcripts[tid],
                                 self.json_conf["requirements"]["parameters"][key]["name"])
+
                 evaluated[key] = self.evaluate(
                     value,
                     self.json_conf["requirements"]["parameters"][key])
@@ -813,8 +821,13 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         :param logger
         :type logger: logging.Logger | Nonell
         """
+
+        # if self.__logger is not None:
+        #     self.__logger.disabled = True
+
         if logger is None:
             logger = create_null_logger(self)
+            logger.propagate = False
         elif not isinstance(logger, logging.Logger):
             raise TypeError("Invalid logger: {0}".format(type(logger)))
         else:

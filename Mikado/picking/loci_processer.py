@@ -6,6 +6,7 @@ import functools
 from ..utilities import dbutils
 from ..loci.superlocus import Superlocus
 from ..parsers.GFF import GffLine
+from ..serializers.external import ExternalSource
 import os
 import collections
 import csv
@@ -13,6 +14,8 @@ import re
 import sys
 import pickle
 from itertools import zip_longest
+from sqlalchemy.engine import create_engine  # SQLAlchemy/DB imports
+import sqlalchemy.orm.session
 
 __author__ = 'Luca Venturini'
 
@@ -293,7 +296,6 @@ def remove_fragments(stranded_loci, json_conf, logger):
     for stranded_locus in stranded_loci:
         for _, locus_instance in stranded_locus.loci.items():
             logger.debug("Assessing whether %s could be a fragment", _)
-            locus_instance.logger = logger
             total += 1
             is_fragment = locus_instance.is_putative_fragment()
             logger.debug("%s is a putative fragment: %s", _, is_fragment)
@@ -444,13 +446,6 @@ def analyse_locus(slocus: Superlocus,
                      stranded_locus.start,
                      stranded_locus.end,
                      stranded_locus.strand)
-
-    # Remove overlapping fragments.
-    loci_to_check = {True: set(), False: set()}
-    for stranded_locus in stranded_loci:
-        for _, locus_instance in stranded_locus.loci.items():
-            locus_instance.logger = logger
-            loci_to_check[locus_instance.monoexonic].add(locus_instance)
 
     # Check if any locus is a fragment, if so, tag/remove it
     stranded_loci = sorted(list(remove_fragments(stranded_loci, json_conf, logger)))
@@ -611,10 +606,23 @@ class LociProcesser(Process):
             score_keys = self.regressor["scoring"].metrics
         # Define mandatory output files
 
+        db_connection = functools.partial(
+            dbutils.create_connector,
+            self.json_conf,
+            self.logger)
+
+        engine = create_engine("{0}://".format(self.json_conf["db_settings"]["dbtype"]),
+                               creator=db_connection)
+        session = sqlalchemy.orm.sessionmaker(bind=engine)()
+
         score_keys = ["tid", "parent", "score"] + sorted(score_keys + ["source_score"])
+        metrics = Superlocus.available_metrics[3:]
+        metrics.extend(["external.{}".format(_.source) for _ in session.query(ExternalSource.source).all()])
+        metrics = Superlocus.available_metrics[:3] + sorted(metrics)
+
         self.locus_metrics = csv.DictWriter(
             locus_metrics_file,
-            Superlocus.available_metrics,
+            metrics,
             delimiter="\t")
 
         self.locus_scores = csv.DictWriter(locus_scores_file, score_keys, delimiter="\t")
@@ -640,7 +648,7 @@ class LociProcesser(Process):
             sub_scores_file = open(sub_scores_file, "w")
             self.sub_metrics = csv.DictWriter(
                 sub_metrics_file,
-                Superlocus.available_metrics,
+                metrics,
                 delimiter="\t")
             self.sub_metrics.handle = sub_metrics_file
             self.sub_metrics.flush = self.sub_metrics.handle.flush
@@ -664,7 +672,7 @@ class LociProcesser(Process):
             mono_scores_file = open(mono_scores_file, "w")
             self.mono_metrics = csv.DictWriter(
                 mono_metrics_file,
-                Superlocus.available_metrics,
+                metrics,
                 delimiter="\t")
             self.mono_metrics.handle = mono_metrics_file
             self.mono_metrics.flush = self.mono_metrics.handle.flush
@@ -771,6 +779,7 @@ class LociProcesser(Process):
             new_id = "{0}.{1}G{2}".format(
                 self.json_conf["pick"]["output_format"]["id_prefix"],
                 stranded_locus.chrom, self.__gene_counter)
+            stranded_locus.loci[locus].logger = self.logger
             stranded_locus.loci[locus].id = new_id
 
         locus_lines = stranded_locus.__str__(

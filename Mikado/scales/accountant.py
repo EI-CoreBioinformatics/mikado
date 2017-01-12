@@ -206,6 +206,7 @@ class Accountant:
                 private_transcripts += (0b1000 & val) >> 3
                 gene_not_found &= (0b1000 & val) >> 3
                 gene_match |= val
+
             found_genes_stringent += gene_match & 0b1
             # Shift back by 1
             found_genes += (gene_match & 0b10) >> 1
@@ -572,11 +573,16 @@ class Accountant:
             strand = transcr.strand
 
         if result.ccode != ("u",):
-            for parent in transcr.parent:
-                self.pred_genes[parent][transcr.id] &= ~(1 << 3)  # Clear the fourth bit
-            for refid, refgene in zip(result.ref_id, result.ref_gene):
+            found_one = False
+
+            for refid, refgene, nf1 in zip(result.ref_id, result.ref_gene, result.n_f1):
                 # self.ref_genes[refgene][refid] |= 0b1000
-                self.ref_genes[refgene][refid] &= ~(1 << 3)  # Clear the fourth bit
+                if nf1 > 0:
+                    self.ref_genes[refgene][refid] &= ~(1 << 3)  # Clear the fourth bit
+                    found_one = True
+            if found_one:
+                for parent in transcr.parent:
+                    self.pred_genes[parent][transcr.id] &= ~(1 << 3)  # Clear the fourth bit
 
             if len(result.j_f1) == 1:
                 zipper = zip(result.ref_id, result.ref_gene, result.j_f1, result.n_f1)

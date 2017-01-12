@@ -1053,6 +1053,7 @@ class Superlocus(Abstractlocus):
             self.loci[locus.id].set_json_conf(self.json_conf)
 
         self.loci_defined = True
+
         if self.json_conf["pick"]["alternative_splicing"]["report"] is True:
             self.define_alternative_splicing()
 

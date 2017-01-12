@@ -46,8 +46,11 @@ class Gene:
                 self.id = transcr.parent[0]
                 self.transcripts[transcr.id] = transcr
             elif isinstance(transcr, GffLine):
-                assert transcr.is_gene is True, str(transcr)
-                self.__from_gene = True
+                if transcr.is_gene is True:
+                    self.__from_gene = True
+                elif not "match" in transcr.feature:
+                    raise AssertionError(str(transcr))
+
                 self.id = transcr.id
                 self.attributes = transcr.attributes.copy()
                 self.feature = transcr.feature

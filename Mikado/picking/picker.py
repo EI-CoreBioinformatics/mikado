@@ -30,7 +30,7 @@ from ..serializers.junction import Junction, Chrom
 from ..serializers.orf import Orf
 from ..serializers.external import ExternalSource
 from ..loci.superlocus import Superlocus, Transcript
-from ..configuration.configurator import to_json  # Necessary for nosetests
+from ..configuration.configurator import to_json, check_json  # Necessary for nosetests
 from ..utilities import dbutils, merge_partial
 from ..exceptions import UnsortedInput, InvalidJson, InvalidTranscript
 from .loci_processer import analyse_locus, LociProcesser, merge_loci
@@ -75,7 +75,7 @@ class Picker:
             assert os.path.exists(json_conf)
             json_conf = to_json(json_conf)
         else:
-            assert isinstance(json_conf, dict)
+            json_conf = check_json(json_conf)
 
         self.commandline = commandline
         self.json_conf = json_conf
@@ -546,6 +546,7 @@ memory intensive, proceed with caution!")
                 self.json_conf["pick"]["output_format"]["id_prefix"],
                 stranded_locus.chrom, gene_counter)
             stranded_locus.loci[locus].id = new_id
+            stranded_locus.loci[locus].logger = self.logger
 
         locus_lines = stranded_locus.__str__(
             print_cds=not self.json_conf["pick"]["run_options"]["exclude_cds"],

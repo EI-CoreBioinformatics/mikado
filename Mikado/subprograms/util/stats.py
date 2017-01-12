@@ -282,7 +282,29 @@ class Calculator:
                                                                                          logger=self.__logger)
                     else:
                         current_gene.transcripts[record.transcript].add_exon(record)
-                else:
+                elif self.is_gff is True and "cDNA_match" in record.feature:
+                    # Here we assume that we only have "cDNA_match" lines, with no parents
+                    record.parent = record.id
+                    if current_gene is None or record.id != current_gene.id:
+                        self.__store_gene(current_gene)
+                        new_record = record.copy()
+                        # new_record.feature = "gene"
+                        current_gene = Gene(
+                            new_record,
+                            gid=new_record.id,
+                            only_coding=self.only_coding,
+                            logger=self.__logger)
+                        transcript2gene[record.id] = record.id
+                        current_gene.transcripts[record.id] = TranscriptComputer(record,
+                                                                                 logger=self.__logger,
+                                                                                 )
+                    elif record.id not in current_gene:
+                        raise ValueError(
+                            "cDNA_match instances should not have more than one transcript per \"gene\"!")
+                    else:
+                        current_gene.transcripts[record.id].add_exon(record)
+
+                elif self.is_gff is True:
                     for parent in iter(pparent for pparent in record.parent if
                                        pparent not in derived_features):
                         try:

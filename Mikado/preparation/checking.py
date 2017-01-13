@@ -58,6 +58,7 @@ def create_transcript(lines,
         transcript_line.feature = "transcript"
         transcript_line.start, transcript_line.end = sorted([start, end])
         transcript_line.logger = logger
+        assert lines["tid"] is not None, lines
         transcript_line.id = lines["tid"]
         transcript_line.parent = lines["parent"]
 

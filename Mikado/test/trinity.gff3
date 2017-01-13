@@ -1,0 +1,259 @@
+##gff-version	3
+Chr5	tair10	gene	26578496	26579563	.	-	.	ID=c73_g1_i1.path1.160
+Chr5	tair10	transcript	26578496	26579563	95	-	.	ID=c73_g1_i1.mrna1.160;Parent=c73_g1_i1.path1.160;Name=c73_g1_i1.mrna1.160;gene_name=c73_g1_i1
+Chr5	tair10	exon	26578496	26578518	.	-	.	ID=c73_g1_i1.mrna1.160.exon1;Parent=c73_g1_i1.mrna1.160
+Chr5	tair10	exon	26579301	26579563	.	-	.	ID=c73_g1_i1.mrna1.160.exon2;Parent=c73_g1_i1.mrna1.160
+###
+Chr5	tair10	gene	26581225	26583874	.	-	.	ID=c11_g1_i2.path1.111
+Chr5	tair10	transcript	26581225	26583874	99	-	.	ID=c11_g1_i2.mrna1.111;Parent=c11_g1_i2.path1.111;Name=c11_g1_i2.mrna1.111;gene_name=c11_g1_i2
+Chr5	tair10	exon	26581225	26581528	.	-	.	ID=c11_g1_i2.mrna1.111.exon1;Parent=c11_g1_i2.mrna1.111
+Chr5	tair10	exon	26583335	26583874	.	-	.	ID=c11_g1_i2.mrna1.111.exon2;Parent=c11_g1_i2.mrna1.111
+###
+Chr5	tair10	gene	26583216	26583874	.	-	.	ID=c11_g1_i1.path1.350
+Chr5	tair10	transcript	26583216	26583874	99	-	.	ID=c11_g1_i1.mrna1.350;Parent=c11_g1_i1.path1.350;Name=c11_g1_i1.mrna1.350;gene_name=c11_g1_i1
+Chr5	tair10	exon	26583216	26583874	.	-	.	ID=c11_g1_i1.mrna1.350.exon1;Parent=c11_g1_i1.mrna1.350
+###
+Chr5	tair10	gene	26584173	26584464	.	-	.	ID=c3_g1_i2.path1.181
+Chr5	tair10	transcript	26584173	26584464	100	-	.	ID=c3_g1_i2.mrna1.181;Parent=c3_g1_i2.path1.181;Name=c3_g1_i2.mrna1.181;gene_name=c3_g1_i2
+Chr5	tair10	exon	26584173	26584278	.	-	.	ID=c3_g1_i2.mrna1.181.exon1;Parent=c3_g1_i2.mrna1.181
+Chr5	tair10	exon	26584358	26584464	.	-	.	ID=c3_g1_i2.mrna1.181.exon2;Parent=c3_g1_i2.mrna1.181
+###
+Chr5	tair10	gene	26584173	26584464	.	+	.	ID=c3_g1_i1.path1.716
+Chr5	tair10	transcript	26584173	26584464	99	+	.	ID=c3_g1_i1.mrna1.716;Parent=c3_g1_i1.path1.716;Name=c3_g1_i1.mrna1.716;gene_name=c3_g1_i1
+Chr5	tair10	exon	26584173	26584464	.	+	.	ID=c3_g1_i1.mrna1.716.exon1;Parent=c3_g1_i1.mrna1.716
+###
+Chr5	tair10	gene	26584797	26595528	.	+	.	ID=c58_g1_i3.path1.19
+Chr5	tair10	transcript	26584797	26595528	100	+	.	ID=c58_g1_i3.mrna1.19;Parent=c58_g1_i3.path1.19;Name=c58_g1_i3.mrna1.19;gene_name=c58_g1_i3
+Chr5	tair10	exon	26584797	26584879	.	+	.	ID=c58_g1_i3.mrna1.19.exon1;Parent=c58_g1_i3.mrna1.19
+Chr5	tair10	exon	26585220	26585273	.	+	.	ID=c58_g1_i3.mrna1.19.exon2;Parent=c58_g1_i3.mrna1.19
+Chr5	tair10	exon	26585345	26585889	.	+	.	ID=c58_g1_i3.mrna1.19.exon3;Parent=c58_g1_i3.mrna1.19
+Chr5	tair10	exon	26585982	26586294	.	+	.	ID=c58_g1_i3.mrna1.19.exon4;Parent=c58_g1_i3.mrna1.19
+Chr5	tair10	exon	26586420	26586524	.	+	.	ID=c58_g1_i3.mrna1.19.exon5;Parent=c58_g1_i3.mrna1.19
+Chr5	tair10	exon	26586638	26586850	.	+	.	ID=c58_g1_i3.mrna1.19.exon6;Parent=c58_g1_i3.mrna1.19
+Chr5	tair10	exon	26586934	26586996	.	+	.	ID=c58_g1_i3.mrna1.19.exon7;Parent=c58_g1_i3.mrna1.19
+Chr5	tair10	exon	26587084	26587202	.	+	.	ID=c58_g1_i3.mrna1.19.exon8;Parent=c58_g1_i3.mrna1.19
+Chr5	tair10	exon	26587287	26587345	.	+	.	ID=c58_g1_i3.mrna1.19.exon9;Parent=c58_g1_i3.mrna1.19
+Chr5	tair10	exon	26587427	26587472	.	+	.	ID=c58_g1_i3.mrna1.19.exon10;Parent=c58_g1_i3.mrna1.19
+Chr5	tair10	exon	26595411	26595528	.	+	.	ID=c58_g1_i3.mrna1.19.exon11;Parent=c58_g1_i3.mrna1.19
+###
+Chr5	tair10	gene	26585507	26586850	.	+	.	ID=c58_g1_i2.path1.35
+Chr5	tair10	transcript	26585507	26586850	99	+	.	ID=c58_g1_i2.mrna1.35;Parent=c58_g1_i2.path1.35;Name=c58_g1_i2.mrna1.35;gene_name=c58_g1_i2
+Chr5	tair10	exon	26585507	26585889	.	+	.	ID=c58_g1_i2.mrna1.35.exon1;Parent=c58_g1_i2.mrna1.35
+Chr5	tair10	exon	26585982	26586102	.	+	.	ID=c58_g1_i2.mrna1.35.exon2;Parent=c58_g1_i2.mrna1.35
+Chr5	tair10	exon	26586217	26586294	.	+	.	ID=c58_g1_i2.mrna1.35.exon3;Parent=c58_g1_i2.mrna1.35
+Chr5	tair10	exon	26586420	26586524	.	+	.	ID=c58_g1_i2.mrna1.35.exon4;Parent=c58_g1_i2.mrna1.35
+Chr5	tair10	exon	26586638	26586850	.	+	.	ID=c58_g1_i2.mrna1.35.exon5;Parent=c58_g1_i2.mrna1.35
+###
+Chr5	tair10	gene	26586851	26595457	.	+	.	ID=c58_g1_i1.path1.190
+Chr5	tair10	transcript	26586851	26595457	100	+	.	ID=c58_g1_i1.mrna1.190;Parent=c58_g1_i1.path1.190;Name=c58_g1_i1.mrna1.190;gene_name=c58_g1_i1
+Chr5	tair10	exon	26586851	26586996	.	+	.	ID=c58_g1_i1.mrna1.190.exon1;Parent=c58_g1_i1.mrna1.190
+Chr5	tair10	exon	26587084	26587202	.	+	.	ID=c58_g1_i1.mrna1.190.exon2;Parent=c58_g1_i1.mrna1.190
+Chr5	tair10	exon	26587287	26587345	.	+	.	ID=c58_g1_i1.mrna1.190.exon3;Parent=c58_g1_i1.mrna1.190
+Chr5	tair10	exon	26587427	26587472	.	+	.	ID=c58_g1_i1.mrna1.190.exon4;Parent=c58_g1_i1.mrna1.190
+Chr5	tair10	exon	26595411	26595457	.	+	.	ID=c58_g1_i1.mrna1.190.exon5;Parent=c58_g1_i1.mrna1.190
+###
+Chr5	tair10	gene	26586851	26595457	.	+	.	ID=c58_g1_i7.path1.1
+Chr5	tair10	transcript	26586851	26595457	99	+	.	ID=c58_g1_i7.mrna1.1;Parent=c58_g1_i7.path1.1;Name=c58_g1_i7.mrna1.1;gene_name=c58_g1_i7
+Chr5	tair10	exon	26586851	26587202	.	+	.	ID=c58_g1_i7.mrna1.1.exon1;Parent=c58_g1_i7.mrna1.1
+Chr5	tair10	exon	26587287	26587345	.	+	.	ID=c58_g1_i7.mrna1.1.exon2;Parent=c58_g1_i7.mrna1.1
+Chr5	tair10	exon	26587427	26587472	.	+	.	ID=c58_g1_i7.mrna1.1.exon3;Parent=c58_g1_i7.mrna1.1
+Chr5	tair10	exon	26595411	26595457	.	+	.	ID=c58_g1_i7.mrna1.1.exon4;Parent=c58_g1_i7.mrna1.1
+###
+Chr5	tair10	gene	26587455	26587912	.	+	.	ID=c108_g1_i1.path1.104
+Chr5	tair10	transcript	26587455	26587912	99	+	.	ID=c108_g1_i1.mrna1.104;Parent=c108_g1_i1.path1.104;Name=c108_g1_i1.mrna1.104;gene_name=c108_g1_i1
+Chr5	tair10	exon	26587455	26587912	.	+	.	ID=c108_g1_i1.mrna1.104.exon1;Parent=c108_g1_i1.mrna1.104
+###
+Chr5	tair10	gene	26588408	26594772	.	+	.	ID=c58_g1_i11.path1
+Chr5	tair10	transcript	26588408	26594772	100	+	.	ID=c58_g1_i11.mrna1;Parent=c58_g1_i11.path1;Name=c58_g1_i11.mrna1;gene_name=c58_g1_i11
+Chr5	tair10	exon	26588408	26588625	.	+	.	ID=c58_g1_i11.mrna1.exon1;Parent=c58_g1_i11.mrna1
+Chr5	tair10	exon	26589196	26589279	.	+	.	ID=c58_g1_i11.mrna1.exon2;Parent=c58_g1_i11.mrna1
+Chr5	tair10	exon	26589386	26590167	.	+	.	ID=c58_g1_i11.mrna1.exon3;Parent=c58_g1_i11.mrna1
+Chr5	tair10	exon	26590261	26590393	.	+	.	ID=c58_g1_i11.mrna1.exon4;Parent=c58_g1_i11.mrna1
+Chr5	tair10	exon	26594172	26594243	.	+	.	ID=c58_g1_i11.mrna1.exon5;Parent=c58_g1_i11.mrna1
+Chr5	tair10	exon	26594318	26594772	.	+	.	ID=c58_g1_i11.mrna1.exon6;Parent=c58_g1_i11.mrna1
+###
+Chr5	tair10	gene	26588408	26598230	.	+	.	ID=c58_g1_i5.path1.3
+Chr5	tair10	transcript	26588408	26598230	100	+	.	ID=c58_g1_i5.mrna1.3;Parent=c58_g1_i5.path1.3;Name=c58_g1_i5.mrna1.3;gene_name=c58_g1_i5
+Chr5	tair10	exon	26588408	26588625	.	+	.	ID=c58_g1_i5.mrna1.3.exon1;Parent=c58_g1_i5.mrna1.3
+Chr5	tair10	exon	26589196	26589279	.	+	.	ID=c58_g1_i5.mrna1.3.exon2;Parent=c58_g1_i5.mrna1.3
+Chr5	tair10	exon	26589386	26590167	.	+	.	ID=c58_g1_i5.mrna1.3.exon3;Parent=c58_g1_i5.mrna1.3
+Chr5	tair10	exon	26590261	26590393	.	+	.	ID=c58_g1_i5.mrna1.3.exon4;Parent=c58_g1_i5.mrna1.3
+Chr5	tair10	exon	26590495	26590566	.	+	.	ID=c58_g1_i5.mrna1.3.exon5;Parent=c58_g1_i5.mrna1.3
+Chr5	tair10	exon	26590641	26590739	.	+	.	ID=c58_g1_i5.mrna1.3.exon6;Parent=c58_g1_i5.mrna1.3
+Chr5	tair10	exon	26590880	26591092	.	+	.	ID=c58_g1_i5.mrna1.3.exon7;Parent=c58_g1_i5.mrna1.3
+Chr5	tair10	exon	26591174	26591236	.	+	.	ID=c58_g1_i5.mrna1.3.exon8;Parent=c58_g1_i5.mrna1.3
+Chr5	tair10	exon	26591324	26591442	.	+	.	ID=c58_g1_i5.mrna1.3.exon9;Parent=c58_g1_i5.mrna1.3
+Chr5	tair10	exon	26591520	26591578	.	+	.	ID=c58_g1_i5.mrna1.3.exon10;Parent=c58_g1_i5.mrna1.3
+Chr5	tair10	exon	26591681	26592026	.	+	.	ID=c58_g1_i5.mrna1.3.exon11;Parent=c58_g1_i5.mrna1.3
+Chr5	tair10	exon	26595712	26598230	.	+	.	ID=c58_g1_i5.mrna1.3.exon12;Parent=c58_g1_i5.mrna1.3
+###
+Chr5	tair10	gene	26588408	26601049	.	+	.	ID=c58_g1_i10.path1
+Chr5	tair10	transcript	26588408	26601049	100	+	.	ID=c58_g1_i10.mrna1;Parent=c58_g1_i10.path1;Name=c58_g1_i10.mrna1;gene_name=c58_g1_i10
+Chr5	tair10	exon	26588408	26588625	.	+	.	ID=c58_g1_i10.mrna1.exon1;Parent=c58_g1_i10.mrna1
+Chr5	tair10	exon	26589196	26589279	.	+	.	ID=c58_g1_i10.mrna1.exon2;Parent=c58_g1_i10.mrna1
+Chr5	tair10	exon	26589386	26590167	.	+	.	ID=c58_g1_i10.mrna1.exon3;Parent=c58_g1_i10.mrna1
+Chr5	tair10	exon	26590261	26590393	.	+	.	ID=c58_g1_i10.mrna1.exon4;Parent=c58_g1_i10.mrna1
+Chr5	tair10	exon	26594172	26594243	.	+	.	ID=c58_g1_i10.mrna1.exon5;Parent=c58_g1_i10.mrna1
+Chr5	tair10	exon	26594318	26594416	.	+	.	ID=c58_g1_i10.mrna1.exon6;Parent=c58_g1_i10.mrna1
+Chr5	tair10	exon	26594569	26594772	.	+	.	ID=c58_g1_i10.mrna1.exon7;Parent=c58_g1_i10.mrna1
+Chr5	tair10	exon	26594860	26594877	.	+	.	ID=c58_g1_i10.mrna1.exon8;Parent=c58_g1_i10.mrna1
+Chr5	tair10	exon	26601005	26601049	.	+	.	ID=c58_g1_i10.mrna1.exon9;Parent=c58_g1_i10.mrna1
+###
+Chr5	tair10	gene	26588603	26589218	.	+	.	ID=c68_g1_i1.path1.173
+Chr5	tair10	transcript	26588603	26589218	100	+	.	ID=c68_g1_i1.mrna1.173;Parent=c68_g1_i1.path1.173;Name=c68_g1_i1.mrna1.173;gene_name=c68_g1_i1
+Chr5	tair10	exon	26588603	26588854	.	+	.	ID=c68_g1_i1.mrna1.173.exon1;Parent=c68_g1_i1.mrna1.173
+Chr5	tair10	exon	26589196	26589218	.	+	.	ID=c68_g1_i1.mrna1.173.exon2;Parent=c68_g1_i1.mrna1.173
+###
+Chr5	tair10	gene	26591174	26595528	.	+	.	ID=c58_g1_i11.path2
+Chr5	tair10	transcript	26591174	26595528	100	+	.	ID=c58_g1_i11.mrna2;Parent=c58_g1_i11.path2;Name=c58_g1_i11.mrna2;gene_name=c58_g1_i11
+Chr5	tair10	exon	26591174	26591236	.	+	.	ID=c58_g1_i11.mrna2.exon1;Parent=c58_g1_i11.mrna2
+Chr5	tair10	exon	26591324	26591442	.	+	.	ID=c58_g1_i11.mrna2.exon2;Parent=c58_g1_i11.mrna2
+Chr5	tair10	exon	26591520	26591578	.	+	.	ID=c58_g1_i11.mrna2.exon3;Parent=c58_g1_i11.mrna2
+Chr5	tair10	exon	26591681	26591770	.	+	.	ID=c58_g1_i11.mrna2.exon4;Parent=c58_g1_i11.mrna2
+Chr5	tair10	exon	26595456	26595528	.	+	.	ID=c58_g1_i11.mrna2.exon5;Parent=c58_g1_i11.mrna2
+###
+Chr5	tair10	gene	26591324	26591981	.	+	.	ID=c58_g1_i8.path2
+Chr5	tair10	transcript	26591324	26591981	100	+	.	ID=c58_g1_i8.mrna2;Parent=c58_g1_i8.path2;Name=c58_g1_i8.mrna2;gene_name=c58_g1_i8
+Chr5	tair10	exon	26591324	26591442	.	+	.	ID=c58_g1_i8.mrna2.exon1;Parent=c58_g1_i8.mrna2
+Chr5	tair10	exon	26591520	26591578	.	+	.	ID=c58_g1_i8.mrna2.exon2;Parent=c58_g1_i8.mrna2
+Chr5	tair10	exon	26591681	26591845	.	+	.	ID=c58_g1_i8.mrna2.exon3;Parent=c58_g1_i8.mrna2
+Chr5	tair10	exon	26591942	26591981	.	+	.	ID=c58_g1_i8.mrna2.exon4;Parent=c58_g1_i8.mrna2
+###
+Chr5	tair10	gene	26591324	26591981	.	+	.	ID=c58_g1_i10.path2
+Chr5	tair10	transcript	26591324	26591981	100	+	.	ID=c58_g1_i10.mrna2;Parent=c58_g1_i10.path2;Name=c58_g1_i10.mrna2;gene_name=c58_g1_i10
+Chr5	tair10	exon	26591324	26591442	.	+	.	ID=c58_g1_i10.mrna2.exon1;Parent=c58_g1_i10.mrna2
+Chr5	tair10	exon	26591520	26591578	.	+	.	ID=c58_g1_i10.mrna2.exon2;Parent=c58_g1_i10.mrna2
+Chr5	tair10	exon	26591681	26591845	.	+	.	ID=c58_g1_i10.mrna2.exon3;Parent=c58_g1_i10.mrna2
+Chr5	tair10	exon	26591942	26591981	.	+	.	ID=c58_g1_i10.mrna2.exon4;Parent=c58_g1_i10.mrna2
+###
+Chr5	tair10	gene	26591981	26594589	.	+	.	ID=c58_g1_i12.path1
+Chr5	tair10	transcript	26591981	26594589	100	+	.	ID=c58_g1_i12.mrna1;Parent=c58_g1_i12.path1;Name=c58_g1_i12.mrna1;gene_name=c58_g1_i12
+Chr5	tair10	exon	26591981	26592002	.	+	.	ID=c58_g1_i12.mrna1.exon1;Parent=c58_g1_i12.mrna1
+Chr5	tair10	exon	26592528	26593365	.	+	.	ID=c58_g1_i12.mrna1.exon2;Parent=c58_g1_i12.mrna1
+Chr5	tair10	exon	26593449	26593836	.	+	.	ID=c58_g1_i12.mrna1.exon3;Parent=c58_g1_i12.mrna1
+Chr5	tair10	exon	26593930	26594062	.	+	.	ID=c58_g1_i12.mrna1.exon4;Parent=c58_g1_i12.mrna1
+Chr5	tair10	exon	26594172	26594243	.	+	.	ID=c58_g1_i12.mrna1.exon5;Parent=c58_g1_i12.mrna1
+Chr5	tair10	exon	26594318	26594589	.	+	.	ID=c58_g1_i12.mrna1.exon6;Parent=c58_g1_i12.mrna1
+###
+Chr5	tair10	gene	26591981	26595084	.	+	.	ID=c58_g1_i9.path1
+Chr5	tair10	transcript	26591981	26595084	100	+	.	ID=c58_g1_i9.mrna1;Parent=c58_g1_i9.path1;Name=c58_g1_i9.mrna1;gene_name=c58_g1_i9
+Chr5	tair10	exon	26591981	26592002	.	+	.	ID=c58_g1_i9.mrna1.exon1;Parent=c58_g1_i9.mrna1
+Chr5	tair10	exon	26592528	26593365	.	+	.	ID=c58_g1_i9.mrna1.exon2;Parent=c58_g1_i9.mrna1
+Chr5	tair10	exon	26593449	26593836	.	+	.	ID=c58_g1_i9.mrna1.exon3;Parent=c58_g1_i9.mrna1
+Chr5	tair10	exon	26593930	26594062	.	+	.	ID=c58_g1_i9.mrna1.exon4;Parent=c58_g1_i9.mrna1
+Chr5	tair10	exon	26594172	26594243	.	+	.	ID=c58_g1_i9.mrna1.exon5;Parent=c58_g1_i9.mrna1
+Chr5	tair10	exon	26594318	26594416	.	+	.	ID=c58_g1_i9.mrna1.exon6;Parent=c58_g1_i9.mrna1
+Chr5	tair10	exon	26594569	26594922	.	+	.	ID=c58_g1_i9.mrna1.exon7;Parent=c58_g1_i9.mrna1
+Chr5	tair10	exon	26595003	26595084	.	+	.	ID=c58_g1_i9.mrna1.exon8;Parent=c58_g1_i9.mrna1
+###
+Chr5	tair10	gene	26591981	26598230	.	+	.	ID=c58_g1_i4.path1.6
+Chr5	tair10	transcript	26591981	26598230	100	+	.	ID=c58_g1_i4.mrna1.6;Parent=c58_g1_i4.path1.6;Name=c58_g1_i4.mrna1.6;gene_name=c58_g1_i4
+Chr5	tair10	exon	26591981	26592002	.	+	.	ID=c58_g1_i4.mrna1.6.exon1;Parent=c58_g1_i4.mrna1.6
+Chr5	tair10	exon	26592528	26593365	.	+	.	ID=c58_g1_i4.mrna1.6.exon2;Parent=c58_g1_i4.mrna1.6
+Chr5	tair10	exon	26593449	26593836	.	+	.	ID=c58_g1_i4.mrna1.6.exon3;Parent=c58_g1_i4.mrna1.6
+Chr5	tair10	exon	26593930	26594062	.	+	.	ID=c58_g1_i4.mrna1.6.exon4;Parent=c58_g1_i4.mrna1.6
+Chr5	tair10	exon	26594172	26594243	.	+	.	ID=c58_g1_i4.mrna1.6.exon5;Parent=c58_g1_i4.mrna1.6
+Chr5	tair10	exon	26594318	26594416	.	+	.	ID=c58_g1_i4.mrna1.6.exon6;Parent=c58_g1_i4.mrna1.6
+Chr5	tair10	exon	26594569	26594772	.	+	.	ID=c58_g1_i4.mrna1.6.exon7;Parent=c58_g1_i4.mrna1.6
+Chr5	tair10	exon	26594860	26594922	.	+	.	ID=c58_g1_i4.mrna1.6.exon8;Parent=c58_g1_i4.mrna1.6
+Chr5	tair10	exon	26595003	26595121	.	+	.	ID=c58_g1_i4.mrna1.6.exon9;Parent=c58_g1_i4.mrna1.6
+Chr5	tair10	exon	26595210	26595268	.	+	.	ID=c58_g1_i4.mrna1.6.exon10;Parent=c58_g1_i4.mrna1.6
+Chr5	tair10	exon	26595366	26598230	.	+	.	ID=c58_g1_i4.mrna1.6.exon11;Parent=c58_g1_i4.mrna1.6
+###
+Chr5	tair10	gene	26591981	26598230	.	+	.	ID=c58_g1_i6.path1.3
+Chr5	tair10	transcript	26591981	26598230	100	+	.	ID=c58_g1_i6.mrna1.3;Parent=c58_g1_i6.path1.3;Name=c58_g1_i6.mrna1.3;gene_name=c58_g1_i6
+Chr5	tair10	exon	26591981	26592002	.	+	.	ID=c58_g1_i6.mrna1.3.exon1;Parent=c58_g1_i6.mrna1.3
+Chr5	tair10	exon	26592528	26593836	.	+	.	ID=c58_g1_i6.mrna1.3.exon2;Parent=c58_g1_i6.mrna1.3
+Chr5	tair10	exon	26593930	26594062	.	+	.	ID=c58_g1_i6.mrna1.3.exon3;Parent=c58_g1_i6.mrna1.3
+Chr5	tair10	exon	26594172	26594243	.	+	.	ID=c58_g1_i6.mrna1.3.exon4;Parent=c58_g1_i6.mrna1.3
+Chr5	tair10	exon	26594318	26594416	.	+	.	ID=c58_g1_i6.mrna1.3.exon5;Parent=c58_g1_i6.mrna1.3
+Chr5	tair10	exon	26594569	26594772	.	+	.	ID=c58_g1_i6.mrna1.3.exon6;Parent=c58_g1_i6.mrna1.3
+Chr5	tair10	exon	26594860	26594922	.	+	.	ID=c58_g1_i6.mrna1.3.exon7;Parent=c58_g1_i6.mrna1.3
+Chr5	tair10	exon	26595003	26595121	.	+	.	ID=c58_g1_i6.mrna1.3.exon8;Parent=c58_g1_i6.mrna1.3
+Chr5	tair10	exon	26595210	26595268	.	+	.	ID=c58_g1_i6.mrna1.3.exon9;Parent=c58_g1_i6.mrna1.3
+Chr5	tair10	exon	26595366	26598230	.	+	.	ID=c58_g1_i6.mrna1.3.exon10;Parent=c58_g1_i6.mrna1.3
+###
+Chr5	tair10	gene	26591981	26601049	.	+	.	ID=c58_g1_i8.path1
+Chr5	tair10	transcript	26591981	26601049	100	+	.	ID=c58_g1_i8.mrna1;Parent=c58_g1_i8.path1;Name=c58_g1_i8.mrna1;gene_name=c58_g1_i8
+Chr5	tair10	exon	26591981	26592002	.	+	.	ID=c58_g1_i8.mrna1.exon1;Parent=c58_g1_i8.mrna1
+Chr5	tair10	exon	26592528	26593365	.	+	.	ID=c58_g1_i8.mrna1.exon2;Parent=c58_g1_i8.mrna1
+Chr5	tair10	exon	26593449	26593836	.	+	.	ID=c58_g1_i8.mrna1.exon3;Parent=c58_g1_i8.mrna1
+Chr5	tair10	exon	26593930	26594062	.	+	.	ID=c58_g1_i8.mrna1.exon4;Parent=c58_g1_i8.mrna1
+Chr5	tair10	exon	26594172	26594243	.	+	.	ID=c58_g1_i8.mrna1.exon5;Parent=c58_g1_i8.mrna1
+Chr5	tair10	exon	26594318	26594416	.	+	.	ID=c58_g1_i8.mrna1.exon6;Parent=c58_g1_i8.mrna1
+Chr5	tair10	exon	26594569	26594772	.	+	.	ID=c58_g1_i8.mrna1.exon7;Parent=c58_g1_i8.mrna1
+Chr5	tair10	exon	26594860	26594877	.	+	.	ID=c58_g1_i8.mrna1.exon8;Parent=c58_g1_i8.mrna1
+Chr5	tair10	exon	26601005	26601049	.	+	.	ID=c58_g1_i8.mrna1.exon9;Parent=c58_g1_i8.mrna1
+###
+Chr5	tair10	gene	26592043	26592421	.	+	.	ID=c113_g1_i1.path1.94
+Chr5	tair10	transcript	26592043	26592421	96	+	.	ID=c113_g1_i1.mrna1.94;Parent=c113_g1_i1.path1.94;Name=c113_g1_i1.mrna1.94;gene_name=c113_g1_i1
+Chr5	tair10	exon	26592043	26592421	.	+	.	ID=c113_g1_i1.mrna1.94.exon1;Parent=c113_g1_i1.mrna1.94
+###
+Chr5	tair10	gene	26599401	26600244	.	+	.	ID=c77_g1_i1.path1.153
+Chr5	tair10	transcript	26599401	26600244	99	+	.	ID=c77_g1_i1.mrna1.153;Parent=c77_g1_i1.path1.153;Name=c77_g1_i1.mrna1.153;gene_name=c77_g1_i1
+Chr5	tair10	exon	26599401	26599654	.	+	.	ID=c77_g1_i1.mrna1.153.exon1;Parent=c77_g1_i1.mrna1.153
+Chr5	tair10	exon	26599767	26600053	.	+	.	ID=c77_g1_i1.mrna1.153.exon2;Parent=c77_g1_i1.mrna1.153
+Chr5	tair10	exon	26600151	26600244	.	+	.	ID=c77_g1_i1.mrna1.153.exon3;Parent=c77_g1_i1.mrna1.153
+###
+Chr5	tair10	gene	26600325	26600815	.	+	.	ID=c109_g1_i1.path1.102
+Chr5	tair10	transcript	26600325	26600815	98	+	.	ID=c109_g1_i1.mrna1.102;Parent=c109_g1_i1.path1.102;Name=c109_g1_i1.mrna1.102;gene_name=c109_g1_i1
+Chr5	tair10	exon	26600325	26600394	.	+	.	ID=c109_g1_i1.mrna1.102.exon1;Parent=c109_g1_i1.mrna1.102
+Chr5	tair10	exon	26600497	26600616	.	+	.	ID=c109_g1_i1.mrna1.102.exon2;Parent=c109_g1_i1.mrna1.102
+Chr5	tair10	exon	26600696	26600815	.	+	.	ID=c109_g1_i1.mrna1.102.exon3;Parent=c109_g1_i1.mrna1.102
+###
+Chr5	tair10	gene	26602733	26604736	.	-	.	ID=c60_g1_i1.path1.189
+Chr5	tair10	transcript	26602733	26604736	98	-	.	ID=c60_g1_i1.mrna1.189;Parent=c60_g1_i1.path1.189;Name=c60_g1_i1.mrna1.189;gene_name=c60_g1_i1
+Chr5	tair10	exon	26602733	26603638	.	-	.	ID=c60_g1_i1.mrna1.189.exon1;Parent=c60_g1_i1.mrna1.189
+Chr5	tair10	exon	26603727	26604736	.	-	.	ID=c60_g1_i1.mrna1.189.exon2;Parent=c60_g1_i1.mrna1.189
+###
+Chr5	tair10	gene	26604728	26604970	.	-	.	ID=c115_g1_i1.path1.88
+Chr5	tair10	transcript	26604728	26604970	99	-	.	ID=c115_g1_i1.mrna1.88;Parent=c115_g1_i1.path1.88;Name=c115_g1_i1.mrna1.88;gene_name=c115_g1_i1
+Chr5	tair10	exon	26604728	26604970	.	-	.	ID=c115_g1_i1.mrna1.88.exon1;Parent=c115_g1_i1.mrna1.88
+###
+Chr5	tair10	gene	26604953	26605502	.	+	.	ID=c152_g1_i1.path1.66
+Chr5	tair10	transcript	26604953	26605502	99	+	.	ID=c152_g1_i1.mrna1.66;Parent=c152_g1_i1.path1.66;Name=c152_g1_i1.mrna1.66;gene_name=c152_g1_i1
+Chr5	tair10	exon	26604953	26605502	.	+	.	ID=c152_g1_i1.mrna1.66.exon1;Parent=c152_g1_i1.mrna1.66
+###
+Chr5	tair10	gene	26605481	26605955	.	+	.	ID=c21_g1_i1.path1.302
+Chr5	tair10	transcript	26605481	26605955	99	+	.	ID=c21_g1_i1.mrna1.302;Parent=c21_g1_i1.path1.302;Name=c21_g1_i1.mrna1.302;gene_name=c21_g1_i1
+Chr5	tair10	exon	26605481	26605955	.	+	.	ID=c21_g1_i1.mrna1.302.exon1;Parent=c21_g1_i1.mrna1.302
+###
+Chr5	tair10	gene	26605932	26606539	.	+	.	ID=c41_g1_i1.path1.224
+Chr5	tair10	transcript	26605932	26606539	99	+	.	ID=c41_g1_i1.mrna1.224;Parent=c41_g1_i1.path1.224;Name=c41_g1_i1.mrna1.224;gene_name=c41_g1_i1
+Chr5	tair10	exon	26605932	26606539	.	+	.	ID=c41_g1_i1.mrna1.224.exon1;Parent=c41_g1_i1.mrna1.224
+###
+Chr5	tair10	gene	26609249	26610543	.	+	.	ID=c6_g1_i1.path1.412
+Chr5	tair10	transcript	26609249	26610543	99	+	.	ID=c6_g1_i1.mrna1.412;Parent=c6_g1_i1.path1.412;Name=c6_g1_i1.mrna1.412;gene_name=c6_g1_i1
+Chr5	tair10	exon	26609249	26610543	.	+	.	ID=c6_g1_i1.mrna1.412.exon1;Parent=c6_g1_i1.mrna1.412
+###
+Chr5	tair10	gene	26611512	26611831	.	-	.	ID=c74_g1_i1.path1.154
+Chr5	tair10	transcript	26611512	26611831	99	-	.	ID=c74_g1_i1.mrna1.154;Parent=c74_g1_i1.path1.154;Name=c74_g1_i1.mrna1.154;gene_name=c74_g1_i1
+Chr5	tair10	exon	26611512	26611831	.	-	.	ID=c74_g1_i1.mrna1.154.exon1;Parent=c74_g1_i1.mrna1.154
+###
+Chr5	tair10	gene	26611810	26612012	.	-	.	ID=c71_g1_i1.path1.167
+Chr5	tair10	transcript	26611810	26612012	100	-	.	ID=c71_g1_i1.mrna1.167;Parent=c71_g1_i1.path1.167;Name=c71_g1_i1.mrna1.167;gene_name=c71_g1_i1
+Chr5	tair10	exon	26611810	26612012	.	-	.	ID=c71_g1_i1.mrna1.167.exon1;Parent=c71_g1_i1.mrna1.167
+###
+Chr5	tair10	gene	26612157	26612362	.	-	.	ID=c114_g1_i1.path1.89
+Chr5	tair10	transcript	26612157	26612362	99	-	.	ID=c114_g1_i1.mrna1.89;Parent=c114_g1_i1.path1.89;Name=c114_g1_i1.mrna1.89;gene_name=c114_g1_i1
+Chr5	tair10	exon	26612157	26612362	.	-	.	ID=c114_g1_i1.mrna1.89.exon1;Parent=c114_g1_i1.mrna1.89
+###
+Chr5	tair10	gene	26612358	26613923	.	-	.	ID=c137_g1_i1.path1.77
+Chr5	tair10	transcript	26612358	26613923	98	-	.	ID=c137_g1_i1.mrna1.77;Parent=c137_g1_i1.path1.77;Name=c137_g1_i1.mrna1.77;gene_name=c137_g1_i1
+Chr5	tair10	exon	26612358	26612727	.	-	.	ID=c137_g1_i1.mrna1.77.exon1;Parent=c137_g1_i1.mrna1.77
+Chr5	tair10	exon	26612846	26613194	.	-	.	ID=c137_g1_i1.mrna1.77.exon2;Parent=c137_g1_i1.mrna1.77
+Chr5	tair10	exon	26613900	26613923	.	-	.	ID=c137_g1_i1.mrna1.77.exon3;Parent=c137_g1_i1.mrna1.77
+###
+Chr5	tair10	gene	26612911	26614294	.	-	.	ID=c37_g1_i2.path1.66
+Chr5	tair10	transcript	26612911	26614294	100	-	.	ID=c37_g1_i2.mrna1.66;Parent=c37_g1_i2.path1.66;Name=c37_g1_i2.mrna1.66;gene_name=c37_g1_i2
+Chr5	tair10	exon	26612911	26612932	.	-	.	ID=c37_g1_i2.mrna1.66.exon1;Parent=c37_g1_i2.mrna1.66
+Chr5	tair10	exon	26613900	26614294	.	-	.	ID=c37_g1_i2.mrna1.66.exon2;Parent=c37_g1_i2.mrna1.66
+###
+Chr5	tair10	gene	26613846	26614294	.	+	.	ID=c37_g1_i1.path1.234
+Chr5	tair10	transcript	26613846	26614294	96	+	.	ID=c37_g1_i1.mrna1.234;Parent=c37_g1_i1.path1.234;Name=c37_g1_i1.mrna1.234;gene_name=c37_g1_i1
+Chr5	tair10	exon	26613846	26614294	.	+	.	ID=c37_g1_i1.mrna1.234.exon1;Parent=c37_g1_i1.mrna1.234
+###
+Chr5	tair10	gene	26614714	26614982	.	+	.	ID=c120_g1_i1.path1.89
+Chr5	tair10	transcript	26614714	26614982	98	+	.	ID=c120_g1_i1.mrna1.89;Parent=c120_g1_i1.path1.89;Name=c120_g1_i1.mrna1.89;gene_name=c120_g1_i1
+Chr5	tair10	exon	26614714	26614982	.	+	.	ID=c120_g1_i1.mrna1.89.exon1;Parent=c120_g1_i1.mrna1.89
+###

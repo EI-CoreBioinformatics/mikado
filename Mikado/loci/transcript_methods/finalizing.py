@@ -20,7 +20,12 @@ def __basic_final_checks(transcript):
     """
 
     if len(transcript.exons) == 0:
-        if len(transcript.combined_cds) == 0:
+        if transcript._possibly_without_exons is True:
+            transcript.logger.debug("Inferring that %s is a single-exon transcript")
+            new_exon = (transcript.start, transcript.end)
+            transcript.add_exon(new_exon)
+
+        elif len(transcript.combined_cds) == 0:
             exc=InvalidTranscript(
                 "No exon defined for the transcript {0}. Aborting".format(transcript.id))
             transcript.logger.exception(exc)
@@ -49,10 +54,8 @@ def __basic_final_checks(transcript):
                     __after = __after[1:]
                 transcript.exons = __before + transcript.exons + __after
 
-    if not isinstance(transcript.exons[0], tuple):
-        _ = [tuple([int(exon[0]), int(exon[1])]) for exon in transcript.exons]
-        transcript.logger.debug("Converting to tuples")
-        transcript.exons = _
+    transcript.logger.debug("Converting to tuples")
+    transcript.exons = [tuple([int(exon[0]), int(exon[1])]) for exon in transcript.exons]
 
     new_exons = []
     invalid = False

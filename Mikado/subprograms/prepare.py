@@ -134,9 +134,9 @@ def setup(args):
         else:
             args.json_conf["prepare"][option] = getattr(args, option)
 
-    if ((getattr(args, "fasta") or getattr(args, "fasta") == 0) and
-            getattr(args, "fasta") is not False):
-        args.json_conf["reference"]["genome"] = args.fasta
+    if getattr(args, "fasta"):
+        args.fasta.close()
+        args.json_conf["reference"]["genome"] = args.fasta.name
 
     if args.lenient is not None:
         args.json_conf["prepare"]["lenient"] = True
@@ -161,7 +161,11 @@ def setup(args):
 def prepare_launcher(args):
 
     args, logger = setup(args)
-    prepare(args, logger)
+    try:
+        prepare(args, logger)
+        sys.exit(0)
+    except Exception:
+        raise
 
 
 def prepare_parser():

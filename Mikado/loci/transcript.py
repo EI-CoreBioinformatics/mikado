@@ -288,6 +288,7 @@ class Transcript:
         self.__cds_tree = None
         self.__expandable = False
         self.__cds_introntree = IntervalTree()
+        self._possibly_without_exons = False
         # self.query_id = None
 
         if len(args) == 0:
@@ -326,19 +327,24 @@ class Transcript:
         self.json_conf = None
 
         if transcript_row.is_transcript is False:
-            if transcript_row.is_exon is False:
+            if transcript_row.is_exon is False and transcript_row.feature != "match":
                 raise TypeError("Invalid GF line")
-            elif transcript_row.is_exon is True and isinstance(transcript_row, GffLine) and transcript_row.feature != "cDNA_match":
-                raise TypeError("GFF files should not provide orphan exons")
+            elif transcript_row.is_exon is True and isinstance(transcript_row, GffLine) and transcript_row.feature not in ("cDNA_match", "match"):
+                raise TypeError("GFF files should not provide orphan exons. Line:\n{}".format(transcript_row))
             self.__expandable = True
-            if "match" in transcript_row.feature and isinstance(transcript_row, GffLine):
+            if "cDNA_match" in transcript_row.feature and isinstance(transcript_row, GffLine):
                 self.parent = transcript_row.id
                 self.id = transcript_row.id
                 self.__expandable = True
+            elif transcript_row.feature == "match":
+                self.parent = transcript_row.parent or transcript_row.id
+                self.id = transcript_row.id
+                self._possibly_without_exons = True
             else:
                 self.parent = transcript_row.gene
                 self.id = transcript_row.transcript
-            self.add_exon(transcript_row)
+            if transcript_row.is_exon is True:
+                self.add_exon(transcript_row)
         else:
             self.parent = transcript_row.parent
             self.id = transcript_row.id
@@ -506,7 +512,7 @@ class Transcript:
             start, end = sorted([gffline.start, gffline.end])
             if feature is None:
                 feature = gffline.feature
-            if isinstance(gffline, GffLine) and "match" in gffline.feature:
+            if isinstance(gffline, GffLine) and "cdna_match" in gffline.feature.lower():
                 gffline.parent = gffline.id
 
             if self.id not in gffline.parent:
@@ -1243,7 +1249,8 @@ class Transcript:
                 parent, type(parent)))
 
         self.attributes["gene_id"] = self.__parent
-        self.__parent = [intern(_) for _ in self.__parent]
+        if self.__parent:
+            self.__parent = [intern(_) for _ in self.__parent]
 
     @property
     def gene(self):

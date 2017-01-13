@@ -154,19 +154,22 @@ def prepare_reference(args, queue_logger, ref_gff=False) -> (dict, collections.d
 
     for row in args.reference:
         # Assume we are going to use GTF for the moment
-        if row.is_transcript is True:
+        if row.is_transcript is True or (ref_gff is True and row.feature == "match"):
             queue_logger.debug("Transcript\n%s", str(row))
             transcript = Transcript(row, logger=queue_logger)
-            transcript2gene[row.id] = row.gene
-            if row.gene not in genes:
-                genes[row.gene] = Gene(transcript,
-                                       gid=row.gene,
-                                       logger=queue_logger)
-            genes[row.gene].add(transcript)
-            assert transcript.id in genes[row.gene].transcripts
+            if row.feature == "match":
+                gid = row.id
+            else:
+                gid = row.gene
+
+            transcript2gene[row.id] = gid
+            if gid not in genes:
+                genes[gid] = Gene(transcript, gid=gid, logger=queue_logger)
+            genes[gid].add(transcript)
+            assert transcript.id in genes[gid].transcripts
         elif row.is_exon is True:
             if ref_gff is True:
-                if "match" in row.feature:
+                if "cDNA_match" in row.feature:
                     row.parent = row.id
                     # row.gene = row.id
                     if row.id not in transcript2gene:
@@ -233,7 +236,7 @@ def parse_prediction(args, genes, positions, queue_logger):
         if row.header is True:
             continue
         #         queue_logger.debug("Row:\n{0:>20}".format(str(row)))
-        if row.is_transcript is True:
+        if row.is_transcript is True or row.feature == "match":
             queue_logger.debug("Transcript row:\n%s", str(row))
             if transcript is not None:
                 if re.search(r"\.orf[0-9]+$", transcript.id):
@@ -258,6 +261,8 @@ def parse_prediction(args, genes, positions, queue_logger):
             elif ref_gff is True and "match" in row.feature:
                 if transcript is not None and row.id == transcript.id:
                     transcript.add_exon(row)
+                elif transcript is not None and transcript.id in row.parent:
+                    transcript.add_exon(row)
                 elif transcript is None or (transcript is not None and row.id != transcript.id):
                     if transcript is not None:
                         if re.search(r"\.orf[0-9]+$", transcript.id) and \
@@ -267,7 +272,6 @@ def parse_prediction(args, genes, positions, queue_logger):
                             assigner_instance.get_best(transcript)
                     queue_logger.debug("New transcript: %s", row.transcript)
                     transcript = Transcript(row, logger=queue_logger)
-
             elif ref_gff is False:
                 if transcript is None or (transcript is not None and transcript.id != row.transcript):
                     if transcript is not None:
@@ -279,9 +283,13 @@ def parse_prediction(args, genes, positions, queue_logger):
                     queue_logger.debug("New transcript: %s", row.transcript)
                     transcript = Transcript(row, logger=queue_logger)
                 transcript.add_exon(row)
+            else:
+                raise TypeError("Unmatched exon: {}".format(row))
 
-        else:
+        elif row.header:
             continue
+        else:
+            queue_logger.debug("Skipped row: {}".format(row))
 
     if transcript is not None:
         if re.search(r"\.orf[0-9]+$", transcript.id) and not transcript.id.endswith("orf1"):

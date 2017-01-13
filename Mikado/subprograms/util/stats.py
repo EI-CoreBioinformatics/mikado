@@ -239,23 +239,27 @@ class Calculator:
                 current_gene = Gene(record,
                                     only_coding=self.only_coding,
                                     logger=self.__logger)
-            elif record.is_transcript is True:
-                if record.parent is None:
+            elif record.is_transcript is True or (self.is_gff is True and record.feature == "match"):
+                if record.parent is None and record.feature != "match":
                     raise TypeError("No parent found for:\n{0}".format(str(record)))
-                if self.is_gff is False and (current_gene is None or record.parent[0] != current_gene.id):
+                elif record.feature == "match":
+                    gid = record.id
+                else:
+                    gid = record.parent[0]
+                    assert current_gene is not None, record
+                if current_gene is None or gid != current_gene.id:
                     # Create a gene record
                     self.__store_gene(current_gene)
                     new_record = record.copy()
-                    new_record.feature = "gene"
+                    # if record.feature != "match":
+                    #     new_record.feature = "gene"
+
                     current_gene = Gene(
                         new_record,
+                        gid=gid,
                         only_coding=self.only_coding,
                         logger=self.__logger)
-                try:
-                    transcript2gene[record.id] = record.parent[0]
-                except IndexError:
-                    raise IndexError("{}; {}".format(str(record), record.parent))
-                assert current_gene is not None, record
+                transcript2gene[record.id] = gid
                 current_gene.transcripts[record.id] = TranscriptComputer(record,
                                                                          logger=self.__logger)
             elif record.is_derived is True and record.is_exon is False:
@@ -288,7 +292,6 @@ class Calculator:
                     if current_gene is None or record.id != current_gene.id:
                         self.__store_gene(current_gene)
                         new_record = record.copy()
-                        # new_record.feature = "gene"
                         current_gene = Gene(
                             new_record,
                             gid=new_record.id,
@@ -305,14 +308,20 @@ class Calculator:
                         current_gene.transcripts[record.id].add_exon(record)
 
                 elif self.is_gff is True:
-                    for parent in iter(pparent for pparent in record.parent if
-                                       pparent not in derived_features):
-                        try:
-                            gid = transcript2gene[parent]
-                        except KeyError as err:
-                            raise KeyError("{0}, line: {1}".format(err, record))
-                        assert gid == current_gene.id
-                        current_gene.transcripts[parent].add_exon(record)
+                    import copy
+                    current_gene.add_exon(copy.deepcopy(record))
+                    #
+                    #
+                    # for parent in iter(pparent for pparent in record.parent if
+                    #                    pparent not in derived_features):
+                    #
+                    #     try:
+                    #         gid = transcript2gene[parent]
+                    #     except KeyError as err:
+                    #         raise KeyError("{0}, line: {1}".format(err, record))
+                    #     assert gid == current_gene.id
+                    #     print(record.id, record.feature, parent, gid, current_gene.transcripts.keys())
+                    #     transcripts[parent].add_exon(record)
             elif record.header is True:
                 continue
             else:

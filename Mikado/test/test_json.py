@@ -1,11 +1,11 @@
 import Mikado.utilities
 import Mikado.exceptions
 import Mikado.configuration
-from Mikado.parsers.GFF import GffLine
-from Mikado.loci import Transcript
-from Mikado.subprograms.util.trim import trim_coding, trim_noncoding
+# from Mikado.parsers.GFF import GffLine
+# from Mikado.loci import Transcript
+# from Mikado.subprograms.util.trim import trim_coding, trim_noncoding
 import unittest
-import tempfile
+# import tempfile
 import os
 import pkg_resources
 
@@ -47,7 +47,6 @@ class TestScoring(unittest.TestCase):
         scor_conf["not_fragmentary"]["parameters"]["combined_cds_length"] = dict()
         scor_conf["not_fragmentary"]["parameters"]["combined_cds_length"]["operator"] = "ge"
         scor_conf["not_fragmentary"]["parameters"]["combined_cds_length"]["value"] = 0
-
 
         Mikado.configuration.configurator.check_all_requirements(scor_conf)
         self.assertIn("as_requirements", scor_conf, scor_conf)
@@ -112,7 +111,7 @@ class TestScoring(unittest.TestCase):
 
     def test_available_scoring_files(self):
 
-        for scorer in pkg_resources.resource_listdir("Mikado", os.path.join("configuration","scoring_files")):
+        for scorer in pkg_resources.resource_listdir("Mikado", os.path.join("configuration", "scoring_files")):
             conf = dict()
             conf["pick"] = dict()
             conf["pick"]["scoring_file"] = scorer

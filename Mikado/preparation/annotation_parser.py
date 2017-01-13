@@ -173,7 +173,23 @@ def load_into_storage(shelf_name, exon_lines, min_length, logger):
             raise KeyError("{0}: {1}\n{2}".format(tid, "features", exon_lines[tid]))
         if ("exon" not in exon_lines[tid]["features"] or
                 len(exon_lines[tid]["features"]["exon"]) == 0):
-            logger.warning("No valid exon feature for %s, continuing", tid)
+            # Match-like things
+            if "match" in exon_lines[tid]["features"]:
+                if len(exon_lines[tid]["features"]["match"]) > 1:
+                    logger.warning("Invalid features for %s, skipping.", tid)
+                    continue
+                exon_lines[tid]["features"]["exon"] = [exon_lines[tid]["features"]["match"][0]]
+                logger.warning("Inferring that %s is a mono-exonic transcript-match: (%s, %d-%d)",
+                               tid, exon_lines[tid]["chrom"],
+                               exon_lines[tid]["features"]["exon"][0][0],
+                               exon_lines[tid]["features"]["exon"][0][1])
+                del exon_lines[tid]["features"]["match"]
+            else:
+                logger.warning("No valid exon feature for %s, continuing", tid)
+                continue
+        elif "match" in exon_lines[tid]["features"] and "exon" in exon_lines[tid]["features"]:
+            del exon_lines[tid]["features"]["match"]
+
         tlength = sum(exon[1] + 1 - exon[0] for exon in exon_lines[tid]["features"]["exon"])
         # Discard transcript under a certain size
         if tlength < min_length:
@@ -234,12 +250,12 @@ def load_from_gff(shelf_name,
     to_ignore = set()
 
     for row in gff_handle:
-        if row.is_transcript is True:
+        if row.is_transcript is True or row.feature == "match":
             if label != '':
                 row.id = "{0}_{1}".format(label, row.id)
                 row.source = label
             if row.id in found_ids:
-                    __raise_redundant(row.id, gff_handle.name, label)
+                __raise_redundant(row.id, gff_handle.name, label)
             elif row.id in exon_lines:
                 # This might sometimes happen in GMAP
                 logger.warning(
@@ -247,34 +263,34 @@ def load_from_gff(shelf_name,
                     row.id)
                 to_ignore.add(row.id)
                 continue
-            if row.id not in exon_lines:
-                exon_lines[row.id] = dict()
+            #
+            # if row.id not in exon_lines:
+            exon_lines[row.id] = dict()
             exon_lines[row.id]["source"] = row.source
-            transcript2genes[row.id] = row.parent[0]
+            if row.parent:
+                transcript2genes[row.id] = row.parent[0]
+            else:
+                transcript2genes[row.id] = row.id
+            assert row.id is not None
             if row.id in found_ids:
                 __raise_redundant(row.id, gff_handle.name, label)
-            # elif row.id in exon_lines:
-            #     # This might sometimes happen in GMAP
-            #     logger.warning(
-            #         "Multiple instance of %s found, skipping any subsequent entry",
-            #         row.id)
-            #     to_ignore.add(row.id)
-            #     continue
-                # __raise_invalid(row.id, gff_handle.name, label)
 
             exon_lines[row.id]["attributes"] = row.attributes.copy()
             exon_lines[row.id]["chrom"] = row.chrom
             exon_lines[row.id]["strand"] = row.strand
-            exon_lines[row.id]["tid"] = row.transcript
+            exon_lines[row.id]["tid"] = row.transcript or row.id
             exon_lines[row.id]["parent"] = row.parent
             exon_lines[row.id]["features"] = dict()
+            # Here we have to add the match feature as an exon, in case it is the only one present
+            if row.feature == "match":
+                exon_lines[row.id]["features"][row.feature] = []
+                exon_lines[row.id]["features"][row.feature].append((row.start, row.end))
+
             exon_lines[row.id]["strand_specific"] = strand_specific
-            continue
-        elif not row.is_exon:
             continue
         elif row.is_exon is True:
             if not row.is_cds or (row.is_cds is True and strip_cds is False):
-                if len(row.parent) == 0 and "match" in row.feature:
+                if len(row.parent) == 0 and "cDNA_match" == row.feature:
                     if label == '':
                         __tid = row.id
                     else:
@@ -282,6 +298,15 @@ def load_from_gff(shelf_name,
                     row.parent = __tid
                     transcript2genes[__tid] = "{}_match".format(__tid)
                     row.feature = "exon"
+                elif row.feature == "match_part":
+                    if label == '':
+                        __tid = row.parent[0]
+                    else:
+                        __tid = "{0}_{1}".format(label, row.parent[0])
+                    row.parent = __tid
+                    transcript2genes[__tid] = "{}_match".format(__tid)
+                    row.feature = "exon"
+
                 elif label != '':
                     row.transcript = ["{0}_{1}".format(label, tid) for tid in row.transcript]
 

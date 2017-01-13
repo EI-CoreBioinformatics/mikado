@@ -326,7 +326,7 @@ def prepare(args, logger):
     :type logger: logging.Logger
     """
 
-    if not isinstance(args.json_conf["reference"]["genome"], io.TextIOWrapper):
+    if not isinstance(args.json_conf["reference"]["genome"], (io.TextIOWrapper, pyfaidx.Fasta)):
         if not (isinstance(args.json_conf["reference"]["genome"], str) and
                 os.path.exists(args.json_conf["reference"]["genome"])):
             logger.critical("Invalid FASTA file: %s",
@@ -336,7 +336,10 @@ def prepare(args, logger):
             pass
     else:
         args.json_conf["reference"]["genome"].close()
-        args.json_conf["reference"]["genome"] = args.json_conf["reference"]["genome"].name
+        if isinstance(args.json_conf["reference"]["genome"], pyfaidx.Fasta):
+            args.json_conf["reference"]["genome"] = args.json_conf["reference"]["genome"].filename
+        else:
+            args.json_conf["reference"]["genome"] = args.json_conf["reference"]["genome"].name
 
     assert len(args.json_conf["prepare"]["files"]["gff"]) > 0
     assert len(args.json_conf["prepare"]["files"]["gff"]) == len(args.json_conf["prepare"]["files"]["labels"]), (
@@ -415,9 +418,6 @@ def prepare(args, logger):
         logger.error("Mikado has encountered an error, exiting")
         sys.exit(1)
 
-    # args.json_conf["prepare"]["files"]["out"].close()
-    # args.json_conf["prepare"]["files"]["out_fasta"].close()
-
     if args.json_conf["prepare"]["single"] is False and args.json_conf["prepare"]["procs"] > 1:
         args.tempdir.cleanup()
         args.listener.enqueue_sentinel()
@@ -426,7 +426,15 @@ def prepare(args, logger):
     for fn in shelf_stacks:
         os.remove(fn)
 
+    args.json_conf["reference"]["genome"].close()
+    args.json_conf["prepare"]["files"]["out"].close()
+    args.json_conf["prepare"]["files"]["out_fasta"].close()
+
+    args.json_conf["prepare"]["files"]["out"] = args.json_conf["prepare"]["files"]["out"].name
+    args.json_conf["prepare"]["files"]["out_fasta"] = args.json_conf["prepare"]["files"]["out_fasta"].name
+
     logger.info("Finished")
-    sys.exit(0)
+    logging.shutdown()
+    # sys.exit(0)
     # for handler in logger.handlers:
     #     handler.close()

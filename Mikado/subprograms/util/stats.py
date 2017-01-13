@@ -246,7 +246,7 @@ class Calculator:
                     gid = record.id
                 else:
                     gid = record.parent[0]
-                    assert current_gene is not None, record
+                    # assert current_gene is not None, record
                 if current_gene is None or gid != current_gene.id:
                     # Create a gene record
                     self.__store_gene(current_gene)
@@ -308,20 +308,8 @@ class Calculator:
                         current_gene.transcripts[record.id].add_exon(record)
 
                 elif self.is_gff is True:
-                    import copy
-                    current_gene.add_exon(copy.deepcopy(record))
-                    #
-                    #
-                    # for parent in iter(pparent for pparent in record.parent if
-                    #                    pparent not in derived_features):
-                    #
-                    #     try:
-                    #         gid = transcript2gene[parent]
-                    #     except KeyError as err:
-                    #         raise KeyError("{0}, line: {1}".format(err, record))
-                    #     assert gid == current_gene.id
-                    #     print(record.id, record.feature, parent, gid, current_gene.transcripts.keys())
-                    #     transcripts[parent].add_exon(record)
+                    current_gene.add_exon(record)
+
             elif record.header is True:
                 continue
             else:
@@ -332,6 +320,7 @@ class Calculator:
     def __call__(self):
 
         self.parse_input()
+        self.gff.close()
         distances = []
         for chromosome in self.__positions:
             __ordered = sorted(self.__positions[chromosome])
@@ -348,6 +337,7 @@ class Calculator:
 
         self.__coding_distances = numpy.array(distances)
         self.writer()
+        self.out.close()
 
     @staticmethod
     def get_stats(row: dict, array: numpy.array) -> dict:

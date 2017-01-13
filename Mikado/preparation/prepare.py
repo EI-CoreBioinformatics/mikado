@@ -1,5 +1,4 @@
 import os
-import sys
 import tempfile
 import gc
 from .checking import create_transcript, CheckingProcess
@@ -25,6 +24,21 @@ except ImportError:
     import json
 
 __author__ = 'Luca Venturini'
+
+
+def __cleanup(args, shelves):
+    """Private function to close the opened handles."""
+
+    if hasattr(args.json_conf["reference"]["genome"], "close"):
+        args.json_conf["reference"]["genome"].close()
+        args.json_conf["reference"]["genome"] = args.json_conf["reference"]["genome"].filename
+
+    for frole in ("out", "out_fasta"):
+        if hasattr(args.json_conf["prepare"]["files"][frole], "close"):
+            args.json_conf["prepare"]["files"][frole].close()
+            args.json_conf["prepare"]["files"][frole] = args.json_conf["prepare"]["files"][frole].name
+
+    [os.remove(fname) for fname in shelves if os.path.exists(fname)]
 
 
 def store_transcripts(shelf_stacks, logger, keep_redundant=False):
@@ -331,7 +345,7 @@ def prepare(args, logger):
                 os.path.exists(args.json_conf["reference"]["genome"])):
             logger.critical("Invalid FASTA file: %s",
                             args.json_conf["reference"]["genome"])
-            sys.exit(1)
+            # sys.exit(1)
         else:
             pass
     else:
@@ -379,12 +393,14 @@ def prepare(args, logger):
         args.json_conf["prepare"]["files"]["output_dir"],
         args.json_conf["prepare"]["files"]["out"]), 'w')
 
+
     logger.info("Loading reference file")
     args.json_conf["reference"]["genome"] = pyfaidx.Fasta(args.json_conf["reference"]["genome"])
 
     logger.info("Finished loading genome file")
     logger.info("Started loading exon lines")
 
+    shelf_stacks = dict()
     try:
         load_exon_lines(args,
                         shelve_names,
@@ -402,7 +418,6 @@ def prepare(args, logger):
         )
 
         try:
-            shelf_stacks = dict()
             for shelf in shelve_names:
                 conn = sqlite3.connect(shelf)
                 shelf_stacks[shelf] = {"conn": conn, "cursor": conn.cursor()}
@@ -412,26 +427,16 @@ def prepare(args, logger):
         perform_check(sorter(shelf_stacks), shelf_stacks, args, logger)
     except Exception as exc:
         logger.exception(exc)
-
-        [os.remove(fname) for fname in shelve_names]
-
+        __cleanup(args, shelve_names)
         logger.error("Mikado has encountered an error, exiting")
-        sys.exit(1)
+        # sys.exit(1)
 
     if args.json_conf["prepare"]["single"] is False and args.json_conf["prepare"]["procs"] > 1:
         args.tempdir.cleanup()
         args.listener.enqueue_sentinel()
 
     logger.setLevel(logging.INFO)
-    for fn in shelf_stacks:
-        os.remove(fn)
-
-    args.json_conf["reference"]["genome"].close()
-    args.json_conf["prepare"]["files"]["out"].close()
-    args.json_conf["prepare"]["files"]["out_fasta"].close()
-
-    args.json_conf["prepare"]["files"]["out"] = args.json_conf["prepare"]["files"]["out"].name
-    args.json_conf["prepare"]["files"]["out_fasta"] = args.json_conf["prepare"]["files"]["out_fasta"].name
+    __cleanup(args, shelve_names)
 
     logger.info("Finished")
     logging.shutdown()

@@ -5,17 +5,24 @@ import pkg_resources
 import tempfile
 from Mikado.loci.transcript import Namespace
 from Mikado.utilities.log_utils import create_null_logger
+from Mikado.scales.compare import compare
 import logging
 import gzip
 import pyfaidx
 import os
+import itertools
+import csv
+from Mikado.parsers import to_gff
+from Mikado.subprograms.util.stats import Calculator
 
 
 class PrepareChek(unittest.TestCase):
 
+    __genomefile__ = None
+
     @classmethod
     def setUpClass(cls):
-        cls.__genomefile__ = tempfile.NamedTemporaryFile(mode="wb", delete=True, suffix=".fa")
+        cls.__genomefile__ = tempfile.NamedTemporaryFile(mode="wb", delete=False, suffix=".fa")
 
         with pkg_resources.resource_stream("Mikado.test", "chr5.fas.gz") as _:
             cls.__genomefile__.write(gzip.decompress(_.read()))
@@ -60,12 +67,35 @@ class PrepareChek(unittest.TestCase):
                                                       ("tr_c37_g1_i1.mrna1.234", 449),
                                                       ("tr_c120_g1_i1.mrna1.89", 269)])
         # cls.trinity_res = sorted(cls.trinity_res)
+
+        cls.cuff_results = {"cl_cufflinks_star_at.23553.1": 1735,
+                            "cl_cufflinks_star_at.23551.1": 851,
+                            "cl_cufflinks_star_at.23551.2": 608,
+                            "cl_cufflinks_star_at.23555.1": 1990,
+                            "cl_cufflinks_star_at.23555.2": 1902,
+                            "cl_cufflinks_star_at.23555.3": 1798,
+                            "cl_cufflinks_star_at.23555.4": 688,
+                            "cl_cufflinks_star_at.23563.3": 2326,
+                            "cl_cufflinks_star_at.23563.2": 2423,
+                            "cl_cufflinks_star_at.23563.1": 2418,
+                            "cl_cufflinks_star_at.23563.4": 2285,
+                            "cl_cufflinks_star_at.23556.1": 1669,
+                            "cl_cufflinks_star_at.23557.1": 1410,
+                            "cl_cufflinks_star_at.23558.1": 1114,
+                            "cl_cufflinks_star_at.23559.1": 323,
+                            "cl_cufflinks_star_at.23560.1": 1178,
+                            "cl_cufflinks_star_at.23561.1": 504,
+                            "cl_cufflinks_star_at.23562.1": 1302,
+                            "cl_cufflinks_star_at.23562.2": 1045}
+
         cls.maxDiff = None
 
     @classmethod
     def tearDownClass(cls):
         """"""
+
         cls.__genomefile__.close()
+        os.remove(cls.__genomefile__.name)
 
     def setUp(self):
 
@@ -88,10 +118,13 @@ class PrepareChek(unittest.TestCase):
         args = Namespace()
         args.json_conf = self.conf
 
-        for test_file in ("trinity.gff3", "trinity.match_matchpart.gff3", "trinity.cDNA_match.gff3"):
+        for test_file in ("trinity.gff3",
+                          "trinity.match_matchpart.gff3",
+                          "trinity.cDNA_match.gff3",
+                          "trinity.gtf"):
             with self.subTest(test_file=test_file):
-                self.conf["prepare"]["files"]["gff"]= [pkg_resources.resource_filename("Mikado.test",
-                                                                                       test_file)]
+                self.conf["prepare"]["files"]["gff"] = [pkg_resources.resource_filename("Mikado.test",
+                                                                                        test_file)]
 
                 prepare.prepare(args, self.logger)
 
@@ -101,6 +134,141 @@ class PrepareChek(unittest.TestCase):
                 res = dict((_, len(fa[_])) for _ in fa.keys())
                 fa.close()
                 self.assertEqual(res, self.trinity_res)
+
+    def test_prepare_trinity_and_cufflinks(self):
+
+        self.conf["prepare"]["files"]["labels"] = ["cl", "tr"]
+        self.conf["prepare"]["files"]["gff"].append(pkg_resources.resource_filename("Mikado.test",
+                                                                                    "cufflinks.gtf"))
+        self.conf["prepare"]["files"]["gff"].append("")
+        self.conf["prepare"]["files"]["output_dir"] = tempfile.gettempdir()
+        self.conf["prepare"]["files"]["out_fasta"] = "mikado_prepared.fasta"
+        self.conf["prepare"]["files"]["out"] = "mikado_prepared.gtf"
+        args = Namespace()
+        args.json_conf = self.conf
+
+        for test_file in ("trinity.gff3",
+                          "trinity.match_matchpart.gff3",
+                          "trinity.cDNA_match.gff3",
+                          "trinity.gtf"):
+            with self.subTest(test_file=test_file):
+                self.conf["prepare"]["files"]["gff"][1] = pkg_resources.resource_filename("Mikado.test",
+                                                                                          test_file)
+                self.conf["prepare"]["files"]["out_fasta"] = "mikado_prepared.fasta"
+                self.conf["prepare"]["files"]["out"] = "mikado_prepared.gtf"
+
+                prepare.prepare(args, self.logger)
+
+                # Now that the program has run, let's check the output
+                self.assertTrue(os.path.exists(os.path.join(self.conf["prepare"]["files"]["output_dir"],
+                                                            "mikado_prepared.fasta")))
+                self.assertGreater(os.stat(os.path.join(self.conf["prepare"]["files"]["output_dir"],
+                                                        "mikado_prepared.fasta")).st_size, 0)
+
+                fa = pyfaidx.Fasta(os.path.join(self.conf["prepare"]["files"]["output_dir"],
+                                                "mikado_prepared.fasta"))
+                res = dict((_, len(fa[_])) for _ in fa.keys())
+                fa.close()
+                precal = self.trinity_res.copy()
+                precal.update(self.cuff_results)
+                self.assertEqual(res, precal)
+                os.remove(os.path.join(self.conf["prepare"]["files"]["output_dir"],
+                                       "mikado_prepared.fasta.fai"))
+
+
+class CompareCheck(unittest.TestCase):
+
+    """Test to check that compare interacts correctly with match, match_part, cDNA_match"""
+
+    def tearDown(self):
+        logging.shutdown()
+
+    def test_compare_trinity(self):
+
+        # Create the list of files
+        files = ["trinity.gtf",
+                 "trinity.gff3",
+                 "trinity.cDNA_match.gff3",
+                 "trinity.match_matchpart.gff3"]
+        files = [pkg_resources.resource_filename("Mikado.test", filename) for filename in files]
+
+        namespace = Namespace(default=False)
+        namespace.distance = 2000
+        namespace.no_save_index = True
+
+        for ref, pred in itertools.permutations(files, 2):
+            with self.subTest(ref=ref, pred=pred):
+                namespace.reference = to_gff(ref)
+                namespace.prediction = to_gff(pred)
+                namespace.log = os.path.join(tempfile.gettempdir(), "compare_{}_{}.log".format(
+                    files.index(ref), files.index(pred)))
+                namespace.out = os.path.join(tempfile.gettempdir(), "compare_{}_{}".format(
+                    files.index(ref), files.index(pred)))
+                compare(namespace)
+                refmap = os.path.join(tempfile.gettempdir(), "compare.refmap")
+                tmap = os.path.join(tempfile.gettempdir(), "compare.tmap")
+                stats = os.path.join(tempfile.gettempdir(), "compare.stats")
+                log = os.path.join(tempfile.gettempdir(), "compare.log")
+
+                self.assertTrue(os.path.exists(log))
+                # with open(log) as log_handle:
+                #     log = [_.rstrip() for _ in log_handle]
+                for fname in [refmap, stats, tmap]:
+                    self.assertTrue(os.path.exists(fname))
+                    self.assertGreater(os.stat(fname).st_size, 0)
+
+                with open(refmap) as _:
+                    reader = csv.DictReader(_, delimiter="\t")
+                    counter = 0
+                    for counter, line in enumerate(reader, start=1):
+                        ccode = line["ccode"]
+                        self.assertIn(ccode,
+                                      ("_", "=", "f,_", "f,="),
+                                      (ref, pred, line))
+
+                    self.assertEqual(counter, 38)
+
+        for permutation in itertools.permutations(range(len(files)), 2):
+            for suff in ["log", "refmap", "tmap", "stats"]:
+                fname = os.path.join(tempfile.gettempdir(),
+                                   "compare_{}_{}.{}".format(permutation[0], permutation[1], suff))
+                if os.path.exists(fname):
+                    os.remove(fname)
+
+
+class StatCheck(unittest.TestCase):
+
+    """This unit test takes care of verifying that statistics are generated correctly when
+    considering four different inputs. Output will be checked against a standard file."""
+
+    def test_stat(self):
+
+        files = ["trinity.gtf",
+                 "trinity.gff3",
+                 "trinity.cDNA_match.gff3",
+                 "trinity.match_matchpart.gff3"]
+        files = [pkg_resources.resource_filename("Mikado.test", filename) for filename in files]
+
+        std_lines = []
+        with pkg_resources.resource_stream("Mikado.test", "trinity_stats.txt") as t_stats:
+            for line in t_stats:
+                std_lines.append(line.decode().rstrip())
+
+        namespace = Namespace(default=False)
+        namespace.tab_stats = None
+        for filename in files:
+            with self.subTest(filename=filename):
+                namespace.gff = to_gff(filename)
+                with open(os.path.join(tempfile.gettempdir(),
+                                       "{}.txt".format(os.path.basename(filename))), "w") as out:
+                    namespace.out = out
+                    Calculator(namespace)()
+                self.assertGreater(os.stat(out.name).st_size, 0)
+                with open(out.name) as out_handle:
+                    lines = [_.rstrip() for _ in out_handle]
+                self.assertEqual(std_lines, lines)
+
+
 
 if __name__ == "__main__":
     unittest.main()

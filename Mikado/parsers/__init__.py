@@ -118,4 +118,4 @@ def to_gff(string):
     # elif string.endswith('gff') or string.endswith('gff3'):
         return GFF.GFF3(string)
     else:
-        raise ValueError('Unrecognized format')
+        raise ValueError('Unrecognized format for {}'.format(string))

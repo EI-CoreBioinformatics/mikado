@@ -20,7 +20,7 @@ from .assigner import Assigner
 from .resultstorer import ResultStorer
 from ..loci.transcript import Transcript
 from ..parsers.GFF import GFF3
-from ..utilities.log_utils import create_default_logger
+from ..utilities.log_utils import create_default_logger, formatter
 from ..exceptions import CorruptIndex
 from ..utilities import to_gff
 try:
@@ -52,22 +52,17 @@ def setup_logger(args, manager):
     :return:
     """
 
-    logger = create_default_logger("main_compare")
     args.log_queue = manager.Queue()
     args.queue_handler = log_handlers.QueueHandler(args.log_queue)
-    log_queue_listener = log_handlers.QueueListener(args.log_queue, logger)
-    log_queue_listener.propagate = False
-    log_queue_listener.start()
 
     if args.log is not None:
-        if os.path.exists(args.log):
-            os.remove(args.log)
-        handler = logging.FileHandler(args.log)
-        handler.setFormatter(logger.handlers[0].formatter)
-        # Remove stream handler
-        logger.removeHandler(logger.handlers[0])
+        handler = logging.FileHandler(args.log, mode="w")
+        logger = logging.getLogger("main_compare")
+        handler.setFormatter(formatter)
         logger.addHandler(handler)
+        logger.propagate = False
     else:
+        logger = create_default_logger("main_compare")
         handler = logger.handlers[0]
 
     if args.verbose is False:
@@ -76,6 +71,9 @@ def setup_logger(args, manager):
         logger.setLevel(logging.DEBUG)
 
     logger.propagate = False
+    log_queue_listener = log_handlers.QueueListener(args.log_queue, logger)
+    log_queue_listener.propagate = False
+    log_queue_listener.start()
 
     queue_logger = logging.getLogger("main_queue")
     for handler in queue_logger.handlers:
@@ -391,8 +389,7 @@ def compare(args):
 
     ref_gff = isinstance(args.reference, GFF3)
 
-    if os.path.dirname(args.out) != ''\
-            and os.path.dirname(args.out) != os.path.dirname(os.path.abspath(".")):
+    if os.path.dirname(args.out) and os.path.dirname(args.out) != os.path.dirname(os.path.abspath(".")):
         dirname = os.path.dirname(args.out)
         if os.path.exists(dirname):
             assert os.path.isdir(dirname)
@@ -491,4 +488,8 @@ def compare(args):
     handler.close()
     log_queue_listener.stop()
     args.queue_handler.close()
+    [_.close() for _ in logger.handlers]
+    args.reference.close()
+    args.prediction.close()
+
     return

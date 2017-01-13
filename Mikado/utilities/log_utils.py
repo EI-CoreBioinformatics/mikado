@@ -63,6 +63,7 @@ def create_default_logger(name, level="WARN"):
     handler.setFormatter(formatter)
     logger.setLevel(level)
     logger.addHandler(handler)
+    logger.propagate = False
     return logger
 
 

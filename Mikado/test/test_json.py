@@ -119,5 +119,15 @@ class TestScoring(unittest.TestCase):
             self.assertIsInstance(Mikado.configuration.configurator.check_json(conf),
                                   dict, scorer)
 
+    def test_analyse_twice(self):
+
+        """Verify that parsing and reparsing the configuration dictionary will not cause any errors."""
+
+        scor_conf = Mikado.configuration.configurator.to_json(None)
+        self.assertIn("as_requirements", scor_conf)
+        scor_conf = Mikado.configuration.configurator.check_json(scor_conf)
+        self.assertIn("as_requirements", scor_conf)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -104,7 +104,7 @@ def create_simple_config():
     del default["scoring"]
     del default["requirements"]
     del default["not_fragmentary"]
-    # del default["soft_requirements"]
+    del default["as_requirements"]
 
     new_dict = dict()
     composite_keys = [(ckey[1:]) for ckey in
@@ -183,10 +183,11 @@ def create_config(args):
     """
 
     if args.full is True:
-        default = configurator.to_json("")
+        default = configurator.to_json(None)
         del default["scoring"]
         del default["requirements"]
         del default["not_fragmentary"]
+        del default["as_requirements"]
         config = default
     else:
         config = create_simple_config()

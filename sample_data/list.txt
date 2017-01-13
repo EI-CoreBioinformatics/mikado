@@ -1,4 +1,4 @@
 class.gtf	cl	True
 cufflinks.gtf	cuff	True
 stringtie.gtf	st	True	1
-trinity.cDNA_match.gff3	tr	False	-0.5
+trinity.gff3	tr	False	-0.5

@@ -21,6 +21,7 @@ from multiprocessing import get_start_method
 from pkg_resources import resource_stream, resource_filename
 import pickle
 from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
+from ..utilities.log_utils import create_default_logger
 # from frozendict import frozendict
 
 __author__ = "Luca Venturini"
@@ -453,77 +454,82 @@ def check_json(json_conf, simple=False, external_dict=None):
     # with open(blue_print) as blue:
     #     blue_print = json.load(blue)
 
-    validator = create_validator(simple=simple)
+    logger = create_default_logger("check_json")
+    try:
+        validator = create_validator(simple=simple)
 
-    # config_folder = os.path.dirname(os.path.abspath(__file__))
+        # config_folder = os.path.dirname(os.path.abspath(__file__))
 
-    # This will check for consistency and add the default
-    # values if they are missing
-    validator.validate(json_conf)
-    assert "files" in json_conf["pick"]
+        # This will check for consistency and add the default
+        # values if they are missing
+        validator.validate(json_conf)
+        assert "files" in json_conf["pick"]
 
-    if "scoring_file" in json_conf["pick"]:
-        if os.path.exists(os.path.abspath(json_conf["pick"]["scoring_file"])):
-            json_conf["pick"]["scoring_file"] = os.path.abspath(
-                json_conf["pick"]["scoring_file"])
-        elif os.path.exists(os.path.join(
-                os.path.dirname(json_conf["filename"]),
-                json_conf["pick"]["scoring_file"])):
-            json_conf["pick"]["scoring_file"] = os.path.join(
-                os.path.dirname(json_conf["filename"]),
-                json_conf["pick"]["scoring_file"])
-        elif os.path.exists(
-                resource_filename(__name__, os.path.join("scoring_files",
-                                                         json_conf["pick"]["scoring_file"]))):
-            json_conf["pick"]["scoring_file"] = resource_filename(
-                __name__,
-                os.path.join("scoring_files",
-                             json_conf["pick"]["scoring_file"]))
-        else:
-            raise InvalidJson(
-                "Scoring file not found: {0}".format(
-                    json_conf["pick"]["scoring_file"]))
+        if "scoring_file" in json_conf["pick"]:
+            if os.path.exists(os.path.abspath(json_conf["pick"]["scoring_file"])):
+                json_conf["pick"]["scoring_file"] = os.path.abspath(
+                    json_conf["pick"]["scoring_file"])
+            elif os.path.exists(os.path.join(
+                    os.path.dirname(json_conf["filename"]),
+                    json_conf["pick"]["scoring_file"])):
+                json_conf["pick"]["scoring_file"] = os.path.join(
+                    os.path.dirname(json_conf["filename"]),
+                    json_conf["pick"]["scoring_file"])
+            elif os.path.exists(
+                    resource_filename(__name__, os.path.join("scoring_files",
+                                                             json_conf["pick"]["scoring_file"]))):
+                json_conf["pick"]["scoring_file"] = resource_filename(
+                    __name__,
+                    os.path.join("scoring_files",
+                                 json_conf["pick"]["scoring_file"]))
+            else:
+                raise InvalidJson(
+                    "Scoring file not found: {0}".format(
+                        json_conf["pick"]["scoring_file"]))
 
-        if json_conf["pick"]["scoring_file"].endswith(("yaml", "json")):
-            with open(json_conf["pick"]["scoring_file"]) as scoring_file:
-                if json_conf["pick"]["scoring_file"].endswith("yaml"):
-                    scoring = yaml.load(scoring_file)
-                else:
-                    scoring = json.load(scoring_file)
-            assert isinstance(json_conf, dict) and isinstance(scoring, dict),\
-                (type(json_conf), type(scoring))
+            if json_conf["pick"]["scoring_file"].endswith(("yaml", "json")):
+                with open(json_conf["pick"]["scoring_file"]) as scoring_file:
+                    if json_conf["pick"]["scoring_file"].endswith("yaml"):
+                        scoring = yaml.load(scoring_file)
+                    else:
+                        scoring = json.load(scoring_file)
+                assert isinstance(json_conf, dict) and isinstance(scoring, dict),\
+                    (type(json_conf), type(scoring))
 
-            json_conf = merge_dictionaries(json_conf, scoring)
-            json_conf = check_all_requirements(json_conf)
-            json_conf = check_scoring(json_conf)
-
-        elif json_conf["pick"]["scoring_file"].endswith(("model", "pickle")):
-
-            with open(json_conf["pick"]["scoring_file"], "rb") as forest:
-                scoring = pickle.load(forest)
-                assert isinstance(scoring, dict)
-                assert "scoring" in scoring and isinstance(scoring["scoring"], (RandomForestRegressor, RandomForestClassifier))
-                del scoring["scoring"]
                 json_conf = merge_dictionaries(json_conf, scoring)
                 json_conf = check_all_requirements(json_conf)
-        else:
-            raise InvalidJson(
-                "Invalid scoring file: {0}".format(
-                    json_conf["pick"]["scoring_file"]))
+                json_conf = check_scoring(json_conf)
 
-    if external_dict is not None:
-        if not isinstance(external_dict, dict):
-            raise TypeError("Passed an invalid external dictionary, type {}".format(
-                type(external_dict)))
-        json_conf = merge_dictionaries(json_conf, external_dict)
+            elif json_conf["pick"]["scoring_file"].endswith(("model", "pickle")):
 
-    json_conf = check_db(json_conf)
-    # json_conf = check_blast(json_conf, json_file)
-    validator.validate(json_conf)
-    # json_conf["prepare"]["canonical"] = tuple([tuple(_) for _
-    #                                            in json_conf["prepare"]["canonical"]])
-    if not json_conf["multiprocessing_method"]:
-        json_conf["multiprocessing_method"] = get_start_method()
+                with open(json_conf["pick"]["scoring_file"], "rb") as forest:
+                    scoring = pickle.load(forest)
+                    assert isinstance(scoring, dict)
+                    assert "scoring" in scoring and isinstance(scoring["scoring"], (RandomForestRegressor, RandomForestClassifier))
+                    del scoring["scoring"]
+                    json_conf = merge_dictionaries(json_conf, scoring)
+                    json_conf = check_all_requirements(json_conf)
+            else:
+                raise InvalidJson(
+                    "Invalid scoring file: {0}".format(
+                        json_conf["pick"]["scoring_file"]))
+
+        if external_dict is not None:
+            if not isinstance(external_dict, dict):
+                raise TypeError("Passed an invalid external dictionary, type {}".format(
+                    type(external_dict)))
+            json_conf = merge_dictionaries(json_conf, external_dict)
+
+        json_conf = check_db(json_conf)
+        # json_conf = check_blast(json_conf, json_file)
+        validator.validate(json_conf)
+        # json_conf["prepare"]["canonical"] = tuple([tuple(_) for _
+        #                                            in json_conf["prepare"]["canonical"]])
+        if not json_conf["multiprocessing_method"]:
+            json_conf["multiprocessing_method"] = get_start_method()
+    except Exception as exc:
+        logger.exception(exc)
+        raise
 
     return json_conf
 
@@ -540,19 +546,26 @@ def to_json(string, simple=False):
     :type simple: bool
     """
 
-    if string is None or string == '' or string == dict():
-        json_dict = dict()
-        string = os.path.join(os.path.abspath(os.getcwd()), "mikado.json")
-    else:
-        string = os.path.abspath(string)
-        if not os.path.exists(string) or os.stat(string).st_size == 0:
-            raise InvalidJson("JSON file {} not found!".format(string))
-        with open(string) as json_file:
-            if string.endswith(".yaml"):
-                json_dict = yaml.load(json_file)
-            else:
-                json_dict = json.load(json_file)
-    json_dict["filename"] = string
-    # json_dict = frozendict(check_json(json_dict, simple=simple))
-    json_dict = check_json(json_dict, simple=simple)
+    logger = create_default_logger("to_json")
+
+    try:
+        if string is None or string == '' or string == dict():
+            json_dict = dict()
+            string = os.path.join(os.path.abspath(os.getcwd()), "mikado.json")
+        else:
+            string = os.path.abspath(string)
+            if not os.path.exists(string) or os.stat(string).st_size == 0:
+                raise InvalidJson("JSON file {} not found!".format(string))
+            with open(string) as json_file:
+                if string.endswith(".yaml"):
+                    json_dict = yaml.load(json_file)
+                else:
+                    json_dict = json.load(json_file)
+        json_dict["filename"] = string
+        # json_dict = frozendict(check_json(json_dict, simple=simple))
+        json_dict = check_json(json_dict, simple=simple)
+    except Exception as exc:
+        logger.exception(exc)
+        raise
+
     return json_dict

@@ -111,7 +111,7 @@ class TestScoring(unittest.TestCase):
 
     def test_available_scoring_files(self):
 
-        for scorer in pkg_resources.resource_listdir("Mikado", os.path.join("configuration", "scoring_files")):
+        for scorer in pkg_resources.resource_listdir("Mikado.configuration", "scoring_files"):
             conf = dict()
             conf["pick"] = dict()
             conf["pick"]["scoring_file"] = scorer

@@ -1,6 +1,6 @@
 import unittest
 from Mikado.preparation import prepare
-from Mikado.configuration import configurator
+from Mikado.configuration import configurator, daijin_configurator
 import pkg_resources
 import tempfile
 from Mikado.loci.transcript import Namespace
@@ -14,6 +14,10 @@ import itertools
 import csv
 from Mikado.parsers import to_gff
 from Mikado.subprograms.util.stats import Calculator
+import Mikado.subprograms.configure
+import Mikado.daijin
+import yaml
+import random
 
 
 class PrepareChek(unittest.TestCase):
@@ -267,8 +271,85 @@ class StatCheck(unittest.TestCase):
                 with open(out.name) as out_handle:
                     lines = [_.rstrip() for _ in out_handle]
                 self.assertEqual(std_lines, lines)
+                os.remove(out.name)
 
 
+class ConfigureCheck(unittest.TestCase):
+
+    """Test for creating configuration files"""
+
+    __genomefile__ = None
+
+    @classmethod
+    def setUpClass(cls):
+        cls.__genomefile__ = tempfile.NamedTemporaryFile(mode="wb", delete=False, suffix=".fa")
+
+        with pkg_resources.resource_stream("Mikado.test", "chr5.fas.gz") as _:
+            cls.__genomefile__.write(gzip.decompress(_.read()))
+        cls.__genomefile__.flush()
+
+    @classmethod
+    def tearDownClass(cls):
+        """"""
+
+        cls.__genomefile__.close()
+        os.remove(cls.__genomefile__.name)
+
+    def test_mikado_config(self):
+        namespace = Namespace(default=False)
+        namespace.scoring = None
+        namespace.intron_range = None
+        namespace.reference = None
+        namespace.external = None
+        namespace.mode = "permissive"
+        namespace.blast_targets = []
+        namespace.junctions = []
+        out = os.path.join(tempfile.gettempdir(), "configuration.yaml")
+        with open(out, "w") as out_handle:
+            namespace.out = out_handle
+            Mikado.subprograms.configure.create_config(namespace)
+        self.assertGreater(os.stat(out).st_size, 0)
+        conf = Mikado.configuration.configurator.to_json(out)
+        conf = Mikado.configuration.configurator.check_json(conf)
+        conf = Mikado.configuration.configurator.check_json(conf)
+        os.remove(out)
+
+    def test_daijin_config(self):
+
+        # Check the basic function actually functions
+        _ = daijin_configurator.create_daijin_base_config()
+
+        namespace = Namespace(default=False)
+        namespace.r1 = []
+        namespace.r2 = []
+        namespace.samples = []
+        namespace.strandedness = []
+        namespace.asm_methods = ["cufflinks"]
+        namespace.aligners = ["hisat"]
+        namespace.modes = ["nosplit"]
+        namespace.cluster_config = None
+        namespace.scheduler = ""
+        namespace.flank = None
+        namespace.prot_db = []
+        namespace.genome = self.__genomefile__.name
+        namespace.transcriptome = ""
+        namespace.name = "Daijin"
+        namespace.out_dir = tempfile.gettempdir()
+        namespace.threads = 1
+
+        namespace.scoring = random.choice(
+            pkg_resources.resource_listdir("Mikado.configuration", "scoring_files"))
+
+        out = os.path.join(tempfile.gettempdir(), "configuration.yaml")
+        with open(out, "wt") as out_handle:
+            namespace.out = out_handle
+            daijin_configurator.create_daijin_config(namespace, level="ERROR")
+        self.assertGreater(os.stat(out).st_size, 0)
+
+        with open(out) as out_handle:
+            config = yaml.load(out_handle)
+
+        daijin_configurator.check_config(config)
 
 if __name__ == "__main__":
     unittest.main()

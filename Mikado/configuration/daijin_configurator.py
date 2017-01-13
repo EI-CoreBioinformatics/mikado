@@ -96,9 +96,9 @@ def create_daijin_base_config():
     return new_dict
 
 
-def create_daijin_config(args):
+def create_daijin_config(args, level="ERROR"):
 
-    logger = create_default_logger("daijin_config")
+    logger = create_default_logger("daijin_config", level=level)
 
     config = create_daijin_base_config()
     assert "reference" in config, config.keys()

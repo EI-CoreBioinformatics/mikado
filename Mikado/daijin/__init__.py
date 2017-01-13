@@ -130,9 +130,9 @@ def create_config_parser():
     reference = parser.add_argument_group("Arguments related to the reference species.")
     reference.add_argument("--name", default="Daijin", help="Name of the species under analysis.")
     reference.add_argument("--genome", "-g", required=True,
-                        help="Reference genome for the analysis, in FASTA format. Required.")
+                           help="Reference genome for the analysis, in FASTA format. Required.")
     reference.add_argument("--transcriptome", help="Reference annotation, in GFF3 or GTF format.",
-                        default="")
+                           default="")
     paired_reads = parser.add_argument_group("Arguments related to the input paired reads.")
     paired_reads.add_argument("-r1", "--left_reads", dest="r1",
                         nargs="+",

@@ -44,15 +44,15 @@ sample_data/1.fasta
 sample_data/2.fasta
 sample_data/configuration2.yaml
 sample_data/reference.gff3.midx
-Mikado/utilities/overlap.cpython-35m-x86_64-linux-gnu.so
+Mikado/utilities/overlap.cpython-3*.so
 Mikado/scales/contrast.c
-Mikado/scales/contrast.cpython-35m-x86_64-linux-gnu.so
+Mikado/scales/contrast.cpython-3*.so
 Mikado/scales/contrast.html
 Mikado/scales/f1.html
 Mikado/scales/f1.c
-Mikado/scales/f1.cpython-35m-x86_64-linux-gnu.so
+Mikado/scales/f1.cpython-3*.so
 Mikado/utilities/overlap.html
-Mikado/scales/intervaltree.cpython-35m-x86_64-linux-gnu.so
+Mikado/scales/intervaltree.cpython-3*.so
 doc/build/sample_data/configuration.yaml
 sample_data/5-mikado/
 sample_data/configuration.yaml
@@ -64,4 +64,5 @@ sample_data/.ipynb_checkpoints/
 sample_data/Untitled1.ipynb
 sample_data/Untitled.ipynb
 Mikado/utilities/intervaltree.c
-Mikado/utilities/intervaltree.cpython-35m-x86_64-linux-gnu.so
+Mikado/utilities/intervaltree.cpython-3*.so
+Mikado/test/

@@ -279,7 +279,7 @@ def load_from_gff(shelf_name,
             exon_lines[row.id]["chrom"] = row.chrom
             exon_lines[row.id]["strand"] = row.strand
             exon_lines[row.id]["tid"] = row.transcript or row.id
-            exon_lines[row.id]["parent"] = row.parent
+            exon_lines[row.id]["parent"] = "{}.gene".format(row.id)
             exon_lines[row.id]["features"] = dict()
             # Here we have to add the match feature as an exon, in case it is the only one present
             if row.feature == "match":
@@ -408,7 +408,7 @@ def load_from_gtf(shelf_name,
             exon_lines[row.transcript]["strand"] = row.strand
             exon_lines[row.transcript]["attributes"] = row.attributes.copy()
             exon_lines[row.transcript]["tid"] = row.id
-            exon_lines[row.transcript]["parent"] = row.gene
+            exon_lines[row.transcript]["parent"] = "{}.gene".format(row.id)
             exon_lines[row.transcript]["strand_specific"] = strand_specific
             if "exon_number" in exon_lines[row.transcript]["attributes"]:
                 del exon_lines[row.id]["attributes"]["exon_number"]
@@ -432,7 +432,7 @@ def load_from_gtf(shelf_name,
             exon_lines[row.transcript]["exon"] = []
             exon_lines[row.transcript]["attributes"] = row.attributes.copy()
             exon_lines[row.id]["tid"] = row.transcript
-            exon_lines[row.id]["parent"] = row.gene
+            exon_lines[row.id]["parent"] = "{}.gene".format(row.id)
             exon_lines[row.id]["strand_specific"] = strand_specific
         else:
             if row.transcript in to_ignore:

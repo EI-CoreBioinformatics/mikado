@@ -1,7 +1,7 @@
 wheel>=0.28.0
 pyyaml
 jsonschema
-cython
+cython>=0.25
 numpy
 networkx>=1.10
 sqlalchemy>=1

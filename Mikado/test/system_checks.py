@@ -18,6 +18,7 @@ import Mikado.subprograms.configure
 import Mikado.daijin
 import yaml
 import random
+import sys
 
 
 class PrepareChek(unittest.TestCase):
@@ -209,12 +210,11 @@ class CompareCheck(unittest.TestCase):
                 namespace.out = os.path.join(tempfile.gettempdir(), "compare_{}_{}".format(
                     files.index(ref), files.index(pred)))
                 compare(namespace)
-                refmap = os.path.join(tempfile.gettempdir(), "compare.refmap")
-                tmap = os.path.join(tempfile.gettempdir(), "compare.tmap")
-                stats = os.path.join(tempfile.gettempdir(), "compare.stats")
-                log = os.path.join(tempfile.gettempdir(), "compare.log")
+                refmap = "{}.refmap".format(namespace.out)
+                tmap = "{}.tmap".format(namespace.out)
+                stats = "{}.stats".format(namespace.out)
 
-                self.assertTrue(os.path.exists(log))
+                self.assertTrue(os.path.exists(namespace.log))
                 # with open(log) as log_handle:
                 #     log = [_.rstrip() for _ in log_handle]
                 for fname in [refmap, stats, tmap]:
@@ -314,6 +314,8 @@ class ConfigureCheck(unittest.TestCase):
         conf = Mikado.configuration.configurator.check_json(conf)
         os.remove(out)
 
+    @unittest.skipUnless((sys.version_info.minor>4),
+                         "Due to a bug in JSONSCHEMA, Daijin configure fails with Python versions lower than 3.5.")
     def test_daijin_config(self):
 
         # Check the basic function actually functions

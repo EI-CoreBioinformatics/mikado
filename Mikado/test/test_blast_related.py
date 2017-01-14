@@ -81,9 +81,7 @@ class BlastBasics(unittest.TestCase):
         with self.assertRaises(ValueError):
             opener.sniff()
 
-    @unittest.skipUnless((shutil.which("blast_formatter") is not None and
-                          shutil.which("makeblastdb") is not None),
-                         "blast_formatter and/or makeblastdb not found on this system")
+    @unittest.skip
     def test_asn(self):
 
         master = os.getcwd()

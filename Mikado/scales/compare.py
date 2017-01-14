@@ -389,12 +389,6 @@ def compare(args):
 
     ref_gff = isinstance(args.reference, GFF3)
 
-    if os.path.dirname(args.out) and os.path.dirname(args.out) != os.path.dirname(os.path.abspath(".")):
-        dirname = os.path.dirname(args.out)
-        if os.path.exists(dirname):
-            assert os.path.isdir(dirname)
-        else:
-            os.makedirs(dirname)
     # pylint: disable=no-member
     context = multiprocessing.get_context()
     manager = context.Manager()
@@ -430,6 +424,13 @@ def compare(args):
         queue_logger.info("Finished to create an index for %s, with %d genes",
                           args.reference.name, len(genes))
     else:
+        if os.path.dirname(args.out) and os.path.dirname(args.out) != os.path.dirname(os.path.abspath(".")):
+            dirname = os.path.dirname(args.out)
+            if os.path.exists(dirname):
+                assert os.path.isdir(dirname)
+            else:
+                os.makedirs(dirname)
+
         if (os.path.exists("{0}.midx".format(args.reference.name)) and
             os.stat(args.reference.name).st_mtime >= os.stat(
                     "{0}.midx".format(args.reference.name)).st_mtime):
@@ -490,6 +491,7 @@ def compare(args):
     args.queue_handler.close()
     [_.close() for _ in logger.handlers]
     args.reference.close()
-    args.prediction.close()
+    if hasattr(args.prediction, "close"):
+        args.prediction.close()
 
     return

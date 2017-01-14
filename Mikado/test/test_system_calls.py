@@ -5,7 +5,7 @@ import pkg_resources
 import tempfile
 from Mikado.loci.transcript import Namespace
 from Mikado.utilities.log_utils import create_null_logger
-from Mikado.scales.compare import compare
+from Mikado.scales.compare import compare, load_index
 import logging
 import gzip
 import pyfaidx
@@ -187,6 +187,41 @@ class CompareCheck(unittest.TestCase):
 
     def tearDown(self):
         logging.shutdown()
+
+    def test_index(self):
+
+        # Create the list of files
+        files = ["trinity.gtf",
+                 "trinity.gff3",
+                 "trinity.cDNA_match.gff3",
+                 "trinity.match_matchpart.gff3"]
+        # files = [pkg_resources.resource_filename("Mikado.test", filename) for filename in files]
+
+        namespace = Namespace(default=False)
+        namespace.distance = 2000
+        namespace.index = True
+        namespace.prediction = None
+        namespace.log = os.path.join(tempfile.gettempdir(), "index.log")
+        logger = create_null_logger("null")
+
+        for ref in files:
+            with self.subTest(ref=ref):
+                temp_ref = os.path.join(tempfile.gettempdir(), ref)
+                with pkg_resources.resource_stream("Mikado.test", ref) as ref_handle,\
+                        open(temp_ref, "wb") as out_handle:
+                    out_handle.write(ref_handle.read())
+                namespace.reference = to_gff(temp_ref)
+                compare(namespace)
+
+                self.assertTrue(os.path.exists(namespace.log))
+                self.assertTrue(os.path.exists("{}.midx".format(namespace.reference.name)))
+                self.assertGreater(os.stat("{}.midx".format(namespace.reference.name)).st_size, 0)
+                genes, positions = load_index(namespace, logger)
+                self.assertIsInstance(genes, dict)
+                self.assertIsInstance(positions, dict)
+                self.assertEqual(len(genes), 38)
+                os.remove(namespace.reference.name)
+                os.remove("{}.midx".format(namespace.reference.name))
 
     def test_compare_trinity(self):
 

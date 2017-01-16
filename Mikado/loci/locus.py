@@ -31,7 +31,7 @@ class Locus(Sublocus, Abstractlocus):
     additional transcripts if they are valid splicing isoforms.
     """
 
-    def __init__(self, transcript: Transcript, logger=None):
+    def __init__(self, transcript: Transcript, logger=None, json_conf=None):
         """
         Constructor class. Like all loci, also Locus is defined starting from a transcript.
 
@@ -68,12 +68,7 @@ class Locus(Sublocus, Abstractlocus):
         self.metric_lines_store = []
         self.__id = None
         self.fai = None
-
-        # if (isinstance(self.json_conf, dict) and
-        #         "reference" in self.json_conf):
-        #
-        # else:
-        #     self.fai = None
+        self.json_conf = json_conf
 
     def __str__(self, print_cds=True) -> str:
 

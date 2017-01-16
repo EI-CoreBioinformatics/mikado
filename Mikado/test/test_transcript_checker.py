@@ -1,6 +1,7 @@
 from Mikado.loci.transcriptchecker import TranscriptChecker
 from Mikado.loci.transcript import Transcript
 from Mikado.parsers.GFF import GffLine
+from Mikado.parsers.GTF import GtfLine
 import unittest
 import pyfaidx
 import pkg_resources
@@ -130,6 +131,46 @@ class TChekerTester(unittest.TestCase):
         tcheck = TranscriptChecker(neg.copy(), fasta, strand_specific=True)
         tcheck.check_strand()
         self.assertEqual(tcheck.strand, "-")
+
+    def test_negative(self):
+
+        gtf_lines = """Chr5	Cufflinks	transcript	26575364	26578163	1000	-	.	gene_id "cufflinks_star_at.23553";transcript_id "cufflinks_star_at.23553.1";exon_number "1";FPKM "2.9700103727";conf_hi "3.260618";frac "0.732092";cov "81.895309";conf_lo "2.679403";
+Chr5	Cufflinks	exon	26575364	26575410	.	-	.	gene_id "cufflinks_star_at.23553";transcript_id "cufflinks_star_at.23553.1";
+Chr5	Cufflinks	exon	26575495	26575620	.	-	.	gene_id "cufflinks_star_at.23553";transcript_id "cufflinks_star_at.23553.1";
+Chr5	Cufflinks	exon	26575711	26575797	.	-	.	gene_id "cufflinks_star_at.23553";transcript_id "cufflinks_star_at.23553.1";
+Chr5	Cufflinks	exon	26575885	26575944	.	-	.	gene_id "cufflinks_star_at.23553";transcript_id "cufflinks_star_at.23553.1";
+Chr5	Cufflinks	exon	26576035	26576134	.	-	.	gene_id "cufflinks_star_at.23553";transcript_id "cufflinks_star_at.23553.1";
+Chr5	Cufflinks	exon	26576261	26577069	.	-	.	gene_id "cufflinks_star_at.23553";transcript_id "cufflinks_star_at.23553.1";
+Chr5	Cufflinks	exon	26577163	26577288	.	-	.	gene_id "cufflinks_star_at.23553";transcript_id "cufflinks_star_at.23553.1";
+Chr5	Cufflinks	exon	26577378	26577449	.	-	.	gene_id "cufflinks_star_at.23553";transcript_id "cufflinks_star_at.23553.1";
+Chr5	Cufflinks	exon	26577856	26578163	.	-	.	gene_id "cufflinks_star_at.23553";transcript_id "cufflinks_star_at.23553.1";"""
+
+        gtf_lines = [GtfLine(line) for line in gtf_lines.split("\n")]
+
+        self.assertEqual(len([_ for _ in gtf_lines if _.header]), 0)
+
+        transcript = Transcript(gtf_lines[0])
+        transcript.add_exons(gtf_lines[1:])
+        transcript.finalize()
+        fasta_seq = self.fasta[transcript.chrom][transcript.start - 1:transcript.end]
+
+        tr_neg = transcript.copy()
+        tchecker = TranscriptChecker(tr_neg, fasta_seq, strand_specific=False)
+        self.assertEqual(tchecker.strand, "-")
+        self.assertEqual(tchecker.fasta_seq, fasta_seq)
+        tchecker.check_strand()
+        self.assertEqual(tchecker.strand, "-")
+
+        tr_neg = transcript.copy()
+        tr_neg.strand = "+"
+        for ss in (False, True):
+            with self.subTest(ss=ss):
+                tchecker = TranscriptChecker(tr_neg.copy(), fasta_seq, strand_specific=ss)
+                tchecker.check_strand()
+                if ss:
+                    self.assertEqual(tchecker.strand, "+")
+                else:
+                    self.assertEqual(tchecker.strand, "-")
 
 
 if __name__ == '__main__':

@@ -11,10 +11,11 @@ from Mikado.configuration import configurator
 from Mikado import exceptions
 from Mikado.parsers import GFF  # ,GTF, bed12
 from Mikado.parsers.GTF import GtfLine
-from Mikado.loci import Transcript, Superlocus, Abstractlocus, Locus, MonosublocusHolder
+from Mikado.loci import Transcript, Superlocus, Abstractlocus, Locus, MonosublocusHolder, Sublocus
 from Mikado.utilities.log_utils import create_null_logger, create_default_logger
 from Mikado.utilities import overlap
 import Mikado.loci
+import pickle
 
 
 class OverlapTester(unittest.TestCase):
@@ -692,6 +693,20 @@ class TestLocus(unittest.TestCase):
         self.assertEqual(len(locus.transcripts), 1)
         locus.add_transcript_to_locus(candidate)
         self.assertEqual(len(locus.transcripts), 1)
+
+    def test_serialisation(self):
+
+        """Check that the main types can be serialised correctly."""
+
+        candidate = self.t1
+        pickle.dumps(candidate)
+
+        json_conf = configurator.to_json(None)
+
+        for obj in Superlocus, Sublocus, Locus:
+            with self.subTest(obj=obj):
+                locus = obj(candidate, json_conf=json_conf)
+                pickle.dumps(locus)
 
 
 class RetainedIntronTester(unittest.TestCase):

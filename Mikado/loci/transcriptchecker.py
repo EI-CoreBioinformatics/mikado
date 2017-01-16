@@ -194,7 +194,7 @@ class TranscriptChecker(Transcript):
                                         canonical_counter["+"],
                                         canonical_counter["-"])
 
-                    if canonical_counter["+"] >= canonical_counter["-"]:
+                    if canonical_counter["+"] >= canonical_counter["-"] or self.strand_specific is False:
                         self.mixed_attribute = "{0}concordant,{1}discordant".format(
                             canonical_counter["+"],
                             canonical_counter["-"])
@@ -204,23 +204,23 @@ class TranscriptChecker(Transcript):
                             canonical_counter["-"],
                             canonical_counter["+"])
 
-            elif canonical_counter["-"] > 0:
+            elif canonical_counter["-"] > 0 and self.strand_specific is False:
                 self.reverse_strand()
                 self.reversed = True
-            else:
+            elif self.strand_specific is False:
                 assert canonical_counter["+"] + canonical_counter[None] == len(self.introns)
 
             # self.attributes["canonical_splices"] = ",".join(
             #     str(k) for k in canonical_index.keys() if
             #     canonical_index[k] in ("+", "-"))
-            if canonical_counter["+"] >= canonical_counter["-"]:
+
+            if canonical_counter["+"] >= canonical_counter["-"] or self.strand_specific is True:
                 strand = "+"
             else:
                 strand = "-"
 
             self.attributes["canonical_number"] = canonical_counter[strand]
-            self.attributes[
-                "canonical_proportion"] = canonical_counter[strand] / len(self.introns)
+            self.attributes["canonical_proportion"] = canonical_counter[strand] / len(self.introns)
 
             self.canonical_junctions = [_ for _ in canonical_index if
                                         canonical_index[_] == strand]

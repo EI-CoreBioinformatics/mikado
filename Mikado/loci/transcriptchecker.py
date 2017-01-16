@@ -205,8 +205,17 @@ class TranscriptChecker(Transcript):
                             canonical_counter["+"])
 
             elif canonical_counter["-"] > 0 and self.strand_specific is False:
+                self.logger.warning("Transcript %s has been assigned to the wrong strand, reversing it.",
+                                    self.id)
                 self.reverse_strand()
                 self.reversed = True
+            elif canonical_counter["-"] > 0 and self.strand_specific is True:
+                self.logger.warning(
+                    "Transcript %s has been assigned to the wrong strand, tagging it but leaving it on this strand.",
+                    self.id,
+                    canonical_counter["+"],
+                    canonical_counter["-"])
+                self.attributes["canonical_on_reverse_strand"] = True
             elif self.strand_specific is False:
                 assert canonical_counter["+"] + canonical_counter[None] == len(self.introns)
 

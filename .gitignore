@@ -65,4 +65,8 @@ sample_data/Untitled1.ipynb
 sample_data/Untitled.ipynb
 Mikado/utilities/intervaltree.c
 Mikado/utilities/intervaltree.cpython-3*.so
-Mikado/test/
+Mikado/test/sample_data/diamond.xml.gz
+Mikado/test/fusion_test/fusion_test.log
+sample_data/diamond.xml.gz
+Mikado/*/*.c
+Mikado/utilities/overlap.c

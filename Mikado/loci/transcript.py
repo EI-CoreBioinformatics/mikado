@@ -2646,3 +2646,20 @@ index {3}, internal ORFs: {4}".format(
 
     canonical_intron_proportion.category = "Intron"
     canonical_intron_proportion.usable_raw = True
+
+    @Metric
+    def suspicious_splicing(self):
+
+        """This metric will return True if the transcript has mixed splicing or the canonical """
+
+        return self.monoexonic is False and (
+            (self.attributes.get("mixed_splices", False) is not False) or self.attributes.get("canonical_on_reverse_strand", False))
+
+    suspicious_splicing.category = "Intron"
+
+    @Metric
+    def only_non_canonical_splicing(self):
+
+        """This metric will return True if the canonical_number is 0"""
+
+        return self.monoexonic is False and (self.attributes.get("canonical_number", 1) == 0)

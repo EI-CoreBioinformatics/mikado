@@ -102,6 +102,7 @@ class TChekerTester(unittest.TestCase):
         tcheck.check_strand()
         self.assertEqual(tcheck.strand, "-")
         self.assertTrue(tcheck.attributes["canonical_on_reverse_strand"])
+        self.assertTrue(tcheck.suspicious_splicing)
 
     def test_monoexonic(self):
 
@@ -169,8 +170,82 @@ Chr5	Cufflinks	exon	26577856	26578163	.	-	.	gene_id "cufflinks_star_at.23553";tr
                 tchecker.check_strand()
                 if ss:
                     self.assertEqual(tchecker.strand, "+")
+                    self.assertTrue(tchecker.suspicious_splicing)
                 else:
                     self.assertEqual(tchecker.strand, "-")
+
+    def test_suspicious(self):
+
+        self.model.attributes["mixed_splices"] = "6positive,1negative"
+        self.assertTrue(self.model.suspicious_splicing)
+        del self.model.attributes["mixed_splices"]
+        self.assertFalse(self.model.suspicious_splicing)
+
+        self.model.attributes["canonical_number"] = 0
+        self.assertFalse(self.model.suspicious_splicing)
+
+        del self.model.attributes["canonical_number"]
+
+        self.model.attributes["canonical_on_reverse_strand"] = True
+        self.assertTrue(self.model.suspicious_splicing)
+        self.model.attributes["canonical_on_reverse_strand"] = False
+        self.assertFalse(self.model.suspicious_splicing)
+        self.model.attributes["mixed_splices"] = "6positive,1negative"
+        self.assertTrue(self.model.suspicious_splicing)
+
+        del self.model.attributes["mixed_splices"]
+        del self.model.attributes["canonical_on_reverse_strand"]
+        self.model.attributes["canonical_number"] = 0
+        self.assertFalse(self.model.suspicious_splicing)
+        self.assertTrue(self.model.only_non_canonical_splicing)
+        self.model.attributes["canonical_on_reverse_strand"] = True
+        self.assertTrue(self.model.suspicious_splicing)
+        self.assertTrue(self.model.only_non_canonical_splicing)
+        del self.model.attributes["canonical_on_reverse_strand"]
+        self.model.attributes["mixed_splices"] = "6positive,1negative"
+        self.assertTrue(self.model.suspicious_splicing)
+        self.assertTrue(self.model.only_non_canonical_splicing)
+
+    def test_monoexonic_suspicious(self):
+
+        """A monoexonic transcript should never appear as a suspicious transcript, in terms of splicing."""
+
+        exon = self.gff_lines[1]
+        transcript_line = self.gff_lines[0]
+        transcript_line.end = exon.end
+        model = Transcript(transcript_line)
+        model.add_exon(exon)
+        model.finalize()
+
+        model.attributes["mixed_splices"] = "6positive,1negative"
+        self.assertFalse(model.suspicious_splicing)
+        del model.attributes["mixed_splices"]
+        self.assertFalse(model.suspicious_splicing)
+        
+        model.attributes["canonical_number"] = 0
+        self.assertFalse(model.suspicious_splicing)
+        
+        del model.attributes["canonical_number"]
+        
+        model.attributes["canonical_on_reverse_strand"] = True
+        self.assertFalse(model.suspicious_splicing)
+        model.attributes["canonical_on_reverse_strand"] = False
+        self.assertFalse(model.suspicious_splicing)
+        model.attributes["mixed_splices"] = "6positive,1negative"
+        self.assertFalse(model.suspicious_splicing)
+        
+        del model.attributes["mixed_splices"]
+        del model.attributes["canonical_on_reverse_strand"]
+        model.attributes["canonical_number"] = 0
+        self.assertFalse(model.suspicious_splicing)
+        self.assertFalse(model.only_non_canonical_splicing)
+        model.attributes["canonical_on_reverse_strand"] = True
+        self.assertFalse(model.suspicious_splicing)
+        self.assertFalse(model.only_non_canonical_splicing)
+        del model.attributes["canonical_on_reverse_strand"]
+        model.attributes["mixed_splices"] = "6positive,1negative"
+        self.assertFalse(model.suspicious_splicing)
+        self.assertFalse(model.only_non_canonical_splicing)
 
 
 if __name__ == '__main__':

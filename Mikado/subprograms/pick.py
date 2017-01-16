@@ -49,15 +49,6 @@ def check_run_options(args):
     if args.procs is not None:
         args.json_conf["pick"]["run_options"]["procs"] = args.procs
 
-    if args.shm_db is not None or args.shm is True:
-        args.shm = True
-        args.json_conf["pick"]["run_options"]["shm"] = True
-        # I will deal with it being None or not in Creator
-        args.json_conf["pick"]["run_options"]["shm_db"] = args.shm_db
-
-    if args.preload is True:
-        args.json_conf["pick"]["run_options"]["preload"] = True
-
     args.json_conf["pick"]["run_options"]["single_thread"] = args.single
 
     if args.no_cds is not None:
@@ -96,6 +87,12 @@ def check_run_options(args):
 
     if args.intron_range is not None:
         args.json_conf["pick"]["run_options"]["intron_range"] = tuple(sorted(args.intron_range))
+
+    if args.monoloci_from_simple_overlap is True:
+        args.json_conf["pick"]["run_options"]["monoloci_from_simple_overlap"] = True
+
+    if args.subloci_from_cds_only is True:
+        args.json_conf["pick"]["run_options"]["subloci_from_cds_only"] = True
 
     for key in ["loci_out", "gff", "monoloci_out", "subloci_out", "log"]:
         if getattr(args, key):
@@ -188,16 +185,16 @@ def pick_parser():
     parser.add_argument('--purge', action='store_true', default=False,
                         help='''Flag. If set, the pipeline will suppress any loci
                         whose transcripts do not pass the requirements set in the JSON file.''')
-    parser.add_argument("-shm", "--shared-memory", dest="shm", default=False, action="store_true",
-                        help="Flag. If set, the DB will be copied into memory.")
-    parser.add_argument("-shmdb", "--shared-memory-db", dest="shm_db", default=None, type=str,
-                        help="""Name of the shared memory DB.
-                        WARNING: if set, the DB copy will be persistently copied
-                        into memory, so that multiple pickers can share.""")
-    parser.add_argument('--preload', action='store_true', default=False,
-                        help='''Flag. If set, the Mikado DB will be pre-loaded
-                        into memory for faster access. WARNING: this option will
-                        increase memory usage and the preloading might be quite slow.''')
+    parser.add_argument("--subloci-from-cds-only", dest="subloci_from_cds_only",
+                        default=False, action="store_true",
+                        help=""""Flag. If set, Mikado will only look for overlap in the coding features
+                        when clustering transcripts (unless one transcript is non-coding, in which case
+                        the whole transcript will be considered). Default: False, Mikado will consider
+                        transcripts in their entirety.""")
+    parser.add_argument("--monoloci-from-simple-overlap", dest="monoloci_from_simple_overlap",
+                        default=False, action="store_true",
+                        help=""""Flag. If set, in the final stage Mikado will cluster transcripts by simple overlap,
+                        not by looking at the presence of shared introns. Default: False.""")
     parser.add_argument("-db", "--sqlite-db", dest="sqlite_db",
                         default=None, type=str,
                         help="Location of an SQLite database to overwrite what is specified \

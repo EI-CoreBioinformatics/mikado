@@ -664,6 +664,10 @@
               "type": "boolean",
               "default": false
             },
+            "monoloci_from_simple_overlap": {
+              "type": "boolean",
+              "default": false
+            },
             "consider_truncated_for_retained": {
               "type": "boolean",
               "default": false

@@ -1077,9 +1077,12 @@ class Superlocus(Abstractlocus):
         primary_transcripts = set(locus.primary_transcript_id for locus in self.loci.values())
 
         cds_only = self.json_conf["pick"]["run_options"]["subloci_from_cds_only"]
+        simple_overlap = self.json_conf["pick"]["run_options"]["monoloci_from_simple_overlap"]
         t_graph = self.define_graph(self.transcripts,
                                     inters=MonosublocusHolder.is_intersecting,
-                                    cds_only=cds_only)
+                                    cds_only=cds_only,
+                                    logger=self.logger,
+                                    simple_overlap=simple_overlap)
         
         cliques = self.find_cliques(t_graph)
 
@@ -1112,10 +1115,16 @@ class Superlocus(Abstractlocus):
         """Wrapper to calculate the metrics for the monosubloci."""
         self.monoholders = []
 
+        cds_only = self.json_conf["pick"]["run_options"]["subloci_from_cds_only"]
+        simple_overlap = self.json_conf["pick"]["run_options"]["monoloci_from_simple_overlap"]
         for monosublocus_instance in sorted(self.monosubloci):
             found_holder = False
             for holder in self.monoholders:
-                if MonosublocusHolder.in_locus(holder, monosublocus_instance, logger=self.logger):
+                if MonosublocusHolder.in_locus(holder,
+                                               monosublocus_instance,
+                                               logger=self.logger,
+                                               cds_only=cds_only,
+                                               simple_overlap=simple_overlap):
                     holder.add_monosublocus(monosublocus_instance)
                     found_holder = True
                     break

@@ -137,7 +137,7 @@ class MonosublocusHolder(Sublocus, Abstractlocus):
 
         graph = self.define_graph(self.transcripts, inters=self.is_intersecting,
                                   cds_only=self.json_conf["pick"][
-                                      "run_options"]["subloci_from_cds_only"])
+                                      "run_options"]["subloci_from_cds_only"], logger=self.logger)
 
         loci = []
         while len(graph) > 0:
@@ -211,11 +211,7 @@ class MonosublocusHolder(Sublocus, Abstractlocus):
                          transcript.id, other.id)
             return False
 
-        # if transcript.is_coding is True and other.is_coding is True:
-        #     if any((overlap(*comb) > 0) for comb in  itertools.product(
-        #            transcript.combined_cds, other.combined_cds)):
-        #         logger.debug("CDS overlap between %s and %s", transcript.id, other.id)
-        #         return True
+        # Both transcripts are multiexonic
 
         if not any([other.monoexonic, transcript.monoexonic]):
             if cds_only is True and all((_.is_coding is True for _ in (transcript, other))):
@@ -226,13 +222,38 @@ class MonosublocusHolder(Sublocus, Abstractlocus):
                     logger.debug("At least one combined CDS intron of %s intersects a combined CDS intron of %s; %s %s",
                                  transcript.id, other.id, transcript.combined_cds_introns, other.combined_cds_introns)
                     return True
+                elif any((overlap(*_) == (_[0][1] - _[0][0]))
+                         for _ in itertools.product(transcript.combined_cds_introns, other.coding_exons)):
+                    logger.debug("At least 1 intron of %s is completely contained within an exon of %s\n%s\n%s",
+                                 transcript.id,
+                                 other.id,
+                                 transcript.combined_cds_introns, other.coding_exons)
+                    return True
+                elif any((overlap(*_) == (_[0][1] - _[0][0]))
+                          for _ in itertools.product(other.combined_cds_introns, transcript.coding_exons)):
+                    logger.debug("At least 1 intron of %s is completely contained within an exon of %s",
+                                 other.id, transcript.id)
+                    return True
                 else:
-                    logger.debug("No combined CDS intron of %s intersects a combined CDS intron of %s",
-                                 transcript.id, other.id)
+                    logger.debug("No combined CDS intron of %s intersects a combined CDS intron of %s\n%s\n%s",
+                                 transcript.id, other.id,
+                                 transcript.combined_cds_introns,
+                                 other.combined_cds_introns)
             else:
                 if any(((overlap(*_) > 0) for _ in itertools.product(transcript.introns, other.introns))):
                     logger.debug("At least 1 intron of %s intersects another intron in %s",
                                  transcript.id, other.id)
+                    return True
+                # elif any((overlap(*_) == (_[0][1] - _[0][0] + 1 ))
+                elif any((overlap(*_) == (_[0][1] - _[0][0]))
+                         for _ in itertools.product(transcript.introns, other.exons)):
+                    logger.debug("At least 1 intron of %s is completely contained within an exon of %s\n%s\n%s",
+                                 transcript.id, other.id, transcript.introns, other.exons)
+                    return True
+                elif any((overlap(*_) == (_[0][1] - _[0][0]))
+                          for _ in itertools.product(other.introns, transcript.exons)):
+                    logger.debug("At least 1 intron of %s is completely contained within an exon of %s",
+                                 other.id, transcript.id)
                     return True
                 else:
                     logger.debug("No intron in %s intersects introns in %s",
@@ -262,7 +283,7 @@ class MonosublocusHolder(Sublocus, Abstractlocus):
 
 
     @classmethod
-    def in_locus(cls, monosublocus: Abstractlocus, transcript: Transcript, flank=0) -> bool:
+    def in_locus(cls, monosublocus: Abstractlocus, transcript: Transcript, flank=0, logger=None) -> bool:
         """This method checks whether a transcript / monosbulocus
         falls inside the Locus coordinates.
 
@@ -286,7 +307,7 @@ class MonosublocusHolder(Sublocus, Abstractlocus):
             is_in_locus = False
             for tran in monosublocus.transcripts:
                 tran = monosublocus.transcripts[tran]
-                is_in_locus = cls.is_intersecting(tran, transcript)
+                is_in_locus = cls.is_intersecting(tran, transcript, logger=logger)
                 if is_in_locus is True:
                     break
         return is_in_locus

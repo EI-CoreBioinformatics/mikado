@@ -1115,7 +1115,7 @@ class Superlocus(Abstractlocus):
         for monosublocus_instance in sorted(self.monosubloci):
             found_holder = False
             for holder in self.monoholders:
-                if MonosublocusHolder.in_locus(holder, monosublocus_instance):
+                if MonosublocusHolder.in_locus(holder, monosublocus_instance, logger=self.logger):
                     holder.add_monosublocus(monosublocus_instance)
                     found_holder = True
                     break

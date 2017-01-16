@@ -385,7 +385,9 @@ class MonoHolderTester(unittest.TestCase):
         t2.finalize()
         self.assertTrue(MonosublocusHolder.is_intersecting(self.t1, t2))
 
-    def test_noIntronOverlap(self):
+    def test_intron_contained_in_exon(self):
+
+        """Here the intron is completely contained within an exon. Returns true."""
 
         self.t1.strip_cds()
         t2 = Transcript()
@@ -398,7 +400,22 @@ class MonoHolderTester(unittest.TestCase):
         t2.end = 2000
         t2.add_exons([(1250, 1560), (1800, 2000)])
         t2.finalize()
-        self.assertFalse(MonosublocusHolder.is_intersecting(self.t1, t2))
+        self.assertTrue(MonosublocusHolder.is_intersecting(self.t1, t2))
+
+    def test_intron_not_contained_in_exon(self):
+
+        self.t1.strip_cds()
+        t2 = Transcript()
+        t2.chrom = "Chr1"
+        t2.strand = "+"
+        t2.score = 1
+        t2.id = "G2.1"
+        t2.parent = "G2"
+        t2.start = 1500
+        t2.end = 3000
+        t2.add_exons([(1500, 1560), (2800, 3000)])
+        t2.finalize()
+        self.assertFalse(MonosublocusHolder.is_intersecting(self.t1, t2, logger=None))
 
     def test_noCDSOverlap(self):
 
@@ -448,13 +465,29 @@ class MonoHolderTester(unittest.TestCase):
         t2.add_exons([(1250, 1560), (1801, 2000)])
         t2.add_exons([(1401, 1560), (1801, 1850)], "CDS")
         t2.finalize()
-        self.assertFalse(MonosublocusHolder.is_intersecting(self.t1, t2))
+        self.assertTrue(MonosublocusHolder.is_intersecting(self.t1, t2, cds_only=True))
 
         t2.strip_cds()
         t2.finalized = False
         t2.add_exons([(1461, 1560), (1801, 1850)], "CDS")
+        t2.finalize()
+        self.assertGreater(len(t2.introns), 0)
+        self.assertGreater(len(t2.combined_cds_introns), 0)
         # No CDS overlap this time
-        self.assertFalse(MonosublocusHolder.is_intersecting(self.t1, t2))
+        self.assertTrue(MonosublocusHolder.is_intersecting(self.t1, t2, cds_only=True))
+
+        t2 = Transcript()
+        t2.chrom = "Chr1"
+        t2.strand = "+"
+        t2.score = 1
+        t2.id = "G2.1"
+        t2.parent = "G2"
+        t2.start = 1350
+        t2.end = 3000
+        t2.add_exons([(1350, 1560), (1801, 2000)])
+        t2.add_exons([(1401, 1560), (2801, 3850)], "CDS")
+        t2.finalize()
+        self.assertFalse(MonosublocusHolder.is_intersecting(self.t1, t2, cds_only=True))
 
     def test_no_overlap(self):
 

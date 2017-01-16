@@ -1598,6 +1598,23 @@ class Transcript:
 
         self.__combined_cds = combined
 
+    @property
+    @functools.lru_cache(maxsize=None, typed=True)
+    def coding_exons(self):
+
+        """This property returns a list of exons which have at least a coding part."""
+
+        if self.combined_cds_length == 0:
+            return []
+        coding = []
+        for exon in self.exons:
+            for ccd in self.combined_cds:
+                if self.overlap(exon, ccd) > 0:
+                    coding.append(exon)
+                    break
+                continue
+        return coding
+
     @staticmethod
     def __wrong_combined_entry(to_test):
         """

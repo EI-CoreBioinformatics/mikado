@@ -396,8 +396,8 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         self.exons.update(set(transcript.exons))
         assert isinstance(self.locus_verified_introns, set)
         assert isinstance(transcript.verified_introns, set)
-        self.locus_verified_introns = set.union(self.locus_verified_introns,
-                                                transcript.verified_introns)
+        # self.locus_verified_introns = set.union(self.locus_verified_introns,
+        #                                         transcript.verified_introns)
         if transcript.verified_introns_num > 0:
             assert len(self.locus_verified_introns) > 0
 

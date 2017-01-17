@@ -215,7 +215,7 @@ def pick_parser():
     verbosity.add_argument("-nv", "--noverbose", action="store_true",
                            default=False, help="Flag. If set, the log will report only errors and critical events.")
     log_options.add_argument("-lv", "--log-level", dest="log_level",
-                             choices=["DEBUG", "INFO", "WARN", "ERROR", "CRITICAL"], default=None,
+                             choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"], default=None,
                              help="Logging level. Default: retrieved by the configuration file.")
     # parser.formatter_class = argparse.RawTextHelpFormatter
     parser.add_argument("--mode", default=None,

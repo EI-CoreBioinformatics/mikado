@@ -59,7 +59,7 @@ def memoize(obj):
     return memoizer
 
 
-def merge_partial(filenames, handle):
+def merge_partial(filenames, handle, logger=None):
 
     """This function merges the partial files created by the multiprocessing into a single
     sorted file.
@@ -69,17 +69,43 @@ def merge_partial(filenames, handle):
 
     :param handle: the handle to use for printing
     :type handle: io.TextIOWrapper
+
+    :param logger: logger to be used for the merging
+
     """
+
+    if logger is None:
+        logger = log_utils.create_null_logger("merger")
+    if len(filenames) == 0:
+        logger.warning("Nothing to merge. Exiting")
+
+    logger.debug("Starting to merge %d files (root: %s)",
+                 len(filenames), "-".join(filenames[0].split("-")[:-1]))
 
     current_lines = collections.defaultdict(list)
 
-    fnames = [open(_) for _ in filenames]
+    fnames = [open(_) for _ in filenames if os.stat(_).st_size > 0]
+    if len(fnames) == 0:
+        logger.warning("All the files to merge (root %s) are empty. Exiting.",
+                       "-".join(filenames[0].split("-")[:-1]))
+        [_.close() for _ in fnames]
+        [os.remove(_) for _ in filenames]
+
+        return 0
 
     for lines in zip_longest(*fnames):
         for line in iter(_ for _ in lines if _ is not None):
             _ = line.split("/")
             index = int(_[0])
             current_lines[index].append("/".join(_[1:]))
+
+    if len(current_lines) == 0:
+        logger.exception("Nothing found to merge  for root %s. ERROR!.",
+                         "-".join(filenames[0].split("-")[:-1]))
+        [_.close() for _ in fnames]
+        [os.remove(_) for _ in filenames]
+
+        raise IndexError
 
     total = max(current_lines.keys())
 

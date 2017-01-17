@@ -202,7 +202,7 @@ def merge_loci_gff(gff_filenames, gff_handle, prefix=""):
                 print("###", file=gff_handle)
             del current_lines[index]
 
-    # [os.remove(_) for _ in gff_filenames]
+    [os.remove(_) for _ in gff_filenames]
     return gid_to_new, tid_to_new
 
 
@@ -265,7 +265,7 @@ def merge_loci(num_temp, out_handles, prefix="", tempdir="mikado_pick_tmp"):
                 line = "\t".join(fields)
                 print(line, file=handle, end="")
             del current_lines[current]
-        # [os.remove(_) for _ in finished]
+        [os.remove(_) for _ in finished]
     return
 
 

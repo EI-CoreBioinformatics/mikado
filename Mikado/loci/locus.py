@@ -69,6 +69,8 @@ class Locus(Sublocus, Abstractlocus):
         self.__id = None
         self.fai = None
         self.json_conf = json_conf
+        # if verified_introns is not None:
+        #     self.locus_verified_introns = verified_introns
 
     def __str__(self, print_cds=True) -> str:
 

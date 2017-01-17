@@ -37,7 +37,7 @@ class MonosublocusHolder(Sublocus, Abstractlocus):
     __name__ = "monosubloci_holder"
 
     # pylint: disable=super-init-not-called
-    def __init__(self, monosublocus_instance: Monosublocus, json_conf=None, logger=None):
+    def __init__(self, monosublocus_instance: Monosublocus, json_conf=None, logger=None, verified_introns=None):
 
         # I know what I am doing by NOT calling the Sublocus super but rather
         # Abstractlocus
@@ -53,6 +53,8 @@ class MonosublocusHolder(Sublocus, Abstractlocus):
         self.locus_verified_introns = set()
         self.add_monosublocus(monosublocus_instance)
         self.loci = SortedDict()
+        if verified_introns is not None:
+            self.locus_verified_introns = verified_introns
 
     # Overriding is correct here
     # pylint: disable=arguments-differ

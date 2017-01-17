@@ -953,7 +953,7 @@ memory intensive, proceed with caution!")
                     partials = [os.path.join(tempdir.name,
                                              "{0}-{1}".format(os.path.basename(handle), _))
                                 for _ in range(1, self.procs + 1)]
-                    merge_partial(partials, output)
+                    merge_partial(partials, output, logger=self.logger)
                     # [os.remove(_) for _ in partials]
 
         for handle in handles[2]:
@@ -962,7 +962,7 @@ memory intensive, proceed with caution!")
                     partials = [os.path.join(tempdir.name,
                                              "{0}-{1}".format(os.path.basename(handle), _))
                                 for _ in range(1, self.procs + 1)]
-                    merge_partial(partials, output)
+                    merge_partial(partials, output, logger=self.logger)
                     # [os.remove(_) for _ in partials]
 
         self.logger.info("Finished merging partial files")

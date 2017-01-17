@@ -35,7 +35,7 @@ class Sublocus(Abstractlocus):
 
     # ############### Class special methods ##############
 
-    def __init__(self, span, json_conf=None, logger=None):
+    def __init__(self, span, json_conf=None, logger=None, verified_introns=None):
 
         """
         :param span: an instance which describes a genomic interval
@@ -92,6 +92,9 @@ class Sublocus(Abstractlocus):
         self.monosubloci = []
         self.logger.debug("Initialized {0}".format(self.id))
         self.metric_lines_store = []  # This list will contain the lines to be printed in the metrics file
+
+        if verified_introns is not None:
+            self.locus_verified_introns = verified_introns
 
         self.scores = dict()
 

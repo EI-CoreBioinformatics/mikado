@@ -5,7 +5,7 @@ Changes in this release:
 - Mikado prepare, stats and compare are capable of using GFFs with "match/match_part" or "cDNA_match" features as input. This allows eg. to obtain sensible statistics for the alignments of Trinity transfrags or long reads when using GMAP inside Daijin.
 - **IMPORTANT**: in strand-specific mode, now Mikado prepare will not flip transcripts which have been misassigned to the opposite strand. Those transcripts will be kept on the original strand, and tagged.
 - **IMPORTANT**: at the stage of the creation of monosubloci-holders, now Mikado groups together also transcripts **for which at least one intron is completely contained within the exon of another**. This should solve spurious cases where we called multiple loci instead of one, while probably avoiding trans-splicing.
- - **IMPORTANT**: otionally now Mikado can perform the second clustering of transcripts based on simple overlap (either of the CDS or of all exonic features). The option can be invoked from the command line. 
+- **IMPORTANT**: otionally now Mikado can perform the second clustering of transcripts based on simple overlap (either of the CDS or of all exonic features). The option can be invoked from the command line. 
 - Two new metrics:
   - "suspicious_splicing" will allow to identify transcripts with mixed_splices, or which would have at least one canonical intron if moved to the opposite strand.
   - "only_non_canonical_splicing" will allow to identify transcripts whose splicing sites are all non-canonical.

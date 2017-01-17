@@ -57,7 +57,7 @@ class Sublocus(Abstractlocus):
         Abstractlocus.__init__(self, verified_introns=verified_introns)
         self.feature = self.__name__
         self.logger = logger
-        self.logger.warning("Verified introns for %s: %s", self.id, verified_introns)
+        self.logger.debug("Verified introns for %s: %s", self.id, verified_introns)
         self.json_conf = json_conf
         self.fixed_size = True if span.feature == "sublocus" else False
         if span.__name__ == "transcript":

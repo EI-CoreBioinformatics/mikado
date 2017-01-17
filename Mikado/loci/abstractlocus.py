@@ -33,7 +33,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
     # ##### Special methods #########
 
     @abc.abstractmethod
-    def __init__(self, source=""):
+    def __init__(self, source="", verified_introns=None):
 
         # Mock values
         self.__source = source
@@ -52,6 +52,8 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         self.chrom = None
         self.cds_introns = set()
         self.__locus_verified_introns = set()
+        if verified_introns is not None:
+            self.locus_verified_introns = verified_introns
         self.json_conf = dict()
         self.__cds_introntree = IntervalTree()
         self.__regressor = None
@@ -396,8 +398,8 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         self.exons.update(set(transcript.exons))
         assert isinstance(self.locus_verified_introns, set)
         assert isinstance(transcript.verified_introns, set)
-        # self.locus_verified_introns = set.union(self.locus_verified_introns,
-        #                                         transcript.verified_introns)
+        self.locus_verified_introns = set.union(self.locus_verified_introns,
+                                                transcript.verified_introns)
         if transcript.verified_introns_num > 0:
             assert len(self.locus_verified_introns) > 0
 
@@ -649,7 +651,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             raise ValueError("Locus {} has 0 verified introns, but its transcript {} has {}!".format(
                 self.id, tid, len(self.transcripts[tid].verified_introns)))
 
-        if self.transcripts[tid].verified_introns_num > 0:
+        if len(self.locus_verified_introns) > 0:
             verified = len(
                 set.intersection(self.transcripts[tid].verified_introns,
                                  self.locus_verified_introns))

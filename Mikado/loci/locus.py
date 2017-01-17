@@ -654,7 +654,7 @@ reached the maximum number of isoforms for the locus".format(
 
         # Now we can do the proper modification
         for tid in __to_modify:
-            new_transcript = expand_transcript(self[tid].copy(),
+            new_transcript = expand_transcript(self[tid].deepcopy(),
                                                __to_modify[tid][0],
                                                __to_modify[tid][1],
                                                self.fai,

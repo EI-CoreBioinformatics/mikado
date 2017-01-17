@@ -54,9 +54,10 @@ class Sublocus(Abstractlocus):
 
         self.counter = 0  # simple tag for avoiding collisions in the GFF output
         self.__splitted = False
-        Abstractlocus.__init__(self)
+        Abstractlocus.__init__(self, verified_introns=verified_introns)
         self.feature = self.__name__
         self.logger = logger
+        self.logger.warning("Verified introns for %s: %s", self.id, verified_introns)
         self.json_conf = json_conf
         self.fixed_size = True if span.feature == "sublocus" else False
         if span.__name__ == "transcript":
@@ -92,9 +93,6 @@ class Sublocus(Abstractlocus):
         self.monosubloci = []
         self.logger.debug("Initialized {0}".format(self.id))
         self.metric_lines_store = []  # This list will contain the lines to be printed in the metrics file
-
-        if verified_introns is not None:
-            self.locus_verified_introns = verified_introns
 
         self.scores = dict()
 

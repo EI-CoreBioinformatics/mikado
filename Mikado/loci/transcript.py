@@ -431,10 +431,12 @@ class Transcript:
 
         logger = self.logger
         del self.logger
-        state = self.__dict__.copy()
+        state = copy.deepcopy(self.__dict__)
         self.logger = logger
 
         if hasattr(self, "json_conf") and self.json_conf is not None:
+            if "json_conf" not in state:
+                state["json_conf"] = copy.deepcopy(self.json_conf)
             for key in state["json_conf"]:
                 if "compiled" in state["json_conf"][key]:
                     del state["json_conf"][key]["compiled"]

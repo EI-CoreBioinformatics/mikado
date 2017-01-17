@@ -868,7 +868,10 @@ class Superlocus(Abstractlocus):
                 continue
             subl = [self.transcripts[x] for x in subl]
             subl = sorted(subl)
-            new_sublocus = Sublocus(subl[0], json_conf=self.json_conf, logger=self.logger)
+            new_sublocus = Sublocus(subl[0],
+                                    json_conf=self.json_conf,
+                                    logger=self.logger)
+                                    # verified_introns=self.locus_verified_introns)
             if self.regressor is not None:
                 new_sublocus.regressor = self.regressor
             for ttt in subl[1:]:
@@ -1133,6 +1136,7 @@ class Superlocus(Abstractlocus):
                     monosublocus_instance,
                     json_conf=self.json_conf,
                     logger=self.logger)
+                    # verified_introns=self.locus_verified_introns)
                 self.monoholders.append(holder)
 
         for monoholder in self.monoholders:

@@ -22,7 +22,7 @@ def launch(args):
     :param args: the argparse Namespace
     """
 
-    if hasattr(args, "region"):
+    if hasattr(args, "region") and args.region is not None:
         try:
             args.chrom, args.start, args.end = args.region
         except ValueError as exc:

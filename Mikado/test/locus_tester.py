@@ -121,6 +121,49 @@ Chr1\tfoo\texon\t101\t200\t.\t-\t.\tID=tminus0:exon1;Parent=tminus0""".split("\n
         self.assertEqual(len(minusuperlocus.loci), 1)
         self.assertTrue(transcript3.strand != self.transcript1.strand)
 
+    def test_verified_introns(self):
+
+        """This method will check that during run-time, the verified introns are considered at
+        the Superlocus level, not at the Sublocus one."""
+
+        t1 = Transcript()
+        t1.chrom, t1.strand, t1.id = "1", "+", "t1"
+        t1.start, t1.end = 100, 1000
+        t1.add_exons([(100, 200), (300, 500), (600, 1000)])
+        t1.finalize()
+        t1.verified_introns.add((201, 299))
+        t1.verified_introns.add((501, 599))
+
+        t2 = Transcript()
+        t2.chrom, t2.strand, t2.id = "1", "+", "t2"
+        t2.start, t2.end = 100, 1000
+        t2.add_exons([(100, 200), (300, 1000)])
+        t2.finalize()
+        t2.verified_introns.add((201, 299))
+
+        t3 = Transcript()
+        t3.chrom, t3.strand, t3.id = "1", "+", "t3"
+        t3.start, t3.end = 100, 1000
+        t3.add_exons([(100, 250), (300, 505), (600, 1000)])
+        t3.finalize()
+
+        jconf = configurator.to_json(None)
+
+        loc = Superlocus(t1, json_conf=jconf)
+        loc.add_transcript_to_locus(t2)
+        loc.add_transcript_to_locus(t3)
+
+        loc.define_subloci()
+
+        self.assertEqual(t1.proportion_verified_introns, 1)
+        self.assertEqual(t1.proportion_verified_introns_inlocus, 1)
+
+        self.assertEqual(t2.proportion_verified_introns, 1)
+        self.assertEqual(t2.proportion_verified_introns_inlocus, 0.5)
+
+        self.assertEqual(t3.proportion_verified_introns, 0)
+        self.assertEqual(t3.proportion_verified_introns_inlocus, 0)
+
 
 class ASeventsTester(unittest.TestCase):
 

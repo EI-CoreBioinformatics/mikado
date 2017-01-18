@@ -1,7 +1,7 @@
 requirements:
   expression: [suspicious_splicing]
   parameters:
-    suspicious_splicing: {operator: ne, value: true}
+    suspicious_splicing: {operator: "is not", value: true}
 scoring:
   blast_score: {rescaling: max}
   cdna_length: {rescaling: max}

@@ -210,19 +210,9 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         """
 
         if conf["operator"] == "eq":
-            if isinstance(conf["value"], (int, float)):
-                comparison = (float(param) == float(conf["value"]))
-            elif isinstance(conf["value"], bool):
-                comparison = (param is conf["value"])
-            else:
-                raise ValueError("Unrecognized value type for 'eq': {}".format(type(conf["value"])))
+            comparison = (float(param) == float(conf["value"]))
         elif conf["operator"] == "ne":
-            if isinstance(conf["value"], (int, float)):
-                comparison = (float(param) != float(conf["value"]))
-            elif isinstance(conf["value"], bool):
-                comparison = (param is not conf["value"])
-            else:
-                raise ValueError("Unrecognized value type for 'ne': {}".format(type(conf["value"])))
+            comparison = (float(param) != float(conf["value"]))
         elif conf["operator"] == "gt":
             comparison = (float(param) > float(conf["value"]))
         elif conf["operator"] == "lt":
@@ -235,6 +225,10 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             comparison = (param in conf["value"])
         elif conf["operator"] == "not in":
             comparison = (param not in conf["value"])
+        elif conf["operator"] == "is":
+            comparison = (param is conf["value"])
+        elif conf["operator"] == "is not":
+            comparison = (param is not conf["value"])
         else:
             raise ValueError("Unknown operator: {0}".format(conf["operator"]))
         return comparison
@@ -491,7 +485,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             self.splices.difference_update(splices_to_remove)
 
             del self.transcripts[tid]
-            self.logger.warning("Deleted %s from %s", tid, self.id)
+            self.logger.debug("Deleted %s from %s", tid, self.id)
             for tid in self.transcripts:
                 self.transcripts[tid].parent = self.id
 

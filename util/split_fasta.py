@@ -5,8 +5,8 @@ import argparse
 import os
 import textwrap
 import pyfaidx
-from math import log, ceil
-
+from math import log, ceil, floor
+from itertools import zip_longest
 
 def positive(string):
 
@@ -17,7 +17,8 @@ def positive(string):
 
 
 def fixed_grouper(number, iterable, padvalue=None):
-    return zip(*[chain(iterable, repeat(padvalue, number - 1))] * number)
+    # return [iterable[x:x + n] for x in range(0, len(MyList), n)]
+    return zip_longest(*[chain(iterable, repeat(padvalue, number - 1))] * number)
 
 
 def main():
@@ -43,6 +44,8 @@ def main():
 
     zfiller = max(ceil(log(args.num_files, 10)), 3)
 
+    number = 0
+
     for number, group in enumerate(fixed_grouper(
             ceil(len(args.fasta.keys())/args.num_files),
             args.fasta.keys())):
@@ -53,6 +56,12 @@ def main():
                     print(">{}".format(args.fasta[sequence].long_name),
                           *textwrap.wrap(str(args.fasta[sequence]), width=60),
                           sep="\n", file=outfile)
+
+    while number + 1 < args.num_files:
+        number += 1
+        with open("{}_{}.fasta".format(args.out, str(number + 1).zfill(zfiller)),
+                  "wt") as outfile:
+            pass
 
     return
 

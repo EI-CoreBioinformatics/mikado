@@ -22,7 +22,19 @@
                   "enum": ["eq", "ne"]
                 },
                 "value": {
-                  "type": ["number", "boolean", "string"]
+                  "type": ["number"]
+                }
+              }
+            },
+            {
+              "type": "object",
+              "properties": {
+                "operator": {
+                  "type": "string",
+                  "enum": ["is", "is not"]
+                },
+                "value": {
+                  "type": ["boolean"]
                 }
               }
             },

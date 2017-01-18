@@ -20,11 +20,11 @@ as_requirements:
     utr_length: {operator: le, value: 2500}
     five_utr_length: {operator: le, value: 2500}
     three_utr_length: {operator: le, value: 2500}
-    suspicious_splicing: {operator: ne, value: true}
+    suspicious_splicing: {operator: "is not", value: true}
 not_fragmentary:
  expression: [is_complete and ((exon_num.multi and (cdna_length.multi or combined_cds_length.multi)), or, (exon_num.mono and combined_cds_length.mono))]
  parameters:
-   is_complete: {operator: eq, value: true}
+   is_complete: {operator: is, value: true}
    exon_num.multi: {operator: gt, value: 1}
    cdna_length.multi: {operator: ge, value: 200}
    combined_cds_length.multi: {operator: gt, value: 150}

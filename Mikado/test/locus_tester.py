@@ -113,8 +113,8 @@ Chr1\tfoo\texon\t501\t600\t.\t+\t.\tID=t1:exon3;Parent=t1""".split("\n")
         self.assertEqual(len(slocus.loci), 1)
         self.assertEqual(list(slocus.loci[
                                   list(slocus.loci.keys())[0]].transcripts.keys())[0], "t0")
-        gff_transcript3 = """Chr1\tfoo\ttranscript\t101\t200\t.\t-\t.\tID=tminus0
-Chr1\tfoo\texon\t101\t200\t.\t-\t.\tID=tminus0:exon1;Parent=tminus0""".split("\n")
+        gff_transcript3 = """Chr1\tfoo\ttranscript\t101\t600\t.\t-\t.\tID=tminus0
+Chr1\tfoo\texon\t101\t600\t.\t-\t.\tID=tminus0:exon1;Parent=tminus0""".split("\n")
         gff_transcript3 = [GFF.GffLine(x) for x in gff_transcript3]
         transcript3 = Transcript(gff_transcript3[0])
         for exon in gff_transcript3[1:]:

@@ -38,9 +38,9 @@ class LocusTester(unittest.TestCase):
 
     def setUp(self):
 
-        gff_transcript1 = """Chr1\tfoo\ttranscript\t101\t300\t.\t+\t.\tID=t0
-Chr1\tfoo\texon\t101\t300\t.\t+\t.\tID=t0:exon1;Parent=t0
-Chr1\tfoo\tCDS\t101\t250\t.\t+\t.\tID=t0:exon1;Parent=t0""".split("\n")
+        gff_transcript1 = """Chr1\tfoo\ttranscript\t101\t400\t.\t+\t.\tID=t0
+Chr1\tfoo\texon\t101\t400\t.\t+\t.\tID=t0:exon1;Parent=t0
+Chr1\tfoo\tCDS\t101\t350\t.\t+\t.\tID=t0:exon1;Parent=t0""".split("\n")
         gff_transcript1 = [GFF.GffLine(x) for x in gff_transcript1]
         self.assertEqual(gff_transcript1[0].chrom, "Chr1", gff_transcript1[0])
         self.transcript1 = Transcript(gff_transcript1[0])
@@ -87,18 +87,22 @@ Chr1\tfoo\texon\t501\t600\t.\t+\t.\tID=t1:exon3;Parent=t1""".split("\n")
     def test_locus(self):
         """Basic testing of the Locus functionality."""
 
-        logger = create_null_logger("null")
+        logger = create_null_logger("test_locus")
         logger.setLevel("WARNING")
         logger.info("Started")
+        self.transcript1.logger = logger
+        self.transcript2.logger = logger
+        self.assertTrue(self.transcript1.monoexonic)
         slocus = Superlocus(self.transcript1,
-                            json_conf=self.my_json,
-                            logger=logger)
+                            json_conf=self.my_json, logger=logger)
         slocus.add_transcript_to_locus(self.transcript2)
+        self.assertEqual(len(slocus.transcripts), 2)
         self.assertEqual(slocus.strand, self.transcript1.strand)
         self.assertEqual(slocus.start, min(self.transcript1.start, self.transcript2.start))
         self.assertEqual(slocus.end, max(self.transcript1.end, self.transcript2.end))
         logger.info(slocus.transcripts)
         slocus.define_subloci()
+        self.assertEqual(len(slocus.transcripts), 2)
         logger.info(slocus.subloci)
         logger.info(slocus.transcripts)
         self.assertEqual(len(slocus.transcripts), 2)
@@ -163,6 +167,79 @@ Chr1\tfoo\texon\t101\t200\t.\t-\t.\tID=tminus0:exon1;Parent=tminus0""".split("\n
 
         self.assertEqual(t3.proportion_verified_introns, 0)
         self.assertEqual(t3.proportion_verified_introns_inlocus, 0)
+
+    def test_boolean_requirement(self):
+
+        logger = create_null_logger("test_boolean_requirement")
+        logger.setLevel("DEBUG")
+        logger.info("Started")
+
+        t1 = Transcript()
+        t1.chrom, t1.strand, t1.id = "1", "+", "t1"
+        t1.start, t1.end = 100, 1000
+        t1.add_exons([(100, 200), (300, 500), (600, 1000)])
+        t1.finalize()
+        t1.verified_introns.add((201, 299))
+        t1.verified_introns.add((501, 599))
+
+        t2 = Transcript()
+        t2.chrom, t2.strand, t2.id = "1", "+", "t2"
+        t2.start, t2.end = 100, 1000
+        t2.add_exons([(100, 200), (300, 1000)])
+        t2.finalize()
+        t2.verified_introns.add((201, 299))
+
+        t3 = Transcript()
+        t3.chrom, t3.strand, t3.id = "1", "+", "t3"
+        t3.start, t3.end = 100, 1000
+        t3.add_exons([(100, 250), (300, 505), (600, 1000)])
+        t3.finalize()
+
+        jconf = configurator.to_json(None)
+        # print(jconf["requirements"])
+
+        del jconf["requirements"]
+
+        jconf["requirements"] = dict()
+        jconf["requirements"]["parameters"] = dict()
+        jconf["requirements"]["expression"] = "evaluated['suspicious_splicing']"
+        jconf["requirements"]["parameters"]["suspicious_splicing"] = dict()
+        jconf["requirements"]["parameters"]["suspicious_splicing"]["operator"] = "ne"
+        jconf["requirements"]["parameters"]["suspicious_splicing"]["name"] = "suspicious_splicing"
+        jconf["requirements"]["parameters"]["suspicious_splicing"]["value"] = True
+        if "compiled" in jconf["requirements"]:
+            del jconf["requirements"]["compiled"]
+
+        jconf["pick"]["alternative_splicing"]["report"] = False
+
+        loc = Superlocus(t1, json_conf=jconf)
+        loc.add_transcript_to_locus(t2)
+        loc.add_transcript_to_locus(t3)
+
+        loc.define_subloci()
+
+        self.assertEqual(len(loc.transcripts), 3)
+
+        # Set it as suspicious
+        t2.attributes["canonical_on_reverse_strand"] = True
+        self.assertTrue(t2.suspicious_splicing)
+
+        jconf["requirements"]["expression"] = "evaluated['suspicious_splicing']"
+        jconf["requirements"]["parameters"]["suspicious_splicing"] = dict()
+        jconf["requirements"]["parameters"]["suspicious_splicing"]["operator"] = "ne"
+        jconf["requirements"]["parameters"]["suspicious_splicing"]["name"] = "suspicious_splicing"
+        jconf["requirements"]["parameters"]["suspicious_splicing"]["value"] = True
+        if "compiled" in jconf["requirements"]:
+            del jconf["requirements"]["compiled"]
+        jconf["pick"]["alternative_splicing"]["report"] = False
+
+        loc = Superlocus(t1, json_conf=jconf, logger=logger)
+        loc.add_transcript_to_locus(t2)
+        loc.add_transcript_to_locus(t3)
+
+        loc.define_subloci()
+
+        self.assertEqual(len(loc.transcripts), 2)
 
 
 class ASeventsTester(unittest.TestCase):

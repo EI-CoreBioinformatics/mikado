@@ -834,7 +834,7 @@ class Superlocus(Abstractlocus):
             return
 
         cds_only = self.json_conf["pick"]["run_options"]["subloci_from_cds_only"]
-        self.logger.debug("Calculating the transcript graph")
+        self.logger.debug("Calculating the transcript graph for %d transcripts", len(self.transcripts))
         transcript_graph = self.define_graph(self.transcripts,
                                              inters=self.is_intersecting,
                                              cds_only=cds_only)
@@ -845,6 +845,7 @@ class Superlocus(Abstractlocus):
                                 self.id,
                                 self.approximation_level)
             for tid in set.difference(set(self.transcripts.keys()), set(transcript_graph.nodes())):
+                self.logger.warning("Discarding %s from %s", tid, self.id)
                 del self.transcripts[tid]
 
         if len(self.transcripts) == 0:
@@ -857,7 +858,9 @@ class Superlocus(Abstractlocus):
         # for tid in self.transcripts:
         #     self.transcripts[tid].source = self.source
 
-        self.logger.debug("Calculated the transcript graph")
+        self.logger.debug("Calculated the transcript graph for %d transcripts: %s",
+                          len(self.transcripts),
+                          str(transcript_graph))
         self.logger.debug("Calculating the transcript communities")
         subloci = self.find_communities(transcript_graph)
         self.logger.debug("Calculated the transcript communities")

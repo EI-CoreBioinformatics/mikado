@@ -48,7 +48,10 @@ def print_gene(current_gene, gene_counter, handle, prefix):
                          key=lambda _:
                          (current_gene["transcripts"][_]["transcript"].start,
                           current_gene["transcripts"][_]["transcript"].end))
+
     # transcript_counter = 1
+
+    foo_counter = ["failed", 0]
 
     for transcript in transcripts:
         current_transcript = current_gene["transcripts"][transcript]["transcript"]
@@ -59,9 +62,12 @@ def print_gene(current_gene, gene_counter, handle, prefix):
             transcript_counter = int(re.sub("\.orf[0-9]+", "",
                                             current_transcript.id).split(".")[-1])
         except ValueError as exc:
-            assert isinstance(current_transcript.parent, list),\
-                type(current_transcript.parent)
-            raise ValueError((exc, str(current_transcript)))
+            # Patch. For
+            if isinstance(current_transcript.parent, list):
+                foo_counter[1] += 1
+                transcript_counter = "_".join(foo_counter)
+            else:
+                raise ValueError((exc, str(current_transcript)))
         assert transcript_counter >= 1
 
         tid = "{0}.{1}G{2}.{3}".format(prefix,

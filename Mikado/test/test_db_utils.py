@@ -15,6 +15,7 @@ import Mikado.serializers.junction
 import Mikado.serializers.blast_serializer
 import Mikado.serializers.orf
 import shutil
+import pkg_resources
 
 
 __author__ = 'Luca Venturini'
@@ -25,10 +26,13 @@ class TestDbConnect(unittest.TestCase):
     def setUp(self):
         self.json = Mikado.configuration.configurator.to_json(
             os.path.join(os.path.dirname(__file__), "configuration.yaml"))
-        self.assertEqual(self.json["db_settings"]["db"],
-                         os.path.join(
-                             os.path.dirname(__file__),
-                             self.json["db_settings"]["db"],))
+        self.json["db_settings"]["db"] = pkg_resources.resource_filename("Mikado.test",
+                                                                         "mikado.db")
+        #
+        # self.assertEqual(self.json["db_settings"]["db"],
+        #                  os.path.join(
+        #                      os.path.dirname(__file__),
+        #                      self.json["db_settings"]["db"],))
 
     def test_connector(self):
         connector = Mikado.utilities.dbutils.create_connector(self.json)
@@ -38,8 +42,9 @@ class TestDbConnect(unittest.TestCase):
 
         engine = Mikado.utilities.dbutils.connect(self.json)
         self.assertIsInstance(engine, sqlalchemy.engine.base.Engine)
-        table_names = ['chrom', 'hit', 'hsp', 'junctions', 'orf', 'query', 'target']
-        self.assertEqual(engine.table_names(), table_names)
+        table_names = ['chrom', 'hit', "orf", "external",
+                       "external_sources", 'hsp', 'junctions', 'query', 'target']
+        self.assertEqual(sorted(list(engine.table_names())), sorted(table_names))
 
     def test_content(self):
 
@@ -47,12 +52,13 @@ class TestDbConnect(unittest.TestCase):
         sessionmaker = sqlalchemy.orm.sessionmaker(bind=engine)
         session = sessionmaker()
         # Simple tests based on the static content of the dictionary
-        self.assertEqual(session.query(Mikado.serializers.junction.Junction).count(), 371)
+        self.assertEqual(session.query(Mikado.serializers.junction.Junction).count(), 371,
+                         self.json["db_settings"])
         self.assertEqual(session.query(Mikado.serializers.orf.Orf).count(), 80)
         self.assertEqual(session.query(Mikado.serializers.blast_serializer.Target).count(), 38909)
-        self.assertEqual(session.query(Mikado.serializers.blast_serializer.Query).count(), 94)
-        self.assertEqual(session.query(Mikado.serializers.blast_serializer.Hit).count(), 568)
-        self.assertEqual(session.query(Mikado.serializers.blast_serializer.Hsp).count(), 676)
+        self.assertEqual(session.query(Mikado.serializers.blast_serializer.Query).count(), 93)
+        self.assertEqual(session.query(Mikado.serializers.blast_serializer.Hit).count(), 344)
+        self.assertEqual(session.query(Mikado.serializers.blast_serializer.Hsp).count(), 410)
 
         first_query = session.query(Mikado.serializers.blast_serializer.Query).limit(1).one()
         astup = first_query.as_tuple()

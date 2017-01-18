@@ -1,0 +1,41 @@
+requirements:
+  expression: [suspicious_splicing]
+  parameters:
+    suspicious_splicing: {operator: ne, value: true}
+scoring:
+  blast_score: {rescaling: max}
+  cdna_length: {rescaling: max}
+  cds_not_maximal: {rescaling: min}
+  cds_not_maximal_fraction: {rescaling: min}
+  combined_cds_fraction: {rescaling: target, value: 0.8}
+  combined_cds_intron_fraction: {rescaling: max}
+  combined_cds_length: {rescaling: max}
+  combined_cds_num: {rescaling: max}
+  exon_fraction: {rescaling: max}
+  exon_num: {rescaling: max}
+  five_utr_length:
+    filter: {operator: le, value: 2500}
+    rescaling: target
+    value: 100
+  five_utr_num:
+    filter: {operator: lt, value: 4}
+    rescaling: target
+    value: 2
+  end_distance_from_junction:
+    filter: {operator: lt, value: 55}
+    rescaling: min
+  highest_cds_exon_number: {rescaling: max}
+  intron_fraction: {rescaling: max}
+  number_internal_orfs: {rescaling: target, value: 1}
+  proportion_verified_introns: {rescaling: max}
+  retained_fraction: {rescaling: min}
+  retained_intron_num: {rescaling: min}
+  selected_cds_fraction: {rescaling: target, value: 0.8}
+  selected_cds_intron_fraction: {rescaling: max}
+  selected_cds_length: {rescaling: max}
+  selected_cds_num: {rescaling: max}
+  three_utr_length:
+    filter: {operator: le, value: 2500}
+    rescaling: target
+    value: 200
+  three_utr_num: { filter: {operator: lt, value: 3}, rescaling: target, value: 1}

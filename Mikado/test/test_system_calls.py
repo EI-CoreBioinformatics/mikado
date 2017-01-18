@@ -14,6 +14,7 @@ import itertools
 import csv
 from Mikado.parsers import to_gff
 from Mikado.subprograms.util.stats import Calculator
+from Mikado.picking import picker
 import Mikado.subprograms.configure
 import Mikado.daijin
 import yaml
@@ -387,6 +388,40 @@ class ConfigureCheck(unittest.TestCase):
             config = yaml.load(out_handle)
 
         daijin_configurator.check_config(config)
+
+
+class PickTest(unittest.TestCase):
+
+    """This unit test will check that pick functions correctly."""
+
+    def test_single_proc(self):
+
+        json_conf = configurator.to_json(None)
+        json_conf["pick"]["run_options"]["procs"] = 1
+        json_conf["db_settings"]["db"] = pkg_resources.resource_filename("Mikado.test", "mikado.db")
+
+        json_conf["pick"]["files"]["input"] = pkg_resources.resource_filename("Mikado.test",
+                                                                              "mikado_prepared.gtf")
+        json_conf["pick"]["files"]["output_dir"] = tempfile.gettempdir()
+        pick_caller = picker.Picker(json_conf=json_conf)
+        with self.assertRaises(SystemExit):
+            pick_caller()
+        self.assertTrue(os.path.exists(os.path.join(tempfile.gettempdir(), "mikado.loci.gff3")))
+        os.remove(os.path.join(tempfile.gettempdir(), "mikado.loci.gff3"))
+
+    def test_multi_proc(self):
+        json_conf = configurator.to_json(None)
+        json_conf["pick"]["run_options"]["procs"] = 2
+        json_conf["pick"]["files"]["input"] = pkg_resources.resource_filename("Mikado.test",
+                                                                              "mikado_prepared.gtf")
+        json_conf["pick"]["files"]["output_dir"] = tempfile.gettempdir()
+        json_conf["db_settings"]["db"] = pkg_resources.resource_filename("Mikado.test", "mikado.db")
+        pick_caller = picker.Picker(json_conf=json_conf)
+        with self.assertRaises(SystemExit):
+            pick_caller()
+        self.assertTrue(os.path.exists(os.path.join(tempfile.gettempdir(), "mikado.loci.gff3")))
+        os.remove(os.path.join(tempfile.gettempdir(), "mikado.loci.gff3"))
+
 
 if __name__ == "__main__":
     unittest.main()

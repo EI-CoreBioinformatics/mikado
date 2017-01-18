@@ -210,9 +210,19 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         """
 
         if conf["operator"] == "eq":
-            comparison = (float(param) == float(conf["value"]))
+            if isinstance(conf["value"], (int, float)):
+                comparison = (float(param) == float(conf["value"]))
+            elif isinstance(conf["value"], bool):
+                comparison = (param is conf["value"])
+            else:
+                raise ValueError("Unrecognized value type for 'eq': {}".format(type(conf["value"])))
         elif conf["operator"] == "ne":
-            comparison = (float(param) != float(conf["value"]))
+            if isinstance(conf["value"], (int, float)):
+                comparison = (float(param) != float(conf["value"]))
+            elif isinstance(conf["value"], bool):
+                comparison = (param is not conf["value"])
+            else:
+                raise ValueError("Unrecognized value type for 'ne': {}".format(type(conf["value"])))
         elif conf["operator"] == "gt":
             comparison = (float(param) > float(conf["value"]))
         elif conf["operator"] == "lt":
@@ -481,6 +491,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             self.splices.difference_update(splices_to_remove)
 
             del self.transcripts[tid]
+            self.logger.warning("Deleted %s from %s", tid, self.id)
             for tid in self.transcripts:
                 self.transcripts[tid].parent = self.id
 
@@ -729,6 +740,8 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         """
 
         self.get_metrics()
+        # self.logger.debug("Expression: %s", self.json_conf["requirements"]["expression"])
+
         if ("compiled" not in self.json_conf["requirements"] or
                 self.json_conf["requirements"]["compiled"] is None):
             self.json_conf["requirements"]["compiled"] = compile(
@@ -748,7 +761,11 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                     self.json_conf["requirements"]["parameters"][key])
             # pylint: disable=eval-used
             if eval(self.json_conf["requirements"]["compiled"]) is False:
+
                 not_passing.add(tid)
+        self.logger.debug("The following transcripts in %s did not pass the minimum check for requirements: %s",
+                          self.id, ", ".join(list(not_passing)))
+
         return not_passing
 
     @classmethod
@@ -828,15 +845,15 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         #     self.__logger.disabled = True
 
         if logger is None:
-            logger = create_null_logger(self)
-            logger.propagate = False
+            self.__logger = create_null_logger(self)
+            self.__logger.propagate = False
         elif not isinstance(logger, logging.Logger):
             raise TypeError("Invalid logger: {0}".format(type(logger)))
         else:
-            while len(logger.handlers) > 1:
-                logger.handlers.pop()
-            logger.propagate = False
-        self.__logger = logger
+            # while len(logger.handlers) > 1:
+            #     logger.handlers.pop()
+            # logger.propagate = False
+            self.__logger = logger
 
     @logger.deleter
     def logger(self):

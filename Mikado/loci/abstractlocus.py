@@ -225,10 +225,6 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             comparison = (param in conf["value"])
         elif conf["operator"] == "not in":
             comparison = (param not in conf["value"])
-        elif conf["operator"] == "is":
-            comparison = (param is conf["value"])
-        elif conf["operator"] == "is not":
-            comparison = (param is not conf["value"])
         else:
             raise ValueError("Unknown operator: {0}".format(conf["operator"]))
         return comparison

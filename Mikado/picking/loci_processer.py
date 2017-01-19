@@ -564,8 +564,6 @@ class LociProcesser(Process):
         for h in state["_handles"]:
             h.close()
 
-        state["_handles"] = []
-
         for name in ["locus_metrics", "locus_scores", "locus_out",
                      "sub_metrics", "sub_scores", "sub_out",
                      "mono_metrics", "mono_scores", "mono_out"]:
@@ -581,13 +579,19 @@ class LociProcesser(Process):
         # [_.close() for _ in self._handles if hasattr(_, "close") and _.closed is False]
         # if self.engine is not None:
         #     self.engine.dispose()
+        self.__close_handles()
         super().terminate()
 
+    def __close_handles(self):
+        """Private method to flush and close all handles."""
+
+        [_.flush() for _ in self._handles if hasattr(_, "flush") and _.closed is False]
+        [_.close() for _ in self._handles if hasattr(_, "close") and _.closed is False]
+        if self.engine is not None:
+            self.engine.dispose()
+
     def close(self):
-        # [_.flush() for _ in self._handles if hasattr(_, "flush") and _.closed is False]
-        # [_.close() for _ in self._handles if hasattr(_, "close") and _.closed is False]
-        # if self.engine is not None:
-        #     self.engine.dispose()
+        self.__close_handles()
         self.join()
 
     def __setstate__(self, state):
@@ -619,8 +623,8 @@ class LociProcesser(Process):
                                          "{0}-{1}".format(os.path.basename(_),
                                                           self.identifier))
                             for _ in handles[0]]
-        locus_metrics_handle = open(locus_metrics_file, "w")
-        locus_scores_handle = open(locus_scores_file, "w")
+        locus_metrics_handle = open(locus_metrics_file, "a")
+        locus_scores_handle = open(locus_scores_file, "a")
 
         if self.regressor is None:
             score_keys = sorted(list(self.json_conf["scoring"].keys()))
@@ -691,10 +695,7 @@ class LociProcesser(Process):
         return
 
     def join(self, timeout=None):
-        [_.flush() for _ in self._handles if hasattr(_, "flush") and _.closed is False]
-        [_.close() for _ in self._handles if hasattr(_, "close") and _.closed is False]
-        if self.engine is not None:
-            self.engine.dispose()
+        self.__close_handles()
         # self.terminate()
         super().join(timeout=timeout)
 
@@ -790,6 +791,12 @@ class LociProcesser(Process):
         locus_metrics_rows = [x for x in stranded_locus.print_loci_metrics()]
         locus_scores_rows = [x for x in stranded_locus.print_loci_scores()]
 
+        if locus_lines:
+            assert len(locus_metrics_rows) > 0
+            locus_lines = "\n".join(
+                ["{0}/{1}".format(counter, line) for line in locus_lines.split("\n")])
+            print(locus_lines, file=self.locus_out)
+
         # assert len(locus_metrics_rows) == len(locus_scores_rows)
 
         for row in locus_metrics_rows:
@@ -798,8 +805,5 @@ class LociProcesser(Process):
         for row in locus_scores_rows:
             row["tid"] = "{0}/{1}".format(counter, row["tid"])
             self.locus_scores.writerow(row)
-
-        if locus_lines != '':
-            locus_lines = "\n".join(
-                    ["{0}/{1}".format(counter, line) for line in locus_lines.split("\n")])
-            print(locus_lines, file=self.locus_out)
+        # Necessary to flush out all the files
+        [_.flush() for _ in self._handles if hasattr(_, "close")]

@@ -125,7 +125,6 @@ def merge_loci_gff(gff_filenames, gff_handle, prefix=""):
                                                                 current_lines[index])
             current_lines[index]["lines"].append("/".join(_[1:]))
 
-    print("len(current_lines)", len(current_lines))
     [_.close() for _ in gffs]
 
     gid_to_new = dict()

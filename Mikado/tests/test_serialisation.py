@@ -178,7 +178,7 @@ class TestLoadJunction(unittest.TestCase):
         jconf = self.json_conf.copy()
         jconf["db_settings"]["db"] = db
         jconf["reference"]["genome_fai"] = None
-        with resource_stream("Mikado.test", "chr5.fas.gz") as _:
+        with resource_stream("Mikado.tests", "chr5.fas.gz") as _:
             genome_file.write(gzip.decompress(_.read()))
         genome_file.flush()
 

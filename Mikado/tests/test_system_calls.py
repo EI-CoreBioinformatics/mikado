@@ -31,7 +31,7 @@ class PrepareChek(unittest.TestCase):
     def setUpClass(cls):
         cls.__genomefile__ = tempfile.NamedTemporaryFile(mode="wb", delete=False, suffix=".fa", prefix="prepare")
 
-        with pkg_resources.resource_stream("Mikado.test", "chr5.fas.gz") as _:
+        with pkg_resources.resource_stream("Mikado.tests", "chr5.fas.gz") as _:
             cls.__genomefile__.write(gzip.decompress(_.read()))
         cls.__genomefile__.flush()
 
@@ -130,7 +130,7 @@ class PrepareChek(unittest.TestCase):
                           "trinity.cDNA_match.gff3",
                           "trinity.gtf"):
             with self.subTest(test_file=test_file):
-                self.conf["prepare"]["files"]["gff"] = [pkg_resources.resource_filename("Mikado.test",
+                self.conf["prepare"]["files"]["gff"] = [pkg_resources.resource_filename("Mikado.tests",
                                                                                         test_file)]
 
                 prepare.prepare(args, self.logger)
@@ -145,7 +145,7 @@ class PrepareChek(unittest.TestCase):
     def test_prepare_trinity_and_cufflinks(self):
 
         self.conf["prepare"]["files"]["labels"] = ["cl", "tr"]
-        self.conf["prepare"]["files"]["gff"].append(pkg_resources.resource_filename("Mikado.test",
+        self.conf["prepare"]["files"]["gff"].append(pkg_resources.resource_filename("Mikado.tests",
                                                                                     "cufflinks.gtf"))
         self.conf["prepare"]["files"]["gff"].append("")
         self.conf["prepare"]["files"]["output_dir"] = tempfile.gettempdir()
@@ -159,7 +159,7 @@ class PrepareChek(unittest.TestCase):
                           "trinity.cDNA_match.gff3",
                           "trinity.gtf"):
             with self.subTest(test_file=test_file):
-                self.conf["prepare"]["files"]["gff"][1] = pkg_resources.resource_filename("Mikado.test",
+                self.conf["prepare"]["files"]["gff"][1] = pkg_resources.resource_filename("Mikado.tests",
                                                                                           test_file)
                 self.conf["prepare"]["files"]["out_fasta"] = "mikado_prepared.fasta"
                 self.conf["prepare"]["files"]["out"] = "mikado_prepared.gtf"
@@ -197,7 +197,7 @@ class CompareCheck(unittest.TestCase):
                  "trinity.gff3",
                  "trinity.cDNA_match.gff3",
                  "trinity.match_matchpart.gff3"]
-        # files = [pkg_resources.resource_filename("Mikado.test", filename) for filename in files]
+        # files = [pkg_resources.resource_filename("Mikado.tests", filename) for filename in files]
 
         namespace = Namespace(default=False)
         namespace.distance = 2000
@@ -209,7 +209,7 @@ class CompareCheck(unittest.TestCase):
         for ref in files:
             with self.subTest(ref=ref):
                 temp_ref = os.path.join(tempfile.gettempdir(), ref)
-                with pkg_resources.resource_stream("Mikado.test", ref) as ref_handle,\
+                with pkg_resources.resource_stream("Mikado.tests", ref) as ref_handle,\
                         open(temp_ref, "wb") as out_handle:
                     out_handle.write(ref_handle.read())
                 namespace.reference = to_gff(temp_ref)
@@ -232,7 +232,7 @@ class CompareCheck(unittest.TestCase):
                  "trinity.gff3",
                  "trinity.cDNA_match.gff3",
                  "trinity.match_matchpart.gff3"]
-        files = [pkg_resources.resource_filename("Mikado.test", filename) for filename in files]
+        files = [pkg_resources.resource_filename("Mikado.tests", filename) for filename in files]
 
         namespace = Namespace(default=False)
         namespace.distance = 2000
@@ -288,10 +288,10 @@ class StatCheck(unittest.TestCase):
                  "trinity.gff3",
                  "trinity.cDNA_match.gff3",
                  "trinity.match_matchpart.gff3"]
-        files = [pkg_resources.resource_filename("Mikado.test", filename) for filename in files]
+        files = [pkg_resources.resource_filename("Mikado.tests", filename) for filename in files]
 
         std_lines = []
-        with pkg_resources.resource_stream("Mikado.test", "trinity_stats.txt") as t_stats:
+        with pkg_resources.resource_stream("Mikado.tests", "trinity_stats.txt") as t_stats:
             for line in t_stats:
                 std_lines.append(line.decode().rstrip())
 
@@ -321,7 +321,7 @@ class ConfigureCheck(unittest.TestCase):
     def setUpClass(cls):
         cls.__genomefile__ = tempfile.NamedTemporaryFile(mode="wb", delete=False, suffix=".fa", prefix="configure")
 
-        with pkg_resources.resource_stream("Mikado.test", "chr5.fas.gz") as _:
+        with pkg_resources.resource_stream("Mikado.tests", "chr5.fas.gz") as _:
             cls.__genomefile__.write(gzip.decompress(_.read()))
         cls.__genomefile__.flush()
 
@@ -399,19 +399,19 @@ class PickTest(unittest.TestCase):
 
         json_conf = configurator.to_json(None)
         json_conf["pick"]["run_options"]["procs"] = 1
-        json_conf["db_settings"]["db"] = pkg_resources.resource_filename("Mikado.test", "mikado.db")
+        json_conf["db_settings"]["db"] = pkg_resources.resource_filename("Mikado.tests", "mikado.db")
 
-        json_conf["pick"]["files"]["input"] = pkg_resources.resource_filename("Mikado.test",
+        json_conf["pick"]["files"]["input"] = pkg_resources.resource_filename("Mikado.tests",
                                                                               "mikado_prepared.gtf")
         json_conf["pick"]["files"]["output_dir"] = tempfile.gettempdir()
         json_conf["pick"]["files"]["loci_out"] = "mikado.monoproc.loci.gff3"
         json_conf["pick"]["files"]["subloci_out"] = "mikado.monoproc.subloci.gff3"
         json_conf["pick"]["files"]["monoloci_out"] = "mikado.monoproc.monoloci.gff3"
         json_conf["pick"]["files"]["log"] = "mikado.monoproc.log"
-        json_conf["log_settings"]["log_level"] = "DEBUG"
+        json_conf["log_settings"]["log_level"] = "WARNING"
 
         pick_caller = picker.Picker(json_conf=json_conf)
-        with self.assertRaises(SystemExit):
+        with self.assertRaises(SystemExit), self.assertLogs("main_logger", "INFO"):
             pick_caller()
         self.assertTrue(os.path.exists(os.path.join(tempfile.gettempdir(), "mikado.monoproc.loci.gff3")))
         with to_gff(os.path.join(tempfile.gettempdir(), "mikado.monoproc.loci.gff3")) as inp_gff:
@@ -426,18 +426,18 @@ class PickTest(unittest.TestCase):
     def test_multi_proc(self):
         json_conf = configurator.to_json(None)
         json_conf["pick"]["run_options"]["procs"] = 2
-        json_conf["pick"]["files"]["input"] = pkg_resources.resource_filename("Mikado.test",
+        json_conf["pick"]["files"]["input"] = pkg_resources.resource_filename("Mikado.tests",
                                                                               "mikado_prepared.gtf")
         json_conf["pick"]["files"]["output_dir"] = tempfile.gettempdir()
         json_conf["pick"]["files"]["loci_out"] = "mikado.multiproc.loci.gff3"
         json_conf["pick"]["files"]["subloci_out"] = "mikado.multiproc.subloci.gff3"
         json_conf["pick"]["files"]["monoloci_out"] = "mikado.multiproc.monoloci.gff3"
         json_conf["pick"]["files"]["log"] = "mikado.multiproc.log"
-        json_conf["db_settings"]["db"] = pkg_resources.resource_filename("Mikado.test", "mikado.db")
-        json_conf["log_settings"]["log_level"] = "INFO"
+        json_conf["db_settings"]["db"] = pkg_resources.resource_filename("Mikado.tests", "mikado.db")
+        json_conf["log_settings"]["log_level"] = "WARNING"
 
         pick_caller = picker.Picker(json_conf=json_conf)
-        with self.assertRaises(SystemExit):
+        with self.assertRaises(SystemExit), self.assertLogs("main_logger", "INFO"):
             pick_caller()
         self.assertTrue(os.path.exists(os.path.join(tempfile.gettempdir(), "mikado.multiproc.loci.gff3")))
         with to_gff(os.path.join(tempfile.gettempdir(), "mikado.multiproc.loci.gff3")) as inp_gff:

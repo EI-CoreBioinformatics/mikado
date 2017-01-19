@@ -691,10 +691,10 @@ class LociProcesser(Process):
         return
 
     def join(self, timeout=None):
-        [_.flush() for _ in self._handles if hasattr(_, "flush") and _.closed is False]
-        [_.close() for _ in self._handles if hasattr(_, "close") and _.closed is False]
-        if self.engine is not None:
-            self.engine.dispose()
+        # [_.flush() for _ in self._handles if hasattr(_, "flush") and _.closed is False]
+        # [_.close() for _ in self._handles if hasattr(_, "close") and _.closed is False]
+        # if self.engine is not None:
+        #     self.engine.dispose()
         # self.terminate()
         super().join(timeout=timeout)
 

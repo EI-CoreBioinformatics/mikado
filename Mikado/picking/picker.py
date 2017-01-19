@@ -850,13 +850,13 @@ memory intensive, proceed with caution!")
             [_.close() for _ in handles[2]]
             handles[2] = [_.name for _ in handles[2]]
 
-        # tempdirectory = tempfile.TemporaryDirectory(suffix="",
-        #                                             prefix="mikado_pick_tmp",
-        #                                             dir=self.json_conf["pick"]["files"]["output_dir"])
-        # tempdir = tempdirectory.name
+        tempdirectory = tempfile.TemporaryDirectory(suffix="",
+                                                    prefix="mikado_pick_tmp",
+                                                    dir=self.json_conf["pick"]["files"]["output_dir"])
+        tempdir = tempdirectory.name
 
-        tempdir = os.path.join(self.json_conf["pick"]["files"]["output_dir"], "mikado_pick_tmp")
-        os.makedirs(tempdir, exist_ok=True)
+        # tempdir = os.path.join(self.json_conf["pick"]["files"]["output_dir"], "mikado_pick_tmp")
+        # os.makedirs(tempdir, exist_ok=True)
 
         self.logger.info("Creating the worker processes")
         working_processes = [LociProcesser(self.json_conf,
@@ -979,7 +979,7 @@ memory intensive, proceed with caution!")
         self.logger.info("Finished merging partial files")
         try:
             # shutil.rmtree(tempdir)
-            # tempdirectory.cleanup()
+            tempdirectory.cleanup()
             pass
         except (OSError, FileNotFoundError, FileExistsError) as exc:
             self.logger.warning("Failed to clean up the temporary directory %s, error: %s",

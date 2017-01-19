@@ -49,11 +49,15 @@ Followed by
 
 ``pip3 install dist/*whl``
 
-We advise to test whether the distribution has been built successfully by executing the unit test suite with
+Testing the installed module
+----------------------------
 
-``python3 setup.py test``
+It is possible to test whether Mikado has been built successfully by opening a python3 interactive session and digiting
 
-Although code coverage is not perfect yet, it is over 50% for the whole package and considerably higher for the core components.
+``>>  import Mikado
+>>  Mikado.test()``
+
+This will run all the tests included in the suite. Although code coverage is not perfect yet, it is over 50% for the whole package and considerably higher for the core components.
 
 Python Dependencies
 -------------------
@@ -63,8 +67,7 @@ Mikado has been written for Python 3.4 and 3.5. It is dependent on the following
 * wheel>=0.28.0
 * pyyaml [PyYaml]_
 * jsonschema
-* Cython [Cython]_
-* cython [Cython]_
+* Cython>=0.25 [Cython]_
 * numpy [Numpy]_
 * networkx>=1.10 [NetworkX]_
 * sqlalchemy>=1
@@ -80,6 +83,8 @@ Mikado has been written for Python 3.4 and 3.5. It is dependent on the following
 * drmaa [DRMAA]_
 * snakemake [Snake]_
 * docutils
+* tabulate
+* ujson
 
 These dependencies will be installed automatically by PIP.
 

@@ -31,9 +31,12 @@ from .transcript_methods.printing import create_lines_cds
 from .transcript_methods.printing import create_lines_no_cds, create_lines_bed, as_bed12
 from .transcript_methods.finalizing import finalize
 import functools
+import builtins
 
 
 class Namespace:
+
+    __name__ = "Namespace"
 
     def __init__(self, default=0):
         self.__default = default
@@ -96,6 +99,7 @@ class Metric(property):
     """
 
     __category__ = None
+    __name__ = "Metric"
 
     def category_getter(self):
         return self.__category__
@@ -124,6 +128,29 @@ class Metric(property):
     usable_raw = property(lambda self: self.raw_getter(),
                           lambda self, v: self.raw_setter(v),
                           lambda self: None)
+
+    __rtype__ = None
+
+    def rtype_getter(self):
+
+        return self.__rtype__
+
+    __valid_types = [_.__name__ for _ in dict(builtins.__dict__, **dict(globals(), **locals())).values()
+                     if hasattr(_, "__name__")] + [None]
+
+    def rtype_setter(self, string):
+        if not isinstance(string, (str, bytes)) and string is not None:
+            raise ValueError("The \"rtype\" property must be a string!")
+        elif isinstance(string, bytes):
+            string = string.decode()
+        if string not in self.__valid_types:
+            raise ValueError("{} is an invalid type for a Metric".format(string))
+
+        self.__rtype__ = string
+
+    rtype = property(lambda self: self.rtype_getter(),
+                     lambda self, v: self.rtype_setter(v),
+                     lambda self: None)
 
     pass
 
@@ -1791,6 +1818,13 @@ index {3}, internal ORFs: {4}".format(
 
     @property
     def external_scores(self):
+
+        """
+        **SPECIAL** this Namespace contains all the information regarding external scores
+        for the transcript. If an absent property is not defined in the Namespace,
+        Mikado will set a default value of 0 into the Namespace and return it.
+        """
+
         return self.__external_scores
 
 
@@ -1809,6 +1843,7 @@ index {3}, internal ORFs: {4}".format(
         return c_length
 
     combined_cds_length.category = "CDS"
+    combined_cds_length.rtype = "int"
 
     @Metric
     def combined_cds_num(self):
@@ -1817,6 +1852,7 @@ index {3}, internal ORFs: {4}".format(
         return len(self.combined_cds)
 
     combined_cds_num.category = "CDS"
+    combined_cds_num.rtype = "int"
 
     @Metric
     def combined_cds_num_fraction(self):
@@ -1826,6 +1862,7 @@ index {3}, internal ORFs: {4}".format(
         return len(self.combined_cds) / len(self.exons)
 
     combined_cds_num_fraction.category = "CDS"
+    combined_cds_num_fraction.rtype = "float"
     combined_cds_num_fraction.usable_raw = True
 
     @Metric
@@ -1835,6 +1872,7 @@ index {3}, internal ORFs: {4}".format(
         return self.combined_cds_length / self.cdna_length
 
     combined_cds_fraction.category = "CDS"
+    combined_cds_fraction.rtype = "float"
     combined_cds_fraction.usable_raw = True
 
     @Metric
@@ -1843,6 +1881,7 @@ index {3}, internal ORFs: {4}".format(
         return sum([e[1] - e[0] + 1 for e in self.combined_utr])
 
     combined_utr_length.category = "UTR"
+    combined_utr_length.rtype = "int"
 
     @Metric
     def combined_utr_fraction(self):
@@ -1852,6 +1891,7 @@ index {3}, internal ORFs: {4}".format(
 
     combined_utr_fraction.category = "UTR"
     combined_utr_fraction.usable_raw = True
+    combined_utr_fraction.rtype = "float"
 
     @Metric
     def cdna_length(self):
@@ -1863,6 +1903,7 @@ index {3}, internal ORFs: {4}".format(
         return self.__cdna_length
 
     cdna_length.category = "cDNA"
+    cdna_length.rtype = "int"
 
     @Metric
     def number_internal_orfs(self):
@@ -1870,6 +1911,7 @@ index {3}, internal ORFs: {4}".format(
         return len(self.internal_orfs)
 
     number_internal_orfs.category = "CDS"
+    number_internal_orfs.rtype = "int"
 
     @Metric
     def selected_cds_length(self):
@@ -1885,6 +1927,7 @@ index {3}, internal ORFs: {4}".format(
         return self.__max_internal_orf_length
 
     selected_cds_length.category = "CDS"
+    selected_cds_length.rtype = "int"
 
     @Metric
     def selected_cds_num(self):
@@ -1892,6 +1935,7 @@ index {3}, internal ORFs: {4}".format(
         return sum(1 for exon in self.selected_internal_orf if exon[0] == "CDS")
 
     selected_cds_num.category = "CDS"
+    selected_cds_num.rtype = "int"
 
     @Metric
     def selected_cds_fraction(self):
@@ -1900,6 +1944,7 @@ index {3}, internal ORFs: {4}".format(
 
     selected_cds_fraction.category = "CDS"
     selected_cds_fraction.usable_raw = True
+    selected_cds_fraction.rtype = "float"
 
     @Metric
     def highest_cds_exons_num(self):
@@ -1909,6 +1954,7 @@ index {3}, internal ORFs: {4}".format(
         # return len(list(filter(lambda x: x[0] == "CDS", self.selected_internal_orf)))
 
     highest_cds_exons_num.category = "CDS"
+    highest_cds_exons_num.rtype = "int"
 
     @Metric
     def selected_cds_exons_fraction(self):
@@ -1921,6 +1967,7 @@ index {3}, internal ORFs: {4}".format(
 
     selected_cds_exons_fraction.category = "CDS"
     selected_cds_exons_fraction.usable_raw = True
+    selected_cds_exons_fraction.rtype = "float"
 
     @Metric
     def highest_cds_exon_number(self):
@@ -1938,6 +1985,7 @@ index {3}, internal ORFs: {4}".format(
         return max(cds_numbers)
 
     highest_cds_exon_number.category = "CDS"
+    highest_cds_exon_number.rtype = "int"
 
     @Metric
     def selected_cds_number_fraction(self):
@@ -1946,6 +1994,7 @@ index {3}, internal ORFs: {4}".format(
         return self.selected_cds_num / self.exon_num
 
     selected_cds_number_fraction.category = "CDS"
+    selected_cds_number_fraction.rtype = "float"
 
     @Metric
     def cds_not_maximal(self):
@@ -1955,6 +2004,7 @@ index {3}, internal ORFs: {4}".format(
         return self.combined_cds_length - self.selected_cds_length
 
     cds_not_maximal.category = "CDS"
+    cds_not_maximal.rtype = "int"
 
     @Metric
     def cds_not_maximal_fraction(self):
@@ -1967,6 +2017,7 @@ index {3}, internal ORFs: {4}".format(
 
     cds_not_maximal_fraction.category = "CDS"
     cds_not_maximal_fraction.usable_raw = True
+    cds_not_maximal_fraction.rtype = "float"
 
     @Metric
     def five_utr_length(self):
@@ -1983,6 +2034,7 @@ index {3}, internal ORFs: {4}".format(
         return len(self.five_utr)
 
     five_utr_num.category = "UTR"
+    five_utr_num.rtype = "int"
 
     @Metric
     def five_utr_num_complete(self):
@@ -1991,6 +2043,7 @@ index {3}, internal ORFs: {4}".format(
         return sum(1 for utr in self.five_utr if utr in self.exons)
 
     five_utr_num_complete.category = "UTR"
+    five_utr_num_complete.rtype = "int"
 
     @Metric
     def three_utr_length(self):
@@ -2000,6 +2053,7 @@ index {3}, internal ORFs: {4}".format(
         return sum(x[1] - x[0] + 1 for x in self.three_utr)
 
     three_utr_length.__category = "UTR"
+    three_utr_length.rtype = "int"
 
     @Metric
     def three_utr_num(self):
@@ -2008,6 +2062,7 @@ index {3}, internal ORFs: {4}".format(
         return len(self.three_utr)
 
     three_utr_num.category = "UTR"
+    three_utr_num.rtype = "int"
 
     @Metric
     def three_utr_num_complete(self):
@@ -2016,6 +2071,7 @@ index {3}, internal ORFs: {4}".format(
         return sum(1 for utr in self.three_utr if utr in self.exons)
 
     three_utr_num_complete.category = "UTR"
+    three_utr_num_complete.rtype = "int"
 
     @Metric
     def utr_num(self):
@@ -2023,6 +2079,7 @@ index {3}, internal ORFs: {4}".format(
         return len(self.three_utr + self.five_utr)
 
     utr_num.category = "UTR"
+    utr_num.rtype = "int"
 
     @Metric
     def utr_num_complete(self):
@@ -2031,6 +2088,7 @@ index {3}, internal ORFs: {4}".format(
         return self.three_utr_num_complete + self.five_utr_num_complete
 
     utr_num_complete.category = "UTR"
+    utr_num_complete.rtype = "int"
 
     @Metric
     def utr_fraction(self):
@@ -2040,6 +2098,7 @@ index {3}, internal ORFs: {4}".format(
 
     utr_fraction.category = "UTR"
     utr_fraction.usable_raw = True
+    utr_fraction.rtype = "float"
 
     @Metric
     def utr_length(self):
@@ -2047,19 +2106,16 @@ index {3}, internal ORFs: {4}".format(
         return self.three_utr_length + self.five_utr_length
 
     utr_length.category = "UTR"
+    utr_length.rtype = "int"
 
     @Metric
     def has_start_codon(self):
-        """Boolean. True if the selected ORF has a start codon.
-        :rtype: bool"""
+        """Boolean. True if the selected ORF has a start codon."""
         return self.__has_start_codon and (self.combined_cds_length > 0)
 
     @has_start_codon.setter
     def has_start_codon(self, value):
-        """Setter. Checks that the argument is boolean.
-        :param value: boolean flag
-        :type value: bool
-        """
+        """Setter. Checks that the argument is boolean."""
 
         if value not in (None, False, True):
             raise TypeError(
@@ -2067,20 +2123,16 @@ index {3}, internal ORFs: {4}".format(
         self.__has_start_codon = value
 
     has_start_codon.category = "CDS"
+    has_start_codon.rtype = "bool"
 
     @Metric
     def has_stop_codon(self):
-        """Boolean. True if the selected ORF has a stop codon.
-        :rtype bool
-        """
+        """Boolean. True if the selected ORF has a stop codon."""
         return self.__has_stop_codon and (self.combined_cds_length > 0)
 
     @has_stop_codon.setter
     def has_stop_codon(self, value):
-        """Setter. Checks that the argument is boolean.
-        :param value: list
-        :type value: bool
-        """
+        """Setter. Checks that the argument is boolean."""
 
         if value not in (None, False, True):
             raise TypeError(
@@ -2089,6 +2141,7 @@ index {3}, internal ORFs: {4}".format(
         self.__has_stop_codon = value
 
     has_stop_codon.category = "CDS"
+    has_stop_codon.rtype = "bool"
 
     @Metric
     def is_complete(self):
@@ -2096,6 +2149,7 @@ index {3}, internal ORFs: {4}".format(
         return (self.has_start_codon is True) and (self.has_stop_codon is True)
 
     is_complete.category = "CDS"
+    is_complete.rtype = "bool"
 
     @Metric
     def exon_num(self):
@@ -2103,6 +2157,7 @@ index {3}, internal ORFs: {4}".format(
         return len(self.exons)
 
     exon_num.category = "cDNA"
+    exon_num.rtype = "int"
 
     @Metric
     def exon_fraction(self):
@@ -2125,6 +2180,7 @@ index {3}, internal ORFs: {4}".format(
 
     exon_fraction.category = "Locus"
     exon_fraction.usable_raw = True
+    exon_fraction.rtype = "float"
 
     @Metric
     def intron_fraction(self):
@@ -2150,6 +2206,7 @@ index {3}, internal ORFs: {4}".format(
 
     intron_fraction.category = "Locus"
     intron_fraction.usable_raw = True
+    intron_fraction.rtype = "float"
 
     @Metric
     def combined_cds_locus_fraction(self):
@@ -2167,6 +2224,7 @@ index {3}, internal ORFs: {4}".format(
 
     combined_cds_locus_fraction.category = "Locus"
     combined_cds_locus_fraction.usable_raw = True
+    combined_cds_locus_fraction.rtype = "float"
 
     @Metric
     def selected_cds_locus_fraction(self):
@@ -2184,6 +2242,7 @@ index {3}, internal ORFs: {4}".format(
 
     selected_cds_locus_fraction.category = "Locus"
     selected_cds_locus_fraction.usable_raw = True
+    selected_cds_locus_fraction.rtype = "float"
 
     @Metric
     def max_intron_length(self):
@@ -2193,6 +2252,7 @@ index {3}, internal ORFs: {4}".format(
         return max(intron[1] + 1 - intron[0] for intron in self.introns)
 
     max_intron_length.category = "Intron"
+    max_intron_length.rtype = "int"
 
     @Metric
     def min_intron_length(self):
@@ -2201,6 +2261,7 @@ index {3}, internal ORFs: {4}".format(
         return min(intron[1] + 1 - intron[0] for intron in self.introns)
 
     min_intron_length.category = "Intron"
+    min_intron_length.rtype = "int"
 
     @Metric
     def start_distance_from_tss(self):
@@ -2224,6 +2285,7 @@ index {3}, internal ORFs: {4}".format(
         return distance
 
     start_distance_from_tss.category = "CDS"
+    start_distance_from_tss.rtype = "int"
 
     # pylint: disable=invalid-name
     @Metric
@@ -2248,6 +2310,7 @@ index {3}, internal ORFs: {4}".format(
         return distance
 
     selected_start_distance_from_tss.category = "CDS"
+    selected_start_distance_from_tss.rtype = "int"
 
     @Metric
     def source_score(self):
@@ -2262,6 +2325,7 @@ index {3}, internal ORFs: {4}".format(
             return 0
 
     source_score.category = "External"
+    source_score.rtype = "int"
 
     @Metric
     def selected_end_distance_from_tes(self):
@@ -2290,6 +2354,7 @@ index {3}, internal ORFs: {4}".format(
         return distance
 
     selected_end_distance_from_tes.category = "CDS"
+    selected_end_distance_from_tes.rtype = "int"
 
     @Metric
     def selected_end_distance_from_junction(self):
@@ -2328,6 +2393,7 @@ index {3}, internal ORFs: {4}".format(
         return distance
 
     selected_end_distance_from_junction.category = "CDS"
+    selected_end_distance_from_junction.rtype = "int"
 
     @Metric
     def end_distance_from_junction(self):
@@ -2368,6 +2434,7 @@ index {3}, internal ORFs: {4}".format(
         return distance
 
     end_distance_from_junction.category = "CDS"
+    end_distance_from_junction.rtype = "int"
 
     @Metric
     def end_distance_from_tes(self):
@@ -2397,6 +2464,7 @@ index {3}, internal ORFs: {4}".format(
         return distance
 
     end_distance_from_tes.category = "CDS"
+    end_distance_from_tes.rtype = "int"
 
     @Metric
     def combined_cds_intron_fraction(self):
@@ -2445,6 +2513,7 @@ index {3}, internal ORFs: {4}".format(
 
     selected_cds_intron_fraction.category = "CDS"
     selected_cds_intron_fraction.usable_raw = True
+    selected_cds_intron_fraction.rtype = "float"
 
     @Metric
     def retained_intron_num(self):
@@ -2454,6 +2523,7 @@ index {3}, internal ORFs: {4}".format(
         return len(self.retained_introns)
 
     retained_intron_num.category = "Locus"
+    retained_intron_num.rtype = "int"
 
     @Metric
     def retained_fraction(self):
@@ -2474,6 +2544,7 @@ index {3}, internal ORFs: {4}".format(
 
     retained_fraction.category = "Locus"
     retained_fraction.usable_raw = True
+    retained_fraction.rtype = "float"
 
     @Metric
     def proportion_verified_introns(self):
@@ -2486,14 +2557,14 @@ index {3}, internal ORFs: {4}".format(
 
     proportion_verified_introns.category = "External"
     proportion_verified_introns.usable_raw = True
+    proportion_verified_introns.rtype = "float"
 
     @Metric
     def non_verified_introns_num(self):
         """
         This metric returns the number of introns of the transcript which are not validated
-        by external data.
-        :rtype : int
-        """
+        by external data."""
+
         num = len(set.difference(self.introns, self.verified_introns))
         if num < 0:
             # This is a clear error
@@ -2506,9 +2577,12 @@ index {3}, internal ORFs: {4}".format(
         return num
 
     non_verified_introns_num.category = "External"
+    non_verified_introns_num.rtype = "int"
 
     @property
     def verified_introns(self):
+        """This property holds the verified introns in a set. It also verifies that the introns are contained
+        within the transcript."""
 
         if set.difference(self.__verified_introns, self.introns):
             self.logger.debug("Invalid verified junctions found for %s, removing them",
@@ -2528,29 +2602,23 @@ index {3}, internal ORFs: {4}".format(
     def verified_introns_num(self):
         """
         This metric returns the number of introns of the transcript which are validated
-        by external data.
-        :rtype : int
-        """
+        by external data."""
 
         assert len(self.verified_introns) <= len(self.introns)
         return len(self.verified_introns)
 
     verified_introns_num.category = "External"
+    verified_introns_num.rtype = "int"
 
     @Metric
     def proportion_verified_introns_inlocus(self):
         """This metric returns, as a fraction, how many of the
-        verified introns inside the Locus
-        are contained inside the transcript."""
+        verified introns inside the Locus are contained inside the transcript."""
         return self.__proportion_verified_introns_inlocus
 
     @proportion_verified_introns_inlocus.setter
     def proportion_verified_introns_inlocus(self, *args):
-        """Setter for retained_intron_fraction.
-        :param args: either a single float/int or a list
-        (only the first value is retained)
-        :type args: list(int) | list(float)
-        """
+        """Setter for retained_intron_fraction."""
 
         if not isinstance(args[0], (float, int)) or (args[0] < 0 or args[0] > 1):
             raise TypeError("Invalid value for the fraction: {0}".format(args[0]))
@@ -2562,6 +2630,7 @@ index {3}, internal ORFs: {4}".format(
         self.__proportion_verified_introns_inlocus = value
 
     proportion_verified_introns_inlocus.category = "Locus"
+    proportion_verified_introns_inlocus.rtype = "float"
     proportion_verified_introns_inlocus.usable_raw = True
 
     @Metric
@@ -2569,9 +2638,7 @@ index {3}, internal ORFs: {4}".format(
         """
         This metric returns the number of introns greater
         than the maximum acceptable intron size
-        indicated in the constructor.
-        :rtype : int
-        """
+        indicated in the constructor."""
 
         return sum(1 for intron in self.introns if
                    intron[1] - intron[0] + 1 > self.intron_range[1])
@@ -2580,15 +2647,14 @@ index {3}, internal ORFs: {4}".format(
         #                        self.introns)))
 
     num_introns_greater_than_max.category = "Intron"
+    num_introns_greater_than_max.rtype = "int"
 
     @Metric
     def num_introns_smaller_than_min(self):
         """
         This metric returns the number of introns smaller
         than the mininum acceptable intron size
-        indicated in the constructor.
-        :rtype : int
-        """
+        indicated in the constructor."""
 
         return sum(1 for intron in self.introns if
                    intron[1] - intron[0] + 1 < self.intron_range[0])
@@ -2598,6 +2664,7 @@ index {3}, internal ORFs: {4}".format(
         #                        self.introns)))
 
     num_introns_smaller_than_min.category = "Intron"
+    num_introns_smaller_than_min.rtype = "int"
 
     @Metric
     def snowy_blast_score(self):
@@ -2610,7 +2677,6 @@ index {3}, internal ORFs: {4}".format(
         IMPORTANT: when splitting transcripts by ORF, a blast hit is added to the new transcript
         only if it is contained within the new transcript.
         This WILL screw up a bit the homology score.
-        :return
         """
 
         if len(self.blast_hits) == 0:
@@ -2631,6 +2697,7 @@ index {3}, internal ORFs: {4}".format(
         return self.__blast_score
 
     snowy_blast_score.category = "External"
+    snowy_blast_score.rtype = "float"
 
     @Metric
     def best_bits(self):
@@ -2639,32 +2706,32 @@ index {3}, internal ORFs: {4}".format(
         return max([0] + [hit["bits"] for hit in self.blast_hits])
 
     best_bits.category = "External"
+    best_bits.rtype = "float"
 
     @Metric
     def blast_score(self):
         """
         Interchangeable alias for testing different blast-related scores.
-        Current: best bit score.
-        :return:
-        """
+        Current: best bit score."""
+
         # return self.snowy_blast_score
         return self.best_bits
 
     blast_score.category = "External"
+    blast_score.rtype = "float"
 
     @Metric
     def canonical_intron_proportion(self):
 
         """
         This metric returns the proportion of canonical introns
-         of the transcript on its total number of introns.
-        :return:
-        """
+         of the transcript on its total number of introns."""
 
         return float(self.attributes.get("canonical_proportion", 0))
 
     canonical_intron_proportion.category = "Intron"
     canonical_intron_proportion.usable_raw = True
+    canonical_intron_proportion.rtype = "float"
 
     @Metric
     def suspicious_splicing(self):
@@ -2675,6 +2742,7 @@ index {3}, internal ORFs: {4}".format(
             (self.attributes.get("mixed_splices", False) is not False) or self.attributes.get("canonical_on_reverse_strand", False))
 
     suspicious_splicing.category = "Intron"
+    suspicious_splicing.rtype = "bool"
 
     @Metric
     def only_non_canonical_splicing(self):
@@ -2682,3 +2750,6 @@ index {3}, internal ORFs: {4}".format(
         """This metric will return True if the canonical_number is 0"""
 
         return self.monoexonic is False and (self.attributes.get("canonical_number", 1) == 0)
+
+    only_non_canonical_splicing.category = "Intron"
+    only_non_canonical_splicing.rtype = "bool"

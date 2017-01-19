@@ -17,10 +17,10 @@ from Mikado.subprograms.util.stats import Calculator
 from Mikado.picking import picker
 import Mikado.subprograms.configure
 import Mikado.daijin
-import yaml
 import random
 import sys
 import glob
+import yaml
 
 
 class PrepareChek(unittest.TestCase):
@@ -448,6 +448,44 @@ class PickTest(unittest.TestCase):
             self.assertGreater(len([_ for _ in lines if _.feature == "CDS"]), 0)
 
         [os.remove(_) for _ in glob.glob(os.path.join(tempfile.gettempdir(), "mikado.multiproc.") + "*")]
+
+    def test_subprocess(self):
+        
+        json_conf = configurator.to_json(None)
+        
+        json_conf["pick"]["files"]["input"] = pkg_resources.resource_filename("Mikado.tests",
+                                                                              "mikado_prepared.gtf")
+        json_conf["pick"]["files"]["output_dir"] = tempfile.gettempdir()
+        json_conf["pick"]["files"]["loci_out"] = "mikado.subproc.loci.gff3"
+        json_conf["pick"]["files"]["subloci_out"] = "mikado.subproc.subloci.gff3"
+        json_conf["pick"]["files"]["monoloci_out"] = "mikado.subproc.monoloci.gff3"
+        json_conf["pick"]["files"]["log"] = "mikado.subproc.log"
+        json_conf["db_settings"]["db"] = pkg_resources.resource_filename("Mikado.tests", "mikado.db")
+        json_conf["log_settings"]["log_level"] = "WARNING"
+        
+        for num in (1, 2):
+            with self.subTest(num=num):
+
+                json_conf["pick"]["run_options"]["procs"] = num
+                json_conf["pick"]["run_options"]["single_thread"] = (num == 1)
+                json_file = os.path.join(tempfile.gettempdir(), "mikado.yaml")
+
+                with open(json_file, "wt") as json_handle:
+                    Mikado.subprograms.configure.print_config(yaml.dump(json_conf, default_flow_style=False),
+                                                              json_handle)
+
+                sys.argv = ["mikado", "pick", "--json-conf", json_file]
+                with self.assertRaises(SystemExit):
+                    pkg_resources.load_entry_point("Mikado", "console_scripts", "mikado")()
+                self.assertTrue(os.path.exists(os.path.join(tempfile.gettempdir(), "mikado.subproc.loci.gff3")))
+                with to_gff(os.path.join(tempfile.gettempdir(), "mikado.subproc.loci.gff3")) as inp_gff:
+                    lines = [_ for _ in inp_gff if not _.header is True]
+                    self.assertGreater(len(lines), 0)
+                    self.assertGreater(len([_ for _ in lines if _.is_transcript is True]), 0)
+                    self.assertGreater(len([_ for _ in lines if _.feature == "mRNA"]), 0)
+                    self.assertGreater(len([_ for _ in lines if _.feature == "CDS"]), 0)
+
+                [os.remove(_) for _ in glob.glob(os.path.join(tempfile.gettempdir(), "mikado.subproc.") + "*")]
 
 
 if __name__ == "__main__":

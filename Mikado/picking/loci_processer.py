@@ -577,16 +577,18 @@ class LociProcesser(Process):
         return state
 
     def terminate(self):
-        [_.flush() for _ in self._handles if hasattr(_, "flush") and _.closed is False]
-        [_.close() for _ in self._handles if hasattr(_, "close") and _.closed is False]
-        if self.engine is not None:
-            self.engine.dispose()
+        # [_.flush() for _ in self._handles if hasattr(_, "flush") and _.closed is False]
+        # [_.close() for _ in self._handles if hasattr(_, "close") and _.closed is False]
+        # if self.engine is not None:
+        #     self.engine.dispose()
+        super().terminate()
 
     def close(self):
-        [_.flush() for _ in self._handles if hasattr(_, "flush") and _.closed is False]
-        [_.close() for _ in self._handles if hasattr(_, "close") and _.closed is False]
-        if self.engine is not None:
-            self.engine.dispose()
+        # [_.flush() for _ in self._handles if hasattr(_, "flush") and _.closed is False]
+        # [_.close() for _ in self._handles if hasattr(_, "close") and _.closed is False]
+        # if self.engine is not None:
+        #     self.engine.dispose()
+        self.join()
 
     def __setstate__(self, state):
 
@@ -693,6 +695,7 @@ class LociProcesser(Process):
         [_.close() for _ in self._handles if hasattr(_, "close") and _.closed is False]
         if self.engine is not None:
             self.engine.dispose()
+        # self.terminate()
         super().join(timeout=timeout)
 
     def run(self):

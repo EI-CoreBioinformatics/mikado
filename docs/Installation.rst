@@ -52,10 +52,12 @@ Followed by
 Testing the installed module
 ----------------------------
 
-It is possible to test whether Mikado has been built successfully by opening a python3 interactive session and digiting
+It is possible to test whether Mikado has been built successfully by opening a python3 interactive session and digiting::
 
-``>>  import Mikado
->>  Mikado.test()``
+    >>  import Mikado
+    >>  Mikado.test()
+
+.. block-end
 
 This will run all the tests included in the suite. Although code coverage is not perfect yet, it is over 50% for the whole package and considerably higher for the core components.
 

@@ -317,19 +317,16 @@ Usage::
 
     $ mikado pick --help
     usage: Mikado pick [-h] [--start-method {fork,spawn,forkserver}] [-p PROCS]
-                       --json-conf JSON_CONF [-i INTRON_RANGE INTRON_RANGE]
+                       --json-conf JSON_CONF [--scoring-file SCORING_FILE]
+                       [-i INTRON_RANGE INTRON_RANGE] [--pad]
                        [--subloci_out SUBLOCI_OUT] [--monoloci_out MONOLOCI_OUT]
                        [--loci_out LOCI_OUT] [--prefix PREFIX] [--no_cds]
-                       [--source SOURCE] [--flank FLANK] [--purge] [-shm]
-                       [-shmdb SHM_DB] [--preload] [-db SQLITE_DB]
-                       [-od OUTPUT_DIR] [--single] [-l LOG] [-v | -nv]
-                       [-lv {DEBUG,INFO,WARN,ERROR,CRITICAL}]
+                       [--source SOURCE] [--flank FLANK] [--purge]
+                       [--subloci-from-cds-only] [--monoloci-from-simple-overlap]
+                       [-db SQLITE_DB] [-od OUTPUT_DIR] [--single] [-l LOG]
+                       [-v | -nv] [-lv {DEBUG,INFO,WARNING,ERROR,CRITICAL}]
                        [--mode {nosplit,stringent,lenient,permissive,split}]
                        [gff]
-
-    Mikado pick analyses a sorted GTF/GFF files in order to identify its loci and
-    choose the best transcripts according to user-specified criteria. It is
-    dependent on files produced by the "prepare" and "serialise" components.
 
     positional arguments:
       gff
@@ -342,13 +339,17 @@ Usage::
                             Number of processors to use. Default: look in the
                             configuration file (1 if undefined) (default: None)
       --json-conf JSON_CONF
-                            JSON/YAML configuration file for scoring transcripts.
+                            JSON/YAML configuration file for Mikado. (default:
+                            None)
+      --scoring-file SCORING_FILE
+                            Optional scoring file for the run. It will override
                             (default: None)
       -i INTRON_RANGE INTRON_RANGE, --intron-range INTRON_RANGE INTRON_RANGE
                             Range into which intron lengths should fall, as a
                             couple of integers. Transcripts with intron lengths
                             outside of this range will be penalised. Default: (60,
                             900) (default: None)
+      --pad                 Whether to pad transcripts in loci. (default: False)
       --subloci_out SUBLOCI_OUT
       --monoloci_out MONOLOCI_OUT
       --loci_out LOCI_OUT   This output file is mandatory. If it is not specified
@@ -365,17 +366,18 @@ Usage::
       --purge               Flag. If set, the pipeline will suppress any loci
                             whose transcripts do not pass the requirements set in
                             the JSON file. (default: False)
-      -shm, --shared-memory
-                            Flag. If set, the DB will be copied into memory.
-                            (default: False)
-      -shmdb SHM_DB, --shared-memory-db SHM_DB
-                            Name of the shared memory DB. WARNING: if set, the DB
-                            copy will be persistently copied into memory, so that
-                            multiple pickers can share. (default: None)
-      --preload             Flag. If set, the Mikado DB will be pre-loaded into
-                            memory for faster access. WARNING: this option will
-                            increase memory usage and the preloading might be
-                            quite slow. (default: False)
+      --subloci-from-cds-only
+                            "Flag. If set, Mikado will only look for overlap in
+                            the coding features when clustering transcripts
+                            (unless one transcript is non-coding, in which case
+                            the whole transcript will be considered). Default:
+                            False, Mikado will consider transcripts in their
+                            entirety. (default: False)
+      --monoloci-from-simple-overlap
+                            "Flag. If set, in the final stage Mikado will cluster
+                            transcripts by simple overlap, not by looking at the
+                            presence of shared introns. Default: False. (default:
+                            False)
       -db SQLITE_DB, --sqlite-db SQLITE_DB
                             Location of an SQLite database to overwrite what is
                             specified in the configuration file. (default: None)
@@ -405,9 +407,10 @@ Usage::
                             (default: False)
       -nv, --noverbose      Flag. If set, the log will report only errors and
                             critical events. (default: False)
-      -lv {DEBUG,INFO,WARN,ERROR,CRITICAL}, --log-level {DEBUG,INFO,WARN,ERROR,CRITICAL}
+      -lv {DEBUG,INFO,WARNING,ERROR,CRITICAL}, --log-level {DEBUG,INFO,WARNING,ERROR,CRITICAL}
                             Logging level. Default: retrieved by the configuration
                             file. (default: None)
+
 
 .. block end
 

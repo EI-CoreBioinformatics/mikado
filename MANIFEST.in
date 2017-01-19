@@ -8,4 +8,4 @@ recursive-include Mikado *pxd
 recursive-include bin *py
 recursive-include util *py
 recursive-include Mikado *snakefile *json *yaml
-recursive-include Mikado/test *
+recursive-include Mikado/tests *

@@ -104,6 +104,11 @@ class Picker:
         self.locus_out = path_join(
             self.json_conf["pick"]["files"]["output_dir"],
             self.json_conf["pick"]["files"]["loci_out"])
+
+        assert self.locus_out != ''
+        assert self.locus_out != self.sub_out and self.locus_out != self.monolocus_out
+        assert (not self.sub_out and not self.monolocus_out) or (self.sub_out != self.monolocus_out)
+
         # pylint: disable=no-member
         multiprocessing.set_start_method(self.json_conf["multiprocessing_method"],
                                          force=True)
@@ -958,7 +963,6 @@ memory intensive, proceed with caution!")
                                              "{0}-{1}".format(os.path.basename(handle), _))
                                 for _ in range(1, self.procs + 1)]
                     merge_partial(partials, output, logger=self.logger)
-                    # [os.remove(_) for _ in partials]
 
         for handle in handles[2]:
             if handle is not None:
@@ -967,11 +971,11 @@ memory intensive, proceed with caution!")
                                              "{0}-{1}".format(os.path.basename(handle), _))
                                 for _ in range(1, self.procs + 1)]
                     merge_partial(partials, output, logger=self.logger)
-                    # [os.remove(_) for _ in partials]
 
         self.logger.info("Finished merging partial files")
         try:
             tempdir.cleanup()
+
         except (OSError, FileNotFoundError, FileExistsError) as exc:
             self.logger.warning("Failed to clean up the temporary directory %s, error: %s",
                                 tempdir.name, exc)

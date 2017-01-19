@@ -125,6 +125,7 @@ def merge_loci_gff(gff_filenames, gff_handle, prefix=""):
                                                                 current_lines[index])
             current_lines[index]["lines"].append("/".join(_[1:]))
 
+    print("len(current_lines)", len(current_lines))
     [_.close() for _ in gffs]
 
     gid_to_new = dict()
@@ -208,7 +209,7 @@ def merge_loci_gff(gff_filenames, gff_handle, prefix=""):
                 print("###", file=gff_handle)
             del current_lines[index]
 
-    [os.remove(_) for _ in gff_filenames]
+    # [os.remove(_) for _ in gff_filenames]
     return gid_to_new, tid_to_new
 
 
@@ -577,11 +578,13 @@ class LociProcesser(Process):
         return state
 
     def terminate(self):
+        [_.flush() for _ in self._handles if hasattr(_, "flush") and _.closed is False]
         [_.close() for _ in self._handles if hasattr(_, "close") and _.closed is False]
         if self.engine is not None:
             self.engine.dispose()
 
     def close(self):
+        [_.flush() for _ in self._handles if hasattr(_, "flush") and _.closed is False]
         [_.close() for _ in self._handles if hasattr(_, "close") and _.closed is False]
         if self.engine is not None:
             self.engine.dispose()
@@ -687,9 +690,11 @@ class LociProcesser(Process):
         return
 
     def join(self, timeout=None):
-        [_.close() for _ in self._handles if hasattr(_, "close")]
+        [_.flush() for _ in self._handles if hasattr(_, "flush") and _.closed is False]
+        [_.close() for _ in self._handles if hasattr(_, "close") and _.closed is False]
         if self.engine is not None:
             self.engine.dispose()
+        super().join(timeout=timeout)
 
     def run(self):
         """Start polling the queue, analyse the loci, and send them to the printer process."""

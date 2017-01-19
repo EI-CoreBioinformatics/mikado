@@ -20,6 +20,7 @@ import Mikado.daijin
 import yaml
 import random
 import sys
+import glob
 
 
 class PrepareChek(unittest.TestCase):
@@ -403,13 +404,24 @@ class PickTest(unittest.TestCase):
         json_conf["pick"]["files"]["input"] = pkg_resources.resource_filename("Mikado.test",
                                                                               "mikado_prepared.gtf")
         json_conf["pick"]["files"]["output_dir"] = tempfile.gettempdir()
-        json_conf["pick"]["files"]["subloci_out"] = "mikado.subloci.gff3"
-        json_conf["pick"]["files"]["monoloci_out"] = "mikado.monoloci.gff3"
+        json_conf["pick"]["files"]["loci_out"] = "mikado.monoproc.loci.gff3"
+        json_conf["pick"]["files"]["subloci_out"] = "mikado.monoproc.subloci.gff3"
+        json_conf["pick"]["files"]["monoloci_out"] = "mikado.monoproc.monoloci.gff3"
+        json_conf["pick"]["files"]["log"] = "mikado.monoproc.log"
+        json_conf["log_settings"]["log_level"] = "DEBUG"
+
         pick_caller = picker.Picker(json_conf=json_conf)
         with self.assertRaises(SystemExit):
             pick_caller()
-        self.assertTrue(os.path.exists(os.path.join(tempfile.gettempdir(), "mikado.loci.gff3")))
-        os.remove(os.path.join(tempfile.gettempdir(), "mikado.loci.gff3"))
+        self.assertTrue(os.path.exists(os.path.join(tempfile.gettempdir(), "mikado.monoproc.loci.gff3")))
+        with to_gff(os.path.join(tempfile.gettempdir(), "mikado.monoproc.loci.gff3")) as inp_gff:
+            lines = [_ for _ in inp_gff if not _.header is True]
+            self.assertGreater(len(lines), 0)
+            self.assertGreater(len([_ for _ in lines if _.is_transcript is True]), 0)
+            self.assertGreater(len([_ for _ in lines if _.feature == "mRNA"]), 0)
+            self.assertGreater(len([_ for _ in lines if _.feature == "CDS"]), 0)
+
+        [os.remove(_) for _ in glob.glob(os.path.join(tempfile.gettempdir(), "mikado.monoproc.") + "*")]
 
     def test_multi_proc(self):
         json_conf = configurator.to_json(None)
@@ -417,14 +429,25 @@ class PickTest(unittest.TestCase):
         json_conf["pick"]["files"]["input"] = pkg_resources.resource_filename("Mikado.test",
                                                                               "mikado_prepared.gtf")
         json_conf["pick"]["files"]["output_dir"] = tempfile.gettempdir()
-        json_conf["pick"]["files"]["subloci_out"] = "mikado.subloci.gff3"
-        json_conf["pick"]["files"]["monoloci_out"] = "mikado.monoloci.gff3"
+        json_conf["pick"]["files"]["loci_out"] = "mikado.multiproc.loci.gff3"
+        json_conf["pick"]["files"]["subloci_out"] = "mikado.multiproc.subloci.gff3"
+        json_conf["pick"]["files"]["monoloci_out"] = "mikado.multiproc.monoloci.gff3"
+        json_conf["pick"]["files"]["log"] = "mikado.multiproc.log"
         json_conf["db_settings"]["db"] = pkg_resources.resource_filename("Mikado.test", "mikado.db")
+        json_conf["log_settings"]["log_level"] = "INFO"
+
         pick_caller = picker.Picker(json_conf=json_conf)
         with self.assertRaises(SystemExit):
             pick_caller()
-        self.assertTrue(os.path.exists(os.path.join(tempfile.gettempdir(), "mikado.loci.gff3")))
-        os.remove(os.path.join(tempfile.gettempdir(), "mikado.loci.gff3"))
+        self.assertTrue(os.path.exists(os.path.join(tempfile.gettempdir(), "mikado.multiproc.loci.gff3")))
+        with to_gff(os.path.join(tempfile.gettempdir(), "mikado.multiproc.loci.gff3")) as inp_gff:
+            lines = [_ for _ in inp_gff if not _.header is True]
+            self.assertGreater(len(lines), 0)
+            self.assertGreater(len([_ for _ in lines if _.is_transcript is True]), 0)
+            self.assertGreater(len([_ for _ in lines if _.feature == "mRNA"]), 0)
+            self.assertGreater(len([_ for _ in lines if _.feature == "CDS"]), 0)
+
+        [os.remove(_) for _ in glob.glob(os.path.join(tempfile.gettempdir(), "mikado.multiproc.") + "*")]
 
 
 if __name__ == "__main__":

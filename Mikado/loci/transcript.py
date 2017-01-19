@@ -2734,6 +2734,7 @@ index {3}, internal ORFs: {4}".format(
     canonical_intron_proportion.rtype = "float"
 
     @Metric
+    @functools.lru_cache(maxsize=None, typed=True)
     def suspicious_splicing(self):
 
         """This metric will return True if the transcript has mixed splicing or the canonical """
@@ -2745,6 +2746,7 @@ index {3}, internal ORFs: {4}".format(
     suspicious_splicing.rtype = "bool"
 
     @Metric
+    @functools.lru_cache(maxsize=None, typed=True)
     def only_non_canonical_splicing(self):
 
         """This metric will return True if the canonical_number is 0"""
@@ -2753,3 +2755,31 @@ index {3}, internal ORFs: {4}".format(
 
     only_non_canonical_splicing.category = "Intron"
     only_non_canonical_splicing.rtype = "bool"
+
+    @Metric
+    @functools.lru_cache(maxsize=None, typed=True)
+    def max_exon_length(self):
+        """This metric will return the length of the biggest exon in the transcript."""
+
+        if len(self.exons) == 0:
+            return 0
+        else:
+            return max([_[1] - _[0] + 1 for _ in self.exons])
+
+    max_exon_length.category = "cDNA"
+    max_exon_length.rtype = "int"
+
+
+    @Metric
+    @functools.lru_cache(maxsize=None, typed=True)
+    def min_exon_length(self):
+        """This metric will return the length of the biggest exon in the transcript."""
+
+        if len(self.exons) == 0:
+            return 0
+        else:
+            return min([_[1] - _[0] + 1 for _ in self.exons])
+
+
+    max_exon_length.category = "cDNA"
+    max_exon_length.rtype = "int"

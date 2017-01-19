@@ -76,6 +76,11 @@ class MonoBaseTester(unittest.TestCase):
         self.tr.finalize()
         self.assertTrue(self.tr.finalized)
 
+        self.assertEqual(self.tr.max_exon_length, 3818)
+        self.assertEqual(self.tr.min_exon_length, 96)
+        self.assertEqual(self.tr.max_intron_length, 81, self.tr.introns)
+        self.assertEqual(self.tr.min_intron_length, 79, self.tr.introns)
+
     def test_load_orfs(self):
         self.assertFalse(self.bed1.invalid)
         self.assertFalse(self.bed2.invalid)

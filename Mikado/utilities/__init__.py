@@ -84,12 +84,16 @@ def merge_partial(filenames, handle, logger=None):
 
     current_lines = collections.defaultdict(list)
 
-    fnames = [open(_) for _ in filenames if os.stat(_).st_size > 0]
+    try:
+        fnames = [open(_) for _ in filenames if os.stat(_).st_size > 0]
+    except FileNotFoundError:
+        raise FileNotFoundError(os.listdir(os.path.dirname(filenames[0])))
+
     if len(fnames) == 0:
         logger.warning("All the files to merge (root %s) are empty. Exiting.",
                        "-".join(filenames[0].split("-")[:-1]))
         [_.close() for _ in fnames]
-        [os.remove(_) for _ in filenames]
+        # [os.remove(_) for _ in filenames]
 
         return 0
 

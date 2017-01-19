@@ -68,6 +68,7 @@ class TChekerTester(unittest.TestCase):
         # Remove the genome
         if hasattr(cls.temp_genome, "close"):
             cls.temp_genome.close()
+            cls.fasta.close()
             os.remove("{}.fai".format(cls.temp_genome.name))
 
     def test_translation_table(self):

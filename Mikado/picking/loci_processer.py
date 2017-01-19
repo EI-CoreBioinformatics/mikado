@@ -271,7 +271,9 @@ def merge_loci(num_temp, out_handles, prefix="", tempdir="mikado_pick_tmp"):
                 line = "\t".join(fields)
                 print(line, file=handle, end="")
             del current_lines[current]
+        [_.close() for _ in filenames]
         [os.remove(_) for _ in finished]
+        handle.close()
     return
 
 
@@ -432,7 +434,7 @@ def analyse_locus(slocus: Superlocus,
 
     # Split the superlocus in the stranded components
     logger.debug("Splitting by strand")
-    stranded_loci = sorted(list(slocus.split_strands()))
+    stranded_loci = sorted([_ for _ in slocus.split_strands()])
     # Define the loci
     logger.debug("Divided into %d loci", len(stranded_loci))
 
@@ -574,6 +576,16 @@ class LociProcesser(Process):
         del state["logger"]
         return state
 
+    def terminate(self):
+        [_.close() for _ in self._handles if hasattr(_, "close") and _.closed is False]
+        if self.engine is not None:
+            self.engine.dispose()
+
+    def close(self):
+        [_.close() for _ in self._handles if hasattr(_, "close") and _.closed is False]
+        if self.engine is not None:
+            self.engine.dispose()
+
     def __setstate__(self, state):
 
         self.__dict__.update(state)
@@ -603,8 +615,8 @@ class LociProcesser(Process):
                                          "{0}-{1}".format(os.path.basename(_),
                                                           self.identifier))
                             for _ in handles[0]]
-        locus_metrics_file = open(locus_metrics_file, "w")
-        locus_scores_file = open(locus_scores_file, "w")
+        locus_metrics_handle = open(locus_metrics_file, "w")
+        locus_scores_handle = open(locus_scores_file, "w")
 
         if self.regressor is None:
             score_keys = sorted(list(self.json_conf["scoring"].keys()))
@@ -627,21 +639,14 @@ class LociProcesser(Process):
         metrics = Superlocus.available_metrics[:3] + sorted(metrics)
 
         self.locus_metrics = csv.DictWriter(
-            locus_metrics_file,
+            locus_metrics_handle,
             metrics,
             delimiter="\t")
 
-        self.locus_scores = csv.DictWriter(locus_scores_file, score_keys, delimiter="\t")
-
-        self.locus_metrics.handle = locus_metrics_file
-        self.locus_metrics.flush = self.locus_metrics.handle.flush
-        self.locus_metrics.close = self.locus_metrics.handle.close
-        self.locus_scores.handle = locus_scores_file
-        self.locus_scores.flush = self.locus_scores.handle.flush
-        self.locus_scores.close = self.locus_scores.handle.close
+        self.locus_scores = csv.DictWriter(locus_scores_handle, score_keys, delimiter="\t")
 
         self.locus_out = open(locus_out_file, 'w')
-        self._handles.extend((self.locus_out, self.locus_metrics, self.locus_out))
+        self._handles.extend((locus_metrics_handle, locus_scores_handle, self.locus_out))
 
         if handles[1][0]:
             (sub_metrics_file,
@@ -650,22 +655,16 @@ class LociProcesser(Process):
                                            "{0}-{1}".format(os.path.basename(_),
                                                             self.identifier))
                               for _ in handles[1]]
-            sub_metrics_file = open(sub_metrics_file, "w")
-            sub_scores_file = open(sub_scores_file, "w")
+            sub_metrics_handle = open(sub_metrics_file, "w")
+            sub_scores_handle = open(sub_scores_file, "w")
             self.sub_metrics = csv.DictWriter(
-                sub_metrics_file,
+                sub_metrics_handle,
                 metrics,
                 delimiter="\t")
-            self.sub_metrics.handle = sub_metrics_file
-            self.sub_metrics.flush = self.sub_metrics.handle.flush
-            self.sub_metrics.close = self.sub_metrics.handle.close
             self.sub_scores = csv.DictWriter(
-                sub_scores_file, score_keys, delimiter="\t")
-            self.sub_scores.handle = sub_scores_file
-            self.sub_scores.flush = self.sub_scores.handle.flush
-            self.sub_scores.close = self.sub_scores.handle.close
+                sub_scores_handle, score_keys, delimiter="\t")
             self.sub_out = open(sub_out_file, "w")
-            self._handles.extend([self.sub_metrics, self.sub_scores, self.sub_out])
+            self._handles.extend([sub_metrics_handle, sub_scores_handle, self.sub_out])
 
         if handles[2][0]:
             (mono_metrics_file,
@@ -674,24 +673,23 @@ class LociProcesser(Process):
                                             "{0}-{1}".format(os.path.basename(_),
                                                              self.identifier))
                                for _ in handles[2]]
-            mono_metrics_file = open(mono_metrics_file, "w")
-            mono_scores_file = open(mono_scores_file, "w")
+            mono_metrics_handle = open(mono_metrics_file, "w")
+            mono_scores_handle = open(mono_scores_file, "w")
             self.mono_metrics = csv.DictWriter(
-                mono_metrics_file,
+                mono_metrics_handle,
                 metrics,
                 delimiter="\t")
-            self.mono_metrics.handle = mono_metrics_file
-            self.mono_metrics.flush = self.mono_metrics.handle.flush
-            self.mono_metrics.close = self.mono_metrics.handle.close
             self.mono_scores = csv.DictWriter(
-                mono_scores_file, score_keys, delimiter="\t")
-            self.mono_scores.handle = mono_scores_file
-            self.mono_scores.flush = self.mono_scores.handle.flush
-            self.mono_scores.close = self.mono_scores.handle.close
+                mono_scores_handle, score_keys, delimiter="\t")
             self.mono_out = open(mono_out_file, "w")
-            self._handles.extend([self.mono_metrics, self.mono_scores, self.mono_out])            
+            self._handles.extend([mono_metrics_handle, mono_scores_handle, self.mono_out])
 
         return
+
+    def join(self, timeout=None):
+        [_.close() for _ in self._handles if hasattr(_, "close")]
+        if self.engine is not None:
+            self.engine.dispose()
 
     def run(self):
         """Start polling the queue, analyse the loci, and send them to the printer process."""
@@ -702,19 +700,8 @@ class LociProcesser(Process):
             if slocus == "EXIT":
                 self.logger.debug("EXIT received for %s", self.name)
                 self.locus_queue.put((slocus, counter))
-                if self.engine is not None:
-                    self.engine.dispose()
-                self.locus_out.close()
-                self.locus_scores.close()
-                self.locus_metrics.close()
-                if self.sub_metrics is not None:
-                    self.sub_metrics.close()
-                    self.sub_scores.close()
-                    self.sub_out.close()
-                if self.mono_out is not None:
-                    self.mono_out.close()
-
-                return
+                break
+                # self.join()
             else:
                 if slocus is not None:
                     if current_chrom != slocus.chrom:
@@ -727,6 +714,7 @@ class LociProcesser(Process):
                     stranded_loci = []
                 for stranded_locus in stranded_loci:
                     self._print_locus(stranded_locus, counter)
+        return
 
     def _print_locus(self, stranded_locus, counter):
 

@@ -28,7 +28,7 @@ class PrepareChek(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.__genomefile__ = tempfile.NamedTemporaryFile(mode="wb", delete=False, suffix=".fa")
+        cls.__genomefile__ = tempfile.NamedTemporaryFile(mode="wb", delete=False, suffix=".fa", prefix="prepare")
 
         with pkg_resources.resource_stream("Mikado.test", "chr5.fas.gz") as _:
             cls.__genomefile__.write(gzip.decompress(_.read()))
@@ -318,7 +318,7 @@ class ConfigureCheck(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.__genomefile__ = tempfile.NamedTemporaryFile(mode="wb", delete=False, suffix=".fa")
+        cls.__genomefile__ = tempfile.NamedTemporaryFile(mode="wb", delete=False, suffix=".fa", prefix="configure")
 
         with pkg_resources.resource_stream("Mikado.test", "chr5.fas.gz") as _:
             cls.__genomefile__.write(gzip.decompress(_.read()))
@@ -403,6 +403,8 @@ class PickTest(unittest.TestCase):
         json_conf["pick"]["files"]["input"] = pkg_resources.resource_filename("Mikado.test",
                                                                               "mikado_prepared.gtf")
         json_conf["pick"]["files"]["output_dir"] = tempfile.gettempdir()
+        json_conf["pick"]["files"]["subloci_out"] = "mikado.subloci.gff3"
+        json_conf["pick"]["files"]["monoloci_out"] = "mikado.monoloci.gff3"
         pick_caller = picker.Picker(json_conf=json_conf)
         with self.assertRaises(SystemExit):
             pick_caller()
@@ -415,6 +417,8 @@ class PickTest(unittest.TestCase):
         json_conf["pick"]["files"]["input"] = pkg_resources.resource_filename("Mikado.test",
                                                                               "mikado_prepared.gtf")
         json_conf["pick"]["files"]["output_dir"] = tempfile.gettempdir()
+        json_conf["pick"]["files"]["subloci_out"] = "mikado.subloci.gff3"
+        json_conf["pick"]["files"]["monoloci_out"] = "mikado.monoloci.gff3"
         json_conf["db_settings"]["db"] = pkg_resources.resource_filename("Mikado.test", "mikado.db")
         pick_caller = picker.Picker(json_conf=json_conf)
         with self.assertRaises(SystemExit):

@@ -38,6 +38,8 @@ import sys
 from . import subprograms
 from .utilities.log_utils import create_default_logger
 from multiprocessing import freeze_support
+from numpy.testing import Tester
+test = Tester().test
 # import pkg_resources
 
 # __spec__ = "Mikado"

@@ -358,7 +358,7 @@ class Superlocus(Abstractlocus):
                 if self.regressor is not None:
                     new_locus.regressor = self.regressor
                 yield new_locus
-        raise StopIteration
+        # raise StopIteration
 
     # @profile
     def connect_to_db(self, engine):

@@ -208,7 +208,7 @@ def merge_loci_gff(gff_filenames, gff_handle, prefix=""):
                 print("###", file=gff_handle)
             del current_lines[index]
 
-    # [os.remove(_) for _ in gff_filenames]
+    [os.remove(_) for _ in gff_filenames]
     return gid_to_new, tid_to_new
 
 

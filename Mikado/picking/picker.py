@@ -850,9 +850,13 @@ memory intensive, proceed with caution!")
             [_.close() for _ in handles[2]]
             handles[2] = [_.name for _ in handles[2]]
 
-        tempdir = tempfile.TemporaryDirectory(suffix="",
-                                              prefix="mikado_pick_tmp",
-                                              dir=self.json_conf["pick"]["files"]["output_dir"])
+        # tempdirectory = tempfile.TemporaryDirectory(suffix="",
+        #                                             prefix="mikado_pick_tmp",
+        #                                             dir=self.json_conf["pick"]["files"]["output_dir"])
+        # tempdir = tempdirectory.name
+
+        tempdir = os.path.join(self.json_conf["pick"]["files"]["output_dir"], "mikado_pick_tmp")
+        os.makedirs(tempdir, exist_ok=True)
 
         self.logger.info("Creating the worker processes")
         working_processes = [LociProcesser(self.json_conf,
@@ -861,7 +865,7 @@ memory intensive, proceed with caution!")
                                            locus_queue,
                                            self.logging_queue,
                                            _,
-                                           tempdir.name)
+                                           tempdir)
                              for _ in range(1, self.procs+1)]
         # Start all processes
         [_.start() for _ in working_processes]
@@ -954,12 +958,12 @@ memory intensive, proceed with caution!")
         merge_loci(self.procs,
                    handles[0],
                    prefix=self.json_conf["pick"]["output_format"]["id_prefix"],
-                   tempdir=tempdir.name)
+                   tempdir=tempdir)
 
         for handle in handles[1]:
             if handle is not None:
                 with open(handle, "a") as output:
-                    partials = [os.path.join(tempdir.name,
+                    partials = [os.path.join(tempdir,
                                              "{0}-{1}".format(os.path.basename(handle), _))
                                 for _ in range(1, self.procs + 1)]
                     merge_partial(partials, output, logger=self.logger)
@@ -967,18 +971,19 @@ memory intensive, proceed with caution!")
         for handle in handles[2]:
             if handle is not None:
                 with open(handle, "a") as output:
-                    partials = [os.path.join(tempdir.name,
+                    partials = [os.path.join(tempdir,
                                              "{0}-{1}".format(os.path.basename(handle), _))
                                 for _ in range(1, self.procs + 1)]
                     merge_partial(partials, output, logger=self.logger)
 
         self.logger.info("Finished merging partial files")
         try:
-            tempdir.cleanup()
-
+            # shutil.rmtree(tempdir)
+            # tempdirectory.cleanup()
+            pass
         except (OSError, FileNotFoundError, FileExistsError) as exc:
             self.logger.warning("Failed to clean up the temporary directory %s, error: %s",
-                                tempdir.name, exc)
+                                tempdir, exc)
         except KeyboardInterrupt:
             raise
         except Exception as exc:

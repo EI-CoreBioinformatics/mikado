@@ -291,7 +291,12 @@
             "- min_score_perc: Minimum score threshold for subsequent AS events.",
             " Only transcripts with a score at least (best) * value are retained.",
             "- only_confirmed_introns: bring back AS events only when their introns are either",
-            " present in the primary transcript or in the set of confirmed introns."
+            " present in the primary transcript or in the set of confirmed introns.",
+            "- pad: boolean switch. If true, Mikado will pad all the transcript in a gene so that their ends are the same",
+            "- ts_distance: if padding, this is the maximum distance in base-pairs between the starts of transcripts",
+            "  to be considered to be padded together.",
+            "- ts_max_splices: if padding, this is the maximum amount of splicing junctions that the transcript to pad",
+            " is allowed to cross. If padding would lead to cross more than this number, the transcript will not be padded."
           ],
           "SimpleComment": [
             "Parameters related to alternative splicing reporting.",
@@ -720,7 +725,7 @@
             },
             "subloci_out": {
               "type": "string",
-              "default": ""
+              "default": "mikado.subloci.gff3"
             },
             "monoloci_out": {
               "type": "string",

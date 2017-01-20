@@ -559,9 +559,10 @@ Chr1	foo	exon	19000	20000	.	+	.	gene_id "foo"; transcript_id "foo2.1"""
                 with self.assertRaises(SystemExit), self.assertLogs("main_logger", "INFO"):
                     pick_caller()
 
-                lines = [line for line in to_gff(os.path.join(tempfile.gettempdir(),
-                                                              json_conf["pick"]["files"]["loci_out"]))
-                         if line.header is False]
+                with to_gff(os.path.join(tempfile.gettempdir(),
+                                                              json_conf["pick"]["files"]["loci_out"])) as gff:
+
+                    lines = [line for line in gff if line.header is False]
                 self.assertGreater(len(lines), 0)
                 self.assertTrue(any([_ for _ in lines if _.attributes.get("alias", "") == "foo2.1"]))
                 if purging is True:
@@ -607,9 +608,9 @@ Chr1	foo	exon	19000	20000	.	+	.	gene_id "foo"; transcript_id "foo2.1"""
                 with self.assertRaises(SystemExit), self.assertLogs("main_logger", "INFO"):
                     pick_caller()
 
-                lines = [line for line in to_gff(os.path.join(tempfile.gettempdir(),
-                                                              json_conf["pick"]["files"]["loci_out"]))
-                         if line.header is False]
+                with to_gff(os.path.join(tempfile.gettempdir(),
+                                                              json_conf["pick"]["files"]["loci_out"])) as gff:
+                    lines = [line for line in gff if line.header is False]
                 self.assertGreater(len(lines), 0)
                 self.assertTrue(any([_ for _ in lines if _.attributes.get("alias", "") == "foo2.1"]))
                 if purging is True:
@@ -647,9 +648,9 @@ Chr1	foo	exon	19000	20000	.	+	.	gene_id "foo"; transcript_id "foo2.1"""
                 with self.assertRaises(SystemExit), self.assertLogs("main_logger", "INFO"):
                     pick_caller()
 
-                lines = [line for line in to_gff(os.path.join(tempfile.gettempdir(),
-                                                              json_conf["pick"]["files"]["loci_out"]))
-                         if line.header is False]
+                with to_gff(os.path.join(tempfile.gettempdir(),
+                                                              json_conf["pick"]["files"]["loci_out"])) as gff:
+                    lines = [line for line in gff if line.header is False]
                 self.assertGreater(len(lines), 0)
                 self.assertTrue(any([_ for _ in lines if _.attributes.get("alias", "") == "foo2.1"]))
                 if purging is True:

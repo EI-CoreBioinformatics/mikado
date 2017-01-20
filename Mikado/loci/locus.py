@@ -610,7 +610,15 @@ reached the maximum number of isoforms for the locus".format(
         valid_ccodes = self.json_conf["pick"]["alternative_splicing"]["valid_ccodes"]
         redundant_ccodes = self.json_conf["pick"]["alternative_splicing"]["redundant_ccodes"]
 
-        main_result, _ = Assigner.compare(other, self.primary_transcript)
+        if self.json_conf["pick"]["run_options"]["subloci_from_cds_only"] is True:
+            main_without_utr = self.primary_transcript.deepcopy().remove_utrs()
+            other_without_utr = other.deepcopy().remove_utrs()
+            main_result, _ = Assigner.compare(other_without_utr,
+                                              main_without_utr)
+        else:
+            other_without_utr = None
+            main_result, _ = Assigner.compare(other,
+                                              self.primary_transcript)
         main_ccode = main_result.ccode[0]
 
         if main_ccode not in valid_ccodes:
@@ -622,6 +630,11 @@ reached the maximum number of isoforms for the locus".format(
             for tid in iter(tid for tid in self.transcripts if
                             tid not in (self.primary_transcript_id, other.id)):
                 candidate = self.transcripts[tid]
+                if self.json_conf["pick"]["run_options"]["subloci_from_cds_only"] is True:
+                    candidate = candidate.deepcopy().remove_utrs()
+                    Assigner.compare(other_without_utr, candidate)
+                else:
+                    Assigner.compare(other, candidate)
                 result, _ = Assigner.compare(other, candidate)
                 if result.ccode[0] in redundant_ccodes:
                     self.logger.debug("%s is a redundant isoform of %s (ccode %s)",
@@ -681,7 +694,7 @@ reached the maximum number of isoforms for the locus".format(
             first = comm.popleft()
             five_found.add(first)
             comm_start = self[first].start
-            # self[first].strip_cds()
+
             for tid in comm:
                 if ((self[tid].start - comm_start + 1) <
                         self.json_conf["pick"]["alternative_splicing"]["ts_distance"] and

@@ -708,6 +708,7 @@ class LociProcesser(Process):
             if slocus == "EXIT":
                 self.logger.debug("EXIT received for %s", self.name)
                 self.locus_queue.put((slocus, counter))
+                self.__close_handles()
                 break
                 # self.join()
             else:

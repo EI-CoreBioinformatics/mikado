@@ -3,6 +3,7 @@
 Changes in this release:
 
 - Mikado prepare, stats and compare are capable of using GFFs with "match/match_part" or "cDNA_match" features as input. This allows eg. to obtain sensible statistics for the alignments of Trinity transfrags or long reads when using GMAP inside Daijin.
+- When the option "subloci_from_cds_only" is set to true (or the equivalent command line switch is invoked), AS events class codes will be calculated on the coding portion only of the transcript.
 - Mikado now allows to perform unittest on the installed module, through the function "Mikado.test". This is simply a wrapper to NoseTest, through a call to the numpy tester.	
 - **IMPORTANT**: in strand-specific mode, now Mikado prepare will not flip transcripts which have been misassigned to the opposite strand. Those transcripts will be kept on the original strand, and tagged.
 - **IMPORTANT**: now Mikado will use all the verified introns found in a **Superlocus** to determine the fraction of verified introns per locus in each transcript. At the stage of Locus, ie creation of genes, this will revert to check only the verified introns in the locus. Also, solved a bug related to this metric.

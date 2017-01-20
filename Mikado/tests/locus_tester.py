@@ -248,8 +248,7 @@ class ASeventsTester(unittest.TestCase):
 
     def setUp(self):
         
-        self.conf = dict()
-        self.conf["pick"] = dict()
+        self.conf = configurator.to_json(None)
         self.conf["pick"]["alternative_splicing"] = dict()
         self.conf["pick"]["alternative_splicing"]["max_utr_length"] = 10000
         self.conf["pick"]["alternative_splicing"]["max_fiveutr_length"] = 10000
@@ -654,8 +653,8 @@ class TestLocus(unittest.TestCase):
         """Set up for the unit test."""
 
         # Mock dictionary to be used for the alternative splicing checks
-        self.json_conf = dict()
-        self.json_conf["pick"] = dict()
+        self.json_conf = configurator.to_json(None)
+        # self.json_conf["pick"] = dict()
         self.json_conf["pick"]["alternative_splicing"] = dict()
         self.json_conf["pick"]["alternative_splicing"]["max_utr_length"] = 2000
         self.json_conf["pick"]["alternative_splicing"]["max_fiveutr_length"] = 1000

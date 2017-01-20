@@ -296,7 +296,7 @@ memory intensive, proceed with caution!")
 
         if self.json_conf["pick"]["chimera_split"]["blast_check"] is True and \
                 self.json_conf["log_settings"]["log_level"] == "DEBUG":
-            engine = dbutils.connect(self.json_conf, self.main_logger)
+            engine = dbutils.connect(self.json_conf, logger=self.main_logger)
             smaker = sessionmaker()
             smaker.configure(bind=engine)
             session = smaker()
@@ -1089,7 +1089,7 @@ memory intensive, proceed with caution!")
                     invalid = False
                     current_transcript = Transcript(
                         row,
-                        intron_range=intron_range)
+                        intron_range=intron_range, logger=logger)
 
         if current_transcript is not None and invalid is False:
             if Superlocus.in_locus(

@@ -23,7 +23,7 @@ import glob
 import yaml
 
 
-class PrepareChek(unittest.TestCase):
+class PrepareCheck(unittest.TestCase):
 
     __genomefile__ = None
 
@@ -103,6 +103,7 @@ class PrepareChek(unittest.TestCase):
 
         cls.__genomefile__.close()
         os.remove(cls.__genomefile__.name)
+        os.remove("{}.fai".format(cls.__genomefile__.name))
 
     def setUp(self):
 
@@ -141,6 +142,8 @@ class PrepareChek(unittest.TestCase):
                 res = dict((_, len(fa[_])) for _ in fa.keys())
                 fa.close()
                 self.assertEqual(res, self.trinity_res)
+                os.remove(os.path.join(self.conf["prepare"]["files"]["output_dir"],
+                                       "mikado_prepared.fasta.fai"))
 
     def test_prepare_trinity_and_cufflinks(self):
 
@@ -189,6 +192,9 @@ class CompareCheck(unittest.TestCase):
 
     def tearDown(self):
         logging.shutdown()
+        for suff in ["log", "refmap", "tmap", "stats"]:
+            [os.remove(_) for _ in glob.glob(os.path.join(tempfile.gettempdir(),
+                                                          "compare_*.{}".format(suff)))]
 
     def test_index(self):
 
@@ -223,6 +229,7 @@ class CompareCheck(unittest.TestCase):
                 self.assertIsInstance(positions, dict)
                 self.assertEqual(len(genes), 38)
                 os.remove(namespace.reference.name)
+                os.remove(namespace.log)
                 os.remove("{}.midx".format(namespace.reference.name))
 
     def test_compare_trinity(self):
@@ -239,6 +246,7 @@ class CompareCheck(unittest.TestCase):
         namespace.no_save_index = True
 
         for ref, pred in itertools.permutations(files, 2):
+
             with self.subTest(ref=ref, pred=pred):
                 namespace.reference = to_gff(ref)
                 namespace.prediction = to_gff(pred)
@@ -269,12 +277,9 @@ class CompareCheck(unittest.TestCase):
 
                     self.assertEqual(counter, 38)
 
-        for permutation in itertools.permutations(range(len(files)), 2):
-            for suff in ["log", "refmap", "tmap", "stats"]:
-                fname = os.path.join(tempfile.gettempdir(),
-                                   "compare_{}_{}.{}".format(permutation[0], permutation[1], suff))
-                if os.path.exists(fname):
-                    os.remove(fname)
+        for suff in ["log", "refmap", "tmap", "stats"]:
+            [os.remove(_) for _ in glob.glob(os.path.join(tempfile.gettempdir(),
+                                                          "compare_*.{}".format(suff)))]
 
 
 class StatCheck(unittest.TestCase):
@@ -487,6 +492,177 @@ class PickTest(unittest.TestCase):
 
                 [os.remove(_) for _ in glob.glob(os.path.join(tempfile.gettempdir(), "mikado.subproc.") + "*")]
 
+    def test_purging(self):
+
+        gtf = """Chr1	foo	transcript	100	1000	.	+	.	gene_id "foo1"; transcript_id "foo1.1"
+Chr1	foo	exon	100	1000	.	+	.	gene_id "foo1"; transcript_id "foo1.1"
+Chr1	foo	transcript	100	2000	.	+	.	gene_id "foo1"; transcript_id "foo1.2"
+Chr1	foo	exon	100	800	.	+	.	gene_id "foo1"; transcript_id "foo1.2"
+Chr1	foo	exon	1900	2000	.	+	.	gene_id "foo1"; transcript_id "foo1.2"
+Chr1	foo	transcript	10000	20000	.	+	.	gene_id "foo2"; transcript_id "foo2.1"
+Chr1	foo	exon	10000	13000	.	+	.	gene_id "foo2; transcript_id "foo2.1"
+Chr1	foo	exon	19000	20000	.	+	.	gene_id "foo"; transcript_id "foo2.1"""
+
+        temp_gtf = tempfile.NamedTemporaryFile(mode="wt", suffix=".gtf", delete=True)
+
+        temp_gtf.write(gtf)
+        temp_gtf.flush()
+
+        json_conf = configurator.to_json(None)
+
+        json_conf["pick"]["files"]["input"] = temp_gtf.name
+        json_conf["db_settings"]["db"] = os.path.join(tempfile.gettempdir(), "mikado.db")
+        json_conf["pick"]["files"]["output_dir"] = tempfile.gettempdir()
+        json_conf["log_settings"]["log_level"] = "WARNING"
+
+        # Now the scoring
+        scoring = dict()
+        
+        scoring["requirements"] = dict()
+        scoring["requirements"]["expression"] = ["exon_num"]
+        scoring["requirements"]["parameters"] = dict()
+        scoring["requirements"]["parameters"]["exon_num"] = dict()
+        scoring["requirements"]["parameters"]["exon_num"]["name"] = "exon_num"
+        scoring["requirements"]["parameters"]["exon_num"]["operator"] = "gt"
+        scoring["requirements"]["parameters"]["exon_num"]["value"] = 1
+
+        import copy
+        scoring["as_requirements"] = copy.deepcopy(scoring["requirements"])
+        scoring["not_fragmentary"] = copy.deepcopy(scoring["requirements"].copy())
+
+        scoring["scoring"] = dict()
+        scoring["scoring"]["cdna_length"] = dict()
+        scoring["scoring"]["cdna_length"]["rescaling"] = "max"
+        scoring["scoring"]["cdna_length"]["filter"] = dict()
+        scoring["scoring"]["cdna_length"]["filter"]["operator"] = "gt"
+        scoring["scoring"]["cdna_length"]["filter"]["value"] = 2000
+
+        scoring_file = tempfile.NamedTemporaryFile(suffix=".yaml", delete=True, mode="wt")
+        yaml.dump(scoring, scoring_file)
+        scoring_file.flush()
+        json_conf["pick"]["scoring_file"] = scoring_file.name
+        del json_conf["scoring"]
+        del json_conf["requirements"]
+        del json_conf["as_requirements"]
+        del json_conf["not_fragmentary"]
+
+        for purging in (False, True):
+            with self.subTest(purging=purging):
+                json_conf["pick"]["files"]["loci_out"] = "mikado.purging_{}.loci.gff3".format(purging)
+                json_conf["pick"]["files"]["log"] = "mikado.purging_{}.log".format(purging)
+                json_conf["pick"]["run_options"]["purge"] = purging
+                json_conf["pick"]["scoring_file"] = scoring_file.name
+                json_conf = configurator.check_json(json_conf)
+                self.assertEqual(len(json_conf["scoring"].keys()), 1, json_conf["scoring"].keys())
+
+                pick_caller = picker.Picker(json_conf=json_conf)
+                with self.assertRaises(SystemExit), self.assertLogs("main_logger", "INFO"):
+                    pick_caller()
+
+                lines = [line for line in to_gff(os.path.join(tempfile.gettempdir(),
+                                                              json_conf["pick"]["files"]["loci_out"]))
+                         if line.header is False]
+                self.assertGreater(len(lines), 0)
+                self.assertTrue(any([_ for _ in lines if _.attributes.get("alias", "") == "foo2.1"]))
+                if purging is True:
+                    self.assertFalse(any([_ for _ in lines if _.attributes.get("alias", "") in ("foo1.2", "foo1.1")]))
+                else:
+                    found_line = [_ for _ in lines if _.attributes.get("alias", "") in ("foo1.2", "foo1.1")]
+                    self.assertTrue(any(found_line))
+                    self.assertTrue(any([_ for _ in found_line if _.score == 0]))
+
+            # Clean up
+            for fname in ["mikado.db", "mikado.purging_{}.*".format(purging)]:
+                [os.remove(_) for _ in glob.glob(os.path.join(tempfile.gettempdir(), fname))]
+
+        scoring_file.close()
+        # Now let us test with a scoring which will create transcripts with negative scores
+        scoring["scoring"] = dict()
+        scoring["scoring"]["cdna_length"] = dict()
+        scoring["scoring"]["cdna_length"]["rescaling"] = "min"
+        scoring["scoring"]["cdna_length"]["multiplier"] = -10
+        scoring["scoring"]["cdna_length"]["filter"] = dict()
+        scoring["scoring"]["cdna_length"]["filter"]["operator"] = "lt"
+        scoring["scoring"]["cdna_length"]["filter"]["value"] = 1000
+
+        scoring["scoring"]["exon_num"] = dict()
+        scoring["scoring"]["exon_num"]["rescaling"] = "max"
+
+        scoring_file = tempfile.NamedTemporaryFile(suffix=".yaml", delete=True, mode="wt")
+        yaml.dump(scoring, scoring_file)
+        scoring_file.flush()
+        json_conf["pick"]["scoring_file"] = scoring_file.name
+
+        for purging in (False, True):
+            with self.subTest(purging=purging):
+                json_conf["pick"]["files"]["loci_out"] = "mikado.purging_{}.loci.gff3".format(purging)
+                json_conf["pick"]["files"]["subloci_out"] = "mikado.purging_{}.subloci.gff3".format(purging)
+                json_conf["pick"]["files"]["log"] = "mikado.purging_{}.log".format(purging)
+                json_conf["pick"]["run_options"]["purge"] = purging
+                json_conf["pick"]["scoring_file"] = scoring_file.name
+                json_conf = configurator.check_json(json_conf)
+                self.assertEqual(len(json_conf["scoring"].keys()), 2, json_conf["scoring"].keys())
+
+                pick_caller = picker.Picker(json_conf=json_conf)
+                with self.assertRaises(SystemExit), self.assertLogs("main_logger", "INFO"):
+                    pick_caller()
+
+                lines = [line for line in to_gff(os.path.join(tempfile.gettempdir(),
+                                                              json_conf["pick"]["files"]["loci_out"]))
+                         if line.header is False]
+                self.assertGreater(len(lines), 0)
+                self.assertTrue(any([_ for _ in lines if _.attributes.get("alias", "") == "foo2.1"]))
+                if purging is True:
+                    self.assertFalse(any([_ for _ in lines if _.attributes.get("alias", "") in ("foo1.2", "foo1.1")]))
+                else:
+                    found_line = [_ for _ in lines if _.attributes.get("alias", "") in ("foo1.2", "foo1.1")]
+                    self.assertTrue(any(found_line))
+                    self.assertTrue(any([_ for _ in found_line if _.score <= 0]))
+
+            # Clean up
+            for fname in ["mikado.db", "mikado.purging_{}.*".format(purging)]:
+                [os.remove(_) for _ in glob.glob(os.path.join(tempfile.gettempdir(), fname))]
+
+        temp_gtf.close()
+
+        temp_gtf = tempfile.NamedTemporaryFile(mode="wt", suffix=".gtf", delete=True)
+
+        gtf = "\n".join([_ for _ in gtf.split("\n") if "foo1.1" not in _])
+
+        temp_gtf.write(gtf)
+        temp_gtf.flush()
+        json_conf["pick"]["files"]["input"] = temp_gtf.name
+
+        for purging in (False, True):
+            with self.subTest(purging=purging):
+                json_conf["pick"]["files"]["loci_out"] = "mikado.purging_{}.loci.gff3".format(purging)
+                json_conf["pick"]["files"]["subloci_out"] = "mikado.purging_{}.subloci.gff3".format(purging)
+                json_conf["pick"]["files"]["log"] = "mikado.purging_{}.log".format(purging)
+                json_conf["pick"]["run_options"]["purge"] = purging
+                json_conf["pick"]["scoring_file"] = scoring_file.name
+                json_conf = configurator.check_json(json_conf)
+                self.assertEqual(len(json_conf["scoring"].keys()), 2, json_conf["scoring"].keys())
+
+                pick_caller = picker.Picker(json_conf=json_conf)
+                with self.assertRaises(SystemExit), self.assertLogs("main_logger", "INFO"):
+                    pick_caller()
+
+                lines = [line for line in to_gff(os.path.join(tempfile.gettempdir(),
+                                                              json_conf["pick"]["files"]["loci_out"]))
+                         if line.header is False]
+                self.assertGreater(len(lines), 0)
+                self.assertTrue(any([_ for _ in lines if _.attributes.get("alias", "") == "foo2.1"]))
+                if purging is True:
+                    self.assertFalse(any([_ for _ in lines if _.attributes.get("alias", "") == "foo1.2"]))
+                else:
+                    found_line = [_ for _ in lines if _.attributes.get("alias", "") == "foo1.2"]
+                    self.assertTrue(any(found_line))
+                    self.assertTrue(any([_ for _ in found_line if _.score <= 0]),
+                                    "\n".join([str(_) for _ in found_line]))
+
+            # Clean up
+            for fname in ["mikado.db", "mikado.purging_{}.*".format(purging)]:
+                [os.remove(_) for _ in glob.glob(os.path.join(tempfile.gettempdir(), fname))]
 
 if __name__ == "__main__":
     unittest.main()

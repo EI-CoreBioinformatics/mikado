@@ -50,12 +50,17 @@ def create_connector(json_conf, logger=None):
 
     func = None
     if db_settings["dbtype"] == "sqlite":
+        if database_exists("sqlite://{}".format(db_settings["db"])):
+            logger.warning("No database found, creating a mock one!")
+            create_database("sqlite://{}".format(db_settings["db"]))
         if json_conf["pick"]["run_options"]['shm'] is False:
             logger.debug("Connecting to %s", db_settings["db"])
             func = sqlite3.connect(database=db_settings["db"], check_same_thread=False)
         else:
             logger.debug("Connecting to %s",
                          json_conf["pick"]["run_options"]["shm_db"])
+
+
             func = sqlite3.connect(
                 database=json_conf["pick"]["run_options"]["shm_db"],
                 check_same_thread=False)
@@ -125,5 +130,6 @@ def connect(json_conf, logger=None):
     db_connection = functools.partial(create_connector, json_conf, logger=logger)
     engine = create_engine("{0}://".format(json_conf["db_settings"]["dbtype"]),
                            creator=db_connection)
+    DBBASE.metadata.create_all(engine, checkfirst=True)
 
     return engine

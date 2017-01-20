@@ -644,7 +644,20 @@ class Superlocus(Abstractlocus):
 
         not_passing = self._check_not_passing()
 
-        if len(not_passing) > 0 and self.purge is True:
+        if not not_passing:
+            self.logger.debug("No transcripts to be excluded for %s", self.id)
+            return
+        else:
+            self.logger.debug("%d transcript%s do not pass the requirements for %s",
+                              len(not_passing),
+                              "" if len(not_passing) == 1 else "s",
+                              self.id)
+
+        if self.purge is True:
+            self.logger.debug("Purging %d transcript%s from %s",
+                              len(not_passing),
+                              "" if len(not_passing) == 1 else "s",
+                              self.id)
             tid = not_passing.pop()
             self.transcripts[tid].score = 0
             monosub = Monosublocus(self.transcripts[tid], logger=self.logger)
@@ -658,6 +671,12 @@ class Superlocus(Abstractlocus):
                 self.excluded_transcripts.add_transcript_to_locus(
                     self.transcripts[tid])
                 self.remove_transcript_from_locus(tid)
+        else:
+            self.logger.debug("Keeping %d transcript%s in excluded loci from %s",
+                              len(not_passing),
+                              "" if len(not_passing) == 1 else "s",
+                              self.id)
+
         return
 
     def __reduce_complex_loci(self, transcript_graph):

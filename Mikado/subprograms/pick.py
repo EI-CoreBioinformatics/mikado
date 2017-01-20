@@ -51,9 +51,9 @@ def check_run_options(args):
 
     args.json_conf["pick"]["run_options"]["single_thread"] = args.single
 
-    if args.no_cds is not None:
+    if args.no_cds is not False:
         args.json_conf["pick"]["run_options"]["exclude_cds"] = True
-    if args.purge is not None:
+    if args.purge is not False:
         args.json_conf["pick"]["run_options"]["purge"] = True
 
     if args.flank is not None:
@@ -177,7 +177,7 @@ def pick_parser():
                         it must be provided here.""")
     parser.add_argument("--prefix", type=str, default=None,
                         help="Prefix for the genes. Default: Mikado")
-    parser.add_argument("--no_cds", action="store_true", default=None,
+    parser.add_argument("--no_cds", action="store_true", default=False,
                         help="""Flag. If set, not CDS information
                         will be printed out in the GFF output files.""")
     parser.add_argument('--source', type=str, default=None,

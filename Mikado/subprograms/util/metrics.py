@@ -49,35 +49,54 @@ def launch(args):
         else:
             docstring = textwrap.wrap(docstring, 57)
 
-        met_rows = zip_longest([metric], docstring, [category], [rtype], [usable_raw])
+        met_rows = zip_longest([metric], docstring, [category], [rtype], [str(usable_raw)])
         rows.extend(met_rows)
-        # print("- *{0}*:".format(metric), re.sub(" +", " ", re.sub("\n", " ", docstring)),
-        #       sep="\t", file=args.out)
 
-    separator = None
-    out_of_header = False
-    for row in tabulate.tabulate(rows,
-                            headers=["Metric name", "Description", "Category", "Data type", "Usable raw"],
-                            tablefmt="grid").split("\n"):
-        if row[:2] == "+-":
-            separator = row
-            if not out_of_header:
-                print(row)
-            continue
-        if row[:2] == "+=":
-            out_of_header = True
-            print(row, file=args.out)
-            continue
-        elif out_of_header is False:
-            print(row, file=args.out)
-            continue
-        elif row[:2] != "+-":
-            if row.rstrip().split("|")[1].strip() != "":
-                print(separator, file=args.out)
-            print(row, file=args.out)
-    print(separator, file=args.out)
+    __table_format = tabulate._table_formats[args.format]
 
-    # print(file=args.out)
+    # TableFormat(lineabove=Line("+", "-", "+", "+"),
+    #             linebelowheader=Line("+", "=", "+", "+"),
+    #             linebetweenrows=Line("+", "-", "+", "+"),
+    #             linebelow=Line("+", "-", "+", "+"),
+    #             headerrow=DataRow("|", "|", "|"),
+    #             datarow=DataRow("|", "|", "|"),
+    #             padding=1, with_header_hide=None),
+    # Line = namedtuple("Line", ["begin", "hline", "sep", "end"])
+    #
+    # DataRow = namedtuple("DataRow", ["begin", "sep", "end"])
+
+    if args.format not in ("grid", "fancy_grid"):
+
+        print(tabulate.tabulate(rows,
+                                     headers=["Metric name", "Description", "Category", "Data type", "Usable raw"],
+                                     tablefmt=args.format))
+    else:
+        out_of_header = False
+        separator = None
+
+        for row in tabulate.tabulate(rows,
+                                     headers=["Metric name", "Description", "Category", "Data type", "Usable raw"],
+                                     tablefmt=args.format).split("\n"):
+            if row[:2] == __table_format.lineabove.begin + __table_format.lineabove.hline:
+                separator = row
+                if not out_of_header:
+                    print(row)
+                continue
+            if row[:2] == __table_format.linebelowheader.begin + __table_format.linebelowheader.hline:
+                out_of_header = True
+                print(row, file=args.out)
+                continue
+            elif out_of_header is False:
+                print(row, file=args.out)
+            elif row[:2] == __table_format.linebetweenrows[0] + __table_format.linebetweenrows[1]:
+                continue
+            elif row[0] == __table_format.datarow.begin:
+                if row.strip().split(__table_format.datarow.sep)[1].strip() != "":
+                    print(separator, file=args.out)
+                print(row, file=args.out)
+        print(separator, file=args.out)
+        print(file=args.out)
+    return
 
 
 def metric_parser():
@@ -87,6 +106,7 @@ def metric_parser():
     """
 
     parser = argparse.ArgumentParser("Script to generate the available metrics")
+    parser.add_argument("-f", "--format", choices=tabulate.tabulate_formats, default="rst")
     parser.add_argument("-o", "--out", type=argparse.FileType("w"), default=sys.stdout)
     parser.set_defaults(func=launch)
     return parser

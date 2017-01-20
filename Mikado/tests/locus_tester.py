@@ -373,6 +373,34 @@ class ASeventsTester(unittest.TestCase):
         t2.start = 101
         t2.end = 1600
 
+        # self.t1.add_exons([(101, 500), (601, 700), (1001, 1300), (1401, 1500)],
+        #                   "exon")
+        # self.t1.add_exons([(401, 500), (601, 700), (1001, 1300), (1401, 1440)],
+        #                   "CDS")
+
+        t2.add_exons([(101, 500), (601, 700), (1001, 1300), (1401, 1460), (1501, 1600)],
+                     "exon")
+        t2.add_exons([(401, 500), (601, 700), (1001, 1300), (1401, 1440)],
+                     "CDS")
+        t2.finalize()
+
+        # self.locus.add_transcript_to_locus(t2)
+        self.assertEqual(self.locus.is_alternative_splicing(t2)[:2], (True, "j"))
+        self.locus.json_conf["pick"]["run_options"]["subloci_from_cds_only"] = True
+
+        self.assertEqual(self.locus.is_alternative_splicing(t2)[:2], (False, "="))
+
+    def test_redundant_cds_non_redundant_cdna(self):
+
+        t2 = Transcript()
+        t2.chrom = "Chr1"
+        t2.strand = "+"
+        t2.score = 20
+        t2.id = "G2.1"
+        t2.parent = "G2"
+        t2.start = 101
+        t2.end = 1600
+
         t2.add_exons([(101, 500), (601, 700), (1001, 1300), (1401, 1460), (1501, 1600)],
                      "exon")
         t2.add_exons([(401, 500), (601, 700), (1001, 1300), (1401, 1440)],
@@ -530,11 +558,14 @@ class MonoHolderTester(unittest.TestCase):
         t2.score = 1
         t2.id = "G2.1"
         t2.parent = "G2"
-        t2.start = 1500
+        t2.start = 1400
         t2.end = 3000
-        t2.add_exons([(1500, 1560), (2800, 3000)])
+        t2.add_exons([(1400, 1560), (2800, 3000)])
         t2.finalize()
-        self.assertFalse(MonosublocusHolder.is_intersecting(self.t1, t2, logger=None))
+        for simple_overlap in (True, False):
+            with self.subTest(simple_overlap=simple_overlap):
+                self.assertIs(MonosublocusHolder.is_intersecting(
+                    self.t1, t2, logger=None, simple_overlap=simple_overlap), simple_overlap)
 
     def test_noCDSOverlap(self):
 

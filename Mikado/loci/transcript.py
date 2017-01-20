@@ -1228,10 +1228,6 @@ class Transcript:
 
     @id.setter
     def id(self, newid):
-        """
-        :param newid: a string which will become the ID of the instance.
-        :type newid: str
-        """
 
         if not isinstance(newid, str):
             raise ValueError("Invalid value for id: {0}, type {1}".format(
@@ -1241,9 +1237,7 @@ class Transcript:
 
     @property
     def tid(self):
-        """ID of the transcript - cannot be an undefined value. Alias of id.
-        :rtype str
-        """
+        """ID of the transcript - cannot be an undefined value. Alias of id."""
         return self.id
 
     @tid.setter
@@ -2256,6 +2250,7 @@ index {3}, internal ORFs: {4}".format(
 
     @Metric
     def min_intron_length(self):
+        """This property returns the smallest intron length for the transcript."""
         if len(self.introns) == 0:
             return 0
         return min(intron[1] + 1 - intron[0] for intron in self.introns)

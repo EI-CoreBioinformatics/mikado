@@ -16,6 +16,6 @@ frozendict
 python-magic
 drmaa
 snakemake
-docutils
+docutils!=0.13.1
 tabulate
 ujson

@@ -2734,7 +2734,7 @@ index {3}, internal ORFs: {4}".format(
 
         """This metric will return True if the transcript has mixed splicing or the canonical """
 
-        mixed = self.attributes.get("mixed_splices", False)
+        mixed = bool(self.attributes.get("mixed_splices", False))
         canonical_on_reverse = self.attributes.get("canonical_on_reverse_strand", False)
         if canonical_on_reverse not in (True, False):
             canonical_on_reverse = literal_eval(canonical_on_reverse)

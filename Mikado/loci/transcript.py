@@ -2732,7 +2732,10 @@ index {3}, internal ORFs: {4}".format(
     @Metric
     def suspicious_splicing(self):
 
-        """This metric will return True if the transcript has mixed splicing or the canonical """
+        """This metric will return True if the transcript either has canonical introns
+        on both strands (probably a chimeric artifact between two neighbouring loci,
+        or if it has no canonical splicing event but it would if it were assigned to the opposite strand
+        (probably a strand misassignment on the part of the assembler/predictor)."""
 
         mixed = bool(self.attributes.get("mixed_splices", False))
         canonical_on_reverse = self.attributes.get("canonical_on_reverse_strand", False)

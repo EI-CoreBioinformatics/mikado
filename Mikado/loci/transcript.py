@@ -32,6 +32,7 @@ from .transcript_methods.printing import create_lines_no_cds, create_lines_bed, 
 from .transcript_methods.finalizing import finalize
 import functools
 import builtins
+from ast import literal_eval
 
 
 class Namespace:
@@ -2733,8 +2734,13 @@ index {3}, internal ORFs: {4}".format(
 
         """This metric will return True if the transcript has mixed splicing or the canonical """
 
-        return self.monoexonic is False and (
-            (self.attributes.get("mixed_splices", False) is not False) or self.attributes.get("canonical_on_reverse_strand", False))
+        mixed = self.attributes.get("mixed_splices", False)
+        canonical_on_reverse = self.attributes.get("canonical_on_reverse_strand", False)
+        if canonical_on_reverse not in (True, False):
+            canonical_on_reverse = literal_eval(mixed)
+            self.attributes["canonical_on_reverse_strand"] = canonical_on_reverse
+
+        return self.monoexonic is False and (canonical_on_reverse or mixed)
 
     suspicious_splicing.category = "Intron"
     suspicious_splicing.rtype = "bool"
@@ -2744,7 +2750,7 @@ index {3}, internal ORFs: {4}".format(
 
         """This metric will return True if the canonical_number is 0"""
 
-        return self.monoexonic is False and (self.attributes.get("canonical_number", 1) == 0)
+        return self.monoexonic is False and (int(self.attributes.get("canonical_number", 1)) == 0)
 
     only_non_canonical_splicing.category = "Intron"
     only_non_canonical_splicing.rtype = "bool"
@@ -2770,7 +2776,6 @@ index {3}, internal ORFs: {4}".format(
             return 0
         else:
             return min([_[1] - _[0] + 1 for _ in self.exons])
-
 
     max_exon_length.category = "cDNA"
     max_exon_length.rtype = "int"

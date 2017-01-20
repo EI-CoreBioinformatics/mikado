@@ -11,6 +11,7 @@ import collections
 from ..parsers import to_gff
 from itertools import zip_longest
 from .overlap import overlap
+import gzip
 
 __author__ = 'Luca Venturini'
 
@@ -59,7 +60,7 @@ def memoize(obj):
     return memoizer
 
 
-def merge_partial(filenames, handle, logger=None):
+def merge_partial(filenames, handle, logger=None, gzipped=False):
 
     """This function merges the partial files created by the multiprocessing into a single
     sorted file.
@@ -85,7 +86,10 @@ def merge_partial(filenames, handle, logger=None):
     current_lines = collections.defaultdict(list)
 
     try:
-        fnames = [open(_) for _ in filenames if os.stat(_).st_size > 0]
+        if gzipped is False:
+            fnames = [open(_) for _ in filenames if os.stat(_).st_size > 0]
+        else:
+            fnames = [gzip.open(_, "rt") for _ in filenames if os.stat(_).st_size > 0]
     except FileNotFoundError:
         raise FileNotFoundError(os.listdir(os.path.dirname(filenames[0])))
 

@@ -385,7 +385,7 @@ class ASeventsTester(unittest.TestCase):
         t2.finalize()
 
         # self.locus.add_transcript_to_locus(t2)
-        self.assertEqual(self.locus.is_alternative_splicing(t2)[:2], (True, "j"))
+        self.assertEqual(self.locus.is_alternative_splicing(t2)[:2], (True, "J"))
         self.locus.json_conf["pick"]["run_options"]["subloci_from_cds_only"] = True
 
         self.assertEqual(self.locus.is_alternative_splicing(t2)[:2], (False, "="))

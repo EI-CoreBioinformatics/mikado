@@ -254,9 +254,9 @@ def merge_loci(num_temp, out_handles, prefix="", tempdir="mikado_pick_tmp"):
                         finished.add(_.name)
 
         # Parsing scores and metrics
-        while len(current_lines) > 0:
-            current = min(current_lines.keys())
-            for index, line in current_lines[current]:
+        for current_index in sorted(current_lines.keys()):
+            # current = min(current_lines.keys())
+            for index, line in current_lines[current_index]:
                 fields = line.split("\t")
                 tid, gid = fields[:2]
                 if (index, gid) not in gid_to_new:
@@ -270,7 +270,7 @@ def merge_loci(num_temp, out_handles, prefix="", tempdir="mikado_pick_tmp"):
                 fields[1] = gid_to_new[(index, gid)]
                 line = "\t".join(fields)
                 print(line, file=handle, end="")
-            del current_lines[current]
+            # del current_lines[current]
         [_.close() for _ in filenames]
         [os.remove(_) for _ in finished]
         handle.close()

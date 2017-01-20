@@ -5,7 +5,6 @@
 
 import sys
 from ...loci import Transcript
-import re
 import argparse
 import tabulate
 import textwrap
@@ -68,8 +67,8 @@ def launch(args):
     if args.format not in ("grid", "fancy_grid"):
 
         print(tabulate.tabulate(rows,
-                                     headers=["Metric name", "Description", "Category", "Data type", "Usable raw"],
-                                     tablefmt=args.format))
+                                headers=["Metric name", "Description", "Category", "Data type", "Usable raw"],
+                                tablefmt=args.format))
     else:
         out_of_header = False
         separator = None

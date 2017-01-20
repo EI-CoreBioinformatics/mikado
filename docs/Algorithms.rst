@@ -235,13 +235,17 @@ Metrics belong to one of the following categories:
 
 * **External**: these metrics are derived from accessory data that is recovered for the transcript during the run time. Examples include data regarding the number of introns confirmed by external programs such as PortCullis, or the BLAST score of the best hits.
 
+.. hint:: Starting from version 1 beta8, Mikado allows to use externally defined metrics for the transcripts. These can be accessed using the keyword "external.<name of the metrics>" within the configuration file. See the :ref:`relevant section <external-metrics>` for details.
+
+.. important:: Starting from Mikado 1 beta 8, it is possible to use metrics with values between 0 and 1 directly as scores, without rescaling. This feature is available only
+
 
 +-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
 | Metric name                         | Description                                               | Category    | Data type   | Usable raw   |
 +=====================================+===========================================================+=============+=============+==============+
 +-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
 | tid                                 | ID of the transcript - cannot be an undefined value.      | Descriptive | str         | False        |
-|                                     | Alias of id. :rtype str                                   |             |             |              |
+|                                     | Alias of id.                                              |             |             |              |
 +-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
 | parent                              | Name of the parent feature of the transcript.             | Descriptive | str         | False        |
 +-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
@@ -344,10 +348,17 @@ Metrics belong to one of the following categories:
 +-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
 | is_complete                         | Boolean. True if the selected ORF has both start and end. | CDS         | bool        | False        |
 +-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
+| max_exon_length                     | This metric will return the length of the biggest exon in | cDNA        | int         | False        |
+|                                     | the transcript.                                           |             |             |              |
++-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
 | max_intron_length                   | This property returns the greatest intron length for the  | Intron      | int         | False        |
 |                                     | transcript.                                               |             |             |              |
 +-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
-| min_intron_length                   |                                                           | Intron      | int         | False        |
+| min_exon_length                     | This metric will return the length of the biggest exon in |             |             | False        |
+|                                     | the transcript.                                           |             |             |              |
++-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
+| min_intron_length                   | This property returns the smallest intron length for the  | Intron      | int         | False        |
+|                                     | transcript.                                               |             |             |              |
 +-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
 | non_verified_introns_num            | This metric returns the number of introns of the          | External    | int         | False        |
 |                                     | transcript which are not validated by external data.      |             |             |              |
@@ -435,8 +446,12 @@ Metrics belong to one of the following categories:
 |                                     | combined CDS from the transcript start site. If no CDS is |             |             |              |
 |                                     | defined, it defaults to 0.                                |             |             |              |
 +-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
-| suspicious_splicing                 | This metric will return True if the transcript has mixed  | Intron      | bool        | False        |
-|                                     | splicing or the canonical                                 |             |             |              |
+| suspicious_splicing                 | This metric will return True if the transcript either has | Intron      | bool        | False        |
+|                                     | canonical introns on both strands (probably a chimeric    |             |             |              |
+|                                     | artifact between two neighbouring loci, or if it has no   |             |             |              |
+|                                     | canonical splicing event but it would if it were assigned |             |             |              |
+|                                     | to the opposite strand (probably a strand misassignment   |             |             |              |
+|                                     | on the part of the assembler/predictor).                  |             |             |              |
 +-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
 | three_utr_length                    | Returns the length of the 5' UTR of the selected ORF.     |             | int         | False        |
 +-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
@@ -462,6 +477,14 @@ Metrics belong to one of the following categories:
 |                                     | transcript which are validated by external data.          |             |             |              |
 +-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
 
+.. _external-metrics:
+
+External metrics
+~~~~~~~~~~~~~~~~
+
+Starting from version 1 beta 8, Mikado allows to load external metrics into the database, to be used for evaluating transcripts. Metrics of this kind **must** have a value comprised between 0 and 1.
+
+
 Technical details
 ~~~~~~~~~~~~~~~~~
 
@@ -469,7 +492,7 @@ Most of the selection (ie "pick") stage of the pipeline relies on the implementa
 The scoring is effectuated by first asking to recalculate the metrics (.calculate_metrics) and subsequently
 to calculate the scores (.calculate_scores). Mikado will try to cache and avoid recalculation of metrics and scores as much as possible, to make the program faster.
 
-Metrics are an extension of the ``property`` construct in Python3. Compared to normal properties, they are distinguished only by the optional ``category`` attribute, whose function is only descriptive. The main reason to subclass ``property`` is to allow Mikado to be self-aware of which properties will be used for scoring transcripts, and which will not. So, for example, in the following snippet from the :ref:`Transcript class definition <transcript-class>`:
+Metrics are an extension of the ``property`` construct in Python3. Compared to normal properties, they are distinguished only by three optional descriptive attributes: ``category``, ``usable_raw``, and ``rtype``. The main reason to subclass ``property`` is to allow Mikado to be self-aware of which properties will be used for scoring transcripts, and which will not. So, for example, in the following snippet from the :ref:`Transcript class definition <transcript-class>`:
 
 .. code-block:: python
 

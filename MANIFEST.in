@@ -1,6 +1,7 @@
 include DESCRIPTION.md
 include README.md
 include AUTHORS
+include CHANGELOG.md
 include requirements.txt
 recursive-include . *py
 recursive-include Mikado *pyx

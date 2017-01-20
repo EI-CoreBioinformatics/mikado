@@ -1,4 +1,4 @@
-#Version 1.0.0beta8 - "External scores"
+#Version 1.0.0beta9 - "External scores"
 
 Changes in this release:
 

@@ -372,9 +372,6 @@ def serialise_parser():
                        help="Maximum number of target sequences.")
     blast.add_argument("--blast_targets", default=[], type=comma_split,
                        help="Target sequences")
-    blast.add_argument("--discard-definition", action="store_true", default=False,
-                       help="""Flag. If set, the sequences IDs instead of their definition
-                       will be used for serialisation.""")
     blast.add_argument("--xml", type=str, help="""XML file(s) to parse.
     They can be provided in three ways:
     - a comma-separated list

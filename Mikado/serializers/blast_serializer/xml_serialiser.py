@@ -41,13 +41,11 @@ class _XmlPickler(multiprocessing.Process):
                  logging_queue,
                  level="WARN",
                  max_target_seqs=10,
-                 maxobjects=20000,
-                 discard_definition=False):
+                 maxobjects=20000):
 
         super().__init__()
         self.queries = queries
         self.targets = targets
-        self.discard_definition = discard_definition
         self.level = level
         self.logging_queue = logging_queue
         self.handler = logging_handlers.QueueHandler(logging_queue)
@@ -63,12 +61,6 @@ class _XmlPickler(multiprocessing.Process):
         self.maxobjects = maxobjects
         self.__max_target_seqs = max_target_seqs
         self.logger.debug("Started %s", self.name)
-
-        # self._pickler = functools.partial(_pickle_xml,
-        #                                   **{"default_header": self.default_header,
-        #                                      "maxobjects": self.maxobjects,
-        #                                      "logging_queue": self.logging_queue,
-        #                                      "level": self.level})
 
     def __getstate__(self):
 
@@ -90,11 +82,6 @@ class _XmlPickler(multiprocessing.Process):
         self.logger = logging.getLogger(self.name)
         self.logger.addHandler(self.handler)
         self.logger.setLevel(self.level)
-        # self._pickler = functools.partial(_pickle_xml,
-        #                                   **{"default_header": self.default_header,
-        #                                    "maxobjects": self.maxobjects,
-        #                                    "logging_queue": self.logging_queue,
-        #                                    "level": self.level})
 
     def _pickler(self, filename):
 
@@ -114,7 +101,8 @@ class _XmlPickler(multiprocessing.Process):
                 try:
                     for record in opened:
                         query_counter += 1
-                        hits, hsps = self.objectify_record(record, hits, hsps)
+                        hits, hsps = objectify_record(self, record, hits, hsps,
+                                                      max_target_seqs=self.__max_target_seqs)
 
                         if len(hits) + len(hsps) > self.maxobjects:
                             pickle_temp = tempfile.mkstemp(suffix=".pickle",
@@ -145,64 +133,6 @@ class _XmlPickler(multiprocessing.Process):
         # pfiles.append()
         self.logger.info("Finished pickling %s in %s subsection", filename, pickle_count)
         # del records
-
-    def objectify_record(self, record, hits, hsps):
-        """
-        Private method to serialise a single record into the DB.
-
-        :param record: The BLAST record to load into the DB.
-        :param hits: Cache of hits to load into the DB.
-        :type hits: list
-
-        :param hsps: Cache of hsps to load into the DB.
-        :type hsps: list
-
-        :returns: hits, hsps
-        :rtype: (list, list)
-        """
-
-        if len(record.hits) == 0:
-            return hits, hsps
-
-        current_query, name = _get_query_for_blast(self, record)
-
-        current_evalue = -1
-        current_counter = 0
-
-        # for ccc, alignment in enumerate(record.alignments):
-        for ccc, alignment in enumerate(record.hits):
-            if ccc + 1 > self.__max_target_seqs:
-                break
-
-            self.logger.debug("Started the hit %s vs. %s",
-                              # name, record.alignments[ccc].accession)
-                              name, record.hits[ccc].id)
-            current_target = _get_target_for_blast(self, alignment)
-
-            hit_dict_params = dict()
-            (hit_dict_params["query_multiplier"],
-             hit_dict_params["target_multiplier"]) = XmlSerializer.get_multipliers(record)
-            hit_evalue = min(_.evalue for _ in record.hits[ccc].hsps)
-            hit_bs = max(_.bitscore for _ in record.hits[ccc].hsps)
-            if current_evalue < hit_evalue:
-                current_counter += 1
-                current_evalue = hit_evalue
-
-            hit_dict_params["hit_number"] = current_counter
-            hit_dict_params["evalue"] = hit_evalue
-            hit_dict_params["bits"] = hit_bs
-
-            # Prepare for bulk load
-            try:
-                hit, hit_hsps = prepare_hit(alignment, current_query,
-                                            current_target, **hit_dict_params)
-            except InvalidHit as exc:
-                self.logger.error(exc)
-                continue
-            hits.append(hit)
-            hsps.extend(hit_hsps)
-
-        return hits, hsps
 
     def run(self):
         """
@@ -296,7 +226,6 @@ class XmlSerializer:
         self.log_writer = logging_handlers.QueueListener(self.logging_queue, self.logger)
         self.log_writer.start()
 
-        self.discard_definition = json_conf["serialise"]["discard_definition"]
         self.__max_target_seqs = json_conf["serialise"]["max_target_seqs"]
         self.maxobjects = json_conf["serialise"]["max_objects"]
         target_seqs = json_conf["serialise"]["files"]["blast_targets"]
@@ -318,13 +247,15 @@ class XmlSerializer:
         self.__determine_sequences(query_seqs, target_seqs)
         self.xml = xml_name
         # Just a mock definition
-        self.get_query = functools.partial(self.__get_query_for_blast)
+        # self.get_query = functools.partial(self.__get_query_for_blast)
         self.not_pickable = ["manager", "printer_process",
                              "context", "logger_queue_handler", "queue_logger",
                              "log_writer",
                              "log_process", "pool", "main_logger",
                              "log_handler", "log_writer", "logger", "session",
                              "get_query", "engine", "query_seqs", "target_seqs"]
+
+        self.queries, self.targets = dict(), dict()
 
         self.logger.info("Finished __init__")
 
@@ -362,17 +293,6 @@ class XmlSerializer:
                 raise ValueError("{} not found!".format(target))
             self.target_seqs.append(pyfaidx.Fasta(target))
 
-        # if isinstance(target_seqs, str):
-        #     assert os.path.exists(target_seqs)
-        #     self.target_seqs = pyfaidx.Fasta(target_seqs)
-        # elif target_seqs is None:
-        #     self.target_seqs = None
-        # else:
-        #     self.logger.warn("Target (%s) type: %s",
-        #                      target_seqs,
-        #                      type(target_seqs))
-        #     # assert "SeqIO.index" in repr(target_seqs)
-        #     self.target_seqs = target_seqs
         return
 
     def __serialize_queries(self, queries):
@@ -399,8 +319,7 @@ class XmlSerializer:
                 "query_name": record,
                 "query_length": len(self.query_seqs[record])
             })
-            #
-            # objects.append(Target(record, len(self.target_seqs[record])))
+
             if len(objects) >= self.maxobjects:
                 self.logger.info("Loading %d objects into the \"query\" table (total %d)",
                                  self.maxobjects, counter)
@@ -414,25 +333,16 @@ class XmlSerializer:
                 self.session.commit()
                 counter += len(objects)
                 objects = []
-                # pylint: disable=no-member
-                # # pylint: enable=no-member
-                # self.logger.info("Loaded %d objects into the \"target\" table",
-                #                  len(objects))
-                # objects = []
+
         if len(objects) > 0:
             self.logger.info("Loading %d objects into the \"query\" table (total %d)",
                              len(objects), counter+len(objects))
             # pylint: disable=no-member
-            # self.engine.execute(Target.__table__.insert(),
-            #                     [{"target_name": obj.target_name,
-            #                       "target_length": obj.target_length} for obj in objects])
             counter += len(objects)
             # pylint: disable=no-member
             self.session.begin()
-            # self.session.bulk_insert_mappings(Query, objects)
             self.engine.execute(Query.__table__.insert(), objects)
             # pylint: enable=no-member
-            # self.session.bulk_insert_mappings(Query, objects)
             self.session.commit()
             # pylint: enable=no-member
             self.logger.info("Loaded %d objects into the \"query\" table", counter)
@@ -520,6 +430,7 @@ class XmlSerializer:
         if self.query_seqs is not None:
             queries = self.__serialize_queries(queries)
             assert len(queries) > 0
+
         return queries, targets
 
     def __load_into_db(self, hits, hsps, force=False):
@@ -562,104 +473,21 @@ class XmlSerializer:
             hits, hsps = [], []
         return hits, hsps
 
-    def __serialise_record(self, record, hits, hsps, targets):
-        """
-        Private method to serialise a single record into the DB.
-
-        :param record: The BLAST record to load into the DB.
-        :param hits: Cache of hits to load into the DB.
-        :type hits: list
-
-        :param hsps: Cache of hsps to load into the DB.
-        :type hsps: list
-
-        :param targets: dictionary which holds the relationship target ID/name.
-         It can be updated in place if a target has not been serialised already.
-
-        :returns: hits, hsps, hit_counter, targets
-        :rtype: (list, list, int, dict)
-        """
-
-        hit_counter = 0
-
-        if len(record.hits) == 0:
-            return hits, hsps, hit_counter, targets
-
-        current_query, name = self.get_query(record)
-
-        current_evalue = -1
-        current_counter = 0
-
-        # for ccc, alignment in enumerate(record.alignments):
-        for ccc, alignment in enumerate(record.hits):
-            if ccc + 1 > self.__max_target_seqs:
-                break
-
-            self.logger.debug("Started the hit %s vs. %s",
-                              # name, record.alignments[ccc].accession)
-                              name, record.hits[ccc].id)
-            try:
-                current_target, targets = self.__get_target_for_blast(alignment,
-                                                                      targets)
-            except sqlalchemy.exc.IntegrityError as exc:
-                self.session.rollback()
-                self.logger.exception(exc)
-                continue
-
-            hit_counter += 1
-
-            hit_dict_params = dict()
-            (hit_dict_params["query_multiplier"],
-             hit_dict_params["target_multiplier"]) = self.get_multipliers(record)
-            hit_evalue = min(_.evalue for _ in record.hits[ccc].hsps)
-            hit_bs = max(_.bitscore for _ in record.hits[ccc].hsps)
-            if current_evalue < hit_evalue:
-                current_counter += 1
-                current_evalue = hit_evalue
-
-            hit_dict_params["hit_number"] = current_counter
-            hit_dict_params["evalue"] = hit_evalue
-            hit_dict_params["bits"] = hit_bs
-
-            # Prepare for bulk load
-            try:
-                hit, hit_hsps = prepare_hit(alignment,
-                                            current_query,
-                                            current_target,
-                                            **hit_dict_params)
-            except InvalidHit as exc:
-                self.logger.error(exc)
-                continue
-
-            hits.append(hit)
-            hsps.extend(hit_hsps)
-
-            hits, hsps = self.__load_into_db(hits, hsps, force=False)
-
-        return hits, hsps, hit_counter, targets
-
     def serialize(self):
 
         """Method to serialize the BLAST XML file into a database
         provided with the __init__ method """
 
         # Load sequences in DB, precache IDs
-        queries, targets = self.__serialise_sequences()
+        self.queries, self.targets = self.__serialise_sequences()
         if isinstance(self.xml, str):
             self.xml = [self.xml]
-            # self.xml_parser = xparser(create_opener(self.xml))
         else:
             assert isinstance(self.xml, (list, set))
-            # if len(self.xml) < 1:
-            #     raise ValueError("No input file provided!")
-            # elif len(self.xml) == 1:
-            #     self.xml_parser = xparser(create_opener(list(self.xml)[0]))
-            # else:
-            #     self.xml_parser = xparser(XMLMerger(self.xml))  # Merge in memory
 
         # Create the function that will retrieve the query_id given the name
-        self.get_query = functools.partial(self.__get_query_for_blast,
-                                           **{"queries": queries})
+        # self.get_query = functools.partial(self.__get_query_for_blast,
+        #                                    **{"queries": self.queries})
 
         hits, hsps = [], []
         hit_counter, record_counter = 0, 0
@@ -685,16 +513,10 @@ class XmlSerializer:
                             record_counter += 1
                             if record_counter > 0 and record_counter % 10000 == 0:
                                 self.logger.info("Parsed %d queries", record_counter)
-                            (hits,
-                             hsps,
-                             partial_hit_counter,
-                             targets) = self.__serialise_record(record,
-                                                                hits,
-                                                                hsps,
-                                                                targets)
-                            hit_counter += partial_hit_counter
-                            if hit_counter > 0 and hit_counter % 10000 == 0:
-                                self.logger.info("Serialized %d alignments", hit_counter)
+                            hits, hsps = objectify_record(self, record, hits, hsps,
+                                                          max_target_seqs=self.__max_target_seqs)
+
+                            hits, hsps = load_into_db(self, hits, hsps, force=False)
                     self.logger.debug("Finished %s", filename)
                 except ExpatError:
                     self.logger.error("%s is an invalid BLAST file, saving what's available",
@@ -706,21 +528,12 @@ class XmlSerializer:
             self.logger.info("Creating a pool with %d processes",
                              min(self.procs, len(self.xml)))
 
-            # pool = multiprocessing.Pool(min(self.procs, len(self.xml)))
-            # args = zip(
-            #     self.xml,
-            #     [self.header] * len(self.xml),
-            #     [self.maxobjects] * len(self.xml),
-            #     [self.logging_queue] * len(self.xml),
-            #     [self.json_conf["log_settings"]["log_level"]] * len(self.xml)
-            # )
-
             filequeue = multiprocessing.Queue(-1)
             returnqueue = multiprocessing.Queue(-1)
 
             procs = [_XmlPickler(
-                queries,
-                targets,
+                self.queries,
+                self.targets,
                 filequeue,
                 returnqueue,
                 self.header,
@@ -728,7 +541,6 @@ class XmlSerializer:
                 logging_queue=self.logging_queue,
                 # level=self.logger.level,
                 level=self.json_conf["log_settings"]["log_level"],
-                discard_definition=self.discard_definition,
                 maxobjects=int(self.maxobjects/self.procs),
                 max_target_seqs=self.__max_target_seqs
             )
@@ -764,22 +576,6 @@ class XmlSerializer:
                         hits, hsps = load_into_db(self, hits, hsps, force=False)
                         if record_counter > 0 and record_counter % 10000 == 0:
                             self.logger.info("Parsed %d queries", record_counter)
-                        # for record in pickle.load(pickled):
-                        #     record_counter += 1
-                        #     if
-                        #
-                        #
-                        #     # (hits,
-                        #     #  hsps,
-                        #     #  partial_hit_counter,
-                        #     #  targets) = self.__serialise_record(record,
-                        #     #                                     hits,
-                        #     #                                     hsps,
-                        #     #                                     targets)
-                        #
-                        #     # hit_counter += partial_hit_counter
-                        #     if hit_counter > 0 and hit_counter % 10000 == 0:
-                        #         self.logger.info("Serialized %d alignments", hit_counter)
                     os.remove(pickle_file)
             [_.join() for _ in procs]  # Wait for processes to join
             self.logger.info("All %d children finished", len(procs))
@@ -830,74 +626,74 @@ class XmlSerializer:
 
         return q_mult, h_mult
 
-    def __get_query_for_blast(self, record, queries):
-
-        """ This private method formats the name of the query
-        recovered from the BLAST hit, verifies whether it is present or not
-        in the DB, and moreover whether the data can be updated (e.g.
-        by adding the query length)
-        :param record:
-        :param queries:
-        :return: current_query (ID in the database), name
-        """
-
-        if self.discard_definition is False:
-            name = record.id.split()[0]
-        else:
-            name = record.id
-        self.logger.debug("Started with %s", name)
-
-        if name in queries:
-            try:
-                current_query = queries[name][0]
-            except TypeError as exc:
-                raise TypeError("{0}, {1}".format(exc, name))
-            if queries[name][1] is False:
-                self.session.query(Query).filter(Query.query_name == name).update(
-                    {"query_length": record.query_length})
-                self.session.commit()
-        else:
-            self.logger.warn("%s not found among queries, adding to the DB now",
-                             name)
-            current_query = Query(name, record.query_length)
-            self.session.add(current_query)
-            self.session.commit()
-            queries[name] = (current_query.query_id, True)
-            current_query = current_query.query_id
-        return current_query, name
-
-    def __get_target_for_blast(self, alignment, targets):
-
-        """ This private method retrieves the correct target_id
-        key for the target of the BLAST. If the entry is not present
-        in the database, it will be created on the fly.
-        The method returns the index of the current target and
-        and an updated target dictionary.
-        :param alignment: an alignment child of a BLAST record object
-        :param targets: dictionary caching the known targets
-        :return: current_target (ID in the database), targets
-        """
-
-        if alignment.accession in targets:
-            current_target = targets[alignment.accession][0]
-            if targets[alignment.accession][1] is False:
-                self.session.query(Target).filter(
-                    Target.target_name == alignment.accession).\
-                    update({"target_length": alignment.length})
-                self.session.commit()
-                targets[alignment.accession] = (targets[alignment.accession][0],
-                                                True)
-        else:
-            current_target = Target(alignment.accession,
-                                    alignment.length)
-            self.logger.warn("%s not found among targets, adding to the DB now",
-                             alignment.accession)
-            self.session.add(current_target)
-            self.session.commit()
-            assert isinstance(current_target.target_id, int)
-            targets[alignment.accession] = (current_target.target_id, True)
-            current_target = current_target.target_id
-        return current_target, targets
+    # def __get_query_for_blast(self, record, queries):
+    #
+    #     """ This private method formats the name of the query
+    #     recovered from the BLAST hit, verifies whether it is present or not
+    #     in the DB, and moreover whether the data can be updated (e.g.
+    #     by adding the query length)
+    #     :param record:
+    #     :param queries:
+    #     :return: current_query (ID in the database), name
+    #     """
+    #
+    #     if self.discard_definition is False:
+    #         name = record.id.split()[0]
+    #     else:
+    #         name = record.id
+    #     self.logger.debug("Started with %s", name)
+    #
+    #     if name in queries:
+    #         try:
+    #             current_query = queries[name][0]
+    #         except TypeError as exc:
+    #             raise TypeError("{0}, {1}".format(exc, name))
+    #         if queries[name][1] is False:
+    #             self.session.query(Query).filter(Query.query_name == name).update(
+    #                 {"query_length": record.query_length})
+    #             self.session.commit()
+    #     else:
+    #         self.logger.warn("%s not found among queries, adding to the DB now",
+    #                          name)
+    #         current_query = Query(name, record.query_length)
+    #         self.session.add(current_query)
+    #         self.session.commit()
+    #         queries[name] = (current_query.query_id, True)
+    #         current_query = current_query.query_id
+    #     return current_query, name
+    #
+    # def __get_target_for_blast(self, alignment, targets):
+    #
+    #     """ This private method retrieves the correct target_id
+    #     key for the target of the BLAST. If the entry is not present
+    #     in the database, it will be created on the fly.
+    #     The method returns the index of the current target and
+    #     and an updated target dictionary.
+    #     :param alignment: an alignment child of a BLAST record object
+    #     :param targets: dictionary caching the known targets
+    #     :return: current_target (ID in the database), targets
+    #     """
+    #
+    #     if alignment.accession in targets:
+    #         current_target = targets[alignment.accession][0]
+    #         if targets[alignment.accession][1] is False:
+    #             self.session.query(Target).filter(
+    #                 Target.target_name == alignment.accession).\
+    #                 update({"target_length": alignment.length})
+    #             self.session.commit()
+    #             targets[alignment.accession] = (targets[alignment.accession][0],
+    #                                             True)
+    #     else:
+    #         current_target = Target(alignment.accession,
+    #                                 alignment.length)
+    #         self.logger.warn("%s not found among targets, adding to the DB now",
+    #                          alignment.accession)
+    #         self.session.add(current_target)
+    #         self.session.commit()
+    #         assert isinstance(current_target.target_id, int)
+    #         targets[alignment.accession] = (current_target.target_id, True)
+    #         current_target = current_target.target_id
+    #     return current_target, targets
 
 # pylint: enable=too-many-instance-attributes
 
@@ -950,14 +746,18 @@ def _get_query_for_blast(self, record):
     :return: current_query (ID in the database), name
     """
 
-    if self.discard_definition is False:
-        name = record.id.split()[0]
-    else:
+    if record.id in self.queries:
         name = record.id
+    else:
+        name = record.id.split()[0]
+        if name not in self.queries:
+            raise KeyError("{} not found in the queries!".format(record))
+
     self.logger.debug("Started with %s", name)
 
-    if name not in self.queries or self.queries[name][1] is False:
+    if self.queries[name][1] is False:
         raise KeyError("{} not found in the queries!".format(record))
+
     current_query = self.queries[name][0]
     return current_query, name
 
@@ -972,13 +772,71 @@ def _get_target_for_blast(self, alignment):
     :return: current_target (ID in the database), targets
     """
 
-    if self.discard_definition:
+    if alignment.accession in self.targets:
         accession = alignment.accession
-    else:
+    elif alignment.id in self.targets:
         accession = alignment.id
-
-    if accession not in self.targets:
+    else:
         raise KeyError("{} not found in the targets!".format(alignment.accession))
 
     current_target = self.targets[accession][0]
     return current_target
+
+
+def objectify_record(self, record, hits, hsps, max_target_seqs=10000):
+    """
+    Private method to serialise a single record into the DB.
+
+    :param record: The BLAST record to load into the DB.
+    :param hits: Cache of hits to load into the DB.
+    :type hits: list
+
+    :param hsps: Cache of hsps to load into the DB.
+    :type hsps: list
+
+    :returns: hits, hsps
+    :rtype: (list, list)
+    """
+
+    if len(record.hits) == 0:
+        return hits, hsps
+
+    current_query, name = _get_query_for_blast(self, record)
+
+    current_evalue = -1
+    current_counter = 0
+
+    # for ccc, alignment in enumerate(record.alignments):
+    for ccc, alignment in enumerate(record.hits):
+        if ccc + 1 > max_target_seqs:
+            break
+
+        self.logger.debug("Started the hit %s vs. %s",
+                          # name, record.alignments[ccc].accession)
+                          name, record.hits[ccc].id)
+        current_target = _get_target_for_blast(self, alignment)
+
+        hit_dict_params = dict()
+        (hit_dict_params["query_multiplier"],
+         hit_dict_params["target_multiplier"]) = XmlSerializer.get_multipliers(record)
+        hit_evalue = min(_.evalue for _ in record.hits[ccc].hsps)
+        hit_bs = max(_.bitscore for _ in record.hits[ccc].hsps)
+        if current_evalue < hit_evalue:
+            current_counter += 1
+            current_evalue = hit_evalue
+
+        hit_dict_params["hit_number"] = current_counter
+        hit_dict_params["evalue"] = hit_evalue
+        hit_dict_params["bits"] = hit_bs
+
+        # Prepare for bulk load
+        try:
+            hit, hit_hsps = prepare_hit(alignment, current_query,
+                                        current_target, **hit_dict_params)
+        except InvalidHit as exc:
+            self.logger.error(exc)
+            continue
+        hits.append(hit)
+        hsps.extend(hit_hsps)
+
+    return hits, hsps

@@ -22,7 +22,7 @@ from ..serializers import orf, blast_serializer, junction
 from ..serializers import external
 from ..exceptions import InvalidJson
 import pyfaidx
-from csv import DictReader
+# from csv import DictReader
 
 __author__ = 'Luca Venturini'
 

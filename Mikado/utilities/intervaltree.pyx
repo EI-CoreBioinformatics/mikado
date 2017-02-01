@@ -99,6 +99,16 @@ cdef class IntervalNode:
         self.cright   = EmptyNode
         self.croot    = EmptyNode
 
+    def __getstate__(self):
+       state = []
+       state.append(self.priority)
+       state.append(self.start)
+
+
+
+    def __setstate__(self, state):
+       pass
+
     cpdef IntervalNode insert(IntervalNode self, int start, int end, object interval):
         """
         Insert a new IntervalNode into the tree of which this node is
@@ -340,6 +350,14 @@ cdef class Interval:
 
         return iter([self.start, self.end])
 
+    def __getstate__(self):
+
+        return [self.start, self.end, self.value, self.chrom, self.strand]
+
+    def __setstate__(self, state):
+
+        self.start, self.end, self.value, self.chrom, self.strand = state
+
 
 cdef class IntervalTree:
     """
@@ -400,6 +418,17 @@ cdef class IntervalTree:
     def __cinit__( self ):
         root = None
         num_intervals = 0
+
+    # ---- Pickling ------
+
+    def __getstate__(self):
+
+        return [self.root, self.num_intervals]
+
+    def __setstate__(self, state):
+
+        self.root, self.num_intervals = state
+
 
     # ---- Position based interfaces -----------------------------------------
 

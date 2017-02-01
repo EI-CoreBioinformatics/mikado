@@ -507,7 +507,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
         cds_segments = sorted(transcript.cds_tree.search(*exon))
         terminal = bool(set.intersection(
-            {*exon},
+            set(exon),
             {transcript.start, transcript.end, transcript.combined_cds_end, transcript.combined_cds_start}))
         if cds_segments == [Interval(*exon)]:
             # It is completely coding

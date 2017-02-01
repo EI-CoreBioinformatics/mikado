@@ -366,7 +366,7 @@ class Calculator:
                 moder = array[sorter][weights[sorter].searchsorted(weights.max()):]
             except TypeError as exc:
                 raise TypeError((exc, array, weights, sorter))
-            row["Mode"] = ";".join(str(x) for x in moder)
+            row["Mode"] = ";".join(str(x) for x in sorted(moder))
         else:
             row["Average"] = "NA"
             row["Mode"] = "NA"

@@ -317,7 +317,6 @@ class Transcript:
         self.__expandable = False
         self.__segmenttree = IntervalTree()
         self.__cds_introntree = IntervalTree()
-        self.__introntree = IntervalTree()
         self._possibly_without_exons = False
         # self.query_id = None
 
@@ -461,7 +460,11 @@ class Transcript:
 
         logger = self.logger
         del self.logger
-        state = copy.deepcopy(self.__dict__)
+
+        state = copy.deepcopy(dict((key, val) for key, val in self.__dict__.items()
+                                   if key not in ("_Transcript__segmenttree",
+                                                  "_Transcript__cds_introntree",
+                                                  "_Transcript__cds_tree")))
         self.logger = logger
 
         if hasattr(self, "json_conf") and self.json_conf is not None:
@@ -485,25 +488,14 @@ class Transcript:
             del state["blast_baked"]
             del state["query_baked"]
 
-        # import pickle
-        # try:
-        #     _ = pickle.dumps(state)
-        # except (pickle.PicklingError, TypeError):
-        #     failed = []
-        #     for obj in state:
-        #         try:
-        #             _ = pickle.dumps(state[obj])
-        #         except (pickle.PicklingError, TypeError):
-        #             failed.append(obj)
-        #
-        #     raise pickle.PicklingError("Failed to serialise {}, because of the following fields: {}".format(
-        #         self.id,
-        #     "\t\n".join([""]+failed)))
-
         return state
 
     def __setstate__(self, state):
         self.__dict__.update(state)
+        self.__cds_tree = IntervalTree()
+        self.__segmenttree = IntervalTree()
+        self.__cds_introntree = IntervalTree()
+
         # Set the logger to NullHandler
         self.logger = None
 
@@ -1703,18 +1695,6 @@ class Transcript:
             self.__cds_introntree = IntervalTree.from_tuples(
                 [(_[0], _[1] + 1) for _ in self.combined_cds_introns])
         return self.__cds_introntree
-
-    @property
-    def _introntree(self):
-
-        """
-        :rtype: intervaltree.IntervalTree
-        """
-
-        if len(self.__introntree) != len(self.introns):
-            self.__cds_introntree = IntervalTree.from_tuples(
-                [(_[0], _[1] + 1) for _ in self.introns])
-        return self.__introntree
 
     @property
     def selected_cds(self):

@@ -356,7 +356,7 @@ class ConfigureCheck(unittest.TestCase):
         conf = Mikado.configuration.configurator.check_json(conf)
         os.remove(out)
 
-    @unittest.skipUnless((sys.version_info.minor>4),
+    @unittest.skipUnless((sys.version_info.minor > 4),
                          "Due to a bug in JSONSCHEMA, Daijin configure fails with Python versions lower than 3.5.")
     def test_daijin_config(self):
 

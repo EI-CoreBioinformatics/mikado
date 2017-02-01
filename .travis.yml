@@ -3,6 +3,21 @@ python:
   - "3.4"
   - "3.5"
   - "3.6"
-install: "pip install -r requirements.txt"
+# Setup anaconda, see https://gist.github.com/dan-blanchard/7045057
+before_install:
+  -  wget https://repo.continuum.io/miniconda/Miniconda3-4.2.12-Linux-x86_64.sh -O miniconda.sh
+  - chmod +x miniconda.sh
+  - ./miniconda.sh -b
+  - export PATH=/home/travis/miniconda/bin:$PATH
+  - conda update --yes conda
+  # The next couple lines fix a crash with multiprocessing on Travis and are not specific to using Miniconda
+  - sudo rm -rf /dev/shm
+  - sudo ln -s /run/shm /dev/shm
+# Install packages
+install:
+  - conda create --yes -n env_name python=$TRAVIS_PYTHON_VERSION
+  - source activate env_name
+  - conda install --yes setuptools cython atlas numpy scipy scikit-learn biopython
+  - pip install -r requirements.txt
 script:
-  - "python3 setup.py nosetests -exe;"
+  - python setup.py nosetests -exe;

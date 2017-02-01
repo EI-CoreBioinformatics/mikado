@@ -3,6 +3,8 @@ This module provides the functions needed to check a transcript for consinstency
 e.g. reliability of the CDS/UTR, sanity of borders, etc.
 """
 
+
+from Mikado.utilities.intervaltree import IntervalTree
 import intervaltree
 import operator
 from ...exceptions import InvalidCDS, InvalidTranscript
@@ -607,7 +609,8 @@ def finalize(transcript):
             internal_cds[0] == "CDS")
 
     # Create the interval tree
-    transcript.cds_tree = None
+    transcript.cds_tree = IntervalTree.from_tuples(
+                [(cds[0], max(cds[1], cds[0] + 1)) for cds in transcript.combined_cds])
 
     # BUG somewhere ... I am not sorting this properly before (why?)
     transcript.exons = sorted(transcript.exons)

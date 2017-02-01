@@ -14,6 +14,7 @@ from Mikado.parsers.GTF import GtfLine
 from Mikado.loci import Transcript, Superlocus, Abstractlocus, Locus, MonosublocusHolder, Sublocus
 from Mikado.utilities.log_utils import create_null_logger, create_default_logger
 from Mikado.utilities import overlap
+from Mikado.utilities.intervaltree import Interval
 import Mikado.loci
 import pickle
 
@@ -921,14 +922,23 @@ class RetainedIntronTester(unittest.TestCase):
                       ], features="CDS")
         t2.finalize()
 
-        sup = Superlocus(t1, json_conf=self.my_json)
-        sup.add_transcript_to_locus(t2)
+        t3 = Transcript()
+        t3.chrom, t3.strand, t3.id = 1, "+", "t3"
+        t3.add_exons([(101, 500), (801, 970), (1100, 1180)])
+        t3.add_exons([(101, 500), (801, 970), (1100, 1130)], features="CDS")
+        t3.finalize()
 
-        sup.find_retained_introns(t2)
+        for pred, retained in [(t2, True), (t3, False)]:
+            with self.subTest(pred=pred, retained=retained):
+                sup = Superlocus(t1, json_conf=self.my_json)
+                sup.add_transcript_to_locus(pred)
+                sup.json_conf["pick"]["run_options"]["consider_truncated_for_retained"] = True
+                sup.find_retained_introns(pred)
+                self.assertEqual((len(sup.transcripts[pred.id].retained_introns) > 0),
+                                 retained)
 
-        self.assertEqual(sup.transcripts["t2"].retained_introns, ((1201, 1600),))
 
-    def test_real_retained_pos_truncated(self):
+    def test_retained_pos_truncated(self):
         """Here we verify that a real retained intron is called as such,
         even when the transcript is truncated."""
 
@@ -952,13 +962,20 @@ class RetainedIntronTester(unittest.TestCase):
         t2.finalize()
         self.assertEqual(t2.combined_cds_end, 1420)
 
-        sup = Superlocus(t1, json_conf=self.my_json)
-        sup.add_transcript_to_locus(t2)
-        sup.json_conf["pick"]["run_options"]["consider_truncated_for_retained"] = True
+        t3 = Transcript()
+        t3.chrom, t3.strand, t3.id = 1, "+", "t3"
+        t3.add_exons([(101, 500), (801, 970), (1100, 1130)])
+        t3.add_exons([(101, 500), (801, 970), (1100, 1130)], features="CDS")
+        t3.finalize()
 
-        sup.find_retained_introns(t2)
-
-        self.assertEqual(sup.transcripts["t2"].retained_introns, ((1201, 1420),))
+        for pred, retained in [(t2, True), (t3, False)]:
+            with self.subTest(pred=pred, retained=retained):
+                sup = Superlocus(t1, json_conf=self.my_json)
+                sup.add_transcript_to_locus(pred)
+                sup.json_conf["pick"]["run_options"]["consider_truncated_for_retained"] = True
+                sup.find_retained_introns(pred)
+                self.assertEqual((len(sup.transcripts[pred.id].retained_introns) > 0),
+                                 retained)
 
     def test_real_retained_pos_truncated_skip(self):
         """Here we verify that a real retained intron is *NOT* called as such when
@@ -1016,13 +1033,25 @@ class RetainedIntronTester(unittest.TestCase):
         t2.finalize()
         self.assertEqual(t2.combined_cds_end, 601)
 
-        sup = Superlocus(t1, json_conf=self.my_json)
-        sup.add_transcript_to_locus(t2)
-        sup.json_conf["pick"]["run_options"]["consider_truncated_for_retained"] = True
+        t3 = Transcript()
+        t3.chrom, t3.strand, t3.id = 1, "-", "t3"
+        t3.add_exons([(551, 580), (801, 1000), (1201, 1300), (1501, 1800)])
+        t3.add_exons([(551, 580),
+                      (801, 1000),  # 200
+                      (1201, 1300),  #100
+                      (1501, 1530)  # 30
+                      ], features="CDS")
+        t3.finalize()
+        self.assertEqual(t3.combined_cds_end, 551)
 
-        sup.find_retained_introns(t2)
-
-        self.assertEqual(sup.transcripts["t2"].retained_introns, ((601, 1000),))
+        for pred, retained in [(t2, True), (t3, False)]:
+            with self.subTest(pred=pred, retained=retained):
+                sup = Superlocus(t1, json_conf=self.my_json)
+                sup.add_transcript_to_locus(pred)
+                sup.json_conf["pick"]["run_options"]["consider_truncated_for_retained"] = True
+                sup.find_retained_introns(pred)
+                self.assertEqual((len(sup.transcripts[pred.id].retained_introns) > 0),
+                                 retained)
 
     def test_real_retained_neg_truncated_skip(self):
         """Here we verify that a real retained intron is *NOT* called as such when
@@ -1072,10 +1101,6 @@ class RetainedIntronTester(unittest.TestCase):
         t2 = Transcript()
         t2.chrom, t2.strand, t2.id = 1, "+", "t2"
         t2.add_exons([(101, 500), (801, 1000), (1201, 1600)])
-        # t2.add_exons([(201, 500),  # 300
-        #               (801, 1000),  # 200
-        #               (1201, 1420),  # 220
-        #               ], features="CDS")
         t2.finalize()
 
         sup = Superlocus(t1, json_conf=self.my_json)
@@ -1108,12 +1133,18 @@ class RetainedIntronTester(unittest.TestCase):
                       ], features="CDS")
         t2.finalize()
 
-        sup = Superlocus(t1, json_conf=self.my_json)
-        sup.add_transcript_to_locus(t2)
+        t3 = Transcript()
+        t3.chrom, t3.strand, t3.id = 1, "+", "t3"
+        t3.add_exons([(101, 500), (801, 970), (1100, 1130)])
+        t3.add_exons([(101, 500), (801, 970), (1100, 1130)], features="CDS")
+        t3.finalize()
 
-        sup.find_retained_introns(t2)
-
-        self.assertEqual(sup.transcripts["t2"].retained_intron_num, 0)
+        for pred in [t2, t3]:
+            with self.subTest(pred=pred):
+                sup = Superlocus(t1, json_conf=self.my_json)
+                sup.add_transcript_to_locus(pred)
+                sup.find_retained_introns(pred)
+                self.assertEqual(sup.transcripts[pred.id].retained_intron_num, 0)
 
     def test_real_retained_neg(self):
         """Here we verify that a real retained intron is called as such"""
@@ -1166,17 +1197,28 @@ class RetainedIntronTester(unittest.TestCase):
                       ], features="CDS")
         t2.finalize()
 
-        sup = Superlocus(t1, json_conf=self.my_json)
-        sup.add_transcript_to_locus(t2)
+        t3 = Transcript()
+        t3.chrom, t3.strand, t3.id = 1, "-", "t3"
+        t3.add_exons([(401, 1000), (1201, 1300), (1501, 1800)])
+        t3.add_exons([(831, 1000),  # 200
+                      (1201, 1300),
+                      (1501, 1530)
+                      ], features="CDS")
+        t3.finalize()
 
-        sup.find_retained_introns(t2)
+        self.assertFalse(
+            Abstractlocus._is_exon_retained_in_transcript((401, 1000), [Interval(401, 830)], t1))
 
-        self.assertEqual(sup.transcripts["t2"].retained_intron_num, 0,
-                         sup.transcripts["t2"].retained_introns)
+        for alt in [t2, t3]:
+            with self.subTest(alt=alt):
+                sup = Superlocus(t1, json_conf=self.my_json)
+                sup.find_retained_introns(alt)
+
+                self.assertEqual(alt.retained_intron_num, 0,
+                                 alt.retained_introns)
 
     def test_not_retained_neg(self):
         """Here we verify that a false retained intron is not called as such"""
-
 
         t1 = Transcript()
         t1.chrom, t1.strand, t1.id = 1, "-", "t1"
@@ -1200,9 +1242,21 @@ class RetainedIntronTester(unittest.TestCase):
         sup = Superlocus(t1, json_conf=self.my_json)
         sup.add_transcript_to_locus(t2)
 
+        self.assertEqual(t2.cds_tree.find(301, 1000),
+                         [Interval(471, 1000)])
+
+        self.assertEqual(Abstractlocus._exon_to_be_considered((301, 1000), t2),
+                         (True, [(301, 470)]),
+                         Abstractlocus._exon_to_be_considered((301, 1000), t2))
+
+        self.assertFalse(Abstractlocus._is_exon_retained_in_transcript((301, 1000),
+                                                                       [(301, 470)],
+                                                                       t1))
+
         sup.find_retained_introns(t2)
 
-        self.assertEqual(sup.transcripts["t2"].retained_intron_num, 0)
+        self.assertEqual(sup.transcripts["t2"].retained_intron_num, 0,
+                         sup.transcripts["t2"].retained_introns)
 
     def test_exon_switching_pos(self):
 
@@ -1282,13 +1336,15 @@ class RetainedIntronTester(unittest.TestCase):
 
         t2 = Transcript()
         t2.chrom, t2.strand, t2.id = 1, "-", "t2"
-        t2.add_exons([(101, 500), (1701, 2000), (2201, 2300), (1501, 1800)])
+        t2.add_exons([(101, 500), (1701, 2000), (2201, 2300), (2501, 2800)])
         t2.add_exons([
                       (1801, 2000),  # 200
                       (2201, 2300),  # 100
                       (2501, 2530)  # 30
                       ], features="CDS")
         t2.finalize()
+        self.assertEqual(len(t2.cds_tree), len(t2.combined_cds))
+        self.assertEqual(len(t2.cds_tree), 3)
 
         sup = Superlocus(t1, json_conf=self.my_json)
         sup.add_transcript_to_locus(t2)
@@ -1296,7 +1352,6 @@ class RetainedIntronTester(unittest.TestCase):
         sup.find_retained_introns(t2)
 
         self.assertEqual(sup.transcripts["t2"].retained_intron_num, 0)
-
 
     def test_exon_switching_neg_noCDS(self):
         """Checking that an exon switching is treated correctly as a NON-retained intron even when the CDS is absent.

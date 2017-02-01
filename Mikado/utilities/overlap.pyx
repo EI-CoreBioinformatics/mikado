@@ -8,8 +8,14 @@ cpdef long overlap(first, second, long flank=0, bint positive=0):
 
     cdef long start, end, ostart, oend
 
-    start, end = first[:2]
-    ostart, oend = second[:2]
+    if hasattr(first, "start"):
+        start, end = first.start, first.end
+    else:
+        start, end = first[:2]
+    if hasattr(second, "start"):
+        ostart, oend = second.start, second.end
+    else:
+        ostart, oend = second[:2]
 
     return c_overlap(start, end, ostart, oend, flank=flank, positive=positive)
 

@@ -313,9 +313,11 @@ class Transcript:
         self.loaded_bed12 = []
         self.engine, self.session, self.sessionmaker = None, None, None
         # Initialisation of the CDS segments used for finding retained introns
-        self.__cds_tree = None
+        self.__cds_tree = IntervalTree()
         self.__expandable = False
+        self.__segmenttree = IntervalTree()
         self.__cds_introntree = IntervalTree()
+        self.__introntree = IntervalTree()
         self._possibly_without_exons = False
         # self.query_id = None
 
@@ -1703,6 +1705,18 @@ class Transcript:
         return self.__cds_introntree
 
     @property
+    def _introntree(self):
+
+        """
+        :rtype: intervaltree.IntervalTree
+        """
+
+        if len(self.__introntree) != len(self.introns):
+            self.__cds_introntree = IntervalTree.from_tuples(
+                [(_[0], _[1] + 1) for _ in self.introns])
+        return self.__introntree
+
+    @property
     def selected_cds(self):
         """This property return the CDS exons of the ORF selected as best
          inside the cDNA, in the form of duplices (start, end)"""
@@ -1780,6 +1794,7 @@ index {3}, internal ORFs: {4}".format(
         Used to calculate the non-coding parts of the CDS.
         :rtype: intervaltree.Intervaltree
         """
+
         return self.__cds_tree
 
     @cds_tree.setter
@@ -1792,7 +1807,7 @@ index {3}, internal ORFs: {4}".format(
         """
 
         if segments is None:
-            pass
+            self.cds_tree = IntervalTree()
         elif isinstance(segments, IntervalTree):
             assert len(segments) == len(self.combined_cds)
         else:
@@ -1800,6 +1815,17 @@ index {3}, internal ORFs: {4}".format(
                             segments, type(segments))
 
         self.__cds_tree = segments
+
+    @property
+    def segmenttree(self):
+
+        if len(self.__segmenttree) != self.exon_num + len(self.introns):
+
+            self.__segmenttree = IntervalTree.from_intervals(
+                [Interval(*_, value="exon") for _ in self.exons] + [Interval(*_, value="intron") for _ in self.introns]
+            )
+
+        return self.__segmenttree
 
     @property
     def derived_children(self):

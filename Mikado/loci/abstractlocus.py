@@ -485,103 +485,187 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             for tid in self.transcripts:
                 self.transcripts[tid].parent = self.id
 
-    def find_retained_introns(self, transcript):
+    @staticmethod
+    def _exon_to_be_considered(exon,
+                               transcript,
+                               consider_truncated=False):
+        """Private static method to evaluate whether an exon should be considered for being a retained intron.
+
+        :param exon: the exon to be considered.
+        :type exon: (tuple|Interval)
+
+        :param transcript: the candidate transcript from which the exon comes from.
+        :type transcript: Transcript
+
+        :param consider_truncated: boolean flag. If set, also terminal exons can be considered for retained intron
+        events.
+        :type consider_truncated: bool
+
+        :returns: boolean flag (True if it has to be considered, False otherwise) and a list of sections of the exons
+        which are non-coding.
+        """
+
+        cds_segments = sorted(transcript.cds_tree.search(*exon))
+        terminal = bool(set.intersection(
+            {*exon},
+            {transcript.start, transcript.end, transcript.combined_cds_end, transcript.combined_cds_start}))
+        if cds_segments == [Interval(*exon)]:
+            # It is completely coding
+            if terminal is False:
+                return False, []
+            elif not consider_truncated:
+                return False, []
+            else:
+                return True, cds_segments
+        else:
+            frags = []
+            if cds_segments:
+                if cds_segments[0].start > exon[0]:
+                    frags.append((exon[0], cds_segments[0].start - 1))
+                for before, after in zip(cds_segments[:-1], cds_segments[1:]):
+                    frags.append((before.end + 1, max(after.start - 1, before.end + 1)))
+                if cds_segments[-1].end < exon[1]:
+                    frags.append((cds_segments[-1].end + 1, exon[1]))
+            else:
+                frags = [Interval(*exon)]
+            return True, frags
+
+    @staticmethod
+    def _is_exon_retained_in_transcript(exon: tuple,
+                                        frags: list,
+                                        candidate: Transcript,
+                                        consider_truncated=False,
+                                        terminal=False):
+
+        """Private static method to verify whether a given exon is a retained intron of the candidate Transcript.
+        :param exon: the exon to be considered.
+        :type exon: (tuple|Interval)
+
+        :param frags: a list of intervals that are non-coding within the exon.
+        :type frags: list[(tuple|Interval)]
+
+        :param candidate: a transcript to be evaluated to verify whether the exon is a retained intron event.
+        :type candidate: Transcript
+
+        :param consider_truncated: boolean flag. If set, also terminal exons can be considered for retained intron
+        events.
+        :type consider_truncated: bool
+
+        :param terminal: whether the exon is at the 3' end.
+        :type terminal: bool
+
+        :rtype: bool
+        """
+
+        found_exons = sorted(
+            candidate.segmenttree.find(exon[0], exon[1], strict=False, value="exon"),
+            reverse=(candidate.strand == "-"))
+        found_introns = sorted(
+            candidate.segmenttree.find(exon[0], exon[1], strict=not consider_truncated, value="intron"),
+            reverse=(candidate.strand == "-"))
+
+        if len(found_exons) == 0 or len(found_introns) == 0:
+            return False
+        elif len(found_exons) == 1 and len(found_introns) == 1:
+            found_exons = found_exons.pop()
+            found_introns = found_introns.pop()
+            if candidate.strand != "-" and found_exons[1] + 1 == found_introns[0]:
+                return consider_truncated and terminal
+            elif candidate.strand == "-" and found_exons[0] - 1 == found_introns[1]:
+                return consider_truncated and terminal
+            else:
+                return False
+        else:
+            # Now we have to check whether the matched introns contain both coding and non-coding parts
+            assert len(found_exons) >= 2, (found_exons, found_introns)
+            for index, exon in enumerate(found_exons[:-1]):
+                intron = found_introns[index]
+                if candidate.strand == "-":
+                    assert intron[1] == exon[0] - 1
+                else:
+                    assert exon[1] == intron[0] - 1
+                for frag in frags:
+                    # The fragment is just a sub-section of the exon
+                    if (overlap(frag, exon) < exon[1] - exon[0] and
+                            overlap(frag, exon, positive=True) == 0 and
+                            overlap(frag, intron, positive=True)):
+                        return True
+                    elif overlap(frag, exon) == exon[1] - exon[0]:
+                        return True
+
+        return False
+
+    def find_retained_introns(self, transcript: Transcript):
 
         """This method checks the number of exons that are possibly retained
         introns for a given transcript.
         A retained intron is defined as an exon which:
+        - spans completely an intron of another model *between coding exons*
+        - is not completely coding itself
+        - if the model is coding, the exon has *part* of the non-coding section lying inside the intron (ie the non-coding section must not be starting in the exonic part).
 
-         - spans completely an intron of another model *between coding exons*
+        If the "pick/run_options/consider_truncated_for_retained" flag in the configuration is set to true,
+         an exon will be considered as a retained intron event also if:
+         - it is the last exon of the transcript
+         - it ends *within* an intron of another model *between coding exons*
          - is not completely coding itself
-         - has *part* of the non-coding section lying inside the intron
+         - if the model is coding, the exon has *part* of the non-coding section lying inside the intron (ie the non-coding section must not be starting in the exonic part).
 
-        The results are stored inside the transcript instance,
-        in the "retained_introns" tuple.
-
+        The results are stored inside the transcript instance, in the "retained_introns" tuple.
         :param transcript: a Transcript instance
         :type transcript: Transcript
-
         :returns : None
-        :rtype : None
-        """
+        :rtype : None"""
 
         self.logger.debug("Starting to calculate retained introns for %s", transcript.id)
-        if len(self.introns) == 0 or len(self._cds_introntree) == 0:
+        if len(self.introns) == 0:
             transcript.retained_introns = tuple()
             self.logger.debug("No introns in the locus to check against. Exiting.")
             return
+        transcript.logger = self.logger
+        transcript.finalize()
+
+        # A retained intron is defined as an exon which
+        # - is not completely coding
+        # - EITHER spans completely the intron of another transcript.
+        # - OR is the last exon of the transcript and it ends within the intron of another transcript
 
         retained_introns = []
-
-        if transcript.cds_tree is None:
-            # Enlarge the CDS segments if they are of length 1
-            transcript.cds_tree = IntervalTree.from_tuples(
-                [(cds[0], max(cds[1], cds[0] + 1)) for cds in transcript.combined_cds])
-
-        for exon in iter(_ for _ in transcript.exons if
-                         (_ not in transcript.combined_cds or
-                              (_ in transcript.combined_cds and
-                                   (_[0] == transcript.combined_cds_end or _[1] == transcript.combined_cds_end)))):
-            # Ignore stuff that is at the 5'
-            if (exon not in transcript.combined_cds or
-                    not self.json_conf["pick"]["run_options"]["consider_truncated_for_retained"]):
-                strict = True
-            else:
-                strict = False
-
-            if transcript.combined_cds_length > 0:
-                if transcript.strand == "+" and exon[1] < transcript.combined_cds_start:
-                    continue
-                elif transcript.strand == "-" and exon[0] > transcript.combined_cds_start:
-                    continue
-
-            cds_segments = sorted(transcript.cds_tree.search(*exon))
-            if not cds_segments or not strict:
-                frags = [exon]
-            else:
-                frags = []
-                if cds_segments[0].start > exon[0]:
-                    frags.append((exon[0], cds_segments[0].start -1))
-                for before, after in zip(cds_segments[:-1], cds_segments[1:]):
-                    frags.append((before.end + 1, max(after.start -1, before.end + 1)))
-                if cds_segments[-1].end < exon[1]:
-                    frags.append((cds_segments[-1].end + 1, exon[1]))
-
-            if not frags:
+        consider_truncated = self.json_conf["pick"]["run_options"]["consider_truncated_for_retained"]
+        for exon in transcript.exons:
+            is_retained = False
+            to_consider, frags = self._exon_to_be_considered(
+                exon, transcript, consider_truncated=consider_truncated)
+            if not to_consider:
                 continue
 
-            is_retained = False
-            for tid in self.transcripts:
-                if is_retained:
-                    break
-                if tid == transcript.id or transcript.strand != self.transcripts[tid].strand:
-                    # We cannot call retained introns against oneself or against stuff on the opposite strand
+            if exon[0] == transcript.start and transcript.strand == "-":
+                terminal = True
+            elif exon[1] == transcript.end:
+                terminal = True
+            else:
+                terminal = False
+
+            for candidate in (_ for _ in self.transcripts.values()):
+                if candidate == transcript:
+                    continue
+                elif candidate.strand != transcript.strand and None not in (transcript.strand, candidate.strand):
                     continue
 
-                cds_introns = self.transcripts[tid]._cds_introntree.find(exon[0],
-                                                                         exon[1],
-                                                                         strict=strict)
-                # cds_introns = [_ for _ in cds_introns if _.start >= exon[0] and _.end <= exon[1]]
-                if len(cds_introns) > 0:
-                    for frag in frags:
-                        if is_retained:
-                            break
-                        for intr in cds_introns:
-                            if overlap((frag[0], frag[1]), (intr[0], intr[1])) > 0:
-                                self.logger.debug("Exon %s of %s is a retained intron",
-                                                  exon, transcript.id)
-                                is_retained = True
-                                break
+                is_retained = self._is_exon_retained_in_transcript(exon,
+                                                                   frags,
+                                                                   # transcript,
+                                                                   candidate,
+                                                                   terminal=terminal,
+                                                                   consider_truncated=consider_truncated)
+                if is_retained:
+                    self.logger.debug("Exon %s of %s is a retained intron of %s",
+                                      exon, transcript.id, candidate.id)
+                    retained_introns.append(exon)
+                    break
 
-            if is_retained:
-                retained_introns.append(exon)
-
-        # Sort the exons marked as retained introns
-        # self.logger.info("Finished calculating retained introns for %s", transcript.id)
         transcript.retained_introns = tuple(sorted(retained_introns))
-        transcript.logger = self.logger
-        # self.logger.info("Returning retained introns for %s", transcript.id)
-        # return transcript
+        return
 
     def print_metrics(self):
 

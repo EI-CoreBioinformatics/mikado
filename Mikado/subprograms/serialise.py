@@ -195,7 +195,7 @@ def setup(args):
             # Necesarry for JSON configurations
             continue
         else:
-            if getattr(args, key) or getattr(args, key) == 0:
+            if getattr(args, key, None) or getattr(args, key, None) == 0:
                 if getattr(args, key) is False or getattr(args, key) is None:
                     continue
                 else:

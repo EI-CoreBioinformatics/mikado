@@ -270,6 +270,7 @@ reached the maximum number of isoforms for the locus".format(
                 to_be_added = False
             else:
                 transcript.attributes["ccode"] = ccode
+                self.logger.debug("%s is a valid splicing isoform; Ccode: %s", transcript.id, ccode)
             if self.json_conf["pick"]["alternative_splicing"]["min_cdna_overlap"] > 0:
                 overlap = comparison.n_recall[0]
                 if overlap < self.json_conf["pick"]["alternative_splicing"]["min_cdna_overlap"]:
@@ -295,6 +296,7 @@ reached the maximum number of isoforms for the locus".format(
                         self.json_conf["as_requirements"]["parameters"][key])
                 # pylint: disable=eval-used
             if eval(self.json_conf["as_requirements"]["compiled"]) is False:
+                self.logger.debug("%s fails the minimum requirements for AS events", transcript.id)
                 to_be_added = False
 
         if to_be_added and transcript.combined_utr_length > max_utr_lenghts["total"]:

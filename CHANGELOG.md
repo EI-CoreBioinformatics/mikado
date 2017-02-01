@@ -1,3 +1,12 @@
+#Version 1.0.0beta10
+
+Changes in this release:
+
+- Deprecated the "discard_definition" flag in Mikado serialise. Now Mikado will infer on its own whether to use the definition or the ID for serialising BLAST results.
+- Re-written the "find_retained_introns" method of AbstractLocus, to solve some bugs found during the utilisation of last beta. As a corollary, expanded the intervaltree module to allow searches for "tagged" intervals.
+
+	
+
 #Version 1.0.0beta9 - "External scores"
 
 Changes in this release:

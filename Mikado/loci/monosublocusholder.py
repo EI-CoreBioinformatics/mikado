@@ -19,6 +19,7 @@ from .monosublocus import Monosublocus
 from ..utilities import overlap
 from ..utilities.log_utils import create_null_logger
 import logging
+from ..parsers.GFF import GffLine
 
 # Resolution order is important here!
 # pylint: disable=too-many-instance-attributes
@@ -48,11 +49,14 @@ class MonosublocusHolder(Sublocus, Abstractlocus):
         self.json_conf = json_conf
         self.excluded = None
         self.purge = self.json_conf["pick"]["run_options"]["purge"]
+        self.feature = "MonosublocusHolder"
+        self.score = monosublocus_instance.score
         self.scores_calculated = False
         # Add the transcript to the Locus
         self.locus_verified_introns = set()
         self.add_monosublocus(monosublocus_instance)
         self.loci = SortedDict()
+        self.attributes = dict()
 
     # Overriding is correct here
     # pylint: disable=arguments-differ
@@ -93,15 +97,49 @@ class MonosublocusHolder(Sublocus, Abstractlocus):
             self.add_transcript_to_locus(monosublocus_instance.transcripts[tid],
                                          check_in_locus=check_in_locus)
 
-    def __str__(self, print_cds=False):
+    def __str__(self, print_cds=False, source_in_name=True):
         """This special method is explicitly *not* implemented;
         this Locus object is not meant for printing, only for computation!
 
         :param print_cds: flag. Ignored.
         """
-        raise NotImplementedError(
-            """This is a container used for computational purposes only,
-            it should not be printed out directly!""")
+
+        lines = []
+
+        self_line = GffLine('')
+        for attr in ["chrom", 'feature', 'source', 'start', 'end', 'strand']:
+            setattr(self_line, attr, getattr(self, attr))
+        self.calculate_scores()
+        self.score = max([_.score for _ in self.transcripts.values()])
+
+        self_line.phase, self_line.score = None, self.score
+        if source_in_name is True:
+            self_line.id = "{0}_{1}".format(self.source, self.id)
+        else:
+            self_line.id = self.id
+        self_line.name = self.name
+        self_line.parent = self.parent
+        self_line.attributes.update(self.attributes)
+        self_line.attributes["multiexonic"] = (not self.monoexonic)
+        lines.append(str(self_line))
+
+        for tid in self.transcripts:
+            transcript_instance = self.transcripts[tid]
+            transcript_instance.source = self.source
+            transcript_instance.parent = self_line.id
+            self.logger.debug(self.attributes)
+            for attribute in self.attributes:
+                if attribute not in transcript_instance.attributes:
+                    if attribute == "is_fragment" and self.attributes[attribute] is False:
+                        continue
+                    transcript_instance.attributes[attribute] = self.attributes[attribute]
+
+            lines.append(transcript_instance.format(
+                "gff",
+                all_orfs=self.json_conf["pick"]["output_format"]["report_all_orfs"],
+                with_cds=print_cds).rstrip())
+
+        return "\n".join(lines)
 
     def define_monosubloci(self, purge=False, excluded=None):
         """Overriden and set to NotImplemented to avoid cross-calling it when inappropriate.

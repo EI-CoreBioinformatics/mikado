@@ -9,7 +9,6 @@ A Monosublocus is characterized by its containing one and only one transcript.
 """
 
 from .abstractlocus import Abstractlocus
-from ..parsers.GFF import GffLine
 
 
 # pylint: disable=too-many-instance-attributes,too-many-public-methods
@@ -38,39 +37,43 @@ class Monosublocus(Abstractlocus):
     # pylint: disable=arguments-differ
     def __str__(self, print_cds=True, source_in_name=True):
 
-        lines = []
+        raise NotImplementedError(
+            """This is a container used for computational purposes only,
+            it should not be printed out directly!""")
 
-        self_line = GffLine('')
-        for attr in ["chrom", 'feature', 'source', 'start', 'end', 'strand']:
-            setattr(self_line, attr, getattr(self, attr))
-        self_line.phase, self_line.score = None, self.score
-        if source_in_name is True:
-            self_line.id = "{0}_{1}".format(self.source, self.id)
-        else:
-            self_line.id = self.id
-        self_line.name = self.name
-        self_line.parent = self.parent
-        self_line.attributes.update(self.attributes)
-        self_line.attributes["multiexonic"] = (not self.monoexonic)
-        lines.append(str(self_line))
-
-        for tid in self.transcripts:
-            transcript_instance = self.transcripts[tid]
-            transcript_instance.source = self.source
-            transcript_instance.parent = self_line.id
-            self.logger.debug(self.attributes)
-            for attribute in self.attributes:
-                if attribute not in transcript_instance.attributes:
-                    if attribute == "is_fragment" and self.attributes[attribute] is False:
-                        continue
-                    transcript_instance.attributes[attribute] = self.attributes[attribute]
-
-            lines.append(transcript_instance.format(
-                "gff",
-                all_orfs=self.json_conf["pick"]["output_format"]["report_all_orfs"],
-                with_cds=print_cds).rstrip())
-
-        return "\n".join(lines)
+        # lines = []
+        #
+        # self_line = GffLine('')
+        # for attr in ["chrom", 'feature', 'source', 'start', 'end', 'strand']:
+        #     setattr(self_line, attr, getattr(self, attr))
+        # self_line.phase, self_line.score = None, self.score
+        # if source_in_name is True:
+        #     self_line.id = "{0}_{1}".format(self.source, self.id)
+        # else:
+        #     self_line.id = self.id
+        # self_line.name = self.name
+        # self_line.parent = self.parent
+        # self_line.attributes.update(self.attributes)
+        # self_line.attributes["multiexonic"] = (not self.monoexonic)
+        # lines.append(str(self_line))
+        #
+        # for tid in self.transcripts:
+        #     transcript_instance = self.transcripts[tid]
+        #     transcript_instance.source = self.source
+        #     transcript_instance.parent = self_line.id
+        #     self.logger.debug(self.attributes)
+        #     for attribute in self.attributes:
+        #         if attribute not in transcript_instance.attributes:
+        #             if attribute == "is_fragment" and self.attributes[attribute] is False:
+        #                 continue
+        #             transcript_instance.attributes[attribute] = self.attributes[attribute]
+        #
+        #     lines.append(transcript_instance.format(
+        #         "gff",
+        #         all_orfs=self.json_conf["pick"]["output_format"]["report_all_orfs"],
+        #         with_cds=print_cds).rstrip())
+        #
+        # return "\n".join(lines)
     # pylint: enable=arguments-differ
 
     # ########## Class instance methods ##############

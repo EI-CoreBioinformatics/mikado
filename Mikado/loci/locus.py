@@ -173,7 +173,7 @@ reached the maximum number of isoforms for the locus".format(
             self.scores_calculated = False
             self.calculate_scores()
 
-        self.logger.debug("Now checking the retained introns")
+        self.logger.debug("Now checking the retained introns for %s", self.id)
         while True:
             to_remove = set()
             for tid, transcript in self.transcripts.items():
@@ -234,17 +234,6 @@ reached the maximum number of isoforms for the locus".format(
 
         _ = kwargs
         to_be_added = True
-        # Total, 5', 3'
-        max_utr_lenghts = {
-            "total": self.json_conf["pick"]["alternative_splicing"]["max_utr_length"],
-            "five": self.json_conf["pick"]["alternative_splicing"]["max_fiveutr_length"],
-            "three": self.json_conf["pick"]["alternative_splicing"]["max_threeutr_length"]}
-        # max_isoforms = self.json_conf["pick"]["alternative_splicing"]["max_isoforms"]
-        #
-        # if len(self.transcripts) >= max_isoforms:
-        #     self.logger.debug("%s not added because the Locus has already too many transcripts.",
-        #                       transcript.id)
-        #     to_be_added = False
 
         if to_be_added and transcript.strand != self.strand:
             self.logger.debug("%s not added because it has a different strand from %s (%s vs. %s)",
@@ -298,22 +287,6 @@ reached the maximum number of isoforms for the locus".format(
             if eval(self.json_conf["as_requirements"]["compiled"]) is False:
                 self.logger.debug("%s fails the minimum requirements for AS events", transcript.id)
                 to_be_added = False
-
-        if to_be_added and transcript.combined_utr_length > max_utr_lenghts["total"]:
-            self.logger.debug("%s not added because it has too much UTR (%d).",
-                              transcript.id,
-                              transcript.combined_utr_length)
-            to_be_added = False
-        if to_be_added and transcript.five_utr_length > max_utr_lenghts["five"]:
-            self.logger.debug("%s not added because it has too much 5'UTR (%d).",
-                              transcript.id,
-                              transcript.five_utr_length)
-            to_be_added = False
-        if to_be_added and transcript.three_utr_length > max_utr_lenghts["three"]:
-            self.logger.debug("%s not added because it has too much 3'UTR (%d).",
-                              transcript.id,
-                              transcript.three_utr_length)
-            to_be_added = False
 
         if to_be_added and self.json_conf["pick"]["alternative_splicing"]["min_cds_overlap"] > 0:
             if self.primary_transcript.combined_cds_length > 0:

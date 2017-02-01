@@ -212,6 +212,114 @@ def merge_loci_gff(gff_filenames, gff_handle, prefix=""):
     return gid_to_new, tid_to_new
 
 
+def print_locus(stranded_locus,
+                gene_counter,
+                handles,
+                counter=None,
+                logger=None,
+                json_conf=None):
+    """
+    Method that handles a single superlocus for printing.
+    It also detects and flags/discard fragmentary loci.
+    :param stranded_locus: the stranded locus to analyse
+    :return:
+    """
+
+    locus_metrics, locus_scores, locus_out = handles[0]
+    sub_metrics, sub_scores, sub_out = handles[1]
+    mono_metrics, mono_scores, mono_out = handles[2]
+
+    if json_conf is None:
+        from ..configuration.configurator import to_json
+        json_conf = to_json(None)
+
+    stranded_locus.logger = logger
+    if sub_out is not None:  # Skip this section if no sub_out is defined
+        sub_lines = stranded_locus.__str__(
+            level="subloci",
+            print_cds=not json_conf["pick"]["run_options"]["exclude_cds"])
+        if sub_lines != '':
+            if counter is not None:
+                sub_lines = "\n".join(
+                    ["{0}/{1}".format(counter, line) for line in sub_lines.split("\n")])
+            print(sub_lines, file=sub_out)
+        sub_metrics_rows = [_ for _ in stranded_locus.print_subloci_metrics()
+                            if _ != {} and "tid" in _]
+        sub_scores_rows = [_ for _ in stranded_locus.print_subloci_scores()
+                           if _ != {} and "tid" in _]
+        for row in sub_metrics_rows:
+            if counter is not None:
+                row["tid"] = "{0}/{1}".format(counter, row["tid"])
+            sub_metrics.writerow(row)
+        for row in sub_scores_rows:
+            if counter is not None:
+                row["tid"] = "{0}/{1}".format(counter, row["tid"])
+            sub_scores.writerow(row)
+    if mono_out is not None:
+        mono_lines = stranded_locus.__str__(
+            level="monosubloci",
+            print_cds=not json_conf["pick"]["run_options"]["exclude_cds"])
+        if mono_lines != '':
+            mono_lines = "\n".join(
+                ["{0}/{1}".format(counter, line) for line in mono_lines.split("\n")])
+            print(mono_lines, file=mono_out)
+        mono_metrics_rows = [_ for _ in stranded_locus.print_monoholder_metrics()
+                             if _ != {} and "tid" in _]
+        mono_scores_rows = [_ for _ in stranded_locus.print_monoholder_scores()
+                            if _ != {} and "tid" in _]
+        for row in mono_metrics_rows:
+            if counter is not None:
+                row["tid"] = "{0}/{1}".format(counter, row["tid"])
+            mono_metrics.writerow(row)
+        for row in mono_scores_rows:
+            if counter is not None:
+                row["tid"] = "{0}/{1}".format(counter, row["tid"])
+            mono_scores.writerow(row)
+
+    for locus in stranded_locus.loci:
+        gene_counter += 1
+        fragment_test = (
+            json_conf["pick"]["run_options"]["remove_overlapping_fragments"]
+            is True and stranded_locus.loci[locus].is_fragment is True)
+
+        if fragment_test is True:
+            continue
+        gene_counter += 1
+        new_id = "{0}.{1}G{2}".format(
+            json_conf["pick"]["output_format"]["id_prefix"],
+            stranded_locus.chrom, gene_counter)
+        stranded_locus.loci[locus].logger = logger
+        stranded_locus.loci[locus].id = new_id
+
+    locus_lines = stranded_locus.__str__(
+        print_cds=not json_conf["pick"]["run_options"]["exclude_cds"],
+        level="loci")
+
+    locus_metrics_rows = [x for x in stranded_locus.print_loci_metrics()]
+    locus_scores_rows = [x for x in stranded_locus.print_loci_scores()]
+
+    if locus_lines:
+        assert len(locus_metrics_rows) > 0
+        if counter is not None:
+            locus_lines = "\n".join(
+                ["{0}/{1}".format(counter, line) for line in locus_lines.split("\n")])
+        print(locus_lines, file=locus_out)
+
+    # assert len(locus_metrics_rows) == len(locus_scores_rows)
+
+    for row in locus_metrics_rows:
+        if counter is not None:
+            row["tid"] = "{0}/{1}".format(counter, row["tid"])
+        locus_metrics.writerow(row)
+    for row in locus_scores_rows:
+        if counter is not None:
+            row["tid"] = "{0}/{1}".format(counter, row["tid"])
+        locus_scores.writerow(row)
+    # Necessary to flush out all the files
+    [_.flush() for _ in handles if hasattr(_, "close")]
+    return gene_counter
+
+
 def merge_loci(num_temp, out_handles, prefix="", tempdir="mikado_pick_tmp"):
 
     """ Function to merge the temporary loci files into single output files,
@@ -531,7 +639,8 @@ class LociProcesser(Process):
 
         self._create_handles(self.__output_files)
         self.__gene_counter = 0
-        assert self.locus_out is not None
+        assert len(self._handles) > 0
+
         self.logger.debug("Starting Process %s", self.name)
 
         self.logger.debug("Starting the pool for {0}".format(self.name))
@@ -575,18 +684,15 @@ class LociProcesser(Process):
         return state
 
     def terminate(self):
-        # [_.flush() for _ in self._handles if hasattr(_, "flush") and _.closed is False]
-        # [_.close() for _ in self._handles if hasattr(_, "close") and _.closed is False]
-        # if self.engine is not None:
-        #     self.engine.dispose()
         self.__close_handles()
         super().terminate()
 
     def __close_handles(self):
         """Private method to flush and close all handles."""
 
-        [_.flush() for _ in self._handles if hasattr(_, "flush") and _.closed is False]
-        [_.close() for _ in self._handles if hasattr(_, "close") and _.closed is False]
+        for group in self._handles:
+            [_.flush() for _ in group if hasattr(_, "flush") and _.closed is False]
+            [_.close() for _ in group if hasattr(_, "close") and _.closed is False]
         if self.engine is not None:
             self.engine.dispose()
 
@@ -615,16 +721,52 @@ class LociProcesser(Process):
                                                engine=self.engine,
                                                logging_queue=self.logging_queue)
 
-    def _create_handles(self, handles):
+    def __create_step_handles(self, handles, metrics, score_keys):
+
+        """Private method to create the handles for a given step (eg Locus).
+
+        :param handles: the list with the filename prefixes
+        :type handles: [list|tuple]
+
+        :param metrics: list of metrics name, to be used as header for the metrics file
+        :type metrics: list
+
+        :param score_keys: list of metrics names used for scoring, to be used as header
+        for the score file
+        :type score_keys: list
+
+        :returns: a list of handles to be used for writing
+        :rtype: list
+        """
 
         (locus_metrics_file,
          locus_scores_file,
          locus_out_file) = [os.path.join(self._tempdir,
                                          "{0}-{1}".format(os.path.basename(_),
                                                           self.identifier))
-                            for _ in handles[0]]
+                            for _ in handles]
         locus_metrics_handle = open(locus_metrics_file, "a")
         locus_scores_handle = open(locus_scores_file, "a")
+        locus_metrics = csv.DictWriter(
+            locus_metrics_handle,
+            metrics,
+            delimiter="\t")
+        locus_metrics.handle = locus_metrics_handle
+        locus_metrics.close = locus_metrics.handle.close
+        locus_metrics.closed = locus_metrics.handle.closed
+        locus_metrics.flush = locus_metrics.handle.flush
+
+        locus_scores = csv.DictWriter(locus_scores_handle, score_keys, delimiter="\t")
+        locus_scores.handle = locus_scores_handle
+        locus_scores.close = locus_scores.handle.close
+        locus_scores.closed = locus_scores.handle.closed
+        locus_scores.flush = locus_scores.handle.flush
+
+        locus_out = open(locus_out_file, 'w')
+
+        return [locus_metrics, locus_scores, locus_out]
+
+    def _create_handles(self, handles):
 
         if self.regressor is None:
             score_keys = sorted(list(self.json_conf["scoring"].keys()))
@@ -646,51 +788,22 @@ class LociProcesser(Process):
         metrics.extend(["external.{}".format(_.source) for _ in session.query(ExternalSource.source).all()])
         metrics = Superlocus.available_metrics[:3] + sorted(metrics)
 
-        self.locus_metrics = csv.DictWriter(
-            locus_metrics_handle,
-            metrics,
-            delimiter="\t")
+        self._handles.append(self.__create_step_handles(handles[0],
+                                                        metrics, score_keys))
 
-        self.locus_scores = csv.DictWriter(locus_scores_handle, score_keys, delimiter="\t")
-
-        self.locus_out = open(locus_out_file, 'w')
-        self._handles.extend((locus_metrics_handle, locus_scores_handle, self.locus_out))
-
+        # Subloci
         if handles[1][0]:
-            (sub_metrics_file,
-             sub_scores_file,
-             sub_out_file) = [os.path.join(self._tempdir,
-                                           "{0}-{1}".format(os.path.basename(_),
-                                                            self.identifier))
-                              for _ in handles[1]]
-            sub_metrics_handle = open(sub_metrics_file, "w")
-            sub_scores_handle = open(sub_scores_file, "w")
-            self.sub_metrics = csv.DictWriter(
-                sub_metrics_handle,
-                metrics,
-                delimiter="\t")
-            self.sub_scores = csv.DictWriter(
-                sub_scores_handle, score_keys, delimiter="\t")
-            self.sub_out = open(sub_out_file, "w")
-            self._handles.extend([sub_metrics_handle, sub_scores_handle, self.sub_out])
+            self._handles.append(self.__create_step_handles(handles[1],
+                                                        metrics, score_keys))
+        else:
+            self._handles.append([None, None, None])
 
+        # Monoloci
         if handles[2][0]:
-            (mono_metrics_file,
-             mono_scores_file,
-             mono_out_file) = [os.path.join(self._tempdir,
-                                            "{0}-{1}".format(os.path.basename(_),
-                                                             self.identifier))
-                               for _ in handles[2]]
-            mono_metrics_handle = open(mono_metrics_file, "w")
-            mono_scores_handle = open(mono_scores_file, "w")
-            self.mono_metrics = csv.DictWriter(
-                mono_metrics_handle,
-                metrics,
-                delimiter="\t")
-            self.mono_scores = csv.DictWriter(
-                mono_scores_handle, score_keys, delimiter="\t")
-            self.mono_out = open(mono_out_file, "w")
-            self._handles.extend([mono_metrics_handle, mono_scores_handle, self.mono_out])
+            self._handles.append(self.__create_step_handles(handles[2],
+                                                        metrics, score_keys))
+        else:
+            self._handles.append([None, None, None])
 
         return
 
@@ -721,90 +834,11 @@ class LociProcesser(Process):
                     stranded_loci = self.analyse_locus(slocus, counter)
                 else:
                     stranded_loci = []
+
                 for stranded_locus in stranded_loci:
-                    self._print_locus(stranded_locus, counter)
+                    self.__gene_counter = print_locus(
+                        stranded_locus, self.__gene_counter, self._handles,
+                        counter=counter, logger=self.logger, json_conf=self.json_conf)
+
         return
 
-    def _print_locus(self, stranded_locus, counter):
-
-        """
-        Private method that handles a single superlocus for printing.
-        It also detects and flags/discard fragmentary loci.
-        :param stranded_locus: the stranded locus to analyse
-        :return:
-        """
-
-        if self.sub_out is not None:  # Skip this section if no sub_out is defined
-            sub_lines = stranded_locus.__str__(
-                level="subloci",
-                print_cds=not self.json_conf["pick"]["run_options"]["exclude_cds"])
-            if sub_lines != '':
-                sub_lines = "\n".join(
-                    ["{0}/{1}".format(counter, line) for line in sub_lines.split("\n")])
-                print(sub_lines, file=self.sub_out)
-            sub_metrics_rows = [x for x in stranded_locus.print_subloci_metrics()
-                                if x != {} and "tid" in x]
-            sub_scores_rows = [x for x in stranded_locus.print_subloci_scores()
-                               if x != {} and "tid" in x]
-            for row in sub_metrics_rows:
-                row["tid"] = "{0}/{1}".format(counter, row["tid"])
-                self.sub_metrics.writerow(row)
-            for row in sub_scores_rows:
-                row["tid"] = "{0}/{1}".format(counter, row["tid"])
-                self.sub_scores.writerow(row)
-        if self.mono_out is not None:
-            mono_lines = stranded_locus.__str__(
-                level="monosubloci",
-                print_cds=not self.json_conf["pick"]["run_options"]["exclude_cds"])
-            if mono_lines != '':
-                mono_lines = "\n".join(
-                    ["{0}/{1}".format(counter, line) for line in mono_lines.split("\n")])
-                print(mono_lines, file=self.mono_out)
-            mono_metrics_rows = [x for x in stranded_locus.print_subloci_metrics()
-                                 if x != {} and "tid" in x]
-            mono_scores_rows = [x for x in stranded_locus.print_subloci_scores()
-                                if x != {} and "tid" in x]
-            for row in mono_metrics_rows:
-                row["tid"] = "{0}/{1}".format(counter, row["tid"])
-                self.mono_metrics.writerow(row)
-            for row in mono_scores_rows:
-                row["tid"] = "{0}/{1}".format(counter, row["tid"])
-                self.mono_scores.writerow(row)
-
-        for locus in stranded_locus.loci:
-            fragment_test = (
-                self.json_conf["pick"]["run_options"]["remove_overlapping_fragments"]
-                is True and stranded_locus.loci[locus].is_fragment is True)
-
-            if fragment_test is True:
-                continue
-            self.__gene_counter += 1
-            new_id = "{0}.{1}G{2}".format(
-                self.json_conf["pick"]["output_format"]["id_prefix"],
-                stranded_locus.chrom, self.__gene_counter)
-            stranded_locus.loci[locus].logger = self.logger
-            stranded_locus.loci[locus].id = new_id
-
-        locus_lines = stranded_locus.__str__(
-            print_cds=not self.json_conf["pick"]["run_options"]["exclude_cds"],
-            level="loci")
-
-        locus_metrics_rows = [x for x in stranded_locus.print_loci_metrics()]
-        locus_scores_rows = [x for x in stranded_locus.print_loci_scores()]
-
-        if locus_lines:
-            assert len(locus_metrics_rows) > 0
-            locus_lines = "\n".join(
-                ["{0}/{1}".format(counter, line) for line in locus_lines.split("\n")])
-            print(locus_lines, file=self.locus_out)
-
-        # assert len(locus_metrics_rows) == len(locus_scores_rows)
-
-        for row in locus_metrics_rows:
-            row["tid"] = "{0}/{1}".format(counter, row["tid"])
-            self.locus_metrics.writerow(row)
-        for row in locus_scores_rows:
-            row["tid"] = "{0}/{1}".format(counter, row["tid"])
-            self.locus_scores.writerow(row)
-        # Necessary to flush out all the files
-        [_.flush() for _ in self._handles if hasattr(_, "close")]

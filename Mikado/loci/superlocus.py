@@ -174,6 +174,33 @@ class Superlocus(Abstractlocus):
                 lines.append(locus_instance.__str__(print_cds=print_cds).rstrip())
         return lines
 
+    def __create_monolocus_holder_lines(self, superlocus_line, new_id, print_cds=True):
+
+        """
+        Private method to prepare the lines for printing out monosubloci
+        into GFF/GTF files.
+        """
+
+        lines = []
+        self.define_monosubloci()
+        if len(self.monoholders) > 0:
+            source = "{0}_monosubloci".format(self.source)
+            superlocus_line.source = source
+            lines.append(str(superlocus_line))
+            found = dict()
+            for monosublocus_instance in self.monoholders:
+                monosublocus_instance.source = source
+                monosublocus_instance.parent = new_id
+                if monosublocus_instance.id in found:
+                    found[monosublocus_instance.id] += 1
+                    monosublocus_instance.counter = found[monosublocus_instance.id]
+                else:
+                    found[monosublocus_instance.id] = 0
+
+                lines.append(monosublocus_instance.__str__(print_cds=print_cds).rstrip())
+
+        return lines
+
     def __create_monolocus_lines(self, superlocus_line, new_id, print_cds=True):
 
         """
@@ -286,9 +313,12 @@ class Superlocus(Abstractlocus):
                 print_cds=print_cds
             )
         elif level == "monosubloci" or (level is None and self.monosubloci_defined is True):
-            lines = self.__create_monolocus_lines(superlocus_line,
-                                                  new_id,
-                                                  print_cds=print_cds)
+            lines = self.__create_monolocus_holder_lines(superlocus_line,
+                                                         new_id,
+                                                         print_cds=print_cds)
+            # lines = self.__create_monolocus_lines(superlocus_line,
+            #                                       new_id,
+            #                                       print_cds=print_cds)
         elif level == "subloci" or (level is None and self.monosubloci_defined is False):
             lines = self.__create_sublocus_lines(superlocus_line,
                                                  new_id,
@@ -1162,6 +1192,7 @@ class Superlocus(Abstractlocus):
                 self.monoholders.append(holder)
 
         for monoholder in self.monoholders:
+            monoholder.scores_calculated = False
             if self.regressor is not None:
                 monoholder.regressor = self.regressor
             monoholder.calculate_scores()

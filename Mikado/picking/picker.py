@@ -33,7 +33,7 @@ from ..loci.superlocus import Superlocus, Transcript
 from ..configuration.configurator import to_json, check_json  # Necessary for nosetests
 from ..utilities import dbutils, merge_partial
 from ..exceptions import UnsortedInput, InvalidJson, InvalidTranscript
-from .loci_processer import analyse_locus, LociProcesser, merge_loci
+from .loci_processer import analyse_locus, LociProcesser, merge_loci, print_locus
 import multiprocessing.managers
 from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
 import pickle
@@ -490,90 +490,6 @@ memory intensive, proceed with caution!")
     # actually file handlers. I cannot trim them down for now.
     # pylint: disable=too-many-locals
 
-    def _print_locus(self, stranded_locus, gene_counter, logger=None, handles=()):
-
-        """
-        Private method that handles a single superlocus for printing.
-        It also detects and flags/discard fragmentary loci.
-        :param stranded_locus: the stranded locus to analyse
-        :param gene_counter: A counter used to rename the genes/transcripts progressively
-        :param logger: logger instance
-        :param handles: the handles to print to
-        :return:
-        """
-
-        locus_metrics, locus_scores, locus_out = handles[0]
-        sub_metrics, sub_scores, sub_out = handles[1]
-        mono_metrics, mono_scores, mono_out = handles[2]
-
-        stranded_locus.logger = logger
-        if self.sub_out != '':  # Skip this section if no sub_out is defined
-            sub_lines = stranded_locus.__str__(
-                level="subloci",
-                print_cds=not self.json_conf["pick"]["run_options"]["exclude_cds"])
-            if sub_lines != '':
-                print(sub_lines, file=sub_out)
-                # sub_out.flush()
-            sub_metrics_rows = [x for x in stranded_locus.print_subloci_metrics()
-                                if x != {} and "tid" in x]
-            sub_scores_rows = [x for x in stranded_locus.print_subloci_scores()
-                               if x != {} and "tid" in x]
-            for row in sub_metrics_rows:
-                sub_metrics.writerow(row)
-                # sub_metrics.flush()
-            for row in sub_scores_rows:
-                sub_scores.writerow(row)
-                # sub_scores.flush()
-        if self.monolocus_out != '':
-            mono_lines = stranded_locus.__str__(
-                level="monosubloci",
-                print_cds=not self.json_conf["pick"]["run_options"]["exclude_cds"])
-            if mono_lines != '':
-                print(mono_lines, file=mono_out)
-                # mono_out.flush()
-            mono_metrics_rows = [x for x in stranded_locus.print_subloci_metrics()
-                                 if x != {} and "tid" in x]
-            mono_scores_rows = [x for x in stranded_locus.print_subloci_scores()
-                                if x != {} and "tid" in x]
-            for row in mono_metrics_rows:
-                mono_metrics.writerow(row)
-                # mono_metrics.flush()
-            for row in mono_scores_rows:
-                mono_scores.writerow(row)
-                # mono_scores.flush()
-                
-        for locus in stranded_locus.loci:
-            gene_counter += 1
-            fragment_test = (
-                self.json_conf["pick"]["run_options"]["remove_overlapping_fragments"]
-                is True and stranded_locus.loci[locus].is_fragment is True)
-
-            if fragment_test is True:
-                continue
-            new_id = "{0}.{1}G{2}".format(
-                self.json_conf["pick"]["output_format"]["id_prefix"],
-                stranded_locus.chrom, gene_counter)
-            stranded_locus.loci[locus].id = new_id
-            stranded_locus.loci[locus].logger = self.logger
-
-        locus_lines = stranded_locus.__str__(
-            print_cds=not self.json_conf["pick"]["run_options"]["exclude_cds"],
-            level="loci")
-        locus_metrics_rows = [_ for _ in stranded_locus.print_loci_metrics()]
-        locus_scores_rows = [_ for _ in stranded_locus.print_loci_scores()]
-
-        for row in locus_metrics_rows:
-            locus_metrics.writerow(row)
-            # locus_metrics.flush()
-        for row in locus_scores_rows:
-            locus_scores.writerow(row)
-            # locus_scores.flush()
-
-        if locus_lines != '':
-            print(locus_lines, file=locus_out)
-            # locus_out.flush()
-        return gene_counter
-
     def __getstate__(self):
 
         state = self.__dict__.copy()
@@ -1014,9 +930,11 @@ memory intensive, proceed with caution!")
 
         handles = self.__get_output_files()
 
-        locus_printer = functools.partial(self._print_locus,
+        locus_printer = functools.partial(print_locus,
+                                          handles=handles,
                                           logger=logger,
-                                          handles=handles)
+                                          counter=None,
+                                          json_conf=self.json_conf)
 
         # last_printed = -1
         curr_chrom = None
@@ -1201,7 +1119,6 @@ memory intensive, proceed with caution!")
             os.remove(self.json_conf["pick"]["run_options"]["shm_db"])
 
         self.main_logger.info("Finished analysis of %s", self.input_file)
-
 
         sys.exit(0)
 # pylint: enable=too-many-instance-attributes

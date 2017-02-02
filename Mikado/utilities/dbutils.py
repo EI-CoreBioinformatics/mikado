@@ -63,7 +63,7 @@ def create_connector(json_conf, logger=None):
 
             func = sqlite3.connect(
                 database=json_conf["pick"]["run_options"]["shm_db"],
-                check_same_thread=False)
+                check_same_thread=False, isolation_level=None)
     elif db_settings["dbtype"] in ("mysql", "postgresql"):
         if db_settings["dbpasswd"] != '':
             passwd = ":{0}".format(db_settings["dbpasswd"])

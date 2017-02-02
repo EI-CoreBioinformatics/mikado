@@ -166,18 +166,19 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
         return self.transcripts[item]
 
-
     # #### Static methods #######
-    @staticmethod
-    def overlap(first_interval: tuple([int, int]),
-                second_interval: tuple([int, int]), flank=0) -> int:
-        """
 
-        :param first_interval: a tuple of integers
-        :type first_interval: (int,int)
+    import typing
+
+    @staticmethod
+    def overlap(first_interval: (int, int),
+                second_interval: (int, int), flank=0) -> int:
+
+        """:param first_interval: a tuple of integers
+        :type first_interval: [int,int]
 
         :param second_interval: a tuple of integers
-        :type second_interval: (int,int | intervaltree.Interval)
+        :type second_interval: [int,int | intervaltree.Interval]
 
         :param flank: an optional extending parameter to check for neighbours
         :type flank: int

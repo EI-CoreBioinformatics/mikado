@@ -301,6 +301,9 @@ def serialise(args):
 
     if args.json_conf["serialise"]["force"] is True:
         logger.warn("Removing old data because force option in place")
+        if args.json_conf["db_settings"]["dbtype"] == "sqlite" and os.path.exists(args.json_conf["db_settings"]["db"]):
+            os.remove(args.json_conf["db_settings"]["db"])
+
         engine = dbutils.connect(args.json_conf)
         meta = sqlalchemy.MetaData(bind=engine)
         meta.reflect(engine)
@@ -312,7 +315,7 @@ def serialise(args):
         if args.json_conf["db_settings"]["dbtype"] == "mysql":
             engine.execute("")
         # This would fail in MySQL as it uses the OPTIMIZE TABLE syntax above
-        if args.json_conf["db_settings"]["dbtype"] != "mysql":
+        elif args.json_conf["db_settings"]["dbtype"] != "sqlite":
             engine.execute("VACUUM")
         dbutils.DBBASE.metadata.create_all(engine)
 

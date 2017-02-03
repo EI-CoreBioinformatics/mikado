@@ -11,12 +11,13 @@ from Mikado.configuration import configurator
 from Mikado import exceptions
 from Mikado.parsers import GFF  # ,GTF, bed12
 from Mikado.parsers.GTF import GtfLine
-from Mikado.loci import Transcript, Superlocus, Abstractlocus, Locus, MonosublocusHolder, Sublocus
+from Mikado.loci import Transcript, Superlocus, Abstractlocus, Locus, Monosublocus, MonosublocusHolder, Sublocus
 from Mikado.utilities.log_utils import create_null_logger, create_default_logger
 from Mikado.utilities import overlap
 from Mikado.utilities.intervaltree import Interval
 import Mikado.loci
 import pickle
+import inspect
 
 
 class OverlapTester(unittest.TestCase):
@@ -35,7 +36,7 @@ class OverlapTester(unittest.TestCase):
 
 class LocusTester(unittest.TestCase):
 
-    logger = create_null_logger("locus_tester")
+    logger = create_null_logger(inspect.getframeinfo(inspect.currentframe())[2])
 
     def setUp(self):
 
@@ -88,7 +89,7 @@ Chr1\tfoo\texon\t501\t600\t.\t+\t.\tID=t1:exon3;Parent=t1""".split("\n")
     def test_locus(self):
         """Basic testing of the Locus functionality."""
 
-        logger = create_null_logger("test_locus")
+        logger = create_null_logger(inspect.getframeinfo(inspect.currentframe())[2])
         logger.setLevel("WARNING")
         logger.info("Started")
         self.transcript1.logger = logger
@@ -171,7 +172,7 @@ Chr1\tfoo\texon\t101\t600\t.\t-\t.\tID=tminus0:exon1;Parent=tminus0""".split("\n
 
     def test_boolean_requirement(self):
 
-        logger = create_null_logger("test_boolean_requirement")
+        logger = create_null_logger(inspect.getframeinfo(inspect.currentframe())[2])
         logger.setLevel("DEBUG")
         logger.info("Started")
 
@@ -203,44 +204,34 @@ Chr1\tfoo\texon\t101\t600\t.\t-\t.\tID=tminus0:exon1;Parent=tminus0""".split("\n
 
         jconf["requirements"] = dict()
         jconf["requirements"]["parameters"] = dict()
-        jconf["requirements"]["expression"] = "evaluated['suspicious_splicing']"
+        jconf["requirements"]["expression"] = ["suspicious_splicing"]
         jconf["requirements"]["parameters"]["suspicious_splicing"] = dict()
         jconf["requirements"]["parameters"]["suspicious_splicing"]["operator"] = "ne"
         jconf["requirements"]["parameters"]["suspicious_splicing"]["name"] = "suspicious_splicing"
         jconf["requirements"]["parameters"]["suspicious_splicing"]["value"] = True
-        if "compiled" in jconf["requirements"]:
-            del jconf["requirements"]["compiled"]
 
         jconf["pick"]["alternative_splicing"]["report"] = False
+        # Necessary to make sure that the externally-specified requirements are taken in
+        configurator.check_all_requirements(jconf)
+        self.assertEqual(
+            jconf["requirements"]["expression"],
+            "evaluated[\"suspicious_splicing\"]")
 
-        loc = Superlocus(t1, json_conf=jconf)
-        loc.add_transcript_to_locus(t2)
-        loc.add_transcript_to_locus(t3)
+        jconf = configurator.check_json(jconf)
+        self.assertEqual(
+            jconf["requirements"]["expression"],
+            "evaluated[\"suspicious_splicing\"]")
 
-        loc.define_subloci()
-
-        self.assertEqual(len(loc.transcripts), 3)
-
-        # Set it as suspicious
-        t2.attributes["canonical_on_reverse_strand"] = True
-        self.assertTrue(t2.suspicious_splicing)
-
-        jconf["requirements"]["expression"] = "evaluated['suspicious_splicing']"
-        jconf["requirements"]["parameters"]["suspicious_splicing"] = dict()
-        jconf["requirements"]["parameters"]["suspicious_splicing"]["operator"] = "ne"
-        jconf["requirements"]["parameters"]["suspicious_splicing"]["name"] = "suspicious_splicing"
-        jconf["requirements"]["parameters"]["suspicious_splicing"]["value"] = True
-        if "compiled" in jconf["requirements"]:
-            del jconf["requirements"]["compiled"]
-        jconf["pick"]["alternative_splicing"]["report"] = False
-
-        loc = Superlocus(t1, json_conf=jconf, logger=logger)
-        loc.add_transcript_to_locus(t2)
-        loc.add_transcript_to_locus(t3)
-
-        loc.define_subloci()
-
-        self.assertEqual(len(loc.transcripts), 2)
+        logger = create_default_logger(inspect.getframeinfo(inspect.currentframe())[2])
+        for suspicious in (False, True):
+            with self.subTest(suspicious=suspicious):
+                loc = Superlocus(t1, json_conf=jconf, logger=logger)
+                t2.attributes["canonical_on_reverse_strand"] = suspicious
+                loc.add_transcript_to_locus(t2)
+                loc.add_transcript_to_locus(t3)
+                self.assertEqual(len(loc.transcripts), 3)
+                loc.define_subloci()
+                self.assertEqual(len(loc.transcripts), 3 if not suspicious else 2)
 
 
 class ASeventsTester(unittest.TestCase):
@@ -251,6 +242,7 @@ class ASeventsTester(unittest.TestCase):
         
         self.conf = configurator.to_json(None)
         self.conf["pick"]["alternative_splicing"] = dict()
+        self.conf["pick"]["alternative_splicing"]["report"] = True
         self.conf["pick"]["alternative_splicing"]["max_utr_length"] = 10000
         self.conf["pick"]["alternative_splicing"]["max_fiveutr_length"] = 10000
         self.conf["pick"]["alternative_splicing"]["max_threeutr_length"] = 10000
@@ -563,10 +555,14 @@ class MonoHolderTester(unittest.TestCase):
         t2.end = 3000
         t2.add_exons([(1400, 1560), (2800, 3000)])
         t2.finalize()
-        for simple_overlap in (True, False):
-            with self.subTest(simple_overlap=simple_overlap):
+
+        logger = create_default_logger("test_intron_not_contained_in_exon")
+
+        for min_cdna_overlap in (0.01, 1):
+            with self.subTest(min_cdna_overlap=min_cdna_overlap):
                 self.assertIs(MonosublocusHolder.is_intersecting(
-                    self.t1, t2, logger=None, simple_overlap=simple_overlap), simple_overlap)
+                    self.t1, t2, logger=None, min_cdna_overlap=min_cdna_overlap,
+                min_cds_overlap=min_cdna_overlap), (min_cdna_overlap != 1))
 
     def test_noCDSOverlap(self):
 
@@ -616,7 +612,16 @@ class MonoHolderTester(unittest.TestCase):
         t2.add_exons([(1250, 1560), (1801, 2000)])
         t2.add_exons([(1401, 1560), (1801, 1850)], "CDS")
         t2.finalize()
-        self.assertTrue(MonosublocusHolder.is_intersecting(self.t1, t2, cds_only=True))
+        logger = create_default_logger(inspect.getframeinfo(inspect.currentframe())[2])
+
+        for min_cds_overlap in [0.05, 0.1, 0.15, 0.2, 0.5]:
+            with self.subTest(min_cds_overlap=min_cds_overlap):
+                self.assertIs(MonosublocusHolder.is_intersecting(self.t1, t2,
+                                                                 cds_only=True,
+                                                                 logger=logger,
+                                                                 min_cds_overlap=min_cds_overlap,
+                                                                 min_cdna_overlap=0.01),
+                              (min_cds_overlap <= 0.19))
 
         t2.strip_cds()
         t2.finalized = False
@@ -624,8 +629,13 @@ class MonoHolderTester(unittest.TestCase):
         t2.finalize()
         self.assertGreater(len(t2.introns), 0)
         self.assertGreater(len(t2.combined_cds_introns), 0)
-        # No CDS overlap this time
-        self.assertTrue(MonosublocusHolder.is_intersecting(self.t1, t2, cds_only=True))
+        # No CDS overlap this time, but cDNA overlap.
+        for cds_only in (True, False):
+            with self.subTest(cds_only=cds_only):
+                self.assertIs(MonosublocusHolder.is_intersecting(self.t1,
+                                                            t2,
+                                                            cds_only=cds_only,
+                                                            logger=logger), not cds_only)
 
         t2 = Transcript()
         t2.chrom = "Chr1"
@@ -638,7 +648,13 @@ class MonoHolderTester(unittest.TestCase):
         t2.add_exons([(1350, 1560), (1801, 2000)])
         t2.add_exons([(1401, 1560), (2801, 3850)], "CDS")
         t2.finalize()
-        self.assertFalse(MonosublocusHolder.is_intersecting(self.t1, t2, cds_only=True))
+        for min_overlap in [0.01, 0.05, 0.1, 0.2]:
+            with self.subTest(min_overlap=min_overlap):
+                self.assertIs(MonosublocusHolder.is_intersecting(self.t1, t2,
+                                                                 cds_only=True,
+                                                                 min_cds_overlap=min_overlap,
+                                                                 min_cdna_overlap=min_overlap,
+                                                                 logger=logger), (min_overlap <= 0.07))
 
     def test_no_overlap(self):
 
@@ -688,6 +704,7 @@ class TestLocus(unittest.TestCase):
         self.json_conf = configurator.to_json(None)
         # self.json_conf["pick"] = dict()
         self.json_conf["pick"]["alternative_splicing"] = dict()
+        self.json_conf["pick"]["alternative_splicing"]["report"] = True
         self.json_conf["pick"]["alternative_splicing"]["max_utr_length"] = 2000
         self.json_conf["pick"]["alternative_splicing"]["max_fiveutr_length"] = 1000
         self.json_conf["pick"]["alternative_splicing"]["max_threeutr_length"] = 1000
@@ -696,9 +713,11 @@ class TestLocus(unittest.TestCase):
         self.json_conf["pick"]["alternative_splicing"]["min_cds_overlap"] = 0
         self.json_conf["pick"]["alternative_splicing"]["min_cdna_overlap"] = 0
         self.json_conf["pick"]["alternative_splicing"]["min_score_perc"] = 0.1
-        self.json_conf["pick"]["alternative_splicing"]["valid_ccodes"] = ["j", "n", "O", "mo"]
-        self.json_conf["pick"]["alternative_splicing"]["redundant_ccodes"] = ["c", "=", "_", "m"]
+        self.json_conf["pick"]["alternative_splicing"]["valid_ccodes"] = ["j", "G", "g"]
+        self.json_conf["pick"]["alternative_splicing"]["redundant_ccodes"] = ["c", "=", "_", "m", "n"]
         self.json_conf["pick"]["alternative_splicing"]["only_confirmed_introns"] = False
+
+        self.json_conf = configurator.check_json(self.json_conf)
 
         t1 = """Chr1\tfoo\ttranscript\t1001\t3000\t.\t+\t.\tgene_id "Chr1.1"; transcript_id "Chr1.1.1";
         Chr1\tfoo\texon\t1001\t1300\t.\t+\t.\tgene_id "Chr1.1"; transcript_id "Chr1.1.1";
@@ -1414,6 +1433,58 @@ class RetainedIntronTester(unittest.TestCase):
 
         self.assertEqual(sup.transcripts["t2"].retained_intron_num, 0)
 
+
+class PicklingTest(unittest.TestCase):
+
+    def setUp(self):
+        t1 = Transcript()
+        t1.chrom, t1.strand, t1.id = 1, "+", "t1"
+        t1.add_exons([(101, 500), (801, 1000), (1201, 1300), (1501, 1800)])
+        t1.add_exons([(201, 500),  # 300
+                      (801, 1000),  # 200
+                      (1201, 1300),  # 100
+                      (1501, 1530)  # 30
+                      ], features="CDS")
+        t1.finalize()
+
+        t2 = Transcript()
+        t2.chrom, t2.strand, t2.id = 1, "+", "t2"
+        t2.add_exons([(101, 500), (801, 1000), (1201, 1600)])
+        t2.add_exons([(201, 500),  # 300
+                      (801, 1000),  # 200
+                      (1201, 1420),  # 220
+                      ], features="CDS")
+        t2.finalize()
+
+        t3 = Transcript()
+        t3.chrom, t3.strand, t3.id = 1, "+", "t3"
+        t3.add_exons([(101, 500), (801, 970), (1100, 1180)])
+        t3.add_exons([(101, 500), (801, 970), (1100, 1130)], features="CDS")
+        t3.finalize()
+
+        self.t1, self.t2, self.t3 = t1, t2, t3
+        self.json_conf = configurator.to_json(None)
+
+    def test_transcript_pickling(self):
+
+        for transcript in [self.t1, self.t2, self.t3]:
+            with self.subTest(transcript=transcript):
+                pickled = pickle.dumps(transcript)
+                unpickled = pickle.loads(pickled)
+                self.assertEqual(transcript, unpickled)
+
+    def test_locus_unpickling(self):
+
+        for transcript in [self.t1, self.t2, self.t3]:
+            for (loc_type, loc_name) in [(_, _.__name__) for _ in (Superlocus, Sublocus, Monosublocus, Locus)]:
+                with self.subTest(transcript=transcript, loc_type=loc_type, loc_name=loc_name):
+                    try:
+                        loc = loc_type(transcript, json_conf=self.json_conf)
+                    except TypeError as exc:
+                        raise TypeError("{}\n{}".format(loc_name, exc))
+                    pickled = pickle.dumps(transcript)
+                    unpickled = pickle.loads(pickled)
+                    self.assertEqual(transcript, unpickled)
 
 
 if __name__ == '__main__':

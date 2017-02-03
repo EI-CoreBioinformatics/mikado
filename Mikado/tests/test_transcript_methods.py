@@ -1,10 +1,12 @@
-import unittest
-from Mikado.loci import Transcript
-from Mikado.loci.transcript_methods import retrieval
-from Mikado.parsers.bed12 import BED12
-from Mikado.configuration.configurator import to_json
 import os
+import unittest
+
 from sqlalchemy.engine import reflection
+
+from Mikado.configuration.configurator import to_json
+from Mikado.loci import Transcript
+from Mikado.parsers.bed12 import BED12
+from Mikado.transcripts.transcript_methods import retrieval
 
 
 class WrongLoadedOrf(unittest.TestCase):

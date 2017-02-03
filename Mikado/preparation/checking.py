@@ -1,11 +1,13 @@
-from ..loci import Transcript
-from ..loci.transcriptchecker import TranscriptChecker
-from ..utilities.log_utils import create_null_logger, create_queue_logger
-import pyfaidx
-import os
-from .. import exceptions
-import multiprocessing
 import functools
+import multiprocessing
+import os
+
+import pyfaidx
+
+from Mikado.transcripts.transcriptchecker import TranscriptChecker
+from .. import exceptions
+from ..loci import Transcript
+from ..utilities.log_utils import create_null_logger, create_queue_logger
 
 __author__ = 'Luca Venturini'
 

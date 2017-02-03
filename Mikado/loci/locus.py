@@ -5,20 +5,19 @@ This module defines the last object to be created during the picking,
 i.e. the locus.
 """
 
+import collections
 import itertools
 import operator
-# import functools
 from collections import deque
-from .transcript import Transcript
-from .transcriptchecker import TranscriptChecker
-from ..scales.assigner import Assigner
-from .sublocus import Sublocus
-from .abstractlocus import Abstractlocus
-from ..parsers.GFF import GffLine
-import collections
-from ..utilities import overlap
-import pyfaidx
 from sys import version_info
+import pyfaidx
+from ..transcripts.transcript import Transcript
+from ..transcripts.transcriptchecker import TranscriptChecker
+from .abstractlocus import Abstractlocus
+from .sublocus import Sublocus
+from ..parsers.GFF import GffLine
+from ..scales.assigner import Assigner
+from ..utilities import overlap
 if version_info.minor < 5:
     from sortedcontainers import SortedDict
 else:

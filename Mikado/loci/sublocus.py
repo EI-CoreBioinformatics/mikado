@@ -7,14 +7,14 @@ or multiexonic and with at least one intron in common.
 """
 
 import itertools
-from .abstractlocus import Abstractlocus
-from .excluded import Excluded
-from .monosublocus import Monosublocus
-from .transcript import Transcript
-from ..parsers.GFF import GffLine
 from sys import version_info
 import numpy
 from sklearn.ensemble import RandomForestClassifier
+from ..transcripts.transcript import Transcript
+from .abstractlocus import Abstractlocus
+from .excluded import Excluded
+from .monosublocus import Monosublocus
+from ..parsers.GFF import GffLine
 if version_info.minor < 5:
     from sortedcontainers import SortedDict
 else:

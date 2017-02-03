@@ -6,33 +6,34 @@ This module defines the RNA objects. It also defines Metric, a property alias.
 
 # pylint: disable=too-many-lines
 
-import logging
+import builtins
 import copy
-from sys import intern, maxsize
-import re
+import functools
 import inspect
+import logging
+import re
+from ast import literal_eval
+from sys import intern, maxsize
+
 import intervaltree
-from ..utilities.log_utils import create_null_logger
-from ..utilities.intervaltree import Interval, IntervalTree
-from sqlalchemy.sql.expression import desc, asc  # SQLAlchemy imports
 from sqlalchemy import and_
-from sqlalchemy.ext import baked
 from sqlalchemy import bindparam
+from sqlalchemy.ext import baked
+from sqlalchemy.sql.expression import desc, asc  # SQLAlchemy imports
 from ..exceptions import ModificationError, InvalidTranscript, CorruptIndex
+from ..parsers.GFF import GffLine
+from ..parsers.GTF import GtfLine
+from ..parsers.bed12 import BED12
 from ..serializers.blast_serializer import Query, Hit
 from ..serializers.external import External
 from ..serializers.orf import Orf
-from .clique_methods import find_communities, define_graph
-from ..parsers.GTF import GtfLine
-from ..parsers.GFF import GffLine
-from ..parsers.bed12 import BED12
+from ..transcripts.clique_methods import find_communities, define_graph
+from ..utilities.log_utils import create_null_logger
 from .transcript_methods import splitting, retrieval
+from .transcript_methods.finalizing import finalize
 from .transcript_methods.printing import create_lines_cds
 from .transcript_methods.printing import create_lines_no_cds, create_lines_bed, as_bed12
-from .transcript_methods.finalizing import finalize
-import functools
-import builtins
-from ast import literal_eval
+from ..utilities.intervaltree import Interval, IntervalTree
 
 
 class Namespace:

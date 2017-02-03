@@ -3,6 +3,7 @@ import tempfile
 import gc
 from .checking import create_transcript, CheckingProcess
 from .annotation_parser import AnnotationParser, load_from_gtf, load_from_gff
+from ..parsers import to_gff
 import operator
 import collections
 import io
@@ -15,7 +16,7 @@ import multiprocessing.connection
 import multiprocessing.sharedctypes
 import pyfaidx
 import logging
-from ..utilities import path_join, to_gff, merge_partial
+from ..utilities import path_join, merge_partial
 from collections import Counter
 import sqlite3
 try:

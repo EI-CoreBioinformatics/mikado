@@ -1,8 +1,9 @@
-from Mikado.loci.clique_methods import find_cliques, find_communities
-from Mikado.loci.clique_methods import _get_unvisited_neighbours, reid_daid_hurley
-from Mikado.loci.clique_methods import define_graph
-import networkx
 import unittest
+
+import networkx
+
+from Mikado.transcripts.clique_methods import find_cliques, find_communities
+from Mikado.transcripts.clique_methods import reid_daid_hurley
 
 
 class TestCliques(unittest.TestCase):

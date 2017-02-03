@@ -1,26 +1,28 @@
-import unittest
-from Mikado.preparation import prepare
-from Mikado.configuration import configurator, daijin_configurator
-import pkg_resources
-import tempfile
-from Mikado.loci.transcript import Namespace
-from Mikado.utilities.log_utils import create_null_logger
-from Mikado.scales.compare import compare, load_index
-import logging
-import gzip
-import pyfaidx
-import os
-import itertools
 import csv
-from Mikado.parsers import to_gff
-from Mikado.subprograms.util.stats import Calculator
-from Mikado.picking import picker
-import Mikado.subprograms.configure
-import Mikado.daijin
+import glob
+import gzip
+import itertools
+import logging
+import os
 import random
 import sys
-import glob
+import tempfile
+import unittest
+
+import pkg_resources
+import pyfaidx
 import yaml
+
+import Mikado.daijin
+import Mikado.subprograms.configure
+from Mikado.configuration import configurator, daijin_configurator
+from Mikado.parsers import to_gff
+from Mikado.picking import picker
+from Mikado.preparation import prepare
+from Mikado.scales.compare import compare, load_index
+from Mikado.subprograms.util.stats import Calculator
+from Mikado.transcripts.transcript import Namespace
+from Mikado.utilities.log_utils import create_null_logger
 
 
 class PrepareCheck(unittest.TestCase):

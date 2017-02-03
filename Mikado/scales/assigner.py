@@ -4,23 +4,24 @@
 This class is the main workhorse of the compare.py utility.
 """
 
-import sys
-import csv
-from ..utilities.intervaltree import IntervalTree
-from logging import handlers as log_handlers
-import queue
-import logging
-import collections
 import argparse
+import collections
+import csv
+import gzip
+import logging
 import operator
+import queue
+import sys
 from collections import namedtuple
-from .resultstorer import ResultStorer
-from ..loci.transcript import Transcript
-from ..exceptions import InvalidTranscript, InvalidCDS
+from functools import partial
+from logging import handlers as log_handlers
+
+from Mikado.transcripts.transcript import Transcript
 from .accountant import Accountant
 from .contrast import compare as c_compare
-from functools import partial
-import gzip
+from .resultstorer import ResultStorer
+from ..exceptions import InvalidTranscript, InvalidCDS
+from ..utilities.intervaltree import IntervalTree
 
 
 # noinspection PyPropertyAccess,PyPropertyAccess

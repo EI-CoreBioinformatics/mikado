@@ -10,24 +10,25 @@ and is used to define all the possible children (subloci, monoloci, loci, etc.)
 import collections
 from sys import version_info
 import networkx
+from sqlalchemy import bindparam
 from sqlalchemy.engine import Engine
-from ..utilities import dbutils, grouper
+from sqlalchemy.ext import baked
 from sqlalchemy.orm.session import sessionmaker
 from sqlalchemy.sql.expression import and_
-from sqlalchemy import bindparam
-from sqlalchemy.ext import baked
-from ..serializers.junction import Junction, Chrom
+from ..transcripts.transcript import Transcript
+from .abstractlocus import Abstractlocus
+from .excluded import Excluded
+from .monosublocus import Monosublocus
+from .monosublocusholder import MonosublocusHolder
+from .sublocus import Sublocus
+from ..exceptions import NoJsonConfigError, NotInLocusError
+from ..parsers.GFF import GffLine
 from ..serializers.blast_serializer import Hit, Query, Target
 from ..serializers.external import External
+from ..serializers.junction import Junction, Chrom
 from ..serializers.orf import Orf
-from .abstractlocus import Abstractlocus
-from .monosublocus import Monosublocus
-from .excluded import Excluded
-from .transcript import Transcript
-from .sublocus import Sublocus
-from .monosublocusholder import MonosublocusHolder
-from ..parsers.GFF import GffLine
-from ..exceptions import NoJsonConfigError, NotInLocusError
+from ..utilities import dbutils, grouper
+
 if version_info.minor < 5:
     from sortedcontainers import SortedDict
 else:
@@ -678,10 +679,12 @@ class Superlocus(Abstractlocus):
             self.logger.debug("No transcripts to be excluded for %s", self.id)
             return
         else:
-            self.logger.debug("%d transcript%s do not pass the requirements for %s",
+            self.logger.debug("""%d transcript%s do not pass the requirements for %s;
+expression: %s""",
                               len(not_passing),
                               "" if len(not_passing) == 1 else "s",
-                              self.id)
+                              self.id,
+                              self.json_conf["requirements"]["expression"])
 
         if self.purge is True:
             self.logger.debug("Purging %d transcript%s from %s",
@@ -1136,8 +1139,8 @@ class Superlocus(Abstractlocus):
         t_graph = self.define_graph(self.transcripts,
                                     inters=MonosublocusHolder.is_intersecting,
                                     cds_only=cds_only,
-                                    logger=self.logger,
-                                    simple_overlap=simple_overlap)
+                                    logger=self.logger)
+                                    # simple_overlap=simple_overlap)
         
         cliques = self.find_cliques(t_graph)
 
@@ -1178,8 +1181,8 @@ class Superlocus(Abstractlocus):
                 if MonosublocusHolder.in_locus(holder,
                                                monosublocus_instance,
                                                logger=self.logger,
-                                               cds_only=cds_only,
-                                               simple_overlap=simple_overlap):
+                                               cds_only=cds_only):
+                                               # simple_overlap=simple_overlap):
                     holder.add_monosublocus(monosublocus_instance)
                     found_holder = True
                     break

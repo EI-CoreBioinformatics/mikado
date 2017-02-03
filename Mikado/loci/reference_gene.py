@@ -5,15 +5,15 @@ Pretty basic class that defines a reference gene with its transcripts.
 Minimal checks.
 """
 
+import copy
 import logging
 import operator
-import copy
-from .transcript import Transcript
+from sys import intern
+from ..transcripts.transcript import Transcript
 from ..exceptions import InvalidTranscript, InvalidCDS
 from ..parsers.GFF import GffLine
 from ..parsers.GTF import GtfLine
 from ..utilities.log_utils import create_null_logger
-from sys import intern
 
 
 class Gene:

@@ -6,13 +6,14 @@ the RefMap/Stats files.
 """
 
 import argparse
-import operator
 import collections
-from logging import handlers as log_handlers
 import logging
-from ..loci.transcript import Transcript
-from .resultstorer import ResultStorer
+import operator
+from logging import handlers as log_handlers
+
+from Mikado.transcripts.transcript import Transcript
 from . import calc_f1
+from .resultstorer import ResultStorer
 
 
 # noinspection PyPropertyAccess,PyPropertyAccess,PyPropertyAccess

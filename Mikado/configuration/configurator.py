@@ -7,21 +7,22 @@ of Mikado configuration files. Missing values are replaced with default ones,
 while existing values are checked for type and consistency.
 """
 
-import os.path
 import io
-import re
-import yaml
-import pkg_resources
-from ..exceptions import InvalidJson, UnrecognizedRescaler
-from ..loci.transcript import Transcript
-from ..utilities import merge_dictionaries
 import json
-import jsonschema
-from multiprocessing import get_start_method
-from pkg_resources import resource_stream, resource_filename
+import os.path
 import pickle
+import re
+from multiprocessing import get_start_method
+import jsonschema
+import pkg_resources
+import yaml
+from pkg_resources import resource_stream, resource_filename
 from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
+from ..transcripts.transcript import Transcript
+from ..exceptions import InvalidJson, UnrecognizedRescaler
+from ..utilities import merge_dictionaries
 from ..utilities.log_utils import create_default_logger
+
 # from frozendict import frozendict
 
 __author__ = "Luca Venturini"

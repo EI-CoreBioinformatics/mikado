@@ -7,7 +7,7 @@ e.g. reliability of the CDS/UTR, sanity of borders, etc.
 from Mikado.utilities.intervaltree import IntervalTree
 import intervaltree
 import operator
-from ...exceptions import InvalidCDS, InvalidTranscript
+from Mikado.exceptions import InvalidCDS, InvalidTranscript
 
 __author__ = 'Luca Venturini'
 

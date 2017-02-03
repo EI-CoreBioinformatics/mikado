@@ -4,20 +4,24 @@
 Module that defines the blueprint for all loci classes.
 """
 
-import operator
 import abc
-import random
-import logging
 import itertools
+import logging
+import operator
+import random
 from sys import maxsize
-from .clique_methods import find_cliques, find_communities, define_graph
+
 import networkx
+from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
+
+from ..transcripts.clique_methods import find_cliques, find_communities, define_graph
+from ..transcripts.transcript import Transcript
+from ..configuration.configurator import to_json, check_json
 from ..exceptions import NotInLocusError
 from ..utilities import overlap, merge_ranges
-from ..utilities.log_utils import create_null_logger
 from ..utilities.intervaltree import Interval, IntervalTree
-from .transcript import Transcript
-from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
+from ..utilities.log_utils import create_null_logger
+
 
 # I do not care that there are too many attributes: this IS a massive class!
 # pylint: disable=too-many-instance-attributes,too-many-public-methods
@@ -31,6 +35,8 @@ class Abstractlocus(metaclass=abc.ABCMeta):
     available_metrics = Transcript.get_available_metrics()
 
     # ##### Special methods #########
+
+    __json_conf = to_json(None)
 
     @abc.abstractmethod
     def __init__(self, source="", verified_introns=None):
@@ -54,7 +60,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         self.__locus_verified_introns = set()
         if verified_introns is not None:
             self.locus_verified_introns = verified_introns
-        self.json_conf = dict()
+
         self.__cds_introntree = IntervalTree()
         self.__regressor = None
         self.session = None
@@ -167,8 +173,6 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         return self.transcripts[item]
 
     # #### Static methods #######
-
-    import typing
 
     @staticmethod
     def overlap(first_interval: (int, int),
@@ -858,6 +862,20 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         raise NotImplementedError("The is_intersecting method should be defined for each child!")
 
     # ##### Properties #######
+
+    @property
+    def json_conf(self):
+        return self.__json_conf
+
+    @json_conf.setter
+    def json_conf(self, conf):
+        if conf is None or isinstance(conf, (str, bytes)):
+            conf = to_json(conf)
+        elif isinstance(conf, dict):
+            conf = check_json(conf)
+        else:
+            raise TypeError("Unrecognized type for configuration: {}".format(type(conf)))
+        self.__json_conf = conf
 
     @property
     def stranded(self):

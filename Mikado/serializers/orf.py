@@ -17,7 +17,7 @@ from ..utilities.dbutils import DBBASE, Inspector, connect
 from ..parsers import bed12  # , GFF
 from .blast_serializer import Query
 from ..utilities.log_utils import create_null_logger, check_logger
-from ..utilities import to_gff
+from ..parsers import to_gff
 # from ..loci import Transcript
 # from Bio import SeqIO
 

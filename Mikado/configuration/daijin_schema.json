@@ -280,7 +280,8 @@
             "run_options": {
               "type": "object",
               "properties": {
-                "flank": {"$ref": "configuration_blueprint.json#properties/pick/properties/run_options/properties/flank"}
+                "flank": {
+                  "$ref": "configuration_blueprint.json#properties/pick/properties/clustering/properties/flank"}
               }
             }
           }

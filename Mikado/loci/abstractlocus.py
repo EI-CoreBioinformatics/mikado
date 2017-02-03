@@ -869,6 +869,13 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
     @json_conf.setter
     def json_conf(self, conf):
+        self.__json_conf = conf
+
+    def _check_json(self):
+        """Private method to be invoked to verify that the configuration is correct.
+        Quite expensive to run, especially if done multiple times."""
+
+        conf = self.__json_conf
         if conf is None or isinstance(conf, (str, bytes)):
             conf = to_json(conf)
         elif isinstance(conf, dict):

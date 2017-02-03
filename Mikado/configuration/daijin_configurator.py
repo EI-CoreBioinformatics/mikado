@@ -166,7 +166,7 @@ def create_daijin_config(args, level="ERROR"):
         config["mikado"]["pick"]["scoring_file"] = args.scoring
 
     if args.flank is not None:
-        config["mikado"]["pick"]["run_options"]["flank"] = args.flank
+        config["mikado"]["pick"]["clustering"]["flank"] = args.flank
 
     config["blastx"]["prot_db"] = args.prot_db
     assert "prot_db" in config["blastx"]

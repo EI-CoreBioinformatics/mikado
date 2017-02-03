@@ -587,32 +587,22 @@
             "  deleted at the end of the run (see shm_db).",
             "  for faster access. Default: false",
             "- exclude_cds: boolean flag. If set, the CDS information will not be printed in Mikado output. Default: false",
-            "- purge: boolean flag. If set, all loci where all transcripts have a score of 0 will be excluded",
-            "  from the output. Default: false",
-            "- remove_overlapping_fragments: boolean flag. If set, fragments (defined as monoexonic loci",
-            "  classified as P,x,i or p compared to another locus, will be removed from the output.",
-            "- fragments_maximal_cds: a locus will never be considered a fragment if its longest CDS is over",
-            "  this length. Default: 100 bps.",
-            "- fragments_maximal_exons: a locus will never be considered a fragment if its representative transcript",
-            "  has more than this number of exons. Default: 2",
             "- procs: number of processes to use. Default: 1",
             "- preload: boolean flag. If set, the whole database will be preloaded into memory for faster access. Useful when",
             "  using SQLite databases.",
-            "- single_thread: boolean flag. If set, multithreading will be disabled - useful for profiling and debugging."
+            "- single_thread: boolean flag. If set, multithreading will be disabled - useful for profiling and debugging.",
+            "- consider_truncated_for_retained: boolean. Normally, Mikado considers only exons which span a whole intron as possible retained intron events. If this flag is set to true, also terminal exons will be considered.",
+            "- remove_overlapping_fragments: boolean, it specifies whether to remove putative fragments.",
+            "- purge: boolean, it specifies whether to remove loci where all transcripts fail the minimum checks, or whether to print them out in the subloci file instead."
           ],
           "SimpleComment": [
             "Generic run options.",
-            "- purge: boolean flag. If set, all loci where all transcripts have a score of 0 will be excluded",
-            "  from the output. Default: false",
-            "- remove_overlapping_fragments: boolean flag. If set, fragments (defined as monoexonic loci",
-            "  classified as P,x,i or p compared to another locus, will be removed from the output.",
             "- procs: number of processes to use. Default: 1",
             "- intron_range: A range where most of the introns (99%) should fall into. Transcripts with too many",
             " introns larger or smaller than what is defined in this range will be penalised",
             " in the scoring. Default: [60, 900]",
             "- preload: boolean flag. If set, the whole database will be preloaded into memory for potentially faster access.",
-            "- single_thread: boolean flag. If set, multithreading will be disabled - useful for profiling and debugging.",
-            "- flank: integer, maximum flank to group transcripts together for analysis. Default: 0."
+            "- single_thread: boolean flag. If set, multithreading will be disabled - useful for profiling and debugging."
           ],
           "properties": {
             "shm": {
@@ -627,31 +617,6 @@
               "type": "boolean",
               "default": false
             },
-            "purge": {
-              "type": "boolean",
-              "default": true
-            },
-            "remove_overlapping_fragments": {
-              "type": "boolean",
-              "default": true
-            },
-            "flank":{
-              "type": "integer",
-              "minimum": 0,
-              "default": 200
-            },
-            "fragments_maximal_cds": {
-              "type": "integer",
-              "default": 200
-            },
-            "fragments_maximal_exons": {
-              "type": "integer",
-              "default": 2
-            },
-            "fragments_maximal_cdna": {
-              "type": "integer",
-              "default": 400
-            },
             "intron_range": {
               "type": "array",
               "items": {
@@ -662,14 +627,6 @@
               "maxItems": 2,
               "minItems": 2,
               "default": [60, 900]
-            },
-            "subloci_from_cds_only": {
-              "type": "boolean",
-              "default": false
-            },
-            "monoloci_from_simple_overlap": {
-              "type": "boolean",
-              "default": false
             },
             "consider_truncated_for_retained": {
               "type": "boolean",
@@ -687,6 +644,53 @@
             "preload": {
               "type": "boolean",
               "default": false
+            },
+            "remove_overlapping_fragments": {
+              "type": "boolean",
+              "default": true
+            },
+            "purge": {
+              "type": "boolean",
+              "default": true
+            }
+
+          }
+        },
+        "clustering": {
+          "type": "object",
+          "Comment": [
+            "Parameters related to the clustering of transcripts into loci.",
+            "- cds_only: boolean, it specifies whether to cluster transcripts only according to their CDS (if present).",
+            "- min_cds_overlap: minimal CDS overlap for the second clustering.",
+            "- min_cdna_overlap: minimal cDNA overlap for the second clustering.",
+            "- flank: maximum distance for transcripts to be clustered within the same superlocus."
+          ],
+          "SimpleComment": [
+            "Parameters related to the clustering of transcripts into loci.",
+            "- flank: maximum distance for transcripts to be clustered within the same superlocus."
+            ],
+          "required": ["flank"],
+          "properties":{
+            "cds_only": {
+              "type": "boolean",
+              "default": false
+            },
+            "min_cds_overlap":{
+              "type": "number",
+              "minimum": 0.000001,
+              "maximum": 1,
+              "default": 0.2
+            },
+            "min_cdna_overlap":{
+              "type": "number",
+              "minimum": 0.000001,
+              "maximum": 1,
+              "default": 0.2
+            },
+            "flank":{
+              "type": "integer",
+              "minimum": 0,
+              "default": 200
             }
           }
         },

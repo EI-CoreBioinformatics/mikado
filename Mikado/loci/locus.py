@@ -584,7 +584,7 @@ reached the maximum number of isoforms for the locus".format(
         valid_ccodes = self.json_conf["pick"]["alternative_splicing"]["valid_ccodes"]
         redundant_ccodes = self.json_conf["pick"]["alternative_splicing"]["redundant_ccodes"]
 
-        if self.json_conf["pick"]["run_options"]["subloci_from_cds_only"] is True:
+        if self.json_conf["pick"]["clustering"]["cds_only"] is True:
             main_without_utr = self.primary_transcript.deepcopy()
             main_without_utr.remove_utrs()
             other_without_utr = other.deepcopy()
@@ -606,7 +606,7 @@ reached the maximum number of isoforms for the locus".format(
             for tid in iter(tid for tid in self.transcripts if
                             tid not in (self.primary_transcript_id, other.id)):
                 candidate = self.transcripts[tid]
-                if self.json_conf["pick"]["run_options"]["subloci_from_cds_only"] is True:
+                if self.json_conf["pick"]["clustering"]["cds_only"] is True:
                     candidate = candidate.deepcopy()
                     candidate.remove_utrs()
                     Assigner.compare(other_without_utr, candidate)

@@ -144,14 +144,9 @@ class MonosublocusHolder(Sublocus, Abstractlocus):
 
         return "\n".join(lines)
 
-    def define_monosubloci(self, purge=False, excluded=None):
-        """Overriden and set to NotImplemented to avoid cross-calling it when inappropriate.
-
-        :param purge: flag. Ignored.
-        :param excluded: flag. Ignored.
-        """
-        raise NotImplementedError(
-            "Monosubloci are the input of this object, not the output.")
+    def define_monosubloci(self, **kwargs):
+        """Overriden and set to NotImplemented to avoid cross-calling it when inappropriate."""
+        raise NotImplementedError("Monosubloci are the input of this object, not the output.")
 
     def define_loci(self, purge=False, excluded=None):
         """This is the main function of the class. It is analogous
@@ -176,9 +171,13 @@ class MonosublocusHolder(Sublocus, Abstractlocus):
 
         self.calculate_scores()
 
-        graph = self.define_graph(self.transcripts, inters=self.is_intersecting,
-                                  cds_only=self.json_conf["pick"][
-                                      "run_options"]["subloci_from_cds_only"], logger=self.logger)
+        graph = self.define_graph(
+            self.transcripts,
+            inters=self.is_intersecting,
+            logger=self.logger,
+            cds_only=self.json_conf["pick"]["clustering"]["cds_only"],
+            min_cdna_overlap=self.json_conf["pick"]["clustering"]["min_cdna_overlap"],
+            min_cds_overlap=self.json_conf["pick"]["clustering"]["min_cds_overlap"])
 
         loci = []
         while len(graph) > 0:
@@ -220,10 +219,11 @@ class MonosublocusHolder(Sublocus, Abstractlocus):
         by definition span multiple subloci, we have to be less strict in our definition of what
         counts as an intersection.
         Criteria:
-        - 1 splice site in common (splice, not junction)
-        - If one or both of the transcript is monoexonic OR
-        one or both lack an ORF, check for any exonic overlap
-        - Otherwise, check for any CDS overlap.
+        - the cDNA and CDS overlap is over a user-specified threshold
+        OR
+        - there is some intronic overlap
+        OR
+        - one intron of either transcript is completely contained within an exon of the other.
 
          :param transcript
          :type transcript; Transcript
@@ -252,21 +252,20 @@ class MonosublocusHolder(Sublocus, Abstractlocus):
         if logger is None or not isinstance(logger, logging.Logger):
             logger = create_null_logger("MSH")
 
-        if transcript.id == other.id or transcript.strand != other.strand:
-            logger.debug("Cannot intersect with itself (%s vs %s)",
-                         transcript.id, other.id)
+        if transcript == other or transcript.id == other.id or transcript.strand != other.strand:
+            logger.debug("Cannot intersect with itself (%s vs %s) or a transcript on the other strand (%s and %s)",
+                         transcript.id, other.id, transcript.strand, other.strand)
             return False
 
-        if cds_only is True and (transcript.is_coding and other.is_coding):
-            logger.debug("Considering only the CDS of %s and %s, as they are both coding; stripping the UTR",
-                         transcript.id, other.id)
-            transcript = transcript.deepcopy()
-            transcript.remove_utrs()
-            other = other.deepcopy()
-            other.remove_utrs()
-            logger.debug("New coordinates: %s (%d-%d), %s (%d-%d)",
-                         transcript.id, transcript.start, transcript.end,
-                         other.id, other.start, other.end)
+        logger.debug("Consider only the CDS: %s", cds_only)
+        if cds_only is True:
+            logger.debug("%s %s, %s %s, so %s",
+                         transcript.id, transcript.is_coding,
+                         other.id, other.is_coding,
+                         "removing the UTRs" if other.is_coding and transcript.is_coding else "not removing the UTRs"
+                         )
+            if transcript.is_coding and other.is_coding:
+                transcript, other = cls.__strip_utr(transcript, other, logger)
 
         # Calculate the relationship between the transcripts
         comparison, _ = c_compare(other, transcript)
@@ -277,64 +276,61 @@ class MonosublocusHolder(Sublocus, Abstractlocus):
             logger.debug("No genomic overlap between %s and %s. Comparison: %s",
                          transcript.id, other.id, comparison)
             return False  # We do not want intersection with oneself
-        elif min(transcript.exon_num, other.exon_num) == 1:
-            logger.debug("%s and %s intersect (%s %s monoexonic); class code: %s",
-                         transcript.id, other.id,
-                         transcript.id if (
-                             transcript.exon_num == 1 and other.exon_num > 1) else
-                             other.id if transcript.exon_num > 1 else "both",
-                         "is" if max(transcript.exon_num, other.exon_num) > 1 else "are",
-                         comparison.ccode)
-            return True
         elif comparison.j_f1[0] > 0 or comparison.ccode[0] == "h":
             # Simple case: they do intersect!
             logger.debug("%s and %s intersect; class code: %s", transcript.id, other.id, comparison.ccode)
             return True
-        elif comparison.ccode[0] == "o":
+        else:
             # Is at least one intron completely contained?
-            if cls._intron_contained_in_exon(transcript, other):
-                logger.debug("At least 1 intron of %s is completely contained within an exon of %s\n%s\n%s",
-                             transcript.id,
-                             other.id,
-                             transcript.combined_cds_introns, other.coding_exons)
+            if cls._intron_contained_in_exon(transcript, other) or cls._intron_contained_in_exon(other, transcript):
+                logger.debug("Intronic containment within an exon for the comparison %s and %s; intersecting",
+                             transcript.id, other.id)
                 return True
-            elif cls._intron_contained_in_exon(other, transcript):
-                logger.debug("At least 1 intron of %s is completely contained within an exon of %s",
-                             other.id, transcript.id)
-                return True
+
+        cdna_overlap, cds_overlap = cls.__calculate_overlap(transcript, other, comparison, cds_only=cds_only)
+        if cdna_overlap >= min_cdna_overlap and cds_overlap >= min_cds_overlap:
+            logger.debug("%s and %s have enough of CDS (%s) and cDNA (%s) overlap, intersecting.",
+                         transcript.id, other.id, cds_overlap, cdna_overlap)
+            return True
+        else:
+            logger.debug("%s and %s do not have enough of CDS (%s) and cDNA (%s) overlap, not intersecting.",
+                         transcript.id, other.id, cds_overlap, cdna_overlap)
+            return False
+
+    @staticmethod
+    def __strip_utr(transcript, other, logger):
+        """Private method to remove the UTRs from both transcripts. Creates deep copies of the original objects,
+        to avoid bugs down the line."""
+        logger.debug("Considering only the CDS of %s and %s, as they are both coding; stripping the UTR",
+                     transcript.id, other.id)
+        transcript = transcript.deepcopy()
+        transcript.remove_utrs()
+        other = other.deepcopy()
+        other.remove_utrs()
+        logger.debug("New coordinates: %s (%d-%d), %s (%d-%d)",
+                     transcript.id, transcript.start, transcript.end,
+                     other.id, other.start, other.end)
+        return transcript, other
+
+    @staticmethod
+    def __calculate_overlap(transcript, other, comparison, cds_only=False) -> (float, float):
+        """Private method to return the cDNA overlap and the CDS overlap of two transcripts."""
 
         cdna_overlap = max(comparison.n_recall[0], comparison.n_prec[0]) / 100
         if cds_only is True and (transcript.is_coding and other.is_coding):
-            if cdna_overlap >= max(min_cds_overlap, min_cdna_overlap):
-                logger.debug("%s and %s have %s of CDS overlap (considering only the coding portion), they intersect.",
-                         transcript.id, other.id, cdna_overlap)
-                return True
-            else:
-                logger.debug(
-                    """Considering only the CDS, %s and %s do not have enough overlap (tot %s), they do not intersect.
-                    Comparison: %s""",
-                    transcript.id, other.id, cdna_overlap, comparison)
-                return False
-        elif not (cds_only is True and (transcript.is_coding and other.is_coding)):
-            logger.debug("Considering also the CDS of %s and %s, for the overlap.",
-                         transcript.id, other.id)
+            return cdna_overlap, cdna_overlap
+        elif cds_only is False and (transcript.is_coding and other.is_coding):
             cds_transcript = transcript.deepcopy()
             cds_transcript.remove_utrs()
             cds_other = other.deepcopy()
             cds_other.remove_utrs()
             cds_comparison, _ = c_compare(cds_other, cds_transcript)
             cds_overlap = max(cds_comparison.n_recall[0], cds_comparison.n_prec[0]) / 100
-            if cdna_overlap >= min_cdna_overlap and cds_overlap >= min_cds_overlap:
-                logger.debug("%s and %s have enough of CDS (%s) and cDNA (%s) overlap, intersecting.",
-                             transcript.id, other.id, cds_overlap, cdna_overlap)
-                return True
-            else:
-                logger.debug("%s and %s do not have enough of CDS (%s) and cDNA (%s) overlap, not intersecting.",
-                             transcript.id, other.id, cds_overlap, cdna_overlap)
-                return False
+            return cdna_overlap, cds_overlap
+        elif not (transcript.is_coding and other.is_coding):
+            return cdna_overlap, cdna_overlap
         else:
-            logger.debug("%s and %s fail to meet the requirements to intersect.")
-            return False
+            raise SyntaxError("Unhandled behaviour!")
 
     @staticmethod
     def _intron_contained_in_exon(transcript: Transcript, other: Transcript) -> bool:
@@ -345,146 +341,13 @@ class MonosublocusHolder(Sublocus, Abstractlocus):
         return any((overlap(*_) == (_[0][1] - _[0][0])) for _ in itertools.product(transcript.introns, other.exons))
 
     @classmethod
-    def is_intersecting_old(cls, transcript, other, cds_only=False, logger=None, simple_overlap=False):
-        """
-        Implementation of the is_intersecting method. Now that we are comparing transcripts that
-        by definition span multiple subloci, we have to be less strict in our definition of what
-        counts as an intersection.
-        Criteria:
-        - 1 splice site in common (splice, not junction)
-        - If one or both of the transcript is monoexonic OR
-        one or both lack an ORF, check for any exonic overlap
-        - Otherwise, check for any CDS overlap.
-
-         :param transcript
-         :type transcript; Transcript
-
-         :param other:
-         :type other: Transcript
-
-         :param cds_only: boolean flag. If set to True, only
-         the CDS component of the transcripts will be considered to determine
-         whether they are intersecting or not.
-         :type cds_only: bool
-
-        :param simple_overlap: boolean flag. If set to True, the intersection will be determined by a simple
-        overlapping check. Default: False
-        :type simple_overlap: bool
-
-        :param logger: either None or a logger instance. If None, a null logger will be created.
-
-         :rtype : bool
-        """
-
-        if logger is None or not isinstance(logger, logging.Logger):
-            logger = create_null_logger("MSH")
-
-        if transcript.id == other.id:
-            logger.debug("Cannot intersect with itself (%s vs %s)",
-                         transcript.id, other.id)
-            return False
-        elif cls.overlap(
-                (transcript.start, transcript.end),
-                (other.start, other.end)) <= 0:
-            logger.debug("No genomic overlap between %s and %s", transcript.id, other.id)
-            return False  # We do not want intersection with oneself
-
-        if not any((overlap(*_) > 0) for _ in itertools.product(transcript.exons, other.exons)):
-            logger.debug("No exonic overlap between %s and %s",
-                         transcript.id, other.id)
-            return False
-
-        # At this point we pretty much know that we have an interval
-        if simple_overlap is True:
-            if (cds_only is True and all((_.is_coding is True for _ in (transcript, other)))):
-                if any((overlap(*_) > 0) for _ in itertools.product(transcript.combined_cds, other.combined_cds)):
-                    logger.debug("%s and %s are both coding and they overlap on their CDS - they intersect",
-                                 transcript.id, other.id)
-                    return True
-                else:
-                    logger.debug("%s and %s are both coding but they do not intersect.", transcript.id, other.id)
-                    return False
-            else:
-                logger.debug("%s and %s are not both coding, but their exons overlap. Returning True.")
-                return True
-        else:
-            # Both transcripts are multiexonic
-            if not any([other.monoexonic, transcript.monoexonic]):
-                if cds_only is True and all((_.is_coding is True for _ in (transcript, other))):
-                    # First check for splice site interaction
-                    if any(((overlap(*_) > 0) for _ in itertools.product(
-                            transcript.combined_cds_introns,
-                            other.combined_cds_introns))):
-                        logger.debug("At least one combined CDS intron of %s intersects a combined CDS intron of %s; %s %s",
-                                     transcript.id, other.id, transcript.combined_cds_introns, other.combined_cds_introns)
-                        return True
-                    elif any((overlap(*_) == (_[0][1] - _[0][0]))
-                             for _ in itertools.product(transcript.combined_cds_introns, other.coding_exons)):
-                        logger.debug("At least 1 intron of %s is completely contained within an exon of %s\n%s\n%s",
-                                     transcript.id,
-                                     other.id,
-                                     transcript.combined_cds_introns, other.coding_exons)
-                        return True
-                    elif any((overlap(*_) == (_[0][1] - _[0][0]))
-                              for _ in itertools.product(other.combined_cds_introns, transcript.coding_exons)):
-                        logger.debug("At least 1 intron of %s is completely contained within an exon of %s",
-                                     other.id, transcript.id)
-                        return True
-                    else:
-                        logger.debug("No combined CDS intron of %s intersects a combined CDS intron of %s\n%s\n%s",
-                                     transcript.id, other.id,
-                                     transcript.combined_cds_introns,
-                                     other.combined_cds_introns)
-                else:
-                    if any(((overlap(*_) > 0) for _ in itertools.product(transcript.introns, other.introns))):
-                        logger.debug("At least 1 intron of %s intersects another intron in %s",
-                                     transcript.id, other.id)
-                        return True
-                    # elif any((overlap(*_) == (_[0][1] - _[0][0] + 1 ))
-                    elif any((overlap(*_) == (_[0][1] - _[0][0]))
-                             for _ in itertools.product(transcript.introns, other.exons)):
-                        logger.debug("At least 1 intron of %s is completely contained within an exon of %s\n%s\n%s",
-                                     transcript.id, other.id, transcript.introns, other.exons)
-                        return True
-                    elif any((overlap(*_) == (_[0][1] - _[0][0]))
-                              for _ in itertools.product(other.introns, transcript.exons)):
-                        logger.debug("At least 1 intron of %s is completely contained within an exon of %s",
-                                     other.id, transcript.id)
-                        return True
-                    else:
-                        logger.debug("No intron in %s intersects introns in %s",
-                                     transcript.id, other.id)
-            else:
-                if cds_only is True and all((_.is_coding is True for _ in (transcript, other))):
-                    if any(True for comb in itertools.product(transcript.combined_cds, other.combined_cds) if
-                           cls.overlap(*comb) >= 0):
-                        logger.debug("CDS overlap between %s and %s",
-                                     transcript.id, other.id)
-                        return True
-                    else:
-                        logger.debug("No CDS overlap between %s and %s",
-                                     transcript.id, other.id)
-                        # return False
-                else:
-                    if any(True for comb in itertools.product(transcript.exons, other.exons) if
-                           cls.overlap(*comb) >= 0):
-                        logger.debug("Genomic overlap between %s and %s",
-                                     transcript.id, other.id)
-                        return True
-                    else:
-                        logger.debug("No genomic overlap between %s and %s",
-                                     transcript.id, other.id)
-
-        return False
-
-
-    @classmethod
     def in_locus(cls, monosublocus: Abstractlocus,
                  transcript: Transcript,
                  flank=0,
                  logger=None,
                  cds_only=False,
-                 simple_overlap=False) -> bool:
+                 min_cdna_overlap=0.2,
+                 min_cds_overlap=0.2) -> bool:
 
         """This method checks whether a transcript / monosbulocus
         falls inside the Locus coordinates.
@@ -500,6 +363,7 @@ class MonosublocusHolder(Sublocus, Abstractlocus):
         :param flank: optional flank argument
         :type flank: int
         """
+
         if hasattr(transcript, "transcripts"):
             assert len(transcript.transcripts) == 1
             transcript = transcript.transcripts[list(transcript.transcripts.keys())[0]]
@@ -512,8 +376,9 @@ class MonosublocusHolder(Sublocus, Abstractlocus):
                 is_in_locus = cls.is_intersecting(tran,
                                                   transcript,
                                                   logger=logger,
-                                                  cds_only=cds_only)
-                                                  # simple_overlap=simple_overlap)
+                                                  cds_only=cds_only,
+                                                  min_cds_overlap=min_cds_overlap,
+                                                  min_cdna_overlap=min_cdna_overlap)
                 if is_in_locus is True:
                     break
         return is_in_locus

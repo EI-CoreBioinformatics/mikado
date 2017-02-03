@@ -379,7 +379,7 @@ class ASeventsTester(unittest.TestCase):
 
         # self.locus.add_transcript_to_locus(t2)
         self.assertEqual(self.locus.is_alternative_splicing(t2)[:2], (True, "J"))
-        self.locus.json_conf["pick"]["run_options"]["subloci_from_cds_only"] = True
+        self.locus.json_conf["pick"]["clustering"]["cds_only"] = True
 
         self.assertEqual(self.locus.is_alternative_splicing(t2)[:2], (False, "="))
 
@@ -644,13 +644,27 @@ class MonoHolderTester(unittest.TestCase):
         t2.id = "G2.1"
         t2.parent = "G2"
         t2.start = 1350
-        t2.end = 3000
-        t2.add_exons([(1350, 1560), (1801, 2000)])
+        t2.end = 3850
+        t2.add_exons([(1350, 1560), (2801, 3850)])
         t2.add_exons([(1401, 1560), (2801, 3850)], "CDS")
+        # logger.setLevel("DEBUG")
+        t2.logger = logger
         t2.finalize()
-        for min_overlap in [0.01, 0.05, 0.1, 0.2]:
+        self.assertTrue(t2.is_coding)
+        for min_overlap in [0.1, 0.2, 0.3, 0.5]:
             with self.subTest(min_overlap=min_overlap):
                 self.assertIs(MonosublocusHolder.is_intersecting(self.t1, t2,
+                                                                 cds_only=False,
+                                                                 min_cds_overlap=0.07,
+                                                                 min_cdna_overlap=min_overlap,
+                                                                 logger=logger), (min_overlap <= 0.12))
+
+        self.assertTrue(t2.is_coding)
+
+        for min_overlap in [0.01, 0.05, 0.1, 0.2]:
+            with self.subTest(min_overlap=min_overlap):
+                self.assertIs(MonosublocusHolder.is_intersecting(self.t1,
+                                                                 t2,
                                                                  cds_only=True,
                                                                  min_cds_overlap=min_overlap,
                                                                  min_cdna_overlap=min_overlap,
@@ -671,7 +685,7 @@ class MonoHolderTester(unittest.TestCase):
         t2.finalize()
         self.assertFalse(MonosublocusHolder.is_intersecting(self.t1, t2))
 
-    def test_same_id(self):
+    def test_sameness(self):
 
         t2 = Transcript()
         t2.chrom = "Chr1"
@@ -1478,10 +1492,7 @@ class PicklingTest(unittest.TestCase):
         for transcript in [self.t1, self.t2, self.t3]:
             for (loc_type, loc_name) in [(_, _.__name__) for _ in (Superlocus, Sublocus, Monosublocus, Locus)]:
                 with self.subTest(transcript=transcript, loc_type=loc_type, loc_name=loc_name):
-                    try:
-                        loc = loc_type(transcript, json_conf=self.json_conf)
-                    except TypeError as exc:
-                        raise TypeError("{}\n{}".format(loc_name, exc))
+                    loc = loc_type(transcript, json_conf=self.json_conf)
                     pickled = pickle.dumps(transcript)
                     unpickled = pickle.loads(pickled)
                     self.assertEqual(transcript, unpickled)

@@ -28,7 +28,6 @@ from ..serializers.external import External
 from ..serializers.junction import Junction, Chrom
 from ..serializers.orf import Orf
 from ..utilities import dbutils, grouper
-
 if version_info.minor < 5:
     from sortedcontainers import SortedDict
 else:
@@ -553,13 +552,20 @@ class Superlocus(Abstractlocus):
                                  self.session.query(Query).filter(
                                      Query.query_name.in_(tid_group)))
                 # Retrieve the external scores
-                external = self.session.query(External).filter(External.query_id.in_(query_ids.keys()))
+                if query_ids:
+                    external = self.session.query(External).filter(External.query_id.in_(query_ids.keys()))
+                else:
+                    external = []
 
                 for ext in external:
                     data_dict["external"][ext.query][ext.source] = ext.score
 
                 # Load the ORFs from the table
-                orfs = self.session.query(Orf).filter(Orf.query_id.in_(query_ids.keys()))
+                if query_ids:
+                    orfs = self.session.query(Orf).filter(Orf.query_id.in_(query_ids.keys()))
+                else:
+                    orfs = []
+
                 for orf in orfs:
                     data_dict["orfs"][orf.query].append(orf.as_bed12())
 
@@ -885,7 +891,7 @@ expression: %s""",
             self.subloci_defined = True
             return
 
-        cds_only = self.json_conf["pick"]["run_options"]["subloci_from_cds_only"]
+        cds_only = self.json_conf["pick"]["clustering"]["cds_only"]
         self.logger.debug("Calculating the transcript graph for %d transcripts", len(self.transcripts))
         transcript_graph = self.define_graph(self.transcripts,
                                              inters=self.is_intersecting,
@@ -1134,14 +1140,18 @@ expression: %s""",
         candidates = collections.defaultdict(set)
         primary_transcripts = set(locus.primary_transcript_id for locus in self.loci.values())
 
-        cds_only = self.json_conf["pick"]["run_options"]["subloci_from_cds_only"]
-        simple_overlap = self.json_conf["pick"]["run_options"]["monoloci_from_simple_overlap"]
+        cds_only = self.json_conf["pick"]["clustering"]["cds_only"]
+        # simple_overlap = self.json_conf["pick"]["run_options"]["monoloci_from_simple_overlap"]
+        cds_overlap = self.json_conf["pick"]["clustering"]["min_cds_overlap"]
+        cdna_overlap = self.json_conf["pick"]["clustering"]["min_cdna_overlap"]
+
         t_graph = self.define_graph(self.transcripts,
                                     inters=MonosublocusHolder.is_intersecting,
                                     cds_only=cds_only,
-                                    logger=self.logger)
-                                    # simple_overlap=simple_overlap)
-        
+                                    logger=self.logger,
+                                    min_cdna_overlap=cdna_overlap,
+                                    min_cds_overlap=cds_overlap)
+
         cliques = self.find_cliques(t_graph)
 
         loci_cliques = dict()
@@ -1173,8 +1183,7 @@ expression: %s""",
         """Wrapper to calculate the metrics for the monosubloci."""
         self.monoholders = []
 
-        cds_only = self.json_conf["pick"]["run_options"]["subloci_from_cds_only"]
-        simple_overlap = self.json_conf["pick"]["run_options"]["monoloci_from_simple_overlap"]
+        cds_only = self.json_conf["pick"]["clustering"]["cds_only"]
         for monosublocus_instance in sorted(self.monosubloci):
             found_holder = False
             for holder in self.monoholders:

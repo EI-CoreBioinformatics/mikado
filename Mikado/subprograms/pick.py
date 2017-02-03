@@ -57,7 +57,7 @@ def check_run_options(args):
         args.json_conf["pick"]["run_options"]["purge"] = True
 
     if args.flank is not None:
-        args.json_conf["pick"]["run_options"]["flank"] = args.flank
+        args.json_conf["pick"]["clustering"]["flank"] = args.flank
 
     if args.output_dir is not None:
         args.json_conf["pick"]["files"]["output_dir"] = args.output_dir
@@ -91,8 +91,8 @@ def check_run_options(args):
     if args.monoloci_from_simple_overlap is True:
         args.json_conf["pick"]["run_options"]["monoloci_from_simple_overlap"] = True
 
-    if args.subloci_from_cds_only is True:
-        args.json_conf["pick"]["run_options"]["subloci_from_cds_only"] = True
+    if args.cds_only is True:
+        args.json_conf["pick"]["clustering"]["cds_only"] = True
 
     if args.consider_truncated_for_retained is True:
         args.json_conf["pick"]["run_options"]["consider_truncated_for_retained"] = True
@@ -188,7 +188,7 @@ def pick_parser():
     parser.add_argument('--purge', action='store_true', default=False,
                         help='''Flag. If set, the pipeline will suppress any loci
                         whose transcripts do not pass the requirements set in the JSON file.''')
-    parser.add_argument("--subloci-from-cds-only", dest="subloci_from_cds_only",
+    parser.add_argument("--cds-only", dest="cds_only",
                         default=False, action="store_true",
                         help=""""Flag. If set, Mikado will only look for overlap in the coding features
                         when clustering transcripts (unless one transcript is non-coding, in which case

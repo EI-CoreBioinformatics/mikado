@@ -552,7 +552,7 @@ Chr1	foo	exon	19000	20000	.	+	.	gene_id "foo"; transcript_id "foo2.1"""
             with self.subTest(purging=purging):
                 json_conf["pick"]["files"]["loci_out"] = "mikado.purging_{}.loci.gff3".format(purging)
                 json_conf["pick"]["files"]["log"] = "mikado.purging_{}.log".format(purging)
-                json_conf["pick"]["run_options"]["purge"] = purging
+                json_conf["pick"]["clustering"]["purge"] = purging
                 json_conf["pick"]["scoring_file"] = scoring_file.name
                 json_conf = configurator.check_json(json_conf)
                 self.assertEqual(len(json_conf["scoring"].keys()), 1, json_conf["scoring"].keys())
@@ -601,7 +601,7 @@ Chr1	foo	exon	19000	20000	.	+	.	gene_id "foo"; transcript_id "foo2.1"""
                 json_conf["pick"]["files"]["loci_out"] = "mikado.purging_{}.loci.gff3".format(purging)
                 json_conf["pick"]["files"]["subloci_out"] = "mikado.purging_{}.subloci.gff3".format(purging)
                 json_conf["pick"]["files"]["log"] = "mikado.purging_{}.log".format(purging)
-                json_conf["pick"]["run_options"]["purge"] = purging
+                json_conf["pick"]["clustering"]["purge"] = purging
                 json_conf["pick"]["scoring_file"] = scoring_file.name
                 json_conf = configurator.check_json(json_conf)
                 self.assertEqual(len(json_conf["scoring"].keys()), 2, json_conf["scoring"].keys())
@@ -641,7 +641,7 @@ Chr1	foo	exon	19000	20000	.	+	.	gene_id "foo"; transcript_id "foo2.1"""
                 json_conf["pick"]["files"]["loci_out"] = "mikado.purging_{}.loci.gff3".format(purging)
                 json_conf["pick"]["files"]["subloci_out"] = "mikado.purging_{}.subloci.gff3".format(purging)
                 json_conf["pick"]["files"]["log"] = "mikado.purging_{}.log".format(purging)
-                json_conf["pick"]["run_options"]["purge"] = purging
+                json_conf["pick"]["clustering"]["purge"] = purging
                 json_conf["pick"]["scoring_file"] = scoring_file.name
                 json_conf = configurator.check_json(json_conf)
                 self.assertEqual(len(json_conf["scoring"].keys()), 2, json_conf["scoring"].keys())

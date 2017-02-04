@@ -37,7 +37,9 @@ from .loci_processer import analyse_locus, LociProcesser, merge_loci, print_locu
 import multiprocessing.managers
 from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
 import pickle
-
+import warnings
+logging.captureWarnings(True)
+warnings.simplefilter("always")
 
 # pylint: disable=too-many-instance-attributes
 class Picker:
@@ -117,6 +119,16 @@ class Picker:
         self.setup_logger()
         self.logger.info("Multiprocessing method: %s",
                          self.json_conf["multiprocessing_method"])
+
+        for key in ("remove_overlapping_fragments", "flank", "purge"):
+            if key in self.json_conf["pick"]["run_options"]:
+                # Put warnings in place for the deprecation of some options.
+                warns = PendingDeprecationWarning(
+                    """The \"{}\" property has now been moved to the pick/clustering section.
+Please update your configuration files in the future.""".format(key))
+                self.logger.warn(warns)
+                self.json_conf["pick"]["clustering"][key] = self.json_conf["pick"]["run_options"][key]
+
         self.context = multiprocessing.get_context()
         if self.json_conf["pick"]["scoring_file"].endswith((".pickle", ".model")):
             with open(self.json_conf["pick"]["scoring_file"], "rb") as forest:

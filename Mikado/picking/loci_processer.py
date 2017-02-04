@@ -279,7 +279,7 @@ def print_locus(stranded_locus,
     for locus in stranded_locus.loci:
         gene_counter += 1
         fragment_test = (
-            json_conf["pick"]["run_options"]["remove_overlapping_fragments"]
+            json_conf["pick"]["clustering"]["remove_overlapping_fragments"]
             is True and stranded_locus.loci[locus].is_fragment is True)
 
         if fragment_test is True:
@@ -421,7 +421,7 @@ def remove_fragments(stranded_loci, json_conf, logger):
         loci_to_check[False] = loci_to_check.pop(True)
         loci_to_check[True] = set()
 
-    bool_remove_fragments = json_conf["pick"]["run_options"]["remove_overlapping_fragments"]
+    bool_remove_fragments = json_conf["pick"]["clustering"]["remove_overlapping_fragments"]
     for stranded_locus in stranded_loci:
         to_remove = set()
         for locus_id, locus_instance in stranded_locus.loci.items():

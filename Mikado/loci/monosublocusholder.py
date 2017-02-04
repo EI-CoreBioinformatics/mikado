@@ -51,7 +51,7 @@ class MonosublocusHolder(Sublocus, Abstractlocus):
         self.metrics_calculated = False
         self.json_conf = json_conf
         self.excluded = None
-        self.purge = self.json_conf["pick"]["run_options"]["purge"]
+        self.purge = self.json_conf["pick"]["clustering"]["purge"]
         self.feature = "MonosublocusHolder"
         self.score = monosublocus_instance.score
         self.scores_calculated = False

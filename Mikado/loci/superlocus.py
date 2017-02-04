@@ -118,7 +118,7 @@ class Superlocus(Abstractlocus):
             raise NoJsonConfigError("I am missing the configuration for prioritizing transcripts!")
         self.__regressor = None
         self.json_conf = json_conf
-        self.purge = self.json_conf["pick"]["run_options"]["purge"]
+        self.purge = self.json_conf["pick"]["clustering"]["purge"]
 
         self.splices = set(self.splices)
         self.introns = set(self.introns)

@@ -54,7 +54,7 @@ def check_run_options(args):
     if args.no_cds is not False:
         args.json_conf["pick"]["run_options"]["exclude_cds"] = True
     if args.purge is not False:
-        args.json_conf["pick"]["run_options"]["purge"] = True
+        args.json_conf["pick"]["clustering"]["purge"] = True
 
     if args.flank is not None:
         args.json_conf["pick"]["clustering"]["flank"] = args.flank

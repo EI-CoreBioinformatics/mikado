@@ -281,6 +281,7 @@ class Transcript:
         self.__blast_score = 0  # Homology score
         self.__derived_children = set()
         self.__external_scores = Namespace(default=0)
+        self.__internal_orf_transcripts = []
 
         # Starting settings for everything else
         self.chrom = None
@@ -319,7 +320,6 @@ class Transcript:
         self.__segmenttree = IntervalTree()
         self.__cds_introntree = IntervalTree()
         self._possibly_without_exons = False
-        # self.query_id = None
 
         if len(args) == 0:
             return
@@ -509,14 +509,13 @@ class Transcript:
 
     # ######## Class instance methods ####################
 
-    def add_exon(self, gffline, feature=None):
+    def add_exon(self, gffline, feature=None, phase=None):
         """This function will append an exon/CDS feature to the object.
         :param gffline: an annotation line
         :type gffline: (Mikado.parsers.GFF.GffLine | Mikado.parsers.GTF.GtfLine | tuple | list)
         :type feature: flag to indicate what kind of feature we are adding
         """
 
-        phase = None
         if isinstance(gffline, (tuple, list)):
             assert len(gffline) == 2
             start, end = sorted(gffline)
@@ -587,7 +586,7 @@ class Transcript:
         store.append(segment)
         return
 
-    def add_exons(self, exons, features=None):
+    def add_exons(self, exons, features=None, phases=None):
 
         """
         Wrapper of the add_exon method for multiple lines.
@@ -604,9 +603,15 @@ class Transcript:
                 raise InvalidTranscript("Mismatch between exons and features! %s,\t%s",
                                         exons,
                                         features)
+        if phases is None:
+            phases = [None] * len(exons)
+        elif len(phases) != len(exons):
+            raise InvalidTranscript("Mismatch between exons and features! %s,\t%s",
+                                    exons,
+                                    features)
 
-        for exon, feature in zip(exons, features):
-            self.add_exon(exon, feature)
+        for exon, feature, phase in zip(exons, features, phases):
+            self.add_exon(exon, feature=feature, phase=phase)
         return
 
     def format(self, format_name,
@@ -725,6 +730,43 @@ class Transcript:
                     assert new_row.invalid is False, ("\n".join([str(new_row), new_row.invalid_reason]))
 
                 yield new_row
+
+    @property
+    def _selected_orf_transcript(self):
+
+        """This method will return the selected internal ORF as a transcript object."""
+
+        self.finalize()
+        if not self.is_coding:
+            return []
+        return self._internal_orfs_transcripts[self.selected_internal_orf_index]
+
+    @property
+    def _internal_orfs_transcripts(self):
+        """This method will return all internal ORFs as transcript objects.
+        Note: this will exclude the UTR part, even when the transcript only has one ORF."""
+
+        self.finalize()
+        if not self.is_coding:
+            return []
+        elif len(self.__internal_orf_transcripts) == len(self.internal_orfs):
+            return self.__internal_orf_transcripts
+        else:
+            for num, orf in enumerate(self.internal_orfs, start=1):
+                torf = Transcript()
+                torf.chrom, torf.strand = self.chrom, self.strand
+                torf.derives_from = self.id
+                torf.id = "{}.orf{}".format(self.id, num)
+                __exons, __phases = [], []
+                for segment in [_ for _ in orf if _[0] == "CDS"]:
+                    __exons.append(segment[1])
+                    __phases.append(segment[2])
+                torf.add_exons(__exons, features="exon", phases=None)
+                torf.add_exons(__exons, features="CDS", phases=__phases)
+                torf.finalize()
+                self.__internal_orf_transcripts.append(torf)
+
+        return self.__internal_orf_transcripts
 
     def split_by_cds(self):
         """This method is used for transcripts that have multiple ORFs.
@@ -896,6 +938,7 @@ class Transcript:
             return
 
         self.internal_orfs = []
+        self.__internal_orf_transcripts = []
         self.combined_utr = []
         self.finalized = False
 

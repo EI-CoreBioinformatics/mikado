@@ -176,7 +176,9 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
     @staticmethod
     def overlap(first_interval: (int, int),
-                second_interval: (int, int), flank=0) -> int:
+                second_interval: (int, int),
+                flank=0,
+                positive=False) -> int:
 
         """:param first_interval: a tuple of integers
         :type first_interval: [int,int]
@@ -198,7 +200,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         Input: two 2-tuples of integers.
         """
 
-        return overlap(first_interval, second_interval, flank)
+        return overlap(first_interval, second_interval, flank, positive=positive)
 
     @staticmethod
     def evaluate(param: str, conf: dict) -> bool:
@@ -343,7 +345,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
     # ###### Class instance methods  #######
 
-    def add_transcript_to_locus(self, transcript, check_in_locus=True):
+    def add_transcript_to_locus(self, transcript, check_in_locus=True, logger=None, **kwargs):
         """
         :param transcript
         :type transcript: Mikado.loci_objects.transcript.Transcript
@@ -367,7 +369,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         if self.initialized is True:
             if check_in_locus is False:
                 pass
-            elif not self.in_locus(self, transcript):
+            elif not self.in_locus(self, transcript, **kwargs):
                 raise NotInLocusError("""Trying to merge a Locus with an incompatible transcript!
                 Locus: {lchrom}:{lstart}-{lend} {lstrand} [{stids}]
                 Transcript: {tchrom}:{tstart}-{tend} {tstrand} {tid}

@@ -79,10 +79,37 @@ class MonosublocusHolder(Sublocus, Abstractlocus):
         :type check_in_locus: bool
         """
 
-        Abstractlocus.add_transcript_to_locus(self, transcript,
-                                              check_in_locus=check_in_locus)
+        #
+        # monosublocus: Abstractlocus,
+        # transcript: Transcript,
+        # flank = 0,
+        # logger = None,
+        # cds_only = False,
+        # min_cdna_overlap = 0.2,
+        # min_cds_overlap = 0.2,
+        # classic_method = False
+
+        self.logger.warning("Using the MSH add_transcript_to_locus method for %s and %s",
+                            self.id, transcript.id)
+
+        if check_in_locus is True and self.in_locus(
+                self,
+                transcript,
+                flank=self.json_conf["pick"]["clustering"]["flank"],
+                logger=self.logger,
+                cds_only=self.json_conf["pick"]["clustering"]["cds_only"],
+                min_cdna_overlap=self.json_conf["pick"]["clustering"]["min_cdna_overlap"],
+                min_cds_overlap=self.json_conf["pick"]["clustering"]["min_cds_overlap"],
+                simple_overlap_for_monoexonic=self.json_conf["pick"]["clustering"]["simple_overlap_for_monoexonic"]
+        ) is False:
+
+                self.logger.debug("%s is not a valid intersection for %s", transcript.id, self.id)
+                return False
+
+        Abstractlocus.add_transcript_to_locus(self, transcript, check_in_locus=False)
         self.locus_verified_introns = set.union(self.locus_verified_introns,
                                                 transcript.verified_introns)
+
     # pylint: enable=arguments-differ
 
     def add_monosublocus(self, monosublocus_instance: Monosublocus):
@@ -177,7 +204,9 @@ class MonosublocusHolder(Sublocus, Abstractlocus):
             logger=self.logger,
             cds_only=self.json_conf["pick"]["clustering"]["cds_only"],
             min_cdna_overlap=self.json_conf["pick"]["clustering"]["min_cdna_overlap"],
-            min_cds_overlap=self.json_conf["pick"]["clustering"]["min_cds_overlap"])
+            min_cds_overlap=self.json_conf["pick"]["clustering"]["min_cds_overlap"],
+            simple_overlap_for_monoexonic=self.json_conf["pick"]["clustering"]["simple_overlap_for_monoexonic"]
+        )
 
         loci = []
         while len(graph) > 0:
@@ -213,7 +242,8 @@ class MonosublocusHolder(Sublocus, Abstractlocus):
                         cds_only=False,
                         logger=None,
                         min_cdna_overlap=0.2,
-                        min_cds_overlap=0.2) -> bool:
+                        min_cds_overlap=0.2,
+                        simple_overlap_for_monoexonic=True) -> bool:
         """
         Implementation of the is_intersecting method. Now that we are comparing transcripts that
         by definition span multiple subloci, we have to be less strict in our definition of what
@@ -221,11 +251,81 @@ class MonosublocusHolder(Sublocus, Abstractlocus):
         Criteria:
         - the cDNA and CDS overlap is over a user-specified threshold
         OR
-        - there is some intronic overlap
+        - either transcript is monoexonic and simple_overlap_for_monoexonic is True, if there is exonic overlap
         OR
         - one intron of either transcript is completely contained within an exon of the other.
 
+        The user can specify whether she prefers to consider the whole transcript (default) or whether to consider
+        instead the **selected ORF** of the transcripts for the comparison. Please note that intersection in secondary
+        ORFs will not be valid under this scenario.
+
          :param transcript
+         :type transcript; Transcript
+
+         :param other:
+         :type other: Transcript
+
+         :param cds_only: boolean flag. If set to True, only the CDS component of the transcripts will be
+         considered to determine whether they are intersecting or not.
+         :type cds_only: bool
+
+        :param min_cdna_overlap: float. This is the minimum cDNA overlap for two transcripts to be considered as intersecting,
+         even when all other conditions fail.
+        :type min_cdna_overlap: float
+
+        :param min_cds_overlap: float. This is the minimum CDS overlap for two transcripts to be considered as intersecting,
+         even when all other conditions fail.
+        :type min_cds_overlap: float
+
+        :param simple_overlap_for_monoexonic: boolean flag. If set to true, any overlap for monoexonic transcripts
+        will be enough to trigger incorporation in the locus.
+        :type simple_overlap_for_monoexonic: bool
+
+        :param logger: either None or a logger instance. If None, a null logger will be created.
+
+         :rtype : bool
+        """
+
+        if logger is None or not isinstance(logger, logging.Logger):
+            logger = create_null_logger("MSH")
+
+        if transcript == other or transcript.id == other.id or transcript.strand != other.strand:
+            logger.debug("Cannot intersect with itself (%s vs %s) or a transcript on the other strand (%s and %s)",
+                         transcript.id, other.id, transcript.strand, other.strand)
+            return False
+
+        if cds_only is True and transcript.is_coding and other.is_coding:
+            logger.debug("Consider only the CDS: %s", cds_only)
+            intersecting, reason = cls._transcripts_are_intersecting(
+                transcript._selected_orf_transcript,
+                other._selected_orf_transcript,
+                min_cdna_overlap=min_cdna_overlap,
+                min_cds_overlap=min_cds_overlap,
+                simple_overlap_for_monoexonic=simple_overlap_for_monoexonic,
+                is_internal_orf=True)
+        else:
+            intersecting, reason = cls._transcripts_are_intersecting(
+                transcript,
+                other,
+                min_cdna_overlap=min_cdna_overlap,
+                min_cds_overlap=min_cds_overlap,
+                simple_overlap_for_monoexonic=simple_overlap_for_monoexonic,
+                is_internal_orf=False)
+
+        logger.debug(reason)
+        return intersecting
+
+    @classmethod
+    def _transcripts_are_intersecting(cls,
+                                      transcript: Transcript,
+                                      other: Transcript,
+                                      min_cdna_overlap=0.2,
+                                      min_cds_overlap=0.2,
+                                      simple_overlap_for_monoexonic=True,
+                                      is_internal_orf=False):
+        """Private method which is called by is_intersecting. It decouples the determination of whether two transcripts
+        intersect from the public interface of the method.
+        :param transcript
          :type transcript; Transcript
 
          :param other:
@@ -244,93 +344,46 @@ class MonosublocusHolder(Sublocus, Abstractlocus):
          even when all other conditions fail.
         :type min_cds_overlap: float
 
-        :param logger: either None or a logger instance. If None, a null logger will be created.
-
-         :rtype : bool
+        :param simple_overlap_for_monoexonic: boolean flag. If set to true, any overlap for monoexonic transcripts
+        will be enough to trigger incorporation in the locus.
+        :type simple_overlap_for_monoexonic: bool
         """
 
-        if logger is None or not isinstance(logger, logging.Logger):
-            logger = create_null_logger("MSH")
-
-        if transcript == other or transcript.id == other.id or transcript.strand != other.strand:
-            logger.debug("Cannot intersect with itself (%s vs %s) or a transcript on the other strand (%s and %s)",
-                         transcript.id, other.id, transcript.strand, other.strand)
-            return False
-
-        logger.debug("Consider only the CDS: %s", cds_only)
-        if cds_only is True:
-            logger.debug("%s %s, %s %s, so %s",
-                         transcript.id, transcript.is_coding,
-                         other.id, other.is_coding,
-                         "removing the UTRs" if other.is_coding and transcript.is_coding else "not removing the UTRs"
-                         )
-            if transcript.is_coding and other.is_coding:
-                transcript, other = cls.__strip_utr(transcript, other, logger)
-
-        # Calculate the relationship between the transcripts
         comparison, _ = c_compare(other, transcript)
-
-        logger.debug("Starting to check %s and %s" ,transcript.id, other.id)
         if comparison.n_f1[0] == 0:
-            # No overlap. Return False
-            logger.debug("No genomic overlap between %s and %s. Comparison: %s",
-                         transcript.id, other.id, comparison)
-            return False  # We do not want intersection with oneself
-        elif comparison.j_f1[0] > 0 or comparison.ccode[0] == "h":
-            # Simple case: they do intersect!
-            logger.debug("%s and %s intersect; class code: %s", transcript.id, other.id, comparison.ccode)
-            return True
+            reason = "No genomic overlap between {} and {}".format(transcript.id, other.id)
+            intersecting = False
+            return intersecting, reason
+
+        if comparison.j_f1[0] > 0 or comparison.ccode[0] == "h":
+            reason = "{} and {} intersect; class code: {}".format(transcript.id, other.id, comparison.ccode[0])
+            intersecting = True
+        elif simple_overlap_for_monoexonic is True and any(_.monoexonic is True for _ in (transcript, other)):
+            reason = "Simple overlap for monoexonic transcripts, for {} and {}".format(transcript.id, other.id)
+            intersecting = True
+        elif cls._intron_contained_in_exon(transcript, other) or cls._intron_contained_in_exon(other, transcript):
+            reason = "Intronic containment within an exon for the comparison {} and {}; intersecting".format(
+                transcript.id, other.id)
+            intersecting = True
         else:
-            # Is at least one intron completely contained?
-            if cls._intron_contained_in_exon(transcript, other) or cls._intron_contained_in_exon(other, transcript):
-                logger.debug("Intronic containment within an exon for the comparison %s and %s; intersecting",
-                             transcript.id, other.id)
-                return True
+            cdna_overlap = max(comparison.n_prec[0], comparison.n_recall[0])/ 100
+            if is_internal_orf is True or not (transcript.is_coding and other.is_coding):
+                cds_overlap = cdna_overlap
+            else:
+                cds_overlap = 0
+                for segment in transcript.selected_cds:
+                    for o_segment in other.selected_cds:
+                        cds_overlap += cls.overlap(segment, o_segment, positive=True, flank=0)
+                cds_overlap /= min(transcript.selected_cds_length, other.selected_cds_length)
+                assert cds_overlap <= 1
+            intersecting = (cdna_overlap >= min_cdna_overlap and cds_overlap >= min_cds_overlap)
+            reason = "{} and {} {}share enough cDNA ({}%, min. {}%) and CDS ({}%, min. {}%), {}intersecting".format(
+                transcript.id, other.id,
+                "do not " if not intersecting else "",
+                cdna_overlap, min_cdna_overlap,
+                cds_overlap, min_cds_overlap, "not" if not intersecting else "")
 
-        cdna_overlap, cds_overlap = cls.__calculate_overlap(transcript, other, comparison, cds_only=cds_only)
-        if cdna_overlap >= min_cdna_overlap and cds_overlap >= min_cds_overlap:
-            logger.debug("%s and %s have enough of CDS (%s) and cDNA (%s) overlap, intersecting.",
-                         transcript.id, other.id, cds_overlap, cdna_overlap)
-            return True
-        else:
-            logger.debug("%s and %s do not have enough of CDS (%s) and cDNA (%s) overlap, not intersecting.",
-                         transcript.id, other.id, cds_overlap, cdna_overlap)
-            return False
-
-    @staticmethod
-    def __strip_utr(transcript, other, logger):
-        """Private method to remove the UTRs from both transcripts. Creates deep copies of the original objects,
-        to avoid bugs down the line."""
-        logger.debug("Considering only the CDS of %s and %s, as they are both coding; stripping the UTR",
-                     transcript.id, other.id)
-        transcript = transcript.deepcopy()
-        transcript.remove_utrs()
-        other = other.deepcopy()
-        other.remove_utrs()
-        logger.debug("New coordinates: %s (%d-%d), %s (%d-%d)",
-                     transcript.id, transcript.start, transcript.end,
-                     other.id, other.start, other.end)
-        return transcript, other
-
-    @staticmethod
-    def __calculate_overlap(transcript, other, comparison, cds_only=False) -> (float, float):
-        """Private method to return the cDNA overlap and the CDS overlap of two transcripts."""
-
-        cdna_overlap = max(comparison.n_recall[0], comparison.n_prec[0]) / 100
-        if cds_only is True and (transcript.is_coding and other.is_coding):
-            return cdna_overlap, cdna_overlap
-        elif cds_only is False and (transcript.is_coding and other.is_coding):
-            cds_transcript = transcript.deepcopy()
-            cds_transcript.remove_utrs()
-            cds_other = other.deepcopy()
-            cds_other.remove_utrs()
-            cds_comparison, _ = c_compare(cds_other, cds_transcript)
-            cds_overlap = max(cds_comparison.n_recall[0], cds_comparison.n_prec[0]) / 100
-            return cdna_overlap, cds_overlap
-        elif not (transcript.is_coding and other.is_coding):
-            return cdna_overlap, cdna_overlap
-        else:
-            raise SyntaxError("Unhandled behaviour!")
+        return intersecting, reason
 
     @staticmethod
     def _intron_contained_in_exon(transcript: Transcript, other: Transcript) -> bool:
@@ -347,7 +400,8 @@ class MonosublocusHolder(Sublocus, Abstractlocus):
                  logger=None,
                  cds_only=False,
                  min_cdna_overlap=0.2,
-                 min_cds_overlap=0.2) -> bool:
+                 min_cds_overlap=0.2,
+                 simple_overlap_for_monoexonic=False) -> bool:
 
         """This method checks whether a transcript / monosbulocus
         falls inside the Locus coordinates.
@@ -378,7 +432,9 @@ class MonosublocusHolder(Sublocus, Abstractlocus):
                                                   logger=logger,
                                                   cds_only=cds_only,
                                                   min_cds_overlap=min_cds_overlap,
-                                                  min_cdna_overlap=min_cdna_overlap)
+                                                  min_cdna_overlap=min_cdna_overlap,
+                                                  simple_overlap_for_monoexonic=simple_overlap_for_monoexonic
+                                                  )
                 if is_in_locus is True:
                     break
         return is_in_locus

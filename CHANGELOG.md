@@ -8,9 +8,17 @@ Changes in this release:
     - there is some intronic overlap
     OR
     - one intron of either transcript is completely contained within an exon of the other.
-- **MAJOR**: changed slightly the anatomy of the configuration files. Now "pick" has a new subsection, "clustering", dedicated to how to cluster the transcripts in the different steps. Currently it contains the keys "flank", "min_cdna_overlap" and "min_cds_overlap" (for the second clustering during the monosublocusHolder phase) and "cds_only" (to indicate whether we should only consider the CDS for clustering after the initial merging in the Superlocus).    
+    OR
+    - at least one of the transcripts is monoexonic and there is some overlap of any kind. This behaviour (which was the default until this release) can be switched off through pick/clustering/simple_overlap_for_monoexonic (default true).
+- **MAJOR**: changed slightly the anatomy of the configuration files. Now "pick" has a new subsection, "clustering", dedicated to how to cluster the transcripts in the different steps. Currently it contains the keys:
+  - "flank"
+  - "min_cdna_overlap" and "min_cds_overlap" (for the second clustering during the monosublocusHolder phase)
+  - "cds_only": to indicate whether we should only consider the CDS for clustering after the initial merging in the Superlocus.
+  - "simple_overlap_for_monoexonic": to switch on/off the old default behaviour with monoexonic transcripts
+  - "purge": whether to completely exclude failed loci, previously under "run_options"
+  - "remove_overlapping_fragments": whether to exclude fragments, previously under "run_options"  
 - Deprecated the "discard_definition" flag in Mikado serialise. Now Mikado will infer on its own whether to use the definition or the ID for serialising BLAST results.
-- Now AbstractLocus implementations have a private method to check the correctness of the json_conf. As a corollary, Transcript and children have been moved to their own subpackage ("transcripts") in order to break the circular dependency Mikado.loci.Abstractlocus <- Mikado.configurator <- Mikado.loci.Transcript. *Technical note*: checking the consinstency of the configuration is an expensive operation, so it will be executed on demand rather than automatically. The latter scenario, in tests, led to an increase in runtime of the pick stage of over 300%.
+- Now AbstractLocus implementations have a private method to check the correctness of the json_conf. As a corollary, Transcript and children have been moved to their own subpackage ("transcripts") in order to break the circular dependency Mikado.loci.Abstractlocus <- Mikado.configurator <- Mikado.loci.Transcript. *Technical note*: checking the consinstency of the configuration is an expensive operation, so it will be executed on demand rather than automatically.
 - Re-written the "find_retained_introns" method of AbstractLocus, to solve some bugs found during the utilisation of last beta. As a corollary, expanded the intervaltree module to allow searches for "tagged" intervals.
 - Now the "monoloci_out" files contain the Monosublocus**Holder** step, not the Monosublocus step. This should help during fine-tuning. 
 - Mikado now supports also Python3.6.

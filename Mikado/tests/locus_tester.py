@@ -561,8 +561,11 @@ class MonoHolderTester(unittest.TestCase):
         for min_cdna_overlap in (0.01, 1):
             with self.subTest(min_cdna_overlap=min_cdna_overlap):
                 self.assertIs(MonosublocusHolder.is_intersecting(
-                    self.t1, t2, logger=None, min_cdna_overlap=min_cdna_overlap,
-                min_cds_overlap=min_cdna_overlap), (min_cdna_overlap != 1))
+                    self.t1, t2,
+                    logger=logger,
+                    cds_only=False,
+                    min_cdna_overlap=min_cdna_overlap,
+                    min_cds_overlap=min_cdna_overlap), (min_cdna_overlap < 0.28))
 
     def test_noCDSOverlap(self):
 

@@ -28,6 +28,7 @@ from ..serializers.external import External
 from ..serializers.junction import Junction, Chrom
 from ..serializers.orf import Orf
 from ..utilities import dbutils, grouper
+import itertools
 if version_info.minor < 5:
     from sortedcontainers import SortedDict
 else:
@@ -1183,15 +1184,19 @@ expression: %s""",
         """Wrapper to calculate the metrics for the monosubloci."""
         self.monoholders = []
 
-        cds_only = self.json_conf["pick"]["clustering"]["cds_only"]
         for monosublocus_instance in sorted(self.monosubloci):
             found_holder = False
             for holder in self.monoholders:
-                if MonosublocusHolder.in_locus(holder,
-                                               monosublocus_instance,
-                                               logger=self.logger,
-                                               cds_only=cds_only):
-                                               # simple_overlap=simple_overlap):
+                if MonosublocusHolder.in_locus(
+                        holder,
+                        monosublocus_instance,
+                        logger=self.logger,
+                        cds_only=self.json_conf["pick"]["clustering"]["cds_only"],
+                        min_cdna_overlap=self.json_conf["pick"]["clustering"]["min_cdna_overlap"],
+                        min_cds_overlap=self.json_conf["pick"]["clustering"]["min_cds_overlap"],
+                        simple_overlap_for_monoexonic=self.json_conf["pick"]["clustering"][
+                            "simple_overlap_for_monoexonic"]
+                        ):
                     holder.add_monosublocus(monosublocus_instance)
                     found_holder = True
                     break
@@ -1258,25 +1263,25 @@ expression: %s""",
             return False  # We do not want intersection with oneself
 
         if transcript.monoexonic is False and other.monoexonic is False:
-            if cds_only is False:
+            if cds_only is False or transcript.is_coding is False or other.is_coding is False:
                 intersection = set.intersection(transcript.introns, other.introns)
             else:
                 intersection = set.intersection(transcript.combined_cds_introns,
                                                 other.combined_cds_introns)
-            if len(intersection) > 0:
-                intersecting = True
-            else:
-                intersecting = False
+            intersecting = (len(intersection) > 0)
 
         elif transcript.monoexonic is True and other.monoexonic is True:
-            if transcript.start == other.start or transcript.end == other.end:
-                intersecting = True
-            else:
-                test_result = cls.overlap(
+
+            if cds_only is False or transcript.is_coding is False or other.is_coding is False:
+                intersecting = (cls.overlap(
                     (transcript.start, transcript.end),
-                    (other.start, other.end)
-                )
-                intersecting = test_result > 0
+                    (other.start, other.end), positive=False) > 0)
+            else:
+                intersecting = any([cls.overlap(cds_comb[0],
+                                                cds_comb[1],
+                                                positive=False) > 0] for cds_comb in itertools.product(
+                    transcript.internal_orf_boundaries,
+                    other.internal_orf_boundaries))
         else:
             intersecting = False
 

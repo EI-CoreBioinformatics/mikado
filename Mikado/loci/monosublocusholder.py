@@ -89,9 +89,6 @@ class MonosublocusHolder(Sublocus, Abstractlocus):
         # min_cds_overlap = 0.2,
         # classic_method = False
 
-        self.logger.warning("Using the MSH add_transcript_to_locus method for %s and %s",
-                            self.id, transcript.id)
-
         if check_in_locus is True and self.in_locus(
                 self,
                 transcript,

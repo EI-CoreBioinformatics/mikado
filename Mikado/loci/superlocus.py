@@ -1266,8 +1266,8 @@ expression: %s""",
             if cds_only is False or transcript.is_coding is False or other.is_coding is False:
                 intersection = set.intersection(transcript.introns, other.introns)
             else:
-                intersection = set.intersection(transcript.combined_cds_introns,
-                                                other.combined_cds_introns)
+                intersection = set.intersection(transcript.selected_cds_introns,
+                                                other.selected_cds_introns)
             intersecting = (len(intersection) > 0)
 
         elif transcript.monoexonic is True and other.monoexonic is True:
@@ -1277,11 +1277,14 @@ expression: %s""",
                     (transcript.start, transcript.end),
                     (other.start, other.end), positive=False) > 0)
             else:
-                intersecting = any([cls.overlap(cds_comb[0],
-                                                cds_comb[1],
-                                                positive=False) > 0] for cds_comb in itertools.product(
-                    transcript.internal_orf_boundaries,
-                    other.internal_orf_boundaries))
+                # intersecting = any([cls.overlap(cds_comb[0],
+                #                                 cds_comb[1],
+                #                                 positive=False) > 0] for cds_comb in itertools.product(
+                #     transcript.internal_orf_boundaries,
+                #     other.internal_orf_boundaries))
+                intersecting = (cls.overlap(
+                    (transcript.selected_cds_start, transcript.selected_cds_end),
+                    (other.selected_cds_start, other.selected_cds_end), positive=False) > 0)
         else:
             intersecting = False
 

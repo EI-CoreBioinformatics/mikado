@@ -562,7 +562,7 @@
         },
         "run_options": {
           "type": "object",
-          "required": ["procs", "preload", "single_thread"],
+          "required": ["procs", "single_thread"],
           "Comment": [
             "Generic run options.",
             "- shm: boolean flag. If set and the DB is sqlite, it will be copied onto the /dev/shm faux partition",

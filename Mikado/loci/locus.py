@@ -355,16 +355,14 @@ reached the maximum number of isoforms for the locus".format(
         This function checks whether another *monoexonic* Locus
         *on the opposite strand* is a fragment,by checking its classification
         according to Assigner.compare.
-        Briefly, a transcript is classified as fragment
-        if it follows the following criteria:
-
-            - it is monoexonic
-            - it has a combined_cds_length inferior to maximal_cds
-            - it is classified as x,i,P
         """
 
         if not isinstance(self, type(other)):
             raise TypeError("I can compare only loci.")
+
+        if other.primary_transcript_id == self.primary_transcript_id:
+            self.logger.debug("Self-comparisons are not allowed!")
+            return False, None
 
         self.logger.debug("Comparing %s with %s",
                           self.primary_transcript_id,
@@ -381,14 +379,14 @@ reached the maximum number of isoforms for the locus".format(
         if result.ccode[0] in ("i", "P", "p", "x", "X", "m", "_"):
             self.logger.debug("{0} is a fragment (ccode {1})".format(
                 other.primary_transcript.id, result.ccode[0]))
-            return True
+            return True, result
         # Adding c's because fragments might very well be contained!
         elif other.strand is None and (result.n_f1[0] > 0 or result.ccode in ("rI", "ri")):
             self.logger.debug("Unstranded {0} is a fragment (ccode {1})".format(
                 other.primary_transcript.id, result.ccode[0]))
-            return True
+            return True, result
 
-        return False
+        return False, None
 
     def set_json_conf(self, jconf: dict):
         """

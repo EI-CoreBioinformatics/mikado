@@ -2820,7 +2820,6 @@ index {3}, internal ORFs: {4}".format(
     max_exon_length.category = "cDNA"
     max_exon_length.rtype = "int"
 
-
     @Metric
     def min_exon_length(self):
         """This metric will return the length of the biggest exon in the transcript."""

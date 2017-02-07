@@ -194,14 +194,14 @@ class Assigner:
     @staticmethod
     def get_f1(curr_result):
         """
-        Simple getter for F1 statistics (N_F1 and J_F1)
+        Simple getter for F1 statistics (N_F1, J_F1 and distance).
         :param curr_result: a result storer
         :type curr_result: ResultStorer
 
-        :return: (J_F1, N_F1)
-        :rtype (float, float)
+        :return: (J_F1, N_F1, distance)
+        :rtype (float, float, int)
         """
-        return curr_result.j_f1[0], curr_result.n_f1[0]
+        return curr_result.j_f1[0], curr_result.n_f1[0], curr_result.distance[0]
 
     def __prepare_transcript(self, prediction: Transcript):
         """
@@ -479,8 +479,6 @@ class Assigner:
                     results = []
                     best_results = []
                     for gene in result_dict:
-
-
                         if result_dict[gene][0].n_recall[0] > 10 or result_dict[gene][0].j_f1[0] > 0:
                             results.extend(result_dict[gene])
                             best_results.append(result_dict[gene][0])

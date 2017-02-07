@@ -1,9 +1,11 @@
 from multiprocessing import Process
 from multiprocessing.managers import AutoProxy
 import logging
+from itertools import product
 import logging.handlers as logging_handlers
 import functools
 from ..utilities import dbutils
+from ..scales.assigner import Assigner
 from ..loci.superlocus import Superlocus
 from ..parsers.GFF import GffLine
 from ..serializers.external import ExternalSource
@@ -409,8 +411,13 @@ def remove_fragments(stranded_loci, json_conf, logger):
 
     total = 0
 
+    stranded_loci_dict = dict()
+    loci_to_superloci = dict()
+
     for stranded_locus in stranded_loci:
+        stranded_loci_dict[stranded_locus.id] = stranded_locus
         for _, locus_instance in stranded_locus.loci.items():
+            loci_to_superloci[locus_instance.id] = stranded_locus.id
             logger.debug("Assessing whether %s could be a fragment", _)
             total += 1
             is_fragment = locus_instance.is_putative_fragment()
@@ -421,27 +428,27 @@ def remove_fragments(stranded_loci, json_conf, logger):
         loci_to_check[False] = loci_to_check.pop(True)
         loci_to_check[True] = set()
 
-    bool_remove_fragments = json_conf["pick"]["clustering"]["remove_overlapping_fragments"]
-    for stranded_locus in stranded_loci:
-        to_remove = set()
-        for locus_id, locus_instance in stranded_locus.loci.items():
-            if locus_instance in loci_to_check[True]:
-                logger.debug("Checking if %s is a fragment", locus_instance.id)
+    comparisons = collections.defaultdict(list)
+    # Produce a list of duples
 
-                for other_locus in iter(
-                        olocus for olocus in loci_to_check[False]
-                        if olocus.primary_transcript_id != locus_instance.primary_transcript_id):
-                    if other_locus.other_is_fragment(
-                            locus_instance) is True:
-                        if bool_remove_fragments is False:
-                            # Just mark it as a fragment
-                            stranded_locus.loci[locus_id].is_fragment = True
-                        else:
-                            to_remove.add(locus_id)
-                            # del stranded_locus.loci[locus_id]
-                        break
-        for locus_id in to_remove:
-            del stranded_locus.loci[locus_id]
+    for locus_to_check, gene in product(loci_to_check[True], loci_to_check[False]):
+        is_to_be_filtered, comparison = gene.other_is_fragment(locus_to_check)
+        if is_to_be_filtered is True:
+            comparisons[locus_to_check.id].append(comparison)
+
+    for locus in comparisons:
+        if json_conf["pick"]["clustering"]["remove_overlapping_fragments"] is True:
+            # A bit convoluted: use the locus ID to find the correct superlocus, then delete the ID inside the SL.
+            del stranded_loci_dict[loci_to_superloci[locus]].loci[locus]
+        else:
+            best_comparison = sorted(comparisons[locus], reverse=True, key=Assigner.get_f1)[0]
+            stranded_loci_dict[loci_to_superloci[locus]].loci[locus].is_fragment = True
+            stranded_loci_dict[loci_to_superloci[locus]].loci[locus].attributes["fragment_of"] = best_comparison.ref_id[0]
+            stranded_loci_dict[loci_to_superloci[locus]].loci[locus].attributes["fragment_class_code"] = best_comparison.ccode[0]
+            if best_comparison.distance[0] > 0:
+                stranded_loci_dict[loci_to_superloci[locus]].loci[locus].attributes["distance"] = best_comparison.distance[0]
+
+    for stranded_locus in stranded_loci:
         yield stranded_locus
 
 

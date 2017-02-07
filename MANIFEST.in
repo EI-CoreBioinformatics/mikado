@@ -9,3 +9,4 @@ recursive-include Mikado *pxd
 recursive-include util *py
 recursive-include Mikado *snakefile *json *yaml
 recursive-include Mikado/tests *
+recursive-exclude docs/ *

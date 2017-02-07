@@ -7,9 +7,11 @@ Script to add a transcript feature to an input GTF.
 
 import sys
 from Mikado.parsers.GTF import GTF
+from Mikado.transcripts import Transcript
 from copy import deepcopy
 import operator
 import argparse
+from collections import defaultdict
 
 
 class Obj(object):
@@ -36,34 +38,21 @@ def main():
 
     args.gtf.close()
 
-    for record in GTF(args.gtf.name):
-        if current.transcript != record.transcript:
-            if current.transcript is not None:
-                print(current, file=args.out)
-                exon_no = 0
-                for row in filter(lambda x: x.feature == "exon",
-                                  sorted(rows, key=operator.attrgetter("start"))):
-                    exon_no += 1
-                    row.attributes["exon_number"] = exon_no
-                    print(row, file=args.out)
-                exon_no = 0
-                for row in filter(lambda x: x.feature == "CDS",
-                                  sorted(rows, key=operator.attrgetter("start"))):
-                    exon_no += 1
-                    row.attributes["exon_number"] = exon_no
-                    print(row, file=args.out)
-            rows = [record]
-            current = deepcopy(record)
-            current.feature = "transcript"
+    transcript_lines = defaultdict(list)
 
-        else:
-            current.end = max(current.end, record.end)
-            current.start = min(current.start, record.start)
-            rows.append(record)
+    [transcript_lines[_.transcript].append(_) for _ in GTF(args.gtf.name) if _.header is False]
+    args.gtf.close()
+    transcripts = list()
 
-    print(current, file=args.out)
-    for row in rows:
-        print(row, file=args.out)
+    for tid in transcript_lines:
+        transcript = Transcript(transcript_lines[tid][0])
+        transcript.add_exons(transcript_lines[tid])
+        transcripts.append(transcript)
+
+    for transcript in sorted(transcripts):
+        print(transcript.format("gtf"), file=args.out)
+
+    args.out.close()
 
 if __name__ == '__main__':
     main()

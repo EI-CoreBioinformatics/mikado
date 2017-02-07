@@ -3,7 +3,7 @@ package:
   version: "1.0.0beta10"
 
 source:
-  git_rev: "1.0.0beta10"
+  git_rev: "1.0.0b9"
   git_url: "https://github.com/lucventurini/mikado.git"
 
 requirements:
@@ -28,6 +28,7 @@ requirements:
     - ujson
   run:
     - python
+    - setuptools
     - wheel
     - pyyaml
     - jsonschema
@@ -44,9 +45,12 @@ requirements:
     - docutils
     - tabulate
     - ujson
+
 test:
-  imports:
-    -
+  requires:
+    - nose
+  commands:
+    - python setup.py nosetests
 
 about:
   home: https://mikado.readthedocs.io/

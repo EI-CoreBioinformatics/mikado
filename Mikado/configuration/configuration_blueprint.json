@@ -645,7 +645,8 @@
             "- purge: boolean, it specifies whether to remove loci where all transcripts fail the minimum checks, or whether to print them out in the subloci file instead.",
             "- simple_overlap_for_monoexonic: boolean. If set to true (default), then any overlap mean inclusion",
             "in a locus for or against a monoexonic transcript. If set to false, normal controls for the percentage",
-            "of overlap will apply."
+            "of overlap will apply.",
+            "- max_distance_for_fragments: maximum distance from a valid locus for another to be considered a fragment."
           ],
           "SimpleComment": [
             "Parameters related to the clustering of transcripts into loci.",
@@ -684,6 +685,11 @@
             "simple_overlap_for_monoexonic": {
               "type": "boolean",
               "default": true
+            },
+            "max_distance_for_fragments": {
+              "type": "number",
+              "minimum": 0,
+              "default": 2000
             }
           }
         },

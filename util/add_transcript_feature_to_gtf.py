@@ -40,7 +40,7 @@ def main():
 
     transcript_lines = defaultdict(list)
 
-    [transcript_lines[_.transcript].append(_) for _ in GTF(args.gtf.name) if _.header is False]
+    [transcript_lines[_.transcript].append(_) for _ in GTF(args.gtf.name) if _.header is False and _.is_exon is True]
     args.gtf.close()
     transcripts = list()
 

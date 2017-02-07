@@ -23,10 +23,6 @@ def main():
     """
     Main script function.
     """
-    current = Obj()
-    current.transcript = None
-
-    rows = []
 
     parser = argparse.ArgumentParser("Script to add a transcript feature to e.g. Cufflinks GTFs")
     parser.add_argument("gtf", type=argparse.FileType(),
@@ -52,7 +48,8 @@ def main():
     for transcript in sorted(transcripts):
         print(transcript.format("gtf"), file=args.out)
 
-    args.out.close()
+    if args.out is not sys.stdout:
+        args.out.close()
 
 if __name__ == '__main__':
     main()

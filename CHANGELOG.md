@@ -17,6 +17,7 @@ Changes in this release:
   - "simple_overlap_for_monoexonic": to switch on/off the old default behaviour with monoexonic transcripts
   - "purge": whether to completely exclude failed loci, previously under "run_options"
   - "remove_overlapping_fragments": whether to exclude fragments, previously under "run_options"
+- Mikado compare now also provides the location of the matches in TMAP and REFMAP files.
 - When printing out putative fragments, now Mikado will indicate the class code of the fragment, the match against which it was deemed a fragment of, and the distance of said fragment (if they are not overlapping). 
 - Deprecated the "discard_definition" flag in Mikado serialise. Now Mikado will infer on its own whether to use the definition or the ID for serialising BLAST results.
 - Now AbstractLocus implementations have a private method to check the correctness of the json_conf. As a corollary, Transcript and children have been moved to their own subpackage ("transcripts") in order to break the circular dependency Mikado.loci.Abstractlocus <- Mikado.configurator <- Mikado.loci.Transcript. *Technical note*: checking the consinstency of the configuration is an expensive operation, so it will be executed on demand rather than automatically.

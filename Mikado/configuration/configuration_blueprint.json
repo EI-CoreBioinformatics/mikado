@@ -693,6 +693,33 @@
               "type": "number",
               "minimum": 0,
               "default": 2000
+            },
+            "fragment_class_codes": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "p",
+                  "P",
+                  "i",
+                  "I",
+                  "ri",
+                  "rI",
+                  "x",
+                  "X",
+                  "m",
+                  "_"
+                ]
+              },
+              "default": [
+                "p",
+                "P",
+                "x",
+                "X",
+                "i",
+                "m",
+                "_"
+              ]
             }
           }
         },

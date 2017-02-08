@@ -35,7 +35,7 @@ class AssignerTester(unittest.TestCase):
             100, 100, 100,
             100, 100, 100,
             100, 100, 100,
-            0)
+            0, "chr1:100..10000")
 
         result_perfect_j = Mikado.scales.resultstorer.ResultStorer(
             "t1", "g1", "=",
@@ -43,7 +43,7 @@ class AssignerTester(unittest.TestCase):
             80, 80, 80,
             100, 100, 100,
             0, 0, 0,
-            0)
+            0, "chr1:100..10000")
 
         # This does not make any sense, but it's only for the tests
         result_perfect_n = Mikado.scales.resultstorer.ResultStorer(
@@ -52,7 +52,7 @@ class AssignerTester(unittest.TestCase):
             100, 100, 100,
             80, 80, 80,
             0, 0, 0,
-            0)
+            0, "chr1:100..10000")
 
         result_imperfect = Mikado.scales.resultstorer.ResultStorer(
             "t1", "g1", "j",
@@ -60,7 +60,7 @@ class AssignerTester(unittest.TestCase):
             80, 80, 80,
             80, 80, 80,
             0, 0, 0,
-            0)
+            0, "chr1:100..10000")
 
         result_near = Mikado.scales.resultstorer.ResultStorer(
             "t1", "g1", "p",
@@ -68,7 +68,7 @@ class AssignerTester(unittest.TestCase):
             0, 0, 0,
             0, 0, 0,
             0, 0, 0,
-            10)
+            10, "chr1:100..10000")
 
         result_middle = Mikado.scales.resultstorer.ResultStorer(
             "t1", "g1", "p",
@@ -76,7 +76,7 @@ class AssignerTester(unittest.TestCase):
             0, 0, 0,
             0, 0, 0,
             0, 0, 0,
-            500)
+            500, "chr1:100..10000")
 
         result_far = Mikado.scales.resultstorer.ResultStorer(
             "t1", "g1", "p",
@@ -84,7 +84,7 @@ class AssignerTester(unittest.TestCase):
             0, 0, 0,
             0, 0, 0,
             0, 0, 0,
-            1000)
+            1000, "chr1:100..10000")
 
         result_x = Mikado.scales.resultstorer.ResultStorer(
             "t1", "g1", "x",
@@ -92,7 +92,7 @@ class AssignerTester(unittest.TestCase):
             100, 100, 100,
             100, 100, 100,
             100, 100, 100,
-            1000)
+            1000, "chr1:100..10000")
 
         self.assertEqual(sorted(
             [result_perfect, result_imperfect, result_perfect_j, result_perfect_n],

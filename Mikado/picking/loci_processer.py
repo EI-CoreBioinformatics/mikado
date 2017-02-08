@@ -262,8 +262,9 @@ def print_locus(stranded_locus,
             level="monosubloci",
             print_cds=not json_conf["pick"]["run_options"]["exclude_cds"])
         if mono_lines != '':
-            mono_lines = "\n".join(
-                ["{0}/{1}".format(counter, line) for line in mono_lines.split("\n")])
+            if counter is not None:
+                mono_lines = "\n".join(
+                    ["{0}/{1}".format(counter, line) for line in mono_lines.split("\n")])
             print(mono_lines, file=mono_out)
         mono_metrics_rows = [_ for _ in stranded_locus.print_monoholder_metrics()
                              if _ != {} and "tid" in _]

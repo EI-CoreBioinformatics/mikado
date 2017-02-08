@@ -14,7 +14,8 @@ class ResultStorer:
                  "n_prec", "n_recall", "n_f1",
                  "j_prec", "j_recall", "j_f1",
                  "e_prec", "e_recall", "e_f1",
-                 "distance"]
+                 "distance",
+                 "location"]
 
     def __init__(self, *args):
 
@@ -34,7 +35,7 @@ class ResultStorer:
             self.n_prec, self.n_recall, self.n_f1,\
             self.j_prec, self.j_recall, self.j_f1, \
             self.e_prec, self.e_recall, self.e_f1, \
-            self.distance = args
+            self.distance, self.location = args
 
         for index, key in enumerate(self.__slots__):
             if index < 3:
@@ -69,9 +70,10 @@ class ResultStorer:
             result_dict[attr] = getattr(self, attr)
         for attr in (self.__slots__[6],):  # prediction exons
             result_dict[attr] = ",".join("{0}".format(x) for x in getattr(self, attr))
-        for attr in self.__slots__[7:-1]:
+        for attr in self.__slots__[7:-2]:
             result_dict[attr] = ",".join("{0:,.2f}".format(x) for x in getattr(self, attr))
         result_dict["distance"] = self.distance[0]  # Last attribute
+        result_dict["location"] = self.location[0]
         return result_dict
 
     def as_dict(self):

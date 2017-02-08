@@ -1323,6 +1323,14 @@ class Transcript:
         return self.attributes["gene_id"]
 
     @property
+    def location(self):
+        """Web-apollo compatible string for the location of the transcript."""
+
+        return "{}:{}..{}".format(self.chrom,
+                                  self.start,
+                                  self.end)
+
+    @property
     def score(self):
         """Numerical value which summarizes the reliability of the transcript."""
         return self.__score

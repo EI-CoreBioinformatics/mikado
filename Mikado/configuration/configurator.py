@@ -224,7 +224,7 @@ def check_all_requirements(json_conf):
         json_conf = check_requirements(json_conf,
                                        require_schema,
                                        "not_fragmentary")
-    except InvalidJson as exc:
+    except (InvalidJson, SyntaxError) as exc:
         print(json_conf["not_fragmentary"]["expression"])
         print(type(json_conf["not_fragmentary"]["expression"]))
         raise exc
@@ -236,13 +236,23 @@ def check_all_requirements(json_conf):
     # Check requirements will MODIFY IN PLACE the expression, so the copying
     # must happend before, not after.
 
-    json_conf = check_requirements(json_conf,
-                                   require_schema,
-                                   "as_requirements")
+    try:
+        json_conf = check_requirements(json_conf,
+                                       require_schema,
+                                       "as_requirements")
+    except (InvalidJson, SyntaxError) as exc:
+        print(json_conf["as_requirements"]["expression"])
+        print(type(json_conf["as_requirements"]["expression"]))
+        raise exc
 
-    json_conf = check_requirements(json_conf,
-                                   require_schema,
-                                   "requirements")
+    try:
+        json_conf = check_requirements(json_conf,
+                                       require_schema,
+                                       "requirements")
+    except (InvalidJson, SyntaxError) as exc:
+        print(json_conf["as_requirements"]["expression"])
+        print(type(json_conf["as_requirements"]["expression"]))
+        raise exc
 
     return json_conf
 
@@ -282,6 +292,7 @@ def check_requirements(json_conf, require_schema, index):
                 key_name = ".".join(dots)
             else:
                 key_name = ".".join(dots[:-1])
+                print(key_name)
             key_value = dots[1]
         else:
             key_name = dots[0]
@@ -330,8 +341,8 @@ def check_requirements(json_conf, require_schema, index):
         expr = " ".join(json_conf[index]["expression"])
         newexpr = expr[:]
 
-        keys = list(key for key in re.findall(
-            "([^ ()]+)", expr) if key not in ("and", "or", "not", "xor"))
+        keys = set([key for key in re.findall(
+            "([^ ()]+)", expr) if key not in ("and", "or", "not", "xor")])
 
         diff_params = set.difference(
             set(keys), set(json_conf[index]["parameters"].keys()))

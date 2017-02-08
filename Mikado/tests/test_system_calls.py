@@ -494,6 +494,48 @@ class PickTest(unittest.TestCase):
 
                 [os.remove(_) for _ in glob.glob(os.path.join(tempfile.gettempdir(), "mikado.subproc.") + "*")]
 
+    def test_different_scoring(self):
+
+        json_conf = configurator.to_json(None)
+
+        json_conf["pick"]["files"]["input"] = pkg_resources.resource_filename("Mikado.tests",
+                                                                              "mikado_prepared.gtf")
+        json_conf["pick"]["files"]["output_dir"] = tempfile.gettempdir()
+        json_conf["pick"]["files"]["loci_out"] = "mikado.test_diff.loci.gff3"
+        json_conf["pick"]["files"]["subloci_out"] = "mikado.test_diff.subloci.gff3"
+        json_conf["pick"]["files"]["monoloci_out"] = "mikado.test_diff.monoloci.gff3"
+        json_conf["pick"]["files"]["log"] = "mikado.test_diff.log"
+        json_conf["db_settings"]["db"] = pkg_resources.resource_filename("Mikado.tests", "mikado.db")
+        json_conf["log_settings"]["log_level"] = "WARNING"
+        self.assertEqual(os.path.basename(json_conf["pick"]["scoring_file"]),
+                         "plants.yaml")
+        json_file = os.path.join(tempfile.gettempdir(), "mikado.yaml")
+        with open(json_file, "wt") as json_handle:
+            Mikado.subprograms.configure.print_config(yaml.dump(json_conf, default_flow_style=False),
+                                                      json_handle)
+
+        sys.argv = ["mikado", "pick", "--json-conf", json_file]
+        with self.assertRaises(SystemExit):
+            pkg_resources.load_entry_point("Mikado", "console_scripts", "mikado")()
+
+        import csv
+        with open(os.path.join(json_conf["pick"]["files"]["output_dir"], "mikado.test_diff.loci.scores.tsv")) as tsv:
+            reader = csv.DictReader(tsv, delimiter="\t")
+            score_names = [_ for _ in json_conf["scoring"]]
+            score_header = [_ for _ in reader.fieldnames if _ not in ("tid", "parent", "score", "source_score")]
+            self.assertEqual(sorted(score_names), sorted(score_header))
+
+        scoring_file = pkg_resources.resource_filename("Mikado.tests", "scoring_only_cds.yaml")
+        sys.argv = ["mikado", "pick", "--json-conf", json_file, "--scoring-file", scoring_file]
+        with self.assertRaises(SystemExit):
+            pkg_resources.load_entry_point("Mikado", "console_scripts", "mikado")()
+        with open(os.path.join(json_conf["pick"]["files"]["output_dir"], "mikado.test_diff.loci.scores.tsv")) as tsv:
+            reader = csv.DictReader(tsv, delimiter="\t")
+            score_header = [_ for _ in reader.fieldnames if _ not in ("tid", "parent", "score", "source_score")]
+            self.assertEqual(score_header, ["selected_cds_length"])
+
+        [os.remove(_) for _ in glob.glob(os.path.join(tempfile.gettempdir(), "mikado.test_diff.") + "*")]
+
     def test_purging(self):
 
         gtf = """Chr1	foo	transcript	100	1000	.	+	.	gene_id "foo1"; transcript_id "foo1.1"

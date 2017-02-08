@@ -13,6 +13,7 @@ import os.path
 import pickle
 import re
 from multiprocessing import get_start_method
+from logging import Logger
 import jsonschema
 import pkg_resources
 import yaml
@@ -437,7 +438,7 @@ def create_validator(simple=False):
     return validator
 
 
-def check_json(json_conf, simple=False, external_dict=None):
+def check_json(json_conf, simple=False, external_dict=None, logger=None):
 
     """
     Wrapper for the various checks performed on the configuration file.
@@ -451,6 +452,9 @@ def check_json(json_conf, simple=False, external_dict=None):
 
     :param external_dict: optional external dictionary with values to pass to the configuration.
     :type external_dict: (dict|None)
+
+    :param logger: external logger instance
+    :type logger: Logger
 
     :return json_conf
     :rtype: dict
@@ -466,7 +470,9 @@ def check_json(json_conf, simple=False, external_dict=None):
     # with open(blue_print) as blue:
     #     blue_print = json.load(blue)
 
-    logger = create_default_logger("check_json")
+    if not isinstance(logger, Logger):
+        logger = create_default_logger("check_json")
+
     try:
         validator = create_validator(simple=simple)
 
@@ -477,7 +483,14 @@ def check_json(json_conf, simple=False, external_dict=None):
         validator.validate(json_conf)
         assert "files" in json_conf["pick"]
 
+        overwritten = False
         if "scoring_file" in json_conf["pick"]:
+            if "scoring" in json_conf or "requirements" in json_conf:
+                logger.info("Overwriting the scoring configuration using '%s' as scoring file",
+                             json_conf["pick"]["scoring_file"])
+                overwritten = True
+                [json_conf.pop(_, None) for _ in ("scoring", "requirements", "as_requirements", "not_fragmentary")]
+
             if os.path.exists(os.path.abspath(json_conf["pick"]["scoring_file"])):
                 json_conf["pick"]["scoring_file"] = os.path.abspath(
                     json_conf["pick"]["scoring_file"])
@@ -543,10 +556,14 @@ def check_json(json_conf, simple=False, external_dict=None):
         logger.exception(exc)
         raise
 
+    if overwritten is True:
+        logger.debug("Scoring parameters: {}".format("\n".join(["\n"] + [
+            "{}: {}".format(_, json_conf["scoring"][_]) for _ in json_conf["scoring"].keys()])))
+
     return json_conf
 
 
-def to_json(string, simple=False):
+def to_json(string, simple=False, logger=None):
     """
     Function to serialise the JSON for configuration and check its consistency.
 
@@ -556,9 +573,15 @@ def to_json(string, simple=False):
     :param simple: boolean flag indicating whether we desire
                    the simplified version of the configuration, or not.
     :type simple: bool
+
+    :param logger: optional logger to be used.
+    :type logger: Logger
+
+    :rtype: dict
     """
 
-    logger = create_default_logger("to_json")
+    if not isinstance(logger, Logger):
+        logger = create_default_logger("to_json")
 
     try:
         if string is None or string == '' or string == dict():
@@ -575,7 +598,7 @@ def to_json(string, simple=False):
                     json_dict = json.load(json_file)
         json_dict["filename"] = string
         # json_dict = frozendict(check_json(json_dict, simple=simple))
-        json_dict = check_json(json_dict, simple=simple)
+        json_dict = check_json(json_dict, simple=simple, logger=logger)
     except Exception as exc:
         logger.exception(exc)
         raise

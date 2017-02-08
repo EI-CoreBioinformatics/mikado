@@ -56,6 +56,9 @@
             "CRITICAL"
           ],
           "default": "WARNING"
+        },
+        "log": {
+          "oneOf": [null, {"type": "string", "default": null}]
         }
       }
     },

@@ -9,6 +9,7 @@ import os
 from ..picking import Picker
 from ..configuration.configurator import to_json, check_json
 from ..exceptions import UnsortedInput  # , InvalidJson
+from ..utilities.log_utils import create_default_logger, create_logger_from_conf
 
 
 def check_log_settings(args):
@@ -35,7 +36,7 @@ def check_log_settings(args):
     return args
 
 
-def check_run_options(args):
+def check_run_options(args, logger=None):
     """
     Quick method to check the consistency of run option settings
     from the namespace.
@@ -117,7 +118,7 @@ def check_run_options(args):
             raise ValueError("Invalid/inexistent scoring file: {}".format(args.scoring_file))
         args.json_conf["pick"]["scoring_file"] = args.scoring_file
 
-    args.json_conf = check_json(args.json_conf)
+    args.json_conf = check_json(args.json_conf, logger=logger)
 
     return args
 
@@ -130,15 +131,30 @@ def pick(args):
 
     """
 
-    args = check_log_settings(args)
-    args = check_run_options(args)
+    logger = create_default_logger("pick_init")
+
+    args.json_conf.close()
+    args.json_conf = to_json(args.json_conf.name, logger=logger)
+
+    try:
+        args = check_log_settings(args)
+    except Exception as exc:
+        logger.error(exc)
+        raise exc
+
+    try:
+        args = check_run_options(args, logger=logger)
+    except Exception as exc:
+        logger.error(exc)
+        raise exc
 
     creator = Picker(args.json_conf, commandline=" ".join(sys.argv))
     try:
         creator()  # Run
-    except UnsortedInput as err:
-        print(err, file=sys.stderr)
-        sys.exit(1)
+    except Exception as exc:
+        logger.error(exc)
+
+    sys.exit(1)
 
 
 def pick_parser():
@@ -154,7 +170,7 @@ def pick_parser():
                         help="""Number of processors to use.
                         Default: look in the configuration file (1 if undefined)""")
     parser.add_argument("--json-conf", dest="json_conf",
-                        type=to_json, required=True,
+                        type=argparse.FileType("r"), required=True,
                         help="JSON/YAML configuration file for Mikado.")
     parser.add_argument("--scoring-file", dest="scoring_file",
                         type=str, default=None,

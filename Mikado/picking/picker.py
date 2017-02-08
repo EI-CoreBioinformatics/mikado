@@ -57,7 +57,7 @@ class Picker:
         prepared by the json_utils functions.
 
         :param json_conf: Either a configuration dictionary or the configuration file.
-        :type json_conf: str,dict
+        :type json_conf: (str|dict)
 
         :param commandline: optional, the commandline used to start the program
         :type commandline: str
@@ -73,18 +73,36 @@ class Picker:
                              "log_handler", "log_writer", "logger", "engine"]
 
         # Now we start the real work
-        if isinstance(json_conf, str):
-            assert os.path.exists(json_conf)
-            json_conf = to_json(json_conf)
-        else:
-            json_conf = check_json(json_conf)
-
         self.commandline = commandline
         self.json_conf = json_conf
+        if isinstance(self.json_conf, str):
+            assert os.path.exists(self.json_conf)
+            self.json_conf = to_json(self.json_conf, logger=self.logger)
+            # pylint: disable=no-member
+            multiprocessing.set_start_method(self.json_conf["multiprocessing_method"],
+                                             force=True)
+            self.input_file = self.json_conf["pick"]["files"]["input"]
+            self.logging_queue = multiprocessing.Queue(-1)
+            self.printer_queue = multiprocessing.Queue(-1)
+            self.setup_logger()
+        elif isinstance(self.json_conf, dict):
+            # pylint: disable=no-member
+            self.input_file = self.json_conf["pick"]["files"]["input"]
+            multiprocessing.set_start_method(self.json_conf["multiprocessing_method"],
+                                             force=True)
+            self.logging_queue = multiprocessing.Queue(-1)
+            self.printer_queue = multiprocessing.Queue(-1)
+            self.setup_logger()
+            self.json_conf = check_json(self.json_conf, logger=self.logger)
+        else:
+            raise TypeError(type(self.json_conf))
+
+        assert isinstance(self.json_conf, dict)
+
         self.regressor = None
 
         self.procs = self.json_conf["pick"]["run_options"]["procs"]
-        self.input_file = self.json_conf["pick"]["files"]["input"]
+
         # Check the input file
         with self.define_input() as _:
             pass

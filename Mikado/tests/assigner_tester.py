@@ -19,6 +19,103 @@ class AssignerTester(unittest.TestCase):
     This unit test has the purpose of testing the scales module of Mikado.py.
     """
 
+    def test_get_f1(self):
+
+        # __slots__ = ["ref_id", "ref_gene", "ccode",
+        #              "tid", "gid",
+        #              "tid_num_exons", "ref_num_exons",
+        #              "n_prec", "n_recall", "n_f1",
+        #              "j_prec", "j_recall", "j_f1",
+        #              "e_prec", "e_recall", "e_f1",
+        #              "distance"]
+
+        result_perfect = Mikado.scales.resultstorer.ResultStorer(
+            "t1", "g1", "=",
+            "p1", "pg1", "2", "2",
+            100, 100, 100,
+            100, 100, 100,
+            100, 100, 100,
+            0)
+
+        result_perfect_j = Mikado.scales.resultstorer.ResultStorer(
+            "t1", "g1", "=",
+            "p1", "pg1", "2", "2",
+            80, 80, 80,
+            100, 100, 100,
+            0, 0, 0,
+            0)
+
+        # This does not make any sense, but it's only for the tests
+        result_perfect_n = Mikado.scales.resultstorer.ResultStorer(
+            "t1", "g1", "j",
+            "p1", "pg1", "2", "2",
+            100, 100, 100,
+            80, 80, 80,
+            0, 0, 0,
+            0)
+
+        result_imperfect = Mikado.scales.resultstorer.ResultStorer(
+            "t1", "g1", "j",
+            "p1", "pg1", "2", "2",
+            80, 80, 80,
+            80, 80, 80,
+            0, 0, 0,
+            0)
+
+        result_near = Mikado.scales.resultstorer.ResultStorer(
+            "t1", "g1", "p",
+            "p1", "pg1", "2", "2",
+            0, 0, 0,
+            0, 0, 0,
+            0, 0, 0,
+            10)
+
+        result_middle = Mikado.scales.resultstorer.ResultStorer(
+            "t1", "g1", "p",
+            "p1", "pg1", "2", "2",
+            0, 0, 0,
+            0, 0, 0,
+            0, 0, 0,
+            500)
+
+        result_far = Mikado.scales.resultstorer.ResultStorer(
+            "t1", "g1", "p",
+            "p1", "pg1", "2", "2",
+            0, 0, 0,
+            0, 0, 0,
+            0, 0, 0,
+            1000)
+
+        result_x = Mikado.scales.resultstorer.ResultStorer(
+            "t1", "g1", "x",
+            "p1", "pg1", "2", "2",
+            100, 100, 100,
+            100, 100, 100,
+            100, 100, 100,
+            1000)
+
+        self.assertEqual(sorted(
+            [result_perfect, result_imperfect, result_perfect_j, result_perfect_n],
+            key=Mikado.scales.assigner.Assigner.get_f1, reverse=True),
+            [result_perfect, result_perfect_j, result_perfect_n, result_imperfect]
+        )
+
+        self.assertEqual(sorted([result_perfect, result_far], key=Mikado.scales.assigner.Assigner.get_f1, reverse=True),
+                         [result_perfect, result_far])
+
+        self.assertEqual(sorted(
+            [result_far, result_near, result_middle, result_imperfect, result_perfect],
+            key=Mikado.scales.assigner.Assigner.get_f1, reverse=True),
+            [result_perfect, result_imperfect, result_near, result_middle,  result_far]
+        )
+
+        self.assertEqual(sorted(
+            [result_perfect, result_x],
+            key=Mikado.scales.assigner.Assigner.get_f1, reverse=True),
+            [result_perfect, result_x]
+        )
+
+
     def test_self(self):
         reference = Mikado.loci.Transcript()
         reference.start = 100

@@ -201,7 +201,10 @@ class Assigner:
         :return: (J_F1, N_F1, distance)
         :rtype (float, float, int)
         """
-        return curr_result.j_f1[0], curr_result.n_f1[0], -curr_result.distance[0]
+        return (curr_result.j_f1[0],
+                curr_result.n_f1[0],
+                -curr_result.distance[0],
+                (curr_result.ccode[0] not in ("x", "X")))
 
     def __prepare_transcript(self, prediction: Transcript):
         """

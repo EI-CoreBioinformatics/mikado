@@ -202,6 +202,8 @@ Chr1\tfoo\texon\t101\t600\t.\t-\t.\tID=tminus0:exon1;Parent=tminus0""".split("\n
 
         del jconf["requirements"]
 
+        # del jconf["scoring_file"]
+
         jconf["requirements"] = dict()
         jconf["requirements"]["parameters"] = dict()
         jconf["requirements"]["expression"] = ["suspicious_splicing"]
@@ -218,6 +220,7 @@ Chr1\tfoo\texon\t101\t600\t.\t-\t.\tID=tminus0:exon1;Parent=tminus0""".split("\n
             "evaluated[\"suspicious_splicing\"]")
 
         jconf = configurator.check_json(jconf)
+
         self.assertEqual(
             jconf["requirements"]["expression"],
             "evaluated[\"suspicious_splicing\"]")

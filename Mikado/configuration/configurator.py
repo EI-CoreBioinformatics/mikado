@@ -438,6 +438,39 @@ def create_validator(simple=False):
     return validator
 
 
+def _check_scoring_file(json_conf, logger):
+
+    overwritten = False
+
+    if json_conf.get("__loaded_scoring", json_conf["pick"]["scoring_file"]) != json_conf["pick"]["scoring_file"]:
+        logger.info("Overwriting the scoring configuration using '%s' as scoring file",
+                    json_conf["pick"]["scoring_file"])
+        overwritten = True
+        [json_conf.pop(_, None) for _ in ("scoring", "requirements", "as_requirements", "not_fragmentary")]
+
+    if os.path.exists(os.path.abspath(json_conf["pick"]["scoring_file"])):
+        json_conf["pick"]["scoring_file"] = os.path.abspath(
+            json_conf["pick"]["scoring_file"])
+    elif os.path.exists(os.path.join(
+            os.path.dirname(json_conf["filename"]),
+            json_conf["pick"]["scoring_file"])):
+        json_conf["pick"]["scoring_file"] = os.path.join(
+            os.path.dirname(json_conf["filename"]),
+            json_conf["pick"]["scoring_file"])
+    elif os.path.exists(
+            resource_filename(__name__, os.path.join("scoring_files",
+                                                     json_conf["pick"]["scoring_file"]))):
+        json_conf["pick"]["scoring_file"] = resource_filename(
+            __name__,
+            os.path.join("scoring_files",
+                         json_conf["pick"]["scoring_file"]))
+    else:
+        raise InvalidJson(
+            "Scoring file not found: {0}".format(
+                json_conf["pick"]["scoring_file"]))
+    return json_conf, overwritten
+
+
 def check_json(json_conf, simple=False, external_dict=None, logger=None):
 
     """
@@ -484,60 +517,35 @@ def check_json(json_conf, simple=False, external_dict=None, logger=None):
         assert "files" in json_conf["pick"]
 
         overwritten = False
-        if "scoring_file" in json_conf["pick"]:
-            if "scoring" in json_conf or "requirements" in json_conf:
-                logger.info("Overwriting the scoring configuration using '%s' as scoring file",
-                             json_conf["pick"]["scoring_file"])
-                overwritten = True
-                [json_conf.pop(_, None) for _ in ("scoring", "requirements", "as_requirements", "not_fragmentary")]
 
-            if os.path.exists(os.path.abspath(json_conf["pick"]["scoring_file"])):
-                json_conf["pick"]["scoring_file"] = os.path.abspath(
-                    json_conf["pick"]["scoring_file"])
-            elif os.path.exists(os.path.join(
-                    os.path.dirname(json_conf["filename"]),
-                    json_conf["pick"]["scoring_file"])):
-                json_conf["pick"]["scoring_file"] = os.path.join(
-                    os.path.dirname(json_conf["filename"]),
-                    json_conf["pick"]["scoring_file"])
-            elif os.path.exists(
-                    resource_filename(__name__, os.path.join("scoring_files",
-                                                             json_conf["pick"]["scoring_file"]))):
-                json_conf["pick"]["scoring_file"] = resource_filename(
-                    __name__,
-                    os.path.join("scoring_files",
-                                 json_conf["pick"]["scoring_file"]))
-            else:
-                raise InvalidJson(
-                    "Scoring file not found: {0}".format(
-                        json_conf["pick"]["scoring_file"]))
+        json_conf, overwritten = _check_scoring_file(json_conf, logger)
 
-            if json_conf["pick"]["scoring_file"].endswith(("yaml", "json")):
-                with open(json_conf["pick"]["scoring_file"]) as scoring_file:
-                    if json_conf["pick"]["scoring_file"].endswith("yaml"):
-                        scoring = yaml.load(scoring_file)
-                    else:
-                        scoring = json.load(scoring_file)
-                assert isinstance(json_conf, dict) and isinstance(scoring, dict),\
-                    (type(json_conf), type(scoring))
+        if json_conf["pick"]["scoring_file"].endswith(("yaml", "json")):
+            with open(json_conf["pick"]["scoring_file"]) as scoring_file:
+                if json_conf["pick"]["scoring_file"].endswith("yaml"):
+                    scoring = yaml.load(scoring_file)
+                else:
+                    scoring = json.load(scoring_file)
+            assert isinstance(json_conf, dict) and isinstance(scoring, dict),\
+                (type(json_conf), type(scoring))
+            json_conf = merge_dictionaries(json_conf, scoring)
+            json_conf = check_all_requirements(json_conf)
+            json_conf = check_scoring(json_conf)
 
+        elif json_conf["pick"]["scoring_file"].endswith(("model", "pickle")):
+            with open(json_conf["pick"]["scoring_file"], "rb") as forest:
+                scoring = pickle.load(forest)
+                assert isinstance(scoring, dict)
+                assert "scoring" in scoring and isinstance(scoring["scoring"], (RandomForestRegressor, RandomForestClassifier))
+                del scoring["scoring"]
                 json_conf = merge_dictionaries(json_conf, scoring)
                 json_conf = check_all_requirements(json_conf)
-                json_conf = check_scoring(json_conf)
+        else:
+            raise InvalidJson(
+                "Invalid scoring file: {0}".format(
+                    json_conf["pick"]["scoring_file"]))
 
-            elif json_conf["pick"]["scoring_file"].endswith(("model", "pickle")):
-
-                with open(json_conf["pick"]["scoring_file"], "rb") as forest:
-                    scoring = pickle.load(forest)
-                    assert isinstance(scoring, dict)
-                    assert "scoring" in scoring and isinstance(scoring["scoring"], (RandomForestRegressor, RandomForestClassifier))
-                    del scoring["scoring"]
-                    json_conf = merge_dictionaries(json_conf, scoring)
-                    json_conf = check_all_requirements(json_conf)
-            else:
-                raise InvalidJson(
-                    "Invalid scoring file: {0}".format(
-                        json_conf["pick"]["scoring_file"]))
+        json_conf["__loaded_scoring"] = json_conf["pick"]["scoring_file"]
 
         if external_dict is not None:
             if not isinstance(external_dict, dict):

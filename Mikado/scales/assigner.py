@@ -381,6 +381,8 @@ class Assigner:
                 matches = correct[:]
                 same_strand = True
             del correct
+        elif len(matches) > 1 and prediction.strand is None:
+            same_strand = True
 
         if len(matches) > 1 and same_strand is True:
             self.logger.debug("More than one match for %s: %s",

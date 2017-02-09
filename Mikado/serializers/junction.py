@@ -199,6 +199,8 @@ class JunctionSerializer:
             self.session.begin(subtransactions=True)
             for line in self.fai:
                 name, length = line.rstrip().split()[:2]
+                if self.session.query(Chrom).filter(Chrom.name == name).all():
+                    continue
                 try:
                     current_chrom = Chrom(name, length=int(length))
                 except ValueError:

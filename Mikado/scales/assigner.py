@@ -262,7 +262,7 @@ class Assigner:
 
         strands = collections.defaultdict(set)
 
-        # Get all the results for the single genea
+        # Get all the results for the single gene
         # We *want* to do the calculation for all hits
         for match in matches:
             match_to_gene[match[0]] = self.positions[prediction.chrom][match[0]]
@@ -314,16 +314,16 @@ class Assigner:
             # Now retrieve the results according to their order on the genome
             # Keep only the result, not their position
             best = [_[1] for _ in sorted(best, key=lambda res: (res[0][0], res[0][1]))]
+            chrom = prediction.chrom
+            start = min([prediction.start] + [self.genes[_.ref_gene[0]][_.ref_id[0]].start for _ in best])
+            end = max([prediction.end] + [self.genes[_.ref_gene[0]][_.ref_id[0]].end for _ in best])
+            location = "{}:{}..{}".format(chrom, start, end)
+
             for key in ResultStorer.__slots__:
                 if key in ["gid", "tid", "distance", "tid_num_exons"]:
                     values.append(getattr(best[0], key))
                 elif key == "location":
-                    positions = [(group[0], int(group[1]), int(group[2])) for group in
-                                 [re_search("(.*):(\d+)\.\.(\d+)", _.location[0]).groups() for _ in best]]
-                    chrom = set(_[0] for _ in positions).pop()
-                    start = min(_[1] for _ in positions)
-                    end = max(_[1] for _ in positions)
-                    values.append("{}:{}..{}".format(chrom, start, end))
+                    values.append(location)
                 elif key == "ccode":
                     values.append(tuple(["f"] + [_.ccode[0] for _ in best]))
                 else:

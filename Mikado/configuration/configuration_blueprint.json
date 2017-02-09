@@ -654,47 +654,60 @@
           "SimpleComment": [
             "Parameters related to the clustering of transcripts into loci.",
             "- flank: maximum distance for transcripts to be clustered within the same superlocus."
-            ],
-          "properties":{
+          ],
+          "properties": {
             "cds_only": {
               "type": "boolean",
               "default": false
             },
-            "min_cds_overlap":{
+            "min_cds_overlap": {
               "type": "number",
               "minimum": 0.000001,
               "maximum": 1,
               "default": 0.2
             },
-            "min_cdna_overlap":{
+            "min_cdna_overlap": {
               "type": "number",
               "minimum": 0.000001,
               "maximum": 1,
               "default": 0.2
-            },
-            "flank":{
-              "type": "integer",
-              "minimum": 0,
-              "default": 200
-            },
-            "remove_overlapping_fragments": {
-              "type": "boolean",
-              "default": true
             },
             "purge": {
               "type": "boolean",
               "default": true
             },
+            "flank": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 200
+            },
             "simple_overlap_for_monoexonic": {
               "type": "boolean",
               "default": true
+            }
+          }
+        },
+        "fragments":{
+            "type": "object",
+            "Comment": ["Parameters related to the handling of fragments.",
+            "- remove: boolean. Whether to remove fragments or leave them, properly tagged.",
+            "- max_distance: maximum distance of a putative fragment from a valid gene.",
+            "- valid_class_codes: which class codes will be considered as fragments. Default:",
+            "(p, P, x, X, i, m, _). Choices: '_' plus any class code with category",
+             "'Intronic', 'Fragment', or 'Overlap'."],
+            "SimpleComment": ["Parameters related to the handling of fragments.",
+            "- remove: boolean. Whether to remove fragments or leave them, properly tagged."],
+            "properties": {
+            "remove": {
+              "type": "boolean",
+              "default": true
             },
-            "max_distance_for_fragments": {
+            "max_distance": {
               "type": "number",
               "minimum": 0,
               "default": 2000
             },
-            "fragment_class_codes": {
+            "valid_class_codes": {
               "type": "array",
               "items": {
                 "type": "string",
@@ -708,7 +721,9 @@
                   "x",
                   "X",
                   "m",
-                  "_"
+                  "_",
+                  "e",
+                  "o"
                 ]
               },
               "default": [
@@ -721,9 +736,9 @@
                 "_"
               ]
             }
-          }
-        },
-        "files": {
+            }
+          },
+          "files": {
           "type": "object",
           "Comment": [
             "Input and output files for Mikado pick.",

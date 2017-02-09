@@ -14,6 +14,7 @@ from . import trim
 from . import grep
 from . import merge_blast
 from . import convert
+from . import class_codes
 import argparse
 
 __author__ = 'Luca Venturini'
@@ -35,6 +36,12 @@ def util_parser():
     utils.choices["awk_gtf"] = awk_gtf.awk_parser()
     utils.choices["awk_gtf"].prog = "mikado util awk_gtf"
     utils.choices["awk_gtf"].description = "Script to retrieve specific feature slices from a GTF file."
+
+    utils.add_parser("class_codes",
+                     description="Script to print out the class codes.")
+    utils.choices["class_codes"] = class_codes.code_parser()
+    utils.choices["class_codes"].prog = "mikado util class_codes"
+    utils.choices["class_codes"].description = "Script to print out the class codes."
 
     utils.add_parser("convert",
                      description="Script to do GTF <-> GFF3 > BED12 conversions.")

@@ -10,14 +10,21 @@ Changes in this release:
     - one intron of either transcript is completely contained within an exon of the other.
     OR
     - at least one of the transcripts is monoexonic and there is some overlap of any kind. This behaviour (which was the default until this release) can be switched off through pick/clustering/simple_overlap_for_monoexonic (default true).
-- **MAJOR**: changed slightly the anatomy of the configuration files. Now "pick" has a new subsection, "clustering", dedicated to how to cluster the transcripts in the different steps. Currently it contains the keys:
-  - "flank"
-  - "min_cdna_overlap" and "min_cds_overlap" (for the second clustering during the monosublocusHolder phase)
-  - "cds_only": to indicate whether we should only consider the CDS for clustering after the initial merging in the Superlocus.
-  - "simple_overlap_for_monoexonic": to switch on/off the old default behaviour with monoexonic transcripts
-  - "purge": whether to completely exclude failed loci, previously under "run_options"
-  - "remove_overlapping_fragments": whether to exclude fragments, previously under "run_options"
+- **MAJOR**: changed slightly the anatomy of the configuration files. Now "pick" has two new subsections, "clustering" and "fragments".
+    - Clustering: dedicated to how to cluster the transcripts in the different steps. Currently it contains the keys:
+      - "flank"
+      - "min_cdna_overlap" and "min_cds_overlap" (for the second clustering during the monosublocusHolder phase)
+      - "cds_only": to indicate whether we should only consider the CDS for clustering after the initial merging in the Superlocus.
+      - "simple_overlap_for_monoexonic": to switch on/off the old default behaviour with monoexonic transcripts
+      - "purge": whether to completely exclude failed loci, previously under "run_options"
+    - Fragments: dedicated to how to identify and treat putative fragments. Currently it contains the keys:
+        - "remove": whether to exclude fragments, previously under "run_options"
+        - "valid_class_codes": which class codes constitute a fragment match. Only class codes in the "Intronic", "Overlap" (inclusive of _) and "Fragment" categories are allowed.
+        - max_distance: for non-overlapping fragments (ie p and P), maximum distance from the gene. 
 - Mikado compare now also provides the location of the matches in TMAP and REFMAP files.
+- Introduced a new utility, "class_codes", to print out the information of the class codes. The definition of class codes is now contained in a subpackage of "scales".
+- The "metrics" utility now allows for interactive querying based on category or metric name.
+- The class code repertoire for putative fragments has been expanded, and made configurable through the "fragments" section.
 - When printing out putative fragments, now Mikado will indicate the class code of the fragment, the match against which it was deemed a fragment of, and the distance of said fragment (if they are not overlapping). 
 - Deprecated the "discard_definition" flag in Mikado serialise. Now Mikado will infer on its own whether to use the definition or the ID for serialising BLAST results.
 - Now AbstractLocus implementations have a private method to check the correctness of the json_conf. As a corollary, Transcript and children have been moved to their own subpackage ("transcripts") in order to break the circular dependency Mikado.loci.Abstractlocus <- Mikado.configurator <- Mikado.loci.Transcript. *Technical note*: checking the consinstency of the configuration is an expensive operation, so it will be executed on demand rather than automatically.

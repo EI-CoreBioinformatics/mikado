@@ -134,18 +134,23 @@ class Picker:
                                          force=True)
         self.logging_queue = multiprocessing.Queue(-1)
         self.printer_queue = multiprocessing.Queue(-1)
-        self.setup_logger()
+        # self.setup_logger()
         self.logger.info("Multiprocessing method: %s",
                          self.json_conf["multiprocessing_method"])
 
         for key in ("remove_overlapping_fragments", "flank", "purge"):
             if key in self.json_conf["pick"]["run_options"]:
                 # Put warnings in place for the deprecation of some options.
+
+                if key == "remove_overlapping_fragments":
+                    self.json_conf["pick"]["fragments"]["remove"] = self.json_conf["pick"]["run_options"].pop(key)
+                    new_home = "fragments/remove"
+                else:
+                    self.json_conf["pick"]["clustering"][key] = self.json_conf["pick"]["run_options"].pop(key)
+                    new_home = "clustering/{}".format(key)
                 warns = PendingDeprecationWarning(
-                    """The \"{}\" property has now been moved to the pick/clustering section.
-Please update your configuration files in the future.""".format(key))
+                    """The \"{}\" property has now been moved to pick/{}. Please update your configuration files in the future.""".format(key, new_home))
                 self.logger.warn(warns)
-                self.json_conf["pick"]["clustering"][key] = self.json_conf["pick"]["run_options"][key]
 
         self.context = multiprocessing.get_context()
         if self.json_conf["pick"]["scoring_file"].endswith((".pickle", ".model")):

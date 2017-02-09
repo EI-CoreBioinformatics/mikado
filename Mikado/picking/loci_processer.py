@@ -282,7 +282,7 @@ def print_locus(stranded_locus,
     for locus in stranded_locus.loci:
         gene_counter += 1
         fragment_test = (
-            json_conf["pick"]["clustering"]["remove_overlapping_fragments"]
+            json_conf["pick"]["fragments"]["remove"]
             is True and stranded_locus.loci[locus].is_fragment is True)
 
         if fragment_test is True:
@@ -438,7 +438,7 @@ def remove_fragments(stranded_loci, json_conf, logger):
             comparisons[locus_to_check.id].append(comparison)
 
     for locus in comparisons:
-        if json_conf["pick"]["clustering"]["remove_overlapping_fragments"] is True:
+        if json_conf["pick"]["fragments"]["remove"] is True:
             # A bit convoluted: use the locus ID to find the correct superlocus, then delete the ID inside the SL.
             del stranded_loci_dict[loci_to_superloci[locus]].loci[locus]
         else:

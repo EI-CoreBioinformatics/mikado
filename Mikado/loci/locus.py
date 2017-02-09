@@ -369,19 +369,17 @@ reached the maximum number of isoforms for the locus".format(
                           other.primary_transcript_id)
 
         result, _ = Assigner.compare(other.primary_transcript, self.primary_transcript)
-        max_distance = self.json_conf["pick"]["clustering"]["max_distance_for_fragments"]
-        # Exclude anything which is completely contained within an intron,
-        # or is a monoexonic fragment overlapping/in the neighborhood
+        max_distance = self.json_conf["pick"]["fragments"]["max_distance"]
         self.logger.debug("Comparison between {0} (strand {3}) and {1}: class code \"{2}\"".format(
             self.primary_transcript.id,
             other.primary_transcript.id,
             result.ccode[0],
             other.strand))
-        if result.ccode[0] in ("i", "P", "p", "x", "X", "m", "_") and result.distance[0] <= max_distance:
+        if (result.ccode[0] in self.json_conf["pick"]["fragments"]["valid_class_codes"] and
+                    result.distance[0] <= max_distance):
             self.logger.debug("{0} is a fragment (ccode {1})".format(
                 other.primary_transcript.id, result.ccode[0]))
             return True, result
-        # Adding c's because fragments might very well be contained!
 
         return False, None
 

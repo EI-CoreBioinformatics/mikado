@@ -1,163 +1,95 @@
-from collections import OrderedDict as odict
-
-codes = odict()
-
-codes["="] = {"Definition": "Complete intron chain match.",
-          "ref_multi": True,
-          "pred_multi": True,
-          "nucl": "NA",
-          "junc": "100%, 100%, 100%",
-          "reverse": "=",
-          "category": "Match"}
-codes["_"] = {"Definition": "Complete match between two monoexonic transcripts.",
-          "ref_multi": False,
-          "pred_multi": False,
-          "nucl": "NA",
-          "junc": "NA, NA, >=80%",
-          "reverse": "_",
-          "category": "Match"}
-codes["n"] = {"Definition": """Intron chain extension, ie. both transcripts are multiexonic and
-the prediction has novel splice sites outside of the reference transcript boundaries.""",
-              "ref_multi": True,
-              "pred_multi": True,
-              "nucl": "100%, < 100%, < 100%",
-              "junc": "100%, < 100%, < 100%",
-              "reverse": "c",
-              "category": "Extension"}
-codes["J"] ={"Definition": """Intron chain extension, ie. both transcripts are multiexonic and
-the prediction has novel splice sites inside of the reference transcript boundaries.""",
-              "ref_multi": True,
-              "pred_multi": True,
-              "nucl": "100%, <= 100%, < 100%",
-              "junc": "100%, < 100%, < 100%",
-              "reverse": "C",
-              "category": "Extension"}
-codes["c"] = {"Definition": """The prediction is either multiexonic and with its intron chain completely contained
-within that of the reference, or monoexonic and contained within one of the reference exons.""",
-              "ref_multi": "NA",
-              "pred_multi": "NA",
-              "nucl": "< 100%, 100%, NA",
-              "junc": "< 100%, 100%, NA",
-              "reverse": "n",
-              "category": "Extension"},
-codes["C"] = {"Definition": """The prediction intron chain is completely contained within that of the reference
-transcript, but it partially debords either into its introns or outside of the reference boundaries.""",
-              "ref_multi": True,
-              "pred_multi": True,
-              "nucl": "<= 100%, < 100%, < 100%",
-              "junc": "< 100%, 100%, < 100%",
-              "reverse": "J or j",
-              "category": "Extension"}
-codes["j"] = {"Definition": """Alternative splicing event.""",
-              "ref_multi": True,
-              "pred_multi": True,
-              "nucl": "NA",
-              "junc": "<= 100%, 100%, < 100%",
-              "reverse": "j",
-              "category": "Alternative splicing"}
+import sys
+import argparse
+import tabulate
+from ...scales import class_codes
+import textwrap
+from itertools import zip_longest
 
 
+def launch(args):
+
+    rows = []
+
+    if len(args.code) > 0:
+        codes = [class_codes.codes[_] for _ in args.metric]
+    elif len(args.category) > 0:
+        codes = [class_codes.codes[_] for _ in class_codes.codes
+                 if class_codes.codes[_].category in args.category]
+    else:
+        codes = [class_codes.codes[_] for _ in class_codes.codes]
+
+    for code in codes:
+        definition = textwrap.wrap(code.definition, 30)
+        code_rows = zip_longest([code.code],
+                                definition,
+                                [code.ref_multi],
+                                [code.pred_multi],
+                                [code.nucl],
+                                [code.junc],
+                                [code.reverse],
+                                [code.category])
+        rows.extend(code_rows)
+
+    __table_format = tabulate._table_formats[args.format]
+
+    if args.format not in ("grid", "fancy_grid"):
+
+        print(tabulate.tabulate(rows,
+                                headers=["Class code",
+                                         "Definition",
+                                         "Reference multiexonic?",
+                                         "Prediction multiexonic?",
+                                         "Nucleotide: RC, PC, F1",
+                                         "Junction: RC, PC, F1",
+                                         "Reverse",
+                                         "Category"],
+                                tablefmt=args.format))
+
+    else:
+        out_of_header = False
+        separator = None
+
+        for row in tabulate.tabulate(rows,
+                                     headers=["Metric name", "Description", "Category", "Data type", "Usable raw"],
+                                     tablefmt=args.format).split("\n"):
+            if row[:2] == __table_format.lineabove.begin + __table_format.lineabove.hline:
+                separator = row
+                if not out_of_header:
+                    print(row)
+                continue
+            if row[:2] == __table_format.linebelowheader.begin + __table_format.linebelowheader.hline:
+                out_of_header = True
+                print(row, file=args.out)
+                continue
+            elif out_of_header is False:
+                print(row, file=args.out)
+            elif row[:2] == __table_format.linebetweenrows[0] + __table_format.linebetweenrows[1]:
+                continue
+            elif row[0] == __table_format.datarow.begin:
+                if row.strip().split(__table_format.datarow.sep)[1].strip() != "":
+                    print(separator, file=args.out)
+                print(row, file=args.out)
+        print(separator, file=args.out)
+        print(file=args.out)
+    return
 
 
-#     +--------------+------------------------------+--------------+---------------+-------------------+-------------------+-------------------+-------------------+
-#     | **j**        | Alternative splicing event.  | True         | True          | NA                | <= 100%, < 100%,  | **j**             | **Alternative     |
-#     |              |                              |              |               |                   | < 100%            |                   | splicing**        |
-#     +--------------+------------------------------+--------------+---------------+-------------------+-------------------+-------------------+-------------------+
-#     | **h**        | Structural match between two | True         | True          | > 0%, > 0%, > 0%  | 0%, 0%, 0%        | **h**             | **Alternative     |
-#     |              | models where no splice site  |              |               |                   |                   |                   | splicing**        |
-#     |              | is conserved but **at least**|              |               |                   |                   |                   |                   |
-#     |              | one intron of the reference  |              |               |                   |                   |                   |                   |
-#     |              | and one intron of the        |              |               |                   |                   |                   |                   |
-#     |              | prediction partially overlap.|              |               |                   |                   |                   |                   |
-#     +--------------+------------------------------+--------------+---------------+-------------------+-------------------+-------------------+-------------------+
-#     | **g**        | The monoexonic prediction    | True         | False         | > 0%, > 0%,       | 0%                | **G**             | **Alternative     |
-#     | ("mo" before | overlaps one or more exons of|              |               | between 0 and 100%|                   |                   | splicing**        |
-#     | release 1)   | the reference transcript; the|              |               |                   |                   |                   |                   |
-#     |              | borders of the prediction    |              |               |                   |                   |                   |                   |
-#     |              | cannot fall inside the       |              |               |                   |                   |                   |                   |
-#     |              | introns of the reference.    |              |               |                   |                   |                   |                   |
-#     |              | The prediction transcript    |              |               |                   |                   |                   |                   |
-#     |              | can bridge multiple exons    |              |               |                   |                   |                   |                   |
-#     |              | of the reference model.      |              |               |                   |                   |                   |                   |
-#     +--------------+------------------------------+--------------+---------------+-------------------+-------------------+-------------------+-------------------+
-#     | **G**        | Generic match of a           | False        | True          | > 0%, > 0%, > 0%  | 0%                | **g**             | **Alternative     |
-#     | ("O" before  | multiexonic prediction       |              |               |                   |                   |                   | splicing**        |
-#     | release 1)   | transcript versus a          |              |               |                   |                   |                   |                   |
-#     |              | monoexonic reference.        |              |               |                   |                   |                   |                   |
-#     +--------------+------------------------------+--------------+---------------+-------------------+-------------------+-------------------+-------------------+
-#     | **o**        | Generic overlap between two  | True         | True          | > 0%, > 0%, > 0%  | 0%, 0%, 0%        | **o**             | **Overlap**       |
-#     |              | multiexonic transcripts,     |              |               |                   |                   |                   |                   |
-#     |              | which do not share **any**   |              |               |                   |                   |                   |                   |
-#     |              | overlap among their introns. |              |               |                   |                   |                   |                   |
-#     +--------------+------------------------------+--------------+---------------+-------------------+-------------------+-------------------+-------------------+
-#     | **e**        | Single exon transcript       | True         | False         | > 0%, > 0%,       | 0%                | **G**             | **Overlap**       |
-#     |              | overlapping *one* reference  |              |               | between 0 and 100%|                   |                   |                   |
-#     |              | exon and at least 10 bps of a|              |               |                   |                   |                   |                   |
-#     |              | reference intron, indicating |              |               |                   |                   |                   |                   |
-#     |              | a possible pre-mRNA fragment.|              |               |                   |                   |                   |                   |
-#     +--------------+------------------------------+--------------+---------------+-------------------+-------------------+-------------------+-------------------+
-#     | **m**        | Generic match between two    | False        | False         | NA, NA, **< 80%** | NA                | **m**             | **Overlap**       |
-#     |              | monoexonic transcripts.      |              |               |                   |                   |                   |                   |
-#     +--------------+------------------------------+--------------+---------------+-------------------+-------------------+-------------------+-------------------+
-#     | **i**        | Monoexonic prediction        | True         | False         | 0%                | 0%                | **ri**            | **Intronic**      |
-#     |              | completely contained within  |              |               |                   |                   |                   |                   |
-#     |              | one intron of the reference  |              |               |                   |                   |                   |                   |
-#     |              | transcript.                  |              |               |                   |                   |                   |                   |
-#     +--------------+------------------------------+--------------+---------------+-------------------+-------------------+-------------------+-------------------+
-#     | **I**        | Prediction completely        | True         | True          | 0%                | 0%                | **rI**            | **Intronic**      |
-#     |              | contained within the introns |              |               |                   |                   |                   |                   |
-#     |              | of the reference transcript. |              |               |                   |                   |                   |                   |
-#     +--------------+------------------------------+--------------+---------------+-------------------+-------------------+-------------------+-------------------+
-#     | **rI**       | Reference completely         | True         | True          | 0%                | 0%                | **I**             | **Intronic**      |
-#     |              | contained within the introns |              |               |                   |                   |                   |                   |
-#     |              | of the prediction transcript.|              |               |                   |                   |                   |                   |
-#     +--------------+------------------------------+--------------+---------------+-------------------+-------------------+-------------------+-------------------+
-#     | **ri**       | Reverse intron transcript -  | False        | True          | 0%                | 0%                | **i**             | **Intronic**      |
-#     |              | the monoexonic reference is  |              |               |                   |                   |                   |                   |
-#     |              | completely contained within  |              |               |                   |                   |                   |                   |
-#     |              | one intron of the prediction |              |               |                   |                   |                   |                   |
-#     |              | transcript.                  |              |               |                   |                   |                   |                   |
-#     +--------------+------------------------------+--------------+---------------+-------------------+-------------------+-------------------+-------------------+
-#     | **f**        | Fusion - this special code   | NA           | NA            | **> 10%**, NA, NA | **> 0%**, NA, NA  | NA                | **Fusion**        |
-#     |              | is applied when a prediction |              |               |                   |                   |                   |                   |
-#     |              | intersects more than one     |              |               |                   |                   |                   |                   |
-#     |              | reference transcript. To be  |              |               |                   |                   |                   |                   |
-#     |              | considered for fusions,      |              |               |                   |                   |                   |                   |
-#     |              | candidate references must    |              |               |                   |                   |                   |                   |
-#     |              | **either** share at least one|              |               |                   |                   |                   |                   |
-#     |              | splice junction with the     |              |               |                   |                   |                   |                   |
-#     |              | prediction, **or** have at   |              |               |                   |                   |                   |                   |
-#     |              | least 10% of its bases       |              |               |                   |                   |                   |                   |
-#     |              | recalled. If two or more     |              |               |                   |                   |                   |                   |
-#     |              | reference transcripts fit    |              |               |                   |                   |                   |                   |
-#     |              | these constraints, then the  |              |               |                   |                   |                   |                   |
-#     |              | prediction model is          |              |               |                   |                   |                   |                   |
-#     |              | classified as a **fusion**.  |              |               |                   |                   |                   |                   |
-#     +--------------+------------------------------+--------------+---------------+-------------------+-------------------+-------------------+-------------------+
-#     | **x**        | Monoexonic match on the      | NA           | False         | >= 0%             | 0%                | **x** or **X**    | **Fragment**      |
-#     |              | *opposite* strand.           |              |               |                   |                   |                   |                   |
-#     +--------------+------------------------------+--------------+---------------+-------------------+-------------------+-------------------+-------------------+
-#     | **X**        | Multiexonic match on the     | NA           | True          | >= 0%             | 0%                | **x** or **X**    | **Fragment**      |
-#     |              | *opposite* strand.           |              |               |                   |                   |                   |                   |
-#     +--------------+------------------------------+--------------+---------------+-------------------+-------------------+-------------------+-------------------+
-#     | **p**        | The prediction is on the same| NA           | NA            | 0%                | 0%                | **p**             | **No overlap**    |
-#     |              | strand of a neighbouring but |              |               |                   |                   |                   |                   |
-#     |              | non-overlapping transcript.  |              |               |                   |                   |                   |                   |
-#     |              | Probable polymerase run-on.  |              |               |                   |                   |                   |                   |
-#     +--------------+------------------------------+--------------+---------------+-------------------+-------------------+-------------------+-------------------+
-#     | **P**        | The prediction is on the     | NA           | NA            | 0%                | 0%                | **P**             | **No overlap**    |
-#     |              | *opposite* strand of a       |              |               |                   |                   |                   |                   |
-#     |              | neighbouring but             |              |               |                   |                   |                   |                   |
-#     |              | non-overlapping transcript.  |              |               |                   |                   |                   |                   |
-#     |              | Probable polymerase run-on.  |              |               |                   |                   |                   |                   |
-#     +--------------+------------------------------+--------------+---------------+-------------------+-------------------+-------------------+-------------------+
-#     | **u**        | Unknown - no suitable model  | NA           | NA            | 0%                | 0%                | NA                | **No overlap**    |
-#     |              | has been found near enough   |              |               |                   |                   |                   |                   |
-#     |              | the prediction to perform a  |              |               |                   |                   |                   |                   |
-#     |              | comparison.                  |              |               |                   |                   |                   |                   |
-#     +--------------+------------------------------+--------------+---------------+-------------------+-------------------+-------------------+-------------------+
+def code_parser():
 
+    """
+    Command line parser for the utility.
+    """
 
+    parser = argparse.ArgumentParser("Script to generate the available class codes.")
+    parser.add_argument("-f", "--format", choices=tabulate.tabulate_formats, default="rst")
+    parser.add_argument("-c", "--category", nargs="+",
+                        choices=list(set(_.category for _ in class_codes.codes.values())))
+    parser.add_argument("-o", "--out", type=argparse.FileType("w"), default=sys.stdout)
+    parser.add_argument("code", nargs="*", help="Codes to query.",
+                        default=[],
+                        choices=[[]] + list(class_codes.codes.keys()))
+    parser.set_defaults(func=launch)
+    return parser
 
 
 

@@ -21,6 +21,7 @@ Changes in this release:
         - "remove": whether to exclude fragments, previously under "run_options"
         - "valid_class_codes": which class codes constitute a fragment match. Only class codes in the "Intronic", "Overlap" (inclusive of _) and "Fragment" categories are allowed.
         - max_distance: for non-overlapping fragments (ie p and P), maximum distance from the gene. 
+- Solved a long-standing bug which caused Mikado compare to consider as fusion also hits.
 - Mikado compare now also provides the location of the matches in TMAP and REFMAP files.
 - Introduced a new utility, "class_codes", to print out the information of the class codes. The definition of class codes is now contained in a subpackage of "scales".
 - The "metrics" utility now allows for interactive querying based on category or metric name.

@@ -5,6 +5,7 @@ This module contains the definitions of the class codes, using a custom class.
 
 from collections import OrderedDict as odict
 
+
 def _is_digit(value):
     if not ((value is None) or (isinstance(value, (float, int)) and 0 <= value <= 100)):
         raise ValueError("Invalid numeric value: {}, type: {}".format(value, type(value)))
@@ -272,7 +273,7 @@ def code_h():
     code = ClassCode("h")
     code.definition = """Structural match between two models where where no splice site is conserved but at least
     one intron of the reference and one intron of the prediction partially overlap."""
-    code.ref_multi, code_n.pred_multi = True, True
+    code.ref_multi, code.pred_multi = True, True
     code._nucl_rec, code._nucl_prec, code._nucl_f1 = "> 0", "> 0", "> 0"
     code._junc_rec, code._junc_prec, code._junc_f1 = 0, 0, 0
     code.reverse = "h"

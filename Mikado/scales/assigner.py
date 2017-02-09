@@ -369,18 +369,20 @@ class Assigner:
                           prediction.id,
                           matches)
 
+        same_strand = False
         if len(matches) > 1 and prediction.strand is not None:
-                correct = list()
-                for match in matches:
-                    for gid in self.positions[prediction.chrom][match[0]]:
-                        if any([self.genes[gid].strand in (None, prediction.strand)]):
-                            correct.append(match)
-                            break
-                if len(correct) > 0:
-                    matches = correct[:]
-                del correct
+            correct = list()
+            for match in matches:
+                for gid in self.positions[prediction.chrom][match[0]]:
+                    if any([self.genes[gid].strand in (None, prediction.strand)]):
+                        correct.append(match)
+                        break
+            if len(correct) > 0:
+                matches = correct[:]
+                same_strand = True
+            del correct
 
-        if len(matches) > 1:
+        if len(matches) > 1 and same_strand is True:
             self.logger.debug("More than one match for %s: %s",
                               prediction.id,
                               matches)
@@ -401,6 +403,8 @@ class Assigner:
         return results, best_result
 
     def self_analyse_prediction(self, prediction: Transcript, distances):
+
+        """This method will be invoked during a self analysis run."""
 
         assert len(distances) >= 1 and distances[0][1] == 0
 
@@ -481,8 +485,6 @@ class Assigner:
                             "Nothing found for {} vs. {} (transcripts: {})".format(
                                 gene.id, prediction.id, ", ".join(list(gene.transcripts.keys()))
                             ))
-
-                    # best.append(result_dict[gene.id][0])
 
                 if same_strand is True:
                     # This is a fusion, period

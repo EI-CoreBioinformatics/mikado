@@ -11,7 +11,7 @@ def launch(args):
     rows = []
 
     if len(args.code) > 0:
-        codes = [class_codes.codes[_] for _ in args.metric]
+        codes = [class_codes.codes[_] for _ in args.code]
     elif len(args.category) > 0:
         codes = [class_codes.codes[_] for _ in class_codes.codes
                  if class_codes.codes[_].category in args.category]
@@ -50,7 +50,14 @@ def launch(args):
         separator = None
 
         for row in tabulate.tabulate(rows,
-                                     headers=["Metric name", "Description", "Category", "Data type", "Usable raw"],
+                                     headers=["Class code",
+                                              "Definition",
+                                              "Reference multiexonic?",
+                                              "Prediction multiexonic?",
+                                              "Nucleotide: RC, PC, F1",
+                                              "Junction: RC, PC, F1",
+                                              "Reverse",
+                                              "Category"],
                                      tablefmt=args.format).split("\n"):
             if row[:2] == __table_format.lineabove.begin + __table_format.lineabove.hline:
                 separator = row
@@ -82,7 +89,7 @@ def code_parser():
 
     parser = argparse.ArgumentParser("Script to generate the available class codes.")
     parser.add_argument("-f", "--format", choices=tabulate.tabulate_formats, default="rst")
-    parser.add_argument("-c", "--category", nargs="+",
+    parser.add_argument("-c", "--category", nargs="+", default=[],
                         choices=list(set(_.category for _ in class_codes.codes.values())))
     parser.add_argument("-o", "--out", type=argparse.FileType("w"), default=sys.stdout)
     parser.add_argument("code", nargs="*", help="Codes to query.",

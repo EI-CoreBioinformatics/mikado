@@ -284,8 +284,8 @@
             "- keep_retained_introns: Whether to consider as valid AS events where one intron",
             "is retained compared to the primary or any other valid AS. Default: false.",
             "- max_isoforms: Maximum number of isoforms per locus. 1 implies no AS reported. Default: 3",
-            "- valid_ccodes: Valid class codes for AS events. See documentation for details. Choices:",
-            "j, n, O, e, o, h, J, C, mo. Default: j, J, O, mo",
+            "- valid_ccodes: Valid class codes for AS events. Valid codes are in categories",
+            "'Alternative splicing', 'Extension' (with junction F1 lower than 100%), and Overlap (exluding m). Default: j, J, g, G, C, h",
             "- max_utr_length: Maximum length of the UTR for AS events. Default: 10e6 (i.e. no limit)",
             "- max_fiveutr_length: Maximum length of the 5'UTR for AS events. Default: 10e6 (i.e. no limit)",
             "- max_threeutr_length: Maximum length of the 5'UTR for AS events. Default: 10e6 (i.e. no limit)",
@@ -340,13 +340,11 @@
                 "type": "string",
                 "enum": [
                   "j",
-                  "O",
                   "e",
                   "o",
                   "h",
                   "J",
                   "C",
-                  "mo",
                   "g",
                   "G"
                 ]

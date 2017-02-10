@@ -149,12 +149,13 @@ def pick(args):
         raise exc
 
     creator = Picker(args.json_conf, commandline=" ".join(sys.argv))
-    try:
-        creator()  # Run
-    except Exception as exc:
-        logger.error(exc)
+    creator()
+    # try:
+    #     creator()  # Run
+    # except Exception as exc:
+    #     logger.error(exc)
 
-    sys.exit(1)
+    sys.exit(0)
 
 
 def pick_parser():

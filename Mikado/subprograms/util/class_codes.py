@@ -27,7 +27,7 @@ def launch(args):
                                 [code.nucl],
                                 [code.junc],
                                 [code.reverse],
-                                [code.category])
+                                code.category.split())
         rows.extend(code_rows)
 
     __table_format = tabulate._table_formats[args.format]

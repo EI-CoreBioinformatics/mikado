@@ -12,11 +12,11 @@ Changes in this release:
     - at least one of the transcripts is monoexonic and there is some overlap of any kind. This behaviour (which was the default until this release) can be switched off through pick/clustering/simple_overlap_for_monoexonic (default true).
 - **MAJOR**: changed slightly the anatomy of the configuration files. Now "pick" has two new subsections, "clustering" and "fragments".
     - Clustering: dedicated to how to cluster the transcripts in the different steps. Currently it contains the keys:
-      - "flank"
-      - "min_cdna_overlap" and "min_cds_overlap" (for the second clustering during the monosublocusHolder phase)
-      - "cds_only": to indicate whether we should only consider the CDS for clustering after the initial merging in the Superlocus.
-      - "simple_overlap_for_monoexonic": to switch on/off the old default behaviour with monoexonic transcripts
-      - "purge": whether to completely exclude failed loci, previously under "run_options"
+        - "flank"
+        - "min_cdna_overlap" and "min_cds_overlap" (for the second clustering during the monosublocusHolder phase)
+        - "cds_only": to indicate whether we should only consider the CDS for clustering after the initial merging in the Superlocus.
+        - "simple_overlap_for_monoexonic": to switch on/off the old default behaviour with monoexonic transcripts
+        - "purge": whether to completely exclude failed loci, previously under "run_options"
     - Fragments: dedicated to how to identify and treat putative fragments. Currently it contains the keys:
         - "remove": whether to exclude fragments, previously under "run_options"
         - "valid_class_codes": which class codes constitute a fragment match. Only class codes in the "Intronic", "Overlap" (inclusive of _) and "Fragment" categories are allowed.

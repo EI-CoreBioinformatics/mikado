@@ -3,7 +3,7 @@ This module contains the definitions of the class codes, using a custom class.
 """
 
 
-from collections import OrderedDict as odict
+from collections import OrderedDict
 
 
 def _is_digit(value):
@@ -18,7 +18,7 @@ def _is_boolean(value):
     return True
 
 
-class ClassCode:
+class _ClassCode:
 
     """Container for the class codes ."""
 
@@ -41,6 +41,18 @@ class ClassCode:
 
     def __hash__(self):
         return hash(self.code)
+
+    def __str__(self):
+        lines = list()
+        lines.append("- Code: {}".format(self.code))
+        lines.append("- Definition: {}".format(self.definition))
+        lines.append("- Reference multiexonic: {}".format(self.ref_multi))
+        lines.append("- Prediction multiexonic: {}".format(self.pred_multi))
+        lines.append("- Nucleotide recall, precision, F1: {}".format(self.nucl))
+        lines.append("- Junction recall, precision, F1: {}".format(self.junc))
+        lines.append("- Reverse class code: {}".format(self.reverse))
+        lines.append("- Category: {}".format(self.category))
+        return "\n".join(lines)
 
     @property
     def code(self):
@@ -191,294 +203,440 @@ class ClassCode:
         self.__reverse = value
 
 
-def code_equal():
-    equal = ClassCode("=")
-    equal.definition = "Complete intron chain match."
-    equal.pred_multi, equal.ref_multi = True, True
-    equal._junc_f1, equal._junc_prec, equal._junc_rec = [100] * 3
-    equal.reverse = "="
-    equal.category = "Match"
-    return equal
+class Equal:
+
+    _code = _ClassCode("=")
+    _code.definition = "Complete intron chain match."
+    _code.pred_multi, _code.ref_multi = True, True
+    _code._junc_f1, _code._junc_prec, _code._junc_rec = [100] * 3
+    _code.reverse = "="
+    _code.category = "Match"
+
+    code, definition = _code.code, _code.definition
+    pred_multi, ref_multi = _code.pred_multi, _code.ref_multi
+    category, reverse = _code.category, _code.reverse
+    nucl, junc = _code.nucl, _code.junc
+
+    __doc__ = str(_code)
 
 
-def code_underscore():
-    underscore = ClassCode("_")
-    underscore.definition = "Complete match between two monoexonic transcripts."
-    underscore.ref_multi, underscore.pred_multi = False, False
-    underscore._nucl_f1 = ">=80"
-    underscore.reverse = "_"
-    underscore.category = "Match"
-    return underscore
+class UnderScore:
+    
+    _code = _ClassCode("_")
+    _code.definition = "Complete match between two monoexonic transcripts."
+    _code.ref_multi, _code.pred_multi = False, False
+    _code._nucl_f1 = ">=80"
+    _code.reverse = "_"
+    _code.category = "Match"
 
+    code, definition = _code.code, _code.definition
+    pred_multi, ref_multi = _code.pred_multi, _code.ref_multi
+    category, reverse = _code.category, _code.reverse
+    nucl, junc = _code.nucl, _code.junc
 
-def code_n():
-    code = ClassCode("n")
-    code.definition = """Intron chain extension, ie. both transcripts are multiexonic and
+    __doc__ = str(_code)
+    
+    
+class CodeN:
+
+    _code = _ClassCode("n")
+    _code.definition = """Intron chain extension, ie. both transcripts are multiexonic and
     the prediction has novel splice sites outside of the reference transcript boundaries."""
-    code.ref_multi, code.pred_multi = True, True
-    code._nucl_rec, code._nucl_prec, code._nucl_f1 = (100, "< 100", "<100")
-    code._junc_rec, code._junc_prec, code._junc_f1 = (100, "< 100", "<100")
-    code.reverse = "c"
-    code.category = "Extension"
-    return code
+    _code.ref_multi, _code.pred_multi = True, True
+    _code._nucl_rec, _code._nucl_prec, _code._nucl_f1 = (100, "< 100", "<100")
+    _code._junc_rec, _code._junc_prec, _code._junc_f1 = (100, "< 100", "<100")
+    _code.reverse = "c"
+    _code.category = "Extension"
+
+    code, definition = _code.code, _code.definition
+    pred_multi, ref_multi = _code.pred_multi, _code.ref_multi
+    category, reverse = _code.category, _code.reverse
+    nucl, junc = _code.nucl, _code.junc
+
+    __doc__ = str(_code)
 
 
-def code_capital_j():
-    code = ClassCode("J")
-    code.definition = """Intron chain extension, ie. both transcripts are multiexonic and
+class CodeCapitalJ:
+    
+    _code = _ClassCode("J")
+    _code.definition = """Intron chain extension, ie. both transcripts are multiexonic and
     the prediction has novel splice sites inside of the reference transcript boundaries."""
-    code.ref_multi, code.pred_multi = True, True
-    code._nucl_rec, code._nucl_prec, code._nucl_f1 = (100, "<= 100", "<100")
-    code._junc_rec, code._junc_prec, code._junc_f1 = (100, "< 100", "<100")
-    code.reverse = "C"
-    code.category = "Extension"
-    return code
+    _code.ref_multi, _code.pred_multi = True, True
+    _code._nucl_rec, _code._nucl_prec, _code._nucl_f1 = (100, "<= 100", "<100")
+    _code._junc_rec, _code._junc_prec, _code._junc_f1 = (100, "< 100", "<100")
+    _code.reverse = "C"
+    _code.category = "Extension"
+
+    code, definition = _code.code, _code.definition
+    pred_multi, ref_multi = _code.pred_multi, _code.ref_multi
+    category, reverse = _code.category, _code.reverse
+    nucl, junc = _code.nucl, _code.junc
+
+    __doc__ = str(_code)
 
 
-def code_c():
-    code = ClassCode("c")
-    code.definition = """The prediction is either multiexonic and with its intron chain completely contained
+class CodeC:
+    _code = _ClassCode("c")
+    _code.definition = """The prediction is either multiexonic and with its intron chain completely contained
     within that of the reference, or monoexonic and contained within one of the reference exons."""
-    code.pred_multi, code.ref_multi = None, None
-    code._nucl_rec, code._nucl_prec, code._nucl_f1 = "< 100", "100", None
-    code._junc_rec, code._junc_prec, code._junc_f1 = "< 100", "100", None
-    code.reverse = "n"
-    code.category = "Extension"
-    return code
+    _code.pred_multi, _code.ref_multi = None, None
+    _code._nucl_rec, _code._nucl_prec, _code._nucl_f1 = "< 100", "100", None
+    _code._junc_rec, _code._junc_prec, _code._junc_f1 = "< 100", "100", None
+    _code.reverse = "n"
+    _code.category = "Extension"
+
+    code, definition = _code.code, _code.definition
+    pred_multi, ref_multi = _code.pred_multi, _code.ref_multi
+    category, reverse = _code.category, _code.reverse
+    nucl, junc = _code.nucl, _code.junc
+
+    __doc__ = str(_code)
 
 
-def code_capital_c():
-    code = ClassCode("C")
-    code.definition = """The prediction intron chain is completely contained within that of the reference
+class CodeCapitalC:
+
+    _code = _ClassCode("C")
+    _code.definition = """The prediction intron chain is completely contained within that of the reference
     transcript, but it partially debords either into its introns or outside of the reference boundaries."""
-    code.pred_multi, code.ref_multi = True, True
-    code._nucl_rec, code._nucl_prec, code._nucl_f1 = "<= 100", "< 100", "< 100"
-    code._junc_rec, code._junc_prec, code._junc_f1 = "< 100", "100", "< 100"
-    code.reverse = "J or j"
-    code.category = "Extension"
-    return code
+    _code.pred_multi, _code.ref_multi = True, True
+    _code._nucl_rec, _code._nucl_prec, _code._nucl_f1 = "<= 100", "< 100", "< 100"
+    _code._junc_rec, _code._junc_prec, _code._junc_f1 = "< 100", "100", "< 100"
+    _code.reverse = "J or j"
+    _code.category = "Extension"
+
+    code, definition = _code.code, _code.definition
+    pred_multi, ref_multi = _code.pred_multi, _code.ref_multi
+    category, reverse = _code.category, _code.reverse
+    nucl, junc = _code.nucl, _code.junc
+
+    __doc__ = str(_code)
 
 
-def code_j():
-    code = ClassCode("j")
-    code.definition = """Alternative splicing event."""
-    code.ref_multi, code.pred_multi = True, True
-    code._junc_rec, code._junc_prec, code._junc_f1 = "<= 100", "100", "< 100"
-    code.reverse = "j or C"
-    code.category = "Alternative splicing"
-    return code
+class CodeJ:
+    _code = _ClassCode("j")
+    _code.definition = """Alternative splicing event."""
+    _code.ref_multi, _code.pred_multi = True, True
+    _code._junc_rec, _code._junc_prec, _code._junc_f1 = "<= 100", "100", "< 100"
+    _code.reverse = "j or C"
+    _code.category = "Alternative splicing"
+
+    code, definition = _code.code, _code.definition
+    pred_multi, ref_multi = _code.pred_multi, _code.ref_multi
+    category, reverse = _code.category, _code.reverse
+    nucl, junc = _code.nucl, _code.junc
+
+    __doc__ = str(_code)
 
 
-def code_h():
-    code = ClassCode("h")
-    code.definition = """Structural match between two models where where no splice site is conserved but at least
+class CodeH:
+    _code = _ClassCode("h")
+    _code.definition = """Structural match between two models where where no splice site is conserved but at least
     one intron of the reference and one intron of the prediction partially overlap."""
-    code.ref_multi, code.pred_multi = True, True
-    code._nucl_rec, code._nucl_prec, code._nucl_f1 = "> 0", "> 0", "> 0"
-    code._junc_rec, code._junc_prec, code._junc_f1 = 0, 0, 0
-    code.reverse = "h"
-    code.category = "Alternative splicing"
-    return code
+    _code.ref_multi, _code.pred_multi = True, True
+    _code._nucl_rec, _code._nucl_prec, _code._nucl_f1 = "> 0", "> 0", "> 0"
+    _code._junc_rec, _code._junc_prec, _code._junc_f1 = 0, 0, 0
+    _code.reverse = "h"
+    _code.category = "Alternative splicing"
+
+    code, definition = _code.code, _code.definition
+    pred_multi, ref_multi = _code.pred_multi, _code.ref_multi
+    category, reverse = _code.category, _code.reverse
+    nucl, junc = _code.nucl, _code.junc
+
+    __doc__ = str(_code)
 
 
-def code_g():
-    code = ClassCode("g")
-    code.definition = """The monoexonic prediction overlaps one or more exons of the reference transcript;
-    the borders of the prediction cannot fall inside the introns of the reference.
-    The prediction transcript can bridge multiple exons of the reference model."""
-    code.ref_multi, code.pred_multi = True, False
-    code._nucl_rec, code._nucl_prec, code._nucl_f1 = "> 0", "> 0", "0% < F1 < 100"
-    code._junc_rec, code._junc_prec, code._junc_f1 = 0, 0, 0
-    code.reverse = "G"
-    code.category = "Alternative splicing"
-    return code
+class CodeG:
+
+    _code = _ClassCode("g")
+    _code.definition = """The monoexonic prediction overlaps one or more exons of the reference
+     transcript; the borders of the prediction cannot fall inside the introns of the reference.
+     The prediction transcript can bridge multiple exons of the reference model."""
+    _code.ref_multi, _code.pred_multi = True, False
+    _code._nucl_rec, _code._nucl_prec, _code._nucl_f1 = "> 0", "> 0", "0% < F1 < 100"
+    _code._junc_rec, _code._junc_prec, _code._junc_f1 = 0, 0, 0
+    _code.reverse = "G"
+    _code.category = "Alternative splicing"
+
+    code, definition = _code.code, _code.definition
+    pred_multi, ref_multi = _code.pred_multi, _code.ref_multi
+    category, reverse = _code.category, _code.reverse
+    nucl, junc = _code.nucl, _code.junc
+
+    __doc__ = str(_code)
 
 
-def code_capital_g():
-    code = ClassCode("G")
-    code.definition = """Generic match of a multiexonic prediction transcript versus a monoexonic reference."""
-    code.ref_multi, code.pred_multi = False, True
-    code._nucl_rec, code._nucl_prec, code._nucl_f1 = "> 0", "> 0", "0% < F1 < 100"
-    code._junc_rec, code._junc_prec, code._junc_f1 = 0, 0, 0
-    code.reverse = "g"
-    code.category = "Alternative splicing"
-    return code
+class CodeCapitalG:
+    _code = _ClassCode("G")
+    _code.definition = """Generic match of a multiexonic prediction transcript versus a monoexonic reference."""
+    _code.ref_multi, _code.pred_multi = False, True
+    _code._nucl_rec, _code._nucl_prec, _code._nucl_f1 = "> 0", "> 0", "0% < F1 < 100"
+    _code._junc_rec, _code._junc_prec, _code._junc_f1 = 0, 0, 0
+    _code.reverse = "g"
+    _code.category = "Alternative splicing"
+
+    code, definition = _code.code, _code.definition
+    pred_multi, ref_multi = _code.pred_multi, _code.ref_multi
+    category, reverse = _code.category, _code.reverse
+    nucl, junc = _code.nucl, _code.junc
+
+    __doc__ = str(_code)
 
 
-def code_o():
-    code = ClassCode("o")
-    code.definition = """Generic overlap between two multiexonic transcripts,
+class CodeO:
+    _code = _ClassCode("o")
+    _code.definition = """Generic overlap between two multiexonic transcripts,
     which do not share any overlap among their introns."""
-    code.ref_multi, code.pred_multi = True, True
-    code.ref_multi, code.pred_multi = True, True
-    code._nucl_rec, code._nucl_prec, code._nucl_f1 = "> 0", "> 0", "0% < F1 < 100"
-    code._junc_rec, code._junc_prec, code._junc_f1 = 0, 0, 0
-    code.reverse = "o"
-    code.category = "Overlap"
-    return code
+    _code.ref_multi, _code.pred_multi = True, True
+    _code.ref_multi, _code.pred_multi = True, True
+    _code._nucl_rec, _code._nucl_prec, _code._nucl_f1 = "> 0", "> 0", "0% < F1 < 100"
+    _code._junc_rec, _code._junc_prec, _code._junc_f1 = 0, 0, 0
+    _code.reverse = "o"
+    _code.category = "Overlap"
+
+    code, definition = _code.code, _code.definition
+    pred_multi, ref_multi = _code.pred_multi, _code.ref_multi
+    category, reverse = _code.category, _code.reverse
+    nucl, junc = _code.nucl, _code.junc
+
+    __doc__ = str(_code)
 
 
-def code_e():
-    code = ClassCode("e")
-    code.definition = """Single exon transcript overlapping one reference exon and at least 10 bps of a
+class CodeE:
+    _code = _ClassCode("e")
+    _code.definition = """Single exon transcript overlapping one reference exon and at least 10 bps of a
     reference intron, indicating a possible pre-mRNA fragment."""
-    code.ref_multi, code.pred_multi = True, False
-    code._nucl_rec, code._nucl_prec, code._nucl_f1 = "> 0", "> 0", "0% < F1 < 100"
-    code._junc_rec, code._junc_prec, code._junc_f1 = 0, 0, 0
-    code.reverse = "G"
-    code.category = "Overlap"
-    return code
+    _code.ref_multi, _code.pred_multi = True, False
+    _code._nucl_rec, _code._nucl_prec, _code._nucl_f1 = "> 0", "> 0", "0% < F1 < 100"
+    _code._junc_rec, _code._junc_prec, _code._junc_f1 = 0, 0, 0
+    _code.reverse = "G"
+    _code.category = "Overlap"
+
+    code, definition = _code.code, _code.definition
+    pred_multi, ref_multi = _code.pred_multi, _code.ref_multi
+    category, reverse = _code.category, _code.reverse
+    nucl, junc = _code.nucl, _code.junc
+
+    __doc__ = str(_code)
 
 
-def code_m():
-    code = ClassCode("m")
-    code.definition = """Generic match between two monoexonic transcripts."""
-    code.ref_multi, code.pred_multi = False, False
-    code._nucl_rec, code._nucl_prec, code._nucl_f1 = None, None, "< 80"
-    code._junc_rec, code._junc_prec, code._junc_f1 = None, None, None
-    code.reverse = "m"
-    code.category = "Overlap"
-    return code
+class CodeM:
+    _code = _ClassCode("m")
+    _code.definition = """Generic match between two monoexonic transcripts."""
+    _code.ref_multi, _code.pred_multi = False, False
+    _code._nucl_rec, _code._nucl_prec, _code._nucl_f1 = None, None, "< 80"
+    _code._junc_rec, _code._junc_prec, _code._junc_f1 = None, None, None
+    _code.reverse = "m"
+    _code.category = "Overlap"
+
+    code, definition = _code.code, _code.definition
+    pred_multi, ref_multi = _code.pred_multi, _code.ref_multi
+    category, reverse = _code.category, _code.reverse
+    nucl, junc = _code.nucl, _code.junc
+
+    __doc__ = str(_code)
 
 
-def code_i():
-    code = ClassCode("i")
-    code.definition = "Monoexonic prediction completely contained within one intron of the reference transcript."
-    code.ref_multi, code.pred_multi = True, False
-    code._nucl_rec, code._nucl_prec, code._nucl_f1 = 0, 0, 0
-    code._junc_rec, code._junc_prec, code._junc_f1 = 0, 0, 0
-    code.reverse = "ri"
-    code.category = "Intronic"
-    return code
+class CodeI:
+    _code = _ClassCode("i")
+    _code.definition = "Monoexonic prediction completely contained within one intron of the reference transcript."
+    _code.ref_multi, _code.pred_multi = True, False
+    _code._nucl_rec, _code._nucl_prec, _code._nucl_f1 = 0, 0, 0
+    _code._junc_rec, _code._junc_prec, _code._junc_f1 = 0, 0, 0
+    _code.reverse = "ri"
+    _code.category = "Intronic"
+
+    code, definition = _code.code, _code.definition
+    pred_multi, ref_multi = _code.pred_multi, _code.ref_multi
+    category, reverse = _code.category, _code.reverse
+    nucl, junc = _code.nucl, _code.junc
+
+    __doc__ = str(_code)
 
 
-def code_capital_i():
-    code = ClassCode("I")
-    code.definition = "Prediction completely contained within the introns of the reference transcript."
-    code.ref_multi, code.pred_multi = True, True
-    code._nucl_rec, code._nucl_prec, code._nucl_f1 = 0, 0, 0
-    code._junc_rec, code._junc_prec, code._junc_f1 = 0, 0, 0
-    code.reverse = "rI"
-    code.category = "Intronic"
-    return code
+class CodeCapitalI:
+    _code = _ClassCode("I")
+    _code.definition = "Prediction completely contained within the introns of the reference transcript."
+    _code.ref_multi, _code.pred_multi = True, True
+    _code._nucl_rec, _code._nucl_prec, _code._nucl_f1 = 0, 0, 0
+    _code._junc_rec, _code._junc_prec, _code._junc_f1 = 0, 0, 0
+    _code.reverse = "rI"
+    _code.category = "Intronic"
+
+    code, definition = _code.code, _code.definition
+    pred_multi, ref_multi = _code.pred_multi, _code.ref_multi
+    category, reverse = _code.category, _code.reverse
+    nucl, junc = _code.nucl, _code.junc
+
+    __doc__ = str(_code)
 
 
-def code_r_i():
-    code = ClassCode("ri")
-    code.definition = """Reverse intron transcript - the monoexonic reference is completely contained
+class CodeRI:
+    _code = _ClassCode("ri")
+    _code.definition = """Reverse intron transcript - the monoexonic reference is completely contained
     within one intron of the prediction transcript."""
-    code.ref_multi, code.pred_multi = False, True
-    code._nucl_rec, code._nucl_prec, code._nucl_f1 = 0, 0, 0
-    code._junc_rec, code._junc_prec, code._junc_f1 = 0, 0, 0
-    code.reverse = "i"
-    code.category = "Intronic"
-    return code
+    _code.ref_multi, _code.pred_multi = False, True
+    _code._nucl_rec, _code._nucl_prec, _code._nucl_f1 = 0, 0, 0
+    _code._junc_rec, _code._junc_prec, _code._junc_f1 = 0, 0, 0
+    _code.reverse = "i"
+    _code.category = "Intronic"
+
+    code, definition = _code.code, _code.definition
+    pred_multi, ref_multi = _code.pred_multi, _code.ref_multi
+    category, reverse = _code.category, _code.reverse
+    nucl, junc = _code.nucl, _code.junc
+
+    __doc__ = str(_code)
 
 
-def code_r_capital_i():
-    code = ClassCode("rI")
-    code.definition = """Multiexonic reference completely contained within the introns of the prediction transcript."""
-    code.ref_multi, code.pred_multi = True, True
-    code._nucl_rec, code._nucl_prec, code._nucl_f1 = 0, 0, 0
-    code._junc_rec, code._junc_prec, code._junc_f1 = 0, 0, 0
-    code.reverse = "I"
-    code.category = "Intronic"
-    return code
+class CodeRCapitalI:
+    _code = _ClassCode("rI")
+    _code.definition = """Multiexonic reference completely contained within the introns of the prediction transcript."""
+    _code.ref_multi, _code.pred_multi = True, True
+    _code._nucl_rec, _code._nucl_prec, _code._nucl_f1 = 0, 0, 0
+    _code._junc_rec, _code._junc_prec, _code._junc_f1 = 0, 0, 0
+    _code.reverse = "I"
+    _code.category = "Intronic"
+
+    code, definition = _code.code, _code.definition
+    pred_multi, ref_multi = _code.pred_multi, _code.ref_multi
+    category, reverse = _code.category, _code.reverse
+    nucl, junc = _code.nucl, _code.junc
+
+    __doc__ = str(_code)
 
 
-def code_f():
-    code = ClassCode("f")
-    code.definition = """Fusion - this special code is applied when a prediction intersects more than one
-    reference transcript. To be considered for fusions, candidate references must **either** share at least one
-    splice junction with the prediction, **or** have at least 10% of its bases recalled.
-    If two or more reference transcripts fit these constraints, then the prediction model is classified as a fusion."""
-    code.ref_multi, code.pred_multi = None, None
-    code._nucl_rec, code._nucl_prec, code._nucl_f1 = "> 10", 0, 0
-    code._junc_rec, code._junc_prec, code._junc_f1 = "> 0", 0, 0
-    code.reverse = None
-    code.category = "Fusion"
-    return code
+class CodeF:
+    _code = _ClassCode("f")
+    _code.definition = """Fusion - this special code is applied when a prediction intersects more
+    than one reference transcript. To be considered for fusions, candidate references must
+    **either** share at least one splice junction with the prediction, **or** have at least 10% of
+    its bases recalled. If two or more reference transcripts fit these constraints, then the
+    prediction model is classified as a fusion."""
+    _code.ref_multi, _code.pred_multi = None, None
+    _code._nucl_rec, _code._nucl_prec, _code._nucl_f1 = "> 10", 0, 0
+    _code._junc_rec, _code._junc_prec, _code._junc_f1 = "> 0", 0, 0
+    _code.reverse = None
+    _code.category = "Fusion"
+
+    code, definition = _code.code, _code.definition
+    pred_multi, ref_multi = _code.pred_multi, _code.ref_multi
+    category, reverse = _code.category, _code.reverse
+    nucl, junc = _code.nucl, _code.junc
+
+    __doc__ = str(_code)
 
 
-def code_x():
-    code = ClassCode("x")
-    code.definition = "Monoexonic match on the **opposite** strand."
-    code.ref_multi, code.pred_multi = None, False
-    code._nucl_rec, code._nucl_prec, code._nucl_f1 = ">0", ">0", ">0"
-    code._junc_rec, code._junc_prec, code._junc_f1 = 0, 0, 0
-    code.reverse = "x or X"
-    code.category = "Fragment"
-    return code
+class CodeX:
+    _code = _ClassCode("x")
+    _code.definition = "Monoexonic match on the **opposite** strand."
+    _code.ref_multi, _code.pred_multi = None, False
+    _code._nucl_rec, _code._nucl_prec, _code._nucl_f1 = ">0", ">0", ">0"
+    _code._junc_rec, _code._junc_prec, _code._junc_f1 = 0, 0, 0
+    _code.reverse = "x or X"
+    _code.category = "Fragment"
+
+    code, definition = _code.code, _code.definition
+    pred_multi, ref_multi = _code.pred_multi, _code.ref_multi
+    category, reverse = _code.category, _code.reverse
+    nucl, junc = _code.nucl, _code.junc
+
+    __doc__ = str(_code)
 
 
-def code_capital_x():
-    code = ClassCode("X")
-    code.definition = "Multiexonic match on the **opposite** strand."
-    code.ref_multi, code.pred_multi = None, True
-    code._nucl_rec, code._nucl_prec, code._nucl_f1 = ">0", ">0", ">0"
-    code._junc_rec, code._junc_prec, code._junc_f1 = None, None, None
-    code.reverse = "x or X"
-    code.category = "Fragment"
-    return code
+class CodeCapitalX:
+    _code = _ClassCode("X")
+    _code.definition = "Multiexonic match on the **opposite** strand."
+    _code.ref_multi, _code.pred_multi = None, True
+    _code._nucl_rec, _code._nucl_prec, _code._nucl_f1 = ">0", ">0", ">0"
+    _code._junc_rec, _code._junc_prec, _code._junc_f1 = None, None, None
+    _code.reverse = "x or X"
+    _code.category = "Fragment"
+
+    code, definition = _code.code, _code.definition
+    pred_multi, ref_multi = _code.pred_multi, _code.ref_multi
+    category, reverse = _code.category, _code.reverse
+    nucl, junc = _code.nucl, _code.junc
+
+    __doc__ = str(_code)
 
 
-def code_p():
-    code = ClassCode("p")
-    code.definition = """The prediction is on the same strand of a neighbouring but non-overlapping transcript.
+class CodeP:
+    _code = _ClassCode("p")
+    _code.definition = """The prediction is on the same strand of a neighbouring but non-overlapping transcript.
     Probable polymerase run-on"""
-    code.ref_multi, code.pred_multi = None, None
-    code._nucl_rec, code._nucl_prec, code._nucl_f1 = 0, 0, 0
-    code._junc_rec, code._junc_prec, code._junc_f1 = 0, 0, 0
-    code.reverse = "p"
-    code.category = "Fragment"
-    return code
+    _code.ref_multi, _code.pred_multi = None, None
+    _code._nucl_rec, _code._nucl_prec, _code._nucl_f1 = 0, 0, 0
+    _code._junc_rec, _code._junc_prec, _code._junc_f1 = 0, 0, 0
+    _code.reverse = "p"
+    _code.category = "Fragment"
+
+    code, definition = _code.code, _code.definition
+    pred_multi, ref_multi = _code.pred_multi, _code.ref_multi
+    category, reverse = _code.category, _code.reverse
+    nucl, junc = _code.nucl, _code.junc
+
+    __doc__ = str(_code)
 
 
-def code_capital_p():
-    code = ClassCode("P")
-    code.definition = """The prediction is on the opposite strand of a neighbouring but non-overlapping transcript.
+class CodeCapitalP:
+    _code = _ClassCode("P")
+    _code.definition = """The prediction is on the opposite strand of a neighbouring but non-overlapping transcript.
     Probable polymerase run-on."""
-    code.ref_multi, code.pred_multi = None, None
-    code._nucl_rec, code._nucl_prec, code._nucl_f1 = 0, 0, 0
-    code._junc_rec, code._junc_prec, code._junc_f1 = 0, 0, 0
-    code.reverse = "P"
-    code.category = "Fragment"
-    return code
+    _code.ref_multi, _code.pred_multi = None, None
+    _code._nucl_rec, _code._nucl_prec, _code._nucl_f1 = 0, 0, 0
+    _code._junc_rec, _code._junc_prec, _code._junc_f1 = 0, 0, 0
+    _code.reverse = "P"
+    _code.category = "Fragment"
+
+    code, definition = _code.code, _code.definition
+    pred_multi, ref_multi = _code.pred_multi, _code.ref_multi
+    category, reverse = _code.category, _code.reverse
+    nucl, junc = _code.nucl, _code.junc
+
+    __doc__ = str(_code)
 
 
-def code_u():
-    code = ClassCode("u")
-    code.definition = """Unknown - no suitable model has been found near enough the prediction to
+class CodeU:
+    _code = _ClassCode("u")
+    _code.definition = """Unknown - no suitable model has been found near enough the prediction to
     perform a comparison."""
-    code.ref_multi, code.pred_multi = None, None
-    code._nucl_rec, code._nucl_prec, code._nucl_f1 = 0, 0, 0
-    code._junc_rec, code._junc_prec, code._junc_f1 = 0, 0, 0
-    code.reverse = None
-    code.category = "Unknown"
-    return code
+    _code.ref_multi, _code.pred_multi = None, None
+    _code._nucl_rec, _code._nucl_prec, _code._nucl_f1 = 0, 0, 0
+    _code._junc_rec, _code._junc_prec, _code._junc_f1 = 0, 0, 0
+    _code.reverse = None
+    _code.category = "Unknown"
+
+    code, definition = _code.code, _code.definition
+    pred_multi, ref_multi = _code.pred_multi, _code.ref_multi
+    category, reverse = _code.category, _code.reverse
+    nucl, junc = _code.nucl, _code.junc
+
+    __doc__ = str(_code)
 
 
-codes = odict()
-codes["="] = code_equal()
-codes["_"] = code_underscore()
-codes["n"] = code_n()
-codes["J"] = code_capital_j()
-codes["c"] = code_c()
-codes["C"] = code_capital_c()
-codes["j"] = code_j()
-codes["h"] = code_h()
-codes["g"] = code_g()
-codes["G"] = code_capital_g()
-codes["o"] = code_o()
-codes["e"] = code_e()
-codes["m"] = code_m()
-codes["i"] = code_i()
-codes["I"] = code_capital_i()
-codes["ri"] = code_r_i()
-codes["rI"] = code_r_capital_i()
-codes["f"] = code_f()
-codes["x"], codes["X"] = code_x(), code_capital_x()
-codes["p"], codes["P"], codes["u"] = code_p(), code_capital_p(), code_u()
+codes = OrderedDict()
+codes["="] = Equal
+codes["_"] = UnderScore
+codes["n"] = CodeN
+codes["J"] = CodeCapitalJ
+codes["c"] = CodeC
+codes["C"] = CodeCapitalC
+codes["j"] = CodeJ
+codes["h"] = CodeH
+codes["g"] = CodeG
+codes["G"] = CodeCapitalG
+codes["o"] = CodeO
+codes["e"] = CodeE
+codes["m"] = CodeM
+codes["i"] = CodeI
+codes["I"] = CodeCapitalI
+codes["ri"] = CodeRI
+codes["rI"] = CodeRCapitalI
+codes["f"] = CodeF
+codes["x"], codes["X"] = CodeX, CodeCapitalX
+codes["p"], codes["P"], codes["u"] = CodeP, CodeCapitalP, CodeU
 
-assert len(set(codes.values())) == len(codes), set.difference(set(codes.keys()), set([_.code for _ in codes.values()]))
+assert len(set(codes.values())) == len(codes), set.difference(set(codes.keys()),
+                                                              set([_.code for _ in codes.values()]))
 assert all(_ == codes[_].code for _ in codes)

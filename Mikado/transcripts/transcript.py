@@ -496,6 +496,9 @@ class Transcript:
         self.__cds_tree = IntervalTree()
         self.__segmenttree = IntervalTree()
         self.__cds_introntree = IntervalTree()
+        _ = self.segmenttree
+        _ = self.cds_tree
+        _ = self.__cds_introntree
 
         # Set the logger to NullHandler
         self.logger = None
@@ -1737,18 +1740,6 @@ class Transcript:
             return self.combined_cds[-1][1]
 
     @property
-    def _cds_introntree(self):
-
-        """
-        :rtype: intervaltree.IntervalTree
-        """
-
-        if len(self.__cds_introntree) != len(self.combined_cds_introns):
-            self.__cds_introntree = IntervalTree.from_tuples(
-                [(_[0], _[1] + 1) for _ in self.combined_cds_introns])
-        return self.__cds_introntree
-
-    @property
     def selected_cds(self):
         """This property return the CDS exons of the ORF selected as best
          inside the cDNA, in the form of duplices (start, end)"""
@@ -1827,37 +1818,42 @@ index {3}, internal ORFs: {4}".format(
         :rtype: intervaltree.Intervaltree
         """
 
+        if len(self.__cds_tree) != len(self.combined_cds):
+            self.__calculate_cds_tree()
+
         return self.__cds_tree
 
-    @cds_tree.setter
-    def cds_tree(self, segments):
-        """
-        Setter for CDS tree. It checks that the calculated tree is actually valid.
-        :param segments: the interval tree to be set.
-        :type segments: intervaltree.Intervaltree
-        :return:
-        """
+    def __calculate_cds_tree(self):
 
-        if segments is None:
-            self.cds_tree = IntervalTree()
-        elif isinstance(segments, IntervalTree):
-            assert len(segments) == len(self.combined_cds)
-        else:
-            raise TypeError("Invalid cds segments: %s, type %s",
-                            segments, type(segments))
-
-        self.__cds_tree = segments
+        self.__cds_tree = IntervalTree.from_tuples(
+            [(cds[0], max(cds[1], cds[0] + 1)) for cds in self.combined_cds])
 
     @property
     def segmenttree(self):
 
         if len(self.__segmenttree) != self.exon_num + len(self.introns):
+            self.__calculate_segment_tree()
 
-            self.__segmenttree = IntervalTree.from_intervals(
+        return self.__segmenttree
+
+    @property
+    def cds_introntree(self):
+
+        """
+        :rtype: intervaltree.IntervalTree
+        """
+
+        if len(self.__cds_introntree) != len(self.combined_cds_introns):
+            self.__cds_introntree = IntervalTree.from_tuples(
+                [(_[0], _[1] + 1) for _ in self.combined_cds_introns])
+        return self.__cds_introntree
+
+    def __calculate_segment_tree(self):
+
+        self.__segmenttree = IntervalTree.from_intervals(
                 [Interval(*_, value="exon") for _ in self.exons] + [Interval(*_, value="intron") for _ in self.introns]
             )
 
-        return self.__segmenttree
 
     @property
     def derived_children(self):

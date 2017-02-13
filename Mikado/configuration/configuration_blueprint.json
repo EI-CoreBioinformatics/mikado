@@ -643,7 +643,7 @@
             "- min_cdna_overlap: minimal cDNA overlap for the second clustering.",
             "- flank: maximum distance for transcripts to be clustered within the same superlocus.",
             "- remove_overlapping_fragments: boolean, it specifies whether to remove putative fragments.",
-            "- purge: boolean, it specifies whether to remove loci where all transcripts fail the minimum checks, or whether to print them out in the subloci file instead.",
+            "- purge: boolean, it specifies whether to remove transcripts which fail the minimum requirements check - or whether to ignore those requirements altogether.",
             "- simple_overlap_for_monoexonic: boolean. If set to true (default), then any overlap mean inclusion",
             "in a locus for or against a monoexonic transcript. If set to false, normal controls for the percentage",
             "of overlap will apply.",

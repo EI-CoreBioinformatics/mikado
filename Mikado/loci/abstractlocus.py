@@ -546,7 +546,8 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                                         frags: list,
                                         candidate: Transcript,
                                         consider_truncated=False,
-                                        terminal=False):
+                                        terminal=False,
+                                        logger=create_null_logger()):
 
         """Private static method to verify whether a given exon is a retained intron of the candidate Transcript.
         :param exon: the exon to be considered.
@@ -565,8 +566,13 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         :param terminal: whether the exon is at the 3' end.
         :type terminal: bool
 
+        :param logger: a logger for the static function. Default: null logger.
+        :type logger: logging.Logger
+
         :rtype: bool
         """
+
+        logger.debug("Considering exon %s against candidate %s", exon, candidate.id)
 
         found_exons = sorted(
             candidate.segmenttree.find(exon[0], exon[1], strict=False, value="exon"),
@@ -575,20 +581,19 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             candidate.segmenttree.find(exon[0], exon[1], strict=not consider_truncated, value="intron"),
             reverse=(candidate.strand == "-"))
 
+        is_retained = False
+
         if len(found_exons) == 0 or len(found_introns) == 0:
-            return False
+            is_retained = False
         elif len(found_exons) == 1 and len(found_introns) == 1:
             found_exons = found_exons.pop()
             found_introns = found_introns.pop()
             if candidate.strand != "-" and found_exons[1] + 1 == found_introns[0]:
-                return consider_truncated and terminal
+                is_retained = (consider_truncated and terminal)
             elif candidate.strand == "-" and found_exons[0] - 1 == found_introns[1]:
-                return consider_truncated and terminal
-            else:
-                return False
-        else:
+                is_retained = (consider_truncated and terminal)
+        elif len(found_exons) >= 2:
             # Now we have to check whether the matched introns contain both coding and non-coding parts
-            assert len(found_exons) >= 2, (found_exons, found_introns)
             for index, exon in enumerate(found_exons[:-1]):
                 intron = found_introns[index]
                 if candidate.strand == "-":
@@ -596,15 +601,18 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                 else:
                     assert exon[1] == intron[0] - 1
                 for frag in frags:
+                    if is_retained:
+                        break
                     # The fragment is just a sub-section of the exon
                     if (overlap(frag, exon) < exon[1] - exon[0] and
                             overlap(frag, exon, positive=True) == 0 and
                             overlap(frag, intron, positive=True)):
-                        return True
+                        is_retained = True
                     elif overlap(frag, exon) == exon[1] - exon[0]:
-                        return True
+                        is_retained = True
 
-        return False
+        logger.debug("%s in %s %s a retained intron", exon, candidate.id, "is" if is_retained is True else "is not")
+        return is_retained
 
     def find_retained_introns(self, transcript: Transcript):
 
@@ -644,10 +652,12 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         retained_introns = []
         consider_truncated = self.json_conf["pick"]["run_options"]["consider_truncated_for_retained"]
         for exon in transcript.exons:
-            is_retained = False
+            self.logger.debug("Checking exon %s of %s", exon, transcript.id)
+            # is_retained = False
             to_consider, frags = self._exon_to_be_considered(
                 exon, transcript, consider_truncated=consider_truncated)
             if not to_consider:
+                self.logger.debug("Exon %s of %s is not to be considered", exon, transcript.id)
                 continue
 
             if exon[0] == transcript.start and transcript.strand == "-":
@@ -663,17 +673,24 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                 elif candidate.strand != transcript.strand and None not in (transcript.strand, candidate.strand):
                     continue
 
+                self.logger.debug("Checking %s in %s against %s", exon, transcript.id, candidate.id)
                 is_retained = self._is_exon_retained_in_transcript(exon,
                                                                    frags,
                                                                    # transcript,
                                                                    candidate,
                                                                    terminal=terminal,
-                                                                   consider_truncated=consider_truncated)
+                                                                   consider_truncated=consider_truncated,
+                                                                   logger=self.logger)
                 if is_retained:
                     self.logger.debug("Exon %s of %s is a retained intron of %s",
                                       exon, transcript.id, candidate.id)
                     retained_introns.append(exon)
                     break
+
+        self.logger.debug("%s has %d retained introns%s",
+                          transcript.id,
+                          len(retained_introns),
+                          " ({})".format(retained_introns) if retained_introns else "")
 
         transcript.retained_introns = tuple(sorted(retained_introns))
         return
@@ -960,6 +977,8 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             #     logger.handlers.pop()
             # logger.propagate = False
             self.__logger = logger
+
+        # self.__logger.setLevel("DEBUG")
 
     @logger.deleter
     def logger(self):

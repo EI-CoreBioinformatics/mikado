@@ -976,7 +976,6 @@ class RetainedIntronTester(unittest.TestCase):
                 self.assertEqual((len(sup.transcripts[pred.id].retained_introns) > 0),
                                  retained)
 
-
     def test_retained_pos_truncated(self):
         """Here we verify that a real retained intron is called as such,
         even when the transcript is truncated."""
@@ -1011,6 +1010,15 @@ class RetainedIntronTester(unittest.TestCase):
             with self.subTest(pred=pred, retained=retained):
                 sup = Superlocus(t1, json_conf=self.my_json)
                 sup.add_transcript_to_locus(pred)
+                sup.json_conf["pick"]["run_options"]["consider_truncated_for_retained"] = True
+                sup.find_retained_introns(pred)
+                self.assertEqual((len(sup.transcripts[pred.id].retained_introns) > 0),
+                                 retained)
+                # Now check that things function also after unpickling
+                unpickled_t1 = pickle.loads(pickle.dumps(t1))
+                unpickled_other = pickle.loads(pickle.dumps(pred))
+                sup = Superlocus(unpickled_t1, json_conf=self.my_json)
+                sup.add_transcript_to_locus(unpickled_other)
                 sup.json_conf["pick"]["run_options"]["consider_truncated_for_retained"] = True
                 sup.find_retained_introns(pred)
                 self.assertEqual((len(sup.transcripts[pred.id].retained_introns) > 0),
@@ -1184,6 +1192,12 @@ class RetainedIntronTester(unittest.TestCase):
                 sup.add_transcript_to_locus(pred)
                 sup.find_retained_introns(pred)
                 self.assertEqual(sup.transcripts[pred.id].retained_intron_num, 0)
+                unpickled_t1 = pickle.loads(pickle.dumps(t1))
+                unpickled_other = pickle.loads(pickle.dumps(pred))
+                sup = Superlocus(unpickled_t1, json_conf=self.my_json)
+                sup.add_transcript_to_locus(unpickled_other)
+                sup.find_retained_introns(unpickled_other)
+                self.assertEqual(sup.transcripts[unpickled_other.id].retained_intron_num, 0)
 
     def test_real_retained_neg(self):
         """Here we verify that a real retained intron is called as such"""
@@ -1207,12 +1221,20 @@ class RetainedIntronTester(unittest.TestCase):
                       ], features="CDS")
         t2.finalize()
 
-        sup = Superlocus(t1, json_conf=self.my_json)
-        sup.add_transcript_to_locus(t2)
+        with self.subTest():
+            sup = Superlocus(t1, json_conf=self.my_json)
+            sup.add_transcript_to_locus(t2)
 
-        sup.find_retained_introns(t2)
+            sup.find_retained_introns(t2)
+            self.assertEqual(sup.transcripts["t2"].retained_introns, ((401, 1000),))
 
-        self.assertEqual(sup.transcripts["t2"].retained_introns, ((401, 1000),))
+        with self.subTest():
+            unpickled_t1 = pickle.loads(pickle.dumps(t1))
+            unpickled_other = pickle.loads(pickle.dumps(t2))
+            sup = Superlocus(unpickled_t1, json_conf=self.my_json)
+            sup.add_transcript_to_locus(unpickled_other)
+            sup.find_retained_introns(unpickled_other)
+            self.assertEqual(sup.transcripts["t2"].retained_introns, ((401, 1000),))
 
     def test_not_real_retained_neg(self):
         """Here we verify that a real retained intron is called as such"""
@@ -1249,12 +1271,18 @@ class RetainedIntronTester(unittest.TestCase):
             Abstractlocus._is_exon_retained_in_transcript((401, 1000), [Interval(401, 830)], t1))
 
         for alt in [t2, t3]:
+            unpickled_t1 = pickle.loads(pickle.dumps(t1))
+            unpickled_alt = pickle.loads(pickle.dumps(alt))
             with self.subTest(alt=alt):
                 sup = Superlocus(t1, json_conf=self.my_json)
                 sup.find_retained_introns(alt)
-
                 self.assertEqual(alt.retained_intron_num, 0,
                                  alt.retained_introns)
+            with self.subTest(alt=alt):
+                sup = Superlocus(unpickled_t1, json_conf=self.my_json)
+                sup.find_retained_introns(unpickled_alt)
+                self.assertEqual(unpickled_alt.retained_intron_num, 0,
+                                 unpickled_alt.retained_introns)
 
     def test_not_retained_neg(self):
         """Here we verify that a false retained intron is not called as such"""
@@ -1492,6 +1520,9 @@ class PicklingTest(unittest.TestCase):
                 pickled = pickle.dumps(transcript)
                 unpickled = pickle.loads(pickled)
                 self.assertEqual(transcript, unpickled)
+                self.assertEqual(len(transcript.combined_cds), len(unpickled.cds_tree))
+                self.assertEqual(len(transcript.cds_introntree), len(unpickled.cds_introntree))
+                self.assertEqual(len(transcript.segmenttree), len(unpickled.segmenttree))
 
     def test_locus_unpickling(self):
 

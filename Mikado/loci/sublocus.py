@@ -261,9 +261,6 @@ class Sublocus(Abstractlocus):
         """
 
         self.get_metrics()
-        if self.purge is False:
-            self.logger.debug("No purging for %s, returning", self.id)
-            return
 
         previous_not_passing = set()
         while True:
@@ -273,15 +270,21 @@ class Sublocus(Abstractlocus):
                 return
             for tid in not_passing:
                 self.transcripts[tid].score = 0
-
-                self.metrics_calculated = False
-                if self.excluded is None:
-                    excluded = Monosublocus(self.transcripts[tid], logger=self.logger)
-                    excluded.json_conf = self.json_conf
-                    self.excluded = Excluded(excluded)
+                if self.purge is True:
+                    self.metrics_calculated = False
+                    self.logger.debug("Excluding %s from %s because of failed requirements",
+                                      tid, self.id)
+                    if self.excluded is None:
+                        excluded = Monosublocus(self.transcripts[tid], logger=self.logger)
+                        excluded.json_conf = self.json_conf
+                        self.excluded = Excluded(excluded)
+                    else:
+                        self.excluded.add_transcript_to_locus(self.transcripts[tid])
+                    self.remove_transcript_from_locus(tid)
                 else:
-                    self.excluded.add_transcript_to_locus(self.transcripts[tid])
-                self.remove_transcript_from_locus(tid)
+                    self.logger.debug("%s has been assigned a score of 0 because it fails basic requirements",
+                                      self.id)
+                    return
 
             if len(self.transcripts) == 0:
                 return

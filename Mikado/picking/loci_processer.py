@@ -555,6 +555,7 @@ def analyse_locus(slocus: Superlocus,
     logger.debug("Divided into %d loci", len(stranded_loci))
 
     for stranded_locus in stranded_loci:
+        stranded_locus.logger = logger
         try:
             stranded_locus.define_loci()
         except KeyboardInterrupt:
@@ -678,13 +679,26 @@ class LociProcesser(Process):
     def __getstate__(self):
 
         state = self.__dict__.copy()
-        for h in state["_handles"]:
-            h.close()
+        to_delete = []
+        for num in range(len(state["_handles"])):
+            h = state["_handles"][num]
+            if isinstance(h, list):
+                [_.close() for _ in h]
+                state["_handles"][num] = h
+                to_delete.append(num)
+            elif hasattr(h, "close"):
+                state["_handles"][num].close()
+            else:
+                raise TypeError("Erroneous type in _handles: {}".format(h))
+
+        for index in sorted(to_delete, reverse=True):
+            del state["_handles"][index]
 
         for name in ["locus_metrics", "locus_scores", "locus_out",
                      "sub_metrics", "sub_scores", "sub_out",
                      "mono_metrics", "mono_scores", "mono_out"]:
             state[name] = None
+
         state["engine"] = None
         state["analyse_locus"] = None
         del state["handler"]
@@ -697,6 +711,12 @@ class LociProcesser(Process):
 
     def __close_handles(self):
         """Private method to flush and close all handles."""
+
+        try:
+            self.handler.release()
+        except RuntimeError:
+            pass
+        self.handler.close()
 
         for group in self._handles:
             [_.flush() for _ in group if hasattr(_, "flush") and _.closed is False]
@@ -796,20 +816,26 @@ class LociProcesser(Process):
         metrics.extend(["external.{}".format(_.source) for _ in session.query(ExternalSource.source).all()])
         metrics = Superlocus.available_metrics[:3] + sorted(metrics)
 
-        self._handles.append(self.__create_step_handles(handles[0],
-                                                        metrics, score_keys))
+        self.locus_metrics, self.locus_scores, self.locus_out = self.__create_step_handles(
+            handles[0], metrics, score_keys)
+
+        self._handles.append([self.locus_metrics,
+                              self.locus_scores,
+                              self.locus_out])
 
         # Subloci
         if handles[1][0]:
-            self._handles.append(self.__create_step_handles(handles[1],
-                                                        metrics, score_keys))
+            self.sub_metrics, self.sub_scores, self.sub_out = self.__create_step_handles(
+                handles[1], metrics, score_keys)
+            self._handles.append([self.sub_metrics, self.sub_scores, self.sub_out])
         else:
             self._handles.append([None, None, None])
 
         # Monoloci
         if handles[2][0]:
-            self._handles.append(self.__create_step_handles(handles[2],
-                                                        metrics, score_keys))
+            self.mono_metrics, self.mono_scores, self.mono_out = self.__create_step_handles(
+                handles[2], metrics, score_keys)
+            self._handles.append([self.mono_metrics, self.mono_scores, self.mono_out])
         else:
             self._handles.append([None, None, None])
 

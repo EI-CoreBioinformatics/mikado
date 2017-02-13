@@ -366,7 +366,8 @@ class Superlocus(Abstractlocus):
                                            stranded=True,
                                            json_conf=self.json_conf,
                                            source=self.source,
-                                           logger=self.logger)
+                                           logger=self.logger
+                                           )
                     assert len(new_locus.introns) > 0 or new_locus.monoexonic is True
                     for cdna in strand[1:]:
                         if new_locus.in_locus(new_locus, cdna):
@@ -378,7 +379,8 @@ class Superlocus(Abstractlocus):
                                                    stranded=True,
                                                    json_conf=self.json_conf,
                                                    source=self.source,
-                                                   logger=self.logger)
+                                                   logger=self.logger
+                                                   )
                     assert len(new_locus.introns) > 0 or new_locus.monoexonic is True
                     new_loci.append(new_locus)
 
@@ -913,10 +915,6 @@ expression: %s""",
             self.subloci_defined = True
             return
 
-        # Reset the source with the correct value
-        # for tid in self.transcripts:
-        #     self.transcripts[tid].source = self.source
-
         self.logger.debug("Calculated the transcript graph for %d transcripts: %s",
                           len(self.transcripts),
                           str(transcript_graph))
@@ -932,8 +930,9 @@ expression: %s""",
             subl = sorted(subl)
             new_sublocus = Sublocus(subl[0],
                                     json_conf=self.json_conf,
-                                    logger=self.logger)
-                                    # verified_introns=self.locus_verified_introns)
+                                    logger=self.logger
+                                    )
+            new_sublocus.logger = self.logger
             if self.regressor is not None:
                 new_sublocus.regressor = self.regressor
             for ttt in subl[1:]:
@@ -1119,6 +1118,9 @@ expression: %s""",
 
         self.loci_defined = True
 
+        self.logger.debug("Looking for AS events in %s: %s",
+                          self.id,
+                          self.json_conf["pick"]["alternative_splicing"]["report"])
         if self.json_conf["pick"]["alternative_splicing"]["report"] is True:
             self.define_alternative_splicing()
 

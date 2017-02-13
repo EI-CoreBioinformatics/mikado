@@ -608,9 +608,10 @@ def finalize(transcript):
                 transcript.selected_internal_orf_index] if
             internal_cds[0] == "CDS")
 
-    # Create the interval tree
-    transcript.cds_tree = IntervalTree.from_tuples(
-                [(cds[0], max(cds[1], cds[0] + 1)) for cds in transcript.combined_cds])
+    # Create the internal trees
+    _ = transcript.cds_tree
+    _ = transcript.cds_introntree
+    _ = transcript.segmenttree
 
     # BUG somewhere ... I am not sorting this properly before (why?)
     transcript.exons = sorted(transcript.exons)

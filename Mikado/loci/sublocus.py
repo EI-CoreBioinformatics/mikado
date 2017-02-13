@@ -66,6 +66,7 @@ class Sublocus(Abstractlocus):
         self.source = self.json_conf["pick"]["output_format"]["source"]
 
         self.excluded = None
+        self._not_passing = set()
         self.splitted = False
         # Flag to indicate that we have not calculated the metrics for the transcripts
         # Flag to indicate that we have not calculated the scores for the transcripts
@@ -284,6 +285,7 @@ class Sublocus(Abstractlocus):
                 else:
                     self.logger.debug("%s has been assigned a score of 0 because it fails basic requirements",
                                       self.id)
+                    self._not_passing.add(tid)
                     return
 
             if len(self.transcripts) == 0:
@@ -307,7 +309,7 @@ class Sublocus(Abstractlocus):
             return
 
         self.get_metrics()
-        not_passing = set()
+        # not_passing = set()
         if not hasattr(self, "logger"):
             self.logger = None
             self.logger.setLevel("DEBUG")
@@ -334,7 +336,7 @@ class Sublocus(Abstractlocus):
                 self.transcripts[tid].scores = self.scores[tid].copy()
 
             for tid in self.transcripts:
-                if tid in not_passing:
+                if tid in self._not_passing:
                     self.logger.debug("Excluding %s as it does not pass minimum requirements",
                                       tid)
                     self.transcripts[tid].score = 0
@@ -343,7 +345,9 @@ class Sublocus(Abstractlocus):
                     if self.transcripts[tid].score == 0:
                         self.logger.debug("Excluding %s as it has a score of 0", tid)
 
-                if tid not in not_passing:
+                if tid in self._not_passing:
+                    pass
+                else:
                     assert self.transcripts[tid].score == sum(self.scores[tid].values()), (
                         tid, self.transcripts[tid].score, sum(self.scores[tid].values())
                     )
@@ -503,7 +507,7 @@ class Sublocus(Abstractlocus):
                     assert key in self.scores[tid] and self.scores[tid][key] != "NA" and self.scores[tid][key] is not None, (key, self.scores[tid].keys())
                     row[key] = round(self.scores[tid][key], 2)
 
-            if calculate_total is True:
+            if calculate_total is True and tid not in self._not_passing:
                 score_sum = sum(row[key] for key in score_keys)
 
                 if round(score_sum, 2) != round(self.scores[tid]["score"], 2):

@@ -47,6 +47,7 @@ class MonosublocusHolder(Sublocus, Abstractlocus):
         # Abstractlocus
         Abstractlocus.__init__(self, verified_introns=verified_introns)
         self.logger = logger
+        self._not_passing = set()
         self.splitted = False
         self.metrics_calculated = False
         self.json_conf = json_conf

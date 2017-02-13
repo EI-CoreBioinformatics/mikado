@@ -32,6 +32,8 @@ Changes in this release:
 - Made the checks for the scoring files more robust.
 - Re-written the "find_retained_introns" method of AbstractLocus, to solve some bugs found during the utilisation of last beta. As a corollary, expanded the intervaltree module to allow searches for "tagged" intervals.
 - Now the "monoloci_out" files contain the Monosublocus**Holder** step, not the Monosublocus step. This should help during fine-tuning. 
+- Minimal requirements for alternative splicing events are now specified with a syntax analogous to that of minimal requirements, and that for not considering a locus as a putative fragment, under the tag "as_requirements".
+- Fixed a bug which caused transcript requirements to be ignored if pick/clustering/purge was set to False.
 - Mikado now supports also Python3.6.
 
 
@@ -51,8 +53,7 @@ Changes in this release:
   - "only_non_canonical_splicing" will allow to identify transcripts whose splicing sites are all non-canonical.
 - It is now possible to give Mikado a tab-delimited file of pre-calculated metrics (which must be numeric), during serialise. The file should have the transcript ids in the first column and have a header as first line; this header must have "TID" as first field, and no repeated fields afterwards. External metrics can be specified in the scoring configuration using the syntax "external.{name of the score}". If an inexistent metric is asked for, Mikado will assign a default value of 0 to it.
 - It is now possible to use metrics with values between 0 and 1, inclusive directly as scoring, by specifying the parameter "use_raw: True". This is available only for metrics which have been tagged as being "usable raw", or with externally provided metrics. The option is valid only when looking for the maximum or minimum value for a metric, not when looking for a target. If an incorrect configuration is specified, Mikado will crash.
-- Minimal requirements for alternative splicing events are now specified with a syntax analogous to that of minimal requirements, and that for not considering a locus as a putative fragment, under the tag "as_requirements".
-- Mikado prepare in "lenient" mode will keep also transcripts with a mixture of strands for the splicing junctions.
+- Mikado prepare in "lenient" mode will keep also transcripts with a mixture of strands for the splicing junctions. Such transcripts are marked with the "suspicious_splicing" GTF attribute.
 - Mikado prepare can be asked to keep all transcripts, even if they are redundant. The new behaviour (disabled by default) is switched on by the boolean parameter "prepare/keep_redundant".
 - Mikado pick can consider transcripts with CDS ending within a CDS intron as truncated due to a retained intron event. This potentially allows Mikado to detect retained introns even when only CDSs are provided. The behaviour is disabled by default, and can be switched on using the boolean configuration parameter "pick/run_options/consider_truncated_for_retained".
 - Some bugs have been detected and solved thanks to the collaboration with Hugo Darras.

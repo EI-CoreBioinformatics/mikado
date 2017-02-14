@@ -51,6 +51,7 @@ class MonosublocusHolder(Sublocus, Abstractlocus):
         self.splitted = False
         self.metrics_calculated = False
         self.json_conf = json_conf
+        self.purge = self.json_conf["pick"]["clustering"]["purge"]
         self.excluded = None
         self.purge = self.json_conf["pick"]["clustering"]["purge"]
         self.feature = "MonosublocusHolder"
@@ -221,7 +222,7 @@ class MonosublocusHolder(Sublocus, Abstractlocus):
                         to_remove.update(clique)
 
                 if purge is False or selected_transcript.score > 0:
-                    new_locus = Locus(selected_transcript, logger=self.logger)
+                    new_locus = Locus(selected_transcript, logger=self.logger, json_conf=self.json_conf)
                     loci.append(new_locus)
             self.logger.debug("Removing {0} transcripts from {1}".format(len(to_remove), self.id))
             graph.remove_nodes_from(to_remove)  # Remove nodes from graph, iterate

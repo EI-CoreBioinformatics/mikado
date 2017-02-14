@@ -32,6 +32,7 @@ class Monosublocus(Abstractlocus):
         self.score = transcript_instance.score
         self.tid = transcript_instance.id
         self.logger = logger
+        self.purge = self.json_conf["pick"]["clustering"]["purge"]
         self.attributes = dict()
         self.json_conf = json_conf
 

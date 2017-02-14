@@ -7,20 +7,24 @@ Module that defines the blueprint for all loci classes.
 import abc
 import itertools
 import logging
-import operator
 import random
 from sys import maxsize
-
 import networkx
 from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
-
+import numpy
 from ..transcripts.clique_methods import find_cliques, find_communities, define_graph
 from ..transcripts.transcript import Transcript
 from ..configuration.configurator import to_json, check_json
 from ..exceptions import NotInLocusError
 from ..utilities import overlap, merge_ranges
+import operator
 from ..utilities.intervaltree import Interval, IntervalTree
 from ..utilities.log_utils import create_null_logger
+from sys import version_info
+if version_info.minor < 5:
+    from sortedcontainers import SortedDict
+else:
+    from collections import OrderedDict as SortedDict
 
 
 # I do not care that there are too many attributes: this IS a massive class!
@@ -46,7 +50,8 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
         self.__logger = None
         self.__stranded = False
-
+        self._not_passing = set()
+        self._excluded_transcripts = set()
         self.transcripts = dict()
         self.introns, self.exons, self.splices = set(), set(), set()
         # Consider only the CDS part
@@ -58,6 +63,13 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         self.chrom = None
         self.cds_introns = set()
         self.__locus_verified_introns = set()
+        self.scores_calculated = False
+        self.scores = dict()
+
+        self.purge = self.json_conf["pick"]["clustering"]["purge"]
+
+        # self.purge = True
+
         if verified_introns is not None:
             self.locus_verified_introns = verified_introns
 
@@ -188,6 +200,9 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
         :param flank: an optional extending parameter to check for neighbours
         :type flank: int
+
+        :param positive: if True, negative overlaps will return 0. Otherwise, the negative overlap is returned.
+        :type positive: bool
 
         This static method returns the overlap between two intervals.
 
@@ -358,6 +373,9 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         should check the transcript before adding it
         or instead whether to trust the assignment to be correct
         :type check_in_locus: bool
+
+        :param logger: the logger to use for this function.
+        :type logger: logging.Logger
 
         This method checks that a transcript is contained within the superlocus
         (using the "in_superlocus" class method)
@@ -621,14 +639,16 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         A retained intron is defined as an exon which:
         - spans completely an intron of another model *between coding exons*
         - is not completely coding itself
-        - if the model is coding, the exon has *part* of the non-coding section lying inside the intron (ie the non-coding section must not be starting in the exonic part).
+        - if the model is coding, the exon has *part* of the non-coding section lying inside the intron
+        (ie the non-coding section must not be starting in the exonic part).
 
         If the "pick/run_options/consider_truncated_for_retained" flag in the configuration is set to true,
          an exon will be considered as a retained intron event also if:
          - it is the last exon of the transcript
          - it ends *within* an intron of another model *between coding exons*
          - is not completely coding itself
-         - if the model is coding, the exon has *part* of the non-coding section lying inside the intron (ie the non-coding section must not be starting in the exonic part).
+         - if the model is coding, the exon has *part* of the non-coding section lying inside the intron
+         (ie the non-coding section must not be starting in the exonic part).
 
         The results are stored inside the transcript instance, in the "retained_introns" tuple.
         :param transcript: a Transcript instance
@@ -730,13 +750,8 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
         """Quick wrapper to calculate the metrics for all the transcripts."""
 
-        # TODO: Find an intelligent way ot restoring this check
-        # I disabled it because otherwise the values for surviving transcripts would be wrong
-        # But this effectively leads to a doubling of run time. A possibility would be to cache the results.
         if self.metrics_calculated is True:
             return
-
-        assert len(self._cds_introntree) == len(self.combined_cds_introns)
 
         for tid in sorted(self.transcripts):
             self.calculate_metrics(tid)
@@ -797,8 +812,11 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                 self.transcripts[tid].combined_cds_locus_fraction = 0
                 self.transcripts[tid].selected_cds_locus_fraction = 0
             else:
-                self.transcripts[tid].combined_cds_locus_fraction = self.transcripts[tid].combined_cds_length / cds_bases
-                self.transcripts[tid].selected_cds_locus_fraction = self.transcripts[tid].selected_cds_length / selected_bases
+                selected_length = self.transcripts[tid].selected_cds_length
+                combined_length = self.transcripts[tid].combined_cds_length
+
+                self.transcripts[tid].combined_cds_locus_fraction = combined_length / cds_bases
+                self.transcripts[tid].selected_cds_locus_fraction = selected_length / selected_bases
 
         if len(self.introns) > 0:
             _ = len(set.intersection(self.transcripts[tid].introns, self.introns))
@@ -870,6 +888,216 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
         return not_passing
 
+    def calculate_scores(self):
+        """
+        Function to calculate a score for each transcript, given the metrics derived
+        with the calculate_metrics method and the scoring scheme provided in the JSON configuration.
+        If any requirements have been specified, all transcripts which do not pass them
+        will be assigned a score of 0 and subsequently ignored.
+        Scores are rounded to the nearest integer.
+        """
+
+        if self.scores_calculated is True:
+            self.logger.debug("Scores calculation already effectuated for %s",
+                              self.id)
+            return
+
+        self.get_metrics()
+        # not_passing = set()
+        if not hasattr(self, "logger"):
+            self.logger = None
+            self.logger.setLevel("DEBUG")
+        self.logger.debug("Calculating scores for {0}".format(self.id))
+        if "requirements" in self.json_conf:
+            self.__check_requirements()
+
+        if len(self.transcripts) == 0:
+            self.logger.warning("No transcripts pass the muster for {0}".format(self.id))
+            self.scores_calculated = True
+            return
+        self.scores = dict()
+
+        for tid in self.transcripts:
+            self.scores[tid] = dict()
+            # Add the score for the transcript source
+            self.scores[tid]["source_score"] = self.transcripts[tid].source_score
+
+        if self.regressor is None:
+            for param in self.json_conf["scoring"]:
+                self._calculate_score(param)
+
+            for tid in self.scores:
+                self.transcripts[tid].scores = self.scores[tid].copy()
+
+            for tid in self.transcripts:
+                if tid in self._not_passing:
+                    self.logger.debug("Excluding %s as it does not pass minimum requirements",
+                                      tid)
+                    self.transcripts[tid].score = 0
+                else:
+                    self.transcripts[tid].score = sum(self.scores[tid].values())
+                    if self.transcripts[tid].score <= 0:
+                        self.logger.debug("Excluding %s as it has a score <= 0", tid)
+                        self.transcripts[tid].score = 0
+                        self._not_passing.add(tid)
+
+                if tid in self._not_passing:
+                    pass
+                else:
+                    assert self.transcripts[tid].score == sum(self.scores[tid].values()), (
+                        tid, self.transcripts[tid].score, sum(self.scores[tid].values())
+                    )
+                # if self.json_conf["pick"]["external_scores"]:
+                #     assert any("external" in _ for _ in self.scores[tid].keys()), self.scores[tid].keys()
+
+                self.scores[tid]["score"] = self.transcripts[tid].score
+
+        else:
+            valid_metrics = self.regressor.metrics
+            metric_rows = SortedDict()
+            for tid, transcript in sorted(self.transcripts.items(), key=operator.itemgetter(0)):
+                for param in valid_metrics:
+                    self.scores[tid][param] = "NA"
+                row = []
+                for attr in valid_metrics:
+                    val = getattr(transcript, attr)
+                    if isinstance(val, bool):
+                        if val:
+                            val = 1
+                        else:
+                            val = 0
+                    row.append(val)
+                # Necessary for sklearn ..
+                row = numpy.array(row)
+                # row = row.reshape(1, -1)
+                metric_rows[tid] = row
+            # scores = SortedDict.fromkeys(metric_rows.keys())
+            if isinstance(self.regressor, RandomForestClassifier):
+                # We have to pick the second probability (correct)
+                for tid in metric_rows:
+                    score = self.regressor.predict_proba(metric_rows[tid])[0][1]
+                    self.scores[tid]["score"] = score
+                    self.transcripts[tid].score = score
+            else:
+                pred_scores = self.regressor.predict(list(metric_rows.values()))
+                for pos, score in enumerate(pred_scores):
+                    self.scores[list(metric_rows.keys())[pos]]["score"] = score
+                    self.transcripts[list(metric_rows.keys())[pos]].score = score
+
+        self.scores_calculated = True
+
+    def __check_requirements(self):
+        """
+        This private method will identify and delete all transcripts which do not pass
+        the minimum muster specified in the configuration.
+        :return:
+        """
+
+        self.get_metrics()
+
+        previous_not_passing = set()
+        beginning = len(self.transcripts)
+        while True:
+            not_passing = self._check_not_passing(
+                previous_not_passing=previous_not_passing)
+            self.metrics_calculated = not (len(not_passing) > 0 and self.purge)
+            if len(not_passing) == 0:
+                return
+            self._not_passing.update(not_passing)
+            for tid in not_passing:
+                if self.purge in (False,):
+                    print("%s has been assigned a score of 0 because it fails basic requirements" % self.id)
+                    self.logger.debug("%s has been assigned a score of 0 because it fails basic requirements",
+                                      self.id)
+                    self.transcripts[tid].score = 0
+                else:
+                    self.logger.debug("Excluding %s from %s because of failed requirements",
+                                      tid, self.id)
+                    self.remove_transcript_from_locus(tid)
+
+            if not self.purge:
+                assert len(self.transcripts) == beginning
+
+            if len(self.transcripts) == 0 or self.metrics_calculated is True:
+                return
+            elif self.purge and len(not_passing) > 0:
+                assert self._not_passing
+            else:
+                # Recalculate the metrics
+                self.get_metrics()
+
+    def _calculate_score(self, param):
+        """
+        Private method that calculates a score for each transcript,
+        given a target parameter.
+        :param param:
+        :return:
+        """
+
+        rescaling = self.json_conf["scoring"][param]["rescaling"]
+        use_raw = self.json_conf["scoring"][param]["use_raw"]
+
+        metrics = dict((tid, getattr(self.transcripts[tid], param)) for tid in self.transcripts)
+
+        if use_raw is True and not param.startswith("external") and getattr(Transcript, param).usable_raw is False:
+            self.logger.warning("The \"%s\" metric cannot be used as a raw score for %s, switching to False",
+                                param, self.id)
+            use_raw = False
+        if use_raw is True and rescaling == "target":
+            self.logger.warning("I cannot use a raw score for %s in %s when looking for a target. Switching to False",
+                                param, self.id)
+            use_raw = False
+
+        if rescaling == "target":
+            target = self.json_conf["scoring"][param]["value"]
+            denominator = max(abs(x - target) for x in metrics.values())
+        else:
+            target = None
+            if use_raw is True and rescaling == "max":
+                denominator = 1
+            elif use_raw is True and rescaling == "min":
+                denominator = -1
+            else:
+                denominator = (max(metrics.values()) - min(metrics.values()))
+        if denominator == 0:
+            denominator = 1
+
+        scores = []
+        for tid in metrics:
+            tid_metric = metrics[tid]
+            score = 0
+            check = True
+            if ("filter" in self.json_conf["scoring"][param] and
+                    self.json_conf["scoring"][param]["filter"] != {}):
+                check = self.evaluate(tid_metric, self.json_conf["scoring"][param]["filter"])
+
+            if check is True:
+                if use_raw is True:
+                    if not isinstance(tid_metric, (float, int)) and 0 <= tid_metric <= 1:
+                        error = ValueError(
+                            "Only scores with values between 0 and 1 can be used raw. Please recheck your values.")
+                        self.logger.exception(error)
+                        raise error
+                    score = tid_metric / denominator
+                elif rescaling == "target":
+                    score = 1 - abs(tid_metric - target) / denominator
+                else:
+                    if min(metrics.values()) == max(metrics.values()):
+                        score = 1
+                    elif rescaling == "max":
+                        score = abs((tid_metric - min(metrics.values())) / denominator)
+                    elif rescaling == "min":
+                        score = abs(1 - (tid_metric - min(metrics.values())) / denominator)
+
+            score *= self.json_conf["scoring"][param]["multiplier"]
+            self.scores[tid][param] = round(score, 2)
+            scores.append(score)
+
+        # This MUST be true
+        if "filter" not in self.json_conf["scoring"][param] and max(scores) <= 0:
+            self.logger.warning("All transcripts have a score of 0 for %s in %s",
+                                param, self.id)
+
     @classmethod
     @abc.abstractmethod
     def is_intersecting(cls, *args, **kwargs):
@@ -892,6 +1120,10 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
     @json_conf.setter
     def json_conf(self, conf):
+        if conf is None or isinstance(conf, str):
+            conf = to_json(conf)
+        elif not isinstance(conf, dict):
+            raise TypeError("Invalid configuration!")
         self.__json_conf = conf
 
     def _check_json(self):

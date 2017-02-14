@@ -953,6 +953,8 @@ class Transcript:
             self.strand = "+"
         elif self.strand is None:
             pass
+        self.logger.warning("Transcript %s has been assigned to the wrong strand, reversing it.",
+                            self.id)
         return
 
     def load_information_from_db(self, json_conf, introns=None, session=None,

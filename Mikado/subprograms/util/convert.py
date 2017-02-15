@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import argparse
 import sys
-from ...utilities import to_gff
+from ...parsers import to_gff
 from ...loci import Transcript, Gene
 
 

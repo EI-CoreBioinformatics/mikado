@@ -77,7 +77,7 @@ pick:
     #  for profiling and debugging.
     #  - flank: integer, maximum flank to group transcripts together for analysis.
     #  Default: 0.
-    preload: false
+    intron_range: [60, 90]
     procs: 1
     single_thread: false
   scoring_file: plants.yaml

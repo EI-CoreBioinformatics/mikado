@@ -454,6 +454,7 @@ class BED12:
             )
             return True
 
+        self.invalid_reason = ''
         return False
 
     @property

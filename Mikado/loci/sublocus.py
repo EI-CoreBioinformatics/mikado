@@ -7,19 +7,13 @@ or multiexonic and with at least one intron in common.
 """
 
 import itertools
+
+
+from ..transcripts.transcript import Transcript
 from .abstractlocus import Abstractlocus
 from .excluded import Excluded
 from .monosublocus import Monosublocus
-from .transcript import Transcript
 from ..parsers.GFF import GffLine
-from sys import version_info
-import numpy
-from sklearn.ensemble import RandomForestClassifier
-if version_info.minor < 5:
-    from sortedcontainers import SortedDict
-else:
-    from collections import OrderedDict as SortedDict
-import operator
 
 
 # pylint: disable=too-many-instance-attributes
@@ -62,10 +56,10 @@ class Sublocus(Abstractlocus):
         self.fixed_size = True if span.feature == "sublocus" else False
         if span.__name__ == "transcript":
             span.finalize()
-        self.purge = self.json_conf["pick"]["run_options"]["purge"]
         self.source = self.json_conf["pick"]["output_format"]["source"]
 
         self.excluded = None
+        self._not_passing = set()
         self.splitted = False
         # Flag to indicate that we have not calculated the metrics for the transcripts
         # Flag to indicate that we have not calculated the scores for the transcripts
@@ -195,6 +189,12 @@ class Sublocus(Abstractlocus):
         self.logger.debug("Launching calculate scores for {0}".format(self.id))
         self.calculate_scores()
 
+        if self._excluded_transcripts and self.purge:
+            self.excluded = Excluded(self._excluded_transcripts.pop())
+            while self._excluded_transcripts:
+                self.excluded.add_transcript_to_locus(self._excluded_transcripts.pop(),
+                                                      check_in_locus=False)
+
         self.logger.debug("Defining monosubloci for {0}".format(self.id))
 
         transcript_graph = self.define_graph(self.transcripts,
@@ -222,7 +222,9 @@ class Sublocus(Abstractlocus):
                         ))
                         to_remove.update(clique)
                 if purge is False or selected_transcript.score > 0:
-                    new_locus = Monosublocus(selected_transcript, logger=self.logger)
+                    new_locus = Monosublocus(selected_transcript,
+                                             logger=self.logger,
+                                             json_conf=self.json_conf)
                     new_locus.json_conf = self.json_conf
                     self.monosubloci.append(new_locus)
             if len(to_remove) < 1:
@@ -253,208 +255,11 @@ class Sublocus(Abstractlocus):
             else:
                 self.transcripts[tid].score = 0
 
-    def __check_requirements(self):
-        """
-        This private method will identify and delete all transcripts which do not pass
-        the minimum muster specified in the configuration.
-        :return:
-        """
-
-        self.get_metrics()
-        if self.purge is False:
-            self.logger.debug("No purging for %s, returning", self.id)
-            return
-
-        previous_not_passing = set()
-        while True:
-            not_passing = self._check_not_passing(
-                previous_not_passing=previous_not_passing)
-            if len(not_passing) == 0:
-                return
-            for tid in not_passing:
-                self.transcripts[tid].score = 0
-
-                self.metrics_calculated = False
-                if self.excluded is None:
-                    excluded = Monosublocus(self.transcripts[tid], logger=self.logger)
-                    excluded.json_conf = self.json_conf
-                    self.excluded = Excluded(excluded)
-                else:
-                    self.excluded.add_transcript_to_locus(self.transcripts[tid])
-                self.remove_transcript_from_locus(tid)
-
-            if len(self.transcripts) == 0:
-                return
-            else:
-                # Recalculate the metrics
-                self.get_metrics()
-
     def calculate_scores(self):
-        """
-        Function to calculate a score for each transcript, given the metrics derived
-        with the calculate_metrics method and the scoring scheme provided in the JSON configuration.
-        If any requirements have been specified, all transcripts which do not pass them
-        will be assigned a score of 0 and subsequently ignored.
-        Scores are rounded to the nearest integer.
-        """
 
-        if self.scores_calculated is True:
-            self.logger.debug("Scores calculation already effectuated for %s",
-                              self.id)
-            return
-
-        self.get_metrics()
-        not_passing = set()
-        if not hasattr(self, "logger"):
-            self.logger = None
-            self.logger.setLevel("DEBUG")
-        self.logger.debug("Calculating scores for {0}".format(self.id))
-        if "requirements" in self.json_conf:
-            self.__check_requirements()
-
-        if len(self.transcripts) == 0:
-            self.logger.warning("No transcripts pass the muster for {0}".format(self.id))
-            self.scores_calculated = True
-            return
-        self.scores = dict()
-
-        for tid in self.transcripts:
-            self.scores[tid] = dict()
-            # Add the score for the transcript source
-            self.scores[tid]["source_score"] = self.transcripts[tid].source_score
-
-        if self.regressor is None:
-            for param in self.json_conf["scoring"]:
-                self._calculate_score(param)
-
-            for tid in self.scores:
-                self.transcripts[tid].scores = self.scores[tid].copy()
-
-            for tid in self.transcripts:
-                if tid in not_passing:
-                    self.logger.debug("Excluding %s as it does not pass minimum requirements",
-                                      tid)
-                    self.transcripts[tid].score = 0
-                else:
-                    self.transcripts[tid].score = sum(self.scores[tid].values())
-                    if self.transcripts[tid].score == 0:
-                        self.logger.debug("Excluding %s as it has a score of 0", tid)
-
-                if tid not in not_passing:
-                    assert self.transcripts[tid].score == sum(self.scores[tid].values()), (
-                        tid, self.transcripts[tid].score, sum(self.scores[tid].values())
-                    )
-                # if self.json_conf["pick"]["external_scores"]:
-                #     assert any("external" in _ for _ in self.scores[tid].keys()), self.scores[tid].keys()
-
-                self.scores[tid]["score"] = self.transcripts[tid].score
-
-        else:
-            valid_metrics = self.regressor.metrics
-            metric_rows = SortedDict()
-            for tid, transcript in sorted(self.transcripts.items(), key=operator.itemgetter(0)):
-                for param in valid_metrics:
-                    self.scores[tid][param] = "NA"
-                row = []
-                for attr in valid_metrics:
-                    val = getattr(transcript, attr)
-                    if isinstance(val, bool):
-                        if val:
-                            val = 1
-                        else:
-                            val = 0
-                    row.append(val)
-                # Necessary for sklearn ..
-                row = numpy.array(row)
-                # row = row.reshape(1, -1)
-                metric_rows[tid] = row
-            # scores = SortedDict.fromkeys(metric_rows.keys())
-            if isinstance(self.regressor, RandomForestClassifier):
-                # We have to pick the second probability (correct)
-                for tid in metric_rows:
-                    score = self.regressor.predict_proba(metric_rows[tid])[0][1]
-                    self.scores[tid]["score"] = score
-                    self.transcripts[tid].score = score
-            else:
-                pred_scores = self.regressor.predict(list(metric_rows.values()))
-                for pos, score in enumerate(pred_scores):
-                    self.scores[list(metric_rows.keys())[pos]]["score"] = score
-                    self.transcripts[list(metric_rows.keys())[pos]].score = score
-
+        self.metric_lines_store = []
+        super().calculate_scores()
         self.metric_lines_store = [_ for _ in self.prepare_metrics()]
-        self.scores_calculated = True
-
-    def _calculate_score(self, param):
-        """
-        Private method that calculates a score for each transcript,
-        given a target parameter.
-        :param param:
-        :return:
-        """
-
-        rescaling = self.json_conf["scoring"][param]["rescaling"]
-        use_raw = self.json_conf["scoring"][param]["use_raw"]
-
-        metrics = dict((tid, getattr(self.transcripts[tid], param)) for tid in self.transcripts)
-
-        if use_raw is True and not param.startswith("external") and getattr(Transcript, param).usable_raw is False:
-            self.logger.warning("The \"%s\" metric cannot be used as a raw score for %s, switching to False",
-                                param, self.id)
-            use_raw = False
-        if use_raw is True and rescaling == "target":
-            self.logger.warning("I cannot use a raw score for %s in %s when looking for a target. Switching to False",
-                                param, self.id)
-            use_raw = False
-
-        if rescaling == "target":
-            target = self.json_conf["scoring"][param]["value"]
-            denominator = max(abs(x - target) for x in metrics.values())
-        else:
-            target = None
-            if use_raw is True and rescaling == "max":
-                denominator = 1
-            elif use_raw is True and rescaling == "min":
-                denominator = -1
-            else:
-                denominator = (max(metrics.values()) - min(metrics.values()))
-        if denominator == 0:
-            denominator = 1
-
-        scores = []
-        for tid in metrics:
-            tid_metric = metrics[tid]
-            score = 0
-            check = True
-            if ("filter" in self.json_conf["scoring"][param] and
-                    self.json_conf["scoring"][param]["filter"] != {}):
-                check = self.evaluate(tid_metric, self.json_conf["scoring"][param]["filter"])
-
-            if check is True:
-                if use_raw is True:
-                    if not isinstance(tid_metric, (float, int)) and 0 <= tid_metric <= 1:
-                        error = ValueError(
-                            "Only scores with values between 0 and 1 can be used raw. Please recheck your values.")
-                        self.logger.exception(error)
-                        raise error
-                    score = tid_metric / denominator
-                elif rescaling == "target":
-                    score = 1 - abs(tid_metric - target) / denominator
-                else:
-                    if min(metrics.values()) == max(metrics.values()):
-                        score = 1
-                    elif rescaling == "max":
-                        score = abs((tid_metric - min(metrics.values())) / denominator)
-                    elif rescaling == "min":
-                        score = abs(1 - (tid_metric - min(metrics.values())) / denominator)
-
-            score *= self.json_conf["scoring"][param]["multiplier"]
-            self.scores[tid][param] = round(score, 2)
-            scores.append(score)
-
-        # This MUST be true
-        if "filter" not in self.json_conf["scoring"][param] and max(scores) == 0:
-            self.logger.warning("All transcripts have a score of 0 for %s in %s",
-                                param, self.id)
 
     def prepare_metrics(self):
 
@@ -500,7 +305,7 @@ class Sublocus(Abstractlocus):
                     assert key in self.scores[tid] and self.scores[tid][key] != "NA" and self.scores[tid][key] is not None, (key, self.scores[tid].keys())
                     row[key] = round(self.scores[tid][key], 2)
 
-            if calculate_total is True:
+            if calculate_total is True and tid not in self._not_passing:
                 score_sum = sum(row[key] for key in score_keys)
 
                 if round(score_sum, 2) != round(self.scores[tid]["score"], 2):

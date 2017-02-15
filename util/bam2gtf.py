@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 
+import argparse
 import re
 import sys
-import argparse
+
 import pysam
-from Mikado.loci.transcript import Transcript
+from Mikado.transcripts.transcript import Transcript
 
 
 def to_bam(string):

@@ -4,20 +4,28 @@
 Module that defines the blueprint for all loci classes.
 """
 
-import operator
 import abc
-import random
-import logging
 import itertools
+import logging
+import random
 from sys import maxsize
-from .clique_methods import find_cliques, find_communities, define_graph
 import networkx
+from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
+import numpy
+from ..transcripts.clique_methods import find_cliques, find_communities, define_graph
+from ..transcripts.transcript import Transcript
+from ..configuration.configurator import to_json, check_json
 from ..exceptions import NotInLocusError
 from ..utilities import overlap, merge_ranges
-from ..utilities.log_utils import create_null_logger
+import operator
 from ..utilities.intervaltree import Interval, IntervalTree
-from .transcript import Transcript
-from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
+from ..utilities.log_utils import create_null_logger
+from sys import version_info
+if version_info.minor < 5:
+    from sortedcontainers import SortedDict
+else:
+    from collections import OrderedDict as SortedDict
+
 
 # I do not care that there are too many attributes: this IS a massive class!
 # pylint: disable=too-many-instance-attributes,too-many-public-methods
@@ -32,6 +40,8 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
     # ##### Special methods #########
 
+    __json_conf = to_json(None)
+
     @abc.abstractmethod
     def __init__(self, source="", verified_introns=None):
 
@@ -40,7 +50,8 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
         self.__logger = None
         self.__stranded = False
-
+        self._not_passing = set()
+        self._excluded_transcripts = set()
         self.transcripts = dict()
         self.introns, self.exons, self.splices = set(), set(), set()
         # Consider only the CDS part
@@ -52,9 +63,12 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         self.chrom = None
         self.cds_introns = set()
         self.__locus_verified_introns = set()
+        self.scores_calculated = False
+        self.scores = dict()
+
         if verified_introns is not None:
             self.locus_verified_introns = verified_introns
-        self.json_conf = dict()
+
         self.__cds_introntree = IntervalTree()
         self.__regressor = None
         self.session = None
@@ -166,21 +180,25 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
         return self.transcripts[item]
 
-
     # #### Static methods #######
-    @staticmethod
-    def overlap(first_interval: tuple([int, int]),
-                second_interval: tuple([int, int]), flank=0) -> int:
-        """
 
-        :param first_interval: a tuple of integers
-        :type first_interval: (int,int)
+    @staticmethod
+    def overlap(first_interval: (int, int),
+                second_interval: (int, int),
+                flank=0,
+                positive=False) -> int:
+
+        """:param first_interval: a tuple of integers
+        :type first_interval: [int,int]
 
         :param second_interval: a tuple of integers
-        :type second_interval: (int,int | intervaltree.Interval)
+        :type second_interval: [int,int | intervaltree.Interval]
 
         :param flank: an optional extending parameter to check for neighbours
         :type flank: int
+
+        :param positive: if True, negative overlaps will return 0. Otherwise, the negative overlap is returned.
+        :type positive: bool
 
         This static method returns the overlap between two intervals.
 
@@ -193,7 +211,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         Input: two 2-tuples of integers.
         """
 
-        return overlap(first_interval, second_interval, flank)
+        return overlap(first_interval, second_interval, flank, positive=positive)
 
     @staticmethod
     def evaluate(param: str, conf: dict) -> bool:
@@ -225,6 +243,10 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             comparison = (param in conf["value"])
         elif conf["operator"] == "not in":
             comparison = (param not in conf["value"])
+        elif conf["operator"] == "within":
+            comparison = (param in range(*sorted([conf["value"][0], conf["value"][1] + 1])))
+        elif conf["operator"] == "not within":
+            comparison = (param not in range(*sorted([conf["value"][0], conf["value"][1] + 1])))
         else:
             raise ValueError("Unknown operator: {0}".format(conf["operator"]))
         return comparison
@@ -338,7 +360,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
     # ###### Class instance methods  #######
 
-    def add_transcript_to_locus(self, transcript, check_in_locus=True):
+    def add_transcript_to_locus(self, transcript, check_in_locus=True, **kwargs):
         """
         :param transcript
         :type transcript: Mikado.loci_objects.transcript.Transcript
@@ -362,7 +384,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         if self.initialized is True:
             if check_in_locus is False:
                 pass
-            elif not self.in_locus(self, transcript):
+            elif not self.in_locus(self, transcript, **kwargs):
                 raise NotInLocusError("""Trying to merge a Locus with an incompatible transcript!
                 Locus: {lchrom}:{lstart}-{lend} {lstrand} [{stids}]
                 Transcript: {tchrom}:{tstart}-{tend} {tstrand} {tid}
@@ -485,103 +507,200 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             for tid in self.transcripts:
                 self.transcripts[tid].parent = self.id
 
-    def find_retained_introns(self, transcript):
+    @staticmethod
+    def _exon_to_be_considered(exon,
+                               transcript,
+                               consider_truncated=False):
+        """Private static method to evaluate whether an exon should be considered for being a retained intron.
+
+        :param exon: the exon to be considered.
+        :type exon: (tuple|Interval)
+
+        :param transcript: the candidate transcript from which the exon comes from.
+        :type transcript: Transcript
+
+        :param consider_truncated: boolean flag. If set, also terminal exons can be considered for retained intron
+        events.
+        :type consider_truncated: bool
+
+        :returns: boolean flag (True if it has to be considered, False otherwise) and a list of sections of the exons
+        which are non-coding.
+        """
+
+        cds_segments = sorted(transcript.cds_tree.search(*exon))
+        terminal = bool(set.intersection(
+            set(exon),
+            {transcript.start, transcript.end, transcript.combined_cds_end, transcript.combined_cds_start}))
+        if cds_segments == [Interval(*exon)]:
+            # It is completely coding
+            if terminal is False:
+                return False, []
+            elif not consider_truncated:
+                return False, []
+            else:
+                return True, cds_segments
+        else:
+            frags = []
+            if cds_segments:
+                if cds_segments[0].start > exon[0]:
+                    frags.append((exon[0], cds_segments[0].start - 1))
+                for before, after in zip(cds_segments[:-1], cds_segments[1:]):
+                    frags.append((before.end + 1, max(after.start - 1, before.end + 1)))
+                if cds_segments[-1].end < exon[1]:
+                    frags.append((cds_segments[-1].end + 1, exon[1]))
+            else:
+                frags = [Interval(*exon)]
+            return True, frags
+
+    @staticmethod
+    def _is_exon_retained_in_transcript(exon: tuple,
+                                        frags: list,
+                                        candidate: Transcript,
+                                        consider_truncated=False,
+                                        terminal=False):
+
+        """Private static method to verify whether a given exon is a retained intron of the candidate Transcript.
+        :param exon: the exon to be considered.
+        :type exon: (tuple|Interval)
+
+        :param frags: a list of intervals that are non-coding within the exon.
+        :type frags: list[(tuple|Interval)]
+
+        :param candidate: a transcript to be evaluated to verify whether the exon is a retained intron event.
+        :type candidate: Transcript
+
+        :param consider_truncated: boolean flag. If set, also terminal exons can be considered for retained intron
+        events.
+        :type consider_truncated: bool
+
+        :param terminal: whether the exon is at the 3' end.
+        :type terminal: bool
+
+        :param logger: a logger for the static function. Default: null logger.
+        :type logger: logging.Logger
+
+        :rtype: bool
+        """
+
+        strand = candidate.strand
+        found_exons = sorted(
+            candidate.segmenttree.find(exon[0], exon[1], strict=False, value="exon"),
+            reverse=(strand == "-"))
+        found_introns = sorted(
+            candidate.segmenttree.find(exon[0], exon[1], strict=not consider_truncated, value="intron"),
+            reverse=(strand == "-"))
+
+        is_retained = False
+
+        if len(found_exons) == 0 or len(found_introns) == 0:
+            is_retained = False
+        elif len(found_exons) == 1 and len(found_introns) == 1:
+            found_exons = found_exons.pop()
+            found_introns = found_introns.pop()
+            if strand != "-" and found_exons[1] + 1 == found_introns[0]:
+                is_retained = (consider_truncated and terminal)
+            elif strand == "-" and found_exons[0] - 1 == found_introns[1]:
+                is_retained = (consider_truncated and terminal)
+        elif len(found_exons) >= 2:
+            # Now we have to check whether the matched introns contain both coding and non-coding parts
+            for index, exon in enumerate(found_exons[:-1]):
+                intron = found_introns[index]
+                if strand == "-":
+                    assert intron[1] == exon[0] - 1
+                else:
+                    assert exon[1] == intron[0] - 1
+                for frag in frags:
+                    if is_retained:
+                        break
+                    # The fragment is just a sub-section of the exon
+                    if (overlap(frag, exon) < exon[1] - exon[0] and
+                            overlap(frag, exon, positive=True) == 0 and
+                            overlap(frag, intron, positive=True)):
+                        is_retained = True
+                    elif overlap(frag, exon) == exon[1] - exon[0]:
+                        is_retained = True
+
+        # logger.debug("%s in %s %s a retained intron", exon, candidate.id, "is" if is_retained is True else "is not")
+        return is_retained
+
+    def find_retained_introns(self, transcript: Transcript):
 
         """This method checks the number of exons that are possibly retained
         introns for a given transcript.
         A retained intron is defined as an exon which:
+        - spans completely an intron of another model *between coding exons*
+        - is not completely coding itself
+        - if the model is coding, the exon has *part* of the non-coding section lying inside the intron
+        (ie the non-coding section must not be starting in the exonic part).
 
-         - spans completely an intron of another model *between coding exons*
+        If the "pick/run_options/consider_truncated_for_retained" flag in the configuration is set to true,
+         an exon will be considered as a retained intron event also if:
+         - it is the last exon of the transcript
+         - it ends *within* an intron of another model *between coding exons*
          - is not completely coding itself
-         - has *part* of the non-coding section lying inside the intron
+         - if the model is coding, the exon has *part* of the non-coding section lying inside the intron
+         (ie the non-coding section must not be starting in the exonic part).
 
-        The results are stored inside the transcript instance,
-        in the "retained_introns" tuple.
-
+        The results are stored inside the transcript instance, in the "retained_introns" tuple.
         :param transcript: a Transcript instance
         :type transcript: Transcript
-
         :returns : None
-        :rtype : None
-        """
+        :rtype : None"""
 
         self.logger.debug("Starting to calculate retained introns for %s", transcript.id)
-        if len(self.introns) == 0 or len(self._cds_introntree) == 0:
+        if len(self.introns) == 0:
             transcript.retained_introns = tuple()
             self.logger.debug("No introns in the locus to check against. Exiting.")
             return
+        transcript.logger = self.logger
+        transcript.finalize()
+
+        # A retained intron is defined as an exon which
+        # - is not completely coding
+        # - EITHER spans completely the intron of another transcript.
+        # - OR is the last exon of the transcript and it ends within the intron of another transcript
 
         retained_introns = []
-
-        if transcript.cds_tree is None:
-            # Enlarge the CDS segments if they are of length 1
-            transcript.cds_tree = IntervalTree.from_tuples(
-                [(cds[0], max(cds[1], cds[0] + 1)) for cds in transcript.combined_cds])
-
-        for exon in iter(_ for _ in transcript.exons if
-                         (_ not in transcript.combined_cds or
-                              (_ in transcript.combined_cds and
-                                   (_[0] == transcript.combined_cds_end or _[1] == transcript.combined_cds_end)))):
-            # Ignore stuff that is at the 5'
-            if (exon not in transcript.combined_cds or
-                    not self.json_conf["pick"]["run_options"]["consider_truncated_for_retained"]):
-                strict = True
-            else:
-                strict = False
-
-            if transcript.combined_cds_length > 0:
-                if transcript.strand == "+" and exon[1] < transcript.combined_cds_start:
-                    continue
-                elif transcript.strand == "-" and exon[0] > transcript.combined_cds_start:
-                    continue
-
-            cds_segments = sorted(transcript.cds_tree.search(*exon))
-            if not cds_segments or not strict:
-                frags = [exon]
-            else:
-                frags = []
-                if cds_segments[0].start > exon[0]:
-                    frags.append((exon[0], cds_segments[0].start -1))
-                for before, after in zip(cds_segments[:-1], cds_segments[1:]):
-                    frags.append((before.end + 1, max(after.start -1, before.end + 1)))
-                if cds_segments[-1].end < exon[1]:
-                    frags.append((cds_segments[-1].end + 1, exon[1]))
-
-            if not frags:
+        consider_truncated = self.json_conf["pick"]["run_options"]["consider_truncated_for_retained"]
+        for exon in transcript.exons:
+            self.logger.debug("Checking exon %s of %s", exon, transcript.id)
+            # is_retained = False
+            to_consider, frags = self._exon_to_be_considered(
+                exon, transcript, consider_truncated=consider_truncated)
+            if not to_consider:
+                self.logger.debug("Exon %s of %s is not to be considered", exon, transcript.id)
                 continue
 
-            is_retained = False
-            for tid in self.transcripts:
-                if is_retained:
-                    break
-                if tid == transcript.id or transcript.strand != self.transcripts[tid].strand:
-                    # We cannot call retained introns against oneself or against stuff on the opposite strand
+            if exon[0] == transcript.start and transcript.strand == "-":
+                terminal = True
+            elif exon[1] == transcript.end:
+                terminal = True
+            else:
+                terminal = False
+
+            for tid, candidate in (_ for _ in self.transcripts.items() if _[0] != transcript.id):
+                if candidate.strand != transcript.strand and None not in (transcript.strand, candidate.strand):
                     continue
 
-                cds_introns = self.transcripts[tid]._cds_introntree.find(exon[0],
-                                                                         exon[1],
-                                                                         strict=strict)
-                # cds_introns = [_ for _ in cds_introns if _.start >= exon[0] and _.end <= exon[1]]
-                if len(cds_introns) > 0:
-                    for frag in frags:
-                        if is_retained:
-                            break
-                        for intr in cds_introns:
-                            if overlap((frag[0], frag[1]), (intr[0], intr[1])) > 0:
-                                self.logger.debug("Exon %s of %s is a retained intron",
-                                                  exon, transcript.id)
-                                is_retained = True
-                                break
+                self.logger.debug("Checking %s in %s against %s", exon, transcript.id, candidate.id)
+                is_retained = self._is_exon_retained_in_transcript(exon,
+                                                                   frags,
+                                                                   candidate,
+                                                                   terminal=terminal,
+                                                                   consider_truncated=consider_truncated)
+                if is_retained:
+                    self.logger.debug("Exon %s of %s is a retained intron of %s",
+                                      exon, transcript.id, candidate.id)
+                    retained_introns.append(exon)
+                    break
 
-            if is_retained:
-                retained_introns.append(exon)
+        self.logger.debug("%s has %d retained introns%s",
+                          transcript.id,
+                          len(retained_introns),
+                          " ({})".format(retained_introns) if retained_introns else "")
 
-        # Sort the exons marked as retained introns
-        # self.logger.info("Finished calculating retained introns for %s", transcript.id)
         transcript.retained_introns = tuple(sorted(retained_introns))
-        transcript.logger = self.logger
-        # self.logger.info("Returning retained introns for %s", transcript.id)
-        # return transcript
+        return
 
     def print_metrics(self):
 
@@ -618,13 +737,8 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
         """Quick wrapper to calculate the metrics for all the transcripts."""
 
-        # TODO: Find an intelligent way ot restoring this check
-        # I disabled it because otherwise the values for surviving transcripts would be wrong
-        # But this effectively leads to a doubling of run time. A possibility would be to cache the results.
         if self.metrics_calculated is True:
             return
-
-        assert len(self._cds_introntree) == len(self.combined_cds_introns)
 
         for tid in sorted(self.transcripts):
             self.calculate_metrics(tid)
@@ -685,8 +799,11 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                 self.transcripts[tid].combined_cds_locus_fraction = 0
                 self.transcripts[tid].selected_cds_locus_fraction = 0
             else:
-                self.transcripts[tid].combined_cds_locus_fraction = self.transcripts[tid].combined_cds_length / cds_bases
-                self.transcripts[tid].selected_cds_locus_fraction = self.transcripts[tid].selected_cds_length / selected_bases
+                selected_length = self.transcripts[tid].selected_cds_length
+                combined_length = self.transcripts[tid].combined_cds_length
+
+                self.transcripts[tid].combined_cds_locus_fraction = combined_length / cds_bases
+                self.transcripts[tid].selected_cds_locus_fraction = selected_length / selected_bases
 
         if len(self.introns) > 0:
             _ = len(set.intersection(self.transcripts[tid].introns, self.introns))
@@ -758,6 +875,218 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
         return not_passing
 
+    def calculate_scores(self):
+        """
+        Function to calculate a score for each transcript, given the metrics derived
+        with the calculate_metrics method and the scoring scheme provided in the JSON configuration.
+        If any requirements have been specified, all transcripts which do not pass them
+        will be assigned a score of 0 and subsequently ignored.
+        Scores are rounded to the nearest integer.
+        """
+
+        if self.scores_calculated is True:
+            self.logger.debug("Scores calculation already effectuated for %s",
+                              self.id)
+            return
+
+        self.get_metrics()
+        # not_passing = set()
+        if not hasattr(self, "logger"):
+            self.logger = None
+            self.logger.setLevel("DEBUG")
+        self.logger.debug("Calculating scores for {0}".format(self.id))
+        if "requirements" in self.json_conf:
+            self._check_requirements()
+
+        if len(self.transcripts) == 0:
+            self.logger.warning("No transcripts pass the muster for {0}".format(self.id))
+            self.scores_calculated = True
+            return
+        self.scores = dict()
+
+        for tid in self.transcripts:
+            self.scores[tid] = dict()
+            # Add the score for the transcript source
+            self.scores[tid]["source_score"] = self.transcripts[tid].source_score
+
+        if self.regressor is None:
+            for param in self.json_conf["scoring"]:
+                self._calculate_score(param)
+
+            for tid in self.scores:
+                self.transcripts[tid].scores = self.scores[tid].copy()
+
+            for tid in self.transcripts:
+                if tid in self._not_passing:
+                    self.logger.debug("Excluding %s as it does not pass minimum requirements",
+                                      tid)
+                    self.transcripts[tid].score = 0
+                else:
+                    self.transcripts[tid].score = sum(self.scores[tid].values())
+                    if self.transcripts[tid].score <= 0:
+                        self.logger.debug("Excluding %s as it has a score <= 0", tid)
+                        self.transcripts[tid].score = 0
+                        self._not_passing.add(tid)
+
+                if tid in self._not_passing:
+                    pass
+                else:
+                    assert self.transcripts[tid].score == sum(self.scores[tid].values()), (
+                        tid, self.transcripts[tid].score, sum(self.scores[tid].values())
+                    )
+                # if self.json_conf["pick"]["external_scores"]:
+                #     assert any("external" in _ for _ in self.scores[tid].keys()), self.scores[tid].keys()
+
+                self.scores[tid]["score"] = self.transcripts[tid].score
+
+        else:
+            valid_metrics = self.regressor.metrics
+            metric_rows = SortedDict()
+            for tid, transcript in sorted(self.transcripts.items(), key=operator.itemgetter(0)):
+                for param in valid_metrics:
+                    self.scores[tid][param] = "NA"
+                row = []
+                for attr in valid_metrics:
+                    val = getattr(transcript, attr)
+                    if isinstance(val, bool):
+                        if val:
+                            val = 1
+                        else:
+                            val = 0
+                    row.append(val)
+                # Necessary for sklearn ..
+                row = numpy.array(row)
+                # row = row.reshape(1, -1)
+                metric_rows[tid] = row
+            # scores = SortedDict.fromkeys(metric_rows.keys())
+            if isinstance(self.regressor, RandomForestClassifier):
+                # We have to pick the second probability (correct)
+                for tid in metric_rows:
+                    score = self.regressor.predict_proba(metric_rows[tid])[0][1]
+                    self.scores[tid]["score"] = score
+                    self.transcripts[tid].score = score
+            else:
+                pred_scores = self.regressor.predict(list(metric_rows.values()))
+                for pos, score in enumerate(pred_scores):
+                    self.scores[list(metric_rows.keys())[pos]]["score"] = score
+                    self.transcripts[list(metric_rows.keys())[pos]].score = score
+
+        self.scores_calculated = True
+
+    def _check_requirements(self):
+        """
+        This private method will identify and delete all transcripts which do not pass
+        the minimum muster specified in the configuration.
+        :return:
+        """
+
+        self.get_metrics()
+
+        previous_not_passing = set()
+        beginning = len(self.transcripts)
+        while True:
+            not_passing = self._check_not_passing(
+                previous_not_passing=previous_not_passing)
+
+            if len(not_passing) == 0:
+                self.metrics_calculated = True
+                return
+            self.metrics_calculated = not ((len(not_passing) > 0) and self.purge)
+            self._not_passing.update(not_passing)
+            for tid in not_passing:
+                if self.purge in (False,):
+                    print("%s has been assigned a score of 0 because it fails basic requirements" % self.id)
+                    self.logger.debug("%s has been assigned a score of 0 because it fails basic requirements",
+                                      self.id)
+                    self.transcripts[tid].score = 0
+                else:
+                    self.logger.debug("Excluding %s from %s because of failed requirements",
+                                      tid, self.id)
+                    self.remove_transcript_from_locus(tid)
+
+            if not self.purge:
+                assert len(self.transcripts) == beginning
+
+            if len(self.transcripts) == 0 or self.metrics_calculated is True:
+                return
+            elif self.purge and len(not_passing) > 0:
+                assert self._not_passing
+            else:
+                # Recalculate the metrics
+                self.get_metrics()
+
+    def _calculate_score(self, param):
+        """
+        Private method that calculates a score for each transcript,
+        given a target parameter.
+        :param param:
+        :return:
+        """
+
+        rescaling = self.json_conf["scoring"][param]["rescaling"]
+        use_raw = self.json_conf["scoring"][param]["use_raw"]
+
+        metrics = dict((tid, getattr(self.transcripts[tid], param)) for tid in self.transcripts)
+
+        if use_raw is True and not param.startswith("external") and getattr(Transcript, param).usable_raw is False:
+            self.logger.warning("The \"%s\" metric cannot be used as a raw score for %s, switching to False",
+                                param, self.id)
+            use_raw = False
+        if use_raw is True and rescaling == "target":
+            self.logger.warning("I cannot use a raw score for %s in %s when looking for a target. Switching to False",
+                                param, self.id)
+            use_raw = False
+
+        if rescaling == "target":
+            target = self.json_conf["scoring"][param]["value"]
+            denominator = max(abs(x - target) for x in metrics.values())
+        else:
+            target = None
+            if use_raw is True and rescaling == "max":
+                denominator = 1
+            elif use_raw is True and rescaling == "min":
+                denominator = -1
+            else:
+                denominator = (max(metrics.values()) - min(metrics.values()))
+        if denominator == 0:
+            denominator = 1
+
+        scores = []
+        for tid in metrics:
+            tid_metric = metrics[tid]
+            score = 0
+            check = True
+            if ("filter" in self.json_conf["scoring"][param] and
+                    self.json_conf["scoring"][param]["filter"] != {}):
+                check = self.evaluate(tid_metric, self.json_conf["scoring"][param]["filter"])
+
+            if check is True:
+                if use_raw is True:
+                    if not isinstance(tid_metric, (float, int)) and 0 <= tid_metric <= 1:
+                        error = ValueError(
+                            "Only scores with values between 0 and 1 can be used raw. Please recheck your values.")
+                        self.logger.exception(error)
+                        raise error
+                    score = tid_metric / denominator
+                elif rescaling == "target":
+                    score = 1 - abs(tid_metric - target) / denominator
+                else:
+                    if min(metrics.values()) == max(metrics.values()):
+                        score = 1
+                    elif rescaling == "max":
+                        score = abs((tid_metric - min(metrics.values())) / denominator)
+                    elif rescaling == "min":
+                        score = abs(1 - (tid_metric - min(metrics.values())) / denominator)
+
+            score *= self.json_conf["scoring"][param]["multiplier"]
+            self.scores[tid][param] = round(score, 2)
+            scores.append(score)
+
+        # This MUST be true
+        if "filter" not in self.json_conf["scoring"][param] and max(scores) <= 0:
+            self.logger.warning("All transcripts have a score of 0 for %s in %s",
+                                param, self.id)
+
     @classmethod
     @abc.abstractmethod
     def is_intersecting(cls, *args, **kwargs):
@@ -773,6 +1102,31 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         raise NotImplementedError("The is_intersecting method should be defined for each child!")
 
     # ##### Properties #######
+
+    @property
+    def json_conf(self):
+        return self.__json_conf
+
+    @json_conf.setter
+    def json_conf(self, conf):
+        if conf is None or isinstance(conf, str):
+            conf = to_json(conf)
+        elif not isinstance(conf, dict):
+            raise TypeError("Invalid configuration!")
+        self.__json_conf = conf
+
+    def _check_json(self):
+        """Private method to be invoked to verify that the configuration is correct.
+        Quite expensive to run, especially if done multiple times."""
+
+        conf = self.__json_conf
+        if conf is None or isinstance(conf, (str, bytes)):
+            conf = to_json(conf)
+        elif isinstance(conf, dict):
+            conf = check_json(conf)
+        else:
+            raise TypeError("Unrecognized type for configuration: {}".format(type(conf)))
+        self.__json_conf = conf
 
     @property
     def stranded(self):
@@ -845,6 +1199,8 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             # logger.propagate = False
             self.__logger = logger
 
+        # self.__logger.setLevel("DEBUG")
+
     @logger.deleter
     def logger(self):
         """
@@ -872,6 +1228,14 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             value = "Mikado"
         assert isinstance(value, str)
         self.__source = value
+
+    @property
+    def score(self):
+
+        if len(self.transcripts):
+            return max(_.score for _ in self.transcripts.values())
+        else:
+            return None
 
     @property
     def _cds_introntree(self):
@@ -917,3 +1281,9 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                              type(args[0]))
 
         self.__locus_verified_introns = args[0]
+
+    @property
+    def purge(self):
+        """This property relates to pick/clustering/purge."""
+
+        return self.json_conf.get("pick", dict()).get("clustering", {}).get("purge", True)

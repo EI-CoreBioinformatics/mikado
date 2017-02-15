@@ -99,6 +99,16 @@ cdef class IntervalNode:
         self.cright   = EmptyNode
         self.croot    = EmptyNode
 
+    def __getstate__(self):
+       state = []
+       state.append(self.priority)
+       state.append(self.start)
+
+
+
+    def __setstate__(self, state):
+       pass
+
     cpdef IntervalNode insert(IntervalNode self, int start, int end, object interval):
         """
         Insert a new IntervalNode into the tree of which this node is
@@ -253,6 +263,7 @@ cdef class IntervalNode:
         cdef list results = []
         # use end + 1 becuase .right() assumes strictly right-of
         self._seek_right(position + 1, results, n, max_dist)
+
         if len(results) == n: return results
         r = results
         r.sort(key=operator.attrgetter('start'))
@@ -307,19 +318,19 @@ cdef class Interval:
     def __richcmp__(self, other, op):
         if op == 0:
             # <
-            return self.start < other.start or self.end < other.end
+            return self[0] < other[0] or self[1] < other[1]
         elif op == 1:
             # <=
             return self == other or self < other
         elif op == 2:
             # ==
-            return self.start == other.start and self.end == other.end
+            return self[0] == other[0] and self[1] == other[1]
         elif op == 3:
             # !=
-            return self.start != other.start or self.end != other.end
+            return self[0] != other[0] or self[1] != other[1]
         elif op == 4:
             # >
-            return self.start > other.start or self.end > other.end
+            return self[0] > other[0] or self[1] > other[1]
         elif op == 5:
             # >=
             return self == other or self > other
@@ -329,8 +340,24 @@ cdef class Interval:
             return self.start
         elif index == 1:
             return self.end
+        elif index == 2:
+            return self.value
         else:
-            raise IndexError("Intervals only have starts and ends!")
+            return [self.start, self.end, self.value][index]
+            # raise IndexError("Intervals only have starts and ends!")
+
+    def __iter__(self):
+
+        return iter([self.start, self.end])
+
+    def __getstate__(self):
+
+        return [self.start, self.end, self.value, self.chrom, self.strand]
+
+    def __setstate__(self, state):
+
+        self.start, self.end, self.value, self.chrom, self.strand = state
+
 
 cdef class IntervalTree:
     """
@@ -392,6 +419,17 @@ cdef class IntervalTree:
         root = None
         num_intervals = 0
 
+    # ---- Pickling ------
+
+    def __getstate__(self):
+
+        return [self.root, self.num_intervals]
+
+    def __setstate__(self, state):
+
+        self.root, self.num_intervals = state
+
+
     # ---- Position based interfaces -----------------------------------------
 
     def insert( self, int start, int end, object value=None ):
@@ -406,9 +444,11 @@ cdef class IntervalTree:
 
     add = insert
 
-    def find(self, int start, int end, bint strict=0, int max_distance=0, int num_intervals=100):
+    def find(self, int start, int end, bint strict=0, int max_distance=0, int num_intervals=100, object value=None):
         """
         Return a sorted list of all intervals overlapping [start,end).
+        If strict is set to True, only matches which are completely contained will
+        be counted as full matches. If set to False, also partial matches will count.
         """
 
         if self.root is None:
@@ -430,6 +470,13 @@ cdef class IntervalTree:
                     new_found.append(_)
             found = new_found
 
+        if value is not None:
+            new_found = []
+            for _ in found:
+               if _.value == value:
+                   new_found.append(_)
+            found = new_found
+
         return found
 
     search = find
@@ -439,23 +486,23 @@ cdef class IntervalTree:
 
         return self.num_intervals
 
-    def before( self, position, num_intervals=1, max_dist=2000 ):
+    def before( self, position, num_intervals=1, max_dist=2000):
         """
         Find `num_intervals` intervals that lie before `position` and are no
         further than `max_dist` positions away
         """
         if self.root is None:
             return []
-        return self.root.left( position, num_intervals, max_dist )
+        return self.root.left( position, num_intervals, max_dist)
 
-    def after( self, position, num_intervals=1, max_dist=25000 ):
+    def after( self, position, num_intervals=1, max_dist=25000):
         """
         Find `num_intervals` intervals that lie after `position` and are no
         further than `max_dist` positions away
         """
         if self.root is None:
             return []
-        return self.root.right( position, num_intervals, max_dist )
+        return self.root.right( position, num_intervals, max_dist)
 
     # ---- Interval-like object based interfaces -----------------------------
 
@@ -530,6 +577,18 @@ cdef class IntervalTree:
         for iv in tuples:
             tree.insert_interval(Interval(*iv))
         return tree
+
+    @classmethod
+    def from_intervals(cls, intervals):
+        """
+        Create a new IntervalTree from an iterable of Interval instances.
+        """
+
+        tree = IntervalTree()
+        for iv in intervals:
+            tree.insert_interval(iv)
+        return tree
+
 
 # For backward compatibility
 Intersecter = IntervalTree

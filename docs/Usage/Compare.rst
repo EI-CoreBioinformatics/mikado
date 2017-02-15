@@ -105,13 +105,14 @@ TMAP are tabular files that store the information regarding the best match for e
 #. **e_recall**: Exon recall of the reference model ( TP / (number of exons in the reference))
 #. **e_f1**: `F1`_ of recall and precision at the exon level.
 #. **distance**: Distance of the model from its putative match.
+#. **location**: location of the match, with the format <chromosome>:<start>..<end>
 
 An example of TMAP file is as follows::
 
-    ref_id	ref_gene	ccode	tid	gid	tid_num_exons	ref_num_exons	n_prec	n_recall	n_f1	j_prec	j_recall	j_f1	e_prec	e_recall	e_f1	distance
-    AT5G66610.1	AT5G66610	=	mikado.Chr5G1.2	mikado.Chr5G1	11	11	97.77	99.16	98.46	100.00	100.00	100.00	81.82	81.82	81.82	0
-    AT5G66610.1	AT5G66610	j	mikado.Chr5G1.1	mikado.Chr5G1	11	11	92.93	94.74	93.82	95.00	95.00	95.00	81.82	81.82	81.82	0
-    AT5G66620.1,AT5G66630.1,AT5G66631.1	AT5G66620,AT5G66630,AT5G66631	f,j,J,O	st_Stringtie_STAR.21710.6	Stringtie_STAR.21710	22	11,10,1	27.84,34.47,28.63	99.79,99.13,100.00	43.54,51.16,44.52	45.24,42.86,0.00	95.00,100.00,0.00	61.29,60.00,0.00	36.36,36.36,0.00	72.73,80.00,0.00	48.48,50.00,0.00	0
+    ref_id	ref_gene	ccode	tid	gid	tid_num_exons	ref_num_exons	n_prec	n_recall	n_f1	j_prec	j_recall	j_f1	e_prec	e_recall	e_f1	distance	location
+AT5G66600.2	AT5G66600	=	cuff_cufflinks_star_at.23553.1	cuff_cufflinks_star_at.23553.1.gene	9	9	91.30	81.31	86.02	100.00	100.00	100.00	77.78	77.78	77.78	0	Chr5:26575000..26578163
+AT5G66600.2	AT5G66600	C	cl_Chr5.6272	cl_Chr5.6272.gene	7	9	94.95	72.43	82.18	100.00	75.00	85.71	85.71	66.67	75.00	0	Chr5:26575000..26578087
+AT5G66620.1,AT5G66630.1,AT5G66631.1	AT5G66620,AT5G66630,AT5G66631	f,j,j,G	st_Stringtie_STAR.21710.15	st_Stringtie_STAR.21710.15.gene	8	11,10,1	19.13,19.95,35.98	54.57,45.65,100.00	28.33,27.76,52.92	28.57,64.29,0.00	20.00,50.00,0.00	23.53,56.25,0.00	12.50,37.50,0.00	9.09,30.00,0.00	10.53,33.33,0.00	0	Chr5:26588402..26598231
 
 You can notice that the third example is particular as the prediction transcript matches not one but multiple reference transcripts. This is a fusion_ event.
 
@@ -136,13 +137,16 @@ RefMap files are tabular files which store the information regarding the best ma
 #. **best_nF1**: `F1`_ of recall and precision at the nucleotide level, for the best possible comparison.
 #. **best_jF1**: `F1`_ of recall and precision at the splice junction level, for the best possible comparison.
 #. **best_eF1**: `F1`_ of recall and precision at the exon level, for the best possible comparison.
+#. **location**: location of the match, with the format <chromosome>:<start>..<end>
 
 An example of a RefMap file is as follows::
 
-    ref_id	ccode	tid	gid	nF1	jF1	eF1	ref_gene	best_ccode	best_tid	best_gid	best_nF1	best_jF1	best_eF1
-    AT5G66610.1	=	mikado.Chr5G1.2	mikado.Chr5G1	98.46	100.0	81.82	AT5G66610	=	mikado.Chr5G1.2	mikado.Chr5G1	98.46	100.0	81.82
-    AT5G66610.2	J	mikado.Chr5G1.2	mikado.Chr5G1	93.91	94.74	76.19	AT5G66610	=	mikado.Chr5G1.2	mikado.Chr5G1	98.46	100.0	81.82
-    AT5G66630.1	f,n	tr_c58_g1_i4.mrna1.6	c58_g1_i4.path1.6	66.32	94.74	76.19	AT5G66630	f,n	tr_c58_g1_i4.mrna1.6	c58_g1_i4.path1.6	66.32	94.74	76.19
+    ref_id	ccode	tid	gid	nF1	jF1	eF1	ref_gene	best_ccode	best_tid	best_gid	best_nF1	best_jF1	best_eF1    location
+    AT5G66610.1	=	mikado.Chr5G4.2	mikado.Chr5G4	98.46	100.0	81.82	AT5G66610	=	mikado.Chr5G4.2	mikado.Chr5G4	98.46	100.0	81.82	Chr5:26584780..26587912
+AT5G66610.2	J	mikado.Chr5G4.2	mikado.Chr5G4	93.91	94.74	76.19	AT5G66610	=	mikado.Chr5G4.2	mikado.Chr5G4	98.46	100.0	81.82	Chr5:26584774..26587912
+AT5G66620.1	j	mikado.Chr5G6.1	mikado.Chr5G6	85.51	95.0	72.73	AT5G66620	j	mikado.Chr5G6.1	mikado.Chr5G6	85.51	95.0	72.73	Chr5:26588402..26592423
+AT5G66630.1	n	mikado.Chr5G8.2	mikado.Chr5G8	93.27	94.74	76.19	AT5G66630	n	mikado.Chr5G8.2	mikado.Chr5G8	93.27	94.74	76.19	Chr5:26591981..26595922
+
 
 Please note that the third example (AT5G66630.1) has as best possible match a fusion_ event.
 
@@ -241,148 +245,141 @@ All class codes fall within one of the following categories:
 
 .. topic:: Available class codes
 
-    +--------------+------------------------------+--------------+---------------+-------------------+-------------------+-------------------+-------------------+
-    | Class code   | Definition                   | Is the       | Is the        | Nucleotide:       | Junction:         | Reverse           | Category          |
-    |              |                              | reference    | prediction    | Recall,           | Recall,           | class code        |                   |
-    |              |                              | transcript   | transcript    | Precision,        | Precision,        |                   |                   |
-    |              |                              | multiexonic? | multiexonic?  | F1                | F1                |                   |                   |
-    |              |                              |              |               |                   |                   |                   |                   |
-    +==============+==============================+==============+===============+===================+===================+===================+===================+
-    | **=**        | Complete intron chain match. | True         | True          | NA                | 100%, 100%, 100%  | **=**             | **Match**         |
-    +--------------+------------------------------+--------------+---------------+-------------------+-------------------+-------------------+-------------------+
-    | **_**        | Complete match between two   | False        | False         | NA, NA, **>=80%** | NA                | **_**             | **Match**         |
-    | (underscore) | monoexonic transcripts.      |              |               |                   |                   |                   |                   |
-    +--------------+------------------------------+--------------+---------------+-------------------+-------------------+-------------------+-------------------+
-    | **n**        | Intron chain extension, ie.  | True         | True          | **100%**, < 100%, | 100%, < 100%,     | **c**             | **Extension**     |
-    |              | both transcripts are         |              |               | < 100%            | < 100%            |                   |                   |
-    |              | multiexonic and the          |              |               |                   |                   |                   |                   |
-    |              | prediction has novel         |              |               |                   |                   |                   |                   |
-    |              | splice sites *outside* of    |              |               |                   |                   |                   |                   |
-    |              | the reference transcript     |              |               |                   |                   |                   |                   |
-    |              | boundaries.                  |              |               |                   |                   |                   |                   |
-    +--------------+------------------------------+--------------+---------------+-------------------+-------------------+-------------------+-------------------+
-    | **J**        | Intron chain extension,      | True         | True          | < 100%, <= 100%,  | **100%**, < 100%, | **C**             | **Extension**     |
-    |              | both transcripts are         |              |               | < 100%            | < 100%            |                   |                   |
-    |              | multiexonic and the          |              |               |                   |                   |                   |                   |
-    |              | prediction has novel         |              |               |                   |                   |                   |                   |
-    |              | splice sites *inside* of the |              |               |                   |                   |                   |                   |
-    |              | reference transcript         |              |               |                   |                   |                   |                   |
-    |              | boundaries.                  |              |               |                   |                   |                   |                   |
-    +--------------+------------------------------+--------------+---------------+-------------------+-------------------+-------------------+-------------------+
-    | **c**        | The prediction               | True         | NA            | < 100%, **100%**  | < 100%, **100%**  | **n**             | **Extension**     |
-    |              | is either multiexonic and    |              |               | NA                | NA                |                   |                   |
-    |              | with its intron chain        |              |               |                   |                   |                   |                   |
-    |              | completely contained within  |              |               |                   |                   |                   |                   |
-    |              | that of the reference, or    |              |               |                   |                   |                   |                   |
-    |              | monoexonic and contained     |              |               |                   |                   |                   |                   |
-    |              | within one of the reference  |              |               |                   |                   |                   |                   |
-    |              | exons.                       |              |               |                   |                   |                   |                   |
-    +--------------+------------------------------+--------------+---------------+-------------------+-------------------+-------------------+-------------------+
-    | **C**        | The prediction intron chain  | True         | True          | <= 100%, < 100%,  | < 100%, **100%**, | **J** or **j**    | **Extension**     |
-    |              | is completely contained      |              |               | < 100%            | < 100%            |                   |                   |
-    |              | within that of the           |              |               |                   |                   |                   |                   |
-    |              | reference transcript, but    |              |               |                   |                   |                   |                   |
-    |              | it partially debords either  |              |               |                   |                   |                   |                   |
-    |              | into its introns or outside  |              |               |                   |                   |                   |                   |
-    |              | of the reference boundaries. |              |               |                   |                   |                   |                   |
-    +--------------+------------------------------+--------------+---------------+-------------------+-------------------+-------------------+-------------------+
-    | **j**        | Alternative splicing event.  | True         | True          | NA                | <= 100%, < 100%,  | **j**             | **Alternative     |
-    |              |                              |              |               |                   | < 100%            |                   | splicing**        |
-    +--------------+------------------------------+--------------+---------------+-------------------+-------------------+-------------------+-------------------+
-    | **h**        | Structural match between two | True         | True          | > 0%, > 0%, > 0%  | 0%, 0%, 0%        | **h**             | **Alternative     |
-    |              | models where no splice site  |              |               |                   |                   |                   | splicing**        |
-    |              | is conserved but **at least**|              |               |                   |                   |                   |                   |
-    |              | one intron of the reference  |              |               |                   |                   |                   |                   |
-    |              | and one intron of the        |              |               |                   |                   |                   |                   |
-    |              | prediction partially overlap.|              |               |                   |                   |                   |                   |
-    +--------------+------------------------------+--------------+---------------+-------------------+-------------------+-------------------+-------------------+
-    | **g**        | The monoexonic prediction    | True         | False         | > 0%, > 0%,       | 0%                | **G**             | **Alternative     |
-    | ("mo" before | overlaps one or more exons of|              |               | between 0 and 100%|                   |                   | splicing**        |
-    | release 1)   | the reference transcript; the|              |               |                   |                   |                   |                   |
-    |              | borders of the prediction    |              |               |                   |                   |                   |                   |
-    |              | cannot fall inside the       |              |               |                   |                   |                   |                   |
-    |              | introns of the reference.    |              |               |                   |                   |                   |                   |
-    |              | The prediction transcript    |              |               |                   |                   |                   |                   |
-    |              | can bridge multiple exons    |              |               |                   |                   |                   |                   |
-    |              | of the reference model.      |              |               |                   |                   |                   |                   |
-    +--------------+------------------------------+--------------+---------------+-------------------+-------------------+-------------------+-------------------+
-    | **G**        | Generic match of a           | False        | True          | > 0%, > 0%, > 0%  | 0%                | **g**             | **Alternative     |
-    | ("O" before  | multiexonic prediction       |              |               |                   |                   |                   | splicing**        |
-    | release 1)   | transcript versus a          |              |               |                   |                   |                   |                   |
-    |              | monoexonic reference.        |              |               |                   |                   |                   |                   |
-    +--------------+------------------------------+--------------+---------------+-------------------+-------------------+-------------------+-------------------+
-    | **o**        | Generic overlap between two  | True         | True          | > 0%, > 0%, > 0%  | 0%, 0%, 0%        | **o**             | **Overlap**       |
-    |              | multiexonic transcripts,     |              |               |                   |                   |                   |                   |
-    |              | which do not share **any**   |              |               |                   |                   |                   |                   |
-    |              | overlap among their introns. |              |               |                   |                   |                   |                   |
-    +--------------+------------------------------+--------------+---------------+-------------------+-------------------+-------------------+-------------------+
-    | **e**        | Single exon transcript       | True         | False         | > 0%, > 0%,       | 0%                | **G**             | **Overlap**       |
-    |              | overlapping *one* reference  |              |               | between 0 and 100%|                   |                   |                   |
-    |              | exon and at least 10 bps of a|              |               |                   |                   |                   |                   |
-    |              | reference intron, indicating |              |               |                   |                   |                   |                   |
-    |              | a possible pre-mRNA fragment.|              |               |                   |                   |                   |                   |
-    +--------------+------------------------------+--------------+---------------+-------------------+-------------------+-------------------+-------------------+
-    | **m**        | Generic match between two    | False        | False         | NA, NA, **< 80%** | NA                | **m**             | **Overlap**       |
-    |              | monoexonic transcripts.      |              |               |                   |                   |                   |                   |
-    +--------------+------------------------------+--------------+---------------+-------------------+-------------------+-------------------+-------------------+
-    | **i**        | Monoexonic prediction        | True         | False         | 0%                | 0%                | **ri**            | **Intronic**      |
-    |              | completely contained within  |              |               |                   |                   |                   |                   |
-    |              | one intron of the reference  |              |               |                   |                   |                   |                   |
-    |              | transcript.                  |              |               |                   |                   |                   |                   |
-    +--------------+------------------------------+--------------+---------------+-------------------+-------------------+-------------------+-------------------+
-    | **I**        | Prediction completely        | True         | True          | 0%                | 0%                | **rI**            | **Intronic**      |
-    |              | contained within the introns |              |               |                   |                   |                   |                   |
-    |              | of the reference transcript. |              |               |                   |                   |                   |                   |
-    +--------------+------------------------------+--------------+---------------+-------------------+-------------------+-------------------+-------------------+
-    | **rI**       | Reference completely         | True         | True          | 0%                | 0%                | **I**             | **Intronic**      |
-    |              | contained within the introns |              |               |                   |                   |                   |                   |
-    |              | of the prediction transcript.|              |               |                   |                   |                   |                   |
-    +--------------+------------------------------+--------------+---------------+-------------------+-------------------+-------------------+-------------------+
-    | **ri**       | Reverse intron transcript -  | False        | True          | 0%                | 0%                | **i**             | **Intronic**      |
-    |              | the monoexonic reference is  |              |               |                   |                   |                   |                   |
-    |              | completely contained within  |              |               |                   |                   |                   |                   |
-    |              | one intron of the prediction |              |               |                   |                   |                   |                   |
-    |              | transcript.                  |              |               |                   |                   |                   |                   |
-    +--------------+------------------------------+--------------+---------------+-------------------+-------------------+-------------------+-------------------+
-    | **f**        | Fusion - this special code   | NA           | NA            | **> 10%**, NA, NA | **> 0%**, NA, NA  | NA                | **Fusion**        |
-    |              | is applied when a prediction |              |               |                   |                   |                   |                   |
-    |              | intersects more than one     |              |               |                   |                   |                   |                   |
-    |              | reference transcript. To be  |              |               |                   |                   |                   |                   |
-    |              | considered for fusions,      |              |               |                   |                   |                   |                   |
-    |              | candidate references must    |              |               |                   |                   |                   |                   |
-    |              | **either** share at least one|              |               |                   |                   |                   |                   |
-    |              | splice junction with the     |              |               |                   |                   |                   |                   |
-    |              | prediction, **or** have at   |              |               |                   |                   |                   |                   |
-    |              | least 10% of its bases       |              |               |                   |                   |                   |                   |
-    |              | recalled. If two or more     |              |               |                   |                   |                   |                   |
-    |              | reference transcripts fit    |              |               |                   |                   |                   |                   |
-    |              | these constraints, then the  |              |               |                   |                   |                   |                   |
-    |              | prediction model is          |              |               |                   |                   |                   |                   |
-    |              | classified as a **fusion**.  |              |               |                   |                   |                   |                   |
-    +--------------+------------------------------+--------------+---------------+-------------------+-------------------+-------------------+-------------------+
-    | **x**        | Monoexonic match on the      | NA           | False         | >= 0%             | 0%                | **x** or **X**    | **Fragment**      |
-    |              | *opposite* strand.           |              |               |                   |                   |                   |                   |
-    +--------------+------------------------------+--------------+---------------+-------------------+-------------------+-------------------+-------------------+
-    | **X**        | Multiexonic match on the     | NA           | True          | >= 0%             | 0%                | **x** or **X**    | **Fragment**      |
-    |              | *opposite* strand.           |              |               |                   |                   |                   |                   |
-    +--------------+------------------------------+--------------+---------------+-------------------+-------------------+-------------------+-------------------+
-    | **p**        | The prediction is on the same| NA           | NA            | 0%                | 0%                | **p**             | **No overlap**    |
-    |              | strand of a neighbouring but |              |               |                   |                   |                   |                   |
-    |              | non-overlapping transcript.  |              |               |                   |                   |                   |                   |
-    |              | Probable polymerase run-on.  |              |               |                   |                   |                   |                   |
-    +--------------+------------------------------+--------------+---------------+-------------------+-------------------+-------------------+-------------------+
-    | **P**        | The prediction is on the     | NA           | NA            | 0%                | 0%                | **P**             | **No overlap**    |
-    |              | *opposite* strand of a       |              |               |                   |                   |                   |                   |
-    |              | neighbouring but             |              |               |                   |                   |                   |                   |
-    |              | non-overlapping transcript.  |              |               |                   |                   |                   |                   |
-    |              | Probable polymerase run-on.  |              |               |                   |                   |                   |                   |
-    +--------------+------------------------------+--------------+---------------+-------------------+-------------------+-------------------+-------------------+
-    | **u**        | Unknown - no suitable model  | NA           | NA            | 0%                | 0%                | NA                | **No overlap**    |
-    |              | has been found near enough   |              |               |                   |                   |                   |                   |
-    |              | the prediction to perform a  |              |               |                   |                   |                   |                   |
-    |              | comparison.                  |              |               |                   |                   |                   |                   |
-    +--------------+------------------------------+--------------+---------------+-------------------+-------------------+-------------------+-------------------+
-
+    +--------------+--------------------------------+--------------------------+---------------------------+----------------------------+------------------------+-----------+-------------+
+| Class code   | Definition                     | Reference multiexonic?   | Prediction multiexonic?   | Nucleotide: RC, PC, F1     | Junction: RC, PC, F1   | Reverse   | Category    |
++==============+================================+==========================+===========================+============================+========================+===========+=============+
++--------------+--------------------------------+--------------------------+---------------------------+----------------------------+------------------------+-----------+-------------+
+| =            | Complete intron chain match.   | True                     | True                      | NA                         | 100%, 100%, 100%       | =         | Match       |
++--------------+--------------------------------+--------------------------+---------------------------+----------------------------+------------------------+-----------+-------------+
+| _            | Complete match between two     | False                    | False                     | NA, NA, >=80%              | NA                     | _         | Match       |
+|              | monoexonic transcripts.        |                          |                           |                            |                        |           |             |
++--------------+--------------------------------+--------------------------+---------------------------+----------------------------+------------------------+-----------+-------------+
+| n            | Intron chain extension, ie.    | True                     | True                      | 100%, < 100%, <100%        | 100%, < 100%, <100%    | c         | Extension   |
+|              | both transcripts are           |                          |                           |                            |                        |           |             |
+|              | multiexonic and     the        |                          |                           |                            |                        |           |             |
+|              | prediction has novel splice    |                          |                           |                            |                        |           |             |
+|              | sites outside of the reference |                          |                           |                            |                        |           |             |
+|              | transcript boundaries.         |                          |                           |                            |                        |           |             |
++--------------+--------------------------------+--------------------------+---------------------------+----------------------------+------------------------+-----------+-------------+
+| J            | Intron chain extension, ie.    | True                     | True                      | 100%, <= 100%, <100%       | 100%, < 100%, <100%    | C         | Extension   |
+|              | both transcripts are           |                          |                           |                            |                        |           |             |
+|              | multiexonic and     the        |                          |                           |                            |                        |           |             |
+|              | prediction has novel splice    |                          |                           |                            |                        |           |             |
+|              | sites inside of the reference  |                          |                           |                            |                        |           |             |
+|              | transcript boundaries.         |                          |                           |                            |                        |           |             |
++--------------+--------------------------------+--------------------------+---------------------------+----------------------------+------------------------+-----------+-------------+
+| c            | The prediction is either       | NA                       | NA                        | < 100%, 100%, NA           | < 100%, 100%, NA       | n         | Extension   |
+|              | multiexonic and with its       |                          |                           |                            |                        |           |             |
+|              | intron chain completely        |                          |                           |                            |                        |           |             |
+|              | contained     within that of   |                          |                           |                            |                        |           |             |
+|              | the reference, or monoexonic   |                          |                           |                            |                        |           |             |
+|              | and contained within one of    |                          |                           |                            |                        |           |             |
+|              | the reference exons.           |                          |                           |                            |                        |           |             |
++--------------+--------------------------------+--------------------------+---------------------------+----------------------------+------------------------+-----------+-------------+
+| C            | The prediction intron chain is | True                     | True                      | <= 100%, < 100%, < 100%    | < 100%, 100%, < 100%   | J or j    | Extension   |
+|              | completely contained within    |                          |                           |                            |                        |           |             |
+|              | that of the reference          |                          |                           |                            |                        |           |             |
+|              | transcript, but it partially   |                          |                           |                            |                        |           |             |
+|              | debords either into its        |                          |                           |                            |                        |           |             |
+|              | introns or outside of the      |                          |                           |                            |                        |           |             |
+|              | reference boundaries.          |                          |                           |                            |                        |           |             |
++--------------+--------------------------------+--------------------------+---------------------------+----------------------------+------------------------+-----------+-------------+
+| j            | Alternative splicing event.    | True                     | True                      | NA                         | <= 100%, 100%, < 100%  | j or C    | Alternative |
+|              |                                |                          |                           |                            |                        |           | splicing    |
++--------------+--------------------------------+--------------------------+---------------------------+----------------------------+------------------------+-----------+-------------+
+| h            | Structural match between two   | True                     | True                      | > 0%, > 0%, > 0%           | 0%, 0%, 0%             | h         | Alternative |
+|              | models where where no splice   |                          |                           |                            |                        |           | splicing    |
+|              | site is conserved but at least |                          |                           |                            |                        |           |             |
+|              | one intron of the reference    |                          |                           |                            |                        |           |             |
+|              | and one intron of the          |                          |                           |                            |                        |           |             |
+|              | prediction partially overlap.  |                          |                           |                            |                        |           |             |
++--------------+--------------------------------+--------------------------+---------------------------+----------------------------+------------------------+-----------+-------------+
+| g            | The monoexonic prediction      | True                     | False                     | > 0%, > 0%, 0% < F1 < 100% | 0%, 0%, 0%             | G         | Alternative |
+|              | overlaps one or more exons of  |                          |                           |                            |                        |           | splicing    |
+|              | the reference      transcript; |                          |                           |                            |                        |           |             |
+|              | the borders of the prediction  |                          |                           |                            |                        |           |             |
+|              | cannot fall inside the introns |                          |                           |                            |                        |           |             |
+|              | of the reference.      The     |                          |                           |                            |                        |           |             |
+|              | prediction transcript can      |                          |                           |                            |                        |           |             |
+|              | bridge multiple exons of the   |                          |                           |                            |                        |           |             |
+|              | reference model.               |                          |                           |                            |                        |           |             |
++--------------+--------------------------------+--------------------------+---------------------------+----------------------------+------------------------+-----------+-------------+
+| G            | Generic match of a multiexonic | False                    | True                      | > 0%, > 0%, 0% < F1 < 100% | 0%, 0%, 0%             | g         | Alternative |
+|              | prediction transcript versus a |                          |                           |                            |                        |           | splicing    |
+|              | monoexonic reference.          |                          |                           |                            |                        |           |             |
++--------------+--------------------------------+--------------------------+---------------------------+----------------------------+------------------------+-----------+-------------+
+| o            | Generic overlap between two    | True                     | True                      | > 0%, > 0%, 0% < F1 < 100% | 0%, 0%, 0%             | o         | Overlap     |
+|              | multiexonic transcripts,       |                          |                           |                            |                        |           |             |
+|              | which do not share any overlap |                          |                           |                            |                        |           |             |
+|              | among their introns.           |                          |                           |                            |                        |           |             |
++--------------+--------------------------------+--------------------------+---------------------------+----------------------------+------------------------+-----------+-------------+
+| e            | Single exon transcript         | True                     | False                     | > 0%, > 0%, 0% < F1 < 100% | 0%, 0%, 0%             | G         | Overlap     |
+|              | overlapping one reference exon |                          |                           |                            |                        |           |             |
+|              | and at least 10 bps of a       |                          |                           |                            |                        |           |             |
+|              | reference intron, indicating a |                          |                           |                            |                        |           |             |
+|              | possible pre-mRNA fragment.    |                          |                           |                            |                        |           |             |
++--------------+--------------------------------+--------------------------+---------------------------+----------------------------+------------------------+-----------+-------------+
+| m            | Generic match between two      | False                    | False                     | NA, NA, < 80%              | NA                     | m         | Overlap     |
+|              | monoexonic transcripts.        |                          |                           |                            |                        |           |             |
++--------------+--------------------------------+--------------------------+---------------------------+----------------------------+------------------------+-----------+-------------+
+| i            | Monoexonic prediction          | True                     | False                     | 0%, 0%, 0%                 | 0%, 0%, 0%             | ri        | Intronic    |
+|              | completely contained within    |                          |                           |                            |                        |           |             |
+|              | one intron of the reference    |                          |                           |                            |                        |           |             |
+|              | transcript.                    |                          |                           |                            |                        |           |             |
++--------------+--------------------------------+--------------------------+---------------------------+----------------------------+------------------------+-----------+-------------+
+| I            | Prediction completely          | True                     | True                      | 0%, 0%, 0%                 | 0%, 0%, 0%             | rI        | Intronic    |
+|              | contained within the introns   |                          |                           |                            |                        |           |             |
+|              | of the reference transcript.   |                          |                           |                            |                        |           |             |
++--------------+--------------------------------+--------------------------+---------------------------+----------------------------+------------------------+-----------+-------------+
+| ri           | Reverse intron transcript -    | False                    | True                      | 0%, 0%, 0%                 | 0%, 0%, 0%             | i         | Intronic    |
+|              | the monoexonic reference is    |                          |                           |                            |                        |           |             |
+|              | completely contained           |                          |                           |                            |                        |           |             |
+|              | within one intron of the       |                          |                           |                            |                        |           |             |
+|              | prediction transcript.         |                          |                           |                            |                        |           |             |
++--------------+--------------------------------+--------------------------+---------------------------+----------------------------+------------------------+-----------+-------------+
+| rI           | Multiexonic reference          | True                     | True                      | 0%, 0%, 0%                 | 0%, 0%, 0%             | I         | Intronic    |
+|              | completely contained within    |                          |                           |                            |                        |           |             |
+|              | the introns of the prediction  |                          |                           |                            |                        |           |             |
+|              | transcript.                    |                          |                           |                            |                        |           |             |
++--------------+--------------------------------+--------------------------+---------------------------+----------------------------+------------------------+-----------+-------------+
+| f            | Fusion - this special code is  | NA                       | NA                        | > 10%, 0%, 0%              | > 0%, 0%, 0%           | NA        | Fusion      |
+|              | applied when a prediction      |                          |                           |                            |                        |           |             |
+|              | intersects more     than one   |                          |                           |                            |                        |           |             |
+|              | reference transcript. To be    |                          |                           |                            |                        |           |             |
+|              | considered for fusions,        |                          |                           |                            |                        |           |             |
+|              | candidate references must      |                          |                           |                            |                        |           |             |
+|              | **either** share at least one  |                          |                           |                            |                        |           |             |
+|              | splice junction with the       |                          |                           |                            |                        |           |             |
+|              | prediction, **or** have at     |                          |                           |                            |                        |           |             |
+|              | least 10% of     its bases     |                          |                           |                            |                        |           |             |
+|              | recalled. If two or more       |                          |                           |                            |                        |           |             |
+|              | reference transcripts fit      |                          |                           |                            |                        |           |             |
+|              | these constraints, then the    |                          |                           |                            |                        |           |             |
+|              | prediction model is classified |                          |                           |                            |                        |           |             |
+|              | as a fusion.                   |                          |                           |                            |                        |           |             |
++--------------+--------------------------------+--------------------------+---------------------------+----------------------------+------------------------+-----------+-------------+
+| x            | Monoexonic match on the        | NA                       | False                     | >0%, >0%, >0%              | 0%, 0%, 0%             | x or X    | Fragment    |
+|              | **opposite** strand.           |                          |                           |                            |                        |           |             |
++--------------+--------------------------------+--------------------------+---------------------------+----------------------------+------------------------+-----------+-------------+
+| X            | Multiexonic match on the       | NA                       | True                      | >0%, >0%, >0%              | NA                     | x or X    | Fragment    |
+|              | **opposite** strand.           |                          |                           |                            |                        |           |             |
++--------------+--------------------------------+--------------------------+---------------------------+----------------------------+------------------------+-----------+-------------+
+| p            | The prediction is on the same  | NA                       | NA                        | 0%, 0%, 0%                 | 0%, 0%, 0%             | p         | Fragment    |
+|              | strand of a neighbouring but   |                          |                           |                            |                        |           |             |
+|              | non-overlapping transcript.    |                          |                           |                            |                        |           |             |
+|              | Probable polymerase run-on     |                          |                           |                            |                        |           |             |
++--------------+--------------------------------+--------------------------+---------------------------+----------------------------+------------------------+-----------+-------------+
+| P            | The prediction is on the       | NA                       | NA                        | 0%, 0%, 0%                 | 0%, 0%, 0%             | P         | Fragment    |
+|              | opposite strand of a           |                          |                           |                            |                        |           |             |
+|              | neighbouring but non-          |                          |                           |                            |                        |           |             |
+|              | overlapping transcript.        |                          |                           |                            |                        |           |             |
+|              | Probable polymerase run-on.    |                          |                           |                            |                        |           |             |
++--------------+--------------------------------+--------------------------+---------------------------+----------------------------+------------------------+-----------+-------------+
+| u            | Unknown - no suitable model    | NA                       | NA                        | 0%, 0%, 0%                 | 0%, 0%, 0%             | NA        | Unknown     |
+|              | has been found near enough the |                          |                           |                            |                        |           |             |
+|              | prediction to     perform a    |                          |                           |                            |                        |           |             |
+|              | comparison.                    |                          |                           |                            |                        |           |             |
++--------------+--------------------------------+--------------------------+---------------------------+----------------------------+------------------------+-----------+-------------+
 
 Technical details
 ~~~~~~~~~~~~~~~~~

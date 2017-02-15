@@ -9,6 +9,7 @@ import os
 from ..picking import Picker
 from ..configuration.configurator import to_json, check_json
 from ..exceptions import UnsortedInput  # , InvalidJson
+from ..utilities.log_utils import create_default_logger, create_logger_from_conf
 
 
 def check_log_settings(args):
@@ -35,7 +36,7 @@ def check_log_settings(args):
     return args
 
 
-def check_run_options(args):
+def check_run_options(args, logger=None):
     """
     Quick method to check the consistency of run option settings
     from the namespace.
@@ -54,10 +55,10 @@ def check_run_options(args):
     if args.no_cds is not False:
         args.json_conf["pick"]["run_options"]["exclude_cds"] = True
     if args.purge is not False:
-        args.json_conf["pick"]["run_options"]["purge"] = True
+        args.json_conf["pick"]["clustering"]["purge"] = True
 
     if args.flank is not None:
-        args.json_conf["pick"]["run_options"]["flank"] = args.flank
+        args.json_conf["pick"]["clustering"]["flank"] = args.flank
 
     if args.output_dir is not None:
         args.json_conf["pick"]["files"]["output_dir"] = args.output_dir
@@ -91,8 +92,8 @@ def check_run_options(args):
     if args.monoloci_from_simple_overlap is True:
         args.json_conf["pick"]["run_options"]["monoloci_from_simple_overlap"] = True
 
-    if args.subloci_from_cds_only is True:
-        args.json_conf["pick"]["run_options"]["subloci_from_cds_only"] = True
+    if args.cds_only is True:
+        args.json_conf["pick"]["clustering"]["cds_only"] = True
 
     if args.consider_truncated_for_retained is True:
         args.json_conf["pick"]["run_options"]["consider_truncated_for_retained"] = True
@@ -117,7 +118,7 @@ def check_run_options(args):
             raise ValueError("Invalid/inexistent scoring file: {}".format(args.scoring_file))
         args.json_conf["pick"]["scoring_file"] = args.scoring_file
 
-    args.json_conf = check_json(args.json_conf)
+    args.json_conf = check_json(args.json_conf, logger=logger)
 
     return args
 
@@ -130,15 +131,31 @@ def pick(args):
 
     """
 
-    args = check_log_settings(args)
-    args = check_run_options(args)
+    logger = create_default_logger("pick_init")
+
+    args.json_conf.close()
+    args.json_conf = to_json(args.json_conf.name, logger=logger)
+
+    try:
+        args = check_log_settings(args)
+    except Exception as exc:
+        logger.error(exc)
+        raise exc
+
+    try:
+        args = check_run_options(args, logger=logger)
+    except Exception as exc:
+        logger.error(exc)
+        raise exc
 
     creator = Picker(args.json_conf, commandline=" ".join(sys.argv))
-    try:
-        creator()  # Run
-    except UnsortedInput as err:
-        print(err, file=sys.stderr)
-        sys.exit(1)
+    creator()
+    # try:
+    #     creator()  # Run
+    # except Exception as exc:
+    #     logger.error(exc)
+
+    sys.exit(0)
 
 
 def pick_parser():
@@ -154,7 +171,7 @@ def pick_parser():
                         help="""Number of processors to use.
                         Default: look in the configuration file (1 if undefined)""")
     parser.add_argument("--json-conf", dest="json_conf",
-                        type=to_json, required=True,
+                        type=argparse.FileType("r"), required=True,
                         help="JSON/YAML configuration file for Mikado.")
     parser.add_argument("--scoring-file", dest="scoring_file",
                         type=str, default=None,
@@ -188,7 +205,7 @@ def pick_parser():
     parser.add_argument('--purge', action='store_true', default=False,
                         help='''Flag. If set, the pipeline will suppress any loci
                         whose transcripts do not pass the requirements set in the JSON file.''')
-    parser.add_argument("--subloci-from-cds-only", dest="subloci_from_cds_only",
+    parser.add_argument("--cds-only", dest="cds_only",
                         default=False, action="store_true",
                         help=""""Flag. If set, Mikado will only look for overlap in the coding features
                         when clustering transcripts (unless one transcript is non-coding, in which case

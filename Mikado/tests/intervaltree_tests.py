@@ -47,6 +47,7 @@ class NeighborTestCase(unittest.TestCase):
             r = iv.right(i-1, max_dist=10, n=1)
             self.assertEqual(r[0].start, i)
 
+
 class UpDownStreamTestCase(unittest.TestCase):
 
     def setUp(self):
@@ -115,8 +116,6 @@ class LotsaTestCase(unittest.TestCase):
             iv = iv.insert( 0, 1, Interval(0, 1) )
         self.intervals = iv
 
-
-
     def test_count(self):
         iv = self.intervals
 
@@ -132,7 +131,6 @@ class LotsaTestCase(unittest.TestCase):
         # now increase max_dist
         u = iv.right(1, n=9999, max_dist=99999)
         self.assertEqual(len(u), 9999)
-
 
     def test_max_dist(self):
         iv = self.intervals
@@ -206,6 +204,36 @@ class IntervalTreeTest(unittest.TestCase):
 
         fn = lambda ival: self.assertTrue(ival.interval)
         self.iv.traverse(fn)
+
+    def test_multiple_values(self):
+
+        iv = IntervalTree()
+        exons = [(100, 300), (501, 800), (1001, 1300), (1501, 1800)]
+        for index, exon in enumerate(exons):
+            interval = Interval(*exon, value="exon")
+            iv.insert_interval(interval)
+            if index < len(exons) - 1:
+                intron = Interval(exon[1] + 1, exons[index+1][0] - 1, value="intron")
+                iv.insert_interval(intron)
+
+        self.assertEqual(iv.find(200, 600),
+                         [Interval(100, 300, value="exon"),
+                          Interval(301, 500, value="intron"),
+                          Interval(501, 800, value="exon")])
+        self.assertEqual(iv.find(200, 600, strict=True),
+                         [Interval(301, 500, value="intron")])
+        self.assertEqual(iv.find(200, 600, strict=True, value="exon"),
+                         [])
+        self.assertEqual(iv.find(200, 600, strict=False, value="exon"),
+                         [Interval(100, 300, value="exon"),
+                          # Interval(301, 500, value="intron"),
+                          Interval(501, 800, value="exon")]
+                         )
+        self.assertEqual(iv.find(200, 600, strict=False, value="intron"),
+                         # [Interval(100, 300, value="exon"),
+                          [Interval(301, 500, value="intron")]
+                          # Interval(501, 800, value="exon")]
+                         )
 
 if __name__ == "__main__":
 

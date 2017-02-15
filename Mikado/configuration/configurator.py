@@ -7,21 +7,23 @@ of Mikado configuration files. Missing values are replaced with default ones,
 while existing values are checked for type and consistency.
 """
 
-import os.path
 import io
-import re
-import yaml
-import pkg_resources
-from ..exceptions import InvalidJson, UnrecognizedRescaler
-from ..loci.transcript import Transcript
-from ..utilities import merge_dictionaries
 import json
-import jsonschema
-from multiprocessing import get_start_method
-from pkg_resources import resource_stream, resource_filename
+import os.path
 import pickle
+import re
+from multiprocessing import get_start_method
+from logging import Logger
+import jsonschema
+import pkg_resources
+import yaml
+from pkg_resources import resource_stream, resource_filename
 from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
+from ..transcripts.transcript import Transcript
+from ..exceptions import InvalidJson, UnrecognizedRescaler
+from ..utilities import merge_dictionaries
 from ..utilities.log_utils import create_default_logger
+
 # from frozendict import frozendict
 
 __author__ = "Luca Venturini"
@@ -223,7 +225,7 @@ def check_all_requirements(json_conf):
         json_conf = check_requirements(json_conf,
                                        require_schema,
                                        "not_fragmentary")
-    except InvalidJson as exc:
+    except (InvalidJson, SyntaxError) as exc:
         print(json_conf["not_fragmentary"]["expression"])
         print(type(json_conf["not_fragmentary"]["expression"]))
         raise exc
@@ -235,13 +237,23 @@ def check_all_requirements(json_conf):
     # Check requirements will MODIFY IN PLACE the expression, so the copying
     # must happend before, not after.
 
-    json_conf = check_requirements(json_conf,
-                                   require_schema,
-                                   "as_requirements")
+    try:
+        json_conf = check_requirements(json_conf,
+                                       require_schema,
+                                       "as_requirements")
+    except (InvalidJson, SyntaxError) as exc:
+        print(json_conf["as_requirements"]["expression"])
+        print(type(json_conf["as_requirements"]["expression"]))
+        raise exc
 
-    json_conf = check_requirements(json_conf,
-                                   require_schema,
-                                   "requirements")
+    try:
+        json_conf = check_requirements(json_conf,
+                                       require_schema,
+                                       "requirements")
+    except (InvalidJson, SyntaxError) as exc:
+        print(json_conf["as_requirements"]["expression"])
+        print(type(json_conf["as_requirements"]["expression"]))
+        raise exc
 
     return json_conf
 
@@ -281,6 +293,7 @@ def check_requirements(json_conf, require_schema, index):
                 key_name = ".".join(dots)
             else:
                 key_name = ".".join(dots[:-1])
+                print(key_name)
             key_value = dots[1]
         else:
             key_name = dots[0]
@@ -329,8 +342,8 @@ def check_requirements(json_conf, require_schema, index):
         expr = " ".join(json_conf[index]["expression"])
         newexpr = expr[:]
 
-        keys = list(key for key in re.findall(
-            "([^ ()]+)", expr) if key not in ("and", "or", "not", "xor"))
+        keys = set([key for key in re.findall(
+            "([^ ()]+)", expr) if key not in ("and", "or", "not", "xor")])
 
         diff_params = set.difference(
             set(keys), set(json_conf[index]["parameters"].keys()))
@@ -425,7 +438,40 @@ def create_validator(simple=False):
     return validator
 
 
-def check_json(json_conf, simple=False, external_dict=None):
+def _check_scoring_file(json_conf, logger):
+
+    overwritten = False
+
+    if json_conf.get("__loaded_scoring", json_conf["pick"]["scoring_file"]) != json_conf["pick"]["scoring_file"]:
+        logger.info("Overwriting the scoring configuration using '%s' as scoring file",
+                    json_conf["pick"]["scoring_file"])
+        overwritten = True
+        [json_conf.pop(_, None) for _ in ("scoring", "requirements", "as_requirements", "not_fragmentary")]
+
+    if os.path.exists(os.path.abspath(json_conf["pick"]["scoring_file"])):
+        json_conf["pick"]["scoring_file"] = os.path.abspath(
+            json_conf["pick"]["scoring_file"])
+    elif os.path.exists(os.path.join(
+            os.path.dirname(json_conf["filename"]),
+            json_conf["pick"]["scoring_file"])):
+        json_conf["pick"]["scoring_file"] = os.path.join(
+            os.path.dirname(json_conf["filename"]),
+            json_conf["pick"]["scoring_file"])
+    elif os.path.exists(
+            resource_filename(__name__, os.path.join("scoring_files",
+                                                     json_conf["pick"]["scoring_file"]))):
+        json_conf["pick"]["scoring_file"] = resource_filename(
+            __name__,
+            os.path.join("scoring_files",
+                         json_conf["pick"]["scoring_file"]))
+    else:
+        raise InvalidJson(
+            "Scoring file not found: {0}".format(
+                json_conf["pick"]["scoring_file"]))
+    return json_conf, overwritten
+
+
+def check_json(json_conf, simple=False, external_dict=None, logger=None):
 
     """
     Wrapper for the various checks performed on the configuration file.
@@ -439,6 +485,9 @@ def check_json(json_conf, simple=False, external_dict=None):
 
     :param external_dict: optional external dictionary with values to pass to the configuration.
     :type external_dict: (dict|None)
+
+    :param logger: external logger instance
+    :type logger: Logger
 
     :return json_conf
     :rtype: dict
@@ -454,7 +503,9 @@ def check_json(json_conf, simple=False, external_dict=None):
     # with open(blue_print) as blue:
     #     blue_print = json.load(blue)
 
-    logger = create_default_logger("check_json")
+    if not isinstance(logger, Logger):
+        logger = create_default_logger("check_json")
+
     try:
         validator = create_validator(simple=simple)
 
@@ -465,54 +516,36 @@ def check_json(json_conf, simple=False, external_dict=None):
         validator.validate(json_conf)
         assert "files" in json_conf["pick"]
 
-        if "scoring_file" in json_conf["pick"]:
-            if os.path.exists(os.path.abspath(json_conf["pick"]["scoring_file"])):
-                json_conf["pick"]["scoring_file"] = os.path.abspath(
-                    json_conf["pick"]["scoring_file"])
-            elif os.path.exists(os.path.join(
-                    os.path.dirname(json_conf["filename"]),
-                    json_conf["pick"]["scoring_file"])):
-                json_conf["pick"]["scoring_file"] = os.path.join(
-                    os.path.dirname(json_conf["filename"]),
-                    json_conf["pick"]["scoring_file"])
-            elif os.path.exists(
-                    resource_filename(__name__, os.path.join("scoring_files",
-                                                             json_conf["pick"]["scoring_file"]))):
-                json_conf["pick"]["scoring_file"] = resource_filename(
-                    __name__,
-                    os.path.join("scoring_files",
-                                 json_conf["pick"]["scoring_file"]))
-            else:
-                raise InvalidJson(
-                    "Scoring file not found: {0}".format(
-                        json_conf["pick"]["scoring_file"]))
+        overwritten = False
 
-            if json_conf["pick"]["scoring_file"].endswith(("yaml", "json")):
-                with open(json_conf["pick"]["scoring_file"]) as scoring_file:
-                    if json_conf["pick"]["scoring_file"].endswith("yaml"):
-                        scoring = yaml.load(scoring_file)
-                    else:
-                        scoring = json.load(scoring_file)
-                assert isinstance(json_conf, dict) and isinstance(scoring, dict),\
-                    (type(json_conf), type(scoring))
+        json_conf, overwritten = _check_scoring_file(json_conf, logger)
 
+        if json_conf["pick"]["scoring_file"].endswith(("yaml", "json")):
+            with open(json_conf["pick"]["scoring_file"]) as scoring_file:
+                if json_conf["pick"]["scoring_file"].endswith("yaml"):
+                    scoring = yaml.load(scoring_file)
+                else:
+                    scoring = json.load(scoring_file)
+            assert isinstance(json_conf, dict) and isinstance(scoring, dict),\
+                (type(json_conf), type(scoring))
+            json_conf = merge_dictionaries(json_conf, scoring)
+            json_conf = check_all_requirements(json_conf)
+            json_conf = check_scoring(json_conf)
+
+        elif json_conf["pick"]["scoring_file"].endswith(("model", "pickle")):
+            with open(json_conf["pick"]["scoring_file"], "rb") as forest:
+                scoring = pickle.load(forest)
+                assert isinstance(scoring, dict)
+                assert "scoring" in scoring and isinstance(scoring["scoring"], (RandomForestRegressor, RandomForestClassifier))
+                del scoring["scoring"]
                 json_conf = merge_dictionaries(json_conf, scoring)
                 json_conf = check_all_requirements(json_conf)
-                json_conf = check_scoring(json_conf)
+        else:
+            raise InvalidJson(
+                "Invalid scoring file: {0}".format(
+                    json_conf["pick"]["scoring_file"]))
 
-            elif json_conf["pick"]["scoring_file"].endswith(("model", "pickle")):
-
-                with open(json_conf["pick"]["scoring_file"], "rb") as forest:
-                    scoring = pickle.load(forest)
-                    assert isinstance(scoring, dict)
-                    assert "scoring" in scoring and isinstance(scoring["scoring"], (RandomForestRegressor, RandomForestClassifier))
-                    del scoring["scoring"]
-                    json_conf = merge_dictionaries(json_conf, scoring)
-                    json_conf = check_all_requirements(json_conf)
-            else:
-                raise InvalidJson(
-                    "Invalid scoring file: {0}".format(
-                        json_conf["pick"]["scoring_file"]))
+        json_conf["__loaded_scoring"] = json_conf["pick"]["scoring_file"]
 
         if external_dict is not None:
             if not isinstance(external_dict, dict):
@@ -531,10 +564,14 @@ def check_json(json_conf, simple=False, external_dict=None):
         logger.exception(exc)
         raise
 
+    if overwritten is True:
+        logger.debug("Scoring parameters: {}".format("\n".join(["\n"] + [
+            "{}: {}".format(_, json_conf["scoring"][_]) for _ in json_conf["scoring"].keys()])))
+
     return json_conf
 
 
-def to_json(string, simple=False):
+def to_json(string, simple=False, logger=None):
     """
     Function to serialise the JSON for configuration and check its consistency.
 
@@ -544,9 +581,15 @@ def to_json(string, simple=False):
     :param simple: boolean flag indicating whether we desire
                    the simplified version of the configuration, or not.
     :type simple: bool
+
+    :param logger: optional logger to be used.
+    :type logger: Logger
+
+    :rtype: dict
     """
 
-    logger = create_default_logger("to_json")
+    if not isinstance(logger, Logger):
+        logger = create_default_logger("to_json")
 
     try:
         if string is None or string == '' or string == dict():
@@ -563,7 +606,7 @@ def to_json(string, simple=False):
                     json_dict = json.load(json_file)
         json_dict["filename"] = string
         # json_dict = frozendict(check_json(json_dict, simple=simple))
-        json_dict = check_json(json_dict, simple=simple)
+        json_dict = check_json(json_dict, simple=simple, logger=logger)
     except Exception as exc:
         logger.exception(exc)
         raise

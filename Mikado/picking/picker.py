@@ -33,11 +33,13 @@ from ..loci.superlocus import Superlocus, Transcript
 from ..configuration.configurator import to_json, check_json  # Necessary for nosetests
 from ..utilities import dbutils, merge_partial
 from ..exceptions import UnsortedInput, InvalidJson, InvalidTranscript
-from .loci_processer import analyse_locus, LociProcesser, merge_loci
+from .loci_processer import analyse_locus, LociProcesser, merge_loci, print_locus
 import multiprocessing.managers
 from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
 import pickle
-
+import warnings
+logging.captureWarnings(True)
+warnings.simplefilter("always")
 
 # pylint: disable=too-many-instance-attributes
 class Picker:
@@ -55,7 +57,6 @@ class Picker:
         prepared by the json_utils functions.
 
         :param json_conf: Either a configuration dictionary or the configuration file.
-        :type json_conf: str,dict
 
         :param commandline: optional, the commandline used to start the program
         :type commandline: str
@@ -71,62 +72,27 @@ class Picker:
                              "log_handler", "log_writer", "logger", "engine"]
 
         # Now we start the real work
-        if isinstance(json_conf, str):
-            assert os.path.exists(json_conf)
-            json_conf = to_json(json_conf)
-        else:
-            json_conf = check_json(json_conf)
-
         self.commandline = commandline
         self.json_conf = json_conf
+
+        self.__load_configuration()
         self.regressor = None
 
         self.procs = self.json_conf["pick"]["run_options"]["procs"]
-        self.input_file = self.json_conf["pick"]["files"]["input"]
+
         # Check the input file
         with self.define_input() as _:
             pass
 
-        if self.json_conf["pick"]["files"]["subloci_out"]:
-            self.sub_out = path_join(
-                self.json_conf["pick"]["files"]["output_dir"],
-                self.json_conf["pick"]["files"]["subloci_out"]
-            )
-        else:
-            self.sub_out = ""
-        if self.json_conf["pick"]["files"]["monoloci_out"]:
-            self.monolocus_out = path_join(
-                self.json_conf["pick"]["files"]["output_dir"],
-                self.json_conf["pick"]["files"]["monoloci_out"]
-            )
-        else:
-            self.monolocus_out = ""
-        self.locus_out = path_join(
-            self.json_conf["pick"]["files"]["output_dir"],
-            self.json_conf["pick"]["files"]["loci_out"])
-
-        assert self.locus_out != ''
-        assert self.locus_out != self.sub_out and self.locus_out != self.monolocus_out
-        assert (not self.sub_out and not self.monolocus_out) or (self.sub_out != self.monolocus_out)
-
+        self.__create_output_handles()
         # pylint: disable=no-member
         multiprocessing.set_start_method(self.json_conf["multiprocessing_method"],
                                          force=True)
-        self.logging_queue = multiprocessing.Queue(-1)
-        self.printer_queue = multiprocessing.Queue(-1)
-        self.setup_logger()
+
+        # self.setup_logger()
         self.logger.info("Multiprocessing method: %s",
                          self.json_conf["multiprocessing_method"])
-        self.context = multiprocessing.get_context()
-        if self.json_conf["pick"]["scoring_file"].endswith((".pickle", ".model")):
-            with open(self.json_conf["pick"]["scoring_file"], "rb") as forest:
-                self.regressor = pickle.load(forest)
-            if not isinstance(self.regressor["scoring"], (RandomForestRegressor, RandomForestClassifier)):
-                exc = TypeError("Invalid regressor provided, type: %s", type(self.regressor["scoring"]))
-                self.logger.critical(exc)
-                return
-        else:
-            self.regressor = None
+
         # pylint: enable=no-member
         self.manager = self.context.Manager()
 
@@ -140,22 +106,6 @@ class Picker:
         dbutils.DBBASE.metadata.create_all(engine)
         engine.dispose()
 
-        self.logger_queue_handler = logging_handlers.QueueHandler(self.logging_queue)
-        self.queue_logger = logging.getLogger("parser")
-        self.queue_logger.addHandler(self.logger_queue_handler)
-
-        # Configure SQL logging
-        sqllogger = logging.getLogger("sqlalchemy.engine")
-        # if json_conf["log_settings"]["log_level"] == "DEBUG":
-        #     sqllogger.setLevel("DEBUG")
-        # else:
-        sqllogger.setLevel(json_conf["log_settings"]["sql_level"])
-        sqllogger.addHandler(self.logger_queue_handler)
-
-        # We need to set this to the lowest possible level,
-        # otherwise we overwrite the global configuration
-        self.queue_logger.setLevel(self.json_conf["log_settings"]["log_level"])
-        self.queue_logger.propagate = False
         if self.json_conf["pick"]["run_options"]["single_thread"] is True:
             # Reset threads to 1
             if self.json_conf["pick"]["run_options"]["procs"] > 1:
@@ -195,6 +145,81 @@ memory intensive, proceed with caution!")
                 "Invalid input file: {0}".format(self.input_file))
 
         return parser(self.input_file)
+
+    def __load_configuration(self):
+
+        """Private method to load the configuration"""
+
+        if isinstance(self.json_conf, str):
+            assert os.path.exists(self.json_conf)
+            self.json_conf = to_json(self.json_conf, logger=self.logger)
+            # pylint: disable=no-member
+            multiprocessing.set_start_method(self.json_conf["multiprocessing_method"],
+                                             force=True)
+            self.input_file = self.json_conf["pick"]["files"]["input"]
+            self.setup_logger()
+        elif isinstance(self.json_conf, dict):
+            # pylint: disable=no-member
+            self.input_file = self.json_conf["pick"]["files"]["input"]
+            multiprocessing.set_start_method(self.json_conf["multiprocessing_method"],
+                                             force=True)
+            self.setup_logger()
+            self.json_conf = check_json(self.json_conf, logger=self.logger)
+        else:
+            raise TypeError(type(self.json_conf))
+        assert isinstance(self.json_conf, dict)
+
+        for key in ("remove_overlapping_fragments", "flank", "purge"):
+            if key in self.json_conf["pick"]["run_options"]:
+                # Put warnings in place for the deprecation of some options.
+
+                if key == "remove_overlapping_fragments":
+                    self.json_conf["pick"]["fragments"]["remove"] = self.json_conf["pick"]["run_options"].pop(key)
+                    new_home = "fragments/remove"
+                else:
+                    self.json_conf["pick"]["clustering"][key] = self.json_conf["pick"]["run_options"].pop(key)
+                    new_home = "clustering/{}".format(key)
+                warns = PendingDeprecationWarning(
+                    """The \"{}\" property has now been moved to pick/{}. Please update your configuration files in the future.""".format(
+                        key, new_home))
+                self.logger.warn(warns)
+
+        self.context = multiprocessing.get_context()
+        if self.json_conf["pick"]["scoring_file"].endswith((".pickle", ".model")):
+            with open(self.json_conf["pick"]["scoring_file"], "rb") as forest:
+                self.regressor = pickle.load(forest)
+            if not isinstance(self.regressor["scoring"], (RandomForestRegressor, RandomForestClassifier)):
+                exc = TypeError("Invalid regressor provided, type: %s", type(self.regressor["scoring"]))
+                self.logger.critical(exc)
+                return
+        else:
+            self.regressor = None
+
+    def __create_output_handles(self):
+
+        """Create all the output-related variables."""
+
+        if self.json_conf["pick"]["files"]["subloci_out"]:
+            self.sub_out = path_join(
+                self.json_conf["pick"]["files"]["output_dir"],
+                self.json_conf["pick"]["files"]["subloci_out"]
+            )
+        else:
+            self.sub_out = ""
+        if self.json_conf["pick"]["files"]["monoloci_out"]:
+            self.monolocus_out = path_join(
+                self.json_conf["pick"]["files"]["output_dir"],
+                self.json_conf["pick"]["files"]["monoloci_out"]
+            )
+        else:
+            self.monolocus_out = ""
+        self.locus_out = path_join(
+            self.json_conf["pick"]["files"]["output_dir"],
+            self.json_conf["pick"]["files"]["loci_out"])
+
+        assert self.locus_out != ''
+        assert self.locus_out != self.sub_out and self.locus_out != self.monolocus_out
+        assert (not self.sub_out and not self.monolocus_out) or (self.sub_out != self.monolocus_out)
 
     def setup_shm_db(self):
         """
@@ -245,6 +270,8 @@ memory intensive, proceed with caution!")
         logging.handlers.QueueListener instance listening on the logging_queue
         instance attribute (which is a normal mp.Manager.Queue instance)."""
 
+        self.logging_queue = multiprocessing.Queue(-1)
+        self.printer_queue = multiprocessing.Queue(-1)
         self.formatter = formatter
         self.main_logger = logging.getLogger("main_logger")
         if not os.path.exists(self.json_conf["pick"]["files"]["output_dir"]):
@@ -317,6 +344,20 @@ memory intensive, proceed with caution!")
         self.log_writer = logging_handlers.QueueListener(
             self.logging_queue, self.logger)
         self.log_writer.start()
+
+        self.logger_queue_handler = logging_handlers.QueueHandler(self.logging_queue)
+        self.queue_logger = logging.getLogger("parser")
+        self.queue_logger.addHandler(self.logger_queue_handler)
+
+        self.queue_logger.setLevel(logging.getLevelName(self.json_conf["log_settings"]["log_level"]))
+        self.logger.warn("Current level for queue: %s", logging.getLevelName(self.queue_logger.level))
+
+        self.queue_logger.propagate = False
+
+        # Configure SQL logging
+        sqllogger = logging.getLogger("sqlalchemy.engine")
+        sqllogger.setLevel(self.json_conf["log_settings"]["sql_level"])
+        sqllogger.addHandler(self.logger_queue_handler)
 
         return
 
@@ -489,90 +530,6 @@ memory intensive, proceed with caution!")
     # This method has many local variables, but most (9!) are
     # actually file handlers. I cannot trim them down for now.
     # pylint: disable=too-many-locals
-
-    def _print_locus(self, stranded_locus, gene_counter, logger=None, handles=()):
-
-        """
-        Private method that handles a single superlocus for printing.
-        It also detects and flags/discard fragmentary loci.
-        :param stranded_locus: the stranded locus to analyse
-        :param gene_counter: A counter used to rename the genes/transcripts progressively
-        :param logger: logger instance
-        :param handles: the handles to print to
-        :return:
-        """
-
-        locus_metrics, locus_scores, locus_out = handles[0]
-        sub_metrics, sub_scores, sub_out = handles[1]
-        mono_metrics, mono_scores, mono_out = handles[2]
-
-        stranded_locus.logger = logger
-        if self.sub_out != '':  # Skip this section if no sub_out is defined
-            sub_lines = stranded_locus.__str__(
-                level="subloci",
-                print_cds=not self.json_conf["pick"]["run_options"]["exclude_cds"])
-            if sub_lines != '':
-                print(sub_lines, file=sub_out)
-                # sub_out.flush()
-            sub_metrics_rows = [x for x in stranded_locus.print_subloci_metrics()
-                                if x != {} and "tid" in x]
-            sub_scores_rows = [x for x in stranded_locus.print_subloci_scores()
-                               if x != {} and "tid" in x]
-            for row in sub_metrics_rows:
-                sub_metrics.writerow(row)
-                # sub_metrics.flush()
-            for row in sub_scores_rows:
-                sub_scores.writerow(row)
-                # sub_scores.flush()
-        if self.monolocus_out != '':
-            mono_lines = stranded_locus.__str__(
-                level="monosubloci",
-                print_cds=not self.json_conf["pick"]["run_options"]["exclude_cds"])
-            if mono_lines != '':
-                print(mono_lines, file=mono_out)
-                # mono_out.flush()
-            mono_metrics_rows = [x for x in stranded_locus.print_subloci_metrics()
-                                 if x != {} and "tid" in x]
-            mono_scores_rows = [x for x in stranded_locus.print_subloci_scores()
-                                if x != {} and "tid" in x]
-            for row in mono_metrics_rows:
-                mono_metrics.writerow(row)
-                # mono_metrics.flush()
-            for row in mono_scores_rows:
-                mono_scores.writerow(row)
-                # mono_scores.flush()
-                
-        for locus in stranded_locus.loci:
-            gene_counter += 1
-            fragment_test = (
-                self.json_conf["pick"]["run_options"]["remove_overlapping_fragments"]
-                is True and stranded_locus.loci[locus].is_fragment is True)
-
-            if fragment_test is True:
-                continue
-            new_id = "{0}.{1}G{2}".format(
-                self.json_conf["pick"]["output_format"]["id_prefix"],
-                stranded_locus.chrom, gene_counter)
-            stranded_locus.loci[locus].id = new_id
-            stranded_locus.loci[locus].logger = self.logger
-
-        locus_lines = stranded_locus.__str__(
-            print_cds=not self.json_conf["pick"]["run_options"]["exclude_cds"],
-            level="loci")
-        locus_metrics_rows = [_ for _ in stranded_locus.print_loci_metrics()]
-        locus_scores_rows = [_ for _ in stranded_locus.print_loci_scores()]
-
-        for row in locus_metrics_rows:
-            locus_metrics.writerow(row)
-            # locus_metrics.flush()
-        for row in locus_scores_rows:
-            locus_scores.writerow(row)
-            # locus_scores.flush()
-
-        if locus_lines != '':
-            print(locus_lines, file=locus_out)
-            # locus_out.flush()
-        return gene_counter
 
     def __getstate__(self):
 
@@ -891,14 +848,16 @@ memory intensive, proceed with caution!")
                         self.__test_sortedness(row, current_transcript)
                         if Superlocus.in_locus(
                                 current_locus, current_transcript,
-                                flank=self.json_conf["pick"]["run_options"]["flank"]) is True:
+                                flank=self.json_conf["pick"]["clustering"]["flank"]) is True:
                             current_locus.add_transcript_to_locus(current_transcript,
                                                                   check_in_locus=False)
                         else:
                             if current_locus is not None:
                                 counter += 1
-                                self.logger.debug("Submitting locus # %d (%s)", counter,
-                                                  None if not current_locus else current_locus.id)
+                                self.logger.debug("Submitting locus # %d (%s), with transcripts:\n%s",
+                                                  counter,
+                                                  None if not current_locus else current_locus.id,
+                                                  ",".join(list(current_locus.transcripts.keys())))
                                 locus_queue.put((current_locus, counter))
                             current_locus = Superlocus(
                                 current_transcript,
@@ -920,7 +879,7 @@ memory intensive, proceed with caution!")
         if current_transcript is not None and invalid is False:
             if Superlocus.in_locus(
                     current_locus, current_transcript,
-                    flank=self.json_conf["pick"]["run_options"]["flank"]) is True:
+                    flank=self.json_conf["pick"]["clustering"]["flank"]) is True:
                 current_locus.add_transcript_to_locus(
                     current_transcript, check_in_locus=False)
             else:
@@ -947,8 +906,9 @@ memory intensive, proceed with caution!")
 
         counter += 1
         locus_queue.put((current_locus, counter))
-        self.logger.debug("Submitting locus %s, counter %d",
-                          current_locus.id, counter)
+        self.logger.debug("Submitting locus %s, counter %d, with transcripts:\n%s",
+                          current_locus.id, counter,
+                          ", ".join(list(current_locus.transcripts.keys())))
         locus_queue.put(("EXIT", float("inf")))
         self.logger.info("Joining children processes")
         [_.join() for _ in working_processes]
@@ -1014,21 +974,17 @@ memory intensive, proceed with caution!")
 
         handles = self.__get_output_files()
 
-        locus_printer = functools.partial(self._print_locus,
+        locus_printer = functools.partial(print_locus,
+                                          handles=handles,
                                           logger=logger,
-                                          handles=handles)
+                                          counter=None,
+                                          json_conf=self.json_conf)
 
         # last_printed = -1
         curr_chrom = None
         gene_counter = 0
 
         if self.json_conf["pick"]["run_options"]["preload"] is False:
-            # db_connection = functools.partial(dbutils.create_connector,
-            #                                   self.json_conf,
-            #                                   self.logger)
-            # self.connection_pool = sqlalchemy.pool.QueuePool(db_connection,
-            #                                                  pool_size=1,
-            #                                                  max_overflow=2)
             self.engine = dbutils.connect(json_conf=self.json_conf, logger=self.logger)
         else:
             self.engine = None
@@ -1053,7 +1009,7 @@ memory intensive, proceed with caution!")
                         self.__test_sortedness(row, current_transcript)
                         if Superlocus.in_locus(
                                 current_locus, current_transcript,
-                                flank=self.json_conf["pick"]["run_options"]["flank"]) is True:
+                                flank=self.json_conf["pick"]["clustering"]["flank"]) is True:
                             current_locus.add_transcript_to_locus(current_transcript,
                                                                   check_in_locus=False)
                         else:
@@ -1094,7 +1050,7 @@ memory intensive, proceed with caution!")
         if current_transcript is not None and invalid is False:
             if Superlocus.in_locus(
                     current_locus, current_transcript,
-                    flank=self.json_conf["pick"]["run_options"]["flank"]) is True:
+                    flank=self.json_conf["pick"]["clustering"]["flank"]) is True:
                 current_locus.add_transcript_to_locus(
                     current_transcript, check_in_locus=False)
             else:
@@ -1201,7 +1157,6 @@ memory intensive, proceed with caution!")
             os.remove(self.json_conf["pick"]["run_options"]["shm_db"])
 
         self.main_logger.info("Finished analysis of %s", self.input_file)
-
 
         sys.exit(0)
 # pylint: enable=too-many-instance-attributes

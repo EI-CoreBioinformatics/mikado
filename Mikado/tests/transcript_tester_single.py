@@ -4,16 +4,14 @@
 Unit test for monoexonic transcripts.
 """
 
-import unittest
-import re
-from Mikado.loci.transcript_methods.finalizing import _check_cdna_vs_utr
-import intervaltree
-import Mikado.parsers
-import Mikado.loci
-from Mikado.loci import Transcript
-import Mikado.exceptions
 import operator
-# from Mikado.py.serializers.orf import Orf
+import re
+import unittest
+
+import Mikado.exceptions
+import Mikado.loci
+import Mikado.parsers
+from Mikado.loci import Transcript
 from Mikado.utilities.log_utils import create_null_logger, create_default_logger
 
 
@@ -159,7 +157,7 @@ Chr1\tTAIR10\texon\t5928\t8737\t.\t.\t.\tParent=AT1G01020.1"""
         transcript.add_exons(gff_lines[1:])
 
         with self.assertRaises(Mikado.exceptions.InvalidCDS):
-            Mikado.loci.transcript_methods.finalizing._check_cdna_vs_utr(transcript)
+            Mikado.transcripts.transcript_methods.finalizing._check_cdna_vs_utr(transcript)
 
     def test_utr(self):
 
@@ -573,7 +571,7 @@ class TestWheatRNA(unittest.TestCase):
 
         after_sorting = sorted([bed, bed2],
                                reverse=True,
-                               key=Mikado.loci.transcript_methods.retrieval.orf_sorter
+                               key=Mikado.transcripts.transcript_methods.retrieval.orf_sorter
                                )
 
         self.assertEqual(after_sorting[0], bed)

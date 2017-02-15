@@ -5,11 +5,11 @@
 Script to extract features from a GTF with certain coordinates.
 """
 
-import sys
 import argparse
-from ...parsers.GTF import GTF
-from ...loci.transcript import Transcript
+import sys
 
+from Mikado.transcripts.transcript import Transcript
+from ...parsers.GTF import GTF
 
 __author__ = 'Luca Venturini'
 

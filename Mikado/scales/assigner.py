@@ -4,23 +4,24 @@
 This class is the main workhorse of the compare.py utility.
 """
 
-import sys
-import csv
-from ..utilities.intervaltree import IntervalTree
-from logging import handlers as log_handlers
-import queue
-import logging
-import collections
 import argparse
+import collections
+import csv
+import gzip
+import logging
 import operator
+import queue
+import sys
 from collections import namedtuple
-from .resultstorer import ResultStorer
-from ..loci.transcript import Transcript
-from ..exceptions import InvalidTranscript, InvalidCDS
+from functools import partial
+from logging import handlers as log_handlers
+from re import search as re_search
+from Mikado.transcripts.transcript import Transcript
 from .accountant import Accountant
 from .contrast import compare as c_compare
-from functools import partial
-import gzip
+from .resultstorer import ResultStorer
+from ..exceptions import InvalidTranscript, InvalidCDS
+from ..utilities.intervaltree import IntervalTree
 
 
 # noinspection PyPropertyAccess,PyPropertyAccess
@@ -193,14 +194,17 @@ class Assigner:
     @staticmethod
     def get_f1(curr_result):
         """
-        Simple getter for F1 statistics (N_F1 and J_F1)
+        Simple getter for F1 statistics (N_F1, J_F1 and distance).
         :param curr_result: a result storer
         :type curr_result: ResultStorer
 
-        :return: (J_F1, N_F1)
-        :rtype (float, float)
+        :return: (J_F1, N_F1, distance)
+        :rtype (float, float, int)
         """
-        return curr_result.j_f1[0], curr_result.n_f1[0]
+        return (curr_result.j_f1[0],
+                curr_result.n_f1[0],
+                -curr_result.distance[0],
+                (curr_result.ccode[0] not in ("x", "X")))
 
     def __prepare_transcript(self, prediction: Transcript):
         """
@@ -258,7 +262,7 @@ class Assigner:
 
         strands = collections.defaultdict(set)
 
-        # Get all the results for the single genea
+        # Get all the results for the single gene
         # We *want* to do the calculation for all hits
         for match in matches:
             match_to_gene[match[0]] = self.positions[prediction.chrom][match[0]]
@@ -310,9 +314,16 @@ class Assigner:
             # Now retrieve the results according to their order on the genome
             # Keep only the result, not their position
             best = [_[1] for _ in sorted(best, key=lambda res: (res[0][0], res[0][1]))]
+            chrom = prediction.chrom
+            start = min([prediction.start] + [self.genes[_.ref_gene[0]][_.ref_id[0]].start for _ in best])
+            end = max([prediction.end] + [self.genes[_.ref_gene[0]][_.ref_id[0]].end for _ in best])
+            location = "{}:{}..{}".format(chrom, start, end)
+
             for key in ResultStorer.__slots__:
                 if key in ["gid", "tid", "distance", "tid_num_exons"]:
                     values.append(getattr(best[0], key))
+                elif key == "location":
+                    values.append(location)
                 elif key == "ccode":
                     values.append(tuple(["f"] + [_.ccode[0] for _ in best]))
                 else:
@@ -358,18 +369,22 @@ class Assigner:
                           prediction.id,
                           matches)
 
+        same_strand = False
         if len(matches) > 1 and prediction.strand is not None:
-                correct = list()
-                for match in matches:
-                    for gid in self.positions[prediction.chrom][match[0]]:
-                        if any([self.genes[gid].strand in (None, prediction.strand)]):
-                            correct.append(match)
-                            break
-                if len(correct) > 0:
-                    matches = correct[:]
-                del correct
+            correct = list()
+            for match in matches:
+                for gid in self.positions[prediction.chrom][match[0]]:
+                    if any([self.genes[gid].strand in (None, prediction.strand)]):
+                        correct.append(match)
+                        break
+            if len(correct) > 0:
+                matches = correct[:]
+                same_strand = True
+            del correct
+        elif len(matches) > 1 and prediction.strand is None:
+            same_strand = True
 
-        if len(matches) > 1:
+        if len(matches) > 1 and same_strand is True:
             self.logger.debug("More than one match for %s: %s",
                               prediction.id,
                               matches)
@@ -390,6 +405,8 @@ class Assigner:
         return results, best_result
 
     def self_analyse_prediction(self, prediction: Transcript, distances):
+
+        """This method will be invoked during a self analysis run."""
 
         assert len(distances) >= 1 and distances[0][1] == 0
 
@@ -422,7 +439,7 @@ class Assigner:
                                        prediction.parent[0],
                                        prediction.exon_num,
                                        "-",
-                                       *[0] * 9 + ["-"])
+                                       *[0] * 9 + ["-"] + [prediction.location])
             self.stat_calculator.store(prediction, best_result, None)
             results = [best_result]
         elif genes[0][1] > 0:
@@ -471,15 +488,11 @@ class Assigner:
                                 gene.id, prediction.id, ", ".join(list(gene.transcripts.keys()))
                             ))
 
-                    # best.append(result_dict[gene.id][0])
-
                 if same_strand is True:
                     # This is a fusion, period
                     results = []
                     best_results = []
                     for gene in result_dict:
-
-
                         if result_dict[gene][0].n_recall[0] > 10 or result_dict[gene][0].j_f1[0] > 0:
                             results.extend(result_dict[gene])
                             best_results.append(result_dict[gene][0])
@@ -572,13 +585,14 @@ class Assigner:
             if len(distances) == 0 or distances[0][1] > self.args.distance:
                 ccode = "u"
                 # noinspection PyTypeChecker,PyUnresolvedReferences
+                print(prediction.location)
                 best_result = ResultStorer("-", "-",
                                            ccode,
                                            prediction.id,
                                            prediction.parent[0],
                                            prediction.exon_num,
                                            "-",
-                                           *[0] * 9 + ["-"])
+                                           *[0] * 9 + ["-"] + [prediction.location])
                 self.stat_calculator.store(prediction, best_result, None)
                 results = [best_result]
             elif distances[0][1] > 0:
@@ -765,13 +779,15 @@ class Assigner:
                           "best_ccode", "best_tid", "best_gid",
                           "best_nRecall", "best_nPrecision", "best_nF1",
                           "best_jRecall", "best_jPrecision", "best_jF1",
-                          "best_eRecall", "best_ePrecision", "best_eF1"]
+                          "best_eRecall", "best_ePrecision", "best_eF1",
+                          "location"]
             else:
                 fields = ["ref_id", "ccode", "tid", "gid",
                           "nF1", "jF1", "eF1",
                           "ref_gene",
                           "best_ccode", "best_tid", "best_gid",
-                          "best_nF1", "best_jF1", "best_eF1"]
+                          "best_nF1", "best_jF1", "best_eF1",
+                          "location"]
             out_tuple = namedtuple("refmap", fields)
 
             rower = csv.DictWriter(out, fields, delimiter="\t")
@@ -803,11 +819,13 @@ class Assigner:
                                          best.tid, best.gid,
                                          best.n_recall[0], best.n_prec[0], best.n_f1[0],
                                          best.j_recall[0], best.j_prec[0], best.j_f1[0],
-                                         best.e_recall[0], best.e_prec[0], best.e_f1[0]])
+                                         best.e_recall[0], best.e_prec[0], best.e_f1[0],
+                                         best.location[0]])
                         else:
                             row = tuple([tid, gid, ",".join(best.ccode),
                                          best.tid, best.gid,
-                                         best.n_f1[0], best.j_f1[0], best.e_f1[0]])
+                                         best.n_f1[0], best.j_f1[0], best.e_f1[0],
+                                         best.location[0]])
 
                     rows.append(row)
 
@@ -836,7 +854,9 @@ class Assigner:
                                             best_pick.gid,
                                             best_pick.n_recall[0], best_pick.n_prec[0], best_pick.n_f1[0],
                                             best_pick.j_recall[0], best_pick.j_prec[0], best_pick.j_f1[0],
-                                            best_pick.e_recall[0], best_pick.e_prec[0], best_pick.e_f1[0])
+                                            best_pick.e_recall[0], best_pick.e_prec[0], best_pick.e_f1[0],
+                                            row[14]  #Location
+                                            )
                         else:
                             row = out_tuple(row[0],  # Ref TID
                                             row[2],  # class code
@@ -848,12 +868,16 @@ class Assigner:
                                             best_pick.tid,
                                             best_pick.gid,
                                             best_pick.n_f1[0], best_pick.j_f1[0],
-                                            best_pick.e_f1[0])
+                                            best_pick.e_f1[0],
+                                            row[8]  # Location
+                                            )
                     else:
                         if self.args.extended_refmap is True:
-                            row = out_tuple(*[row[0]] + ["NA"] * 12 + [row[1]] + ["NA"] * 12)
+                            row = out_tuple(*[row[0]] + ["NA"] * 12 + [row[1]] + ["NA"] * 12 + [
+                                self.genes[gid][row[0]].location])
                         else:
-                            row = out_tuple(*[row[0]] + ["NA"] * 6 + [row[1]] + ["NA"] * 6)
+                            row = out_tuple(*[row[0]] + ["NA"] * 6 + [row[1]] + ["NA"] * 6 + [
+                                self.genes[gid][row[0]].location])
                     # noinspection PyProtectedMember,PyProtectedMember
                     rower.writerow(row._asdict())
         self.logger.info("Finished printing RefMap")

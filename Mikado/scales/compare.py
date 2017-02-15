@@ -7,22 +7,22 @@ Launcher for the Mikado compare utility.
 """
 
 import collections
+import csv
 import logging
 import multiprocessing
 import os
 import re
 import sys
-import csv
 from logging import handlers as log_handlers
-from ..loci.reference_gene import Gene
+from Mikado.transcripts.transcript import Transcript
 from .accountant import Accountant
 from .assigner import Assigner
 from .resultstorer import ResultStorer
-from ..loci.transcript import Transcript
-from ..parsers.GFF import GFF3
-from ..utilities.log_utils import create_default_logger, formatter
 from ..exceptions import CorruptIndex
-from ..utilities import to_gff
+from ..loci.reference_gene import Gene
+from ..parsers.GFF import GFF3
+from ..parsers import to_gff
+from ..utilities.log_utils import create_default_logger, formatter
 try:
     import ujson as json
 except ImportError:

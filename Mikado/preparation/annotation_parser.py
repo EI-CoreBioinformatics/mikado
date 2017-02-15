@@ -1,5 +1,5 @@
 import multiprocessing
-from ..utilities import to_gff
+from ..parsers import to_gff
 from ..utilities.log_utils import create_queue_logger
 import logging
 import logging.handlers

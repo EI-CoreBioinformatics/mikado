@@ -12,9 +12,9 @@ else:
 import collections
 import operator
 from ...utilities.intervaltree import IntervalTree, Interval
-from ...utilities import overlap
-from ...exceptions import InvalidTranscript
-from ...parsers.blast_utils import merge
+from Mikado.utilities import overlap
+from Mikado.exceptions import InvalidTranscript
+from Mikado.parsers.blast_utils import merge
 
 __author__ = 'Luca Venturini'
 

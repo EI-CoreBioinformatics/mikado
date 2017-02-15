@@ -8,10 +8,10 @@ import functools
 from . import dbutils
 from . import log_utils
 import collections
-from ..parsers import to_gff
+import gzip
 from itertools import zip_longest
 from .overlap import overlap
-import gzip
+# from ..parsers import to_gff
 
 __author__ = 'Luca Venturini'
 

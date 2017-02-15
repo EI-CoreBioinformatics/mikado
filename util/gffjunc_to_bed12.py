@@ -3,10 +3,11 @@
 
 """GFF +> BED12 converter for junction files."""
 
-import sys
 import argparse
-import Mikado.parsers
+import sys
+
 import Mikado.loci
+import Mikado.parsers
 
 
 def main():
@@ -45,7 +46,7 @@ def main():
                 bed12.block_starts = [0, bed12.block_sizes[0] + introns[0][1] - introns[0][0]]
                 print(bed12, file=args.out)
 
-            transcript = Mikado.loci.transcript.Transcript(row)
+            transcript = Mikado.transcripts.transcript.Transcript(row)
 
     if transcript is not None:
         transcript.finalize()

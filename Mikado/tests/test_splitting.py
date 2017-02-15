@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 
-import operator
-import Mikado
-from Mikado.loci.transcript_methods import splitting
-import unittest
 import logging
+import operator
+import unittest
 from sys import version_info
+
+import Mikado
+from Mikado.transcripts.transcript_methods import splitting
+
 if version_info.minor < 5:
     from sortedcontainers import SortedDict
 else:

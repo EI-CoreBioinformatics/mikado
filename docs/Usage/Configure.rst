@@ -172,10 +172,11 @@ This section of the configuration file deals with the :ref:`prepare stage of Mik
 .. _canonical-configuration:
 
 * canonical: this voice specifies the splice site donors and acceptors that are considered canonical for the species. By default, Mikado uses the canonical splice site (GT/AG) and the two semi-canonical pairs (GC/AG and AT/AC). Type: Array of two-element arrays, composed by two-letter strings.
-* lenient: boolean value. If set to *false*, transcripts that only have non-canonical splice sites will be **removed** from the output.
+* keep_redundant: if set to false (default), Mikado will only keep one copy of transcripts that are completely identical.
+* lenient: boolean value. If set to *false*, transcripts that either only have non-canonical splice sites or have a mixture of canonical junctions on *both* strands will be **removed** from the output. Otherwise, they will left in, be properly tagged.
 * minimum_length: minimum length of the transcripts to be kept.
 * procs: number of processors to be used.
-* strand_specific: boolean. If set to *true*, **all** input assemblies will be treated as strand-specific, therefore keeping the strand of monoexonic fragments as it was.
+* strand_specific: boolean. If set to *true*, **all** input assemblies will be treated as strand-specific, therefore keeping the strand of monoexonic fragments as it was. Multiexonic transcripts will not have their strand reversed even if doing that would mean making some or all non-canonical junctions canonical.
 * strip_cds: boolean. If set to *true*, the CDS features will be stripped off the input transcripts. This might be necessary for eg transcripts obtained through alignment with `GMAP <http://research-pub.gene.com/gmap/>`_ [GMAP]_.
 * files: this sub-section is the most important, as it contains among other things the locations and labels for the input files. Voices:
     * gff: array of the input files, in GFF or GTF format. Please note that only CDS/exon/UTR features will be considered from these files.
@@ -224,6 +225,7 @@ This section of the configuration file deals with the :ref:`prepare stage of Mik
         out_fasta: mikado_prepared.fasta
         output_dir: .
         strand_specific_assemblies: []
+      keep_redundant: false
       lenient: false
       minimum_length: 200
       procs: 1
@@ -238,7 +240,7 @@ Settings for the serialisation stage
 
 This section of the configuration file deals with the :ref:`serialisation stage of Mikado <serialise>`. It specifies the location of the ORF BED12 files from TransDecoder, the location of the XML files from BLAST, the location of portcullis junctions, and other details important at run time. It has the following voices:
 
-* discard_definition: boolean. This is used to specify whether we will use the ID or the definition of the sequences when parsing BLAST results. This is important when BLAST data might have a mock, local identifier for the sequence ("lcl|1") rather than its original ID.
+* discard_definition: boolean. This is used to specify whether we will use the ID or the definition of the sequences when parsing BLAST results. This is important when BLAST data might have a mock, local identifier for the sequence ("lcl|1") rather than its original ID. :warning: Deprecated since v1 beta 10.
 * force: whether the database should be truncated and rebuilt, or just updated.
 
 .. _max-objects:
@@ -290,7 +292,6 @@ This section of the configuration file deals with the :ref:`serialisation stage 
       #  - procs: Number of processors to use. Default: 1.
       #  - single_thread: if true, Mikado prepare will force the usage of a single thread
       #  in this step.
-      discard_definition: false
       files:
         blast_targets:
         - ''
@@ -347,77 +348,161 @@ Each subsection of the pick configuration will be explained in its own right.
 Parameters regarding the alternative splicing
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-After selecting the best model for each locus, Mikado will backtrack and try to select valid alternative splicing events. This section deals with how Mikado will operate the selection. There are the following available parameters:
+After selecting the best model for each locus, Mikado will backtrack and try to select valid alternative splicing events. This section deals with how Mikado will operate the selection. In order to be considered as valid potential AS events, transcripts have to satisfy the minimum :ref:`requirements specified in the scoring file <requirements-section>`. These are the available parameters:
 
 * report: boolean. Whether to calculate and report possible alternative splicing events at all. By default this is set to true; *setting this parameter to false will inactivate all the options in this section*.
 * keep_retained_introns: boolean. It specifies whether transcripts with retained introns will be retained. A retained intron is defined as an exon at least partly non-coding, whose non-coding part falls within the intron of another transcript (so, retained intron events which yield a valid ORF will not be excluded). By default, such transcripts will be excluded.
-* max_fiveutr_length: maximum 5' UTR length of any alternative splicing transcript. By default, this is set to 1Mbps, *de facto* inactivating this filter.
-* max_threeutr_length: maximum 3' UTR length of any alternative splicing transcript. By default, this is set to 1Mbps, *de facto* inactivating this filter.
-* max_utr_length: maximum total UTR length of any alternative splicing transcript. By default, this is set to 1Mbps, *de facto* inactivating this filter.
 * min_cdna_overlap: minimum cDNA overlap between the primary transcript and the AS candidate. By default, this is set to 0 and we rely only on the class code and the CDS overlap. It must be a number between 0 and 1.
 * min_cds_overlap: minimum CDS overlap between the primary transcript and the AS candidate. By default this is set to 0.6, ie 60%. It must be a number between 0 and 1.
 * min_score_perc: Minimum percentage of the score of the primary transcript that any candidate AS must have to be considered. By default, this is set to 0.6 (60%). It must be a number between 0 and 1.
 * only_confirmed_introns: boolean. This parameter determines whether to consider only transcripts whose introns are confirmed :ref:`in the dataset of reliable junctions <reliable_junctions>`, or whether to consider all possible candidate transcripts.
 * redundant_ccodes: any candidate AS will be :ref:`compared <Compare>` against all the transcripts already retained in the locus. If any of these comparisons returns one of the :ref:`class codes <ccodes>` specified in this array, **the transcript will be ignored**. Default class codes: =, _, m, c, n, C
-* valid_ccodes: any candidate AS will be :ref:`compared <Compare>` against *the primary transcript* to determine the type of AS event. If the :ref:`class code <ccodes>` is one of those specified in this array, the transcript will be considered further. Default class codes: j, J, g, G, h.
+* valid_ccodes: any candidate AS will be :ref:`compared <Compare>` against *the primary transcript* to determine the type of AS event. If the :ref:`class code <ccodes>` is one of those specified in this array, the transcript will be considered further. Valid class codes are within the categories "Alternative splicing", "Extension" with junction F1 lower than 100%, and Overlap (with the exclusion of "m"). Default class codes: j, J, g, G, h.
+* pad: boolean option. If set to True, Mikado will try to pad transcripts so that they share the same 5'. Disabled by default.
+* ts_max_splices: numerical. When padding is activated, at *most* how many splice junctions can the extended exon cross?
+* ts_distance: numerical. When padding is activated, at *most* of how many base pairs can an exon be extended?
+
 .. warning:: the AS transcript event does not need to be a valid AS event for *all* transcripts in the locus, only against the *primary* transcript.
 
 .. code-block:: yaml
 
-    pick:
-      #  - scoring_file: a scoring file for the analysis. Default: plants.yaml.
-      #  - source_score: a dictionary with pre-defined scores to assign to the transcripts
-      #  according to their source. Eg all Cufflinks transcripts from the seed (label:
-      #  "cuff_seed") could be assigned a default additional score of 1.
       alternative_splicing:
-        #  Parameters related to alternative splicing reporting.
-        #  - report: whether to report at all or not the AS events.
-        #  - min_cds_overlap: minimum overlap between the CDS of the primary transcript
-        #  and any AS event. Default: 60%.
-        #  - min_cdna_overlap: minimum overlap between the CDNA of the primary transcript
-        #  and any AS event.
-        #  Default: 0% i.e. disabled, we check for the CDS overlap.
-        #  - keep_retained_introns: Whether to consider as valid AS events where one intron
-        #  is retained compared to the primary or any other valid AS. Default: false.
-        #  - max_isoforms: Maximum number of isoforms per locus. 1 implies no AS reported.
-        #  Default: 3
-        #  - valid_ccodes: Valid class codes for AS events. See documentation for details.
-        #  Choices:
-        #  j, n, O, e, o, h, J, C, mo. Default: j, J, O, mo
-        #  - max_utr_length: Maximum length of the UTR for AS events. Default: 10e6 (i.e.
-        #  no limit)
-        #  - max_fiveutr_length: Maximum length of the 5UTR for AS events. Default:
-        #  10e6 (i.e. no limit)
-        #  - max_threeutr_length: Maximum length of the 5UTR for AS events. Default:
-        #  10e6 (i.e. no limit)
-        #  - min_score_perc: Minimum score threshold for subsequent AS events.
-        #   Only transcripts with a score at least (best) * value are retained.
-        #  - only_confirmed_introns: bring back AS events only when their introns are
-        #  either
-        #   present in the primary transcript or in the set of confirmed introns.
-        keep_retained_introns: false
-        max_fiveutr_length: 1000000
-        max_isoforms: 3
-        max_threeutr_length: 1000000
-        max_utr_length: 1000000
-        min_cdna_overlap: 0
-        min_cds_overlap: 0.6
-        min_score_perc: 0.6
-        only_confirmed_introns: false
-        redundant_ccodes:
-        - c
+            #  Parameters related to alternative splicing reporting.
+            #  - report: whether to report at all or not the AS events.
+            #  - min_cds_overlap: minimum overlap between the CDS of the primary transcript
+            #  and any AS event. Default: 60%.
+            #  - min_cdna_overlap: minimum overlap between the CDNA of the primary transcript
+            #  and any AS event.
+            #  Default: 0% i.e. disabled, we check for the CDS overlap.
+            #  - keep_retained_introns: Whether to consider as valid AS events where one intron
+            #  is retained compared to the primary or any other valid AS. Default: false.
+            #  - max_isoforms: Maximum number of isoforms per locus. 1 implies no AS reported.
+            #  Default: 3
+            #  - valid_ccodes: Valid class codes for AS events. Valid codes are in categories
+            #  Alternative splicing, Extension (with junction F1 lower than 100%),
+            #  and Overlap (exluding m). Default: j, J, g, G, C, h
+            #  - max_utr_length: Maximum length of the UTR for AS events. Default: 10e6 (i.e.
+            #  no limit)
+            #  - max_fiveutr_length: Maximum length of the 5UTR for AS events. Default:
+            #  10e6 (i.e. no limit)
+            #  - max_threeutr_length: Maximum length of the 5UTR for AS events. Default:
+            #  10e6 (i.e. no limit)
+            #  - min_score_perc: Minimum score threshold for subsequent AS events.
+            #   Only transcripts with a score at least (best) * value are retained.
+            #  - only_confirmed_introns: bring back AS events only when their introns are
+            #  either
+            #   present in the primary transcript or in the set of confirmed introns.
+            #  - pad: boolean switch. If true, Mikado will pad all the transcript in a gene
+            #  so that their ends are the same
+            #  - ts_distance: if padding, this is the maximum distance in base-pairs between
+            #  the starts of transcripts
+            #    to be considered to be padded together.
+            #  - ts_max_splices: if padding, this is the maximum amount of splicing junctions
+            #  that the transcript to pad
+            #   is allowed to cross. If padding would lead to cross more than this number,
+            #  the transcript will not be padded.
+            keep_retained_introns: false
+            max_isoforms: 5
+            min_cdna_overlap: 0.5
+            min_cds_overlap: 0.75
+            min_score_perc: 0.5
+            only_confirmed_introns: true
+            pad: false
+            redundant_ccodes:
+            - c
+            - m
+            - _
+            - '='
+            - n
+            report: true
+            ts_distance: 300
+            ts_max_splices: 1
+            valid_ccodes:
+            - j
+            - J
+            - C
+            - G
+            - g
+            - h
+
+
+.. _clustering_specifics:
+
+Parameters regarding the clustering of transcripts in loci
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. note::
+    New in version 1 beta 10.
+
+This section influences how Mikado clusters transcripts in its multi-stage selection. The available parameters are:
+
+* *flank*: numerical. When constructing :ref:`Superloci <superloci>`, Mikado will use this value as the maximum distance
+between transcripts for them to be integrated within the same superlocus.
+* *cds_only*: boolean. If set to true, during the :ref:`picking stage <pick-algo>` Mikado will consider only the **primary ORF** to evaluate whether two transcripts intersect. Transcripts which eg. share introns in their UTR but have completely unrelated CDSs will be clustered separately. Disabled by default.
+* *purge*: boolean. If true, any transcript failing the :ref:`specified requirements <requirements-section>` will be purged out. Otherwise, they will be assigned a score of 0 and might potentially appear in the final output, if no other transcript is present in the locus.
+* *simple_overlap_for_monoexonic*: boolean. During the :ref:`second clustering <monosubloci>`, by default monoexonic transcripts are clustered together even if they have a very slight overlap with another transcript. Manually setting this flag to *false* will cause Mikado to cluster monoexonic transcripts only if they have a minimum amount of cDNA and CDS overlap with the other transcripts in the holder.
+* *min_cdna_overlap*: numerical, between 0 and 1. Minimum cDNA overlap between two multiexonic transcripts for them to be considered as intersecting, if all other conditions fail.
+* *min_cdna_overlap*: numerical, between 0 and 1. Minimum CDS overlap between two multiexonic transcripts for them to be considered as intersecting, if all other conditions fail.
+
+.. code-block:: yaml
+
+    clustering:
+        #  Parameters related to the clustering of transcripts into loci.
+        #  - cds_only: boolean, it specifies whether to cluster transcripts only according
+        #  to their CDS (if present).
+        #  - min_cds_overlap: minimal CDS overlap for the second clustering.
+        #  - min_cdna_overlap: minimal cDNA overlap for the second clustering.
+        #  - flank: maximum distance for transcripts to be clustered within the same superlocus.
+        #  - remove_overlapping_fragments: boolean, it specifies whether to remove putative
+        #  fragments.
+        #  - purge: boolean, it specifies whether to remove transcripts which fail the
+        #  minimum requirements check - or whether to ignore those requirements altogether.
+        #  - simple_overlap_for_monoexonic: boolean. If set to true (default), then any
+        #  overlap mean inclusion
+        #  in a locus for or against a monoexonic transcript. If set to false, normal controls
+        #  for the percentage
+        #  of overlap will apply.
+        #  - max_distance_for_fragments: maximum distance from a valid locus for another
+        #  to be considered a fragment.
+        cds_only: false
+        flank: 200
+        min_cdna_overlap: 0.2
+        min_cds_overlap: 0.2
+        purge: true
+        simple_overlap_for_monoexonic: true
+
+.. _fragment_options:
+
+Parameters regarding the detection of putative fragments
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+This section determines how Mikado treats :ref:`potential fragments in the output <fragments>`. Available options:
+
+* *remove*: boolean, default true. If set to true, fragments will be excluded from the final output; otherwise, they will be printed out, but properly tagged.
+* *max_distance*: numerical. For non-overlapping fragments, this value determines the maximum distance from the valid gene. Eg. with the default setting of 2000, a putative fragment at the distance of 1000 will be tagged and dealt with as a fragment; an identical model at a distance of 3000 will be considered as a valid gene and left untouched.
+* *valid_class_codes*: valid :ref:`class codes <ccodes>` for potential fragments. Only Class Codes in the categories Overlap, Intronic, Fragment, with the addition of "_", are considered as valid choices.
+
+.. code-block:: yaml
+
+      fragments:
+        #  Parameters related to the handling of fragments.
+        #  - remove: boolean. Whether to remove fragments or leave them, properly tagged.
+        #  - max_distance: maximum distance of a putative fragment from a valid gene.
+        #  - valid_class_codes: which class codes will be considered as fragments. Default:
+        #  (p, P, x, X, i, m, _). Choices: _ plus any class code with category
+        #  Intronic, Fragment, or Overlap.
+        max_distance: 2000
+        remove: true
+        valid_class_codes:
+        - p
+        - P
+        - x
+        - X
+        - i
         - m
         - _
-        - '='
-        - n
-        - C
-        report: true
-        valid_ccodes:
-        - j
-        - J
-        - G
-        - g
-        - h
+
+
 
 .. _orf_loading:
 
@@ -565,23 +650,19 @@ Generic parameters on the pick run
 This section deals with other parameters necessary for the run, such as the number of processors to use, but also more important algorithmic parameters such as how to recognise fragments.
 Parameters:
 
+* *consider_truncated_for_retained*: normally, Mikado considers as retained introns only events in which a partially coding exon on the 3' side becomes non-coding in the middle of a CDS intron of another transcript in the locus. If this option is set to *true*, Mikado will consider as retained intron events also cases when the transcript has its CDS just end within a CDS intron of another model. Useful eg. when dealing with CDS models.
 * *exclude_cds*: whether to remove CDS/UTR information from the Mikado output. Default: *false*.
-* *flank*: when creating superloci, Mikado will gather together all groups of overlapping transcripts that are within this distance. By default, this is set at 1 kbp. This parameter is important to recognize fragments derived from UTRs or misfired transcription in the neighborhood of real transcripts.
-* *fragments_maximal_cds*: during the last control on fragments, Mikado will consider as non-fragmentary any transcript with an ORF of at least this value in bps. By default, this is set to 100, ie any transcript with an ORF of 33 AA or more will be considered by default as valid.
-* *fragments_maximal_exons*: in addition, any transcript with more than this number of exons will be considered as non-fragmentary by definition. By default, this parameter is set at 2, ie any transcript with 3 or more exons will be considered non-fragmentary by definition.
 * *intron_range*: tuple that indicates the range of lengths in which most introns should fall. Transcripts with introns either shorter or longer than this interval will be potentially penalised, depending on the scoring scheme. For the paper, this parameter was set to a tuple of integers in which *98%* of the introns of the reference annotation were falling (ie cutting out the 1st and 99th percentiles).
 * *preload*: boolean. In certain cases, ie when the database is quite small, it might make sense to preload it in memory rather than relying on SQL queries. Set to *false* by default.
 * *shm*: boolean. In certain cases, especially when disk access is a severely limiting factor, it might make sense to copy a SQLite database into RAM before querying. If this parameter is set to *true*, Mikado will copy the SQLite database into a temporary file in RAM, and query it from there.
 * *shm_db*: string. If *shm* is set to true and this string is non-empty, Mikado will copy the database in memory to a file with this name *and leave it there for other Mikado runs*. The file will have to be removed manually.
 * *procs*: number of processors to use. Default: 1.
 * *single_thread*: boolean. If set to true, Mikado will completely disable multiprocessing. Useful mostly for debugging reasons.
-* *subloci_from_cds_only*: boolean. If set to true, subloci will be built only using CDS information - therefore, transcripts with overlapping cDNA but discrete CDSs will be analysed separately. Most useful in cases of **compact** genomes, where genes lie near and it might be possible to analyse them together as the UTRs are overlapping.
 
 .. warning:: the shared-memory options are available only on Linux platforms.
 
 .. code-block:: yaml
 
-   pick:
       run_options:
         #  Generic run options.
         #  - shm: boolean flag. If set and the DB is sqlite, it will be copied onto the
@@ -595,40 +676,28 @@ Parameters:
         #    for faster access. Default: false
         #  - exclude_cds: boolean flag. If set, the CDS information will not be printed
         #  in Mikado output. Default: false
-        #  - purge: boolean flag. If set, all loci where all transcripts have a score
-        #  of 0 will be excluded
-        #    from the output. Default: false
-        #  - remove_overlapping_fragments: boolean flag. If set, fragments (defined as
-        #  monoexonic loci
-        #    classified as P,x,i or p compared to another locus, will be removed from
-        #  the output.
-        #  - fragments_maximal_cds: a locus will never be considered a fragment if its
-        #  longest CDS is over
-        #    this length. Default: 100 bps.
-        #  - fragments_maximal_exons: a locus will never be considered a fragment if its
-        #  representative transcript
-        #    has more than this number of exons. Default: 2
         #  - procs: number of processes to use. Default: 1
         #  - preload: boolean flag. If set, the whole database will be preloaded into
         #  memory for faster access. Useful when
         #    using SQLite databases.
         #  - single_thread: boolean flag. If set, multithreading will be disabled - useful
         #  for profiling and debugging.
+        #  - consider_truncated_for_retained: boolean. Normally, Mikado considers only
+        #  exons which span a whole intron as possible retained intron events. If this
+        #  flag is set to true, also terminal exons will be considered.
+        #  - remove_overlapping_fragments: DEPRECATED, see clustering.
+        #  - purge: DEPRECATED, see clustering.
+        consider_truncated_for_retained: false
         exclude_cds: false
-        flank: 1000
-        fragments_maximal_cds: 100
-        fragments_maximal_exons: 2
         intron_range:
         - 60
         - 900
         preload: false
         procs: 1
-        purge: false
-        remove_overlapping_fragments: true
         shm: false
         shm_db: ''
         single_thread: false
-        subloci_from_cds_only: false
+
 
 Miscellanea
 -----------

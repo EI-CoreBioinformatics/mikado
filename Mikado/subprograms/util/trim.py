@@ -5,7 +5,6 @@
 
 import argparse
 import sys
-
 from .. import to_gff
 from ...exceptions import InvalidTranscript
 from ...loci import Transcript

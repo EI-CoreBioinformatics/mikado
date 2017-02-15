@@ -19,6 +19,103 @@ class AssignerTester(unittest.TestCase):
     This unit test has the purpose of testing the scales module of Mikado.py.
     """
 
+    def test_get_f1(self):
+
+        # __slots__ = ["ref_id", "ref_gene", "ccode",
+        #              "tid", "gid",
+        #              "tid_num_exons", "ref_num_exons",
+        #              "n_prec", "n_recall", "n_f1",
+        #              "j_prec", "j_recall", "j_f1",
+        #              "e_prec", "e_recall", "e_f1",
+        #              "distance"]
+
+        result_perfect = Mikado.scales.resultstorer.ResultStorer(
+            "t1", "g1", "=",
+            "p1", "pg1", "2", "2",
+            100, 100, 100,
+            100, 100, 100,
+            100, 100, 100,
+            0, "chr1:100..10000")
+
+        result_perfect_j = Mikado.scales.resultstorer.ResultStorer(
+            "t1", "g1", "=",
+            "p1", "pg1", "2", "2",
+            80, 80, 80,
+            100, 100, 100,
+            0, 0, 0,
+            0, "chr1:100..10000")
+
+        # This does not make any sense, but it's only for the tests
+        result_perfect_n = Mikado.scales.resultstorer.ResultStorer(
+            "t1", "g1", "j",
+            "p1", "pg1", "2", "2",
+            100, 100, 100,
+            80, 80, 80,
+            0, 0, 0,
+            0, "chr1:100..10000")
+
+        result_imperfect = Mikado.scales.resultstorer.ResultStorer(
+            "t1", "g1", "j",
+            "p1", "pg1", "2", "2",
+            80, 80, 80,
+            80, 80, 80,
+            0, 0, 0,
+            0, "chr1:100..10000")
+
+        result_near = Mikado.scales.resultstorer.ResultStorer(
+            "t1", "g1", "p",
+            "p1", "pg1", "2", "2",
+            0, 0, 0,
+            0, 0, 0,
+            0, 0, 0,
+            10, "chr1:100..10000")
+
+        result_middle = Mikado.scales.resultstorer.ResultStorer(
+            "t1", "g1", "p",
+            "p1", "pg1", "2", "2",
+            0, 0, 0,
+            0, 0, 0,
+            0, 0, 0,
+            500, "chr1:100..10000")
+
+        result_far = Mikado.scales.resultstorer.ResultStorer(
+            "t1", "g1", "p",
+            "p1", "pg1", "2", "2",
+            0, 0, 0,
+            0, 0, 0,
+            0, 0, 0,
+            1000, "chr1:100..10000")
+
+        result_x = Mikado.scales.resultstorer.ResultStorer(
+            "t1", "g1", "x",
+            "p1", "pg1", "2", "2",
+            100, 100, 100,
+            100, 100, 100,
+            100, 100, 100,
+            1000, "chr1:100..10000")
+
+        self.assertEqual(sorted(
+            [result_perfect, result_imperfect, result_perfect_j, result_perfect_n],
+            key=Mikado.scales.assigner.Assigner.get_f1, reverse=True),
+            [result_perfect, result_perfect_j, result_perfect_n, result_imperfect]
+        )
+
+        self.assertEqual(sorted([result_perfect, result_far], key=Mikado.scales.assigner.Assigner.get_f1, reverse=True),
+                         [result_perfect, result_far])
+
+        self.assertEqual(sorted(
+            [result_far, result_near, result_middle, result_imperfect, result_perfect],
+            key=Mikado.scales.assigner.Assigner.get_f1, reverse=True),
+            [result_perfect, result_imperfect, result_near, result_middle,  result_far]
+        )
+
+        self.assertEqual(sorted(
+            [result_perfect, result_x],
+            key=Mikado.scales.assigner.Assigner.get_f1, reverse=True),
+            [result_perfect, result_x]
+        )
+
+
     def test_self(self):
         reference = Mikado.loci.Transcript()
         reference.start = 100
@@ -305,8 +402,8 @@ class AssignerTester(unittest.TestCase):
     def test_mono_intronic(self):
 
         """
-        R   |=====|-------------------|=========|
-        P            |=======|
+        R   |xxxxx|-------------------|xxxxxxxxx|
+        P            |xxxxxxx|
         
         Expected class code: i
         """
@@ -349,13 +446,13 @@ class AssignerTester(unittest.TestCase):
     def test_multi_intronic(self):
 
         """
-        R   |=====|-------------------|=========|
-        P            |===|----|====|
+        R   |xxxxx|-------------------|xxxxxxxxx|
+        P            |xxx|----|xxxx|
         
         OR
         
-        R   |=====|----------|=========|---------|=========|
-        P            |===|----------------|====|
+        R   |xxxxx|----------|xxxxxxxxx|---------|xxxxxxxxx|
+        P            |xxx|----------------|xxxx|
         
         Expected class code: I
         """
@@ -424,8 +521,8 @@ class AssignerTester(unittest.TestCase):
     def test_overlap(self):
 
         """
-        R   |=====|-------|=====|
-        P      |=====|---|====|
+        R   |xxxxx|-------|xxxxx|
+        P      |xxxxx|---|xxxx|
         
         No junction in common
         
@@ -471,8 +568,8 @@ class AssignerTester(unittest.TestCase):
 
         """Case:
         
-        R ---|=====|-------|======|---
-        P      |======|
+        R ---|xxxxx|-------|xxxxxx|---
+        P      |xxxxxx|
         
         Exonic and intronic overlap
         
@@ -518,8 +615,8 @@ class AssignerTester(unittest.TestCase):
 
         """Case:
         
-        R ---|=====|-------|======|---
-        P |======|
+        R ---|xxxxx|-------|xxxxxx|---
+        P |xxxxxx|
         
         Exonic overlap only
         
@@ -563,8 +660,8 @@ class AssignerTester(unittest.TestCase):
     def test_left_extension(self):
 
         """
-        R   |=======|-------|=====|
-        P     |=====|-------|====|-------|====|
+        R   |xxxxxxx|-------|xxxxx|
+        P     |xxxxx|-------|xxxx|-------|xxxx|
         
         Expected ccode: j
         
@@ -599,8 +696,8 @@ class AssignerTester(unittest.TestCase):
     def test_left_extension_n(self):
 
         """
-        R   |=======|-------|=====|
-        P     |=====|-------|=====|-------|====|
+        R   |xxxxxxx|-------|xxxxx|
+        P     |xxxxx|-------|xxxxx|-------|xxxx|
 
         Expected ccode: j
 
@@ -634,8 +731,8 @@ class AssignerTester(unittest.TestCase):
 
     def test_right_extension(self):
         """
-        R                |=======|-------|=====|
-        P     |=====|-------|====|-------|====|
+        R                |xxxxxxx|-------|xxxxx|
+        P     |xxxxx|-------|xxxx|-------|xxxx|
         
         Expected ccode: j
         """
@@ -668,8 +765,8 @@ class AssignerTester(unittest.TestCase):
 
     def test_left_right_extension(self):
         """
-        R                |=======|-------|=====|
-        P     |=====|-------|====|-------|====|------|=====|
+        R                |xxxxxxx|-------|xxxxx|
+        P     |xxxxx|-------|xxxx|-------|xxxx|------|xxxxx|
         
         Expected ccode: j
         """
@@ -702,8 +799,8 @@ class AssignerTester(unittest.TestCase):
 
     def test_left_right_extension_novel(self):
         """
-        R                   |====|-------|====|
-        P     |=====|----|=======|-------|=====|------|=====|
+        R                   |xxxx|-------|xxxx|
+        P     |xxxxx|----|xxxxxxx|-------|xxxxx|------|xxxxx|
 
         Expected ccode: n
         """
@@ -737,8 +834,8 @@ class AssignerTester(unittest.TestCase):
     def test_internal_extension(self):
         """
         
-        R    |========|-----------------|========|
-        P       |=====|----|======|-----|=====|
+        R    |xxxxxxxx|-----------------|xxxxxxxx|
+        P       |xxxxx|----|xxxxxx|-----|xxxxx|
         
         Expected ccode: j, junction recall: 100%
         """
@@ -772,8 +869,8 @@ class AssignerTester(unittest.TestCase):
     def test_internal_external_extension(self):
         """
         
-        R      |======|-----------------|========|
-        P       |=====|----|======|-----|=====|------|=======|
+        R      |xxxxxx|-----------------|xxxxxxxx|
+        P       |xxxxx|----|xxxxxx|-----|xxxxx|------|xxxxxxx|
         
         Expected ccode: j, junction recall: 100%
         """
@@ -806,8 +903,8 @@ class AssignerTester(unittest.TestCase):
 
     def test_left_right_internal_extension_novel(self):
         """
-        R                   |====|-------|====|
-        P     |=====|----|=======|--|=|--|=====|------|=====|
+        R                   |xxxx|-------|xxxx|
+        P     |xxxxx|----|xxxxxxx|--|x|--|xxxxx|------|xxxxx|
 
         Expected ccode: j
         """
@@ -843,8 +940,8 @@ class AssignerTester(unittest.TestCase):
     def test_contained_bleeding(self):
 
         """
-        R     |=======|--------|======|----|====|--------|=======|
-        P                  |==========|----|======|
+        R     |xxxxxxx|--------|xxxxxx|----|xxxx|--------|xxxxxxx|
+        P                  |xxxxxxxxxx|----|xxxxxx|
 
         Expected class code: C
         :return:
@@ -875,8 +972,8 @@ class AssignerTester(unittest.TestCase):
     def test_contained_alternative(self):
 
         """
-        R     |=======|--------|======|----|====|--------|=======|
-        P           |=================|----|======|
+        R     |xxxxxxx|--------|xxxxxx|----|xxxx|--------|xxxxxxx|
+        P           |xxxxxxxxxxxxxxxxx|----|xxxxxx|
 
         Expected class code: C
         :return:
@@ -1032,8 +1129,8 @@ class AssignerTester(unittest.TestCase):
     def test_h_case(self):
 
         """
-        ===============-------------------============
-        ===================-----------------=========
+        |xxxxxxxxxxxxxxx|-------------------|xxxxxxxxxxxx|
+        |xxxxxxxxxxxxxxxxxxx|-----------------|xxxxxxxxx|
         :return:
         """
 
@@ -1063,8 +1160,8 @@ class AssignerTester(unittest.TestCase):
     def test_double_h_case(self):
 
         """
-        ===============---------=======-------============
-        ===================-----------------=========
+        |xxxxxxxxxxxxxxx|---------|xxxxxxx|-------|xxxxxxxxxxxx|
+        |xxxxxxxxxxxxxxxxxxx|-----------------|xxxxxxxxx|
         :return:
         """
 
@@ -1094,8 +1191,8 @@ class AssignerTester(unittest.TestCase):
     def test_non_h_case(self):
 
         """
-        ===============-------------------============
-        =====-----=========
+        |xxxxxxxxxxxxxxx|-------------------|xxxxxxxxxxxx|
+        |xxxxx|-----|xxxxxxxxx|
         :return:
         """
 
@@ -1126,8 +1223,8 @@ class AssignerTester(unittest.TestCase):
 
         """
 
-        1  =========------------=======-----------========-------------=============
-        2                 =============-----------============
+        1  xxxxxxxxx------------xxxxxxx-----------xxxxxxxx-------------xxxxxxxxxxxxx
+        2                 xxxxxxxxxxxxx-----------xxxxxxxxxxxx
 
         We do expect the comparison to be:
 
@@ -1169,8 +1266,8 @@ class AssignerTester(unittest.TestCase):
 
         """
 
-        1  =========------------=======-----------========-------------=============
-        2         =====================-----------============
+        1  xxxxxxxxx------------xxxxxxx-----------xxxxxxxx-------------xxxxxxxxxxxxx
+        2         xxxxxxxxxxxxxxxxxxxxx-----------xxxxxxxxxxxx
 
         We do expect the comparison to be:
 

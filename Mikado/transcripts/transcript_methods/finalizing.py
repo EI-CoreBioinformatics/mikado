@@ -3,9 +3,11 @@ This module provides the functions needed to check a transcript for consinstency
 e.g. reliability of the CDS/UTR, sanity of borders, etc.
 """
 
+
+from Mikado.utilities.intervaltree import IntervalTree
 import intervaltree
 import operator
-from ...exceptions import InvalidCDS, InvalidTranscript
+from Mikado.exceptions import InvalidCDS, InvalidTranscript
 
 __author__ = 'Luca Venturini'
 
@@ -606,8 +608,10 @@ def finalize(transcript):
                 transcript.selected_internal_orf_index] if
             internal_cds[0] == "CDS")
 
-    # Create the interval tree
-    transcript.cds_tree = None
+    # Create the internal trees
+    _ = transcript.cds_tree
+    _ = transcript.cds_introntree
+    _ = transcript.segmenttree
 
     # BUG somewhere ... I am not sorting this properly before (why?)
     transcript.exons = sorted(transcript.exons)

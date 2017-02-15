@@ -30,6 +30,15 @@ def launch(args):
         sorted(metric for metric in metric_names
                if metric not in ("tid", "parent", "score")))
 
+    if len(args.metric) > 0:
+        if not all(metric in metrics for metric in args.metric):
+            print("Invalid metrics selected: {}".format(
+                ", ".join(sorted(metric for metric in args.metric if metric not in metrics))))
+        metrics = args.metric
+    elif len(args.category) > 0:
+        metrics = [metric for metric in Transcript.get_available_metrics() if
+                   getattr(getattr(Transcript, metric), "category", "Descriptive") in args.category]
+
     rows = []
 
     for metric in metrics:
@@ -105,7 +114,18 @@ def metric_parser():
     """
 
     parser = argparse.ArgumentParser("Script to generate the available metrics")
-    parser.add_argument("-f", "--format", choices=tabulate.tabulate_formats, default="rst")
-    parser.add_argument("-o", "--out", type=argparse.FileType("w"), default=sys.stdout)
+    parser.add_argument("-f", "--format",
+                        help="Format of the table to be printed out.",
+                        choices=tabulate.tabulate_formats, default="rst")
+    parser.add_argument("-o", "--out",
+                        help="Optional output file",
+                        type=argparse.FileType("w"), default=sys.stdout)
+    parser.add_argument("-c", "--category",
+                        help="Available categories to select from.",
+                        default=[], nargs="+",
+                        choices=sorted(set(
+                            [_ for _ in [getattr(getattr(Transcript, metric), "category", "Descriptive") for metric in
+                             Transcript.get_available_metrics()] if _ is not None] + ["Descriptive"])))
+    parser.add_argument("metric", nargs="*")
     parser.set_defaults(func=launch)
     return parser

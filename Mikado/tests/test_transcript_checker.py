@@ -1,15 +1,13 @@
-from Mikado.loci.transcriptchecker import TranscriptChecker
-from Mikado.loci.transcript import Transcript
-from Mikado.parsers.GFF import GffLine
-from Mikado.parsers.GTF import GtfLine
-import unittest
-import pyfaidx
-import pkg_resources
-import tempfile
 import gzip
 import os
-
-# TODO: write this test!
+import tempfile
+import unittest
+import pkg_resources
+import pyfaidx
+from Mikado.transcripts.transcriptchecker import TranscriptChecker
+from Mikado.parsers.GFF import GffLine
+from Mikado.parsers.GTF import GtfLine
+from Mikado.transcripts.transcript import Transcript
 
 
 class TChekerTester(unittest.TestCase):

@@ -6,33 +6,34 @@ This module defines the RNA objects. It also defines Metric, a property alias.
 
 # pylint: disable=too-many-lines
 
-import logging
+import builtins
 import copy
-from sys import intern, maxsize
-import re
+import functools
 import inspect
+import logging
+import re
+from ast import literal_eval
+from sys import intern, maxsize
+
 import intervaltree
-from ..utilities.log_utils import create_null_logger
-from ..utilities.intervaltree import Interval, IntervalTree
-from sqlalchemy.sql.expression import desc, asc  # SQLAlchemy imports
 from sqlalchemy import and_
-from sqlalchemy.ext import baked
 from sqlalchemy import bindparam
+from sqlalchemy.ext import baked
+from sqlalchemy.sql.expression import desc, asc  # SQLAlchemy imports
 from ..exceptions import ModificationError, InvalidTranscript, CorruptIndex
+from ..parsers.GFF import GffLine
+from ..parsers.GTF import GtfLine
+from ..parsers.bed12 import BED12
 from ..serializers.blast_serializer import Query, Hit
 from ..serializers.external import External
 from ..serializers.orf import Orf
-from .clique_methods import find_communities, define_graph
-from ..parsers.GTF import GtfLine
-from ..parsers.GFF import GffLine
-from ..parsers.bed12 import BED12
+from ..transcripts.clique_methods import find_communities, define_graph
+from ..utilities.log_utils import create_null_logger
 from .transcript_methods import splitting, retrieval
+from .transcript_methods.finalizing import finalize
 from .transcript_methods.printing import create_lines_cds
 from .transcript_methods.printing import create_lines_no_cds, create_lines_bed, as_bed12
-from .transcript_methods.finalizing import finalize
-import functools
-import builtins
-from ast import literal_eval
+from ..utilities.intervaltree import Interval, IntervalTree
 
 
 class Namespace:
@@ -280,6 +281,7 @@ class Transcript:
         self.__blast_score = 0  # Homology score
         self.__derived_children = set()
         self.__external_scores = Namespace(default=0)
+        self.__internal_orf_transcripts = []
 
         # Starting settings for everything else
         self.chrom = None
@@ -313,11 +315,11 @@ class Transcript:
         self.loaded_bed12 = []
         self.engine, self.session, self.sessionmaker = None, None, None
         # Initialisation of the CDS segments used for finding retained introns
-        self.__cds_tree = None
+        self.__cds_tree = IntervalTree()
         self.__expandable = False
+        self.__segmenttree = IntervalTree()
         self.__cds_introntree = IntervalTree()
         self._possibly_without_exons = False
-        # self.query_id = None
 
         if len(args) == 0:
             return
@@ -409,8 +411,8 @@ class Transcript:
 
         if not isinstance(self, type(other)):
             return False
-        self.finalize()
-        other.finalize()
+        # self.finalize()
+        # other.finalize()
 
         if self.strand == other.strand and self.chrom == other.chrom:
             if other.start == self.start:
@@ -459,7 +461,11 @@ class Transcript:
 
         logger = self.logger
         del self.logger
-        state = copy.deepcopy(self.__dict__)
+
+        state = copy.deepcopy(dict((key, val) for key, val in self.__dict__.items()
+                                   if key not in ("_Transcript__segmenttree",
+                                                  "_Transcript__cds_introntree",
+                                                  "_Transcript__cds_tree")))
         self.logger = logger
 
         if hasattr(self, "json_conf") and self.json_conf is not None:
@@ -483,25 +489,17 @@ class Transcript:
             del state["blast_baked"]
             del state["query_baked"]
 
-        # import pickle
-        # try:
-        #     _ = pickle.dumps(state)
-        # except (pickle.PicklingError, TypeError):
-        #     failed = []
-        #     for obj in state:
-        #         try:
-        #             _ = pickle.dumps(state[obj])
-        #         except (pickle.PicklingError, TypeError):
-        #             failed.append(obj)
-        #
-        #     raise pickle.PicklingError("Failed to serialise {}, because of the following fields: {}".format(
-        #         self.id,
-        #     "\t\n".join([""]+failed)))
-
         return state
 
     def __setstate__(self, state):
         self.__dict__.update(state)
+        self.__cds_tree = IntervalTree()
+        self.__segmenttree = IntervalTree()
+        self.__cds_introntree = IntervalTree()
+        _ = self.segmenttree
+        _ = self.cds_tree
+        _ = self.__cds_introntree
+
         # Set the logger to NullHandler
         self.logger = None
 
@@ -514,14 +512,13 @@ class Transcript:
 
     # ######## Class instance methods ####################
 
-    def add_exon(self, gffline, feature=None):
+    def add_exon(self, gffline, feature=None, phase=None):
         """This function will append an exon/CDS feature to the object.
         :param gffline: an annotation line
         :type gffline: (Mikado.parsers.GFF.GffLine | Mikado.parsers.GTF.GtfLine | tuple | list)
         :type feature: flag to indicate what kind of feature we are adding
         """
 
-        phase = None
         if isinstance(gffline, (tuple, list)):
             assert len(gffline) == 2
             start, end = sorted(gffline)
@@ -592,7 +589,7 @@ class Transcript:
         store.append(segment)
         return
 
-    def add_exons(self, exons, features=None):
+    def add_exons(self, exons, features=None, phases=None):
 
         """
         Wrapper of the add_exon method for multiple lines.
@@ -609,9 +606,15 @@ class Transcript:
                 raise InvalidTranscript("Mismatch between exons and features! %s,\t%s",
                                         exons,
                                         features)
+        if phases is None:
+            phases = [None] * len(exons)
+        elif len(phases) != len(exons):
+            raise InvalidTranscript("Mismatch between exons and features! %s,\t%s",
+                                    exons,
+                                    features)
 
-        for exon, feature in zip(exons, features):
-            self.add_exon(exon, feature)
+        for exon, feature, phase in zip(exons, features, phases):
+            self.add_exon(exon, feature=feature, phase=phase)
         return
 
     def format(self, format_name,
@@ -730,6 +733,43 @@ class Transcript:
                     assert new_row.invalid is False, ("\n".join([str(new_row), new_row.invalid_reason]))
 
                 yield new_row
+
+    @property
+    def _selected_orf_transcript(self):
+
+        """This method will return the selected internal ORF as a transcript object."""
+
+        self.finalize()
+        if not self.is_coding:
+            return []
+        return self._internal_orfs_transcripts[self.selected_internal_orf_index]
+
+    @property
+    def _internal_orfs_transcripts(self):
+        """This method will return all internal ORFs as transcript objects.
+        Note: this will exclude the UTR part, even when the transcript only has one ORF."""
+
+        self.finalize()
+        if not self.is_coding:
+            return []
+        elif len(self.__internal_orf_transcripts) == len(self.internal_orfs):
+            return self.__internal_orf_transcripts
+        else:
+            for num, orf in enumerate(self.internal_orfs, start=1):
+                torf = Transcript()
+                torf.chrom, torf.strand = self.chrom, self.strand
+                torf.derives_from = self.id
+                torf.id = "{}.orf{}".format(self.id, num)
+                __exons, __phases = [], []
+                for segment in [_ for _ in orf if _[0] == "CDS"]:
+                    __exons.append(segment[1])
+                    __phases.append(segment[2])
+                torf.add_exons(__exons, features="exon", phases=None)
+                torf.add_exons(__exons, features="CDS", phases=__phases)
+                torf.finalize()
+                self.__internal_orf_transcripts.append(torf)
+
+        return self.__internal_orf_transcripts
 
     def split_by_cds(self):
         """This method is used for transcripts that have multiple ORFs.
@@ -901,6 +941,7 @@ class Transcript:
             return
 
         self.internal_orfs = []
+        self.__internal_orf_transcripts = []
         self.combined_utr = []
         self.finalized = False
 
@@ -912,6 +953,8 @@ class Transcript:
             self.strand = "+"
         elif self.strand is None:
             pass
+        self.logger.warning("Transcript %s has been assigned to the wrong strand, reversing it.",
+                            self.id)
         return
 
     def load_information_from_db(self, json_conf, introns=None, session=None,
@@ -1283,6 +1326,14 @@ class Transcript:
             self.attributes["gene_id"] = self.parent[0]
 
         return self.attributes["gene_id"]
+
+    @property
+    def location(self):
+        """Web-apollo compatible string for the location of the transcript."""
+
+        return "{}:{}..{}".format(self.chrom,
+                                  self.start,
+                                  self.end)
 
     @property
     def score(self):
@@ -1691,18 +1742,6 @@ class Transcript:
             return self.combined_cds[-1][1]
 
     @property
-    def _cds_introntree(self):
-
-        """
-        :rtype: intervaltree.IntervalTree
-        """
-
-        if len(self.__cds_introntree) != len(self.combined_cds_introns):
-            self.__cds_introntree = IntervalTree.from_tuples(
-                [(_[0], _[1] + 1) for _ in self.combined_cds_introns])
-        return self.__cds_introntree
-
-    @property
     def selected_cds(self):
         """This property return the CDS exons of the ORF selected as best
          inside the cDNA, in the form of duplices (start, end)"""
@@ -1780,26 +1819,43 @@ index {3}, internal ORFs: {4}".format(
         Used to calculate the non-coding parts of the CDS.
         :rtype: intervaltree.Intervaltree
         """
+
+        if len(self.__cds_tree) != len(self.combined_cds):
+            self.__calculate_cds_tree()
+
         return self.__cds_tree
 
-    @cds_tree.setter
-    def cds_tree(self, segments):
+    def __calculate_cds_tree(self):
+
+        self.__cds_tree = IntervalTree.from_tuples(
+            [(cds[0], max(cds[1], cds[0] + 1)) for cds in self.combined_cds])
+
+    @property
+    def segmenttree(self):
+
+        if len(self.__segmenttree) != self.exon_num + len(self.introns):
+            self.__calculate_segment_tree()
+
+        return self.__segmenttree
+
+    @property
+    def cds_introntree(self):
+
         """
-        Setter for CDS tree. It checks that the calculated tree is actually valid.
-        :param segments: the interval tree to be set.
-        :type segments: intervaltree.Intervaltree
-        :return:
+        :rtype: intervaltree.IntervalTree
         """
 
-        if segments is None:
-            pass
-        elif isinstance(segments, IntervalTree):
-            assert len(segments) == len(self.combined_cds)
-        else:
-            raise TypeError("Invalid cds segments: %s, type %s",
-                            segments, type(segments))
+        if len(self.__cds_introntree) != len(self.combined_cds_introns):
+            self.__cds_introntree = IntervalTree.from_tuples(
+                [(_[0], _[1] + 1) for _ in self.combined_cds_introns])
+        return self.__cds_introntree
 
-        self.__cds_tree = segments
+    def __calculate_segment_tree(self):
+
+        self.__segmenttree = IntervalTree.from_intervals(
+                [Interval(*_, value="exon") for _ in self.exons] + [Interval(*_, value="intron") for _ in self.introns]
+            )
+
 
     @property
     def derived_children(self):
@@ -2769,7 +2825,6 @@ index {3}, internal ORFs: {4}".format(
 
     max_exon_length.category = "cDNA"
     max_exon_length.rtype = "int"
-
 
     @Metric
     def min_exon_length(self):

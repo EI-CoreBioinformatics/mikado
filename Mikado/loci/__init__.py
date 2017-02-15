@@ -9,24 +9,12 @@
     The creation of the loci is delegated to the "Creator" class.
 """
 
-from .clique_methods import *
+from ..transcripts import Transcript, TranscriptChecker
 from .abstractlocus import Abstractlocus
-from .transcript import Transcript
 from .excluded import Excluded
 from .locus import Locus
 from .monosublocusholder import MonosublocusHolder
-from .superlocus import Superlocus, Sublocus, Monosublocus
 from .reference_gene import Gene
-
-# from .picker import Picker
-# from . import abstractlocus
-# from . import picker
-# from . import excluded
-# from . import locus
-# from . import monosublocus
-# from . import sublocus
-# from . import superlocus
-# from . import transcript
-# from . import transcriptchecker
+from .superlocus import Superlocus, Sublocus, Monosublocus
 
 __title__ = "loci"

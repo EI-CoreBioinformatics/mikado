@@ -437,6 +437,10 @@ cpdef tuple compare(prediction, reference, bint lenient=False):
                 ccode = "X"  # "X{0}".format(ccode)
         reference_exon = None
 
+    location = "{}:{}..{}".format(reference.chrom,
+                                  min(reference.start, prediction.start),
+                                  max(reference.end, prediction.end))
+
     result = ResultStorer(reference.id,
                           ",".join(reference.parent),
                           ccode, prediction.id,
@@ -455,7 +459,8 @@ cpdef tuple compare(prediction, reference, bint lenient=False):
                           round(exon_precision * 100, 2),
                           round(100 * exon_recall, 2),
                           round(100 * exon_f1, 2),
-                          distance)
+                          distance,
+                          location)
 
     if ccode == "":
         raise ValueError("Ccode is null;\n{0}".format(repr(result)))

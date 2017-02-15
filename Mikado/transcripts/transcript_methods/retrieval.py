@@ -3,14 +3,15 @@ This module contains the methods used by the Transcript class to retrieve inform
 from the database/dictionary provided during the pick operation.
 """
 
-
-from itertools import groupby
-from sqlalchemy.orm.session import sessionmaker
-from ...utilities import dbutils
-from ..clique_methods import define_graph, find_cliques, find_communities
-from ...serializers.junction import Junction
-from sqlalchemy import and_
 import operator
+from itertools import groupby
+
+from sqlalchemy import and_
+from sqlalchemy.orm.session import sessionmaker
+
+from Mikado.serializers.junction import Junction
+from Mikado.transcripts.clique_methods import define_graph, find_cliques, find_communities
+from Mikado.utilities import dbutils
 
 __author__ = 'Luca Venturini'
 

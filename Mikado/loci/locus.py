@@ -5,24 +5,18 @@ This module defines the last object to be created during the picking,
 i.e. the locus.
 """
 
+import collections
 import itertools
 import operator
-# import functools
 from collections import deque
-from .transcript import Transcript
-from .transcriptchecker import TranscriptChecker
-from ..scales.assigner import Assigner
-from .sublocus import Sublocus
-from .abstractlocus import Abstractlocus
-from ..parsers.GFF import GffLine
-import collections
-from ..utilities import overlap
 import pyfaidx
-from sys import version_info
-if version_info.minor < 5:
-    from sortedcontainers import SortedDict
-else:
-    from collections import OrderedDict as SortedDict
+from ..transcripts.transcript import Transcript
+from ..transcripts.transcriptchecker import TranscriptChecker
+from .abstractlocus import Abstractlocus
+from .sublocus import Sublocus
+from ..parsers.GFF import GffLine
+from ..scales.assigner import Assigner
+from ..utilities import overlap
 
 
 class Locus(Sublocus, Abstractlocus):
@@ -52,7 +46,6 @@ class Locus(Sublocus, Abstractlocus):
         self.locus_verified_introns = transcript.verified_introns
         self.metrics_calculated = False
         self.scores_calculated = False
-        self.score = transcript.score
         # A set of the transcript we will ignore during printing
         # because they are duplications of the original instance. Done solely to
         # get the metrics right.
@@ -173,7 +166,7 @@ reached the maximum number of isoforms for the locus".format(
             self.scores_calculated = False
             self.calculate_scores()
 
-        self.logger.debug("Now checking the retained introns")
+        self.logger.debug("Now checking the retained introns for %s", self.id)
         while True:
             to_remove = set()
             for tid, transcript in self.transcripts.items():
@@ -234,17 +227,6 @@ reached the maximum number of isoforms for the locus".format(
 
         _ = kwargs
         to_be_added = True
-        # Total, 5', 3'
-        max_utr_lenghts = {
-            "total": self.json_conf["pick"]["alternative_splicing"]["max_utr_length"],
-            "five": self.json_conf["pick"]["alternative_splicing"]["max_fiveutr_length"],
-            "three": self.json_conf["pick"]["alternative_splicing"]["max_threeutr_length"]}
-        # max_isoforms = self.json_conf["pick"]["alternative_splicing"]["max_isoforms"]
-        #
-        # if len(self.transcripts) >= max_isoforms:
-        #     self.logger.debug("%s not added because the Locus has already too many transcripts.",
-        #                       transcript.id)
-        #     to_be_added = False
 
         if to_be_added and transcript.strand != self.strand:
             self.logger.debug("%s not added because it has a different strand from %s (%s vs. %s)",
@@ -270,6 +252,7 @@ reached the maximum number of isoforms for the locus".format(
                 to_be_added = False
             else:
                 transcript.attributes["ccode"] = ccode
+                self.logger.debug("%s is a valid splicing isoform; Ccode: %s", transcript.id, ccode)
             if self.json_conf["pick"]["alternative_splicing"]["min_cdna_overlap"] > 0:
                 overlap = comparison.n_recall[0]
                 if overlap < self.json_conf["pick"]["alternative_splicing"]["min_cdna_overlap"]:
@@ -295,23 +278,8 @@ reached the maximum number of isoforms for the locus".format(
                         self.json_conf["as_requirements"]["parameters"][key])
                 # pylint: disable=eval-used
             if eval(self.json_conf["as_requirements"]["compiled"]) is False:
+                self.logger.debug("%s fails the minimum requirements for AS events", transcript.id)
                 to_be_added = False
-
-        if to_be_added and transcript.combined_utr_length > max_utr_lenghts["total"]:
-            self.logger.debug("%s not added because it has too much UTR (%d).",
-                              transcript.id,
-                              transcript.combined_utr_length)
-            to_be_added = False
-        if to_be_added and transcript.five_utr_length > max_utr_lenghts["five"]:
-            self.logger.debug("%s not added because it has too much 5'UTR (%d).",
-                              transcript.id,
-                              transcript.five_utr_length)
-            to_be_added = False
-        if to_be_added and transcript.three_utr_length > max_utr_lenghts["three"]:
-            self.logger.debug("%s not added because it has too much 3'UTR (%d).",
-                              transcript.id,
-                              transcript.three_utr_length)
-            to_be_added = False
 
         if to_be_added and self.json_conf["pick"]["alternative_splicing"]["min_cds_overlap"] > 0:
             if self.primary_transcript.combined_cds_length > 0:
@@ -381,40 +349,33 @@ reached the maximum number of isoforms for the locus".format(
         This function checks whether another *monoexonic* Locus
         *on the opposite strand* is a fragment,by checking its classification
         according to Assigner.compare.
-        Briefly, a transcript is classified as fragment
-        if it follows the following criteria:
-
-            - it is monoexonic
-            - it has a combined_cds_length inferior to maximal_cds
-            - it is classified as x,i,P
         """
 
         if not isinstance(self, type(other)):
             raise TypeError("I can compare only loci.")
+
+        if other.primary_transcript_id == self.primary_transcript_id:
+            self.logger.debug("Self-comparisons are not allowed!")
+            return False, None
 
         self.logger.debug("Comparing %s with %s",
                           self.primary_transcript_id,
                           other.primary_transcript_id)
 
         result, _ = Assigner.compare(other.primary_transcript, self.primary_transcript)
-        # Exclude anything which is completely contained within an intron,
-        # or is a monoexonic fragment overlapping/in the neighborhood
+        max_distance = self.json_conf["pick"]["fragments"]["max_distance"]
         self.logger.debug("Comparison between {0} (strand {3}) and {1}: class code \"{2}\"".format(
             self.primary_transcript.id,
             other.primary_transcript.id,
             result.ccode[0],
             other.strand))
-        if result.ccode[0] in ("i", "P", "p", "x", "X", "m", "_"):
+        if (result.ccode[0] in self.json_conf["pick"]["fragments"]["valid_class_codes"] and
+                    result.distance[0] <= max_distance):
             self.logger.debug("{0} is a fragment (ccode {1})".format(
                 other.primary_transcript.id, result.ccode[0]))
-            return True
-        # Adding c's because fragments might very well be contained!
-        elif other.strand is None and (result.n_f1[0] > 0 or result.ccode in ("rI", "ri")):
-            self.logger.debug("Unstranded {0} is a fragment (ccode {1})".format(
-                other.primary_transcript.id, result.ccode[0]))
-            return True
+            return True, result
 
-        return False
+        return False, None
 
     def set_json_conf(self, jconf: dict):
         """
@@ -426,25 +387,22 @@ reached the maximum number of isoforms for the locus".format(
             raise TypeError("Invalid configuration of type {0}".format(type(jconf)))
         self.json_conf = jconf
 
-    def get_metrics(self):
-
-        """Quick wrapper to calculate the metrics for all the transcripts."""
-
-        # TODO: Find an intelligent way ot restoring this check
-
-        if self.metrics_calculated is True:
-            return
-
-        # self.logger.info("Calculating the intron tree for %s", self.id)
-        assert len(self._cds_introntree) == len(self.combined_cds_introns)
-
-        for tid in sorted(self.transcripts):
-            self.calculate_metrics(tid)
-
-        self.logger.debug("Finished to calculate the metrics for %s", self.id)
-
-        self.metrics_calculated = True
-        return
+    # def get_metrics(self):
+    #
+    #     """Quick wrapper to calculate the metrics for all the transcripts."""
+    #
+    #     if self.metrics_calculated is True:
+    #         return
+    #
+    #     assert len(self._cds_introntree) == len(self.combined_cds_introns)
+    #
+    #     for tid in sorted(self.transcripts):
+    #         self.calculate_metrics(tid)
+    #
+    #     self.logger.debug("Finished to calculate the metrics for %s", self.id)
+    #
+    #     self.metrics_calculated = True
+    #     return
 
     def calculate_metrics(self, tid: str):
         """
@@ -493,74 +451,20 @@ reached the maximum number of isoforms for the locus".format(
         Scores are rounded to the nearest integer.
         """
 
-        if self.scores_calculated is True:
-            return
+        super().calculate_scores()
 
-        self.get_metrics()
-        if not hasattr(self, "logger"):
-            self.logger = None
-            self.logger.setLevel("DEBUG")
-        self.logger.debug("Calculating scores for {0}".format(self.id))
-
-        self.scores = dict()
-        for tid in self.transcripts:
-            self.scores[tid] = dict()
-            # Add the score for the transcript source
-            self.scores[tid]["source_score"] = self.transcripts[tid].source_score
-
-        if self.regressor is None:
-            for param in self.json_conf["scoring"]:
-                self._calculate_score(param)
-
-            for tid in self.scores:
-                self.transcripts[tid].scores = self.scores[tid].copy()
-
-            for tid in self.transcripts:
-
-                if tid in self.__orf_doubles:
-                    del self.scores[tid]
-                    continue
-                self.transcripts[tid].score = sum(self.scores[tid].values())
-                self.scores[tid]["score"] = self.transcripts[tid].score
-
-        else:
-            valid_metrics = self.regressor.metrics
-            metric_rows = SortedDict()
-            for tid, transcript in sorted(self.transcripts.items(), key=operator.itemgetter(0)):
-                for param in valid_metrics:
-                    self.scores[tid][param] = "NA"
-                row = []
-                for attr in valid_metrics:
-                    val = getattr(transcript, attr)
-                    if isinstance(val, bool):
-                        if val:
-                            val = 1
-                        else:
-                            val = 0
-                    row.append(val)
-                metric_rows[tid] = row
-            # scores = SortedDict.fromkeys(metric_rows.keys())
-            for pos, score in enumerate(self.regressor.predict(list(metric_rows.values()))):
-                tid = list(metric_rows.keys())[pos]
-                if tid in self.__orf_doubles:
-                    del self.scores[tid]
-                    continue
-                self.scores[tid]["score"] = score
-                self.transcripts[tid].score = score
-
-        self.metric_lines_store = []
-        for row in self.prepare_metrics():
-            if row["tid"] in self.__orf_doubles:
-                continue
+        for index, item in enumerate(reversed(self.metric_lines_store)):
+            if item["tid"] in self.__orf_doubles:
+                del self.metric_lines_store[index]
             else:
-                self.metric_lines_store.append(row)
+                continue
 
         for doubled in self.__orf_doubles:
             for partial in self.__orf_doubles[doubled]:
                 if partial in self.transcripts:
                     del self.transcripts[partial]
-
-        self.scores_calculated = True
+                if partial in self.scores:
+                    del self.scores[partial]
 
     def print_scores(self):
         """This method yields dictionary rows that are given to a csv.DictWriter class."""
@@ -575,19 +479,26 @@ reached the maximum number of isoforms for the locus".format(
             row = dict().fromkeys(keys)
             row["tid"] = tid
             row["parent"] = self.id
-            row["score"] = round(self.scores[tid]["score"], 2)
+            if tid in self._not_passing:
+                row["score"] = 0
+            else:
+                row["score"] = round(self.scores[tid]["score"], 2)
             calculate_total = (self.regressor is None)
             for key in score_keys:
                 if calculate_total:
                     assert self.scores[tid][key] != "NA" and self.scores[tid][key] is not None
                     row[key] = round(self.scores[tid][key], 2)
+
             if calculate_total is True:
                 score_sum = sum(row[key] for key in score_keys)
-                #
-                assert round(score_sum, 2) == round(self.scores[tid]["score"], 2), (
-                    score_sum,
-                    self.transcripts[tid].score,
-                    tid)
+                if tid not in self._not_passing and self.scores[tid]["score"] > 0:
+                    assert round(score_sum, 2) == round(self.scores[tid]["score"], 2), (
+                        score_sum,
+                        self.transcripts[tid].score,
+                        tid)
+                else:
+                    assert self.scores[tid]["score"] == 0
+
             yield row
 
     def is_alternative_splicing(self, other):
@@ -610,7 +521,7 @@ reached the maximum number of isoforms for the locus".format(
         valid_ccodes = self.json_conf["pick"]["alternative_splicing"]["valid_ccodes"]
         redundant_ccodes = self.json_conf["pick"]["alternative_splicing"]["redundant_ccodes"]
 
-        if self.json_conf["pick"]["run_options"]["subloci_from_cds_only"] is True:
+        if self.json_conf["pick"]["clustering"]["cds_only"] is True:
             main_without_utr = self.primary_transcript.deepcopy()
             main_without_utr.remove_utrs()
             other_without_utr = other.deepcopy()
@@ -632,7 +543,7 @@ reached the maximum number of isoforms for the locus".format(
             for tid in iter(tid for tid in self.transcripts if
                             tid not in (self.primary_transcript_id, other.id)):
                 candidate = self.transcripts[tid]
-                if self.json_conf["pick"]["run_options"]["subloci_from_cds_only"] is True:
+                if self.json_conf["pick"]["clustering"]["cds_only"] is True:
                     candidate = candidate.deepcopy()
                     candidate.remove_utrs()
                     Assigner.compare(other_without_utr, candidate)
@@ -691,7 +602,7 @@ reached the maximum number of isoforms for the locus".format(
 
             comm = five_comm.popleft()
             comm = deque(sorted(list(set.difference(set(comm), five_found)),
-                         key=lambda tid: self[tid].start))
+                         key=lambda internal_tid: self[internal_tid].start))
             if len(comm) == 1:
                 continue
             first = comm.popleft()
@@ -721,7 +632,7 @@ reached the maximum number of isoforms for the locus".format(
 
             comm = three_comm.popleft()
             comm = deque(sorted(list(set.difference(set(comm), three_found)),
-                         key=lambda tid: self[tid].end, reverse=True))
+                         key=lambda internal_tid: self[internal_tid].end, reverse=True))
             if len(comm) == 1:
                 continue
             first = comm.popleft()
@@ -742,7 +653,7 @@ reached the maximum number of isoforms for the locus".format(
                     three_found.add(tid)
                 else:
                     continue
-            comm = deque([_ for _ in comm if _ not in three_found ])
+            comm = deque([_ for _ in comm if _ not in three_found])
             if comm:
                 three_comm.appendleft(comm)
 
@@ -922,11 +833,7 @@ def expand_transcript(transcript, new_start, new_end, fai, logger):
                 raise AssertionError(err)
             logger.debug("New ORF: %s", str(orf))
             new_orfs.append(orf)
-        # from ..utilities.log_utils import create_default_logger
-        # transcript.logger = create_default_logger("TEMP")
-        # transcript.logger.setLevel("DEBUG")
         transcript.load_orfs(new_orfs)
-        # transcript.logger.setLevel("WARNING")
 
     # Now finalize again
     transcript.finalize()

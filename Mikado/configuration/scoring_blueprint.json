@@ -9,10 +9,46 @@
     "filter": {
       "type": "object",
       "properties":{
-        "operator": {"type": "string", "enum": ["gt", "ge", "eq", "lt", "le", "ne", "in", "not in"],
-        "optional": false},
-        "value": {"oneOf": [{"type": "array"}, {"type": "number"}, {"type": "boolean"}],
-        "optional": false}
+        "oneOf": [
+          {
+            "operator": { "oneOf": ["gt", "ge", "lt", "le"], "optional": false},
+            "value": {"type": "number", "optional": false}
+          },
+          {
+            "operator": { "oneOf": ["ne", "eq"], "optional": false},
+            "value": {
+              "oneOf": [{"type": "number"}, {"type": "boolean"}],
+              "optional": false}
+          },
+          {
+            "operator": {
+              "oneOf": [
+                "in",
+                "not in"
+              ],
+              "optional": false
+            },
+            "value": {"type": "array"}
+          },
+          {
+            "operator": {
+              "oneOf": [
+                "within",
+                "not within"
+              ],
+              "optional": false
+            },
+            "value": {
+              "type": "array",
+              "items": {
+                "type": "number"
+              },
+              "uniqueItems": true,
+              "maxItems": 2,
+              "minItems": 2
+            }
+          }
+        ]
       }
     }
   }

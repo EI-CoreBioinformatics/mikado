@@ -1,3 +1,43 @@
+#Version 1.0.0beta10
+
+Changes in this release:
+
+- **MAJOR**: re-written the clustering algorithm for the MonosublocusHolder stage. Now a holder will accept another monosublocus if:
+    - the cDNA and CDS overlap is over a user-specified threshold *OR*
+    OR 
+    - there is some intronic overlap
+    OR
+    - one intron of either transcript is completely contained within an exon of the other.
+    OR
+    - at least one of the transcripts is monoexonic and there is some overlap of any kind. This behaviour (which was the default until this release) can be switched off through pick/clustering/simple_overlap_for_monoexonic (default true).
+- **MAJOR**: changed slightly the anatomy of the configuration files. Now "pick" has two new subsections, "clustering" and "fragments".
+    - Clustering: dedicated to how to cluster the transcripts in the different steps. Currently it contains the keys:
+        - "flank"
+        - "min_cdna_overlap" and "min_cds_overlap" (for the second clustering during the monosublocusHolder phase)
+        - "cds_only": to indicate whether we should only consider the CDS for clustering after the initial merging in the Superlocus.
+        - "simple_overlap_for_monoexonic": to switch on/off the old default behaviour with monoexonic transcripts
+        - "purge": whether to completely exclude failed loci, previously under "run_options"
+    - Fragments: dedicated to how to identify and treat putative fragments. Currently it contains the keys:
+        - "remove": whether to exclude fragments, previously under "run_options"
+        - "valid_class_codes": which class codes constitute a fragment match. Only class codes in the "Intronic", "Overlap" (inclusive of _) and "Fragment" categories are allowed.
+        - max_distance: for non-overlapping fragments (ie p and P), maximum distance from the gene. 
+- Solved a long-standing bug which caused Mikado compare to consider as fusion also hits.
+- Mikado compare now also provides the location of the matches in TMAP and REFMAP files.
+- Introduced a new utility, "class_codes", to print out the information of the class codes. The definition of class codes is now contained in a subpackage of "scales".
+- The "metrics" utility now allows for interactive querying based on category or metric name.
+- The class code repertoire for putative fragments has been expanded, and made configurable through the "fragments" section.
+- When printing out putative fragments, now Mikado will indicate the class code of the fragment, the match against which it was deemed a fragment of, and the distance of said fragment (if they are not overlapping). 
+- Deprecated the "discard_definition" flag in Mikado serialise. Now Mikado will infer on its own whether to use the definition or the ID for serialising BLAST results.
+- Now AbstractLocus implementations have a private method to check the correctness of the json_conf. As a corollary, Transcript and children have been moved to their own subpackage ("transcripts") in order to break the circular dependency Mikado.loci.Abstractlocus <- Mikado.configurator <- Mikado.loci.Transcript. *Technical note*: checking the consinstency of the configuration is an expensive operation, so it will be executed on demand rather than automatically.
+- The methods to calculate scores and metrics have been moved to the AbstractLocus class, so to minimize the incidence of bugs due to code duplication and diversion.
+- Made the checks for the scoring files more robust.
+- Re-written the "find_retained_introns" method of AbstractLocus, to solve some bugs found during the utilisation of last beta. As a corollary, expanded the intervaltree module to allow searches for "tagged" intervals.
+- Now the "monoloci_out" files contain the Monosublocus**Holder** step, not the Monosublocus step. This should help during fine-tuning. 
+- Minimal requirements for alternative splicing events are now specified with a syntax analogous to that of minimal requirements, and that for not considering a locus as a putative fragment, under the tag "as_requirements".
+- Fixed a bug which caused transcript requirements to be ignored if pick/clustering/purge was set to False.
+- Mikado now supports also Python3.6.
+
+
 #Version 1.0.0beta9 - "External scores"
 
 Changes in this release:
@@ -14,8 +54,7 @@ Changes in this release:
   - "only_non_canonical_splicing" will allow to identify transcripts whose splicing sites are all non-canonical.
 - It is now possible to give Mikado a tab-delimited file of pre-calculated metrics (which must be numeric), during serialise. The file should have the transcript ids in the first column and have a header as first line; this header must have "TID" as first field, and no repeated fields afterwards. External metrics can be specified in the scoring configuration using the syntax "external.{name of the score}". If an inexistent metric is asked for, Mikado will assign a default value of 0 to it.
 - It is now possible to use metrics with values between 0 and 1, inclusive directly as scoring, by specifying the parameter "use_raw: True". This is available only for metrics which have been tagged as being "usable raw", or with externally provided metrics. The option is valid only when looking for the maximum or minimum value for a metric, not when looking for a target. If an incorrect configuration is specified, Mikado will crash.
-- Minimal requirements for alternative splicing events are now specified with a syntax analogous to that of minimal requirements, and that for not considering a locus as a putative fragment, under the tag "as_requirements".
-- Mikado prepare in "lenient" mode will keep also transcripts with a mixture of strands for the splicing junctions.
+- Mikado prepare in "lenient" mode will keep also transcripts with a mixture of strands for the splicing junctions. Such transcripts are marked with the "suspicious_splicing" GTF attribute.
 - Mikado prepare can be asked to keep all transcripts, even if they are redundant. The new behaviour (disabled by default) is switched on by the boolean parameter "prepare/keep_redundant".
 - Mikado pick can consider transcripts with CDS ending within a CDS intron as truncated due to a retained intron event. This potentially allows Mikado to detect retained introns even when only CDSs are provided. The behaviour is disabled by default, and can be switched on using the boolean configuration parameter "pick/run_options/consider_truncated_for_retained".
 - Some bugs have been detected and solved thanks to the collaboration with Hugo Darras.

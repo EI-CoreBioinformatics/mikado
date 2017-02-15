@@ -22,7 +22,7 @@ from ..serializers import orf, blast_serializer, junction
 from ..serializers import external
 from ..exceptions import InvalidJson
 import pyfaidx
-from csv import DictReader
+# from csv import DictReader
 
 __author__ = 'Luca Venturini'
 
@@ -195,7 +195,7 @@ def setup(args):
             # Necesarry for JSON configurations
             continue
         else:
-            if getattr(args, key) or getattr(args, key) == 0:
+            if getattr(args, key, None) or getattr(args, key, None) == 0:
                 if getattr(args, key) is False or getattr(args, key) is None:
                     continue
                 else:
@@ -301,6 +301,9 @@ def serialise(args):
 
     if args.json_conf["serialise"]["force"] is True:
         logger.warn("Removing old data because force option in place")
+        if args.json_conf["db_settings"]["dbtype"] == "sqlite" and os.path.exists(args.json_conf["db_settings"]["db"]):
+            os.remove(args.json_conf["db_settings"]["db"])
+
         engine = dbutils.connect(args.json_conf)
         meta = sqlalchemy.MetaData(bind=engine)
         meta.reflect(engine)
@@ -312,7 +315,7 @@ def serialise(args):
         if args.json_conf["db_settings"]["dbtype"] == "mysql":
             engine.execute("")
         # This would fail in MySQL as it uses the OPTIMIZE TABLE syntax above
-        if args.json_conf["db_settings"]["dbtype"] != "mysql":
+        elif args.json_conf["db_settings"]["dbtype"] != "sqlite":
             engine.execute("VACUUM")
         dbutils.DBBASE.metadata.create_all(engine)
 
@@ -372,9 +375,6 @@ def serialise_parser():
                        help="Maximum number of target sequences.")
     blast.add_argument("--blast_targets", default=[], type=comma_split,
                        help="Target sequences")
-    blast.add_argument("--discard-definition", action="store_true", default=False,
-                       help="""Flag. If set, the sequences IDs instead of their definition
-                       will be used for serialisation.""")
     blast.add_argument("--xml", type=str, help="""XML file(s) to parse.
     They can be provided in three ways:
     - a comma-separated list

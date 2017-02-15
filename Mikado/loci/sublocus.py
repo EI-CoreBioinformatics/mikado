@@ -257,9 +257,9 @@ class Sublocus(Abstractlocus):
 
     def calculate_scores(self):
 
+        self.metric_lines_store = []
         super().calculate_scores()
         self.metric_lines_store = [_ for _ in self.prepare_metrics()]
-        self.scores_calculated = True
 
     def prepare_metrics(self):
 

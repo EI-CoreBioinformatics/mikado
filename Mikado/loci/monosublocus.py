@@ -26,10 +26,8 @@ class Monosublocus(Abstractlocus):
         # this must be defined straight away
         self.monoexonic = transcript_instance.monoexonic
         Abstractlocus.add_transcript_to_locus(self, transcript_instance)
-        self.score = transcript_instance.score
         self.feature = "Monosublocus"
         self.parent = None
-        self.score = transcript_instance.score
         self.tid = transcript_instance.id
         self.logger = logger
         self.attributes = dict()

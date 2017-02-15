@@ -1230,6 +1230,14 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         self.__source = value
 
     @property
+    def score(self):
+
+        if len(self.transcripts):
+            return max(_.score for _ in self.transcripts.values())
+        else:
+            return None
+
+    @property
     def _cds_introntree(self):
 
         """

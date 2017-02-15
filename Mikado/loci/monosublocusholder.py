@@ -53,7 +53,6 @@ class MonosublocusHolder(Sublocus, Abstractlocus):
         self.json_conf = json_conf
         self.excluded = None
         self.feature = "MonosublocusHolder"
-        self.score = monosublocus_instance.score
         self.scores_calculated = False
         # Add the transcript to the Locus
         self.locus_verified_introns = set()
@@ -137,7 +136,6 @@ class MonosublocusHolder(Sublocus, Abstractlocus):
         for attr in ["chrom", 'feature', 'source', 'start', 'end', 'strand']:
             setattr(self_line, attr, getattr(self, attr))
         self.calculate_scores()
-        self.score = max([_.score for _ in self.transcripts.values()])
 
         self_line.phase, self_line.score = None, self.score
         if source_in_name is True:
@@ -328,13 +326,8 @@ class MonosublocusHolder(Sublocus, Abstractlocus):
          :param other:
          :type other: Transcript
 
-         :param cds_only: boolean flag. If set to True, only
-         the CDS component of the transcripts will be considered to determine
-         whether they are intersecting or not.
-         :type cds_only: bool
-
-        :param min_cdna_overlap: float. This is the minimum cDNA overlap for two transcripts to be considered as intersecting,
-         even when all other conditions fail.
+        :param min_cdna_overlap: float. This is the minimum cDNA overlap for
+        two transcripts to be considered as intersecting, even when all other conditions fail.
         :type min_cdna_overlap: float
 
         :param min_cds_overlap: float. This is the minimum CDS overlap for two transcripts to be considered as intersecting,

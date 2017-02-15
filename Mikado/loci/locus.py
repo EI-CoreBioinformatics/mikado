@@ -46,7 +46,6 @@ class Locus(Sublocus, Abstractlocus):
         self.locus_verified_introns = transcript.verified_introns
         self.metrics_calculated = False
         self.scores_calculated = False
-        self.score = transcript.score
         # A set of the transcript we will ignore during printing
         # because they are duplications of the original instance. Done solely to
         # get the metrics right.
@@ -452,18 +451,7 @@ reached the maximum number of isoforms for the locus".format(
         Scores are rounded to the nearest integer.
         """
 
-        if self.scores_calculated is True:
-            return
-
-        self.scores = dict()
-        self.metric_lines_store = []
-        self.get_metrics()
         super().calculate_scores()
-
-        if not hasattr(self, "logger"):
-            self.logger = None
-            self.logger.setLevel("DEBUG")
-        self.logger.debug("Calculating scores for {0}".format(self.id))
 
         for index, item in enumerate(reversed(self.metric_lines_store)):
             if item["tid"] in self.__orf_doubles:

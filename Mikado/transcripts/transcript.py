@@ -411,8 +411,8 @@ class Transcript:
 
         if not isinstance(self, type(other)):
             return False
-        self.finalize()
-        other.finalize()
+        # self.finalize()
+        # other.finalize()
 
         if self.strand == other.strand and self.chrom == other.chrom:
             if other.start == self.start:

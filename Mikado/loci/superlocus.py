@@ -119,7 +119,6 @@ class Superlocus(Abstractlocus):
             raise NoJsonConfigError("I am missing the configuration for prioritizing transcripts!")
         self.__regressor = None
         self.json_conf = json_conf
-        self.purge = self.json_conf["pick"]["clustering"]["purge"]
 
         self.splices = set(self.splices)
         self.introns = set(self.introns)
@@ -673,54 +672,6 @@ class Superlocus(Abstractlocus):
 
     # ##### Sublocus-related steps ######
 
-    def __prefilter_transcripts(self):
-
-        """Private method that will check whether there are any transcripts
-        not meeting the minimum requirements specified in the configuration.
-        :return:
-        """
-
-        self.excluded_transcripts = None
-
-        not_passing = self._check_not_passing()
-
-        if not not_passing:
-            self.logger.debug("No transcripts to be excluded for %s", self.id)
-            return
-        else:
-            self.logger.debug("""%d transcript%s do not pass the requirements for %s;
-expression: %s""",
-                              len(not_passing),
-                              "" if len(not_passing) == 1 else "s",
-                              self.id,
-                              self.json_conf["requirements"]["expression"])
-
-        if self.purge is True:
-            self.logger.debug("Purging %d transcript%s from %s",
-                              len(not_passing),
-                              "" if len(not_passing) == 1 else "s",
-                              self.id)
-            tid = not_passing.pop()
-            self.transcripts[tid].score = 0
-            monosub = Monosublocus(self.transcripts[tid], logger=self.logger)
-            self.excluded_transcripts = Excluded(monosub,
-                                                 json_conf=self.json_conf,
-                                                 logger=self.logger)
-            self.excluded_transcripts.__name__ = "Excluded"
-            self.remove_transcript_from_locus(tid)
-            for tid in not_passing:
-                self.transcripts[tid].score = 0
-                self.excluded_transcripts.add_transcript_to_locus(
-                    self.transcripts[tid])
-                self.remove_transcript_from_locus(tid)
-        else:
-            self.logger.debug("Keeping %d transcript%s in excluded loci from %s",
-                              len(not_passing),
-                              "" if len(not_passing) == 1 else "s",
-                              self.id)
-
-        return
-
     def __reduce_complex_loci(self, transcript_graph):
 
         """
@@ -887,7 +838,7 @@ expression: %s""",
         self.subloci = []
 
         # Check whether there is something to remove
-        self.__prefilter_transcripts()
+        self._check_requirements()
 
         if len(self.transcripts) == 0:
             # we have removed all transcripts from the Locus. Set the flag to True and exit.

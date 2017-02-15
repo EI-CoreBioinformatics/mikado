@@ -32,7 +32,6 @@ class Monosublocus(Abstractlocus):
         self.score = transcript_instance.score
         self.tid = transcript_instance.id
         self.logger = logger
-        self.purge = self.json_conf["pick"]["clustering"]["purge"]
         self.attributes = dict()
         self.json_conf = json_conf
 
@@ -47,7 +46,7 @@ class Monosublocus(Abstractlocus):
 
     # ########## Class instance methods ##############
 
-    def add_transcript_to_locus(self, transcript, check_in_locus=False):
+    def add_transcript_to_locus(self, transcript, check_in_locus=False, **kwargs):
         """For this basic class, this method raises a NotImplementedError -
         as this container should hold only one transcript.
 

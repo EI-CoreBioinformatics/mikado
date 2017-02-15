@@ -63,7 +63,6 @@ class Locus(Sublocus, Abstractlocus):
         self.__id = None
         self.fai = None
         self.json_conf = json_conf
-        self.purge = self.json_conf["pick"]["clustering"]["purge"]
         # if verified_introns is not None:
         #     self.locus_verified_introns = verified_introns
 
@@ -457,8 +456,8 @@ reached the maximum number of isoforms for the locus".format(
             return
 
         self.scores = dict()
+        self.metric_lines_store = []
         self.get_metrics()
-
         super().calculate_scores()
 
         if not hasattr(self, "logger"):
@@ -466,11 +465,11 @@ reached the maximum number of isoforms for the locus".format(
             self.logger.setLevel("DEBUG")
         self.logger.debug("Calculating scores for {0}".format(self.id))
 
-        for row in self.prepare_metrics():
-            if row["tid"] in self.__orf_doubles:
-                continue
+        for index, item in enumerate(reversed(self.metric_lines_store)):
+            if item["tid"] in self.__orf_doubles:
+                del self.metric_lines_store[index]
             else:
-                self.metric_lines_store.append(row)
+                continue
 
         for doubled in self.__orf_doubles:
             for partial in self.__orf_doubles[doubled]:

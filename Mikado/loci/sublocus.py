@@ -56,7 +56,6 @@ class Sublocus(Abstractlocus):
         self.fixed_size = True if span.feature == "sublocus" else False
         if span.__name__ == "transcript":
             span.finalize()
-        self.purge = self.json_conf["pick"]["clustering"]["purge"]
         self.source = self.json_conf["pick"]["output_format"]["source"]
 
         self.excluded = None
@@ -223,7 +222,9 @@ class Sublocus(Abstractlocus):
                         ))
                         to_remove.update(clique)
                 if purge is False or selected_transcript.score > 0:
-                    new_locus = Monosublocus(selected_transcript, logger=self.logger)
+                    new_locus = Monosublocus(selected_transcript,
+                                             logger=self.logger,
+                                             json_conf=self.json_conf)
                     new_locus.json_conf = self.json_conf
                     self.monosubloci.append(new_locus)
             if len(to_remove) < 1:

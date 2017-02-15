@@ -18,6 +18,7 @@ from Mikado.utilities.intervaltree import Interval
 import Mikado.loci
 import pickle
 import inspect
+from Mikado.parsers.bed12 import BED12
 
 
 class OverlapTester(unittest.TestCase):
@@ -930,6 +931,52 @@ class TestLocus(unittest.TestCase):
             with self.subTest(obj=obj):
                 locus = obj(candidate, json_conf=json_conf)
                 pickle.dumps(locus)
+
+    def test_double_orf(self):
+
+        t = Transcript()
+        t.add_exons([(101, 1000), (1101, 1200), (2001, 2900)])
+        t.id = "t1"
+        t.strand = "+"
+
+        orf1 = BED12()
+        orf1.transcriptomic = True
+        orf1.chrom = t.id
+        orf1.start = 1
+        orf1.end = sum([_[1] - _[0] + 1 for _ in t.exons])
+        orf1.strand = "+"
+        orf1.name = "t1.orf1"
+        orf1.block_sizes = (900,)
+        orf1.thick_start = 1
+        orf1.thick_end = 900
+        orf1.block_starts = (1,)
+        orf1.block_count = 1
+
+        orf2 = BED12()
+        orf2.transcriptomic = True
+        orf2.strand = "+"
+        orf2.chrom = t.id
+        orf2.start = 1
+        orf2.end = sum([_[1] - _[0] + 1 for _ in t.exons])
+        orf2.name = "t1.orf2"
+        orf2.block_sizes = (900,)
+        orf2.thick_start = 1001
+        orf2.thick_end = 1900
+        orf2.block_starts = (1,)
+        orf2.block_count = 1
+
+        self.assertFalse(orf1.invalid)
+        self.assertFalse(orf2.invalid)
+
+        t.load_orfs([orf1, orf2])
+        self.assertEqual(t.number_internal_orfs, 2)
+
+        locus = Locus(t)
+        locus.calculate_scores()
+        self.assertTrue(list(locus.scores.keys()), [t.id])
+        rows = list(locus.print_scores())
+        self.assertEqual(len(rows), 1, rows)
+        self.assertEqual(rows[0]["tid"], t.id, rows[0])
 
 
 class RetainedIntronTester(unittest.TestCase):

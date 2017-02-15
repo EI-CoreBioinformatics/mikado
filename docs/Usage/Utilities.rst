@@ -31,6 +31,33 @@ Usage::
       --start START
       --end END``
 
+.. _class-codes-command:
+
+class_codes
+~~~~~~~~~~~
+
+This utility is used to obtain information about any class code or category thereof.
+
+Usage::
+
+    $ mikado util class_codes --help
+    usage: mikado util class_codes [-h]
+                                   [-f {fancy_grid,grid,html,jira,latex,latex_booktabs,mediawiki,moinmoin,orgtbl,pipe,plain,psql,rst,simple,textile,tsv}]
+                                   [-c {Intronic,Match,Alternative splicing,Unknown,Fragment,Overlap,Extension,Fusion} [{Intronic,Match,Alternative splicing,Unknown,Fragment,Overlap,Extension,Fusion} ...]]
+                                   [-o OUT]
+                                   [{,=,_,n,J,c,C,j,h,g,G,o,e,m,i,I,ri,rI,f,x,X,p,P,u} [{,=,_,n,J,c,C,j,h,g,G,o,e,m,i,I,ri,rI,f,x,X,p,P,u} ...]]
+
+    Script to print out the class codes.
+
+    positional arguments:
+      {[],=,_,n,J,c,C,j,h,g,G,o,e,m,i,I,ri,rI,f,x,X,p,P,u}
+                            Codes to query.
+
+    optional arguments:
+      -h, --help            show this help message and exit
+      -f {fancy_grid,grid,html,jira,latex,latex_booktabs,mediawiki,moinmoin,orgtbl,pipe,plain,psql,rst,simple,textile,tsv}, --format {fancy_grid,grid,html,jira,latex,latex_booktabs,mediawiki,moinmoin,orgtbl,pipe,plain,psql,rst,simple,textile,tsv}
+      -c {Intronic,Match,Alternative splicing,Unknown,Fragment,Overlap,Extension,Fusion} [{Intronic,Match,Alternative splicing,Unknown,Fragment,Overlap,Extension,Fusion} ...], --category {Intronic,Match,Alternative splicing,Unknown,Fragment,Overlap,Extension,Fusion} [{Intronic,Match,Alternative splicing,Unknown,Fragment,Overlap,Extension,Fusion} ...]
+      -o OUT, --out OUT
 
 convert
 ~~~~~~~
@@ -108,7 +135,25 @@ This command generates the documentation regarding the available transcript metr
 
 Usage::
 
-    $ mikado util metrics
+    $ mikado util metrics --help
+    usage: mikado util metrics [-h]
+                               [-f {fancy_grid,grid,html,jira,latex,latex_booktabs,mediawiki,moinmoin,orgtbl,pipe,plain,psql,rst,simple,textile,tsv}]
+                               [-o OUT]
+                               [-c {CDS,Descriptive,External,Intron,Locus,UTR,cDNA} [{CDS,Descriptive,External,Intron,Locus,UTR,cDNA} ...]]
+                               [metric [metric ...]]
+
+    Simple script to obtain the documentation on the transcript metrics.
+
+    positional arguments:
+      metric
+
+    optional arguments:
+      -h, --help            show this help message and exit
+      -f {fancy_grid,grid,html,jira,latex,latex_booktabs,mediawiki,moinmoin,orgtbl,pipe,plain,psql,rst,simple,textile,tsv}, --format {fancy_grid,grid,html,jira,latex,latex_booktabs,mediawiki,moinmoin,orgtbl,pipe,plain,psql,rst,simple,textile,tsv}
+                            Format of the table to be printed out.
+      -o OUT, --out OUT     Optional output file
+      -c {CDS,Descriptive,External,Intron,Locus,UTR,cDNA} [{CDS,Descriptive,External,Intron,Locus,UTR,cDNA} ...], --category {CDS,Descriptive,External,Intron,Locus,UTR,cDNA} [{CDS,Descriptive,External,Intron,Locus,UTR,cDNA} ...]
+                            Available categories to select from.
 
 
 .. _stat-command:
@@ -217,6 +262,24 @@ This script is used to collect statistics obtained with from the :ref:`mikado ut
     optional arguments:
       -h, --help  show this help message and exit
 
+bam2gtf.py
+~~~~~~~~~~
+
+This script will use PySam to convert read alignments into a GTF file. Mostly useful to convert from BAM alignment of long reads (eg. PacBio) into a format which Mikado can interpret and use.
+
+Usage::
+
+    $ bam2gtf.py --help
+    usage: Script to convert from BAM to GTF, for PB alignments [-h] bam [out]
+
+    positional arguments:
+      bam         Input BAM file
+      out         Optional output file
+
+    optional arguments:
+      -h, --help  show this help message and exit
+
+
 class_run.py
 ~~~~~~~~~~~~
 
@@ -270,10 +333,29 @@ Script to extract a list of sequences from a FASTA file, using the `pyfaidx <htt
       -v, --reverse  Retrieve entries which are not in the list, as in grep -v (a
                      homage).
 
+gffjunc_to_bed12.py
+~~~~~~~~~~~~~~~~~~~
+
+Script to convert a GFF junction file to a BED12 file. Useful to format the input for Mikado serialise.
+
+Usage::
+
+    $ gffjunc_to_bed12.py --help
+    usage: GFF=>BED12 converter [-h] gff [out]
+
+    positional arguments:
+      gff
+      out
+
+    optional arguments:
+      -h, --help  show this help message and exit
+
 grep.py
 ~~~~~~~
 
-A script to extract data from *column* files, using a list of targets. More efficient than a standard "grep -f" for this niche case. Usage::
+A script to extract data from *column* files, using a list of targets. More efficient than a standard "grep -f" for this niche case.
+
+Usage::
 
     $ util/grep.py -h
     usage: grep.py [-h] [-v] [-s SEPARATOR] [-f FIELD] [-q] ids target [out]
@@ -296,6 +378,38 @@ A script to extract data from *column* files, using a list of targets. More effi
                             The field to look in the target file.
       -q, --quiet           No logging.
 
+merge_junction_bed12.py
+~~~~~~~~~~~~~~~~~~~~~~~
+
+This script will merge [Portcullis]_-like junctions into a single BED12, using the thick start/ends as unique keys.
+
+Usage::
+
+    $ merge_junction_bed12.py --help
+    usage: Script to merge BED12 files *based on the thickStart/End features*.
+        Necessary for merging junction files such as those produced by TopHat
+           [-h] [--delim DELIM] [-t THREADS] [--tophat] [-o OUTPUT] bed [bed ...]
+
+    positional arguments:
+      bed                   Input BED files. Use "-" for stdin.
+
+    optional arguments:
+      -h, --help            show this help message and exit
+      --delim DELIM         Delimiter for merged names. Default: ;
+      -t THREADS, --threads THREADS
+                            Number of threads to use for multiprocessing. Default:
+                            1
+      --tophat              Flag. If set, tophat-like junction style is assumed.
+                            This means that junctions are defined using the
+                            blockSizes rather than thickStart/End. The script will
+                            convert the lines to this latter format. By default,
+                            the script assumes that the intron start/end are
+                            defined using thickStart/End like in portcullis.
+                            Mixed-type input files are not supported.
+      -o OUTPUT, --output OUTPUT
+                            Output file. Default: stdout
+
+
 remove_from_embl.py
 ~~~~~~~~~~~~~~~~~~~
 
@@ -314,6 +428,24 @@ Quick script to remove sequences from a given organism from SwissProt files, and
       -o ORGANISM, --organism ORGANISM
                             Organism to be excluded
       --format {fasta}      Output format. Choices: fasta. Default: fasta.
+
+sanitize_blast_db.py
+~~~~~~~~~~~~~~~~~~~~
+
+Simple script to clean the header of FASTA files, so to avoid runtime errors and incrongruencies with BLAST and other tools which might be sensitive to long descriptions or the presence of special characters.
+
+Usage::
+
+    $ sanitize_blast_db.py --help
+    usage: sanitize_blast_db.py [-h] [-o OUT] fasta [fasta ...]
+
+    positional arguments:
+      fasta
+
+    optional arguments:
+      -h, --help         show this help message and exit
+      -o OUT, --out OUT
+
 
 split_fasta.py
 ~~~~~~~~~~~~~~

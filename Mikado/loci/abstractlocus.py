@@ -244,9 +244,9 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         elif conf["operator"] == "not in":
             comparison = (param not in conf["value"])
         elif conf["operator"] == "within":
-            comparison = (param in range(conf["value"][0], conf["value"][1]))
+            comparison = (param in range(*sorted([conf["value"][0], conf["value"][1] + 1])))
         elif conf["operator"] == "not within":
-            comparison = (param not in range(conf["value"][0], conf["value"][1]))
+            comparison = (param not in range(*sorted([conf["value"][0], conf["value"][1] + 1])))
         else:
             raise ValueError("Unknown operator: {0}".format(conf["operator"]))
         return comparison

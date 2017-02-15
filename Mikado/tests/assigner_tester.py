@@ -402,8 +402,8 @@ class AssignerTester(unittest.TestCase):
     def test_mono_intronic(self):
 
         """
-        R   |=====|-------------------|=========|
-        P            |=======|
+        R   |xxxxx|-------------------|xxxxxxxxx|
+        P            |xxxxxxx|
         
         Expected class code: i
         """
@@ -446,13 +446,13 @@ class AssignerTester(unittest.TestCase):
     def test_multi_intronic(self):
 
         """
-        R   |=====|-------------------|=========|
-        P            |===|----|====|
+        R   |xxxxx|-------------------|xxxxxxxxx|
+        P            |xxx|----|xxxx|
         
         OR
         
-        R   |=====|----------|=========|---------|=========|
-        P            |===|----------------|====|
+        R   |xxxxx|----------|xxxxxxxxx|---------|xxxxxxxxx|
+        P            |xxx|----------------|xxxx|
         
         Expected class code: I
         """
@@ -521,8 +521,8 @@ class AssignerTester(unittest.TestCase):
     def test_overlap(self):
 
         """
-        R   |=====|-------|=====|
-        P      |=====|---|====|
+        R   |xxxxx|-------|xxxxx|
+        P      |xxxxx|---|xxxx|
         
         No junction in common
         
@@ -568,8 +568,8 @@ class AssignerTester(unittest.TestCase):
 
         """Case:
         
-        R ---|=====|-------|======|---
-        P      |======|
+        R ---|xxxxx|-------|xxxxxx|---
+        P      |xxxxxx|
         
         Exonic and intronic overlap
         
@@ -615,8 +615,8 @@ class AssignerTester(unittest.TestCase):
 
         """Case:
         
-        R ---|=====|-------|======|---
-        P |======|
+        R ---|xxxxx|-------|xxxxxx|---
+        P |xxxxxx|
         
         Exonic overlap only
         
@@ -660,8 +660,8 @@ class AssignerTester(unittest.TestCase):
     def test_left_extension(self):
 
         """
-        R   |=======|-------|=====|
-        P     |=====|-------|====|-------|====|
+        R   |xxxxxxx|-------|xxxxx|
+        P     |xxxxx|-------|xxxx|-------|xxxx|
         
         Expected ccode: j
         
@@ -696,8 +696,8 @@ class AssignerTester(unittest.TestCase):
     def test_left_extension_n(self):
 
         """
-        R   |=======|-------|=====|
-        P     |=====|-------|=====|-------|====|
+        R   |xxxxxxx|-------|xxxxx|
+        P     |xxxxx|-------|xxxxx|-------|xxxx|
 
         Expected ccode: j
 
@@ -731,8 +731,8 @@ class AssignerTester(unittest.TestCase):
 
     def test_right_extension(self):
         """
-        R                |=======|-------|=====|
-        P     |=====|-------|====|-------|====|
+        R                |xxxxxxx|-------|xxxxx|
+        P     |xxxxx|-------|xxxx|-------|xxxx|
         
         Expected ccode: j
         """
@@ -765,8 +765,8 @@ class AssignerTester(unittest.TestCase):
 
     def test_left_right_extension(self):
         """
-        R                |=======|-------|=====|
-        P     |=====|-------|====|-------|====|------|=====|
+        R                |xxxxxxx|-------|xxxxx|
+        P     |xxxxx|-------|xxxx|-------|xxxx|------|xxxxx|
         
         Expected ccode: j
         """
@@ -799,8 +799,8 @@ class AssignerTester(unittest.TestCase):
 
     def test_left_right_extension_novel(self):
         """
-        R                   |====|-------|====|
-        P     |=====|----|=======|-------|=====|------|=====|
+        R                   |xxxx|-------|xxxx|
+        P     |xxxxx|----|xxxxxxx|-------|xxxxx|------|xxxxx|
 
         Expected ccode: n
         """
@@ -834,8 +834,8 @@ class AssignerTester(unittest.TestCase):
     def test_internal_extension(self):
         """
         
-        R    |========|-----------------|========|
-        P       |=====|----|======|-----|=====|
+        R    |xxxxxxxx|-----------------|xxxxxxxx|
+        P       |xxxxx|----|xxxxxx|-----|xxxxx|
         
         Expected ccode: j, junction recall: 100%
         """
@@ -869,8 +869,8 @@ class AssignerTester(unittest.TestCase):
     def test_internal_external_extension(self):
         """
         
-        R      |======|-----------------|========|
-        P       |=====|----|======|-----|=====|------|=======|
+        R      |xxxxxx|-----------------|xxxxxxxx|
+        P       |xxxxx|----|xxxxxx|-----|xxxxx|------|xxxxxxx|
         
         Expected ccode: j, junction recall: 100%
         """
@@ -903,8 +903,8 @@ class AssignerTester(unittest.TestCase):
 
     def test_left_right_internal_extension_novel(self):
         """
-        R                   |====|-------|====|
-        P     |=====|----|=======|--|=|--|=====|------|=====|
+        R                   |xxxx|-------|xxxx|
+        P     |xxxxx|----|xxxxxxx|--|x|--|xxxxx|------|xxxxx|
 
         Expected ccode: j
         """
@@ -940,8 +940,8 @@ class AssignerTester(unittest.TestCase):
     def test_contained_bleeding(self):
 
         """
-        R     |=======|--------|======|----|====|--------|=======|
-        P                  |==========|----|======|
+        R     |xxxxxxx|--------|xxxxxx|----|xxxx|--------|xxxxxxx|
+        P                  |xxxxxxxxxx|----|xxxxxx|
 
         Expected class code: C
         :return:
@@ -972,8 +972,8 @@ class AssignerTester(unittest.TestCase):
     def test_contained_alternative(self):
 
         """
-        R     |=======|--------|======|----|====|--------|=======|
-        P           |=================|----|======|
+        R     |xxxxxxx|--------|xxxxxx|----|xxxx|--------|xxxxxxx|
+        P           |xxxxxxxxxxxxxxxxx|----|xxxxxx|
 
         Expected class code: C
         :return:
@@ -1129,8 +1129,8 @@ class AssignerTester(unittest.TestCase):
     def test_h_case(self):
 
         """
-        ===============-------------------============
-        ===================-----------------=========
+        |xxxxxxxxxxxxxxx|-------------------|xxxxxxxxxxxx|
+        |xxxxxxxxxxxxxxxxxxx|-----------------|xxxxxxxxx|
         :return:
         """
 
@@ -1160,8 +1160,8 @@ class AssignerTester(unittest.TestCase):
     def test_double_h_case(self):
 
         """
-        ===============---------=======-------============
-        ===================-----------------=========
+        |xxxxxxxxxxxxxxx|---------|xxxxxxx|-------|xxxxxxxxxxxx|
+        |xxxxxxxxxxxxxxxxxxx|-----------------|xxxxxxxxx|
         :return:
         """
 
@@ -1191,8 +1191,8 @@ class AssignerTester(unittest.TestCase):
     def test_non_h_case(self):
 
         """
-        ===============-------------------============
-        =====-----=========
+        |xxxxxxxxxxxxxxx|-------------------|xxxxxxxxxxxx|
+        |xxxxx|-----|xxxxxxxxx|
         :return:
         """
 
@@ -1223,8 +1223,8 @@ class AssignerTester(unittest.TestCase):
 
         """
 
-        1  =========------------=======-----------========-------------=============
-        2                 =============-----------============
+        1  xxxxxxxxx------------xxxxxxx-----------xxxxxxxx-------------xxxxxxxxxxxxx
+        2                 xxxxxxxxxxxxx-----------xxxxxxxxxxxx
 
         We do expect the comparison to be:
 
@@ -1266,8 +1266,8 @@ class AssignerTester(unittest.TestCase):
 
         """
 
-        1  =========------------=======-----------========-------------=============
-        2         =====================-----------============
+        1  xxxxxxxxx------------xxxxxxx-----------xxxxxxxx-------------xxxxxxxxxxxxx
+        2         xxxxxxxxxxxxxxxxxxxxx-----------xxxxxxxxxxxx
 
         We do expect the comparison to be:
 

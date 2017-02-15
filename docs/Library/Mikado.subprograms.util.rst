@@ -12,6 +12,14 @@ Mikado.subprograms.util.awk_gtf module
     :undoc-members:
     :show-inheritance:
 
+Mikado.subprograms.util.class_codes module
+------------------------------------------
+
+.. automodule:: Mikado.subprograms.util.class_codes
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 Mikado.subprograms.util.convert module
 --------------------------------------
 

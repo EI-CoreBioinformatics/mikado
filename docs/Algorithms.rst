@@ -20,6 +20,8 @@ Transcripts are scored and selected according to user-defined rules, based on ma
 
 The detection and analysis of a locus proceeds as follows:
 
+.. _superloci:
+
 #. When the first transcript is detected, Mikado will create a *superlocus* - a container of transcripts sharing the same genomic location - and assign the transcript to it.
 #. While traversing the genome, as long as any new transcript is within the maximum allowed flanking distance, it will be added to the superlocus.
 #. When the last transcript is added, Mikado performs the following preliminary operations:
@@ -30,6 +32,7 @@ The detection and analysis of a locus proceeds as follows:
         * share the same strand
         * have at least 1bp overlap
     #. Analyse each of these novel "stranded" superloci separately.
+.. _subloci:
 #. Create *subloci*, ie group transcripts so to minimize the probability of mistakenly merging multiple gene loci due to chimeras. These groups are defined as follows:
     * if the transcripts are multiexonic, they must share at least one intron, inclusive of the borders
     * if the transcripts are monoexonic, they must overlap by at least 1bp.
@@ -39,18 +42,21 @@ The detection and analysis of a locus proceeds as follows:
     #. Select as winner the transcript with the highest score and assign it to a *monosublocus*
     #. Discard any transcript which is overlapping with it, according to the definitions in the point above
     #. Repeat the procedure from point 2 until no transcript remains in the sublocus
-#. *Monosubloci* are gathered together into *monosubloci holders*, ie the seeds for the gene loci. Monosubloci holder have more lenient parameters to group transcripts, as the first phase should have already discarded most chimeras. Once a holder is created by a single *monosublocus*, any subsequent candidate *monosublocus* will be integrated only if the following conditions are satisfied:
+.. _monosubloci:
+#. *Monosubloci* are gathered together into *monosubloci holders*, ie the seeds for the gene loci. Monosubloci holders have more lenient parameters to group transcripts, as the first phase should have already discarded most chimeras. Once a holder is created by a single *monosublocus*, any subsequent candidate *monosublocus* will be integrated only if the following conditions are satisfied:
     * if the candidate is monoexonic, its exon must overlap at least one exon of a transcript already present in the holder
     * if the candidate is multiexonic and the holder contains only monoexonic transcripts, apply the same criterion, ie check whether its exons overlap the exons of at least one of the transcripts already present
     * if the candidate is multiexonic and the holder contains multiexonic transcripts, check whether one of the following conditions is satisfied:
         * at least one intron of the candidate overlaps with an intron of a transcript in the holder
         * at least one intron of the candidate is completely contained within an exon of a transcript in the holder
         * at least one intron of a transcript in the holder is completely contained within an exon of a transcript in the holder.
+        * the cDNA overlap and CDS overlap between the candidate and the transcript in the holder are over a :ref:`specified threshold <clustering_specifics>`.
    Optionally, it is possible to tell Mikado to use a simpler algorithm, and integrate together all transcripts that share exon space. Such a simpler algorithm risks, however, chaining together multiple loci - especially in small, compact genomes.
 #. Once the holders are created, apply the same scoring and selection procedure of the sublocus selection step. The winning transcripts are assigned to the final *loci*. These are called the *primary transcripts of the loci*.
 #. Once the loci are created, track back to the original transcripts of the superlocus:
     #. discard any transcript overlapping more than one locus, as these are probably chimeras.
     #. For those transcripts that are overlapping to a single locus, verify that they are valid alternative splicing events using the :ref:`class code <ccode>` of the comparison against the primary transcript. Transcripts are re-scored dynamically when they are re-added in this fashion, to ensure their quality when compared with the primary transcript.
+.. _fragments:
 #. Finally detect and either tag or discard fragments inside the initial *superlocus* (irrespective of strand):
     #. Check whether the primary transcript of any locus meets the criteria to be defined as a fragment (by default, maximum ORF of 30AA and maximum 2 exons - any transcript exceeding either criterion will be considered as non-fragment by default)
     #. If so, verify whether they are near enough any valid locus to be considered as a fragment (in general, class codes which constitute the "Intronic", "Fragmentary" and "No overlap" categories).
@@ -93,9 +99,11 @@ Not all the available metrics will be necessarily used for scoring; the choice o
 Scoring files
 ~~~~~~~~~~~~~
 
-Mikado employs user-defined configuration files to define the desirable features in genes. These files are in either YAML or JSON format (default YAML) and are composed of two sections:
+Mikado employs user-defined configuration files to define the desirable features in genes. These files are in either YAML or JSON format (default YAML) and are composed of four sections:
 
   #. a *requirements* section, specifying the minimum requirements that a transcript must satisfy to be considered as valid. **Any transcript failing these requirements will be scored at 0 and purged.**
+  #. a *not_fragmentary* section, specifying the minimum requirements that the primary transcript of a locus has to satisfy in order for the locus **not** to be considered as a putative fragment.
+  #. an *as_requirements* section, which specifies the minimum requirements for transcripts for them to be considered as possible valid alternative splicing events.
   #. a *scoring* section, specifying which features Mikado should look for in transcripts, and how each of them will be weighted.
 
 Conditions are specified using a strict set of :ref:`available operators <operators>` and the values they have to consider.
@@ -117,15 +125,22 @@ Mikado allows the following operators to express a relationship inside the scori
 * *ge*: greater or equal than (:math:`\ge`). Valid for comparisons with numbers.
 * *in*: member of (:math:`\in`). Valid for comparisons with arrays or sets.
 * *not in*: not member of (:math:`\notin`). Valid for comparisons with arrays or sets.
+* *within*: value comprised in the range of the two values, inclusive.
+* *not within*: value *not* comprised in the range of the two values, inclusive.
 
 Mikado will fail if an operator not present on this list is specified, or if the operator is assigned to compare against the wrong data type (eg. *eq* with an array).
 
 .. _requirements-section:
 
-The requirements section
-------------------------
+The "requirements", "as_requirements" and "not_fragmentary" sections
+--------------------------------------------------------------------
 
-This section specifies the minimum requirements for a transcript. As transcripts failing to pass these checks will be discarded outright, **it is strongly advised to use lenient parameters in this section**. Being too stringent might end up removing valid models and potentially missing valid loci outright. Typically, transcripts filtered at this step should be obvious fragments, eg monoexonic transcripts produced by RNA-Seq with a total length lower than the *library* fragment length.
+These sections specifies the minimum requirements for a transcript at various stages.
+* A transcript failing to pass the *requirements* check will be discarded outright (if "purge" is selected) or given a score of 0 otherwise.
+* If a transcript has not been selected as the primary transcript of a locus, it has to pass the *as_requirements* check to be considered as a valid alternative splicing event.
+* Finally, after loci have been defined, the primary transcripts of loci that do not pass the *not_fragmentary* section mark their loci to be compared against neighbouring loci which have passed this same check.
+
+**It is strongly advised to use lenient parameters in the requirements section**, as failing to do so might result in discarding whole loci. Typically, transcripts filtered at this step should be obvious fragments, eg monoexonic transcripts produced by RNA-Seq with a total length lower than the *library* fragment length.
 This section is composed by two parts:
 
 * *parameters*: a list of the metrics to be considered. Each metric can be considered multiple times, by suffixing it with a ".<id>" construct (eg cdna_length.*mono* vs. cdna_length.*multi* to distinguish two uses of the cdna_length metric - once for monoexonic and once for multiexonic transcripts). Any parameter which is not a :ref:`valid metric name <Metrics>`, after removal of the suffix, **will cause an error**. Parameters have to specify the following:
@@ -169,7 +184,7 @@ In order:
         (exon_num > 1 and cdna_length >= 100 and max_intron_length <= 200000 and min_intron_length >= 5) or (exon_num == 1 and cdna_length > 50)
 
 
-Any transcript for which the expression evaluates to :math:`False` will be assigned a score of 0 outright and therefore discarded.
+Any transcript for which the expression evaluates to :math:`False` will be assigned a score of 0 outright and discarded, unless the user has chosen to disable the purging of such transcripts.
 
 .. _scoring-section:
 
@@ -237,7 +252,7 @@ Metrics belong to one of the following categories:
 
 .. hint:: Starting from version 1 beta8, Mikado allows to use externally defined metrics for the transcripts. These can be accessed using the keyword "external.<name of the metrics>" within the configuration file. See the :ref:`relevant section <external-metrics>` for details.
 
-.. important:: Starting from Mikado 1 beta 8, it is possible to use metrics with values between 0 and 1 directly as scores, without rescaling. This feature is available only
+.. important:: Starting from Mikado 1 beta 8, it is possible to use metrics with values between 0 and 1 directly as scores, without rescaling. This feature is available only for metrics whose values naturally lie between 0 and 1, or that are boolean in nature.
 
 
 +-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+

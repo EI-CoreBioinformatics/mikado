@@ -44,14 +44,6 @@ Mikado.tests.parser_testing module
     :undoc-members:
     :show-inheritance:
 
-Mikado.tests.test_abstractlocus module
---------------------------------------
-
-.. automodule:: Mikado.tests.test_abstractlocus
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
 Mikado.tests.test_blast_related module
 --------------------------------------
 
@@ -72,14 +64,6 @@ Mikado.tests.test_db_utils module
 ---------------------------------
 
 .. automodule:: Mikado.tests.test_db_utils
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-Mikado.tests.test_excluded module
----------------------------------
-
-.. automodule:: Mikado.tests.test_excluded
     :members:
     :undoc-members:
     :show-inheritance:

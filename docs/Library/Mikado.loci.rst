@@ -1,13 +1,6 @@
 Mikado.loci package
 ===================
 
-Subpackages
------------
-
-.. toctree::
-
-    Mikado.loci.transcript_methods
-
 Submodules
 ----------
 
@@ -15,14 +8,6 @@ Mikado.loci.abstractlocus module
 --------------------------------
 
 .. automodule:: Mikado.loci.abstractlocus
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-Mikado.loci.clique_methods module
----------------------------------
-
-.. automodule:: Mikado.loci.clique_methods
     :members:
     :undoc-members:
     :show-inheritance:
@@ -79,22 +64,6 @@ Mikado.loci.superlocus module
 -----------------------------
 
 .. automodule:: Mikado.loci.superlocus
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-Mikado.loci.transcript module
------------------------------
-
-.. automodule:: Mikado.loci.transcript
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-Mikado.loci.transcriptchecker module
-------------------------------------
-
-.. automodule:: Mikado.loci.transcriptchecker
     :members:
     :undoc-members:
     :show-inheritance:

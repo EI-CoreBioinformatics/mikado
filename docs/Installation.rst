@@ -22,7 +22,7 @@ Mikado is available on PyPI, so it is possible to install it with
 
 ``pip3 install mikado``
 
-The source for the latest release can be obtained with
+The source for the latest release on PyPI can be obtained with
 
 ``pip3 download mikado``
 
@@ -49,6 +49,10 @@ Followed by
 
 ``pip3 install dist/*whl``
 
+..note:
+    If you want to update your installation of Mikado, the command to be executed is
+    ``pip install -U dist/*whl``
+
 Testing the installed module
 ----------------------------
 
@@ -59,35 +63,6 @@ It is possible to test whether Mikado has been built successfully by opening a p
 
 .. block-end
 
-This will run all the tests included in the suite. Although code coverage is not perfect yet, it is over 50% for the whole package and considerably higher for the core components.
-
-Python Dependencies
--------------------
-
-Mikado has been written for Python 3.4 and 3.5. It is dependent on the following Python3 modules:
-
-* wheel>=0.28.0
-* pyyaml [PyYaml]_
-* jsonschema
-* Cython>=0.25 [Cython]_
-* numpy [Numpy]_
-* networkx>=1.10 [NetworkX]_
-* sqlalchemy>=1
-* sqlalchemy_utils
-* biopython>=1.66 [BioPython]_
-* intervaltree
-* nose
-* pyfaidx
-* scikit-learn>=0.17.0 [SciKit]_
-* scipy>=0.15.0 [Scipy]_
-* frozendict
-* python-magic
-* drmaa [DRMAA]_
-* snakemake [Snake]_
-* docutils
-* tabulate
-* ujson
-
-These dependencies will be installed automatically by PIP.
+This will run all the tests included in the suite. Although code coverage is not perfect yet, it is at 70% for the whole package and over 80% for the core components.
 
 .. _GitHub: https://github.com/lucventurini/mikado

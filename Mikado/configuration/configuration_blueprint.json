@@ -186,7 +186,6 @@
           "maximum": 1,
           "default": 0.1},
         "max_target_seqs": {"type": "integer", "default": 100000, "minimum": 1},
-        "discard_definition": {"type": "boolean", "default": false},
         "force": {"type": "boolean", "default": false},
         "single_thread": {"type": "boolean", "default": false},
         "procs": {"type": "integer", "default": 1, "minimum": 1}

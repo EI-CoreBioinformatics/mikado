@@ -20,6 +20,14 @@ Mikado.scales.assigner module
     :undoc-members:
     :show-inheritance:
 
+Mikado.scales.class_codes module
+--------------------------------
+
+.. automodule:: Mikado.scales.class_codes
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 Mikado.scales.compare module
 ----------------------------
 

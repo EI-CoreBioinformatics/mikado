@@ -555,8 +555,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
     @staticmethod
     def _is_exon_retained_in_transcript(exon: tuple,
                                         frags: list,
-                                        segmenttree: IntervalTree,
-                                        strand: str,
+                                        candidate: Transcript,
                                         consider_truncated=False,
                                         terminal=False):
 
@@ -583,11 +582,12 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         :rtype: bool
         """
 
+        strand = candidate.strand
         found_exons = sorted(
-            segmenttree.find(exon[0], exon[1], strict=False, value="exon"),
+            candidate.segmenttree.find(exon[0], exon[1], strict=False, value="exon"),
             reverse=(strand == "-"))
         found_introns = sorted(
-            segmenttree.find(exon[0], exon[1], strict=not consider_truncated, value="intron"),
+            candidate.segmenttree.find(exon[0], exon[1], strict=not consider_truncated, value="intron"),
             reverse=(strand == "-"))
 
         is_retained = False
@@ -679,18 +679,13 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                 terminal = False
 
             for tid, candidate in (_ for _ in self.transcripts.items() if _[0] != transcript.id):
-                segmenttree = candidate.segmenttree
-                strand = candidate.strand
-                if candidate == transcript:
-                    continue
-                elif strand != transcript.strand and None not in (transcript.strand, strand):
+                if candidate.strand != transcript.strand and None not in (transcript.strand, candidate.strand):
                     continue
 
                 self.logger.debug("Checking %s in %s against %s", exon, transcript.id, candidate.id)
                 is_retained = self._is_exon_retained_in_transcript(exon,
                                                                    frags,
-                                                                   strand=strand,
-                                                                   segmenttree=segmenttree,
+                                                                   candidate,
                                                                    terminal=terminal,
                                                                    consider_truncated=consider_truncated)
                 if is_retained:

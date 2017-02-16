@@ -21,6 +21,9 @@ Transcripts are scored and selected according to user-defined rules, based on ma
 The detection and analysis of a locus proceeds as follows:
 
 .. _superloci:
+.. _monosubloci:
+.. _subloci:
+.. _fragments:
 
 #. When the first transcript is detected, Mikado will create a *superlocus* - a container of transcripts sharing the same genomic location - and assign the transcript to it.
 #. While traversing the genome, as long as any new transcript is within the maximum allowed flanking distance, it will be added to the superlocus.
@@ -32,7 +35,6 @@ The detection and analysis of a locus proceeds as follows:
         * share the same strand
         * have at least 1bp overlap
     #. Analyse each of these novel "stranded" superloci separately.
-.. _subloci:
 #. Create *subloci*, ie group transcripts so to minimize the probability of mistakenly merging multiple gene loci due to chimeras. These groups are defined as follows:
     * if the transcripts are multiexonic, they must share at least one intron, inclusive of the borders
     * if the transcripts are monoexonic, they must overlap by at least 1bp.
@@ -42,7 +44,6 @@ The detection and analysis of a locus proceeds as follows:
     #. Select as winner the transcript with the highest score and assign it to a *monosublocus*
     #. Discard any transcript which is overlapping with it, according to the definitions in the point above
     #. Repeat the procedure from point 2 until no transcript remains in the sublocus
-.. _monosubloci:
 #. *Monosubloci* are gathered together into *monosubloci holders*, ie the seeds for the gene loci. Monosubloci holders have more lenient parameters to group transcripts, as the first phase should have already discarded most chimeras. Once a holder is created by a single *monosublocus*, any subsequent candidate *monosublocus* will be integrated only if the following conditions are satisfied:
     * if the candidate is monoexonic, its exon must overlap at least one exon of a transcript already present in the holder
     * if the candidate is multiexonic and the holder contains only monoexonic transcripts, apply the same criterion, ie check whether its exons overlap the exons of at least one of the transcripts already present
@@ -55,8 +56,7 @@ The detection and analysis of a locus proceeds as follows:
 #. Once the holders are created, apply the same scoring and selection procedure of the sublocus selection step. The winning transcripts are assigned to the final *loci*. These are called the *primary transcripts of the loci*.
 #. Once the loci are created, track back to the original transcripts of the superlocus:
     #. discard any transcript overlapping more than one locus, as these are probably chimeras.
-    #. For those transcripts that are overlapping to a single locus, verify that they are valid alternative splicing events using the :ref:`class code <ccode>` of the comparison against the primary transcript. Transcripts are re-scored dynamically when they are re-added in this fashion, to ensure their quality when compared with the primary transcript.
-.. _fragments:
+    #. For those transcripts that are overlapping to a single locus, verify that they are valid alternative splicing events using the :ref:`class code <ccodes>` of the comparison against the primary transcript. Transcripts are re-scored dynamically when they are re-added in this fashion, to ensure their quality when compared with the primary transcript.
 #. Finally detect and either tag or discard fragments inside the initial *superlocus* (irrespective of strand):
     #. Check whether the primary transcript of any locus meets the criteria to be defined as a fragment (by default, maximum ORF of 30AA and maximum 2 exons - any transcript exceeding either criterion will be considered as non-fragment by default)
     #. If so, verify whether they are near enough any valid locus to be considered as a fragment (in general, class codes which constitute the "Intronic", "Fragmentary" and "No overlap" categories).
@@ -254,243 +254,244 @@ Metrics belong to one of the following categories:
 
 .. important:: Starting from Mikado 1 beta 8, it is possible to use metrics with values between 0 and 1 directly as scores, without rescaling. This feature is available only for metrics whose values naturally lie between 0 and 1, or that are boolean in nature.
 
+.. topic:: Available metrics
 
-+-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
-| Metric name                         | Description                                               | Category    | Data type   | Usable raw   |
-+=====================================+===========================================================+=============+=============+==============+
-+-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
-| tid                                 | ID of the transcript - cannot be an undefined value.      | Descriptive | str         | False        |
-|                                     | Alias of id.                                              |             |             |              |
-+-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
-| parent                              | Name of the parent feature of the transcript.             | Descriptive | str         | False        |
-+-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
-| score                               | Numerical value which summarizes the reliability of the   | Descriptive | str         | False        |
-|                                     | transcript.                                               |             |             |              |
-+-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
-| external_scores                     | **SPECIAL** this Namespace contains all the information   | External    | Namespace   | True         |
-|                                     | regarding external scores for the transcript. If an       |             |             |              |
-|                                     | absent property is not defined in the Namespace, Mikado   |             |             |              |
-|                                     | will set a default value of 0 into the Namespace and      |             |             |              |
-|                                     | return it.                                                |             |             |              |
-+-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
-| best_bits                           | Metric that returns the best BitS associated with the     | External    | float       | False        |
-|                                     | transcript.                                               |             |             |              |
-+-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
-| blast_score                         | Interchangeable alias for testing different blast-related | External    | float       | False        |
-|                                     | scores. Current: best bit score.                          |             |             |              |
-+-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
-| canonical_intron_proportion         | This metric returns the proportion of canonical introns   | Intron      | float       | True         |
-|                                     | of the transcript on its total number of introns.         |             |             |              |
-+-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
-| cdna_length                         | This property returns the length of the transcript.       | cDNA        | int         | False        |
-+-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
-| cds_not_maximal                     | This property returns the length of the CDS excluded from | CDS         | int         | False        |
-|                                     | the selected ORF.                                         |             |             |              |
-+-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
-| cds_not_maximal_fraction            | This property returns the fraction of bases not in the    | CDS         | float       | True         |
-|                                     | selected ORF compared to the total number of CDS bases in |             |             |              |
-|                                     | the cDNA.                                                 |             |             |              |
-+-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
-| combined_cds_fraction               | This property return the percentage of the CDS part of    | CDS         | float       | True         |
-|                                     | the transcript vs. the cDNA length                        |             |             |              |
-+-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
-| combined_cds_intron_fraction        | This property returns the fraction of CDS introns of the  | Locus       |             | True         |
-|                                     | transcript vs. the total number of CDS introns in the     |             |             |              |
-|                                     | Locus. If the transcript is by itself, it returns 1.      |             |             |              |
-+-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
-| combined_cds_length                 | This property return the length of the CDS part of the    | CDS         | int         | False        |
-|                                     | transcript.                                               |             |             |              |
-+-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
-| combined_cds_locus_fraction         | This metric returns the fraction of CDS bases of the      | Locus       | float       | True         |
-|                                     | transcript vs. the total of CDS bases in the locus.       |             |             |              |
-+-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
-| combined_cds_num                    | This property returns the number of non-overlapping CDS   | CDS         | int         | False        |
-|                                     | segments in the transcript.                               |             |             |              |
-+-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
-| combined_cds_num_fraction           | This property returns the fraction of non-overlapping CDS | CDS         | float       | True         |
-|                                     | segments in the transcript vs. the total number of exons  |             |             |              |
-+-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
-| combined_utr_fraction               | This property returns the fraction of the cDNA which is   | UTR         | float       | True         |
-|                                     | not coding according to any ORF. Complement of            |             |             |              |
-|                                     | combined_cds_fraction                                     |             |             |              |
-+-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
-| combined_utr_length                 | This property return the length of the UTR part of the    | UTR         | int         | False        |
-|                                     | transcript.                                               |             |             |              |
-+-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
-| end_distance_from_junction          | This metric returns the cDNA distance between the stop    | CDS         | int         | False        |
-|                                     | codon and the last junction in the transcript. In many    |             |             |              |
-|                                     | eukaryotes, this distance cannot exceed 50-55 bps         |             |             |              |
-|                                     | otherwise the transcript becomes a target of NMD. If the  |             |             |              |
-|                                     | transcript is not coding or there is no junction          |             |             |              |
-|                                     | downstream of the stop codon, the metric returns 0. This  |             |             |              |
-|                                     | metric considers the combined CDS end.                    |             |             |              |
-+-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
-| end_distance_from_tes               | This property returns the distance of the end of the      | CDS         | int         | False        |
-|                                     | combined CDS from the transcript end site. If no CDS is   |             |             |              |
-|                                     | defined, it defaults to 0.                                |             |             |              |
-+-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
-| exon_fraction                       | This property returns the fraction of exons of the        | Locus       | float       | True         |
-|                                     | transcript which are contained in the sublocus. If the    |             |             |              |
-|                                     | transcript is by itself, it returns 1. Set from outside.  |             |             |              |
-+-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
-| exon_num                            | This property returns the number of exons of the          | cDNA        | int         | False        |
-|                                     | transcript.                                               |             |             |              |
-+-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
-| five_utr_length                     | Returns the length of the 5' UTR of the selected ORF.     | UTR         |             | False        |
-+-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
-| five_utr_num                        | This property returns the number of 5' UTR segments for   | UTR         | int         | False        |
-|                                     | the selected ORF.                                         |             |             |              |
-+-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
-| five_utr_num_complete               | This property returns the number of 5' UTR segments for   | UTR         | int         | False        |
-|                                     | the selected ORF, considering only those which are        |             |             |              |
-|                                     | complete exons.                                           |             |             |              |
-+-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
-| has_start_codon                     | Boolean. True if the selected ORF has a start codon.      | CDS         | bool        | False        |
-+-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
-| has_stop_codon                      | Boolean. True if the selected ORF has a stop codon.       | CDS         | bool        | False        |
-+-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
-| highest_cds_exon_number             | This property returns the maximum number of CDS segments  | CDS         | int         | False        |
-|                                     | among the ORFs; this number can refer to an ORF           |             |             |              |
-|                                     | *DIFFERENT* from the maximal ORF.                         |             |             |              |
-+-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
-| highest_cds_exons_num               | Returns the number of CDS segments in the selected ORF    | CDS         | int         | False        |
-|                                     | (irrespective of the number of exons involved)            |             |             |              |
-+-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
-| intron_fraction                     | This property returns the fraction of introns of the      | Locus       | float       | True         |
-|                                     | transcript vs. the total number of introns in the Locus.  |             |             |              |
-|                                     | If the transcript is by itself, it returns 1. Set from    |             |             |              |
-|                                     | outside.                                                  |             |             |              |
-+-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
-| is_complete                         | Boolean. True if the selected ORF has both start and end. | CDS         | bool        | False        |
-+-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
-| max_exon_length                     | This metric will return the length of the biggest exon in | cDNA        | int         | False        |
-|                                     | the transcript.                                           |             |             |              |
-+-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
-| max_intron_length                   | This property returns the greatest intron length for the  | Intron      | int         | False        |
-|                                     | transcript.                                               |             |             |              |
-+-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
-| min_exon_length                     | This metric will return the length of the biggest exon in |             |             | False        |
-|                                     | the transcript.                                           |             |             |              |
-+-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
-| min_intron_length                   | This property returns the smallest intron length for the  | Intron      | int         | False        |
-|                                     | transcript.                                               |             |             |              |
-+-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
-| non_verified_introns_num            | This metric returns the number of introns of the          | External    | int         | False        |
-|                                     | transcript which are not validated by external data.      |             |             |              |
-+-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
-| num_introns_greater_than_max        | This metric returns the number of introns greater than    | Intron      | int         | False        |
-|                                     | the maximum acceptable intron size indicated in the       |             |             |              |
-|                                     | constructor.                                              |             |             |              |
-+-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
-| num_introns_smaller_than_min        | This metric returns the number of introns smaller than    | Intron      | int         | False        |
-|                                     | the mininum acceptable intron size indicated in the       |             |             |              |
-|                                     | constructor.                                              |             |             |              |
-+-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
-| number_internal_orfs                | This property returns the number of ORFs inside a         | CDS         | int         | False        |
-|                                     | transcript.                                               |             |             |              |
-+-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
-| only_non_canonical_splicing         | This metric will return True if the canonical_number is 0 | Intron      | bool        | False        |
-+-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
-| proportion_verified_introns         | This metric returns, as a fraction, how many of the       | External    | float       | True         |
-|                                     | transcript introns are validated by external data.        |             |             |              |
-|                                     | Monoexonic transcripts are set to 1.                      |             |             |              |
-+-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
-| proportion_verified_introns_inlocus | This metric returns, as a fraction, how many of the       | Locus       | float       | True         |
-|                                     | verified introns inside the Locus are contained inside    |             |             |              |
-|                                     | the transcript.                                           |             |             |              |
-+-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
-| retained_fraction                   | This property returns the fraction of the cDNA which is   | Locus       | float       | True         |
-|                                     | contained in retained introns.                            |             |             |              |
-+-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
-| retained_intron_num                 | This property records the number of introns in the        | Locus       | int         | False        |
-|                                     | transcripts which are marked as being retained. See the   |             |             |              |
-|                                     | corresponding method in the sublocus class.               |             |             |              |
-+-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
-| selected_cds_exons_fraction         | Returns the fraction of CDS segments in the selected ORF  | CDS         | float       | True         |
-|                                     | (irrespective of the number of exons involved)            |             |             |              |
-+-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
-| selected_cds_fraction               | This property calculates the fraction of the selected CDS | CDS         | float       | True         |
-|                                     | vs. the cDNA length.                                      |             |             |              |
-+-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
-| selected_cds_intron_fraction        | This property returns the fraction of CDS introns of the  | CDS         | float       | True         |
-|                                     | selected ORF of the transcript vs. the total number of    |             |             |              |
-|                                     | CDS introns in the Locus (considering only the selected   |             |             |              |
-|                                     | ORF). If the transcript is by itself, it should return 1. |             |             |              |
-+-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
-| selected_cds_length                 | This property calculates the length of the CDS selected   | CDS         | int         | False        |
-|                                     | as best inside the cDNA.                                  |             |             |              |
-+-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
-| selected_cds_locus_fraction         | This metric returns the fraction of CDS bases of the      | Locus       | float       | True         |
-|                                     | transcript vs. the total of CDS bases in the locus.       |             |             |              |
-+-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
-| selected_cds_num                    | This property calculates the number of CDS exons for the  | CDS         | int         | False        |
-|                                     | selected ORF                                              |             |             |              |
-+-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
-| selected_cds_number_fraction        | This property returns the proportion of best possible CDS | CDS         | float       | False        |
-|                                     | segments vs. the number of exons. See                     |             |             |              |
-|                                     | selected_cds_number.                                      |             |             |              |
-+-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
-| selected_end_distance_from_junction | This metric returns the distance between the stop codon   | CDS         | int         | False        |
-|                                     | and the last junction of the transcript. In many          |             |             |              |
-|                                     | eukaryotes, this distance cannot exceed 50-55 bps,        |             |             |              |
-|                                     | otherwise the transcript becomes a target of NMD. If the  |             |             |              |
-|                                     | transcript is not coding or there is no junction          |             |             |              |
-|                                     | downstream of the stop codon, the metric returns 0.       |             |             |              |
-+-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
-| selected_end_distance_from_tes      | This property returns the distance of the end of the best | CDS         | int         | False        |
-|                                     | CDS from the transcript end site. If no CDS is defined,   |             |             |              |
-|                                     | it defaults to 0.                                         |             |             |              |
-+-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
-| selected_start_distance_from_tss    | This property returns the distance of the start of the    | CDS         | int         | False        |
-|                                     | best CDS from the transcript start site. If no CDS is     |             |             |              |
-|                                     | defined, it defaults to 0.                                |             |             |              |
-+-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
-| snowy_blast_score                   | Metric that indicates how good a hit is compared to the   | External    | float       | False        |
-|                                     | competition, in terms of BLAST similarities. As in        |             |             |              |
-|                                     | SnowyOwl, the score for each hit is calculated by taking  |             |             |              |
-|                                     | the coverage of the target and dividing it by (2 *        |             |             |              |
-|                                     | len(self.blast_hits)). IMPORTANT: when splitting          |             |             |              |
-|                                     | transcripts by ORF, a blast hit is added to the new       |             |             |              |
-|                                     | transcript only if it is contained within the new         |             |             |              |
-|                                     | transcript. This WILL screw up a bit the homology score.  |             |             |              |
-+-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
-| source_score                        | This metric returns a score that is assigned to the       | External    | int         | False        |
-|                                     | transcript in virtue of its origin.                       |             |             |              |
-+-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
-| start_distance_from_tss             | This property returns the distance of the start of the    | CDS         | int         | False        |
-|                                     | combined CDS from the transcript start site. If no CDS is |             |             |              |
-|                                     | defined, it defaults to 0.                                |             |             |              |
-+-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
-| suspicious_splicing                 | This metric will return True if the transcript either has | Intron      | bool        | False        |
-|                                     | canonical introns on both strands (probably a chimeric    |             |             |              |
-|                                     | artifact between two neighbouring loci, or if it has no   |             |             |              |
-|                                     | canonical splicing event but it would if it were assigned |             |             |              |
-|                                     | to the opposite strand (probably a strand misassignment   |             |             |              |
-|                                     | on the part of the assembler/predictor).                  |             |             |              |
-+-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
-| three_utr_length                    | Returns the length of the 5' UTR of the selected ORF.     |             | int         | False        |
-+-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
-| three_utr_num                       | This property returns the number of 3' UTR segments       | UTR         | int         | False        |
-|                                     | (referred to the selected ORF).                           |             |             |              |
-+-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
-| three_utr_num_complete              | This property returns the number of 3' UTR segments for   | UTR         | int         | False        |
-|                                     | the selected ORF, considering only those which are        |             |             |              |
-|                                     | complete exons.                                           |             |             |              |
-+-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
-| utr_fraction                        | This property calculates the length of the UTR of the     | UTR         | float       | True         |
-|                                     | selected ORF vs. the cDNA length.                         |             |             |              |
-+-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
-| utr_length                          | Returns the sum of the 5'+3' UTR lengths                  | UTR         | int         | False        |
-+-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
-| utr_num                             | Returns the number of UTR segments (referred to the       | UTR         | int         | False        |
-|                                     | selected ORF).                                            |             |             |              |
-+-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
-| utr_num_complete                    | Returns the number of UTR segments which are complete     | UTR         | int         | False        |
-|                                     | exons (referred to the selected ORF).                     |             |             |              |
-+-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
-| verified_introns_num                | This metric returns the number of introns of the          | External    | int         | False        |
-|                                     | transcript which are validated by external data.          |             |             |              |
-+-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
+    +-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
+    | Metric name                         | Description                                               | Category    | Data type   | Usable raw   |
+    +=====================================+===========================================================+=============+=============+==============+
+    +-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
+    | tid                                 | ID of the transcript - cannot be an undefined value.      | Descriptive | str         | False        |
+    |                                     | Alias of id.                                              |             |             |              |
+    +-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
+    | parent                              | Name of the parent feature of the transcript.             | Descriptive | str         | False        |
+    +-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
+    | score                               | Numerical value which summarizes the reliability of the   | Descriptive | str         | False        |
+    |                                     | transcript.                                               |             |             |              |
+    +-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
+    | external_scores                     | **SPECIAL** this Namespace contains all the information   | External    | Namespace   | True         |
+    |                                     | regarding external scores for the transcript. If an       |             |             |              |
+    |                                     | absent property is not defined in the Namespace, Mikado   |             |             |              |
+    |                                     | will set a default value of 0 into the Namespace and      |             |             |              |
+    |                                     | return it.                                                |             |             |              |
+    +-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
+    | best_bits                           | Metric that returns the best BitS associated with the     | External    | float       | False        |
+    |                                     | transcript.                                               |             |             |              |
+    +-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
+    | blast_score                         | Interchangeable alias for testing different blast-related | External    | float       | False        |
+    |                                     | scores. Current: best bit score.                          |             |             |              |
+    +-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
+    | canonical_intron_proportion         | This metric returns the proportion of canonical introns   | Intron      | float       | True         |
+    |                                     | of the transcript on its total number of introns.         |             |             |              |
+    +-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
+    | cdna_length                         | This property returns the length of the transcript.       | cDNA        | int         | False        |
+    +-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
+    | cds_not_maximal                     | This property returns the length of the CDS excluded from | CDS         | int         | False        |
+    |                                     | the selected ORF.                                         |             |             |              |
+    +-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
+    | cds_not_maximal_fraction            | This property returns the fraction of bases not in the    | CDS         | float       | True         |
+    |                                     | selected ORF compared to the total number of CDS bases in |             |             |              |
+    |                                     | the cDNA.                                                 |             |             |              |
+    +-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
+    | combined_cds_fraction               | This property return the percentage of the CDS part of    | CDS         | float       | True         |
+    |                                     | the transcript vs. the cDNA length                        |             |             |              |
+    +-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
+    | combined_cds_intron_fraction        | This property returns the fraction of CDS introns of the  | Locus       |             | True         |
+    |                                     | transcript vs. the total number of CDS introns in the     |             |             |              |
+    |                                     | Locus. If the transcript is by itself, it returns 1.      |             |             |              |
+    +-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
+    | combined_cds_length                 | This property return the length of the CDS part of the    | CDS         | int         | False        |
+    |                                     | transcript.                                               |             |             |              |
+    +-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
+    | combined_cds_locus_fraction         | This metric returns the fraction of CDS bases of the      | Locus       | float       | True         |
+    |                                     | transcript vs. the total of CDS bases in the locus.       |             |             |              |
+    +-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
+    | combined_cds_num                    | This property returns the number of non-overlapping CDS   | CDS         | int         | False        |
+    |                                     | segments in the transcript.                               |             |             |              |
+    +-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
+    | combined_cds_num_fraction           | This property returns the fraction of non-overlapping CDS | CDS         | float       | True         |
+    |                                     | segments in the transcript vs. the total number of exons  |             |             |              |
+    +-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
+    | combined_utr_fraction               | This property returns the fraction of the cDNA which is   | UTR         | float       | True         |
+    |                                     | not coding according to any ORF. Complement of            |             |             |              |
+    |                                     | combined_cds_fraction                                     |             |             |              |
+    +-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
+    | combined_utr_length                 | This property return the length of the UTR part of the    | UTR         | int         | False        |
+    |                                     | transcript.                                               |             |             |              |
+    +-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
+    | end_distance_from_junction          | This metric returns the cDNA distance between the stop    | CDS         | int         | False        |
+    |                                     | codon and the last junction in the transcript. In many    |             |             |              |
+    |                                     | eukaryotes, this distance cannot exceed 50-55 bps         |             |             |              |
+    |                                     | otherwise the transcript becomes a target of NMD. If the  |             |             |              |
+    |                                     | transcript is not coding or there is no junction          |             |             |              |
+    |                                     | downstream of the stop codon, the metric returns 0. This  |             |             |              |
+    |                                     | metric considers the combined CDS end.                    |             |             |              |
+    +-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
+    | end_distance_from_tes               | This property returns the distance of the end of the      | CDS         | int         | False        |
+    |                                     | combined CDS from the transcript end site. If no CDS is   |             |             |              |
+    |                                     | defined, it defaults to 0.                                |             |             |              |
+    +-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
+    | exon_fraction                       | This property returns the fraction of exons of the        | Locus       | float       | True         |
+    |                                     | transcript which are contained in the sublocus. If the    |             |             |              |
+    |                                     | transcript is by itself, it returns 1. Set from outside.  |             |             |              |
+    +-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
+    | exon_num                            | This property returns the number of exons of the          | cDNA        | int         | False        |
+    |                                     | transcript.                                               |             |             |              |
+    +-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
+    | five_utr_length                     | Returns the length of the 5' UTR of the selected ORF.     | UTR         |             | False        |
+    +-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
+    | five_utr_num                        | This property returns the number of 5' UTR segments for   | UTR         | int         | False        |
+    |                                     | the selected ORF.                                         |             |             |              |
+    +-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
+    | five_utr_num_complete               | This property returns the number of 5' UTR segments for   | UTR         | int         | False        |
+    |                                     | the selected ORF, considering only those which are        |             |             |              |
+    |                                     | complete exons.                                           |             |             |              |
+    +-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
+    | has_start_codon                     | Boolean. True if the selected ORF has a start codon.      | CDS         | bool        | False        |
+    +-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
+    | has_stop_codon                      | Boolean. True if the selected ORF has a stop codon.       | CDS         | bool        | False        |
+    +-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
+    | highest_cds_exon_number             | This property returns the maximum number of CDS segments  | CDS         | int         | False        |
+    |                                     | among the ORFs; this number can refer to an ORF           |             |             |              |
+    |                                     | *DIFFERENT* from the maximal ORF.                         |             |             |              |
+    +-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
+    | highest_cds_exons_num               | Returns the number of CDS segments in the selected ORF    | CDS         | int         | False        |
+    |                                     | (irrespective of the number of exons involved)            |             |             |              |
+    +-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
+    | intron_fraction                     | This property returns the fraction of introns of the      | Locus       | float       | True         |
+    |                                     | transcript vs. the total number of introns in the Locus.  |             |             |              |
+    |                                     | If the transcript is by itself, it returns 1. Set from    |             |             |              |
+    |                                     | outside.                                                  |             |             |              |
+    +-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
+    | is_complete                         | Boolean. True if the selected ORF has both start and end. | CDS         | bool        | False        |
+    +-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
+    | max_exon_length                     | This metric will return the length of the biggest exon in | cDNA        | int         | False        |
+    |                                     | the transcript.                                           |             |             |              |
+    +-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
+    | max_intron_length                   | This property returns the greatest intron length for the  | Intron      | int         | False        |
+    |                                     | transcript.                                               |             |             |              |
+    +-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
+    | min_exon_length                     | This metric will return the length of the biggest exon in |             |             | False        |
+    |                                     | the transcript.                                           |             |             |              |
+    +-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
+    | min_intron_length                   | This property returns the smallest intron length for the  | Intron      | int         | False        |
+    |                                     | transcript.                                               |             |             |              |
+    +-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
+    | non_verified_introns_num            | This metric returns the number of introns of the          | External    | int         | False        |
+    |                                     | transcript which are not validated by external data.      |             |             |              |
+    +-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
+    | num_introns_greater_than_max        | This metric returns the number of introns greater than    | Intron      | int         | False        |
+    |                                     | the maximum acceptable intron size indicated in the       |             |             |              |
+    |                                     | constructor.                                              |             |             |              |
+    +-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
+    | num_introns_smaller_than_min        | This metric returns the number of introns smaller than    | Intron      | int         | False        |
+    |                                     | the mininum acceptable intron size indicated in the       |             |             |              |
+    |                                     | constructor.                                              |             |             |              |
+    +-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
+    | number_internal_orfs                | This property returns the number of ORFs inside a         | CDS         | int         | False        |
+    |                                     | transcript.                                               |             |             |              |
+    +-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
+    | only_non_canonical_splicing         | This metric will return True if the canonical_number is 0 | Intron      | bool        | False        |
+    +-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
+    | proportion_verified_introns         | This metric returns, as a fraction, how many of the       | External    | float       | True         |
+    |                                     | transcript introns are validated by external data.        |             |             |              |
+    |                                     | Monoexonic transcripts are set to 1.                      |             |             |              |
+    +-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
+    | proportion_verified_introns_inlocus | This metric returns, as a fraction, how many of the       | Locus       | float       | True         |
+    |                                     | verified introns inside the Locus are contained inside    |             |             |              |
+    |                                     | the transcript.                                           |             |             |              |
+    +-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
+    | retained_fraction                   | This property returns the fraction of the cDNA which is   | Locus       | float       | True         |
+    |                                     | contained in retained introns.                            |             |             |              |
+    +-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
+    | retained_intron_num                 | This property records the number of introns in the        | Locus       | int         | False        |
+    |                                     | transcripts which are marked as being retained. See the   |             |             |              |
+    |                                     | corresponding method in the sublocus class.               |             |             |              |
+    +-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
+    | selected_cds_exons_fraction         | Returns the fraction of CDS segments in the selected ORF  | CDS         | float       | True         |
+    |                                     | (irrespective of the number of exons involved)            |             |             |              |
+    +-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
+    | selected_cds_fraction               | This property calculates the fraction of the selected CDS | CDS         | float       | True         |
+    |                                     | vs. the cDNA length.                                      |             |             |              |
+    +-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
+    | selected_cds_intron_fraction        | This property returns the fraction of CDS introns of the  | CDS         | float       | True         |
+    |                                     | selected ORF of the transcript vs. the total number of    |             |             |              |
+    |                                     | CDS introns in the Locus (considering only the selected   |             |             |              |
+    |                                     | ORF). If the transcript is by itself, it should return 1. |             |             |              |
+    +-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
+    | selected_cds_length                 | This property calculates the length of the CDS selected   | CDS         | int         | False        |
+    |                                     | as best inside the cDNA.                                  |             |             |              |
+    +-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
+    | selected_cds_locus_fraction         | This metric returns the fraction of CDS bases of the      | Locus       | float       | True         |
+    |                                     | transcript vs. the total of CDS bases in the locus.       |             |             |              |
+    +-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
+    | selected_cds_num                    | This property calculates the number of CDS exons for the  | CDS         | int         | False        |
+    |                                     | selected ORF                                              |             |             |              |
+    +-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
+    | selected_cds_number_fraction        | This property returns the proportion of best possible CDS | CDS         | float       | False        |
+    |                                     | segments vs. the number of exons. See                     |             |             |              |
+    |                                     | selected_cds_number.                                      |             |             |              |
+    +-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
+    | selected_end_distance_from_junction | This metric returns the distance between the stop codon   | CDS         | int         | False        |
+    |                                     | and the last junction of the transcript. In many          |             |             |              |
+    |                                     | eukaryotes, this distance cannot exceed 50-55 bps,        |             |             |              |
+    |                                     | otherwise the transcript becomes a target of NMD. If the  |             |             |              |
+    |                                     | transcript is not coding or there is no junction          |             |             |              |
+    |                                     | downstream of the stop codon, the metric returns 0.       |             |             |              |
+    +-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
+    | selected_end_distance_from_tes      | This property returns the distance of the end of the best | CDS         | int         | False        |
+    |                                     | CDS from the transcript end site. If no CDS is defined,   |             |             |              |
+    |                                     | it defaults to 0.                                         |             |             |              |
+    +-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
+    | selected_start_distance_from_tss    | This property returns the distance of the start of the    | CDS         | int         | False        |
+    |                                     | best CDS from the transcript start site. If no CDS is     |             |             |              |
+    |                                     | defined, it defaults to 0.                                |             |             |              |
+    +-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
+    | snowy_blast_score                   | Metric that indicates how good a hit is compared to the   | External    | float       | False        |
+    |                                     | competition, in terms of BLAST similarities. As in        |             |             |              |
+    |                                     | SnowyOwl, the score for each hit is calculated by taking  |             |             |              |
+    |                                     | the coverage of the target and dividing it by (2 *        |             |             |              |
+    |                                     | len(self.blast_hits)). IMPORTANT: when splitting          |             |             |              |
+    |                                     | transcripts by ORF, a blast hit is added to the new       |             |             |              |
+    |                                     | transcript only if it is contained within the new         |             |             |              |
+    |                                     | transcript. This WILL screw up a bit the homology score.  |             |             |              |
+    +-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
+    | source_score                        | This metric returns a score that is assigned to the       | External    | int         | False        |
+    |                                     | transcript in virtue of its origin.                       |             |             |              |
+    +-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
+    | start_distance_from_tss             | This property returns the distance of the start of the    | CDS         | int         | False        |
+    |                                     | combined CDS from the transcript start site. If no CDS is |             |             |              |
+    |                                     | defined, it defaults to 0.                                |             |             |              |
+    +-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
+    | suspicious_splicing                 | This metric will return True if the transcript either has | Intron      | bool        | False        |
+    |                                     | canonical introns on both strands (probably a chimeric    |             |             |              |
+    |                                     | artifact between two neighbouring loci, or if it has no   |             |             |              |
+    |                                     | canonical splicing event but it would if it were assigned |             |             |              |
+    |                                     | to the opposite strand (probably a strand misassignment   |             |             |              |
+    |                                     | on the part of the assembler/predictor).                  |             |             |              |
+    +-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
+    | three_utr_length                    | Returns the length of the 5' UTR of the selected ORF.     |             | int         | False        |
+    +-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
+    | three_utr_num                       | This property returns the number of 3' UTR segments       | UTR         | int         | False        |
+    |                                     | (referred to the selected ORF).                           |             |             |              |
+    +-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
+    | three_utr_num_complete              | This property returns the number of 3' UTR segments for   | UTR         | int         | False        |
+    |                                     | the selected ORF, considering only those which are        |             |             |              |
+    |                                     | complete exons.                                           |             |             |              |
+    +-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
+    | utr_fraction                        | This property calculates the length of the UTR of the     | UTR         | float       | True         |
+    |                                     | selected ORF vs. the cDNA length.                         |             |             |              |
+    +-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
+    | utr_length                          | Returns the sum of the 5'+3' UTR lengths                  | UTR         | int         | False        |
+    +-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
+    | utr_num                             | Returns the number of UTR segments (referred to the       | UTR         | int         | False        |
+    |                                     | selected ORF).                                            |             |             |              |
+    +-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
+    | utr_num_complete                    | Returns the number of UTR segments which are complete     | UTR         | int         | False        |
+    |                                     | exons (referred to the selected ORF).                     |             |             |              |
+    +-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
+    | verified_introns_num                | This metric returns the number of introns of the          | External    | int         | False        |
+    |                                     | transcript which are validated by external data.          |             |             |              |
+    +-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
 
 .. _external-metrics:
 
@@ -503,7 +504,7 @@ Starting from version 1 beta 8, Mikado allows to load external metrics into the 
 Technical details
 ~~~~~~~~~~~~~~~~~
 
-Most of the selection (ie "pick") stage of the pipeline relies on the implementation of the objects in the :ref:`loci submodule <sub-loci>`. In particular, the library defines an abstract class, "Abstractlocus", which requires all its children to implement a version of the "is_intersecting" method. Each implementation of the method is specific to the stage. So the *superlocus* class will require in the "is_intersecting" method only overlap between the transcripts, optionally with a flanking and optionally restricting the groups to transcripts that share the same strand. The *sublocus* class will implement a different algorithm, and so on.
+Most of the selection (ie "pick") stage of the pipeline relies on the implementation of the objects in the loci submodule. In particular, the library defines an abstract class, "Abstractlocus", which requires all its children to implement a version of the "is_intersecting" method. Each implementation of the method is specific to the stage. So the *superlocus* class will require in the "is_intersecting" method only overlap between the transcripts, optionally with a flanking and optionally restricting the groups to transcripts that share the same strand. The *sublocus* class will implement a different algorithm, and so on.
 The scoring is effectuated by first asking to recalculate the metrics (.calculate_metrics) and subsequently
 to calculate the scores (.calculate_scores). Mikado will try to cache and avoid recalculation of metrics and scores as much as possible, to make the program faster.
 

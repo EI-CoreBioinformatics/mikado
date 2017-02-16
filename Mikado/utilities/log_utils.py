@@ -25,11 +25,10 @@ null_logger.addHandler(null_handler)
 
 def create_null_logger(*args, **kwargs):
     """Static method to create a default logging instance for the loci.
-    The default is a null handler (no log)
+    The default is a null handler (no log).
 
     :param instance: the instance used to derive a name for the logger. It must be either a string
-    or a class instance with a __name__ attribute.
-    """
+    or a class instance with a __name__ attribute."""
 
     return null_logger
 

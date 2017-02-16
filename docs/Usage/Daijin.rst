@@ -255,7 +255,7 @@ Daijin will organise the output directory in 5 major sections, plus the configur
         * *xmls*: this folder contains the XML files corresponding to the BLASTs of the files present in *fastas*
         * *logs*: this folder contains the log files corresponding to the BLASTs of the files present in *fastas*
     #. *pick*: this folder contains the results of :ref:`Mikado pick <pick>`. It is organissed as follows:
-        * One folder per requested :ref:`Mikado chimera-splitting mode <chimera-split>`. Inside each folder, it is possible to find:
+        * One folder per requested :ref:`Mikado chimera-splitting mode <chimera_splitting>`. Inside each folder, it is possible to find:
             * mikado-{mode}.loci.gff3: Final GFF3 output file.
             * mikado-{mode}.metrics.gff3: Final metrics output file, containing the metrics of the transcripts that have been selected.
             * mikado-{mode}.scores.gff3: Final metrics output file, containing the scores associated to the evaluated metrics, for each of the selected transcripts.

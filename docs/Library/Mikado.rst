@@ -15,7 +15,6 @@ Subpackages
     Mikado.scales
     Mikado.serializers
     Mikado.subprograms
-    Mikado.tests
     Mikado.transcripts
     Mikado.utilities
 

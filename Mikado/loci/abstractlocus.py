@@ -29,6 +29,9 @@ else:
 
 # I do not care that there are too many attributes: this IS a massive class!
 # pylint: disable=too-many-instance-attributes,too-many-public-methods
+json_conf = to_json(None)
+
+
 class Abstractlocus(metaclass=abc.ABCMeta):
     """This abstract class defines the basic features of any Locus-like object.
     It also defines methods/properties that are needed throughout the program,
@@ -576,9 +579,6 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         :param terminal: whether the exon is at the 3' end.
         :type terminal: bool
 
-        :param logger: a logger for the static function. Default: null logger.
-        :type logger: logging.Logger
-
         :rtype: bool
         """
 
@@ -1109,7 +1109,9 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
     @json_conf.setter
     def json_conf(self, conf):
-        if conf is None or isinstance(conf, str):
+        if conf is None:
+            conf = json_conf.copy()
+        elif isinstance(conf, str):
             conf = to_json(conf)
         elif not isinstance(conf, dict):
             raise TypeError("Invalid configuration!")

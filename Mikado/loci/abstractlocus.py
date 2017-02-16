@@ -144,7 +144,8 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         if hasattr(self, "json_conf"):
             # This removes unpicklable compiled attributes, eg in "requirements" or "as_requirements"
             for key in self.json_conf:
-                if "compiled" in self.json_conf[key]:
+                if (isinstance(self.json_conf[key], dict) and
+                        self.json_conf[key].get("compiled", None) is not None):
                     del state["json_conf"][key]["compiled"]
 
         if hasattr(self, "session"):
@@ -157,11 +158,6 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         if hasattr(self, "engine"):
             del state["engine"]
 
-        # import pickle
-        # try:
-        #     _ = pickle.dumps(state)
-        # except pickle.PicklingError:
-        #     raise pickle.PicklingError("Failed to serialise {}".format(self.id))
         return state
 
     def __setstate__(self, state):

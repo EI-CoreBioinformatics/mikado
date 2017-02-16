@@ -440,7 +440,7 @@ def remove_fragments(stranded_loci, json_conf, logger):
     for locus in comparisons:
         if json_conf["pick"]["fragments"]["remove"] is True:
             # A bit convoluted: use the locus ID to find the correct superlocus, then delete the ID inside the SL.
-            del stranded_loci_dict[loci_to_superloci[locus]].loci[locus]
+            stranded_loci_dict[loci_to_superloci[locus]].loci.pop(locus, None)
         else:
             best_comparison = sorted(comparisons[locus], reverse=True, key=Assigner.get_f1)[0]
             stranded_loci_dict[loci_to_superloci[locus]].loci[locus].is_fragment = True
@@ -683,7 +683,7 @@ class LociProcesser(Process):
         for num in range(len(state["_handles"])):
             h = state["_handles"][num]
             if isinstance(h, list):
-                [_.close() for _ in h]
+                [_.close() for _ in h if hasattr(_, "close")]
                 state["_handles"][num] = h
                 to_delete.append(num)
             elif hasattr(h, "close"):

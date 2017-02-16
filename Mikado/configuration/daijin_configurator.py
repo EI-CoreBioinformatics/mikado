@@ -14,20 +14,36 @@ from ..utilities.log_utils import create_default_logger
 import sys
 
 
+def _substitute_conf(schema):
+    """Hack to solve my resolution JSON problems. It will change the $ref to the absolute location
+    of this file."""
+    base = resource_filename("Mikado", "configuration")
+
+    for key in schema:
+        if key == "$ref":
+            schema[key] = "file://" + base + "/" + schema[key]
+        elif isinstance(schema[key], dict):
+            schema[key] = _substitute_conf(schema[key])
+        else:
+            continue
+    return schema
+
 
 def create_daijin_validator():
 
-    resolver = jsonschema.RefResolver("file:///{}".format(
-        resource_filename("Mikado.configuration", "configuration")), None)
+    with io.TextIOWrapper(resource_stream("Mikado.configuration", "configuration_blueprint.json")) as _:
+        schema = json.load(_)
 
-    validator = extend_with_default(jsonschema.Draft4Validator,
-                                    resolver=resolver,
-                                    simple=True)
+    resolver = jsonschema.RefResolver.from_schema(schema)
 
     with io.TextIOWrapper(resource_stream(__name__,
                                           "daijin_schema.json")) as blue:
         blue_print = json.load(blue)
 
+    _substitute_conf(blue_print)
+    validator = extend_with_default(jsonschema.Draft4Validator,
+                                    resolver=resolver,
+                                    simple=True)
     validator = validator(blue_print)
 
     return validator
@@ -47,13 +63,14 @@ def check_config(config, logger=None):
         logger = create_default_logger("daijin_validator")
 
     try:
-        resolver = jsonschema.RefResolver("file:///{}".format(
-            resource_filename("Mikado.configuration", "configuration")), None)
-        with io.TextIOWrapper(resource_stream(__name__,
-                                              "daijin_schema.json")) as blue:
-            blue_print = json.load(blue)
+        # resolver = jsonschema.RefResolver("file:///{}".format(
+        #     resource_filename("Mikado.configuration", "configuration")), None)
+        # with io.TextIOWrapper(resource_stream(__name__,
+        #                                       "daijin_schema.json")) as blue:
+        #     blue_print = json.load(blue)
 
-        validator = jsonschema.Draft4Validator(blue_print, resolver=resolver)
+        validator = create_daijin_validator()
+        # validator = jsonschema.Draft4Validator(blue_print, resolver=resolver)
         validator.validate(config)
     except Exception as exc:
         logger.exception(exc)

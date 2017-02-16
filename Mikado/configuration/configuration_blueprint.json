@@ -1,5 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-04/schema#",
+  "id": "configuration_blueprint",
   "type": "object",
   "properties": {
     "SimpleComment": {"type": "object", "properties": {},

@@ -174,7 +174,7 @@ rule transdecoder_lo:
 	threads: 1
 	message: "Running transdecoder longorf on Mikado prepared transcripts: {input}"
 	run:
-	    if config["transdecoder"]["execute"] is True:
+	    if config.get("transdecoder", dict()).get("execute", True) is True:
 	        shell("{params.load} cd {params.outdir} && ln -sf {params.tr_in} {params.tr} && TransDecoder.LongOrfs -m {params.minprot} -t {params.tr} > {log} 2>&1")
 	    else:
 	        shell("mkdir -p $(dirname {output}) && touch {output}")

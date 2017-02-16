@@ -43,7 +43,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
     # ##### Special methods #########
 
-    __json_conf = to_json(None)
+    __json_conf = json_conf.copy()
 
     @abc.abstractmethod
     def __init__(self, source="", verified_introns=None):

@@ -17,8 +17,6 @@ from sqlalchemy.orm.session import sessionmaker
 from sqlalchemy.sql.expression import and_
 from ..transcripts.transcript import Transcript
 from .abstractlocus import Abstractlocus
-from .excluded import Excluded
-from .monosublocus import Monosublocus
 from .monosublocusholder import MonosublocusHolder
 from .sublocus import Sublocus
 from ..exceptions import NoJsonConfigError, NotInLocusError
@@ -28,7 +26,6 @@ from ..serializers.external import External
 from ..serializers.junction import Junction, Chrom
 from ..serializers.orf import Orf
 from ..utilities import dbutils, grouper
-import itertools
 if version_info.minor < 5:
     from sortedcontainers import SortedDict
 else:
@@ -469,7 +466,7 @@ class Superlocus(Abstractlocus):
                     chrom=self.chrom, start=self.start, end=self.end
             ))
             ver_introns = dict(((junc.junction_start, junc.junction_end), junc.strand)
-                                for junc in ver_introns)
+                               for junc in ver_introns)
 
             # ver_introns = set((junc.junction_start, junc.junction_end) for junc in
             #                   self.junction_baked(self.session).params(
@@ -1131,6 +1128,18 @@ class Superlocus(Abstractlocus):
                 self.loci[lid].add_transcript_to_locus(self.transcripts[tid])
             self.loci[lid].finalize_alternative_splicing()
 
+        # Now we have to recheck that no AS event is linking more than one locus.
+        for lid in self.loci:
+            for tid, transcript in [_ for _ in self.loci[lid].transcripts.items() if
+                                    _[0] != self.loci[lid].primary_transcript_id]:
+                for olid in [_ for _ in self.loci if _ != lid]:
+                    is_compatible = MonosublocusHolder.in_locus(self.loci[olid],
+                                                                transcript)
+                    if is_compatible is True:
+                        self.logger.warning("%s is compatible with more than one locus. Removing it.", tid)
+                        self.loci[lid].remove_transcript(tid)
+                        self.loci[lid]._finalized = False
+            self.loci[lid].finalize_alternative_splicing()
         return
 
     def calculate_mono_metrics(self):
@@ -1158,7 +1167,6 @@ class Superlocus(Abstractlocus):
                     monosublocus_instance,
                     json_conf=self.json_conf,
                     logger=self.logger)
-                    # verified_introns=self.locus_verified_introns)
                 self.monoholders.append(holder)
 
         for monoholder in self.monoholders:

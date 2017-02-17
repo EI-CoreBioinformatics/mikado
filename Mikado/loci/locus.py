@@ -62,6 +62,7 @@ class Locus(Sublocus, Abstractlocus):
         self.__id = None
         self.fai = None
         self.json_conf = json_conf
+        self.__finalized = False
         # if verified_introns is not None:
         #     self.locus_verified_introns = verified_introns
 
@@ -118,6 +119,9 @@ class Locus(Sublocus, Abstractlocus):
         changes depending on the transcript considered together; so that a transcript
         that might have scored relatively well on its own will score pretty badly when
         brought inside the locus."""
+
+        if self._finalized is True:
+            return
 
         self.metrics_calculated = False
         self.scores_calculated = False
@@ -191,6 +195,8 @@ reached the maximum number of isoforms for the locus".format(
                 for tid in to_remove:
                     self.transcripts[tid].attributes["retained_intron"] = True
                 break
+
+        self._finalized = True
 
         return
 
@@ -793,6 +799,16 @@ reached the maximum number of isoforms for the locus".format(
         """Overloading of the base property. Loci should never purge."""
 
         return False
+
+    @property
+    def _finalized(self):
+        return self.__finalized
+
+    @_finalized.setter
+    def _finalized(self, value):
+        if not isinstance(value, bool):
+            raise ValueError(value)
+        self.__finalized = value
 
 
 def expand_transcript(transcript, new_start, new_end, fai, logger):

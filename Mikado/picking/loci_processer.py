@@ -67,7 +67,7 @@ def print_gene(current_gene, gene_counter, handle, prefix):
             # Patch. For
             if isinstance(current_transcript.parent, list):
                 foo_counter[1] += 1
-                transcript_counter = "_".join(foo_counter)
+                transcript_counter = "_".join([str(_) for _ in foo_counter])
             else:
                 raise ValueError((exc, str(current_transcript)))
         assert transcript_counter >= 1
@@ -443,7 +443,7 @@ def remove_fragments(stranded_loci, json_conf, logger):
             if locus not in stranded_loci_dict[loci_to_superloci[locus]].loci:
                 logger.error("Locus %s has been lost from superlocus %s!",
                              locus,
-                             stranded_loci_dict[loci_to_superloci[locus]])
+                             stranded_loci_dict[loci_to_superloci[locus]].id)
                 continue
             del stranded_loci_dict[loci_to_superloci[locus]].loci[locus]
             # stranded_loci_dict[loci_to_superloci[locus]].loci.pop(locus, None)

@@ -599,6 +599,12 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                 is_retained = (consider_truncated and terminal)
         elif len(found_exons) >= 2:
             # Now we have to check whether the matched introns contain both coding and non-coding parts
+            # Let us exclude any intron which is outside of the exonic span of interest.
+            if strand == "-":
+                found_introns = [_ for _ in found_introns if _[1] < found_exons[0][0]]
+            else:
+                found_introns = [_ for _ in found_introns if _[0] > found_exons[0][1]]
+
             for index, exon in enumerate(found_exons[:-1]):
                 intron = found_introns[index]
                 if strand == "-":

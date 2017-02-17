@@ -412,8 +412,7 @@ class MonosublocusHolder(Sublocus, Abstractlocus):
             assert len(transcript.transcripts) == 1
             transcript = transcript.transcripts[list(transcript.transcripts.keys())[0]]
             assert hasattr(transcript, "finalize")
-        is_in_locus = Abstractlocus.in_locus(monosublocus, transcript, flank=flank)
-        if is_in_locus is True:
+        if Abstractlocus.in_locus(monosublocus, transcript, flank=flank) is True:
             is_in_locus = False
             for tran in monosublocus.transcripts:
                 tran = monosublocus.transcripts[tran]
@@ -427,7 +426,9 @@ class MonosublocusHolder(Sublocus, Abstractlocus):
                                                   )
                 if is_in_locus is True:
                     break
-        return is_in_locus
+            return is_in_locus
+        else:
+            return False
 
     @property
     def id(self):

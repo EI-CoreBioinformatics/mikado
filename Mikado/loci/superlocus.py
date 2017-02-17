@@ -949,6 +949,13 @@ class Superlocus(Abstractlocus):
                 monosubl.parent = self.id
                 self.monosubloci.append(monosubl)
         self.monosubloci = sorted(self.monosubloci)
+        if self.logger.level == 10:  # DEBUG
+            self.logger.debug("Monosubloci for %s:\n\t\t%s",
+                              self.id,
+                              "\n\t\t".join(
+                                  ["{}, transcript: {}".format(_.id, list(_.transcripts.keys())[0])
+                                   for _ in self.monosubloci]))
+
         self.monosubloci_defined = True
 
     def print_subloci_metrics(self):
@@ -1160,6 +1167,9 @@ class Superlocus(Abstractlocus):
                             "simple_overlap_for_monoexonic"]
                         ):
                     holder.add_monosublocus(monosublocus_instance)
+                    self.logger.debug("%s added to %s",
+                                      list(monosublocus_instance.transcripts.keys())[0],
+                                      list(holder.transcripts.keys())[0])
                     found_holder = True
                     break
             if found_holder is False:

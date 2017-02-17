@@ -602,9 +602,9 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             for index, exon in enumerate(found_exons[:-1]):
                 intron = found_introns[index]
                 if strand == "-":
-                    assert intron[1] == exon[0] - 1
+                    assert intron[1] == exon[0] - 1, (candidate.id, intron, exon, found_exons, found_introns)
                 else:
-                    assert exon[1] == intron[0] - 1
+                    assert exon[1] == intron[0] - 1, (candidate.id, intron, exon, found_exons, found_introns)
                 for frag in frags:
                     if is_retained:
                         break
@@ -990,8 +990,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             self.metrics_calculated = not ((len(not_passing) > 0) and self.purge)
             self._not_passing.update(not_passing)
             for tid in not_passing:
-                if self.purge in (False,):
-                    print("%s has been assigned a score of 0 because it fails basic requirements" % self.id)
+                if self.purge is False:
                     self.logger.debug("%s has been assigned a score of 0 because it fails basic requirements",
                                       self.id)
                     self.transcripts[tid].score = 0

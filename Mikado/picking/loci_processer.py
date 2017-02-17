@@ -440,7 +440,13 @@ def remove_fragments(stranded_loci, json_conf, logger):
     for locus in comparisons:
         if json_conf["pick"]["fragments"]["remove"] is True:
             # A bit convoluted: use the locus ID to find the correct superlocus, then delete the ID inside the SL.
-            stranded_loci_dict[loci_to_superloci[locus]].loci.pop(locus, None)
+            if locus not in stranded_loci_dict[loci_to_superloci[locus]].loci:
+                logger.error("Locus %s has been lost from superlocus %s!",
+                             locus,
+                             stranded_loci_dict[loci_to_superloci[locus]])
+                continue
+            del stranded_loci_dict[loci_to_superloci[locus]].loci[locus]
+            # stranded_loci_dict[loci_to_superloci[locus]].loci.pop(locus, None)
         else:
             best_comparison = sorted(comparisons[locus], reverse=True, key=Assigner.get_f1)[0]
             stranded_loci_dict[loci_to_superloci[locus]].loci[locus].is_fragment = True

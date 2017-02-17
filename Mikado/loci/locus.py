@@ -194,6 +194,17 @@ reached the maximum number of isoforms for the locus".format(
 
         return
 
+    def remove_transcript_from_locus(self, tid: str):
+
+        """Overloading of the AbstractLocus class, in order to ensure that the primary transcript will *not*
+        be removed."""
+
+        if tid == self.primary_transcript_id:
+            raise KeyError("%s is the primary transcript of %s!" % (tid, self.id))
+
+        super().remove_transcript_from_locus(tid)
+
+
     def add_transcript_to_locus(self, transcript: Transcript, **kwargs):
         """Implementation of the add_transcript_to_locus method.
         Before a transcript is added, the class checks that it is a valid splicing isoform
@@ -773,7 +784,15 @@ reached the maximum number of isoforms for the locus".format(
         (i.e. the one which has been used for creation and which has the highest score).
         :rtype : Transcript
         """
+
         return self.transcripts[self.primary_transcript_id]
+
+    @property
+    def purge(self):
+
+        """Overloading of the base property. Loci should never purge."""
+
+        return False
 
 
 def expand_transcript(transcript, new_start, new_end, fai, logger):

@@ -415,8 +415,13 @@ def remove_fragments(stranded_loci, json_conf, logger):
     stranded_loci_dict = dict()
     loci_to_superloci = dict()
 
+    start, end = float("inf"), float("-inf")
+    chrom = None
+
     for stranded_locus in stranded_loci:
         stranded_loci_dict[stranded_locus.id] = stranded_locus
+        start, end = min(stranded_locus.start, start), max(stranded_locus.end, end)
+        chrom = chrom or stranded_locus.chrom
         for _, locus_instance in stranded_locus.loci.items():
             loci_to_superloci[locus_instance.id] = stranded_locus.id
             logger.debug("Assessing whether %s could be a fragment", _)
@@ -441,9 +446,9 @@ def remove_fragments(stranded_loci, json_conf, logger):
         if json_conf["pick"]["fragments"]["remove"] is True:
             # A bit convoluted: use the locus ID to find the correct superlocus, then delete the ID inside the SL.
             if locus not in stranded_loci_dict[loci_to_superloci[locus]].loci:
-                logger.error("Locus %s has been lost from superlocus %s!",
+                logger.error("Locus %s has been lost from superlocus %s:%s-%s!",
                              locus,
-                             stranded_loci_dict[loci_to_superloci[locus]].id)
+                             chrom, start, end)
                 continue
             del stranded_loci_dict[loci_to_superloci[locus]].loci[locus]
             # stranded_loci_dict[loci_to_superloci[locus]].loci.pop(locus, None)

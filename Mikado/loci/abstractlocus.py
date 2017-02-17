@@ -1113,18 +1113,11 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             raise TypeError("Invalid configuration!")
         self.__json_conf = conf
 
-    def _check_json(self):
-        """Private method to be invoked to verify that the configuration is correct.
+    def check_configuration(self):
+        """Method to be invoked to verify that the configuration is correct.
         Quite expensive to run, especially if done multiple times."""
 
-        conf = self.__json_conf
-        if conf is None or isinstance(conf, (str, bytes)):
-            conf = to_json(conf)
-        elif isinstance(conf, dict):
-            conf = check_json(conf)
-        else:
-            raise TypeError("Unrecognized type for configuration: {}".format(type(conf)))
-        self.__json_conf = conf
+        self.json_conf = check_json(self.json_conf)
 
     @property
     def stranded(self):

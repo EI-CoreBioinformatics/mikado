@@ -56,7 +56,7 @@ class MonosublocusHolder(Sublocus, Abstractlocus):
         self.scores_calculated = False
         # Add the transcript to the Locus
         self.locus_verified_introns = set()
-        self.add_monosublocus(monosublocus_instance)
+        self.add_monosublocus(monosublocus_instance, check_in_locus=False)
         self.loci = SortedDict()
         self.attributes = dict()
 
@@ -108,17 +108,18 @@ class MonosublocusHolder(Sublocus, Abstractlocus):
 
     # pylint: enable=arguments-differ
 
-    def add_monosublocus(self, monosublocus_instance: Monosublocus):
+    def add_monosublocus(self, monosublocus_instance: Monosublocus,
+                         check_in_locus=True):
         """Wrapper to extract the transcript from the monosubloci and pass it to the constructor.
 
         :param monosublocus_instance
         :type monosublocus_instance: Monosublocus
         """
         assert len(monosublocus_instance.transcripts) == 1
-        if len(self.transcripts) == 0:
-            check_in_locus = False
-        else:
-            check_in_locus = True
+        # if len(self.transcripts) == 0:
+        #     check_in_locus = False
+        # else:
+        #     check_in_locus = True
         for tid in monosublocus_instance.transcripts:
             self.add_transcript_to_locus(monosublocus_instance.transcripts[tid],
                                          check_in_locus=check_in_locus)

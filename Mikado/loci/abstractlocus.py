@@ -901,7 +901,9 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             self._check_requirements()
 
         if len(self.transcripts) == 0:
-            self.logger.warning("No transcripts pass the muster for {0}".format(self.id))
+            self.logger.warning("No transcripts pass the muster for %s (requirements:\n%s)",
+                                self.id,
+                                self.json_conf["requirements"])
             self.scores_calculated = True
             return
         self.scores = dict()

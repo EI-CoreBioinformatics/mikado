@@ -90,8 +90,8 @@ Chr1\tfoo\texon\t501\t600\t.\t+\t.\tID=t1:exon3;Parent=t1""".split("\n")
     def test_locus(self):
         """Basic testing of the Locus functionality."""
 
-        logger = create_null_logger(inspect.getframeinfo(inspect.currentframe())[2])
-        logger.setLevel("WARNING")
+        logger = create_default_logger(inspect.getframeinfo(inspect.currentframe())[2])
+        logger.setLevel("CRITICAL")
         logger.info("Started")
         self.transcript1.logger = logger
         self.transcript2.logger = logger
@@ -112,18 +112,30 @@ Chr1\tfoo\texon\t501\t600\t.\t+\t.\tID=t1:exon3;Parent=t1""".split("\n")
         self.assertEqual(len(slocus.subloci), 2)
         slocus.define_monosubloci()
         self.assertEqual(len(slocus.monosubloci), 2)
+        slocus.calculate_mono_metrics()
+        self.assertEqual(len(slocus.monoholders), 1)
         slocus.define_loci()
         self.assertEqual(len(slocus.loci), 1)
         self.assertEqual(list(slocus.loci[
                                   list(slocus.loci.keys())[0]].transcripts.keys())[0], "t0")
-        gff_transcript3 = """Chr1\tfoo\ttranscript\t101\t600\t.\t-\t.\tID=tminus0
-Chr1\tfoo\texon\t101\t600\t.\t-\t.\tID=tminus0:exon1;Parent=tminus0""".split("\n")
+        gff_transcript3 = """Chr1\tfoo\ttranscript\t101\t1000\t.\t-\t.\tID=tminus0
+Chr1\tfoo\texon\t101\t600\t.\t-\t.\tID=tminus0:exon1;Parent=tminus0
+Chr1\tfoo\tCDS\t201\t500\t.\t-\t.\tID=tminus0:exon1;Parent=tminus0
+Chr1\tfoo\texon\t801\t1000\t.\t-\t.\tID=tminus0:exon1;Parent=tminus0""".split("\n")
         gff_transcript3 = [GFF.GffLine(x) for x in gff_transcript3]
         transcript3 = Transcript(gff_transcript3[0])
         for exon in gff_transcript3[1:]:
                 transcript3.add_exon(exon)
         transcript3.finalize()
+        self.assertGreater(transcript3.combined_cds_length, 0)
+        self.my_json["pick"]["clustering"]["purge"] = True
+        logger.setLevel("WARNING")
         minusuperlocus = Superlocus(transcript3, json_conf=self.my_json)
+        minusuperlocus.logger = logger
+        minusuperlocus.define_subloci()
+        self.assertGreater(len(minusuperlocus.subloci), 0)
+        minusuperlocus.calculate_mono_metrics()
+        self.assertGreater(len(minusuperlocus.monoholders), 0)
         minusuperlocus.define_loci()
         self.assertEqual(len(minusuperlocus.loci), 1)
         self.assertTrue(transcript3.strand != self.transcript1.strand)

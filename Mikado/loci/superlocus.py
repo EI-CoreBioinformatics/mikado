@@ -135,7 +135,7 @@ class Superlocus(Abstractlocus):
         self.subloci = []
         self.loci = SortedDict()
         self.sublocus_metrics = []
-        self.monosubloci = []
+        self.monosubloci = dict()
         self.monoholders = []
 
         # Connection objects
@@ -936,7 +936,7 @@ class Superlocus(Abstractlocus):
         self.define_subloci()
         self.logger.debug("Calculated subloci for %s, %d transcripts",
                           self.id, len(self.transcripts))
-        self.monosubloci = []
+        self.monosubloci = dict()
         # Extract the relevant transcripts
         for sublocus_instance in sorted(self.subloci):
             self.excluded_transcripts = sublocus_instance.define_monosubloci(
@@ -947,8 +947,10 @@ class Superlocus(Abstractlocus):
                 self.transcripts[tid].score = sublocus_instance.transcripts[tid].score
             for monosubl in sublocus_instance.monosubloci:
                 monosubl.parent = self.id
-                self.monosubloci.append(monosubl)
-        self.monosubloci = sorted(self.monosubloci)
+                # self.monosubloci.append(monosubl)
+                self.monosubloci[monosubl.tid] = monosubl
+
+        # self.monosubloci = sorted(self.monosubloci)
         if self.logger.level == 10:  # DEBUG
             self.logger.debug("Monosubloci for %s:\n\t\t%s",
                               self.id,
@@ -1056,6 +1058,7 @@ class Superlocus(Abstractlocus):
 
         self.loci = SortedDict()
         if len(self.monoholders) == 0:
+            self.logger.warning("No locus retained for %s")
             self.loci_defined = True
             return
 
@@ -1152,32 +1155,51 @@ class Superlocus(Abstractlocus):
     def calculate_mono_metrics(self):
         """Wrapper to calculate the metrics for the monosubloci."""
         self.monoholders = []
+        self.define_monosubloci()
 
-        for monosublocus_instance in sorted(self.monosubloci):
-            found_holder = False
-            for holder in self.monoholders:
-                if MonosublocusHolder.in_locus(
-                        holder,
-                        monosublocus_instance,
-                        logger=self.logger,
-                        cds_only=self.json_conf["pick"]["clustering"]["cds_only"],
-                        min_cdna_overlap=self.json_conf["pick"]["clustering"]["min_cdna_overlap"],
-                        min_cds_overlap=self.json_conf["pick"]["clustering"]["min_cds_overlap"],
-                        simple_overlap_for_monoexonic=self.json_conf["pick"]["clustering"][
-                            "simple_overlap_for_monoexonic"]
-                        ):
-                    holder.add_monosublocus(monosublocus_instance)
-                    self.logger.debug("%s added to %s",
-                                      list(monosublocus_instance.transcripts.keys())[0],
-                                      list(holder.transcripts.keys())[0])
-                    found_holder = True
-                    break
-            if found_holder is False:
-                holder = MonosublocusHolder(
-                    monosublocus_instance,
-                    json_conf=self.json_conf,
-                    logger=self.logger)
-                self.monoholders.append(holder)
+        mono_graph = self.define_graph(
+            self.monosubloci,
+            inters=MonosublocusHolder.in_locus,
+            logger=self.logger,
+            cds_only=self.json_conf["pick"]["clustering"]["cds_only"],
+            min_cdna_overlap=self.json_conf["pick"]["clustering"]["min_cdna_overlap"],
+            min_cds_overlap=self.json_conf["pick"]["clustering"]["min_cds_overlap"],
+            simple_overlap_for_monoexonic=self.json_conf["pick"]["clustering"]["simple_overlap_for_monoexonic"])
+
+        assert len(mono_graph.nodes()) == len(self.monosubloci)
+
+        communities = self.find_communities(mono_graph)
+
+        for community in communities:
+            community = set(community)
+            monosub = self.monosubloci[community.pop()]
+            holder = MonosublocusHolder(monosub,
+                                        json_conf=self.json_conf,
+                                        logger=self.logger)
+            while len(community) > 0:
+                holder.add_monosublocus(self.monosubloci[community.pop()],
+                                        check_in_locus=False)
+            self.monoholders.append(holder)
+        # for monosublocus_instance in sorted(self.monosubloci):
+        #     found_holder = False
+        #     for holder in self.monoholders:
+        #         if MonosublocusHolder.in_locus(
+        #                 holder,
+        #                 monosublocus_instance,
+        #
+        #                 ):
+        #             holder.add_monosublocus(monosublocus_instance)
+        #             self.logger.debug("%s added to %s",
+        #                               list(monosublocus_instance.transcripts.keys())[0],
+        #                               list(holder.transcripts.keys())[0])
+        #             found_holder = True
+        #             break
+        #     if found_holder is False:
+        #         holder = MonosublocusHolder(
+        #             monosublocus_instance,
+        #             json_conf=self.json_conf,
+        #             logger=self.logger)
+        #         self.monoholders.append(holder)
 
         for monoholder in self.monoholders:
             monoholder.scores_calculated = False

@@ -209,6 +209,7 @@ reached the maximum number of isoforms for the locus".format(
             raise KeyError("%s is the primary transcript of %s!" % (tid, self.id))
 
         super().remove_transcript_from_locus(tid)
+        self._finalized = False
 
 
     def add_transcript_to_locus(self, transcript: Transcript, **kwargs):

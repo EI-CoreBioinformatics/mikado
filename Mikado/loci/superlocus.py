@@ -1100,6 +1100,7 @@ class Superlocus(Abstractlocus):
 
         candidates = collections.defaultdict(set)
         primary_transcripts = set(locus.primary_transcript_id for locus in self.loci.values())
+        self.logger.debug("Primary transcripts: %s", primary_transcripts)
 
         cds_only = self.json_conf["pick"]["clustering"]["cds_only"]
         # simple_overlap = self.json_conf["pick"]["run_options"]["monoloci_from_simple_overlap"]
@@ -1114,6 +1115,7 @@ class Superlocus(Abstractlocus):
                                     min_cds_overlap=cds_overlap)
 
         cliques = self.find_cliques(t_graph)
+        self.logger.debug("Cliques: %s", cliques)
 
         loci_cliques = dict()
 
@@ -1139,6 +1141,7 @@ class Superlocus(Abstractlocus):
             self.loci[lid].finalize_alternative_splicing()
 
         # Now we have to recheck that no AS event is linking more than one locus.
+        to_remove = collections.defaultdict(list)
         for lid in self.loci:
             for tid, transcript in [_ for _ in self.loci[lid].transcripts.items() if
                                     _[0] != self.loci[lid].primary_transcript_id]:
@@ -1147,9 +1150,17 @@ class Superlocus(Abstractlocus):
                                                                 transcript)
                     if is_compatible is True:
                         self.logger.warning("%s is compatible with more than one locus. Removing it.", tid)
-                        self.loci[lid].remove_transcript_from_locus(tid)
-                        self.loci[lid]._finalized = False
+                        to_remove[lid].append(tid)
+                        #
+                        # self.loci[lid]._finalized = False
+            # self.loci[lid].finalize_alternative_splicing()
+
+        for lid in to_remove:
+            for tid in to_remove[lid]:
+                self.loci[lid].remove_transcript_from_locus(tid)
+
             self.loci[lid].finalize_alternative_splicing()
+
         return
 
     def calculate_mono_metrics(self):

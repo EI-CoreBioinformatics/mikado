@@ -720,6 +720,64 @@ class MonoHolderTester(unittest.TestCase):
         # This fails because they have the same ID
         self.assertFalse(MonosublocusHolder.is_intersecting(self.t1, t2))
 
+    def test_holder_clustering(self):
+
+        """This test has been added starting from the annotation of IWGSC.
+        It verifies that in a complex locus we create the holders correctly."""
+
+        chrom, strand = "chr7A", "+"
+        transcripts = dict()
+        transcripts["TA_PGSB_v1_dez2016_mRNA_662095"] = [
+            [(711041145, 711041431), (711041641, 711042803), (711059154, 711059935)],
+            36.17, "sublocus:chr3A+:711041145-711059935.multi"]
+        transcripts["TA_PGSB_v1_dez2016_mRNA_662100"] = [
+            [(711056723, 711056806), (711056870, 711057549), (711057994, 711059935)],
+            49.8, "sublocus:chr3A+:711040605-711059935.multi"]
+        transcripts["TA_PGSB_v1_dez2016_mRNA_662101"] = [
+            [(711056723, 711057549), (711057991, 711059935)],
+            48.02, "sublocus:chr3A+:711056723-711059935.multi"]
+        transcripts["TA_PGSB_v1_dez2016_mRNA_662106"] = [
+            [(711056723, 711057549), (711057995, 711058007)],
+            39.51, "sublocus:chr3A+:711056723-711058007.multi"]
+        transcripts["TA_PGSB_v1_dez2016_mRNA_662109"] = [
+            [(711056723, 711057141), (711057213, 711057237)],
+            35.85, "sublocus:chr3A+:711056723-711057237.multi"]
+        transcripts["TA_PGSB_v1_dez2016_mRNA_662111"] = [
+            [(711056723, 711057549), (711057994, 711059935)],
+            49.97, "sublocus:chr3A+:711040605-711059935.multi"]
+        transcripts["TA_PGSB_v1_dez2016_mRNA_662116"] = [
+            [(711056723, 711057610)],
+            30.7, "sublocus:chr3A+:711056723-711057610.mono"
+        ]
+        transcripts["TA_PGSB_v1_dez2016_mRNA_662121"] = [
+            [(711058325, 711059913), (711060068, 711060089)],
+            36.48, "sublocus:chr3A+:711058325-711060089.multi"
+        ]
+
+        superlocus = None
+        json_conf = configurator.to_json(None)
+
+        for transcript in transcripts:
+            tr = Transcript()
+            exons, score, sublocus = transcripts[transcript]
+            tr.chrom, tr.strand, tr.id = chrom, strand, transcript
+            tr.add_exons(exons, features="exon")
+            tr.add_exons(exons, features="CDS")
+            tr.finalize()
+            subl = Sublocus(tr, json_conf=json_conf)
+            if superlocus is None:
+                superlocus = Superlocus(tr, json_conf=json_conf)
+            else:
+                superlocus.add_transcript_to_locus(tr, check_in_locus=False)
+            superlocus.subloci.append(subl)
+            superlocus.scores[transcript] = score
+
+        superlocus.subloci_defined = True
+        self.assertEqual(len(superlocus.subloci), len(transcripts))
+        superlocus.calculate_mono_metrics()
+        self.assertEqual(len(superlocus.monoholders), 1,
+                         "\n".join([", ".join(list(_.transcripts.keys())) for _ in superlocus.monoholders]))
+
 
 class TestLocus(unittest.TestCase):
 

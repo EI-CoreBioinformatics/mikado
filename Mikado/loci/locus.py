@@ -19,7 +19,7 @@ from ..scales.assigner import Assigner
 from ..utilities import overlap
 
 
-class Locus(Sublocus, Abstractlocus):
+class Locus(Abstractlocus):
     """Class that defines the final loci.
     It is a child of monosublocus, but it also has the possibility of adding
     additional transcripts if they are valid splicing isoforms.

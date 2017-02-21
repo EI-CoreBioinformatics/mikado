@@ -1147,7 +1147,7 @@ class Superlocus(Abstractlocus):
                                                                 transcript)
                     if is_compatible is True:
                         self.logger.warning("%s is compatible with more than one locus. Removing it.", tid)
-                        self.loci[lid].remove_transcript(tid)
+                        self.loci[lid].remove_transcript_from_locus(tid)
                         self.loci[lid]._finalized = False
             self.loci[lid].finalize_alternative_splicing()
         return
@@ -1180,26 +1180,6 @@ class Superlocus(Abstractlocus):
                 holder.add_monosublocus(self.monosubloci[community.pop()],
                                         check_in_locus=False)
             self.monoholders.append(holder)
-        # for monosublocus_instance in sorted(self.monosubloci):
-        #     found_holder = False
-        #     for holder in self.monoholders:
-        #         if MonosublocusHolder.in_locus(
-        #                 holder,
-        #                 monosublocus_instance,
-        #
-        #                 ):
-        #             holder.add_monosublocus(monosublocus_instance)
-        #             self.logger.debug("%s added to %s",
-        #                               list(monosublocus_instance.transcripts.keys())[0],
-        #                               list(holder.transcripts.keys())[0])
-        #             found_holder = True
-        #             break
-        #     if found_holder is False:
-        #         holder = MonosublocusHolder(
-        #             monosublocus_instance,
-        #             json_conf=self.json_conf,
-        #             logger=self.logger)
-        #         self.monoholders.append(holder)
 
         for monoholder in self.monoholders:
             monoholder.scores_calculated = False

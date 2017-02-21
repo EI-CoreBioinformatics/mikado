@@ -955,8 +955,8 @@ class Superlocus(Abstractlocus):
             self.logger.debug("Monosubloci for %s:\n\t\t%s",
                               self.id,
                               "\n\t\t".join(
-                                  ["{}, transcript: {}".format(_.id, list(_.transcripts.keys())[0])
-                                   for _ in self.monosubloci]))
+                                  ["{}, transcript: {}".format(
+                                      self.monosubloci[_].id, _) for _ in self.monosubloci]))
 
         self.monosubloci_defined = True
 

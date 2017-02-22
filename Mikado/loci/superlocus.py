@@ -1058,7 +1058,7 @@ class Superlocus(Abstractlocus):
 
         self.loci = SortedDict()
         if len(self.monoholders) == 0:
-            self.logger.warning("No locus retained for %s")
+            self.logger.warning("No locus retained for %s", self.id)
             self.loci_defined = True
             return
 

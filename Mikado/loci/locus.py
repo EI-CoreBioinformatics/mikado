@@ -380,7 +380,9 @@ reached the maximum number of isoforms for the locus".format(
                           self.primary_transcript_id,
                           other.primary_transcript_id)
 
-        result, _ = Assigner.compare(other.primary_transcript, self.primary_transcript)
+        result, _ = Assigner.compare(other.primary_transcript,
+                                     self.primary_transcript,
+                                     strict_strandedness=True)
         max_distance = self.json_conf["pick"]["fragments"]["max_distance"]
         self.logger.debug("Comparison between {0} (strand {3}) and {1}: class code \"{2}\"".format(
             self.primary_transcript.id,

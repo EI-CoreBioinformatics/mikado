@@ -645,7 +645,10 @@ class Assigner:
         return result
 
     @staticmethod
-    def compare(prediction: Transcript, reference: Transcript) -> (ResultStorer, tuple):
+    def compare(prediction: Transcript,
+                reference: Transcript,
+                lenient=False,
+                strict_strandedness=False) -> (ResultStorer, tuple):
 
         """Function to compare two transcripts and determine a ccode. Thin wrapper
         around the compare cython code.
@@ -701,7 +704,10 @@ class Assigner:
         This is a class method, and can therefore be used outside of a class instance.
         """
 
-        return c_compare(prediction, reference)
+        return c_compare(prediction,
+                         reference,
+                         lenient=lenient,
+                         strict_strandedness=strict_strandedness)
 
     def print_tmap(self, res):
         """

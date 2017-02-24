@@ -56,7 +56,7 @@ else:
 # THREADS = int(config["threads"])
 TGG_MAX_MEM = config.get("tgg", dict()).get("max_mem", 5000)
 TGG_COVERAGE = config.get("tgg", dict()).get("coverage", 0.70)
-TGG_IDENTITY = config.get("tgg", dict()).get("coverage", 0.95)
+TGG_IDENTITY = config.get("tgg", dict()).get("identity", 0.95)
 TGG_NPATHS = config.get("tgg", dict()).get("npaths", 0)
 
 # List of alignment and assembly methods to test

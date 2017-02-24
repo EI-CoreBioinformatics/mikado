@@ -44,9 +44,6 @@ REF_TRANS = ""
 if "transcriptome" in config["reference"]:
 	REF_TRANS = config["reference"]["transcriptome"]
 
-MIKADO_IR_MIN = config.get("mikado", dict()).get("run_options", dict()).get("intron_range", [60, 900])[0]
-MIKADO_IR_MAX = config.get("mikado", dict()).get("run_options", dict()).get("intron_range", [60, 900])[1]
-
 NAME = config["name"]
 OUT_DIR = config["out_dir"]
 if "threads" in config:
@@ -868,4 +865,4 @@ rule mikado_cfg:
 	log: OUT_DIR + "/mikado.yaml.log"
 	threads: 1
 	message: "Creating Mikado configuration file"
-	shell: "{params.load} mikado configure -i {MIKADO_IR_MIN} {MIKADO_IR_MAX} --gff={MIKADO_IN_STR} --labels={MIKADO_LABEL_STR} --strand-specific-assemblies={MIKADO_SS_STR} {params.junctions} --scoring {params.scoring} --reference={input.ref} --external={input.cfg} {output} 2> {log}"
+	shell: "{params.load} mikado configure --gff={MIKADO_IN_STR} --labels={MIKADO_LABEL_STR} --strand-specific-assemblies={MIKADO_SS_STR} {params.junctions} --scoring {params.scoring} --reference={input.ref} --external={input.cfg} {output} 2> {log}"

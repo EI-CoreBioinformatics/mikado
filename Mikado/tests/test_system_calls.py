@@ -376,6 +376,7 @@ class ConfigureCheck(unittest.TestCase):
         namespace.cluster_config = None
         namespace.scheduler = ""
         namespace.flank = None
+        namespace.intron_range = None
         namespace.prot_db = []
         namespace.genome = self.__genomefile__.name
         namespace.transcriptome = ""

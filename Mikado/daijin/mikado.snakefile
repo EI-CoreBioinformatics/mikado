@@ -195,7 +195,7 @@ rule transdecoder_pred:
 	threads: THREADS
 	message: "Running transdecoder predict on Mikado prepared transcripts: {input}"
 	run:
-	    if config["transdecoder"]["execute"] is True:
+	    if config.get("transdecoder", dict()).get("execute", True) is True:
 	        shell("{params.load} cd {params.outdir} && TransDecoder.Predict -t {params.tr} --cpu {threads} > {log} 2>&1")
 	    else:
 	        shell("mkdir -p $(dirname {output}) && touch {output}")
@@ -225,7 +225,7 @@ rule mikado_serialise:
 	threads: THREADS
 	message: "Running Mikado serialise to move numerous data sources into a single database"
 	run:
-	    if config["transdecoder"]["execute"] is True:
+	    if config.get("transdecoder", dict()).get("execute", True) is True:
 	        params.orfs = "--orfs="+str(rules.transdecoder_pred.output)
 	    else:
 	        params.orfs = ""

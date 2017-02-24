@@ -585,7 +585,6 @@ class Assigner:
             if len(distances) == 0 or distances[0][1] > self.args.distance:
                 ccode = "u"
                 # noinspection PyTypeChecker,PyUnresolvedReferences
-                print(prediction.location)
                 best_result = ResultStorer("-", "-",
                                            ccode,
                                            prediction.id,

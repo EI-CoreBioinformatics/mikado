@@ -1,14 +1,25 @@
+#Version 1.0.0beta11
+
+Changes in this release:
+
+- **MAJOR**: solved a bug which caused a failure of clustering into loci in rare occasions. Through the graph clustering, now Mikado is guaranteed to group monoloci correctly.
+- **MAJOR**: When looking for fragments, now Mikado will consider transcripts without a strand as being on the **opposite** strand of neighbouring transcripts. This prevents many monoexonic, non-coding fragments from being retained in the final output.
+- Solved some issues with the Daijin schemas, which prevented correct referencing.
+- Bug fix for finding retained introns - Mikado was not accounting for cases where an exon started within an intron and crossed multiple subsequent junctions.
+- BF: Loci will never purge transcripts
+- After creating the final loci, now Mikado will check for, and remove, any AS event transcript which would cross into the AS event.
+
 #Version 1.0.0beta10
 
 Changes in this release:
 
 - **MAJOR**: re-written the clustering algorithm for the MonosublocusHolder stage. Now a holder will accept another monosublocus if:
-    - the cDNA and CDS overlap is over a user-specified threshold *OR*
-    OR 
+    - the cDNA and CDS overlap is over a user-specified threshold
+    *OR* 
     - there is some intronic overlap
-    OR
+    *OR*
     - one intron of either transcript is completely contained within an exon of the other.
-    OR
+    *OR*
     - at least one of the transcripts is monoexonic and there is some overlap of any kind. This behaviour (which was the default until this release) can be switched off through pick/clustering/simple_overlap_for_monoexonic (default true).
 - **MAJOR**: changed slightly the anatomy of the configuration files. Now "pick" has two new subsections, "clustering" and "fragments".
     - Clustering: dedicated to how to cluster the transcripts in the different steps. Currently it contains the keys:

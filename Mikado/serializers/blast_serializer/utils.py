@@ -174,8 +174,10 @@ def prepare_hit(hit, query_id, target_id, **kwargs):
     hit_dict["target_aligned_length"] = t_aligned
     hit_dict["target_start"] = t_merged_intervals[0][0]
     hit_dict["target_end"] = t_merged_intervals[-1][1]
-    hit_dict["global_identity"] = len(identical_positions) * 100 / q_aligned
-    hit_dict["global_positives"] = len(positives) * 100 / q_aligned
+    hit_dict["query_identity"] = len(identical_positions) * 100 / q_aligned
+    hit_dict["query_positives"] = len(positives) * 100 / q_aligned
+    # hit_dict["target_identity"] = len(identical_positions) * 100 / t_aligned
+
     # if hit_dict["evalue"] != best_hsp[0] or hit_dict["bits"] != best_hsp[1]:
     #     raise InvalidHit("Discrepant evalue/bits for hsps and hit for {0} vs. {1}; \
     #     best: {2}, reported {3}".format(

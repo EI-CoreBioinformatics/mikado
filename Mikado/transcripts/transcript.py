@@ -14,7 +14,7 @@ import logging
 import re
 from ast import literal_eval
 from sys import intern, maxsize
-
+import operator
 import intervaltree
 from sqlalchemy import and_
 from sqlalchemy import bindparam
@@ -2771,6 +2771,44 @@ index {3}, internal ORFs: {4}".format(
 
     blast_score.category = "External"
     blast_score.rtype = "float"
+
+    @Metric
+    def blast_query_coverage(self):
+
+        """
+
+        :return:
+        """
+
+        if len(self.blast_hits) == 0:
+            return 0
+        else:
+            hits = sorted(self.blast_hits,
+                          key=operator.itemgetter("evalue"),
+                          reversed=False)
+            return hits[0]["query_cov"]
+
+    @Metric
+    def blast_query_coverage(self):
+
+        """
+
+        :return:
+        """
+
+        if len(self.blast_hits) == 0:
+            return 0
+        else:
+            hits = sorted(self.blast_hits,
+                          key=operator.itemgetter("evalue"),
+                          reversed=False)
+            return hits[0]["query_cov"]
+
+
+
+    blast_query_coverage.category = "External"
+    blast_query_coverage.rtype = "float"
+    blast_query_coverage.usable_raw = True
 
     @Metric
     def canonical_intron_proportion(self):

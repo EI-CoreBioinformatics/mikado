@@ -8,17 +8,15 @@ before the definition of real loci.
 import itertools
 import logging
 from sys import version_info
-
 from ..transcripts.transcript import Transcript
 from .abstractlocus import Abstractlocus
 from .locus import Locus
 from .monosublocus import Monosublocus
 from .sublocus import Sublocus
 from ..parsers.GFF import GffLine
-from ..scales.contrast import compare as c_compare
 from ..utilities import overlap
+from ..scales.contrast import compare as c_compare
 from ..utilities.log_utils import create_null_logger
-
 if version_info.minor < 5:
     from sortedcontainers import SortedDict
 else:
@@ -338,6 +336,9 @@ class MonosublocusHolder(Sublocus, Abstractlocus):
         :param simple_overlap_for_monoexonic: boolean flag. If set to true, any overlap for monoexonic transcripts
         will be enough to trigger incorporation in the locus.
         :type simple_overlap_for_monoexonic: bool
+
+        :param is_internal_orf: boolean. Set to True if we are considering only the CDS for this run.
+        :type is_internal_orf: bool
         """
 
         comparison, _ = c_compare(other, transcript)
@@ -357,22 +358,12 @@ class MonosublocusHolder(Sublocus, Abstractlocus):
                 transcript.id, other.id)
             intersecting = True
         else:
-            cdna_overlap = max(comparison.n_prec[0], comparison.n_recall[0])/ 100
-            if is_internal_orf is True or not (transcript.is_coding and other.is_coding):
-                cds_overlap = cdna_overlap
-            else:
-                cds_overlap = 0
-                for segment in transcript.selected_cds:
-                    for o_segment in other.selected_cds:
-                        cds_overlap += cls.overlap(segment, o_segment, positive=True, flank=0)
-                cds_overlap /= min(transcript.selected_cds_length, other.selected_cds_length)
-                assert cds_overlap <= 1
-            intersecting = (cdna_overlap >= min_cdna_overlap and cds_overlap >= min_cds_overlap)
-            reason = "{} and {} {}share enough cDNA ({}%, min. {}%) and CDS ({}%, min. {}%), {}intersecting".format(
-                transcript.id, other.id,
-                "do not " if not intersecting else "",
-                cdna_overlap, min_cdna_overlap,
-                cds_overlap, min_cds_overlap, "not" if not intersecting else "")
+            intersecting, reason = cls._evaluate_transcript_overlap(
+                transcript, other,
+                min_cdna_overlap=min_cdna_overlap,
+                min_cds_overlap=min_cds_overlap,
+                comparison=comparison,
+                is_internal_orf=is_internal_orf)
 
         return intersecting, reason
 

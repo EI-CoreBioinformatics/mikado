@@ -1013,7 +1013,8 @@ class TestLocus(unittest.TestCase):
         self.assertEqual(len(locus.transcripts), 1)
 
         locus.json_conf["pick"]["alternative_splicing"]["valid_ccodes"].append("j")
-        locus.json_conf["pick"]["alternative_splicing"]["min_cds_overlap"] = 100
+        locus.json_conf["pick"]["alternative_splicing"]["min_cds_overlap"] = 1
+
         locus.add_transcript_to_locus(self.t1_as)
         self.assertEqual(len(locus.transcripts), 1)
 

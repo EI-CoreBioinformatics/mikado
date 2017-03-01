@@ -21,6 +21,7 @@ import operator
 from ..utilities.intervaltree import Interval, IntervalTree
 from ..utilities.log_utils import create_null_logger
 from sys import version_info
+from ..scales.contrast import compare as c_compare
 if version_info.minor < 5:
     from sortedcontainers import SortedDict
 else:
@@ -703,6 +704,60 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
         transcript.retained_introns = tuple(sorted(retained_introns))
         return
+
+    @staticmethod
+    def _evaluate_transcript_overlap(
+            transcript,
+            other,
+            min_cdna_overlap=0.2,
+            min_cds_overlap=0.2,
+            comparison=None,
+            strict_cds_overlap=False,
+            is_internal_orf=False):
+
+        """This private static method evaluates whether the cDNA and CDS overlap of two transcripts
+        is enough to consider them as intersecting.
+
+         :param transcript
+         :type transcript; Transcript
+
+         :param other:
+         :type other: Transcript
+
+        :param min_cdna_overlap: float. This is the minimum cDNA overlap for two transcripts to be considered as intersecting,
+         even when all other conditions fail.
+        :type min_cdna_overlap: float
+
+        :param min_cds_overlap: float. This is the minimum CDS overlap for two transcripts to be considered as intersecting,
+         even when all other conditions fail.
+        :type min_cds_overlap: float
+
+        :param is_internal_orf: boolean. Set to True if we are considering only the CDS for this run.
+        :type is_internal_orf: bool
+        """
+
+        if comparison is None:
+            comparison, _ = c_compare(other, transcript)
+
+        cdna_overlap = max(comparison.n_prec[0], comparison.n_recall[0]) / 100
+        if strict_cds_overlap is False and (
+                        is_internal_orf is True or not (transcript.is_coding and other.is_coding)):
+            cds_overlap = cdna_overlap
+        else:
+            cds_overlap = 0
+            for segment in transcript.selected_cds:
+                for o_segment in other.selected_cds:
+                    cds_overlap += Abstractlocus.overlap(segment, o_segment, positive=True, flank=0)
+            cds_overlap /= min(transcript.selected_cds_length, other.selected_cds_length)
+            assert cds_overlap <= 1
+        intersecting = (cdna_overlap >= min_cdna_overlap and cds_overlap >= min_cds_overlap)
+        reason = "{} and {} {}share enough cDNA ({}%, min. {}%) and CDS ({}%, min. {}%), {}intersecting".format(
+            transcript.id, other.id,
+            "do not " if not intersecting else "",
+            cdna_overlap * 100, min_cdna_overlap * 100,
+            cds_overlap * 100, min_cds_overlap * 100,
+            "not " if not intersecting else "")
+        return intersecting, reason
 
     def print_metrics(self):
 

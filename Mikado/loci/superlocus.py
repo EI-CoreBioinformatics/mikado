@@ -1116,7 +1116,8 @@ class Superlocus(Abstractlocus):
                                     cds_only=cds_only,
                                     logger=self.logger,
                                     min_cdna_overlap=cdna_overlap,
-                                    min_cds_overlap=cds_overlap)
+                                    min_cds_overlap=cds_overlap,
+                                    simple_overlap_for_monoexonic=False)
 
         cliques = self.find_cliques(t_graph)
         self.logger.debug("Cliques: %s", cliques)

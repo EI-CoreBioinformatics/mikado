@@ -779,6 +779,46 @@ class MonoHolderTester(unittest.TestCase):
         self.assertEqual(len(superlocus.monoholders), 1,
                          "\n".join([", ".join(list(_.transcripts.keys())) for _ in superlocus.monoholders]))
 
+    def test_alternative_splicing_monoexonic_not_enough_overlap(self):
+
+        """This test verifies that while we can cluster together the transcripts at the holder stage,
+        if the overlap is not enough they will fail to be recognised as valid AS events."""
+
+        jconf = configurator.to_json(None)
+
+        t1, t2 = Transcript(), Transcript()
+        t1.chrom, t2.chrom = "1", "1"
+        t1.strand, t2.strand = "+", "+"
+        t1.add_exons([(1260208, 1260482), (1262216, 1262412), (1262621, 1263851)])
+        t1.add_exons([(1262291, 1262412), (1262621, 1263143)], features="CDS")
+        t1.id = "cls-0-sta-combined-0_1.27.12"
+
+        t2.add_exons([(1262486, 1264276)])
+        t2.add_exons([(1263571, 1264236)], features="CDS")
+        t2.id = "trn-0-sta-combined-0_1_TRINITY_GG_1373_c0_g2_i1.path1"
+
+        self.assertTrue(MonosublocusHolder.is_intersecting(
+            t1, t2, cds_only=False,
+            min_cdna_overlap=jconf["pick"]["clustering"]["min_cdna_overlap"],
+            min_cds_overlap=jconf["pick"]["clustering"]["min_cds_overlap"],
+            simple_overlap_for_monoexonic=True))
+        self.assertFalse(MonosublocusHolder.is_intersecting(
+            t1, t2, cds_only=False,
+            min_cdna_overlap=jconf["pick"]["clustering"]["min_cdna_overlap"],
+            min_cds_overlap=jconf["pick"]["clustering"]["min_cds_overlap"],
+            simple_overlap_for_monoexonic=False))
+
+        for simple in (True, False):
+            with self.subTest(simple=simple):
+                jconf["pick"]["clustering"]["simple_overlap_for_monoexonic"] = simple
+
+                slocus = Superlocus(t1, json_conf=jconf)
+                slocus.add_transcript_to_locus(t2)
+                locus = Locus(t1, json_conf=jconf)
+                slocus.loci[locus.id] = locus
+                slocus.define_alternative_splicing()
+                self.assertEqual(len(slocus.loci[locus.id].transcripts), 1)
+
 
 class TestLocus(unittest.TestCase):
 

@@ -217,10 +217,7 @@ def __load_blast(transcript, data_dict=None, reverse=False):
             query=transcript.id,
             evalue=maximum_evalue)]
     else:
-        transcript.logger.warning("Data dict already serialised")
-        transcript.logger.warning("Length of hits")
         blast_hits_query = data_dict["hits"].get(transcript.id, [])
-        transcript.logger.warning("Length of hits for %s: %d", transcript.id, len(blast_hits_query))
 
     transcript.logger.debug("Starting to load BLAST data for %s",
                               transcript.id)
@@ -239,14 +236,14 @@ def __load_blast(transcript, data_dict=None, reverse=False):
             previous_evalue = hit["evalue"]
 
         query_frames = [_["query_frame"] for _ in hit["hsps"]]
-        transcript.logger.warning("Query frames for %s: %s", transcript.id, query_frames)
+        transcript.logger.debug("Query frames for %s: %s", transcript.id, query_frames)
         if reverse is True:
             query_frames = [_ * -1 for _ in query_frames]
-            transcript.logger.warning("Query frames for %s after reversal: %s", transcript.id, query_frames)
+            transcript.logger.debug("Query frames for %s after reversal: %s", transcript.id, query_frames)
 
         if any(_ < 0 for _ in query_frames):
-            transcript.logger.warning("Hit %s skipped for %s as it is on opposite strand",
-                                      hit["target"], transcript.id)
+            transcript.logger.debug("Hit %s skipped for %s as it is on opposite strand",
+                                    hit["target"], transcript.id)
             continue
 
         counter += 1

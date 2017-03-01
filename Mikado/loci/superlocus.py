@@ -1108,8 +1108,8 @@ class Superlocus(Abstractlocus):
 
         cds_only = self.json_conf["pick"]["clustering"]["cds_only"]
         # simple_overlap = self.json_conf["pick"]["run_options"]["monoloci_from_simple_overlap"]
-        cds_overlap = self.json_conf["pick"]["clustering"]["min_cds_overlap"]
-        cdna_overlap = self.json_conf["pick"]["clustering"]["min_cdna_overlap"]
+        cds_overlap = self.json_conf["pick"]["alternative_splicing"]["min_cds_overlap"]
+        cdna_overlap = self.json_conf["pick"]["alternative_splicing"]["min_cdna_overlap"]
 
         t_graph = self.define_graph(self.transcripts,
                                     inters=MonosublocusHolder.is_intersecting,

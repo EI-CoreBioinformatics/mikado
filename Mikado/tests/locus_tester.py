@@ -799,8 +799,8 @@ class MonoHolderTester(unittest.TestCase):
 
         self.assertTrue(MonosublocusHolder.is_intersecting(
             t1, t2, cds_only=False,
-            min_cdna_overlap=jconf["pick"]["clustering"]["min_cdna_overlap"],
-            min_cds_overlap=jconf["pick"]["clustering"]["min_cds_overlap"],
+            min_cdna_overlap=jconf["pick"]["alternative_splicing"]["min_cdna_overlap"],
+            min_cds_overlap=jconf["pick"]["alternative_splicing"]["min_cds_overlap"],
             simple_overlap_for_monoexonic=True))
         self.assertFalse(MonosublocusHolder.is_intersecting(
             t1, t2, cds_only=False,

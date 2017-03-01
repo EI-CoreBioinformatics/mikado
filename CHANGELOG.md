@@ -31,8 +31,10 @@ Changes in this release:
     - Fragments: dedicated to how to identify and treat putative fragments. Currently it contains the keys:
         - "remove": whether to exclude fragments, previously under "run_options"
         - "valid_class_codes": which class codes constitute a fragment match. Only class codes in the "Intronic", "Overlap" (inclusive of _) and "Fragment" categories are allowed.
-        - max_distance: for non-overlapping fragments (ie p and P), maximum distance from the gene. 
-- Solved a long-standing bug which caused Mikado compare to consider as fusion also hits.
+        - max_distance: for non-overlapping fragments (ie p and P), maximum distance from the gene.
+- Changed the *default* repertoire of valid AS events to J, j, G, h (removed C and g)          
+- **Bug fix**: now Mikado will consider the cDNA/CDS overlap also for monoexonic transcripts, even when the "simple_overlap_for_monoexonic_loci" flag is set to true.
+- Solved a long-standing bug which caused Mikado compare to consider as fusion also hits on the opposite strand only.
 - Mikado compare now also provides the location of the matches in TMAP and REFMAP files.
 - Introduced a new utility, "class_codes", to print out the information of the class codes. The definition of class codes is now contained in a subpackage of "scales".
 - The "metrics" utility now allows for interactive querying based on category or metric name.

@@ -39,6 +39,7 @@ def prepare_hsp(hsp, counter):
     hsp_dict["counter"] = counter + 1
     hsp_dict["query_hsp_start"] = hsp.query_start
     hsp_dict["query_hsp_end"] = hsp.query_end
+    hsp_dict["query_frame"] = hsp.query_frame
     # Prepare the list for later calculation
     # q_intervals.append((hsp.query_start, hsp.query_end))
 
@@ -46,6 +47,7 @@ def prepare_hsp(hsp, counter):
     # hsp_dict["target_hsp_end"] = hsp.sbjct_end
     hsp_dict["target_hsp_start"] = hsp.hit_start
     hsp_dict["target_hsp_end"] = hsp.hit_end
+    hsp_dict["target_frame"] = hsp.hit_frame
 
     # Prepare the list for later calculation
     # t_intervals.append((hsp.sbjct_start, hsp.sbjct_end))

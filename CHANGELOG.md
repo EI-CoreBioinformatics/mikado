@@ -4,6 +4,9 @@ Changes in this release:
 
 - **MAJOR**: solved a bug which caused a failure of clustering into loci in rare occasions. Through the graph clustering, now Mikado is guaranteed to group monoloci correctly.
 - **MAJOR**: When looking for fragments, now Mikado will consider transcripts without a strand as being on the **opposite** strand of neighbouring transcripts. This prevents many monoexonic, non-coding fragments from being retained in the final output.
+- **MAJOR**: now Mikado serialise also stores the ***frame*** information of transcripts. Hits on the opposite strand will be **ignored**.
+- Changed the *default* repertoire of valid AS events to J, j, G, h (removed C and g).          
+- **Bug fix**: now Mikado will consider the cDNA/CDS overlap also for monoexonic transcripts, even when the "simple_overlap_for_monoexonic_loci" flag is set to true.
 - Solved some issues with the Daijin schemas, which prevented correct referencing.
 - Bug fix for finding retained introns - Mikado was not accounting for cases where an exon started within an intron and crossed multiple subsequent junctions.
 - BF: Loci will never purge transcripts
@@ -32,8 +35,6 @@ Changes in this release:
         - "remove": whether to exclude fragments, previously under "run_options"
         - "valid_class_codes": which class codes constitute a fragment match. Only class codes in the "Intronic", "Overlap" (inclusive of _) and "Fragment" categories are allowed.
         - max_distance: for non-overlapping fragments (ie p and P), maximum distance from the gene.
-- Changed the *default* repertoire of valid AS events to J, j, G, h (removed C and g)          
-- **Bug fix**: now Mikado will consider the cDNA/CDS overlap also for monoexonic transcripts, even when the "simple_overlap_for_monoexonic_loci" flag is set to true.
 - Solved a long-standing bug which caused Mikado compare to consider as fusion also hits on the opposite strand only.
 - Mikado compare now also provides the location of the matches in TMAP and REFMAP files.
 - Introduced a new utility, "class_codes", to print out the information of the class codes. The definition of class codes is now contained in a subpackage of "scales".

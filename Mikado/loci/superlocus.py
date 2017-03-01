@@ -504,6 +504,93 @@ class Superlocus(Abstractlocus):
                                                      intron[1],
                                                      data_dict["junctions"][key]))
 
+    def _create_data_dict(self, engine, tid_keys):
+
+        assert engine is not None
+
+        data_dict = dict()
+        self.logger.debug("Starting to load hits and orfs for %d transcripts",
+                          len(tid_keys))
+        data_dict["hits"] = collections.defaultdict(list)
+        data_dict["orfs"] = collections.defaultdict(list)
+        data_dict["external"] = collections.defaultdict(dict)
+        for tid_group in grouper(tid_keys, 100):
+            query_ids = dict((query.query_id, query) for query in
+                             self.session.query(Query).filter(
+                                 Query.query_name.in_(tid_group)))
+            # Retrieve the external scores
+            if query_ids:
+                external = self.session.query(External).filter(External.query_id.in_(query_ids.keys()))
+            else:
+                external = []
+
+            for ext in external:
+                data_dict["external"][ext.query][ext.source] = ext.score
+
+            # Load the ORFs from the table
+            if query_ids:
+                orfs = self.session.query(Orf).filter(Orf.query_id.in_(query_ids.keys()))
+            else:
+                orfs = []
+
+            for orf in orfs:
+                data_dict["orfs"][orf.query].append(orf.as_bed12())
+
+            # Now retrieve the HSPs from the BLAST HSP table
+            hsp_command = " ".join([
+                "select * from hsp where",
+                "hsp_evalue <= {0} and query_id in {1} order by query_id;"]).format(
+                self.json_conf["pick"]["chimera_split"]["blast_params"]["hsp_evalue"],
+                "({0})".format(", ".join([str(_) for _ in query_ids.keys()]))
+            )
+
+            hsps = dict()
+            targets = set()
+
+            for hsp in engine.execute(hsp_command):
+                if hsp.query_id not in hsps:
+                    hsps[hsp.query_id] = collections.defaultdict(list)
+                hsps[hsp.query_id][hsp.target_id].append(hsp)
+                targets.add(hsp.target_id)
+
+            # Now that we have the HSPs, load the corresponding HITs
+            hit_command = " ".join([
+                "select * from hit where evalue <= {0}",
+                "and hit_number <= {1} and query_id in {2}",
+                "order by query_id, evalue asc;"
+            ]).format(
+                self.json_conf["pick"]["chimera_split"]["blast_params"]["evalue"],
+                self.json_conf["pick"]["chimera_split"]["blast_params"]["max_target_seqs"],
+                "({0})".format(", ".join([str(_) for _ in query_ids.keys()])))
+
+            if len(targets) > 0:
+                target_ids = dict((target.target_id, target) for target in
+                                  self.session.query(Target).filter(
+                                      Target.target_id.in_(targets)))
+            else:
+                target_ids = dict()
+
+            current_hit = None
+            for hit in engine.execute(hit_command):
+                if current_hit != hit.query_id:
+                    current_hit = hit.query_id
+                current_counter = 0
+
+                current_counter += 1
+
+                my_query = query_ids[hit.query_id]
+                my_target = target_ids[hit.target_id]
+
+                data_dict["hits"][my_query.query_name].append(
+                    Hit.as_full_dict_static(
+                        hit,
+                        hsps[hit.query_id][hit.target_id],
+                        my_query,
+                        my_target
+                    )
+                )
+        return data_dict
+
     def load_all_transcript_data(self, engine=None, data_dict=None):
 
         """
@@ -531,96 +618,19 @@ class Superlocus(Abstractlocus):
                           type(data_dict))
         if isinstance(data_dict, dict):
             self.logger.debug("Length of data dict: %s", len(data_dict))
-        self._load_introns(data_dict)
-        self.logger.debug("Verified %d introns for %s",
-                          len(self.locus_verified_introns),
-                          self.id)
+
         tid_keys = list(self.transcripts.keys())
         to_remove, to_add = set(), set()
+        # This will function even if data_dict is None
+        self._load_introns(data_dict)
 
         if data_dict is None:
-            assert engine is not None
-            self.logger.debug("Starting to load hits and orfs for %d transcripts",
-                              len(tid_keys))
-            data_dict = dict()
-            data_dict["hits"] = collections.defaultdict(list)
-            data_dict["orfs"] = collections.defaultdict(list)
-            data_dict["external"] = collections.defaultdict(dict)
-            for tid_group in grouper(tid_keys, 100):
-                query_ids = dict((query.query_id, query) for query in
-                                 self.session.query(Query).filter(
-                                     Query.query_name.in_(tid_group)))
-                # Retrieve the external scores
-                if query_ids:
-                    external = self.session.query(External).filter(External.query_id.in_(query_ids.keys()))
-                else:
-                    external = []
 
-                for ext in external:
-                    data_dict["external"][ext.query][ext.source] = ext.score
+            data_dict = self._create_data_dict(engine, tid_keys)
 
-                # Load the ORFs from the table
-                if query_ids:
-                    orfs = self.session.query(Orf).filter(Orf.query_id.in_(query_ids.keys()))
-                else:
-                    orfs = []
-
-                for orf in orfs:
-                    data_dict["orfs"][orf.query].append(orf.as_bed12())
-
-                # Now retrieve the HSPs from the BLAST HSP table
-                hsp_command = " ".join([
-                    "select * from hsp where",
-                    "hsp_evalue <= {0} and query_id in {1} order by query_id;"]).format(
-                    self.json_conf["pick"]["chimera_split"]["blast_params"]["hsp_evalue"],
-                    "({0})".format(", ".join([str(_) for _ in query_ids.keys()]))
-                )
-
-                hsps = dict()
-                targets = set()
-
-                for hsp in engine.execute(hsp_command):
-                    if hsp.query_id not in hsps:
-                        hsps[hsp.query_id] = collections.defaultdict(list)
-                    hsps[hsp.query_id][hsp.target_id].append(hsp)
-                    targets.add(hsp.target_id)
-
-                # Now that we have the HSPs, load the corresponding HITs
-                hit_command = " ".join([
-                    "select * from hit where evalue <= {0}",
-                    "and hit_number <= {1} and query_id in {2}",
-                    "order by query_id, evalue asc;"
-                ]).format(
-                    self.json_conf["pick"]["chimera_split"]["blast_params"]["evalue"],
-                    self.json_conf["pick"]["chimera_split"]["blast_params"]["max_target_seqs"],
-                    "({0})".format(", ".join([str(_) for _ in query_ids.keys()])))
-
-                if len(targets) > 0:
-                    target_ids = dict((target.target_id, target) for target in
-                                      self.session.query(Target).filter(
-                                          Target.target_id.in_(targets)))
-                else:
-                    target_ids = dict()
-
-                current_hit = None
-                for hit in engine.execute(hit_command):
-                    if current_hit != hit.query_id:
-                        current_hit = hit.query_id
-                    current_counter = 0
-
-                    current_counter += 1
-
-                    my_query = query_ids[hit.query_id]
-                    my_target = target_ids[hit.target_id]
-
-                    data_dict["hits"][my_query.query_name].append(
-                        Hit.as_full_dict_static(
-                            hit,
-                            hsps[hit.query_id][hit.target_id],
-                            my_query,
-                            my_target
-                        )
-                    )
+            self.logger.debug("Verified %d introns for %s",
+                              len(self.locus_verified_introns),
+                              self.id)
 
             self.logger.debug("Finished retrieving data for %d transcripts",
                               len(tid_keys))

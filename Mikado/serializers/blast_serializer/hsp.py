@@ -92,8 +92,10 @@ class Hsp(DBBASE):
                        "counter", "query_id", "target_id", unique=True)
     query_hsp_start = Column(Integer)
     query_hsp_end = Column(Integer)
+    query_frame = Column(Integer)
     target_hsp_start = Column(Integer)
     target_hsp_end = Column(Integer)
+    target_frame = Column(Integer)
     uni_constraint = UniqueConstraint("query_id", "target_id",
                                       "query_hsp_start", "query_hsp_end",
                                       "target_hsp_start", "target_hsp_end")
@@ -171,7 +173,9 @@ class Hsp(DBBASE):
             "target_hsp_end",
             "hsp_evalue",
             "hsp_bits",
-            "match"
+            "match",
+            "query_frame",
+            "target_frame"
         ]
 
         state = dict().fromkeys(keys)

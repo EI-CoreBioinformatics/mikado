@@ -190,7 +190,7 @@ def check_loaded_orfs(transcript):
     transcript.finalize()
 
 
-def __load_blast(transcript):
+def __load_blast(transcript, data_dict=None, reverse=False):
 
     """This method looks into the DB for hits corresponding to the desired requirements.
     Hits will be loaded into the "blast_hits" list;
@@ -212,12 +212,18 @@ def __load_blast(transcript):
         "pick"]["chimera_split"]["blast_params"]["max_target_seqs"]
     maximum_evalue = transcript.json_conf["pick"]["chimera_split"]["blast_params"]["evalue"]
 
-    blast_hits_query = transcript.blast_baked(transcript.session).params(
-        query=transcript.id,
-        evalue=maximum_evalue)
+    if data_dict is None:
+        blast_hits_query = [_.as_dict() for _ in transcript.blast_baked(transcript.session).params(
+            query=transcript.id,
+            evalue=maximum_evalue)]
+    else:
+        transcript.logger.warning("Data dict already serialised")
+        transcript.logger.warning("Length of hits")
+        blast_hits_query = data_dict["hits"].get(transcript.id, [])
+        transcript.logger.warning("Length of hits for %s: %d", transcript.id, len(blast_hits_query))
 
     transcript.logger.debug("Starting to load BLAST data for %s",
-                            transcript.id)
+                              transcript.id)
     # variables which take care of defining
     # the maximum evalue and target seqs
     # We do not trust the limit in the sqlite because
@@ -227,14 +233,25 @@ def __load_blast(transcript):
     counter = 0
     for hit in blast_hits_query:
 
-        if counter > max_target_seqs and previous_evalue < hit.evalue:
+        if counter > max_target_seqs and previous_evalue < hit["evalue"]:
             break
-        elif previous_evalue < hit.evalue:
-            previous_evalue = hit.evalue
+        elif previous_evalue < hit["evalue"]:
+            previous_evalue = hit["evalue"]
+
+        query_frames = [_["query_frame"] for _ in hit["hsps"]]
+        transcript.logger.warning("Query frames for %s: %s", transcript.id, query_frames)
+        if reverse is True:
+            query_frames = [_ * -1 for _ in query_frames]
+            transcript.logger.warning("Query frames for %s after reversal: %s", transcript.id, query_frames)
+
+        if any(_ < 0 for _ in query_frames):
+            transcript.logger.warning("Hit %s skipped for %s as it is on opposite strand",
+                                      hit["target"], transcript.id)
+            continue
 
         counter += 1
 
-        transcript.blast_hits.append(hit.as_dict())
+        transcript.blast_hits.append(hit)
 
     transcript.logger.debug("Loaded %d BLAST hits for %s",
                             counter, transcript.id)
@@ -303,11 +320,21 @@ def load_information_from_db(transcript, json_conf, introns=None, session=None,
         transcript.logger.debug("Retrieved the ORFs for %s", transcript.id)
 
         transcript.logger.debug("Loading the ORFs for %s", transcript.id)
+        old_strand = transcript.strand
         load_orfs(transcript, candidate_orfs)
+
+        if transcript.monoexonic is False:
+            is_reversed = False
+        elif old_strand != transcript.strand and ((old_strand is None and transcript.strand == "-")
+            or (old_strand is not None)):
+            is_reversed = True
+        else:
+            is_reversed = False
+
         transcript.logger.debug("Loaded the ORFs for %s", transcript.id)
 
         transcript.logger.debug("Loading the BLAST data for %s", transcript.id)
-        __load_blast(transcript)
+        __load_blast(transcript, reverse=is_reversed)
         transcript.logger.debug("Loaded the BLAST data for %s", transcript.id)
     # Finally load introns, separately
     transcript.logger.debug("Loaded data for %s", transcript.id)
@@ -331,21 +358,6 @@ def retrieve_from_dict(transcript, data_dict):
     transcript.logger.debug("Checking introns for %s, candidates %s",
                             transcript.id,
                             sorted(transcript.introns))
-
-    # if introns is not None:
-    #     transcript.verified_introns = set.intersection(
-    #         set((intron[0], intron[1], transcript.strand) for intron in transcript.introns),
-    #         set(introns)
-    #     )
-    # else:
-    #     transcript.verified_introns = set()
-    #     for intron in transcript.introns:
-    #         key = (transcript.chrom, intron[0], intron[1])
-    #         if data_dict.get(key, None) == transcript.strand:
-    #             transcript.verified_introns.add(intron[0], intron[1], transcript.strand)
-
-    # transcript.logger.debug("Verified introns for %s: %s", transcript.id,
-    #                         sorted(transcript.verified_introns))
 
     # ORF data
     trust_strand = transcript.json_conf["pick"]["orf_loading"]["strand_specific"]
@@ -371,27 +383,22 @@ def retrieve_from_dict(transcript, data_dict):
         # or monoexonic strand-specific transcripts
         candidate_orfs = list(orf for orf in candidate_orfs if orf.strand != "-")
 
+    old_strand = transcript.strand
     load_orfs(transcript, candidate_orfs)
+
+    if transcript.monoexonic is False:
+        is_reversed = False
+    elif old_strand != transcript.strand and ((old_strand is None and transcript.strand == "-")
+                                              or (old_strand is not None)):
+        is_reversed = True
+    else:
+        is_reversed = False
 
     # if transcript.json_conf["pick"]["chimera_split"]["blast_check"] is True:
     transcript.logger.debug("Retrieving BLAST hits for %s",
                             transcript.id)
-    maximum_evalue = transcript.json_conf["pick"]["chimera_split"]["blast_params"]["evalue"]
 
-    if transcript.id in data_dict["hits"]:
-        # this is a dictionary full of lists of dictionary
-        hits = data_dict["hits"][transcript.id]
-    else:
-        hits = list()
-
-    transcript.logger.debug("Found %d potential BLAST hits for %s with evalue <= %f",
-                            len(hits),
-                            transcript.id,
-                            maximum_evalue)
-
-    transcript.blast_hits.extend(hits)
-    transcript.logger.debug("Loaded %d BLAST hits for %s",
-                            len(transcript.blast_hits), transcript.id)
+    __load_blast(transcript, data_dict=data_dict, reverse=is_reversed)
 
     transcript.logger.debug("Retrieved information from DB dictionary for %s",
                             transcript.id)

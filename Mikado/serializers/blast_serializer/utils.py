@@ -164,18 +164,18 @@ def prepare_hit(hit, query_id, target_id, **kwargs):
     hit_dict["target_id"] = target_id
 
     q_merged_intervals = sorted(merge(q_intervals), key=operator.itemgetter(0, 1))
-    q_aligned = sum([tup[1] - tup[0] + 1 for tup in q_merged_intervals])
+    q_aligned = sum([tup[1] - tup[0] for tup in q_merged_intervals])
     hit_dict["query_aligned_length"] = q_aligned
     hit_dict["query_start"] = q_merged_intervals[0][0]
     hit_dict["query_end"] = q_merged_intervals[-1][1]
 
     t_merged_intervals = sorted(merge(t_intervals), key=operator.itemgetter(0, 1))
-    t_aligned = sum([tup[1] - tup[0] + 1 for tup in t_merged_intervals])
+    t_aligned = sum([tup[1] - tup[0] for tup in t_merged_intervals])
     hit_dict["target_aligned_length"] = t_aligned
     hit_dict["target_start"] = t_merged_intervals[0][0]
     hit_dict["target_end"] = t_merged_intervals[-1][1]
-    hit_dict["query_identity"] = len(identical_positions) * 100 / q_aligned
-    hit_dict["query_positives"] = len(positives) * 100 / q_aligned
+    hit_dict["global_identity"] = len(identical_positions) * 100 * kwargs["query_multiplier"] / q_aligned
+    hit_dict["global_positives"] = len(positives) * 100 * kwargs["query_multiplier"] / q_aligned
     # hit_dict["target_identity"] = len(identical_positions) * 100 / t_aligned
 
     # if hit_dict["evalue"] != best_hsp[0] or hit_dict["bits"] != best_hsp[1]:

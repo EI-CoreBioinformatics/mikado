@@ -319,17 +319,31 @@ class Assigner:
             end = max([prediction.end] + [self.genes[_.ref_gene[0]][_.ref_id[0]].end for _ in best])
             location = "{}:{}..{}".format(chrom, start, end)
 
-            for key in ResultStorer.__slots__:
-                if key in ["gid", "tid", "distance", "tid_num_exons"]:
-                    values.append(getattr(best[0], key))
-                elif key == "location":
-                    values.append(location)
-                elif key == "ccode":
-                    values.append(tuple(["f"] + [_.ccode[0] for _ in best]))
-                else:
-                    val = tuple([getattr(result, key)[0] for result in best])
-                    values.append(val)
-            best_result = ResultStorer(*values)
+            best_result = []
+            for result in best:
+                new_result = []
+                for key in ResultStorer.__slots__:
+                    if key == "location":
+                        new_result.append(location)
+                    elif key == "ccode":
+                        tup = tuple(["f"] + [getattr(result, key)[0]])
+                        new_result.append(tup)
+                    else:
+                        new_result.append(getattr(result, key))
+                new_result = ResultStorer(*new_result)
+                best_result.append(new_result)
+
+            # for key in ResultStorer.__slots__:
+            #     if key in ["gid", "tid", "distance", "tid_num_exons"]:
+            #         values.append(getattr(best[0], key))
+            #     elif key == "location":
+            #         values.append(location)
+            #     elif key == "ccode":
+            #         values.append(tuple(["f"] + [_.ccode[0] for _ in best]))
+            #     else:
+            #         val = tuple([getattr(result, key)[0] for result in best])
+            #         values.append(val)
+            # best_result = ResultStorer(*values)
             for match, genes in fused.items():
                 for gene in iter(_ for _ in genes if _ not in dubious):
                     for position, result in enumerate(new_matches[gene]):
@@ -608,7 +622,12 @@ class Assigner:
             self.add_to_refmap(result)
 
         self.logger.debug("Finished with %s", prediction.id)
-        self.print_tmap(best_result)
+        if isinstance(best_result, list):
+            for result in best_result:
+                self.print_tmap(result)
+        else:
+            self.print_tmap(best_result)
+
         self.done += 1
         return best_result
 

@@ -68,9 +68,9 @@ def print_gene(current_gene, gene_counter, handle, prefix):
             if isinstance(current_transcript.parent, list):
                 foo_counter[1] += 1
                 transcript_counter = "_".join([str(_) for _ in foo_counter])
+                assert transcript_counter >= 1
             else:
                 raise ValueError((exc, str(current_transcript)))
-        assert transcript_counter >= 1
 
         tid = "{0}.{1}G{2}.{3}".format(prefix,
                                        chrom,

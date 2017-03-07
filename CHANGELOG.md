@@ -1,10 +1,11 @@
-#Version 1.0.0beta11
+#Version 1.0
 
 Changes in this release:
 
 - **MAJOR**: solved a bug which caused a failure of clustering into loci in rare occasions. Through the graph clustering, now Mikado is guaranteed to group monoloci correctly.
 - **MAJOR**: When looking for fragments, now Mikado will consider transcripts without a strand as being on the **opposite** strand of neighbouring transcripts. This prevents many monoexonic, non-coding fragments from being retained in the final output.
 - **MAJOR**: now Mikado serialise also stores the ***frame*** information of transcripts. Hits on the opposite strand will be **ignored**. This requires to **regenerate all Mikado databases**.
+- **MAJOR**: Added the final configuration files used for the article.
 - Added three new metrics, "blast_target_coverage", "blast_query_coverage", "blast_identity"
 - Changed the *default* repertoire of valid AS events to J, j, G, h (removed C and g).          
 - **Bug fix**: now Mikado will consider the cDNA/CDS overlap also for monoexonic transcripts, even when the "simple_overlap_for_monoexonic_loci" flag is set to true.

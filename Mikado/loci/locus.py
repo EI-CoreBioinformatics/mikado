@@ -19,7 +19,7 @@ from ..scales.assigner import Assigner
 from ..utilities import overlap
 
 
-class Locus(Sublocus, Abstractlocus):
+class Locus(Abstractlocus):
     """Class that defines the final loci.
     It is a child of monosublocus, but it also has the possibility of adding
     additional transcripts if they are valid splicing isoforms.
@@ -62,6 +62,7 @@ class Locus(Sublocus, Abstractlocus):
         self.__id = None
         self.fai = None
         self.json_conf = json_conf
+        self.__finalized = False
         # if verified_introns is not None:
         #     self.locus_verified_introns = verified_introns
 
@@ -118,6 +119,9 @@ class Locus(Sublocus, Abstractlocus):
         changes depending on the transcript considered together; so that a transcript
         that might have scored relatively well on its own will score pretty badly when
         brought inside the locus."""
+
+        if self._finalized is True:
+            return
 
         self.metrics_calculated = False
         self.scores_calculated = False
@@ -192,7 +196,21 @@ reached the maximum number of isoforms for the locus".format(
                     self.transcripts[tid].attributes["retained_intron"] = True
                 break
 
+        self._finalized = True
+
         return
+
+    def remove_transcript_from_locus(self, tid: str):
+
+        """Overloading of the AbstractLocus class, in order to ensure that the primary transcript will *not*
+        be removed."""
+
+        if tid == self.primary_transcript_id:
+            raise KeyError("%s is the primary transcript of %s!" % (tid, self.id))
+
+        super().remove_transcript_from_locus(tid)
+        self._finalized = False
+
 
     def add_transcript_to_locus(self, transcript: Transcript, **kwargs):
         """Implementation of the add_transcript_to_locus method.
@@ -243,25 +261,6 @@ reached the maximum number of isoforms for the locus".format(
                     "s" * min(1, len(to_check) - 1))
                 to_be_added = False
 
-        if to_be_added:
-            is_alternative, ccode, comparison = self.is_alternative_splicing(transcript)
-            if is_alternative is False:
-                self.logger.debug("%s not added because it is not a \
-                valid splicing isoform. Ccode: %s",
-                                  transcript.id, ccode)
-                to_be_added = False
-            else:
-                transcript.attributes["ccode"] = ccode
-                self.logger.debug("%s is a valid splicing isoform; Ccode: %s", transcript.id, ccode)
-            if self.json_conf["pick"]["alternative_splicing"]["min_cdna_overlap"] > 0:
-                overlap = comparison.n_recall[0]
-                if overlap < self.json_conf["pick"]["alternative_splicing"]["min_cdna_overlap"]:
-                    self.logger.debug(
-                        "%s not added because its CDNA overlap is too low (%f%%).",
-                        transcript.id,
-                        round(overlap * 100, 2))
-                    to_be_added = False
-
         # Add a check similar to what we do for the minimum requirements and the fragments
         if to_be_added and "as_requirements" in self.json_conf:
             if ("compiled" not in self.json_conf["as_requirements"] or
@@ -281,21 +280,16 @@ reached the maximum number of isoforms for the locus".format(
                 self.logger.debug("%s fails the minimum requirements for AS events", transcript.id)
                 to_be_added = False
 
-        if to_be_added and self.json_conf["pick"]["alternative_splicing"]["min_cds_overlap"] > 0:
-            if self.primary_transcript.combined_cds_length > 0:
-                tr_nucls = set(itertools.chain(
-                    *[range(x[0], x[1] + 1) for x in transcript.combined_cds]))
-                primary_nucls = set(
-                    itertools.chain(
-                        *[range(x[0], x[1] + 1) for x in self.primary_transcript.combined_cds]))
-                nucl_overlap = len(set.intersection(primary_nucls, tr_nucls))
-                overlap = nucl_overlap / self.primary_transcript.combined_cds_length
-                if overlap < self.json_conf["pick"]["alternative_splicing"]["min_cds_overlap"]:
-                    self.logger.debug(
-                        "%s not added because its CDS overlap is too low (%f%%).",
-                        transcript.id,
-                        round(overlap * 100, 2))
-                    to_be_added = False
+        if to_be_added is True:
+            is_alternative, ccode, comparison = self.is_alternative_splicing(transcript)
+            if is_alternative is False:
+                self.logger.debug("%s not added because it is not a \
+                valid splicing isoform. Ccode: %s",
+                                  transcript.id, ccode)
+                to_be_added = False
+            else:
+                transcript.attributes["ccode"] = ccode
+                self.logger.debug("%s is a valid splicing isoform; Ccode: %s", transcript.id, ccode)
 
         if to_be_added is False:
             return
@@ -362,7 +356,9 @@ reached the maximum number of isoforms for the locus".format(
                           self.primary_transcript_id,
                           other.primary_transcript_id)
 
-        result, _ = Assigner.compare(other.primary_transcript, self.primary_transcript)
+        result, _ = Assigner.compare(other.primary_transcript,
+                                     self.primary_transcript,
+                                     strict_strandedness=True)
         max_distance = self.json_conf["pick"]["fragments"]["max_distance"]
         self.logger.debug("Comparison between {0} (strand {3}) and {1}: class code \"{2}\"".format(
             self.primary_transcript.id,
@@ -522,16 +518,26 @@ reached the maximum number of isoforms for the locus".format(
         redundant_ccodes = self.json_conf["pick"]["alternative_splicing"]["redundant_ccodes"]
 
         if self.json_conf["pick"]["clustering"]["cds_only"] is True:
-            main_without_utr = self.primary_transcript.deepcopy()
-            main_without_utr.remove_utrs()
-            other_without_utr = other.deepcopy()
-            other_without_utr.remove_utrs()
-            main_result, _ = Assigner.compare(other_without_utr,
-                                              main_without_utr)
+            main_result, _ = Assigner.compare(other._selected_orf_transcript,
+                                              self.primary_transcript._selected_orf_transcript)
+            enough_overlap, overlap_reason = self._evaluate_transcript_overlap(
+                other._selected_orf_transcript,
+                self.primary_transcript._selected_orf_transcript,
+                min_cdna_overlap=self.json_conf["pick"]["alternative_splicing"]["min_cdna_overlap"],
+                min_cds_overlap=self.json_conf["pick"]["alternative_splicing"]["min_cds_overlap"],
+                comparison=main_result,
+                is_internal_orf=True)
         else:
-            other_without_utr = None
             main_result, _ = Assigner.compare(other,
                                               self.primary_transcript)
+            enough_overlap, overlap_reason = self._evaluate_transcript_overlap(
+                other,
+                self.primary_transcript,
+                min_cdna_overlap=self.json_conf["pick"]["alternative_splicing"]["min_cdna_overlap"],
+                min_cds_overlap=self.json_conf["pick"]["alternative_splicing"]["min_cds_overlap"],
+                comparison=main_result,
+                is_internal_orf=False)
+
         main_ccode = main_result.ccode[0]
 
         if main_ccode not in valid_ccodes:
@@ -539,17 +545,21 @@ reached the maximum number of isoforms for the locus".format(
                               other.id,
                               main_result.ccode[0])
             is_valid = False
+        elif not enough_overlap:
+            self.logger.debug("%s is not a valid splicing isoform. Reason: %s",
+                              other.id, overlap_reason)
+            is_valid = False
+
         if is_valid:
             for tid in iter(tid for tid in self.transcripts if
                             tid not in (self.primary_transcript_id, other.id)):
                 candidate = self.transcripts[tid]
                 if self.json_conf["pick"]["clustering"]["cds_only"] is True:
-                    candidate = candidate.deepcopy()
-                    candidate.remove_utrs()
-                    Assigner.compare(other_without_utr, candidate)
+                    result, _ = Assigner.compare(
+                        other._selected_orf_transcript,
+                        candidate._selected_orf_transcript)
                 else:
-                    Assigner.compare(other, candidate)
-                result, _ = Assigner.compare(other, candidate)
+                    result, _ = Assigner.compare(other, candidate)
                 if result.ccode[0] in redundant_ccodes:
                     self.logger.debug("%s is a redundant isoform of %s (ccode %s)",
                                       other.id, candidate.id, result.ccode[0])
@@ -773,7 +783,25 @@ reached the maximum number of isoforms for the locus".format(
         (i.e. the one which has been used for creation and which has the highest score).
         :rtype : Transcript
         """
+
         return self.transcripts[self.primary_transcript_id]
+
+    @property
+    def purge(self):
+
+        """Overloading of the base property. Loci should never purge."""
+
+        return False
+
+    @property
+    def _finalized(self):
+        return self.__finalized
+
+    @_finalized.setter
+    def _finalized(self, value):
+        if not isinstance(value, bool):
+            raise ValueError(value)
+        self.__finalized = value
 
 
 def expand_transcript(transcript, new_start, new_end, fai, logger):

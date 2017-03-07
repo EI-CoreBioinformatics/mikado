@@ -19,6 +19,7 @@ import Mikado.loci
 import pickle
 import inspect
 from Mikado.parsers.bed12 import BED12
+from Mikado.scales.contrast import compare as c_compare
 
 
 class OverlapTester(unittest.TestCase):
@@ -90,8 +91,8 @@ Chr1\tfoo\texon\t501\t600\t.\t+\t.\tID=t1:exon3;Parent=t1""".split("\n")
     def test_locus(self):
         """Basic testing of the Locus functionality."""
 
-        logger = create_null_logger(inspect.getframeinfo(inspect.currentframe())[2])
-        logger.setLevel("WARNING")
+        logger = create_default_logger(inspect.getframeinfo(inspect.currentframe())[2])
+        logger.setLevel("CRITICAL")
         logger.info("Started")
         self.transcript1.logger = logger
         self.transcript2.logger = logger
@@ -112,18 +113,30 @@ Chr1\tfoo\texon\t501\t600\t.\t+\t.\tID=t1:exon3;Parent=t1""".split("\n")
         self.assertEqual(len(slocus.subloci), 2)
         slocus.define_monosubloci()
         self.assertEqual(len(slocus.monosubloci), 2)
+        slocus.calculate_mono_metrics()
+        self.assertEqual(len(slocus.monoholders), 1)
         slocus.define_loci()
         self.assertEqual(len(slocus.loci), 1)
         self.assertEqual(list(slocus.loci[
                                   list(slocus.loci.keys())[0]].transcripts.keys())[0], "t0")
-        gff_transcript3 = """Chr1\tfoo\ttranscript\t101\t600\t.\t-\t.\tID=tminus0
-Chr1\tfoo\texon\t101\t600\t.\t-\t.\tID=tminus0:exon1;Parent=tminus0""".split("\n")
+        gff_transcript3 = """Chr1\tfoo\ttranscript\t101\t1000\t.\t-\t.\tID=tminus0
+Chr1\tfoo\texon\t101\t600\t.\t-\t.\tID=tminus0:exon1;Parent=tminus0
+Chr1\tfoo\tCDS\t201\t500\t.\t-\t.\tID=tminus0:exon1;Parent=tminus0
+Chr1\tfoo\texon\t801\t1000\t.\t-\t.\tID=tminus0:exon1;Parent=tminus0""".split("\n")
         gff_transcript3 = [GFF.GffLine(x) for x in gff_transcript3]
         transcript3 = Transcript(gff_transcript3[0])
         for exon in gff_transcript3[1:]:
                 transcript3.add_exon(exon)
         transcript3.finalize()
+        self.assertGreater(transcript3.combined_cds_length, 0)
+        self.my_json["pick"]["clustering"]["purge"] = True
+        logger.setLevel("WARNING")
         minusuperlocus = Superlocus(transcript3, json_conf=self.my_json)
+        minusuperlocus.logger = logger
+        minusuperlocus.define_subloci()
+        self.assertGreater(len(minusuperlocus.subloci), 0)
+        minusuperlocus.calculate_mono_metrics()
+        self.assertGreater(len(minusuperlocus.monoholders), 0)
         minusuperlocus.define_loci()
         self.assertEqual(len(minusuperlocus.loci), 1)
         self.assertTrue(transcript3.strand != self.transcript1.strand)
@@ -708,11 +721,109 @@ class MonoHolderTester(unittest.TestCase):
         # This fails because they have the same ID
         self.assertFalse(MonosublocusHolder.is_intersecting(self.t1, t2))
 
+    def test_holder_clustering(self):
+
+        """This test has been added starting from the annotation of IWGSC.
+        It verifies that in a complex locus we create the holders correctly."""
+
+        chrom, strand = "chr7A", "+"
+        transcripts = dict()
+        transcripts["TA_PGSB_v1_dez2016_mRNA_662095"] = [
+            [(711041145, 711041431), (711041641, 711042803), (711059154, 711059935)],
+            36.17, "sublocus:chr3A+:711041145-711059935.multi"]
+        transcripts["TA_PGSB_v1_dez2016_mRNA_662100"] = [
+            [(711056723, 711056806), (711056870, 711057549), (711057994, 711059935)],
+            49.8, "sublocus:chr3A+:711040605-711059935.multi"]
+        transcripts["TA_PGSB_v1_dez2016_mRNA_662101"] = [
+            [(711056723, 711057549), (711057991, 711059935)],
+            48.02, "sublocus:chr3A+:711056723-711059935.multi"]
+        transcripts["TA_PGSB_v1_dez2016_mRNA_662106"] = [
+            [(711056723, 711057549), (711057995, 711058007)],
+            39.51, "sublocus:chr3A+:711056723-711058007.multi"]
+        transcripts["TA_PGSB_v1_dez2016_mRNA_662109"] = [
+            [(711056723, 711057141), (711057213, 711057237)],
+            35.85, "sublocus:chr3A+:711056723-711057237.multi"]
+        transcripts["TA_PGSB_v1_dez2016_mRNA_662111"] = [
+            [(711056723, 711057549), (711057994, 711059935)],
+            49.97, "sublocus:chr3A+:711040605-711059935.multi"]
+        transcripts["TA_PGSB_v1_dez2016_mRNA_662116"] = [
+            [(711056723, 711057610)],
+            30.7, "sublocus:chr3A+:711056723-711057610.mono"
+        ]
+        transcripts["TA_PGSB_v1_dez2016_mRNA_662121"] = [
+            [(711058325, 711059913), (711060068, 711060089)],
+            36.48, "sublocus:chr3A+:711058325-711060089.multi"
+        ]
+
+        superlocus = None
+        json_conf = configurator.to_json(None)
+
+        for transcript in transcripts:
+            tr = Transcript()
+            exons, score, sublocus = transcripts[transcript]
+            tr.chrom, tr.strand, tr.id = chrom, strand, transcript
+            tr.add_exons(exons, features="exon")
+            tr.add_exons(exons, features="CDS")
+            tr.finalize()
+            subl = Sublocus(tr, json_conf=json_conf)
+            if superlocus is None:
+                superlocus = Superlocus(tr, json_conf=json_conf)
+            else:
+                superlocus.add_transcript_to_locus(tr, check_in_locus=False)
+            superlocus.subloci.append(subl)
+            superlocus.scores[transcript] = score
+
+        superlocus.subloci_defined = True
+        self.assertEqual(len(superlocus.subloci), len(transcripts))
+        superlocus.calculate_mono_metrics()
+        self.assertEqual(len(superlocus.monoholders), 1,
+                         "\n".join([", ".join(list(_.transcripts.keys())) for _ in superlocus.monoholders]))
+
+    def test_alternative_splicing_monoexonic_not_enough_overlap(self):
+
+        """This test verifies that while we can cluster together the transcripts at the holder stage,
+        if the overlap is not enough they will fail to be recognised as valid AS events."""
+
+        jconf = configurator.to_json(None)
+
+        t1, t2 = Transcript(), Transcript()
+        t1.chrom, t2.chrom = "1", "1"
+        t1.strand, t2.strand = "+", "+"
+        t1.add_exons([(1260208, 1260482), (1262216, 1262412), (1262621, 1263851)])
+        t1.add_exons([(1262291, 1262412), (1262621, 1263143)], features="CDS")
+        t1.id = "cls-0-sta-combined-0_1.27.12"
+
+        t2.add_exons([(1262486, 1264276)])
+        t2.add_exons([(1263571, 1264236)], features="CDS")
+        t2.id = "trn-0-sta-combined-0_1_TRINITY_GG_1373_c0_g2_i1.path1"
+
+        self.assertTrue(MonosublocusHolder.is_intersecting(
+            t1, t2, cds_only=False,
+            min_cdna_overlap=jconf["pick"]["alternative_splicing"]["min_cdna_overlap"],
+            min_cds_overlap=jconf["pick"]["alternative_splicing"]["min_cds_overlap"],
+            simple_overlap_for_monoexonic=True))
+        self.assertFalse(MonosublocusHolder.is_intersecting(
+            t1, t2, cds_only=False,
+            min_cdna_overlap=jconf["pick"]["clustering"]["min_cdna_overlap"],
+            min_cds_overlap=jconf["pick"]["clustering"]["min_cds_overlap"],
+            simple_overlap_for_monoexonic=False))
+
+        for simple in (True, False):
+            with self.subTest(simple=simple):
+                jconf["pick"]["clustering"]["simple_overlap_for_monoexonic"] = simple
+
+                slocus = Superlocus(t1, json_conf=jconf)
+                slocus.add_transcript_to_locus(t2)
+                locus = Locus(t1, json_conf=jconf)
+                slocus.loci[locus.id] = locus
+                slocus.define_alternative_splicing()
+                self.assertEqual(len(slocus.loci[locus.id].transcripts), 1)
+
 
 class TestLocus(unittest.TestCase):
 
     """
-    This unit test is focussed on the locus definition and alternative splicings.
+    This unit test is focused on the locus definition and alternative splicings.
     """
 
     logger = Mikado.utilities.log_utils.create_default_logger("tester")
@@ -902,7 +1013,8 @@ class TestLocus(unittest.TestCase):
         self.assertEqual(len(locus.transcripts), 1)
 
         locus.json_conf["pick"]["alternative_splicing"]["valid_ccodes"].append("j")
-        locus.json_conf["pick"]["alternative_splicing"]["min_cds_overlap"] = 100
+        locus.json_conf["pick"]["alternative_splicing"]["min_cds_overlap"] = 1
+
         locus.add_transcript_to_locus(self.t1_as)
         self.assertEqual(len(locus.transcripts), 1)
 
@@ -977,6 +1089,85 @@ class TestLocus(unittest.TestCase):
         rows = list(locus.print_scores())
         self.assertEqual(len(rows), 1, rows)
         self.assertEqual(rows[0]["tid"], t.id, rows[0])
+
+    def test_remove_AS_overlapping(self):
+
+        logger = create_null_logger(inspect.getframeinfo(inspect.currentframe())[2],
+                                    level="WARNING")
+
+        t1, t2, t1_1, t2_1 = Transcript(), Transcript(), Transcript(), Transcript()
+        t1.chrom = t2.chrom = t1_1.chrom = t2_1.chrom = "1"
+        t1.id, t2.id, t1_1.id, t2_1.id = "t1", "t2", "t1_1", "t2_1"
+        t1.strand = t2.strand = t1_1.strand = t2_1.strand = "+"
+        t1.add_exons([(101, 500), (801, 1000)])
+        t1.add_exons([(101, 500), (801, 1000)], features="CDS")
+        t1_1.add_exons([(101, 500), (901, 1100), (1301, 1550)])
+        t1_1.add_exons([(101, 500), (901, 1100), (1301, 1550)], features="CDS")
+        t2.add_exons([(1601, 1800), (1901, 2000)])
+        t2.add_exons([(1601, 1800), (1901, 2000)], features="CDS")
+        t2_1.add_exons([(1351, 1550), (1651, 1850), (1901, 2000)])
+        t2_1.add_exons([(1351, 1550), (1651, 1850), (1901, 2000)], features="CDS")
+
+        for tr in [t1, t2, t1_1, t2_1]:
+            with self.subTest(tr=tr):
+                tr.finalize()
+                self.assertGreater(tr.combined_cds_length, 0, tr.id)
+
+        conf = configurator.to_json(None)
+        conf["pick"]["alternative_splicing"]["valid_ccodes"] = ["j", "J", "g", "G"]
+        conf["pick"]["alternative_splicing"]["only_confirmed_introns"] = False
+
+        conf["as_requirements"] = {"_expression": "cdna_length",
+                                   "expression": "evaluated['cdna_length']",
+                                   "parameters": {
+                                       "cdna_length": {"operator": "gt", "value": 0, "name": "cdna_length"}
+                                   }}
+
+        with self.subTest():
+            superlocus_one = Superlocus(t1, json_conf=conf)
+            superlocus_one.add_transcript_to_locus(t1_1)
+            locus_one = Locus(t1, json_conf=conf)
+            locus_one.logger = logger
+            superlocus_one.loci[locus_one.id] = locus_one
+            superlocus_one.loci_defined = True
+            superlocus_one.logger = logger
+            superlocus_one.define_alternative_splicing()
+            self.assertEqual(len(superlocus_one.loci), 1)
+            locus_id = [_ for _ in superlocus_one.loci.keys() if
+                        t1.id in superlocus_one.loci[_].transcripts][0]
+            self.assertEqual(len(superlocus_one.loci[locus_id].transcripts), 2)
+        with self.subTest():
+            superlocus_two = Superlocus(t2, json_conf=conf)
+            superlocus_two.add_transcript_to_locus(t2_1)
+            locus_two = Locus(t2, json_conf=conf)
+            superlocus_two.loci[locus_two.id] = locus_two
+            superlocus_two.loci_defined = True
+            superlocus_two.logger = logger
+            superlocus_two.define_alternative_splicing()
+            self.assertEqual(len(superlocus_two.loci), 1)
+            locus_id = [_ for _ in superlocus_two.loci.keys() if
+                        t2.id in superlocus_two.loci[_].transcripts][0]
+            self.assertEqual(len(superlocus_two.loci[locus_id].transcripts), 2)
+        with self.subTest():
+            superlocus = Superlocus(t1, json_conf=conf)
+            superlocus.add_transcript_to_locus(t2, check_in_locus=False)
+            superlocus.add_transcript_to_locus(t1_1)
+            superlocus.add_transcript_to_locus(t2_1)
+            locus_one = Locus(t1, json_conf=conf)
+            locus_two = Locus(t2, json_conf=conf)
+            superlocus.loci[locus_one.id] = locus_one
+            superlocus.loci[locus_two.id] = locus_two
+            superlocus.loci_defined = True
+            superlocus.logger = logger
+            self.assertEqual(len(superlocus.loci), 2)
+            superlocus.define_alternative_splicing()
+            locus_one_id = [_ for _ in superlocus.loci.keys() if
+                            t1.id in superlocus.loci[_].transcripts][0]
+            locus_two_id = [_ for _ in superlocus.loci.keys() if
+                            t2.id in superlocus.loci[_].transcripts][0]
+            self.assertEqual(len(superlocus.loci), 2)
+            self.assertEqual(len(superlocus.loci[locus_one_id].transcripts), 1)
+            self.assertEqual(len(superlocus.loci[locus_two_id].transcripts), 1)
 
 
 class RetainedIntronTester(unittest.TestCase):

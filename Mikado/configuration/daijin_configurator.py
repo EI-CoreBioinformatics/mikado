@@ -184,6 +184,8 @@ def create_daijin_config(args, level="ERROR"):
 
     if args.flank is not None:
         config["mikado"]["pick"]["clustering"]["flank"] = args.flank
+    if args.intron_range is not None:
+        config["mikado"]["pick"]["run_options"]["intron_range"] = args.intron_range
 
     config["blastx"]["prot_db"] = args.prot_db
     assert "prot_db" in config["blastx"]

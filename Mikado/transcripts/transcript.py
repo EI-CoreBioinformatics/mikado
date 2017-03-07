@@ -14,7 +14,7 @@ import logging
 import re
 from ast import literal_eval
 from sys import intern, maxsize
-
+import operator
 import intervaltree
 from sqlalchemy import and_
 from sqlalchemy import bindparam
@@ -2737,13 +2737,8 @@ index {3}, internal ORFs: {4}".format(
 
             score = 0
             for hit in self.blast_hits:
-                score += (hit["target_aligned_length"]) / (hit["target_length"] * len(self.blast_hits))
-            #
-            #
-            #
-            # score = 0
-            # for hit in self.blast_hits:
-            #     score += hit["global_positives"]/(2 * len(self.blast_hits))
+                score += (hit["target_cov"]) / (2 * len(self.blast_hits))
+
             self.__blast_score = score
 
         return self.__blast_score
@@ -2771,6 +2766,73 @@ index {3}, internal ORFs: {4}".format(
 
     blast_score.category = "External"
     blast_score.rtype = "float"
+
+    @Metric
+    def blast_query_coverage(self):
+
+        """
+        This metric will return the **query** coverage for the best BLAST hit according to the evalue.
+        If no BLAST hits are available for the sequence, it will return 0.
+        :return:
+        """
+
+        if len(self.blast_hits) == 0:
+            return 0
+        else:
+            hits = sorted(self.blast_hits,
+                          key=operator.itemgetter("evalue"),
+                          reverse=False)
+            return hits[0]["query_cov"]
+
+    blast_query_coverage.category = "External"
+    blast_query_coverage.rtype = "float"
+    blast_query_coverage.usable_raw = True
+
+    @Metric
+    def blast_identity(self):
+
+        """
+        This metric will return the alignment identity for the best BLAST hit according to the evalue.
+        If no BLAST hits are available for the sequence, it will return 0.
+        :return:
+        :return:
+        """
+
+        if len(self.blast_hits) == 0:
+            return 0
+        else:
+            hits = sorted(self.blast_hits,
+                          key=operator.itemgetter("evalue"),
+                          reverse=False)
+            assert hits[0]["global_identity"] is not None, hits[0]
+
+            return hits[0]["global_identity"] / 100
+
+    blast_identity.category = "External"
+    blast_identity.rtype = "float"
+    blast_identity.usable_raw = True
+
+    @Metric
+    def blast_target_coverage(self):
+
+        """
+        This metric will return the **target** coverage for the best BLAST hit according to the evalue.
+        If no BLAST hits are available for the sequence, it will return 0.
+        :return:
+        :return:
+        """
+
+        if len(self.blast_hits) == 0:
+            return 0
+        else:
+            hits = sorted(self.blast_hits,
+                          key=operator.itemgetter("evalue"),
+                          reverse=False)
+            return hits[0]["target_cov"]
+
+    blast_target_coverage.category = "External"
+    blast_target_coverage.rtype = "float"
+    blast_target_coverage.usable_raw = True
 
     @Metric
     def canonical_intron_proportion(self):

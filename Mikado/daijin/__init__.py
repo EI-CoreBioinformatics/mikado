@@ -168,6 +168,12 @@ def create_config_parser():
                         choices=["nosplit", "split", "permissive", "stringent", "lenient"],
                         required=False,
                         help="Mikado pick modes to run. Choices: %(choices)s")
+    mikado.add_argument("-i", "--intron-range",
+                        dest="intron_range", type=int, nargs=2,
+                        default=None,
+                        help="""Range into which intron lengths should fall, as a couple of integers.
+                                Transcripts with intron lengths outside of this range will be penalised.
+                                Default: (60, 900)""")
     mikado.add_argument("--flank", default=None, type=int,
                         required=False,
                         help="Amount of flanking for grouping transcripts in superloci during the pick phase of Mikado.")

@@ -14,7 +14,8 @@ from .abstractlocus import Abstractlocus
 from .excluded import Excluded
 from .locus import Locus
 from .monosublocusholder import MonosublocusHolder
+from .monosublocus import Monosublocus
 from .reference_gene import Gene
-from .superlocus import Superlocus, Sublocus, Monosublocus
+from .superlocus import Superlocus, Sublocus
 
 __title__ = "loci"

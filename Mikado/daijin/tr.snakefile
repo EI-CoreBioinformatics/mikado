@@ -44,7 +44,6 @@ REF_TRANS = ""
 if "transcriptome" in config["reference"]:
 	REF_TRANS = config["reference"]["transcriptome"]
 
-
 NAME = config["name"]
 OUT_DIR = config["out_dir"]
 if "threads" in config:
@@ -52,7 +51,10 @@ if "threads" in config:
 else:
     THREADS = 1
 # THREADS = int(config["threads"])
-TGG_MAX_MEM = config["tgg_max_mem"]
+TGG_MAX_MEM = config.get("tgg", dict()).get("max_mem", 5000)
+TGG_COVERAGE = config.get("tgg", dict()).get("coverage", 0.70)
+TGG_IDENTITY = config.get("tgg", dict()).get("identity", 0.95)
+TGG_NPATHS = config.get("tgg", dict()).get("npaths", 0)
 
 # List of alignment and assembly methods to test
 ALIGNMENT_METHODS = config["align_methods"]
@@ -631,7 +633,6 @@ rule gmap_index:
         message: "Indexing genome with gmap"
         shell: "{params.load} gmap_build --dir={ALIGN_DIR}/gmap/index --db={NAME} {input} > {log} 2>&1"
 
-
 rule asm_map_trinitygg:
 	input: 
 		transcripts=rules.asm_trinitygg.output,
@@ -646,7 +647,7 @@ rule asm_map_trinitygg:
 	log: ASM_DIR+"/trinitygmap-{run2}-{alrun}.log"
 	threads: THREADS
 	message: "Mapping trinity transcripts to the genome (run {wildcards.run2}): {input.transcripts}"
-	shell: "{params.load} gmap --dir={ALIGN_DIR}/gmap/index --db={NAME} --min-intronlength={MIN_INTRON} {params.intron_length}  --format=3 {input.transcripts} > {params.gff} 2> {log} && ln -sf {params.link_src} {output.gff} && touch -h {output.gff}"
+	shell: "{params.load} gmap --dir={ALIGN_DIR}/gmap/index --db={NAME} --min-intronlength={MIN_INTRON} {params.intron_length}  --format=3 --min-trimmed-coverage={TGG_COVERAGE} --min-identity={TGG_IDENTITY} -n {TGG_NPATHS} -t {THREADS} {input.transcripts} > {params.gff} 2> {log} && ln -sf {params.link_src} {output.gff} && touch -h {output.gff}"
 
 rule trinity_all:
 	input: expand(ASM_DIR+"/output/trinity-{run2}-{alrun}.gff", run2=TRINITY_RUNS, alrun=ALIGN_RUNS)
@@ -864,5 +865,4 @@ rule mikado_cfg:
 	log: OUT_DIR + "/mikado.yaml.log"
 	threads: 1
 	message: "Creating Mikado configuration file"
-	shell: "{params.load} mikado configure --full --gff={MIKADO_IN_STR} --labels={MIKADO_LABEL_STR} --strand-specific-assemblies={MIKADO_SS_STR} {params.junctions} --scoring {params.scoring} --reference={input.ref} --external={input.cfg} {output} 2> {log}"
-
+	shell: "{params.load} mikado configure --gff={MIKADO_IN_STR} --labels={MIKADO_LABEL_STR} --strand-specific-assemblies={MIKADO_SS_STR} {params.junctions} --scoring {params.scoring} --reference={input.ref} --external={input.cfg} {output} 2> {log}"

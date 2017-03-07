@@ -196,6 +196,11 @@ class Hit(DBBASE):
                                    (target_tuple.target_length * hit_tuple.target_multiplier)
         state["hit_query_ratio"] = (target_tuple.target_length * hit_tuple.target_multiplier) / \
                                    (query_tuple.query_length * hit_tuple.query_multiplier)
+        state["query_cov"] = state["query_aligned_length"] / query_tuple.query_length
+        assert state["query_cov"] <= 1
+        state["target_cov"] = state["target_aligned_length"] / target_tuple.target_length
+        assert state["target_cov"] <= 1
+
         state["hsps"] = []
         for hsp in hsps:
             hsp["query_hsp_cov"] = (hsp["query_hsp_end"] - hsp["query_hsp_start"] + 1)

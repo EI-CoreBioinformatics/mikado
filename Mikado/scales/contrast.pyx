@@ -229,7 +229,7 @@ cdef str __assign_multiexonic_ccode(prediction, reference, long nucl_overlap, do
 
 @cython.profile(True)
 @cython.cdivision(True)
-cpdef tuple compare(prediction, reference, bint lenient=False):
+cpdef tuple compare(prediction, reference, bint lenient=False, bint strict_strandedness=False):
 
     """Cython function to compare two transcripts and determine a ccode.
 
@@ -429,8 +429,7 @@ cpdef tuple compare(prediction, reference, bint lenient=False):
                                               nucl_overlap, stats)
 
     if (p_strand != r_strand):
-
-        if (p_strand != "" and r_strand != ""):
+        if (p_strand != "" and r_strand != "") or (strict_strandedness == 1):
             if ccode in ("e", "g", "c", "m", "_", "C"):
                 ccode = "x"  # "x{0}".format(ccode)
             elif ccode not in ("u", "i", "I", "p", "P", "x"):

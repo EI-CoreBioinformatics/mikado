@@ -319,17 +319,31 @@ class Assigner:
             end = max([prediction.end] + [self.genes[_.ref_gene[0]][_.ref_id[0]].end for _ in best])
             location = "{}:{}..{}".format(chrom, start, end)
 
-            for key in ResultStorer.__slots__:
-                if key in ["gid", "tid", "distance", "tid_num_exons"]:
-                    values.append(getattr(best[0], key))
-                elif key == "location":
-                    values.append(location)
-                elif key == "ccode":
-                    values.append(tuple(["f"] + [_.ccode[0] for _ in best]))
-                else:
-                    val = tuple([getattr(result, key)[0] for result in best])
-                    values.append(val)
-            best_result = ResultStorer(*values)
+            best_result = []
+            for result in best:
+                new_result = []
+                for key in ResultStorer.__slots__:
+                    if key == "location":
+                        new_result.append(location)
+                    elif key == "ccode":
+                        tup = tuple(["f"] + [getattr(result, key)[0]])
+                        new_result.append(tup)
+                    else:
+                        new_result.append(getattr(result, key))
+                new_result = ResultStorer(*new_result)
+                best_result.append(new_result)
+
+            # for key in ResultStorer.__slots__:
+            #     if key in ["gid", "tid", "distance", "tid_num_exons"]:
+            #         values.append(getattr(best[0], key))
+            #     elif key == "location":
+            #         values.append(location)
+            #     elif key == "ccode":
+            #         values.append(tuple(["f"] + [_.ccode[0] for _ in best]))
+            #     else:
+            #         val = tuple([getattr(result, key)[0] for result in best])
+            #         values.append(val)
+            # best_result = ResultStorer(*values)
             for match, genes in fused.items():
                 for gene in iter(_ for _ in genes if _ not in dubious):
                     for position, result in enumerate(new_matches[gene]):
@@ -585,7 +599,6 @@ class Assigner:
             if len(distances) == 0 or distances[0][1] > self.args.distance:
                 ccode = "u"
                 # noinspection PyTypeChecker,PyUnresolvedReferences
-                print(prediction.location)
                 best_result = ResultStorer("-", "-",
                                            ccode,
                                            prediction.id,
@@ -609,7 +622,12 @@ class Assigner:
             self.add_to_refmap(result)
 
         self.logger.debug("Finished with %s", prediction.id)
-        self.print_tmap(best_result)
+        if isinstance(best_result, list):
+            for result in best_result:
+                self.print_tmap(result)
+        else:
+            self.print_tmap(best_result)
+
         self.done += 1
         return best_result
 
@@ -645,7 +663,10 @@ class Assigner:
         return result
 
     @staticmethod
-    def compare(prediction: Transcript, reference: Transcript) -> (ResultStorer, tuple):
+    def compare(prediction: Transcript,
+                reference: Transcript,
+                lenient=False,
+                strict_strandedness=False) -> (ResultStorer, tuple):
 
         """Function to compare two transcripts and determine a ccode. Thin wrapper
         around the compare cython code.
@@ -657,51 +678,26 @@ class Assigner:
         calculate the ccode and other stats.
         :type reference: Transcript
 
+        :param lenient: boolean flag. If switched to True, the comparison will be performed by considering
+        only the *internal* boundaries of the transcripts.
+        :type lenient: bool
+
+        :param strict_strandedness: boolean flag. If switched to True, transcripts without a strand
+        will be considered as stranded when calculating the type of overlap with the transcript.
+        Eg. if the option is set to True and the transcript has a class code of e, it will become an x.
+        :type strict_strandedness: bool
+
         :rtype (ResultStorer, (int,int)) | (ResultStorer, None)
 
-        Available ccodes (from Cufflinks documentation):
-
-        - =    Complete intron chain match
-        - c    Contained (perfect junction recall and precision, imperfect recall)
-        - j    Potentially novel isoform (fragment): at least one splice junction is shared
-        with a reference transcript
-        - e    Single exon transfrag overlapping a reference exon and at least
-        10 bp of a reference intron, indicating a possible pre-mRNA fragment.
-        - i    A *monoexonic* transfrag falling entirely within a reference intron
-        - o    Generic exonic overlap with a reference transcript
-        - p    Possible polymerase run-on fragment (within 2Kbases of a reference transcript)
-        - u    Unknown, intergenic transcript
-        - x    Exonic overlap with reference on the opposite strand (class codes e, o, m, c, _)
-        - X    Overlap on the opposite strand, with some junctions in common (probably a serious mistake,
-               unless non-canonical splicing junctions are involved).
-
-        Please note that the description for i is changed from Cufflinks.
-
-        We also provide the following additional classifications:
-
-        - f    gene fusion - in this case, this ccode will be followed by the
-        ccodes of the matches for each gene, separated by comma
-        - _    Complete match, for monoexonic transcripts
-        (nucleotide F1>=80% - i.e. min(precision,recall)>=66.7%
-        - m    Exon overlap between two monoexonic transcripts
-        - n    Potential extension of the reference - we have added new splice junctions
-        *outside* the boundaries of the transcript itself
-        - C    Contained transcript with overextensions on either side
-        (perfect junction recall, imperfect nucleotide specificity)
-        - J    Potentially novel isoform, where all the known junctions
-        have been confirmed and we have added others as well *externally*
-        - I    *multiexonic* transcript falling completely inside a known transcript
-        - h    AS event in which at least a couple of introns overlaps but without any
-               junction in common.
-        - O    Reverse generic overlap - the reference is monoexonic while the prediction isn't
-        - P    Possible polymerase run-on fragment
-        - mo   Monoexonic overlap - the prediction is monoexonic and the reference is multiexonic
-        (within 2K bases of a reference transcript), on the opposite strand
+        Please see the class_codes subpackage for details on the available class codes.
 
         This is a class method, and can therefore be used outside of a class instance.
         """
 
-        return c_compare(prediction, reference)
+        return c_compare(prediction,
+                         reference,
+                         lenient=lenient,
+                         strict_strandedness=strict_strandedness)
 
     def print_tmap(self, res):
         """

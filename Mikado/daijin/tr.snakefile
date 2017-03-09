@@ -230,8 +230,8 @@ LR_STR = ",".join(LR_ARRAY)
 LR_LABEL_STR = ",".join(LR_LABEL_ARRAY)
 LR_SS_STR = ",".join(LR_SS_ARRAY)
 
-MIKADO_IN_STR = ",".join([TRANSCRIPTS_STR,LR_STR])
-MIKADO_LABEL_STR = ",".join([LABEL_STR,LR_LABEL_STR])
+MIKADO_IN_STR = ",".join([_ for _ in [TRANSCRIPTS_STR, LR_STR] if _ != ''])
+MIKADO_LABEL_STR = ",".join([_ for _ in [LABEL_STR, LR_LABEL_STR] if _ != ''])
 MIKADO_SS_STR = ",".join(filter(None, [SS_STR,LR_SS_STR]))
 
 def seSample(sample):

@@ -184,6 +184,27 @@
         }
       }
     },
+    "long_read_align_methods": {
+      "type": "object",
+      "anyOf": [ "star", "gmap"],
+      "additionalProperties": false,
+      "properties": {
+        "star": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1
+        },
+        "gmap": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1
+        }
+      }
+    },
     "asm_methods": {
       "type": "object",
       "anyOf": [

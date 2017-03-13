@@ -58,7 +58,7 @@ TGG_NPATHS = config.get("tgg", dict()).get("npaths", 0)
 
 # List of alignment and assembly methods to test
 ALIGNMENT_METHODS = config["align_methods"]
-L_ALIGNMENT_METHODS = []
+L_ALIGNMENT_METHODS = dict()
 if "long_read_align_methods" in config:
 	L_ALIGNMENT_METHODS = config["long_read_align_methods"]
 ASSEMBLY_METHODS = config["asm_methods"]

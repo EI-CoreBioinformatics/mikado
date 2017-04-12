@@ -7,7 +7,8 @@ import yaml
 from os import listdir
 from os.path import isfile, join
 from shutil import which
- 
+import functools
+
 
 CFG=workflow.overwrite_configfile
 
@@ -312,11 +313,18 @@ def trinityStrandOption(sample):
 	else:
 		return ""
 
+
+@functools.lru_cache(maxsize=8, typed=True)
+def portcullisHelp(command, step):
+    cmd = subprocess.Popen("{} portcullis {} --help".format(command, step),
+                           shell=True, stdout=subprocess.PIPE).stdout.read().decode()
+    return cmd
+
+
 def portcullisStrandOption(run, command, step):
     parts=run.split("-")
     sample=parts[1]
-    cmd = subprocess.Popen("{} portcullis {} --help".format(command, step),
-	                       shell=True, stdout=subprocess.PIPE).stdout.read().decode()
+    cmd = portcullisHelp(command, step)
     if not any("strandedness" in _ for _ in cmd.split("\n")):
         return ""
     else:
@@ -340,11 +348,18 @@ def trinityInput(sample):
     else:
         return "--single={} ".format(INPUT_1_MAP[sample])
 
-def trinityParameters(command, sample, REF, TGG_MAX_MEM):
+
+@functools.lru_cache(maxsize=4, typed=True)
+def getTrinityVersion(command):
     cmd = "set +u && {} && Trinity --version && set -u".format(command)
     output = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE).stdout.read().decode()
     version = [_ for _ in output.split("\n") if re.match("Trinity version:", _)][0]
     version = re.sub("Trinity version: [^_]*_(r|v)", "", version)
+    return version
+
+
+def trinityParameters(command, sample, REF, TGG_MAX_MEM):
+    version = getTrinityVersion(command)
     if str(TGG_MAX_MEM).isdigit() is True:
         TGG_MAX_MEM = int(TGG_MAX_MEM)
         if TGG_MAX_MEM >= 1000:

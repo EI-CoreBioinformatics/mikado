@@ -418,6 +418,8 @@ def configure_parser():
                         help="List of labels for which splitting will be disabled (eg long reads such as PacBio)")
     parser.add_argument("-j", "--json", action="store_true", default=False,
                         help="Output will be in JSON instead of YAML format.")
+    parser.add_argument("-od", "--out-dir", dest="out_dir", default=None,
+                        help="Destination directory for the output.")
     parser.add_argument("out", nargs='?', default=sys.stdout, type=argparse.FileType('w'))
     parser.set_defaults(func=create_config)
     return parser

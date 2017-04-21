@@ -321,26 +321,6 @@ memory intensive, proceed with caution!")
         # Create the shared DB if necessary
         self.setup_shm_db()
 
-        if self.json_conf["pick"]["chimera_split"]["blast_check"] is True and \
-                self.json_conf["log_settings"]["log_level"] == "DEBUG":
-            engine = dbutils.connect(self.json_conf, logger=self.main_logger)
-            smaker = sessionmaker()
-            smaker.configure(bind=engine)
-            session = smaker()
-
-            evalue = self.json_conf["pick"]["chimera_split"]["blast_params"]["evalue"]
-            queries_with_hits = session.query(
-                Hit.query_id).filter(Hit.evalue <= evalue).distinct().count()
-            total_queries = session.query(Query).count()
-            self.main_logger.debug(
-                "Queries with at least one hit at evalue<=%f: %d out of %d (%f%%)",
-                evalue,
-                queries_with_hits,
-                total_queries,
-                0 if total_queries == 0 else round(100 * queries_with_hits / total_queries, 2)
-            )
-            session.close()
-
         self.log_writer = logging_handlers.QueueListener(
             self.logging_queue, self.logger)
         self.log_writer.start()

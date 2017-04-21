@@ -562,6 +562,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
     def _is_exon_retained(exon: tuple,
                           strand,
                           segmenttree: IntervalTree,
+                          digraph: networkx.DiGraph,
                           frags: list,
                           consider_truncated=False,
                           terminal=False):
@@ -596,39 +597,73 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
         is_retained = False
 
-        if len(found_exons) == 0 or len(found_introns) == 0:
-            is_retained = False
-        elif len(found_exons) == 1 and len(found_introns) == 1:
-            found_exons = found_exons.pop()
-            found_introns = found_introns.pop()
-            if strand != "-" and found_exons[1] + 1 == found_introns[0]:
-                is_retained = (consider_truncated and terminal)
-            elif strand == "-" and found_exons[0] - 1 == found_introns[1]:
-                is_retained = (consider_truncated and terminal)
-        elif len(found_exons) >= 2:
-            # Now we have to check whether the matched introns contain both coding and non-coding parts
-            # Let us exclude any intron which is outside of the exonic span of interest.
-            if strand == "-":
-                found_introns = [_ for _ in found_introns if _[1] < found_exons[0][0]]
-            else:
-                found_introns = [_ for _ in found_introns if _[0] > found_exons[0][1]]
+        for intron in found_introns:
 
-            for index, exon in enumerate(found_exons[:-1]):
-                intron = found_introns[index]
-                if strand == "-":
-                    assert intron[1] == exon[0] - 1, (intron, exon, found_exons, found_introns)
-                else:
-                    assert exon[1] == intron[0] - 1, (intron, exon, found_exons, found_introns)
-                for frag in frags:
-                    if is_retained:
-                        break
-                    # The fragment is just a sub-section of the exon
-                    if (overlap(frag, exon) < exon[1] - exon[0] and
-                            overlap(frag, exon, positive=True) == 0 and
-                            overlap(frag, intron, positive=True)):
-                        is_retained = True
-                    elif overlap(frag, exon) == exon[1] - exon[0]:
-                        is_retained = True
+            after = networkx.bfs_successors(digraph, intron)
+            # This is a dictionary with *lists*
+            # Eg:
+            # after[intron] = [exon_from_t1, exon_from_t2]
+            # If both transcripts share an intron but have a differing exon
+
+            before = networkx.bfs_predecessors(digraph, intron)
+
+            if overlap(exon, before[intron]) == 0:
+                # No overlap with the exon from which the intron originates.
+                # Continue: this cannot be a retained intron.
+                continue
+            elif overlap(exon, after[intron]) == 0:
+                # Overlap only with the previous exon, not both.
+                # This can only be a retained intron if we are considering
+                # a terminal exon AND we are accepting truncated exons as RIs.
+                is_retained = (consider_truncated and terminal)
+            else:
+                # Now we have to check whether the matched introns contain both coding and non-coding parts
+                # Let us exclude any intron which is outside of the exonic span of interest.
+
+
+
+
+        #
+        #
+        # if len(found_exons) == 0 or len(found_introns) == 0:
+        #     is_retained = False
+        # elif len(found_exons) == 1 and len(found_introns) == 1:
+        #     found_exons = found_exons.pop()
+        #     found_introns = found_introns.pop()
+        #     if strand != "-" and found_exons[1] + 1 == found_introns[0]:
+        #         is_retained = (consider_truncated and terminal)
+        #     elif strand == "-" and found_exons[0] - 1 == found_introns[1]:
+        #         is_retained = (consider_truncated and terminal)
+        # else:
+        #     # Now we have to check all possible paths starting from the found introns
+        #
+        #
+        #
+        #
+        # elif len(found_exons) >= 2:
+        #     # Now we have to check whether the matched introns contain both coding and non-coding parts
+        #     # Let us exclude any intron which is outside of the exonic span of interest.
+        #     if strand == "-":
+        #         found_introns = [_ for _ in found_introns if _[1] < found_exons[0][0]]
+        #     else:
+        #         found_introns = [_ for _ in found_introns if _[0] > found_exons[0][1]]
+        #
+        #     for index, exon in enumerate(found_exons[:-1]):
+        #         intron = found_introns[index]
+        #         if strand == "-":
+        #             assert intron[1] == exon[0] - 1, (intron, exon, found_exons, found_introns)
+        #         else:
+        #             assert exon[1] == intron[0] - 1, (intron, exon, found_exons, found_introns)
+        #         for frag in frags:
+        #             if is_retained:
+        #                 break
+        #             # The fragment is just a sub-section of the exon
+        #             if (overlap(frag, exon) < exon[1] - exon[0] and
+        #                     overlap(frag, exon, positive=True) == 0 and
+        #                     overlap(frag, intron, positive=True)):
+        #                 is_retained = True
+        #             elif overlap(frag, exon) == exon[1] - exon[0]:
+        #                 is_retained = True
 
         # logger.debug("%s in %s %s a retained intron", exon, candidate.id, "is" if is_retained is True else "is not")
         return is_retained

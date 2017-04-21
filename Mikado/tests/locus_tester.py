@@ -1506,7 +1506,10 @@ class RetainedIntronTester(unittest.TestCase):
         t3.finalize()
 
         self.assertFalse(
-            Abstractlocus._is_exon_retained_in_transcript((401, 1000), [Interval(401, 830)], t1))
+            Abstractlocus._is_exon_retained((401, 1000),
+                                            t1.strand,
+                                            t1.segmenttree,
+                                            [Interval(401, 830)]))
 
         for alt in [t2, t3]:
             unpickled_t1 = pickle.loads(pickle.dumps(t1))
@@ -1554,9 +1557,11 @@ class RetainedIntronTester(unittest.TestCase):
                          (True, [(301, 470)]),
                          Abstractlocus._exon_to_be_considered((301, 1000), t2))
 
-        self.assertFalse(Abstractlocus._is_exon_retained_in_transcript((301, 1000),
-                                                                       [(301, 470)],
-                                                                       t1))
+        self.assertFalse(Abstractlocus._is_exon_retained((301, 1000),
+                                                         t1.strand,
+                                                         t1.segmenttree,
+                                                         [(301, 470)]
+                                                         ))
 
         sup.find_retained_introns(t2)
 

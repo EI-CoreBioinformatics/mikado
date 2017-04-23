@@ -79,6 +79,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         self.__regressor = None
         self.session = None
         self.metrics_calculated = False
+        self.__internal_graph = networkx.DiGraph()
 
     @abc.abstractmethod
     def __str__(self, *args, **kwargs):
@@ -431,6 +432,8 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         if transcript.verified_introns_num > 0:
             assert len(self.locus_verified_introns) > 0
 
+        self.add_path_to_graph(transcript, self._internal_graph)
+
         if self.initialized is False:
             self.initialized = True
         return
@@ -508,6 +511,8 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             splices_to_remove = set.difference(self.transcripts[tid].splices, other_splices)
             self.splices.difference_update(splices_to_remove)
 
+            self.remove_path_from_graph(self.transcripts[tid], self._internal_graph)
+
             del self.transcripts[tid]
             self.logger.debug("Deleted %s from %s", tid, self.id)
             for tid in self.transcripts:
@@ -565,7 +570,8 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                           digraph: networkx.DiGraph,
                           frags: list,
                           consider_truncated=False,
-                          terminal=False):
+                          terminal=False,
+                          logger=create_null_logger()):
 
         """Private static method to verify whether a given exon is a retained intron of the candidate Transcript.
         :param exon: the exon to be considered.
@@ -588,41 +594,72 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         """
 
         found_exons = sorted(
-            [_ for _ in segmenttree.find(exon[0], exon[1], strict=False, value="exon")
+            [_._as_tuple() for _ in segmenttree.find(exon[0], exon[1], strict=False, value="exon")
              if (_[0], _[1]) != (exon[0], exon[1])],
             reverse=(strand == "-"))
         found_introns = sorted(
-            segmenttree.find(exon[0], exon[1], strict=not consider_truncated, value="intron"),
+            [_._as_tuple() for _ in segmenttree.find(exon[0], exon[1], strict=not consider_truncated, value="intron")],
             reverse=(strand == "-"))
 
         is_retained = False
 
+        logger.debug("Found exons for %s: %s", exon, found_exons)
+        logger.debug("Found introns for %s: %s", exon, found_introns)
+
+        subgraph = digraph.subgraph(found_exons + found_introns)
+        assert subgraph.nodes() == found_exons + found_introns
+        logger.debug("Subgraph nodes: %s", subgraph.nodes())
+        logger.debug("Subgraph edges: %s", subgraph.edges())
+
         for intron in found_introns:
 
-            after = networkx.bfs_successors(digraph, intron)
-            # This is a dictionary with *lists*
-            # Eg:
-            # after[intron] = [exon_from_t1, exon_from_t2]
-            # If both transcripts share an intron but have a differing exon
+            if is_retained:
+                break
+            # We have already removed the exons against which the exon does *not* map,
+            before = networkx.ancestors(subgraph, intron)
+            after = networkx.descendants(subgraph, intron)
+            bbefore = networkx.ancestors(digraph, intron)
+            bafter = networkx.descendants(digraph, intron)
+            logger.debug("Original graph tree: %s", networkx.dfs_tree(digraph,
+                                                                      sorted(digraph.nodes(), reverse=(strand=="-"))[0],
+                                                                      ).edges())
 
-            before = networkx.bfs_predecessors(digraph, intron)
-
-            if overlap(exon, before[intron]) == 0:
-                # No overlap with the exon from which the intron originates.
-                # Continue: this cannot be a retained intron.
+            logger.debug("For intron %s, before: %s (%s)", intron, before, bbefore)
+            logger.debug("For intron %s, after: %s (%s)", intron, after, bafter)
+            # So if nothing maps before, this cannot be a retained intron
+            if len(before) == 0:
+                logger.debug("No exon matching before intron %s", intron)
                 continue
-            elif overlap(exon, after[intron]) == 0:
+
+
+            if len(after) == 0:
                 # Overlap only with the previous exon, not both.
                 # This can only be a retained intron if we are considering
                 # a terminal exon AND we are accepting truncated exons as RIs.
+                logger.debug("No exon matching after %s", intron)
                 is_retained = (consider_truncated and terminal)
             else:
                 # Now we have to check whether the matched introns contain both coding and non-coding parts
                 # Let us exclude any intron which is outside of the exonic span of interest.
+                logger.debug("Checking whether the exon stops being coding within the intron %s", intron)
 
+                def check_is_within(oexon, frag, intron):
+                    if (overlap(frag, oexon) < oexon[1] - oexon[0] and
+                                overlap(frag, oexon, positive=True) == 0 and
+                            overlap(frag, intron, positive=True)):
+                        return True
+                    elif overlap(frag, oexon) == oexon[1] - oexon[0]:
+                        return True
+                    return False
 
+                for frag in frags:
+                    # The non-coding part must *not* begin within a preceding exon, otherwise it
+                    # is not a proper retained intron
+                    if any(check_is_within(oexon, frag, intron) for oexon in [_ for _ in before if _ in found_exons]):
+                        is_retained = True
+                        break
 
-
+        return is_retained
         #
         #
         # if len(found_exons) == 0 or len(found_introns) == 0:
@@ -666,7 +703,6 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         #                 is_retained = True
 
         # logger.debug("%s in %s %s a retained intron", exon, candidate.id, "is" if is_retained is True else "is not")
-        return is_retained
 
     def find_retained_introns(self, transcript: Transcript):
 
@@ -725,13 +761,17 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             else:
                 terminal = False
 
+            self.logger.debug("Number of exons, introns, intervals in segmenttree: %d, %d, %d",
+                              len(self.exons), len(self.introns), len(self.segmenttree))
             is_retained = self._is_exon_retained(
                 exon,
                 transcript.strand,
                 self.segmenttree,
+                self._internal_graph,
                 frags,
                 consider_truncated=consider_truncated,
-                terminal=terminal)
+                terminal=terminal,
+                logger=self.logger)
             if is_retained:
                 self.logger.debug("Exon %s of %s is a retained intron",
                                   exon, transcript.id)
@@ -1203,6 +1243,57 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                                 param, self.id)
 
     @classmethod
+    def _calculate_graph(cls, transcripts):
+
+        """Private method to calculate the internal graph of exons/introns in a locus."""
+
+        graph = networkx.DiGraph()
+
+        [cls.add_path_to_graph(transcript, graph) for transcript in transcripts]
+
+        return graph
+
+    @staticmethod
+    def add_path_to_graph(transcript, graph):
+        weights = networkx.get_node_attributes(graph, "weight")
+
+        segments = sorted(list(transcript.exons) + list(transcript.introns), reverse=(transcript.strand == "-"))
+        # Add path FAILS if the transcript is monoexonic!
+        graph.add_nodes_from(segments)
+        graph.add_path(segments)
+
+        assert len(graph.nodes()) >= len(segments), (len(graph.nodes()), len(graph.edges()), len(segments))
+
+        for segment in segments:
+            weights[segment] = weights.get(segment, 0) + 1
+            assert segment in graph.nodes(), (segment, graph.nodes())
+
+        for node in weights:
+            assert node in graph.nodes(), (node, graph.nodes())
+
+        for node in graph.nodes():
+            assert node in weights
+
+        networkx.set_node_attributes(graph, "weight", weights)
+        return
+
+    @staticmethod
+    def remove_path_from_graph(transcript: Transcript, graph: networkx.DiGraph):
+
+        weights = networkx.get_node_attributes(graph, "weight")
+        segments = sorted(list(transcript.exons) + list(transcript.introns), reverse=(transcript.strand == "-"))
+        for segment in segments:
+            weights[segment] -= 1
+
+        nodes_to_remove = [interval for interval, weight in weights if weight == 0]
+        graph.remove_nodes_from(nodes_to_remove)
+        for node in nodes_to_remove:
+            assert node not in graph.nodes()
+
+        networkx.set_node_attributes(graph, "weight", dict((k, v) for k,v in weights.items() if v > 0))
+        return
+
+    @classmethod
     @abc.abstractmethod
     def is_intersecting(cls, *args, **kwargs):
         """
@@ -1326,6 +1417,10 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         """
         return self.__source
 
+    @property
+    def _internal_graph(self):
+        return self.__internal_graph
+
     @source.setter
     def source(self, value):
         """
@@ -1350,14 +1445,15 @@ class Abstractlocus(metaclass=abc.ABCMeta):
     @property
     def segmenttree(self):
         if len(self.__segmenttree) != len(self.exons) + len(self.introns):
-            self.__calculate_segment_tree()
+            self.__segmenttree = self._calculate_segment_tree(self.exons, self.introns)
 
         return self.__segmenttree
 
-    def __calculate_segment_tree(self):
+    @staticmethod
+    def _calculate_segment_tree(exons, introns):
 
-        self.__segmenttree = IntervalTree.from_intervals(
-                [Interval(*_, value="exon") for _ in self.exons] + [Interval(*_, value="intron") for _ in self.introns]
+        return IntervalTree.from_intervals(
+                [Interval(*_, value="exon") for _ in exons] + [Interval(*_, value="intron") for _ in introns]
             )
 
     @property

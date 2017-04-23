@@ -1523,7 +1523,7 @@ class RetainedIntronTester(unittest.TestCase):
         introns = set.union(*[_.introns for _ in [t1, t2, t3]])
 
         segmenttree = Abstractlocus._calculate_segment_tree(exons, introns)
-        logger=create_default_logger("test_not_real_retained_neg", level="DEBUG")
+        logger=create_default_logger("test_not_real_retained_neg", level="WARNING")
         self.assertFalse(
             Abstractlocus._is_exon_retained((401, 1000),
                                             t1.strand,

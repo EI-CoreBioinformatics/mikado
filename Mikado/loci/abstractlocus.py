@@ -593,21 +593,20 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         :rtype: bool
         """
 
-        found_exons = sorted(
+        found_exons = set(
             [_._as_tuple() for _ in segmenttree.find(exon[0], exon[1], strict=False, value="exon")
-             if (_[0], _[1]) != (exon[0], exon[1])],
-            reverse=(strand == "-"))
-        found_introns = sorted(
-            [_._as_tuple() for _ in segmenttree.find(exon[0], exon[1], strict=not consider_truncated, value="intron")],
-            reverse=(strand == "-"))
+             if (_[0], _[1]) != (exon[0], exon[1])])
+        found_introns = set(
+            [_._as_tuple() for _ in segmenttree.find(exon[0], exon[1], strict=not consider_truncated, value="intron")]
+        )
 
         is_retained = False
 
         logger.debug("Found exons for %s: %s", exon, found_exons)
         logger.debug("Found introns for %s: %s", exon, found_introns)
 
-        subgraph = digraph.subgraph(found_exons + found_introns)
-        assert subgraph.nodes() == found_exons + found_introns
+        subgraph = digraph.subgraph(list(set.union(found_exons, found_introns)))
+        assert set(subgraph.nodes()) == set.union(found_exons, found_introns)
         logger.debug("Subgraph nodes: %s", subgraph.nodes())
         logger.debug("Subgraph edges: %s", subgraph.edges())
 

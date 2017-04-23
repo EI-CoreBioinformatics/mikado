@@ -565,7 +565,6 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
     @staticmethod
     def _is_exon_retained(exon: tuple,
-                          strand,
                           segmenttree: IntervalTree,
                           digraph: networkx.DiGraph,
                           frags: list,
@@ -615,21 +614,16 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             if is_retained:
                 break
             # We have already removed the exons against which the exon does *not* map,
-            before = networkx.ancestors(subgraph, intron)
-            after = networkx.descendants(subgraph, intron)
-            bbefore = networkx.ancestors(digraph, intron)
-            bafter = networkx.descendants(digraph, intron)
-            logger.debug("Original graph tree: %s", networkx.dfs_tree(digraph,
-                                                                      sorted(digraph.nodes(), reverse=(strand=="-"))[0],
-                                                                      ).edges())
+            before = {_ for _ in networkx.ancestors(subgraph, intron)
+                      if _[0] - 1 in intron or _[1] + 1 in intron}
 
-            logger.debug("For intron %s, before: %s (%s)", intron, before, bbefore)
-            logger.debug("For intron %s, after: %s (%s)", intron, after, bafter)
+            after = {_ for _ in networkx.descendants(subgraph, intron)
+                     if _[0] - 1 in intron or _[1] + 1 in intron}
+
             # So if nothing maps before, this cannot be a retained intron
             if len(before) == 0:
                 logger.debug("No exon matching before intron %s", intron)
                 continue
-
 
             if len(after) == 0:
                 # Overlap only with the previous exon, not both.
@@ -764,7 +758,6 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                               len(self.exons), len(self.introns), len(self.segmenttree))
             is_retained = self._is_exon_retained(
                 exon,
-                transcript.strand,
                 self.segmenttree,
                 self._internal_graph,
                 frags,

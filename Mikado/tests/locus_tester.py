@@ -1526,7 +1526,6 @@ class RetainedIntronTester(unittest.TestCase):
         logger=create_default_logger("test_not_real_retained_neg", level="WARNING")
         self.assertFalse(
             Abstractlocus._is_exon_retained((401, 1000),
-                                            t1.strand,
                                             segmenttree,
                                             graph,
                                             [Interval(401, 830)],
@@ -1584,7 +1583,6 @@ class RetainedIntronTester(unittest.TestCase):
                                                             set.union(t1.introns, t2.introns))
 
         self.assertFalse(Abstractlocus._is_exon_retained((301, 1000),
-                                                         t1.strand,
                                                          segmenttree,
                                                          graph,
                                                          [(301, 470)]

@@ -4,7 +4,7 @@ e.g. reliability of the CDS/UTR, sanity of borders, etc.
 """
 
 
-from Mikado.utilities.intervaltree import IntervalTree
+import numpy
 import intervaltree
 import operator
 from Mikado.exceptions import InvalidCDS, InvalidTranscript
@@ -314,6 +314,11 @@ def __verify_boundaries(transcript):
             err, transcript.id, str(transcript.exons))
 
 
+def __get_phase(length):
+    return (3 - (length % 3)) % 3
+
+__v_get_phase = numpy.vectorize(__get_phase)
+
 def __calculate_phases(coding, previous):
     """
 
@@ -322,14 +327,18 @@ def __calculate_phases(coding, previous):
     :return:
     """
 
-    total_cds_length = -previous
+    coding = [_[1] for _ in coding]
+    ar = numpy.array(list(zip(*coding))[:2], dtype=int)
+    cums = numpy.subtract(ar[1], ar[0] - 1).cumsum() - previous
+    phases, total_cds_length = numpy.concatenate([numpy.array([-previous]), cums[:-1]]), cums[-1]
+    __calculated_phases = list(__v_get_phase(phases))
 
-    __calculated_phases = []
-    for cds_segment in coding:
-        length = cds_segment[1][1] - cds_segment[1][0] + 1
-        phase = (3 - (total_cds_length % 3)) % 3
-        __calculated_phases.append(phase)
-        total_cds_length += length
+    # __calculated_phases = []
+    # for cds_segment in coding:
+    #     length = cds_segment[1][1] - cds_segment[1][0] + 1
+    #     phase = (3 - (total_cds_length % 3)) % 3
+    #     __calculated_phases.append(phase)
+    #     total_cds_length += length
 
     return total_cds_length, __calculated_phases
 
@@ -432,7 +441,8 @@ Coding_exons (recalculated): {}""".format(
             phase_orf = []
 
     if transcript._trust_orf is True and index == 0 and len(phase_orf) == len(coding):
-        total_cds_length = sum([_[1][1] - _[1][0] + 1 for _ in coding])
+        ar = numpy.array(list(zip(*coding)), dtype=int)
+        total_cds_length = numpy.subtract(ar[1], ar[0] - 1).sum()
         __calculated_phases = phase_orf[:]
     else:
         total_cds_length, __calculated_phases = __calculate_phases(coding, previous)
@@ -612,6 +622,7 @@ def finalize(transcript):
     _ = transcript.cds_tree
     _ = transcript.cds_introntree
     _ = transcript.segmenttree
+
 
     # BUG somewhere ... I am not sorting this properly before (why?)
     transcript.exons = sorted(transcript.exons)

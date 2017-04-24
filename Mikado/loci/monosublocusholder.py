@@ -282,6 +282,8 @@ class MonosublocusHolder(Sublocus, Abstractlocus):
 
         if logger is None or not isinstance(logger, logging.Logger):
             logger = create_null_logger("MSH")
+        transcript.finalize()
+        other.finalize()
 
         if transcript == other or transcript.id == other.id or transcript.strand != other.strand:
             logger.debug("Cannot intersect with itself (%s vs %s) or a transcript on the other strand (%s and %s)",
@@ -290,21 +292,29 @@ class MonosublocusHolder(Sublocus, Abstractlocus):
 
         if cds_only is True and transcript.is_coding and other.is_coding:
             logger.debug("Consider only the CDS: %s", cds_only)
-            intersecting, reason = cls._transcripts_are_intersecting(
-                transcript._selected_orf_transcript,
-                other._selected_orf_transcript,
-                min_cdna_overlap=min_cdna_overlap,
-                min_cds_overlap=min_cds_overlap,
-                simple_overlap_for_monoexonic=simple_overlap_for_monoexonic,
-                is_internal_orf=True)
+            if overlap((transcript._selected_orf_transcript.start, transcript._selected_orf_transcript.end),
+                       (other._selected_orf_transcript.start, other._selected_orf_transcript.end)) <= 0:
+                intersecting, reason = False, "No genomic overlap"
+            else:
+                intersecting, reason = cls._transcripts_are_intersecting(
+                    transcript._selected_orf_transcript,
+                    other._selected_orf_transcript,
+                    min_cdna_overlap=min_cdna_overlap,
+                    min_cds_overlap=min_cds_overlap,
+                    simple_overlap_for_monoexonic=simple_overlap_for_monoexonic,
+                    is_internal_orf=True)
         else:
-            intersecting, reason = cls._transcripts_are_intersecting(
-                transcript,
-                other,
-                min_cdna_overlap=min_cdna_overlap,
-                min_cds_overlap=min_cds_overlap,
-                simple_overlap_for_monoexonic=simple_overlap_for_monoexonic,
-                is_internal_orf=False)
+            if overlap((transcript.start, transcript.end),
+                       (other.start, other.end)) <= 0:
+                intersecting, reason = False, "No genomic overlap"
+            else:
+                intersecting, reason = cls._transcripts_are_intersecting(
+                    transcript,
+                    other,
+                    min_cdna_overlap=min_cdna_overlap,
+                    min_cds_overlap=min_cds_overlap,
+                    simple_overlap_for_monoexonic=simple_overlap_for_monoexonic,
+                    is_internal_orf=False)
 
         logger.debug(reason)
         return intersecting

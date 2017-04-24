@@ -635,22 +635,43 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                 # Now we have to check whether the matched introns contain both coding and non-coding parts
                 # Let us exclude any intron which is outside of the exonic span of interest.
                 logger.debug("Checking whether the exon stops being coding within the intron %s", intron)
+                logger.debug("Exon: %s; Frags: %s; Intron: %s; After: %s", exon, frags, intron, after)
 
-                def check_is_within(oexon, frag, intron):
-                    if (overlap(frag, oexon) < oexon[1] - oexon[0] and
-                                overlap(frag, oexon, positive=True) == 0 and
-                            overlap(frag, intron, positive=True)):
-                        return True
-                    elif overlap(frag, oexon) == oexon[1] - oexon[0]:
-                        return True
-                    return False
+                # I have a single fragment, which is identical to the exon.
+                if len(frags) == 1 and frags[0] == exon:
+                    is_retained = True
+                else:
+                    # ilength = intron[1] - intron[0] + 1
+                    for frag, oexon in itertools.product(frags, list(before)):
+                        # I have to check that the non-coding part starts after
+                        # the beginning of the exon
+                        is_retained = (overlap(frag, oexon, positive=True) == 0 and overlap(frag, intron, positive=True))
+                        #
+                        # is_retained = (0 < overlap(frag, intron, positive=True) < ilength and
+                        #                overlap(frag, oexon, positive=True) == 0)
+                        if is_retained:
+                            break
+                    #
+                    # is_retained = any()
+                    #                   for frag, oxeon in )
+                    # is_retained = any(0 < overlap(frag, intron, positive=True) < ilength for frag in frags)
 
-                for frag in frags:
-                    # The non-coding part must *not* begin within a preceding exon, otherwise it
-                    # is not a proper retained intron
-                    if any(check_is_within(oexon, frag, intron) for oexon in [_ for _ in before if _ in found_exons]):
-                        is_retained = True
-                        break
+                # def check_is_within(oexon, frag, intron):
+                #
+                #     if (overlap(frag, oexon) < oexon[1] - oexon[0] and
+                #                 overlap(frag, oexon, positive=True) == 0 and
+                #             overlap(frag, intron, positive=True)):
+                #         return True
+                #     elif overlap(frag, oexon) == oexon[1] - oexon[0]:
+                #         return True
+                #     return False
+                #
+                # for frag in frags:
+                #     # The non-coding part must *not* begin within a preceding exon, otherwise it
+                #     # is not a proper retained intron
+                #     if any(check_is_within(oexon, frag, intron) for oexon in [_ for _ in after if _ in found_exons]):
+                #         is_retained = True
+                #         break
 
         return is_retained
         #
@@ -886,6 +907,27 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         if self.metrics_calculated is True:
             return
 
+        cds_bases = sum(_[1] - _[0] + 1 for _ in merge_ranges(
+            itertools.chain(*[
+                self.transcripts[_].combined_cds for _ in self.transcripts
+                if self.transcripts[_].combined_cds])))
+
+        selected_bases = sum(_[1] - _[0] + 1 for _ in merge_ranges(
+            itertools.chain(*[
+                self.transcripts[_].selected_cds for _ in self.transcripts
+                if self.transcripts[_].selected_cds])))
+
+        for tid in self.transcripts:
+            if cds_bases == 0:
+                self.transcripts[tid].combined_cds_locus_fraction = 0
+                self.transcripts[tid].selected_cds_locus_fraction = 0
+            else:
+                selected_length = self.transcripts[tid].selected_cds_length
+                combined_length = self.transcripts[tid].combined_cds_length
+
+                self.transcripts[tid].combined_cds_locus_fraction = combined_length / cds_bases
+                self.transcripts[tid].selected_cds_locus_fraction = selected_length / selected_bases
+
         for tid in sorted(self.transcripts):
             self.calculate_metrics(tid)
 
@@ -922,34 +964,17 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         else:
             self.transcripts[tid].proportion_verified_introns_inlocus = 1
 
-        if len(self.locus_verified_introns) and self.transcripts[tid].verified_introns_num > 0:
-            assert self.transcripts[tid].proportion_verified_introns_inlocus > 0
+        assert (not (len(self.locus_verified_introns) and self.transcripts[tid].verified_introns_num > 0) or
+                (self.transcripts[tid].proportion_verified_introns_inlocus > 0))
+
+        # if len(self.locus_verified_introns) and self.transcripts[tid].verified_introns_num > 0:
+        #     assert self.transcripts[tid].proportion_verified_introns_inlocus > 0
 
         _ = len(set.intersection(self.exons, self.transcripts[tid].exons))
         fraction = _ / len(self.exons)
 
         self.transcripts[tid].exon_fraction = fraction
-
-        cds_bases = sum(_[1] - _[0] + 1 for _ in merge_ranges(
-            itertools.chain(*[
-                self.transcripts[_].combined_cds for _ in self.transcripts
-                if self.transcripts[_].combined_cds])))
-
-        selected_bases = sum(_[1] - _[0] + 1 for _ in merge_ranges(
-            itertools.chain(*[
-                self.transcripts[_].selected_cds for _ in self.transcripts
-                if self.transcripts[_].selected_cds])))
-
-        for tid in self.transcripts:
-            if cds_bases == 0:
-                self.transcripts[tid].combined_cds_locus_fraction = 0
-                self.transcripts[tid].selected_cds_locus_fraction = 0
-            else:
-                selected_length = self.transcripts[tid].selected_cds_length
-                combined_length = self.transcripts[tid].combined_cds_length
-
-                self.transcripts[tid].combined_cds_locus_fraction = combined_length / cds_bases
-                self.transcripts[tid].selected_cds_locus_fraction = selected_length / selected_bases
+        self.logger.debug("Calculated exon fraction for %s", tid)
 
         if len(self.introns) > 0:
             _ = len(set.intersection(self.transcripts[tid].introns, self.introns))
@@ -966,6 +991,8 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         else:
             self.transcripts[tid].selected_cds_intron_fraction = 0
 
+        self.logger.debug("Calculating CDS intron fractions for %s", tid)
+
         if len(self.combined_cds_introns) > 0:
             intersecting_introns = len(
                 set.intersection(
@@ -976,12 +1003,14 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         else:
             self.transcripts[tid].combined_cds_intron_fraction = 0
 
+        self.logger.debug("Starting to calculate retained introns for %s", tid)
         self.find_retained_introns(self.transcripts[tid])
         assert isinstance(self.transcripts[tid], Transcript)
         retained_bases = sum(e[1] - e[0] + 1
                              for e in self.transcripts[tid].retained_introns)
         fraction = retained_bases / self.transcripts[tid].cdna_length
         self.transcripts[tid].retained_fraction = fraction
+
         self.logger.debug("Calculated metrics for {0}".format(tid))
 
     def _check_not_passing(self, previous_not_passing=set()):
@@ -1254,17 +1283,17 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         graph.add_nodes_from(segments)
         graph.add_path(segments)
 
-        assert len(graph.nodes()) >= len(segments), (len(graph.nodes()), len(graph.edges()), len(segments))
+        # assert len(graph.nodes()) >= len(segments), (len(graph.nodes()), len(graph.edges()), len(segments))
 
         for segment in segments:
             weights[segment] = weights.get(segment, 0) + 1
-            assert segment in graph.nodes(), (segment, graph.nodes())
-
-        for node in weights:
-            assert node in graph.nodes(), (node, graph.nodes())
-
-        for node in graph.nodes():
-            assert node in weights
+        #     assert segment in graph.nodes(), (segment, graph.nodes())
+        #
+        # for node in weights:
+        #     assert node in graph.nodes(), (node, graph.nodes())
+        #
+        # for node in graph.nodes():
+        #     assert node in weights
 
         networkx.set_node_attributes(graph, "weight", weights)
         return

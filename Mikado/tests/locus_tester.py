@@ -1394,6 +1394,8 @@ class RetainedIntronTester(unittest.TestCase):
         sup = Superlocus(t1, json_conf=self.my_json)
         sup.add_transcript_to_locus(t2)
 
+        sup.logger = create_default_logger("test_real_retained_pos_noCDS")
+        # sup.logger.setLevel("DEBUG")
         sup.find_retained_introns(t2)
 
         self.assertEqual(sup.transcripts["t2"].retained_introns, ((1201, 1600),))
@@ -1524,6 +1526,7 @@ class RetainedIntronTester(unittest.TestCase):
 
         segmenttree = Abstractlocus._calculate_segment_tree(exons, introns)
         logger=create_default_logger("test_not_real_retained_neg", level="WARNING")
+        # logger.setLevel("DEBUG")
         self.assertFalse(
             Abstractlocus._is_exon_retained((401, 1000),
                                             segmenttree,

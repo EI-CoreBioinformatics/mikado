@@ -775,7 +775,7 @@ memory intensive, proceed with caution!")
         current_locus = None
         current_transcript = None
 
-        locus_queue = multiprocessing.JoinableQueue(self.procs * 5)
+        locus_queue = multiprocessing.JoinableQueue(self.procs * 2)
 
         handles = list(self.__get_output_files())
         [_.close() for _ in handles[0]]

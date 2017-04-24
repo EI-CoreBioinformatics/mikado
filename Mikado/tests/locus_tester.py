@@ -117,8 +117,8 @@ Chr1\tfoo\texon\t501\t600\t.\t+\t.\tID=t1:exon3;Parent=t1""".split("\n")
         self.assertEqual(len(slocus.monoholders), 1)
         slocus.define_loci()
         self.assertEqual(len(slocus.loci), 1)
-        self.assertEqual(list(slocus.loci[
-                                  list(slocus.loci.keys())[0]].transcripts.keys())[0], "t0")
+        self.assertEqual(sorted(list(slocus.loci[
+                                  list(slocus.loci.keys())[0]].transcripts.keys())), ["t0", "t1"])
         gff_transcript3 = """Chr1\tfoo\ttranscript\t101\t1000\t.\t-\t.\tID=tminus0
 Chr1\tfoo\texon\t101\t600\t.\t-\t.\tID=tminus0:exon1;Parent=tminus0
 Chr1\tfoo\tCDS\t201\t500\t.\t-\t.\tID=tminus0:exon1;Parent=tminus0

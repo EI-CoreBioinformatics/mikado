@@ -1,3 +1,10 @@
+#Version 1.0.1
+
+Changes in this minor release:
+- Speedups in the code by removing repetition of some operations and adding vectorization for some functions
+- Optimization of the find_retained_intron operation, which also solved some erroneous misses of RIs.
+- in multiprocessing mode, Mikado now will keep the size of the submission queue limited, to avoid hogging too much memory when a subprocess hangs.
+
 #Version 1.0
 
 Changes in this release:

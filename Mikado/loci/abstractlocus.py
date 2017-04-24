@@ -643,80 +643,11 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                 else:
                     # ilength = intron[1] - intron[0] + 1
                     for frag, oexon in itertools.product(frags, list(before)):
-                        # I have to check that the non-coding part starts after
-                        # the beginning of the exon
                         is_retained = (overlap(frag, oexon, positive=True) == 0 and overlap(frag, intron, positive=True))
-                        #
-                        # is_retained = (0 < overlap(frag, intron, positive=True) < ilength and
-                        #                overlap(frag, oexon, positive=True) == 0)
                         if is_retained:
                             break
-                    #
-                    # is_retained = any()
-                    #                   for frag, oxeon in )
-                    # is_retained = any(0 < overlap(frag, intron, positive=True) < ilength for frag in frags)
-
-                # def check_is_within(oexon, frag, intron):
-                #
-                #     if (overlap(frag, oexon) < oexon[1] - oexon[0] and
-                #                 overlap(frag, oexon, positive=True) == 0 and
-                #             overlap(frag, intron, positive=True)):
-                #         return True
-                #     elif overlap(frag, oexon) == oexon[1] - oexon[0]:
-                #         return True
-                #     return False
-                #
-                # for frag in frags:
-                #     # The non-coding part must *not* begin within a preceding exon, otherwise it
-                #     # is not a proper retained intron
-                #     if any(check_is_within(oexon, frag, intron) for oexon in [_ for _ in after if _ in found_exons]):
-                #         is_retained = True
-                #         break
 
         return is_retained
-        #
-        #
-        # if len(found_exons) == 0 or len(found_introns) == 0:
-        #     is_retained = False
-        # elif len(found_exons) == 1 and len(found_introns) == 1:
-        #     found_exons = found_exons.pop()
-        #     found_introns = found_introns.pop()
-        #     if strand != "-" and found_exons[1] + 1 == found_introns[0]:
-        #         is_retained = (consider_truncated and terminal)
-        #     elif strand == "-" and found_exons[0] - 1 == found_introns[1]:
-        #         is_retained = (consider_truncated and terminal)
-        # else:
-        #     # Now we have to check all possible paths starting from the found introns
-        #
-        #
-        #
-        #
-        # elif len(found_exons) >= 2:
-        #     # Now we have to check whether the matched introns contain both coding and non-coding parts
-        #     # Let us exclude any intron which is outside of the exonic span of interest.
-        #     if strand == "-":
-        #         found_introns = [_ for _ in found_introns if _[1] < found_exons[0][0]]
-        #     else:
-        #         found_introns = [_ for _ in found_introns if _[0] > found_exons[0][1]]
-        #
-        #     for index, exon in enumerate(found_exons[:-1]):
-        #         intron = found_introns[index]
-        #         if strand == "-":
-        #             assert intron[1] == exon[0] - 1, (intron, exon, found_exons, found_introns)
-        #         else:
-        #             assert exon[1] == intron[0] - 1, (intron, exon, found_exons, found_introns)
-        #         for frag in frags:
-        #             if is_retained:
-        #                 break
-        #             # The fragment is just a sub-section of the exon
-        #             if (overlap(frag, exon) < exon[1] - exon[0] and
-        #                     overlap(frag, exon, positive=True) == 0 and
-        #                     overlap(frag, intron, positive=True)):
-        #                 is_retained = True
-        #             elif overlap(frag, exon) == exon[1] - exon[0]:
-        #                 is_retained = True
-
-        # logger.debug("%s in %s %s a retained intron", exon, candidate.id, "is" if is_retained is True else "is not")
 
     def find_retained_introns(self, transcript: Transcript):
 
@@ -1287,13 +1218,6 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
         for segment in segments:
             weights[segment] = weights.get(segment, 0) + 1
-        #     assert segment in graph.nodes(), (segment, graph.nodes())
-        #
-        # for node in weights:
-        #     assert node in graph.nodes(), (node, graph.nodes())
-        #
-        # for node in graph.nodes():
-        #     assert node in weights
 
         networkx.set_node_attributes(graph, "weight", weights)
         return

@@ -865,6 +865,7 @@ class LociProcesser(Process):
             slocus, counter = self.locus_queue.get()
             if slocus == "EXIT":
                 self.logger.debug("EXIT received for %s", self.name)
+                self.locus_queue.task_done()
                 self.locus_queue.put((slocus, counter))
                 self.__close_handles()
                 break
@@ -884,6 +885,7 @@ class LociProcesser(Process):
                     self.__gene_counter = print_locus(
                         stranded_locus, self.__gene_counter, self._handles,
                         counter=counter, logger=self.logger, json_conf=self.json_conf)
+                self.locus_queue.task_done()
 
         return
 

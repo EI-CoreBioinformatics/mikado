@@ -449,7 +449,8 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         """
 
         if tid not in self.transcripts:
-            raise KeyError("Transcript {0} is not present in the Locus.".format(tid))
+            self.logger.warning("Transcript %s is not present in the Locus. Ignoring it.", tid)
+            return
 
         if len(self.transcripts) == 1:
             self.transcripts = dict()

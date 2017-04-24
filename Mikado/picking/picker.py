@@ -38,7 +38,7 @@ import multiprocessing.managers
 from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
 import pickle
 import warnings
-import time
+from math import floor
 logging.captureWarnings(True)
 warnings.simplefilter("always")
 
@@ -775,7 +775,8 @@ memory intensive, proceed with caution!")
         current_locus = None
         current_transcript = None
 
-        locus_queue = multiprocessing.Queue(-1)
+        locus_queue = multiprocessing.JoinableQueue(
+            floor(self.json_conf.get("serialise", dict()).get("max_objects", 100000) / 1000))
 
         handles = list(self.__get_output_files())
         [_.close() for _ in handles[0]]
@@ -839,10 +840,6 @@ memory intensive, proceed with caution!")
                                                   counter,
                                                   None if not current_locus else current_locus.id,
                                                   ",".join(list(current_locus.transcripts.keys())))
-                                while locus_queue.qsize() > max(1, self.json_conf.get(
-                                        "serialise", dict()).get("max_objects", 100000) / 1000):
-                                    time.sleep(1)
-
                                 locus_queue.put((current_locus, counter))
                             current_locus = Superlocus(
                                 current_transcript,

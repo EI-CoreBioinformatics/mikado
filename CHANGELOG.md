@@ -4,6 +4,7 @@ Changes in this minor release:
 - Speedups in the code by removing repetition of some operations and adding vectorization for some functions
 - Optimization of the find_retained_intron operation, which also solved some erroneous misses of RIs.
 - in multiprocessing mode, Mikado now will keep the size of the submission queue limited, to avoid hogging too much memory when a subprocess hangs.
+- Now trying to remove a transcript from a locus, when said transcript is not present, will generate a warning, not an error.
 
 #Version 1.0
 

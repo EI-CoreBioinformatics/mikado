@@ -775,8 +775,7 @@ memory intensive, proceed with caution!")
         current_locus = None
         current_transcript = None
 
-        locus_queue = multiprocessing.JoinableQueue(
-            floor(self.json_conf.get("serialise", dict()).get("max_objects", 100000) / 1000))
+        locus_queue = multiprocessing.JoinableQueue(self.procs * 5)
 
         handles = list(self.__get_output_files())
         [_.close() for _ in handles[0]]

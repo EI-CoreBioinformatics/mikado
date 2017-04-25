@@ -881,7 +881,14 @@ class LociProcesser(Process):
                 # self.join()
             else:
                 assert isinstance(counter, int), type(counter)
-                transcripts = cursor.execute("SELECT json FROM transcripts WHERE counter=?", str(counter)).fetchone()
+                try:
+                    transcripts = cursor.execute(
+                        "SELECT json FROM transcripts WHERE counter=?", (str(counter),)).fetchone()
+                except sqlite3.ProgrammingError as exc:
+                    self.logger.exception(sqlite3.ProgrammingError((exc, counter, str(counter), (str(counter),))))
+                    self.__close_handles()
+                    break
+                    
                 if transcripts is None:
                     raise KeyError("Nothing found in the database for %s", counter)
 

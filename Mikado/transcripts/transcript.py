@@ -1875,7 +1875,7 @@ index {3}, internal ORFs: {4}".format(
 
     def __calculate_segment_tree(self):
 
-        self.__segmenttree = IntervalTree.from_intervals(
+        self.__segmenttree = IntervalTree.from_tuples(
                 [Interval(*_, value="exon") for _ in self.exons] + [Interval(*_, value="intron") for _ in self.introns]
             )
 

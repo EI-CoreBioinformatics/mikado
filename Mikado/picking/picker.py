@@ -804,7 +804,7 @@ memory intensive, proceed with caution!")
         current_locus = None
         current_transcript = None
 
-        locus_queue = multiprocessing.JoinableQueue(self.procs * 2)
+        locus_queue = multiprocessing.JoinableQueue(-1)
 
         handles = list(self.__get_output_files())
         [_.close() for _ in handles[0]]
@@ -928,6 +928,7 @@ memory intensive, proceed with caution!")
         locus_queue.put(("EXIT", ))
         self.logger.info("Joining children processes")
         [_.join() for _ in working_processes]
+        conn.close()
         self.logger.info("Joined children processes; starting to merge partial files")
 
         # Merge loci

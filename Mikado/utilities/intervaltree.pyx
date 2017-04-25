@@ -358,6 +358,9 @@ cdef class Interval:
 
         self.start, self.end, self.value, self.chrom, self.strand = state
 
+    cpdef tuple _as_tuple(self):
+        return (self.start, self.end)
+
 
 cdef class IntervalTree:
     """

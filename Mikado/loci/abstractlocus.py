@@ -60,6 +60,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         self.introns, self.exons, self.splices = set(), set(), set()
         # Consider only the CDS part
         self.combined_cds_introns, self.selected_cds_introns = set(), set()
+        self.combined_cds_exons, self.selected_cds_exons = set(), set()
         self.start, self.end, self.strand = maxsize, -maxsize, None
         self.stranded = True
         self.initialized = False
@@ -74,9 +75,11 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             self.locus_verified_introns = verified_introns
 
         self.__cds_introntree = IntervalTree()
+        self.__segmenttree = IntervalTree()
         self.__regressor = None
         self.session = None
         self.metrics_calculated = False
+        self.__internal_graph = networkx.DiGraph()
 
     @abc.abstractmethod
     def __str__(self, *args, **kwargs):
@@ -413,9 +416,13 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
         self.combined_cds_introns = set.union(
             self.combined_cds_introns, transcript.combined_cds_introns)
-        assert len(transcript.combined_cds_introns) <= len(self.combined_cds_introns)
+        self.combined_cds_exons = set.union(
+            self.combined_cds_exons, transcript.combined_cds)
+
+        assert len(transcript.combined_cds) <= len(self.combined_cds_exons)
 
         self.selected_cds_introns.update(transcript.selected_cds_introns)
+        self.selected_cds_exons.update(transcript.selected_cds)
 
         self.exons.update(set(transcript.exons))
         assert isinstance(self.locus_verified_introns, set)
@@ -424,6 +431,8 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                                                 transcript.verified_introns)
         if transcript.verified_introns_num > 0:
             assert len(self.locus_verified_introns) > 0
+
+        self.add_path_to_graph(transcript, self._internal_graph)
 
         if self.initialized is False:
             self.initialized = True
@@ -440,7 +449,8 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         """
 
         if tid not in self.transcripts:
-            raise KeyError("Transcript {0} is not present in the Locus.".format(tid))
+            self.logger.warning("Transcript %s is not present in the Locus. Ignoring it.", tid)
+            return
 
         if len(self.transcripts) == 1:
             self.transcripts = dict()
@@ -502,6 +512,8 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             splices_to_remove = set.difference(self.transcripts[tid].splices, other_splices)
             self.splices.difference_update(splices_to_remove)
 
+            self.remove_path_from_graph(self.transcripts[tid], self._internal_graph)
+
             del self.transcripts[tid]
             self.logger.debug("Deleted %s from %s", tid, self.id)
             for tid in self.transcripts:
@@ -553,11 +565,13 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             return True, frags
 
     @staticmethod
-    def _is_exon_retained_in_transcript(exon: tuple,
-                                        frags: list,
-                                        candidate: Transcript,
-                                        consider_truncated=False,
-                                        terminal=False):
+    def _is_exon_retained(exon: tuple,
+                          segmenttree: IntervalTree,
+                          digraph: networkx.DiGraph,
+                          frags: list,
+                          consider_truncated=False,
+                          terminal=False,
+                          logger=create_null_logger()):
 
         """Private static method to verify whether a given exon is a retained intron of the candidate Transcript.
         :param exon: the exon to be considered.
@@ -579,51 +593,61 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         :rtype: bool
         """
 
-        strand = candidate.strand
-        found_exons = sorted(
-            candidate.segmenttree.find(exon[0], exon[1], strict=False, value="exon"),
-            reverse=(strand == "-"))
-        found_introns = sorted(
-            candidate.segmenttree.find(exon[0], exon[1], strict=not consider_truncated, value="intron"),
-            reverse=(strand == "-"))
+        found_exons = set(
+            [_._as_tuple() for _ in segmenttree.find(exon[0], exon[1], strict=False, value="exon")
+             if (_[0], _[1]) != (exon[0], exon[1])])
+        found_introns = set(
+            [_._as_tuple() for _ in segmenttree.find(exon[0], exon[1], strict=not consider_truncated, value="intron")]
+        )
 
         is_retained = False
 
-        if len(found_exons) == 0 or len(found_introns) == 0:
-            is_retained = False
-        elif len(found_exons) == 1 and len(found_introns) == 1:
-            found_exons = found_exons.pop()
-            found_introns = found_introns.pop()
-            if strand != "-" and found_exons[1] + 1 == found_introns[0]:
+        logger.debug("Found exons for %s: %s", exon, found_exons)
+        logger.debug("Found introns for %s: %s", exon, found_introns)
+
+        subgraph = digraph.subgraph(list(set.union(found_exons, found_introns)))
+        assert set(subgraph.nodes()) == set.union(found_exons, found_introns)
+        logger.debug("Subgraph nodes: %s", subgraph.nodes())
+        logger.debug("Subgraph edges: %s", subgraph.edges())
+
+        for intron in found_introns:
+
+            if is_retained:
+                break
+            # We have already removed the exons against which the exon does *not* map,
+            before = {_ for _ in networkx.ancestors(subgraph, intron)
+                      if _[0] - 1 in intron or _[1] + 1 in intron}
+
+            after = {_ for _ in networkx.descendants(subgraph, intron)
+                     if _[0] - 1 in intron or _[1] + 1 in intron}
+
+            # So if nothing maps before, this cannot be a retained intron
+            if len(before) == 0:
+                logger.debug("No exon matching before intron %s", intron)
+                continue
+
+            if len(after) == 0:
+                # Overlap only with the previous exon, not both.
+                # This can only be a retained intron if we are considering
+                # a terminal exon AND we are accepting truncated exons as RIs.
+                logger.debug("No exon matching after %s", intron)
                 is_retained = (consider_truncated and terminal)
-            elif strand == "-" and found_exons[0] - 1 == found_introns[1]:
-                is_retained = (consider_truncated and terminal)
-        elif len(found_exons) >= 2:
-            # Now we have to check whether the matched introns contain both coding and non-coding parts
-            # Let us exclude any intron which is outside of the exonic span of interest.
-            if strand == "-":
-                found_introns = [_ for _ in found_introns if _[1] < found_exons[0][0]]
             else:
-                found_introns = [_ for _ in found_introns if _[0] > found_exons[0][1]]
+                # Now we have to check whether the matched introns contain both coding and non-coding parts
+                # Let us exclude any intron which is outside of the exonic span of interest.
+                logger.debug("Checking whether the exon stops being coding within the intron %s", intron)
+                logger.debug("Exon: %s; Frags: %s; Intron: %s; After: %s", exon, frags, intron, after)
 
-            for index, exon in enumerate(found_exons[:-1]):
-                intron = found_introns[index]
-                if strand == "-":
-                    assert intron[1] == exon[0] - 1, (candidate.id, intron, exon, found_exons, found_introns)
+                # I have a single fragment, which is identical to the exon.
+                if len(frags) == 1 and frags[0] == exon:
+                    is_retained = True
                 else:
-                    assert exon[1] == intron[0] - 1, (candidate.id, intron, exon, found_exons, found_introns)
-                for frag in frags:
-                    if is_retained:
-                        break
-                    # The fragment is just a sub-section of the exon
-                    if (overlap(frag, exon) < exon[1] - exon[0] and
-                            overlap(frag, exon, positive=True) == 0 and
-                            overlap(frag, intron, positive=True)):
-                        is_retained = True
-                    elif overlap(frag, exon) == exon[1] - exon[0]:
-                        is_retained = True
+                    # ilength = intron[1] - intron[0] + 1
+                    for frag, oexon in itertools.product(frags, list(before)):
+                        is_retained = (overlap(frag, oexon, positive=True) == 0 and overlap(frag, intron, positive=True))
+                        if is_retained:
+                            break
 
-        # logger.debug("%s in %s %s a retained intron", exon, candidate.id, "is" if is_retained is True else "is not")
         return is_retained
 
     def find_retained_introns(self, transcript: Transcript):
@@ -665,7 +689,9 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
         retained_introns = []
         consider_truncated = self.json_conf["pick"]["run_options"]["consider_truncated_for_retained"]
+
         for exon in transcript.exons:
+
             self.logger.debug("Checking exon %s of %s", exon, transcript.id)
             # is_retained = False
             to_consider, frags = self._exon_to_be_considered(
@@ -681,21 +707,37 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             else:
                 terminal = False
 
-            for tid, candidate in (_ for _ in self.transcripts.items() if _[0] != transcript.id):
-                if candidate.strand != transcript.strand and None not in (transcript.strand, candidate.strand):
-                    continue
+            self.logger.debug("Number of exons, introns, intervals in segmenttree: %d, %d, %d",
+                              len(self.exons), len(self.introns), len(self.segmenttree))
+            is_retained = self._is_exon_retained(
+                exon,
+                self.segmenttree,
+                self._internal_graph,
+                frags,
+                consider_truncated=consider_truncated,
+                terminal=terminal,
+                logger=self.logger)
+            if is_retained:
+                self.logger.debug("Exon %s of %s is a retained intron",
+                                  exon, transcript.id)
+                retained_introns.append(exon)
 
-                self.logger.debug("Checking %s in %s against %s", exon, transcript.id, candidate.id)
-                is_retained = self._is_exon_retained_in_transcript(exon,
-                                                                   frags,
-                                                                   candidate,
-                                                                   terminal=terminal,
-                                                                   consider_truncated=consider_truncated)
-                if is_retained:
-                    self.logger.debug("Exon %s of %s is a retained intron of %s",
-                                      exon, transcript.id, candidate.id)
-                    retained_introns.append(exon)
-                    break
+            # for tid, candidate in (_ for _ in self.transcripts.items() if _[0] != transcript.id):
+            #     if candidate.strand != transcript.strand and None not in (transcript.strand, candidate.strand):
+            #         continue
+            #
+            #     self.logger.debug("Checking %s in %s against %s", exon, transcript.id, candidate.id)
+            #     is_retained = self._is_exon_retained(exon,
+            #                                          candidate.strand,
+            #                                          candidate.segmenttree,
+            #                                          frags,
+            #                                          terminal=terminal,
+            #                                          consider_truncated=consider_truncated)
+            #     if is_retained:
+            #         self.logger.debug("Exon %s of %s is a retained intron of %s",
+            #                           exon, transcript.id, candidate.id)
+            #         retained_introns.append(exon)
+            #         break
 
         self.logger.debug("%s has %d retained introns%s",
                           transcript.id,
@@ -797,6 +839,27 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         if self.metrics_calculated is True:
             return
 
+        cds_bases = sum(_[1] - _[0] + 1 for _ in merge_ranges(
+            itertools.chain(*[
+                self.transcripts[_].combined_cds for _ in self.transcripts
+                if self.transcripts[_].combined_cds])))
+
+        selected_bases = sum(_[1] - _[0] + 1 for _ in merge_ranges(
+            itertools.chain(*[
+                self.transcripts[_].selected_cds for _ in self.transcripts
+                if self.transcripts[_].selected_cds])))
+
+        for tid in self.transcripts:
+            if cds_bases == 0:
+                self.transcripts[tid].combined_cds_locus_fraction = 0
+                self.transcripts[tid].selected_cds_locus_fraction = 0
+            else:
+                selected_length = self.transcripts[tid].selected_cds_length
+                combined_length = self.transcripts[tid].combined_cds_length
+
+                self.transcripts[tid].combined_cds_locus_fraction = combined_length / cds_bases
+                self.transcripts[tid].selected_cds_locus_fraction = selected_length / selected_bases
+
         for tid in sorted(self.transcripts):
             self.calculate_metrics(tid)
 
@@ -833,34 +896,17 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         else:
             self.transcripts[tid].proportion_verified_introns_inlocus = 1
 
-        if len(self.locus_verified_introns) and self.transcripts[tid].verified_introns_num > 0:
-            assert self.transcripts[tid].proportion_verified_introns_inlocus > 0
+        assert (not (len(self.locus_verified_introns) and self.transcripts[tid].verified_introns_num > 0) or
+                (self.transcripts[tid].proportion_verified_introns_inlocus > 0))
+
+        # if len(self.locus_verified_introns) and self.transcripts[tid].verified_introns_num > 0:
+        #     assert self.transcripts[tid].proportion_verified_introns_inlocus > 0
 
         _ = len(set.intersection(self.exons, self.transcripts[tid].exons))
         fraction = _ / len(self.exons)
 
         self.transcripts[tid].exon_fraction = fraction
-
-        cds_bases = sum(_[1] - _[0] + 1 for _ in merge_ranges(
-            itertools.chain(*[
-                self.transcripts[_].combined_cds for _ in self.transcripts
-                if self.transcripts[_].combined_cds])))
-
-        selected_bases = sum(_[1] - _[0] + 1 for _ in merge_ranges(
-            itertools.chain(*[
-                self.transcripts[_].selected_cds for _ in self.transcripts
-                if self.transcripts[_].selected_cds])))
-
-        for tid in self.transcripts:
-            if cds_bases == 0:
-                self.transcripts[tid].combined_cds_locus_fraction = 0
-                self.transcripts[tid].selected_cds_locus_fraction = 0
-            else:
-                selected_length = self.transcripts[tid].selected_cds_length
-                combined_length = self.transcripts[tid].combined_cds_length
-
-                self.transcripts[tid].combined_cds_locus_fraction = combined_length / cds_bases
-                self.transcripts[tid].selected_cds_locus_fraction = selected_length / selected_bases
+        self.logger.debug("Calculated exon fraction for %s", tid)
 
         if len(self.introns) > 0:
             _ = len(set.intersection(self.transcripts[tid].introns, self.introns))
@@ -877,6 +923,8 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         else:
             self.transcripts[tid].selected_cds_intron_fraction = 0
 
+        self.logger.debug("Calculating CDS intron fractions for %s", tid)
+
         if len(self.combined_cds_introns) > 0:
             intersecting_introns = len(
                 set.intersection(
@@ -887,12 +935,14 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         else:
             self.transcripts[tid].combined_cds_intron_fraction = 0
 
+        self.logger.debug("Starting to calculate retained introns for %s", tid)
         self.find_retained_introns(self.transcripts[tid])
         assert isinstance(self.transcripts[tid], Transcript)
         retained_bases = sum(e[1] - e[0] + 1
                              for e in self.transcripts[tid].retained_introns)
         fraction = retained_bases / self.transcripts[tid].cdna_length
         self.transcripts[tid].retained_fraction = fraction
+
         self.logger.debug("Calculated metrics for {0}".format(tid))
 
     def _check_not_passing(self, previous_not_passing=set()):
@@ -1146,6 +1196,50 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                                 param, self.id)
 
     @classmethod
+    def _calculate_graph(cls, transcripts):
+
+        """Private method to calculate the internal graph of exons/introns in a locus."""
+
+        graph = networkx.DiGraph()
+
+        [cls.add_path_to_graph(transcript, graph) for transcript in transcripts]
+
+        return graph
+
+    @staticmethod
+    def add_path_to_graph(transcript, graph):
+        weights = networkx.get_node_attributes(graph, "weight")
+
+        segments = sorted(list(transcript.exons) + list(transcript.introns), reverse=(transcript.strand == "-"))
+        # Add path FAILS if the transcript is monoexonic!
+        graph.add_nodes_from(segments)
+        graph.add_path(segments)
+
+        # assert len(graph.nodes()) >= len(segments), (len(graph.nodes()), len(graph.edges()), len(segments))
+
+        for segment in segments:
+            weights[segment] = weights.get(segment, 0) + 1
+
+        networkx.set_node_attributes(graph, "weight", weights)
+        return
+
+    @staticmethod
+    def remove_path_from_graph(transcript: Transcript, graph: networkx.DiGraph):
+
+        weights = networkx.get_node_attributes(graph, "weight")
+        segments = sorted(list(transcript.exons) + list(transcript.introns), reverse=(transcript.strand == "-"))
+        for segment in segments:
+            weights[segment] -= 1
+
+        nodes_to_remove = [interval for interval, weight in weights if weight == 0]
+        graph.remove_nodes_from(nodes_to_remove)
+        for node in nodes_to_remove:
+            assert node not in graph.nodes()
+
+        networkx.set_node_attributes(graph, "weight", dict((k, v) for k,v in weights.items() if v > 0))
+        return
+
+    @classmethod
     @abc.abstractmethod
     def is_intersecting(cls, *args, **kwargs):
         """
@@ -1269,6 +1363,10 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         """
         return self.__source
 
+    @property
+    def _internal_graph(self):
+        return self.__internal_graph
+
     @source.setter
     def source(self, value):
         """
@@ -1289,6 +1387,20 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             return max(_.score for _ in self.transcripts.values())
         else:
             return None
+
+    @property
+    def segmenttree(self):
+        if len(self.__segmenttree) != len(self.exons) + len(self.introns):
+            self.__segmenttree = self._calculate_segment_tree(self.exons, self.introns)
+
+        return self.__segmenttree
+
+    @staticmethod
+    def _calculate_segment_tree(exons, introns):
+
+        return IntervalTree.from_intervals(
+                [Interval(*_, value="exon") for _ in exons] + [Interval(*_, value="intron") for _ in introns]
+            )
 
     @property
     def _cds_introntree(self):

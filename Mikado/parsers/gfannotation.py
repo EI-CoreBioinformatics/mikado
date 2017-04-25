@@ -8,6 +8,7 @@ GTF/GFF files.
 import abc
 import copy
 from sys import intern
+import numbers
 
 __author__ = 'Luca Venturini'
 
@@ -213,13 +214,13 @@ class GFAnnotation(metaclass=abc.ABCMeta):
 
         if value in (None, '.', '?'):
             self.__phase = None
-        elif isinstance(value, (str, int, float)):
+        elif isinstance(value, numbers.Number) or isinstance(value, (str, bytes)):
             value = int(value)
             if value not in range(3):
                 raise ValueError("Invalid value for phase: {0}".format(value))
             self.__phase = value
         else:
-            raise ValueError("Invalid phase: {0}".format(value))
+            raise ValueError("Invalid phase: {0} (type: {1})".format(value, type(value)))
 
     @property
     def is_gene(self):

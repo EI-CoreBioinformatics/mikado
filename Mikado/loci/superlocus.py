@@ -864,7 +864,7 @@ class Superlocus(Abstractlocus):
                                 self.id,
                                 self.approximation_level)
             for tid in set.difference(set(self.transcripts.keys()), set(transcript_graph.nodes())):
-                self.logger.warning("Discarding %s from %s", tid, self.id)
+                self.logger.debug("Discarding %s from %s", tid, self.id)
                 del self.transcripts[tid]
 
         if len(self.transcripts) == 0:

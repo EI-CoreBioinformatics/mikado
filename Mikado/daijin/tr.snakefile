@@ -572,14 +572,21 @@ rule align_all:
 	threads: 1
 	shell: "touch {output}"
 
-rule align_collect_stats:
-	input: rules.align_all.output
-	output: ALIGN_DIR+"/alignment.stats"
-	params: stats=ALIGN_DIR+"/output/*.sorted.bam.stats"
-	threads: 1
-	message: "Collecting alignment stats"
-	shell: "{ALIGN_COLLECT} {params.stats} > {output}"
-		
+if len(ALIGN_RUNS) > 0:
+    rule align_collect_stats:
+        input: rules.align_all.output
+        output: ALIGN_DIR+"/alignment.stats"
+        params: stats=ALIGN_DIR+"/output/*.sorted.bam.stats"
+        threads: 1
+        message: "Collecting alignment stats"
+        shell: "{ALIGN_COLLECT} {params.stats} > {output}"
+else:
+    rule mock_align_collect_stats:
+        input: rules.align_all.output
+        output: touch(ALIGN_DIR+"/alignment.stats")
+        params: stats=ALIGN_DIR+"/output/*.sorted.bam.stats"
+        threads: 1
+        message: "Collecting alignment stats"
 
 rule asm_cufflinks:
 	input: 
@@ -662,11 +669,12 @@ rule lr_gmap:
 	output: link=ALIGN_DIR+"/lr_output/lr_gmap-{lsample}-{lrun}.gff",
 		gff=ALIGN_DIR+"/gmap/{lsample}-{lrun}/lr_gmap-{lsample}-{lrun}.gff"		
 	params: load=loadPre(config["load"]["gmap"]),
-		link_src="../gmap/{lsample}-{lrun}/lr_gmap-{lsample}-{lrun}.gff"
+		link_src="../gmap/{lsample}-{lrun}/lr_gmap-{lsample}-{lrun}.gff",
+		intron_length=gmap_intron_lengths(loadPre(config["load"]["gmap"]), MAX_INTRON)
 	log: ALIGN_DIR+"/gmap-{lsample}-{lrun}.log"
 	threads: THREADS
 	message: "Mapping long reads to the genome with gmap (sample: {wildcards.lsample} - run: {wildcards.lrun})"
-	shell: "{params.load} gmap --dir={ALIGN_DIR}/gmap/index --db={NAME} --min-intronlength={MIN_INTRON} --max-intronlength-middle={MAX_INTRON} --max-intronlength-ends={MAX_INTRON}  --format=3 {input.reads} > {output.gff} 2> {log} && ln -sf {params.link_src} {output.link} && touch -h {output.link}"
+	shell: "{params.load} gmap --dir={ALIGN_DIR}/gmap/index --db={NAME} --min-intronlength={MIN_INTRON} {params.intron_length} --format=3 {input.reads} > {output.gff} 2> {log} && ln -sf {params.link_src} {output.link} && touch -h {output.link}"
 
 rule lr_star:
 	input:
@@ -779,13 +787,21 @@ rule lreads_all:
 	threads: 1
 	shell: "touch {output}"
 
-rule asm_collect_stats:
-	input: rules.asm_all.output
-	output: ASM_DIR+"/assembly.stats"
-	params: asms=ASM_DIR+"/output/*.stats"
-	threads: 1
-	message: "Collecting assembly statistics"
-	shell: "{ASM_COLLECT} {params.asms} > {output}"
+if len(TRANSCRIPT_ARRAY) > 0:
+    rule asm_collect_stats:
+        input: rules.asm_all.output
+        output: ASM_DIR+"/assembly.stats"
+        params: asms=ASM_DIR+"/output/*.stats"
+        threads: 1
+        message: "Collecting assembly statistics"
+        shell: "{ASM_COLLECT} {params.asms} > {output}"
+else:
+    rule mock_asm_collect_stats:
+        input: rules.asm_all.output
+        output: touch(ASM_DIR+"/assembly.stats")
+        params: asms=ASM_DIR+"/output/*.stats"
+        threads: 1
+        message: "Collecting assembly statistics"
 
 rule portcullis_prep:
 	input:	ref=REF,

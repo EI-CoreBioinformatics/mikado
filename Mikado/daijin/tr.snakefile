@@ -224,7 +224,7 @@ for samp in L_SAMPLES:
 			LR_ARRAY.append(ALIGN_DIR + "/lr_output/" + filename)
 			LR_LABEL_ARRAY.append(abv_aln_str)
 			if not L_SAMPLE_MAP[samp] == "u":
-				LR_SS_ARRAY.append(TRANSCRIPT_ARRAY[-1])
+				LR_SS_ARRAY.append(LR_ARRAY[-1])
 
 LR_STR = ",".join(LR_ARRAY)
 LR_LABEL_STR = ",".join(LR_LABEL_ARRAY)

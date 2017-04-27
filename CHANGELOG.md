@@ -1,3 +1,10 @@
+#Version 1.0.1
+
+BugFix release.
+
+- Fixed a bug which caused Mikado to go out of memory with very dense loci, when calculating the AS events.
+- Fixed a bug which caused the log not to be saved correctly during the indexing for Mikado compare.
+
 #Version 1.0
 
 Changes in this release:

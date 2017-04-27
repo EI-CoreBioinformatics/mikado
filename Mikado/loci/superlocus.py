@@ -1129,18 +1129,19 @@ class Superlocus(Abstractlocus):
                                     min_cds_overlap=cds_overlap,
                                     simple_overlap_for_monoexonic=False)
 
-        cliques = self.find_cliques(t_graph)
-        self.logger.debug("Cliques: %s", cliques)
+        # cliques = self.find_cliques(t_graph)
+        # self.logger.debug("Cliques: %s", cliques)
 
-        loci_cliques = dict()
+        loci_cliques = dict((lid, set(t_graph.neighbors(locus_instance.primary_transcript_id)))
+                            for lid, locus_instance in self.loci.items())
 
-        for lid, locus_instance in self.loci.items():
-            loci_cliques[lid] = set()
-            for clique in cliques:
-                if locus_instance.primary_transcript_id in clique:
-                    loci_cliques[
-                        locus_instance.id].update({tid for tid in clique if
-                                                   tid != locus_instance.primary_transcript_id})
+        # for lid, locus_instance in self.loci.items():
+        #     loci_cliques[lid] = set()
+        #     for clique in cliques:
+        #         if locus_instance.primary_transcript_id in clique:
+        #             loci_cliques[
+        #                 locus_instance.id].update({tid for tid in clique if
+        #                                            tid != locus_instance.primary_transcript_id})
 
         for tid in iter(tid for tid in self.transcripts if tid not in primary_transcripts):
             loci_in = list(llid for llid in loci_cliques if

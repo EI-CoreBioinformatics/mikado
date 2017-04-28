@@ -4,6 +4,8 @@ BugFix release.
 
 - Fixed a bug which caused Mikado to go out of memory with very dense loci, when calculating the AS events.
 - Fixed a bug which caused the log not to be saved correctly during the indexing for Mikado compare.
+- Fixed a bug which caused Mikado pick to crash at the end, on rare cases.
+- Data to be transmitted to picking process children is now stored in a temporary SQLITE3 database, to lessen memory usage and queue hangups.
 
 #Version 1.0
 

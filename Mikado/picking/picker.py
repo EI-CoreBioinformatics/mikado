@@ -38,8 +38,14 @@ import multiprocessing.managers
 from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
 import pickle
 import warnings
+# from math import floor
 logging.captureWarnings(True)
 warnings.simplefilter("always")
+import sqlite3
+try:
+    import ujson as json
+except ImportError:
+    import json
 
 # pylint: disable=too-many-instance-attributes
 class Picker:
@@ -320,26 +326,6 @@ memory intensive, proceed with caution!")
 
         # Create the shared DB if necessary
         self.setup_shm_db()
-
-        if self.json_conf["pick"]["chimera_split"]["blast_check"] is True and \
-                self.json_conf["log_settings"]["log_level"] == "DEBUG":
-            engine = dbutils.connect(self.json_conf, logger=self.main_logger)
-            smaker = sessionmaker()
-            smaker.configure(bind=engine)
-            session = smaker()
-
-            evalue = self.json_conf["pick"]["chimera_split"]["blast_params"]["evalue"]
-            queries_with_hits = session.query(
-                Hit.query_id).filter(Hit.evalue <= evalue).distinct().count()
-            total_queries = session.query(Query).count()
-            self.main_logger.debug(
-                "Queries with at least one hit at evalue<=%f: %d out of %d (%f%%)",
-                evalue,
-                queries_with_hits,
-                total_queries,
-                0 if total_queries == 0 else round(100 * queries_with_hits / total_queries, 2)
-            )
-            session.close()
 
         self.log_writer = logging_handlers.QueueListener(
             self.logging_queue, self.logger)
@@ -736,7 +722,7 @@ memory intensive, proceed with caution!")
         """
 
         # self.result_dict[counter] = [_]
-        self.printer_queue.put_nowait(("EXIT", float("inf")))
+        self.printer_queue.put_nowait(("EXIT", ))
         # self.printer_queue.put(("EXIT", counter + 1))
         current = "\t".join([str(x) for x in [row.chrom,
                                               row.start,
@@ -779,6 +765,30 @@ memory intensive, proceed with caution!")
         if test is False:
             self.__unsorted_interrupt(row, current_transcript)
 
+    @staticmethod
+    def add_to_index(conn: sqlite3.Connection,
+                     cursor: sqlite3.Cursor,
+                     transcripts: [Transcript],
+                     counter: int):
+
+        """Method to create the simple indexed database for features."""
+
+        transcripts = json.dumps([_.as_dict() for _ in transcripts])
+        cursor.execute("INSERT INTO transcripts VALUES (?, ?)", (counter, transcripts))
+        conn.commit()
+
+        return
+
+    @staticmethod
+    def _create_temporary_store(tempdirectory):
+
+        conn = sqlite3.connect(os.path.join(tempdirectory, "temp_store.db"))
+        cursor = conn.cursor()
+        cursor.execute("CREATE TABLE transcripts (counter integer, json blob)")
+        cursor.execute("CREATE INDEX tid_idx on transcripts(counter)")
+
+        return conn, cursor
+
     def __submit_multi_threading(self, data_dict):
 
         """
@@ -794,7 +804,7 @@ memory intensive, proceed with caution!")
         current_locus = None
         current_transcript = None
 
-        locus_queue = multiprocessing.Queue(-1)
+        locus_queue = multiprocessing.JoinableQueue(-1)
 
         handles = list(self.__get_output_files())
         [_.close() for _ in handles[0]]
@@ -816,6 +826,7 @@ memory intensive, proceed with caution!")
         # os.makedirs(tempdir, exist_ok=True)
 
         self.logger.info("Creating the worker processes")
+        conn, cursor = self._create_temporary_store(tempdir)
         working_processes = [LociProcesser(self.json_conf,
                                            data_dict,
                                            handles,
@@ -858,7 +869,8 @@ memory intensive, proceed with caution!")
                                                   counter,
                                                   None if not current_locus else current_locus.id,
                                                   ",".join(list(current_locus.transcripts.keys())))
-                                locus_queue.put((current_locus, counter))
+                                self.add_to_index(conn, cursor, current_locus.transcripts.values(), counter)
+                                locus_queue.put((counter, ))
                             current_locus = Superlocus(
                                 current_transcript,
                                 stranded=False,
@@ -887,7 +899,8 @@ memory intensive, proceed with caution!")
                     counter += 1
                     self.logger.debug("Submitting locus #%d (%s)", counter,
                                       None if not current_locus else current_locus.id)
-                    locus_queue.put((current_locus, counter))
+                    self.add_to_index(conn, cursor, current_locus.transcripts.values(), counter)
+                    locus_queue.put((counter,))
 
                 current_locus = Superlocus(
                     current_transcript,
@@ -900,18 +913,22 @@ memory intensive, proceed with caution!")
             counter += 1
             self.logger.debug("Submitting locus #%d (%s)", counter,
                               None if not current_locus else current_locus.id)
-            locus_queue.put((current_locus, counter))
+            self.add_to_index(conn, cursor, current_locus.transcripts.values(), counter)
+            locus_queue.put((counter,))
 
         self.logger.info("Finished chromosome %s", current_locus.chrom)
 
         counter += 1
-        locus_queue.put((current_locus, counter))
+        self.add_to_index(conn, cursor, current_locus.transcripts.values(), counter)
+        locus_queue.put((counter,))
+
         self.logger.debug("Submitting locus %s, counter %d, with transcripts:\n%s",
                           current_locus.id, counter,
                           ", ".join(list(current_locus.transcripts.keys())))
-        locus_queue.put(("EXIT", float("inf")))
+        locus_queue.put(("EXIT", ))
         self.logger.info("Joining children processes")
         [_.join() for _ in working_processes]
+        conn.close()
         self.logger.info("Joined children processes; starting to merge partial files")
 
         # Merge loci

@@ -18,6 +18,12 @@ import pickle
 from itertools import zip_longest
 from sqlalchemy.engine import create_engine  # SQLAlchemy/DB imports
 import sqlalchemy.orm.session
+import sqlite3
+from ..transcripts import Transcript
+try:
+    import ujson as json
+except ImportError:
+    import json
 
 __author__ = 'Luca Venturini'
 
@@ -68,7 +74,7 @@ def print_gene(current_gene, gene_counter, handle, prefix):
             if isinstance(current_transcript.parent, list):
                 foo_counter[1] += 1
                 transcript_counter = "_".join([str(_) for _ in foo_counter])
-                assert transcript_counter >= 1
+                # assert transcript_counter >= 1
             else:
                 raise ValueError((exc, str(current_transcript)))
 
@@ -861,29 +867,61 @@ class LociProcesser(Process):
         """Start polling the queue, analyse the loci, and send them to the printer process."""
         self.logger.debug("Starting to parse data for {0}".format(self.name))
         current_chrom = None
+        conn = sqlite3.connect(os.path.join(self._tempdir, "temp_store.db"))
+        cursor = conn.cursor()
+
         while True:
-            slocus, counter = self.locus_queue.get()
-            if slocus == "EXIT":
+            counter = self.locus_queue.get()[0]
+            if counter == "EXIT":
                 self.logger.debug("EXIT received for %s", self.name)
-                self.locus_queue.put((slocus, counter))
+                self.locus_queue.task_done()
+                self.locus_queue.put((counter, ))
                 self.__close_handles()
                 break
                 # self.join()
             else:
-                if slocus is not None:
+                assert isinstance(counter, int), type(counter)
+                try:
+                    transcripts = cursor.execute(
+                        "SELECT json FROM transcripts WHERE counter=?", (str(counter),)).fetchone()
+                except sqlite3.ProgrammingError as exc:
+                    self.logger.exception(sqlite3.ProgrammingError((exc, counter, str(counter), (str(counter),))))
+                    self.__close_handles()
+                    break
+                    
+                if transcripts is None:
+                    raise KeyError("Nothing found in the database for %s", counter)
+
+                transcripts = json.loads(transcripts[0])
+                if len(transcripts) == 0:
+                    stranded_loci = []
+                else:
+                    tobjects = []
+                    for tjson in transcripts:
+                        transcript = Transcript(logger=self.logger)
+                        transcript.load_dict(tjson)
+                        tobjects.append(transcript)
+
+                    slocus = Superlocus(tobjects.pop(),
+                                        stranded=False,
+                                        json_conf=self.json_conf,
+                                        source=self.json_conf["pick"]["output_format"]["source"])
+                    while len(tobjects) > 0:
+                        slocus.add_transcript_to_locus(tobjects.pop(),
+                                                       check_in_locus=False)
+
                     if current_chrom != slocus.chrom:
                         self.__gene_counter = 0
                         current_chrom = slocus.chrom
                     if self.regressor is not None:
                         slocus.regressor = self.regressor
                     stranded_loci = self.analyse_locus(slocus, counter)
-                else:
-                    stranded_loci = []
 
                 for stranded_locus in stranded_loci:
                     self.__gene_counter = print_locus(
                         stranded_locus, self.__gene_counter, self._handles,
                         counter=counter, logger=self.logger, json_conf=self.json_conf)
+                self.locus_queue.task_done()
 
         return
 

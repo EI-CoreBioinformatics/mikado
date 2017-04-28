@@ -1,10 +1,13 @@
 #Version 1.0.1
 
-Changes in this minor release:
-- Speedups in the code by removing repetition of some operations and adding vectorization for some functions
-- Optimization of the find_retained_intron operation, which also solved some erroneous misses of RIs.
-- in multiprocessing mode, Mikado now will keep the size of the submission queue limited, to avoid hogging too much memory when a subprocess hangs.
-- Now trying to remove a transcript from a locus, when said transcript is not present, will generate a warning, not an error.
+BugFix release.
+
+- Fixed a bug which caused Mikado to go out of memory with very dense loci, when calculating the AS events.
+- Fixed a bug which caused the log not to be saved correctly during the indexing for Mikado compare.
+- Fixed a bug which caused Mikado pick to crash at the end, on rare cases.
+- Data to be transmitted to picking process children is now stored in a temporary SQLITE3 database, to lessen memory usage and queue hangups.
+- Fixed a bug while that caused a crash while Mikado was trying to approximate complex loci.
+- Switched away from using clique-based algorithms, as they tend to be very memory intensive.
 
 #Version 1.0
 

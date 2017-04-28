@@ -204,7 +204,7 @@ class MonosublocusHolder(Sublocus, Abstractlocus):
 
         loci = []
         while len(graph) > 0:
-            cliques = self.find_cliques(graph)
+            # cliques = self.find_cliques(graph)
             communities = self.find_communities(graph)
             to_remove = set()
             for locus_comm in communities:
@@ -212,9 +212,10 @@ class MonosublocusHolder(Sublocus, Abstractlocus):
                 selected_tid = self.choose_best(locus_comm)
                 selected_transcript = self.transcripts[selected_tid]
                 to_remove.add(selected_tid)
-                for clique in cliques:
-                    if selected_tid in clique:
-                        to_remove.update(clique)
+                to_remove.update(set(graph.neighbors(selected_tid)))
+                # for clique in cliques:
+                #     if selected_tid in clique:
+                #         to_remove.update(clique)
 
                 if purge is False or selected_transcript.score > 0:
                     new_locus = Locus(selected_transcript, logger=self.logger, json_conf=self.json_conf)

@@ -583,7 +583,7 @@ reached the maximum number of isoforms for the locus".format(
 
         five_comm = deque(sorted(self.find_communities(five_graph),
                               key=lambda clique: min(self[_].start for _ in clique)))
-        three_comm = deque(sorted(self.find_cliques(three_graph),
+        three_comm = deque(sorted(self.find_communities(three_graph),
                            key=lambda clique: max(self[_].end for _ in clique),
                            reverse=True))
 

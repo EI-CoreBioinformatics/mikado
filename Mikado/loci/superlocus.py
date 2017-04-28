@@ -61,7 +61,7 @@ class Superlocus(Abstractlocus):
         Hit.hit_number <= bindparam("hit_number")
     ))
 
-    _complex_limit = (1000, 1000)
+    _complex_limit = (10000, 10000)
 
     # Junction.strand == bindparam("strand")))
 
@@ -732,12 +732,12 @@ class Superlocus(Abstractlocus):
                 if inters == current.introns:
                     neigh_first_corr = [_ for _ in neighbour.exons if
                                         _[1] == sorted(current.exons)[0][1]]
-                    assert len(neigh_first_corr) == 1
+                    # assert len(neigh_first_corr) == 1
                     if neigh_first_corr[0][0] > current.start:
                         continue
                     neigh_last_corr = [_ for _ in neighbour.exons if
                                        _[0] == sorted(current.exons)[-1][0]]
-                    assert len(neigh_last_corr) == 1
+                    # assert len(neigh_last_corr) == 1
                     if neigh_last_corr[0][1] < current.end:
                         continue
                     to_remove.add(current.id)
@@ -745,12 +745,12 @@ class Superlocus(Abstractlocus):
                 elif inters == neighbour.introns:
                     curr_first_corr = [_ for _ in current.exons if
                                        _[1] == sorted(neighbour.exons)[0][1]]
-                    assert len(curr_first_corr) == 1
+                    # assert len(curr_first_corr) == 1
                     if curr_first_corr[0][0] > neighbour.start:
                         continue
                     curr_last_corr = [_ for _ in current.exons if
                                       _[0] == sorted(neighbour.exons)[-1][0]]
-                    assert len(curr_last_corr) == 1
+                    # assert len(curr_last_corr) == 1
                     if curr_last_corr[0][1] < neighbour.end:
                         continue
                     to_remove.add(neighbour.id)

@@ -574,10 +574,11 @@ def compare(args):
 
     queue_logger.info("Finished")
     log_queue_listener.enqueue_sentinel()
-    handler.close()
     log_queue_listener.stop()
     args.queue_handler.close()
     [_.close() for _ in logger.handlers]
+    handler.flush()
+    handler.close()
     args.reference.close()
     if hasattr(args.prediction, "close"):
         args.prediction.close()

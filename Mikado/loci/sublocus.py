@@ -202,9 +202,9 @@ class Sublocus(Abstractlocus):
                                              logger=self.logger)
 
         while len(transcript_graph) > 0:
-            cliques = self.find_cliques(transcript_graph)
+            # cliques = self.find_cliques(transcript_graph)
             communities = self.find_communities(transcript_graph)
-            self.logger.debug("Cliques: {0}".format(cliques))
+            # self.logger.debug("Cliques: {0}".format(cliques))
             self.logger.debug("Communities: {0}".format(communities))
             to_remove = set()
             for msbl in communities:
@@ -214,13 +214,19 @@ class Sublocus(Abstractlocus):
                 to_remove.add(selected_tid)
                 self.logger.debug("Selected: %s (score: %f)",
                                   selected_tid, selected_transcript.score)
-                for clique in cliques:
-                    if selected_tid in clique:
-                        self.logger.debug("Removing as intersecting {0}: {1}".format(
+                self.logger.debug("Removing as intersecting {0}: {1}".format(
                             selected_tid,
-                            ",".join(list(clique))
+                            ",".join(transcript_graph.neighbors(selected_tid))
                         ))
-                        to_remove.update(clique)
+                to_remove.update(set(transcript_graph.neighbors(selected_tid)))
+                # for tid in transcript_graph.neighbors(selected_tid)
+                # for clique in cliques:
+                #     if selected_tid in clique:
+                #         self.logger.debug("Removing as intersecting {0}: {1}".format(
+                #             selected_tid,
+                #             ",".join(list(clique))
+                #         ))
+                #         to_remove.update(clique)
                 if purge is False or selected_transcript.score > 0:
                     new_locus = Monosublocus(selected_transcript,
                                              logger=self.logger,
@@ -348,19 +354,11 @@ class Sublocus(Abstractlocus):
 
         if transcript.id == other.id:
             # We do not want intersection with oneself
-            if logger is not None:
-                logger.debug("Self-comparison for {0}".format(transcript.id))
             return False
-        if logger is not None:
-            logger.debug("Comparing {0} and {1}".format(transcript.id, other.id))
         if any(True for comb in itertools.product(transcript.exons, other.exons) if
                cls.overlap(*comb) >= 0):
-            if logger is not None:
-                logger.debug("{0} and {1} are intersecting".format(transcript.id, other.id))
 
             return True
-        if logger is not None:
-            logger.debug("{0} and {1} are not intersecting".format(transcript.id, other.id))
         return False
     # pylint: enable=arguments-differ
 

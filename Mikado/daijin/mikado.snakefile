@@ -154,7 +154,7 @@ else:
             tr=BLAST_DIR+"/fastas/chunk_{chunk_id}.fasta"
         threads: THREADS
         log: BLAST_DIR + "/logs/chunk-{chunk_id}.blastx.log"
-        shell: "{params.load} if [ -s {params.tr} ]; then diamond blastx --threads {threads} --outfmt xml --compress 1 --out {output} --max-target-seqs {BLASTX_MAX_TARGET_SEQS} --evalue {BLASTX_EVALUE} --db {input.db} --salltitles --query {params.tr} > {log} 2> {log}; else touch {output}; fi"
+        shell: "{params.load} if [ -s {params.tr} ]; then diamond blastx --threads {threads} --outfmt xml --compress 1 --out {output} --max-target-seqs {BLASTX_MAX_TARGET_SEQS} --evalue {BLASTX_EVALUE} --db {input.db} --salltitles --query {params.tr} --sensitive > {log} 2> {log}; else touch {output}; fi"
 
 rule blast_all:
 	input: expand(BLAST_DIR + "/xmls/chunk-{chunk_id}-proteins.xml.gz", chunk_id=CHUNK_ARRAY)

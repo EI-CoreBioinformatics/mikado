@@ -234,4 +234,10 @@ class ExternalSerializer:
             self.session.commit()
             self.logger.info(
                 "Finished loading %d transcripts into query table", done)
+
+        # Now update cache
+        cache.update(
+            dict((_.query_name, _.query_id) for _ in iter(self.session.query(Query)))
+        )
+
         return cache

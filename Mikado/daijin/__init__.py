@@ -150,9 +150,9 @@ def create_config_parser():
         "-st", "--strandedness", nargs="+",
         default=[], required=False, choices=["fr-unstranded", "fr-secondstrand", "fr-firststrand"],
         help="Strandedness of the reads. Specify it 0, 1, or number of samples times. Choices: %(choices)s.")
-    parser.add_argument("-al", "--aligners", choices=["gsnap", "star", "hisat", "tophat"], required=True,
+    parser.add_argument("-al", "--aligners", choices=["gsnap", "star", "hisat", "tophat"], required=False,
                         default=[], nargs="*", help="Aligner(s) to use for the analysis. Choices: %(choices)s")
-    parser.add_argument("-as", "--assemblers", dest="asm_methods", required=True,
+    parser.add_argument("-as", "--assemblers", dest="asm_methods", required=False,
                         choices=["class", "cufflinks", "stringtie", "trinity"],
                         default=[], nargs="*", help="Assembler(s) to use for the analysis. Choices: %(choices)s")
     mikado = parser.add_argument_group("Options related to the Mikado phase of the pipeline.")
@@ -179,8 +179,10 @@ def create_config_parser():
                         help="Amount of flanking for grouping transcripts in superloci during the pick phase of Mikado.")
     mikado.add_argument("--prot-db", dest="prot_db", default=[], nargs="+",
                         help="Protein database to compare against, for Mikado.")
-    mikado.add_argument("--use-diamond", dest="use_diamond", action="store_true",
-                        default=False, help="Flag. If set, Daijin will use Diamond instead of BLAST.")
+    mikado.add_argument("--use-blast", dest="use_blast", action="store_true",
+                        default=False, help="Flag. If set, Daijin will use BLAST instead of DIAMOND.")
+    mikado.add_argument("--use-transdecoder", dest="use_transdecoder", action="store_true",
+                        default=False, help="Flag. If set, Daijin will use TransDecoder instead of Prodigal.")
     parser.set_defaults(func=create_daijin_config)
     return parser
 

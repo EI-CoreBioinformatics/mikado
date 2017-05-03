@@ -190,13 +190,11 @@ class OrfSerializer:
         else:
             self.is_bed12 = (handle.name.endswith("bed12") or handle.name.endswith("bed"))
 
-        if self.is_bed12:
-            self.bed12_parser = bed12.Bed12Parser(handle,
-                                                  fasta_index=fasta_index,
-                                                  transcriptomic=True,
-                                                  max_regression=self._max_regression)
-        else:
-            self.bed12_parser = to_gff(handle)
+        self.bed12_parser = bed12.Bed12Parser(handle,
+                                              fasta_index=fasta_index,
+                                              is_gff=(not self.is_bed12),
+                                              transcriptomic=True,
+                                              max_regression=self._max_regression)
 
         self.engine = connect(json_conf, logger)
 
@@ -208,24 +206,6 @@ class OrfSerializer:
             DBBASE.metadata.create_all(self.engine)
         self.session = session
         self.maxobjects = json_conf["serialise"]["max_objects"]
-
-
-    def parse_gf_as_bed12(self, handle, fasta_index):
-
-        # TODO: work on a functioning parser for TD long orfs GFF3 files
-
-        raise NotImplementedError("I am still working on this!")
-        # cur_transcript = None
-        # for row in to_gff(handle):
-        #     if row.is_transcript:
-        #         if cur_transcript is not None:
-        #             cur_transcript.finalize()
-        #             orf = cur_transcript.as_bed12()
-        #         cur_transcript = Transcript(row)
-        #     elif row.is_exon:
-        #         cur_transcript.add_exon(row)
-        #     else:
-        #         continue
 
     def load_fasta(self, cache):
 

@@ -13,6 +13,7 @@ import Bio.SeqRecord
 from . import Parser
 from sys import intern
 import copy
+from ..parsers.GFF import GffLine
 
 
 # These classes do contain lots of things, it is correct like it is
@@ -141,16 +142,27 @@ class BED12:
                 self.header = True
                 return
             self._fields = self._line.split("\t")
+            if len(self._fields) == 12:
+                self.__set_values_from_fields()
+                self.header = False
+            else:
+                self.header = True
+                return
+        elif isinstance(self._line, GffLine):
+            if self._line.header is True:
+                self.header = True
+                return
+            elif self.transcriptomic is False:
+                raise TypeError(
+                    "GFF lines can be used as BED12-equivalents only in a transcriptomic context.")
+            else:
+                self.header = False
+                fasta_length = len(fasta_index[self._line.chrom])
+                self.__set_values_from_gff(fasta_length)
+
         elif not (isinstance(self._line, list) or isinstance(self._line, tuple)):
             raise TypeError("I need an ordered array, not {0}".format(type(self._line)))
 
-        if len(self._fields) != 12:
-            self.header = True
-            return
-
-        self.header = False
-
-        self.__set_values_from_fields()
         self.__check_validity(transcriptomic, fasta_index)
 
     def __set_values_from_fields(self):
@@ -179,6 +191,32 @@ class BED12:
         self.start_codon = None
         self.stop_codon = None
         self.fasta_length = len(self)
+        return
+
+    def __set_values_from_gff(self, fasta_length):
+        """
+        Private method that sets the correct values from the fields derived from an input GFF line.
+        :return:
+        """
+
+        (self.chrom, self.thick_start,
+         self.thick_end, self.strand, self.name) = (self._line.chrom,
+                                                    self._line.start,
+                                                    self._line.end, self._line.strand, self._line.id)
+        intern(self.chrom)
+        assert self.name is not None
+        self.start = 1
+        self.end = fasta_length
+        self.score = self._line.score
+        self.rgb = None
+        self.block_count = 1
+        self.block_sizes = [self.thick_end - self.thick_start +1]
+        self.block_starts = [self.thick_start]
+        self.has_start_codon = None
+        self.has_stop_codon = None
+        self.start_codon = None
+        self.stop_codon = None
+        self.fasta_length = fasta_length
         return
 
     def __check_validity(self, transcriptomic, fasta_index):
@@ -424,6 +462,11 @@ class BED12:
             self.invalid_reason = "{} not found in the index!".format(self.chrom)
             return True
 
+        assert isinstance(self.thick_start, int)
+        assert isinstance(self.thick_end, int)
+        assert isinstance(self.start, int)
+        assert isinstance(self.end, int)
+
         if self.thick_start < self.start or self.thick_end > self.end:
             if self.thick_start == self.thick_end == self.block_sizes[0] == 0:
                 pass
@@ -604,7 +647,8 @@ class Bed12Parser(Parser):
     def __init__(self, handle,
                  fasta_index=None,
                  transcriptomic=False,
-                 max_regression=0):
+                 max_regression=0,
+                 is_gff=False):
         """
         Constructor method.
         :param handle: the input BED file.
@@ -640,7 +684,7 @@ class Bed12Parser(Parser):
         self.fasta_index = fasta_index
         self.__closed = False
         self.header = False
-        self._is_bed12 = True
+        self._is_bed12 = (not is_gff)
 
     def __iter__(self):
         return self
@@ -669,7 +713,6 @@ class Bed12Parser(Parser):
                           max_regression=self._max_regression)
         return bed12
 
-
     def gff_next(self):
         """
 
@@ -677,7 +720,20 @@ class Bed12Parser(Parser):
         """
 
         bed12 = None
-        raise NotImplementedError("Still working on this!")
+        while bed12 is None:
+            line = self._handle.readline()
+            if line == "":
+                raise StopIteration
+            line = GffLine(line)
+
+            if line.feature != "CDS":
+                continue
+            # Compatibility with BED12
+            bed12 = BED12(line,
+                          fasta_index=self.fasta_index,
+                          transcriptomic=self.transcriptomic,
+                          max_regression=self._max_regression)
+        # raise NotImplementedError("Still working on this!")
         return bed12
 
     def close(self):

@@ -4,15 +4,14 @@
 
 
 import yaml
-import itertools
-import re
 import os
 from pkg_resources import resource_listdir, resource_stream
 import argparse
 import sys
-from ..configuration import configurator
+from ..configuration import configurator, daijin_configurator, print_config, check_has_requirements
 from ..exceptions import InvalidJson
 from ..utilities import comma_split  # , merge_dictionaries
+from ..transcripts.transcript import Namespace
 try:
     import ujson as json
 except ImportError:
@@ -21,51 +20,6 @@ from collections import Counter
 import tempfile
 
 __author__ = 'Luca Venturini'
-
-
-def check_has_requirements(dictionary, schema, key=None, first_level=True):
-
-    """
-    Method to find all keys that
-    :param dictionary:
-    :param schema:
-    :param key:
-    :return:
-    """
-
-    required = []
-
-    for new_key, value in dictionary.items():
-        if isinstance(value, dict):
-            assert "properties" in schema[new_key], new_key
-            if "SimpleComment" in schema[new_key]:
-                required.append((key, new_key, "SimpleComment"))
-            if "required" in schema[new_key]:
-                for req in schema[new_key]["required"]:
-                    required.append((key, new_key, req))
-
-            for k in check_has_requirements(value, schema[new_key]["properties"],
-                                            key=new_key,
-                                            first_level=False):
-                if k is None:
-                    continue
-                nkey = [key]
-                nkey.extend(k)
-                nkey = tuple(nkey)
-                required.append(nkey)
-        elif first_level is True:
-            if new_key in ("Comment", "SimpleComment"):
-                continue
-            elif new_key in schema:
-                # if "SimpleComment" in schema[new_key]:
-                #     required.append((key, new_key, "SimpleComment"))
-
-                if "required" in schema[new_key] and schema[new_key]["required"] is True:
-                    required.append([new_key])
-        else:
-            continue
-
-    return required
 
 
 def get_key(new_dict, key, default):
@@ -129,52 +83,6 @@ def create_simple_config():
     return new_dict
 
 
-def print_config(output, out):
-
-    """
-    Function to print out the prepared configuration.
-    :param output: prepared output, a huge string.
-    :type output: str
-
-    :param out: output handle.
-    """
-
-    comment = []
-    comment_level = -1
-
-    for line in output.split("\n"):
-        # comment found
-        if line.lstrip().startswith(("Comment", "SimpleComment")) or comment:
-            level = sum(1 for _ in itertools.takewhile(str.isspace, line))
-            line = re.sub("Comment:", "", re.sub("SimpleComment:", "", line))
-            if comment:
-                if level > comment_level or line.lstrip().startswith("-"):
-                    comment.append(line.strip())
-                else:
-                    for comment_line in iter(_ for _ in comment if _ != ''):
-                        print("{spaces}#  {comment}".format(spaces=" "*comment_level,
-                                                            comment=re.sub(
-                                                                "'", "", re.sub("^- ", "",
-                                                                                comment_line))),
-                              file=out)
-                    if level < comment_level:
-                        print("{0}{{}}".format(" " * comment_level), file=out)
-                    comment = []
-                    comment_level = -1
-
-                    print(line.rstrip(), file=out)
-            else:
-                comment = [re.sub("(Comment|SimpleComment):", "", line.strip())]
-                comment_level = level
-        else:
-            print(line.rstrip(), file=out)
-
-    if comment:
-        for comment_line in comment:
-            print("{spaces}#{comment}".format(spaces=" "*comment_level, comment=comment_line),
-                  file=out)
-
-
 def create_config(args):
     """
     Utility to create a default configuration file.
@@ -191,6 +99,36 @@ def create_config(args):
         config = default
     else:
         config = create_simple_config()
+
+    if len(args.mode) is not None and len(args.mode) > 1:
+        args.daijin = True
+
+    if args.daijin is not None:
+        namespace = Namespace(default=False)
+        namespace.r1 = []
+        namespace.r2 = []
+        namespace.samples = []
+        namespace.strandedness = []
+        namespace.asm_methods = []
+        namespace.aligners = []
+        if args.mode is not None:
+            namespace.modes = args.mode[:]
+        else:
+            namespace.modes = ["permissive"]
+        namespace.prot_db = args.blast_targets[:]
+        namespace.cluster_config = None
+        namespace.scheduler = ""
+        namespace.flank = None
+        namespace.intron_range = None
+        namespace.genome = args.reference
+        namespace.transcriptome = ""
+        namespace.name = "Daijin"
+        namespace.out_dir = "Daijin"
+        namespace.threads = args.threads
+        namespace.scoring = args.scoring
+        daijin_config = daijin_configurator.create_daijin_config(namespace, level="ERROR", piped=True)
+        daijin_config["blastx"]["chunks"] = args.blast_chunks
+        config = configurator.merge_dictionaries(config, daijin_config)
 
     if args.external is not None:
         if args.external.endswith("json"):
@@ -311,7 +249,8 @@ def create_config(args):
 
         config["pick"]["scoring_file"] = args.scoring
 
-    if args.mode is not None:
+    if args.daijin is False and args.mode is not None and len(args.mode) == 1:
+        args.mode = args.mode.pop()
         if args.mode == "nosplit":
             config["pick"]["chimera_split"]["execute"] = False
         else:
@@ -404,16 +343,23 @@ def configure_parser():
         separated by comma.""")
     parser.add_argument("--external", help="""External configuration file to overwrite/add values from.
     Parameters specified on the command line will take precedence over those present in the configuration file.""")
-    parser.add_argument("--mode", default=None,
+    daijin = parser.add_argument_group("Options related to configuring a Daijin run.")
+    daijin.add_argument("--daijin", action="store_true", default=False,
+                        help="Flag. If set, the configuration file will be also valid for Daijin.")
+    daijin.add_argument("-bc", "--blast-chunks", type=int, default=10, dest="blast_chunks",
+                        help="Number of parallel DIAMOND/BLAST jobs to run. Default: %(default)s.")
+    parser.add_argument("--mode", default=["permissive"], nargs="+",
                         choices=["nosplit", "stringent", "lenient", "permissive", "split"],
-                        help="""Mode in which Mikado will treat transcripts with multiple ORFs.
+                        help="""Mode(s) in which Mikado will treat transcripts with multiple ORFs.
 - nosplit: keep the transcripts whole.
 - stringent: split multi-orf transcripts if two consecutive ORFs have both BLAST hits
              and none of those hits is against the same target.
 - lenient: split multi-orf transcripts as in stringent, and additionally, also when
            either of the ORFs lacks a BLAST hit (but not both).
 - permissive: like lenient, but also split when both ORFs lack BLAST hits
-- split: split multi-orf transcripts regardless of what BLAST data is available.""")
+- split: split multi-orf transcripts regardless of what BLAST data is available.
+If multiple modes are specified, Mikado will create a Daijin-compatible configuration file.""")
+    parser.add_argument("-t", "--threads", default=1, type=int)
     parser.add_argument("--skip-split", dest="skip_split", default=[], nargs="+",
                         help="List of labels for which splitting will be disabled (eg long reads such as PacBio)")
     parser.add_argument("-j", "--json", action="store_true", default=False,

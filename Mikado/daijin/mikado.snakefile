@@ -36,6 +36,8 @@ BLAST_DIR = MIKADO_DIR + "/blast"
 BLAST_DIR_FULL = os.path.abspath(BLAST_DIR)
 TDC_DIR = MIKADO_DIR + "/transdecoder"
 TDC_DIR_FULL = os.path.abspath(TDC_DIR)
+PROD_DIR = MIKADO_DIR + "/prodigal"
+PROD_DIR_FULL = os.path.abspath(PROD_DIR)
 
 CWD = os.getcwd()
 
@@ -161,44 +163,63 @@ rule blast_all:
 	output: BLAST_DIR + "/blastx.all.done"
 	shell: "touch {output}"
 
-rule transdecoder_lo:
-	input: rules.mikado_prepare.output.fa
-	output: TDC_DIR+"/transcripts.fasta.transdecoder_dir/longest_orfs.gff3"
-	params: outdir=TDC_DIR_FULL,
-		tr="transcripts.fasta",
-		tr_in=MIKADO_DIR_FULL+"/mikado_prepared.fasta",
-		load=loadPre(config["load"]["transdecoder"]),
-		minprot=config["transdecoder"]["min_protein_len"]
-	log: TDC_DIR_FULL+"/transdecoder.longorf.log",
-		# ss="-S" if MIKADO_STRAND else ""
-	threads: 1
-	message: "Running transdecoder longorf on Mikado prepared transcripts: {input}"
-	run:
-	    if config.get("transdecoder", dict()).get("execute", True) is True:
-	        shell("{params.load} cd {params.outdir} && ln -sf {params.tr_in} {params.tr} && TransDecoder.LongOrfs -m {params.minprot} -t {params.tr} > {log} 2>&1")
-	    else:
-	        shell("mkdir -p $(dirname {output}) && touch {output}")
+if config.get("mikado", dict()).get("use_prodigal", False) is False:
+    rule transdecoder_lo:
+        input: rules.mikado_prepare.output.fa
+        output: TDC_DIR+"/transcripts.fasta.transdecoder_dir/longest_orfs.gff3"
+        params:
+            outdir=TDC_DIR_FULL,
+            tr="transcripts.fasta",
+            tr_in=MIKADO_DIR_FULL+"/mikado_prepared.fasta",
+            load=loadPre(config["load"]["transdecoder"]),
+            minprot=config["transdecoder"]["min_protein_len"]
+        log: TDC_DIR_FULL+"/transdecoder.longorf.log",
+            # ss="-S" if MIKADO_STRAND else ""
+        threads: 1
+        message: "Running transdecoder longorf on Mikado prepared transcripts: {input}"
+        run:
+            if config.get("transdecoder", dict()).get("execute", True) is True:
+                shell("{params.load} cd {params.outdir} && ln -sf {params.tr_in} {params.tr} && TransDecoder.LongOrfs -m {params.minprot} -t {params.tr} > {log} 2>&1")
+            else:
+                shell("mkdir -p $(dirname {output}) && touch {output}")
 
-rule transdecoder_pred:
-	input: 
-		mikado=rules.mikado_prepare.output.fa,
-		trans=rules.transdecoder_lo.output		
-	output: TDC_DIR+"/transcripts.fasta.transdecoder.bed"
-	params: outdir=TDC_DIR_FULL,
-		tr_in=MIKADO_DIR_FULL+"/mikado_prepared.fasta",
-		lolog=TDC_DIR_FULL+"/transdecoder.longorf.log",
-		plog=TDC_DIR_FULL+"/transdecoder.predict.log",
-		tr="transcripts.fasta",
-		load=loadPre(config["load"]["transdecoder"])
-		# ss="-S" if MIKADO_STRAND else ""
-	log: TDC_DIR_FULL+"/transdecoder.predict.log"
-	threads: THREADS
-	message: "Running transdecoder predict on Mikado prepared transcripts: {input}"
-	run:
-	    if config.get("transdecoder", dict()).get("execute", True) is True:
-	        shell("{params.load} cd {params.outdir} && TransDecoder.Predict -t {params.tr} --cpu {threads} > {log} 2>&1")
-	    else:
-	        shell("mkdir -p $(dirname {output}) && touch {output}")
+    rule transdecoder_pred:
+        input:
+            mikado=rules.mikado_prepare.output.fa,
+            trans=rules.transdecoder_lo.output
+        output: TDC_DIR+"/transcripts.fasta.transdecoder.bed"
+        params: outdir=TDC_DIR_FULL,
+            tr_in=MIKADO_DIR_FULL+"/mikado_prepared.fasta",
+            lolog=TDC_DIR_FULL+"/transdecoder.longorf.log",
+            plog=TDC_DIR_FULL+"/transdecoder.predict.log",
+            tr="transcripts.fasta",
+            load=loadPre(config["load"]["transdecoder"])
+            # ss="-S" if MIKADO_STRAND else ""
+        log: TDC_DIR_FULL+"/transdecoder.predict.log"
+        threads: THREADS
+        message: "Running transdecoder predict on Mikado prepared transcripts: {input}"
+        run:
+            if config.get("transdecoder", dict()).get("execute", True) is True:
+                shell("{params.load} cd {params.outdir} && TransDecoder.Predict -t {params.tr} --cpu {threads} > {log} 2>&1")
+            else:
+                shell("mkdir -p $(dirname {output}) && touch {output}")
+    orf_out = rules.transdecoder_pred.output
+else:
+    rule prodigal:
+        input: rules.mikado_prepare.output.fa
+        output: PROD_DIR+"/transcripts.fasta.prodigal.gff3"
+        params:
+            outdir=PROD_DIR_FULL,
+            tr="transcripts.fasta",
+            tr_in=MIKADO_DIR_FULL+"/mikado_prepared.fasta",
+            tr_out="transcripts.fasta.prodigal.gff3",
+            load=loadPre(config["load"]["prodigal"]),
+            minprot=config["transdecoder"]["min_protein_len"]
+        log: PROD_DIR_FULL+"/prodigal.log"
+        threads: 1
+        message: "Running PRODIGAL on Mikado prepared transcripts: {input}"
+        shell: "{params.load} mkdir -p {params.outdir} && cd {params.outdir} && ln -sf {params.tr_in} {params.tr} && prodigal -f gff -g 1 -i {params.tr} -o {params.tr_out} > {log} 2>&1"
+    orf_out = rules.prodigal.output
 
 rule genome_index:
 	input: os.path.abspath(REF)
@@ -212,7 +233,7 @@ rule genome_index:
 rule mikado_serialise:
 	input: 
 		blast=rules.blast_all.output,
-		orfs=rules.transdecoder_pred.output,
+		orfs=orf_out,
 		fai=rules.genome_index.output,
 		transcripts=rules.mikado_prepare.output.fa
 	output: db=MIKADO_DIR+"/mikado.db"
@@ -225,7 +246,9 @@ rule mikado_serialise:
 	threads: THREADS
 	message: "Running Mikado serialise to move numerous data sources into a single database"
 	run:
-	    if config.get("transdecoder", dict()).get("execute", True) is True:
+	    if config.get("mikado", dict()).get("use_prodigal") is True:
+	        params.orfs = "--orfs="+str(rules.prodigal.output)
+	    elif config.get("transdecoder", dict()).get("execute", True) is True:
 	        params.orfs = "--orfs="+str(rules.transdecoder_pred.output)
 	    else:
 	        params.orfs = ""

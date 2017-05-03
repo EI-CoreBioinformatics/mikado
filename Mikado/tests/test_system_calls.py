@@ -341,9 +341,10 @@ class ConfigureCheck(unittest.TestCase):
         namespace = Namespace(default=False)
         namespace.scoring = None
         namespace.intron_range = None
-        namespace.reference = None
+        namespace.reference = ""
         namespace.external = None
-        namespace.mode = "permissive"
+        namespace.mode = ["permissive"]
+        namespace.threads = 1
         namespace.blast_targets = []
         namespace.junctions = []
         out = os.path.join(tempfile.gettempdir(), "configuration.yaml")

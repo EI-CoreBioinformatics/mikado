@@ -4,12 +4,15 @@ Generic utilities used for BLAST serialising into a DB.
 
 from ...parsers.blast_utils import merge
 from ...exceptions import InvalidHit
+from Bio import __version__ as bio_version
 import operator
 
 __author__ = 'Luca Venturini'
 
 valid_matches = set([chr(x) for x in range(65, 91)] + [chr(x) for x in range(97, 123)] +
                     ["|", "*"])
+
+bio_version = int(bio_version.split(".")[1])
 
 
 def prepare_hsp(hsp, counter):
@@ -63,8 +66,13 @@ def prepare_hsp(hsp, counter):
     query_pos, target_pos = hsp.query_start - 1, hsp.hit_start - 1
     positive_count, iden_count = 0, 0
     # for query_aa, middle_aa, target_aa in zip(hsp.query, hsp.match, hsp.sbjct):
-    for middle_aa, query_aa, target_aa in zip(hsp.aln_annotation["similarity"],
-                                              *hsp.aln.get_all_seqs()):
+
+    if bio_version < 69:
+        zipper = zip(hsp.aln_annotation["similarity"], *hsp.aln.get_all_seqs())
+    else:
+        zipper = zip(hsp.aln_annotation["similarity"], *list(hsp.aln))
+
+    for middle_aa, query_aa, target_aa in zipper:
         if middle_aa in valid_matches or middle_aa == "+":
             query_pos += 1
             target_pos += 1

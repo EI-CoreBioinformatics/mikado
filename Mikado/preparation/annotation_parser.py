@@ -38,14 +38,15 @@ class AnnotationParser(multiprocessing.Process):
         self.handler = None
         self.logger = logging.getLogger(self.name)
         create_queue_logger(self, prefix="prepare")
-
-        self.logger.info("Started process %s", self.name)
+        # self.logger.warning("Started process %s", self.name)
 
     def __getstate__(self):
 
         state = self.__dict__.copy()
-        del state["logger"]
-        del state["handler"]
+        for key in ("logger", "handler", "_log_handler"):
+            if key in state:
+                del state[key]
+
         return state
 
     def __setstate__(self, state):
@@ -55,7 +56,6 @@ class AnnotationParser(multiprocessing.Process):
 
     def run(self):
 
-        # exon_lines = collections.defaultdict(dict)
         found_ids = set()
         self.logger.debug("Starting to listen to the queue")
         counter = 0

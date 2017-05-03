@@ -26,6 +26,7 @@
         "stringtie": {"type": "string", "default": ""},
         "class": {"type": "string", "default": ""},
         "transdecoder": {"type": "string", "default": ""},
+        "prodigal": {"type": "string", "default": ""},
         "portcullis": {"type": "string", "default": ""},
         "mikado": {"type": "string", "default": ""},
         "diamond": {"type": "string", "default": ""},
@@ -130,28 +131,6 @@
     },
     "align_methods": {
       "type": "object",
-      "anyOf": [
-        {
-          "required": [
-            "tophat"
-          ]
-        },
-        {
-          "required": [
-            "hisat"
-          ]
-        },
-        {
-          "required": [
-            "star"
-          ]
-        },
-        {
-          "required": [
-            "gsnap"
-          ]
-        }
-      ],
       "additionalProperties": false,
       "properties": {
         "tophat": {
@@ -186,7 +165,6 @@
     },
     "long_read_align_methods": {
       "type": "object",
-      "anyOf": [ "star", "gmap"],
       "additionalProperties": false,
       "properties": {
         "star": {
@@ -207,28 +185,6 @@
     },
     "asm_methods": {
       "type": "object",
-      "anyOf": [
-        {
-          "required": [
-            "cufflinks"
-          ]
-        },
-        {
-          "required": [
-            "stringtie"
-          ]
-        },
-        {
-          "required": [
-            "class"
-          ]
-        },
-        {
-          "required": [
-            "trinity"
-          ]
-        }
-      ],
       "additionalProperties": false,
       "properties": {
         "stringtie": {
@@ -291,7 +247,8 @@
           "default": ["permissive"],
         "required": true},
         "db_settings": {"$ref": "configuration_blueprint.json#properties/db_settings"},
-        "use_diamond": {"type": "boolean", "default": false},
+        "use_diamond": {"type": "boolean", "default": true},
+        "use_prodigal": {"type": "boolean", "default": true},
         "pick": {
           "type": "object",
           "properties": {

@@ -36,6 +36,8 @@ BLAST_DIR = MIKADO_DIR + "/blast"
 BLAST_DIR_FULL = os.path.abspath(BLAST_DIR)
 TDC_DIR = MIKADO_DIR + "/transdecoder"
 TDC_DIR_FULL = os.path.abspath(TDC_DIR)
+PROD_DIR = MIKADO_DIR + "/prodigal"
+PROD_DIR_FULL = os.path.abspath(PROD_DIR)
 
 CWD = os.getcwd()
 
@@ -201,19 +203,23 @@ if config.get("mikado", dict()).get("use_prodigal", False) is False:
                 shell("{params.load} cd {params.outdir} && TransDecoder.Predict -t {params.tr} --cpu {threads} > {log} 2>&1")
             else:
                 shell("mkdir -p $(dirname {output}) && touch {output}")
-
+    orf_out = rules.transdecoder_pred.output
 else:
     rule prodigal:
         input: rules.mikado_prepare.output.fa
-        output: TDC_DIR+"/transcripts.fasta.prodigal.gff3"
+        output: PROD_DIR+"/transcripts.fasta.prodigal.gff3"
         params:
-            outdir=TDC_DIR_FULL,
+            outdir=PROD_DIR_FULL,
             tr="transcripts.fasta",
             tr_in=MIKADO_DIR_FULL+"/mikado_prepared.fasta",
-            load=loadPre(config["load"]["transdecoder"]),
+            tr_out="transcripts.fasta.prodigal.gff3",
+            load=loadPre(config["load"]["prodigal"]),
             minprot=config["transdecoder"]["min_protein_len"]
-        log: TDC_DIR_FULL+"/prodigal.log"
-        threads:
+        log: PROD_DIR_FULL+"/prodigal.log"
+        threads: 1
+        message: "Running PRODIGAL on Mikado prepared transcripts: {input}"
+        shell: "{params.load} mkdir -p {params.outdir} && cd {params.outdir} && ln -sf {params.tr_in} {params.tr} && prodigal -f gff -g 1 -i {params.tr} -o {params.tr_out} > {log} 2>&1"
+    orf_out = rules.prodigal.output
 
 rule genome_index:
 	input: os.path.abspath(REF)
@@ -227,7 +233,7 @@ rule genome_index:
 rule mikado_serialise:
 	input: 
 		blast=rules.blast_all.output,
-		orfs=rules.transdecoder_pred.output,
+		orfs=orf_out,
 		fai=rules.genome_index.output,
 		transcripts=rules.mikado_prepare.output.fa
 	output: db=MIKADO_DIR+"/mikado.db"
@@ -240,7 +246,9 @@ rule mikado_serialise:
 	threads: THREADS
 	message: "Running Mikado serialise to move numerous data sources into a single database"
 	run:
-	    if config.get("transdecoder", dict()).get("execute", True) is True:
+	    if config.get("mikado", dict()).get("use_prodigal") is True:
+	        params.orfs = "--orfs="+str(rules.prodigal.output)
+	    elif config.get("transdecoder", dict()).get("execute", True) is True:
 	        params.orfs = "--orfs="+str(rules.transdecoder_pred.output)
 	    else:
 	        params.orfs = ""

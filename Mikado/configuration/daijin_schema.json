@@ -26,6 +26,7 @@
         "stringtie": {"type": "string", "default": ""},
         "class": {"type": "string", "default": ""},
         "transdecoder": {"type": "string", "default": ""},
+        "prodigal": {"type": "string", "default": ""},
         "portcullis": {"type": "string", "default": ""},
         "mikado": {"type": "string", "default": ""},
         "diamond": {"type": "string", "default": ""},
@@ -184,6 +185,27 @@
         }
       }
     },
+    "long_read_align_methods": {
+      "type": "object",
+      "anyOf": [ "star", "gmap"],
+      "additionalProperties": false,
+      "properties": {
+        "star": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1
+        },
+        "gmap": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1
+        }
+      }
+    },
     "asm_methods": {
       "type": "object",
       "anyOf": [
@@ -270,7 +292,8 @@
           "default": ["permissive"],
         "required": true},
         "db_settings": {"$ref": "configuration_blueprint.json#properties/db_settings"},
-        "use_diamond": {"type": "boolean", "default": false},
+        "use_diamond": {"type": "boolean", "default": true},
+        "use_prodigal": {"type": "boolean", "default": true},
         "pick": {
           "type": "object",
           "properties": {

@@ -7,7 +7,8 @@ import yaml
 from os import listdir
 from os.path import isfile, join
 from shutil import which
- 
+import functools
+
 
 CFG=workflow.overwrite_configfile
 
@@ -58,7 +59,7 @@ TGG_NPATHS = config.get("tgg", dict()).get("npaths", 0)
 
 # List of alignment and assembly methods to test
 ALIGNMENT_METHODS = config["align_methods"]
-L_ALIGNMENT_METHODS = []
+L_ALIGNMENT_METHODS = dict()
 if "long_read_align_methods" in config:
 	L_ALIGNMENT_METHODS = config["long_read_align_methods"]
 ASSEMBLY_METHODS = config["asm_methods"]
@@ -224,14 +225,14 @@ for samp in L_SAMPLES:
 			LR_ARRAY.append(ALIGN_DIR + "/lr_output/" + filename)
 			LR_LABEL_ARRAY.append(abv_aln_str)
 			if not L_SAMPLE_MAP[samp] == "u":
-				LR_SS_ARRAY.append(TRANSCRIPT_ARRAY[-1])
+				LR_SS_ARRAY.append(LR_ARRAY[-1])
 
 LR_STR = ",".join(LR_ARRAY)
 LR_LABEL_STR = ",".join(LR_LABEL_ARRAY)
 LR_SS_STR = ",".join(LR_SS_ARRAY)
 
-MIKADO_IN_STR = ",".join([TRANSCRIPTS_STR,LR_STR])
-MIKADO_LABEL_STR = ",".join([LABEL_STR,LR_LABEL_STR])
+MIKADO_IN_STR = ",".join([_ for _ in [TRANSCRIPTS_STR, LR_STR] if _ != ''])
+MIKADO_LABEL_STR = ",".join([_ for _ in [LABEL_STR, LR_LABEL_STR] if _ != ''])
 MIKADO_SS_STR = ",".join(filter(None, [SS_STR,LR_SS_STR]))
 
 def seSample(sample):
@@ -312,11 +313,18 @@ def trinityStrandOption(sample):
 	else:
 		return ""
 
+
+@functools.lru_cache(maxsize=8, typed=True)
+def portcullisHelp(command, step):
+    cmd = subprocess.Popen("{} portcullis {} --help".format(command, step),
+                           shell=True, stdout=subprocess.PIPE).stdout.read().decode()
+    return cmd
+
+
 def portcullisStrandOption(run, command, step):
     parts=run.split("-")
     sample=parts[1]
-    cmd = subprocess.Popen("{} portcullis {} --help".format(command, step),
-	                       shell=True, stdout=subprocess.PIPE).stdout.read().decode()
+    cmd = portcullisHelp(command, step)
     if not any("strandedness" in _ for _ in cmd.split("\n")):
         return ""
     else:
@@ -340,11 +348,18 @@ def trinityInput(sample):
     else:
         return "--single={} ".format(INPUT_1_MAP[sample])
 
-def trinityParameters(command, sample, REF, TGG_MAX_MEM):
+
+@functools.lru_cache(maxsize=4, typed=True)
+def getTrinityVersion(command):
     cmd = "set +u && {} && Trinity --version && set -u".format(command)
     output = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE).stdout.read().decode()
     version = [_ for _ in output.split("\n") if re.match("Trinity version:", _)][0]
     version = re.sub("Trinity version: [^_]*_(r|v)", "", version)
+    return version
+
+
+def trinityParameters(command, sample, REF, TGG_MAX_MEM):
+    version = getTrinityVersion(command)
     if str(TGG_MAX_MEM).isdigit() is True:
         TGG_MAX_MEM = int(TGG_MAX_MEM)
         if TGG_MAX_MEM >= 1000:
@@ -572,14 +587,21 @@ rule align_all:
 	threads: 1
 	shell: "touch {output}"
 
-rule align_collect_stats:
-	input: rules.align_all.output
-	output: ALIGN_DIR+"/alignment.stats"
-	params: stats=ALIGN_DIR+"/output/*.sorted.bam.stats"
-	threads: 1
-	message: "Collecting alignment stats"
-	shell: "{ALIGN_COLLECT} {params.stats} > {output}"
-		
+if len(ALIGN_RUNS) > 0:
+    rule align_collect_stats:
+        input: rules.align_all.output
+        output: ALIGN_DIR+"/alignment.stats"
+        params: stats=ALIGN_DIR+"/output/*.sorted.bam.stats"
+        threads: 1
+        message: "Collecting alignment stats"
+        shell: "{ALIGN_COLLECT} {params.stats} > {output}"
+else:
+    rule mock_align_collect_stats:
+        input: rules.align_all.output
+        output: touch(ALIGN_DIR+"/alignment.stats")
+        params: stats=ALIGN_DIR+"/output/*.sorted.bam.stats"
+        threads: 1
+        message: "Collecting alignment stats"
 
 rule asm_cufflinks:
 	input: 
@@ -662,11 +684,12 @@ rule lr_gmap:
 	output: link=ALIGN_DIR+"/lr_output/lr_gmap-{lsample}-{lrun}.gff",
 		gff=ALIGN_DIR+"/gmap/{lsample}-{lrun}/lr_gmap-{lsample}-{lrun}.gff"		
 	params: load=loadPre(config["load"]["gmap"]),
-		link_src="../gmap/{lsample}-{lrun}/lr_gmap-{lsample}-{lrun}.gff"
+		link_src="../gmap/{lsample}-{lrun}/lr_gmap-{lsample}-{lrun}.gff",
+		intron_length=gmap_intron_lengths(loadPre(config["load"]["gmap"]), MAX_INTRON)
 	log: ALIGN_DIR+"/gmap-{lsample}-{lrun}.log"
 	threads: THREADS
 	message: "Mapping long reads to the genome with gmap (sample: {wildcards.lsample} - run: {wildcards.lrun})"
-	shell: "{params.load} gmap --dir={ALIGN_DIR}/gmap/index --db={NAME} --min-intronlength={MIN_INTRON} --max-intronlength-middle={MAX_INTRON} --max-intronlength-ends={MAX_INTRON}  --format=3 {input.reads} > {output.gff} 2> {log} && ln -sf {params.link_src} {output.link} && touch -h {output.link}"
+	shell: "{params.load} gmap --dir={ALIGN_DIR}/gmap/index --db={NAME} --min-intronlength={MIN_INTRON} {params.intron_length} --format=3 {input.reads} > {output.gff} 2> {log} && ln -sf {params.link_src} {output.link} && touch -h {output.link}"
 
 rule lr_star:
 	input:
@@ -779,13 +802,21 @@ rule lreads_all:
 	threads: 1
 	shell: "touch {output}"
 
-rule asm_collect_stats:
-	input: rules.asm_all.output
-	output: ASM_DIR+"/assembly.stats"
-	params: asms=ASM_DIR+"/output/*.stats"
-	threads: 1
-	message: "Collecting assembly statistics"
-	shell: "{ASM_COLLECT} {params.asms} > {output}"
+if len(TRANSCRIPT_ARRAY) > 0:
+    rule asm_collect_stats:
+        input: rules.asm_all.output
+        output: ASM_DIR+"/assembly.stats"
+        params: asms=ASM_DIR+"/output/*.stats"
+        threads: 1
+        message: "Collecting assembly statistics"
+        shell: "{ASM_COLLECT} {params.asms} > {output}"
+else:
+    rule mock_asm_collect_stats:
+        input: rules.asm_all.output
+        output: touch(ASM_DIR+"/assembly.stats")
+        params: asms=ASM_DIR+"/output/*.stats"
+        threads: 1
+        message: "Collecting assembly statistics"
 
 rule portcullis_prep:
 	input:	ref=REF,

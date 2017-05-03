@@ -193,8 +193,8 @@ def create_daijin_config(args, level="ERROR"):
     config["mikado"]["use_diamond"] = args.use_diamond
 
     final_config = config.copy()
-    check_config(config, logger)
-    assert "prot_db" in config["blastx"]
+    check_config(final_config, logger)
+    assert "prot_db" in final_config["blastx"]
 
     if args.cluster_config is not None:
         with open(args.cluster_config, "wb") as out:

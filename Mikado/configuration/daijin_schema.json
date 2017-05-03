@@ -187,7 +187,6 @@
     },
     "long_read_align_methods": {
       "type": "object",
-      "anyOf": [ "star", "gmap"],
       "additionalProperties": false,
       "properties": {
         "star": {

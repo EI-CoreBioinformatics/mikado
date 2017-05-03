@@ -1,3 +1,11 @@
+#Version 1.1 - "Prodigal"
+
+Changes in this release:
+
+- Mikado now accepts ORFs calculated by Prodigal instead of TransDecoder
+- By default, Daijin now uses **Prodigal and DIAMOND** instead of TransDecoder and BLAST. This should lead to massive speed-ups during the pipeline.
+- Changed 
+
 #Version 1.0.1
 
 BugFix release.

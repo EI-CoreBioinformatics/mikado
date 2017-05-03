@@ -8,11 +8,9 @@ import random
 import sys
 import tempfile
 import unittest
-
 import pkg_resources
 import pyfaidx
 import yaml
-
 import Mikado.daijin
 import Mikado.subprograms.configure
 from Mikado.configuration import configurator, daijin_configurator
@@ -370,8 +368,8 @@ class ConfigureCheck(unittest.TestCase):
         namespace.r2 = []
         namespace.samples = []
         namespace.strandedness = []
-        namespace.asm_methods = ["cufflinks"]
-        namespace.aligners = ["hisat"]
+        namespace.asm_methods = []
+        namespace.aligners = []
         namespace.modes = ["nosplit"]
         namespace.cluster_config = None
         namespace.scheduler = ""

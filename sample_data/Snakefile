@@ -17,21 +17,21 @@ zipDBs=["{0}.gz".format(db) for db in DBs]
 
 configname = "configuration.yaml"
 if not os.path.exists(configname):
-    command = "mikado configure --list list.txt --reference chr5.fas --mode permissive \
-        --scoring plants.yaml --junctions junctions.bed -bt {swiss} {configname}".format(configname=configname, swiss=swissprot)
+    command = "mikado configure --list list.txt --reference chr5.fas --mode permissive --daijin \
+        --scoring plants.yaml --junctions junctions.bed -bt {swiss} -bc 1 {configname}".format(configname=configname, swiss=swissprot)
     snake_logger.info("Creating the configuration file")
     snake_logger.info(command)
     subprocess.call(command, shell=True)
 
-loads = {"load": {}}
-for program in ["tophat", "gmap", "star",
-            "hisat", "samtools", "cufflinks",
-            "trinity", "stringtie",
-            "class", "transdecoder",
-            "portcullis", "mikado", "blast"]:
-            loads["load"][program] = "echo"
-with open(configname, "at") as _:
-     print(yaml.dump(loads), file=_)
+# loads = {"load": {}}
+# for program in ["tophat", "gmap", "star",
+#             "hisat", "samtools", "cufflinks",
+#             "trinity", "stringtie",
+#             "class", "transdecoder",
+#             "portcullis", "mikado", "blast"]:
+#             loads["load"][program] = "echo"
+# with open(configname, "at") as _:
+#      print(yaml.dump(loads), file=_)
 
 try:
     config = Mikado.configuration.configurator.to_json(configname)
@@ -42,7 +42,7 @@ except:
 configfile: "configuration.yaml"
 
 rule complete:
-    input: "compare.stats", "compare_subloci.stats", "compare_input.stats", "compare_monoloci.stats"
+    input: "compare.stats", "compare_subloci.stats", "compare_input.stats"  # , "compare_monoloci.stats"
     output: touch("finished.ok")
 
 rule test_json:
@@ -58,13 +58,6 @@ rule test_json:
         subprocess.call("gunzip -c chr5.fas.gz > chr5.fas", shell=True)
         # shell("touch {output}")
 
-rule prepare:
-    input: "class.gtf", "cufflinks.gtf", "stringtie.gtf", "trinity.gff3", "mikado.bed", rules.test_json.output[0], rules.test_json.output[1]
-    # log: config["prepare"]["files"]["log"]
-    output: gtf="mikado_prepared.gtf", fasta="mikado_prepared.fasta"
-    message: "mikado prepare --json-conf configuration.yaml"
-    shell: "mikado prepare --json-conf configuration.yaml"
-
 rule uncompress_blast:
     input: "{0}.gz".format(swissprot)
     output: swissprot
@@ -72,54 +65,71 @@ rule uncompress_blast:
     shell:
       "gzip -dc {input} > {output}"
 
-rule prepare_blast:
-    input: rules.uncompress_blast.output
-    output: "{}.pog".format(swissprot)
-    log: "blast_prepare.log"
-    message: "makeblastdb -in {input} -dbtype prot -parse_seqids > {log}"
-    shell:
-       "makeblastdb -in {input} -dbtype prot -parse_seqids > {log}"
+rule daijin:
+    input: "class.gtf", "cufflinks.gtf", "stringtie.gtf", "trinity.gff3", "mikado.bed", rules.test_json.output[0], rules.test_json.output[1], rules.uncompress_blast.output
+    output:
+        loci=os.path.join("Daijin", "5-mikado", "pick", "permissive", "mikado-permissive.loci.gff3"),
+        sub=os.path.join("Daijin", "5-mikado", "pick", "permissive", "mikado.subloci.gff3"),
+        # mono=os.path.join("Daijin", "5-mikado", "pick", "permissive", "mikado.monoloci.gff3"),
+        prep=os.path.join("Daijin", "5-mikado", "mikado_prepared.gtf")
+    message: "daijin mikado --nolock -nd configuration.yaml"
+    shell: "daijin mikado -nd configuration.yaml"
 
-rule blast_complete:
-    input: rules.prepare.output, rules.prepare_blast.output
-    output: xml="mikado.blast.xml.gz"
-    threads: 10
-    log: "blast.log"
-    params:
-        prefix="mikado",
-        gzip_command="sed '/^$/d' | gzip -c - > {}".format("mikado.blast.xml.gz"),
-        command="blastx -max_target_seqs 5 -num_threads 10 -query {query} -outfmt 5 -db {db} -evalue 0.000001 2> blast.log".format(query=rules.prepare.output.fasta, db=rules.uncompress_blast.output)
-    message: "{params.command} | {params.gzip_command}"
-    shell: "{params.command} | {params.gzip_command}"
+# rule prepare:
+#     input: "class.gtf", "cufflinks.gtf", "stringtie.gtf", "trinity.gff3", "mikado.bed", rules.test_json.output[0], rules.test_json.output[1]
+#     # log: config["prepare"]["files"]["log"]
+#     output: gtf="mikado_prepared.gtf", fasta="mikado_prepared.fasta"
+#     message: "mikado prepare --json-conf configuration.yaml"
+#     shell: "mikado prepare --json-conf configuration.yaml"
 
-rule prodigal:
-     input: rules.prepare.output.fasta
-     output: prod_gff3="mikado.prodigal.gff3"
-     threads: 1
-     log: "prodigal.log"
-     shell: "prodigal -f gff -g 1 -i {input} -o {output.prod_gff3} 2> {log} > {log}"
+# rule prepare_blast:
+#     input: rules.uncompress_blast.output
+#     output: "{}.pog".format(swissprot)
+#     log: "blast_prepare.log"
+#     message: "makeblastdb -in {input} -dbtype prot -parse_seqids > {log}"
+#     shell:
+#        "makeblastdb -in {input} -dbtype prot -parse_seqids > {log}"
 
-rule serialise:
-    input:
-        xml=rules.blast_complete.output.xml,
-        orfs=rules.prodigal.output.prod_gff3
-    log: config["serialise"]["files"]["log"]
-    output: touch("serialised.ok")  #, config["db_settings"]["db"]
-    threads: 10
-    message: """mikado serialise -p {threads} --json-conf {configname} --xml {input.xml} \
-        --orfs {input.orfs} --blast_targets {swissprot} --force"""
-    shell:
-        """mikado serialise -p {threads} --json-conf {configname} --xml {input.xml} \
-        --orfs {input.orfs} --blast_targets {swissprot} --force"""
+# rule blast_complete:
+#     input: rules.prepare.output, rules.prepare_blast.output
+#     output: xml="mikado.blast.xml.gz"
+#     threads: 10
+#     log: "blast.log"
+#     params:
+#         prefix="mikado",
+#         gzip_command="sed '/^$/d' | gzip -c - > {}".format("mikado.blast.xml.gz"),
+#         command="blastx -max_target_seqs 5 -num_threads 10 -query {query} -outfmt 5 -db {db} -evalue 0.000001 2> blast.log".format(query=rules.prepare.output.fasta, db=rules.uncompress_blast.output)
+#     message: "{params.command} | {params.gzip_command}"
+#     shell: "{params.command} | {params.gzip_command}"
 
-rule pick:
-    params: prefix="all"
-    input: configuration=configname, gtf="mikado_prepared.gtf", check="serialised.ok"
-    log: config["pick"]["files"]["log"]
-    threads: 10
-    output: "mikado.loci.gff3", "mikado.subloci.gff3", "mikado.monoloci.gff3"
-    message: "mikado pick --json-conf configuration.yaml -lv INFO --subloci_out mikado.subloci.gff3 --monoloci_out mikado.monoloci.gff3 -p {threads}"
-    shell: "mikado pick --json-conf configuration.yaml -lv INFO --subloci_out mikado.subloci.gff3 --monoloci_out mikado.monoloci.gff3 -p {threads} --pad"
+# rule prodigal:
+#      input: rules.prepare.output.fasta
+#      output: prod_gff3="mikado.prodigal.gff3"
+#      threads: 1
+#      log: "prodigal.log"
+#      shell: "prodigal -f gff -g 1 -i {input} -o {output.prod_gff3} 2> {log} > {log}"
+
+# rule serialise:
+#     input:
+#         xml=rules.blast_complete.output.xml,
+#         orfs=rules.prodigal.output.prod_gff3
+#     log: config["serialise"]["files"]["log"]
+#     output: touch("serialised.ok")  #, config["db_settings"]["db"]
+#     threads: 10
+#     message: """mikado serialise -p {threads} --json-conf {configname} --xml {input.xml} \
+#         --orfs {input.orfs} --blast_targets {swissprot} --force"""
+#     shell:
+#         """mikado serialise -p {threads} --json-conf {configname} --xml {input.xml} \
+#         --orfs {input.orfs} --blast_targets {swissprot} --force"""
+
+# rule pick:
+#     params: prefix="all"
+#     input: configuration=configname, gtf="mikado_prepared.gtf", check="serialised.ok"
+#     log: config["pick"]["files"]["log"]
+#     threads: 10
+#     output: "mikado.loci.gff3", "mikado.subloci.gff3", "mikado.monoloci.gff3"
+#     message: "mikado pick --json-conf configuration.yaml -lv INFO --subloci_out mikado.subloci.gff3 --monoloci_out mikado.monoloci.gff3 -p {threads}"
+#     shell: "mikado pick --json-conf configuration.yaml -lv INFO --subloci_out mikado.subloci.gff3 --monoloci_out mikado.monoloci.gff3 -p {threads} --pad"
 
 rule index_reference:
     input: reference="reference.gff3"
@@ -129,32 +139,32 @@ rule index_reference:
     shell: """mikado compare -r {input[reference]} --index --log {log}"""
 
 rule compare:
-    input: reference="reference.gff3", prediction="mikado.loci.gff3", midx=rules.index_reference.output
+    input: reference="reference.gff3", prediction=rules.daijin.output.loci, midx=rules.index_reference.output
     output: "compare.stats", "compare.tmap", "compare.refmap"
     log: "compare.log"
     message: """mikado compare -r {input[reference]} -p {input[prediction]} -o compare -l {log}"""
     shell: """mikado compare -r {input[reference]} -p {input[prediction]} -o compare -l {log}"""
     
 rule compare_input:
-    input: reference="reference.gff3", prediction="mikado_prepared.gtf", midx=rules.index_reference.output
+    input: reference="reference.gff3", prediction=rules.daijin.output.prep, midx=rules.index_reference.output
     output: "compare_input.stats", "compare_input.tmap", "compare_input.refmap"
     log: "compare_input.log"
     message: """mikado compare -r {input[reference]} -p {input[prediction]} -o compare_input -l {log}"""
     shell: """mikado compare -r {input[reference]} -p {input[prediction]} -o compare_input -l {log}"""
 
 rule compare_subloci:
-    input: reference="reference.gff3", prediction="mikado.subloci.gff3", midx=rules.index_reference.output
+    input: reference="reference.gff3", prediction=rules.daijin.output.sub, midx=rules.index_reference.output
     output: "compare_subloci.stats", "compare_subloci.tmap", "compare_subloci.refmap"
     log: "compare_subloci.log"
     message: """mikado compare -r {input[reference]} -p {input[prediction]} -o compare_subloci -l {log}"""
     shell: """mikado compare -r {input[reference]} -p {input[prediction]} -o compare_subloci -l {log}"""
 
-rule compare_monoloci:
-    input: reference="reference.gff3", prediction="mikado.monoloci.gff3", midx=rules.index_reference.output
-    output: "compare_monoloci.stats", "compare_monoloci.tmap", "compare_monoloci.refmap"
-    log: "compare_subloci.log"
-    message: """mikado compare -r {input[reference]} -p {input[prediction]} -o compare_monoloci -l {log}"""
-    shell: """mikado compare -r {input[reference]} -p {input[prediction]} -o compare_monoloci -l {log}"""
+# rule compare_monoloci:
+#     input: reference="reference.gff3", prediction="mikado.monoloci.gff3", midx=rules.index_reference.output
+#     output: "compare_monoloci.stats", "compare_monoloci.tmap", "compare_monoloci.refmap"
+#     log: "compare_subloci.log"
+#     message: """mikado compare -r {input[reference]} -p {input[prediction]} -o compare_monoloci -l {log}"""
+#     shell: """mikado compare -r {input[reference]} -p {input[prediction]} -o compare_monoloci -l {log}"""
 
 
 rule clean:

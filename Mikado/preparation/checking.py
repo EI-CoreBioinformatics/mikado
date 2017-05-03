@@ -178,9 +178,9 @@ class CheckingProcess(multiprocessing.Process):
 
     def __getstate__(self):
         state = self.__dict__.copy()
-        del state["fasta"]
-        # del state["handler"]
-        del state["logger"]
+        for key in ("fasta", "logger", "_log_handler"):
+            if key in state:
+                del state[key]
         return state
 
     def __setstate__(self, state):

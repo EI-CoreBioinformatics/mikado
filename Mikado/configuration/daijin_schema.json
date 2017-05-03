@@ -131,28 +131,6 @@
     },
     "align_methods": {
       "type": "object",
-      "anyOf": [
-        {
-          "required": [
-            "tophat"
-          ]
-        },
-        {
-          "required": [
-            "hisat"
-          ]
-        },
-        {
-          "required": [
-            "star"
-          ]
-        },
-        {
-          "required": [
-            "gsnap"
-          ]
-        }
-      ],
       "additionalProperties": false,
       "properties": {
         "tophat": {
@@ -207,28 +185,6 @@
     },
     "asm_methods": {
       "type": "object",
-      "anyOf": [
-        {
-          "required": [
-            "cufflinks"
-          ]
-        },
-        {
-          "required": [
-            "stringtie"
-          ]
-        },
-        {
-          "required": [
-            "class"
-          ]
-        },
-        {
-          "required": [
-            "trinity"
-          ]
-        }
-      ],
       "additionalProperties": false,
       "properties": {
         "stringtie": {

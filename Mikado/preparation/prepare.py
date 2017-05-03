@@ -283,17 +283,22 @@ def load_exon_lines(args, shelve_names, logger, min_length=0):
     else:
         logger.info("Starting to load lines from %d files (using %d processes)",
                     len(args.json_conf["prepare"]["files"]["gff"]), threads)
-        submission_queue = multiprocessing.Queue(-1)
+        submission_queue = multiprocessing.JoinableQueue(-1)
 
-        working_processes = [AnnotationParser(
-            submission_queue,
-            args.logging_queue,
-            _ + 1,
-            log_level=args.level,
-            min_length=min_length,
-            strip_cds=strip_cds) for _ in range(threads)]
+        working_processes = []
+        # working_processes = [ for _ in range(threads)]
 
-        [_.start() for _ in working_processes]
+        for num in range(threads):
+            proc = AnnotationParser(submission_queue,
+                                    args.logging_queue,
+                                    num + 1,
+                                    log_level=args.level,
+                                    min_length=min_length,
+                                    strip_cds=strip_cds)
+            proc.start()
+            working_processes.append(proc)
+
+        # [_.start() for _ in working_processes]
         for new_shelf, label, strand_specific, gff_name in zip(
                 shelve_names,
                 args.json_conf["prepare"]["files"]["labels"],
@@ -378,7 +383,7 @@ def prepare(args, logger):
     if args.json_conf["prepare"]["single"] is False and args.json_conf["prepare"]["procs"] > 1:
         multiprocessing.set_start_method(args.json_conf["multiprocessing_method"],
                                          force=True)
-        args.logging_queue = multiprocessing.Queue(-1)
+        args.logging_queue = multiprocessing.JoinableQueue(-1)
         log_queue_handler = logging.handlers.QueueHandler(args.logging_queue)
         log_queue_handler.setLevel(logging.DEBUG)
         # logger.addHandler(log_queue_handler)

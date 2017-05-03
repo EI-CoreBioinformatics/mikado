@@ -8,7 +8,7 @@ import yaml
 import jsonschema
 from pkg_resources import resource_stream, resource_filename
 from .configurator import extend_with_default, merge_dictionaries
-from ..subprograms.configure import print_config, check_has_requirements
+from . import print_config, check_has_requirements
 from ..exceptions import InvalidJson
 from ..utilities.log_utils import create_default_logger
 import sys
@@ -113,7 +113,7 @@ def create_daijin_base_config():
     return new_dict
 
 
-def create_daijin_config(args, level="ERROR"):
+def create_daijin_config(args, level="ERROR", piped=False):
 
     logger = create_default_logger("daijin_config", level=level)
 
@@ -190,7 +190,8 @@ def create_daijin_config(args, level="ERROR"):
     config["blastx"]["prot_db"] = args.prot_db
     assert "prot_db" in config["blastx"]
 
-    config["mikado"]["use_diamond"] = args.use_diamond
+    config["mikado"]["use_diamond"] = (not args.use_blast)
+    config["mikado"]["use_prodigal"] = (not args.use_transdecoder)
 
     final_config = config.copy()
     check_config(final_config, logger)
@@ -201,10 +202,13 @@ def create_daijin_config(args, level="ERROR"):
             for line in resource_stream("Mikado", os.path.join("daijin", "hpc.yaml")):
                 out.write(line)
 
-    if args.out != sys.stdout and args.out.name.endswith("json"):
-        json.dump(final_config, args.out)
+    if piped is True:
+        return final_config
     else:
-        print_config(yaml.dump(final_config, default_flow_style=False), args.out)
+        if args.out != sys.stdout and args.out.name.endswith("json"):
+            json.dump(final_config, args.out)
+        else:
+            print_config(yaml.dump(final_config, default_flow_style=False), args.out)
 
-    args.out.close()
+        args.out.close()
     return

@@ -34,6 +34,7 @@ from .transcript_methods.finalizing import finalize
 from .transcript_methods.printing import create_lines_cds
 from .transcript_methods.printing import create_lines_no_cds, create_lines_bed, as_bed12
 from ..utilities.intervaltree import Interval, IntervalTree
+import numpy
 
 
 class Namespace:
@@ -266,6 +267,7 @@ class Transcript:
         self.__exons = set()
         self.__parent = []
         self.__combined_cds = []
+        self.__combined_cds_length = 0
         self.__selected_cds = []
         self.__cdna_length = None
         self._combined_cds_introns = set()
@@ -719,7 +721,7 @@ class Transcript:
                 new_row.block_starts = [row.thick_start]
                 new_row.block_sizes = [cds_len]
                 new_row.phase = phase
-                self.logger.debug(new_row)
+                # self.logger.debug(new_row)
 
                 if (cds_len - phase) % 3 != 0 and cds_end not in (self.start, self.end):
                     raise AssertionError("Invalid CDS length for {}:\n{}\n{}".format(self.id,
@@ -943,6 +945,7 @@ class Transcript:
         self.internal_orfs = []
         self.__internal_orf_transcripts = []
         self.combined_utr = []
+        self.__cdna_length = None
         self.finalized = False
 
     def reverse_strand(self):
@@ -1422,13 +1425,19 @@ class Transcript:
         """
 
         # Non-sense to calculate the maximum CDS for transcripts without it
-        if len(self.combined_cds) == 0:
-            self.__max_internal_orf_length = 0
-            self.selected_internal_orf_index = None
-            return tuple([])
+        index = self.selected_internal_orf_index
+        if index is not None:
+            return self.internal_orfs[index]
         else:
-            assert self.selected_internal_orf_index is not None
-            return self.internal_orfs[self.selected_internal_orf_index]
+            return tuple([])
+
+        # if self.combined_cds_length == 0:
+        #     # self.__max_internal_orf_length = 0
+        #     # self.selected_internal_orf_index = None
+        #     return tuple([])
+        # else:
+        #     assert self.selected_internal_orf_index is not None
+        #     return self.internal_orfs[self.selected_internal_orf_index]
 
     @property
     def selected_internal_orf_cds(self):
@@ -1516,12 +1525,21 @@ class Transcript:
         """
         if index is None:
             self.__max_internal_orf_index = index
+            self.__max_internal_orf_length = 0
+            self.__selected_cds = []
             return
         if not isinstance(index, int):
             raise TypeError()
         if index < 0 or index >= len(self.internal_orfs):
             raise IndexError("No ORF corresponding to this index: {0}".format(index))
         self.__max_internal_orf_index = index
+        selected_cds = [segment[1] for segment in self.selected_internal_orf if
+                               segment[0] == "CDS"]
+        self.__selected_cds = selected_cds
+        ar = numpy.array(list(zip(*[segment[1] for segment in self.selected_internal_orf if
+                               segment[0] == "CDS"])))
+        self.__max_internal_orf_length = int(numpy.subtract(ar[1], ar[0] - 1).sum())
+
 
     @property
     def internal_orf_lengths(self):
@@ -1671,6 +1689,10 @@ class Transcript:
         #     else:
         #         assert isinstance(combined[0], intervaltree.Interval)
 
+        if len(combined) > 0:
+            ar = numpy.array(list(zip(*combined)))
+            self.__combined_cds_length = int(numpy.subtract(ar[1], ar[0] - 1).sum())
+
         self.__combined_cds = combined
 
     @property
@@ -1745,11 +1767,12 @@ class Transcript:
     def selected_cds(self):
         """This property return the CDS exons of the ORF selected as best
          inside the cDNA, in the form of duplices (start, end)"""
-        if len(self.combined_cds) == 0:
-            self.__selected_cds = []
-        else:
-            self.__selected_cds = [segment[1] for segment in self.selected_internal_orf if
-                                   segment[0] == "CDS"]
+
+        # if len(self.combined_cds) == 0:
+        #     self.__selected_cds = []
+        # else:
+        #     self.__selected_cds = [segment[1] for segment in self.selected_internal_orf if
+        #                            segment[0] == "CDS"]
 
         return self.__selected_cds
 
@@ -1852,7 +1875,7 @@ index {3}, internal ORFs: {4}".format(
 
     def __calculate_segment_tree(self):
 
-        self.__segmenttree = IntervalTree.from_intervals(
+        self.__segmenttree = IntervalTree.from_tuples(
                 [Interval(*_, value="exon") for _ in self.exons] + [Interval(*_, value="intron") for _ in self.introns]
             )
 
@@ -1888,10 +1911,13 @@ index {3}, internal ORFs: {4}".format(
     @Metric
     def combined_cds_length(self):
         """This property return the length of the CDS part of the transcript."""
-        c_length = sum([c[1] - c[0] + 1 for c in self.combined_cds])
-        if len(self.combined_cds) > 0:
-            assert c_length > 0
-        return c_length
+
+        # if self.__combined_cds_length == 0 and len(self.combined_cds) > 0:
+        #     ar = numpy.array(list(*zip(self.combined_cds)))
+        #     c_length = int(numpy.subtract(ar[1], ar[0] - 1).sum())
+        #     assert c_length > 0
+
+        return self.__combined_cds_length
 
     combined_cds_length.category = "CDS"
     combined_cds_length.rtype = "int"
@@ -1947,10 +1973,14 @@ index {3}, internal ORFs: {4}".format(
     @Metric
     def cdna_length(self):
         """This property returns the length of the transcript."""
-        try:
-            self.__cdna_length = sum([e[1] - e[0] + 1 for e in self.exons])
-        except TypeError:
-            raise TypeError(self.exons)
+        # try:
+        #     self.__cdna_length = sum([e[1] - e[0] + 1 for e in self.exons])
+        # except TypeError:
+        #     raise TypeError(self.exons)
+        if self.__cdna_length is None:
+            ar = numpy.array(list(zip(*self.exons)))
+            self.__cdna_length = int(numpy.subtract(ar[1], ar[0] -1).sum())
+
         return self.__cdna_length
 
     cdna_length.category = "cDNA"
@@ -1968,13 +1998,12 @@ index {3}, internal ORFs: {4}".format(
     def selected_cds_length(self):
         """This property calculates the length of the CDS selected as best inside
         the cDNA."""
-        self.finalize()
-        if len(self.combined_cds) == 0:
-            self.__max_internal_orf_length = 0
-        else:
-            self.__max_internal_orf_length = sum(
-                _[1][1] - _[1][0] + 1 for _ in self.selected_internal_orf if _[0] == "CDS")
-
+        # self.finalize()
+        # if self.combined_cds_length == 0:
+        #     self.__max_internal_orf_length = 0
+        # else:
+        #     self.__max_internal_orf_length = sum(
+        #         _[1][1] - _[1][0] + 1 for _ in self.selected_internal_orf if _[0] == "CDS")
         return self.__max_internal_orf_length
 
     selected_cds_length.category = "CDS"

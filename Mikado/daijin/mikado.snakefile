@@ -161,44 +161,60 @@ rule blast_all:
 	output: BLAST_DIR + "/blastx.all.done"
 	shell: "touch {output}"
 
-rule transdecoder_lo:
-	input: rules.mikado_prepare.output.fa
-	output: TDC_DIR+"/transcripts.fasta.transdecoder_dir/longest_orfs.gff3"
-	params: outdir=TDC_DIR_FULL,
-		tr="transcripts.fasta",
-		tr_in=MIKADO_DIR_FULL+"/mikado_prepared.fasta",
-		load=loadPre(config["load"]["transdecoder"]),
-		minprot=config["transdecoder"]["min_protein_len"]
-	log: TDC_DIR_FULL+"/transdecoder.longorf.log",
-		# ss="-S" if MIKADO_STRAND else ""
-	threads: 1
-	message: "Running transdecoder longorf on Mikado prepared transcripts: {input}"
-	run:
-	    if config.get("transdecoder", dict()).get("execute", True) is True:
-	        shell("{params.load} cd {params.outdir} && ln -sf {params.tr_in} {params.tr} && TransDecoder.LongOrfs -m {params.minprot} -t {params.tr} > {log} 2>&1")
-	    else:
-	        shell("mkdir -p $(dirname {output}) && touch {output}")
+if config.get("mikado", dict()).get("use_prodigal", False) is False:
+    rule transdecoder_lo:
+        input: rules.mikado_prepare.output.fa
+        output: TDC_DIR+"/transcripts.fasta.transdecoder_dir/longest_orfs.gff3"
+        params:
+            outdir=TDC_DIR_FULL,
+            tr="transcripts.fasta",
+            tr_in=MIKADO_DIR_FULL+"/mikado_prepared.fasta",
+            load=loadPre(config["load"]["transdecoder"]),
+            minprot=config["transdecoder"]["min_protein_len"]
+        log: TDC_DIR_FULL+"/transdecoder.longorf.log",
+            # ss="-S" if MIKADO_STRAND else ""
+        threads: 1
+        message: "Running transdecoder longorf on Mikado prepared transcripts: {input}"
+        run:
+            if config.get("transdecoder", dict()).get("execute", True) is True:
+                shell("{params.load} cd {params.outdir} && ln -sf {params.tr_in} {params.tr} && TransDecoder.LongOrfs -m {params.minprot} -t {params.tr} > {log} 2>&1")
+            else:
+                shell("mkdir -p $(dirname {output}) && touch {output}")
 
-rule transdecoder_pred:
-	input: 
-		mikado=rules.mikado_prepare.output.fa,
-		trans=rules.transdecoder_lo.output		
-	output: TDC_DIR+"/transcripts.fasta.transdecoder.bed"
-	params: outdir=TDC_DIR_FULL,
-		tr_in=MIKADO_DIR_FULL+"/mikado_prepared.fasta",
-		lolog=TDC_DIR_FULL+"/transdecoder.longorf.log",
-		plog=TDC_DIR_FULL+"/transdecoder.predict.log",
-		tr="transcripts.fasta",
-		load=loadPre(config["load"]["transdecoder"])
-		# ss="-S" if MIKADO_STRAND else ""
-	log: TDC_DIR_FULL+"/transdecoder.predict.log"
-	threads: THREADS
-	message: "Running transdecoder predict on Mikado prepared transcripts: {input}"
-	run:
-	    if config.get("transdecoder", dict()).get("execute", True) is True:
-	        shell("{params.load} cd {params.outdir} && TransDecoder.Predict -t {params.tr} --cpu {threads} > {log} 2>&1")
-	    else:
-	        shell("mkdir -p $(dirname {output}) && touch {output}")
+    rule transdecoder_pred:
+        input:
+            mikado=rules.mikado_prepare.output.fa,
+            trans=rules.transdecoder_lo.output
+        output: TDC_DIR+"/transcripts.fasta.transdecoder.bed"
+        params: outdir=TDC_DIR_FULL,
+            tr_in=MIKADO_DIR_FULL+"/mikado_prepared.fasta",
+            lolog=TDC_DIR_FULL+"/transdecoder.longorf.log",
+            plog=TDC_DIR_FULL+"/transdecoder.predict.log",
+            tr="transcripts.fasta",
+            load=loadPre(config["load"]["transdecoder"])
+            # ss="-S" if MIKADO_STRAND else ""
+        log: TDC_DIR_FULL+"/transdecoder.predict.log"
+        threads: THREADS
+        message: "Running transdecoder predict on Mikado prepared transcripts: {input}"
+        run:
+            if config.get("transdecoder", dict()).get("execute", True) is True:
+                shell("{params.load} cd {params.outdir} && TransDecoder.Predict -t {params.tr} --cpu {threads} > {log} 2>&1")
+            else:
+                shell("mkdir -p $(dirname {output}) && touch {output}")
+else:
+    rule prodigal:
+        input: rules.mikado_prepare.output.fa
+        output: TDC_DIR+"/transcripts.fasta.prodigal.gff3"
+        params:
+            outdir=TDC_DIR_FULL,
+            tr="transcripts.fasta",
+            tr_in=MIKADO_DIR_FULL+"/mikado_prepared.fasta",
+            load=loadPre(config["load"]["prodigal"]),
+            minprot=config["transdecoder"]["min_protein_len"]
+        log: TDC_DIR_FULL+"/prodigal.log"
+        threads: 1
+        message: "Running PRODIGAL on Mikado prepared transcripts: {input}"
+        shell: "{params.load} mkdir -p {params.outdir} && cd {params.outdir} && prodigal -f gff -g 1 -i {input} -o {output} > {log} 2>&1"
 
 rule genome_index:
 	input: os.path.abspath(REF)

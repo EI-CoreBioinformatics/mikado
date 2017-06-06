@@ -1,5 +1,7 @@
 #Version 1.1 - "Prodigal"
 
+Highlights for this release are the swithing by default to Prodigal in lieu of TransDecoder and to DIAMOND instead of NCBI BLASTX. The rationale behind the change is that the two former default programs scale poorly with the size of datasets, as neither was designed to maintain a good execution speed with potentially million sequences. Prodigal and DIAMOND fare much better with big datasets, and do speed up significantly the execution of the whole Daijin pipeline.
+
 Changes in this release:
 
 - Mikado now accepts ORFs calculated by Prodigal, in GFF3 format, instead of only those by TransDecoder in BED format.
@@ -7,7 +9,7 @@ Changes in this release:
 - Improved the algorithm for finding retained introns, using a graph structure instead of potentially checking against every other transcript in the locus.
 - Mikado configure now has a new flag, "--daijin", which instructs the program to create a Daijin-compatible configuration file, rather than a Mikado-only one.
 - Fixed some bugs in Daijin regarding the handling of Long Reads.
-- Fixed a bugs in Daijin regarding the calculation of Trinity parameters - previously, Daijin could potentially ask Trinity for parameters for N times, where N is the number of required assemblies.
+- Fixed a bugs in Daijin regarding the calculation of Trinity parameters - previously, Daijin could potentially ask Trinity for parameters for N times, where N is the number of required assemblies, lengthening the startup time.
 - Solved a bug that created incompatibility with BioPython >= 1.69
 
 #Version 1.0.1

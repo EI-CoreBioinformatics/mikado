@@ -26,11 +26,13 @@ from ..utilities.log_utils import create_default_logger, formatter
 import magic
 import sqlite3
 try:
-    import ujson as json
+    # import ujson as json
+    import json as json
 except ImportError:
     import json
 import gzip
 import itertools
+from ..utilities import NumpyEncoder
 
 __author__ = 'Luca Venturini'
 
@@ -463,7 +465,8 @@ def create_index(positions, genes, index_name):
     cursor.execute("CREATE TABLE genes (gid text, json blob)")
     cursor.execute("CREATE INDEX gid_idx on genes(gid)")
     for gid, gobj in genes.items():
-        cursor.execute("INSERT INTO genes VALUES (?, ?)", (gid, json.dumps(gobj.as_dict())))
+        cursor.execute("INSERT INTO genes VALUES (?, ?)", (gid, json.dumps(gobj.as_dict(),
+                                                                           cls=NumpyEncoder)))
     cursor.close()
     conn.commit()
     conn.close()

@@ -9,6 +9,11 @@ from . import dbutils
 from . import log_utils
 import collections
 import gzip
+import numpy
+try:
+    import simplejson as json
+except ImportError:
+    import json
 from itertools import zip_longest
 from .overlap import overlap
 # from ..parsers import to_gff
@@ -203,3 +208,16 @@ def merge_ranges(ranges):
             # Segments adjacent or overlapping: merge.
             current_stop = max(current_stop, stop)
     yield current_start, current_stop
+
+
+class NumpyEncoder(json.JSONEncoder):
+    """Necessary to avoid crashes with numpy integers"""
+    def default(self, obj):
+        if isinstance(obj, numpy.integer):
+            return int(obj)
+        elif isinstance(obj, numpy.floating):
+            return float(obj)
+        elif isinstance(obj, numpy.ndarray):
+            return obj.tolist()
+        else:
+            return super(NumpyEncoder, self).default(obj)

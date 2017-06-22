@@ -5,13 +5,14 @@ Highlights for this release are the swithing by default to Prodigal in lieu of T
 Changes in this release:
 
 - Mikado now accepts ORFs calculated by Prodigal, in GFF3 format, instead of only those by TransDecoder in BED format.
-- By default, Daijin now uses **Prodigal and DIAMOND** instead of TransDecoder and BLAST. This should lead to massive speed-ups during the pipeline.
+- By default, Daijin now uses **Prodigal and DIAMOND** instead of TransDecoder and BLAST. This should lead to massive speed-ups during the pipeline, although at the cost of slightly reduced accuracy.
 - Improved the algorithm for finding retained introns, using a graph structure instead of potentially checking against every other transcript in the locus.
 - Mikado configure now has a new flag, "--daijin", which instructs the program to create a Daijin-compatible configuration file, rather than a Mikado-only one.
 - Fixed some bugs in Daijin regarding the handling of Long Reads.
-- Fixed a bugs in Daijin regarding the calculation of Trinity parameters - previously, Daijin could potentially ask Trinity for parameters for N times, where N is the number of required assemblies, lengthening the startup time.
+- Fixed a bug in Daijin regarding the calculation of Trinity parameters - previously, Daijin could potentially ask Trinity for parameters for N times, where N is the number of required assemblies, lengthening the startup time.
 - Solved a bug that created incompatibility with BioPython >= 1.69
-
+- Switched to simplejson to solve a bug during the creation of indices for mikado compare.
+	
 #Version 1.0.1
 
 BugFix release.

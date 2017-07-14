@@ -37,7 +37,7 @@ if "long_reads" in config:
 
 # Required reference fields
 REF = config["reference"]["genome"]
-MIN_INTRON = config["reference"]["min_intron"]
+MIN_INTRON = max(config["reference"]["min_intron"], 20)
 MAX_INTRON = config["reference"]["max_intron"]
 
 # Optional reference fields
@@ -377,7 +377,7 @@ def gmap_intron_lengths(command, MAX_INTRON):
     cmd = "{} gmap --help".format(command)
     output = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL).stdout.read().decode()
     if "--max-intronlength-middle" in output:
-        return "--max-intronlength-middle={mi} --max-intronlength-ends={mi}".format(MAX_INTRON)
+        return "--max-intronlength-middle={mi} --max-intronlength-ends={mi}".format(mi=MAX_INTRON)
     else:
         return "--intronlength={}".format(MAX_INTRON)
 
@@ -874,7 +874,10 @@ rule portcullis_merge:
 	message: "Taking intersection of portcullis results"
 	run:
 		if RUN_PORTCULLIS:
-			shell("{params.load} junctools set --prefix=portcullis_merged --output={output.bed} --operator=mean union {input} > {log} || touch {output.bed}")
+		    if len(input) == 1:
+		        shell("cat {input} > {output}")
+		    else:
+			    shell("{params.load} junctools set --prefix=portcullis_merged --output={output.bed} --operator=mean union {input} > {log} || touch {output.bed}")
 		else:
 			shell("touch {output}")
 

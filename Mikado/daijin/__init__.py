@@ -289,6 +289,14 @@ def assemble_transcripts_pipeline(args):
     if args.threads is not None:
         additional_config["threads"] = args.threads
 
+    cluster_var = None
+    if args.no_drmaa is True and sub_cmd:
+        cluster_var = sub_cmd + res_cmd
+
+    drmaa_var = None
+    if args.no_drmaa is False and res_cmd:
+        drmaa_var = res_cmd
+
     snakemake.snakemake(
         pkg_resources.resource_filename("Mikado",
                                         os.path.join("daijin", "tr.snakefile")),
@@ -299,8 +307,8 @@ def assemble_transcripts_pipeline(args):
         config=additional_config,
         workdir=CWD,
         cluster_config=args.hpc_conf,
-        cluster=sub_cmd + res_cmd if args.no_drmaa else None,
-        drmaa=res_cmd if (not args.no_drmaa and res_cmd is not None) else None,
+        cluster=cluster_var,
+        drmaa=drmaa_var,
         printshellcmds=True,
         snakemakepath=shutil.which("snakemake"),
         stats="daijin_tr_" + NOW + ".stats",
@@ -353,6 +361,14 @@ def mikado_pipeline(args):
     if args.threads is not None:
         additional_config["threads"] = args.threads
 
+    cluster_var = None
+    if args.no_drmaa is True and sub_cmd:
+        cluster_var = sub_cmd + res_cmd
+
+    drmaa_var = None
+    if args.no_drmaa is False and res_cmd:
+        drmaa_var = res_cmd
+
     snakemake.snakemake(
         pkg_resources.resource_filename("Mikado",
                                         os.path.join("daijin", "mikado.snakefile")),
@@ -364,8 +380,8 @@ def mikado_pipeline(args):
         config=additional_config,
         workdir=CWD,
         cluster_config=args.hpc_conf,
-        cluster=sub_cmd if args.no_drmaa else None,
-        drmaa=res_cmd if (not args.no_drmaa and res_cmd is not None) else None,
+        cluster=cluster_var,
+        drmaa=drmaa_var,
         printshellcmds=True,
         snakemakepath=shutil.which("snakemake"),
         stats="daijin_tr_" + NOW + ".stats",

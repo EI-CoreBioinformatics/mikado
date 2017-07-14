@@ -115,7 +115,10 @@ def create_config(args):
             namespace.modes = args.mode[:]
         else:
             namespace.modes = ["permissive"]
-        namespace.prot_db = args.blast_targets[:]
+        if args.blast_targets:
+            namespace.prot_db = args.blast_targets[:]
+        else:
+            namespace.prot_db = []
         namespace.cluster_config = None
         namespace.scheduler = ""
         namespace.flank = None
@@ -142,13 +145,12 @@ def create_config(args):
             mikado_conf = dict((key, val) for key, val in external_conf["mikado"].items() if key in config)
             config = configurator.merge_dictionaries(config, mikado_conf)
         # Leave all other values, including those in a "mikado" section that are not also present in the default config
-        for key in config:
-            if key in external_conf:
-                del external_conf[key]
-            if "mikado" in external_conf and isinstance(external_conf["mikado"], dict):
-                __mikado_keys = [key for key in external_conf["mikado"] if key in config]
-                for key in __mikado_keys:
-                    del external_conf["mikado"][key]
+
+        # for key in config:
+        #     if "mikado" in external_conf and isinstance(external_conf["mikado"], dict):
+        #         __mikado_keys = [key for key in external_conf["mikado"] if key in config]
+        #         for key in __mikado_keys:
+        #             del external_conf["mikado"][key]
         config = configurator.merge_dictionaries(config, external_conf)
 
     if args.reference is not None:

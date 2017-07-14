@@ -867,7 +867,12 @@ class LociProcesser(Process):
         """Start polling the queue, analyse the loci, and send them to the printer process."""
         self.logger.debug("Starting to parse data for {0}".format(self.name))
         current_chrom = None
-        conn = sqlite3.connect(os.path.join(self._tempdir, "temp_store.db"))
+
+        # Read-only connection
+
+        conn = sqlite3.connect("file:{}?mode=ro".format(os.path.join(self._tempdir, "temp_store.db")),
+                               uri=True, isolation_level="DEFERRED", timeout=60,
+                               check_same_thread=False)
         cursor = conn.cursor()
 
         while True:

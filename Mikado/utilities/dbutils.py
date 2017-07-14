@@ -60,7 +60,6 @@ def create_connector(json_conf, logger=None):
             logger.debug("Connecting to %s",
                          json_conf["pick"]["run_options"]["shm_db"])
 
-
             func = sqlite3.connect(
                 database=json_conf["pick"]["run_options"]["shm_db"],
                 check_same_thread=False, isolation_level=None)

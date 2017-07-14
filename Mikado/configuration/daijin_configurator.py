@@ -185,12 +185,17 @@ def create_daijin_config(args, level="ERROR", piped=False):
     if args.flank is not None:
         config["mikado"]["pick"]["clustering"]["flank"] = args.flank
     if args.intron_range is not None:
+        args.intron_range = sorted(args.intron_range)
         config["mikado"]["pick"]["run_options"]["intron_range"] = args.intron_range
+        config["reference"]["min_intron"], config["reference"]["max_intron"] = args.intron_range
 
     config["blastx"]["prot_db"] = args.prot_db
     assert "prot_db" in config["blastx"]
 
     config["mikado"]["use_diamond"] = (not args.use_blast)
+    if not args.use_blast:
+        # If we use DIAMOND, it makes sense to reduce the number of chunks by default
+        config["blastx"]["chunks"] = max(round(config["blastx"]["chunks"] / 10), 1)
     config["mikado"]["use_prodigal"] = (not args.use_transdecoder)
 
     final_config = config.copy()

@@ -331,6 +331,20 @@ The analysis will produce *TMAP*, *REFMAP* and *STATS* files for each of the ass
                           Missed genes: 987/7126  (13.85%)
                            Novel genes: 89/2627  (3.39%)
 
+To verify whether our suspicion of extensive read-through events in the StringTie assemblies is correct, we can use AWK to query for transcripts marked as "fusions" in the TMAP files::
+
+    ## ERX1174638
+    $ awk '$3~"f"' Comparisons/stringtie_ERX1174638.tmap | cut -f 4 | sort -u | wc -l
+    1652
+    $ awk '$3!~"f"' Comparisons/stringtie_ERX1174638.tmap | cut -f 4 | sort -u | wc -l
+    1854
+    ## ERX1174639
+    $ awk '$3~"f"' Comparisons/stringtie_ERX1174639.tmap | cut -f 4 | sort -u | wc -l
+    1588  # Number of transcripts involved in a read-through event
+    $ awk '$3!~"f"' Comparisons/stringtie_ERX1174639.tmap | cut -f 4 | sort -u | wc -l
+    1186  # Number of transcripts involved in a read-through event
+
+From this quick check, it appears that half or more of the transcripts produced by StringTie are read-through events.
 
 Step 3: running the Mikado steps
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -339,113 +353,128 @@ Now that we have created the input assemblies, it is time to run Mikado. First o
 
 .. literalinclude:: scerevisiae.yaml
 
-With this file, we are telling Mikado that we are looking for transcripts with a low number of exons ("exon_num: {rescaling: min}"), with a ratio of CDS/UTR of ~80% ("selected_cds_fraction: {rescaling: target, value: 0.8}") and good homology support ("blast_score: {rescaling: max}"). We are also rewarding long cDNAs ("cdna_length: {rescaling: max}") with a good homology to known proteins ("blast_score: {rescaling: max}") and only one ORF ("cds_not_maximal: {rescaling: min}"; "number_internal_orfs: {rescaling: target, value: 1}"). This set of rules is tailored for compact fungal genomes, where this kind of models is expected at a much higher rate than in other eukaryotes (eg plants or mammals).
+With this file, we are telling Mikado that we are looking for transcripts with a low number of exons ("exon_num: {rescaling: min}"), with a ratio of CDS/UTR of 190% ("selected_cds_fraction: {rescaling: target, value: 1.0}") and good homology support ("blast_score: {rescaling: max}"). We are also rewarding long cDNAs ("cdna_length: {rescaling: max}") and only one ORF ("cds_not_maximal: {rescaling: min}"; "number_internal_orfs: {rescaling: target, value: 1}"). This set of rules is tailored for compact fungal genomes, where this kind of models is expected at a much higher rate than in other eukaryotes (eg plants or mammals).
 
-Before launching ``daijin mikado``, we can have a look at the BLAST and TransDecoder sections. It is advisable to modify the number of chunks for BLASTX to a high number, eg. 100, if you are using a cluster. Please note that now we are going to use a different configuration file, **athaliana/mikado.yaml**, which Daijin created as last step in the assembly pipeline.
+Please note that now we are going to use a different configuration file, **Scerevisiae/mikado.yaml**, which Daijin created as the last step in the assembly pipeline.
+
+It is possible to visualise the steps in this part of the pipeline in the following way::
+
+    daijin mikado --dag Scerevisiae/mikado.yaml | dot -Tsvg > mikado.svg
+
+.. image:: mikado_pipeline.png
 
 Issue the command::
 
-  daijin mikado -c slurm.yaml athaliana/mikado.yaml
+  daijin mikado Scerevisiae/mikado.yaml
 
-This part of the pipeline should be quicker than the previous stage. After the pipeline is finished, Daijin will have created the final output files in athaliana/5-mikado/pick/. As we requested only for the *permissive* mode, we only have one output - *athaliana/5-mikado/pick/mikado-permissive.loci.gff3*. These are basic statistics on this annotation:
+This part of the pipeline should be quicker than the previous stage. After the pipeline is finished, Daijin will have created the final output files in Scerevisiae/5-mikado/pick/. As we requested only for the *permissive* mode, we only have one output - *Scerevisiae/5-mikado/pick/mikado-permissive.loci.gff3*. These are basic statistics on this annotation:
 
-+------------------------------+---------+--------------------+---------------+------------------------+-----------------------+--------------------------+---------+------------------------+-----------------+
-| File                         |   genes |   monoexonic_genes |   transcripts |   transcripts_per_gene |   transcript_len_mean |   monoexonic_transcripts |   exons |   exons_per_transcript |   exon_len_mean |
-+==============================+=========+====================+===============+========================+=======================+==========================+=========+========================+=================+
-| mikado-permissive.loci.stats |    5633 |               2915 |          6054 |                   1.07 |               1642.08 |                     3095 |   11850 |                   1.96 |          838.92 |
-+------------------------------+---------+--------------------+---------------+------------------------+-----------------------+--------------------------+---------+------------------------+-----------------+
++------------------------------+--------+------------------+-------------+----------------------+---------------------+------------------------+--------+----------------------+---------------+
+| File                         | genes  | monoexonic_genes | transcripts | transcripts_per_gene | transcript_len_mean | monoexonic_transcripts | exons  | exons_per_transcript | exon_len_mean |
++------------------------------+--------+------------------+-------------+----------------------+---------------------+------------------------+--------+----------------------+---------------+
+| mikado-permissive.loci.stats | 4245.0 | 3949.0           | 4295.0      | 1.01                 | 2184.46             | 3971.0                 | 4632.0 | 1.08                 | 2025.53       |
++------------------------------+--------+------------------+-------------+----------------------+---------------------+------------------------+--------+----------------------+---------------+
 
-Mikado has created an annotation that is in between those produced by Stringtie and CLASS2. Compared to CLASS2, the Mikado assembly is probably more comprehensive, given the higher number of genes. Half the genes are monoexonic, an improvement compared to CLASS2, and at the same time the number of genes is much lower than in Stringtie, with a higher average cDNA length. These statistics suggest that the Mikado filtered annotation has been able to retain most of the real genes, while discarding many of the fragments present in either assembly. We can verify this by comparing the Mikado results against the reference annotation::
+Mikado has created an annotation that is in between those produced by Stringtie and CLASS2. Compared to CLASS2, the Mikado assembly is more comprehensive, given the higher number of genes. Almost all of the genes are monoexonic, and the number of genes is higher than in either Stringtie or CLASS. At the same time, the gene length is lower than in Stringtie, suggesting that Mikado might have solved the read-through transcript problem in Stringtie. We can verify this by comparing the Mikado results against the reference annotation::
 
-    mikado compare -r Schizosaccharomyces_pombe.ASM294v2.32.gff3 -p athaliana/5-mikado/pick/permissive/mikado-permissive.loci.gff3 -o athaliana/5-mikado/mikado_prepared.compare -l athaliana/5-mikado/mikado_prepared.compare.log
+     mikado compare -r Reference/Saccharomyces_cerevisiae.R64-1-1.89.gtf -p Scerevisiae/5-mikado/pick/permissive/mikado-permissive.loci.gff3 -o Comparisons/mikado -l Comparisons/mikado.log
 
 A cursory look at the STATS file confirms the impression; the Mikado annotation has removed many of the spurious transcripts and is quite more precise than either of the input assemblies, while retaining their sensitivity::
 
     Command line:
-    /tgac/software/testing/bin/core/../..//mikado/devel/x86_64/bin/mikado compare -r Arabidopsis_thaliana.TAIR10.32.gff3 -p athaliana/5-mikado/pick/permissive/mikado-permissive.loci.gff3 -o athaliana/5-mikado/pick/permissive/mikado-permissive.loci.compare -l athaliana/5-mikado/pick/permissive/mikado-permissive.loci.compare.log
-    41671 reference RNAs in 33602 genes
-    30806 predicted RNAs in  24730 genes
+    /usr/users/ga002/venturil/miniconda3/envs/py360/bin/mikado compare -r Reference/Saccharomyces_cerevisiae.R64-1-1.89.gtf -p Scerevisiae/5-mikado/pick/permissive/mikado-permissive.loci.gff3 -o Comparisons/mikado -l Comparisons/mikado.log
+    7126 reference RNAs in 7126 genes
+    4295 predicted RNAs in  4245 genes
     --------------------------------- |   Sn |   Pr |   F1 |
-                            Base level: 53.43  87.95  66.48
-                Exon level (stringent): 45.44  58.77  51.26
-                  Exon level (lenient): 68.71  86.45  76.57
-                          Intron level: 73.13  93.43  82.05
-                    Intron chain level: 43.73  53.48  48.11
-          Transcript level (stringent): 0.01  0.01  0.01
-      Transcript level (>=95% base F1): 18.87  25.49  21.69
-      Transcript level (>=80% base F1): 33.71  45.78  38.83
-             Gene level (100% base F1): 0.01  0.02  0.01
-            Gene level (>=95% base F1): 22.36  30.35  25.75
-            Gene level (>=80% base F1): 39.52  53.95  45.62
+                            Base level: 72.43  70.50  71.45
+                Exon level (stringent): 5.62  9.16  6.96
+                  Exon level (lenient): 25.09  80.56  38.27
+                          Intron level: 54.99  68.07  60.83
+                    Intron chain level: 54.80  66.98  60.28
+          Transcript level (stringent): 5.28  8.75  6.58
+      Transcript level (>=95% base F1): 16.98  28.17  21.19
+      Transcript level (>=80% base F1): 36.07  59.84  45.00
+             Gene level (100% base F1): 5.28  8.86  6.61
+            Gene level (>=95% base F1): 16.98  28.50  21.28
+            Gene level (>=80% base F1): 36.07  60.54  45.20
 
     #   Matching: in prediction; matched: in reference.
 
-                Matching intron chains: 13173
-                 Matched intron chains: 13213
-       Matching monoexonic transcripts: 1702
-        Matched monoexonic transcripts: 1710
-            Total matching transcripts: 14875
-             Total matched transcripts: 14923
+                Matching intron chains: 217
+                 Matched intron chains: 217
+       Matching monoexonic transcripts: 2431
+        Matched monoexonic transcripts: 2431
+            Total matching transcripts: 2648
+             Total matched transcripts: 2648
 
-              Missed exons (stringent): 92353/169282  (54.56%)
-               Novel exons (stringent): 53962/130891  (41.23%)
-                Missed exons (lenient): 48471/154914  (31.29%)
-                 Novel exons (lenient): 16682/123125  (13.55%)
-                        Missed introns: 34362/127896  (26.87%)
-                         Novel introns: 6576/100110  (6.57%)
+              Missed exons (stringent): 7108/7531  (94.38%)
+               Novel exons (stringent): 4197/4620  (90.84%)
+                Missed exons (lenient): 2424/3236  (74.91%)
+                 Novel exons (lenient): 196/1008  (19.44%)
+                        Missed introns: 185/411  (45.01%)
+                         Novel introns: 106/332  (31.93%)
 
-                    Missed transcripts: 13373/41671  (32.09%)
-                     Novel transcripts: 132/30806  (0.43%)
-                          Missed genes: 12824/33602  (38.16%)
-                           Novel genes: 120/24730  (0.49%)
-
-
+                    Missed transcripts: 2767/7126  (38.83%)
+                     Novel transcripts: 104/4295  (2.42%)
+                          Missed genes: 2767/7126  (38.83%)
+                           Novel genes: 104/4245  (2.45%)
 
 Moreover, Mikado models have an ORF assigned to them. We can ask Mikado compare to consider only the coding component of transcripts with the following command line::
 
-    mikado compare -eu -r Arabidopsis_thaliana.TAIR10.32.gff3 -p athaliana/5-mikado/pick/permissive/mikado-permissive.loci.gff3 -o athaliana/5-mikado/pick/permissive/mikado-permissive.loci.compare.eu -l athaliana/5-mikado/pick/permissive/mikado-permissive.loci.compare.eu.log
+    mikado compare -eu -r Reference/Saccharomyces_cerevisiae.R64-1-1.89.gtf -p Scerevisiae/5-mikado/pick/permissive/mikado-permissive.loci.gff3 -o Comparisons/mikado_eu -l Comparisons/mikado_eu.log
 
 The statistics file looks as follows::
 
     Command line:
-    mikado compare -eu -r Arabidopsis_thaliana.TAIR10.32.gff3 -p athaliana/5-mikado/pick/permissive/mikado-permissive.loci.gff3 -o athaliana/5-mikado/pick/permissive/mikado-permissive.loci.compare.eu -l athaliana/5-mikado/pick/permissive/mikado-permissive.loci.compare.eu.log
-    41671 reference RNAs in 33602 genes
-    30806 predicted RNAs in  24730 genes
+    /usr/users/ga002/venturil/miniconda3/envs/py360/bin/mikado compare -eu -r Reference/Saccharomyces_cerevisiae.R64-1-1.89.gtf -p Scerevisiae/5-mikado/pick/permissive/mikado-permissive.loci.gff3 -o Comparisons/mikado_eu -l Comparisons/mikado_eu.log
+    7126 reference RNAs in 7126 genes
+    4295 predicted RNAs in  4245 genes
     --------------------------------- |   Sn |   Pr |   F1 |
-                            Base level: 53.00  93.07  67.54
-                Exon level (stringent): 60.90  78.70  68.67
-                  Exon level (lenient): 69.57  88.37  77.85
-                          Intron level: 73.44  94.86  82.79
-                    Intron chain level: 46.39  57.65  51.41
-          Transcript level (stringent): 25.84  34.31  29.48
-      Transcript level (>=95% base F1): 35.32  47.28  40.43
-      Transcript level (>=80% base F1): 39.45  53.03  45.25
-             Gene level (100% base F1): 26.78  36.40  30.86
-            Gene level (>=95% base F1): 37.63  51.16  43.37
-            Gene level (>=80% base F1): 42.29  57.54  48.75
+                            Base level: 73.10  97.84  83.68
+                Exon level (stringent): 4.10  6.76  5.11
+                  Exon level (lenient): 9.98  78.35  17.70
+                          Intron level: 54.50  76.98  63.82
+                    Intron chain level: 54.55  76.06  63.53
+          Transcript level (stringent): 1.46  2.44  1.83
+      Transcript level (>=95% base F1): 52.68  87.59  65.79
+      Transcript level (>=80% base F1): 54.31  90.36  67.84
+             Gene level (100% base F1): 1.46  2.45  1.83
+            Gene level (>=95% base F1): 52.68  88.43  66.03
+            Gene level (>=80% base F1): 54.31  91.14  68.06
 
     #   Matching: in prediction; matched: in reference.
 
-                Matching intron chains: 13988
-                 Matched intron chains: 14097
-       Matching monoexonic transcripts: 2687
-        Matched monoexonic transcripts: 2693
-            Total matching transcripts: 16675
-             Total matched transcripts: 16790
+                Matching intron chains: 218
+                 Matched intron chains: 216
+       Matching monoexonic transcripts: 3664
+        Matched monoexonic transcripts: 3655
+            Total matching transcripts: 3882
+             Total matched transcripts: 3871
 
-              Missed exons (stringent): 61443/157150  (39.10%)
-               Novel exons (stringent): 25902/121609  (21.30%)
-                Missed exons (lenient): 44733/146988  (30.43%)
-                 Novel exons (lenient): 13456/115711  (11.63%)
-                        Missed introns: 32026/120580  (26.56%)
-                         Novel introns: 4795/93349  (5.14%)
+              Missed exons (stringent): 7222/7531  (95.90%)
+               Novel exons (stringent): 4260/4569  (93.24%)
+                Missed exons (lenient): 4015/4460  (90.02%)
+                 Novel exons (lenient): 123/568  (21.65%)
+                        Missed introns: 187/411  (45.50%)
+                         Novel introns: 67/291  (23.02%)
 
-                    Missed transcripts: 13627/41671  (32.70%)
-                     Novel transcripts: 141/30806  (0.46%)
-                          Missed genes: 13060/33602  (38.87%)
-                           Novel genes: 127/24730  (0.51%)
+                    Missed transcripts: 2992/7126  (41.99%)
+                     Novel transcripts: 108/4295  (2.51%)
+                          Missed genes: 2992/7126  (41.99%)
+                           Novel genes: 108/4245  (2.54%)
+
+
 
 The similarity is quite higher, suggesting that for many models the differences between the Mikado annotation and the reference lies in the UTR component.
+
+Finally, we can check the amount of read-through transcripts present in the Mikado annotation::
+
+    $ awk '$3!~"f"' Comparisons/mikado.tmap | cut -f 4 | sort -u | wc -l
+    3960
+    $ awk '$3~"f"' Comparisons/mikado.tmap | cut -f 4 | sort -u | wc -l
+    336
+
+The number of read-through transcripts retained by Mikado is quite lower than those found by StringTie, suggesting that Mikado was highly efficient in detecting and solving the chimeric events that were present in the original assembly.
 
 We suggest to visualise assemblies with one of the many tools currently at disposal, such as eg `WebApollo <http://genomearchitect.org/>`_ [Apollo]_. Mikado files are GFF3-compliant and can be loaded directly into Apollo or similar tools. GTF files can be converted into proper GFF3 files using the convert utility::
 

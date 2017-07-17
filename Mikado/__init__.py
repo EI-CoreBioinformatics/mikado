@@ -62,6 +62,10 @@ def main(call_args=None):
     parser = argparse.ArgumentParser(prog="Mikado",
                                      description="""Mikado is a program to analyse RNA-Seq data
 and determine the best transcript for each locus in accordance to user-specified criteria.""")
+
+    parser.add_argument("--version", default=False, action="store_true",
+                        help="Print Mikado current version and exit.")
+
     subparsers = parser.add_subparsers(
         title="Components",
         help="""These are the various components of Mikado:
@@ -106,6 +110,9 @@ by Cufflinks's cuffcompare and ParsEval.")
             args.func(args)
         elif len(call_args) > 0 and call_args[0] == "util":
             subprograms.util.util_parser().print_help()
+        elif args.version is True:
+            print("Mikado v{}".format( __version__))
+            sys.exit(0)
         else:
             parser.print_help()
     except KeyboardInterrupt:

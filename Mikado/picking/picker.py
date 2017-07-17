@@ -784,6 +784,7 @@ memory intensive, proceed with caution!")
 
         conn = sqlite3.connect(os.path.join(tempdirectory, "temp_store.db"))
         cursor = conn.cursor()
+        # cursor.execute("PRAGMA journal_mode=wal")
         cursor.execute("CREATE TABLE transcripts (counter integer, json blob)")
         cursor.execute("CREATE INDEX tid_idx on transcripts(counter)")
 

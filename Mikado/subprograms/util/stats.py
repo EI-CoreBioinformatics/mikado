@@ -195,8 +195,10 @@ class Calculator:
             # TID, Parent, Exon number, cDNA length, CDS length, #coding exons, cDNA/CDS ratio
             # 5'UTR, 5'UTR exons, 3'UTR, 3'UTR exons
             __fieldnames = ["TID", "GID",
+                            "Coordinates",
                             "Exon number",
                             "cDNA length",
+                            "Intronic length",
                             "CDS length",
                             "# coding exons",
                             "cDNA/CDS ratio",
@@ -464,8 +466,12 @@ class Calculator:
                 row = dict()
                 row["TID"] = tid
                 row["GID"] = gene.id
+                row["Coordinates"] = "{}:{}-{}".format(gene.chrom,
+                                                       gene.transcripts[tid].start,
+                                                       gene.transcripts[tid].end)
                 row["Exon number"] = len(gene.transcripts[tid].exon_lengths)
                 row["cDNA length"] = gene.transcripts[tid].cdna_length
+                row["Intronic length"] = sum([_[1] - _[0] for _ in gene.transcripts[tid].introns])
                 row["CDS length"] = gene.transcripts[tid].selected_cds_length
                 row["# coding exons"] = len(gene.transcripts[tid].cds_exon_lengths)
                 row["cDNA/CDS ratio"] = "{:.2f}".format(100 * gene.transcripts[tid].selected_cds_length / gene.transcripts[tid].cdna_length)

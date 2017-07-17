@@ -11,7 +11,6 @@ from shutil import which
 
 CFG=workflow.overwrite_configfile
 
-
 REF = config["reference"]["genome"]
 # TODO: this is hack that should be solved more neatly
 if "out_dir" in config:
@@ -54,8 +53,8 @@ if len(BLASTX_TARGET) > 0:
 		CHUNK_ARRAY.append(val)
 
 
-def loadPre(command):
-	cc = command.strip()
+def loadPre(config, program):
+	cc = config.get("load", dict()).get(program, "")
 	if not cc:
 		return ""
 	else:
@@ -80,7 +79,7 @@ rule mikado_prepare:
 		gtf=MIKADO_DIR+"/mikado_prepared.gtf",
 		fa=MIKADO_DIR+"/mikado_prepared.fasta"
 	params:
-		load=loadPre(config["load"]["mikado"]),
+		load=loadPre(config, "mikado"),
 		cfg=CFG
 	threads: THREADS
 	message: "Preparing transcripts using mikado"
@@ -100,7 +99,7 @@ rule split_fa:
 	params: 
 		outdir=BLAST_DIR+"/fastas/chunk",
 		chunks=config["blastx"]["chunks"],
-		load=loadPre(config["load"]["mikado"])
+		load=loadPre(config, "mikado")
 	threads: 1
 	message: "Splitting fasta: {input.tr}"
 	shell: "{params.load} split_fasta.py -m {params.chunks} {input.tr} {params.outdir} && touch {output}"
@@ -112,7 +111,7 @@ if config["mikado"]["use_diamond"] is False:
         output: BLAST_DIR+"/index/blastdb-proteins.pog"
         params:
             db=BLAST_DIR+"/index/blastdb-proteins",
-            load=loadPre(config["load"]["blast"])
+            load=loadPre(config, "blast")
         log: BLAST_DIR+"/blast.index.log"
         message: "Making BLAST protein database for: {input.fa}"
         shell: "{params.load} makeblastdb -in {input.fa} -out {params.db} -dbtype prot -parse_seqids > {log} 2>&1"
@@ -125,7 +124,7 @@ if config["mikado"]["use_diamond"] is False:
         params:
             tr=BLAST_DIR+"/fastas/chunk_{chunk_id}.fasta",
             db=BLAST_DIR + "/index/blastdb-proteins",
-            load=loadPre(config["load"]["blast"]),
+            load=loadPre(config, "blast"),
             uncompressed=BLAST_DIR+"/xmls/chunk-{chunk_id}-proteins.xml",
         log: BLAST_DIR + "/logs/chunk-{chunk_id}.blastx.log"
         threads: THREADS
@@ -140,7 +139,7 @@ else:
         output: BLAST_DIR+"/index/blastdb-proteins.dmnd"
         params:
             db= BLAST_DIR+"/index/blastdb-proteins",
-            load=loadPre(config["load"]["diamond"])
+            load=loadPre(config, "diamond")
         log: BLAST_DIR+"/diamond.index.log"
         message: "Making DIAMOND protein database for: {input.fa}"
         threads: THREADS
@@ -152,7 +151,7 @@ else:
             split=rules.split_fa.output
         output: BLAST_DIR+"/xmls/chunk-{chunk_id}-proteins.xml.gz"
         params:
-            load=loadPre(config["load"]["diamond"]),
+            load=loadPre(config, "diamond"),
             tr=BLAST_DIR+"/fastas/chunk_{chunk_id}.fasta"
         threads: THREADS
         log: BLAST_DIR + "/logs/chunk-{chunk_id}.blastx.log"
@@ -171,7 +170,7 @@ if config.get("mikado", dict()).get("use_prodigal", False) is False:
             outdir=TDC_DIR_FULL,
             tr="transcripts.fasta",
             tr_in=MIKADO_DIR_FULL+"/mikado_prepared.fasta",
-            load=loadPre(config["load"]["transdecoder"]),
+            load=loadPre(config, "transdecoder"),
             minprot=config["transdecoder"]["min_protein_len"]
         log: TDC_DIR_FULL+"/transdecoder.longorf.log",
             # ss="-S" if MIKADO_STRAND else ""
@@ -193,7 +192,7 @@ if config.get("mikado", dict()).get("use_prodigal", False) is False:
             lolog=TDC_DIR_FULL+"/transdecoder.longorf.log",
             plog=TDC_DIR_FULL+"/transdecoder.predict.log",
             tr="transcripts.fasta",
-            load=loadPre(config["load"]["transdecoder"])
+            load=loadPre(config, "transdecoder")
             # ss="-S" if MIKADO_STRAND else ""
         log: TDC_DIR_FULL+"/transdecoder.predict.log"
         threads: THREADS
@@ -213,7 +212,7 @@ else:
             tr="transcripts.fasta",
             tr_in=MIKADO_DIR_FULL+"/mikado_prepared.fasta",
             tr_out="transcripts.fasta.prodigal.gff3",
-            load=loadPre(config["load"]["prodigal"]),
+            load=loadPre(config, "prodigal"),
             minprot=config["transdecoder"]["min_protein_len"]
         log: PROD_DIR_FULL+"/prodigal.log"
         threads: 1
@@ -224,7 +223,7 @@ else:
 rule genome_index:
 	input: os.path.abspath(REF)
 	output: MIKADO_DIR+"/"+os.path.basename(REF)+".fai"
-	params: load=loadPre(config["load"]["samtools"]),
+	params: load=loadPre(config, "samtools"),
 		fa=MIKADO_DIR+"/"+os.path.basename(REF)
 	threads: 1
 	message: "Using samtools to index genome"
@@ -241,7 +240,7 @@ rule mikado_serialise:
 	params:
 	    cfg=CFG,
 		blast="--xml=" + BLAST_DIR+"/xmls" if len(BLASTX_TARGET) > 0 else "",
-		load=loadPre(config["load"]["mikado"]),
+		load=loadPre(config, "mikado"),
 		blast_target="--blast_targets=" + BLAST_DIR+"/index/blastdb-proteins.fa" if len(BLASTX_TARGET) > 0 else ""
 	threads: THREADS
 	message: "Running Mikado serialise to move numerous data sources into a single database"
@@ -263,7 +262,7 @@ rule mikado_pick:
 	log: os.path.join(MIKADO_DIR, "pick", "{mode}", "mikado-{mode}.pick.err")
 	params:
 		cfg=CFG,
-		load=loadPre(config["load"]["mikado"]),
+		load=loadPre(config, "mikado"),
 		outdir=os.path.join(MIKADO_DIR, "pick", "{mode}")
 	threads: THREADS
 	message: "Running mikado picking stage"
@@ -276,7 +275,7 @@ rule mikado_stats:
         stats=os.path.join(MIKADO_DIR,
                            "pick", "{mode}",
                            "mikado-{mode}.loci.stats")
-    params: load=loadPre(config["load"]["mikado"])
+    params: load=loadPre(config, "mikado")
     shell: "{params.load} mikado util stats {input} > {output}"
 
 rule mikado_collect_stats:
@@ -284,7 +283,7 @@ rule mikado_collect_stats:
 	    mikado=expand(MIKADO_DIR+"/pick/{mode}/mikado-{mode}.loci.stats", mode=MIKADO_MODES)
 	output: MIKADO_DIR+"/pick/comparison.stats"
 	params:
-	    load=loadPre(config["load"]["mikado"])
+	    load=loadPre(config, "mikado")
 	threads: 1
 	message: "Collecting mikado statistics"
 	shell: "{params.load} {ASM_COLLECT} {input.mikado} > {output}"

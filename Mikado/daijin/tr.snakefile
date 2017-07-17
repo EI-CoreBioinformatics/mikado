@@ -335,8 +335,9 @@ def portcullisStrandOption(run, command, step):
         else:
             return "--strandedness=unstranded"
 
-def loadPre(command):
-        cc = command.strip()
+def loadPre(config, program):
+        cc = config.get("load", dict()).get(program, "").strip()
+        # cc = command.strip()
         if not cc:
                 return ""
         else:
@@ -403,7 +404,7 @@ rule align_tophat_index:
 	output: ALIGN_DIR + "/tophat/index/" + NAME + ".4.bt2"
 	params: 
 		idxdir=ALIGN_DIR + "/tophat/index/" + NAME,
-		load=loadPre(config["load"]["tophat"])
+		load=loadPre(config, "tophat")
 	log: ALIGN_DIR + "/tophat.index.log"
 	threads: 1
 	message: "Indexing genome with tophat"
@@ -420,7 +421,7 @@ rule align_tophat:
 		outdir=ALIGN_DIR+"/tophat/{sample}-{run}",
 		bam=ALIGN_DIR+"/tophat/{sample}-{run}/accepted_hits.bam",
 		indexdir=ALIGN_DIR+"/tophat/index/"+NAME,
-		load=loadPre(config["load"]["tophat"]),
+		load=loadPre(config, "tophat"),
 		extra=lambda wildcards: config["align_methods"]["tophat"][int(wildcards.run)],
 		link_src="../tophat/{sample}-{run}/accepted_hits.bam",
 		strand=lambda wildcards: tophatStrandOption(wildcards.sample),
@@ -440,7 +441,7 @@ rule tophat_all:
 rule align_gsnap_index:
 	input: REF
 	output: ALIGN_DIR + "/gsnap/index/" + NAME + "/" + NAME + ".sachildguide1024"
-	params: load=loadPre(config["load"]["gmap"])
+	params: load=loadPre(config, "gmap")
 	log: ALIGN_DIR +"/gsnap.index.log"
 	threads: 1
 	message: "Indexing genome with gsnap"
@@ -455,8 +456,8 @@ rule align_gsnap:
 		bam=ALIGN_DIR+"/gsnap/{sample}-{run,\d+}/gsnap.bam",
 		link=ALIGN_DIR+"/output/gsnap-{sample}-{run,\d+}.bam"
 	params: 
-		load=loadPre(config["load"]["gmap"]),
-		load_sam=loadPre(config["load"]["samtools"]),
+		load=loadPre(config, "gmap"),
+		load_sam=loadPre(config, "samtools"),
 		extra=lambda wildcards: config["align_methods"]["gsnap"][int(wildcards.run)],
 		link_src="../gsnap/{sample}-{run}/gsnap.bam",
 		infiles=lambda wildcards: tophatInput(wildcards.sample)	# Can use tophat function safely here
@@ -476,7 +477,7 @@ rule align_star_index:
 	output: ALIGN_DIR +"/star/index/SAindex"
 	params: 
 		indexdir=ALIGN_DIR_FULL+"/star/index",
-		load=loadPre(config["load"]["star"]),
+		load=loadPre(config, "star"),
 		trans="--sjdbGTFfile " + os.path.abspath(REF_TRANS) if REF_TRANS else "",
 		extra=config["extra"]["star_index"]
 	log: ALIGN_DIR_FULL+"/star.index.log"
@@ -495,7 +496,7 @@ rule align_star:
 	params:
 		outdir=ALIGN_DIR_FULL+"/star/{sample}-{run}",
 		indexdir=ALIGN_DIR_FULL+"/star/index",
-		load=loadPre(config["load"]["star"]),
+		load=loadPre(config, "star"),
 		extra=lambda wildcards: config["align_methods"]["star"][int(wildcards.run)],
 		link_src="../star/{sample}-{run}/Aligned.out.bam",
 		trans="--sjdbGTFfile " + os.path.abspath(REF_TRANS) if REF_TRANS else "",
@@ -514,7 +515,7 @@ rule star_all:
 rule align_hisat_index:
 	input: REF
 	output: ALIGN_DIR+"/hisat/index/"+NAME+".4.ht2"
-	params: load=loadPre(config["load"]["hisat"])
+	params: load=loadPre(config, "hisat")
 	log: ALIGN_DIR+"/hisat.index.log"
 	threads: 1
 	message: "Indexing genome with hisat"
@@ -529,8 +530,8 @@ rule align_hisat:
 		link=ALIGN_DIR+"/output/hisat-{sample}-{run,\d+}.bam"
 	params:
 		indexdir=ALIGN_DIR+"/hisat/index/"+NAME,
-		load=loadPre(config["load"]["hisat"]),
-		load_samtools=loadPre(config["load"]["samtools"]),
+		load=loadPre(config, "hisat"),
+		load_samtools=loadPre(config, "samtools"),
 		link_src="../hisat/{sample}-{run}/hisat.bam",
 		extra=lambda wildcards: config["align_methods"]["hisat"][int(wildcards.run)],
 		ss_gen="hisat2_extract_splice_sites.py " + REF_TRANS + " > " + ALIGN_DIR + "/hisat/{sample}-{run}/splice_sites.txt &&" if REF_TRANS else "",
@@ -552,7 +553,7 @@ rule bam_sort:
 	input: bam=ALIGN_DIR+"/output/{align_run}.bam"
 	output: ALIGN_DIR+"/output/{align_run}.sorted.bam"
 	params:
-		load=loadPre(config["load"]["samtools"]),
+		load=loadPre(config, "samtools"),
 		temp=ALIGN_DIR+"/sort_{align_run}"
 	threads: int(THREADS)
 	message: "Using samtools to sort {input.bam}"
@@ -562,7 +563,7 @@ rule bam_sort:
 rule bam_index:
 	input: rules.bam_sort.output
 	output: ALIGN_DIR+"/output/{align_run}.sorted.bam.bai"
-	params: load=loadPre(config["load"]["samtools"])
+	params: load=loadPre(config, "samtools")
 	threads: 1
 	message: "Using samtools to index: {input}"
 	shell: "{params.load} samtools index {input}"
@@ -574,7 +575,7 @@ rule bam_stats:
 		idx=rules.bam_index.output
 	output: ALIGN_DIR+"/output/{align_run}.sorted.bam.stats"
 	params: 
-		load=loadPre(config["load"]["samtools"]),
+		load=loadPre(config, "samtools"),
 		plot_out=ALIGN_DIR+"/output/plots/{align_run}/{align_run}"
 	threads: 1
 	message: "Using samtools to collected stats for: {input}"
@@ -614,7 +615,7 @@ rule asm_cufflinks:
 		outdir=ASM_DIR+"/cufflinks-{run2}-{alrun}",
 		gtf=ASM_DIR+"/cufflinks-{run2}-{alrun}/transcripts.gtf",
 		link_src="../cufflinks-{run2}-{alrun}/transcripts.gtf",
-		load=loadPre(config["load"]["cufflinks"]),
+		load=loadPre(config, "cufflinks"),
 		extra=lambda wildcards: config["asm_methods"]["cufflinks"][int(wildcards.run2)],
 		trans="--GTF-guide=" + REF_TRANS if REF_TRANS else "",
 		strand=lambda wildcards: tophatStrandOption(extractSample(wildcards.alrun))
@@ -637,10 +638,10 @@ rule asm_trinitygg:
 	output: ASM_DIR+"/trinity-{run2,\d+}-{alrun}/Trinity-GG.fasta"
 	params: 
 		outdir=ASM_DIR+"/trinity-{run2}-{alrun}",
-		load=loadPre(config["load"]["trinity"]),
+		load=loadPre(config, "trinity"),
 		extra=lambda wildcards: config["asm_methods"]["trinity"][int(wildcards.run2)],
 		strand=lambda wildcards: trinityStrandOption(extractSample(wildcards.alrun)),
-		base_parameters=lambda wildcards: trinityParameters(config["load"]["trinity"], extractSample(wildcards.alrun), REF, TGG_MAX_MEM)
+		base_parameters=lambda wildcards: trinityParameters(config.get("load", dict()).get("trinity", ""), extractSample(wildcards.alrun), REF, TGG_MAX_MEM)
 	log: ASM_DIR+"/trinity-{run2}-{alrun}.log"
 	threads: THREADS
 	message: "Using trinity in genome guided mode to assemble (run {wildcards.run2}): {input.bam}"
@@ -649,7 +650,7 @@ rule asm_trinitygg:
 rule gmap_index:
         input: REF
         output: ALIGN_DIR +"/gmap/index/"+NAME+"/"+NAME+".sachildguide1024"
-	params:	load=loadPre(config["load"]["gmap"])
+	params:	load=loadPre(config, "gmap")
 	threads: 1
         log: ALIGN_DIR+"/gmap.index.log"
         message: "Indexing genome with gmap"
@@ -662,10 +663,10 @@ rule asm_map_trinitygg:
 	output: 
 		gff=ASM_DIR+"/output/trinity-{run2,\d+}-{alrun}.gff"
 	params: 
-		load=loadPre(config["load"]["gmap"]),
+		load=loadPre(config, "gmap"),
 		gff=ASM_DIR+"/trinity-{run2}-{alrun}/trinity-{run2}-{alrun}.gff",
 		link_src="../trinity-{run2}-{alrun}/trinity-{run2}-{alrun}.gff",
-		intron_length=gmap_intron_lengths(loadPre(config["load"]["gmap"]), MAX_INTRON)
+		intron_length=gmap_intron_lengths(loadPre(config, "gmap"), MAX_INTRON)
 	log: ASM_DIR+"/trinitygmap-{run2}-{alrun}.log"
 	threads: THREADS
 	message: "Mapping trinity transcripts to the genome (run {wildcards.run2}): {input.transcripts}"
@@ -683,9 +684,9 @@ rule lr_gmap:
 		reads=lambda wildcards: L_INPUT_MAP[wildcards.lsample]
 	output: link=ALIGN_DIR+"/lr_output/lr_gmap-{lsample}-{lrun}.gff",
 		gff=ALIGN_DIR+"/gmap/{lsample}-{lrun}/lr_gmap-{lsample}-{lrun}.gff"		
-	params: load=loadPre(config["load"]["gmap"]),
+	params: load=loadPre(config, "gmap"),
 		link_src="../gmap/{lsample}-{lrun}/lr_gmap-{lsample}-{lrun}.gff",
-		intron_length=gmap_intron_lengths(loadPre(config["load"]["gmap"]), MAX_INTRON)
+		intron_length=gmap_intron_lengths(loadPre(config, "gmap"), MAX_INTRON)
 	log: ALIGN_DIR+"/gmap-{lsample}-{lrun}.log"
 	threads: THREADS
 	message: "Mapping long reads to the genome with gmap (sample: {wildcards.lsample} - run: {wildcards.lrun})"
@@ -696,7 +697,7 @@ rule lr_star:
 		index=rules.align_star_index.output,
 		reads=lambda wildcards: L_INPUT_MAP[wildcards.lsample]
 	output: bam=ALIGN_DIR+"/lr_star/{lsample}-{lrun}/Aligned.out.bam"
-	params: load=loadPre(config["load"]["star"]),
+	params: load=loadPre(config, "star"),
 		outdir=ALIGN_DIR_FULL+"/lr_star/{lsample}-{lrun}",
                 indexdir=ALIGN_DIR_FULL+"/star/index",
                 trans="--sjdbGTFfile " + os.path.abspath(REF_TRANS) if REF_TRANS else "",
@@ -711,7 +712,7 @@ rule lr_star:
 rule starbam2gtf:
 	input: rules.lr_star.output.bam
 	output: gtf=ALIGN_DIR+"/lr_output/lr_star-{lsample}-{lrun}.gtf"
-	params: load=loadPre(config["load"]["mikado"])
+	params: load=loadPre(config, "mikado")
 	message: "Converting STAR long reads from BAM to GTF (sample: {wildcards.lsample} - run: {wildcards.lrun})"
 	shell: "{params.load} bam2gtf.py {input} > {output.gtf}"
 
@@ -734,7 +735,7 @@ rule asm_stringtie:
 		link=ASM_DIR+"/output/stringtie-{run2,\d+}-{alrun}.gtf",
 		gtf=ASM_DIR+"/stringtie-{run2,\d+}-{alrun}/stringtie-{run2}-{alrun}.gtf"
 	params:
-		load=loadPre(config["load"]["stringtie"]),
+		load=loadPre(config, "stringtie"),
 		extra=lambda wildcards: config["asm_methods"]["stringtie"][int(wildcards.run2)],
 		gtf=ASM_DIR+"/stringtie-{run2}-{alrun}/stringtie-{run2}-{alrun}.gtf",
 		trans="-G " + REF_TRANS if REF_TRANS else "",
@@ -759,7 +760,7 @@ rule asm_class:
 		gtf=ASM_DIR+"/class-{run2,\d+}-{alrun}/class-{run2}-{alrun}.gtf"
 	params: 
 		outdir=ASM_DIR+"/class-{run2}-{alrun}",
-		load=loadPre(config["load"]["class"]),
+		load=loadPre(config, "class"),
 		extra=lambda wildcards: config["asm_methods"]["class"][int(wildcards.run2)],
 		link_src="../class-{run2}-{alrun}/class-{run2}-{alrun}.gtf"
 	log: ASM_DIR+"/class-{run2}-{alrun}.log"
@@ -775,7 +776,7 @@ rule class_all:
 rule asm_gff_stats:
 	input: ASM_DIR + "/output/{asm_run}"
 	output: ASM_DIR + "/output/{asm_run}.stats"
-	params: load=loadPre(config["load"]["mikado"])
+	params: load=loadPre(config, "mikado")
 	threads: 1
 	message: "Computing assembly stats for: {input}"
 	shell: "{params.load} mikado util stats {input} > {output}"
@@ -790,7 +791,7 @@ rule asm_all:
 rule lreads_stats:
 	input: ALIGN_DIR + "/lr_output/{lr_run}"
 	output: ALIGN_DIR + "/lr_output/{lr_run}.stats"
-	params: load=loadPre(config["load"]["mikado"])
+	params: load=loadPre(config, "mikado")
 	threads: 1
 	message: "Computing long read stats for: {input}"
 	shell: "{params.load} mikado util stats {input} > {output}"
@@ -824,13 +825,12 @@ rule portcullis_prep:
 	output: PORTCULLIS_DIR+"/portcullis_{aln_method}/1-prep/portcullis.sorted.alignments.bam.bai"
 	params: 
 		outdir=PORTCULLIS_DIR+"/portcullis_{aln_method}/1-prep",
-		load=loadPre(config["load"]["portcullis"]),
+		load=loadPre(config, "portcullis"),
 		files=lambda wildcards: PORTCULLIS_IN[wildcards.aln_method],
-		strand=lambda wildcards: portcullisStrandOption(wildcards.aln_method, loadPre(config["load"]["portcullis"]), "prep")
 	log: PORTCULLIS_DIR+"/portcullis_{aln_method}-prep.log"
 	threads: THREADS
 	message: "Using portcullis to prepare: {wildcards.aln_method}"
-	shell: "{params.load} portcullis prep -o {params.outdir} {params.strand} -t {threads} {input.ref} {params.files} > {log} 2>&1"
+	shell: "{params.load} portcullis prep -o {params.outdir} -t {threads} {input.ref} {params.files} > {log} 2>&1"
 
 
 rule portcullis_junc:
@@ -840,8 +840,8 @@ rule portcullis_junc:
 	params: 
 		prepdir=PORTCULLIS_DIR+"/portcullis_{aln_method}/1-prep",
 		outdir=PORTCULLIS_DIR+"/portcullis_{aln_method}/2-junc",
-		load=loadPre(config["load"]["portcullis"]),
-		strand=lambda wildcards: portcullisStrandOption(wildcards.aln_method, loadPre(config["load"]["portcullis"]), "junc")
+		load=loadPre(config, "portcullis"),
+		strand=lambda wildcards: portcullisStrandOption(wildcards.aln_method, loadPre(config, "portcullis"), "junc")
 	log: PORTCULLIS_DIR+"/portcullis_{aln_method}-junc.log"
 	threads: THREADS
 	message: "Using portcullis to analyse potential junctions: {wildcards.aln_method}"
@@ -854,7 +854,7 @@ rule portcullis_filter:
 	params: 
 		outdir=PORTCULLIS_DIR+"/portcullis_{aln_method}/3-filt",
 		prepdir=PORTCULLIS_DIR+"/portcullis_{aln_method}/1-prep/",
-		load=loadPre(config["load"]["portcullis"]),
+		load=loadPre(config, "portcullis"),
 		bed=PORTCULLIS_DIR+"/portcullis_{aln_method}/3-filt/{aln_method}.pass.junctions.bed",
 		ss_gen="mkdir -p " + PORTCULLIS_DIR + "/portcullis_{aln_method}/3-filt && gtf2bed.py " + REF_TRANS + " > " + PORTCULLIS_DIR + "/portcullis_{aln_method}/3-filt/ref_juncs.bed &&" if REF_TRANS else "",
 		trans="--reference=" + PORTCULLIS_DIR + "/portcullis_{aln_method}/3-filt/ref_juncs.bed" if REF_TRANS else "",
@@ -868,7 +868,7 @@ rule portcullis_filter:
 rule portcullis_merge:
 	input: expand(PORTCULLIS_DIR + "/output/portcullis_{aln_method}.pass.junctions.bed", aln_method=ALIGN_RUNS)
 	output: bed=PORTCULLIS_DIR + "/output/portcullis.merged.bed"
-	params: load=loadPre(config["load"]["portcullis"])
+	params: load=loadPre(config, "portcullis")
 	log: PORTCULLIS_DIR + "/output/portcullis.merged.log"
 	threads: 1
 	message: "Taking intersection of portcullis results"
@@ -893,7 +893,7 @@ rule mikado_cfg:
 	output:
 		mikado=OUT_DIR + "/mikado.yaml"
 	params: 
-		load=loadPre(config["load"]["mikado"]),
+		load=loadPre(config, "mikado"),
 		scoring=config["mikado"]["pick"]["scoring_file"],
 		junctions="--junctions={}".format(rules.portcullis_merge.output.bed)
 	log: OUT_DIR + "/mikado.yaml.log"

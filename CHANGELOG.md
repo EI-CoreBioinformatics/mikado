@@ -9,6 +9,8 @@ Changes in this release:
 - Fixed some bugs in Daijin regarding the handling of Long Reads.
 - Fixed a bugs in Daijin regarding the calculation of Trinity parameters - previously, Daijin could potentially ask Trinity for parameters for N times, where N is the number of required assemblies.
 - Solved a bug that created incompatibility with BioPython >= 1.69
+- Solved some bugs that prevented Daijin from functioning correctly on a local computer
+- Now Daijin by default recovers the information to load external software from an external configuration file. This allows for having a standard configuration file for external programs, without having to modify the main configuration all the time. 
 
 #Version 1.0.1
 

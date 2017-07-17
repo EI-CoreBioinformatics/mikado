@@ -113,20 +113,59 @@ def create_daijin_base_config():
     return new_dict
 
 
-def create_daijin_config(args, level="ERROR", piped=False):
+def _parse_sample_sheet(sample_sheet, config, logger):
 
-    logger = create_default_logger("daijin_config", level=level)
+    """Mini-function to parse the sample sheet."""
 
-    config = create_daijin_base_config()
-    assert "reference" in config, config.keys()
-    # print(config)
-    config["reference"]["genome"] = args.genome
-    config["reference"]["transcriptome"] = args.transcriptome
+    config["short_reads"]["r1"] = []
+    config["short_reads"]["r2"] = []
+    config["short_reads"]["samples"] = []
+    config["short_reads"]["strandedness"] = []
+    config["long_reads"]["files"] = []
+    config["long_reads"]["samples"] = []
+    config["long_reads"]["strandedness"] = []
 
-    config["name"] = args.name
-    if args.out_dir is None:
-        args.out_dir = args.name
-    config["out_dir"] = args.out_dir
+    with open(sample_sheet) as sample_sheet:
+        for num, line in enumerate(sample_sheet):
+            line = line.rstrip().split("\t")
+            if not line:
+                # Skip empty lines
+                continue
+            if len(line) < 3:
+                logger.error("Invalid input line", num, "in the sample sheet:", "\t".join(line))
+                sys.exit(1)
+            r1, r2, sample = line[:3]
+            if not r1:
+                logger.error("Read 1 undefined for line {}, please correct.".format(num))
+            elif not sample:
+                logger.error("Sample undefined for line {}, please correct.".format(num))
+            strandedness = line[3] if line[3:] else "fr-unstranded"
+            if strandedness not in ("fr-unstranded", "fr-secondstrand", "fr-firststrand", "f", "r"):
+                logger.error("Invalid strandedness at line {}:".format(num), strandedness)
+                sys.exit(1)
+            str_to_bool = {"False": False, "True": True}
+            is_long_read = str_to_bool.get(line[4] if line[4:] else "False", False)
+            if is_long_read and r2:
+                logger.error(
+                    "I found a long read with mates at line {}, this is not supported. Please double check. Line:\n{}".format(
+                        num, "\t".join(line)))
+                sys.exit(1)
+
+            if is_long_read:
+                config["long_reads"]["files"].append(r1)
+                config["long_reads"]["samples"].append(sample)
+                config["long_reads"]["strandedness"].append(strandedness)
+            else:
+                config["short_reads"]["r1"].append(r1)
+                config["short_reads"]["r2"].append(r2)
+                config["short_reads"]["samples"].append(sample)
+                config["short_reads"]["strandedness"].append(strandedness)
+    return config
+
+
+def _parse_reads_from_cli(args, config, logger):
+
+    """Small function to infer the reads from the CLI."""
 
     if len(args.r1) != len(args.r2):
         exc = InvalidJson(
@@ -134,7 +173,6 @@ def create_daijin_config(args, level="ERROR", piped=False):
             Please correct the issue.""".format(len(args.r1), len(args.r2)))
         logger.exception(exc)
         sys.exit(1)
-
     elif len(args.r1) != len(args.samples):
         exc = InvalidJson(
             """An invalid number of samples has been specified; there are {} left reads and {} samples.
@@ -160,7 +198,40 @@ def create_daijin_config(args, level="ERROR", piped=False):
     config["short_reads"]["r2"] = args.r2
     config["short_reads"]["samples"] = args.samples
     config["short_reads"]["strandedness"] = args.strandedness
+    return config
+
+
+def create_daijin_config(args, level="ERROR", piped=False):
+
+    logger = create_default_logger("daijin_config", level=level)
+
+    config = create_daijin_base_config()
+    assert "reference" in config, config.keys()
+    # print(config)
+    config["reference"]["genome"] = args.genome
+    config["reference"]["transcriptome"] = args.transcriptome
+
+    config["name"] = args.name
+    if args.out_dir is None:
+        args.out_dir = args.name
+    config["out_dir"] = args.out_dir
+
+    if args.sample_sheet:
+        _parse_sample_sheet(args.sample_sheet, config, logger)
+    else:
+        _parse_reads_from_cli(args, config, logger)
+
     config["scheduler"] = args.scheduler
+    if config["scheduler"] or args.cluster_config:
+        if args.cluster_config is not None:
+            cluster_config = args.cluster_config
+        else:
+            cluster_config = "daijin_hpc.yaml"
+        with open(cluster_config, "wt") as out, \
+                resource_stream("Mikado", os.path.join("daijin", "hpc.yaml")) as original:
+            for line in original:
+                print(line.decode(), file=out, end="")
+
     config["threads"] = args.threads
 
     config["mikado"]["modes"] = args.modes
@@ -202,10 +273,15 @@ def create_daijin_config(args, level="ERROR", piped=False):
     check_config(final_config, logger)
     assert "prot_db" in final_config["blastx"]
 
-    if args.cluster_config is not None:
-        with open(args.cluster_config, "wb") as out:
-            for line in resource_stream("Mikado", os.path.join("daijin", "hpc.yaml")):
-                out.write(line)
+    if args.exe:
+        with open(args.exe, "wt") as out:
+            for key, val in final_config["load"].items():
+                if "Comment" in key:
+                    continue
+                else:
+                    print("{}: \"{}\"".format(key, val), file=out)
+
+    del final_config["load"]
 
     if piped is True:
         return final_config

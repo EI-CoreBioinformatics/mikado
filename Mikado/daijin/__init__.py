@@ -23,6 +23,8 @@ import pkg_resources
 # import logging
 # import logging.handlers
 
+system_hpc_yaml = pkg_resources.resource_filename("Mikado", os.path.join("daijin", "hpc.yaml"))
+
 min_version("3.5")
 
 TIME_START = time.time()
@@ -63,8 +65,8 @@ def create_parser():
     parser = argparse.ArgumentParser("""Execute pipeline""")
     # parser.add_argument("config",
     #                     help="Configuration file to use for running daijin.")
-    parser.add_argument("-c", "--hpc_conf", default=pkg_resources.resource_filename(
-        "Mikado", os.path.join("daijin", "hpc.yaml")),
+    parser.add_argument("-c", "--hpc_conf",
+                        default="daijin_hpc.yaml",
                         help="""Configuration file that allows the user to override
                         resource requests for each rule when running under a scheduler
                         in a HPC environment.""")
@@ -77,6 +79,9 @@ def create_parser():
     parser.add_argument("--threads", "-t", action="store", metavar="N", type=int, default=None,
                         help="""Maximum number of threads per job.
                         Default: None (set in the configuration file)""")
+    parser.add_argument("--exe", default="daijin_exe.yaml",
+                        help="""Configuration file containing the information on the software versions to be used.
+                        Default: None, Daijin presumes that all needed programs are already present in the environment.""")
     parser.add_argument("--no_drmaa", "-nd", action='store_true', default=False,
                         help="Use this flag if you wish to run without DRMAA, for example, \
 if running on a HPC and DRMAA is not available, or if running locally on your own machine or server.")
@@ -127,6 +132,8 @@ def create_config_parser():
                         otherwise, Daijin will print out a YAML file. Default: STDOUT.")
     runtime.add_argument("--scheduler", default="", choices=["", "SLURM", "LSF", "PBS"],
                         help="Scheduler to use. Default: None - ie, either execute everything on the local machine or use DRMAA to submit and control jobs (recommended).")
+    runtime.add_argument("--exe", default="daijin_exe.yaml",
+                         help="Configuration file for the executables.")
     reference = parser.add_argument_group("Arguments related to the reference species.")
     reference.add_argument("--name", default="Daijin", help="Name of the species under analysis.")
     reference.add_argument("--genome", "-g", required=True,
@@ -134,7 +141,15 @@ def create_config_parser():
     reference.add_argument("--transcriptome", help="Reference annotation, in GFF3 or GTF format.",
                            default="")
     paired_reads = parser.add_argument_group("Arguments related to the input paired reads.")
-    paired_reads.add_argument("-r1", "--left_reads", dest="r1",
+    paired_input = paired_reads.add_mutually_exclusive_group()
+    paired_input.add_argument("--sample-sheet", dest="sample_sheet", default=None,
+                              help="""Sample sheet containing the details of the input reads, separated by tabs, in the form:
+                              - Read1
+                              - Read2 (optional)
+                              - Sample name
+                              - Strandedness
+                              - Boolean flag, True if it is a long read sample, False otherwise. Optional, default if "False".""")
+    paired_input.add_argument("-r1", "--left_reads", dest="r1",
                         nargs="+",
                         default=[], required=False,
                         help="Left reads for the analysis. Required.")
@@ -148,7 +163,7 @@ def create_config_parser():
                         help="Sample names for the analysis. Required.")
     paired_reads.add_argument(
         "-st", "--strandedness", nargs="+",
-        default=[], required=False, choices=["fr-unstranded", "fr-secondstrand", "fr-firststrand"],
+        default=[], required=False, choices=["fr-unstranded", "fr-secondstrand", "fr-firststrand", "f", "r"],
         help="Strandedness of the reads. Specify it 0, 1, or number of samples times. Choices: %(choices)s.")
     parser.add_argument("-al", "--aligners", choices=["gsnap", "star", "hisat", "tophat"], required=False,
                         default=[], nargs="*", help="Aligner(s) to use for the analysis. Choices: %(choices)s")
@@ -204,6 +219,14 @@ def assemble_transcripts_pipeline(args):
 
     with open(args.config, 'r') as _:
         doc = loader(_)
+
+    if args.exe and os.path.exists(args.exe):
+        if args.exe.endswith("json"):
+            loader = json.load
+        else:
+            loader = yaml.load
+        with open(args.exe) as _:
+            doc["load"] = loader(_)
 
     # Check the configuration
     check_config(doc)
@@ -297,6 +320,14 @@ def assemble_transcripts_pipeline(args):
     if args.no_drmaa is False and res_cmd:
         drmaa_var = res_cmd
 
+    if drmaa_var or cluster_var:
+        if os.path.exists(args.hpc_conf):
+            hpc_conf = args.hpc_conf
+        else:
+            hpc_conf = system_hpc_yaml
+    else:
+        hpc_conf = None
+
     snakemake.snakemake(
         pkg_resources.resource_filename("Mikado",
                                         os.path.join("daijin", "tr.snakefile")),
@@ -306,7 +337,7 @@ def assemble_transcripts_pipeline(args):
         configfile=args.config,
         config=additional_config,
         workdir=CWD,
-        cluster_config=args.hpc_conf,
+        cluster_config=hpc_conf,
         cluster=cluster_var,
         drmaa=drmaa_var,
         printshellcmds=True,
@@ -339,6 +370,18 @@ def mikado_pipeline(args):
     with open(args.config, 'r') as _:
         doc = loader(_)
 
+    additional_config = {}
+    if args.threads is not None:
+        additional_config["threads"] = args.threads
+
+    if args.exe and os.path.exists(args.exe):
+        if args.exe.endswith("json"):
+            loader = json.load
+        else:
+            loader = yaml.load
+        with open(args.exe) as _:
+            additional_config["load"] = loader(_)
+
     check_config(doc)
 
     # pylint: disable=invalid-name
@@ -357,10 +400,6 @@ def mikado_pipeline(args):
     assert pkg_resources.resource_exists("Mikado",
                                          os.path.join("daijin", "mikado.snakefile"))
 
-    additional_config = {}
-    if args.threads is not None:
-        additional_config["threads"] = args.threads
-
     cluster_var = None
     if args.no_drmaa is True and sub_cmd:
         cluster_var = sub_cmd + res_cmd
@@ -368,6 +407,14 @@ def mikado_pipeline(args):
     drmaa_var = None
     if args.no_drmaa is False and res_cmd:
         drmaa_var = res_cmd
+
+    if drmaa_var or cluster_var:
+        if os.path.exists(args.hpc_conf):
+            hpc_conf = args.hpc_conf
+        else:
+            hpc_conf = system_hpc_yaml
+    else:
+        hpc_conf = None
 
     snakemake.snakemake(
         pkg_resources.resource_filename("Mikado",
@@ -379,7 +426,7 @@ def mikado_pipeline(args):
         configfile=args.config,
         config=additional_config,
         workdir=CWD,
-        cluster_config=args.hpc_conf,
+        cluster_config=hpc_conf,
         cluster=cluster_var,
         drmaa=drmaa_var,
         printshellcmds=True,

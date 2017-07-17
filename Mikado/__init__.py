@@ -111,7 +111,7 @@ by Cufflinks's cuffcompare and ParsEval.")
         elif len(call_args) > 0 and call_args[0] == "util":
             subprograms.util.util_parser().print_help()
         elif args.version is True:
-            print("Mikado v{}".format(__version__))
+            print("Mikado v{}".format( __version__))
             sys.exit(0)
         else:
             parser.print_help()

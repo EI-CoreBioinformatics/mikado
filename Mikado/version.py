@@ -1,0 +1,1 @@
+from Mikado import __version__

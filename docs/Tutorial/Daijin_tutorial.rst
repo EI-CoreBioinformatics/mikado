@@ -68,7 +68,7 @@ First of all, let us set up a folder with the reference data::
     gunzip *gz;
     cd ../;
 
-The snippet of the bash script above will create a "Reference" directory, download the genome of *D. melanogaster* in FASTA file, the corresponding GTF, and the protein sequences for *Pichia pastoris*. It will also decompress all files.
+The snippet of the bash script above will create a "Reference" directory, download the genome of *D. melanogaster* in FASTA file, the corresponding GTF, and the protein sequences for *Aedes aegypti*. It will also decompress all files.
 
 It is possible to have a feel for the annnotation of this species - the size of its genes and transcripts, the average number of exons per transcript, etc - by using ``mikado util stats``; just issue the following command::
 

@@ -226,7 +226,7 @@ This will create three files in the working directory:
 
     --scheduler <One of SLURM, PBS or LSF>
 
-  Adding this switch will also create a default *cluster configuration file*, specifying the number of resources per job and the submission queue. This is an example of how it appears on our system:
+  Adding this switch will also create a default cluster configuration file, *daijin_hpc.yaml*, specifying the number of resources per job and the submission queue. This is an example of how it appears on our system:
 .. literalinclude:: ../Usage/hpc.yaml
 ..
 
@@ -236,7 +236,6 @@ Step 2: running the assemble part
 Now that we have created a proper configuration file, it is time to launch Daijin assemble and inspect the results. Issue the command::
 
     daijin assemble --cores <Number of maximum cores> daijin.yaml
-
 
 After checking that the configuration file is valid, Daijin will start the alignment and assembly of the dataset. On a normal desktop computer, this should take less than 2 hours. Before launching the pipeline, you can obtain a graphical representation of the steps with::
 

@@ -457,6 +457,10 @@ The statistics file looks as follows::
 
 The similarity is quite higher, suggesting that for many models the differences between the Mikado annotation and the reference lies in the UTR component.
 
+When plotted, the advantage of using Mikado to refine the transcript assemblies is quite evident:
+
+.. image:: daijin_result.png
+
 We suggest to visualise assemblies with one of the many tools currently at disposal, such as eg `WebApollo <http://genomearchitect.org/>`_ [Apollo]_. Mikado files are GFF3-compliant and can be loaded directly into Apollo or similar tools. GTF files can be converted into proper GFF3 files using the convert utility included in Mikado::
 
   mikado util convert <input gtf> <output GFF3>

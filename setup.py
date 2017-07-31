@@ -4,6 +4,7 @@
 
 from setuptools import setup, find_packages
 from setuptools.extension import Extension
+from distutils.extension import Extension
 from Cython.Build import cythonize
 from codecs import open
 from os import path
@@ -16,15 +17,36 @@ here = path.abspath(path.dirname("__file__"))
 with open(path.join(here, "DESCRIPTION.md"), encoding="utf-8") as description:
     long_description = description.read()
 
-version = {}
-with open(path.join(here, "Mikado", "version.py")) as fp:
-    exec(fp.read(), globals(), version)
-version = version["__version__"]
+version = None
+with open(path.join(here, "Mikado", "__init__.py"), "rt") as fp:
+    # exec(fp.read(), globals(), version)
+    for line in fp:
+        if line.startswith("__version__"):
+            version = line.rstrip().split(" = ")[1].strip('"')
+            print(version)
+            # sys.exit(0)
+            break
+
+if version is None:
+    print("No version found, exiting", file=sys.stderr)
+    sys.exit(1)
+    version = "devel"
+
+# version = version["__version__"]
 assert version
 
 if sys.version_info.major != 3:
     raise EnvironmentError("""Mikado is a pipeline specifically programmed for python3,
     and is not compatible with Python2. Please upgrade your python before proceeding!""")
+
+extensions = [Extension("Mikado.utilities.overlap",
+                        sources=[path.join("Mikado", "utilities", "overlap.pyx")]),
+              Extension("Mikado.scales.f1",
+                        sources=[path.join("Mikado", "scales", "f1.pyx")]),
+              Extension("Mikado.scales.contrast",
+                        sources=[path.join("Mikado", "scales", "contrast.pyx")]),
+              Extension("Mikado.utilities.intervaltree",
+                        sources=[path.join("Mikado", "utilities", "intervaltree.pyx")])]
 
 setup(
     name="Mikado",
@@ -43,15 +65,8 @@ setup(
         'Programming Language :: Python :: 3.4',
         "Programming Language :: Python :: 3.5",
     ],
-    ext_modules=cythonize([Extension(path.join("Mikado.utilities.overlap"),
-                                     [path.join("Mikado", "utilities", "overlap.pyx")]),
-                           Extension(path.join("Mikado.scales.f1"),
-                                     [path.join("Mikado", "scales", "f1.pyx")]),
-                           Extension(path.join("Mikado.scales.contrast"),
-                                     [path.join("Mikado", "scales", "contrast.pyx")]),
-                           Extension(path.join("Mikado.utilities.intervaltree"),
-                                     [path.join("Mikado", "utilities", "intervaltree.pyx")]),
-                           ]),
+    ext_modules=cythonize(["Mikado/utilities/overlap.pyx"]),
+    #    ext_modules=cythonize(extensions),
     zip_safe=False,
     keywords="rna-seq annotation genomics transcriptomics",
     packages=find_packages(),
@@ -75,7 +90,9 @@ setup(
         "Mikado":
             glob.glob(path.join("Mikado", "daijin", "*yaml")) +
             glob.glob("Mikado/daijin/*json") + \
-            glob.glob("Mikado/daijin/*snakefile")
+            glob.glob("Mikado/daijin/*snakefile"),
+        "Mikado.utilities.overlap": [path.join("Mikado", "utilities", "overlap.pxd")],
+        "Mikado.utilities.intervaltree": [path.join("Mikado", "utilities", "intervaltree.pxd")],
         },
     include_package_data=True
     # data_files=[

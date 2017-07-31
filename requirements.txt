@@ -15,7 +15,9 @@ scipy>=0.15.0
 frozendict
 python-magic
 drmaa
-snakemake
+snakemake<4.0.0; python_version < "3.5"
+snakemake; python_version >= "3.5"
 docutils!=0.13.1
 tabulate
 ujson
+simplejson

@@ -23,14 +23,11 @@ with open(path.join(here, "Mikado", "__init__.py"), "rt") as fp:
     for line in fp:
         if line.startswith("__version__"):
             version = line.rstrip().split(" = ")[1].strip('"')
-            print(version)
-            # sys.exit(0)
             break
 
 if version is None:
     print("No version found, exiting", file=sys.stderr)
     sys.exit(1)
-    version = "devel"
 
 # version = version["__version__"]
 assert version

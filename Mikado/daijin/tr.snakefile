@@ -514,12 +514,12 @@ rule star_all:
 
 rule align_hisat_index:
 	input: REF
-	output: ALIGN_DIR+"/hisat/index/"+NAME+".4.ht2"
+	output: ALIGN_DIR+"/hisat/index/"+NAME+".done"
 	params: load=loadPre(config, "hisat")
 	log: ALIGN_DIR+"/hisat.index.log"
 	threads: 1
 	message: "Indexing genome with hisat"
-	shell: "{params.load} hisat2-build {input} {ALIGN_DIR}/hisat/index/{NAME} > {log} 2>&1"
+	shell: "{params.load} hisat2-build {input} {ALIGN_DIR}/hisat/index/{NAME} > {log} 2>&1 && touch {output}"
 
 rule align_hisat:
 	input:

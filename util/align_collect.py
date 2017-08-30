@@ -21,7 +21,8 @@ class Stats:
 
     def __str__(self):
 
-        return "\t".join([str(_) for _ in [self.seqs,
+        return "\t".join([str(_) for _ in [self.file,
+                                           self.seqs,
                                            self.mapped,
                                            self.mapped_n_paired,
                                            self.unmapped,

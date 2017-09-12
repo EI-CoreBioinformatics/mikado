@@ -6,6 +6,9 @@ import argparse
 import sys
 import collections
 from Mikado.utilities.intervaltree import IntervalTree
+import os
+from Bio.Seq import Seq
+from Bio.SeqRecord import SeqRecord
 
 
 __doc__ = """Little script to """
@@ -14,7 +17,7 @@ __doc__ = """Little script to """
 def main():
 
     parser = argparse.ArgumentParser(__doc__)
-    parser.add_argument("-o", "--out", type=argparse.FileType("wt"), default=sys.stdout)
+    parser.add_argument("-o", "--out", type=str, default="promoters")
     parser.add_argument("-d", "--distances", nargs="+", type=int, default=[1000, 2000, 5000])
     parser.add_argument("genome")
     parser.add_argument("gff3")
@@ -22,6 +25,15 @@ def main():
     args = parser.parse_args()
 
     logger = Mikado.utilities.log_utils.create_default_logger("default")
+
+    max_distance = max(args.distances)
+    out_files = dict()
+    args.distances = sorted([_ for _ in args.distances if _ > 0])
+    if not args.distances:
+        raise ValueError("I need at least one positive integer distance!")
+    for distance in args.distances:
+        out_files[distance] = open("{}-{}bp.fasta".format(os.path.splitext(args.out)[0],
+                                                     distance), "wt")
 
     genome = pyfaidx.Fasta(args.genome)
 
@@ -38,8 +50,6 @@ def main():
         indexer = collections.defaultdict(list).fromkeys(positions)
         for chrom in indexer:
             indexer[chrom] = IntervalTree.from_tuples(positions[chrom].keys())
-
-    max_distance = max(args.distances)
 
     with open(args.gene_list) as gene_list:
         gids = [_.rstrip() for _ in gene_list]
@@ -67,12 +77,58 @@ def main():
             # Find all genes which are near
             neighbours = Mikado.scales.assigner.Assigner.find_neighbours(indexer.get(chrom, IntervalTree()),
                                                                          key, distance=0)
+            # This is a list of the form [((start, end), distance), ...] where "(start, end)" is a key for the
+            # "positions" dictionary, above
 
-            # Find all the genes which are in the neighbourhood, remove the obvious case ..
-            for neighbour in neighbours:
+            # Find all the genes which are in the neighbourhood, remove the obvious case of the identity ..
+            def is_before(gid_coords, key, strand):
+                if strand == "-":
+                    return (Mikado.utilities.overlap(gid_coords, key) >= 0) or gid_coords[1] < key[0]
+                else:
+                    return (Mikado.utilities.overlap(gid_coords, key) >= 0) or gid_coords[0] > key[1]
 
-                print(positions[chrom][neighbour[0]])
 
+            neighbours = [_[0] for _ in neighbours if
+                          is_before((start, end), _[0], strand) and gid not in positions[chrom][_[0]]]
+
+            if not neighbours:
+                # No neighbours found, we can grab everything
+                for distance in args.distances:
+                    if strand == "-":
+                        chunk = (max(0, end), min(end + distance, len(genome[chrom])))
+                        seq = genome[chrom][chunk[0]:chunk[1]].reverse.complement.seq
+                    else:
+                        chunk = (max(0, start - 1 - distance), start - 1)
+                        seq = genome[chrom][chunk[0]:chunk[1]]
+
+                    seq = SeqRecord(Seq(seq), id="{}-prom-{}".format(gid, distance),
+                                    description="{}{}:{}-{}".format(chrom, strand, chunk[0], chunk[1]))
+                    print(seq.format("fasta"), file=out_files[distance], end='')
+            else:
+                # We have some neighbours, we have to select the maximum distance we can go to
+                logger.warning("{} neighbours found for {}: {}".format(len(neighbours), gid, neighbours))
+                if any([Mikado.utilities.overlap((start, end), _) >= 0 for _ in neighbours]):
+                    logger.warning("Overlapping genes found for {}. Skipping")
+                    continue
+                for distance in args.distances:
+                    if strand == "-":
+                        max_point = min([_[0] for _ in neighbours])
+                        if end + distance > max_point:
+                            continue
+                        chunk = (max(0, end), min(max_point, min(end + distance, len(genome[chrom]))))
+                        seq = genome[chrom][chunk[0]:chunk[1]].reverse.complement.seq
+                        description = "{}{}:{}-{}".format(chrom, strand, chunk[1], chunk[0])
+                    else:
+                        min_point = max([_[1] for _ in neighbours])
+                        if start - distance < min_point:
+                            continue
+                        chunk = (max(0, start - 1 - distance), start - 1)
+                        seq = genome[chrom][chunk[0]:chunk[1]]
+                        description = "{}{}:{}-{}".format(chrom, strand, chunk[0], chunk[1])
+
+                    seq = SeqRecord(Seq(seq), id="{}-prom-{}".format(gid, distance),
+                                    description=description)
+                    print(seq.format("fasta"), file=out_files[distance], end='')
 
     return
 

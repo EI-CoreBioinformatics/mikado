@@ -18,25 +18,36 @@ def main():
 
     parser = argparse.ArgumentParser(__doc__)
     parser.add_argument("-o", "--out", type=str, default="promoters")
+    parser.add_argument("-l", "--log", default=None)
+    parser.add_argument("-lv", "--log-level", default="WARN", choices=["DEBUG", "INFO", "WARN", "ERROR", "CRITICAL"],
+                        dest="log_level")
     parser.add_argument("-d", "--distances", nargs="+", type=int, default=[1000, 2000, 5000])
     parser.add_argument("genome")
     parser.add_argument("gff3")
     parser.add_argument("gene_list")
     args = parser.parse_args()
 
-    logger = Mikado.utilities.log_utils.create_default_logger("default")
+    logger = Mikado.utilities.log_utils.create_logger_from_conf({"log_settings": {"log": args.log,
+                                                                                  "log_level": args.log_level}},
+                                                                "extractor",
+                                                                mode="w")
 
     max_distance = max(args.distances)
     out_files = dict()
     args.distances = sorted([_ for _ in args.distances if _ > 0])
     if not args.distances:
-        raise ValueError("I need at least one positive integer distance!")
+        exc = ValueError("I need at least one positive integer distance!")
+        logger.exception(exc)
+        sys.exit(1)
     for distance in args.distances:
         out_files[distance] = open("{}-{}bp.fasta".format(os.path.splitext(args.out)[0],
                                                      distance), "wt")
 
+    logger.info("Starting to load the genome")
     genome = pyfaidx.Fasta(args.genome)
+    logger.info("Loaded the genome")
 
+    logger.info("Starting to load the GFF3 index")
     with open(args.gff3) as gff3:
         namespace = argparse.Namespace
         namespace.reference = gff3
@@ -50,9 +61,11 @@ def main():
         indexer = collections.defaultdict(list).fromkeys(positions)
         for chrom in indexer:
             indexer[chrom] = IntervalTree.from_tuples(positions[chrom].keys())
+    logger.info("Loaded the index")
 
     with open(args.gene_list) as gene_list:
         gids = [_.rstrip() for _ in gene_list]
+        logger.info("Starting to extract sequences for {} genes".format(len(gids)))
         for gid in gids:
             if gid not in genes:
                 exc = IndexError("{} not found in the index!".format(gid))
@@ -99,7 +112,7 @@ def main():
                         seq = genome[chrom][chunk[0]:chunk[1]].reverse.complement.seq
                     else:
                         chunk = (max(0, start - 1 - distance), start - 1)
-                        seq = genome[chrom][chunk[0]:chunk[1]]
+                        seq = genome[chrom][chunk[0]:chunk[1]].seq
 
                     seq = SeqRecord(Seq(seq), id="{}-prom-{}".format(gid, distance),
                                     description="{}{}:{}-{}".format(chrom, strand, chunk[0], chunk[1]))
@@ -108,7 +121,7 @@ def main():
                 # We have some neighbours, we have to select the maximum distance we can go to
                 logger.warning("{} neighbours found for {}: {}".format(len(neighbours), gid, neighbours))
                 if any([Mikado.utilities.overlap((start, end), _) >= 0 for _ in neighbours]):
-                    logger.warning("Overlapping genes found for {}. Skipping")
+                    logger.warning("Overlapping genes found for {}. Skipping".format(gid))
                     continue
                 for distance in args.distances:
                     if strand == "-":
@@ -123,13 +136,14 @@ def main():
                         if start - distance < min_point:
                             continue
                         chunk = (max(0, start - 1 - distance), start - 1)
-                        seq = genome[chrom][chunk[0]:chunk[1]]
+                        seq = genome[chrom][chunk[0]:chunk[1]].seq
                         description = "{}{}:{}-{}".format(chrom, strand, chunk[0], chunk[1])
 
                     seq = SeqRecord(Seq(seq), id="{}-prom-{}".format(gid, distance),
                                     description=description)
                     print(seq.format("fasta"), file=out_files[distance], end='')
 
+    logger.info("Finished")
     return
 
 main.__doc__ = __doc__

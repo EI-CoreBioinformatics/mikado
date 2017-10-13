@@ -11,7 +11,7 @@ from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 
 
-__doc__ = """Little script to """
+__doc__ = """Little script to extract promoter regions from genes."""
 
 
 def main():
@@ -99,7 +99,6 @@ def main():
                     return (Mikado.utilities.overlap(gid_coords, key) >= 0) or gid_coords[1] < key[0]
                 else:
                     return (Mikado.utilities.overlap(gid_coords, key) >= 0) or gid_coords[0] > key[1]
-
 
             neighbours = [_[0] for _ in neighbours if
                           is_before((start, end), _[0], strand) and gid not in positions[chrom][_[0]]]

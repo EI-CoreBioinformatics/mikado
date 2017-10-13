@@ -384,9 +384,9 @@ def load_index(args, queue_logger):
                            protein_coding=args.protein_coding)
             if len(gene.transcripts) > 0:
                 genes[gid] = gene
-                if (gene.start, gene.end) not in positions[gene.chrom]:
-                    positions[gene.chrom][(gene.start, gene.end)] = []
-                positions[gene.chrom][(gene.start, gene.end)].append(gene.id)
+                # if (gene.start, gene.end) not in positions[gene.chrom]:
+                #     positions[gene.chrom][(gene.start, gene.end)] = []
+                # positions[gene.chrom][(gene.start, gene.end)].append(gene.id)
             else:
                 queue_logger.warning("No transcripts for %s", gid)
         except (EOFError, json.decoder.JSONDecodeError) as exc:

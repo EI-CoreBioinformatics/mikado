@@ -52,7 +52,7 @@ setup(
     long_description=long_description,
     url="https://github.com/lucventurini/mikado",
     author="Luca Venturini",
-    author_email="luca.venturini@tgac.ac.uk",
+    author_email="luca.venturini@earlham.ac.uk",
     license="GPL3",
     classifiers=[
         "Development Status :: 4 - Beta",
@@ -61,6 +61,7 @@ setup(
         "Operating System :: POSIX :: Linux",
         'Programming Language :: Python :: 3.4',
         "Programming Language :: Python :: 3.5",
+        "Programming Language :: Python :: 3.6"
     ],
     ext_modules=cythonize(extensions),
     zip_safe=False,

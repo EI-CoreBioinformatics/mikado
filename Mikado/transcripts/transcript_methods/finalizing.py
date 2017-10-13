@@ -208,7 +208,7 @@ def __calculate_introns(transcript):
                 transcript.logger.exception(exc)
                 raise exc
             # Append the splice junction
-            introns.append(tuple([exona[1] + 1, exonb[0] - 1]))
+            introns.append(tuple(sorted([exona[1] + 1, exonb[0] - 1])))
             # Append the splice locations
             splices.extend([exona[1] + 1, exonb[0] - 1])
     transcript.introns = set(introns)
@@ -225,7 +225,7 @@ def __calculate_introns(transcript):
             assert first != second, transcript.selected_cds
             # assert first[1] < second[0], (first, second)
             first, second = sorted([first, second])
-            intron = tuple([first[1] + 1, second[0] - 1])
+            intron = tuple(sorted([first[1] + 1, second[0] - 1]))
             assert intron in transcript.introns, (intron, first, second)
             cds_introns.append(intron)
 

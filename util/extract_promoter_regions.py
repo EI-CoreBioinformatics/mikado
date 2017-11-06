@@ -9,6 +9,7 @@ from Mikado.utilities.intervaltree import IntervalTree
 import os
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
+import gzip
 
 
 __doc__ = """Little script to extract promoter regions from genes."""
@@ -22,6 +23,11 @@ def main():
     parser.add_argument("-lv", "--log-level", default="WARN", choices=["DEBUG", "INFO", "WARN", "ERROR", "CRITICAL"],
                         dest="log_level")
     parser.add_argument("-d", "--distances", nargs="+", type=int, default=[1000, 2000, 5000])
+    parser.add_argument("-nn", "--no-neighbours", dest="no_neighbours", action="store_true", default=False,
+                        help="Ignore the presence of neighbours when extracting genes.")
+    parser.add_argument("-eu", "--exclude-utr", dest="exclude_utr", default=False, action="store_true")
+    parser.add_argument("-z", "--gzip", default=False, action="store_true",
+                        help="Output will be compressed in GZip format.")
     parser.add_argument("genome")
     parser.add_argument("gff3")
     parser.add_argument("gene_list")
@@ -40,7 +46,11 @@ def main():
         logger.exception(exc)
         sys.exit(1)
     for distance in args.distances:
-        out_files[distance] = open("{}-{}bp.fasta".format(os.path.splitext(args.out)[0],
+        if args.gzip is True:
+            out_files[distance] = gzip.open("{}-{}bp.fasta.gz".format(os.path.splitext(args.out)[0],
+                                                                      distance), "wt")
+        else:
+            out_files[distance] = open("{}-{}bp.fasta".format(os.path.splitext(args.out)[0],
                                                      distance), "wt")
 
     logger.info("Starting to load the genome")
@@ -51,7 +61,7 @@ def main():
     with open(args.gff3) as gff3:
         namespace = argparse.Namespace
         namespace.reference = gff3
-        namespace.exclude_utr = False
+        namespace.exclude_utr = args.exclude_utr
         namespace.protein_coding = False
         # Use Mikado compare functions to load the index from the GFF3
         # "genes" is a dictionary of Gene objects, having as keys the gene names
@@ -88,34 +98,43 @@ def main():
                 key = (max(0, start - max_distance), end)
 
             # Find all genes which are near
-            neighbours = Mikado.scales.assigner.Assigner.find_neighbours(indexer.get(chrom, IntervalTree()),
-                                                                         key, distance=0)
-            # This is a list of the form [((start, end), distance), ...] where "(start, end)" is a key for the
-            # "positions" dictionary, above
+            if args.no_neighbours is False:
 
-            # Find all the genes which are in the neighbourhood, remove the obvious case of the identity ..
-            def is_before(gid_coords, key, strand):
-                if strand == "-":
-                    return (Mikado.utilities.overlap(gid_coords, key) >= 0) or gid_coords[1] < key[0]
-                else:
-                    return (Mikado.utilities.overlap(gid_coords, key) >= 0) or gid_coords[0] > key[1]
+                neighbours = Mikado.scales.assigner.Assigner.find_neighbours(indexer.get(chrom, IntervalTree()),
+                                                                             key, distance=0)
+                # This is a list of the form [((start, end), distance), ...] where "(start, end)" is a key for the
+                # "positions" dictionary, above
 
-            neighbours = [_[0] for _ in neighbours if
-                          is_before((start, end), _[0], strand) and gid not in positions[chrom][_[0]]]
+                # Find all the genes which are in the neighbourhood, remove the obvious case of the identity ..
+                def is_before(gid_coords, key, strand):
+                    if strand == "-":
+                        return (Mikado.utilities.overlap(gid_coords, key) >= 0) or gid_coords[1] < key[0]
+                    else:
+                        return (Mikado.utilities.overlap(gid_coords, key) >= 0) or gid_coords[0] > key[1]
+
+                neighbours = [_[0] for _ in neighbours if
+                              is_before((start, end), _[0], strand) and gid not in positions[chrom][_[0]]]
+            else:
+                neighbours = []
 
             if not neighbours:
                 # No neighbours found, we can grab everything
                 for distance in args.distances:
-                    if strand == "-":
-                        chunk = (max(0, end), min(end + distance, len(genome[chrom])))
-                        seq = genome[chrom][chunk[0]:chunk[1]].reverse.complement.seq
-                    else:
-                        chunk = (max(0, start - 1 - distance), start - 1)
-                        seq = genome[chrom][chunk[0]:chunk[1]].seq
+                    try:
+                        if strand == "-":
+                            chunk = (max(0, end), min(end + distance, len(genome[chrom])))
+                            seq = genome[chrom][chunk[0]:chunk[1]].reverse.complement.seq
+                        else:
+                            chunk = (max(0, start - 1 - distance), start - 1)
+                            seq = genome[chrom][chunk[0]:chunk[1]].seq
 
-                    seq = SeqRecord(Seq(seq), id="{}-prom-{}".format(gid, distance),
-                                    description="{}{}:{}-{}".format(chrom, strand, chunk[0], chunk[1]))
-                    print(seq.format("fasta"), file=out_files[distance], end='')
+                        seq = SeqRecord(Seq(seq), id="{}-prom-{}".format(gid, distance),
+                                        description="{}{}:{}-{}".format(chrom, strand, chunk[0], chunk[1]))
+                        print(seq.format("fasta"), file=out_files[distance], end='')
+                    except ValueError as err:
+                        logger.error("Error extracting the promoter for %s, distance %d. Error:\n%s",
+                                     gid, distance, err)
+                        continue
             else:
                 # We have some neighbours, we have to select the maximum distance we can go to
                 logger.warning("{} neighbours found for {}: {}".format(len(neighbours), gid, neighbours))
@@ -123,24 +142,30 @@ def main():
                     logger.warning("Overlapping genes found for {}. Skipping".format(gid))
                     continue
                 for distance in args.distances:
-                    if strand == "-":
-                        max_point = min([_[0] for _ in neighbours])
-                        if end + distance > max_point:
-                            continue
-                        chunk = (max(0, end), min(max_point, min(end + distance, len(genome[chrom]))))
-                        seq = genome[chrom][chunk[0]:chunk[1]].reverse.complement.seq
-                        description = "{}{}:{}-{}".format(chrom, strand, chunk[1], chunk[0])
-                    else:
-                        min_point = max([_[1] for _ in neighbours])
-                        if start - distance < min_point:
-                            continue
-                        chunk = (max(0, start - 1 - distance), start - 1)
-                        seq = genome[chrom][chunk[0]:chunk[1]].seq
-                        description = "{}{}:{}-{}".format(chrom, strand, chunk[0], chunk[1])
+                    try:
+                        if strand == "-":
+                            max_point = min([_[0] for _ in neighbours])
+                            if end + distance > max_point:
+                                continue
+                            chunk = (max(0, end), min(max_point, min(end + distance, len(genome[chrom]))))
+                            seq = genome[chrom][chunk[0]:chunk[1]].reverse.complement.seq
+                            description = "{}{}:{}-{}".format(chrom, strand, chunk[1], chunk[0])
+                        else:
+                            min_point = max([_[1] for _ in neighbours])
+                            if start - distance < min_point:
+                                continue
+                            chunk = (max(0, start - 1 - distance), start - 1)
+                            seq = genome[chrom][chunk[0]:chunk[1]].seq
+                            description = "{}{}:{}-{}".format(chrom, strand, chunk[0], chunk[1])
+                        seq = SeqRecord(Seq(seq), id="{}-prom-{}".format(gid, distance),
+                                        description=description)
+                        print(seq.format("fasta"), file=out_files[distance], end='')
 
-                    seq = SeqRecord(Seq(seq), id="{}-prom-{}".format(gid, distance),
-                                    description=description)
-                    print(seq.format("fasta"), file=out_files[distance], end='')
+                    except ValueError as err:
+                        logger.error("Error extracting the promoter for %s, distance %d. Error:\n%s",
+                                     gid, distance, err)
+                        continue
+
 
     logger.info("Finished")
     return

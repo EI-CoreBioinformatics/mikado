@@ -91,36 +91,21 @@ Exons: {6}
         transcript = Transcript()
         transcript.id = record.query_name
         transcript.exons = exons
-        transcript.parent = transcript.attributes["gene_id"] =  "{0}.gene".format(record.query_name)
+        transcript.parent = transcript.attributes["gene_id"] = "{0}.gene".format(record.query_name)
         transcript.attributes["identity"] = identity
         transcript.attributes["coverage"] = coverage
         transcript.attributes["cigar"] = record.cigarstring
         transcript.chrom = args.bam.getrname(record.rname)
+        transcript.score = record.mapq
         if len(transcript.exons) == 0:
             continue
 
         assert len(transcript.exons) > 0
         try:
                 transcript.start = min(x[0] for x in transcript.exons)
+                transcript.end = max(x[1] for x in transcript.exons)
         except IndexError:
-                raise IndexError(new_exons, transcript.exons)
-        transcript.end = max(x[1] for x in transcript.exons)
-
-        transcript.score = record.mapq
-        transcript.source = "bam2gtf"
-
-        transcript.id = record.query_name
-        transcript.parent = transcript.attributes["gene_id"] =  "{0}.gene".format(record.query_name)
-        transcript.chrom = args.bam.getrname(record.rname)
-
-        assert len(transcript.exons) > 0
-        try:
-                transcript.start = min(x[0] for x in transcript.exons)
-        except IndexError:
-                raise IndexError(new_exons, transcript.exons)
-        transcript.end = max(x[1] for x in transcript.exons)
-
-        transcript.score = record.mapq
+                raise IndexError(transcript.exons)
 
         transcript.source = "bam2gtf"
 

@@ -23,6 +23,8 @@ from ..loci.reference_gene import Gene
 from ..parsers.GFF import GFF3
 from ..parsers import to_gff
 from ..utilities.log_utils import create_default_logger, formatter
+import tempfile
+import shutil
 import magic
 import sqlite3
 try:
@@ -449,9 +451,6 @@ def _old_load_index(args, queue_logger):
 def create_index(positions, genes, index_name):
 
     """Method to create the simple indexed database for features."""
-
-    import tempfile
-    import shutil
 
     temp_db = tempfile.mktemp(suffix=".db")
 

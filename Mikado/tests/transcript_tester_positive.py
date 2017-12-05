@@ -909,7 +909,7 @@ Triticum_aestivum_CS42_TGACv1_scaffold_000112_1AL	Triticum_aestivum_CS42_TGACv1_
             transcript.finalize()
 
         self.assertTrue(transcript.is_coding)
-        self.assertEqual(557, transcript.selected_cds_length,
+        self.assertEqual(560, transcript.selected_cds_length,
                          sum(
                              _[1][1] - _[1][0] + 1 for _ in transcript.selected_internal_orf if _[0] == "CDS")
                          )

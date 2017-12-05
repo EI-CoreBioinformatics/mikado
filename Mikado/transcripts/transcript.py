@@ -267,6 +267,7 @@ class Transcript:
         self.__exons = set()
         self.__parent = []
         self.__combined_cds = []
+
         self.__combined_cds_length = 0
         self.__selected_cds = []
         self.__cdna_length = None
@@ -292,6 +293,7 @@ class Transcript:
         self.start, self.end = None, None
         self.attributes = dict()
         self.exons, self.combined_cds, self.combined_utr = [], [], []
+        self.stop_codon = []
         self.logger = logger
         self.introns = set()
         self.splices = set()
@@ -571,8 +573,10 @@ class Transcript:
             self.has_start_codon = True
             return
         elif feature == "stop_codon":
+            # Here we have to store it, as the stop codon has to be included in the CDS for Mikado.
             self.has_stop_codon = True
-            return
+            store = self.stop_codon
+            # return
         elif feature == "intron":
             store = self.introns
         else:
@@ -901,6 +905,7 @@ class Transcript:
         if self.feature == "mRNA":
             self.feature = "transcript"
         self.combined_cds = []
+        self.stop_codon = []
         self._combined_cds_introns = set()
         self._selected_cds_introns = set()
         self.selected_internal_orf_index = None

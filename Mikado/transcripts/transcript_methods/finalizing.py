@@ -4,7 +4,7 @@ e.g. reliability of the CDS/UTR, sanity of borders, etc.
 """
 
 
-import numpy
+from Mikado.utilities.intervaltree import IntervalTree
 import intervaltree
 import operator
 from Mikado.exceptions import InvalidCDS, InvalidTranscript
@@ -208,7 +208,7 @@ def __calculate_introns(transcript):
                 transcript.logger.exception(exc)
                 raise exc
             # Append the splice junction
-            introns.append(tuple(sorted([exona[1] + 1, exonb[0] - 1])))
+            introns.append(tuple([exona[1] + 1, exonb[0] - 1]))
             # Append the splice locations
             splices.extend([exona[1] + 1, exonb[0] - 1])
     transcript.introns = set(introns)
@@ -225,7 +225,7 @@ def __calculate_introns(transcript):
             assert first != second, transcript.selected_cds
             # assert first[1] < second[0], (first, second)
             first, second = sorted([first, second])
-            intron = tuple(sorted([first[1] + 1, second[0] - 1]))
+            intron = tuple([first[1] + 1, second[0] - 1])
             assert intron in transcript.introns, (intron, first, second)
             cds_introns.append(intron)
 
@@ -314,11 +314,6 @@ def __verify_boundaries(transcript):
             err, transcript.id, str(transcript.exons))
 
 
-def __get_phase(length):
-    return (3 - (length % 3)) % 3
-
-__v_get_phase = numpy.vectorize(__get_phase)
-
 def __calculate_phases(coding, previous):
     """
 
@@ -327,18 +322,14 @@ def __calculate_phases(coding, previous):
     :return:
     """
 
-    coding = [_[1] for _ in coding]
-    ar = numpy.array(list(zip(*coding))[:2], dtype=int)
-    cums = numpy.subtract(ar[1], ar[0] - 1).cumsum() - previous
-    phases, total_cds_length = numpy.concatenate([numpy.array([-previous]), cums[:-1]]), cums[-1]
-    __calculated_phases = list(__v_get_phase(phases))
+    total_cds_length = -previous
 
-    # __calculated_phases = []
-    # for cds_segment in coding:
-    #     length = cds_segment[1][1] - cds_segment[1][0] + 1
-    #     phase = (3 - (total_cds_length % 3)) % 3
-    #     __calculated_phases.append(phase)
-    #     total_cds_length += length
+    __calculated_phases = []
+    for cds_segment in coding:
+        length = cds_segment[1][1] - cds_segment[1][0] + 1
+        phase = (3 - (total_cds_length % 3)) % 3
+        __calculated_phases.append(phase)
+        total_cds_length += length
 
     return total_cds_length, __calculated_phases
 
@@ -441,8 +432,7 @@ Coding_exons (recalculated): {}""".format(
             phase_orf = []
 
     if transcript._trust_orf is True and index == 0 and len(phase_orf) == len(coding):
-        ar = numpy.array(list(zip(*coding)), dtype=int)
-        total_cds_length = numpy.subtract(ar[1], ar[0] - 1).sum()
+        total_cds_length = sum([_[1][1] - _[1][0] + 1 for _ in coding])
         __calculated_phases = phase_orf[:]
     else:
         total_cds_length, __calculated_phases = __calculate_phases(coding, previous)
@@ -558,6 +548,47 @@ def finalize(transcript):
     # __previous = transcript.deepcopy()
 
     transcript.exons = sorted(transcript.exons)
+
+    # Add the stop codon to the CDS
+    if transcript.stop_codon:
+        transcript.logger.debug("Adding the stop codon to %s", transcript.id)
+        transcript.stop_codon = sorted(transcript.stop_codon)
+        transcript.combined_cds = sorted(transcript.combined_cds)
+        if transcript.strand == "-":
+            transcript.logger.debug("%s: CDS[0]: %s, Stop codon: %s",
+                                    transcript.id,
+                                    transcript.combined_cds[0],
+                                    transcript.stop_codon)
+            if transcript.combined_cds[0][0] == transcript.stop_codon[-1][1] + 1:
+                transcript.logger.debug("Moving %s last CDS from %d to %d",
+                                        transcript.id,
+                                        transcript.combined_cds[0][0],
+                                        transcript.stop_codon[-1][0]
+                                        )
+                transcript.combined_cds[0] = (
+                    transcript.stop_codon.pop(-1)[0],
+                    transcript.combined_cds[0][1])
+            transcript.logger.debug("Extend the CDS with: %s", transcript.stop_codon)
+            transcript.combined_cds.extend(transcript.stop_codon)
+            transcript.logger.debug("Final CDS: %s", transcript.combined_cds)
+        else:
+            transcript.logger.debug("%s: CDS[-1]: %s, Stop codon: %s",
+                                    transcript.id,
+                                    transcript.combined_cds[-1],
+                                    transcript.stop_codon)
+            if transcript.combined_cds[-1][1] == transcript.stop_codon[0][0] - 1:
+                transcript.logger.debug("Moving %s last CDS from %d to %d",
+                                        transcript.id,
+                                        transcript.combined_cds[-1][1],
+                                        transcript.stop_codon[0][1]
+                                        )
+                transcript.combined_cds[-1] = (
+                    transcript.combined_cds[-1][0],
+                    transcript.stop_codon.pop(0)[1])
+            transcript.logger.debug("Extend the CDS with: %s", transcript.stop_codon)
+            transcript.combined_cds.extend(transcript.stop_codon)
+            transcript.logger.debug("Final CDS: %s", transcript.combined_cds)
+
     transcript.__cdna_length = None
     __basic_final_checks(transcript)
     # Sort the exons by start then stop
@@ -622,7 +653,6 @@ def finalize(transcript):
     _ = transcript.cds_tree
     _ = transcript.cds_introntree
     _ = transcript.segmenttree
-
 
     # BUG somewhere ... I am not sorting this properly before (why?)
     transcript.exons = sorted(transcript.exons)

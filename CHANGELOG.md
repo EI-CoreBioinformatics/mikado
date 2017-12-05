@@ -2,6 +2,7 @@
 
 Changes in this release:
 
+- Mikado is now compatible with NetworkX v. 2x.
 - Mikado now accepts ORFs calculated by Prodigal, in GFF3 format, instead of only those by TransDecoder in BED format.
 - By default, Daijin now uses **Prodigal and DIAMOND** instead of TransDecoder and BLAST. This should lead to massive speed-ups during the pipeline.
 - Improved the algorithm for finding retained introns, using a graph structure instead of potentially checking against every other transcript in the locus.
@@ -10,7 +11,7 @@ Changes in this release:
 - Fixed a bugs in Daijin regarding the calculation of Trinity parameters - previously, Daijin could potentially ask Trinity for parameters for N times, where N is the number of required assemblies.
 - Solved a bug that created incompatibility with BioPython >= 1.69
 - Solved some bugs that prevented Daijin from functioning correctly on a local computer
-- Now Daijin by default recovers the information to load external software from an external configuration file. This allows for having a standard configuration file for external programs, without having to modify the main configuration all the time. 
+- Now Daijin by default recovers the information to load external software from an external configuration file. This allows for having a standard configuration file for external programs, without having to modify the main configuration all the time.
 
 #Version 1.0.1
 
@@ -22,7 +23,7 @@ BugFix release.
 - Data to be transmitted to picking process children is now stored in a temporary SQLITE3 database, to lessen memory usage and queue hangups.
 - Fixed a bug while that caused a crash while Mikado was trying to approximate complex loci.
 - Switched away from using clique-based algorithms, as they tend to be very memory intensive.
-	
+
 #Version 1.0
 
 Changes in this release:
@@ -32,7 +33,7 @@ Changes in this release:
 - **MAJOR**: now Mikado serialise also stores the ***frame*** information of transcripts. Hits on the opposite strand will be **ignored**. This requires to **regenerate all Mikado databases**.
 - **MAJOR**: Added the final configuration files used for the article.
 - Added three new metrics, "blast_target_coverage", "blast_query_coverage", "blast_identity"
-- Changed the *default* repertoire of valid AS events to J, j, G, h (removed C and g).          
+- Changed the *default* repertoire of valid AS events to J, j, G, h (removed C and g).
 - **Bug fix**: now Mikado will consider the cDNA/CDS overlap also for monoexonic transcripts, even when the "simple_overlap_for_monoexonic_loci" flag is set to true.
 - Solved some issues with the Daijin schemas, which prevented correct referencing.
 - Bug fix for finding retained introns - Mikado was not accounting for cases where an exon started within an intron and crossed multiple subsequent junctions.

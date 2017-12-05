@@ -23,18 +23,12 @@ from ..loci.reference_gene import Gene
 from ..parsers.GFF import GFF3
 from ..parsers import to_gff
 from ..utilities.log_utils import create_default_logger, formatter
-import tempfile
-import shutil
-import magic
-import sqlite3
 try:
-    # import ujson as json
-    import json as json
+    import ujson as json
 except ImportError:
     import json
 import gzip
 import itertools
-from ..utilities import NumpyEncoder
 
 __author__ = 'Luca Venturini'
 
@@ -350,70 +344,6 @@ def load_index(args, queue_logger):
     """
 
     genes, positions = None, None
-
-    # New: now we are going to use SQLite for a faster experience
-    wizard = magic.Magic(mime=True)
-
-    if wizard.from_file("{0}.midx".format(args.reference.name)) == b"application/gzip":
-        queue_logger.warning("Old index format detected. Starting to generate a new one.")
-        raise CorruptIndex("Invalid index file")
-
-    try:
-        conn = sqlite3.connect("{0}.midx".format(args.reference.name))
-        cursor = conn.cursor()
-        tables = cursor.execute("SELECT name FROM sqlite_master WHERE type='table';").fetchall()
-        if sorted(tables) != sorted([("positions",), ("genes",)]):
-            raise CorruptIndex("Invalid database file")
-    except sqlite3.DatabaseError:
-        raise CorruptIndex("Invalid database file")
-
-    positions = dict()
-    try:
-        for counter, obj in enumerate(cursor.execute("SELECT * from positions")):
-            chrom, start, end, gid = obj
-            if chrom not in positions:
-                positions[chrom] = collections.defaultdict(list)
-            positions[chrom][(start, end)].append(gid)
-    except sqlite3.DatabaseError:
-        raise CorruptIndex("Invalid index file. Rebuilding.")
-
-    genes = dict()
-    for gid, obj in cursor.execute("SELECT * from genes"):
-        try:
-            gene = Gene(None, logger=queue_logger)
-            gene.load_dict(json.loads(obj),
-                           exclude_utr=args.exclude_utr,
-                           protein_coding=args.protein_coding)
-            if len(gene.transcripts) > 0:
-                genes[gid] = gene
-                # if (gene.start, gene.end) not in positions[gene.chrom]:
-                #     positions[gene.chrom][(gene.start, gene.end)] = []
-                # positions[gene.chrom][(gene.start, gene.end)].append(gene.id)
-            else:
-                queue_logger.warning("No transcripts for %s", gid)
-        except (EOFError, json.decoder.JSONDecodeError) as exc:
-            queue_logger.exception(exc)
-            raise CorruptIndex("Invalid index file")
-        except (TypeError, ValueError) as exc:
-            queue_logger.exception(exc)
-            raise CorruptIndex("Corrupted index file; deleting and rebuilding.")
-
-    return genes, positions
-
-
-def _old_load_index(args, queue_logger):
-
-    """
-    Function to load the genes and positions from the indexed GFF.
-    :param args:
-    :param queue_logger:
-    :return: genes, positions
-    :rtype: ((None|collections.defaultdict),(None|collections.defaultdict))
-    """
-
-    genes, positions = None, None
-
-
     with gzip.open("{0}.midx".format(args.reference.name), "rt") as index:
         positions = collections.defaultdict(dict)
         try:
@@ -446,38 +376,6 @@ def _old_load_index(args, queue_logger):
             raise CorruptIndex("Corrupted index file; deleting and rebuilding.")
 
     return genes, positions
-
-
-def create_index(positions, genes, index_name):
-
-    """Method to create the simple indexed database for features."""
-
-    temp_db = tempfile.mktemp(suffix=".db")
-
-    conn = sqlite3.connect(temp_db)
-    cursor = conn.cursor()
-    cursor.execute("CREATE TABLE positions (chrom text, start integer, end integer, gid text)")
-    cursor.execute("CREATE INDEX pos_idx ON positions (chrom, start, end)")
-    for chrom in positions:
-        for key in positions[chrom]:
-            start, end = key
-            for gid in positions[chrom][key]:
-                cursor.execute("INSERT INTO positions VALUES (?, ?, ?, ?)", (chrom,
-                                                                             start,
-                                                                             end,
-                                                                             gid))
-    cursor.execute("CREATE TABLE genes (gid text, json blob)")
-    cursor.execute("CREATE INDEX gid_idx on genes(gid)")
-    for gid, gobj in genes.items():
-        cursor.execute("INSERT INTO genes VALUES (?, ?)", (gid, json.dumps(gobj.as_dict(),
-                                                                           cls=NumpyEncoder)))
-    cursor.close()
-    conn.commit()
-    conn.close()
-
-    shutil.move(temp_db, index_name)
-
-    return
 
 
 def compare(args):
@@ -518,9 +416,11 @@ def compare(args):
         genes, positions = prepare_reference(args,
                                              queue_logger,
                                              ref_gff=ref_gff)
-
-        create_index(positions, genes, "{0}.midx".format(args.reference.name))
-
+        with gzip.open("{0}.midx".format(args.reference.name), "wt") as index:
+                cp_genes = dict()
+                for gid in genes:
+                    cp_genes[gid] = genes[gid].as_dict()
+                json.dump(cp_genes, index)
         queue_logger.info("Finished to create an index for %s, with %d genes",
                           args.reference.name, len(genes))
     else:
@@ -540,8 +440,7 @@ def compare(args):
             queue_logger.info("Starting loading the indexed reference")
             try:
                 genes, positions = load_index(args, queue_logger)
-            except CorruptIndex as exc:
-                queue_logger.warning(exc)
+            except CorruptIndex:
                 queue_logger.warning("Reference index corrupt, deleting and rebuilding.")
                 os.remove("{0}.midx".format(args.reference.name))
                 genes, positions = None, None
@@ -554,7 +453,11 @@ def compare(args):
                                                  queue_logger,
                                                  ref_gff=ref_gff)
             if args.no_save_index is False:
-                create_index(positions, genes, "{0}.midx".format(args.reference.name))
+                with gzip.open("{0}.midx".format(args.reference.name), "wt") as index:
+                    cp_genes = dict()
+                    for gid in genes:
+                        cp_genes[gid] = genes[gid].as_dict()
+                    json.dump(cp_genes, index)
                 if exclude_utr is True or protein_coding is True:
                     args.exclude_utr, args.protein_coding = exclude_utr, protein_coding
                     positions = collections.defaultdict(dict)

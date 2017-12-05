@@ -548,6 +548,47 @@ def finalize(transcript):
     # __previous = transcript.deepcopy()
 
     transcript.exons = sorted(transcript.exons)
+
+    # Add the stop codon to the CDS
+    if transcript.stop_codon:
+        transcript.logger.debug("Adding the stop codon to %s", transcript.id)
+        transcript.stop_codon = sorted(transcript.stop_codon)
+        transcript.combined_cds = sorted(transcript.combined_cds)
+        if transcript.strand == "-":
+            transcript.logger.debug("%s: CDS[0]: %s, Stop codon: %s",
+                                    transcript.id,
+                                    transcript.combined_cds[0],
+                                    transcript.stop_codon)
+            if transcript.combined_cds[0][0] == transcript.stop_codon[-1][1] + 1:
+                transcript.logger.debug("Moving %s last CDS from %d to %d",
+                                        transcript.id,
+                                        transcript.combined_cds[0][0],
+                                        transcript.stop_codon[-1][0]
+                                        )
+                transcript.combined_cds[0] = (
+                    transcript.stop_codon.pop(-1)[0],
+                    transcript.combined_cds[0][1])
+            transcript.logger.debug("Extend the CDS with: %s", transcript.stop_codon)
+            transcript.combined_cds.extend(transcript.stop_codon)
+            transcript.logger.debug("Final CDS: %s", transcript.combined_cds)
+        else:
+            transcript.logger.debug("%s: CDS[-1]: %s, Stop codon: %s",
+                                    transcript.id,
+                                    transcript.combined_cds[-1],
+                                    transcript.stop_codon)
+            if transcript.combined_cds[-1][1] == transcript.stop_codon[0][0] - 1:
+                transcript.logger.debug("Moving %s last CDS from %d to %d",
+                                        transcript.id,
+                                        transcript.combined_cds[-1][1],
+                                        transcript.stop_codon[0][1]
+                                        )
+                transcript.combined_cds[-1] = (
+                    transcript.combined_cds[-1][0],
+                    transcript.stop_codon.pop(0)[1])
+            transcript.logger.debug("Extend the CDS with: %s", transcript.stop_codon)
+            transcript.combined_cds.extend(transcript.stop_codon)
+            transcript.logger.debug("Final CDS: %s", transcript.combined_cds)
+
     transcript.__cdna_length = None
     __basic_final_checks(transcript)
     # Sort the exons by start then stop

@@ -247,5 +247,63 @@ Chr5	Cufflinks	exon	26577856	26578163	.	-	.	gene_id "cufflinks_star_at.23553";tr
         self.assertFalse(model.only_non_canonical_splicing)
 
 
+class StopCodonChecker(unittest.TestCase):
+
+    def test_positive_strand(self):
+
+        gtf_lines = """chr1A	Self_CESAR/windows_chr1A.gp	transcript	265021906	265026255	.	+	.	gene_id "TraesCS1A01G152900.1"; transcript_id "TraesCS1A01G152900.1";
+chr1A	Self_CESAR/windows_chr1A.gp	exon	265021906	265021971	.	+	.	gene_id "TraesCS1A01G152900.1"; transcript_id "TraesCS1A01G152900.1"; exon_number "1"; exon_id "TraesCS1A01G152900.1.1";
+chr1A	Self_CESAR/windows_chr1A.gp	CDS	265021906	265021971	.	+	0	gene_id "TraesCS1A01G152900.1"; transcript_id "TraesCS1A01G152900.1"; exon_number "1"; exon_id "TraesCS1A01G152900.1.1";
+chr1A	Self_CESAR/windows_chr1A.gp	exon	265022056	265026255	.	+	.	gene_id "TraesCS1A01G152900.1"; transcript_id "TraesCS1A01G152900.1"; exon_number "2"; exon_id "TraesCS1A01G152900.1.2";
+chr1A	Self_CESAR/windows_chr1A.gp	CDS	265022056	265026252	.	+	0	gene_id "TraesCS1A01G152900.1"; transcript_id "TraesCS1A01G152900.1"; exon_number "2"; exon_id "TraesCS1A01G152900.1.2";
+chr1A	Self_CESAR/windows_chr1A.gp	start_codon	265021906	265021908	.	+	0	gene_id "TraesCS1A01G152900.1"; transcript_id "TraesCS1A01G152900.1"; exon_number "1"; exon_id "TraesCS1A01G152900.1.1";
+chr1A	Self_CESAR/windows_chr1A.gp	stop_codon	265026253	265026255	.	+	0	gene_id "TraesCS1A01G152900.1"; transcript_id "TraesCS1A01G152900.1"; exon_number "2"; exon_id "TraesCS1A01G152900.1.2";"""
+
+        gtf_lines = [GtfLine(_) for _ in gtf_lines.split("\n")]
+        t = Transcript(gtf_lines[0])
+        t.add_exons(gtf_lines[1:])
+        t.finalize()
+        self.assertEqual(t.start, t.combined_cds_start)
+        self.assertEqual(t.end, t.combined_cds_end)
+
+    def test_positive_strand_split(self):
+
+        gtf_lines="""chr1A	Self_CESAR/windows_chr1A.gp	transcript	265021906	265026355	.	+	.	gene_id "TraesCS1A01G152900.1"; transcript_id "TraesCS1A01G152900.1";
+chr1A	Self_CESAR/windows_chr1A.gp	exon	265021906	265021971	.	+	.	gene_id "TraesCS1A01G152900.1"; transcript_id "TraesCS1A01G152900.1"; exon_number "1"; exon_id "TraesCS1A01G152900.1.1";
+chr1A	Self_CESAR/windows_chr1A.gp	CDS	265021906	265021971	.	+	0	gene_id "TraesCS1A01G152900.1"; transcript_id "TraesCS1A01G152900.1"; exon_number "1"; exon_id "TraesCS1A01G152900.1.1";
+chr1A	Self_CESAR/windows_chr1A.gp	exon	265022056	265026253	.	+	.	gene_id "TraesCS1A01G152900.1"; transcript_id "TraesCS1A01G152900.1"; exon_number "2"; exon_id "TraesCS1A01G152900.1.2";
+chr1A	Self_CESAR/windows_chr1A.gp	CDS	265022056	265026252	.	+	0	gene_id "TraesCS1A01G152900.1"; transcript_id "TraesCS1A01G152900.1"; exon_number "2"; exon_id "TraesCS1A01G152900.1.2";
+chr1A	Self_CESAR/windows_chr1A.gp	exon	265026354	265026355	.	+	.	gene_id "TraesCS1A01G152900.1"; transcript_id "TraesCS1A01G152900.1"; exon_number "1"; exon_id "TraesCS1A01G152900.1.1";
+chr1A	Self_CESAR/windows_chr1A.gp	start_codon	265021906	265021908	.	+	0	gene_id "TraesCS1A01G152900.1"; transcript_id "TraesCS1A01G152900.1"; exon_number "1"; exon_id "TraesCS1A01G152900.1.1";
+chr1A	Self_CESAR/windows_chr1A.gp	stop_codon	265026253	265026253	.	+	0	gene_id "TraesCS1A01G152900.1"; transcript_id "TraesCS1A01G152900.1"; exon_number "2"; exon_id "TraesCS1A01G152900.1.2";
+chr1A	Self_CESAR/windows_chr1A.gp	stop_codon	265026354	265026355	.	+	.	gene_id "TraesCS1A01G152900.1"; transcript_id "TraesCS1A01G152900.1"; exon_number "1"; exon_id "TraesCS1A01G152900.1.1";"""
+
+        gtf_lines = [GtfLine(_) for _ in gtf_lines.split("\n")]
+        t = Transcript(gtf_lines[0])
+        t.add_exons(gtf_lines[1:])
+        t.finalize()
+        self.assertEqual(t.start, t.combined_cds_start)
+        self.assertEqual(t.end, t.combined_cds_end)
+
+    def test_negative_strand(self):
+
+        gtf_lines = """chr1A	Self_CESAR/windows_chr1A.gp	transcript	265021806	265026255	.	-	.	gene_id "TraesCS1A01G152900.1"; transcript_id "TraesCS1A01G152900.1";
+chr1A	Self_CESAR/windows_chr1A.gp	exon	265021806	265021807	.	-	.	gene_id "TraesCS1A01G152900.1"; transcript_id "TraesCS1A01G152900.1"; exon_number "1"; exon_id "TraesCS1A01G152900.1.1";
+chr1A	Self_CESAR/windows_chr1A.gp	exon	265021908	265021971	.	-	.	gene_id "TraesCS1A01G152900.1"; transcript_id "TraesCS1A01G152900.1"; exon_number "1"; exon_id "TraesCS1A01G152900.1.1";
+chr1A	Self_CESAR/windows_chr1A.gp	CDS	265021909	265021971	.	-	0	gene_id "TraesCS1A01G152900.1"; transcript_id "TraesCS1A01G152900.1"; exon_number "1"; exon_id "TraesCS1A01G152900.1.1";
+chr1A	Self_CESAR/windows_chr1A.gp	exon	265022056	265026255	.	-	.	gene_id "TraesCS1A01G152900.1"; transcript_id "TraesCS1A01G152900.1"; exon_number "2"; exon_id "TraesCS1A01G152900.1.2";
+chr1A	Self_CESAR/windows_chr1A.gp	CDS	265022056	265026255	.	-	0	gene_id "TraesCS1A01G152900.1"; transcript_id "TraesCS1A01G152900.1"; exon_number "2"; exon_id "TraesCS1A01G152900.1.2";
+chr1A	Self_CESAR/windows_chr1A.gp	stop_codon	265021806	265021807	.	-	0	gene_id "TraesCS1A01G152900.1"; transcript_id "TraesCS1A01G152900.1"; exon_number "1"; exon_id "TraesCS1A01G152900.1.1";
+chr1A	Self_CESAR/windows_chr1A.gp	stop_codon	265021908	265021908	.	-	0	gene_id "TraesCS1A01G152900.1"; transcript_id "TraesCS1A01G152900.1"; exon_number "1"; exon_id "TraesCS1A01G152900.1.1";
+chr1A	Self_CESAR/windows_chr1A.gp	start_codon	265026253	265026255	.	-	0	gene_id "TraesCS1A01G152900.1"; transcript_id "TraesCS1A01G152900.1"; exon_number "2"; exon_id "TraesCS1A01G152900.1.2";"""
+
+        gtf_lines = [GtfLine(_) for _ in gtf_lines.split("\n")]
+        t = Transcript(gtf_lines[0])
+        t.add_exons(gtf_lines[1:])
+        t.finalize()
+        self.assertEqual(t.start, t.combined_cds_end)
+        self.assertEqual(t.end, t.combined_cds_start)
+
+
 if __name__ == '__main__':
     unittest.main()

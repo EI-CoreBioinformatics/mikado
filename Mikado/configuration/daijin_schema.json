@@ -120,7 +120,8 @@
       "type": "integer",
       "default": 4,
       "Comment": "Threads to be used per process.",
-      "required": true
+      "required": true,
+      "minimum": 1
     },
     "scheduler": {
       "type": ["string"],

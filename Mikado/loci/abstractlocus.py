@@ -1220,7 +1220,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         for segment in segments:
             weights[segment] = weights.get(segment, 0) + 1
 
-        networkx.set_node_attributes(graph, "weight", weights)
+        networkx.set_node_attributes(graph, name="weight", values=weights)
         return
 
     @staticmethod
@@ -1236,7 +1236,9 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         for node in nodes_to_remove:
             assert node not in graph.nodes()
 
-        networkx.set_node_attributes(graph, "weight", dict((k, v) for k,v in weights.items() if v > 0))
+        networkx.set_node_attributes(graph,
+                                     name="weight",
+                                     values=dict((k, v) for k,v in weights.items() if v > 0))
         return
 
     @classmethod

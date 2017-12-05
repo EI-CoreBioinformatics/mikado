@@ -519,7 +519,7 @@ rule align_hisat_index:
 	log: ALIGN_DIR+"/hisat.index.log"
 	threads: THREADS
 	message: "Indexing genome with hisat"
-	shell: "{params.load} hisat2-build -p {threads} {input} {ALIGN_DIR}/hisat/index/{NAME} > {log} 2>&1"
+	shell: "{params.load} hisat2-build -p {threads} {input} {ALIGN_DIR}/hisat/index/{NAME} > {log} 2>&1 && touch {output}"
 
 rule align_hisat:
 	input:

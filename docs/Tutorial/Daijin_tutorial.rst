@@ -191,8 +191,8 @@ Write this into a text file called "sample_sheet.tsv".
 Now we will configure Daijin for the run::
 
   daijin configure --scheduler "" \
-       --scoring dmelanogaster.yaml \
-       --copy-scoring dmelanogaster.yaml \
+       --scoring dmelanogaster_scoring.yaml \
+       --copy-scoring dmelanogaster_scoring.yaml \
        -m permissive --sample-sheet sample_sheet.tsv \
        --flank 500 -i 50 26000 --threads 2 \
        --genome Reference/Drosophila_melanogaster.BDGP6.dna.toplevel.fa \

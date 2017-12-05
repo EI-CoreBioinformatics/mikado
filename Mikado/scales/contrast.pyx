@@ -236,12 +236,10 @@ cpdef tuple compare(prediction, reference, bint lenient=False, bint strict_stran
     :param prediction: the transcript query
     :type prediction: Transcript
 
-    :param reference: the reference transcript against which we desire to
-    calculate the ccode and other stats.
+    :param reference: the reference transcript against which we desire to calculate the ccode and other stats.
     :type reference: Transcript
     
-    :param lenient: a boolean flag that indicates whether the exon-level features should be calculated
-    leniently or not.
+    :param lenient: a boolean flag that indicates whether the exon-level features should be calculated leniently or not.
     :type lenient: bool
 
     :rtype (ResultStorer, (int,int)) | (ResultStorer, None)
@@ -250,17 +248,14 @@ cpdef tuple compare(prediction, reference, bint lenient=False, bint strict_stran
 
     - =    Complete intron chain match
     - c    Contained (perfect junction recall and precision, imperfect recall)
-    - j    Potentially novel isoform (fragment): at least one splice junction is shared
-    with a reference transcript
-    - e    Single exon transfrag overlapping a reference exon and at least
-    10 bp of a reference intron, indicating a possible pre-mRNA fragment.
+    - j    Potentially novel isoform (fragment): at least one splice junction is shared with a reference transcript
+    - e    Single exon transfrag overlapping a reference exon and at least 10 bp of a reference intron, indicating a possible pre-mRNA fragment.
     - i    A *monoexonic* transfrag falling entirely within a reference intron
     - o    Generic exonic overlap with a reference transcript
     - p    Possible polymerase run-on fragment (within 2Kbases of a reference transcript)
     - u    Unknown, intergenic transcript
     - x    Exonic overlap with reference on the opposite strand (class codes e, o, m, c, _)
-    - X    Overlap on the opposite strand, with some junctions in common (probably a serious mistake,
-           unless non-canonical splicing junctions are involved).
+    - X    Overlap on the opposite strand, with some junctions in common (probably a serious mistake, unless non-canonical splicing junctions are involved).
 
     Please note that the description for i is changed from Cufflinks.
 

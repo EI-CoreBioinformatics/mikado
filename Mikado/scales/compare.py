@@ -450,7 +450,12 @@ def create_index(positions, genes, index_name):
 
     """Method to create the simple indexed database for features."""
 
-    conn = sqlite3.connect(index_name)
+    import tempfile
+    import shutil
+
+    temp_db = tempfile.mktemp(suffix=".db")
+
+    conn = sqlite3.connect(temp_db)
     cursor = conn.cursor()
     cursor.execute("CREATE TABLE positions (chrom text, start integer, end integer, gid text)")
     cursor.execute("CREATE INDEX pos_idx ON positions (chrom, start, end)")
@@ -470,6 +475,8 @@ def create_index(positions, genes, index_name):
     cursor.close()
     conn.commit()
     conn.close()
+
+    shutil.move(temp_db, index_name)
 
     return
 

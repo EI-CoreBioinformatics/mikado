@@ -12,9 +12,10 @@ else:
 import collections
 import operator
 from ...utilities.intervaltree import IntervalTree, Interval
-from Mikado.utilities import overlap
-from Mikado.exceptions import InvalidTranscript
-from Mikado.parsers.blast_utils import merge
+from ...utilities import overlap
+from ...exceptions import InvalidTranscript
+from ...parsers.blast_utils import merge
+from ...parsers.bed12 import BED12
 
 __author__ = 'Luca Venturini'
 
@@ -704,10 +705,15 @@ def __relocate_orfs(transcript, bed12_objects, tstart, tend):
     tstart, tend = sorted([tstart, tend])
 
     for obj in bed12_objects:
-        import copy
-        obj = copy.deepcopy(obj)
-        obj.transcriptomic = True
-        if obj.strand == "-":
+        # import copy
+        # obj = copy.deepcopy(obj)
+        new = BED12()
+        new.transcriptomic = True
+        for attr in ["chrom", "start", "end", "strand", "thick_start", "thick_end",
+                     "block_starts", "block_sizes"]:
+            setattr(new, attr, getattr(obj, attr))
+        # obj.transcriptomic = True
+        if new.strand == "-":
             thick_start = obj.end - obj.thick_end + 1
             thick_end = obj.end - obj.thick_start + 1
             old_start, old_end = tstart, tend
@@ -716,35 +722,35 @@ def __relocate_orfs(transcript, bed12_objects, tstart, tend):
             assert (old_end - old_start) == (local_tend - local_tstart), (
                 (old_start, old_end), (local_tstart, local_tend))
             assert (thick_end - thick_start) == (obj.thick_end - obj.thick_start)
-            obj.strand = "+"
-            obj.start = 1
-            obj.end = local_tend - local_tstart + 1
-            obj.fasta_length = obj.end
-            assert obj.end > 0 and obj.end > obj.start
-            obj.thick_start = max(thick_start - local_tstart + 1, 1)
-            assert obj.thick_start > 0
-            obj.thick_end = thick_end - local_tstart + 1
-            assert obj.thick_end > obj.thick_start > 0
-            obj.block_sizes = [obj.end]
-            obj.block_starts = [obj.block_starts]
+            new.strand = "+"
+            new.start = 1
+            new.end = local_tend - local_tstart + 1
+            new.fasta_length = new.end
+            assert new.end > 0 and new.end > new.start
+            new.thick_start = max(thick_start - local_tstart + 1, 1)
+            assert new.thick_start > 0
+            new.thick_end = thick_end - local_tstart + 1
+            assert new.thick_end > new.thick_start > 0
+            new.block_sizes = [new.end]
+            new.block_starts = [new.block_starts]
             transcript.logger.debug("Inverting negative ORF in %s",
-                                      transcript.id)
+                                    transcript.id)
         else:
-            obj.start = 1
-            obj.end = min(obj.end, tend) - tstart + 1
-            obj.fasta_length = obj.end
-            obj.thick_start = min(obj.thick_start, tend) - tstart + 1
-            obj.thick_end = min(obj.thick_end, tend) - tstart + 1
-            obj.block_sizes = [obj.end]
-            obj.block_starts = [obj.block_starts]
+            new.start = 1
+            new.end = min(obj.end, tend) - tstart + 1
+            new.fasta_length = new.end
+            new.thick_start = min(new.thick_start, tend) - tstart + 1
+            new.thick_end = min(obj.thick_end, tend) - tstart + 1
+            new.block_sizes = [new.end]
+            new.block_starts = [new.block_starts]
 
-        assert obj.thick_start > 0, obj.thick_start
-        assert obj.thick_end > 0, obj.thick_end
-        assert obj.invalid is False, (len(obj), obj.cds_len, obj.fasta_length,
-                                      obj.invalid_reason,
-                                      str(obj))
+        assert new.thick_start > 0, new.thick_start
+        assert new.thick_end > 0, new.thick_end
+        assert new.invalid is False, (len(new), new.cds_len, new.fasta_length,
+                                      new.invalid_reason,
+                                      str(new))
 
-        new_bed12s.append(obj)
+        new_bed12s.append(new)
     assert len(new_bed12s) > 0
     return new_bed12s
 

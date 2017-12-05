@@ -354,19 +354,11 @@ class Sublocus(Abstractlocus):
 
         if transcript.id == other.id:
             # We do not want intersection with oneself
-            if logger is not None:
-                logger.debug("Self-comparison for {0}".format(transcript.id))
             return False
-        if logger is not None:
-            logger.debug("Comparing {0} and {1}".format(transcript.id, other.id))
         if any(True for comb in itertools.product(transcript.exons, other.exons) if
                cls.overlap(*comb) >= 0):
-            if logger is not None:
-                logger.debug("{0} and {1} are intersecting".format(transcript.id, other.id))
 
             return True
-        if logger is not None:
-            logger.debug("{0} and {1} are not intersecting".format(transcript.id, other.id))
         return False
     # pylint: enable=arguments-differ
 

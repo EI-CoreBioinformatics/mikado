@@ -1,17 +1,21 @@
 #Version 1.1 - "Prodigal"
 
+Highlights for this release are the swithing by default to Prodigal in lieu of TransDecoder and to DIAMOND instead of NCBI BLASTX. The rationale behind the change is that the two former default programs scale poorly with the size of datasets, as neither was designed to maintain a good execution speed with potentially million sequences. Prodigal and DIAMOND fare much better with big datasets, and do speed up significantly the execution of the whole Daijin pipeline.
+
 Changes in this release:
 
 - Mikado is now compatible with NetworkX v. 2x.
 - Mikado now accepts ORFs calculated by Prodigal, in GFF3 format, instead of only those by TransDecoder in BED format.
-- By default, Daijin now uses **Prodigal and DIAMOND** instead of TransDecoder and BLAST. This should lead to massive speed-ups during the pipeline.
+- Mikado compare indices now are **SQLite3 databases**, not compressed JSON files as in previous versions. This should allows for a faster loading and potentially, down the line, the chance to parallelise compare.
+- By default, Daijin now uses **Prodigal and DIAMOND** instead of TransDecoder and BLAST. This should lead to massive speed-ups during the pipeline, although at the cost of slightly reduced accuracy.
 - Improved the algorithm for finding retained introns, using a graph structure instead of potentially checking against every other transcript in the locus.
 - Mikado configure now has a new flag, "--daijin", which instructs the program to create a Daijin-compatible configuration file, rather than a Mikado-only one.
 - Fixed some bugs in Daijin regarding the handling of Long Reads.
-- Fixed a bugs in Daijin regarding the calculation of Trinity parameters - previously, Daijin could potentially ask Trinity for parameters for N times, where N is the number of required assemblies.
+- Fixed a bug in Daijin regarding the calculation of Trinity parameters - previously, Daijin could potentially ask Trinity for parameters for N times, where N is the number of required assemblies, lengthening the startup time.
 - Solved a bug that created incompatibility with BioPython >= 1.69
 - Solved some bugs that prevented Daijin from functioning correctly on a local computer
 - Now Daijin by default recovers the information to load external software from an external configuration file. This allows for having a standard configuration file for external programs, without having to modify the main configuration all the time.
+- Now Daijin creates and/or load a standard configuration file for the cluster, "daijin_hpc.yaml".
 
 #Version 1.0.1
 

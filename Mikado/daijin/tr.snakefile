@@ -517,9 +517,9 @@ rule align_hisat_index:
 	output: ALIGN_DIR+"/hisat/index/"+NAME+".done"
 	params: load=loadPre(config, "hisat")
 	log: ALIGN_DIR+"/hisat.index.log"
-	threads: 1
+	threads: THREADS
 	message: "Indexing genome with hisat"
-	shell: "{params.load} hisat2-build {input} {ALIGN_DIR}/hisat/index/{NAME} > {log} 2>&1 && touch {output}"
+	shell: "{params.load} hisat2-build -p {threads} {input} {ALIGN_DIR}/hisat/index/{NAME} > {log} 2>&1 && touch {output}"
 
 rule align_hisat:
 	input:

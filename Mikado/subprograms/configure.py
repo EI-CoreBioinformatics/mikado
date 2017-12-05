@@ -131,6 +131,8 @@ def create_config(args):
         namespace.scoring = args.scoring
         daijin_config = daijin_configurator.create_daijin_config(namespace, level="ERROR", piped=True)
         daijin_config["blastx"]["chunks"] = args.blast_chunks
+        daijin_config["mikado"]["use_diamond"] = (not args.use_blast)
+        daijin_config["mikado"]["use_prodigal"] = (not args.use_transdecoder)
         config = configurator.merge_dictionaries(config, daijin_config)
 
     if args.external is not None:
@@ -350,7 +352,11 @@ def configure_parser():
                         help="Flag. If set, the configuration file will be also valid for Daijin.")
     daijin.add_argument("-bc", "--blast-chunks", type=int, default=10, dest="blast_chunks",
                         help="Number of parallel DIAMOND/BLAST jobs to run. Default: %(default)s.")
-    parser.add_argument("--mode", default=["permissive"], nargs="+",
+    daijin.add_argument("--use-blast", action="store_true", default=False, dest="use_blast",
+                        help="Flag. If switched on, Mikado will use BLAST instead of DIAMOND.")
+    daijin.add_argument("--use-transdecoder", action="store_true", default=False, dest="use_transdecoder",
+                        help="Flag. If switched on, Mikado will use TransDecoder instead of Prodigal.")
+    daijin.add_argument("--mode", default=["permissive"], nargs="+",
                         choices=["nosplit", "stringent", "lenient", "permissive", "split"],
                         help="""Mode(s) in which Mikado will treat transcripts with multiple ORFs.
 - nosplit: keep the transcripts whole.
@@ -366,6 +372,8 @@ If multiple modes are specified, Mikado will create a Daijin-compatible configur
                         help="List of labels for which splitting will be disabled (eg long reads such as PacBio)")
     parser.add_argument("-j", "--json", action="store_true", default=False,
                         help="Output will be in JSON instead of YAML format.")
+    parser.add_argument("-od", "--out-dir", dest="out_dir", default=None,
+                        help="Destination directory for the output.")
     parser.add_argument("out", nargs='?', default=sys.stdout, type=argparse.FileType('w'))
     parser.set_defaults(func=create_config)
     return parser

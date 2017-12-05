@@ -37,7 +37,7 @@ Changes in this release:
 - **MAJOR**: now Mikado serialise also stores the ***frame*** information of transcripts. Hits on the opposite strand will be **ignored**. This requires to **regenerate all Mikado databases**.
 - **MAJOR**: Added the final configuration files used for the article.
 - Added three new metrics, "blast_target_coverage", "blast_query_coverage", "blast_identity"
-- Changed the *default* repertoire of valid AS events to J, j, G, h (removed C and g).          
+- Changed the *default* repertoire of valid AS events to J, j, G, h (removed C and g).
 - **Bug fix**: now Mikado will consider the cDNA/CDS overlap also for monoexonic transcripts, even when the "simple_overlap_for_monoexonic_loci" flag is set to true.
 - Solved some issues with the Daijin schemas, which prevented correct referencing.
 - Bug fix for finding retained introns - Mikado was not accounting for cases where an exon started within an intron and crossed multiple subsequent junctions.

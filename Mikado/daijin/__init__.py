@@ -380,7 +380,7 @@ def mikado_pipeline(args):
         else:
             loader = yaml.load
         with open(args.exe) as _:
-            additional_config["load"] = loader(_)
+            doc["load"] = loader(_)
 
     check_config(doc)
 

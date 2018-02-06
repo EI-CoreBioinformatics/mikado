@@ -23,17 +23,35 @@ Alternatively, you can clone the repository from source and install with:
 
     python3 setup.py test;
     python3 setup.py bdist_wheel;
-    pip3.5 install dist/*whl
+    pip3 install dist/*whl
     
 You can verify the correctness of the installation with the unit tests:
 
     python3 setup.py test
 
+The steps above will ensure that any additional python dependencies will be installed correctly. A full list of library dependencies can be found in the file ``requirements.txt``
+
 ### Additional dependencies
 
+Mikado by itself does require only the presence of a database solution, such as SQLite (although we do support MySQL and PostGRESQL as well).
+However, the Daijin pipeline requires additional programs to run. 
 
+For driving Mikado through Daijin, the following programs are required:
 
+- [DIAMOND] or [Blast+] to provide protein homology. DIAMOND is preferred for its speed. 
+- [Prodigal] or [Transdecoder] to calculate ORFs. The versions of Transdecoder that we tested scale poorly in terms of runtime and disk usage, depending on the size of the input dataset. Prodigal is much faster and lighter, however, the data on our paper has been generated through Transdecoder - not Prodigal. Currently we set Prodigal as default.
+- Mikado also makes use of a dataset of RNA-Seq high-quality junctions. We are using [Portcullis] to calculate this data alongside the alignments and assemblies.
 
+If you plan to generate the alignment and assembly part as well through Daijin, the pipeline requires the following:
+
+- SAMTools
+- If you have short-read RNA-Seq data:
+    - At least one short-read RNA-Seq aligner, choice between [GSNAP][GMAP], [STAR], [TopHat2], [HISAT2]
+    - At least one RNA-Seq assembler, choice between [StringTie], [Trinity], [Cufflinks], [CLASS2]. Trinity additionally requires [GMAP].
+    - [Portcullis] is optional, but highly recommended to retrieve high-quality junctions from the data 
+- If you have long-read RNA-Seq data:
+    - At least one long-read RNA-Seq aligner, current choice between [STAR] and [GMAP]
+    
 ## Citing Mikado
 
 If you use Mikado in your work, please consider to cite:
@@ -50,3 +68,11 @@ If you also use Portcullis to provide reliable junctions to Mikado, either indep
 [Blast+]: https://blast.ncbi.nlm.nih.gov/Blast.cgi?PAGE_TYPE=BlastDocs&DOC_TYPE=Download
 [Transdecoder]: https://github.com/TransDecoder/TransDecoder/
 [Prodigal]: https://github.com/hyattpd/Prodigal
+[DIAMOND]: https://github.com/bbuchfink/diamond/
+[GMAP]: http://research-pub.gene.com/gmap/
+[STAR]: https://github.com/alexdobin/STAR
+[TopHat2]: https://ccb.jhu.edu/software/tophat/index.shtml
+[HISAT2]: http://ccb.jhu.edu/software/hisat2
+[StringTie]: https://ccb.jhu.edu/software/stringtie/
+[Trinity]: https://github.com/trinityrnaseq/trinityrnaseq
+[CLASS2]: http://ccb.jhu.edu/people/florea/research/CLASS2/

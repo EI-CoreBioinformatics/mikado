@@ -866,8 +866,12 @@ rule portcullis_filter:
 	shell: "{params.load} {params.ss_gen} portcullis filter -o {params.outdir}/{wildcards.aln_method} --canonical={CANONICAL_JUNCS} --max_length={MAX_INTRON} {params.trans} --threads={threads} {params.prepdir} {input} > {log} 2>&1 && ln -sf {params.link_src} {output.link} || ln -sf {params.link_unfilt} {output.link} && touch -h {output.link}"
 
 rule portcullis_merge:
-	input: expand(PORTCULLIS_DIR + "/output/portcullis_{aln_method}.pass.junctions.bed", aln_method=ALIGN_RUNS)
-	output: bed=PORTCULLIS_DIR + "/output/portcullis.merged.bed"
+	input:
+	    beds=expand(PORTCULLIS_DIR + "/output/portcullis_{aln_method}.pass.junctions.bed", aln_method=ALIGN_RUNS),
+	    tabs=expand(PORTCULLIS_DIR + "/output/portcullis_{aln_method}.pass.junctions.tab", aln_method=ALIGN_RUNS),
+	output:
+	  bed=PORTCULLIS_DIR + "/output/portcullis.merged.bed",
+	  tab=PORTCULLIS_DIR + "/output/portcullis.merged.tab",
 	params: load=loadPre(config, "portcullis")
 	log: PORTCULLIS_DIR + "/output/portcullis.merged.log"
 	threads: 1
@@ -875,9 +879,11 @@ rule portcullis_merge:
 	run:
 		if RUN_PORTCULLIS:
 		    if len(input) == 1:
-		        shell("cat {input} > {output}")
+		        shell("cat {input.beds} > {output.bed}")
+		        shell("cat {input.tabs} > {output.tab}")
 		    else:
-			    shell("{params.load} junctools set --prefix=portcullis_merged --output={output.bed} --operator=mean union {input} > {log} || touch {output.bed}")
+		        shell("{params.load} junctools set --prefix=portcullis_merged --output={output.tab} --operator=mean union {input.tabs} > {log} || touch {output.tab}")
+		        shell("{params.load} junctools convert -if portcullis -of ebed -o {output.bed}  {output.tab} ")
 		else:
 			shell("touch {output}")
 

@@ -34,7 +34,7 @@ from .transcript_methods.finalizing import finalize
 from .transcript_methods.printing import create_lines_cds
 from .transcript_methods.printing import create_lines_no_cds, create_lines_bed, as_bed12
 from ..utilities.intervaltree import Interval, IntervalTree
-import numpy
+import numpy as np
 
 
 class Namespace:
@@ -340,8 +340,34 @@ class Transcript:
         :return:
         """
 
-        if not isinstance(transcript_row, (GffLine, GtfLine)):
+        if isinstance(transcript_row, (GffLine, GtfLine)):
+            self.__initialize_with_gf(transcript_row)
+        elif isinstance(transcript_row, BED12):
+            self.__initialize_with_bed12(transcript_row)
+        else:
             raise TypeError("Invalid data type: {0}".format(type(transcript_row)))
+
+    def __initialize_with_bed12(self, transcript_row: BED12):
+
+        self.chrom = intern(transcript_row.chrom)
+        self.name = self.id = transcript_row.name
+        self.start, self.end = transcript_row.start, transcript_row.end
+        self.score = transcript_row.score
+        self.strand = transcript_row.strand
+        exon_starts = np.array([_ + self.start for _ in transcript_row.block_starts])
+        exon_ends = exon_starts + np.array(transcript_row.block_sizes) - 1
+        self.add_exons(list(zip(list(exon_starts), list(exon_ends))))
+        # Now we have to calculate the CDS
+        cds = []
+        for exon in self.exons:
+            if exon[1] >= transcript_row.thick_start and exon[0] <= transcript_row.thick_end:
+                cds.append((int(max(exon[0], transcript_row.thick_start)),
+                            int(min(exon[1], transcript_row.thick_end))))
+        self.add_exons(cds, features="CDS")
+        self.finalize()
+
+    def __initialize_with_gf(self, transcript_row: (GffLine, GtfLine)):
+
         self.chrom = intern(transcript_row.chrom)
 
         # pylint: disable=invalid-name
@@ -556,7 +582,9 @@ class Transcript:
             assert gffline.chrom == self.chrom, (gffline.chrom, self.chrom)
             phase = gffline.phase
 
-        assert isinstance(start, int) and isinstance(end, int)
+        assert isinstance(start,
+                          (int, np.int, np.int32, np.int64)) and isinstance(end,
+                                                                            (int, np.int, np.int32, np.int64))
         if self.finalized is True:
             raise ModificationError("You cannot add exons to a finalized transcript!")
 
@@ -582,7 +610,7 @@ class Transcript:
         else:
             raise InvalidTranscript("Unknown feature: {0}".format(gffline.feature))
 
-        segment = tuple([start, end])
+        segment = tuple([int(start), int(end)])
         if segment in store:
             # raise InvalidTranscript(
             #     "Attempt to add {} to {}, but it is already present!".format(
@@ -1541,9 +1569,9 @@ class Transcript:
         selected_cds = [segment[1] for segment in self.selected_internal_orf if
                                segment[0] == "CDS"]
         self.__selected_cds = selected_cds
-        ar = numpy.array(list(zip(*[segment[1] for segment in self.selected_internal_orf if
+        ar = np.array(list(zip(*[segment[1] for segment in self.selected_internal_orf if
                                segment[0] == "CDS"])))
-        self.__max_internal_orf_length = int(numpy.subtract(ar[1], ar[0] - 1).sum())
+        self.__max_internal_orf_length = int(np.subtract(ar[1], ar[0] - 1).sum())
 
 
     @property
@@ -1695,8 +1723,8 @@ class Transcript:
         #         assert isinstance(combined[0], intervaltree.Interval)
 
         if len(combined) > 0:
-            ar = numpy.array(list(zip(*combined)))
-            self.__combined_cds_length = int(numpy.subtract(ar[1], ar[0] - 1).sum())
+            ar = np.array(list(zip(*combined)))
+            self.__combined_cds_length = int(np.subtract(ar[1], ar[0] - 1).sum())
 
         self.__combined_cds = combined
 
@@ -1918,8 +1946,8 @@ index {3}, internal ORFs: {4}".format(
         """This property return the length of the CDS part of the transcript."""
 
         # if self.__combined_cds_length == 0 and len(self.combined_cds) > 0:
-        #     ar = numpy.array(list(*zip(self.combined_cds)))
-        #     c_length = int(numpy.subtract(ar[1], ar[0] - 1).sum())
+        #     ar = np.array(list(*zip(self.combined_cds)))
+        #     c_length = int(np.subtract(ar[1], ar[0] - 1).sum())
         #     assert c_length > 0
 
         return self.__combined_cds_length
@@ -1983,8 +2011,8 @@ index {3}, internal ORFs: {4}".format(
         # except TypeError:
         #     raise TypeError(self.exons)
         if self.__cdna_length is None:
-            ar = numpy.array(list(zip(*self.exons)))
-            self.__cdna_length = int(numpy.subtract(ar[1], ar[0] -1).sum())
+            ar = np.array(list(zip(*self.exons)))
+            self.__cdna_length = int(np.subtract(ar[1], ar[0] -1).sum())
 
         return self.__cdna_length
 

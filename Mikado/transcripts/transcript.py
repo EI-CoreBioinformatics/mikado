@@ -1725,6 +1725,8 @@ class Transcript:
         if len(combined) > 0:
             ar = np.array(list(zip(*combined)))
             self.__combined_cds_length = int(np.subtract(ar[1], ar[0] - 1).sum())
+        else:
+            self.__combined_cds_length = 0
 
         self.__combined_cds = combined
 

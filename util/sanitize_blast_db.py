@@ -5,6 +5,7 @@ import sys
 import argparse
 from collections import Counter
 from Mikado.utilities.log_utils import create_default_logger
+import re
 
 
 """Simple utility to discard any non-description information out of the FASTA file, so to reduce
@@ -35,7 +36,7 @@ def main():
             if record.id in found_ids:
                 logger.warning("ID found other {} time{} in the input files!".format(
                     found_ids[record.id], "s" if found_ids[record.id] > 1 else ""))
-            record.id = "{}{}".format(prefix, record.id)
+            record.id = "{}{}".format(prefix, re.sub("\|", "_", record.id))
             record.description = ""
             Bio.SeqIO.write(record, args.out, "fasta")
 

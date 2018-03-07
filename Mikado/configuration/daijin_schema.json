@@ -13,7 +13,7 @@
     "load":{
       "SimpleComment": ["Commands to use to load/select the versions of the programs to use. Leave an empty string if no loading is necessary."],
       "type": "object",
-      "required": ["tophat", "gmap", "star", "hisat", "samtools", "cufflinks", "trinity",
+      "required": ["tophat", "gmap", "star", "hisat", "samtools", "cufflinks", "trinity", "scallop",
         "stringtie", "class", "transdecoder", "portcullis", "mikado", "blast"],
       "properties": {
        "tophat": {"type": "string", "default": ""},
@@ -22,6 +22,7 @@
         "hisat": {"type": "string", "default": ""},
         "samtools": {"type": "string", "default": ""},
         "cufflinks": {"type": "string", "default": ""},
+        "scallop": {"type": "string", "default": ""},
         "trinity": {"type": "string", "default": ""},
         "stringtie": {"type": "string", "default": ""},
         "class": {"type": "string", "default": ""},
@@ -203,6 +204,13 @@
           "minItems": 1
         },
         "class": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1
+        },
+        "scallop": {
           "type": "array",
           "items": {
             "type": "string"

@@ -216,6 +216,8 @@ class GFAnnotation(metaclass=abc.ABCMeta):
             self.__phase = None
         elif isinstance(value, numbers.Number) or isinstance(value, (str, bytes)):
             value = int(value)
+            if value == -1:
+                value = 0  # Bug in GMAP
             if value not in range(3):
                 raise ValueError("Invalid value for phase: {0}".format(value))
             self.__phase = value

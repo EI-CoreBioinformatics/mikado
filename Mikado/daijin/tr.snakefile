@@ -646,7 +646,7 @@ rule asm_scallop:
 		gtf=os.path.join(ASM_DIR, "scallop-{run2}-{alrun}", "transcripts.gtf"),
 		link_src=os.path.join("..", "scallop-{run2}-{alrun}", "transcripts.gtf"),
 		load=loadPre(config, "scallop"),
-		extra=lambda wildcards: config.get("asm_methods", dict()).get("scallop", [""]*len(int(wildcards.run2)+1)[int(wildcards.run2)],
+		extra=lambda wildcards: config.get("asm_methods", dict()).get("scallop", [""]*len(int(wildcards.run2)+1)[int(wildcards.run2)]),
 		strand=lambda wildcards: tophatStrandOption(extractSample(wildcards.alrun))
 	log: os.path.join(ASM_DIR, "scallop-{run2}-{alrun}.log")
 	threads: 1

@@ -174,15 +174,16 @@ for a in ALIGN_RUNS :
 	PORTCULLIS_IN[a] = ALIGN_DIR+"/output/" + a + ".sorted.bam"
 
 aln_abrv = {"tophat":"tph", "star":"sta", "gsnap":"gsp", "hisat":"hst", "gmap":"gmp"}
-asm_abrv = {"cufflinks":"cuf", "stringtie":"stn", "class":"cls", "trinity":"trn"}
+asm_abrv = {"cufflinks":"cuf", "stringtie":"stn", "class":"cls", "trinity":"trn", "scallop": "scl"}
 	
 GTF_ASSEMBLY_METHODS = []
 GFF_ASSEMBLY_METHODS = []
 for asm in ASSEMBLY_METHODS:
-	if asm in ("cufflinks", "stringtie", "class" "scallop"):
+	if asm in ("cufflinks", "stringtie", "class", "scallop"):
 		GTF_ASSEMBLY_METHODS.append(asm)
 	elif asm == "trinity":
 		GFF_ASSEMBLY_METHODS.append(asm)
+
 
 TRANSCRIPT_ARRAY=[]
 LABEL_ARRAY=[]
@@ -353,9 +354,13 @@ def trinityInput(sample):
 
 @functools.lru_cache(maxsize=4, typed=True)
 def getTrinityVersion(command):
-    cmd = "set +u && {} && Trinity --version && set -u".format(command)
+    cmd = "set +u && {} Trinity --version && set -u".format(command)
     output = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE).stdout.read().decode()
-    version = [_ for _ in output.split("\n") if re.match("Trinity version:", _)][0]
+    try:
+        version = [_ for _ in output.split("\n") if re.match("Trinity version:", _)][0]
+    except IndexError as exc:
+        print("Error in getTrinityVersion")
+        raise IndexError(exc)
     version = re.sub("Trinity version: [^_]*_(r|v)", "", version)
     return version
 
@@ -640,19 +645,24 @@ rule asm_scallop:
 		bam=os.path.join(ALIGN_DIR, "output", "{alrun}.sorted.bam"),
 		align=rules.align_all.output,
 	output:
-		gtf=os.path.join(ASM_DIR, "output", "cufflinks-{run2,\d+}-{alrun}.gtf")
+		gtf=os.path.join(ASM_DIR, "output", "scallop-{run2,\d+}-{alrun}.gtf")
 	params:
 		outdir=os.path.join(ASM_DIR, "scallop-{run2}-{alrun}"),
 		gtf=os.path.join(ASM_DIR, "scallop-{run2}-{alrun}", "transcripts.gtf"),
 		link_src=os.path.join("..", "scallop-{run2}-{alrun}", "transcripts.gtf"),
 		load=loadPre(config, "scallop"),
-		extra=lambda wildcards: config.get("asm_methods", dict()).get("scallop", [""]*len(int(wildcards.run2)+1)[int(wildcards.run2)]),
+		extra=lambda wildcards: config["asm_methods"]["scallop"][int(wildcards.run2)],
 		strand=lambda wildcards: tophatStrandOption(extractSample(wildcards.alrun))
 	log: os.path.join(ASM_DIR, "scallop-{run2}-{alrun}.log")
 	threads: 1
 	message: "Using Scallop to assemble (run {wildcards.run2}): {input.bam}"
 	shell: """{params.load} mkdir -p {params.outdir} &&
 	 scallop -i {input.bam} -o {params.gtf} {params.strand} {params.extra} > {log} 2>&1 && ln -sf {params.link_src} {output.gtf} && touch -h {output.gtf}"""
+
+rule trinity_all:
+	input: expand(ASM_DIR+"/output/trinity-{run2}-{alrun}.gff", run2=TRINITY_RUNS, alrun=ALIGN_RUNS)
+	output: ASM_DIR+"/trinity.done"
+	shell: "touch {output}"
 
 rule asm_trinitygg:
 	input:
@@ -695,11 +705,6 @@ rule asm_map_trinitygg:
 	threads: THREADS
 	message: "Mapping trinity transcripts to the genome (run {wildcards.run2}): {input.transcripts}"
 	shell: "{params.load} gmap --dir={ALIGN_DIR}/gmap/index --db={NAME} --min-intronlength={MIN_INTRON} {params.intron_length}  --format=3 --min-trimmed-coverage={TGG_COVERAGE} --min-identity={TGG_IDENTITY} -n {TGG_NPATHS} -t {THREADS} {input.transcripts} > {params.gff} 2> {log} && ln -sf {params.link_src} {output.gff} && touch -h {output.gff}"
-
-rule trinity_all:
-	input: expand(ASM_DIR+"/output/trinity-{run2}-{alrun}.gff", run2=TRINITY_RUNS, alrun=ALIGN_RUNS)
-	output: ASM_DIR+"/trinity.done"
-	shell: "touch {output}"	
 
 
 rule lr_gmap:
@@ -874,7 +879,8 @@ rule portcullis_junc:
 rule portcullis_filter:
 	input: rules.portcullis_junc.output
 	output:		
-		link=PORTCULLIS_DIR+"/output/portcullis_{aln_method}.pass.junctions.bed"
+		link=PORTCULLIS_DIR+"/output/portcullis_{aln_method}.pass.junctions.bed",
+		tab_link=PORTCULLIS_DIR+"/output/portcullis_{aln_method}.pass.junctions.tab",
 	params: 
 		outdir=PORTCULLIS_DIR+"/portcullis_{aln_method}/3-filt",
 		prepdir=PORTCULLIS_DIR+"/portcullis_{aln_method}/1-prep/",
@@ -883,11 +889,13 @@ rule portcullis_filter:
 		ss_gen="mkdir -p " + PORTCULLIS_DIR + "/portcullis_{aln_method}/3-filt && gtf2bed.py " + REF_TRANS + " > " + PORTCULLIS_DIR + "/portcullis_{aln_method}/3-filt/ref_juncs.bed &&" if REF_TRANS else "",
 		trans="--reference=" + PORTCULLIS_DIR + "/portcullis_{aln_method}/3-filt/ref_juncs.bed" if REF_TRANS else "",
 		link_src="../portcullis_{aln_method}/3-filt/{aln_method}.pass.junctions.bed",
-		link_unfilt="../portcullis_{aln_method}/2-junc/{aln_method}.junctions.bed"
+		tab_link_src="../portcullis_{aln_method}/3-filt/{aln_method}.pass.junctions.tab",
+		link_unfilt="../portcullis_{aln_method}/2-junc/{aln_method}.junctions.bed",
+		tab_link_unfilt="../portcullis_{aln_method}/2-junc/{aln_method}.junctions.tab"
 	log: PORTCULLIS_DIR+"/portcullis_{aln_method}-filter.log"
 	threads: THREADS
 	message: "Using portcullis to filter invalid junctions: {wildcards.aln_method}"
-	shell: "{params.load} {params.ss_gen} portcullis filter -o {params.outdir}/{wildcards.aln_method} --canonical={CANONICAL_JUNCS} --max_length={MAX_INTRON} {params.trans} --threads={threads} {params.prepdir} {input} > {log} 2>&1 && ln -sf {params.link_src} {output.link} || ln -sf {params.link_unfilt} {output.link} && touch -h {output.link}"
+	shell: "{params.load} {params.ss_gen} portcullis filter -o {params.outdir}/{wildcards.aln_method} --canonical={CANONICAL_JUNCS} --max_length={MAX_INTRON} {params.trans} --threads={threads} {params.prepdir} {input} > {log} 2>&1 && ln -sf {params.link_src} {output.link} || ln -sf {params.link_unfilt} {output.link} &&  ln -sf {params.tab_link_src} {output.link} || ln -sf {params.tab_link_unfilt} {output.tab_link} && touch -h {output.link} && touch -h {output.tab_link}"
 
 rule portcullis_merge:
 	input:

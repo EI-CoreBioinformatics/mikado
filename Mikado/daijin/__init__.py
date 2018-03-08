@@ -330,7 +330,10 @@ def assemble_transcripts_pipeline(args):
     else:
         hpc_conf = None
 
-    yaml_file = tempfile.NamedTemporaryFile(mode="wt", delete=True)
+    yaml_file = tempfile.NamedTemporaryFile(mode="wt", delete=True,
+                                            dir=os.getcwd(), suffix=".yaml",
+                                            prefix="assemble"
+                                            )
     yaml.dump(doc, yaml_file)
     yaml_file.flush()
 
@@ -422,7 +425,10 @@ def mikado_pipeline(args):
     else:
         hpc_conf = None
 
-    yaml_file = tempfile.NamedTemporaryFile(mode="wt", delete=True)
+    yaml_file = tempfile.NamedTemporaryFile(mode="wt", delete=True,
+                                            dir=os.getcwd(), suffix=".yaml",
+                                            prefix="mikado"
+                                            )
     yaml.dump(doc, yaml_file)
     yaml_file.flush()
 

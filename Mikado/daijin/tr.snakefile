@@ -354,7 +354,7 @@ def trinityInput(sample):
 
 @functools.lru_cache(maxsize=4, typed=True)
 def getTrinityVersion(command):
-    cmd = "set +u && {} Trinity --version && set -u".format(command)
+    cmd = "{} Trinity --version && set -u".format(command)
     output = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE).stdout.read().decode()
     try:
         version = [_ for _ in output.split("\n") if re.match("Trinity version:", _)][0]
@@ -675,7 +675,7 @@ rule asm_trinitygg:
 		load=loadPre(config, "trinity"),
 		extra=lambda wildcards: config["asm_methods"]["trinity"][int(wildcards.run2)],
 		strand=lambda wildcards: trinityStrandOption(extractSample(wildcards.alrun)),
-		base_parameters=lambda wildcards: trinityParameters(config.get("load", dict()).get("trinity", ""), extractSample(wildcards.alrun), REF, TGG_MAX_MEM)
+		base_parameters=lambda wildcards: trinityParameters(loadPre(config, "trinity"), extractSample(wildcards.alrun), REF, TGG_MAX_MEM)
 	log: ASM_DIR+"/trinity-{run2}-{alrun}.log"
 	threads: THREADS
 	message: "Using trinity in genome guided mode to assemble (run {wildcards.run2}): {input.bam}"

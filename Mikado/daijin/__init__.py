@@ -168,7 +168,7 @@ def create_config_parser():
     parser.add_argument("-al", "--aligners", choices=["gsnap", "star", "hisat", "tophat"], required=False,
                         default=[], nargs="*", help="Aligner(s) to use for the analysis. Choices: %(choices)s")
     parser.add_argument("-as", "--assemblers", dest="asm_methods", required=False,
-                        choices=["class", "cufflinks", "stringtie", "trinity"],
+                        choices=["class", "cufflinks", "stringtie", "trinity", "scallop"],
                         default=[], nargs="*", help="Assembler(s) to use for the analysis. Choices: %(choices)s")
     mikado = parser.add_argument_group("Options related to the Mikado phase of the pipeline.")
     # scoring = parser.add_argument_group("Options related to the scoring system")

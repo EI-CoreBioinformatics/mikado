@@ -19,6 +19,7 @@ from ..utilities.log_utils import create_default_logger
 from ..configuration.daijin_configurator import create_daijin_config, check_config
 import shutil
 import pkg_resources
+import tempfile
 
 # import logging
 # import logging.handlers
@@ -228,6 +229,7 @@ def assemble_transcripts_pipeline(args):
         with open(args.exe) as _:
             doc["load"] = loader(_)
 
+    # print(doc["load"])
     # Check the configuration
     check_config(doc)
 
@@ -328,13 +330,17 @@ def assemble_transcripts_pipeline(args):
     else:
         hpc_conf = None
 
+    yaml_file = tempfile.NamedTemporaryFile(mode="wt", delete=True)
+    yaml.dump(doc, yaml_file)
+    yaml_file.flush()
+
     snakemake.snakemake(
         pkg_resources.resource_filename("Mikado",
                                         os.path.join("daijin", "tr.snakefile")),
         dryrun=args.dryrun,
         cores=args.cores,
         nodes=args.jobs,
-        configfile=args.config,
+        configfile=yaml_file.name,
         config=additional_config,
         workdir=CWD,
         cluster_config=hpc_conf,
@@ -416,6 +422,10 @@ def mikado_pipeline(args):
     else:
         hpc_conf = None
 
+    yaml_file = tempfile.NamedTemporaryFile(mode="wt", delete=True)
+    yaml.dump(doc, yaml_file)
+    yaml_file.flush()
+
     snakemake.snakemake(
         pkg_resources.resource_filename("Mikado",
                                         os.path.join("daijin", "mikado.snakefile")),
@@ -423,7 +433,7 @@ def mikado_pipeline(args):
         cores=args.cores,
         dryrun=args.dryrun,
         nodes=args.jobs,
-        configfile=args.config,
+        configfile=yaml_file,
         config=additional_config,
         workdir=CWD,
         cluster_config=hpc_conf,

@@ -910,7 +910,7 @@ rule portcullis_merge:
 	message: "Taking intersection of portcullis results"
 	run:
 		if RUN_PORTCULLIS:
-		    if len(input) == 1:
+		    if len(input.beds) == 1:
 		        shell("cat {input.beds} > {output.bed}")
 		        shell("cat {input.tabs} > {output.tab}")
 		    else:

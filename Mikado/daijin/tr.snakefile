@@ -895,7 +895,7 @@ rule portcullis_filter:
 	log: PORTCULLIS_DIR+"/portcullis_{aln_method}-filter.log"
 	threads: THREADS
 	message: "Using portcullis to filter invalid junctions: {wildcards.aln_method}"
-	shell: "{params.load} {params.ss_gen} portcullis filter -o {params.outdir}/{wildcards.aln_method} --canonical={CANONICAL_JUNCS} --max_length={MAX_INTRON} {params.trans} --threads={threads} {params.prepdir} {input} > {log} 2>&1 && ln -sf {params.link_src} {output.link} || ln -sf {params.link_unfilt} {output.link} &&  ln -sf {params.tab_link_src} {output.link} || ln -sf {params.tab_link_unfilt} {output.tab_link} && touch -h {output.link} && touch -h {output.tab_link}"
+	shell: "{params.load} {params.ss_gen} portcullis filter -o {params.outdir}/{wildcards.aln_method} --canonical={CANONICAL_JUNCS} --max_length={MAX_INTRON} {params.trans} --threads={threads} {params.prepdir} {input} > {log} 2>&1 && ln -sf {params.link_src} {output.link} || ln -sf {params.link_unfilt} {output.link} &&  ln -sf {params.tab_link_src} {output.tab_link} || ln -sf {params.tab_link_unfilt} {output.tab_link} && touch -h {output.link} && touch -h {output.tab_link}"
 
 rule portcullis_merge:
 	input:

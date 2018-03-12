@@ -223,6 +223,10 @@
             "type": "string"
           },
           "minItems": 1
+        },
+        "trinitydn": {
+          "type": "boolean",
+          "default": false
         }
       }
     },

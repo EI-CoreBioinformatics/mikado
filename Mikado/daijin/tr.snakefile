@@ -659,6 +659,16 @@ rule asm_scallop:
 	shell: """{params.load} mkdir -p {params.outdir} &&
 	 scallop -i {input.bam} -o {params.gtf} {params.strand} {params.extra} > {log} 2>&1 && ln -sf {params.link_src} {output.gtf} && touch -h {output.gtf}"""
 
+
+if config["asm_methods"].get("trinitydn", False) is True:
+    rule merge_reads:
+        input:
+
+
+    rule asm_trinitydn:
+        input:
+
+
 rule trinity_all:
 	input: expand(ASM_DIR+"/output/trinity-{run2}-{alrun}.gff", run2=TRINITY_RUNS, alrun=ALIGN_RUNS)
 	output: ASM_DIR+"/trinity.done"

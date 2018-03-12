@@ -105,16 +105,16 @@ class _XmlPickler(multiprocessing.Process):
                                                       max_target_seqs=self.__max_target_seqs)
 
                         if len(hits) + len(hsps) > self.maxobjects:
-                            pickle_temp = tempfile.mkstemp(suffix=".pickle",
+                            pickle_temp = tempfile.mktemp(suffix=".pickle",
                                                            dir=os.path.dirname(filename))
-                            with open(pickle_temp[1], "wb") as pickled:
+                            with open(pickle_temp, "wb") as pickled:
                                 pickle.dump([query_counter, hits, hsps], pickled)
 
                             pickle_count += 1
                             query_counter = 0
                             self.logger.debug("Sending %s back to the main thread (%d hits and %d hsps)",
                                               pickle_temp[1], len(hits), len(hsps))
-                            yield pickle_temp[1]
+                            yield pickle_temp
                             # pfiles.append(pickle_temp[1])
                             hits, hsps = [], []
                 except ExpatError:

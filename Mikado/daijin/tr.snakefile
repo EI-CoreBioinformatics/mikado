@@ -263,6 +263,16 @@ def tophatStrandOption(sample):
 	else:
 		return "--library-type=" + SAMPLE_MAP[sample]
 
+def scallopStrandOption(sample):
+	if SAMPLE_MAP[sample] in ("f", "fr-secondstrand"):
+		return "--library_type second"
+	elif SAMPLE_MAP[sample] in ("r", "fr-secondstrand"):
+		return "--library_type first"
+	elif SAMPLE_MAP[sample] == "fr-unstranded":
+		return "--library_type unstranded"
+	else:
+	    raise ValueError(SAMPLE_MAP[sample])
+
 def starCompressionOption(sample):
 	if EXT_MAP[sample] == ".gz":
 		return "--readFilesCommand zcat"
@@ -652,7 +662,7 @@ rule asm_scallop:
 		link_src=os.path.join("..", "scallop-{run2}-{alrun}", "transcripts.gtf"),
 		load=loadPre(config, "scallop"),
 		extra=lambda wildcards: config["asm_methods"]["scallop"][int(wildcards.run2)],
-		strand=lambda wildcards: tophatStrandOption(extractSample(wildcards.alrun))
+		strand=lambda wildcards: scallopStrandOption(extractSample(wildcards.alrun))
 	log: os.path.join(ASM_DIR, "scallop-{run2}-{alrun}.log")
 	threads: 1
 	message: "Using Scallop to assemble (run {wildcards.run2}): {input.bam}"
@@ -710,11 +720,12 @@ rule asm_map_trinitygg:
 		load=loadPre(config, "gmap"),
 		gff=ASM_DIR+"/trinity-{run2}-{alrun}/trinity-{run2}-{alrun}.gff",
 		link_src="../trinity-{run2}-{alrun}/trinity-{run2}-{alrun}.gff",
-		intron_length=gmap_intron_lengths(loadPre(config, "gmap"), MAX_INTRON)
+		intron_length=gmap_intron_lengths(loadPre(config, "gmap"), MAX_INTRON),
+		stranded=lambda wildcards: "-z sense_filter" if SAMPLE_MAP[wildcards.sample] != "fr-unstranded" else ""
 	log: ASM_DIR+"/trinitygmap-{run2}-{alrun}.log"
 	threads: THREADS
 	message: "Mapping trinity transcripts to the genome (run {wildcards.run2}): {input.transcripts}"
-	shell: "{params.load} gmap --dir={ALIGN_DIR}/gmap/index --db={NAME} --min-intronlength={MIN_INTRON} {params.intron_length}  --format=3 --min-trimmed-coverage={TGG_COVERAGE} --min-identity={TGG_IDENTITY} -n {TGG_NPATHS} -t {THREADS} {input.transcripts} > {params.gff} 2> {log} && ln -sf {params.link_src} {output.gff} && touch -h {output.gff}"
+	shell: "{params.load} gmap --dir={ALIGN_DIR}/gmap/index {params.strandedness} --db={NAME} --min-intronlength={MIN_INTRON} {params.intron_length}  --format=3 --min-trimmed-coverage={TGG_COVERAGE} --min-identity={TGG_IDENTITY} -n {TGG_NPATHS} -t {THREADS} {input.transcripts} > {params.gff} 2> {log} && ln -sf {params.link_src} {output.gff} && touch -h {output.gff}"
 
 
 rule lr_gmap:

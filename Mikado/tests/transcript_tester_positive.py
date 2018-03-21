@@ -7,7 +7,6 @@ Unit test for a transcript on the positive strand.
 import unittest
 import re
 import copy
-import intervaltree
 import Mikado.parsers
 import Mikado.exceptions
 import Mikado.loci
@@ -601,7 +600,7 @@ Chr2    TAIR10    exon    629070    629176    .    +    .    Parent=AT2G02380.1"
         self.tr.strand = "+"
         self.tr.finalize()
         self.tr.finalized = False
-        self.tr.exons += [intervaltree.Interval(625878, 625880)]
+        self.tr.exons += [(625878, 625880)]
         self.assertRaises(Mikado.exceptions.InvalidTranscript, self.tr.finalize)
 
     def test_complete(self):

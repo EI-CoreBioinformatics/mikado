@@ -3,7 +3,6 @@ __author__ = 'Luca Venturini'
 
 import unittest
 from Mikado.loci import Transcript
-import intervaltree
 from Mikado.utilities.log_utils import create_default_logger
 
 

@@ -78,7 +78,8 @@ setup(
             glob.glob("Mikado/daijin/*json") + \
             glob.glob("Mikado/daijin/*snakefile")
         },
-    include_package_data=True
+    include_package_data=True,
+    data_files=[("", ("LICENSE.txt", ))]
     # data_files=[
     #     ("Mikado/configuration",
     #      glob.glob("Mikado/configuration/*json") + glob.glob("Mikado/configuration/*yaml"))],

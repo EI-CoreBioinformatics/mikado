@@ -1,10 +1,11 @@
 package:
   name: mikado
-  version: "1.0.0beta10"
+  version: "1.1"
 
 source:
-  git_rev: "1.0.0b9"
-  git_url: "https://github.com/lucventurini/mikado.git"
+  fn: Mikado-1.1.tar.gz
+  md5: 76ed8a799a078d2cd2bc36c45d3b3e4d
+  url: https://pypi.python.org/packages/c2/b9/41d0a6f2ebad5eab5bc183beca8de854b4187266c6674ae6da0d86053f63/Mikado-1.1.tar.gz#md5=76ed8a799a078d2cd2bc36c45d3b3e4d
 
 requirements:
   build:

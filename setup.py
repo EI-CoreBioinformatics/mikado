@@ -91,7 +91,8 @@ setup(
         "Mikado.utilities.overlap": [path.join("Mikado", "utilities", "overlap.pxd")],
         "Mikado.utilities.intervaltree": [path.join("Mikado", "utilities", "intervaltree.pxd")],
         },
-    include_package_data=True
+    include_package_data=True,
+    data_files=[("", ("LICENSE.txt", ))]
     # data_files=[
     #     ("Mikado/configuration",
     #      glob.glob("Mikado/configuration/*json") + glob.glob("Mikado/configuration/*yaml"))],

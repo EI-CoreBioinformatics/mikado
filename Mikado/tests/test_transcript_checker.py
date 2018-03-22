@@ -99,9 +99,9 @@ class TChekerTester(unittest.TestCase):
         self.model.strand = "-"
         tcheck = TranscriptChecker(self.model, self.model_fasta, strand_specific=True)
         tcheck.check_strand()
-        self.assertEqual(tcheck.strand, "-")
-        self.assertTrue(tcheck.attributes["canonical_on_reverse_strand"])
-        self.assertTrue(tcheck.suspicious_splicing)
+        self.assertEqual(tcheck.strand, "+")
+        self.assertFalse(tcheck.attributes.get("canonical_on_reverse_strand", False))
+        self.assertFalse(tcheck.suspicious_splicing)
 
     def test_monoexonic(self):
 
@@ -167,11 +167,7 @@ Chr5	Cufflinks	exon	26577856	26578163	.	-	.	gene_id "cufflinks_star_at.23553";tr
             with self.subTest(ss=ss):
                 tchecker = TranscriptChecker(tr_neg.copy(), fasta_seq, strand_specific=ss)
                 tchecker.check_strand()
-                if ss:
-                    self.assertEqual(tchecker.strand, "+")
-                    self.assertTrue(tchecker.suspicious_splicing)
-                else:
-                    self.assertEqual(tchecker.strand, "-")
+                self.assertEqual(tchecker.strand, "-")
 
     def test_suspicious(self):
 

@@ -443,7 +443,7 @@ def mikado_pipeline(args):
         cores=args.cores,
         dryrun=args.dryrun,
         nodes=args.jobs,
-        configfile=yaml_file,
+        configfile=yaml_file.name,
         config=additional_config,
         workdir=CWD,
         cluster_config=hpc_conf,

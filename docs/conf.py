@@ -244,10 +244,11 @@ latex_elements = {
 # Grouping the document tree into LaTeX files. List of tuples
 # (source start file, target name, title,
 #  author, documentclass [howto, manual, or own class]).
-latex_documents = [
-    (master_doc, 'Mikado.tex', 'Mikado Documentation',
-     'Venturini Luca Caim Shabhonam Mapleson Daniel Kaithakottil Gemy George Swarbreck David',
-     'manual', False)]
+latex_documents = []
+# latex_documents = [
+#     (master_doc, 'Mikado.tex', 'Mikado Documentation',
+#      'Venturini Luca Caim Shabhonam Mapleson Daniel Kaithakottil Gemy George Swarbreck David',
+#      'manual', False)]
 
 # The name of an image file (relative to this directory) to place at the top of
 # the title page.

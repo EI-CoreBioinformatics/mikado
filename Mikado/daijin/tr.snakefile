@@ -174,15 +174,16 @@ for a in ALIGN_RUNS :
 	PORTCULLIS_IN[a] = ALIGN_DIR+"/output/" + a + ".sorted.bam"
 
 aln_abrv = {"tophat":"tph", "star":"sta", "gsnap":"gsp", "hisat":"hst", "gmap":"gmp"}
-asm_abrv = {"cufflinks":"cuf", "stringtie":"stn", "class":"cls", "trinity":"trn"}
+asm_abrv = {"cufflinks":"cuf", "stringtie":"stn", "class":"cls", "trinity":"trn", "scallop": "scl"}
 	
 GTF_ASSEMBLY_METHODS = []
 GFF_ASSEMBLY_METHODS = []
 for asm in ASSEMBLY_METHODS:
-	if asm in ("cufflinks", "stringtie", "class" "scallop"):
+	if asm in ("cufflinks", "stringtie", "class", "scallop"):
 		GTF_ASSEMBLY_METHODS.append(asm)
 	elif asm == "trinity":
 		GFF_ASSEMBLY_METHODS.append(asm)
+
 
 TRANSCRIPT_ARRAY=[]
 LABEL_ARRAY=[]
@@ -261,6 +262,16 @@ def tophatStrandOption(sample):
 		return "--library-type=fr-firststrand"
 	else:
 		return "--library-type=" + SAMPLE_MAP[sample]
+
+def scallopStrandOption(sample):
+	if SAMPLE_MAP[sample] in ("f", "fr-secondstrand"):
+		return "--library_type second"
+	elif SAMPLE_MAP[sample] in ("r", "fr-secondstrand"):
+		return "--library_type first"
+	elif SAMPLE_MAP[sample] == "fr-unstranded":
+		return "--library_type unstranded"
+	else:
+	    raise ValueError(SAMPLE_MAP[sample])
 
 def starCompressionOption(sample):
 	if EXT_MAP[sample] == ".gz":
@@ -353,9 +364,13 @@ def trinityInput(sample):
 
 @functools.lru_cache(maxsize=4, typed=True)
 def getTrinityVersion(command):
-    cmd = "set +u && {} && Trinity --version && set -u".format(command)
+    cmd = "{} Trinity --version && set -u".format(command)
     output = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE).stdout.read().decode()
-    version = [_ for _ in output.split("\n") if re.match("Trinity version:", _)][0]
+    try:
+        version = [_ for _ in output.split("\n") if re.match("Trinity version:", _)][0]
+    except IndexError as exc:
+        print("Error in getTrinityVersion")
+        raise IndexError(exc)
     version = re.sub("Trinity version: [^_]*_(r|v)", "", version)
     return version
 
@@ -542,7 +557,7 @@ rule align_hisat:
 	log: ALIGN_DIR+"/hisat-{sample}-{run}.log"
 	threads: THREADS
 	message: "Aligning input with hisat (sample {wildcards.sample} - run {wildcards.run})"
-    	shell: "{params.load} {params.load_samtools} {params.ss_gen} hisat2 -p {threads} --min-intronlen={MIN_INTRON} --max-intronlen={MAX_INTRON} {params.trans} {params.strand} {params.extra} -x {params.indexdir} --dta-cufflinks {params.infiles} 2> {log} | samtools view -b -@ {threads} - > {output.bam} && ln -sf {params.link_src} {output.link} && touch -h {output.link}"
+    	shell: "{params.load} {params.load_samtools} {params.ss_gen} hisat2 -p {threads} --min-intronlen={MIN_INTRON} --max-intronlen={MAX_INTRON} {params.trans} {params.strand} {params.extra} -x {params.indexdir} --dta {params.infiles} 2> {log} | samtools view -b -@ {threads} - > {output.bam} && ln -sf {params.link_src} {output.link} && touch -h {output.link}"
 
 rule hisat_all:
 	input: expand(ALIGN_DIR+"/output/hisat-{sample}-{run}.bam", sample=SAMPLES, run=HISAT_RUNS)
@@ -640,19 +655,34 @@ rule asm_scallop:
 		bam=os.path.join(ALIGN_DIR, "output", "{alrun}.sorted.bam"),
 		align=rules.align_all.output,
 	output:
-		gtf=os.path.join(ASM_DIR, "output", "cufflinks-{run2,\d+}-{alrun}.gtf")
+		gtf=os.path.join(ASM_DIR, "output", "scallop-{run2,\d+}-{alrun}.gtf")
 	params:
 		outdir=os.path.join(ASM_DIR, "scallop-{run2}-{alrun}"),
 		gtf=os.path.join(ASM_DIR, "scallop-{run2}-{alrun}", "transcripts.gtf"),
 		link_src=os.path.join("..", "scallop-{run2}-{alrun}", "transcripts.gtf"),
 		load=loadPre(config, "scallop"),
-		extra=lambda wildcards: config.get("asm_methods", dict()).get("scallop", [""]*len(int(wildcards.run2)+1)[int(wildcards.run2)],
-		strand=lambda wildcards: tophatStrandOption(extractSample(wildcards.alrun))
+		extra=lambda wildcards: config["asm_methods"]["scallop"][int(wildcards.run2)],
+		strand=lambda wildcards: scallopStrandOption(extractSample(wildcards.alrun))
 	log: os.path.join(ASM_DIR, "scallop-{run2}-{alrun}.log")
 	threads: 1
 	message: "Using Scallop to assemble (run {wildcards.run2}): {input.bam}"
 	shell: """{params.load} mkdir -p {params.outdir} &&
 	 scallop -i {input.bam} -o {params.gtf} {params.strand} {params.extra} > {log} 2>&1 && ln -sf {params.link_src} {output.gtf} && touch -h {output.gtf}"""
+
+
+if config["asm_methods"].get("trinitydn", False) is True:
+    rule merge_reads:
+        input:
+
+
+    rule asm_trinitydn:
+        input:
+
+
+rule trinity_all:
+	input: expand(ASM_DIR+"/output/trinity-{run2}-{alrun}.gff", run2=TRINITY_RUNS, alrun=ALIGN_RUNS)
+	output: ASM_DIR+"/trinity.done"
+	shell: "touch {output}"
 
 rule asm_trinitygg:
 	input:
@@ -665,7 +695,7 @@ rule asm_trinitygg:
 		load=loadPre(config, "trinity"),
 		extra=lambda wildcards: config["asm_methods"]["trinity"][int(wildcards.run2)],
 		strand=lambda wildcards: trinityStrandOption(extractSample(wildcards.alrun)),
-		base_parameters=lambda wildcards: trinityParameters(config.get("load", dict()).get("trinity", ""), extractSample(wildcards.alrun), REF, TGG_MAX_MEM)
+		base_parameters=lambda wildcards: trinityParameters(loadPre(config, "trinity"), extractSample(wildcards.alrun), REF, TGG_MAX_MEM)
 	log: ASM_DIR+"/trinity-{run2}-{alrun}.log"
 	threads: THREADS
 	message: "Using trinity in genome guided mode to assemble (run {wildcards.run2}): {input.bam}"
@@ -690,16 +720,12 @@ rule asm_map_trinitygg:
 		load=loadPre(config, "gmap"),
 		gff=ASM_DIR+"/trinity-{run2}-{alrun}/trinity-{run2}-{alrun}.gff",
 		link_src="../trinity-{run2}-{alrun}/trinity-{run2}-{alrun}.gff",
-		intron_length=gmap_intron_lengths(loadPre(config, "gmap"), MAX_INTRON)
+		intron_length=gmap_intron_lengths(loadPre(config, "gmap"), MAX_INTRON),
+		stranded=lambda wildcards: "-z sense_filter" if SAMPLE_MAP[wildcards.sample] != "fr-unstranded" else ""
 	log: ASM_DIR+"/trinitygmap-{run2}-{alrun}.log"
 	threads: THREADS
 	message: "Mapping trinity transcripts to the genome (run {wildcards.run2}): {input.transcripts}"
-	shell: "{params.load} gmap --dir={ALIGN_DIR}/gmap/index --db={NAME} --min-intronlength={MIN_INTRON} {params.intron_length}  --format=3 --min-trimmed-coverage={TGG_COVERAGE} --min-identity={TGG_IDENTITY} -n {TGG_NPATHS} -t {THREADS} {input.transcripts} > {params.gff} 2> {log} && ln -sf {params.link_src} {output.gff} && touch -h {output.gff}"
-
-rule trinity_all:
-	input: expand(ASM_DIR+"/output/trinity-{run2}-{alrun}.gff", run2=TRINITY_RUNS, alrun=ALIGN_RUNS)
-	output: ASM_DIR+"/trinity.done"
-	shell: "touch {output}"	
+	shell: "{params.load} gmap --dir={ALIGN_DIR}/gmap/index {params.strandedness} --db={NAME} --min-intronlength={MIN_INTRON} {params.intron_length}  --format=3 --min-trimmed-coverage={TGG_COVERAGE} --min-identity={TGG_IDENTITY} -n {TGG_NPATHS} -t {THREADS} {input.transcripts} > {params.gff} 2> {log} && ln -sf {params.link_src} {output.gff} && touch -h {output.gff}"
 
 
 rule lr_gmap:
@@ -874,7 +900,8 @@ rule portcullis_junc:
 rule portcullis_filter:
 	input: rules.portcullis_junc.output
 	output:		
-		link=PORTCULLIS_DIR+"/output/portcullis_{aln_method}.pass.junctions.bed"
+		link=PORTCULLIS_DIR+"/output/portcullis_{aln_method}.pass.junctions.bed",
+		tab_link=PORTCULLIS_DIR+"/output/portcullis_{aln_method}.pass.junctions.tab",
 	params: 
 		outdir=PORTCULLIS_DIR+"/portcullis_{aln_method}/3-filt",
 		prepdir=PORTCULLIS_DIR+"/portcullis_{aln_method}/1-prep/",
@@ -883,11 +910,13 @@ rule portcullis_filter:
 		ss_gen="mkdir -p " + PORTCULLIS_DIR + "/portcullis_{aln_method}/3-filt && gtf2bed.py " + REF_TRANS + " > " + PORTCULLIS_DIR + "/portcullis_{aln_method}/3-filt/ref_juncs.bed &&" if REF_TRANS else "",
 		trans="--reference=" + PORTCULLIS_DIR + "/portcullis_{aln_method}/3-filt/ref_juncs.bed" if REF_TRANS else "",
 		link_src="../portcullis_{aln_method}/3-filt/{aln_method}.pass.junctions.bed",
-		link_unfilt="../portcullis_{aln_method}/2-junc/{aln_method}.junctions.bed"
+		tab_link_src="../portcullis_{aln_method}/3-filt/{aln_method}.pass.junctions.tab",
+		link_unfilt="../portcullis_{aln_method}/2-junc/{aln_method}.junctions.bed",
+		tab_link_unfilt="../portcullis_{aln_method}/2-junc/{aln_method}.junctions.tab"
 	log: PORTCULLIS_DIR+"/portcullis_{aln_method}-filter.log"
 	threads: THREADS
 	message: "Using portcullis to filter invalid junctions: {wildcards.aln_method}"
-	shell: "{params.load} {params.ss_gen} portcullis filter -o {params.outdir}/{wildcards.aln_method} --canonical={CANONICAL_JUNCS} --max_length={MAX_INTRON} {params.trans} --threads={threads} {params.prepdir} {input} > {log} 2>&1 && ln -sf {params.link_src} {output.link} || ln -sf {params.link_unfilt} {output.link} && touch -h {output.link}"
+	shell: "{params.load} {params.ss_gen} portcullis filter -o {params.outdir}/{wildcards.aln_method} --canonical={CANONICAL_JUNCS} --max_length={MAX_INTRON} {params.trans} --threads={threads} {params.prepdir} {input} > {log} 2>&1 && ln -sf {params.link_src} {output.link} || ln -sf {params.link_unfilt} {output.link} &&  ln -sf {params.tab_link_src} {output.tab_link} || ln -sf {params.tab_link_unfilt} {output.tab_link} && touch -h {output.link} && touch -h {output.tab_link}"
 
 rule portcullis_merge:
 	input:
@@ -902,7 +931,7 @@ rule portcullis_merge:
 	message: "Taking intersection of portcullis results"
 	run:
 		if RUN_PORTCULLIS:
-		    if len(input) == 1:
+		    if len(input.beds) == 1:
 		        shell("cat {input.beds} > {output.bed}")
 		        shell("cat {input.tabs} > {output.tab}")
 		    else:

@@ -19,6 +19,7 @@ from ..utilities.log_utils import create_default_logger
 from ..configuration.daijin_configurator import create_daijin_config, check_config
 import shutil
 import pkg_resources
+import tempfile
 
 # import logging
 # import logging.handlers
@@ -35,7 +36,7 @@ assert pkg_resources.resource_exists("Mikado", "daijin")
 
 
 # noinspection PyPep8Naming
-def get_sub_commands(SCHEDULER, prefix):
+def get_sub_commands(SCHEDULER, prefix, additional):
     res_cmd = ""
     sub_cmd = ""
 
@@ -52,6 +53,8 @@ def get_sub_commands(SCHEDULER, prefix):
         sub_cmd = "sbatch"
         res_cmd = " ".join([" -N 1 -n 1 -c {{threads}} -p {{cluster.queue}} --mem={{cluster.memory}}",
                             "-J {prefix}_{{rule}} -o daijin_logs/{prefix}_{{rule}}_%j.out -e daijin_logs/{prefix}_{{rule}}_%j.err"]).format(prefix=prefix)
+
+    res_cmd = "{} {}".format(res_cmd, additional)
     return res_cmd, sub_cmd
 
 
@@ -85,6 +88,8 @@ def create_parser():
     parser.add_argument("--no_drmaa", "-nd", action='store_true', default=False,
                         help="Use this flag if you wish to run without DRMAA, for example, \
 if running on a HPC and DRMAA is not available, or if running locally on your own machine or server.")
+    parser.add_argument("-ad", "--additional-drmaa", default="", type=str,
+                        dest="additional_drmaa", help="Additional parameters to be added to the DRMAA command.")
     parser.add_argument("--rerun-incomplete", "--ri", action='store_true', default=False,
                         dest="rerun_incomplete",
                         help="Re-run all jobs the output of which is recognized as incomplete.")
@@ -168,7 +173,7 @@ def create_config_parser():
     parser.add_argument("-al", "--aligners", choices=["gsnap", "star", "hisat", "tophat"], required=False,
                         default=[], nargs="*", help="Aligner(s) to use for the analysis. Choices: %(choices)s")
     parser.add_argument("-as", "--assemblers", dest="asm_methods", required=False,
-                        choices=["class", "cufflinks", "stringtie", "trinity"],
+                        choices=["class", "cufflinks", "stringtie", "trinity", "scallop"],
                         default=[], nargs="*", help="Assembler(s) to use for the analysis. Choices: %(choices)s")
     mikado = parser.add_argument_group("Options related to the Mikado phase of the pipeline.")
     # scoring = parser.add_argument_group("Options related to the scoring system")
@@ -228,6 +233,7 @@ def assemble_transcripts_pipeline(args):
         with open(args.exe) as _:
             doc["load"] = loader(_)
 
+    # print(doc["load"])
     # Check the configuration
     check_config(doc)
 
@@ -256,7 +262,7 @@ def assemble_transcripts_pipeline(args):
     CWD = os.path.abspath(".")
     # pylint: enable=invalid-name
 
-    res_cmd, sub_cmd = get_sub_commands(SCHEDULER, args.prefix)
+    res_cmd, sub_cmd = get_sub_commands(SCHEDULER, args.prefix, args.additional_drmaa)
 
     # Create log folder
     if not os.path.exists("daijin_logs"):
@@ -328,13 +334,20 @@ def assemble_transcripts_pipeline(args):
     else:
         hpc_conf = None
 
+    yaml_file = tempfile.NamedTemporaryFile(mode="wt", delete=True,
+                                            dir=os.getcwd(), suffix=".yaml",
+                                            prefix="assemble"
+                                            )
+    yaml.dump(doc, yaml_file)
+    yaml_file.flush()
+
     snakemake.snakemake(
         pkg_resources.resource_filename("Mikado",
                                         os.path.join("daijin", "tr.snakefile")),
         dryrun=args.dryrun,
         cores=args.cores,
         nodes=args.jobs,
-        configfile=args.config,
+        configfile=yaml_file.name,
         config=additional_config,
         workdir=CWD,
         cluster_config=hpc_conf,
@@ -389,7 +402,7 @@ def mikado_pipeline(args):
     CWD = os.path.abspath(".")
     # pylint: enable=invalid-name
 
-    res_cmd, sub_cmd = get_sub_commands(SCHEDULER, args.prefix)
+    res_cmd, sub_cmd = get_sub_commands(SCHEDULER, args.prefix, args.additional_drmaa)
 
     if not os.path.exists("daijin_logs"):
         os.makedirs("daijin_logs")
@@ -416,6 +429,13 @@ def mikado_pipeline(args):
     else:
         hpc_conf = None
 
+    yaml_file = tempfile.NamedTemporaryFile(mode="wt", delete=True,
+                                            dir=os.getcwd(), suffix=".yaml",
+                                            prefix="mikado"
+                                            )
+    yaml.dump(doc, yaml_file)
+    yaml_file.flush()
+
     snakemake.snakemake(
         pkg_resources.resource_filename("Mikado",
                                         os.path.join("daijin", "mikado.snakefile")),
@@ -423,7 +443,7 @@ def mikado_pipeline(args):
         cores=args.cores,
         dryrun=args.dryrun,
         nodes=args.jobs,
-        configfile=args.config,
+        configfile=yaml_file.name,
         config=additional_config,
         workdir=CWD,
         cluster_config=hpc_conf,

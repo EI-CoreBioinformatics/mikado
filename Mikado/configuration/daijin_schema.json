@@ -223,6 +223,10 @@
             "type": "string"
           },
           "minItems": 1
+        },
+        "trinitydn": {
+          "type": "boolean",
+          "default": false
         }
       }
     },
@@ -257,7 +261,7 @@
         "required": true},
         "db_settings": {"$ref": "configuration_blueprint.json#properties/db_settings"},
         "use_diamond": {"type": "boolean", "default": true},
-        "use_prodigal": {"type": "boolean", "default": true},
+        "use_prodigal": {"type": "boolean", "default": false},
         "pick": {
           "type": "object",
           "properties": {

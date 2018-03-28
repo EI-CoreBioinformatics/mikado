@@ -532,7 +532,7 @@ def analyse_locus(slocus: Superlocus,
     logger.debug("Started with %s, counter %d",
                  slocus.id, counter)
     if slocus.stranded is True:
-        logger.warn("%s is stranded already! Resetting",
+        logger.warning("%s is stranded already! Resetting",
                     slocus.id)
         slocus.stranded = False
 
@@ -871,8 +871,11 @@ class LociProcesser(Process):
         # Read-only connection
 
         conn = sqlite3.connect("file:{}?mode=ro".format(os.path.join(self._tempdir, "temp_store.db")),
-                               uri=True, isolation_level="DEFERRED", timeout=60,
-                               check_same_thread=False)
+                               uri=True, # Necessary to use the Read-only mode from file string
+                               isolation_level="DEFERRED",
+                               timeout=60,
+                               check_same_thread=False  # Necessary for SQLite3 to function in multiprocessing
+                               )
         cursor = conn.cursor()
 
         while True:

@@ -335,5 +335,153 @@ class TestSplitMonoexonic(unittest.TestCase):
         pass
 
 
+class TestWithPhase(unittest.TestCase):
+
+    logger = Mikado.utilities.log_utils.create_default_logger("test_mono")
+    logger.setLevel(logging.INFO)
+
+    def setUp(self):
+
+        self.transcript = Mikado.loci.Transcript()
+        self.transcript.chrom = "Chr1"
+        self.transcript.start = 1001
+        self.transcript.end = 6000
+        self.transcript.strand = "."
+        self.transcript.id = "transcript1"
+        self.transcript.parent = "gene1"
+        self.transcript.source = "Mikado"
+        self.transcript.exons = [(1001, 6000)]
+        self.transcript.logger = self.logger
+        self.transcript.logger.setLevel("INFO")
+
+        self.transcript.json_conf = Mikado.configuration.configurator.to_json("")
+        self.transcript.json_conf["pick"]["chimera_split"]["blast_check"] = False
+        self.assertIsNotNone(self.transcript.json_conf)
+        self.assertIn("pick", self.transcript.json_conf)
+
+    def testPositive(self):
+
+        self.bed1 = Mikado.parsers.bed12.BED12()
+        self.header = False
+        self.bed1.chrom = "transcript1"
+        self.bed1.start = 1
+        self.bed1.end = 5000
+        self.bed1.name = "Bed1"
+        self.bed1.score = 0
+        self.bed1.strand = "+"
+        self.bed1.thick_start = 1
+        self.bed1.thick_end = 3002
+        self.bed1.phase = 2
+        self.bed1.block_counts = 1
+        self.bed1.block_sizes = [3002]
+        self.bed1.block_starts = [1]
+        self.bed1.transcriptomic = True
+        self.bed1.has_start_codon = False
+        self.bed1.has_stop_codon = True
+        self.assertFalse(self.bed1.invalid, self.bed1.invalid_reason)
+
+        self.bed2 = Mikado.parsers.bed12.BED12()
+        self.header = False
+        self.bed2.chrom = "transcript1"
+        self.bed2.start = 1
+        self.bed2.end = 5000
+        self.bed2.name = "Bed2"
+        self.bed2.score = 0
+        self.bed2.strand = "+"
+        self.bed2.thick_start = 4001
+        self.bed2.thick_end = 4900
+        self.bed2.block_counts = 1
+        self.bed2.block_sizes = [900]
+        self.bed2.block_starts = [4001]
+        self.bed2.transcriptomic = True
+        self.bed2.has_start_codon = True
+        self.bed2.has_stop_codon = True
+        self.assertFalse(self.bed2.invalid)
+
+        self.transcript.load_orfs([self.bed1, self.bed2])
+        self.assertTrue(self.transcript.is_coding)
+        self.assertEqual(self.transcript.number_internal_orfs,
+                         2,
+                         str(self.transcript))
+        self.transcript.finalize()
+
+        # with self.assertLogs("test_mono", level="DEBUG") as log_split:
+        new_transcripts = list(splitting.split_by_cds(self.transcript))
+
+        # print(log_split.output)
+
+        # self.assertIn("DEBUG:test_mono:",
+        #               log_split.output)
+        self.assertEqual(len(new_transcripts), 2, "\n".join(str(_) for _ in new_transcripts))
+        self.assertEqual(new_transcripts[0].start, self.transcript.start)
+        self.assertEqual(new_transcripts[1].end, self.transcript.end)
+
+    def testNegative(self):
+        self.bed1 = Mikado.parsers.bed12.BED12()
+        self.header = False
+        self.bed1.chrom = "transcript1"
+        self.bed1.start = 1
+        self.bed1.end = 5000
+        self.bed1.name = "Bed1"
+        self.bed1.score = 0
+        self.bed1.strand = "-"
+        self.bed1.thick_start = 1
+        self.bed1.thick_end = 3000
+        self.bed1.phase = 0
+        self.bed1.block_counts = 1
+        self.bed1.block_sizes = [3001]
+        self.bed1.block_starts = [1]
+        self.bed1.transcriptomic = True
+        self.bed1.has_start_codon = True
+        self.bed1.has_stop_codon = True
+        self.assertFalse(self.bed1.invalid, self.bed1.invalid_reason)
+
+        self.bed2 = Mikado.parsers.bed12.BED12()
+        self.header = False
+        self.bed2.chrom = "transcript1"
+        self.bed2.start = 1
+        self.bed2.end = 5000
+        self.bed2.name = "Bed2"
+        self.bed2.score = 0
+        self.bed2.strand = "-"
+        self.bed2.thick_start = 4001
+        self.bed2.thick_end = 5000
+        self.phase = 1
+        self.bed2.block_counts = 1
+        self.bed2.block_sizes = [1000]
+        self.bed2.block_starts = [4001]
+        self.bed2.transcriptomic = True
+        self.bed2.has_start_codon = False
+        self.bed2.has_stop_codon = True
+        self.assertFalse(self.bed2.invalid)
+
+        self.transcript.load_orfs([self.bed1, self.bed2])
+        self.assertTrue(self.transcript.is_coding)
+        self.assertEqual(self.transcript.number_internal_orfs,
+                         2,
+                         str(self.transcript))
+        self.transcript.finalize()
+
+        self.assertEqual(self.transcript.number_internal_orfs,
+                         2,
+                         str(self.transcript))
+
+        # with self.assertLogs("test_mono", level="DEBUG") as log_split:
+        new_transcripts = list(splitting.split_by_cds(self.transcript))
+
+        # print(log_split.output)
+
+        # self.assertIn("DEBUG:test_mono:",
+        #               log_split.output)
+        self.assertEqual(len(new_transcripts), 2, "\n".join(str(_) for _ in new_transcripts))
+        self.assertEqual(new_transcripts[0].start, self.transcript.start)
+        self.assertEqual(new_transcripts[1].end, self.transcript.end)
+
+        self.assertEqual(self.transcript.combined_cds_start, 6000)
+        self.assertEqual(self.transcript.combined_cds_end, 1001)
+        self.assertEqual(self.transcript.selected_cds_end, 1001)
+        self.assertEqual(self.transcript.selected_cds_start, 4000)
+        self.assertEqual(self.transcript.strand, "-")
+
 if __name__ == "__main__":
     unittest.main()

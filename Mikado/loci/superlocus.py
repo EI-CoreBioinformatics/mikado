@@ -921,6 +921,10 @@ class Superlocus(Abstractlocus):
                     raise NotInLocusError(exc_text)
 
             new_sublocus.parent = self.id
+            if not new_sublocus.metrics_calculated is False:
+                self.logger.error("{} had the metrics_calculated flag set to True, switching.")
+                new_sublocus.metrics_calculated = False
+
             self.subloci.append(new_sublocus)
         self.subloci = sorted(self.subloci)
 

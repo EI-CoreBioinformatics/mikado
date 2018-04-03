@@ -19,19 +19,22 @@ class Monosublocus(Abstractlocus):
 
     # ########## Special methods ############
 
-    def __init__(self, transcript_instance, json_conf=None, logger=None):
+    def __init__(self,
+                 transcript_instance,
+                 json_conf=None,
+                 logger=None,
+                 verified_introns=None,
+                 **kwargs):
 
         self.counter = 0  # simple tag to avoid collisions
-        Abstractlocus.__init__(self)
+        Abstractlocus.__init__(self, json_conf=json_conf, logger=logger, verified_introns=verified_introns, **kwargs)
         # this must be defined straight away
         self.monoexonic = transcript_instance.monoexonic
         Abstractlocus.add_transcript_to_locus(self, transcript_instance)
         self.feature = "Monosublocus"
         self.parent = None
         self.tid = transcript_instance.id
-        self.logger = logger
         self.attributes = dict()
-        self.json_conf = json_conf
 
     # pylint: disable=arguments-differ
     def __str__(self, print_cds=True, source_in_name=True):

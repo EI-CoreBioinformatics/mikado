@@ -25,7 +25,7 @@ class Locus(Abstractlocus):
     additional transcripts if they are valid splicing isoforms.
     """
 
-    def __init__(self, transcript: Transcript, logger=None, json_conf=None):
+    def __init__(self, transcript: Transcript, logger=None, json_conf=None, **kwargs):
         """
         Constructor class. Like all loci, also Locus is defined starting from a transcript.
 
@@ -39,7 +39,7 @@ class Locus(Abstractlocus):
         self.counter = 0
         transcript.attributes["primary"] = True
         self.counter = 0  # simple tag to avoid collisions
-        Abstractlocus.__init__(self)
+        Abstractlocus.__init__(self, logger=logger, json_conf=json_conf, **kwargs)
         # this must be defined straight away
         self.monoexonic = transcript.monoexonic
         Abstractlocus.add_transcript_to_locus(self, transcript)
@@ -53,7 +53,6 @@ class Locus(Abstractlocus):
         self.excluded = None
         self.parent = None
         self.tid = transcript.id
-        self.logger = logger
         self.attributes = dict()
         self.logger.debug("Created Locus object with {0}".format(transcript.id))
         self.primary_transcript_id = transcript.id
@@ -61,7 +60,6 @@ class Locus(Abstractlocus):
         self.metric_lines_store = []
         self.__id = None
         self.fai = None
-        self.json_conf = json_conf
         self.__finalized = False
         # if verified_introns is not None:
         #     self.locus_verified_introns = verified_introns

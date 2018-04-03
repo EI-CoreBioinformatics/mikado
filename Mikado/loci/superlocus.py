@@ -69,10 +69,12 @@ class Superlocus(Abstractlocus):
 
     def __init__(self,
                  transcript_instance,
+                 verified_introns=None,
                  stranded=True,
                  json_conf=None,
                  source="",
-                 logger=None):
+                 logger=None,
+                 **kwargs):
 
         """
 
@@ -108,22 +110,20 @@ class Superlocus(Abstractlocus):
         from further consideration.
         """
 
-        super().__init__(source=source)
+        super().__init__(source=source,
+                         transcript_instance=None,
+                         verified_introns=verified_introns,
+                         json_conf=json_conf,
+                         logger=logger,
+                         **kwargs)
         self.approximation_level = 0
-        self.stranded = stranded
         self.feature = self.__name__
         if json_conf is None or not isinstance(json_conf, dict):
             raise NoJsonConfigError("I am missing the configuration for prioritizing transcripts!")
         self.__regressor = None
-        self.json_conf = json_conf
-
+        self.stranded = stranded
         self.splices = set(self.splices)
         self.introns = set(self.introns)
-        super().add_transcript_to_locus(transcript_instance)
-        assert transcript_instance.monoexonic is True or len(self.introns) > 0
-        if self.stranded is True:
-            self.strand = transcript_instance.strand
-        self.logger = logger
 
         # Flags
         self.subloci_defined = False
@@ -144,6 +144,13 @@ class Superlocus(Abstractlocus):
         self.excluded_transcripts = None
         self.__retained_sources = set()
         self.__data_loaded = False
+        if transcript_instance is not None:
+            super().add_transcript_to_locus(transcript_instance)
+            assert transcript_instance.monoexonic is True or len(self.introns) > 0
+            if self.stranded is True:
+                self.strand = transcript_instance.strand
+        else:
+            self.logger.warning("Creating an empty superlocus as no transcript was provided!")
 
     def __create_locus_lines(self, superlocus_line, new_id, print_cds=True):
 

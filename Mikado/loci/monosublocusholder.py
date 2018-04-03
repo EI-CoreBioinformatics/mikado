@@ -39,22 +39,27 @@ class MonosublocusHolder(Sublocus, Abstractlocus):
     __name__ = "monosubloci_holder"
 
     # pylint: disable=super-init-not-called
-    def __init__(self, monosublocus_instance: Monosublocus, json_conf=None, logger=None, verified_introns=None):
+    def __init__(self, transcript_instance: Monosublocus,
+                 json_conf=None, logger=None,
+                 verified_introns=None, **kwargs):
 
         # I know what I am doing by NOT calling the Sublocus super but rather
         # Abstractlocus
-        Abstractlocus.__init__(self, verified_introns=verified_introns)
-        self.logger = logger
+        Abstractlocus.__init__(self,
+                               transcript_instance=None,
+                               verified_introns=verified_introns,
+                               json_conf=json_conf,
+                               logger=logger,
+                               **kwargs)
         self._not_passing = set()
         self.splitted = False
         self.metrics_calculated = False
-        self.json_conf = json_conf
         self.excluded = None
         self.feature = "MonosublocusHolder"
         self.scores_calculated = False
         # Add the transcript to the Locus
         self.locus_verified_introns = set()
-        self.add_monosublocus(monosublocus_instance, check_in_locus=False)
+        self.add_monosublocus(transcript_instance, check_in_locus=False)
         self.loci = SortedDict()
         self.attributes = dict()
 

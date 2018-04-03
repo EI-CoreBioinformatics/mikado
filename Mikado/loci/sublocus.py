@@ -29,11 +29,16 @@ class Sublocus(Abstractlocus):
 
     # ############### Class special methods ##############
 
-    def __init__(self, span, json_conf=None, logger=None, verified_introns=None):
+    def __init__(self,
+                 transcript_instance,
+                 json_conf=None,
+                 logger=None,
+                 verified_introns=None,
+                 **kwargs):
 
         """
-        :param span: an instance which describes a genomic interval
-        :type span: Transcript | Abstractlocus
+        :param transcript_instance: an instance which describes a genomic interval
+        :type transcript_instance: Transcript | Abstractlocus
 
         :param json_conf: a configuration dictionary
         :type json_conf: dict
@@ -48,14 +53,15 @@ class Sublocus(Abstractlocus):
 
         self.counter = 0  # simple tag for avoiding collisions in the GFF output
         self.__splitted = False
-        Abstractlocus.__init__(self, verified_introns=verified_introns)
+        Abstractlocus.__init__(self, verified_introns=verified_introns,
+                               json_conf=json_conf,
+                               logger=logger,
+                               **kwargs)
         self.feature = self.__name__
-        self.logger = logger
         self.logger.debug("Verified introns for %s: %s", self.id, verified_introns)
-        self.json_conf = json_conf
-        self.fixed_size = True if span.feature == "sublocus" else False
-        if span.__name__ == "transcript":
-            span.finalize()
+        self.fixed_size = True if transcript_instance.feature == "sublocus" else False
+        if transcript_instance.__name__ == "transcript":
+            transcript_instance.finalize()
         self.source = self.json_conf["pick"]["output_format"]["source"]
 
         self.excluded = None
@@ -64,7 +70,7 @@ class Sublocus(Abstractlocus):
         # Flag to indicate that we have not calculated the metrics for the transcripts
         # Flag to indicate that we have not calculated the scores for the transcripts
         self.scores_calculated = False
-        setattr(self, "monoexonic", getattr(span, "monoexonic", None))
+        setattr(self, "monoexonic", getattr(transcript_instance, "monoexonic", None))
         if json_conf is None or not isinstance(json_conf, dict):
             raise ValueError("I am missing the configuration for prioritizing transcripts!")
 
@@ -74,15 +80,15 @@ class Sublocus(Abstractlocus):
             for mod in self.json_conf["modules"]:
                 globals()[mod] = importlib.import_module(mod)
 
-        if isinstance(span, Transcript):
-            self.add_transcript_to_locus(span)
+        if isinstance(transcript_instance, Transcript):
+            self.add_transcript_to_locus(transcript_instance)
         else:
-            self.parent = getattr(span, "parent")
-            self.chrom = getattr(span, "chrom")
-            self.start = getattr(span, "start")
-            self.end = getattr(span, "end")
-            self.strand = getattr(span, "strand")
-            self.attributes = getattr(span, "attributes")
+            self.parent = getattr(transcript_instance, "parent")
+            self.chrom = getattr(transcript_instance, "chrom")
+            self.start = getattr(transcript_instance, "start")
+            self.end = getattr(transcript_instance, "end")
+            self.strand = getattr(transcript_instance, "strand")
+            self.attributes = getattr(transcript_instance, "attributes")
 
         self.monosubloci = []
         self.logger.debug("Initialized {0}".format(self.id))

@@ -47,12 +47,18 @@ class Abstractlocus(metaclass=abc.ABCMeta):
     __json_conf = json_conf.copy()
 
     @abc.abstractmethod
-    def __init__(self, source="", verified_introns=None):
+    def __init__(self,
+                 transcript_instance=None,
+                 logger=None,
+                 source="",
+                 verified_introns=None,
+                 json_conf=None):
 
         # Mock values
         self.__source = source
 
         self.__logger = None
+        self.logger = logger
         self.__stranded = False
         self._not_passing = set()
         self._excluded_transcripts = set()
@@ -80,6 +86,9 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         self.session = None
         self.metrics_calculated = False
         self.__internal_graph = networkx.DiGraph()
+        self.json_conf = json_conf
+        if transcript_instance is not None and isinstance(transcript_instance, Transcript):
+            self.add_transcript_to_locus(transcript_instance)
 
     @abc.abstractmethod
     def __str__(self, *args, **kwargs):
@@ -453,13 +462,21 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             return
 
         if len(self.transcripts) == 1:
-            self.transcripts = dict()
-            self.introns, self.exons, self.splices = set(), set(), set()
-            self.cds_introns, self.selected_cds_introns = set(), set()
-            self.start, self.end, self.strand = float("Inf"), float("-Inf"), None
-            self.stranded = True
-            self.initialized = False
-
+            try:
+                self.__init__(transcript_instance=None,
+                              json_conf=self.json_conf,
+                              source=self.source,
+                              verified_introns=self.locus_verified_introns,
+                              logger=self.logger)
+            except TypeError as exc:
+                raise TypeError("Instance: {}\n{}".format(type(self), exc))
+            # self.transcripts = dict()
+            # self.introns, self.exons, self.splices = set(), set(), set()
+            # self.cds_introns, self.selected_cds_introns = set(), set()
+            # self.start, self.end, self.strand = float("Inf"), float("-Inf"), None
+            # self.__internal_graph = networkx.DiGraph()
+            # self.stranded = False
+            # self.initialized = False
         else:
             keys = list(key for key in self.transcripts if key != tid)
             self.end = max(self.transcripts[t].end for t in self.transcripts if t != tid)

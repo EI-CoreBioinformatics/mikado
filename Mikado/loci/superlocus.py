@@ -30,6 +30,8 @@ if version_info.minor < 5:
     from sortedcontainers import SortedDict
 else:
     from collections import OrderedDict as SortedDict
+import itertools
+from .excluded import Excluded
 
 # The number of attributes is something I need
 # pylint: disable=too-many-instance-attributes
@@ -134,7 +136,6 @@ class Superlocus(Abstractlocus):
         # Objects used during computation
         self.subloci = []
         self.loci = SortedDict()
-        self.sublocus_metrics = []
         self.monosubloci = dict()
         self.monoholders = []
 
@@ -650,17 +651,26 @@ class Superlocus(Abstractlocus):
                 to_remove.add(tid)
                 to_add.update(new_transcripts)
 
+        assert len(to_remove) < len(to_add) + len(self.transcripts)
+
         if len(to_remove) > 0:
-            self.logger.debug("Adding to %s: %s",
-                              self.id,
-                              ",".join([tr.id for tr in to_add]))
-            for transcr in to_add:
-                self.add_transcript_to_locus(transcr, check_in_locus=False)
-            self.logger.debug("Removing from %s: %s",
-                              self.id,
-                              ",".join(list(to_remove)))
-            for tid in to_remove:
-                self.remove_transcript_from_locus(tid)
+
+            new = None
+            self.logger.debug("Rebuilding the superlocus as %d transcripts have been excluded or split.",
+                              len(to_remove))
+            for transcript in itertools.chain(to_add, self.transcripts.values()):
+                if new is None:
+                    new = Superlocus(transcript, stranded=True,
+                                     json_conf=self.json_conf, logger=self.logger,
+                                     source=self.source)
+                else:
+                    new.add_transcript_to_locus(transcript, check_in_locus=False)
+
+            self = new
+        elif len(to_remove) == len(self.transcripts):
+            self.logger.warning("No transcripts left for %s", self.name)
+            self = Excluded(to_remove.pop())
+            [self.add_transcript_to_locus(_) for _ in to_remove]
 
         del data_dict
 
@@ -846,9 +856,9 @@ class Superlocus(Abstractlocus):
             and store them inside the instance store "subloci"
         """
 
-        self.compile_requirements()
         if self.subloci_defined is True:
             return
+        self.compile_requirements()
         self.subloci = []
 
         # Check whether there is something to remove
@@ -928,22 +938,21 @@ class Superlocus(Abstractlocus):
                     raise NotInLocusError(exc_text)
 
             new_sublocus.parent = self.id
-            if not new_sublocus.metrics_calculated is False:
-                self.logger.error("{} had the metrics_calculated flag set to True, switching.")
-                new_sublocus.metrics_calculated = False
-
+            new_sublocus.metrics_calculated = False
+            new_sublocus.get_metrics()
             self.subloci.append(new_sublocus)
+
         self.subloci = sorted(self.subloci)
+        # self.get_sublocus_metrics()
 
         self.subloci_defined = True
 
-    def get_sublocus_metrics(self):
-        """Wrapper function to calculate the metrics inside each sublocus."""
-
-        self.define_subloci()
-        self.sublocus_metrics = []
-        for sublocus_instance in self.subloci:
-            sublocus_instance.get_metrics()
+    # def get_sublocus_metrics(self):
+    #     """Wrapper function to calculate the metrics inside each sublocus."""
+    #
+    #     self.define_subloci()
+    #     for sublocus_instance in self.subloci:
+    #         sublocus_instance.get_metrics()
 
     def define_monosubloci(self):
 
@@ -986,7 +995,7 @@ class Superlocus(Abstractlocus):
         the sublocus.print_metrics method
         on it for each sublocus."""
 
-        self.get_sublocus_metrics()
+        # self.get_sublocus_metrics()
 
         for slocus in self.subloci:
             for row in slocus.print_metrics():
@@ -1000,7 +1009,7 @@ class Superlocus(Abstractlocus):
         sublocus.print_metrics method
         on it for each sublocus."""
 
-        self.get_sublocus_metrics()
+        # self.get_sublocus_metrics()
 
         for slocus in self.subloci:
             for row in slocus.print_scores():

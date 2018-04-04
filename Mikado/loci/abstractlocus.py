@@ -483,6 +483,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             self.start = min(self.transcripts[t].start for t in self.transcripts if t != tid)
 
             # Remove excess exons
+
             other_exons = [
                 set(self.transcripts[otid].exons if
                     otid in self.transcripts else []) for otid in keys]
@@ -853,8 +854,8 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
         """Quick wrapper to calculate the metrics for all the transcripts."""
 
-        if self.metrics_calculated is True:
-            return
+        # if self.metrics_calculated is True:
+        #     return
 
         cds_bases = sum(_[1] - _[0] + 1 for _ in merge_ranges(
             itertools.chain(*[

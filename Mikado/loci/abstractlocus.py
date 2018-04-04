@@ -46,6 +46,15 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
     __json_conf = json_conf.copy()
 
+    __locus_to_transcript_attrs = {"splices": "splices",
+                                   "introns": "introns",
+                                   "combined_cds_introns": "combined_cds_introns",
+                                   "combined_cds_exons": "combined_cds",
+                                   "selected_cds_introns": "selected_cds_introns",
+                                   "selected_cds_exons": "selected_cds",
+                                   "exons": "exons",
+                                   "locus_verified_introns": "verified_introns"}
+
     @abc.abstractmethod
     def __init__(self,
                  transcript_instance=None,
@@ -63,23 +72,23 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         self._not_passing = set()
         self._excluded_transcripts = set()
         self.transcripts = dict()
-        self.introns, self.exons, self.splices = set(), set(), set()
-        # Consider only the CDS part
-        self.combined_cds_introns, self.selected_cds_introns = set(), set()
-        self.combined_cds_exons, self.selected_cds_exons = set(), set()
         self.start, self.end, self.strand = maxsize, -maxsize, None
+        # self.introns, self.exons, self.splices = set(), set(), set()
+        # Consider only the CDS part
+        # self.combined_cds_introns, self.selected_cds_introns = set(), set()
+        # self.combined_cds_exons, self.selected_cds_exons = set(), set()
         self.stranded = True
         self.initialized = False
         self.monoexonic = True
         self.chrom = None
-        self.cds_introns = set()
         self.__locus_verified_introns = set()
-        self.scores_calculated = False
-        self.scores = dict()
-
+        for locattr in self.__locus_to_transcript_attrs:
+            setattr(self, locattr, set())
         if verified_introns is not None:
             self.locus_verified_introns = verified_introns
 
+        self.scores_calculated = False
+        self.scores = dict()
         self.__cds_introntree = IntervalTree()
         self.__segmenttree = IntervalTree()
         self.__regressor = None
@@ -418,26 +427,26 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         self.end = max(self.end, transcript.end)
 
         self.transcripts[transcript.id] = transcript
-        self.splices.update(transcript.splices)
-        self.introns.update(transcript.introns)
+
+        for locattr, tranattr in self.__locus_to_transcript_attrs.items():
+            getattr(self, locattr).update(set(getattr(transcript, tranattr)))
+
+        # self.splices.update(transcript.splices)
+        # self.introns.update(transcript.introns)
+        # self.combined_cds_introns.update(transcript.combined_cds_introns)
+        # self.combined_cds_exons.update(transcript.combined_cds)
+        # self.selected_cds_introns.update(transcript.selected_cds_introns)
+        # self.selected_cds_exons.update(transcript.selected_cds)
+        # self.exons.update(set(transcript.exons))
+        # self.locus_verified_introns.update(transcript.verified_introns)
+
         if transcript.monoexonic is False:
             assert len(self.introns) > 0
 
-        self.combined_cds_introns = set.union(
-            self.combined_cds_introns, transcript.combined_cds_introns)
-        self.combined_cds_exons = set.union(
-            self.combined_cds_exons, transcript.combined_cds)
-
         assert len(transcript.combined_cds) <= len(self.combined_cds_exons)
-
-        self.selected_cds_introns.update(transcript.selected_cds_introns)
-        self.selected_cds_exons.update(transcript.selected_cds)
-
-        self.exons.update(set(transcript.exons))
         assert isinstance(self.locus_verified_introns, set)
         assert isinstance(transcript.verified_introns, set)
-        self.locus_verified_introns = set.union(self.locus_verified_introns,
-                                                transcript.verified_introns)
+
         if transcript.verified_introns_num > 0:
             assert len(self.locus_verified_introns) > 0
 
@@ -462,77 +471,25 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             return
 
         if len(self.transcripts) == 1:
-            try:
-                self.__init__(transcript_instance=None,
-                              json_conf=self.json_conf,
-                              source=self.source,
-                              verified_introns=self.locus_verified_introns,
-                              logger=self.logger)
-            except TypeError as exc:
-                raise TypeError("Instance: {}\n{}".format(type(self), exc))
-            # self.transcripts = dict()
-            # self.introns, self.exons, self.splices = set(), set(), set()
-            # self.cds_introns, self.selected_cds_introns = set(), set()
-            # self.start, self.end, self.strand = float("Inf"), float("-Inf"), None
-            # self.__internal_graph = networkx.DiGraph()
-            # self.stranded = False
-            # self.initialized = False
+            self.transcripts = dict()
+            for locattr in self.__locus_to_transcript_attrs:
+                setattr(self, locattr, set())
+            self.start, self.end, self.strand = float("Inf"), float("-Inf"), None
+            self.__internal_graph = networkx.DiGraph()
+            self.stranded = False
+            self.initialized = False
         else:
-            keys = list(key for key in self.transcripts if key != tid)
-            self.end = max(self.transcripts[t].end for t in self.transcripts if t != tid)
-            self.start = min(self.transcripts[t].start for t in self.transcripts if t != tid)
-
-            # Remove excess exons
-
-            other_exons = [
-                set(self.transcripts[otid].exons if
-                    otid in self.transcripts else []) for otid in keys]
-            other_exons = set.union(*other_exons)
-            exons_to_remove = set.difference(set(self.transcripts[tid].exons), other_exons)
-            self.exons.difference_update(exons_to_remove)
-
-            # Remove excess introns
-            other_introns = set.union(
-                *[set(self.transcripts[otid].introns if otid in self.transcripts else [])
-                  for otid in keys])
-            introns_to_remove = set.difference(set(self.transcripts[tid].introns), other_introns)
-            self.introns.difference_update(introns_to_remove)
-
-            # Remove excess cds introns
-            other_cds_introns = set.union(
-                *[set(
-                    self.transcripts[otid].combined_cds_introns
-                    if otid in self.transcripts else [])
-                  for otid in keys])
-            for otid in keys:
-                if otid in self.transcripts:
-                    other_cds_introns.update(set(self.transcripts[otid].combined_cds_introns))
-
-            cds_introns_to_remove = set.difference(
-                set(self.transcripts[tid].combined_cds_introns),
-                other_cds_introns)
-            self.combined_cds_introns.difference_update(cds_introns_to_remove)
-
-            # Remove excess selected_cds_introns
-            other_selected_cds_introns = set.union(
-                *[set(
-                    self.transcripts[otid].selected_cds_introns if otid in self.transcripts else []
-                ) for otid in keys])
-            selected_cds_introns_to_remove = set.difference(
-                set(self.transcripts[tid].selected_cds_introns),
-                other_selected_cds_introns)
-            self.selected_cds_introns.difference_update(selected_cds_introns_to_remove)
-
-            # Remove excess splices
-            other_splices = set.union(
-                *[self.transcripts[otid].splices
-                  if otid in self.transcripts else set() for otid in keys])
-            splices_to_remove = set.difference(self.transcripts[tid].splices, other_splices)
-            self.splices.difference_update(splices_to_remove)
-
             self.remove_path_from_graph(self.transcripts[tid], self._internal_graph)
-
             del self.transcripts[tid]
+            self.end = max(self.transcripts[_].end for _ in self.transcripts)
+            self.start = min(self.transcripts[_].start for _ in self.transcripts)
+            # Regenerate attributes
+            for locattr, tranattr in self.__locus_to_transcript_attrs.items():
+                setattr(self, locattr,
+                        set.union(*[
+                            set(getattr(self.transcripts[_], tranattr)) for _ in self.transcripts]
+                        ))
+
             self.logger.debug("Deleted %s from %s", tid, self.id)
             for tid in self.transcripts:
                 self.transcripts[tid].parent = self.id

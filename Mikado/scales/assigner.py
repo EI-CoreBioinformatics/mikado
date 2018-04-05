@@ -605,7 +605,11 @@ class Assigner:
                 results, best_result = self.__prepare_result(prediction, distances)
 
         if self.use_prediction_alias is True:
-            best_result.tid = prediction.alias
+            if isinstance(best_result, list):
+                for idx in range(len(best_result)):
+                    best_result[idx].tid = prediction.alias
+            else:
+                best_result.tid = prediction.alias
             for idx in range(len(results)):
                 results[idx].tid = prediction.alias
 

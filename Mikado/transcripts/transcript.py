@@ -1425,6 +1425,22 @@ class Transcript:
         self.attributes["Name"] = name
 
     @property
+    def alias(self):
+        """This property returns the alias of the transcript, if present, else its ID"""
+        if "alias" in self.attributes.keys():
+            return self.attributes["alias"]
+        elif "Alias" in self.attributes.keys():
+            return self.attributes["Alias"]
+        else:
+            return self.id
+
+    @alias.setter
+    def alias(self, name):
+        if not isinstance(name, (type(None), str)):
+            raise ValueError("Invalid name: {0}".format(name))
+        self.attributes["alias"] = name
+
+    @property
     def strand(self):
         """
         Strand of the transcript. One of None, "-", "+"

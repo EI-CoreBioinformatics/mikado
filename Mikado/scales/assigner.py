@@ -63,6 +63,7 @@ class Assigner:
             self.args.exclude_utr = False
             self.args.verbose = False
             self.lenient = False
+            self.use_prediction_alias = False
         else:
             self.args = args
             if not hasattr(args, "out"):
@@ -77,10 +78,8 @@ class Assigner:
                 self.args.exclude_utr = False
             if not hasattr(args, "verbose"):
                 self.args.verbose = False
-            if hasattr(args, "lenient"):
-                self.lenient = args.lenient
-            else:
-                self.lenient = False
+            self.lenient = getattr(args, "lenient", False)
+            self.use_prediction_alias = getattr(args, "use_prediction_alias", False)
 
         # noinspection PyUnresolvedReferences
         # pylint: disable=no-member
@@ -225,16 +224,16 @@ class Assigner:
             try:
                 prediction.strip_cds()
             except InvalidTranscript as err:
-                self.logger.warn("Invalid transcript (due to CDS): %s",
+                self.logger.warning("Invalid transcript (due to CDS): %s",
                                  prediction.id)
-                self.logger.warn("Error message: %s", err)
+                self.logger.warning("Error message: %s", err)
                 self.done += 1
                 self.print_tmap(None)
                 return None
         except InvalidTranscript as err:
             #         args.queue.put_nowait("mock")
-            self.logger.warn("Invalid transcript: %s", prediction.id)
-            self.logger.warn("Error message: %s", err)
+            self.logger.warning("Invalid transcript: %s", prediction.id)
+            self.logger.warning("Error message: %s", err)
             self.done += 1
             self.print_tmap(None)
             return None
@@ -309,8 +308,6 @@ class Assigner:
                 best.add((match, sorted(local_best, key=self.get_f1, reverse=True)[0]))
 
         if len(best) > 1:  # We have a fusion
-            # Add the fusion tag to all transcripts of fused genes, if applicable
-            values = []
             # Now retrieve the results according to their order on the genome
             # Keep only the result, not their position
             best = [_[1] for _ in sorted(best, key=lambda res: (res[0][0], res[0][1]))]
@@ -333,17 +330,6 @@ class Assigner:
                 new_result = ResultStorer(*new_result)
                 best_result.append(new_result)
 
-            # for key in ResultStorer.__slots__:
-            #     if key in ["gid", "tid", "distance", "tid_num_exons"]:
-            #         values.append(getattr(best[0], key))
-            #     elif key == "location":
-            #         values.append(location)
-            #     elif key == "ccode":
-            #         values.append(tuple(["f"] + [_.ccode[0] for _ in best]))
-            #     else:
-            #         val = tuple([getattr(result, key)[0] for result in best])
-            #         values.append(val)
-            # best_result = ResultStorer(*values)
             for match, genes in fused.items():
                 for gene in iter(_ for _ in genes if _ not in dubious):
                     for position, result in enumerate(new_matches[gene]):
@@ -617,6 +603,11 @@ class Assigner:
             else:
                 # All other cases
                 results, best_result = self.__prepare_result(prediction, distances)
+
+        if self.use_prediction_alias is True:
+            best_result.tid = prediction.alias
+            for idx in range(len(results)):
+                results[idx].tid = prediction.alias
 
         for result in results:
             self.add_to_refmap(result)

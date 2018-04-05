@@ -77,6 +77,10 @@ the internal junction has been recovered.""")
                         dest="extended_refmap",
                         help="""Flag. If set, the RefMap will also contain recall
                         and precision statistics - not just the F1.""")
+    parser.add_argument("-upa", "--use-prediction-alias", action="store_true", default=False,
+                        dest="use_prediction_alias",
+                        help="""Flag. If set, Mikado Compare will use the alias - rather than the transcript ID -
+                        to report the results for prediction transcripts in the TMAP and REFMAP files.""")
     parser.add_argument("-l", "--log", default=None, type=str)
     parser.add_argument("-v", "--verbose",
                         action="store_true",

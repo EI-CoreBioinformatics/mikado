@@ -1253,7 +1253,7 @@ class RetainedIntronTester(unittest.TestCase):
                 sup.json_conf["pick"]["run_options"]["consider_truncated_for_retained"] = True
                 sup.find_retained_introns(pred)
                 self.assertEqual((len(sup.transcripts[pred.id].retained_introns) > 0),
-                                 retained, (pred.id, retained))
+                                 retained, (pred.id, retained, pred.retained_introns))
                 # Now check that things function also after unpickling
                 unpickled_t1 = pickle.loads(pickle.dumps(t1))
                 unpickled_other = pickle.loads(pickle.dumps(pred))
@@ -1339,7 +1339,7 @@ class RetainedIntronTester(unittest.TestCase):
                 sup.json_conf["pick"]["run_options"]["consider_truncated_for_retained"] = True
                 sup.find_retained_introns(pred)
                 self.assertEqual((len(sup.transcripts[pred.id].retained_introns) > 0),
-                                 retained)
+                                 retained, (pred.id, pred.retained_introns))
 
     def test_real_retained_neg_truncated_skip(self):
         """Here we verify that a real retained intron is *NOT* called as such when
@@ -1441,6 +1441,36 @@ class RetainedIntronTester(unittest.TestCase):
                 sup.add_transcript_to_locus(unpickled_other)
                 sup.find_retained_introns(unpickled_other)
                 self.assertEqual(sup.transcripts[unpickled_other.id].retained_intron_num, 0)
+
+    def test_neg_retained_example(self):
+
+        t1 = Transcript()
+        t1.chrom = "Chr1"
+        t1.id = "t1"
+        t1.add_exons([(3168512, 3168869),(3168954, 3169234),(3169327, 3169471),
+                      (3169589, 3170045),(3170575, 3170687),(3170753, 3170803)])
+        t1.strand = "-"
+        t1.add_exons(
+            [(3168568, 3168869), (3168954, 3169234), (3169327, 3169471), (3169589, 3170045), (3170575, 3170682)],
+            features="CDS"
+        )
+        t1.finalize()
+
+        t2 = Transcript()
+        t2.chrom = "Chr1"
+        t2.id = "t2"
+        t2.strand = "-"
+        t2.add_exons(
+            [(3168483, 3168869),(3168954, 3169234),(3169327, 3169471),(3169589, 3170816)]
+        )
+        t2.add_exons(
+            [(3168568, 3168869),(3168954, 3169234),(3169327, 3169471),(3169589, 3170192)],
+        features="CDS")
+
+        sup = Superlocus(t1, json_conf=self.my_json)
+        sup.add_transcript_to_locus(t2)
+        sup.find_retained_introns(t2)
+        self.assertGreater(sup.transcripts[t2.id].retained_intron_num, 0)
 
     def test_real_retained_neg(self):
         """Here we verify that a real retained intron is called as such"""
@@ -1577,7 +1607,7 @@ class RetainedIntronTester(unittest.TestCase):
                          [Interval(471, 1000)])
 
         self.assertEqual(Abstractlocus._exon_to_be_considered((301, 1000), t2),
-                         (True, [(301, 470)]),
+                         (True, [(301, 470)], True),
                          Abstractlocus._exon_to_be_considered((301, 1000), t2))
 
         graph = Abstractlocus._calculate_graph([t1, t2])

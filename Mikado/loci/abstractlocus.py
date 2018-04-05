@@ -498,8 +498,8 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         events.
         :type consider_truncated: bool
 
-        :returns: boolean flag (True if it has to be considered, False otherwise) and a list of sections of the exons
-        which are non-coding.
+        :returns: boolean flag (True if it has to be considered, False otherwise), a list of sections of the exons
+        which are non-coding, and a boolean flag indicating whether the exon is terminal or not
         """
 
         cds_segments = sorted(transcript.cds_tree.search(*exon))
@@ -508,14 +508,15 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             {transcript.start, transcript.end, transcript.combined_cds_end, transcript.combined_cds_start}))
         if cds_segments == [Interval(*exon)]:
             # It is completely coding
-            if terminal is False:
-                return False, []
-            elif not consider_truncated:
-                return False, []
+            if terminal is False or (not consider_truncated):
+                to_consider = False
+                frags = []
             else:
-                return True, cds_segments
+                to_consider = True
+                frags = cds_segments
         else:
             frags = []
+            to_consider = True
             if cds_segments:
                 if cds_segments[0].start > exon[0]:
                     frags.append((exon[0], cds_segments[0].start - 1))
@@ -525,7 +526,8 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                     frags.append((cds_segments[-1].end + 1, exon[1]))
             else:
                 frags = [Interval(*exon)]
-            return True, frags
+
+        return to_consider, frags, terminal
 
     @staticmethod
     def _is_exon_retained(exon: tuple,
@@ -553,58 +555,56 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         :rtype: bool
         """
 
-        found_exons = set(
-            [_._as_tuple() for _ in segmenttree.find(exon[0], exon[1], strict=False, value="exon")
-             if (_[0], _[1]) != (exon[0], exon[1])])
+        is_retained = False
+
         found_introns = set(
             [_._as_tuple() for _ in segmenttree.find(exon[0], exon[1], strict=not consider_truncated, value="intron")]
         )
 
-        is_retained = False
+        if not found_introns:
+            return is_retained
 
-        logger.debug("Found exons for %s: %s", exon, found_exons)
         logger.debug("Found introns for %s: %s", exon, found_introns)
 
-        subgraph = digraph.subgraph(list(set.union(found_exons, found_introns)))
-        assert set(subgraph.nodes()) == set.union(found_exons, found_introns)
-        logger.debug("Subgraph nodes: %s", subgraph.nodes())
-        logger.debug("Subgraph edges: %s", subgraph.edges())
+        found_exons = set(
+            [_._as_tuple() for _ in segmenttree.find(exon[0], exon[1], strict=False, value="exon")
+             if (_[0], _[1]) != (exon[0], exon[1])])
+
+        if not found_exons:
+            return is_retained
 
         for intron in found_introns:
-
+            # We have a retained intron when
             if is_retained:
                 break
-            # We have already removed the exons against which the exon does *not* map,
-            before = {_ for _ in networkx.ancestors(subgraph, intron)
-                      if _[0] - 1 in intron or _[1] + 1 in intron}
+            # We have already removed the exons against which the exon does *not* map
+            before = {_ for _ in networkx.ancestors(digraph, intron)
+                      if _ in found_exons}
 
-            after = {_ for _ in networkx.descendants(subgraph, intron)
-                     if _[0] - 1 in intron or _[1] + 1 in intron}
+            after = {_ for _ in networkx.descendants(digraph, intron)
+                     if _ in found_exons}
 
-            # So if nothing maps before, this cannot be a retained intron
+            # Now we have to check whether the matched introns contain both coding and non-coding parts
+            # Let us exclude any intron which is outside of the exonic span of interest.
+            logger.debug("Checking whether the exon stops being coding within the intron %s", intron)
+            logger.debug("Exon: %s; Frags: %s; Intron: %s; After: %s", exon, frags, intron, after)
+            # I have a single fragment, which is identical to the exon.
             if len(before) == 0:
-                logger.debug("No exon matching before intron %s", intron)
-                continue
-
-            if len(after) == 0:
-                # Overlap only with the previous exon, not both.
-                # This can only be a retained intron if we are considering
-                # a terminal exon AND we are accepting truncated exons as RIs.
-                logger.debug("No exon matching after %s", intron)
+                is_retained = False
+            elif len(after) == 0:
                 is_retained = (consider_truncated and terminal)
             else:
-                # Now we have to check whether the matched introns contain both coding and non-coding parts
-                # Let us exclude any intron which is outside of the exonic span of interest.
-                logger.debug("Checking whether the exon stops being coding within the intron %s", intron)
-                logger.debug("Exon: %s; Frags: %s; Intron: %s; After: %s", exon, frags, intron, after)
-
-                # I have a single fragment, which is identical to the exon.
                 if len(frags) == 1 and frags[0] == exon:
+                    print("Only one fragment for", exon)
                     is_retained = True
                 else:
                     # ilength = intron[1] - intron[0] + 1
-                    for frag, oexon in itertools.product(frags, list(before)):
-                        is_retained = (overlap(frag, oexon, positive=True) == 0 and overlap(frag, intron, positive=True))
+                    print("Multiple fragments for", exon)
+                    for frag, oexon in itertools.product(frags, list(before) + list(after)):
+                        if overlap(oexon, exon, positive=True) <= 0:
+                            continue
+                        is_retained = (overlap(frag, oexon, positive=True) == 0 and
+                                       overlap(frag, intron, positive=True))
                         if is_retained:
                             break
 
@@ -654,18 +654,11 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
             self.logger.debug("Checking exon %s of %s", exon, transcript.id)
             # is_retained = False
-            to_consider, frags = self._exon_to_be_considered(
+            to_consider, frags, terminal = self._exon_to_be_considered(
                 exon, transcript, consider_truncated=consider_truncated)
             if not to_consider:
                 self.logger.debug("Exon %s of %s is not to be considered", exon, transcript.id)
                 continue
-
-            if exon[0] == transcript.start and transcript.strand == "-":
-                terminal = True
-            elif exon[1] == transcript.end:
-                terminal = True
-            else:
-                terminal = False
 
             self.logger.debug("Number of exons, introns, intervals in segmenttree: %d, %d, %d",
                               len(self.exons), len(self.introns), len(self.segmenttree))
@@ -681,23 +674,6 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                 self.logger.debug("Exon %s of %s is a retained intron",
                                   exon, transcript.id)
                 retained_introns.append(exon)
-
-            # for tid, candidate in (_ for _ in self.transcripts.items() if _[0] != transcript.id):
-            #     if candidate.strand != transcript.strand and None not in (transcript.strand, candidate.strand):
-            #         continue
-            #
-            #     self.logger.debug("Checking %s in %s against %s", exon, transcript.id, candidate.id)
-            #     is_retained = self._is_exon_retained(exon,
-            #                                          candidate.strand,
-            #                                          candidate.segmenttree,
-            #                                          frags,
-            #                                          terminal=terminal,
-            #                                          consider_truncated=consider_truncated)
-            #     if is_retained:
-            #         self.logger.debug("Exon %s of %s is a retained intron of %s",
-            #                           exon, transcript.id, candidate.id)
-            #         retained_introns.append(exon)
-            #         break
 
         self.logger.debug("%s has %d retained introns%s",
                           transcript.id,

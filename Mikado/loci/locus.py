@@ -381,23 +381,6 @@ reached the maximum number of isoforms for the locus".format(
             raise TypeError("Invalid configuration of type {0}".format(type(jconf)))
         self.json_conf = jconf
 
-    # def get_metrics(self):
-    #
-    #     """Quick wrapper to calculate the metrics for all the transcripts."""
-    #
-    #     if self.metrics_calculated is True:
-    #         return
-    #
-    #     assert len(self._cds_introntree) == len(self.combined_cds_introns)
-    #
-    #     for tid in sorted(self.transcripts):
-    #         self.calculate_metrics(tid)
-    #
-    #     self.logger.debug("Finished to calculate the metrics for %s", self.id)
-    #
-    #     self.metrics_calculated = True
-    #     return
-
     def calculate_metrics(self, tid: str):
         """
         :param tid: the name of the transcript to be analysed

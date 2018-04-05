@@ -46,6 +46,8 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
     __json_conf = json_conf.copy()
 
+    # This dictionary contains the correspondence between transcript attributes
+    # and the relevant containers in Locus classes.
     __locus_to_transcript_attrs = {"splices": "splices",
                                    "introns": "introns",
                                    "combined_cds_introns": "combined_cds_introns",
@@ -431,29 +433,17 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         for locattr, tranattr in self.__locus_to_transcript_attrs.items():
             getattr(self, locattr).update(set(getattr(transcript, tranattr)))
 
-        # self.splices.update(transcript.splices)
-        # self.introns.update(transcript.introns)
-        # self.combined_cds_introns.update(transcript.combined_cds_introns)
-        # self.combined_cds_exons.update(transcript.combined_cds)
-        # self.selected_cds_introns.update(transcript.selected_cds_introns)
-        # self.selected_cds_exons.update(transcript.selected_cds)
-        # self.exons.update(set(transcript.exons))
-        # self.locus_verified_introns.update(transcript.verified_introns)
-
         if transcript.monoexonic is False:
             assert len(self.introns) > 0
 
-        assert len(transcript.combined_cds) <= len(self.combined_cds_exons)
-        assert isinstance(self.locus_verified_introns, set)
-        assert isinstance(transcript.verified_introns, set)
-
-        if transcript.verified_introns_num > 0:
-            assert len(self.locus_verified_introns) > 0
-
         self.add_path_to_graph(transcript, self._internal_graph)
+        assert len(transcript.combined_cds) <= len(self.combined_cds_exons)
+        assert len(self.locus_verified_introns) >= transcript.verified_introns_num
 
-        if self.initialized is False:
-            self.initialized = True
+        self.initialized = True
+        self.metrics_calculated = False
+        self.scores_calculated = False
+
         return
 
     def remove_transcript_from_locus(self, tid: str):
@@ -470,29 +460,27 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             self.logger.warning("Transcript %s is not present in the Locus. Ignoring it.", tid)
             return
 
-        if len(self.transcripts) == 1:
-            self.transcripts = dict()
-            for locattr in self.__locus_to_transcript_attrs:
-                setattr(self, locattr, set())
-            self.start, self.end, self.strand = float("Inf"), float("-Inf"), None
-            self.__internal_graph = networkx.DiGraph()
-            self.stranded = False
-            self.initialized = False
-        else:
-            self.remove_path_from_graph(self.transcripts[tid], self._internal_graph)
-            del self.transcripts[tid]
-            self.end = max(self.transcripts[_].end for _ in self.transcripts)
-            self.start = min(self.transcripts[_].start for _ in self.transcripts)
-            # Regenerate attributes
-            for locattr, tranattr in self.__locus_to_transcript_attrs.items():
-                setattr(self, locattr,
-                        set.union(*[
-                            set(getattr(self.transcripts[_], tranattr)) for _ in self.transcripts]
-                        ))
+        self.remove_path_from_graph(self.transcripts[tid], self._internal_graph)
+        del self.transcripts[tid]
+        for locattr, tranattr in self.__locus_to_transcript_attrs.items():
+            setattr(self, locattr,
+                    set.union(*[set()] + [  # The [set()] is necessary to prevent a crash from set.union for empty lists
+                        set(getattr(self.transcripts[_], tranattr)) for _ in self.transcripts]
+                              ))
 
-            self.logger.debug("Deleted %s from %s", tid, self.id)
+        if self.transcripts:
             for tid in self.transcripts:
                 self.transcripts[tid].parent = self.id
+            self.end = max(self.transcripts[_].end for _ in self.transcripts)
+            self.start = min(self.transcripts[_].start for _ in self.transcripts)
+        else:
+            self.start, self.end, self.strand = float("Inf"), float("-Inf"), None
+            self.stranded = False
+            self.initialized = False
+
+        self.logger.debug("Deleted %s from %s", tid, self.id)
+        self.metrics_calculated = False
+        self.scores_calculated = False
 
     @staticmethod
     def _exon_to_be_considered(exon,
@@ -548,15 +536,12 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                           terminal=False,
                           logger=create_null_logger()):
 
-        """Private static method to verify whether a given exon is a retained intron of the candidate Transcript.
+        """Private static method to verify whether a given exon is a retained intron in the current locus.
         :param exon: the exon to be considered.
         :type exon: (tuple|Interval)
 
         :param frags: a list of intervals that are non-coding within the exon.
         :type frags: list[(tuple|Interval)]
-
-        :param candidate: a transcript to be evaluated to verify whether the exon is a retained intron event.
-        :type candidate: Transcript
 
         :param consider_truncated: boolean flag. If set, also terminal exons can be considered for retained intron
         events.
@@ -1213,7 +1198,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
         networkx.set_node_attributes(graph,
                                      name="weight",
-                                     values=dict((k, v) for k,v in weights.items() if v > 0))
+                                     values=dict((k, v) for k, v in weights.items() if v > 0))
         return
 
     @classmethod

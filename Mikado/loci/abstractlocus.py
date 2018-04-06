@@ -589,9 +589,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             logger.debug("Checking whether the exon stops being coding within the intron %s", intron)
             logger.debug("Exon: %s; Frags: %s; Intron: %s; After: %s", exon, frags, intron, after)
             # I have a single fragment, which is identical to the exon.
-            if len(before) == 0:
-                is_retained = False
-            elif len(after) == 0:
+            if len(before) == 0 or len(after) == 0:
                 is_retained = (consider_truncated and terminal)
             else:
                 if len(frags) == 1 and frags[0] == exon:

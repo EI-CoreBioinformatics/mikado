@@ -1557,26 +1557,62 @@ class RetainedIntronTester(unittest.TestCase):
         segmenttree = Abstractlocus._calculate_segment_tree(exons, introns)
         logger=create_default_logger("test_not_real_retained_neg", level="WARNING")
         # logger.setLevel("DEBUG")
-        self.assertFalse(
+        self.assertTrue(
             Abstractlocus._is_exon_retained((401, 1000),
                                             segmenttree,
                                             graph,
                                             [Interval(401, 830)],
                                             logger=logger))
 
-        for alt in [t2, t3]:
+        for alt, num_retained in zip([t2, t3], [0, 1]):
             unpickled_t1 = pickle.loads(pickle.dumps(t1))
             unpickled_alt = pickle.loads(pickle.dumps(alt))
             with self.subTest(alt=alt):
                 sup = Superlocus(t1, json_conf=self.my_json)
                 sup.find_retained_introns(alt)
-                self.assertEqual(alt.retained_intron_num, 0,
+                self.assertEqual(alt.retained_intron_num, num_retained,
                                  alt.retained_introns)
             with self.subTest(alt=alt):
                 sup = Superlocus(unpickled_t1, json_conf=self.my_json)
                 sup.find_retained_introns(unpickled_alt)
-                self.assertEqual(unpickled_alt.retained_intron_num, 0,
+                self.assertEqual(unpickled_alt.retained_intron_num, num_retained,
                                  unpickled_alt.retained_introns)
+
+    def test_out_cds_not_considered(self):
+
+        t1 = Transcript()
+        t1.chrom, t1.strand, t1.id = 1, "-", "t1"
+        t1.add_exons([(101, 500), (801, 1000), (1201, 1300), (1501, 1800)])
+        t1.add_exons([(831, 1000),  # 200
+                      (1201, 1300),  # 100
+                      (1501, 1530)  # 30
+                      ], features="CDS")
+        t1.finalize()
+
+        t3 = Transcript()
+        t3.chrom, t3.strand, t3.id = 1, "-", "t3"
+        t3.add_exons([(401, 1000), (1201, 1300), (1501, 1800)])
+        t3.add_exons([(831, 1000),  # 200
+                      (1201, 1300),
+                      (1501, 1530)
+                      ], features="CDS")
+        t3.finalize()
+
+        graph = Abstractlocus._calculate_graph([t1, t3])
+        exons = set.union(*[set(_.combined_cds) for _ in [t1, t3]])
+        introns = set.union(*[_.combined_cds_introns for _ in [t1, t3]])
+
+        segmenttree = Abstractlocus._calculate_segment_tree(exons, introns)
+
+
+        logger = create_default_logger("test_not_real_retained_neg", level="WARNING")
+        # logger.setLevel("DEBUG")
+        self.assertFalse(
+            Abstractlocus._is_exon_retained((401, 1000),
+                                            segmenttree,
+                                            graph,
+                                            [Interval(401, 830)],
+                                            logger=logger))
 
     def test_not_retained_neg(self):
         """Here we verify that a false retained intron is not called as such"""
@@ -1751,6 +1787,29 @@ class RetainedIntronTester(unittest.TestCase):
         sup.find_retained_introns(t2)
 
         self.assertEqual(sup.transcripts["t2"].retained_intron_num, 0)
+
+    def test_neg_delayed_cds(self):
+
+        t1 = Transcript()
+        t1.chrom = "Chr1"
+        t1.start, t1.end, t1.strand, t1.id = 47498, 49247, "-", "cls-0-hst-combined-0_Chr1.7.0"
+        t1.add_exons([(47498, 47982), (48075, 48852), (48936, 49247)])
+        t1.add_exons([(47705, 47982), (48075, 48852), (48936, 49166)], features="CDS")
+        t1.finalize()
+
+        t2 = Transcript()
+        t2.chrom = "Chr1"
+        t2.start, t2.end, t2.strand, t2.id = 47485, 49285, "-", "scl-1-hst-combined-0_gene.13.0.1"
+        t2.add_exons([(47485, 47982), (48075, 49285)])
+        t2.add_exons([(47705, 47982), (48075, 48813)], features="CDS")
+        t2.finalize()
+
+        logger = create_default_logger("test_neg_delayed_cds", level="WARNING")
+        sup = Superlocus(t1, json_conf=self.my_json, logger=logger)
+        sup.add_transcript_to_locus(t2)
+        sup.find_retained_introns(t2)
+
+        self.assertEqual(sup.transcripts[t2.id].retained_intron_num, 1, sup.combined_cds_exons)
 
     def test_mixed_strands(self):
 

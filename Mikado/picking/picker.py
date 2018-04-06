@@ -471,7 +471,7 @@ memory intensive, proceed with caution!")
         else:
             score_keys += self.regressor["scoring"].metrics
 
-        score_keys = ["tid", "parent", "score"] + sorted(score_keys)
+        score_keys = ["tid", "alias", "parent", "score"] + sorted(score_keys)
         # Define mandatory output files
         locus_metrics_file = open(re.sub("$", ".metrics.tsv", re.sub(
             ".gff.?$", "", self.locus_out)), "w")
@@ -482,9 +482,9 @@ memory intensive, proceed with caution!")
                                creator=self.db_connection)
         session = sqlalchemy.orm.sessionmaker(bind=engine)()
 
-        metrics = Superlocus.available_metrics[3:]
+        metrics = Superlocus.available_metrics[4:]
         metrics.extend(["external.{}".format(_.source) for _ in session.query(ExternalSource.source).all()])
-        metrics = Superlocus.available_metrics[:3] + sorted(metrics)
+        metrics = Superlocus.available_metrics[:4] + sorted(metrics)
         session.close()
         engine.dispose()
 

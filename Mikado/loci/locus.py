@@ -450,12 +450,13 @@ reached the maximum number of isoforms for the locus".format(
             score_keys = sorted(list(self.json_conf["scoring"].keys()) + ["source_score"])
         else:
             score_keys = sorted(self.regressor.metrics + ["source_score"])
-        keys = ["tid", "parent", "score"] + score_keys
+        keys = ["tid", "alias", "parent", "score"] + score_keys
 
         for tid in self.scores:
             row = dict().fromkeys(keys)
             row["tid"] = tid
             row["parent"] = self.id
+            row["alias"] = self.transcripts[tid].alias
             if tid in self._not_passing:
                 row["score"] = 0
             else:

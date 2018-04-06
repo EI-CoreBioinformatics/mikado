@@ -304,11 +304,12 @@ class Sublocus(Abstractlocus):
             score_keys = sorted(list(self.json_conf["scoring"].keys()) + ["source_score"])
         else:
             score_keys = sorted(self.regressor.metrics + ["source_score"])
-        keys = ["tid", "parent", "score"] + sorted(score_keys)
+        keys = ["tid", "alias", "parent", "score"] + sorted(score_keys)
 
         for tid in self.scores:
             row = dict().fromkeys(keys)
             row["tid"] = tid
+            row["alias"] = self.transcripts[tid].alias
             row["parent"] = self.id
             row["score"] = round(self.scores[tid]["score"], 2)
             calculate_total = (self.regressor is None)

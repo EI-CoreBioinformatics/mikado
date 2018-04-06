@@ -93,6 +93,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         self.scores = dict()
         self.__cds_introntree = IntervalTree()
         self.__segmenttree = IntervalTree()
+        self.__cds_segmenttree = IntervalTree()
         self.__regressor = None
         self.session = None
         self.metrics_calculated = False
@@ -566,45 +567,32 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
         logger.debug("Found introns for %s: %s", exon, found_introns)
 
-        found_exons = set(
-            [_._as_tuple() for _ in segmenttree.find(exon[0], exon[1], strict=False, value="exon")
-             if (_[0], _[1]) != (exon[0], exon[1])])
-
-        if not found_exons:
-            return is_retained
-
         for intron in found_introns:
-            # We have a retained intron when
             if is_retained:
                 break
-            # We have already removed the exons against which the exon does *not* map
-            before = {_ for _ in networkx.ancestors(digraph, intron)
-                      if _ in found_exons}
+            # Only consider exons for which there is an overlap.
+            before = {_ for _ in networkx.ancestors(digraph, intron) if overlap(_, exon) > 0}
 
-            after = {_ for _ in networkx.descendants(digraph, intron)
-                     if _ in found_exons}
+            after = {_ for _ in networkx.descendants(digraph, intron) if overlap(_, exon) > 0}
 
             # Now we have to check whether the matched introns contain both coding and non-coding parts
             # Let us exclude any intron which is outside of the exonic span of interest.
-            logger.debug("Checking whether the exon stops being coding within the intron %s", intron)
-            logger.debug("Exon: %s; Frags: %s; Intron: %s; After: %s", exon, frags, intron, after)
-            # I have a single fragment, which is identical to the exon.
-            if len(before) == 0 or len(after) == 0:
+            logger.debug("Exon: %s; Frags: %s; Intron: %s; Before: %s; After: %s", exon, frags, intron, before, after)
+            if len(before) == 0 and len(after) == 0:
+                # A retained intron must be overlapping some other exons!
+                logger.debug("No intersecting exon before or after, False")
+                is_retained = False
+            elif len(before) == 0 or len(after) == 0:
                 is_retained = (consider_truncated and terminal)
+                logger.debug("Only one exon intersecting, %s", is_retained)
             else:
-                if len(frags) == 1 and frags[0] == exon:
-                    print("Only one fragment for", exon)
-                    is_retained = True
-                else:
-                    # ilength = intron[1] - intron[0] + 1
-                    print("Multiple fragments for", exon)
-                    for frag, oexon in itertools.product(frags, list(before) + list(after)):
-                        if overlap(oexon, exon, positive=True) <= 0:
-                            continue
-                        is_retained = (overlap(frag, oexon, positive=True) == 0 and
-                                       overlap(frag, intron, positive=True))
-                        if is_retained:
-                            break
+                # The *only* case where we do *not* consider it a retained intron is
+                # if the CDS spans completely the intron.
+                for frag, intron in itertools.product(frags, [intron]):
+                    is_retained = (overlap(frag, intron, positive=True) > 0)
+                    if is_retained:
+                        logger.debug("Frag %s intersecting intron %s", frag, intron)
+                        break
 
         return is_retained
 
@@ -660,6 +648,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
             self.logger.debug("Number of exons, introns, intervals in segmenttree: %d, %d, %d",
                               len(self.exons), len(self.introns), len(self.segmenttree))
+
             is_retained = self._is_exon_retained(
                 exon,
                 self.segmenttree,
@@ -668,6 +657,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                 consider_truncated=consider_truncated,
                 terminal=terminal,
                 logger=self.logger)
+
             if is_retained:
                 self.logger.debug("Exon %s of %s is a retained intron",
                                   exon, transcript.id)
@@ -1330,6 +1320,14 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             self.__segmenttree = self._calculate_segment_tree(self.exons, self.introns)
 
         return self.__segmenttree
+
+    @property
+    def cds_segmenttree(self):
+
+        if len(self.__cds_segmenttree) != len(self.combined_cds_exons) + len(self.combined_cds_introns):
+            self.__cds_segmenttree = self._calculate_segment_tree(self.combined_cds_exons, self.combined_cds_introns)
+
+        return self.__cds_segmenttree
 
     @staticmethod
     def _calculate_segment_tree(exons, introns):

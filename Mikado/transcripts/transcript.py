@@ -1213,7 +1213,7 @@ class Transcript:
         #     inspect.getmembers(cls)))
         # assert "tid" in metrics and "parent" in metrics and "score" in metrics
         _metrics = sorted([metric for metric in metrics])
-        final_metrics = ["tid", "parent", "score"] + _metrics
+        final_metrics = ["tid", "alias", "parent", "score"] + _metrics
         return final_metrics
 
     # ###################Class properties##################################

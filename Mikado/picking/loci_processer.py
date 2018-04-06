@@ -260,6 +260,7 @@ def print_locus(stranded_locus,
                 row["tid"] = "{0}/{1}".format(counter, row["tid"])
             sub_metrics.writerow(row)
         for row in sub_scores_rows:
+            assert "alias" in sub_scores.fieldnames
             if counter is not None:
                 row["tid"] = "{0}/{1}".format(counter, row["tid"])
             sub_scores.writerow(row)
@@ -375,16 +376,17 @@ def merge_loci(num_temp, out_handles, prefix="", tempdir="mikado_pick_tmp"):
             # current = min(current_lines.keys())
             for index, line in current_lines[current_index]:
                 fields = line.split("\t")
-                tid, gid = fields[:2]
-                if (index, gid) not in gid_to_new:
-                    raise KeyError("GID {} not found in {}!".format(
-                        (index, gid), handle.name))
+                tid, alias, gid = fields[:3]
                 if (index, tid) not in tid_to_new:
                     raise KeyError("TID {} not found in {}!".format(
                         (index, tid), handle.name))
+                if (index, gid) not in gid_to_new:
+                    raise KeyError("GID {} not found in {}!\nGids: {}".format(
+                        (index, gid), handle.name, gid_to_new))
 
                 fields[0] = tid_to_new[(index, tid)]
-                fields[1] = gid_to_new[(index, gid)]
+                fields[1] = alias
+                fields[2] = gid_to_new[(index, gid)]
                 line = "\t".join(fields)
                 print(line, file=handle, end="")
             # del current_lines[current]
@@ -828,10 +830,10 @@ class LociProcesser(Process):
                                creator=db_connection)
         session = sqlalchemy.orm.sessionmaker(bind=engine)()
 
-        score_keys = ["tid", "parent", "score"] + sorted(score_keys + ["source_score"])
-        metrics = Superlocus.available_metrics[3:]
+        score_keys = ["tid", "alias", "parent", "score"] + sorted(score_keys + ["source_score"])
+        metrics = Superlocus.available_metrics[4:]
         metrics.extend(["external.{}".format(_.source) for _ in session.query(ExternalSource.source).all()])
-        metrics = Superlocus.available_metrics[:3] + sorted(metrics)
+        metrics = Superlocus.available_metrics[:4] + sorted(metrics)
 
         self.locus_metrics, self.locus_scores, self.locus_out = self.__create_step_handles(
             handles[0], metrics, score_keys)

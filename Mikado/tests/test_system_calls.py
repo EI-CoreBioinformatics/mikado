@@ -522,7 +522,8 @@ class PickTest(unittest.TestCase):
         with open(os.path.join(json_conf["pick"]["files"]["output_dir"], "mikado.test_diff.loci.scores.tsv")) as tsv:
             reader = csv.DictReader(tsv, delimiter="\t")
             score_names = [_ for _ in json_conf["scoring"]]
-            score_header = [_ for _ in reader.fieldnames if _ not in ("tid", "parent", "score", "source_score")]
+            score_header = [_ for _ in reader.fieldnames if _ not in
+                            ("tid", "alias", "parent", "score", "source_score")]
             self.assertEqual(sorted(score_names), sorted(score_header))
 
         scoring_file = pkg_resources.resource_filename("Mikado.tests", "scoring_only_cds.yaml")
@@ -531,7 +532,8 @@ class PickTest(unittest.TestCase):
             pkg_resources.load_entry_point("Mikado", "console_scripts", "mikado")()
         with open(os.path.join(json_conf["pick"]["files"]["output_dir"], "mikado.test_diff.loci.scores.tsv")) as tsv:
             reader = csv.DictReader(tsv, delimiter="\t")
-            score_header = [_ for _ in reader.fieldnames if _ not in ("tid", "parent", "score", "source_score")]
+            score_header = [_ for _ in reader.fieldnames if _ not in
+                            ("tid", "alias", "parent", "score", "source_score")]
             self.assertEqual(score_header, ["selected_cds_length"])
 
         [os.remove(_) for _ in glob.glob(os.path.join(tempfile.gettempdir(), "mikado.test_diff.") + "*")]

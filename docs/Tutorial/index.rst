@@ -64,6 +64,8 @@ The parameters we used for the command line instruct Mikado in the following way
 
 .. hint:: The *--copy-scoring* argument is usually not necessary, however, it allows you to easily inspect the :ref:`scoring file <scoring_files>` we are going to use  during this run.
 
+.. hint:: Mikado provides a handful of pre-configured scoring files for different species. However, we do recommend inspecting and tweaking your scoring file to cater to your species. We provide a guide on how to create your own configuration files :ref:`here <configure-scoring-tutorial>`.
+
 Mikado prepare
 ~~~~~~~~~~~~~~
 

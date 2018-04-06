@@ -110,6 +110,8 @@ Conditions are specified using a strict set of :ref:`available operators <operat
 
 .. important:: Although at the moment Mikado does not offer any method to establish machine-learning based scoring configurations, it is a topic we plan to investigate in the future. Mikado already supports `Random Forest Regressors as scorers through Scikit-learn <http://scikit-learn.org/stable/modules/generated/sklearn.ensemble.RandomForestRegressor.html>`_, but we have yet to devise a proper way to create such regressors.
 
+We provide a guide on how to write your own scoring files in a :ref:`separate tutorial <configure-scoring-tutorial>`.
+
 .. _operators:
 
 Operators

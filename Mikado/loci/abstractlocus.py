@@ -540,6 +540,17 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                           logger=create_null_logger()):
 
         """Private static method to verify whether a given exon is a retained intron in the current locus.
+        The method is as follows:
+        - Find all introns which are intersecting the candidate exon, within the exon/intron segment tree.
+          Use the CDS graph for coding transcripts, the global graph otherwise.
+        - For each candidate intron, find its parent exons that have a positive overlap with the candidate exon.
+        - Cases:
+           - If no overlapping parent exon is found, the exon is not retained.
+           - If parent exons are found only on one side, the exon can be considered as "retained" only if
+             if it is a *terminal* exons and we are considering truncations as indications of retained introns.
+           - If overlapping exons are found on both sides, consider it as retained only if the non-coding part(s)
+             of the query exon fall within the intron.
+
         :param exon: the exon to be considered.
         :type exon: (tuple|Interval)
 
@@ -603,8 +614,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         A retained intron is defined as an exon which:
         - spans completely an intron of another model *between coding exons*
         - is not completely coding itself
-        - if the model is coding, the exon has *part* of the non-coding section lying inside the intron
-        (ie the non-coding section must not be starting in the exonic part).
+        - has at least part of its non-coding sections *within the intron*
 
         If the "pick/run_options/consider_truncated_for_retained" flag in the configuration is set to true,
          an exon will be considered as a retained intron event also if:
@@ -615,6 +625,10 @@ class Abstractlocus(metaclass=abc.ABCMeta):
          (ie the non-coding section must not be starting in the exonic part).
 
         The results are stored inside the transcript instance, in the "retained_introns" tuple.
+
+        If the transcript is non-coding, then all intron retentions are considered as valid: even those spanning introns
+        across non-coding exons of a coding model.
+
         :param transcript: a Transcript instance
         :type transcript: Transcript
         :returns : None

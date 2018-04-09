@@ -3,9 +3,7 @@ This module provides the functions needed to check a transcript for consinstency
 e.g. reliability of the CDS/UTR, sanity of borders, etc.
 """
 
-
-from Mikado.utilities.intervaltree import IntervalTree
-import intervaltree
+from Mikado.utilities.intervaltree import Interval
 import operator
 from Mikado.exceptions import InvalidCDS, InvalidTranscript
 
@@ -70,7 +68,7 @@ def __basic_final_checks(transcript):
 
     for exon in transcript.exons:
         if not isinstance(exon, tuple):
-            if (isinstance(exon, intervaltree.Interval) or
+            if (isinstance(exon, Interval) or
                     (isinstance(exon, list) and len(exon) == 2 and
                      isinstance(exon[0], int) and isinstance(exon[1], int))):
                 exon = tuple([exon])

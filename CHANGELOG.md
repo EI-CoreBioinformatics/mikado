@@ -1,3 +1,12 @@
+#Version 1.2
+
+Highlights for this version:
+
+- The version of the algorithm for retained introns introduced in 1.1 was too stringent compared to previous versions. The code has been updated so that the new version of Mikado will produce results comparable to those of versions 1 and earlier. **ALL MIKADO USERS ARE ADVISED TO UPDATE THE SOFTWARE**.
+- Daijin now supports Scallop.
+- Updated the documentation, including a tutorial on how to create scoring files.
+- Minor bugfixes.
+
 #Version 1.1 - "Prodigal"
 
 Highlights for this release are the swithing by default to Prodigal in lieu of TransDecoder and to DIAMOND instead of NCBI BLASTX. The rationale behind the change is that the two former default programs scale poorly with the size of datasets, as neither was designed to maintain a good execution speed with potentially million sequences. Prodigal and DIAMOND fare much better with big datasets, and do speed up significantly the execution of the whole Daijin pipeline.

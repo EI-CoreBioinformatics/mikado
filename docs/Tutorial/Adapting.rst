@@ -84,11 +84,61 @@ Creating the scoring file
 
 The first step in the process is for us to create a scoring file, following the :ref:`tutorial on the subject <configure-scoring-tutorial>`. We will call it "spombe.yaml"; as detailed in the link before, we will write it in the textual :ref:`YAML format <http://yaml.org/spec/1.2/spec.html>`_.
 
-Following the indications above and those in the tutorial, we should prioritise the following:
+Following the indications above and those in the tutorial, we should make the following changes in terms of priority for transcripts:
 
-- monoexonic transcripts
+- we want mostly monoexonic transcripts
 - transcripts with a UTR ratio under 33%
-- 
+- we should look at most to 1 UTR exon, each way, targeting 0 (most transcripts are monoexonic and have their UTR contained in the same exon as the ORF).
+- the distance of the stop codon from the nearest junction should be 0 (again this follows from having mostly monoexonic transcripts).
+
+The scoring section would therefore end up looking like this:
+
+.. code-block:: yaml
+    :emphasize-lines: 6-9,17,21,22,26,29-30,32,40
+
+    scoring:
+          snowy_blast_score: {rescaling: max}
+          cdna_length: {rescaling: max}
+          cds_not_maximal: {rescaling: min}
+          cds_not_maximal_fraction: {rescaling: min}
+          exon_num: {
+            rescaling: target,
+            value: 1
+          }
+          five_utr_length:
+            filter: {operator: le, value: 2500}
+            rescaling: target
+            value: 100
+          five_utr_num:
+            filter: {operator: lt, value: 4}
+            rescaling: target
+            value: 0
+          end_distance_from_junction:
+            filter: {operator: lt, value: 23}
+            rescaling: min
+          highest_cds_exon_number: {rescaling: target, value: 1}
+          intron_fraction: {rescaling: min}
+          is_complete: {rescaling: target, value: true}
+          number_internal_orfs: {rescaling: target, value: 1}
+          non_verified_introns_num: {rescaling: min}
+          # proportion_verified_introns_inlocus: {rescaling: max}
+          retained_fraction: {rescaling: min}
+          retained_intron_num: {rescaling: min}
+          selected_cds_fraction: {rescaling: target, value: 1, filter: {operator: gt, value: 0.7 }}
+          # selected_cds_intron_fraction: {rescaling: max}
+          selected_cds_length: {rescaling: max}
+          selected_cds_num: {rescaling: target, value: 1}
+          three_utr_length:
+            filter: {operator: le, value: 2500}
+            rescaling: target
+            value: 200
+          three_utr_num:
+            filter: {operator: lt, value: 2}
+            rescaling: target
+            value: 0
+          combined_cds_locus_fraction: {rescaling: max}
+
+
 
 
 

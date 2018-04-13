@@ -22,6 +22,7 @@ I18NSPHINXOPTS  = $(PAPEROPT_$(PAPER)) $(SPHINXOPTS) .
 .PHONY: help
 help:
 	@echo "Please use \`make <target>' where <target> is one of"
+	@echo "  rst        to regenerate the RST documentation from the code tree"
 	@echo "  html       to make standalone HTML files"
 	@echo "  dirhtml    to make HTML files named index.html in directories"
 	@echo "  singlehtml to make a single large HTML file"
@@ -52,9 +53,9 @@ help:
 clean:
 	rm -rf $(BUILDDIR)/*
 
-.PHONY: html
-html:
-	$(SPHINXBUILD) -b html $(ALLSPHINXOPTS) $(BUILDDIR)/html
+# .PHONY: html
+html: rst
+	$(SPHINXBUILD) -b html -Q -j 3 $(ALLSPHINXOPTS) $(BUILDDIR)/html
 	@echo
 	@echo "Build finished. The HTML pages are in $(BUILDDIR)/html."
 
@@ -129,6 +130,13 @@ epub3:
 	$(SPHINXBUILD) -b epub3 $(ALLSPHINXOPTS) $(BUILDDIR)/epub3
 	@echo
 	@echo "Build finished. The epub3 file is in $(BUILDDIR)/epub3."
+
+.PHONY: rst
+rst:
+rst:
+	sphinx-apidoc --ext-autodoc --ext-coverage -f -o Library ../Mikado/ ../Mikado/tests/
+	@ echo
+	@ echo "RST regenerated for the library"
 
 .PHONY: latex
 latex:

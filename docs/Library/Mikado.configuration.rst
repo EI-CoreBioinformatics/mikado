@@ -12,8 +12,8 @@ Mikado.configuration.configurator module
     :undoc-members:
     :show-inheritance:
 
-Mikado.configuration.daijin_configurator module
------------------------------------------------
+Mikado.configuration.daijin\_configurator module
+------------------------------------------------
 
 .. automodule:: Mikado.configuration.daijin_configurator
     :members:

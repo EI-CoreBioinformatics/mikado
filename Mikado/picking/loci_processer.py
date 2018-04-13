@@ -108,12 +108,13 @@ def print_gene(current_gene, gene_counter, handle, prefix):
 def merge_loci_gff(gff_filenames, gff_handle, prefix=""):
 
     """
-    This function will merge different partial GFF files into a single loci file, \
-    while changing the names to reflect the ordering. \
-    :param gff_filenames: \
-    :param gff_handle: \
-    :param prefix: \
-    :return: \
+    This function will merge different partial GFF files into a single loci file,
+    while changing the names to reflect the ordering.
+    :param gff_filenames: names of the GFFs to be merged
+    :param gff_handle: File handle of output GFF3 file
+    :param prefix: prefix for the new transcripts
+    :return: (dict, dict)
+
     """
 
     current_lines = dict()

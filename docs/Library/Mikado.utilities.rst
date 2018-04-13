@@ -20,8 +20,8 @@ Mikado.utilities.intervaltree module
     :undoc-members:
     :show-inheritance:
 
-Mikado.utilities.log_utils module
----------------------------------
+Mikado.utilities.log\_utils module
+----------------------------------
 
 .. automodule:: Mikado.utilities.log_utils
     :members:

@@ -4,8 +4,8 @@ Mikado.preparation package
 Submodules
 ----------
 
-Mikado.preparation.annotation_parser module
--------------------------------------------
+Mikado.preparation.annotation\_parser module
+--------------------------------------------
 
 .. automodule:: Mikado.preparation.annotation_parser
     :members:

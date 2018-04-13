@@ -44,8 +44,8 @@ Mikado.loci.monosublocusholder module
     :undoc-members:
     :show-inheritance:
 
-Mikado.loci.reference_gene module
----------------------------------
+Mikado.loci.reference\_gene module
+----------------------------------
 
 .. automodule:: Mikado.loci.reference_gene
     :members:

@@ -152,6 +152,8 @@ Next, we download the reads that we will use for this example::
 
 These files have a total file size of approximately 4GB, so they might take five to ten minutes to download, depending on your connection speed.
 
+.. _tutorial-daijin-configure:
+
 Step 1: configuring Daijin
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 

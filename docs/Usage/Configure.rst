@@ -345,6 +345,8 @@ In this example, we asked Mikado to consider Stringtie transcripts as more trust
 
 Each subsection of the pick configuration will be explained in its own right.
 
+.. _configure-alternative-splicing:
+
 Parameters regarding the alternative splicing
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 

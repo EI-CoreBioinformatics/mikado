@@ -119,6 +119,7 @@ def check_scoring(json_conf):
 
     :return: json_conf
     :rtype dict
+
     """
 
     with io.TextIOWrapper(resource_stream(__name__,
@@ -204,6 +205,7 @@ def check_all_requirements(json_conf):
 
     :return: json_conf
     :rtype dict
+
     """
 
     with io.TextIOWrapper(resource_stream(__name__,
@@ -273,6 +275,7 @@ def check_requirements(json_conf, require_schema, index):
 
     :return: json_conf
     :rtype dict
+
     """
 
     # Check that the parameters are valid

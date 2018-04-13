@@ -4,16 +4,16 @@ Mikado.subprograms.util package
 Submodules
 ----------
 
-Mikado.subprograms.util.awk_gtf module
---------------------------------------
+Mikado.subprograms.util.awk\_gtf module
+---------------------------------------
 
 .. automodule:: Mikado.subprograms.util.awk_gtf
     :members:
     :undoc-members:
     :show-inheritance:
 
-Mikado.subprograms.util.class_codes module
-------------------------------------------
+Mikado.subprograms.util.class\_codes module
+-------------------------------------------
 
 .. automodule:: Mikado.subprograms.util.class_codes
     :members:
@@ -36,8 +36,8 @@ Mikado.subprograms.util.grep module
     :undoc-members:
     :show-inheritance:
 
-Mikado.subprograms.util.merge_blast module
-------------------------------------------
+Mikado.subprograms.util.merge\_blast module
+-------------------------------------------
 
 .. automodule:: Mikado.subprograms.util.merge_blast
     :members:

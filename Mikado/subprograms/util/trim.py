@@ -18,6 +18,7 @@ def trim_noncoding(transcript, max_length=0):
     """
     Function to trim the terminal exons for non-coding transcripts,
      i.e. the simplest case.
+
     :param transcript: the transcript to be trimmed.
     :type transcript: Transcript
 
@@ -26,6 +27,7 @@ def trim_noncoding(transcript, max_length=0):
 
     :return: transcript
     :rtype: Transcript
+
     """
 
     # Non-coding transcript: trim the terminal exons and the return
@@ -73,6 +75,7 @@ def trim_start(transcript, cds_start, max_length=0):
     :type max_length: int
 
     :rtype: Transcript
+
     """
 
     first = transcript.exons[0]

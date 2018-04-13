@@ -255,6 +255,7 @@ def create_daijin_config(args, level="ERROR", piped=False):
 
     if args.flank is not None:
         config["mikado"]["pick"]["clustering"]["flank"] = args.flank
+        config["mikado"]["fragments"]["max_distance"] = args.flank
     if args.intron_range is not None:
         args.intron_range = sorted(args.intron_range)
         config["mikado"]["pick"]["run_options"]["intron_range"] = args.intron_range

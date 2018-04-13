@@ -28,16 +28,16 @@ Mikado.parsers.bed12 module
     :undoc-members:
     :show-inheritance:
 
-Mikado.parsers.blast_utils module
----------------------------------
+Mikado.parsers.blast\_utils module
+----------------------------------
 
 .. automodule:: Mikado.parsers.blast_utils
     :members:
     :undoc-members:
     :show-inheritance:
 
-Mikado.parsers.blast_xml module
--------------------------------
+Mikado.parsers.blast\_xml module
+--------------------------------
 
 .. automodule:: Mikado.parsers.blast_xml
     :members:

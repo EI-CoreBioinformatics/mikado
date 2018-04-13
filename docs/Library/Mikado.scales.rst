@@ -20,8 +20,8 @@ Mikado.scales.assigner module
     :undoc-members:
     :show-inheritance:
 
-Mikado.scales.class_codes module
---------------------------------
+Mikado.scales.class\_codes module
+---------------------------------
 
 .. automodule:: Mikado.scales.class_codes
     :members:

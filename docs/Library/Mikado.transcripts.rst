@@ -11,15 +11,13 @@ Subpackages
 Submodules
 ----------
 
-Mikado.transcripts.clique_methods module
-----------------------------------------
+Mikado.transcripts.clique\_methods module
+-----------------------------------------
 
 .. automodule:: Mikado.transcripts.clique_methods
     :members:
     :undoc-members:
     :show-inheritance:
-
-.. _transcript-class:
 
 Mikado.transcripts.transcript module
 ------------------------------------

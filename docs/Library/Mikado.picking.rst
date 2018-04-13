@@ -4,8 +4,8 @@ Mikado.picking package
 Submodules
 ----------
 
-Mikado.picking.loci_processer module
-------------------------------------
+Mikado.picking.loci\_processer module
+-------------------------------------
 
 .. automodule:: Mikado.picking.loci_processer
     :members:

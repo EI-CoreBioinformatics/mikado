@@ -91,14 +91,15 @@ class Namespace:
 
 
 class Metric(property):
-    """Simple aliasing of property. All transcript metrics
+    """
+    Simple aliasing of property. All transcript metrics
     should use this alias, not "property", as a decorator.
     Any metric has two properties of its own:
     - "category": this is just a string which acts as a general label for the metric
     (e.g., "CDS", "Locus", etc.)
     - "usable_raw": a boolean flag that indicates whether the metric can be used as
     a raw score in itself. *Only metrics whose possible values are between 0 and 1 can be used
-      this way*.
+    this way*.
     """
 
     __category__ = None

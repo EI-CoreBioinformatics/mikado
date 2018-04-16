@@ -15,6 +15,7 @@
 
 import sys
 import os
+# import sphinxtheme.plone
 
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
@@ -114,24 +115,27 @@ todo_include_todos = False
 
 # -- Options for HTML output ----------------------------------------------
 
+# Add any paths that contain custom themes here, relative to this directory.
+# html_theme_path = sphinxtheme.plone.get_html_theme_path()
+
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 # html_theme = 'sphinx_rtd_theme'
+# html_theme = 'plone_org_4'
 html_theme = 'nature'
 
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
 # documentation.
 html_theme_options = {
-    # "github_user" : "lucventurini",
-    # "github_repo": "mikado",
-    # "github_button": "true",
+    "logo": "mikado-logo.png",
+    "logo_name": "false",
+    "github_user" : "lucventurini",
+    "github_repo": "mikado",
+    "github_button": "true",
     # "codecov_button": "true",
-    # "page_width": "auto"
+    "page_width": "auto"
 }
-
-# Add any paths that contain custom themes here, relative to this directory.
-#html_theme_path = []
 
 # The name for this set of Sphinx documents.
 # "<project> v<release> documentation" by default.

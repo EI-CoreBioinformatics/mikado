@@ -177,10 +177,16 @@ def create_config_parser():
                         default=[], nargs="*", help="Assembler(s) to use for the analysis. Choices: %(choices)s")
     mikado = parser.add_argument_group("Options related to the Mikado phase of the pipeline.")
     # scoring = parser.add_argument_group("Options related to the scoring system")
-    mikado.add_argument("--scoring", type=str, default=None,
-                         choices=pkg_resources.resource_listdir(
-                             "Mikado", os.path.join("configuration", "scoring_files")),
-                         help="Available scoring files.")
+    scoring_file = mikado.add_mutually_exclusive_group(required=True)
+    scoring_file.add_argument("--scoring", type=str, default=None,
+                         help="""Available scoring files. Either provide your own of choose from
+                         one of the pre-packaged scoring files:
+                         {}""".format("\n".join(["- {}".format(_) for _ in pkg_resources.resource_listdir(
+                             "Mikado", os.path.join("configuration", "scoring_files"))]
+                                                )))
+    scoring_file.add_argument("--custom-scoring", type=str, default=None,
+                              help="""Pre-created scoring file. If the file does not exist,
+                              the skeleton of a scoring file will be written out at the provided location.""")
     mikado.add_argument("--copy-scoring", default=False,
                          type=str, dest="copy_scoring",
                          help="File into which to copy the selected scoring file, for modification.")

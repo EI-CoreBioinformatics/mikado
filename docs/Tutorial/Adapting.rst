@@ -14,6 +14,8 @@ In general, this tailoring can be performed in these sections of the workflow:
 - by modifying directly the resulting configuration file.
 - by modifying the :ref:`scoring file <configure-scoring-tutorial>`.
 
+.. _adapting-case-one:
+
 Case study 1: adapting Mikado to your genome of interest
 --------------------------------------------------------
 
@@ -138,9 +140,21 @@ The scoring section would therefore end up looking like this:
             value: 0
           combined_cds_locus_fraction: {rescaling: max}
 
+Now that we have codified the scoring part, the next step is to determine the :ref:`requirements <scoring-tutorial-first-reqs>` regarding the transcripts that should be accepted into our annotation. Given the simplicity of the organism, we can satisfy ourselves with the following two requirements:
 
+    - No transcript should be shorter than 75 bps (minimum length for coding transcripts)
+    - No transcript should have an intron longer than ~2600 bps (in the annotation the maximum is 2,526); we can be slightly more permissive here and set the limit at 3,000 bps.
 
+This will yield the following, very simple requirements section:
 
+.. code-block:: yaml
+
+    requirements:
+        expression:
+            - cdna_length and max_intron_length
+        parameters:
+            cdna_length: {operator: ge, value: 75}
+            max_intron_length: {operator: lt, value: 3000}
 
 
 Modifying the general configuration file
@@ -176,6 +190,8 @@ Once the configuration file has been created, we have to perform another couple 
 
 Once these modifications have been made, Mikado is ready to be run.
 
+.. _adapting-case-two:
+
 Case study 2: noisy RNA-Seq data
 --------------------------------
 
@@ -185,17 +201,205 @@ In such instances, it might make sense to make Mikado more stringent than usual.
 
 - Making Mikado more aggressive in filtering out putative fragments
 - Making Mikado more aggressive in splitting chimeric transcripts
-- Making Mikado more
+- Making Mikado more aggressive in filtering out incorrect alternative splicing events such as retained introns
+
+For ease of discussion, we will presume that we are working in a species similar in features to *D. melanogaster*. We will, therefore, be using a copy of the dmelanogaster_scoring.yaml file included in the distribution of Mikado.
+
+.. _adapting-case-two-general:
+
+Modifying the general configuration file and obtaining a copy of the original template
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Before touching the scoring file, this time we will call the Daijin configurator in order to obtain a copy of the original *D. melanogaster* scoring file.
+We will presume to have relevant proteins in "proteins.fasta" (e.g. a dataset assembled from SwissProt), and that - like for *D. melanogaster* - the acceptable intron size range is between 50 and 26,000 bps. As the data is quite noisy, we have to presume that there will be fragments derived from mis-alignments or genomic contamination; we will, therefore, enlarge the normal flanking area to 2000 bps. This will allow to catch more of these events, when we check for potential fragments in the neighbourhood of good loci. Regarding probable chimeric events, we will be quite aggressive - we will split any chimeric event which is not supported by a good blast hit against the database ("-m permissive").
+
+.. code-block:: bash
+
+    daijin configure \
+        --scoring dmelanogaster_scoring.yaml --copy-scoring noisy.yaml  \
+        --flank 2000 \
+        -i 50 26000 \
+        -m permissive \
+        -o configuration.yaml \
+        --genome genome.fasta \
+        --prot-db proteins.fasta
+
+Once created, the configuration file should be modified as follows:
+
+    - in the pick/alternative_splicing section:
+        - increase the stringency for calling an alternative splicing event:
+            - min_score_percentage: from 0.5 to 0.75
+            - max_isoforms: from 5 to 3
+    - in the pick/fragments section:
+        - add "I" (multi-exonic and within an intron of the reference locus) to the list of valid_class_codes
+
+Please note that by default Mikado will look for alternative splicing events that have all introns not shared with the primary transcript to be confirmed externally. Also, it will exclude any transcript with retained introns. We should keep these options on their default value, as they will already contribute a significantly to reducing the number of spurious splicing events.
+
+Customising the scoring file
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Looking at the scoring section of the file, we do not need to apply anything particular here - the predefined definitions will already reward coding, homology-supported transcripts.
+
+.. admonition:: Default scoring for *D. melanogaster*
+    :class: toggle
+
+    .. code-block:: yaml
+       :linenos:
+
+        scoring:
+          snowy_blast_score: {rescaling: max}
+          cdna_length: {rescaling: max}
+          cds_not_maximal: {rescaling: min}
+          cds_not_maximal_fraction: {rescaling: min}
+          # exon_fraction: {rescaling: max}
+          exon_num: {
+            rescaling: max,
+            filter: {
+            operator: ge,
+            value: 3}
+          }
+          five_utr_length:
+            filter: {operator: le, value: 2500}
+            rescaling: target
+            value: 100
+          five_utr_num:
+            filter: {operator: lt, value: 4}
+            rescaling: target
+            value: 2
+          end_distance_from_junction:
+            filter: {operator: lt, value: 55}
+            rescaling: min
+          highest_cds_exon_number: {rescaling: max}
+          intron_fraction: {rescaling: max}
+          is_complete: {rescaling: target, value: true}
+          number_internal_orfs: {rescaling: target, value: 1}
+          # proportion_verified_introns: {rescaling: max}
+          non_verified_introns_num: {rescaling: min}
+          proportion_verified_introns_inlocus: {rescaling: max}
+          retained_fraction: {rescaling: min}
+          retained_intron_num: {rescaling: min}
+          selected_cds_fraction: {rescaling: target, value: 0.8}
+          selected_cds_intron_fraction: {rescaling: max}
+          selected_cds_length: {rescaling: max}
+          selected_cds_num: {rescaling: max}
+          three_utr_length:
+            filter: {operator: le, value: 2500}
+            rescaling: target
+            value: 200
+          three_utr_num:
+            filter: {operator: lt, value: 3}
+            rescaling: target
+            value: 1
+          combined_cds_locus_fraction: {rescaling: max}
+
+We can and should, however, modify the minimum requirements for transcripts in general, for alternative splicing events, and for not considering a given locus as a putative fragment.
+
+First off, for the minimum requirements, we will tweak the requirements in this way:
+
+    - discard any multiexonic transcript without verified introns. Normally we would discard such transcripts only if there are verified introns in the region. In this case, we would like to get rid of these transcripts altogether:
+        - verified_introns_num: {operator: gt, value: 0}
+        - If we would like to be really stringent, we could instead exclude any transcript with any amount of non-verified introns:
+            - non_verified_introns_num: {operator: eq, value: 0}
+    - discard any transcript with suspicious splicing events (ie splicing events that would be canonical if transferred on the opposite strand):
+        - suspicious_splicing: {operator: eq, value: false}
+    - let us also be more stringent on the maximum intron length, and decrease it from the permissive 150,000 to a much more stringent 30,000 (slightly higher than the 26,000 used for the "acceptable" intron range, above).
+        - max_intron_length: {operator: le, value: 30000}
+    - discard any monoexonic transcript without a CDS. This is more stringent than the default setting (where we keep non-coding monoexonic transcripts that have a some homology to a protein in the supplied database).
+        - selected_cds_length.mono: {operator: gt, value: 0}
+
+Altogether, this becomes:
+
+.. code-block:: yaml
+
+    requirements:
+        expression:
+            - ((exon_num.multi and (cdna_length.multi or selected_cds_length.multi)
+            - and
+            - max_intron_length and min_intron_length and verified_introns_num and suspicious_splicing)
+            - or
+            - (exon_num.mono and selected_cds_length.mono)))
+        parameters:
+            selected_cds_length.mono: {operator: gt, value: 300}
+            cdna_length.multi: {operator: ge, value: 400}
+            selected_cds_length.multi: {operator: gt, value: 200}
+            exon_num.mono: {operator: eq, value: 1}
+            exon_num.multi: {operator: gt, value: 1}
+            max_intron_length: {operator: le, value: 30000}
+            min_intron_length: {operator: ge, value: 20}
+            verified_introns_num: {operator: gt, value: 1}
+            suspicious_splicing: {operator: eq, value: false}
+
+We should also adapt the requirements for alternative splicing events. Compared with the default settings, we can now remove the "suspicious_splicing" requirement - it is already present in the general requirements for a transcript, so it will never be invoked. However, we will make certain that no transcript with more than one ORF will ever be selected as an alternative splicing event: these transcripts are often generated by retained intron events or trans-splicing. It should be a rare event, but by putting a requirement here, we will ensure that no transcript of this kind will be brought back as ASE.
+
+.. code-block:: yaml
+    :emphasize: 2,8
+
+    as_requirements:
+      expression: [cdna_length and three_utr_length and five_utr_length and utr_length and number_internal_orfs]
+      parameters:
+        cdna_length: {operator: ge, value: 200}
+        utr_length: {operator: le, value: 2500}
+        five_utr_length: {operator: le, value: 2500}
+        three_utr_length: {operator: le, value: 2500}
+        number_internal_orfs: {operator: le, value: 1}
+
+Finally, we will consider as fragmentary any non-coding transcript in the neighbourhood of a coding locus. We will consider as potentially fragmentary also any coding transcript with a short ORF (<100 aa, or 300 bps). The expression will be, in this case, very simple:
+
+.. code-block:: yaml
+
+    expression: [selected_cds_length]
+    parameters:
+        selected_cds_length: {operator: gt, value: 300}
 
 
-Modifying the general configuration file
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-Before touching the scoring
-
-
-Case study 2: comprehensive splicing catalogue
+Case study 3: comprehensive splicing catalogue
 ----------------------------------------------
 
+There are cases in which we would like our annotation to be as comprehensive as possible, ie. to include transcripts that we would normally exclude from consideration. For example, we might want to study the prevalence of retained intron events in a sample, or keep events that do not have a good read coverage and whose introns might, therefore, be recognised as invalid by Portcullis. It is possible to tweak Mikado's behaviour to this end.
+
+Modifying the general configuration file and obtaining a copy of the original template
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Like in :ref:`the second case <adapting-case-two-general>`, we will presume to be working in a similar species to *D. melanogaster*. Again, we will create the configuration file thus:
+
+.. code-block:: bash
+
+    daijin configure \
+        --scoring dmelanogaster_scoring.yaml --copy-scoring comprehensive.yaml  \
+        --flank 200 \
+        -i 50 26000 \
+        -m permissive \
+        -o configuration.yaml \
+        --genome genome.fasta \
+        --prot-db proteins.fasta
+
+Notice that compared to the previous example we reduced the flanking distance to the standard value (200 bps instead of 2000 bps) as we are less worried of fragmentary loci.
+
+In the configuration file, we will change the following:
+
+    - under pick/alternative_splicing:
+        - switch "keep_retained_introns" to true
+        - switch "only_confirmed_introns" to false
+        - potentially, increase the number of isoforms from 5 to 10 or higher.
+        - consult the documentation on :ref:`class codes <class-codes>` to verify which additional AS events you would like to keep; by default, Mikado will include cases where the transcript has at least a different splicing site (j), no splicing site in common with the original transcript but introns roughly coincident (h), novel introns in the terminal exons (J) or within the primary mono-exonic transcript (G).
+            - For a comprehensive catalogue, we would recommend to include at least "C" (transcript roughly contained, but with "spilling" within the intron(s) of the primary transcript).
+        - To include transcripts quite dissimilar from the primary, potentially lower the percentages for:
+            - min_cds_overlap
+            - min_cdna_overlap
+            - min_score_perc
+
+:warning: The heuristics we are touching in this section are core to the precision of Mikado. For example, allowing Mikado to bring back retained intron events will, by definition, bring into the annotation transcripts that are normally ignored. Please consider this when configuring the run and later, when reviewing the results.
+
+Customising the scoring file
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+In this case, as we are interested in retaining a greater variety of splicing events, we will concentrate only on one section of the file, ie the "as_requirements" section. Compared to the default settings, we are going to remove the UTR requirements, and bring back transcripts with long UTRs. This is because many transcripts with retained intron events will have, by default, longer UTRs than usual. We will rely on the general prioritisation instead to penalise these transcripts in general (and thus avoid bringing them back if they are or really poor quality). We will still exclude cases with "suspicious_splicing", ie cases most probably generated by trans-splicing.
 
 
+.. code-block:: yaml
+
+    as_requirements:
+      expression: [cdna_length and suspicious_splicing]
+      parameters:
+        cdna_length: {operator: ge, value: 200}
+        suspicious_splicing: {operator: ne, value: true}

@@ -7,7 +7,7 @@ import io
 import yaml
 import jsonschema
 from pkg_resources import resource_stream, resource_filename
-from .configurator import extend_with_default, merge_dictionaries
+from .configurator import extend_with_default, merge_dictionaries, check_all_requirements, check_scoring
 from . import print_config, check_has_requirements
 from ..exceptions import InvalidJson
 from ..utilities.log_utils import create_default_logger
@@ -252,10 +252,37 @@ def create_daijin_config(args, level="ERROR", piped=False):
                         print(line.decode(), file=out, end="")
             args.scoring = os.path.abspath(args.copy_scoring)
         config["mikado"]["pick"]["scoring_file"] = args.scoring
+    elif args.new_scoring is not None:
+        if os.path.exists(args.new_scoring):
+            # Check it's a valid scoring file
+            with open(args.new_scoring) as _:
+                if args.new_scoring.endswith("json"):
+                    new_scoring = json.load(_)
+                else:
+                    new_scoring = yaml.load(_)
+
+                json_conf = check_all_requirements(new_scoring)
+                json_conf = check_scoring(new_scoring)
+
+        else:
+            with io.TextIOWrapper(resource_stream(__name__,
+                                                  "scoring_blueprint.json")) as schema:
+                scoring_schema = json.load(schema)
+
+            ns = dict()
+            with open(args.new_scoring, "wt") as out:
+                ns["scoring"] = dict()
+                for key in ["as_requirements", "requirements", "not_fragmentary"]:
+                    ns["as_requirements"] = {"parameters": {}, "expression": []}
+                if args.new_scoring.endswith("json"):
+                    json.dump(ns, out)
+                else:
+                    yaml.dump(ns, out)
+            config["mikado"]["pick"]["scoring_file"] = args.new_scoring
 
     if args.flank is not None:
         config["mikado"]["pick"]["clustering"]["flank"] = args.flank
-        config["mikado"]["fragments"]["max_distance"] = args.flank
+        config["mikado"]["pick"]["fragments"]["max_distance"] = args.flank
     if args.intron_range is not None:
         args.intron_range = sorted(args.intron_range)
         config["mikado"]["pick"]["run_options"]["intron_range"] = args.intron_range

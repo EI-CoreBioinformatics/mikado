@@ -169,7 +169,7 @@ The first step is to index the reference annotation to make the comparisons fast
 
     mikado compare -r reference.gff3 --index
 
-This will create a new file, ``reference.gff3.midx``. If you inspect with eg. ``zless``, you will notice it is in essence a compressed JSON file, describing the locations and components of each gene on the annotation. Now that we have indexed the reference, we can perform the comparisons we are interested in:
+This will create a new file, ``reference.gff3.midx``. If you inspect with eg. ``zless``, you will notice it is a SQLite database, describing the locations and components of each gene on the annotation. Now that we have indexed the reference, we can perform the comparisons we are interested in:
 
 #. Reference vs. the input transcripts:
 

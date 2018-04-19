@@ -270,7 +270,7 @@ def create_lines_cds(transcript,
     return lines
 
 
-def as_bed12(transcript):
+def as_bed12(transcript, transcriptomic=False):
     """
     Method to create a BED12 object for printing
     :param transcript: Mikado.loci.transcript.Transcript
@@ -297,10 +297,12 @@ def as_bed12(transcript):
     for pos, intron in enumerate(sorted(transcript.introns)):
         bed12.block_starts.append(
             bed12.block_starts[pos] + bed12.block_sizes[pos] + intron[1] - intron[0] + 1)
+    if transcriptomic:
+        bed12 = bed12.to_transcriptomic()
     return bed12
 
 
-def create_lines_bed(transcript):
+def create_lines_bed(transcript, transcriptomic=False):
 
     """
     Method to return the BED12 format of the transcript.
@@ -308,7 +310,7 @@ def create_lines_bed(transcript):
     :return:
     """
 
-    return str(as_bed12(transcript))
+    return str(as_bed12(transcript, transcriptomic=transcriptomic))
 
 
 def create_lines_no_cds(transcript,

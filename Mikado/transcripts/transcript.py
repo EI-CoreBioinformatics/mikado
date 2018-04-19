@@ -682,7 +682,7 @@ class Transcript:
 
         self.finalize()  # Necessary to sort the exons
         if format_name in ("bed", "bed12"):
-            lines = [create_lines_bed(self)]
+            lines = [create_lines_bed(self, transcriptomic=transcriptomic)]
         else:
             to_gtf = (format_name == "gtf")
             if with_cds is True:

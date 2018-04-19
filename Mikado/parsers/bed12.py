@@ -14,6 +14,8 @@ from . import Parser
 from sys import intern
 import copy
 from ..parsers.GFF import GffLine
+import numpy as np
+from typing import Union
 
 
 # These classes do contain lots of things, it is correct like it is
@@ -24,16 +26,18 @@ class BED12:
     BED12 parsing class.
     """
 
-    def __init__(self, *args: str,
+    def __init__(self, *args: Union[str, list, tuple, GffLine],
                  fasta_index=None,
+                 sequence=None,
                  transcriptomic=False,
                  max_regression=0):
 
         """
         :param args: the BED12 line.
-        :type args: str
+        :type args: (str, list, tuple, GffLine)
 
         :param fasta_index: Optional FAI index
+        :param sequence: Optional sequence string
 
         :param transcriptomic: boolean flag
         :type transcriptomic: bool
@@ -105,6 +109,7 @@ class BED12:
         """
 
         self._line = None
+        self.header = False
         self.__phase = None  # Initialize to None for the non-transcriptomic objects
         self.__has_start = False
         self.__has_stop = False
@@ -157,13 +162,21 @@ class BED12:
                     "GFF lines can be used as BED12-equivalents only in a transcriptomic context.")
             else:
                 self.header = False
-                fasta_length = len(fasta_index[self._line.chrom])
+                if sequence:
+                    fasta_length = len(sequence)
+                elif fasta_index:
+                    fasta_length = len(fasta_index[self._line.chrom])
+                else:
+                    raise ValueError("Either a sequence or a FAI index are needed")
                 self.__set_values_from_gff(fasta_length)
 
         elif not (isinstance(self._line, list) or isinstance(self._line, tuple)):
             raise TypeError("I need an ordered array, not {0}".format(type(self._line)))
+        else:
+            self._fields = self._line
+            self.__set_values_from_fields()
 
-        self.__check_validity(transcriptomic, fasta_index)
+        self.__check_validity(transcriptomic, fasta_index, sequence)
 
     def __set_values_from_fields(self):
 
@@ -184,8 +197,14 @@ class BED12:
         self.thick_start = int(self.thick_start) + 1
         self.thick_end = int(self.thick_end)
         self.block_count = int(self.block_count)
-        self.block_sizes = [int(x) for x in block_sizes.split(",")]
-        self.block_starts = [int(x) for x in block_starts.split(",")]
+        if isinstance(block_sizes, (str, bytes)):
+            self.block_sizes = [int(x) for x in block_sizes.split(",")]
+        else:
+            self.block_sizes = [int(x) for x in block_sizes]
+        if isinstance(block_starts, (str, bytes)):
+            self.block_starts = [int(x) for x in block_starts.split(",")]
+        else:
+            self.block_starts = [int(x) for x in block_starts]
         self.has_start_codon = None
         self.has_stop_codon = None
         self.start_codon = None
@@ -219,7 +238,7 @@ class BED12:
         self.fasta_length = fasta_length
         return
 
-    def __check_validity(self, transcriptomic, fasta_index):
+    def __check_validity(self, transcriptomic, fasta_index, sequence):
         """
         Private method that checks that the BED12 object has been instantiated correctly.
 
@@ -233,15 +252,23 @@ class BED12:
             # if self.strand == "-":
             #     self.thick_end -= 3
 
-        if transcriptomic is True and fasta_index is not None:
-            if self.id not in fasta_index:
-                self.__in_index = False
-                return
+        if transcriptomic is True and (fasta_index is not None or sequence is not None):
 
-            self.fasta_length = len(fasta_index[self.id])
+            if sequence is not None:
+                self.fasta_length = len(sequence)
+                if isinstance(sequence, str):
+                    sequence = Bio.Seq.Seq(sequence)  #, id=self.name)
+            else:
+
+                if self.id not in fasta_index:
+                    self.__in_index = False
+                    return
+
+                self.fasta_length = len(fasta_index[self.id])
+                sequence = fasta_index[self.id].seq
+
             if self.invalid is True:
                 return
-            sequence = fasta_index[self.id].seq
 
             if self.strand == "+":
                 orf_sequence = sequence[(self.thick_start - 1):self.thick_end]
@@ -632,11 +659,86 @@ class BED12:
         if self.stop_codon not in ("TAA", "TGA", "TAG"):
             self.thick_end = self.end
 
-
         self.block_sizes = [self.thick_end - self.thick_start]
         self.block_starts = [self.thick_start]
 
         return
+
+    @property
+    def blocks(self):
+
+        """This will return the coordinates of the blocks, with a 1-offset (as in GFF3)"""
+
+        # First thing: calculate where each start point will be
+        _blocks = []
+        starts = [_ + self.start - 1 for _ in self.block_starts]
+        for pos in range(self.block_count):
+            _blocks.append((starts[pos] + 1, starts[pos] + self.block_sizes[pos]))
+
+        return _blocks
+
+    def to_transcriptomic(self, sequence=None, fasta_index=None):
+
+        """This method will return a transcriptomic version of the BED12. If the object is already transcriptomic,
+        it will return itself."""
+
+        if self.transcriptomic is True:
+            return self
+
+        # First six fields of a BED object
+
+        # Now we have to calculate the thickStart
+        block_count = self.block_count
+
+        # Now we have to calculate the thickStart, thickEnd ..
+        tStart, tEnd = None, None
+        seen = 0
+        # if self.strand == "+":
+        #     adder = (0, 1)
+        # else:
+        #     adder = (0, 1)
+
+        for block in self.blocks:
+            if tStart and tEnd:
+                # We have calculated them
+                break
+            if not tStart and block[0] <= self.thick_start <= block[1]:
+                tStart = seen + self.thick_start - block[0] + 0  # adder[0]
+            if not tEnd and block[0] <= self.thick_end <= block[1]:
+                tEnd = seen + self.thick_end - block[0] + 1
+            seen += block[1] - block[0] + 1
+
+        assert tStart is not None and tEnd is not None, (tStart, tEnd, self.thick_start, self.thick_end, self.blocks)
+
+        if self.strand == "+":
+            bsizes = self.block_sizes[:]
+        else:
+            bsizes = list(reversed(self.block_sizes[:]))
+            tStart, tEnd = sum(self.block_sizes) - tEnd, sum(self.block_sizes) - tStart
+
+        bstarts = [0]
+        for bs in bsizes[:-1]:
+            bstarts.append(bs + bstarts[-1])
+        assert len(bstarts) == len(bsizes) == self.block_count, (bstarts, bsizes, self.block_count)
+
+        new = list((self.name.split(";")[0],
+                    0,
+                    sum(self.block_sizes),
+                    self.name,
+                    self.score,
+                    "+"))
+        new.extend(list((
+            tStart,
+            tEnd,
+            self.rgb,
+            self.block_count,
+            bsizes,
+            bstarts
+        )))
+        new = BED12(new, sequence=sequence, fasta_index=fasta_index, transcriptomic=True)
+        # assert new.invalid is False
+        assert isinstance(new, type(self)), type(new)
+        return new
 
 
 class Bed12Parser(Parser):

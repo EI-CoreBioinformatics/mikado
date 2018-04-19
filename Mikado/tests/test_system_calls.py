@@ -347,6 +347,7 @@ class ConfigureCheck(unittest.TestCase):
         namespace.threads = 1
         namespace.blast_targets = []
         namespace.junctions = []
+        namespace.new_scoring = None
         out = os.path.join(tempfile.gettempdir(), "configuration.yaml")
         with open(out, "w") as out_handle:
             namespace.out = out_handle
@@ -355,6 +356,79 @@ class ConfigureCheck(unittest.TestCase):
         conf = Mikado.configuration.configurator.to_json(out)
         conf = Mikado.configuration.configurator.check_json(conf)
         conf = Mikado.configuration.configurator.check_json(conf)
+        self.assertNotIn("asm_methods", conf)
+        os.remove(out)
+
+    def test_mikado_config_full(self):
+        namespace = Namespace(default=False)
+        namespace.scoring = None
+        namespace.intron_range = None
+        namespace.reference = ""
+        namespace.external = None
+        namespace.mode = ["permissive"]
+        namespace.threads = 1
+        namespace.blast_targets = []
+        namespace.junctions = []
+        namespace.new_scoring = None
+        namespace.full = True
+        namespace.daijin = False
+        out = os.path.join(tempfile.gettempdir(), "configuration.yaml")
+        with open(out, "w") as out_handle:
+            namespace.out = out_handle
+            Mikado.subprograms.configure.create_config(namespace)
+        self.assertGreater(os.stat(out).st_size, 0)
+        conf = Mikado.configuration.configurator.to_json(out)
+        conf = Mikado.configuration.configurator.check_json(conf)
+        conf = Mikado.configuration.configurator.check_json(conf)
+        self.assertNotIn("asm_methods", conf)
+        os.remove(out)
+
+    def test_mikado_config_daijin(self):
+        namespace = Namespace(default=False)
+        namespace.scoring = None
+        namespace.intron_range = None
+        namespace.reference = ""
+        namespace.external = None
+        namespace.mode = ["permissive"]
+        namespace.threads = 1
+        namespace.blast_targets = []
+        namespace.junctions = []
+        namespace.new_scoring = None
+        namespace.full = True
+        namespace.daijin = True
+        out = os.path.join(tempfile.gettempdir(), "configuration.yaml")
+        with open(out, "w") as out_handle:
+            namespace.out = out_handle
+            Mikado.subprograms.configure.create_config(namespace)
+        self.assertGreater(os.stat(out).st_size, 0)
+        conf = Mikado.configuration.configurator.to_json(out)
+        conf = Mikado.configuration.configurator.check_json(conf)
+        conf = Mikado.configuration.configurator.check_json(conf)
+        self.assertIn("asm_methods", conf)
+        os.remove(out)
+
+    def test_mikado_config_daijin_set_from_mode(self):
+        namespace = Namespace(default=False)
+        namespace.scoring = None
+        namespace.intron_range = None
+        namespace.reference = ""
+        namespace.external = None
+        namespace.mode = ["permissive", "split"]
+        namespace.threads = 1
+        namespace.blast_targets = []
+        namespace.junctions = []
+        namespace.new_scoring = None
+        namespace.full = True
+        namespace.daijin = False
+        out = os.path.join(tempfile.gettempdir(), "configuration.yaml")
+        with open(out, "w") as out_handle:
+            namespace.out = out_handle
+            Mikado.subprograms.configure.create_config(namespace)
+        self.assertGreater(os.stat(out).st_size, 0)
+        conf = Mikado.configuration.configurator.to_json(out)
+        conf = Mikado.configuration.configurator.check_json(conf)
+        conf = Mikado.configuration.configurator.check_json(conf)
+        self.assertIn("asm_methods", conf)
         os.remove(out)
 
     @unittest.skipUnless((sys.version_info.minor > 4),

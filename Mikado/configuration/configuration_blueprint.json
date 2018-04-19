@@ -789,9 +789,8 @@
     "- genome: the genome FASTA file. Required",
     "- genome_fai: the corresponding FAI for the genome. Inferred if absent.",
     "- transcriptome: a GTF/GFF reference transcriptome. Currently ignored."],
-    "SimpleComment": ["Options related to the reference genome."],
     "required": ["genome"],
-    "anyOf": [{"required": ["genome"]}, "genome_fai", "transcriptome", "Comment", "SimpleComment"],
+    "anyOf": [{"required": ["genome"]}, "genome_fai", "transcriptome"],
     "properties": {
       "genome": {
         "type": "string",

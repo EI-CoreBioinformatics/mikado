@@ -191,6 +191,14 @@ class BED12:
             else:
                 raise ValueError(groups["coding"])
             self.name = groups["ID"]
+        elif "coding=" in self.name:
+            groups = dict(re.findall("([^(;|=)]*)=([^;]*)", self.name))
+            # self.phase = int(groups["phase"])
+            if groups["coding"] in ("True", "False"):
+                self.coding = eval(groups["coding"])
+            else:
+                raise ValueError(groups["coding"])
+            self.name = groups["ID"]
 
         self.__check_validity(transcriptomic, fasta_index, sequence)
 

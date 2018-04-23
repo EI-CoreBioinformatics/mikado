@@ -277,18 +277,27 @@ def as_bed12(transcript, transcriptomic=False):
     :return:
     """
 
+    transcript.finalize()
     bed12 = BED12()
     bed12.transcriptomic = False
     bed12.header = False
     bed12.chrom = transcript.chrom
     bed12.start = transcript.start
     bed12.end = transcript.end
-    name = "ID={ID};coding={coding};phase={phase}".format(
-        ID=transcript.id,
-        coding=transcript.is_coding,
-        # Now we have to get the phase of the first CDS exon ..
-        phase=transcript.phases[transcript.selected_cds[0]] if transcript.strand != "-"
-    else transcript.phases[transcript.selected_cds[-1]])
+    if transcript.is_coding is True:
+
+        name = "ID={ID};coding={coding};phase={phase}".format(
+            ID=transcript.id,
+            coding=transcript.is_coding,
+            # Now we have to get the phase of the first CDS exon ..
+            phase=transcript.phases[transcript.selected_cds[0]] if transcript.strand != "-"
+        else transcript.phases[transcript.selected_cds[-1]])
+    else:
+        name = "ID={ID};coding={coding}".format(
+            ID=transcript.id,
+            coding=transcript.is_coding,
+            # Now we have to get the phase of the first CDS exon ..
+            )
 
     bed12.name = name
 

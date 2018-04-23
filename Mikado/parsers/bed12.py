@@ -14,8 +14,9 @@ from . import Parser
 from sys import intern
 import copy
 from ..parsers.GFF import GffLine
-import numpy as np
 from typing import Union
+import re
+# import numpy as np
 
 
 # These classes do contain lots of things, it is correct like it is
@@ -28,9 +29,12 @@ class BED12:
 
     def __init__(self, *args: Union[str, list, tuple, GffLine],
                  fasta_index=None,
+                 phase=None,
                  sequence=None,
                  transcriptomic=False,
-                 max_regression=0):
+                 max_regression=0,
+                 start_adjustment=True,
+                 coding=True):
 
         """
         :param args: the BED12 line.
@@ -115,6 +119,8 @@ class BED12:
         self.__has_stop = False
         self.__transcriptomic = False
         self.transcriptomic = transcriptomic
+        if phase:
+            self.phase = phase  # This will check the validity of the phase itself
         self.__strand = None
         self.__max_regression = 0
         # This value will be set when checking for the internal sequence
@@ -133,6 +139,7 @@ class BED12:
         self.fasta_length = None
         self.__in_index = True
         self.max_regression = max_regression
+        self.start_adjustment = start_adjustment
 
         if len(args) == 0:
             self.header = True
@@ -175,6 +182,15 @@ class BED12:
         else:
             self._fields = self._line
             self.__set_values_from_fields()
+
+        if "phase=" in self.name and "coding=" in self.name:  # Hack to include the properties
+            groups = dict(re.findall("([^(;|=)]*)=([^;]*)", self.name))
+            self.phase = int(groups["phase"])
+            if groups["coding"] in ("True", "False"):
+                self.coding = eval(groups["coding"])
+            else:
+                raise ValueError(groups["coding"])
+            self.name = groups["ID"]
 
         self.__check_validity(transcriptomic, fasta_index, sequence)
 
@@ -267,13 +283,16 @@ class BED12:
                 self.fasta_length = len(fasta_index[self.id])
                 sequence = fasta_index[self.id].seq
 
+            # Just double check that the sequence length is the same as what the BED would suggest
             if self.invalid is True:
                 return
 
             if self.strand == "+":
-                orf_sequence = sequence[(self.thick_start - 1):self.thick_end]
+                orf_sequence = sequence[
+                               (self.thick_start - 1 if not self.phase else self.start + self.phase - 1):self.thick_end]
             elif self.strand == "-":
-                orf_sequence = sequence[(self.thick_start - 1):self.thick_end].reverse_complement()
+                orf_sequence = sequence[(self.thick_start - 1):(
+                    self.thick_end if not self.phase else self.end - self.phase)].reverse_complement()
             else:
                 pass
 
@@ -286,33 +305,11 @@ class BED12:
             else:
                 # We are assuming that if a methionine can be found it has to be
                 # internally, not externally, to the ORF
+
                 self.has_start_codon = False
 
-                for pos in range(3,
-                                 int(len(orf_sequence) * self.max_regression),
-                                 3):
-                    if orf_sequence[pos:pos+3] == "ATG":
-                        # Now we have to shift the start accordingly
-                        self.has_start_codon = True
-                        if self.strand == "+":
-                            self.thick_start += pos
-                        else:
-                            # TODO: check that this is right and we do not have to do some other thing
-                            self.thick_end -= pos
-                        break
-                    else:
-                        continue
-                if self.has_start_codon is False:
-                    # The validity will be automatically checked
-                    if self.strand == "+":
-                        self.phase = self.thick_start - 1
-                        self.thick_start = 1
-                    else:
-                        if self.end - self.thick_end <= 2:
-                            self.phase = self.end - self.thick_end
-                            self.thick_end = self.end
-                        else:
-                            self.phase = 0
+                if self.start_adjustment is True:
+                    self._adjust_start(orf_sequence)
 
             if self.stop_codon in ("TAA", "TGA", "TAG"):
                 self.has_stop_codon = True
@@ -327,6 +324,35 @@ class BED12:
 
             if self.invalid is True:
                 return
+
+    def _adjust_start(self, orf_sequence):
+
+        for pos in range(3,
+                         int(len(orf_sequence) * self.max_regression),
+                         3):
+            if orf_sequence[pos:pos + 3] == "ATG":
+                # Now we have to shift the start accordingly
+                self.has_start_codon = True
+                if self.strand == "+":
+                    self.thick_start += pos
+                else:
+                    # TODO: check that this is right and we do not have to do some other thing
+                    self.thick_end -= pos
+                break
+            else:
+                continue
+
+        if self.has_start_codon is False:
+            # The validity will be automatically checked
+            if self.strand == "+":
+                self.phase = max(self.thick_start - self.start - 1, 0)
+                self.thick_start = self.start
+            else:
+                if self.end - self.thick_end <= 2:
+                    self.phase = self.end - self.thick_end
+                    self.thick_end = self.end
+                else:
+                    self.phase = 0
 
     def __str__(self):
 
@@ -519,8 +545,8 @@ class BED12:
 
         if self.transcriptomic is True and (self.cds_len - self.phase) % 3 != 0 and self.thick_end != self.end:
             self.invalid_reason = "Invalid CDS length: {0} % 3 = {1}".format(
-                self.cds_len,
-                self.cds_len % 3
+                self.cds_len - self.phase,
+                (self.cds_len - self.phase) % 3
             )
             return True
 
@@ -677,7 +703,7 @@ class BED12:
 
         return _blocks
 
-    def to_transcriptomic(self, sequence=None, fasta_index=None):
+    def to_transcriptomic(self, sequence=None, fasta_index=None, start_adjustment=False):
 
         """This method will return a transcriptomic version of the BED12. If the object is already transcriptomic,
         it will return itself."""
@@ -735,7 +761,12 @@ class BED12:
             bsizes,
             bstarts
         )))
-        new = BED12(new, sequence=sequence, fasta_index=fasta_index, transcriptomic=True)
+        new = BED12(new,
+                    phase=self.phase,
+                    sequence=sequence,
+                    fasta_index=fasta_index,
+                    transcriptomic=True,
+                    start_adjustment=start_adjustment)
         # assert new.invalid is False
         assert isinstance(new, type(self)), type(new)
         return new

@@ -1,7 +1,7 @@
 from Mikado.parsers.bed12 import BED12
-# from Mikado.transcripts import Transcript
+from Mikado.transcripts import Transcript
 import unittest
-from Bio.Seq import Seq
+# from Bio.Seq import Seq
 
 class Bed12GenToTrans(unittest.TestCase):
 
@@ -171,7 +171,161 @@ CTCGGCAGATAG"""
         self.assertEqual(tbed.thick_end, string_seq.index("CTCGGCAGATAG") + len("CTCGGCAGATAG"))
         self.assertEqual(string_cds, string_seq[tbed.thick_start - 1:tbed.thick_end])
 
-        print(tbed)
+    def test_mono_pos_bed_with_phase(self):
+
+        string = "1\t10\t101\tID=test;phase=2;coding=True\t0\t+\t10\t101\t0\t1\t91\t0"
+
+        seq = "A" + "CGG" * 29 + "TAA"
+
+        bed = BED12(string, transcriptomic=False)
+        self.assertFalse(bed.header)
+        self.assertEqual(bed.thick_start, 11)
+        self.assertFalse(bed.invalid)
+        self.assertEqual(bed.name, "test")
+        self.assertEqual(bed.phase, 2)
+
+        tbed = bed.to_transcriptomic(sequence=seq)
+
+        self.assertTrue(tbed.has_stop_codon)
+        self.assertFalse(tbed.has_start_codon)
+        self.assertEqual(tbed.thick_start, 1)
+        self.assertEqual(tbed.thick_end, 91)
+        self.assertFalse(tbed.invalid)
+        self.assertEqual(tbed.phase, 2)
+        self.assertTrue(tbed.transcriptomic)
+
+    def test_mono_neg_bed_with_phase(self):
+
+        string = "1\t10\t101\tID=test;phase=2;coding=True\t0\t-\t10\t101\t0\t1\t91\t0"
+
+        seq = "A" + "CGG" * 29 + "TAA"
+
+        bed = BED12(string, transcriptomic=False)
+        self.assertFalse(bed.header)
+        self.assertEqual(bed.thick_start, 11)
+        self.assertFalse(bed.invalid)
+        self.assertEqual(bed.name, "test")
+        self.assertEqual(bed.phase, 2)
+
+        tbed = bed.to_transcriptomic(sequence=seq)
+
+        self.assertTrue(tbed.has_stop_codon)
+        self.assertFalse(tbed.has_start_codon)
+        self.assertEqual(tbed.thick_start, 1)
+        self.assertEqual(tbed.thick_end, 91)
+        self.assertFalse(tbed.invalid)
+        self.assertEqual(tbed.phase, 2)
+        self.assertTrue(tbed.transcriptomic)
+
+    def test_diex_pos_bed_with_phase_one(self):
+
+        string = "1\t10\t111\tID=test;phase=1;coding=True\t0\t+\t10\t101\t0\t1\t101\t0"
+
+        seq = "A" + "CGG" * 29 + "TAA" + "A" * 10
+
+        bed = BED12(string, transcriptomic=False)
+        self.assertFalse(bed.header)
+        self.assertEqual(bed.thick_start, 11)
+        self.assertFalse(bed.invalid)
+        self.assertEqual(bed.name, "test")
+        self.assertEqual(bed.phase, 1)
+
+        tbed = bed.to_transcriptomic(sequence=seq)
+
+        self.assertFalse(tbed.has_start_codon)
+        self.assertEqual(tbed.thick_start, 1)
+        self.assertEqual(tbed.thick_end, 91)
+        self.assertFalse(tbed.invalid, tbed.invalid_reason)
+        self.assertEqual(tbed.phase, 1)
+        self.assertTrue(tbed.transcriptomic)
+        self.assertTrue(tbed.has_stop_codon)
+
+    def test_diex_neg_bed_with_phase_one(self):
+
+        string = "1\t10\t300\tID=test;phase=1;coding=True\t0\t-\t70\t300\t0\t2\t90,100\t0,190"
+
+        seq = "A" + "CGG" * 42 + "TAA" + "A" * 60
+
+        bed = BED12(string, transcriptomic=False)
+        self.assertFalse(bed.header)
+        self.assertEqual(bed.thick_start, 71)
+        self.assertFalse(bed.invalid)
+        self.assertEqual(bed.name, "test")
+        self.assertEqual(bed.phase, 1)
+
+        tbed = bed.to_transcriptomic(sequence=seq)
+
+        self.assertFalse(tbed.has_start_codon)
+        self.assertEqual(tbed.thick_start, 1)
+        print(seq[tbed.thick_end - 3:tbed.thick_end])
+        self.assertEqual(tbed.thick_end, 130)
+        self.assertEqual(tbed.phase, 1)
+        self.assertFalse(tbed.invalid, tbed.invalid_reason)
+        self.assertTrue(tbed.transcriptomic)
+        self.assertTrue(tbed.has_stop_codon)
+
+    def test_diex_pos_bed_with_phase_two(self):
+
+        string = "1\t9\t111\tID=test;phase=2;coding=True\t0\t+\t9\t101\t0\t1\t102\t0"
+
+        seq = "GA" + "CGG" * 29 + "TAA" + "A" * 10
+
+        bed = BED12(string, transcriptomic=False)
+        self.assertFalse(bed.header)
+        self.assertEqual(bed.thick_start, 10)
+        self.assertFalse(bed.invalid)
+        self.assertEqual(bed.name, "test")
+        self.assertEqual(bed.phase, 2)
+
+        tbed = bed.to_transcriptomic(sequence=seq)
+
+        self.assertFalse(tbed.has_start_codon)
+        self.assertEqual(tbed.thick_start, 1)
+        self.assertEqual(tbed.thick_end, 92)
+        self.assertFalse(tbed.invalid, tbed.invalid_reason)
+        self.assertEqual(tbed.phase, 2)
+        self.assertTrue(tbed.transcriptomic)
+        self.assertTrue(tbed.has_stop_codon)
+
+    def test_diex_neg_bed_with_phase_two(self):
+
+        string = "1\t10\t301\tID=test;phase=2;coding=True\t0\t-\t70\t301\t0\t2\t90,101\t0,190"
+
+        seq = "GA" + "CGG" * 42 + "TAA" + "A" * 60
+
+        bed = BED12(string, transcriptomic=False)
+        self.assertFalse(bed.header)
+        self.assertEqual(bed.thick_start, 71)
+        self.assertFalse(bed.invalid)
+        self.assertEqual(bed.name, "test")
+        self.assertEqual(bed.phase, 2)
+
+        tbed = bed.to_transcriptomic(sequence=seq)
+
+        self.assertFalse(tbed.has_start_codon)
+        self.assertEqual(tbed.thick_start, 1)
+        self.assertEqual(tbed.thick_end, 131)
+        self.assertEqual(tbed.phase, 2)
+        self.assertFalse(tbed.invalid, tbed.invalid_reason)
+        self.assertTrue(tbed.transcriptomic)
+        self.assertTrue(tbed.has_stop_codon)
+
+    def tran_to_bed12_neg(self):
+
+        for end, phase in [(299, 0), (300, 1), (301, 2)]:
+            with self.subTest():
+                t = Transcript()
+                t.chrom = "1"
+                t.start, t.end, t.strand, t.id = 11, end, "-", "test"
+
+                t.add_exon([(11, 100), (201, end)])
+                t.add_exons([(71, 100), (201, end)], features="CDS", phases=[0, phase])
+                t.finalize()
+                r = t.as_bed12()
+                self.assertEqual(r.name, "ID={};coding={};phase={}".format(t.id, True, phase))
+                self.assertEqual(r.phase, 2)
+                self.assertEqual(r.thick_end, end)
+                self.assertFalse(r.invalid)
 
 
 if __name__ == "__main__":

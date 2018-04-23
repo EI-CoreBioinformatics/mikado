@@ -283,12 +283,20 @@ def as_bed12(transcript, transcriptomic=False):
     bed12.chrom = transcript.chrom
     bed12.start = transcript.start
     bed12.end = transcript.end
-    bed12.name = transcript.id
+    name = "ID={ID};coding={coding};phase={phase}".format(
+        ID=transcript.id,
+        coding=transcript.is_coding,
+        # Now we have to get the phase of the first CDS exon ..
+        phase=transcript.phases[transcript.selected_cds[0]] if transcript.strand != "-"
+    else transcript.phases[transcript.selected_cds[-1]])
+
+    bed12.name = name
+
     bed12.score = transcript.score
     bed12.strand = transcript.strand
     if transcript.is_coding:
-        bed12.thick_start = transcript.combined_cds[0][0]
-        bed12.thick_end = transcript.combined_cds[-1][1]
+        bed12.thick_start = transcript.selected_cds[0][0]
+        bed12.thick_end = transcript.selected_cds[-1][1]
     else:
         bed12.thick_start = bed12.thick_end = bed12.start
     bed12.block_count = transcript.exon_num

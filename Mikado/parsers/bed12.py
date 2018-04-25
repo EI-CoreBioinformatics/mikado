@@ -755,12 +755,18 @@ class BED12:
             bstarts.append(bs + bstarts[-1])
         assert len(bstarts) == len(bsizes) == self.block_count, (bstarts, bsizes, self.block_count)
 
+        if self.coding:
+            new_name = "ID={};coding={};phase={}".format(self.name.split(";")[0], self.coding, self.phase)
+        else:
+            new_name = "ID={};coding={}".format(self.name.split(";")[0], self.coding)
+
         new = list((self.name.split(";")[0],
                     0,
                     sum(self.block_sizes),
-                    self.name,
+                    new_name,
                     self.score,
                     "+"))
+
         new.extend(list((
             tStart,
             tEnd,

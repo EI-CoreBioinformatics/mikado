@@ -183,8 +183,6 @@ class BED12:
             self._fields = self._line
             self.__set_values_from_fields()
 
-        self.coding = False
-
         if "phase=" in self.name and "coding=" in self.name:  # Hack to include the properties
             groups = dict(re.findall("([^(;|=)]*)=([^;]*)", self.name))
             self.phase = int(groups["phase"])
@@ -203,6 +201,10 @@ class BED12:
             self.name = groups["ID"]
 
         self.__check_validity(transcriptomic, fasta_index, sequence)
+        if self.invalid:
+            self.coding = False
+        else:
+            self.coding = True
 
     def __set_values_from_fields(self):
 
@@ -334,7 +336,6 @@ class BED12:
 
             if self.invalid is True:
                 return
-            self.coding = True
 
     def _adjust_start(self, orf_sequence):
 

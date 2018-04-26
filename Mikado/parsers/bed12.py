@@ -183,6 +183,8 @@ class BED12:
             self._fields = self._line
             self.__set_values_from_fields()
 
+        self.coding = False
+
         if "phase=" in self.name and "coding=" in self.name:  # Hack to include the properties
             groups = dict(re.findall("([^(;|=)]*)=([^;]*)", self.name))
             self.phase = int(groups["phase"])

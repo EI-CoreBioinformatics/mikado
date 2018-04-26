@@ -334,6 +334,7 @@ class BED12:
 
             if self.invalid is True:
                 return
+            self.coding = True
 
     def _adjust_start(self, orf_sequence):
 

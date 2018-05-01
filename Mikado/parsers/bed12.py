@@ -141,7 +141,7 @@ class BED12:
         self.__in_index = True
         self.max_regression = max_regression
         self.start_adjustment = start_adjustment
-        self.coding = False
+        self.coding = coding
 
         if len(args) == 0:
             self.header = True
@@ -206,10 +206,8 @@ class BED12:
             self.name = groups["ID"]
 
         self.__check_validity(transcriptomic, fasta_index, sequence)
-        if self.invalid:
+        if self.invalid and self.coding:
             self.coding = False
-        else:
-            self.coding = True
 
     def __set_values_from_fields(self):
 
@@ -285,7 +283,7 @@ class BED12:
             # if self.strand == "-":
             #     self.thick_end -= 3
 
-        if transcriptomic is True and (fasta_index is not None or sequence is not None):
+        if transcriptomic is True and self.coding is True and (fasta_index is not None or sequence is not None):
 
             if sequence is not None:
                 self.fasta_length = len(sequence)
@@ -789,6 +787,7 @@ class BED12:
         new = BED12(new,
                     phase=self.phase,
                     sequence=sequence,
+                    coding=self.coding,
                     fasta_index=fasta_index,
                     transcriptomic=True,
                     start_adjustment=start_adjustment)

@@ -360,11 +360,12 @@ class Transcript:
         self.add_exons(list(zip(list(exon_starts), list(exon_ends))))
         # Now we have to calculate the CDS
         cds = []
-        for exon in self.exons:
-            if exon[1] >= transcript_row.thick_start and exon[0] <= transcript_row.thick_end:
-                cds.append((int(max(exon[0], transcript_row.thick_start)),
-                            int(min(exon[1], transcript_row.thick_end))))
-        self.add_exons(cds, features="CDS")
+        if transcript_row.coding is True:
+            for exon in self.exons:
+                if exon[1] >= transcript_row.thick_start and exon[0] <= transcript_row.thick_end:
+                    cds.append((int(max(exon[0], transcript_row.thick_start)),
+                                int(min(exon[1], transcript_row.thick_end))))
+            self.add_exons(cds, features="CDS")
         self.finalize()
 
     def __initialize_with_gf(self, transcript_row: (GffLine, GtfLine)):

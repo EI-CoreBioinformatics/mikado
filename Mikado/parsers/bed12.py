@@ -141,6 +141,7 @@ class BED12:
         self.__in_index = True
         self.max_regression = max_regression
         self.start_adjustment = start_adjustment
+        self.coding = False
 
         if len(args) == 0:
             self.header = True
@@ -230,11 +231,11 @@ class BED12:
         self.thick_end = int(self.thick_end)
         self.block_count = int(self.block_count)
         if isinstance(block_sizes, (str, bytes)):
-            self.block_sizes = [int(x) for x in block_sizes.split(",")]
+            self.block_sizes = [int(x) for x in block_sizes.split(",") if x]
         else:
             self.block_sizes = [int(x) for x in block_sizes]
         if isinstance(block_starts, (str, bytes)):
-            self.block_starts = [int(x) for x in block_starts.split(",")]
+            self.block_starts = [int(x) for x in block_starts.split(",") if x]
         else:
             self.block_starts = [int(x) for x in block_starts]
         self.has_start_codon = None

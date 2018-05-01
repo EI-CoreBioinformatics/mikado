@@ -378,8 +378,9 @@ GAATCGACAGATGCCTTGAGGAAGGTGCTCAAGATTTCTTATTGAAACCGGTGAAACTCG
 CCGACGTGAAACGTCTGAGAAGTCATTTAACTAAAGACGTTAAACTTTCCAACGGAAACA
 AACGGAAGCTTCCGGAAGATTCTAGTTCCGTTAACTCTTCGCTTCCTCCACCGTCACCTC
 CGTTGACTATCTCGCCTGA"""
+        sequence = sub("\n", "", sequence)
 
-        record = SeqRecord.SeqRecord(Seq.Seq(sub("\n", "", sequence)), id="class_Chr1.1006.0")
+        record = SeqRecord.SeqRecord(Seq.Seq(sequence), id="class_Chr1.1006.0")
         index = {record.id: record}
 
         line = "\t".join(
@@ -398,7 +399,9 @@ CGTTGACTATCTCGCCTGA"""
 
         bed_line = bed12.BED12(line, transcriptomic=True, fasta_index=index)
         self.assertFalse(bed_line.invalid, bed_line.invalid_reason)
-        self.assertEqual(bed_line.phase, 2)
+        pep = sequence[bed_line.thick_start - 1 + 2:bed_line.thick_end]
+        pep = str(Seq.Seq(pep).translate())
+        self.assertEqual(bed_line.phase, 2, (bed_line.thick_start, bed_line.thick_end, pep))
         self.assertFalse(bed_line.has_start_codon)
         self.assertFalse(bed_line.has_stop_codon)
 

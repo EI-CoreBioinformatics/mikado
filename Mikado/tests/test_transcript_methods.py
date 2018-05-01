@@ -119,7 +119,9 @@ class TestAsBed12(unittest.TestCase):
                          b12.block_starts)
         self.assertEqual(str(b12),
                          "\t".join([str(_) for _ in
-                                    ["Chr1", 100, 3000, tr.id, 0, tr.strand,
+                                    ["Chr1", 100, 3000,
+                                     "ID={};coding=True;phase=0".format(tr.id),
+                                     0, tr.strand,
                                      b12.thick_start - 1, b12.thick_end,
                                      0, 4,
                                      ",".join([str(__) for __ in [200, 200, 400, 500]]),
@@ -159,7 +161,9 @@ class TestAsBed12(unittest.TestCase):
         self.assertEqual(tr.format("bed12"), str(b12))
         self.assertEqual(str(b12),
                          "\t".join([str(_) for _ in
-                                    ["Chr1", 100, 3000, tr.id, 0, tr.strand,
+                                    ["Chr1", 100, 3000,
+                                     "ID={};coding=True;phase=0".format(tr.id),
+                                     0, tr.strand,
                                      b12.thick_start - 1, b12.thick_end,
                                      0, 4,
                                      ",".join([str(__) for __ in [200, 200, 400, 500]]),

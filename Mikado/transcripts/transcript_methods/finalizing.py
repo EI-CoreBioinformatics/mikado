@@ -322,11 +322,11 @@ def __calculate_phases(coding, previous):
 
     total_cds_length = -previous
 
-    __calculated_phases = []
+    __calculated_phases = dict()
     for cds_segment in coding:
         length = cds_segment[1][1] - cds_segment[1][0] + 1
         phase = (3 - (total_cds_length % 3)) % 3
-        __calculated_phases.append(phase)
+        __calculated_phases[cds_segment[1]] = phase
         total_cds_length += length
 
     return total_cds_length, __calculated_phases
@@ -434,12 +434,14 @@ Coding_exons (recalculated): {}""".format(
         __calculated_phases = phase_orf[:]
     else:
         total_cds_length, __calculated_phases = __calculate_phases(coding, previous)
+        new_phases_keys = sorted(__calculated_phases.keys(), reverse=(transcript.strand == "-"))
+        new_phase_orf = [__calculated_phases[_] for _ in new_phases_keys]
 
         if len(__calculated_phases) != len(coding):
             # This is a mistake which should crash the program
             raise ValueError("Error in calculating the phases!")
 
-        if phase_orf and __calculated_phases != phase_orf:
+        if phase_orf and new_phase_orf != phase_orf:
             transcript.logger.debug("Wrong phases for %s, using recalculated ones (\n%s\nvs\n%s)",
                                     transcript.id,
                                     phase_orf, __calculated_phases)
@@ -461,14 +463,19 @@ Coding_exons (recalculated): {}""".format(
             if total_cds_length % 3 != 0:
                 raise InvalidCDS("Persistently wrong ORF for %s at 5' end", transcript.id)
 
-        if __calculated_phases[0] != 0 and five_utr:
+        # new_phase_orf = [__calculated_phases[_] for _ in phases_keys]
+        if __calculated_phases[sorted(__calculated_phases.keys(), reverse=(transcript.strand == "-"))[0]] != 0 and five_utr:
             raise InvalidCDS("5'UTR present with a truncated ORF at 5' end for {}".format(
                              transcript.id))
+
+    transcript.phases = __calculated_phases
 
     transcript.logger.debug("Total CDS length %d", total_cds_length)
 
     new_orf = five_utr[:]
-    new_orf.extend([(_[0][0], _[0][1], _[1]) for _ in zip(coding, __calculated_phases)])
+    new_orf.extend([(_[0][0], _[0][1], _[1]) for _ in zip(
+        coding,
+        [__calculated_phases[_]  for _ in sorted(__calculated_phases.keys(), reverse=(transcript.strand == "-"))])])
     new_orf.extend(three_utr)
 
     new_orf.extend([("exon", _) for _ in transcript.exons])

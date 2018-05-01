@@ -9,6 +9,7 @@ but at the same time more pythonic.
 import random
 import os
 from Bio import SeqIO
+from Bio import Seq
 import Bio.SeqRecord
 from . import Parser
 from sys import intern
@@ -185,7 +186,10 @@ class BED12:
 
         if "phase=" in self.name and "coding=" in self.name:  # Hack to include the properties
             groups = dict(re.findall("([^(;|=)]*)=([^;]*)", self.name))
-            self.phase = int(groups["phase"])
+            if groups["phase"].isdigit():
+                self.phase = int(groups["phase"])
+            else:
+                self.phase = None
             if groups["coding"] in ("True", "False"):
                 self.coding = eval(groups["coding"])
             else:
@@ -285,7 +289,7 @@ class BED12:
             if sequence is not None:
                 self.fasta_length = len(sequence)
                 if isinstance(sequence, str):
-                    sequence = Bio.Seq.Seq(sequence)  #, id=self.name)
+                    sequence = Seq.Seq(sequence)
             else:
 
                 if self.id not in fasta_index:
@@ -357,7 +361,7 @@ class BED12:
         if self.has_start_codon is False:
             # The validity will be automatically checked
             if self.strand == "+":
-                self.phase = max(self.thick_start - self.start - 1, 0)
+                self.phase = max(self.thick_start - self.start, 0)
                 self.thick_start = self.start
             else:
                 if self.end - self.thick_end <= 2:
@@ -760,7 +764,9 @@ class BED12:
         assert len(bstarts) == len(bsizes) == self.block_count, (bstarts, bsizes, self.block_count)
 
         if self.coding:
-            new_name = "ID={};coding={};phase={}".format(self.name.split(";")[0], self.coding, self.phase)
+            new_name = "ID={};coding={};phase={}".format(self.name.split(";")[0],
+                                                         self.coding,
+                                                         self.phase if self.phase is not None else 0)
         else:
             new_name = "ID={};coding={}".format(self.name.split(";")[0], self.coding)
 

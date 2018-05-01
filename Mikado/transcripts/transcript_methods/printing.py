@@ -284,14 +284,24 @@ def as_bed12(transcript, transcriptomic=False):
     bed12.chrom = transcript.chrom
     bed12.start = transcript.start
     bed12.end = transcript.end
+
     if transcript.is_coding is True:
+        if transcript.strand != "-":
+            try:
+                phase = transcript.phases[transcript.selected_cds[0]]
+            except KeyError:
+                raise KeyError((transcript.selected_cds[0], transcript.phases))
+        else:
+            try:
+                phase = transcript.phases[transcript.selected_cds[-1]]
+            except KeyError:
+                raise KeyError((transcript.selected_cds[-1], transcript.phases))
 
         name = "ID={ID};coding={coding};phase={phase}".format(
             ID=transcript.id,
             coding=transcript.is_coding,
             # Now we have to get the phase of the first CDS exon ..
-            phase=transcript.phases[transcript.selected_cds[0]] if transcript.strand != "-"
-        else transcript.phases[transcript.selected_cds[-1]])
+            phase=phase)
     else:
         name = "ID={ID};coding={coding}".format(
             ID=transcript.id,

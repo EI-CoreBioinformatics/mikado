@@ -4,8 +4,14 @@ Highlights for this version:
 
 - The version of the algorithm for retained introns introduced in 1.1 was too stringent compared to previous versions. The code has been updated so that the new version of Mikado will produce results comparable to those of versions 1 and earlier. **ALL MIKADO USERS ARE ADVISED TO UPDATE THE SOFTWARE**.
 - Daijin now supports Scallop.
-- Updated the documentation, including a tutorial on how to create scoring files.
+- Now Mikado will print out also the alias in the final picking tables, to simplify lookup of final Mikado models with their original assembly (previously, the table for the .loci only contained the Mikado ID).
+- Various changes on the BED12 internal representation. Now Mikado can also convert a genomic BED12 into a transcriptomic BED12.
+- Updated the documentation, including a tutorial on how to create scoring files, and how to adapt Daijin to different user cases.
+- Now finalised transcripts will always contain a dictionary containing the phases of the various CDS exons.
+- Mikado prepare now will always reverse the strand for mixed-splicing events.
+- Added unit-tests to keep in check the regression in calling retained introns, and for the new BED12 features.
 - Minor bugfixes.
+
 
 #Version 1.1 - "Prodigal"
 

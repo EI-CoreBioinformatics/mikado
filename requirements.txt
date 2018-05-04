@@ -21,3 +21,4 @@ docutils!=0.13.1
 tabulate
 ujson
 simplejson
+typing

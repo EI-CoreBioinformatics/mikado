@@ -239,13 +239,9 @@ MIKADO_SS_STR = ",".join(filter(None, [SS_STR,LR_SS_STR]))
 
 def seSample(sample):
 	s = SAMPLE_MAP[sample]
-	if (s == "f" or s == "r"):
-		if not INPUT_2_MAP[sample]:
-			return True
-		else:
-			i=0
-			# Should throw an error here
-	return False		
+	if not INPUT_2_MAP[sample]:
+	    return True
+	return False
 			
 			
 def tophatInput(sample):

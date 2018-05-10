@@ -330,7 +330,15 @@ def assemble_transcripts_pipeline(args):
 
     drmaa_var = None
     if args.no_drmaa is False and res_cmd:
-        drmaa_var = res_cmd
+        try:
+            import drmaa
+            _ = drmaa.Session()
+        except (RuntimeError,ImportError,AttributeError):
+            print("WARNING: DRMAA not installed or not configured properly. Switching to local/cluster mode. Please use the \"-nd\" flag to run Daijin if you do not plan to use DRMAA.", file=sys.stderr)
+            drmaa_var = None
+            args.no_drmaa = True
+        else:
+            drmaa_var = res_cmd
 
     if drmaa_var or cluster_var:
         if os.path.exists(args.hpc_conf):
@@ -425,7 +433,15 @@ def mikado_pipeline(args):
 
     drmaa_var = None
     if args.no_drmaa is False and res_cmd:
-        drmaa_var = res_cmd
+        try:
+            import drmaa
+            _ = drmaa.Session()
+        except (RuntimeError,ImportError,AttributeError):
+            print("WARNING: DRMAA not installed or not configured properly. Switching to local/cluster mode. Please use the \"-nd\" flag to run Daijin if you do not plan to use DRMAA.", file=sys.stderr)
+            drmaa_var = None
+            args.no_drmaa = True
+        else:
+            drmaa_var = res_cmd        
 
     if drmaa_var or cluster_var:
         if os.path.exists(args.hpc_conf):

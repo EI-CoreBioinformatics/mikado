@@ -1,4 +1,10 @@
-#Version 1.2
+# Version 1.2.2
+
+Minor bugfixes:
+- Now Daijin should handle correctly the lack of DRMAA
+- Now Dajin should treat correctly single-end short reads
+
+# Version 1.2.1
 
 Highlights for this version:
 

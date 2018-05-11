@@ -18,6 +18,14 @@ Mikado is at its core a data integrator. The :ref:`Daijin pipeline <Daijin>` has
 Download
 --------
 
+Mikado is available through `BioConda <https://bioconda.github.com>`; to install it, select or configure a python3 Conda environment, `add the bioconda channel to your environment <https://bioconda.github.io/#set-up-channels>`, and then install it with:
+
+``conda install -c bioconda mikado``. 
+
+This will also take care of installing companion tools such as `PortCullis <https://portcullis.readthedocs.io/>`. Even with conda, BLAST+, Prodigal, Diamond and TransDecoder have to be installed separately. This can be achieved with:
+
+``conda install -c bioconda prodigal blast transdecoder diamond``
+
 Mikado is available on PyPI, so it is possible to install it with
 
 ``pip3 install mikado``

@@ -517,8 +517,84 @@ External metrics
 ~~~~~~~~~~~~~~~~
 
 Starting from version 1 beta 8, Mikado allows to load external metrics into the database, to be used for evaluating transcripts. Metrics of this kind **must** have a value comprised between 0 and 1.
+The file can be provided either by specifying it in the :ref:`coonfiguration file <conf_anatomy>`, under "serialise/files/external_scores", or on the command line with the "--external-scores" parameters to mikado :ref:`serialise <serialise>`.
+The external scores file should have the following format:
+
++--------------------------+------------------+------------------+-------+-----------------+
+| TID                      | Metric_one       | Metric_two       | ...   |  Metric_N       |
++==========================+==================+==================+=======+=================+
+| Transcript_one           | value between 0  | value between 0  |       | value between 0 |
+|                          | and 1            | and 1            |       | and 1           |
++--------------------------+------------------+------------------+-------+-----------------+
+| Transcript_two           | value between 0  | value between 0  |       | value between 0 |
+|                          | and 1            | and 1            |       | and 1           |
++--------------------------+------------------+------------------+-------+-----------------+
+| ...                      | ...              | ...              |       | ...             |
++--------------------------+------------------+------------------+-------+-----------------+
+| Transcript_N             | value between 0  | value between 0  |       | value between 0 |
+|                          | and 1            | and 1            |       | and 1           |
++--------------------------+------------------+------------------+-------+-----------------+    
 
 
+Please note the following:
+
+* the header is mandatory.
+* the metric names at the head of the table should **not** contain any space or spcecial characters, apart from the underscore (_)
+* the header provides the name of the metric as will be seen by Mikado. As such, it is advised to choose sensible and informative names (e.g. "fraction_covered") rather than uninformative ones (e.g. the "metric_one" from above)
+* Column names **must be unique**.
+* The transcript names present in the first column **must** be present in the FASTA file.
+* The values assigned to the transcripts must be numeric, and comprised between 0 and 1. This might change in future versions of Mikado, but currently, it is a hard limit.
+
+A proper way of generating and using external scores would, therefore, be the following:
+
+* Run Mikado prepare on the input dataset.
+* Run all necessary supplementary analyses (ORF calling and/or homology analysis through DIAMOND or BLAST).
+* Run supplementary analyses to assess the transcripts, e.g. expression analysis. Normalise results so that they can be expressed with values between 0 and 1.
+  * Please note that boolean results (e.g. presence or absence) can be expressed with 0 and 1 intead of "False" and "True". Customarily, in Python 0 stands for False and 1 for True, but you can choose to switch the order if you so desire.
+* Aggregate all results in a text table, like the one above, tab sepated.
+* Call mikado serialise, specifying the location of this table eitther through the configuration file or on the command line invocation.
+
+Given the open ended nature of the external scores, the Daijin pipeline currently does not offer any system to generate these scores. This might change in the future.
+
+Adding external scores to the scoring file
+------------------------------------------
+
+Once the external metrics have been properly loaded, it is necessary to tell Mikado how to use them. This requires :ref:`modifying the scoring file itself <configure-scoring-tutorial>`. The header that we used in the table above does provide the names of the metrics as they will be seen by Mikado.
+
+Let us say that we have performed an expression analysis on our transcripts, and we have created and loaded the following three metrics:
+
+* "fraction_covered", ie the percentage of the transcript covered by at least X reads (where X is decided by the experimenter)
+* "samples_expressed", ie the percentage of samples where the transcript was expressed over a certain threshold (e.g. 1 TPM)
+* "has_coverage_gaps", ie a boolean metrics that indicates whether there are windows *within* the transcript that lowly or not at all covered (e.g. a 100bp stretch with no coverage between two highly covered regions, indicating a possilble intron retention or chimera). For this example, a value of "0" indicates that there no coverage gaps (ie. it is *False* that there are gaps), "1" otherwise (it is *True* that there are coverage gaps).
+
+We can now use these metrics as normal, by invoking them as "external." followed by the name of the metrics: e.g., "external.fraction_covered".
+So for example, if we wished to prioritise transcripts that are expressed in the highest number of samples and are completely covered by RNASeq data upon reads realignment, under "scoring", we can add the following:
+
+.. code-block:: yaml
+
+    scoring:
+        # [ ... other metrics ... ]
+        - external.samples_expressed: {rescaling: max}
+        - external.fraction_covered: {rescaling: max}
+
+And if we wanted to consider any primary transcript with coverage gaps as a potential fragment, under the "fragmentary" section we could do so:
+
+.. code-block:: yaml
+
+    not_fragmentary:
+      expression:
+        # other metrics ..
+        - and (external.has_coverage_gaps)
+        # Finished expression
+      parameters:
+        # other metrics ...
+	external.has_coverage_gaps: {operator: eq, value: 0}  # Please note, again, that here "0" means "no coverage gaps detected".
+	# other metrics ... 
+	
+As external metrics allow Mikado to accept any arbitrary metric for each transcript, they allow the program to assess transcripts in any way the experimenter desires. However, currently we do not provide any way of automating the process.
+
+.. note:: also for external metrics, it is necessary to add a suffix to them if they are invoked more than once in an expression (see the :ref:`tutorial <scoring-tutorial-first-reqs>`). An invocation of e.g. "external.samples_expressed.mono" and "external.samples_expressed.multi", to distinguish between monoexonic and multiexonic transcripts, would be perfectly valid and actually *required* by Mikado. Notice the double use of the dot (".") as separator. Its usage as such is the reason that it cannot be present in the name of the metric itself (so, for example, "has.coverage.gaps" would be an invalid metric name).
+    
 Technical details
 ~~~~~~~~~~~~~~~~~
 

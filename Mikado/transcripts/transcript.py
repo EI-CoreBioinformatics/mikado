@@ -229,7 +229,8 @@ class Transcript:
                  source=None,
                  logger=None,
                  intron_range=(0, maxsize),
-                 trust_orf=False):
+                 trust_orf=False,
+                 accept_undefined_multi=False):
 
         """Initialise the transcript object, using a mRNA/transcript line.
         Note: I am assuming that the input line is an object from my own "GFF" class.
@@ -248,6 +249,10 @@ class Transcript:
 
         :param trust_orf: optional boolean flag. If set, the ORF won't be checked for consistency.
         :type trust_orf: bool
+
+        :param accept_undefined_multi: optional boolean flag. If set to True, Mikado will not mark the transcript as
+        invalid if it is multiexonic but without a defined strand. Normally, we would discard such transcripts.
+        :type accept_undefined_multi: bool
 
         """
 
@@ -325,6 +330,7 @@ class Transcript:
         self.__segmenttree = IntervalTree()
         self.__cds_introntree = IntervalTree()
         self._possibly_without_exons = False
+        self._accept_undefined_multi = accept_undefined_multi
 
         if len(args) == 0:
             return

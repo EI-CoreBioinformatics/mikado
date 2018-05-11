@@ -155,8 +155,22 @@ class TranscriptChecker(Transcript):
         The finalize method is called preliminarly before any operation.
         """
         self.finalize()
-        assert self.exons[0][0] - self.start == 0
-        assert self.exons[-1][1] - self.start + 1 == len(self.fasta_seq)
+        if self.exons[0][0] - self.start != 0:
+            error = "First exon start and transcript start disagree in {}: {} vs {}".format(self.id,
+                                                                                            self.exons[0][0],
+                                                                                            self.start)
+            self.logger.error(error)
+            raise AssertionError(error)
+        if self.exons[-1][1] - self.start + 1 != len(self.fasta_seq):
+            error = """For {}, the expected length derived from last exon vs transcript start ({} vs {}) is different
+            from the length of the FASTA sequence: {} vs {}""".format(self.id,
+                                                                      self.exons[-1][1],
+                                                                      self.start,
+                                                                      self.exons[-1][1] - self.start + 1,
+                                                                      len(self.fasta_seq))
+            self.logger.error(error)
+            raise AssertionError(error)
+
         if self.checked is True:
             return
 

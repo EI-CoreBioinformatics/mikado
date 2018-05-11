@@ -437,6 +437,9 @@ class Calculator:
         gene.finalize()
         if self.only_coding is True and gene.is_coding is False:
             return
+        if len(gene.transcripts) == 0:
+            self.__logger.warning("Gene %s only has invalid, or no, transcripts. Ignoring it.", gene.id)
+            return
 
         self.__positions[gene.chrom].append((gene.start, gene.end, str(gene.strand)))
         self.__stores["genes"].add(gene.id)

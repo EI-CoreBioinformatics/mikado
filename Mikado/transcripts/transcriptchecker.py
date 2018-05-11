@@ -6,7 +6,7 @@ to verify that e.g. the assigned strand is correct.
 """
 
 from .transcript import Transcript
-from ..exceptions import IncorrectStrandError
+from ..exceptions import IncorrectStrandError, InvalidTranscript
 from collections import Counter
 from itertools import zip_longest
 
@@ -160,7 +160,7 @@ class TranscriptChecker(Transcript):
                                                                                             self.exons[0][0],
                                                                                             self.start)
             self.logger.error(error)
-            raise AssertionError(error)
+            raise InvalidTranscript(error)
         if self.exons[-1][1] - self.start + 1 != len(self.fasta_seq):
             error = """For {}, the expected length derived from last exon vs transcript start ({} vs {}) is different
             from the length of the FASTA sequence: {} vs {}""".format(self.id,
@@ -169,7 +169,7 @@ class TranscriptChecker(Transcript):
                                                                       self.exons[-1][1] - self.start + 1,
                                                                       len(self.fasta_seq))
             self.logger.error(error)
-            raise AssertionError(error)
+            raise InvalidTranscript(error)
 
         if self.checked is True:
             return

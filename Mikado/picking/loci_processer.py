@@ -542,6 +542,9 @@ def analyse_locus(slocus: Superlocus,
     slocus.logger = logger
     slocus.source = json_conf["pick"]["output_format"]["source"]
 
+    # if engine is None and data_dict is None:
+    #     raise ValueError("Error for locus {id}".format(id=slocus.id))
+
     try:
         slocus.load_all_transcript_data(engine=engine,
                                         data_dict=data_dict)

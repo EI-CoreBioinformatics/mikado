@@ -619,7 +619,9 @@ class Superlocus(Abstractlocus):
         if self.__data_loaded is True:
             return
 
-        if data_dict is None:
+        if data_dict is None and engine is None:
+            raise ValueError("Both engine and data_dict are void.")
+        elif data_dict is None:
             self.connect_to_db(engine)
 
         self.logger.debug("Type of data dict: %s",

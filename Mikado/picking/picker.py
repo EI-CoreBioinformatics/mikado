@@ -692,25 +692,25 @@ memory intensive, proceed with caution!")
             
         self.logger.debug("Loading data for %s", slocus.id)
         slocus.logger = self.logger
-        slocus.load_all_transcript_data(engine=engine,
-                                        data_dict=data_dict)
+        # slocus.load_all_transcript_data(engine=engine,
+        #                                 data_dict=data_dict)
         # slocus_id = slocus.id
-        if slocus.initialized is False:
-            # This happens when we have removed all transcripts from the locus
-            # due to errors which should have been caught and logged
-            self.logger.warning(
-                "%s had all transcripts failing checks, ignoring it",
-                slocus.id)
-            # Exit
-            return []
+        # if slocus.initialized is False:
+        #     # This happens when we have removed all transcripts from the locus
+        #     # due to errors which should have been caught and logged
+        #     self.logger.warning(
+        #         "%s had all transcripts failing checks, ignoring it",
+        #         slocus.id)
+        #     # Exit
+        #     return []
 
         return analyse_locus(slocus=slocus,
                              counter=counter,
                              json_conf=self.json_conf,
                              printer_queue=None,
                              logging_queue=self.logging_queue,
-                             data_dict=None,
-                             engine=None)
+                             data_dict=data_dict,
+                             engine=engine)
 
     def __unsorted_interrupt(self, row, current_transcript):
         """

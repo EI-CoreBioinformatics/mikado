@@ -108,7 +108,7 @@ class TranscriptComputer(Transcript):
     data_tuple = namedtuple("transcript_data", data_fields, verbose=False)
 
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+        super().__init__(accept_undefined_multi=True, *args, **kwargs)
         self.exon_lengths = []
         self.cds_exon_lengths = []
         self.utr_exon_lengths = []
@@ -268,6 +268,10 @@ class Calculator:
                 derived_features.add(record.id)
             elif record.is_exon is True:
                 if self.is_gff is False:
+                    if "transcript_id" not in record.attributes:
+                        # Probably truncated record!
+                        record.header = True
+                        continue
                     if current_gene is None or record.gene != current_gene.id:
                         self.__store_gene(current_gene)
                         new_record = record.copy()
@@ -436,6 +440,9 @@ class Calculator:
 
         gene.finalize()
         if self.only_coding is True and gene.is_coding is False:
+            return
+        if len(gene.transcripts) == 0:
+            self.__logger.warning("Gene %s only has invalid, or no, transcripts. Ignoring it.", gene.id)
             return
 
         self.__positions[gene.chrom].append((gene.start, gene.end, str(gene.strand)))

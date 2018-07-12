@@ -262,7 +262,7 @@ def tophatStrandOption(sample):
 def scallopStrandOption(sample):
 	if SAMPLE_MAP[sample] in ("f", "fr-secondstrand"):
 		return "--library_type second"
-	elif SAMPLE_MAP[sample] in ("r", "fr-secondstrand"):
+	elif SAMPLE_MAP[sample] in ("r", "fr-firststrand"):
 		return "--library_type first"
 	elif SAMPLE_MAP[sample] == "fr-unstranded":
 		return "--library_type unstranded"

@@ -6,7 +6,7 @@ to verify that e.g. the assigned strand is correct.
 """
 
 from .transcript import Transcript
-from ..exceptions import IncorrectStrandError
+from ..exceptions import IncorrectStrandError, InvalidTranscript
 from collections import Counter
 from itertools import zip_longest
 
@@ -137,13 +137,16 @@ class TranscriptChecker(Transcript):
 
         return super().__str__(print_cds=print_cds, to_gtf=to_gtf)
 
-    def format(self, format_name, with_introns=False, with_cds=True):
+    def format(self, format_name, with_introns=False, with_cds=True,
+               all_orfs=False,
+               transcriptomic=False):
 
         self.check_strand()
         if self.mixed_splices is True:
             self.attributes["mixed_splices"] = self.mixed_attribute
 
-        return super().format(format_name, with_cds=with_cds, with_introns=with_introns)
+        return super().format(format_name, with_cds=with_cds, with_introns=with_introns,
+                              all_orfs=all_orfs, transcriptomic=transcriptomic)
 
     def check_strand(self):
         """
@@ -155,8 +158,23 @@ class TranscriptChecker(Transcript):
         The finalize method is called preliminarly before any operation.
         """
         self.finalize()
-        assert self.exons[0][0] - self.start == 0
-        assert self.exons[-1][1] - self.start + 1 == len(self.fasta_seq), (self.exons[-1][1] - self.start + 1, len(self.fasta_seq), self.id)
+
+        if self.exons[0][0] - self.start != 0:
+            error = "First exon start and transcript start disagree in {}: {} vs {}".format(self.id,
+                                                                                            self.exons[0][0],
+                                                                                            self.start)
+            self.logger.error(error)
+            raise InvalidTranscript(error)
+        if self.exons[-1][1] - self.start + 1 != len(self.fasta_seq):
+            error = """For {}, the expected length derived from last exon vs transcript start ({} vs {}) is different
+            from the length of the FASTA sequence: {} vs {}""".format(self.id,
+                                                                      self.exons[-1][1],
+                                                                      self.start,
+                                                                      self.exons[-1][1] - self.start + 1,
+                                                                      len(self.fasta_seq))
+            self.logger.error(error)
+            raise InvalidTranscript(error)
+
         if self.checked is True:
             return
 

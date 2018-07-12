@@ -91,7 +91,7 @@ def __basic_final_checks(transcript):
         transcript.logger.exception(exc)
         raise exc
 
-    if len(transcript.exons) > 1 and transcript.strand is None:
+    if transcript._accept_undefined_multi is False and len(transcript.exons) > 1 and transcript.strand is None:
 
         exc = InvalidTranscript(
             "Multiexonic transcripts must have a defined strand! Error for {0}".format(

@@ -335,7 +335,7 @@ def configure_parser():
                        default=False, action="store_true")
     files.add_argument("--gff", help="Input GFF/GTF file(s), separated by comma", type=str)
     files.add_argument("--list", help="""List of the inputs, one by line, in the form:
-<file1>  <label>  <strandedness (true/false)>""")
+<file1>  <label>  <strandedness (true/false)> <bonus/malus (default 0)>""")
     parser.add_argument("--reference", help="Fasta genomic reference.", default=None)
     serialisers = parser.add_argument_group(
         "Options related to the serialisation step")

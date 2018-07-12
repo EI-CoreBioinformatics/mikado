@@ -156,7 +156,7 @@ class TranscriptChecker(Transcript):
         """
         self.finalize()
         assert self.exons[0][0] - self.start == 0
-        assert self.exons[-1][1] - self.start + 1 == len(self.fasta_seq)
+        assert self.exons[-1][1] - self.start + 1 == len(self.fasta_seq), (self.exons[-1][1] - self.start + 1, len(self.fasta_seq), self.id)
         if self.checked is True:
             return
 
@@ -259,6 +259,7 @@ class TranscriptChecker(Transcript):
 
         # splice_donor = self.fasta_index[self.chrom][intron[0] - 1:intron[0] + 1]
         # splice_acceptor = self.fasta_index[self.chrom][intron[1] - 2:intron[1]]
+
         if self.strand == "-":
             splice_donor, splice_acceptor = (self.rev_complement(splice_acceptor),
                                              self.rev_complement(splice_donor))
@@ -270,6 +271,7 @@ class TranscriptChecker(Transcript):
             if (splice_donor, splice_acceptor) in self.canonical_splices:
                 strand = "-"
             else:
+
                 strand = None
         return strand
 

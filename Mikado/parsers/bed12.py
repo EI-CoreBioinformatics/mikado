@@ -801,11 +801,14 @@ class Bed12Parser(Parser):
     It accepts optionally a fasta index which is used to
     determine whether an ORF has start/stop codons."""
 
+    __annot_type__ = "bed12"
+
     def __init__(self, handle,
                  fasta_index=None,
                  transcriptomic=False,
                  max_regression=0,
-                 is_gff=False):
+                 is_gff=False,
+                 coding=False):
         """
         Constructor method.
         :param handle: the input BED file.
@@ -825,6 +828,7 @@ class Bed12Parser(Parser):
         self.transcriptomic = transcriptomic
         self.__max_regression = 0
         self._max_regression = max_regression
+        self.coding = coding
 
         if isinstance(fasta_index, dict):
             # check that this is a bona fide dictionary ...
@@ -867,7 +871,8 @@ class Bed12Parser(Parser):
             bed12 = BED12(line,
                           fasta_index=self.fasta_index,
                           transcriptomic=self.transcriptomic,
-                          max_regression=self._max_regression)
+                          max_regression=self._max_regression,
+                          coding=self.coding)
         return bed12
 
     def gff_next(self):
@@ -916,3 +921,15 @@ class Bed12Parser(Parser):
             raise ValueError(
                 "Invalid value specified for _max_regression (must be between 0 and 1): {}".format(value))
         self.__max_regression = value
+
+    @property
+    def coding(self):
+        if not hasattr(self, "__coding"):
+            self.__coding = False
+        return self.__coding
+
+    @coding.setter
+    def coding(self, coding):
+        if coding not in (False, True):
+            raise ValueError(coding)
+        self.__coding = coding

@@ -11,6 +11,8 @@ except ImportError:
     import json
 import sqlite3
 import os
+from ..parsers.bed12 import BED12
+from ..transcripts import Transcript
 
 
 __author__ = 'Luca Venturini'
@@ -85,7 +87,7 @@ class AnnotationParser(multiprocessing.Process):
                                             min_length=self.min_length,
                                             strip_cds=self.__strip_cds,
                                             strand_specific=strand_specific)
-                else:
+                elif gff_handle.__annot_type__ == "gtf":
                     new_ids = load_from_gtf(shelf_name,
                                             gff_handle,
                                             label,
@@ -94,6 +96,18 @@ class AnnotationParser(multiprocessing.Process):
                                             min_length=self.min_length,
                                             strip_cds=self.__strip_cds,
                                             strand_specific=strand_specific)
+                elif gff_handle.__annot_type__ == "bed12":
+                    new_ids = load_from_bed12(shelf_name,
+                                              gff_handle,
+                                              label,
+                                              found_ids,
+                                              self.logger,
+                                              min_length=self.min_length,
+                                              strip_cds=self.__strip_cds,
+                                              strand_specific=strand_specific)
+                else:
+                    raise ValueError("Invalid file type: {}".format(gff_handle.name))
+
                 if len(new_ids) == 0:
                     raise exceptions.InvalidAssembly(
                         "No valid transcripts found in {0}{1}!".format(
@@ -448,6 +462,82 @@ def load_from_gtf(shelf_name,
             exon_lines[row.transcript]["features"][row.feature] = []
         exon_lines[row.transcript]["features"][row.feature].append((row.start, row.end))
         new_ids.add(row.transcript)
+    gff_handle.close()
+    load_into_storage(shelf_name, exon_lines, logger=logger, min_length=min_length)
+
+    return new_ids
+
+
+def load_from_bed12(shelf_name,
+                    gff_handle,
+                    label,
+                    found_ids,
+                    logger,
+                    min_length=0,
+                    strip_cds=False,
+                    strand_specific=False):
+    """
+    Method to load the exon lines from GTF files.
+    :param shelf_name: the name of the shelf DB to use.
+    :param gff_handle: The handle for the GTF to be parsed.
+    :param label: label to be attached to all transcripts.
+    :type label: str
+    :param found_ids: set of IDs already found in other files.
+    :type found_ids: set
+    :param logger: a logger to be used to pass messages
+    :type logger: logging.Logger
+    :param min_length: minimum length for a cDNA to be considered as valid
+    :type min_length: int
+    :param strip_cds: boolean flag. If true, all CDS lines will be ignored.
+    :type strip_cds: bool
+    :param strand_specific: whether the assembly is strand-specific or not.
+    :type strand_specific: bool
+    :return:
+    """
+
+    exon_lines = dict()
+
+    # Reduce memory footprint
+    [intern(_) for _ in ["chrom", "features", "strand", "attributes", "tid", "parent", "attributes"]]
+
+    new_ids = set()
+    to_ignore = set()
+    for row in gff_handle:
+        # Each row is a transcript
+        transcript = Transcript(row)
+        if label != '':
+            transcript.id = "{0}_{1}".format(label, transcript.id)
+            if transcript.id in found_ids:
+                __raise_redundant(transcript.id, gff_handle.name, label)
+            if transcript.id in exon_lines:
+                logger.warning(
+                    "Multiple instance of %s found, skipping any subsequent entry", row.id)
+                to_ignore.add(row.id)
+                continue
+            else:
+                exon_lines[transcript.id] = dict()
+            if label:
+                exon_lines[transcript.id]["source"] = label
+            else:
+                exon_lines[transcript.id]["source"] = gff_handle.name  # BED12 files have no source
+            exon_lines[transcript.id]["features"] = dict()
+            exon_lines[transcript.id]["chrom"] = row.chrom
+            exon_lines[transcript.id]["strand"] = row.strand
+            exon_lines[transcript.id]["attributes"] = dict()  # BED12 files have no attributes
+            exon_lines[transcript.id]["tid"] = transcript.id
+            exon_lines[transcript.id]["parent"] = "{}.gene".format(transcript.id)
+            exon_lines[transcript.id]["strand_specific"] = strand_specific
+            exon_lines[transcript.id]["features"]["exon"] = [
+                (exon[0], exon[1]) for exon in transcript.exons
+            ]
+            if transcript.is_coding and not strip_cds:
+                exon_lines[transcript.id]["features"]['CDS'] = [
+                    (exon[0], exon[1]) for exon in transcript.combined_cds
+                ]
+                exon_lines[transcript.id]["features"]["UTR"] = [
+                    (exon[0], exon[1]) for exon in transcript.five_utr + transcript.three_utr
+                ]
+        new_ids.add(transcript.id)
     gff_handle.close()
     load_into_storage(shelf_name, exon_lines, logger=logger, min_length=min_length)
 

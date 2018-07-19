@@ -21,6 +21,7 @@ from .resultstorer import ResultStorer
 from ..exceptions import CorruptIndex
 from ..loci.reference_gene import Gene
 from ..parsers.GFF import GFF3
+from ..parsers.bed12 import Bed12Parser
 from ..parsers import to_gff
 from ..utilities.log_utils import create_default_logger, formatter
 import magic
@@ -156,7 +157,17 @@ def prepare_reference(args, queue_logger, ref_gff=False) -> (dict, collections.d
 
     for row in args.reference:
         # Assume we are going to use GTF for the moment
-        if row.is_transcript is True or (ref_gff is True and row.feature == "match"):
+        if row.header is True:
+            continue
+        elif args.reference.__annot_type__ == Bed12Parser.__annot_type__:
+            transcript = Transcript(row, logger=queue_logger)
+            transcript.parent = gid = row.id
+            transcript2gene[row.id] = gid
+            if gid not in genes:
+                genes[gid] = Gene(transcript, gid=gid, logger=queue_logger)
+            genes[gid].add(transcript)
+
+        elif row.is_transcript is True or (ref_gff is True and row.feature == "match"):
             queue_logger.debug("Transcript\n%s", str(row))
             transcript = Transcript(row, logger=queue_logger)
             if row.feature == "match":
@@ -233,12 +244,15 @@ def parse_prediction(args, genes, positions, queue_logger):
         args.prediction = to_gff(args.reference.name)
     ref_gff = isinstance(args.prediction, GFF3)
     __found_with_orf = set()
+    is_bed12 = isinstance(args.prediction, Bed12Parser)
 
     for row in args.prediction:
         if row.header is True:
             continue
         #         queue_logger.debug("Row:\n{0:>20}".format(str(row)))
-        if row.is_transcript is True or row.feature == "match":
+        elif (row.is_transcript is True or
+                      args.prediction.__annot_type__ == Bed12Parser.__annot_type__ or
+                      row.feature == "match"):
             queue_logger.debug("Transcript row:\n%s", str(row))
             if transcript is not None:
                 if re.search(r"\.orf[0-9]+$", transcript.id):
@@ -251,6 +265,9 @@ def parse_prediction(args, genes, positions, queue_logger):
                 else:
                     assigner_instance.get_best(transcript)
             transcript = Transcript(row, logger=queue_logger)
+            if is_bed12:
+                transcript.parent = transcript.id
+
         elif row.is_exon is True:
             # Case 1: we are talking about cDNA_match and GFF
             if ref_gff is True and "match" not in row.feature:
@@ -549,8 +566,8 @@ def compare(args):
         if genes is None:
             queue_logger.info("Starting parsing the reference")
             exclude_utr, protein_coding = args.exclude_utr, args.protein_coding
-            if args.no_save_index is False:
-                args.exclude_utr, args.protein_coding = False, False
+            # if args.no_save_index is False:
+            #     args.exclude_utr, args.protein_coding = False, False
             genes, positions = prepare_reference(args,
                                                  queue_logger,
                                                  ref_gff=ref_gff)

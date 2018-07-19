@@ -10,7 +10,7 @@ import csv
 from ...exceptions import InvalidCDS
 from .. import to_gff
 from ...loci import Transcript, Gene
-from ...parsers import GFF
+from ...parsers.GFF import GFF3
 import numpy
 from collections import namedtuple, Counter
 from ...utilities.log_utils import create_default_logger
@@ -181,10 +181,8 @@ class Calculator:
         """Constructor function"""
 
         self.gff = parsed_args.gff
-        if isinstance(self.gff, GFF.GFF3):
-            self.is_gff = True
-        else:
-            self.is_gff = False
+
+        self.atype = self.gff.__annot_type__
 
         self.__logger = create_default_logger("calculator")
         if parsed_args.verbose is True:
@@ -236,12 +234,20 @@ class Calculator:
         current_gene = None
 
         for record in self.gff:
-            if record.is_gene is True:
+            if self.atype == "bed12":
+                self.__store_gene(current_gene)
+                if not record.parent:
+                    record.parent = "{}.gene".format(record.id)
+                current_gene = Gene(record.copy(), gid=record.parent[0], only_coding=self.only_coding,
+                                    logger=self.__logger)
+                transcript2gene[record.id] = record.parent[0]
+                current_gene.transcripts[record.id] = TranscriptComputer(record, logger=self.__logger)
+            elif record.is_gene is True:
                 self.__store_gene(current_gene)
                 current_gene = Gene(record,
                                     only_coding=self.only_coding,
                                     logger=self.__logger)
-            elif record.is_transcript is True or (self.is_gff is True and record.feature == "match"):
+            elif record.is_transcript is True or (self.atype == GFF3.__annot_type__ and record.feature == "match"):
                 if record.parent is None and record.feature != "match":
                     raise TypeError("No parent found for:\n{0}".format(str(record)))
                 elif record.feature == "match":
@@ -264,10 +270,11 @@ class Calculator:
                 transcript2gene[record.id] = gid
                 current_gene.transcripts[record.id] = TranscriptComputer(record,
                                                                          logger=self.__logger)
+
             elif record.is_derived is True and record.is_exon is False:
                 derived_features.add(record.id)
             elif record.is_exon is True:
-                if self.is_gff is False:
+                if self.atype != GFF3.__annot_type__:
                     if "transcript_id" not in record.attributes:
                         # Probably truncated record!
                         record.header = True
@@ -292,7 +299,7 @@ class Calculator:
                                                                                          logger=self.__logger)
                     else:
                         current_gene.transcripts[record.transcript].add_exon(record)
-                elif self.is_gff is True and "cDNA_match" in record.feature:
+                elif self.atype == GFF3.__annot_type__ and "cDNA_match" in record.feature:
                     # Here we assume that we only have "cDNA_match" lines, with no parents
                     record.parent = record.id
                     if current_gene is None or record.id != current_gene.id:
@@ -313,7 +320,7 @@ class Calculator:
                     else:
                         current_gene.transcripts[record.id].add_exon(record)
 
-                elif self.is_gff is True:
+                elif self.atype == GFF3.__annot_type__:
                     current_gene.add_exon(record)
 
             elif record.header is True:

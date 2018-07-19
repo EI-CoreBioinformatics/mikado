@@ -222,6 +222,10 @@ class BED12:
         return False
 
     @property
+    def source(self):
+        return "bed12"
+
+    @property
     def gene(self):
         return self.parent[0] if self.parent else None
 

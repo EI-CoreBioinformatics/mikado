@@ -292,7 +292,8 @@ class StatCheck(unittest.TestCase):
         files = ["trinity.gtf",
                  "trinity.gff3",
                  "trinity.cDNA_match.gff3",
-                 "trinity.match_matchpart.gff3"]
+                 "trinity.match_matchpart.gff3",
+                 "trinity.bed12"]
         files = [pkg_resources.resource_filename("Mikado.tests", filename) for filename in files]
 
         std_lines = []

@@ -14,8 +14,10 @@ def launch(args):
     current = None
     if parser.__annot_type__ == "gtf":
         out_format = "gff3"
-    else:
+    elif parser.__annot_type__ in ("bed12", "gff3"):
         out_format = "gtf"
+    else:
+        raise TypeError("Invalid annotation type: {}".format(parser.__annot_type__))
 
     if (args.out_format is not None and
                 args.out_format != out_format):
@@ -34,11 +36,14 @@ def launch(args):
         if current is None or ((line.is_gene or line.is_transcript) and line.gene != current.id):
             if current:
                 print(current.format(out_format), file=args.out)
-            if "superlocus" in line.feature:  # Hack for Mikado files
+
+            if hasattr(line, "feature") and "superlocus" in line.feature:  # Hack for Mikado files
                 continue
             elif line.is_gene is True:
                 current = Gene(line)
             else:
+                if line.parent is None:
+                    line.parent = "{}.gene".format(line.id)  # Hack for BED12 files
                 current = Gene(Transcript(line))
         elif parser.__annot_type__ == "gtf" and line.is_exon is True and (
                         current is None or current.id != line.gene):
@@ -63,7 +68,7 @@ def convert_parser():
     """
 
     parser = argparse.ArgumentParser(
-        "Utility to covert from GTF to GFF3 and vice versa.")
+        "Utility to covert across GTF, GFF3 and BED12.")
     parser.add_argument("-of", "--out-format", dest="out_format",
                         choices=["bed12", "gtf", "gff3"], default=None)
     parser.add_argument("gf", type=argparse.FileType())

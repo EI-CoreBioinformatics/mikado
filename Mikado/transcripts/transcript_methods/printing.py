@@ -368,7 +368,9 @@ def create_lines_no_cds(transcript,
 
     parent_line.phase = '.'
     parent_line.id = transcript.id
-
+    if to_gtf is True:
+        # This prevents a strange bug when converting TAIR10 files
+        parent_line.attributes["transcript_id"] = transcript.id
     parent_line.name = transcript.name
 
     lines = [str(parent_line)]

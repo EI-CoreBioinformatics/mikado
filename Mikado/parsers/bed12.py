@@ -119,6 +119,7 @@ class BED12:
         self.__has_start = False
         self.__has_stop = False
         self.__transcriptomic = False
+        self.__parent = None
         self.transcriptomic = transcriptomic
         if phase:
             self.phase = phase  # This will check the validity of the phase itself
@@ -208,6 +209,35 @@ class BED12:
         self.__check_validity(transcriptomic, fasta_index, sequence)
         if self.invalid and self.coding:
             self.coding = False
+
+    @property
+    def is_transcript(self):
+        """BED12 files are always transcripts for Mikado."""
+
+        return True
+
+    @property
+    def is_gene(self):
+        """BED12 files are never "genes" according to Mikado"""
+        return False
+
+    @property
+    def source(self):
+        return "bed12"
+
+    @property
+    def gene(self):
+        return self.parent[0] if self.parent else None
+
+    @property
+    def parent(self):
+        return self.__parent
+
+    @parent.setter
+    def parent(self, parent):
+        if parent is not None and not isinstance(parent, str):
+            raise TypeError(type(parent))
+        self.__parent = [parent]
 
     def __set_values_from_fields(self):
 

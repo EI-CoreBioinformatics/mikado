@@ -29,10 +29,13 @@ def main():
     # X 8 sequence mismatch
 
     for record in args.bam:
+        record.cigar = [(key, val) if key not in (7, 8) else (0, val) for key, val in record.cigar]
+
         try:
             start, end = record.reference_start, record.get_blocks()[-1][1]
         except IndexError:
             continue
+
         current = start
 
         exons = []

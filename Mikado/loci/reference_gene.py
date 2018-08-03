@@ -269,7 +269,8 @@ class Gene:
             self.transcripts[tid] = transcript
 
         self.chrom = intern(self.chrom)
-        self.source = intern(self.source)
+        if self.source:
+            self.source = intern(self.source)
         self.id = intern(self.id)
 
         return

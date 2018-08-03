@@ -364,6 +364,8 @@ class Transcript:
         exon_starts = np.array([_ + self.start for _ in transcript_row.block_starts])
         exon_ends = exon_starts + np.array(transcript_row.block_sizes) - 1
         self.add_exons(list(zip(list(exon_starts), list(exon_ends))))
+        self.parent = getattr(transcript_row, "parent", transcript_row.id)
+        self.source = getattr(transcript_row, "source", None)
         # Now we have to calculate the CDS
         cds = []
         if transcript_row.coding is True:

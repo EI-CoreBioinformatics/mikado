@@ -1,3 +1,11 @@
+# Version 1.2.4
+
+Enhancement release. Following version 1.2.3, now Mikado can accept BED12 files as input for convert, compare and stats (see #122). This is becoming necessary as many long-reads alignment tools are preferentially outputting (or can be easily converted to) this format.
+
+# Version 1.2.3
+
+Mainly this is a bug fix release. It has a key advancement though, as now Mikado can accept BED12 files as input assemblies. This makes it compatible with Minimap2 PAF > BED12 system.
+
 # Version 1.2.2
 
 Minor bugfixes:

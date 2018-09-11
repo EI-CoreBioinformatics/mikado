@@ -505,35 +505,45 @@ reached the maximum number of isoforms for the locus".format(
         valid_ccodes = self.json_conf["pick"]["alternative_splicing"]["valid_ccodes"]
         redundant_ccodes = self.json_conf["pick"]["alternative_splicing"]["redundant_ccodes"]
 
-        if self.json_conf["pick"]["clustering"]["cds_only"] is True:
-            main_result, _ = Assigner.compare(other._selected_orf_transcript,
-                                              self.primary_transcript._selected_orf_transcript)
-            enough_overlap, overlap_reason = self._evaluate_transcript_overlap(
-                other._selected_orf_transcript,
-                self.primary_transcript._selected_orf_transcript,
-                min_cdna_overlap=self.json_conf["pick"]["alternative_splicing"]["min_cdna_overlap"],
-                min_cds_overlap=self.json_conf["pick"]["alternative_splicing"]["min_cds_overlap"],
-                comparison=main_result,
-                is_internal_orf=True)
+        if bool(other.is_coding) != bool(self.primary_transcript.is_coding):
+            if other.is_coding:
+                reason = "{} is coding, and cannot be added to a non-coding locus.".format(other.id)
+            else:
+                reason = "{} is non-coding, and cannot be added to a coding locus.".format(other.id)
+            enough_overlap, overlap_reason = False, reason
+            main_ccode = "NA"
+
         else:
-            main_result, _ = Assigner.compare(other,
-                                              self.primary_transcript)
-            enough_overlap, overlap_reason = self._evaluate_transcript_overlap(
-                other,
-                self.primary_transcript,
-                min_cdna_overlap=self.json_conf["pick"]["alternative_splicing"]["min_cdna_overlap"],
-                min_cds_overlap=self.json_conf["pick"]["alternative_splicing"]["min_cds_overlap"],
-                comparison=main_result,
-                is_internal_orf=False)
+            if self.json_conf["pick"]["clustering"]["cds_only"] is True:
+                main_result, _ = Assigner.compare(other._selected_orf_transcript,
+                                                  self.primary_transcript._selected_orf_transcript)
 
-        main_ccode = main_result.ccode[0]
+                enough_overlap, overlap_reason = self._evaluate_transcript_overlap(
+                    other._selected_orf_transcript,
+                    self.primary_transcript._selected_orf_transcript,
+                    min_cdna_overlap=self.json_conf["pick"]["alternative_splicing"]["min_cdna_overlap"],
+                    min_cds_overlap=self.json_conf["pick"]["alternative_splicing"]["min_cds_overlap"],
+                    comparison=main_result,
+                    is_internal_orf=True)
+            else:
+                main_result, _ = Assigner.compare(other,
+                                                  self.primary_transcript)
+                enough_overlap, overlap_reason = self._evaluate_transcript_overlap(
+                    other,
+                    self.primary_transcript,
+                    min_cdna_overlap=self.json_conf["pick"]["alternative_splicing"]["min_cdna_overlap"],
+                    min_cds_overlap=self.json_conf["pick"]["alternative_splicing"]["min_cds_overlap"],
+                    comparison=main_result,
+                    is_internal_orf=False)
 
-        if main_ccode not in valid_ccodes:
-            self.logger.debug("%s is not a valid splicing isoform. Ccode: %s",
-                              other.id,
-                              main_result.ccode[0])
-            is_valid = False
-        elif not enough_overlap:
+            main_ccode = main_result.ccode[0]
+            if main_ccode not in valid_ccodes:
+                self.logger.debug("%s is not a valid splicing isoform. Ccode: %s",
+                                  other.id,
+                                  main_result.ccode[0])
+                is_valid = False
+
+        if not enough_overlap:
             self.logger.debug("%s is not a valid splicing isoform. Reason: %s",
                               other.id, overlap_reason)
             is_valid = False

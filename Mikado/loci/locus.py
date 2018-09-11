@@ -279,7 +279,7 @@ reached the maximum number of isoforms for the locus".format(
                 to_be_added = False
 
         if to_be_added is True:
-            is_alternative, ccode, comparison = self.is_alternative_splicing(transcript)
+            is_alternative, ccode, _ = self.is_alternative_splicing(transcript)
             if is_alternative is False:
                 self.logger.debug("%s not added because it is not a \
                 valid splicing isoform. Ccode: %s",
@@ -505,13 +505,16 @@ reached the maximum number of isoforms for the locus".format(
         valid_ccodes = self.json_conf["pick"]["alternative_splicing"]["valid_ccodes"]
         redundant_ccodes = self.json_conf["pick"]["alternative_splicing"]["redundant_ccodes"]
 
-        if bool(other.is_coding) != bool(self.primary_transcript.is_coding):
-            if other.is_coding:
-                reason = "{} is coding, and cannot be added to a non-coding locus.".format(other.id)
-            else:
-                reason = "{} is non-coding, and cannot be added to a coding locus.".format(other.id)
+        if other.is_coding and not self.primary_transcript.is_coding:
+            reason = "{} is coding, and cannot be added to a non-coding locus.".format(other.id)
             enough_overlap, overlap_reason = False, reason
             main_ccode = "NA"
+            main_result = None
+        elif (other.is_coding is False) and (self.primary_transcript.is_coding is True):
+            reason = "{} is non-coding, and cannot be added to a coding locus.".format(other.id)
+            enough_overlap, overlap_reason = False, reason
+            main_ccode = "NA"
+            main_result = None
 
         else:
             if self.json_conf["pick"]["clustering"]["cds_only"] is True:

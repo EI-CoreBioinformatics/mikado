@@ -8,6 +8,7 @@ from Mikado.transcripts.transcriptchecker import TranscriptChecker
 from Mikado.parsers.GFF import GffLine
 from Mikado.parsers.GTF import GtfLine
 from Mikado.transcripts.transcript import Transcript
+from Mikado.exceptions import InvalidTranscript
 
 
 class TChekerTester(unittest.TestCase):
@@ -132,6 +133,27 @@ class TChekerTester(unittest.TestCase):
         tcheck.check_strand()
         self.assertEqual(tcheck.strand, "-")
 
+    def test_monoexonic_cds(self):
+
+        # Chr5	tair10	exon	26584797	26584879	.	+	.	ID=c58_g1_i3.mrna1.19.exon1;Parent=c58_g1_i3.mrna1.19
+        for strand in ("+", "-"):
+            with self.subTest(strand=strand):
+                exon = self.gff_lines[1]
+                transcript_line = self.gff_lines[0]
+                transcript_line.end = exon.end
+                transcript_line.strand = strand
+                exon.strand = strand
+                model = Transcript(transcript_line)
+                model.add_exon(exon)
+                model.add_exon((exon.start + 2, exon.end), feature="CDS")
+                model.finalize()
+                self.assertTrue(model.is_coding)
+                fasta = self.fasta[model.chrom][model.start - 1: model.end]
+                tcheck = TranscriptChecker(model.copy(), fasta, force_keep_cds=True, strand_specific=False)
+                tcheck.check_strand()
+                self.assertEqual(model.strand, strand)
+                self.assertTrue(model.is_coding)
+
     def test_negative(self):
 
         gtf_lines = """Chr5	Cufflinks	transcript	26575364	26578163	1000	-	.	gene_id "cufflinks_star_at.23553";transcript_id "cufflinks_star_at.23553.1";exon_number "1";FPKM "2.9700103727";conf_hi "3.260618";frac "0.732092";cov "81.895309";conf_lo "2.679403";
@@ -225,6 +247,10 @@ Chr5	Cufflinks	exon	26577856	26578163	.	-	.	gene_id "cufflinks_star_at.23553";tr
         check_model.check_strand()
         self.assertEqual(check_model.strand, "-")
         self.assertFalse(check_model.is_coding)
+        check_model = TranscriptChecker(model, model_fasta, force_keep_cds=True)
+        # Check that if we want to keep the CDS, this will raise an error
+        with self.assertRaises(InvalidTranscript):
+            check_model.check_strand()
 
     def test_reverse_with_cds_positive(self):
 
@@ -245,6 +271,9 @@ Chr5	Cufflinks	exon	26577856	26578163	.	-	.	gene_id "cufflinks_star_at.23553";tr
         check_model.check_strand()
         self.assertEqual(check_model.strand, "+")
         self.assertFalse(check_model.is_coding)
+        check_model = TranscriptChecker(model, model_fasta, force_keep_cds=True)
+        with self.assertRaises(InvalidTranscript):
+            check_model.check_strand()
 
     def test_monoexonic_suspicious(self):
 
@@ -286,6 +315,21 @@ Chr5	Cufflinks	exon	26577856	26578163	.	-	.	gene_id "cufflinks_star_at.23553";tr
         model.attributes["mixed_splices"] = "6positive,1negative"
         self.assertFalse(model.suspicious_splicing)
         self.assertFalse(model.only_non_canonical_splicing)
+
+    def test_sequence_reversed(self):
+
+        model = Transcript()
+        model.chrom, model.start, model.end, model.strand = "Chr5", 1001, 1500, "+"
+        model.add_exon((1001, 1500))
+        model.id, model.parent = "foo.1", "foo"
+        model.finalize()
+        seq = str(self.fasta["Chr5"][1001-1:1500].seq)
+        self.assertEqual(len(seq), len(model))
+        model = TranscriptChecker(model, seq, strand_specific=True)
+        model.reverse_strand()
+        fasta = "".join(model.fasta.split("\n")[1:])
+        self.assertEqual(model.strand, "-")
+        self.assertEqual(fasta, TranscriptChecker.rev_complement(seq))
 
 
 class StopCodonChecker(unittest.TestCase):

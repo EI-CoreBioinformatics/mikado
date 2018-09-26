@@ -20,7 +20,10 @@ from Mikado.preparation import prepare
 from Mikado.scales.compare import compare, load_index
 from Mikado.subprograms.util.stats import Calculator
 from Mikado.transcripts.transcript import Namespace
-from Mikado.utilities.log_utils import create_null_logger
+from Mikado.utilities.log_utils import create_null_logger, create_default_logger
+from Mikado.parsers.GFF import GffLine
+from Mikado.parsers import to_gff
+from Mikado.transcripts import Transcript
 
 
 class PrepareCheck(unittest.TestCase):
@@ -184,6 +187,60 @@ class PrepareCheck(unittest.TestCase):
                 self.assertEqual(res, precal)
                 os.remove(os.path.join(self.conf["prepare"]["files"]["output_dir"],
                                        "mikado_prepared.fasta.fai"))
+
+    def test_prepare_with_cds(self):
+
+        rev_strand = {"+": "-", "-": "+"}
+
+        self.conf["prepare"]["files"]["labels"] = ["ann"]
+        ann_gff3 = pkg_resources.resource_filename("Mikado.tests", "annotation.gff3")
+        rev_ann_gff3 = tempfile.NamedTemporaryFile(suffix=".gff3", mode="wt")
+        with open(ann_gff3) as ann:
+            for line in ann:
+                line = GffLine(line)
+                if line.header is True:
+                    continue
+                line.strand = rev_strand[line.strand]  # Invert strand.
+                print(line, file=rev_ann_gff3)
+        rev_ann_gff3.flush()
+
+        self.conf["prepare"]["files"]["gff"] = []
+        self.conf["prepare"]["files"]["output_dir"] = tempfile.gettempdir()
+        self.conf["prepare"]["files"]["out_fasta"] = "mikado_prepared.fasta"
+        self.conf["prepare"]["files"]["out"] = "mikado_prepared.gtf"
+        args = Namespace()
+        args.json_conf = self.conf
+
+        for fname in [ann_gff3, rev_ann_gff3.name]:
+            for strip in (True, False):
+                with self.subTest(fname=fname, strip=strip):
+                    self.conf["prepare"]["files"]["gff"] = [fname]
+                    args.json_conf["prepare"]["strip_cds"] = strip
+                    prepare.prepare(args, self.logger)
+                    self.assertTrue(os.path.exists(os.path.join(self.conf["prepare"]["files"]["output_dir"],
+                                                                "mikado_prepared.fasta")))
+                    fa = pyfaidx.Fasta(os.path.join(self.conf["prepare"]["files"]["output_dir"],
+                                                    "mikado_prepared.fasta"))
+                    if strip is True or (strip is False and fname == ann_gff3):
+                        self.assertEqual(len(fa.keys()), 2)
+                    else:
+                        self.assertEqual(len(fa.keys()), 0)
+                    # Now verify that no model has CDS
+                    gtf = os.path.join(self.conf["prepare"]["files"]["output_dir"], "mikado_prepared.gtf")
+                    models = dict()
+                    for line in to_gff(gtf):
+                        if line.header:
+                            continue
+                        elif line.is_transcript:
+                            models[line.id] = Transcript(line)
+                        else:
+                            models[line.parent[0]].add_exon(line)
+                    [models[model].finalize() for model in models]
+                    for model in models:
+                        if strip is False:
+                            self.assertTrue(models[model].is_coding, models[model].format("gtf"))
+                        else:
+                            self.assertFalse(models[model].is_coding, models[model].format("gtf"))
 
 
 class CompareCheck(unittest.TestCase):

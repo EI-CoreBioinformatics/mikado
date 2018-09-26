@@ -33,6 +33,7 @@ class TranscriptChecker(Transcript):
     def __init__(self, gffline, seq,
                  strand_specific=False, lenient=False,
                  canonical_splices=(("GT", "AG"), ("GC", "AG"), ("AT", "AC")),
+                 force_keep_cds=False,
                  logger=None):
 
         """
@@ -70,6 +71,7 @@ class TranscriptChecker(Transcript):
         self.mixed_splices = False
         self.reversed = False
         self.canonical_splices = []
+        self.__force_keep_cds = force_keep_cds
         if not isinstance(canonical_splices, (tuple, list)):
             raise ValueError("Canonical splices should be provided as lists or tuples")
 
@@ -178,7 +180,7 @@ class TranscriptChecker(Transcript):
         if self.checked is True:
             return
 
-        if self.strand_specific is False and self.monoexonic is True:
+        if self.strand_specific is False and self.monoexonic is True and self.__force_keep_cds is False:
             self.strand = None
 
         elif self.monoexonic is False:
@@ -243,6 +245,11 @@ class TranscriptChecker(Transcript):
 
         self.checked = True
         return
+
+    def reverse_strand(self):
+        if self.is_coding is True and self.__force_keep_cds is True:
+            raise InvalidTranscript("I cannot reverse the strand of a coding transcript.")
+        super().reverse_strand()
 
     def _check_intron(self, intron):
 

@@ -148,7 +148,8 @@ def perform_check(keys, shelve_stacks, args, logger):
             lenient=args.json_conf["prepare"]["lenient"],
             # strand_specific=args.json_conf["prepare"]["strand_specific"],
             canonical_splices=args.json_conf["prepare"]["canonical"],
-            logger=logger)
+            logger=logger,
+            force_keep_cds= not args.json_conf["prepare"]["strip_cds"])
 
         for tid, chrom, key in keys:
             tid, shelf_name = tid

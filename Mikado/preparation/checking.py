@@ -21,6 +21,7 @@ def create_transcript(lines,
                       canonical_splices=(("GT", "AG"),
                                          ("GC", "AG"),
                                          ("AT", "AC")),
+                      force_keep_cds=False,
                       logger=None):
     """Function to create the checker.
 
@@ -39,6 +40,10 @@ def create_transcript(lines,
 
     :param canonical_splices: the splices considered as canonical for the species.
     :type canonical_splices: list[tuple]
+
+    :param force_keep_cds: boolean. If set to true, coding transcripts that would be flipped are instead excluded.
+                           The intention is that this flag will mirror strip_cds.
+    :type force_keep_cds: bool
 
     :param logger: optional logger to use during processing.
 
@@ -72,6 +77,7 @@ def create_transcript(lines,
                                               lenient=lenient,
                                               strand_specific=strand_specific,
                                               canonical_splices=canonical_splices,
+                                              force_keep_cds=force_keep_cds,
                                               logger=logger)
         logger.debug("Finished adding exon lines to %s", lines["tid"])
         transcript_object.finalize()

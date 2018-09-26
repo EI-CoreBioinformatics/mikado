@@ -201,6 +201,51 @@ Chr5	Cufflinks	exon	26577856	26578163	.	-	.	gene_id "cufflinks_star_at.23553";tr
         self.assertTrue(self.model.suspicious_splicing)
         self.assertTrue(self.model.only_non_canonical_splicing)
 
+    def test_reverse_with_cds_negative(self):
+
+        model = Transcript()
+        model.chrom, model.start, model.end = "Chr5", 1251, 5043
+        model.id, model.parent, model.strand = "AT5G01010.1", "AT5G01010", "-"
+        model.add_exons([(4765, 5043), (4552, 4679), (4335, 4467), (4102, 4258), (3927, 4005), (3762, 3802),
+                         (3543, 3659), (3303, 3383), (2872, 2934), (2748, 2799), (2435, 2509), (1914, 1961),
+                         (1745, 1780), (1572, 1646), (1251, 1459)])
+        model.add_exons([(4765, 4924), (4552, 4679), (4335, 4467), (4102, 4258), (3927, 4005), (3762, 3802),
+                         (3543, 3659), (3303, 3383), (2872, 2934), (2748, 2799), (2435, 2509), (1914, 1961),
+                         (1745, 1780), (1572, 1646), (1388, 1459)],
+                        features="CDS")
+        model.finalize()
+        model_fasta = self.fasta["Chr5"][model.start - 1:model.end]
+        check_model = TranscriptChecker(model, model_fasta)
+        check_model.check_strand()
+        self.assertEqual(check_model.strand, "-")
+        self.assertGreater(check_model.combined_cds_length, 0)
+        model.unfinalize()
+        model.strand = "+"
+        check_model = TranscriptChecker(model, model_fasta)
+        check_model.check_strand()
+        self.assertEqual(check_model.strand, "-")
+        self.assertFalse(check_model.is_coding)
+
+    def test_reverse_with_cds_positive(self):
+
+        model = Transcript()
+        model.chrom, model.start, model.end = "Chr5", 9930, 13235
+        model.id, model.parent, model.strand = "AT5G01030.1", "AT5G01030", "+"
+        model.add_exons([(9930, 10172), (10620, 12665), (12797, 13235)])
+        model.add_exons([(10638, 12665), (12797, 13003)], features="CDS")
+        model.finalize()
+        model_fasta = self.fasta["Chr5"][model.start - 1:model.end]
+        check_model = TranscriptChecker(model, model_fasta)
+        check_model.check_strand()
+        self.assertEqual(check_model.strand, "+")
+        self.assertGreater(check_model.combined_cds_length, 0)
+        model.unfinalize()
+        model.strand = "-"
+        check_model = TranscriptChecker(model, model_fasta)
+        check_model.check_strand()
+        self.assertEqual(check_model.strand, "+")
+        self.assertFalse(check_model.is_coding)
+
     def test_monoexonic_suspicious(self):
 
         """A monoexonic transcript should never appear as a suspicious transcript, in terms of splicing."""

@@ -999,6 +999,7 @@ class Transcript:
             self.strand = "+"
         elif self.strand is None:
             pass
+        self.strip_cds()
         self.logger.warning("Transcript %s has been assigned to the wrong strand, reversing it.",
                             self.id)
         return

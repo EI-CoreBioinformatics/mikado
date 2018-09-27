@@ -158,7 +158,6 @@ class PrepareCheck(unittest.TestCase):
         self.conf["prepare"]["files"]["out_fasta"] = "mikado_prepared.fasta"
         self.conf["prepare"]["files"]["out"] = "mikado_prepared.gtf"
         args = Namespace()
-        args.json_conf = self.conf
 
         for test_file in ("trinity.gff3",
                           "trinity.match_matchpart.gff3",
@@ -169,7 +168,9 @@ class PrepareCheck(unittest.TestCase):
                                                                                           test_file)
                 self.conf["prepare"]["files"]["out_fasta"] = "mikado_prepared.fasta"
                 self.conf["prepare"]["files"]["out"] = "mikado_prepared.gtf"
+                args.strip_cds = True
 
+                args.json_conf = self.conf
                 prepare.prepare(args, self.logger)
 
                 # Now that the program has run, let's check the output

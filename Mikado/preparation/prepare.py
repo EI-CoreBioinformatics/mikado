@@ -81,6 +81,7 @@ def store_transcripts(shelf_stacks, logger, keep_redundant=False):
             tids = transcripts[chrom][key]
             if len(tids) > 1:
                 exons = collections.defaultdict(list)
+                di_features = dict()
                 for tid, shelf in tids:
                     strand, features = next(shelf_stacks[shelf]["cursor"].execute(
                         "select strand, features from dump where tid = ?", (tid,)))
@@ -93,30 +94,44 @@ def store_transcripts(shelf_stacks, logger, keep_redundant=False):
                     #     [(exon[0], exon[1], shelf_stacks[shelf][tid]["strand"]) for exon in
                     #      shelf_stacks[shelf][tid]["features"]["exon"]],
 
-                    exons[exon_set].append((tid, shelf))
+                    exons[exon_set].append((tid, shelf))  #, features))
+                    di_features[tid] = features
                 tids = []
-                logger.debug("%d intron chains for pos %s",
+                logger.debug("%d exon chains for pos %s",
                              len(exons), "{}:{}-{}".format(chrom, key[0], key[1]))
                 for tid_list in exons.values():
                     if len(tid_list) > 1 and keep_redundant is False:
-                        logger.debug("The following transcripts are redundant: %s",
-                                     ",".join([_[0] for _ in tid_list]))
-                        to_keep = random.choice(tid_list)
-                        logger.debug("Keeping only %s out of the list",
-                                     to_keep)
-                        tids.append(to_keep)
+
+                        # to_keep = random.choice(tid_list)
+                        # logger.debug("Keeping only %s out of the list",
+                        #              to_keep)
+                        # tids.append(to_keep)
+
+                        # If we are *not* stripping the CDS we have to double check that the redundancy extends to
+                        # that as well.
+
+                        cds = collections.defaultdict(list)
+                        for tid, shelf in tid_list:
+                            cds_set = tuple(sorted([(exon[0], exon[1]) for exon in
+                                                    di_features[tid]["features"].get("CDS", [])]))
+                            cds[cds_set].append((tid, shelf))
+
+                        for cds_list in cds.values():
+                            if len(cds_list) > 1:
+                                logger.debug("The following transcripts are redundant: %s",
+                                             ",".join([_[0] for _ in cds_list]))
+                            to_keep = random.choice(cds_list)
+                            logger.debug("Keeping only %s out of the list",
+                                         to_keep)
+                            tids.append(to_keep)
                     else:
                         tids.extend(tid_list)
 
             # seq = chrom_seq[key[0]-1:key[1]]
             for tid in tids:
                 # counter += 1
+                assert len(tid) == 2, tid
                 yield [tid, chrom, key]
-            # keys.extend([tid, seq] for tid in tids)
-
-    # logger.info("Finished to sort %d transcripts, %d remain", len(exon_lines), counter)
-
-    # return keys
 
 
 def perform_check(keys, shelve_stacks, args, logger):

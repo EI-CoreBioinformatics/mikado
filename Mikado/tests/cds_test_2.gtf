@@ -1,0 +1,32 @@
+# To make the type of situation clearer: presume to have four models, A, A’, A’’ and A’’’, all on the same strand and
+# with two exons: (1001, 1500) and (1700, 2000). Model A does not have any CDS. Model A’ has an ORF with coordinates
+# (1201, 1470). Model A’’ has an ORF with coordinates (1401, 1900). Model A’’’ is identical to model A’’.
+# At the moment, as they have the same exonic coordinates, Mikado would consider these four models identical and keep
+# only one of these (chosen randomly).
+
+# Chr5	TAIR10	exon	4765	5043	.	-	.	Parent=AT5G01010.1
+# Chr5	TAIR10	CDS	4552	4679	.	-	2	Parent=AT5G01010.1,AT5G01010.1-Protein;
+# Chr5	TAIR10	exon	4552	4679	.	-	.	Parent=AT5G01010.1
+
+Chr5	cds_test_2	transcript	4552	5043	.	-	.	transcript_id "A"; gene_id "A"
+Chr5	cds_test_2	exon	4552	4679	.	-	.	transcript_id "A"; gene_id "A"
+Chr5	cds_test_2	exon	4765	5043	.	-	.	transcript_id "A"; gene_id "A"
+Chr5	cds_test_2	transcript	4552	5043	.	-	.	transcript_id "A1"; gene_id "A"
+Chr5	cds_test_2	exon	4552	4679	.	-	.	transcript_id "A1"; gene_id "A"
+Chr5	cds_test_2	exon	4765	5043	.	-	.	transcript_id "A1"; gene_id "A"
+Chr5	cds_test_2	CDS	4552	4643	.	-	.	transcript_id "A1"; gene_id "A"
+Chr5	cds_test_2	transcript	4552	5043	.	-	.	transcript_id "A2"; gene_id "A"
+Chr5	cds_test_2	exon	4552	4679	.	-	.	transcript_id "A2"; gene_id "A"
+Chr5	cds_test_2	exon	4765	5043	.	-	.	transcript_id "A2"; gene_id "A"
+Chr5	cds_test_2	CDS	4662	4679	.	-	.	transcript_id "A2"; gene_id "A"
+Chr5	cds_test_2	CDS	4765	4926	.	-	.	transcript_id "A2"; gene_id "A"
+Chr5	cds_test_2	transcript	4552	5043	.	-	.	transcript_id "A3"; gene_id "A"
+Chr5	cds_test_2	exon	4552	4679	.	-	.	transcript_id "A3"; gene_id "A"
+Chr5	cds_test_2	exon	4765	5043	.	-	.	transcript_id "A3"; gene_id "A"
+Chr5	cds_test_2	CDS	4662	4679	.	-	.	transcript_id "A3"; gene_id "A"
+Chr5	cds_test_2	CDS	4765	4926	.	-	.	transcript_id "A3"; gene_id "A"
+Chr5	cds_test_2	transcript	4551	5043	.	-	.	transcript_id "A4"; gene_id "A"
+Chr5	cds_test_2	exon	4551	4679	.	-	.	transcript_id "A4"; gene_id "A"
+Chr5	cds_test_2	exon	4765	5043	.	-	.	transcript_id "A4"; gene_id "A"
+Chr5	cds_test_2	CDS	4662	4679	.	-	.	transcript_id "A4"; gene_id "A"
+Chr5	cds_test_2	CDS	4765	4926	.	-	.	transcript_id "A4"; gene_id "A"

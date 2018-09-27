@@ -243,6 +243,76 @@ class PrepareCheck(unittest.TestCase):
                         else:
                             self.assertFalse(models[model].is_coding, models[model].format("gtf"))
 
+    def test_cdna_redundant_cds_not(self):
+        """This test will verify whether the new behaviour of not considering redundant two models with same
+        exon structure but different CDS does function properly."""
+
+        gtf = pkg_resources.resource_filename("Mikado.tests", "cds_test_1.gtf")
+        self.conf["prepare"]["files"]["gff"] = [gtf]
+        self.conf["prepare"]["files"]["labels"] = [""]
+        self.conf["prepare"]["files"]["output_dir"] = tempfile.gettempdir()
+        self.conf["prepare"]["files"]["out_fasta"] = "mikado_prepared.fasta"
+        self.conf["prepare"]["files"]["out"] = "mikado_prepared.gtf"
+        self.conf["prepare"]["strip_cds"] = False
+
+        args = Namespace()
+        args.strip_cds = False
+        args.json_conf = self.conf
+        for b in (False, ):
+            with self.subTest(b=b):
+                args.json_conf = self.conf
+                args.keep_redundant = b
+                args.json_conf["prepare"]["keep_redundant"] = b
+                prepare.prepare(args, self.logger)
+                self.assertTrue(os.path.exists(os.path.join(self.conf["prepare"]["files"]["output_dir"],
+                                                            "mikado_prepared.fasta")))
+                fa = pyfaidx.Fasta(os.path.join(self.conf["prepare"]["files"]["output_dir"],
+                                                "mikado_prepared.fasta"))
+                if b is True:
+                    self.assertEqual(len(fa.keys()), 5)
+                    self.assertEqual(sorted(fa.keys()), sorted(["A", "A1", "A2", "A3", "A4"]))
+                else:
+                    self.assertEqual(len(fa.keys()), 4)
+                    self.assertIn("A", fa.keys())
+                    self.assertIn("A1", fa.keys())
+                    self.assertTrue("A2" in fa.keys() or "A3" in fa.keys())
+                    self.assertIn("A4", fa.keys())
+
+    def test_negative_cdna_redundant_cds_not(self):
+        """This test will verify whether the new behaviour of not considering redundant two models with same
+        exon structure but different CDS does function properly."""
+
+        gtf = pkg_resources.resource_filename("Mikado.tests", "cds_test_2.gtf")
+        self.conf["prepare"]["files"]["gff"] = [gtf]
+        self.conf["prepare"]["files"]["labels"] = [""]
+        self.conf["prepare"]["files"]["output_dir"] = tempfile.gettempdir()
+        self.conf["prepare"]["files"]["out_fasta"] = "mikado_prepared.fasta"
+        self.conf["prepare"]["files"]["out"] = "mikado_prepared.gtf"
+        self.conf["prepare"]["strip_cds"] = False
+
+        args = Namespace()
+        args.strip_cds = False
+        args.json_conf = self.conf
+        for b in (False, ):
+            with self.subTest(b=b):
+                args.json_conf = self.conf
+                args.keep_redundant = b
+                args.json_conf["prepare"]["keep_redundant"] = b
+                prepare.prepare(args, self.logger)
+                self.assertTrue(os.path.exists(os.path.join(self.conf["prepare"]["files"]["output_dir"],
+                                                            "mikado_prepared.fasta")))
+                fa = pyfaidx.Fasta(os.path.join(self.conf["prepare"]["files"]["output_dir"],
+                                                "mikado_prepared.fasta"))
+                if b is True:
+                    self.assertEqual(len(fa.keys()), 5)
+                    self.assertEqual(sorted(fa.keys()), sorted(["A", "A1", "A2", "A3", "A4"]))
+                else:
+                    self.assertEqual(len(fa.keys()), 4)
+                    self.assertIn("A", fa.keys())
+                    self.assertIn("A1", fa.keys())
+                    self.assertTrue("A2" in fa.keys() or "A3" in fa.keys())
+                    self.assertIn("A4", fa.keys())
+
 
 class CompareCheck(unittest.TestCase):
 

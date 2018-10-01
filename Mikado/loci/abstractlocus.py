@@ -75,15 +75,13 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         self._excluded_transcripts = set()
         self.transcripts = dict()
         self.start, self.end, self.strand = maxsize, -maxsize, None
-        # self.introns, self.exons, self.splices = set(), set(), set()
         # Consider only the CDS part
-        # self.combined_cds_introns, self.selected_cds_introns = set(), set()
-        # self.combined_cds_exons, self.selected_cds_exons = set(), set()
         self.stranded = True
         self.initialized = False
         self.monoexonic = True
         self.chrom = None
         self.__locus_verified_introns = set()
+        # This will create the .splices, .introns, etc. stores for the locus
         for locattr in self.__locus_to_transcript_attrs:
             setattr(self, locattr, set())
         if verified_introns is not None:

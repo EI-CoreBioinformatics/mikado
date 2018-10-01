@@ -7,6 +7,7 @@ Very basic, all too basic test for some functionalities of locus-like classes.
 import unittest
 import os.path
 import logging
+import pkg_resources
 from Mikado.configuration import configurator
 from Mikado import exceptions
 from Mikado.parsers import GFF  # ,GTF, bed12
@@ -19,7 +20,7 @@ import Mikado.loci
 import pickle
 import inspect
 from Mikado.parsers.bed12 import BED12
-from Mikado.scales.contrast import compare as c_compare
+# from Mikado.scales.contrast import compare as c_compare
 
 
 class OverlapTester(unittest.TestCase):
@@ -1895,6 +1896,58 @@ class PicklingTest(unittest.TestCase):
                     pickled = pickle.dumps(transcript)
                     unpickled = pickle.loads(pickled)
                     self.assertEqual(transcript, unpickled)
+
+
+class PaddingTester(unittest.TestCase):
+
+    def test_padding(self):
+        bed = pkg_resources.resource_stream("Mikado.tests", "padding_test.bed12")
+        genome = pkg_resources.resource_filename("Mikado.tests", "padding_test.fasta")
+        transcripts = dict()
+        for line in bed:
+            line = line.decode()
+            line = BED12(line, coding=True)
+            line.coding = True
+            transcript = Transcript(line)
+            assert transcript.start > 0
+            assert transcript.end > 0
+            assert transcript.is_coding, transcript.format("bed12")
+            transcript.finalize()
+            transcript.verified_introns = transcript.introns
+            transcript.parent = "{}.gene".format(transcript.id)
+            transcripts[transcript.id] = transcript
+
+        locus = Mikado.loci.Locus(transcripts['mikado.44G2.1'])
+        locus.json_conf["reference"]["genome"] = os.path.join("Mikado", "tests", "padding_test.fa")
+        for t in transcripts:
+            if t == locus.primary_transcript_id:
+                continue
+            locus.add_transcript_to_locus(transcripts[t])
+
+        cds_coordinates = dict()
+        for transcript in locus:
+            cds_coordinates[transcript] = (locus[transcript].combined_cds_start, locus[transcript].combined_cds_end)
+
+        for pad_distance, max_splice in zip((200, 1000, 5000), (1, 1, 5)):
+            with self.subTest(pad_distance=pad_distance, max_splice=max_splice):
+                locus.json_conf["pick"]["alternative_splicing"]["ts_distance"] = pad_distance
+                locus.json_conf["pick"]["alternative_splicing"]["ts_max_splices"] = max_splice
+                locus.pad_transcripts()
+
+                if pad_distance == 1000:
+                    self.assertEqual(locus["mikado.44G2.1"].end, locus["mikado.44G2.2"].end)
+
+                self.assertEqual(locus["mikado.44G2.3"].end, locus["mikado.44G2.2"].end)
+                self.assertEqual(locus["mikado.44G2.4"].end, locus["mikado.44G2.2"].end)
+
+                if locus.ts_max_splices == 5:
+                    self.assertEqual(locus["mikado.44G2.4"].end, locus["mikado.44G2.5"].end)
+                else:
+                    self.assertNotEqual(locus["mikado.44G2.4"].end, locus["mikado.44G2.5"].end)
+                for transcript in locus:
+                    self.assertGreater(locus[transcript].combined_cds_length, 0)
+                    self.assertEqual(locus[transcript].combined_cds_start, cds_coordinates[transcript][0])
+                    self.assertEqual(locus[transcript].combined_cds_end, cds_coordinates[transcript][1])
 
 
 if __name__ == '__main__':

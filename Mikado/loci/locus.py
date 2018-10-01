@@ -17,6 +17,7 @@ from .sublocus import Sublocus
 from ..parsers.GFF import GffLine
 from ..scales.assigner import Assigner
 from ..utilities import overlap
+from ..exceptions import InvalidTranscript
 
 
 class Locus(Abstractlocus):
@@ -363,7 +364,6 @@ reached the maximum number of isoforms for the locus".format(
                            min(self.json_conf["pick"].get("fragments", {}).get("max_distance", float("inf")),
                                self.json_conf["pick"]["clustering"]["flank"]))
 
-
         self.logger.debug("Comparison between {0} (strand {3}) and {1}: class code \"{2}\"".format(
             self.primary_transcript.id,
             other.primary_transcript.id,
@@ -582,16 +582,26 @@ reached the maximum number of isoforms for the locus".format(
         five_graph = self.define_graph(self.transcripts, self.__share_extreme, three_prime=False)
         three_graph = self.define_graph(self.transcripts, self.__share_extreme, three_prime=True)
 
-        five_comm = deque(sorted(self.find_communities(five_graph),
-                              key=lambda clique: min(self[_].start for _ in clique)))
-        three_comm = deque(sorted(self.find_communities(three_graph),
-                           key=lambda clique: max(self[_].end for _ in clique),
-                           reverse=True))
+        self.logger.debug("5' graph: %s", five_graph.edges)
+        self.logger.debug("3' graph: %s", three_graph.edges)
 
-        __to_modify = self._find_communities_boundaries(five_comm, three_comm)
+        five_cliques = deque(sorted(self.find_cliques(five_graph),
+                                    key=lambda clique: min(self[_].start for _ in clique)))
+
+        three_cliques = deque(sorted(self.find_cliques(three_graph),
+                                    key=lambda clique: min(self[_].start for _ in clique)))
+
+        self.logger.debug("5' community: %s", five_cliques)
+        self.logger.debug("3' community: %s", three_cliques)
+
+        __to_modify = self._find_communities_boundaries(five_cliques, three_cliques)
 
         # Now we can do the proper modification
         for tid in __to_modify:
+
+            self.logger.debug("Expanding %s to have start %s (from %s) and end %s (from %s)",
+                              tid, __to_modify[tid][0],
+                              self[tid].start, __to_modify[tid][1], self[tid].end)
             new_transcript = expand_transcript(self[tid].deepcopy(),
                                                __to_modify[tid][0],
                                                __to_modify[tid][1],
@@ -603,15 +613,17 @@ reached the maximum number of isoforms for the locus".format(
         for tid in self:
             self.exons.update(self[tid].exons)
 
-    def _find_communities_boundaries(self, five_comm, three_comm):
+    def _find_communities_boundaries(self, five_clique, three_clique):
 
         five_found = set()
 
         __to_modify = dict()
 
-        while len(five_comm) > 0:
+        self.logger.debug("5' communities to uniform: %s", five_clique)
 
-            comm = five_comm.popleft()
+        while len(five_clique) > 0:
+
+            comm = five_clique.popleft()
             comm = deque(sorted(list(set.difference(set(comm), five_found)),
                          key=lambda internal_tid: self[internal_tid].start))
             if len(comm) == 1:
@@ -621,27 +633,21 @@ reached the maximum number of isoforms for the locus".format(
             comm_start = self[first].start
 
             for tid in comm:
-                if ((self[tid].start - comm_start + 1) <
-                        self.json_conf["pick"]["alternative_splicing"]["ts_distance"] and
-                        len([_ for _ in self.splices if comm_start <= _ <= self[tid].start]) <
-                        self.json_conf["pick"]["alternative_splicing"]["ts_max_splices"] and
-                        self[tid].start > comm_start):
-                    __to_modify[tid] = [comm_start, False]
-                    five_found.add(tid)
-                else:
-                    continue
+                __to_modify[tid] = [comm_start, False]
+                self.logger.debug("%s marked for modication", tid)
+                five_found.add(tid)
             comm = deque([_ for _ in comm if _ not in five_found])
 
             if comm:
-                five_comm.appendleft(comm)
-
+                five_clique.appendleft(comm)
         # Then do the 3' end
 
         three_found = set()
+        self.logger.debug("3' communities to uniform: %s", three_clique)
 
-        while len(three_comm) > 0:
+        while len(three_clique) > 0:
 
-            comm = three_comm.popleft()
+            comm = three_clique.popleft()
             comm = deque(sorted(list(set.difference(set(comm), three_found)),
                          key=lambda internal_tid: self[internal_tid].end, reverse=True))
             if len(comm) == 1:
@@ -650,42 +656,51 @@ reached the maximum number of isoforms for the locus".format(
             three_found.add(first)
             comm_end = self[first].end
             for tid in comm:
-                if ((self[tid].end - comm_end + 1) <
-                        self.json_conf["pick"]["alternative_splicing"]["ts_distance"] and
-                        len([_ for _ in self.splices if self[tid].end <= _ <= comm_end]) <
-                        self.json_conf["pick"]["alternative_splicing"]["ts_max_splices"] and
-                        self[tid].end < comm_end):
-
-                    if tid in __to_modify:
-                        __to_modify[tid][1] = comm_end
-                    else:
-                        __to_modify[tid] = [False, comm_end]
-
-                    three_found.add(tid)
+                if tid in __to_modify:
+                    __to_modify[tid][1] = comm_end
                 else:
-                    continue
+                    __to_modify[tid] = [False, comm_end]
+                three_found.add(tid)
+
             comm = deque([_ for _ in comm if _ not in three_found])
             if comm:
-                three_comm.appendleft(comm)
+                three_clique.appendleft(comm)
+
+        self.logger.debug("Communities for modifications: %s", __to_modify)
 
         return __to_modify
 
     def __share_extreme(self, first, second, three_prime=False):
 
         """
+        This function will determine whether two transcripts "overlap" at the 3' or 5' end.
+        The things to be considered are:
+        - whether their extremes are within the maximum distance
+        - whether unifying them would bridge too many splice sites within the locus.
         :param first:
         :param second:
         :return:
         """
 
-        if not three_prime:
-            return (overlap(first.exons[0], second.exons[0]) > 0 and
-                    max(first.start, second.start) + 1 - min(first.start, second.start) < self.json_conf[
-                        "pick"]["alternative_splicing"]["ts_distance"])
+        if three_prime is False:
+            # 5' case
+            first, second = sorted([first, second], key=operator.attrgetter("start"))  # so we know which comes first
+            dist = second.start + 1 - first.start
+            splices = len([_ for _ in first.splices if _ <= second.start])
+            decision = (dist <= self.ts_distance) and (splices <= self.ts_max_splices)
+
         else:
-            return (overlap(first.exons[-1], second.exons[-1]) > 0 and
-                    max(first.end, second.end) + 1 - min(first.end, second.end) < self.json_conf[
-                        "pick"]["alternative_splicing"]["ts_distance"])
+
+            # 3' case
+            first, second = sorted([first, second], key=operator.attrgetter("end"))
+            dist = second.end + 1 - first.end
+            splices = len([_ for _ in second.splices if _ >= first.end])
+            decision = (dist <= self.ts_distance) and (splices <= self.ts_max_splices)
+
+        self.logger.debug("%s and %s do %s overlap (distance %s - max %s, splices %s - max %s)",
+                          first.id, second.id, "" if decision else "not",
+                          dist, self.ts_distance, splices, self.ts_max_splices)
+        return decision
 
     @property
     def __name__(self):
@@ -804,6 +819,14 @@ reached the maximum number of isoforms for the locus".format(
             raise ValueError(value)
         self.__finalized = value
 
+    @property
+    def ts_distance(self):
+        return self.json_conf["pick"]["alternative_splicing"]["ts_distance"]
+
+    @property
+    def ts_max_splices(self):
+        return self.json_conf["pick"]["alternative_splicing"]["ts_max_splices"]
+
 
 def expand_transcript(transcript, new_start, new_end, fai, logger):
 
@@ -838,18 +861,24 @@ def expand_transcript(transcript, new_start, new_end, fai, logger):
     # Now for the difficult part
     if internal_orfs and (new_start or new_end):
         logger.debug("Enlarging the ORFs for TID %s (%s)",
-                       transcript.id, (new_start, new_end))
+                     transcript.id, (new_start, new_end))
         new_orfs = []
-        seq = "".join(
-            TranscriptChecker(
-                transcript,
-                fai[transcript.chrom][transcript.start-1:transcript.end].seq
-            ).fasta.split("\n")[1:])
+
+        assert transcript.end <= len(fai[transcript.chrom]), (transcript.end, len(fai[transcript.chrom]))
+        genome_seq = "".join(fai[transcript.chrom][transcript.start-1:transcript.end].seq.split("\n"))
+
+        if not (transcript.exons[-1][1] - transcript.start + 1 == len(genome_seq)):
+            error = "{} should have a sequence of length {} ({} start, {} end), but one of length {} has been given"
+            error = error.format(transcript.id, transcript.exons[-1][1] - transcript.start + 1,
+                                 transcript.start, transcript.end, len(genome_seq))
+            logger.error(error)
+            raise InvalidTranscript(error)
+        seq = "".join(TranscriptChecker(transcript, genome_seq).fasta.split("\n")[1:])
         assert len(seq) == transcript.cdna_length, (len(seq), transcript.cdna_length, transcript.exons)
         for orf in internal_orfs:
             logger.debug("Old ORF: %s", str(orf))
             try:
-                orf.expand(seq, upstream, downstream)
+                orf.expand(seq, upstream, downstream, expand_orf=False)
             except AssertionError as err:
                 logger.error(err)
                 logger.error("%s, %s, %s, %s, %s, %s",

@@ -865,5 +865,6 @@ def expand_transcript(transcript, new_start, new_end, fai, logger):
         transcript.load_orfs(new_orfs)
 
     # Now finalize again
+    transcript.attributes["padded"] = True
     transcript.finalize()
     return transcript

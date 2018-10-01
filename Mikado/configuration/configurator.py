@@ -61,6 +61,9 @@ def extend_with_default(validator_class, resolver=None, simple=False):
         :return: the prepared instance
         :rtype: dict
         """
+        if not isinstance(instance, dict):
+            return
+
         for prop, subschema in properties.items():
             if instance is None:
                 instance = dict()

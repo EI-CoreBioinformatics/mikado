@@ -1934,16 +1934,22 @@ class PaddingTester(unittest.TestCase):
                 locus.json_conf["pick"]["alternative_splicing"]["ts_max_splices"] = max_splice
                 locus.pad_transcripts()
 
-                if pad_distance == 1000:
+                if pad_distance != 200:
                     self.assertEqual(locus["mikado.44G2.1"].end, locus["mikado.44G2.2"].end)
+                    self.assertTrue(locus["mikado.44G2.2"].attributes["padded"])
+                else:
+                    self.assertFalse(locus["mikado.44G2.1"].attributes.get("padded", False))
 
                 self.assertEqual(locus["mikado.44G2.3"].end, locus["mikado.44G2.2"].end)
                 self.assertEqual(locus["mikado.44G2.4"].end, locus["mikado.44G2.2"].end)
 
                 if locus.ts_max_splices == 5:
                     self.assertEqual(locus["mikado.44G2.4"].end, locus["mikado.44G2.5"].end)
+                    self.assertTrue(locus["mikado.44G2.1"].attributes.get("padded", False))
                 else:
                     self.assertNotEqual(locus["mikado.44G2.4"].end, locus["mikado.44G2.5"].end)
+                    self.assertFalse(locus["mikado.44G2.1"].attributes.get("padded", False))
+
                 for transcript in locus:
                     self.assertGreater(locus[transcript].combined_cds_length, 0)
                     self.assertEqual(locus[transcript].combined_cds_start, cds_coordinates[transcript][0])

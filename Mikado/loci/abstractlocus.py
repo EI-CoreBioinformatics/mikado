@@ -1167,7 +1167,10 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         weights = networkx.get_node_attributes(graph, "weight")
         segments = sorted(list(transcript.exons) + list(transcript.introns), reverse=(transcript.strand == "-"))
         for segment in segments:
-            weights[segment] -= 1
+            if segment in weights:
+                weights[segment] -= 1
+            else:
+                weights[segment] = 0
 
         nodes_to_remove = [interval for interval, weight in weights if weight == 0]
         graph.remove_nodes_from(nodes_to_remove)

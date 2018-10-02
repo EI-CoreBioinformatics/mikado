@@ -689,11 +689,11 @@ class BED12:
 
         self.start_codon = str(old_sequence[self.thick_start + self.phase:self.thick_start + self.phase + 3]).upper()
         # last_codon_start = self.thick_end + ((self.thick_end - self.thick_start + 1 + self.phase) % 3 - 3)
-        self.stop_codon = str(old_sequence[self.thick_end:self.thick_end + 3]).upper()
+        self.stop_codon = str(old_sequence[self.thick_end - 2:self.thick_end + 1]).upper()
 
         assert 0 < len(self.stop_codon) <= 3, self.stop_codon
 
-        logger.warning("%s: start codon %s, old start %s; stop codon %s, old start %s",
+        logger.debug("%s: start codon %s, old start %s; stop codon %s, old start %s",
                        self.name, self.start_codon, self.thick_start + self.phase,
                        self.stop_codon, self.thick_end
                        )
@@ -730,9 +730,13 @@ class BED12:
                         self.thick_end = pos + 3
                         self.stop_codon = codon
                         self.__has_stop = True
+                        logger.debug("New stop codon for %s: %s", self.name, self.thick_end)
                         break
-            if self.stop_codon not in ("TAA", "TGA", "TAG"):
-                self.thick_end = self.end
+                if self.stop_codon not in ("TAA", "TGA", "TAG"):
+                    logger.debug("No valid stop codon found for %s", self.name)
+                    self.thick_end = self.end
+            else:
+                logger.debug("Stop codon already valid for %s", self.name)
 
         self.block_sizes = [self.thick_end - self.thick_start]
         self.block_starts = [self.thick_start]

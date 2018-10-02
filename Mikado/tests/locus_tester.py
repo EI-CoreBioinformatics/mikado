@@ -1902,7 +1902,7 @@ class PaddingTester(unittest.TestCase):
 
     def test_padding(self):
         bed = pkg_resources.resource_stream("Mikado.tests", "padding_test.bed12")
-        genome = pkg_resources.resource_filename("Mikado.tests", "padding_test.fasta")
+        genome = pkg_resources.resource_filename("Mikado.tests", "padding_test.fa")
         transcripts = dict()
         for line in bed:
             line = line.decode()
@@ -1912,13 +1912,14 @@ class PaddingTester(unittest.TestCase):
             assert transcript.start > 0
             assert transcript.end > 0
             assert transcript.is_coding, transcript.format("bed12")
+            assert transcript.strand == "+"
             transcript.finalize()
             transcript.verified_introns = transcript.introns
             transcript.parent = "{}.gene".format(transcript.id)
             transcripts[transcript.id] = transcript
 
         locus = Mikado.loci.Locus(transcripts['mikado.44G2.1'])
-        locus.json_conf["reference"]["genome"] = os.path.join("Mikado", "tests", "padding_test.fa")
+        locus.json_conf["reference"]["genome"] = genome
         for t in transcripts:
             if t == locus.primary_transcript_id:
                 continue
@@ -1928,8 +1929,13 @@ class PaddingTester(unittest.TestCase):
         for transcript in locus:
             cds_coordinates[transcript] = (locus[transcript].combined_cds_start, locus[transcript].combined_cds_end)
 
+        for key in locus:
+            self.assertEqual(locus[key].strand, "+")
+
         for pad_distance, max_splice in zip((200, 1000, 5000), (1, 1, 5)):
             with self.subTest(pad_distance=pad_distance, max_splice=max_splice):
+                logger = create_default_logger("logger", level="WARNING")
+                locus.logger = logger
                 locus.json_conf["pick"]["alternative_splicing"]["ts_distance"] = pad_distance
                 locus.json_conf["pick"]["alternative_splicing"]["ts_max_splices"] = max_splice
                 locus.pad_transcripts()

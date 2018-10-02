@@ -837,8 +837,10 @@ def expand_transcript(transcript, new_start, new_end, fai, logger):
     else:
         internal_orfs = []
     # Remove the CDS and unfinalize
+    strand = transcript.strand
     transcript.strip_cds()
     transcript.unfinalize()
+    assert strand == transcript.strand
 
     upstream = 0
     downstream = 0
@@ -878,7 +880,7 @@ def expand_transcript(transcript, new_start, new_end, fai, logger):
         for orf in internal_orfs:
             logger.debug("Old ORF: %s", str(orf))
             try:
-                orf.expand(seq, upstream, downstream, expand_orf=False)
+                orf.expand(seq, upstream, downstream, expand_orf=True, logger=logger)
             except AssertionError as err:
                 logger.error(err)
                 logger.error("%s, %s, %s, %s, %s, %s",

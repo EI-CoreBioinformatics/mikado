@@ -17,6 +17,7 @@ import copy
 from ..parsers.GFF import GffLine
 from typing import Union
 import re
+from ..utilities.log_utils import create_null_logger
 # import numpy as np
 
 
@@ -664,7 +665,7 @@ class BED12:
                 "Invalid value specified for _max_regression (must be between 0 and 1): {}".format(value))
         self.__max_regression = value
 
-    def expand(self, sequence, upstream, downstream, expand_orf=False):
+    def expand(self, sequence, upstream, downstream, expand_orf=False, logger=create_null_logger()):
 
         """This method will expand a """
         # assert len(sequence) >= len(self)
@@ -687,17 +688,19 @@ class BED12:
         old_sequence = sequence[upstream:len(self) + upstream]
 
         self.start_codon = str(old_sequence[self.thick_start + self.phase:self.thick_start + self.phase + 3]).upper()
-        last_codon_start = self.thick_end + ((self.thick_end - self.thick_start + 1 + self.phase) % 3 - 3)
+        # last_codon_start = self.thick_end + ((self.thick_end - self.thick_start + 1 + self.phase) % 3 - 3)
+        self.stop_codon = str(old_sequence[self.thick_end:self.thick_end + 3]).upper()
 
-        self.stop_codon = str(old_sequence[last_codon_start:self.thick_end]).upper()
+        assert 0 < len(self.stop_codon) <= 3, self.stop_codon
 
-        assert 0< len(self.stop_codon) <= 3, self.stop_codon
-
+        logger.warning("%s: start codon %s, old start %s; stop codon %s, old start %s",
+                       self.name, self.start_codon, self.thick_start + self.phase,
+                       self.stop_codon, self.thick_end
+                       )
         # Now expand
         self.end = len(sequence)
         self.thick_start += upstream
         self.thick_end += upstream
-        last_codon_start += upstream
         if expand_orf is True:
             if self.start_codon != "ATG":
                 for pos in range(self.thick_start - self.phase,
@@ -719,7 +722,7 @@ class BED12:
                 self.__has_start = True
 
             if self.stop_codon not in ("TAA", "TGA", "TAG"):
-                for pos in range(last_codon_start,
+                for pos in range(self.thick_end,
                                  self.end,
                                  3):
                     codon = sequence[pos:pos + 3]

@@ -1102,7 +1102,14 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             check = True
             if ("filter" in self.json_conf["scoring"][param] and
                     self.json_conf["scoring"][param]["filter"] != {}):
-                check = self.evaluate(tid_metric, self.json_conf["scoring"][param]["filter"])
+                if "metric" not in self.json_conf["scoring"][param]["filter"]:
+                    metric_to_evaluate = tid_metric
+                else:
+                    metric_key = self.json_conf["scoring"][param]["filter"]["metric"]
+                    if not hasattr(self.transcripts[tid], metric_key):
+                        raise KeyError("Asked for an invalid metric in filter: {}".format(metric_key))
+                    metric_to_evaluate = getattr(self.transcripts[tid], metric_key)
+                check = self.evaluate(metric_to_evaluate, self.json_conf["scoring"][param]["filter"])
 
             if check is True:
                 if use_raw is True:

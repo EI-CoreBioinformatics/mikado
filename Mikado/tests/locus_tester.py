@@ -1900,23 +1900,103 @@ class PicklingTest(unittest.TestCase):
 
 class PaddingTester(unittest.TestCase):
 
-    def test_padding(self):
-        bed = pkg_resources.resource_stream("Mikado.tests", "padding_test.bed12")
-        genome = pkg_resources.resource_filename("Mikado.tests", "padding_test.fa")
+    @staticmethod
+    def load_from_bed(manager, resource):
         transcripts = dict()
-        for line in bed:
-            line = line.decode()
-            line = BED12(line, coding=True)
-            line.coding = True
-            transcript = Transcript(line)
-            assert transcript.start > 0
-            assert transcript.end > 0
-            assert transcript.is_coding, transcript.format("bed12")
-            assert transcript.strand == "+"
-            transcript.finalize()
-            transcript.verified_introns = transcript.introns
-            transcript.parent = "{}.gene".format(transcript.id)
-            transcripts[transcript.id] = transcript
+        with pkg_resources.resource_stream(manager, resource) as bed:
+            for line in bed:
+                line = line.decode()
+                line = BED12(line, coding=True)
+                line.coding = True
+                transcript = Transcript(line)
+                assert transcript.start > 0
+                assert transcript.end > 0
+                assert transcript.is_coding, transcript.format("bed12")
+                transcript.finalize()
+                transcript.verified_introns = transcript.introns
+                transcript.parent = "{}.gene".format(transcript.id)
+                transcripts[transcript.id] = transcript
+        return transcripts
+
+    def test_negative_padding(self):
+        genome = pkg_resources.resource_filename("Mikado.tests", "neg_pad.fa")
+        transcripts = self.load_from_bed("Mikado.tests", "neg_pad.bed12")
+        locus = Mikado.loci.Locus(transcripts['Human_coding_ENSP00000371111.2.m1'])
+        locus.json_conf["reference"]["genome"] = genome
+        for t in transcripts:
+            if t == locus.primary_transcript_id:
+                continue
+            locus.add_transcript_to_locus(transcripts[t])
+
+        self.assertEqual(transcripts['Human_coding_ENSP00000371111.2.m1'].combined_cds_end, 1646)
+        self.assertEqual(transcripts['Human_coding_ENSP00000371111.2.m1'].combined_cds_start, 33976)
+        self.assertEqual(transcripts['Human_coding_ENSP00000371111.2.m1'].combined_cds_end,
+                         transcripts['Human_coding_ENSP00000371111.2.m1'].start)
+        self.assertEqual(transcripts['Human_coding_ENSP00000371111.2.m1'].combined_cds_start,
+                         transcripts['Human_coding_ENSP00000371111.2.m1'].end)
+
+        cds_coordinates = dict()
+        for transcript in locus:
+            cds_coordinates[transcript] = (locus[transcript].combined_cds_start, locus[transcript].combined_cds_end)
+
+        corr = {1: "Human_coding_ENSP00000371111.2.m1", # 1645	33976
+                2: "Mikado_gold_mikado.0G230.1", # 1	34063
+                3: "ACOCA10068_run2_woRNA_ACOCA10068_r3_0032600.1" # 1032	34095
+                }
+
+        for pad_distance, max_splice in zip((130, 700, 1500, 2000), (1, )):
+            with self.subTest(pad_distance=pad_distance, max_splice=max_splice):
+                logger = create_default_logger("logger", level="WARNING")
+                locus.logger = logger
+                locus.json_conf["pick"]["alternative_splicing"]["ts_distance"] = pad_distance
+                locus.json_conf["pick"]["alternative_splicing"]["ts_max_splices"] = max_splice
+                locus.pad_transcripts()
+                for transcript in locus:
+                    self.assertGreater(locus[transcript].combined_cds_length, 0, transcript)
+                    self.assertEqual(locus[transcript].combined_cds_start, cds_coordinates[transcript][0])
+                    self.assertEqual(locus[transcript].combined_cds_end, cds_coordinates[transcript][1])
+                if pad_distance > 120:  # Ends must be uniform
+                    self.assertEqual(locus[corr[1]].end, locus[corr[3]].end,
+                                     ([locus[corr[_]].end for _ in range(1, 4)],
+                                     locus._share_extreme(transcripts[corr[1]],
+                                                          transcripts[corr[2]],
+                                                          three_prime=False))
+                                     )
+                    self.assertEqual(locus[corr[1]].end, locus[corr[2]].end,
+                                     ([locus[corr[_]].end for _ in range(1, 4)],
+                                     locus._share_extreme(transcripts[corr[1]],
+                                                          transcripts[corr[2]],
+                                                          three_prime=False))
+                                     )
+
+                elif pad_distance < 20:
+                    self.assertNotEqual(locus[corr[1]].end, locus[corr[3]].end)
+                    self.assertNotEqual(locus[corr[1]].end, locus[corr[2]].end)
+                    self.assertNotEqual(locus[corr[2]].end, locus[corr[3]].end)
+
+                if pad_distance >= (abs(transcripts[corr[1]].start - transcripts[corr[2]].start)):
+                    self.assertEqual(locus[corr[1]].start,
+                                     locus[corr[2]].start)
+                    self.assertEqual(locus[corr[1]].start,
+                                     locus[corr[3]].start)
+                else:
+
+                    self.assertNotEqual(locus[corr[1]].start, locus[corr[2]].start,
+                                        (abs(transcripts[corr[1]].start - transcripts[corr[2]].start),
+                                         pad_distance,
+                                         locus._share_extreme(transcripts[corr[1]], transcripts[corr[2]],
+                                                              three_prime=True)
+                                        ))
+
+                if pad_distance >= (abs(transcripts[corr[1]].start - transcripts[corr[3]].start)):
+                    self.assertEqual(locus[corr[3]].start,
+                                     locus[corr[1]].start)
+                else:
+                    self.assertNotEqual(locus[corr[3]].start, locus[corr[1]].start)
+
+    def test_padding(self):
+        genome = pkg_resources.resource_filename("Mikado.tests", "padding_test.fa")
+        transcripts = self.load_from_bed("Mikado.tests", "padding_test.bed12")
 
         locus = Mikado.loci.Locus(transcripts['mikado.44G2.1'])
         locus.json_conf["reference"]["genome"] = genome

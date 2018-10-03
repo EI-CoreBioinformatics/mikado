@@ -579,8 +579,8 @@ reached the maximum number of isoforms for the locus".format(
         except KeyError:
             raise KeyError(self.json_conf.keys())
 
-        five_graph = self.define_graph(self.transcripts, self.__share_extreme, three_prime=False)
-        three_graph = self.define_graph(self.transcripts, self.__share_extreme, three_prime=True)
+        five_graph = self.define_graph(self.transcripts, self._share_extreme, three_prime=False)
+        three_graph = self.define_graph(self.transcripts, self._share_extreme, three_prime=True)
 
         self.logger.debug("5' graph: %s", five_graph.edges)
         self.logger.debug("3' graph: %s", three_graph.edges)
@@ -618,6 +618,8 @@ reached the maximum number of isoforms for the locus".format(
         five_found = set()
 
         __to_modify = dict()
+        if self.strand == "-":
+            five_clique, three_clique = three_clique, five_clique
 
         self.logger.debug("5' communities to uniform: %s", five_clique)
 
@@ -670,7 +672,7 @@ reached the maximum number of isoforms for the locus".format(
 
         return __to_modify
 
-    def __share_extreme(self, first, second, three_prime=False):
+    def _share_extreme(self, first, second, three_prime=False):
 
         """
         This function will determine whether two transcripts "overlap" at the 3' or 5' end.
@@ -682,20 +684,22 @@ reached the maximum number of isoforms for the locus".format(
         :return:
         """
 
-        if three_prime is False:
+        if (three_prime is False and first.strand in ("+", ".")) or (three_prime is True and first.strand == "-"):
             # 5' case
             first, second = sorted([first, second], key=operator.attrgetter("start"))  # so we know which comes first
             dist = second.start + 1 - first.start
+            assert dist > 0
             splices = len([_ for _ in first.splices if _ <= second.start])
             decision = (dist <= self.ts_distance) and (splices <= self.ts_max_splices)
-
-        else:
-
+        elif (three_prime is False and first.strand == "-") or (three_prime is True and first.strand in ("+", ".")):
             # 3' case
             first, second = sorted([first, second], key=operator.attrgetter("end"))
             dist = second.end + 1 - first.end
+            assert dist > 0
             splices = len([_ for _ in second.splices if _ >= first.end])
             decision = (dist <= self.ts_distance) and (splices <= self.ts_max_splices)
+        else:
+            raise ValueError("Undetermined case")
 
         self.logger.debug("%s and %s do %s overlap (distance %s - max %s, splices %s - max %s)",
                           first.id, second.id, "" if decision else "not",
@@ -860,6 +864,9 @@ def expand_transcript(transcript, new_start, new_end, fai, logger):
         transcript.exons = sorted(transcript.exons)
 
     transcript.finalize()
+    if transcript.strand == "-":
+        downstream, upstream = upstream, downstream
+
     # Now for the difficult part
     if internal_orfs and (new_start or new_end):
         logger.debug("Enlarging the ORFs for TID %s (%s)",
@@ -880,6 +887,8 @@ def expand_transcript(transcript, new_start, new_end, fai, logger):
         for orf in internal_orfs:
             logger.debug("Old ORF: %s", str(orf))
             try:
+                logger.debug("Sequence for %s: %s[..]%s (upstream %s, downstream %s)",
+                             transcript.id, seq[:10], seq[-10:], upstream, downstream)
                 orf.expand(seq, upstream, downstream, expand_orf=True, logger=logger)
             except AssertionError as err:
                 logger.error(err)

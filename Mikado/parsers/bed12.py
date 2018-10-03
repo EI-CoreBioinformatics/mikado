@@ -681,11 +681,11 @@ class BED12:
         if self.strand == "-":
             raise NotImplementedError("I can only expand ORFs on the sense strand")
 
+        old_sequence = sequence[upstream:len(self) + upstream]
+        assert len(old_sequence) + upstream + downstream == len(sequence)
         self.fasta_length = len(sequence)
 
         # I presume that the sequence is already in the right orientation
-
-        old_sequence = sequence[upstream:len(self) + upstream]
 
         self.start_codon = str(old_sequence[self.thick_start + self.phase -1 :self.thick_start + self.phase + 2]).upper()
         # last_codon_start = self.thick_end + ((self.thick_end - self.thick_start + 1 + self.phase) % 3 - 3)

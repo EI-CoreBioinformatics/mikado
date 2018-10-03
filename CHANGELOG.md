@@ -1,3 +1,18 @@
+# Version 1.2.5
+
+One of the major highlights of this release is the completion of the "padding" functionality.
+Briefly, if instructed to do so, now Mikado will be able to uniform the ends of transcripts within a single locus (similar to what was done for the last _Arabidopsis thaliana_ annotation release).
+The behaviour is controlled by the "pad" boolean switch, and by the "ts_max_splices" and "ts_distance" parameters under "pick".
+
+Bugfixes and improvements:
+
+- Fixed a bug which caused some loci to crash at the last part of the picking stage
+- Now coding and non-coding transcripts will be in different loci
+- Fixed [#126](https://github.com/lucventurini/mikado/issues/126): now reversing the strand of a model will cause its CDS to be stripped.
+- Fixed [#127](https://github.com/lucventurini/mikado/issues/127): previously, Mikado _prepare_ only considered cDNA coordinates when determining the redundancy of two models. In some edge cases, two models could be identical but have a different ORF called. Now Mikado will also consider the CDS before deciding whether to discard a model as redundant.
+- [#129](https://github.com/lucventurini/mikado/issues/129): Mikado is now capable of correctly padding the transcripts so to uniform their ends in a single locus. This will also have the effect of trying to enlarge the ORF of a transcript if it is truncated to begin with.
+- [#130](https://github.com/lucventurini/mikado/issues/130): it is now possible to specify a different metric inside the "filter" section of scoring.
+
 # Version 1.2.4
 
 Enhancement release. Following version 1.2.3, now Mikado can accept BED12 files as input for convert, compare and stats (see #122). This is becoming necessary as many long-reads alignment tools are preferentially outputting (or can be easily converted to) this format.

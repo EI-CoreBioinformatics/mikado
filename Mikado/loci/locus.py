@@ -626,7 +626,7 @@ reached the maximum number of isoforms for the locus".format(
             comm = five_clique.popleft()
             comm = deque(sorted(list(set.difference(set(comm), five_found)),
                          key=lambda internal_tid: self[internal_tid].start))
-            if len(comm) == 1:
+            if len(comm) < 2:
                 continue
             first = comm.popleft()
             five_found.add(first)
@@ -650,7 +650,7 @@ reached the maximum number of isoforms for the locus".format(
             comm = three_clique.popleft()
             comm = deque(sorted(list(set.difference(set(comm), three_found)),
                          key=lambda internal_tid: self[internal_tid].end, reverse=True))
-            if len(comm) == 1:
+            if len(comm) < 2:
                 continue
             first = comm.popleft()
             three_found.add(first)

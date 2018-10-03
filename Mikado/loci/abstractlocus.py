@@ -1069,65 +1069,82 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
         rescaling = self.json_conf["scoring"][param]["rescaling"]
         use_raw = self.json_conf["scoring"][param]["use_raw"]
+        multiplier = self.json_conf["scoring"][param]["multiplier"]
 
         metrics = dict((tid, getattr(self.transcripts[tid], param)) for tid in self.transcripts)
 
-        if use_raw is True and not param.startswith("external") and getattr(Transcript, param).usable_raw is False:
-            self.logger.warning("The \"%s\" metric cannot be used as a raw score for %s, switching to False",
-                                param, self.id)
-            use_raw = False
-        if use_raw is True and rescaling == "target":
-            self.logger.warning("I cannot use a raw score for %s in %s when looking for a target. Switching to False",
-                                param, self.id)
-            use_raw = False
-
-        if rescaling == "target":
-            target = self.json_conf["scoring"][param]["value"]
-            denominator = max(abs(x - target) for x in metrics.values())
-        else:
-            target = None
-            if use_raw is True and rescaling == "max":
-                denominator = 1
-            elif use_raw is True and rescaling == "min":
-                denominator = -1
-            else:
-                denominator = (max(metrics.values()) - min(metrics.values()))
-        if denominator == 0:
-            denominator = 1
-
-        scores = []
-        for tid in metrics:
+        for tid in self.transcripts.keys():
             tid_metric = metrics[tid]
-            score = 0
-            check = True
             if ("filter" in self.json_conf["scoring"][param] and
                     self.json_conf["scoring"][param]["filter"] != {}):
-                check = self.evaluate(tid_metric, self.json_conf["scoring"][param]["filter"])
-
-            if check is True:
-                if use_raw is True:
-                    if not isinstance(tid_metric, (float, int)) and 0 <= tid_metric <= 1:
-                        error = ValueError(
-                            "Only scores with values between 0 and 1 can be used raw. Please recheck your values.")
-                        self.logger.exception(error)
-                        raise error
-                    score = tid_metric / denominator
-                elif rescaling == "target":
-                    score = 1 - abs(tid_metric - target) / denominator
+                if "metric" not in self.json_conf["scoring"][param]["filter"]:
+                    metric_to_evaluate = tid_metric
                 else:
-                    if min(metrics.values()) == max(metrics.values()):
-                        score = 1
-                    elif rescaling == "max":
-                        score = abs((tid_metric - min(metrics.values())) / denominator)
-                    elif rescaling == "min":
-                        score = abs(1 - (tid_metric - min(metrics.values())) / denominator)
+                    metric_key = self.json_conf["scoring"][param]["filter"]["metric"]
+                    if not hasattr(self.transcripts[tid], metric_key):
+                        raise KeyError("Asked for an invalid metric in filter: {}".format(metric_key))
+                    metric_to_evaluate = getattr(self.transcripts[tid], metric_key)
+                check = self.evaluate(metric_to_evaluate, self.json_conf["scoring"][param]["filter"])
+                if not check:
+                    del metrics[tid]
+            else:
+                continue
 
-            score *= self.json_conf["scoring"][param]["multiplier"]
-            self.scores[tid][param] = round(score, 2)
-            scores.append(score)
+        if len(metrics) == 0:
+            for tid in self.transcripts:
+                self.scores[tid][param] = 0
+        else:
+
+            if use_raw is True and not param.startswith("external") and getattr(Transcript, param).usable_raw is False:
+                self.logger.warning("The \"%s\" metric cannot be used as a raw score for %s, switching to False",
+                                    param, self.id)
+                use_raw = False
+            if use_raw is True and rescaling == "target":
+                self.logger.warning("I cannot use a raw score for %s in %s when looking for a target. Switching to False",
+                                    param, self.id)
+                use_raw = False
+
+            if rescaling == "target":
+                target = self.json_conf["scoring"][param]["value"]
+                denominator = max(abs(x - target) for x in metrics.values())
+            else:
+                target = None
+                if use_raw is True and rescaling == "max":
+                    denominator = 1
+                elif use_raw is True and rescaling == "min":
+                    denominator = -1
+                else:
+                    denominator = (max(metrics.values()) - min(metrics.values()))
+            if denominator == 0:
+                denominator = 1
+
+            for tid in self.transcripts.keys():
+                score = 0
+                if tid in metrics:
+                    tid_metric = metrics[tid]
+                    if use_raw is True:
+                        if not isinstance(tid_metric, (float, int)) and 0 <= tid_metric <= 1:
+                            error = ValueError(
+                                "Only scores with values between 0 and 1 can be used raw. Please recheck your values.")
+                            self.logger.exception(error)
+                            raise error
+                        score = tid_metric / denominator
+                    elif rescaling == "target":
+                        score = 1 - abs(tid_metric - target) / denominator
+                    else:
+                        if min(metrics.values()) == max(metrics.values()):
+                            score = 1
+                        elif rescaling == "max":
+                            score = abs((tid_metric - min(metrics.values())) / denominator)
+                        elif rescaling == "min":
+                            score = abs(1 - (tid_metric - min(metrics.values())) / denominator)
+
+                score *= multiplier
+                self.scores[tid][param] = round(score, 2)
 
         # This MUST be true
-        if "filter" not in self.json_conf["scoring"][param] and max(scores) <= 0:
+        if "filter" not in self.json_conf["scoring"][param] and max(
+                [self.scores[tid][param] for tid in self.transcripts.keys()]) == 0:
             self.logger.warning("All transcripts have a score of 0 for %s in %s",
                                 param, self.id)
 

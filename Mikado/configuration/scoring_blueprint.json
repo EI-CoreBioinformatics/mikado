@@ -12,10 +12,12 @@
         "oneOf": [
           {
             "operator": { "oneOf": ["gt", "ge", "lt", "le"], "optional": false},
-            "value": {"type": "number", "optional": false}
+            "value": {"type": "number", "optional": false},
+            "metric": {"type": "string", "optional": true}
           },
           {
             "operator": { "oneOf": ["ne", "eq"], "optional": false},
+            "metric": {"type": "string", "optional": true},
             "value": {
               "oneOf": [{"type": "number"}, {"type": "boolean"}],
               "optional": false}
@@ -28,7 +30,8 @@
               ],
               "optional": false
             },
-            "value": {"type": "array"}
+            "metric": {"type": "string", "optional": true},
+            "value": {"type": "array", "optional": false}
           },
           {
             "operator": {
@@ -38,7 +41,9 @@
               ],
               "optional": false
             },
+            "metric": {"type": "string", "optional": true},
             "value": {
+              "optional": false,
               "type": "array",
               "items": {
                 "type": "number"

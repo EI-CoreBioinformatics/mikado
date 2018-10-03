@@ -356,7 +356,7 @@ class Transcript:
 
     def __initialize_with_bed12(self, transcript_row: BED12):
 
-        self.chrom = intern(transcript_row.chrom)
+        self.chrom = intern(str(transcript_row.chrom))
         self.name = self.id = transcript_row.name
         self.start, self.end = transcript_row.start, transcript_row.end
         self.score = transcript_row.score

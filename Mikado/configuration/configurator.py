@@ -177,6 +177,10 @@ def check_scoring(json_conf):
             elif json_conf["scoring"][parameter]["use_raw"] is True:
                 invalid_raw.add(parameter)
 
+        if "filter" in json_conf["scoring"][parameter] and "metric" in json_conf["scoring"][parameter]["filter"]:
+            if json_conf["scoring"][parameter]["filter"]["metric"] not in available_metrics:
+                parameters_not_found.append(json_conf["scoring"][parameter]["filter"]["metric"])
+
     if len(parameters_not_found) > 0 or len(double_parameters) > 0 or len(invalid_filter) > 0 or len(invalid_raw) > 0:
         err_message = ''
         if len(parameters_not_found) > 0:

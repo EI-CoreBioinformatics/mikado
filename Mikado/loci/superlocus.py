@@ -1120,7 +1120,49 @@ class Superlocus(Abstractlocus):
         if self.json_conf["pick"]["alternative_splicing"]["report"] is True:
             self.define_alternative_splicing()
 
+        self.__find_lost_transcripts()
+        while len(self.lost_transcripts) > 0:
+            new_locus = None
+            for transcript in self.lost_transcripts.values():
+                if new_locus is None:
+                    new_locus = Superlocus(transcript,
+                                           json_conf=self.json_conf,
+                                           use_transcript_scores=self._use_transcript_scores,
+                                           stranded=self.stranded,
+                                           verified_introns=self.locus_verified_introns,
+                                           logger = self.logger,
+                                           source=self.source
+                                           )
+                else:
+                    new_locus.add_transcript_to_locus(transcript)
+            new_locus.define_loci()
+            self.loci.update(new_locus.loci)
+            self.__lost = new_locus.lost_transcripts
         return
+
+    def __find_lost_transcripts(self):
+
+        if self.loci_defined is True:
+            return
+
+        loci_transcripts = itertools.chain(*[{self.loci[_].transcripts.keys()} for _ in self.loci])
+
+        for tid in set.difference({self.transcripts.keys()}, loci_transcripts):
+            found = False
+            for lid in self.loci:
+                if MonosublocusHolder.in_locus(self.loci[lid], self.transcripts[tid]):
+                    found = True
+                    break
+                else:
+                    continue
+            if found is True:
+                continue
+            else:
+                self.__lost.update({tid: self.transcripts[tid]})
+
+        if len(self.__lost):
+            self.logger.warning("Lost %s transcripts from %s; starting the recovery process",
+                                len(self.lost_transcripts), self.id)
 
     def define_alternative_splicing(self):
 
@@ -1180,7 +1222,6 @@ class Superlocus(Abstractlocus):
 
         # Now we have to recheck that no AS event is linking more than one locus.
         to_remove = collections.defaultdict(list)
-        lost_found_ids = set()
         for lid in self.loci:
             for tid, transcript in [_ for _ in self.loci[lid].transcripts.items() if
                                     _[0] != self.loci[lid].primary_transcript_id]:
@@ -1191,22 +1232,11 @@ class Superlocus(Abstractlocus):
                         self.logger.warning("%s is compatible with more than one locus. Removing it.", tid)
                         to_remove[lid].append(tid)
 
-            for tid in self.__lost:
-                if MonosublocusHolder.in_locus(self.loci[lid], self.lost_transcripts[tid]):
-                    lost_found_ids.add(tid)
-
         for lid in to_remove:
             for tid in to_remove[lid]:
                 self.loci[lid].remove_transcript_from_locus(tid)
 
             self.loci[lid].finalize_alternative_splicing()
-
-        for tid in lost_found_ids:
-            del self.__lost[tid]
-
-        if len(self.__lost):
-            self.logger.warning("Lost %s transcripts from %s; starting the recovery process",
-                                len(self.lost_transcripts), self.id)
 
         return
 

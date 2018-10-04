@@ -435,10 +435,20 @@ cpdef tuple compare(prediction, reference, bint lenient=False, bint strict_stran
                                   min(reference.start, prediction.start),
                                   max(reference.end, prediction.end))
 
+    if reference.parent == [] or reference.parent is None:
+        ref_parent = "NA"
+    else:
+        ref_parent = ",".join([str(_) for _ in reference.parent])
+
+    if prediction.parent == [] or prediction.parent is None:
+        pred_parent = "NA"
+    else:
+        pred_parent = ",".join([str(_) for _ in prediction.parent])
+
     result = ResultStorer(reference.id,
-                          ",".join(reference.parent),
+                          ref_parent,
                           ccode, prediction.id,
-                          ",".join(prediction.parent),
+                          pred_parent,
                           len(prediction.exons),
                           len(reference.exons),
                           # Nucleotide stats

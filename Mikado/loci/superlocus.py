@@ -908,7 +908,8 @@ class Superlocus(Abstractlocus):
             subl = sorted(subl)
             new_sublocus = Sublocus(subl[0],
                                     json_conf=self.json_conf,
-                                    logger=self.logger
+                                    logger=self.logger,
+                                    use_transcript_scores=self._use_transcript_scores
                                     )
             new_sublocus.logger = self.logger
             if self.regressor is not None:
@@ -1232,14 +1233,15 @@ class Superlocus(Abstractlocus):
             monosub = self.monosubloci[community.pop()]
             holder = MonosublocusHolder(monosub,
                                         json_conf=self.json_conf,
-                                        logger=self.logger)
+                                        logger=self.logger,
+                                        use_transcript_scores=self._use_transcript_scores)
             while len(community) > 0:
                 holder.add_monosublocus(self.monosubloci[community.pop()],
                                         check_in_locus=False)
             self.monoholders.append(holder)
 
         for monoholder in self.monoholders:
-            monoholder.scores_calculated = False
+            # monoholder.scores_calculated = False
             if self.regressor is not None:
                 monoholder.regressor = self.regressor
             monoholder.calculate_scores()

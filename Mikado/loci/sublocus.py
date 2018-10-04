@@ -69,7 +69,6 @@ class Sublocus(Abstractlocus):
         self.splitted = False
         # Flag to indicate that we have not calculated the metrics for the transcripts
         # Flag to indicate that we have not calculated the scores for the transcripts
-        self.scores_calculated = False
         setattr(self, "monoexonic", getattr(transcript_instance, "monoexonic", None))
         if json_conf is None or not isinstance(json_conf, dict):
             raise ValueError("I am missing the configuration for prioritizing transcripts!")
@@ -236,7 +235,8 @@ class Sublocus(Abstractlocus):
                 if purge is False or selected_transcript.score > 0:
                     new_locus = Monosublocus(selected_transcript,
                                              logger=self.logger,
-                                             json_conf=self.json_conf)
+                                             json_conf=self.json_conf,
+                                             use_transcript_scores=self._use_transcript_scores)
                     new_locus.json_conf = self.json_conf
                     self.monosubloci.append(new_locus)
             if len(to_remove) < 1:

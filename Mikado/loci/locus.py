@@ -45,8 +45,6 @@ class Locus(Abstractlocus):
         self.monoexonic = transcript.monoexonic
         Abstractlocus.add_transcript_to_locus(self, transcript)
         self.locus_verified_introns = transcript.verified_introns
-        self.metrics_calculated = False
-        self.scores_calculated = False
         # A set of the transcript we will ignore during printing
         # because they are duplications of the original instance. Done solely to
         # get the metrics right.

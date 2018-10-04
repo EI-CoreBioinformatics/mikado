@@ -450,9 +450,9 @@ Coding_exons (recalculated): {}""".format(
                                     transcript.id, __calculated_phases)
         if total_cds_length % 3 != 0 and three_utr and five_utr:
             # The transcript is truncated.
-            raise InvalidCDS(""""Both UTR presents with a truncated ORF in {}
+            raise InvalidCDS(""""Both UTR presents with a truncated ORF (length {}, modulo {}) in {};
 5'UTR: {}
-3' UTR: {}""".format(transcript.id, five_utr, three_utr))
+3' UTR: {}""".format(total_cds_length, total_cds_length % 3, transcript.id, five_utr, three_utr))
         elif total_cds_length % 3 != 0 and three_utr:
             for num in (0, 1, 2):
                 total_cds_length, __calculated_phases = __calculate_phases(coding,

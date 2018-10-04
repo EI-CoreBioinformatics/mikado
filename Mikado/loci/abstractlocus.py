@@ -63,7 +63,8 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                  logger=None,
                  source="",
                  verified_introns=None,
-                 json_conf=None):
+                 json_conf=None,
+                 use_transcript_scores=False):
 
         # Mock values
         self.__source = source
@@ -99,6 +100,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         self.json_conf = json_conf
         if transcript_instance is not None and isinstance(transcript_instance, Transcript):
             self.add_transcript_to_locus(transcript_instance)
+        self.__use_transcript_scores = use_transcript_scores
 
     @abc.abstractmethod
     def __str__(self, *args, **kwargs):
@@ -441,7 +443,11 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
         self.initialized = True
         self.metrics_calculated = False
-        self.scores_calculated = False
+        if self._use_transcript_scores is False:
+            self.scores_calculated = False
+        else:
+            self.scores[transcript.id] = transcript.score
+            self.scores_calculated = True
 
         return
 
@@ -604,6 +610,23 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                         break
 
         return is_retained
+
+    def _load_scores(self, scores: dict):
+        """This private method is present *strictly for testing purposes only*.
+        Its aim is to load some pre-calculated scores for the transcripts in the locus,
+        *completely bypassing the normal method of calculating scores*."""
+
+        if not isinstance(scores, dict):
+            raise ValueError("This private method takes strictly a dictionary as input")
+
+        if set.difference(set(self.transcripts.keys()), set(scores.keys())):
+            raise KeyError("I am missing transcripts from the scores dictionary. Aborting")
+
+        for tid in self.transcripts:
+            self.scores[tid] = scores[tid]
+
+        self.scores_calculated = True
+        self.metrics_calculated = True
 
     def find_retained_introns(self, transcript: Transcript):
 
@@ -894,6 +917,9 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
         if ("compiled" not in self.json_conf["requirements"] or
                 self.json_conf["requirements"]["compiled"] is None):
+            if "expression" not in self.json_conf["requirements"]:
+                raise KeyError(self.json_conf["requirements"])
+
             self.json_conf["requirements"]["compiled"] = compile(
                 self.json_conf["requirements"]["expression"], "<json>",
                 "eval")
@@ -1418,3 +1444,14 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         """This property relates to pick/clustering/purge."""
 
         return self.json_conf.get("pick", dict()).get("clustering", {}).get("purge", True)
+
+    @property
+    def _use_transcript_scores(self):
+        return self.__use_transcript_scores
+
+    @_use_transcript_scores.setter
+    def _use_transcript_scores(self, val):
+        if not isinstance(val, bool):
+            raise ValueError("This method takes only boolean values")
+        self.__use_transcript_scores = val
+        self.scores_calculated = val

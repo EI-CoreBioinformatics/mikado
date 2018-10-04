@@ -51,9 +51,7 @@ class ScoreTester(unittest.TestCase):
                 }
 
         reqs = Mikado.configuration.configurator.check_requirements(reqs, require_schema, "requirements")
-        print(reqs["requirements"]["expression"])
         self.json_conf["requirements"] = reqs["requirements"]
-        print(self.json_conf["requirements"]["expression"])
         self.locus = Mikado.loci.Superlocus(self.t1, json_conf=self.json_conf)
         self.locus.add_transcript_to_locus(self.t2)
         self.locus.add_transcript_to_locus(self.t3)
@@ -217,6 +215,22 @@ class ScoreTester(unittest.TestCase):
             self.assertIn(transcript.id, locus)
             self.assertEqual(locus.scores[transcript.id], transcript.score)
 
+
+class LocusMissedTester(unittest.TestCase):
+
+    def setUp(self):
+        self.json_conf = Mikado.loci.abstractlocus.json_conf
+        reqs = {"requirements":
+                    {"expression": ["cdna_length"],
+                     "parameters": {
+                         "cdna_length": {"operator": "gt", "value": 0}
+                     }
+                     }
+                }
+
+        reqs = Mikado.configuration.configurator.check_requirements(reqs, require_schema, "requirements")
+        self.json_conf["requirements"] = reqs["requirements"]
+
     def test_transcript_not_missed(self):
 
         b1 = BED12("1\t100\t500\tID=t1;coding=True\t20\t+\t200\t459\t.\t2\t200,100,\t0,300", coding=True)
@@ -265,3 +279,59 @@ class ScoreTester(unittest.TestCase):
         self.assertEqual(len(locus.loci), 2)
         primaries = set([locus.loci[_].primary_transcript_id for _ in locus.loci])
         self.assertEqual(primaries, {t3.id, t1.id})
+
+    def test_transcript_missed(self):
+
+        """This unit-test describes a situation which currently is pathological in Mikado (issue #131).
+        Namely, given three transcripts (A, B, C), with A sharing an intron with B and having *lower* score;
+        and B sharing a *splice site* with C but having lower score than the latter; Mikado will end up selecting
+        B and C at the sublocus stage, then discard B - without recovering A. This will lead to potential loss of good
+        loci.
+        """
+
+        b1 = BED12("1\t100\t500\tID=t1;coding=True\t20\t+\t200\t459\t.\t2\t200,100,\t0,300", coding=True)
+        self.assertFalse(b1.invalid, b1.invalid_reason)
+        self.assertTrue(b1.coding)
+        self.assertTrue(b1.is_transcript)
+        self.assertEqual(b1.thick_start, 201)
+        self.assertEqual(b1.thick_end, 459)
+        logger = create_default_logger("test_transcript_missed", level="ERROR")
+        t1 = Mikado.transcripts.Transcript(b1, logger=logger)
+        t1.finalize()
+        self.assertEqual(sorted(t1.exons), [(101, 300), (401, 500)])
+
+        b2 = BED12("1\t100\t1500\tID=t2;coding=True\t25\t+\t200\t901\t.\t4\t200,150,400,170\t0,300,700,1230",
+                   coding=True)
+        self.assertFalse(b2.invalid, b2.invalid_reason)
+        self.assertTrue(b2.coding)
+        self.assertTrue(b2.is_transcript)
+        self.assertEqual(b2.thick_start, 201)
+        self.assertEqual(b2.thick_end, 901)
+        # logger.setLevel("DEBUG")
+        t2 = Mikado.transcripts.Transcript(b2, logger=logger)
+        t2.finalize()
+        self.assertTrue(t2.is_coding)
+        self.assertEqual(sorted(t2.exons), [(101, 300), (401, 550), (801, 1200), (1331, 1500)])
+        self.assertEqual([t2.combined_cds_start, t2.combined_cds_end], [201, 901])
+
+        b3 = BED12("1\t800\t1500\tID=t3;coding=True\t40\t+\t820\t1370\t.\t4\t50,100,100,200\t0,150,300,500",
+                   coding=True)
+        self.assertFalse(b3.invalid, b3.invalid_reason)
+        self.assertTrue(b3.coding)
+        self.assertTrue(b3.is_transcript)
+        self.assertEqual(b3.thick_start, 821)
+        self.assertEqual(b3.thick_end, 1370)
+        # logger.setLevel("DEBUG")
+        t3 = Mikado.transcripts.Transcript(b3, logger=logger)
+        t3.finalize()
+        self.assertTrue(t3.is_coding)
+        self.assertEqual(sorted(t3.exons), [(801, 850), (951, 1050), (1101, 1200), (1301, 1500)])
+        self.assertEqual([t3.combined_cds_start, t3.combined_cds_end], [821, 1370])
+
+        locus = Mikado.loci.Superlocus(t1, use_transcript_scores=True, json_conf=self.json_conf, logger=logger)
+        locus.add_transcript_to_locus(t2)
+        locus.add_transcript_to_locus(t3)
+        locus.define_loci()
+        self.assertEqual(len(locus.loci), 1)
+        primaries = set([locus.loci[_].primary_transcript_id for _ in locus.loci])
+        self.assertEqual(primaries, {t3.id})

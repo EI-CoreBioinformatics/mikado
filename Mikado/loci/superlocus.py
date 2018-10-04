@@ -145,6 +145,7 @@ class Superlocus(Abstractlocus):
         self.excluded_transcripts = None
         self.__retained_sources = set()
         self.__data_loaded = False
+        self.__lost = dict()
         if transcript_instance is not None:
             super().add_transcript_to_locus(transcript_instance)
             assert transcript_instance.monoexonic is True or len(self.introns) > 0
@@ -1157,19 +1158,17 @@ class Superlocus(Abstractlocus):
         loci_cliques = dict((lid, set(t_graph.neighbors(locus_instance.primary_transcript_id)))
                             for lid, locus_instance in self.loci.items())
 
-        # for lid, locus_instance in self.loci.items():
-        #     loci_cliques[lid] = set()
-        #     for clique in cliques:
-        #         if locus_instance.primary_transcript_id in clique:
-        #             loci_cliques[
-        #                 locus_instance.id].update({tid for tid in clique if
-        #                                            tid != locus_instance.primary_transcript_id})
-
         for tid in iter(tid for tid in self.transcripts if tid not in primary_transcripts):
             loci_in = list(llid for llid in loci_cliques if
                            tid in loci_cliques[llid])
             if len(loci_in) == 1:
                 candidates[loci_in[0]].add(tid)
+            elif len(loci_in) > 1:
+                # These are transcripts that match more than one locus
+                continue
+            else:
+                # These transcripts have been lost.
+                self.__lost.update({tid: self[tid]})
 
         for lid in candidates:
             for tid in sorted(candidates[lid],
@@ -1180,6 +1179,7 @@ class Superlocus(Abstractlocus):
 
         # Now we have to recheck that no AS event is linking more than one locus.
         to_remove = collections.defaultdict(list)
+        lost_found_ids = set()
         for lid in self.loci:
             for tid, transcript in [_ for _ in self.loci[lid].transcripts.items() if
                                     _[0] != self.loci[lid].primary_transcript_id]:
@@ -1189,15 +1189,23 @@ class Superlocus(Abstractlocus):
                     if is_compatible is True:
                         self.logger.warning("%s is compatible with more than one locus. Removing it.", tid)
                         to_remove[lid].append(tid)
-                        #
-                        # self.loci[lid]._finalized = False
-            # self.loci[lid].finalize_alternative_splicing()
+
+            for tid in self.__lost:
+                if MonosublocusHolder.in_locus(self.loci[lid], self.lost_transcripts[tid]):
+                    lost_found_ids.add(tid)
 
         for lid in to_remove:
             for tid in to_remove[lid]:
                 self.loci[lid].remove_transcript_from_locus(tid)
 
             self.loci[lid].finalize_alternative_splicing()
+
+        for tid in lost_found_ids:
+            del self.__lost[tid]
+
+        if len(self.__lost):
+            self.logger.warning("Lost %s transcripts from %s; starting the recovery process",
+                                len(self.lost_transcripts), self.id)
 
         return
 
@@ -1330,3 +1338,7 @@ class Superlocus(Abstractlocus):
             strand,
             self.start,
             self.end)
+
+    @property
+    def lost_transcripts(self):
+        return self.__lost.copy()

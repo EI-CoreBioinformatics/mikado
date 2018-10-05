@@ -263,11 +263,13 @@ class PrepareCheck(unittest.TestCase):
                 args.json_conf = self.conf
                 args.keep_redundant = b
                 args.json_conf["prepare"]["keep_redundant"] = b
+                self.logger.setLevel("DEBUG")
                 prepare.prepare(args, self.logger)
                 self.assertTrue(os.path.exists(os.path.join(self.conf["prepare"]["files"]["output_dir"],
                                                             "mikado_prepared.fasta")))
                 fa = pyfaidx.Fasta(os.path.join(self.conf["prepare"]["files"]["output_dir"],
                                                 "mikado_prepared.fasta"))
+
                 if b is True:
                     self.assertEqual(len(fa.keys()), 5)
                     self.assertEqual(sorted(fa.keys()), sorted(["A", "A1", "A2", "A3", "A4"]))
@@ -277,6 +279,32 @@ class PrepareCheck(unittest.TestCase):
                     self.assertIn("A1", fa.keys())
                     self.assertTrue("A2" in fa.keys() or "A3" in fa.keys())
                     self.assertIn("A4", fa.keys())
+                gtf_file = os.path.join(self.conf["prepare"]["files"]["output_dir"], "mikado_prepared.gtf")
+
+                coding_count = 0
+                with to_gff(gtf_file) as gtf:
+                    lines = [line for line in gtf]
+                    transcripts = dict()
+                    for line in lines:
+                        if line.is_transcript:
+                            transcript = Transcript(line)
+                            transcripts[transcript.id] = transcript
+                        elif line.is_exon:
+                            transcripts[line.transcript].add_exon(line)
+                    [transcripts[_].finalize() for _ in transcripts]
+                    for transcript in transcripts.values():
+                        if transcript.is_coding:
+                            coding_count += 1
+                            self.assertIn("has_start_codon", transcript.attributes, str(transcript.format("gtf")))
+                            self.assertIn("has_stop_codon", transcript.attributes, str(transcript.format("gtf")))
+                            self.assertEqual(bool(transcript.attributes["has_start_codon"]),
+                                             transcript.has_start_codon)
+                            self.assertEqual(bool(transcript.attributes["has_stop_codon"]),
+                                             transcript.has_stop_codon)
+                            self.assertEqual(transcript.is_complete,
+                                             transcript.has_start_codon and transcript.has_stop_codon)
+
+                self.assertGreater(coding_count, 0)
 
     def test_negative_cdna_redundant_cds_not(self):
         """This test will verify whether the new behaviour of not considering redundant two models with same

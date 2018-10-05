@@ -9,6 +9,7 @@ from .transcript import Transcript
 from ..exceptions import IncorrectStrandError, InvalidTranscript
 from collections import Counter
 from itertools import zip_longest
+from ..parsers.bed12 import BED12
 
 
 # pylint: disable=too-many-instance-attributes
@@ -134,6 +135,7 @@ class TranscriptChecker(Transcript):
     def __str__(self, print_cds=True, to_gtf=False, with_introns=False):
 
         self.check_strand()
+        self.check_orf()
         if self.mixed_splices is True:
             self.attributes["mixed_splices"] = self.mixed_attribute
 
@@ -144,6 +146,7 @@ class TranscriptChecker(Transcript):
                transcriptomic=False):
 
         self.check_strand()
+        self.check_orf()
         if self.mixed_splices is True:
             self.attributes["mixed_splices"] = self.mixed_attribute
 
@@ -289,18 +292,35 @@ class TranscriptChecker(Transcript):
                 strand = None
         return strand
 
-    @property
-    def fasta(self):
-        """
-        This property calculates and returns the FASTA sequence associated with
-        the transcript instance.
-        The FASTA sequence itself will be formatted to be in lines with 60 characters
-        (the standard).
-        :return:
-        """
+    def check_orf(self):
 
-        self.check_strand()
-        fasta = [">{0}".format(self.id)]
+        if self.is_coding is False:
+            return
+        else:
+            orfs = self.find_overlapping_cds(self.get_internal_orf_beds())
+
+            if len(orfs) > 1:
+                self.logger.warning("Multiple ORFs found for %s. Only considering the primary.", self.id)
+
+            orf = orfs[0]
+            assert isinstance(orf, BED12)
+            orf.sequence = self.cdna
+            if orf.invalid:
+                self.logger.warning("Invalid ORF for %s (reason: %s)", self.id, orf.invalid_reason)
+                self.strip_cds(self.strand_specific)
+            else:
+                self.has_start_codon = self.has_start_codon or orf.has_start_codon
+                self.has_stop_codon = self.has_stop_codon or orf.has_stop_codon
+                self.attributes["has_start_codon"] = self.has_stop_codon
+                self.attributes["has_stop_codon"] = self.has_stop_codon
+
+            return
+
+    @property
+    def cdna(self):
+
+        """This property calculates the cDNA sequence of the transcript."""
+
         sequence = ''
 
         for exon in self.exons:
@@ -322,11 +342,26 @@ class TranscriptChecker(Transcript):
 
         if self.strand == "-":
             sequence = self.rev_complement(sequence)
+        return sequence
+
+    @property
+    def fasta(self):
+        """
+        This property calculates and returns the FASTA sequence associated with
+        the transcript instance.
+        The FASTA sequence itself will be formatted to be in lines with 60 characters
+        (the standard).
+        :return:
+        """
+
+        self.check_strand()
+        fasta = [">{0}".format(self.id)]
+
         # assert len(sequence) == sum(exon[1] + 1 - exon[0] for exon in self.exons), (
         #     len(sequence), sum(exon[1] + 1 - exon[0] for exon in self.exons)
         # )
 
-        sequence = self.grouper(sequence, 60)
+        sequence = self.grouper(self.cdna, 60)
         fasta.extend(sequence)
         fasta = "\n".join(fasta)
         return fasta

@@ -82,6 +82,7 @@ def create_transcript(lines,
         logger.debug("Finished adding exon lines to %s", lines["tid"])
         transcript_object.finalize()
         transcript_object.check_strand()
+        transcript_object.check_orf()
     except exceptions.IncorrectStrandError:
         logger.info("Discarded %s because of incorrect fusions of splice junctions",
                     lines["tid"])

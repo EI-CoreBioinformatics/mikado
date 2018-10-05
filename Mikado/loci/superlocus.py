@@ -1142,20 +1142,31 @@ class Superlocus(Abstractlocus):
 
     def __find_lost_transcripts(self):
 
-        if self.loci_defined is True:
+        cds_only = self.json_conf["pick"]["clustering"]["cds_only"]
+        # simple_overlap = self.json_conf["pick"]["run_options"]["monoloci_from_simple_overlap"]
+        cdna_overlap = self.json_conf["pick"]["clustering"]["min_cdna_overlap"]
+        cds_overlap = self.json_conf["pick"]["clustering"]["min_cds_overlap"]
+
+        t_graph = self.define_graph(self.transcripts,
+                                    inters=MonosublocusHolder.is_intersecting,
+                                    cds_only=cds_only,
+                                    logger=self.logger,
+                                    min_cdna_overlap=cdna_overlap,
+                                    min_cds_overlap=cds_overlap,
+                                    simple_overlap_for_monoexonic=False)
+
+        loci_transcripts = set()
+        for locus in self.loci.values():
+            loci_transcripts.update(set([_ for _ in locus.transcripts.keys()]))
+
+        not_loci_transcripts = set.difference({_ for _ in self.transcripts.keys()}, loci_transcripts)
+
+        if not not_loci_transcripts:
             return
 
-        loci_transcripts = itertools.chain(*[{self.loci[_].transcripts.keys()} for _ in self.loci])
-
-        for tid in set.difference({self.transcripts.keys()}, loci_transcripts):
-            found = False
-            for lid in self.loci:
-                if MonosublocusHolder.in_locus(self.loci[lid], self.transcripts[tid]):
-                    found = True
-                    break
-                else:
-                    continue
-            if found is True:
+        for tid in not_loci_transcripts:
+            neighbours = set(t_graph.neighbors(tid))
+            if set.intersection(neighbours, loci_transcripts):
                 continue
             else:
                 self.__lost.update({tid: self.transcripts[tid]})

@@ -9,8 +9,8 @@ genomic annotation. This is the library it relies onto.
 __title__ = "Mikado"
 __author__ = 'Luca Venturini'
 __license__ = 'GPL3'
-__copyright__ = 'Copyright 2015-2019 Luca Venturini'
-__version__ = "1.2.5"
+__copyright__ = 'Copyright 2015-2020 Luca Venturini'
+__version__ = "1.3"
 
 __all__ = ["configuration",
            "exceptions",

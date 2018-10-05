@@ -219,6 +219,13 @@ For example, this is a snippet of a scoring section:
         end_distance_from_junction:
             filter: {operator: lt, value: 55}
             rescaling: min
+        non_verified_introns_num:
+            rescaling: max
+            multiplier: -10
+            filter:
+                operator: gt
+                value: 1
+                metric: exons_num
 
 
 Using this snippet as a guide, Mikado will score transcripts in each locus as follows:
@@ -228,6 +235,11 @@ Using this snippet as a guide, Mikado will score transcripts in each locus as fo
 * Assign a full score (**two points**, as a multiplier of 2 is specified) to transcripts that have a total amount of CDS bps approximating 80% of the transcript cDNA length (*combined_cds_fraction*)
 * Assign a full score (one point, as no multiplier is specified) to transcripts that have a 5' UTR whose length is nearest to 100 bps (*five_utr_length*); if the 5' UTR is longer than 2,500 bps, this score will be 0 (see the filter section)
 * Assign a full score (one point, as no multiplier is specified) to transcripts which have the lowest distance between the CDS end and the most downstream exon-exon junction (*end_distance_from_junction*). If such a distance is greater than 55 bps, assign a score of 0, as it is a probable target for NMD (see the filter section).
+* Assign a maximum penalty (**minus 10 points**, as a **negative** multiplier is specified) to the transcript with the highest number of non-verified introns in the locus.
+  * Again, we are using a "filter" section to define which transcripts will be exempted from this scoring (in this case, a penalty)
+  * However, please note that we are using the keyword **metric** in this section. This tells Mikado to check a *different* metric for evaluating the filter. Nominally, in this case we are excluding from the penalty any *monoexonic* transcript. This makes sense as a monoexonic transcript will never have an intron to be confirmed to start with.
+
+.. note:: The possibility of using different metrics for the "filter" section is present from Mikado 1.3 onwards.
 
 .. _Metrics:
 

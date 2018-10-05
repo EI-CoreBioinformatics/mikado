@@ -1,4 +1,4 @@
-# Version 1.2.5
+# Version 1.3
 
 One of the major highlights of this release is the completion of the "padding" functionality.
 Briefly, if instructed to do so, now Mikado will be able to uniform the ends of transcripts within a single locus (similar to what was done for the last _Arabidopsis thaliana_ annotation release).
@@ -12,6 +12,8 @@ Bugfixes and improvements:
 - Fixed [#127](https://github.com/lucventurini/mikado/issues/127): previously, Mikado _prepare_ only considered cDNA coordinates when determining the redundancy of two models. In some edge cases, two models could be identical but have a different ORF called. Now Mikado will also consider the CDS before deciding whether to discard a model as redundant.
 - [#129](https://github.com/lucventurini/mikado/issues/129): Mikado is now capable of correctly padding the transcripts so to uniform their ends in a single locus. This will also have the effect of trying to enlarge the ORF of a transcript if it is truncated to begin with.
 - [#130](https://github.com/lucventurini/mikado/issues/130): it is now possible to specify a different metric inside the "filter" section of scoring.
+- [#131](https://github.com/lucventurini/mikado/issues/131): in rare instances, Mikado could have missed loci if they were lost between the sublocus and monosublocus stages. Now Mikado implements a basic backtracking recursive algorithm that should ensure no locus is missed.
+- [#132](https://github.com/lucventurini/mikado/issues/132)
 
 # Version 1.2.4
 

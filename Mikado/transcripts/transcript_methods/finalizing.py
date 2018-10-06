@@ -645,6 +645,14 @@ def finalize(transcript):
         else:
             transcript.feature = "transcript"
 
+    for prop in ["has_start_codon", "has_stop_codon"]:
+        if prop in transcript.attributes:
+            if transcript.is_coding:
+                transcript.attributes[prop] = bool(transcript.attributes[prop])
+                setattr(transcript, prop, transcript.attributes[prop])
+            else:
+                del transcript.attributes[prop]
+
     if len(transcript.combined_cds) == 0:
         transcript.selected_internal_orf_cds = tuple([])
     else:

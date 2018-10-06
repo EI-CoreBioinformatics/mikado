@@ -271,14 +271,15 @@ class PrepareCheck(unittest.TestCase):
                                                 "mikado_prepared.fasta"))
 
                 if b is True:
-                    self.assertEqual(len(fa.keys()), 5)
-                    self.assertEqual(sorted(fa.keys()), sorted(["A", "A1", "A2", "A3", "A4"]))
+                    self.assertEqual(len(fa.keys()), 6)
+                    self.assertEqual(sorted(fa.keys()), sorted(["A", "A1", "A2", "A3", "A4", "A5"]))
                 else:
-                    self.assertEqual(len(fa.keys()), 4)
+                    self.assertEqual(len(fa.keys()), 5)
                     self.assertIn("A", fa.keys())
                     self.assertIn("A1", fa.keys())
                     self.assertTrue("A2" in fa.keys() or "A3" in fa.keys())
                     self.assertIn("A4", fa.keys())
+                    self.assertIn("A5", fa.keys())
                 gtf_file = os.path.join(self.conf["prepare"]["files"]["output_dir"], "mikado_prepared.gtf")
 
                 coding_count = 0
@@ -297,12 +298,25 @@ class PrepareCheck(unittest.TestCase):
                             coding_count += 1
                             self.assertIn("has_start_codon", transcript.attributes, str(transcript.format("gtf")))
                             self.assertIn("has_stop_codon", transcript.attributes, str(transcript.format("gtf")))
-                            self.assertEqual(bool(transcript.attributes["has_start_codon"]),
-                                             transcript.has_start_codon)
-                            self.assertEqual(bool(transcript.attributes["has_stop_codon"]),
-                                             transcript.has_stop_codon)
+                            self.assertEqual(transcript.attributes["has_start_codon"],
+                                             transcript.has_start_codon,
+                                             (transcript.id,
+                                              transcript.attributes["has_start_codon"],
+                                              transcript.has_start_codon))
+                            self.assertEqual(transcript.attributes["has_stop_codon"],
+                                             transcript.has_stop_codon,
+                                             (transcript.id, transcript.attributes["has_stop_codon"],
+                                             transcript.has_stop_codon))
                             self.assertEqual(transcript.is_complete,
                                              transcript.has_start_codon and transcript.has_stop_codon)
+                    self.assertIn("A5", transcripts)
+                    a5 = transcripts["A5"]
+                    self.assertTrue(a5.is_coding)
+                    self.assertIn("has_start_codon", a5.attributes)
+                    self.assertIn("has_stop_codon", a5.attributes)
+                    self.assertTrue(a5.has_start_codon)
+                    self.assertTrue(a5.has_stop_codon)
+                    self.assertTrue(a5.is_complete)
 
                 self.assertGreater(coding_count, 0)
 
@@ -317,6 +331,7 @@ class PrepareCheck(unittest.TestCase):
         self.conf["prepare"]["files"]["out_fasta"] = "mikado_prepared.fasta"
         self.conf["prepare"]["files"]["out"] = "mikado_prepared.gtf"
         self.conf["prepare"]["strip_cds"] = False
+        self.conf["prepare"]["minimum_length"] = 150  # Necessary for testing A5
 
         args = Namespace()
         args.strip_cds = False
@@ -332,14 +347,55 @@ class PrepareCheck(unittest.TestCase):
                 fa = pyfaidx.Fasta(os.path.join(self.conf["prepare"]["files"]["output_dir"],
                                                 "mikado_prepared.fasta"))
                 if b is True:
-                    self.assertEqual(len(fa.keys()), 5)
-                    self.assertEqual(sorted(fa.keys()), sorted(["A", "A1", "A2", "A3", "A4"]))
+                    self.assertEqual(len(fa.keys()), 6)
+                    self.assertEqual(sorted(fa.keys()), sorted(["A", "A1", "A2", "A3", "A4", "A5"]))
                 else:
-                    self.assertEqual(len(fa.keys()), 4)
+                    self.assertEqual(len(fa.keys()), 5)
                     self.assertIn("A", fa.keys())
                     self.assertIn("A1", fa.keys())
                     self.assertTrue("A2" in fa.keys() or "A3" in fa.keys())
                     self.assertIn("A4", fa.keys())
+                    self.assertIn("A5", fa.keys())
+
+                gtf_file = os.path.join(self.conf["prepare"]["files"]["output_dir"], "mikado_prepared.gtf")
+
+                coding_count = 0
+                with to_gff(gtf_file) as gtf:
+                    lines = [line for line in gtf]
+                    transcripts = dict()
+                    for line in lines:
+                        if line.is_transcript:
+                            transcript = Transcript(line)
+                            transcripts[transcript.id] = transcript
+                        elif line.is_exon:
+                            transcripts[line.transcript].add_exon(line)
+                    [transcripts[_].finalize() for _ in transcripts]
+                    for transcript in transcripts.values():
+                        if transcript.is_coding:
+                            coding_count += 1
+                            self.assertIn("has_start_codon", transcript.attributes, str(transcript.format("gtf")))
+                            self.assertIn("has_stop_codon", transcript.attributes, str(transcript.format("gtf")))
+                            self.assertEqual(transcript.attributes["has_start_codon"],
+                                             transcript.has_start_codon,
+                                             (transcript.id,
+                                              transcript.attributes["has_start_codon"],
+                                              transcript.has_start_codon))
+                            self.assertEqual(transcript.attributes["has_stop_codon"],
+                                             transcript.has_stop_codon,
+                                             (transcript.id, transcript.attributes["has_stop_codon"],
+                                              transcript.has_stop_codon))
+                            self.assertEqual(transcript.is_complete,
+                                             transcript.has_start_codon and transcript.has_stop_codon)
+                    self.assertIn("A5", transcripts)
+                    a5 = transcripts["A5"]
+                    self.assertTrue(a5.is_coding)
+                    self.assertIn("has_start_codon", a5.attributes)
+                    self.assertIn("has_stop_codon", a5.attributes)
+                    self.assertTrue(a5.has_start_codon)
+                    self.assertTrue(a5.has_stop_codon)
+                    self.assertTrue(a5.is_complete)
+
+                self.assertGreater(coding_count, 0)
 
 
 class CompareCheck(unittest.TestCase):

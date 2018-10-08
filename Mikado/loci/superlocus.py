@@ -1142,6 +1142,7 @@ class Superlocus(Abstractlocus):
 
     def __find_lost_transcripts(self):
 
+        self.__lost = dict()
         cds_only = self.json_conf["pick"]["clustering"]["cds_only"]
         # simple_overlap = self.json_conf["pick"]["run_options"]["monoloci_from_simple_overlap"]
         cdna_overlap = self.json_conf["pick"]["clustering"]["min_cdna_overlap"]

@@ -1145,7 +1145,7 @@ class Superlocus(Abstractlocus):
 
         self.__lost = dict()
         cds_only = self.json_conf["pick"]["clustering"]["cds_only"]
-        simple_overlap = self.json_conf["pick"]["run_options"]["monoloci_from_simple_overlap"]
+        simple_overlap = self.json_conf["pick"]["clustering"]["simple_overlap_for_monoexonic"]
         cdna_overlap = self.json_conf["pick"]["clustering"]["min_cdna_overlap"]
         cds_overlap = self.json_conf["pick"]["clustering"]["min_cds_overlap"]
 
@@ -1155,7 +1155,7 @@ class Superlocus(Abstractlocus):
                                     logger=self.logger,
                                     min_cdna_overlap=cdna_overlap,
                                     min_cds_overlap=cds_overlap,
-                                    simple_overlap_for_monoexonic=False)
+                                    simple_overlap_for_monoexonic=simple_overlap)
 
         loci_transcripts = set()
         for locus in self.loci.values():

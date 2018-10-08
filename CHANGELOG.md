@@ -7,7 +7,8 @@ The behaviour is controlled by the "pad" boolean switch, and by the "ts_max_spli
 Bugfixes and improvements:
 
 - Fixed a bug which caused some loci to crash at the last part of the picking stage
-- Now coding and non-coding transcripts will be in different loci
+- Now coding and non-coding transcripts will be in different loci.
+- Mikado prepare now can accept models that lack any exon features but still have valid CDS/UTR features
 - Fixed [#126](https://github.com/lucventurini/mikado/issues/126): now reversing the strand of a model will cause its CDS to be stripped.
 - Fixed [#127](https://github.com/lucventurini/mikado/issues/127): previously, Mikado _prepare_ only considered cDNA coordinates when determining the redundancy of two models. In some edge cases, two models could be identical but have a different ORF called. Now Mikado will also consider the CDS before deciding whether to discard a model as redundant.
 - [#129](https://github.com/lucventurini/mikado/issues/129): Mikado is now capable of correctly padding the transcripts so to uniform their ends in a single locus. This will also have the effect of trying to enlarge the ORF of a transcript if it is truncated to begin with.

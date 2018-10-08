@@ -11,8 +11,9 @@ except ImportError:
     import json
 import sqlite3
 import os
-from ..parsers.bed12 import BED12
+# from ..parsers.bed12 import BED12
 from ..transcripts import Transcript
+from operator import itemgetter
 
 
 __author__ = 'Luca Venturini'
@@ -160,7 +161,7 @@ def __raise_invalid(row_id, name, label):
             "(label: {0})".format(label) if label != '' else ""))
 
 
-def load_into_storage(shelf_name, exon_lines, min_length, logger):
+def load_into_storage(shelf_name, exon_lines, min_length, logger, strip_cds=True):
 
     """Function to load the exon_lines dictionary into the temporary storage."""
 
@@ -198,13 +199,53 @@ def load_into_storage(shelf_name, exon_lines, min_length, logger):
                                exon_lines[tid]["features"]["exon"][0][0],
                                exon_lines[tid]["features"]["exon"][0][1])
                 del exon_lines[tid]["features"]["match"]
+            elif (strip_cds is False and "CDS" in exon_lines[tid]["features"] and
+                len(exon_lines[tid]["features"]["CDS"]) > 0):
+                pass
             else:
                 logger.warning("No valid exon feature for %s, continuing", tid)
                 continue
         elif "match" in exon_lines[tid]["features"] and "exon" in exon_lines[tid]["features"]:
             del exon_lines[tid]["features"]["match"]
 
-        tlength = sum(exon[1] + 1 - exon[0] for exon in exon_lines[tid]["features"]["exon"])
+        if "exon" in exon_lines[tid]["features"]:
+            segments = exon_lines[tid]["features"]["exon"][:]
+        elif "CDS" in exon_lines[tid]["features"]:
+            segments = exon_lines[tid]["features"]["CDS"][:]
+            for feature in exon_lines[tid]["features"]:
+                if "utr" in feature.lower():
+                    segments.extend(exon_lines[tid]["features"][feature])
+                else:
+                    continue
+            segments = sorted(segments, key=itemgetter(0))
+            # Now check the exons
+            exons = []
+            if len(segments) == 0:
+                logger.warning("No valid exon feature for %s, continuing", tid)
+                continue
+            elif len(segments) == 1:
+                exons = segments[0]
+            else:
+                current = segments[0]
+                for pos in range(1, len(segments)):
+                    segment = segments[pos]
+                    if segment[0] > current[1] + 1:
+                        exons.append(current)
+                        current = segment
+                    elif segment[0] == current[1] + 1:
+                        current = (current[0], segment[1])
+                    else:
+                        logger.warning("Overlapping segments found in %s. Discarding it", tid)
+                        continue
+                exons.append(current)
+                exon_lines[tid]["features"]["exon"] = exons[:]
+        else:
+            raise KeyError(exon_lines[tid]["features"])
+
+        tlength = sum(exon[1] + 1 - exon[0] for exon in segments)
+        start = min((_[0] for _ in segments))
+        end = max((_[1] for _ in segments))
+
         # Discard transcript under a certain size
         if tlength < min_length:
             logger.debug("Discarding %s because its size (%d) is under the minimum of %d",
@@ -213,8 +254,6 @@ def load_into_storage(shelf_name, exon_lines, min_length, logger):
 
         values = json.dumps(exon_lines[tid])
 
-        start = min((_[0] for _ in exon_lines[tid]["features"]["exon"]))
-        end = max((_[1] for _ in exon_lines[tid]["features"]["exon"]))
         logger.debug("Inserting %s into shelf %s", tid, shelf_name)
         cursor.execute("INSERT INTO dump VALUES (?, ?, ?, ?, ?, ?)", (exon_lines[tid]["chrom"],
                                                                       start,
@@ -359,7 +398,7 @@ def load_from_gff(shelf_name,
                 continue
     gff_handle.close()
 
-    load_into_storage(shelf_name, exon_lines, logger=logger, min_length=min_length)
+    load_into_storage(shelf_name, exon_lines, logger=logger, min_length=min_length, strip_cds=strip_cds)
 
     return new_ids
 
@@ -463,7 +502,7 @@ def load_from_gtf(shelf_name,
         exon_lines[row.transcript]["features"][row.feature].append((row.start, row.end))
         new_ids.add(row.transcript)
     gff_handle.close()
-    load_into_storage(shelf_name, exon_lines, logger=logger, min_length=min_length)
+    load_into_storage(shelf_name, exon_lines, logger=logger, min_length=min_length, strip_cds=strip_cds)
 
     return new_ids
 
@@ -539,6 +578,6 @@ def load_from_bed12(shelf_name,
                 ]
         new_ids.add(transcript.id)
     gff_handle.close()
-    load_into_storage(shelf_name, exon_lines, logger=logger, min_length=min_length)
+    load_into_storage(shelf_name, exon_lines, logger=logger, min_length=min_length, strip_cds=strip_cds)
 
     return new_ids

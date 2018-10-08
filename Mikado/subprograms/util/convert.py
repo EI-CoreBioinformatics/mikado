@@ -41,6 +41,8 @@ def launch(args):
                 continue
             elif line.is_gene is True:
                 current = Gene(line)
+            elif line.feature == "chromosome":
+                continue
             else:
                 if line.parent is None:
                     line.parent = "{}.gene".format(line.id)  # Hack for BED12 files

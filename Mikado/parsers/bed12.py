@@ -164,6 +164,8 @@ class BED12:
             else:
                 self.header = True
                 return
+        elif isinstance(self._line, type(self)):  # Re-initialising with another object
+            self.__set_values_from_bed12()
         elif isinstance(self._line, GffLine):
             if self._line.header is True:
                 self.header = True
@@ -272,6 +274,22 @@ class BED12:
         self.start_codon = None
         self.stop_codon = None
         self.fasta_length = len(self)
+        return
+
+    def __set_values_from_bed12(self):
+
+        for attr in ["chrom", "start", "end", "name", "score", "strand",
+                     "thick_start", "thick_end", "rgb",
+                     "block_count", "block_starts", "block_sizes"]:
+            setattr(self, attr, getattr(self._line, attr))
+
+        intern(self.chrom)
+        self.has_start_codon = None
+        self.has_stop_codon = None
+        self.start_codon = None
+        self.stop_codon = None
+        self.fasta_length = len(self)
+        self.transcriptomic = self._line.transcriptomic
         return
 
     def __set_values_from_gff(self, fasta_length):

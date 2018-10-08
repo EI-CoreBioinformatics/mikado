@@ -34,6 +34,7 @@ from .transcript_methods.finalizing import finalize
 from .transcript_methods.printing import create_lines_cds
 from .transcript_methods.printing import create_lines_no_cds, create_lines_bed, as_bed12
 from ..utilities.intervaltree import Interval, IntervalTree
+from collections import Hashable
 import numpy as np
 
 
@@ -391,8 +392,26 @@ class Transcript:
         self.score = transcript_row.score
         self.scores = dict()
 
+        booleans = {"True": True, "False": False, "None": None}
+
         for key, val in transcript_row.attributes.items():
+
+            if not isinstance(val, Hashable):
+                pass
+            elif val in booleans:
+                val = booleans[val]
+            else:
+                try:
+                    val = int(val)
+                except ValueError:
+                    try:
+                        val = float(val)
+                    except ValueError:
+                        pass
+                except TypeError:
+                    pass
             self.attributes[intern(key)] = val
+
         self.blast_hits = []
         self.json_conf = None
 
@@ -712,7 +731,12 @@ class Transcript:
     def get_internal_orf_beds(self):
         """This method will return all internal ORFs as BED12 objects"""
 
-        row = BED12(transcriptomic=True)
+        if hasattr(self, "cdna"):
+            seq = self.cdna
+        else:
+            seq = None
+
+        row = BED12(transcriptomic=True, coding=True, start_adjustment=False, max_regression=0)
         row.header = False
         row.chrom = self.id
         row.strand = "+"
@@ -720,6 +744,7 @@ class Transcript:
         row.end = self.cdna_length
 
         if not self.internal_orfs:
+            row.coding = False
             row.block_count = 0
             row.thick_start = 1  # Necessary b/c I am subtracting one
             row.thick_end = 0
@@ -727,6 +752,7 @@ class Transcript:
             row.block_count = 0
             row.block_starts = [0]
             row.block_sizes = [0]
+            row = BED12(row, seq, coding=False, transcriptomic=True, max_regression=0, start_adjustment=False)
             assert row.invalid is False, ("\n".join([str(row), row.invalid_reason]))
             yield row
 
@@ -764,7 +790,8 @@ class Transcript:
                 new_row.block_sizes = [cds_len]
                 new_row.phase = phase
                 # self.logger.debug(new_row)
-
+                new_row = BED12(new_row, sequence=seq,
+                                coding=True, transcriptomic=True, max_regression=0, start_adjustment=False)
                 if (cds_len - phase) % 3 != 0 and cds_end not in (self.start, self.end):
                     raise AssertionError("Invalid CDS length for {}:\n{}\n{}".format(self.id,
                                                                                      iorf,
@@ -1102,6 +1129,21 @@ class Transcript:
 
         self.attributes = {}
         for key, val in state["attributes"].items():
+            if val in ["True", "False"]:
+                val = bool(val)
+            elif val == "None":
+                val = None
+            else:
+                try:
+                    val = int(val)
+                except ValueError:
+                    try:
+                        val = float(val)
+                    except ValueError:
+                        pass
+                except TypeError:
+                    pass
+
             self.attributes[intern(key)] = val
 
         self.exons = []
@@ -2039,9 +2081,9 @@ index {3}, internal ORFs: {4}".format(
         #     self.__cdna_length = sum([e[1] - e[0] + 1 for e in self.exons])
         # except TypeError:
         #     raise TypeError(self.exons)
-        if self.__cdna_length is None:
-            ar = np.array(list(zip(*self.exons)))
-            self.__cdna_length = int(np.subtract(ar[1], ar[0] -1).sum())
+        # if self.__cdna_length is None:
+        ar = np.array(list(zip(*self.exons)))
+        self.__cdna_length = int(np.subtract(ar[1], ar[0] -1).sum())
 
         return self.__cdna_length
 

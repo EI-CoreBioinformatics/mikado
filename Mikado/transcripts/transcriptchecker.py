@@ -10,6 +10,8 @@ from ..exceptions import IncorrectStrandError, InvalidTranscript
 from collections import Counter
 from itertools import zip_longest
 from ..parsers.bed12 import BED12
+import pyfaidx
+from Bio import Seq
 
 
 # pylint: disable=too-many-instance-attributes
@@ -65,6 +67,7 @@ class TranscriptChecker(Transcript):
         assert self.original_strand == self.strand
         self.attributes.update(gffline.attributes)
         self.parent = gffline.parent
+        self.__fasta_seq = None
         self.fasta_seq = seq
         self.strand_specific = strand_specific
         self.checked = False
@@ -90,6 +93,22 @@ class TranscriptChecker(Transcript):
         Returns the table used to reverse complement FASTA strings.
         """
         return self.__translation_table
+
+    @property
+    def fasta_seq(self):
+        return self.__fasta_seq
+
+    @fasta_seq.setter
+    def fasta_seq(self, fasta_seq):
+
+        if isinstance(fasta_seq, Seq.Seq):
+            self.__fasta_seq = pyfaidx.Sequence(name=self.id, seq=str(fasta_seq))
+        elif isinstance(fasta_seq, str):
+            self.__fasta_seq = pyfaidx.Sequence(name=self.id, seq=str(fasta_seq))
+        elif isinstance(fasta_seq, pyfaidx.Sequence):
+            self.__fasta_seq = fasta_seq
+        else:
+            raise ValueError("Unkown type: {}".format(type(fasta_seq)))
 
     @classmethod
     def get_translation_table(cls):
@@ -294,25 +313,44 @@ class TranscriptChecker(Transcript):
 
     def check_orf(self):
 
+        self.has_start_codon = False
+        self.has_stop_codon = False
+
         if self.is_coding is False:
             return
         else:
-            orfs = self.find_overlapping_cds(self.get_internal_orf_beds())
+
+            orfs = list(self.get_internal_orf_beds())
+            if len(orfs) > 1:
+                self.logger.warning("Multiple ORFs found for %s. Only considering the primary.", self.id)
+            elif len(orfs) == 0:
+                raise IndexError("No ORFs retrieved!")
+
+            orfs = self.find_overlapping_cds(orfs)
 
             if len(orfs) > 1:
                 self.logger.warning("Multiple ORFs found for %s. Only considering the primary.", self.id)
+            elif len(orfs) == 0:
+                raise IndexError("No ORFs retrieved!")
 
             orf = orfs[0]
             assert isinstance(orf, BED12)
-            orf.sequence = self.cdna
+            # orf = BED12(str(orf), transcriptomic=True, sequence=self.cdna, max_regression=0, start_adjustment=False)
+            # orf.max_regression = 0
+            # orf.start_adjustment = False
+            # orf.sequence = self.cdna
+
             if orf.invalid:
                 self.logger.warning("Invalid ORF for %s (reason: %s)", self.id, orf.invalid_reason)
                 self.strip_cds(self.strand_specific)
             else:
-                self.has_start_codon = self.has_start_codon or orf.has_start_codon
-                self.has_stop_codon = self.has_stop_codon or orf.has_stop_codon
-                self.attributes["has_start_codon"] = self.has_stop_codon
-                self.attributes["has_stop_codon"] = self.has_stop_codon
+                self.logger.debug("%s %s a valid start codon, %s a valid stop codon",
+                                  self.id, "has" if orf.has_start_codon else "does not have",
+                                  "has" if orf.has_stop_codon else "does not have")
+                self.has_start_codon = orf.has_start_codon
+                self.has_stop_codon = orf.has_stop_codon
+                self.attributes["has_start_codon"] = orf.has_start_codon
+                self.attributes["has_stop_codon"] = orf.has_stop_codon
 
             return
 
@@ -326,7 +364,7 @@ class TranscriptChecker(Transcript):
         for exon in self.exons:
             start = exon[0] - self.start
             end = exon[1] + 1 - self.start
-            _ = self.fasta_seq[start:end]
+            _ = str(self.fasta_seq[start:end].seq)
             sequence += _
 
         # pylint: disable=no-member
@@ -340,6 +378,7 @@ class TranscriptChecker(Transcript):
                 ))
         # pylint: enable=no-member
 
+        assert len(sequence) == self.cdna_length
         if self.strand == "-":
             sequence = self.rev_complement(sequence)
         return sequence

@@ -8,30 +8,27 @@
 # Chr5	TAIR10	five_prime_UTR	9930	10172	.	+	.	Parent=AT5G01030.1
 # Chr5	TAIR10	exon	10620	12665	.	+	.	Parent=AT5G01030.1
 
-Chr5	cds_test_1	transcript	9930	12665	.	+	.	transcript_id "A"; gene_id "A"
-Chr5	cds_test_1	exon	9930	10172	.	+	.	transcript_id "A"; gene_id "A"
-Chr5	cds_test_1	exon	10620	12665	.	+	.	transcript_id "A"; gene_id "A"
-Chr5	cds_test_1	transcript	9930	12665	.	+	.	transcript_id "A1"; gene_id "A"
-Chr5	cds_test_1	exon	9930	10172	.	+	.	transcript_id "A1"; gene_id "A"
-Chr5	cds_test_1	exon	10620	12665	.	+	.	transcript_id "A1"; gene_id "A"
-Chr5	cds_test_1	CDS	9931	10020	.	+	.	transcript_id "A1"; gene_id "A"
-Chr5	cds_test_1	transcript	9930	12665	.	+	.	transcript_id "A2"; gene_id "A"
-Chr5	cds_test_1	exon	9930	10172	.	+	.	transcript_id "A2"; gene_id "A"
-Chr5	cds_test_1	exon	10620	12665	.	+	.	transcript_id "A2"; gene_id "A"
-Chr5	cds_test_1	CDS	10113	10172	.	+	.	transcript_id "A2"; gene_id "A"
-Chr5	cds_test_1	CDS	10620	11219	.	+	.	transcript_id "A2"; gene_id "A"
-Chr5	cds_test_1	transcript	9930	12665	.	+	.	transcript_id "A3"; gene_id "A"
-Chr5	cds_test_1	exon	9930	10172	.	+	.	transcript_id "A3"; gene_id "A"
-Chr5	cds_test_1	exon	10620	12665	.	+	.	transcript_id "A3"; gene_id "A"
-Chr5	cds_test_1	CDS	10113	10172	.	+	.	transcript_id "A3"; gene_id "A"
-Chr5	cds_test_1	CDS	10620	11219	.	+	.	transcript_id "A3"; gene_id "A"
-Chr5	cds_test_1	transcript	9929	12665	.	+	.	transcript_id "A4"; gene_id "A"
-Chr5	cds_test_1	exon	9929	10172	.	+	.	transcript_id "A4"; gene_id "A"
-Chr5	cds_test_1	exon	10620	12665	.	+	.	transcript_id "A4"; gene_id "A"
-Chr5	cds_test_1	CDS	10113	10172	.	+	.	transcript_id "A4"; gene_id "A"
-Chr5	cds_test_1	CDS	10620	11219	.	+	.	transcript_id "A4"; gene_id "A"
-Chr5	cds_test_1	transcript	10113	11219	.	+	.	transcript_id "A5"; gene_id "A"
-Chr5	cds_test_1	exon	10113	10172	.	+	.	transcript_id "A5"; gene_id "A"
-Chr5	cds_test_1	exon	10620	11219	.	+	.	transcript_id "A5"; gene_id "A"
-Chr5	cds_test_1	CDS	10113	10172	.	+	.	transcript_id "A5"; gene_id "A"
-Chr5	cds_test_1	CDS	10620	11219	.	+	.	transcript_id "A5"; gene_id "A"
+
+Chr5	TAIR10	mRNA	208937	210445	.	+	.	gene_id "AT5G01530"; transcript_id "AT5G01530.0";
+Chr5	TAIR10	exon	208937	209593	.	+	.	gene_id "AT5G01530"; transcript_id "AT5G01530.0";
+Chr5	TAIR10	exon	209881	210445	.	+	.	gene_id "AT5G01530"; transcript_id "AT5G01530.0";
+Chr5	TAIR10	mRNA	208937	210445	.	+	.	gene_id "AT5G01530"; transcript_id "AT5G01530.1"; Name "AT5G01530.1"; Index "1";
+Chr5	TAIR10	exon	208937	209593	.	+	.	gene_id "AT5G01530"; transcript_id "AT5G01530.1";
+Chr5	TAIR10	CDS	209084	209593	.	+	0	gene_id "AT5G01530"; transcript_id "AT5G01530.1";
+Chr5	TAIR10	CDS	209881	210243	.	+	0	gene_id "AT5G01530"; transcript_id "AT5G01530.1";
+Chr5	TAIR10	exon	209881	210445	.	+	.	gene_id "AT5G01530"; transcript_id "AT5G01530.1";
+Chr5	TAIR10	mRNA	208937	210445	.	+	.	gene_id "AT5G01530"; transcript_id "AT5G01530.2";
+Chr5	TAIR10	exon	208937	209593	.	+	.	gene_id "AT5G01530"; transcript_id "AT5G01530.2";
+Chr5	TAIR10	CDS	209084	209593	.	+	0	gene_id "AT5G01530"; transcript_id "AT5G01530.2";
+Chr5	TAIR10	CDS	209881	210243	.	+	0	gene_id "AT5G01530"; transcript_id "AT5G01530.2";
+Chr5	TAIR10	exon	209881	210445	.	+	.	gene_id "AT5G01530"; transcript_id "AT5G01530.2";
+Chr5	TAIR10	mRNA	209084	210243	.	+	.	gene_id "AT5G01530"; transcript_id "AT5G01530.3";
+Chr5	TAIR10	exon	209084	209593	.	+	.	gene_id "AT5G01530"; transcript_id "AT5G01530.3";
+Chr5	TAIR10	CDS	209084	209593	.	+	0	gene_id "AT5G01530"; transcript_id "AT5G01530.3";
+Chr5	TAIR10	CDS	209881	210243	.	+	0	gene_id "AT5G01530"; transcript_id "AT5G01530.3";
+Chr5	TAIR10	exon	209881	210243	.	+	.	gene_id "AT5G01530"; transcript_id "AT5G01530.3";
+Chr5	TAIR10	mRNA	208937	210445	.	+	.	gene_id "AT5G01530"; transcript_id "AT5G01530.4";
+Chr5	TAIR10	exon	208937	209593	.	+	.	gene_id "AT5G01530"; transcript_id "AT5G01530.4";
+Chr5	TAIR10	CDS	209087	209593	.	+	0	gene_id "AT5G01530"; transcript_id "AT5G01530.4";
+Chr5	TAIR10	CDS	209881	210240	.	+	0	gene_id "AT5G01530"; transcript_id "AT5G01530.4";
+Chr5	TAIR10	exon	209881	210445	.	+	.	gene_id "AT5G01530"; transcript_id "AT5G01530.4";

@@ -9,6 +9,7 @@ from Mikado.parsers.GFF import GffLine
 from Mikado.parsers.GTF import GtfLine
 from Mikado.transcripts.transcript import Transcript
 from Mikado.exceptions import InvalidTranscript
+from Mikado.utilities.log_utils import create_default_logger
 
 
 class TChekerTester(unittest.TestCase):
@@ -334,6 +335,16 @@ Chr5	Cufflinks	exon	26577856	26578163	.	-	.	gene_id "cufflinks_star_at.23553";tr
 
 class StopCodonChecker(unittest.TestCase):
 
+    @classmethod
+    def setUpClass(cls):
+        cls.__genomefile__ = tempfile.NamedTemporaryFile(mode="wb", delete=False, suffix=".fa", prefix="prepare")
+
+        with pkg_resources.resource_stream("Mikado.tests", "chr5.fas.gz") as _:
+            cls.__genomefile__.write(gzip.decompress(_.read()))
+        cls.__genomefile__.flush()
+        cls.genome = pyfaidx.Fasta(cls.__genomefile__.name)
+        cls.maxDiff = None
+
     def test_positive_strand(self):
 
         gtf_lines = """chr1A	Self_CESAR/windows_chr1A.gp	transcript	265021906	265026255	.	+	.	gene_id "TraesCS1A01G152900.1"; transcript_id "TraesCS1A01G152900.1";
@@ -388,6 +399,95 @@ chr1A	Self_CESAR/windows_chr1A.gp	start_codon	265026253	265026255	.	-	0	gene_id 
         t.finalize()
         self.assertEqual(t.start, t.combined_cds_end)
         self.assertEqual(t.end, t.combined_cds_start)
+
+    def test_codon_finder_negative(self):
+        gtf_lines = """Chr5	TAIR10	mRNA	5335	5769	.	-	.	transcript_id "AT5G01015.1"; gene_id "AT5G01015";
+Chr5	TAIR10	CDS	5697	5766	.	-	0	transcript_id "AT5G01015.1"; gene_id "AT5G01015";;
+Chr5	TAIR10	exon	5697	5769	.	-	.	transcript_id "AT5G01015.1"; gene_id "AT5G01015";
+Chr5	TAIR10	CDS	5335	5576	.	-	1	transcript_id "AT5G01015.1"; gene_id "AT5G01015";
+Chr5	TAIR10	exon	5335	5576	.	-	.	transcript_id "AT5G01015.1"; gene_id "AT5G01015";"""
+
+        gtf_lines = [GtfLine(_) for _ in gtf_lines.split("\n")]
+        t = Transcript(gtf_lines[0])
+        t.add_exons(gtf_lines[1:])
+        t.finalize()
+
+        seq = self.genome[t.chrom][t.start - 1:t.end]
+        logger = create_default_logger("test_codon_finder_negative", level="WARNING")
+        tc = TranscriptChecker(t, seq, logger=logger)
+        tc.finalize()
+        tc.check_orf()
+        self.assertTrue(tc.is_coding)
+        self.assertIn("has_stop_codon", tc.attributes)
+        self.assertIn("has_start_codon", tc.attributes)
+        self.assertTrue(tc.has_stop_codon)
+        self.assertFalse(tc.has_start_codon)
+
+    def test_codon_finder_negative_2(self):
+        gtf_lines = """Chr5	TAIR10	mRNA	5335	5769	.	-	.	transcript_id "AT5G01015.1"; gene_id "AT5G01015";
+Chr5	TAIR10	CDS	5697	5766	.	-	0	transcript_id "AT5G01015.1"; gene_id "AT5G01015";;
+Chr5	TAIR10	exon	5697	5769	.	-	.	transcript_id "AT5G01015.1"; gene_id "AT5G01015";
+Chr5	TAIR10	CDS	5338	5576	.	-	1	transcript_id "AT5G01015.1"; gene_id "AT5G01015";
+Chr5	TAIR10	exon	5335	5576	.	-	.	transcript_id "AT5G01015.1"; gene_id "AT5G01015";"""
+
+        gtf_lines = [GtfLine(_) for _ in gtf_lines.split("\n")]
+        t = Transcript(gtf_lines[0])
+        t.add_exons(gtf_lines[1:])
+        t.finalize()
+
+        seq = self.genome[t.chrom][t.start - 1:t.end]
+        logger = create_default_logger("test_codon_finder_negative_2", level="WARNING")
+        self.assertTrue(t.has_start_codon)
+        self.assertTrue(t.has_stop_codon)
+        tc = TranscriptChecker(t, seq, logger=logger)
+        tc.finalize()
+        tc.check_orf()
+        self.assertTrue(tc.is_coding)
+        self.assertIn("has_stop_codon", tc.attributes)
+        self.assertIn("has_start_codon", tc.attributes)
+        self.assertFalse(tc.has_stop_codon)
+        self.assertFalse(tc.has_start_codon)
+
+    def test_codon_finder_negative_3(self):
+
+        gtf_lines = """Chr5	TAIR10	mRNA	5335	5769	.	-	.	transcript_id "AT5G01015.1"; gene_id "AT5G01015";
+Chr5	TAIR10	CDS	5697	5769	.	-	0	transcript_id "AT5G01015.1"; gene_id "AT5G01015";;
+Chr5	TAIR10	exon	5697	5769	.	-	.	transcript_id "AT5G01015.1"; gene_id "AT5G01015";
+Chr5	TAIR10	CDS	5335	5576	.	-	1	transcript_id "AT5G01015.1"; gene_id "AT5G01015";
+Chr5	TAIR10	exon	5335	5576	.	-	.	transcript_id "AT5G01015.1"; gene_id "AT5G01015";"""
+
+        gtf_lines = [GtfLine(_) for _ in gtf_lines.split("\n")]
+        t = Transcript(gtf_lines[0])
+        t.add_exons(gtf_lines[1:])
+        t.finalize()
+
+        seq = self.genome[t.chrom][t.start - 1:t.end]
+        correct_seq = "".join("""ATGGAGTCTAGCTTGCATAGTGTGATTTTCTTAGGTTTGCTTGCGACGATTCTGGTTACG
+ACCAATGGCCAAGGAGACGGGACGGGGCTAAATGCAGAAGAAATGTGGCCAGTGGAGGTG
+GGGATGGAGTATAGAGTATGGAGGAGAAAGCTGATGACGCCATTGGAGCTGTGCTTGGAG
+TGCAAATGCTGCTCCTCCACCACTTGTGCCACCATGCCTTGCTGTTTCGGCATCAATTGC
+CAGCTTCCCAACAAGCCATTTGGCGTTTGTGCCTTTGTTCCCAAGTCATGCCATTGTAAT
+TCTTGCTCCATTTGA""".split("\n"))
+        logger = create_default_logger("test_codon_finder_negative_3", level="WARNING")
+        tc = TranscriptChecker(t, seq, logger=logger)
+        tc.finalize()
+        correct_length = (5576 - 5335 + 1) + (5769 - 5697 + 1)
+        self.assertEqual(correct_length, len(correct_seq), (correct_length, len(correct_seq)))
+        self.assertEqual(tc.cdna_length, correct_length, (correct_length, tc.cdna_length))
+        self.assertEqual(len(tc.cdna), tc.cdna_length)
+        self.assertEqual(correct_seq, tc.cdna)
+
+        tc.check_orf()
+        tc_orfs = tc.find_overlapping_cds(tc.get_internal_orf_beds())
+        self.assertEqual(1, len(tc_orfs))
+        self.assertTrue(tc_orfs[0].has_stop_codon, (tc_orfs[0], tc_orfs[0].stop_codon))
+        self.assertTrue(tc_orfs[0].has_start_codon, (tc_orfs[0], tc_orfs[0].start_codon))
+
+        self.assertTrue(tc.is_coding)
+        self.assertIn("has_stop_codon", tc.attributes)
+        self.assertIn("has_start_codon", tc.attributes)
+        self.assertTrue(tc.has_start_codon, tc.cdna)
+        self.assertTrue(tc.has_stop_codon, tc.cdna)
 
 
 if __name__ == '__main__':

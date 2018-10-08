@@ -8,30 +8,35 @@
 # Chr5	TAIR10	CDS	4552	4679	.	-	2	Parent=AT5G01010.1,AT5G01010.1-Protein;
 # Chr5	TAIR10	exon	4552	4679	.	-	.	Parent=AT5G01010.1
 
-Chr5	cds_test_2	transcript	4552	5043	.	-	.	transcript_id "A"; gene_id "A"
-Chr5	cds_test_2	exon	4552	4679	.	-	.	transcript_id "A"; gene_id "A"
-Chr5	cds_test_2	exon	4765	5043	.	-	.	transcript_id "A"; gene_id "A"
-Chr5	cds_test_2	transcript	4552	5043	.	-	.	transcript_id "A1"; gene_id "A"
-Chr5	cds_test_2	exon	4552	4679	.	-	.	transcript_id "A1"; gene_id "A"
-Chr5	cds_test_2	exon	4765	5043	.	-	.	transcript_id "A1"; gene_id "A"
-Chr5	cds_test_2	CDS	4552	4643	.	-	.	transcript_id "A1"; gene_id "A"
-Chr5	cds_test_2	transcript	4552	5043	.	-	.	transcript_id "A2"; gene_id "A"
-Chr5	cds_test_2	exon	4552	4679	.	-	.	transcript_id "A2"; gene_id "A"
-Chr5	cds_test_2	exon	4765	5043	.	-	.	transcript_id "A2"; gene_id "A"
-Chr5	cds_test_2	CDS	4662	4679	.	-	.	transcript_id "A2"; gene_id "A"
-Chr5	cds_test_2	CDS	4765	4926	.	-	.	transcript_id "A2"; gene_id "A"
-Chr5	cds_test_2	transcript	4552	5043	.	-	.	transcript_id "A3"; gene_id "A"
-Chr5	cds_test_2	exon	4552	4679	.	-	.	transcript_id "A3"; gene_id "A"
-Chr5	cds_test_2	exon	4765	5043	.	-	.	transcript_id "A3"; gene_id "A"
-Chr5	cds_test_2	CDS	4662	4679	.	-	.	transcript_id "A3"; gene_id "A"
-Chr5	cds_test_2	CDS	4765	4926	.	-	.	transcript_id "A3"; gene_id "A"
-Chr5	cds_test_2	transcript	4551	5043	.	-	.	transcript_id "A4"; gene_id "A"
-Chr5	cds_test_2	exon	4551	4679	.	-	.	transcript_id "A4"; gene_id "A"
-Chr5	cds_test_2	exon	4765	5043	.	-	.	transcript_id "A4"; gene_id "A"
-Chr5	cds_test_2	CDS	4662	4679	.	-	.	transcript_id "A4"; gene_id "A"
-Chr5	cds_test_2	CDS	4765	4926	.	-	.	transcript_id "A4"; gene_id "A"
-Chr5	cds_test_2	transcript	4662	4926	.	-	.	transcript_id "A5"; gene_id "A"
-Chr5	cds_test_2	exon	4662	4679	.	-	.	transcript_id "A5"; gene_id "A"
-Chr5	cds_test_2	exon	4765	4926	.	-	.	transcript_id "A5"; gene_id "A"
-Chr5	cds_test_2	CDS	4662	4679	.	-	.	transcript_id "A5"; gene_id "A"
-Chr5	cds_test_2	CDS	4765	4926	.	-	.	transcript_id "A5"; gene_id "A"
+# Non-coding
+Chr5	TAIR10	mRNA	5256	5891	.	-	.	gene_id "AT5G01015"; transcript_id "AT5G01015.0";
+Chr5	TAIR10	exon	5256	5576	.	-	.	gene_id "AT5G01015"; transcript_id "AT5G01015.0";
+Chr5	TAIR10	exon	5697	5891	.	-	.	gene_id "AT5G01015"; transcript_id "AT5G01015.0";
+#Original
+Chr5	TAIR10	mRNA	5256	5891	.	-	.	gene_id "AT5G01015"; transcript_id "AT5G01015.1";
+Chr5	TAIR10	exon	5256	5576	.	-	.	gene_id "AT5G01015"; transcript_id "AT5G01015.1";
+Chr5	TAIR10	CDS	5335	5576	.	-	1	gene_id "AT5G01015"; transcript_id "AT5G01015.1";
+Chr5	TAIR10	CDS	5697	5769	.	-	0	gene_id "AT5G01015"; transcript_id "AT5G01015.1";
+Chr5	TAIR10	exon	5697	5891	.	-	.	gene_id "AT5G01015"; transcript_id "AT5G01015.1";
+#Original, copy but with no exon features
+Chr5	TAIR10	mRNA	5256	5891	.	-	.	gene_id "AT5G01015"; transcript_id "AT5G01015.2";
+Chr5	TAIR10	3UTR	5256	5334	.	-	.	gene_id "AT5G01015"; transcript_id "AT5G01015.2";
+Chr5	TAIR10	CDS	5335	5576	.	-	1	gene_id "AT5G01015"; transcript_id "AT5G01015.2";
+Chr5	TAIR10	CDS	5697	5769	.	-	0	gene_id "AT5G01015"; transcript_id "AT5G01015.2";
+Chr5	TAIR10	5UTR	5770	5891	.	-	.	gene_id "AT5G01015"; transcript_id "AT5G01015.2";
+# No UTR
+Chr5	TAIR10	mRNA	5335	5769	.	-	.	gene_id "AT5G01015"; transcript_id "AT5G01015.3";
+Chr5	TAIR10	CDS	5335	5576	.	-	1	gene_id "AT5G01015"; transcript_id "AT5G01015.3";
+Chr5	TAIR10	CDS	5697	5769	.	-	0	gene_id "AT5G01015"; transcript_id "AT5G01015.3";
+#CDS truncated on the stop codon
+Chr5	TAIR10	mRNA	5256	5891	.	-	.	gene_id "AT5G01015"; transcript_id "AT5G01015.4";
+Chr5	TAIR10	exon	5256	5576	.	-	.	gene_id "AT5G01015"; transcript_id "AT5G01015.4";
+Chr5	TAIR10	CDS	5341	5576	.	-	1	gene_id "AT5G01015"; transcript_id "AT5G01015.4";
+Chr5	TAIR10	CDS	5697	5769	.	-	0	gene_id "AT5G01015"; transcript_id "AT5G01015.4";
+Chr5	TAIR10	exon	5697	5891	.	-	.	gene_id "AT5G01015"; transcript_id "AT5G01015.4";
+#CDS truncated on the start codon
+Chr5	TAIR10	mRNA	5256	5891	.	-	.	gene_id "AT5G01015"; transcript_id "AT5G01015.5";
+Chr5	TAIR10	exon	5256	5576	.	-	.	gene_id "AT5G01015"; transcript_id "AT5G01015.5";
+Chr5	TAIR10	CDS	5335	5576	.	-	1	gene_id "AT5G01015"; transcript_id "AT5G01015.5";
+Chr5	TAIR10	CDS	5697	5766	.	-	0	gene_id "AT5G01015"; transcript_id "AT5G01015.5";
+Chr5	TAIR10	exon	5697	5891	.	-	.	gene_id "AT5G01015"; transcript_id "AT5G01015.5";

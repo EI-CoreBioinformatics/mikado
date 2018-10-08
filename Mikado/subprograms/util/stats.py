@@ -194,6 +194,7 @@ class Calculator:
             # 5'UTR, 5'UTR exons, 3'UTR, 3'UTR exons
             __fieldnames = ["TID", "GID",
                             "Coordinates",
+                            "Strand",
                             "Exon number",
                             "cDNA length",
                             "Intronic length",
@@ -483,6 +484,7 @@ class Calculator:
                 row["Coordinates"] = "{}:{}-{}".format(gene.chrom,
                                                        gene.transcripts[tid].start,
                                                        gene.transcripts[tid].end)
+                row["Strand"] = gene.strand
                 row["Exon number"] = len(gene.transcripts[tid].exon_lengths)
                 row["cDNA length"] = gene.transcripts[tid].cdna_length
                 row["Intronic length"] = sum([_[1] - _[0] for _ in gene.transcripts[tid].introns])

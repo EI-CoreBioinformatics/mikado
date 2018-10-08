@@ -5,6 +5,7 @@ e.g. reliability of the CDS/UTR, sanity of borders, etc.
 
 from Mikado.utilities.intervaltree import Interval
 import operator
+from sys import intern
 from Mikado.exceptions import InvalidCDS, InvalidTranscript
 
 __author__ = 'Luca Venturini'
@@ -645,14 +646,6 @@ def finalize(transcript):
         else:
             transcript.feature = "transcript"
 
-    for prop in ["has_start_codon", "has_stop_codon"]:
-        if prop in transcript.attributes:
-            if transcript.is_coding:
-                transcript.attributes[prop] = bool(transcript.attributes[prop])
-                setattr(transcript, prop, transcript.attributes[prop])
-            else:
-                del transcript.attributes[prop]
-
     if len(transcript.combined_cds) == 0:
         transcript.selected_internal_orf_cds = tuple([])
     else:
@@ -669,6 +662,26 @@ def finalize(transcript):
 
     # BUG somewhere ... I am not sorting this properly before (why?)
     transcript.exons = sorted(transcript.exons)
+    transcript.logger.debug("Checking various attributes")
+    if "has_start_codon" in transcript.attributes:
+        transcript.logger.debug("%s has start codon attribute (%s)", transcript.id,
+                                transcript.attributes["has_start_codon"])
+        transcript.has_start_codon = transcript.attributes["has_start_codon"]
+    else:
+        transcript.logger.debug("No predetermined has_start_codon attribute for %s. Attributes: %s",
+                                transcript.id, transcript.attributes)
+    if "has_stop_codon" in transcript.attributes:
+        transcript.logger.debug("%s has stop codon attribute (%s)", transcript.id,
+                                transcript.attributes["has_stop_codon"])
+        transcript.has_stop_codon = transcript.attributes["has_stop_codon"]
+    else:
+        transcript.logger.debug("No predetermined has_stop_codon attribute for %s. Attributes: %s",
+                                transcript.id, transcript.attributes)
+
+    for prop in transcript.attributes:
+        if hasattr(transcript, prop):
+            setattr(transcript, prop, transcript.attributes[prop])
+
     # transcript = __calc_cds_introns(transcript)
 
     transcript.finalized = True

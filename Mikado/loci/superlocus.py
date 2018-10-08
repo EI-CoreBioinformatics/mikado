@@ -1134,7 +1134,8 @@ class Superlocus(Abstractlocus):
                                            source=self.source
                                            )
                 else:
-                    new_locus.add_transcript_to_locus(transcript)
+                    new_locus.add_transcript_to_locus(transcript,
+                                                      check_in_locus=False)
             new_locus.define_loci()
             self.loci.update(new_locus.loci)
             self.__lost = new_locus.lost_transcripts
@@ -1144,7 +1145,7 @@ class Superlocus(Abstractlocus):
 
         self.__lost = dict()
         cds_only = self.json_conf["pick"]["clustering"]["cds_only"]
-        # simple_overlap = self.json_conf["pick"]["run_options"]["monoloci_from_simple_overlap"]
+        simple_overlap = self.json_conf["pick"]["run_options"]["monoloci_from_simple_overlap"]
         cdna_overlap = self.json_conf["pick"]["clustering"]["min_cdna_overlap"]
         cds_overlap = self.json_conf["pick"]["clustering"]["min_cds_overlap"]
 

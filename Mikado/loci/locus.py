@@ -161,12 +161,6 @@ reached the maximum number of isoforms for the locus".format(
                 self.scores_calculated = False
                 self.calculate_scores()
 
-        if self.json_conf["pick"]["alternative_splicing"]["pad"] is True:
-            self.pad_transcripts()
-            self.metrics_calculated = False
-            self.scores_calculated = False
-            self.calculate_scores()
-
         self.logger.debug("Now checking the retained introns for %s", self.id)
         while True:
             to_remove = set()
@@ -192,6 +186,12 @@ reached the maximum number of isoforms for the locus".format(
                 for tid in to_remove:
                     self.transcripts[tid].attributes["retained_intron"] = True
                 break
+
+        if self.json_conf["pick"]["alternative_splicing"]["pad"] is True:
+            self.pad_transcripts()
+            self.metrics_calculated = False
+            self.scores_calculated = False
+            self.calculate_scores()
 
         self._finalized = True
 
@@ -835,7 +835,12 @@ def expand_transcript(transcript, new_start, new_end, fai, logger):
     # First get the ORFs
     transcript.logger = logger
     if transcript.combined_cds_length > 0:
-        internal_orfs = list(transcript.get_internal_orf_beds())
+        try:
+            internal_orfs = list(transcript.get_internal_orf_beds())
+        except (ValueError, TypeError, AssertionError):
+            logger.error("Something went wrong with the CDS extraction for %s. Stripping it.",
+                         transcript.id)
+            internal_orfs = []
     else:
         internal_orfs = []
     # Remove the CDS and unfinalize
@@ -846,14 +851,14 @@ def expand_transcript(transcript, new_start, new_end, fai, logger):
 
     upstream = 0
     downstream = 0
-    if new_start:
+    if new_start and new_start < transcript.start:
         __new_exon = (new_start, transcript.exons[0][1])
         upstream = transcript.start - new_start
         transcript.start = new_start
         transcript.remove_exon(transcript.exons[0])
         transcript.add_exon(__new_exon)
         transcript.exons = sorted(transcript.exons)
-    if new_end:
+    if new_end and new_end > transcript.end:
         __new_exon = (transcript.exons[-1][0], new_end)
         downstream = new_end - transcript.end
         transcript.end = new_end

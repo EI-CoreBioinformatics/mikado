@@ -161,6 +161,21 @@ reached the maximum number of isoforms for the locus".format(
                 self.scores_calculated = False
                 self.calculate_scores()
 
+        self._remove_retained_introns()
+
+        if self.json_conf["pick"]["alternative_splicing"]["pad"] is True:
+            self.pad_transcripts()
+            self.metrics_calculated = False
+            self.scores_calculated = False
+            self.calculate_scores()
+
+        self._finalized = True
+
+        self._remove_retained_introns()
+
+        return
+
+    def _remove_retained_introns(self):
         self.logger.debug("Now checking the retained introns for %s", self.id)
         while True:
             to_remove = set()
@@ -186,15 +201,6 @@ reached the maximum number of isoforms for the locus".format(
                 for tid in to_remove:
                     self.transcripts[tid].attributes["retained_intron"] = True
                 break
-
-        if self.json_conf["pick"]["alternative_splicing"]["pad"] is True:
-            self.pad_transcripts()
-            self.metrics_calculated = False
-            self.scores_calculated = False
-            self.calculate_scores()
-
-        self._finalized = True
-
         return
 
     def remove_transcript_from_locus(self, tid: str):

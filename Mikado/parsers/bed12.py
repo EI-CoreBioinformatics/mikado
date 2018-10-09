@@ -708,7 +708,7 @@ class BED12:
         self.start_codon = str(
             old_sequence[self.thick_start + self.phase - 1:self.thick_start + self.phase + 2]).upper()
 
-        last_codon_start = (self.thick_end - 3) - ((self.thick_end - self.thick_start - self.phase) % 3)
+        last_codon_start = (self.thick_end - 3) - ((self.thick_end - self.thick_start - self.phase - 2) % 3)
         self.stop_codon = str(old_sequence[last_codon_start:last_codon_start + 3]).upper()
 
         assert 0 < len(self.stop_codon) <= 3, self.stop_codon
@@ -741,7 +741,7 @@ class BED12:
                 self.phase = 0
                 self.__has_start = True
 
-            for pos in range(self.thick_start - 1, self.end, 3):
+            for pos in range(self.thick_start + self.phase - 1, self.end, 3):
                 codon = sequence[pos:pos + 3]
                 if codon in ("TAA", "TGA", "TAG"):
                     self.thick_end = pos + 3

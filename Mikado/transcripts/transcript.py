@@ -765,18 +765,18 @@ class Transcript:
                 if self.strand == "-":
                     cds_start, cds_end = cds_end, cds_start
                 phase = None
-                for tag, seg, ph in (_ for _ in iorf if _[0] == "CDS"):
-                    cds_len += seg[1] - seg[0] + 1
-                    if self.strand == "-":
-                        cds_start = max(seg[1], cds_start)
-                        cds_end = min(seg[0], cds_end)
-                        if cds_start == seg[1]:
-                            phase = ph
-                    else:
-                        cds_start = min(seg[0], cds_start)
-                        cds_end = max(seg[1], cds_end)
-                        if cds_start == seg[0]:
-                            phase = ph
+                cdses = sorted([(_[1][0], _[1][1], _[2]) for _ in iorf if _[0] == "CDS"],
+                               key=operator.itemgetter(0, 1))
+                cds_len = sum(_[1] - _[0] + 1 for _ in cdses)
+                if self.strand == "-":
+                    cds_start = cdses[-1][1]
+                    cds_end = cdses[0][0]
+                    phase = cdses[-1][2]
+                else:
+                    cds_start = cdses[0][0]
+                    cds_end = cdses[-1][1]
+                    phase = cdses[0][2]
+                self.logger.debug("Phase: %s. CDSes: %s", phase, cdses)
 
                 # Now convert to transcriptomic coordinates
                 if self.strand == "-":
@@ -790,7 +790,9 @@ class Transcript:
                 new_row.block_sizes = [cds_len]
                 new_row.phase = phase
                 # self.logger.debug(new_row)
-                new_row = BED12(new_row, sequence=seq,
+                new_row = BED12(new_row,
+                                sequence=seq,
+                                phase=phase,
                                 coding=True, transcriptomic=True, max_regression=0, start_adjustment=False)
                 if (cds_len - phase) % 3 != 0 and cds_end not in (self.start, self.end):
                     raise AssertionError("Invalid CDS length for {}:\n{}\n{}".format(self.id,

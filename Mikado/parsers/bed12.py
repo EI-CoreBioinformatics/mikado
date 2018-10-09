@@ -705,9 +705,11 @@ class BED12:
 
         # I presume that the sequence is already in the right orientation
 
-        self.start_codon = str(old_sequence[self.thick_start + self.phase -1 :self.thick_start + self.phase + 2]).upper()
-        # last_codon_start = self.thick_end + ((self.thick_end - self.thick_start + 1 + self.phase) % 3 - 3)
-        self.stop_codon = str(old_sequence[self.thick_end - 3:self.thick_end]).upper()
+        self.start_codon = str(
+            old_sequence[self.thick_start + self.phase - 1:self.thick_start + self.phase + 2]).upper()
+
+        last_codon_start = (self.thick_end - 3) - ((self.thick_end - self.thick_start - self.phase) % 3)
+        self.stop_codon = str(old_sequence[last_codon_start:last_codon_start + 3]).upper()
 
         assert 0 < len(self.stop_codon) <= 3, self.stop_codon
 
@@ -720,7 +722,7 @@ class BED12:
         self.thick_start += upstream
         self.thick_end += upstream
         if expand_orf is True:
-            if self.start_codon != "ATG":
+            if str(self.start_codon) != "ATG":
                 for pos in range(self.thick_start - self.phase,
                                  0,
                                  -3):
@@ -739,22 +741,17 @@ class BED12:
                 self.phase = 0
                 self.__has_start = True
 
+            for pos in range(self.thick_start - 1, self.end, 3):
+                codon = sequence[pos:pos + 3]
+                if codon in ("TAA", "TGA", "TAG"):
+                    self.thick_end = pos + 3
+                    self.stop_codon = codon
+                    self.__has_stop = True
+                    logger.debug("New stop codon for %s: %s", self.name, self.thick_end)
+                    break
             if self.stop_codon not in ("TAA", "TGA", "TAG"):
-                for pos in range(self.thick_end,
-                                 self.end,
-                                 3):
-                    codon = sequence[pos:pos + 3]
-                    if codon in ("TAA", "TGA", "TAG"):
-                        self.thick_end = pos + 3
-                        self.stop_codon = codon
-                        self.__has_stop = True
-                        logger.debug("New stop codon for %s: %s", self.name, self.thick_end)
-                        break
-                if self.stop_codon not in ("TAA", "TGA", "TAG"):
-                    logger.debug("No valid stop codon found for %s", self.name)
-                    self.thick_end = self.end
-            else:
-                logger.debug("Stop codon already valid for %s", self.name)
+                logger.debug("No valid stop codon found for %s", self.name)
+                self.thick_end = self.end
 
         self.block_sizes = [self.thick_end - self.thick_start]
         self.block_starts = [self.thick_start]

@@ -832,6 +832,12 @@ reached the maximum number of isoforms for the locus".format(
 
 def expand_transcript(transcript, new_start, new_end, fai, logger):
 
+    # If there is nothing to do, just get out
+    if ((not new_start or new_start >= transcript.start) and
+            (not new_end or new_end <= transcript.end)):
+        logger.debug("%s does not need to be expanded, exiting", transcript.id)
+        return transcript
+
     # First get the ORFs
     transcript.logger = logger
     if transcript.combined_cds_length > 0:
@@ -885,7 +891,7 @@ def expand_transcript(transcript, new_start, new_end, fai, logger):
                                  transcript.start, transcript.end, len(genome_seq))
             logger.error(error)
             raise InvalidTranscript(error)
-        seq = "".join(TranscriptChecker(transcript, genome_seq).fasta.split("\n")[1:])
+        seq = TranscriptChecker(transcript, genome_seq).cdna
         assert len(seq) == transcript.cdna_length, (len(seq), transcript.cdna_length, transcript.exons)
         for orf in internal_orfs:
             logger.debug("Old ORF: %s", str(orf))

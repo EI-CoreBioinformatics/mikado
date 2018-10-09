@@ -930,11 +930,13 @@ def expand_transcript(transcript, new_start, new_end, fai, logger):
     # Now check that we have a valid expansion
     if backup.is_coding and not transcript.is_coding:
         # Something has gone wrong. Just return the original transcript.
-        logger.warning("Padding %s would lead to an invalid CDS. Aborting.")
+        logger.info("Padding %s would lead to an invalid CDS. Aborting.",
+                    transcript.id)
         return backup
     elif ((backup.strand == "-" and backup.combined_cds_end < transcript.combined_cds_end) or
           (backup.combined_cds_end > transcript.combined_cds_end)):
-        logger.warning("Padding %s would lead to an in-frame stop codon. Aborting.")
+        logger.info("Padding %s would lead to an in-frame stop codon. Aborting.",
+                    transcript.id)
         return backup
 
     return transcript

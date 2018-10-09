@@ -844,6 +844,9 @@ def expand_transcript(transcript, new_start, new_end, fai, logger):
         logger.debug("%s does not need to be expanded, exiting", transcript.id)
         return transcript
 
+    # Make a backup copy of the transcript
+    backup = transcript.deepcopy()
+
     # First get the ORFs
     transcript.logger = logger
     if transcript.combined_cds_length > 0:
@@ -923,4 +926,15 @@ def expand_transcript(transcript, new_start, new_end, fai, logger):
     if upstream > 0 or downstream > 0:
         transcript.attributes["padded"] = True
     transcript.finalize()
+
+    # Now check that we have a valid expansion
+    if backup.is_coding and not transcript.is_coding:
+        # Something has gone wrong. Just return the original transcript.
+        logger.warning("Padding %s would lead to an invalid CDS. Aborting.")
+        return backup
+    elif ((backup.strand == "-" and backup.combined_cds_end < transcript.combined_cds_end) or
+          (backup.combined_cds_end > transcript.combined_cds_end)):
+        logger.warning("Padding %s would lead to an in-frame stop codon. Aborting.")
+        return backup
+
     return transcript

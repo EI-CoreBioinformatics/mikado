@@ -9,11 +9,12 @@ import sys
 from Mikado.parsers.GTF import GTF, GtfLine
 from Mikado.transcripts import Transcript
 from Mikado.utilities import overlap
-from copy import deepcopy
+from sys import maxsize
 import operator
 import argparse
 from collections import defaultdict
 from typing import List, Generator
+from collections import deque
 
 
 class Obj(object):
@@ -21,7 +22,7 @@ class Obj(object):
     pass
 
 
-def create_transcript(tid: str, lines: List[GtfLine], args: argparse.Namespace) -> Generator[Transcript]:
+def create_transcript(tid: str, parent: str, lines: List[GtfLine], args: argparse.Namespace):
 
     """"""
 
@@ -29,46 +30,67 @@ def create_transcript(tid: str, lines: List[GtfLine], args: argparse.Namespace) 
     for line in lines:
         chroms[line.chrom].append(line)
 
-    if len(chroms) == 1:
-        # Everything as it should.
-        pass
-    else:
+    if len(chroms) > 1:
         # Recursively
         for chrom in chroms:
-            for transcript in create_transcript(tid + "." + chrom, chroms[chrom], args):
+            newtid = tid + "." + chrom
+            newparent = parent + "." + chrom
+            for transcript in create_transcript(newtid, newparent, chroms[chrom], args):
+                assert transcript.id == newtid, (newtid, transcript.id)
+                assert transcript.parent[0] == newparent
                 yield transcript
-
-    # Now we are sure that we only have one chromosome
-    exons = sorted([line for line in lines if line.is_exon],
-                   key=operator.attrgetter("chrom", "start", "end"))
-
-    if len(exons) == 1:
-        transcript = Transcript(exons[0])
-        transcript.finalize()
-        yield transcript
     else:
-        new_exons = []
-        identifier = ord("A")
-        for pos in range(1, len(exons)):
-            exon = exons[pos]
-            prev = exons[pos - 1]
-            if overlap((prev.start, prev.end), (exon.start, exon.end)) > 0:
-                # Merge the two exons
-                exons[pos].start = prev.start
-            elif exon.start - prev.end + 1 < args.min_intron:
-                if args.split is False:
-                    exons[pos].start = prev.start
+        # Now we are sure that we only have one chromosome
+        exons = sorted([line for line in lines if line.is_exon],
+                       key=operator.attrgetter("chrom", "start", "end"))
+
+        if len(exons) == 1:
+            transcript = Transcript(exons[0])
+            transcript.id = tid
+            transcript.parent = parent
+            transcript.finalize()
+            yield transcript
+        else:
+            new_exons = deque()
+            identifier = ord("A") - 1
+            current = exons[0]
+
+            for exon in exons[1:]:
+                if ((overlap((exon.start, exon.end), (current.start, current.end)) > 0) or
+                        (exon.start - current.end + 1 <= args.min_intron and args.split is False)):
+                    # Merge the two exons
+                    current.end = exon.end
+                elif ((exon.start - current.end + 1 <= args.min_intron and args.split is True) or
+                       exon.start - current.end + 1 > args.max_intron):
+                    # TODO: split
+                    new_exons.append(current)
+                    transcript = Transcript(new_exons.popleft())
+                    transcript.add_exons(new_exons)
+                    transcript.finalize()
+                    identifier += 1
+                    transcript.parent = parent + "." + chr(identifier)
+                    transcript.id = tid + "." + chr(identifier)
+                    yield transcript
+                    current = exon
+                    new_exons = deque()
                 else:
-                    # we have to split
-                    pass
-            elif exon.start - prev.end + 1 > args.max_intron:
-                # we have to split
-                pass
+                    new_exons.append(current)
+                    current = exon
+
+            new_exons.append(current)
+            transcript = Transcript(new_exons.popleft())
+            transcript.add_exons(new_exons)
+
+            if identifier == ord("A") - 1:
+                transcript.id = tid
+                transcript.parent = parent
             else:
-                new_exons.append(prev)
+                identifier += 1
+                transcript.id = tid + "." + chr(identifier)
+                transcript.parent = parent + "." + chr(identifier)
 
-
-
+            transcript.finalize()
+            yield transcript
 
 
 def main():
@@ -77,9 +99,9 @@ def main():
     """
 
     parser = argparse.ArgumentParser("Script to add a transcript feature to e.g. Cufflinks GTFs")
-    parser.add_argument("-mai", "--max-intron", dest="max_intron",
+    parser.add_argument("-mai", "--max-intron", dest="max_intron", default=maxsize, type=int,
                         help="Maximum intron length before splitting a transcript into different pieces.")
-    parser.add_argument("-mi", "--min-intron", dest="min_intron",
+    parser.add_argument("-mi", "--min-intron", dest="min_intron", default=0, type=int,
                         help="""Minimum intron length; intron lengths lower than this will cause two consecutive exons
                         to be merged.""")
     parser.add_argument("--split-small-introns", dest="split", action="store_true", default=False,
@@ -101,13 +123,16 @@ def main():
     transcripts = list()
 
     for tid, lines in transcript_lines.items():
-        transcripts.extend(*create_transcript(tid, lines, args))
+        parent = lines[0].gene
+        for transcript in create_transcript(tid, parent, lines, args):
+            transcripts.append(transcript)
 
     for transcript in sorted(transcripts):
         print(transcript.format("gtf"), file=args.out)
 
     if args.out is not sys.stdout:
         args.out.close()
+
 
 if __name__ == '__main__':
     main()

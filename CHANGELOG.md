@@ -10,6 +10,7 @@ Bugfixes and improvements:
 - Now coding and non-coding transcripts will be in different loci.
 - Mikado prepare now can accept models that lack any exon features but still have valid CDS/UTR features
 - Fixed [#34](https://github.com/lucventurini/mikado/issues/34): now Mikado can specify a valid codon table among those provided by [NCBI  through BioPython](ftp://ftp.ncbi.nih.gov/entrez/misc/data/gc.prt). The default is "0", ie the Standard table but with only the canonical "ATG" being accepted as valid start codon.
+- Fixed [#123](https://github.com/lucventurini/mikado/issues/123): now add_transcript_to_feature.gtf automatically splits chimeric transcripts and corrects mistakes related the intron size.
 - Fixed [#126](https://github.com/lucventurini/mikado/issues/126): now reversing the strand of a model will cause its CDS to be stripped.
 - Fixed [#127](https://github.com/lucventurini/mikado/issues/127): previously, Mikado _prepare_ only considered cDNA coordinates when determining the redundancy of two models. In some edge cases, two models could be identical but have a different ORF called. Now Mikado will also consider the CDS before deciding whether to discard a model as redundant.
 - [#129](https://github.com/lucventurini/mikado/issues/129): Mikado is now capable of correctly padding the transcripts so to uniform their ends in a single locus. This will also have the effect of trying to enlarge the ORF of a transcript if it is truncated to begin with.

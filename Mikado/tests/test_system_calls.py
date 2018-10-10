@@ -419,6 +419,34 @@ class PrepareCheck(unittest.TestCase):
 
                 self.assertGreater(coding_count, 0)
 
+    def test_truncated_cds(self):
+        files = ["test_truncated_cds.gff3"]
+        files = [pkg_resources.resource_filename("Mikado.tests", filename) for filename in files]
+        self.conf["prepare"]["files"]["gff"] = files
+        self.conf["prepare"]["files"]["labels"] = [""]
+        self.conf["prepare"]["files"]["output_dir"] = tempfile.gettempdir()
+        self.conf["prepare"]["files"]["out_fasta"] = "mikado_prepared.fasta"
+        self.conf["prepare"]["files"]["out"] = "mikado_prepared.gtf"
+        self.conf["prepare"]["strip_cds"] = False
+
+        self.conf["reference"]["genome"] = pkg_resources.resource_filename("Mikado.tests",
+                                                                           "test_truncated_cds.fa")
+        args = Namespace()
+        args.strip_cds = False
+        args.json_conf = self.conf
+        prepare.prepare(args, self.logger)
+        self.assertTrue(os.path.exists(os.path.join(self.conf["prepare"]["files"]["output_dir"],
+                                                    "mikado_prepared.fasta")))
+        fa = pyfaidx.Fasta(os.path.join(self.conf["prepare"]["files"]["output_dir"],
+                                        "mikado_prepared.fasta"))
+        self.assertEqual(len(fa.keys()), 1)
+        gtf_file = os.path.join(self.conf["prepare"]["files"]["output_dir"], "mikado_prepared.gtf")
+        lines = [line for line in to_gff(gtf_file)]
+        cds = [_ for _ in lines if _.feature == "CDS"]
+        self.assertEqual(len(cds), 1)
+        self.assertEqual(cds[0].frame, 1)
+        self.assertEqual(cds[0].phase, 2)
+
 
 class CompareCheck(unittest.TestCase):
 

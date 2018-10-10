@@ -70,8 +70,10 @@ def create_transcript(lines,
         transcript_line.parent = lines["parent"]
 
         for feature in lines["features"]:
-            transcript_line.add_exons(lines["features"][feature],
-                                      features=feature)
+            coords = [(_[0], _[1]) for _ in lines["features"][feature]]
+            phases = [_[2] for _ in lines["features"][feature]]
+            transcript_line.add_exons(coords, features=feature, phases=phases)
+
         transcript_object = TranscriptChecker(transcript_line,
                                               fasta_seq,
                                               lenient=lenient,

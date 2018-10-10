@@ -1,0 +1,4 @@
+test	test	gene	1	6706	1	+	.	ID=test_0245940;Name=test_0245940;
+test	test	mRNA	1	6706	.	+	.	ID=test_0245940.1;Parent=test_0245940;Name=test_0245940.1
+test	test	CDS	1	370	.	+	2	ID=test_0245940..cds1;Parent=test_0245940.1
+test	test	exon	1	370	.	+	.	ID=test_0245940.exon1;Parent=test_0245940.1

@@ -233,12 +233,12 @@ def load_into_storage(shelf_name, exon_lines, min_length, logger, strip_cds=True
                         exons.append(current)
                         current = segment
                     elif segment[0] == current[1] + 1:
-                        current = (current[0], segment[1])
+                        current = (current[0], segment[1], None)
                     else:
                         logger.warning("Overlapping segments found in %s. Discarding it", tid)
                         continue
                 exons.append(current)
-                exon_lines[tid]["features"]["exon"] = exons[:]
+            exon_lines[tid]["features"]["exon"] = exons[:]
         else:
             raise KeyError(exon_lines[tid]["features"])
 
@@ -337,7 +337,7 @@ def load_from_gff(shelf_name,
             # Here we have to add the match feature as an exon, in case it is the only one present
             if row.feature == "match":
                 exon_lines[row.id]["features"][row.feature] = []
-                exon_lines[row.id]["features"][row.feature].append((row.start, row.end))
+                exon_lines[row.id]["features"][row.feature].append((row.start, row.end, row.phase))
 
             exon_lines[row.id]["strand_specific"] = strand_specific
             continue
@@ -392,7 +392,7 @@ def load_from_gff(shelf_name,
 
                     if row.feature not in exon_lines[tid]["features"]:
                         exon_lines[tid]["features"][row.feature] = []
-                    exon_lines[tid]["features"][row.feature].append((row.start, row.end))
+                    exon_lines[tid]["features"][row.feature].append((row.start, row.end, row.phase))
                     new_ids.add(tid)
             else:
                 continue
@@ -499,7 +499,7 @@ def load_from_gtf(shelf_name,
             exon_lines[row.transcript]["attributes"].update(row.attributes)
         if row.feature not in exon_lines[row.transcript]["features"]:
             exon_lines[row.transcript]["features"][row.feature] = []
-        exon_lines[row.transcript]["features"][row.feature].append((row.start, row.end))
+        exon_lines[row.transcript]["features"][row.feature].append((row.start, row.end, row.phase))
         new_ids.add(row.transcript)
     gff_handle.close()
     load_into_storage(shelf_name, exon_lines, logger=logger, min_length=min_length, strip_cds=strip_cds)

@@ -18,6 +18,12 @@ from ..parsers.GFF import GffLine
 from typing import Union
 import re
 from ..utilities.log_utils import create_null_logger
+from Bio.Data import CodonTable
+import pickle
+
+standard = CodonTable.ambiguous_dna_by_id[1]
+standard.start_codons = ["ATG"]
+
 # import numpy as np
 
 
@@ -36,7 +42,8 @@ class BED12:
                  transcriptomic=False,
                  max_regression=0,
                  start_adjustment=True,
-                 coding=True):
+                 coding=True,
+                 table=0):
 
         """
         :param args: the BED12 line.
@@ -144,6 +151,9 @@ class BED12:
         self.max_regression = max_regression
         self.start_adjustment = start_adjustment
         self.coding = coding
+        self.__table = standard
+        self.__table_index = 0
+        self.table = table
 
         if len(args) == 0:
             self.header = True
@@ -165,7 +175,7 @@ class BED12:
                 self.header = True
                 return
         elif isinstance(self._line, type(self)):  # Re-initialising with another object
-            self.__set_values_from_bed12()
+            self.__set_values_from_bed12(args[0])
         elif isinstance(self._line, GffLine):
             if self._line.header is True:
                 self.header = True
@@ -210,6 +220,7 @@ class BED12:
             self.name = groups["ID"]
 
         self.__check_validity(transcriptomic, fasta_index, sequence)
+
         if self.invalid and self.coding:
             self.coding = False
 
@@ -236,11 +247,49 @@ class BED12:
     def parent(self):
         return self.__parent
 
+    @property
+    def table(self):
+        return self.__table
+
+    @table.setter
+    def table(self, table):
+        if table is None:
+            self.__table = standard
+            self.__table_index = 0
+        elif isinstance(table, int):
+            if table == 0:
+                self.__table = standard
+            else:
+                self.__table = CodonTable.ambiguous_dna_by_id[table]
+            self.__table_index = 0
+        elif isinstance(table, str):
+            self.__table = CodonTable.ambiguous_dna_by_name[table]
+            self.__table_index = self.__table._codon_table.id
+        elif isinstance(table, bytes):
+            self.__table = CodonTable.ambiguous_dna_by_name[table.decode()]
+            self.__table_index = self.__table._codon_table.id
+        else:
+            raise ValueError("Invalid table: {} (type: {})".format(
+                    table, type(table)))
+        return
+
     @parent.setter
     def parent(self, parent):
         if parent is not None and not isinstance(parent, str):
             raise TypeError(type(parent))
         self.__parent = [parent]
+
+    def __getstate__(self):
+
+        state = copy.deepcopy(dict((key, val) for key, val in self.__dict__.items()
+                                   if key not in ("_BED12_table") and
+                                   not isinstance(val, CodonTable.CodonTable)))
+        return state
+
+    def __setstate__(self, state):
+        # del state["table"]
+        self.__dict__.update(state)
+        self.table = self.__table_index
 
     def __set_values_from_fields(self):
 
@@ -276,20 +325,22 @@ class BED12:
         self.fasta_length = len(self)
         return
 
-    def __set_values_from_bed12(self):
+    def __set_values_from_bed12(self, line):
 
-        for attr in ["chrom", "start", "end", "name", "score", "strand",
-                     "thick_start", "thick_end", "rgb",
-                     "block_count", "block_starts", "block_sizes"]:
-            setattr(self, attr, getattr(self._line, attr))
-
-        intern(self.chrom)
-        self.has_start_codon = None
-        self.has_stop_codon = None
-        self.start_codon = None
-        self.stop_codon = None
-        self.fasta_length = len(self)
-        self.transcriptomic = self._line.transcriptomic
+        self.__setstate__(line.__getstate__())
+        #
+        # for attr in ["chrom", "start", "end", "name", "score", "strand",
+        #              "thick_start", "thick_end", "rgb",
+        #              "block_count", "block_starts", "block_sizes"]:
+        #     setattr(self, attr, getattr(self._line, attr))
+        #
+        # intern(self.chrom)
+        # self.has_start_codon = None
+        # self.has_stop_codon = None
+        # self.start_codon = None
+        # self.stop_codon = None
+        # self.fasta_length = len(self)
+        # self.transcriptomic = self._line.transcriptomic
         return
 
     def __set_values_from_gff(self, fasta_length):
@@ -363,7 +414,7 @@ class BED12:
             self.start_codon = str(orf_sequence)[:3].upper()
             self.stop_codon = str(orf_sequence[-3:]).upper()
 
-            if self.start_codon == "ATG":
+            if self.start_codon in self.table.start_codons:
                 self.has_start_codon = True
                 self.phase = 0
             else:
@@ -375,7 +426,7 @@ class BED12:
                 if self.start_adjustment is True:
                     self._adjust_start(orf_sequence)
 
-            if self.stop_codon in ("TAA", "TGA", "TAG"):
+            if self.stop_codon in self.table.stop_codons:
                 self.has_stop_codon = True
             else:
                 self.has_stop_codon = False
@@ -394,7 +445,7 @@ class BED12:
         for pos in range(3,
                          int(len(orf_sequence) * self.max_regression),
                          3):
-            if orf_sequence[pos:pos + 3] == "ATG":
+            if orf_sequence[pos:pos + 3] in self.table.start_codons:
                 # Now we have to shift the start accordingly
                 self.has_start_codon = True
                 if self.strand == "+":
@@ -722,7 +773,7 @@ class BED12:
         self.thick_start += upstream
         self.thick_end += upstream
         if expand_orf is True:
-            if str(self.start_codon) != "ATG":
+            if str(self.start_codon) not in self.table.start_codons:
                 for pos in range(self.thick_start - self.phase,
                                  0,
                                  -3):
@@ -734,22 +785,22 @@ class BED12:
                         self.__has_start = True
                         break
 
-            if self.start_codon != "ATG":
+            if self.start_codon not in self.table.start_codons:
                 self.phase = self.thick_start % 3
                 self.thick_start = 1
             else:
                 self.phase = 0
                 self.__has_start = True
 
-            for pos in range(self.thick_start + self.phase - 1, self.end, 3):
-                codon = sequence[pos:pos + 3]
-                if codon in ("TAA", "TGA", "TAG"):
-                    self.thick_end = pos + 3
-                    self.stop_codon = codon
-                    self.__has_stop = True
-                    logger.debug("New stop codon for %s: %s", self.name, self.thick_end)
-                    break
-            if self.stop_codon not in ("TAA", "TGA", "TAG"):
+            coding_seq = Seq.Seq(sequence[self.thick_start + self.phase - 1:self.end])
+            prot_seq = coding_seq.translate(table=self.table, gap="N")
+            if "*" in prot_seq:
+                self.thick_end = self.thick_start + self.phase - 1 + (1 + prot_seq.find("*")) * 3
+                self.stop_codon = coding_seq[prot_seq.find("*") * 3:(1 + prot_seq.find("*")) * 3]
+                self.__has_stop = True
+                logger.debug("New stop codon for %s: %s", self.name, self.thick_end)
+
+            if self.stop_codon not in self.table.stop_codons:
                 logger.debug("No valid stop codon found for %s", self.name)
                 self.thick_end = self.end
 

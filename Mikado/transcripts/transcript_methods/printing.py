@@ -278,7 +278,7 @@ def as_bed12(transcript, transcriptomic=False):
     """
 
     transcript.finalize()
-    bed12 = BED12()
+    bed12 = BED12(table=transcript.codon_table)
     bed12.transcriptomic = False
     bed12.header = False
     bed12.chrom = transcript.chrom

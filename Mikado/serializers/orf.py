@@ -172,6 +172,7 @@ class OrfSerializer:
 
         fasta_index = json_conf["serialise"]["files"]["transcripts"]
         self._max_regression = json_conf["serialise"]["max_regression"]
+        self._table = json_conf["serialise"]["codon_table"]
 
         if isinstance(fasta_index, str):
             assert os.path.exists(fasta_index)
@@ -194,7 +195,8 @@ class OrfSerializer:
                                               fasta_index=fasta_index,
                                               is_gff=(not self.is_bed12),
                                               transcriptomic=True,
-                                              max_regression=self._max_regression)
+                                              max_regression=self._max_regression,
+                                              table=self._table)
 
         self.engine = connect(json_conf, logger)
 

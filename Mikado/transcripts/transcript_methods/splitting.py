@@ -707,7 +707,7 @@ def __relocate_orfs(transcript, bed12_objects, tstart, tend):
     for obj in bed12_objects:
         # import copy
         # obj = copy.deepcopy(obj)
-        new = BED12()
+        new = BED12(table=transcript.codon_table)
         new.transcriptomic = True
         # Phase is necessary for truncated models
         for attr in ["chrom", "start", "end", "strand", "thick_start", "thick_end",

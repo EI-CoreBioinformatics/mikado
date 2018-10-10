@@ -736,7 +736,8 @@ class Transcript:
         else:
             seq = None
 
-        row = BED12(transcriptomic=True, coding=True, start_adjustment=False, max_regression=0)
+        row = BED12(transcriptomic=True, coding=True, start_adjustment=False, max_regression=0,
+                    table=self.codon_table)
         row.header = False
         row.chrom = self.id
         row.strand = "+"
@@ -752,7 +753,9 @@ class Transcript:
             row.block_count = 0
             row.block_starts = [0]
             row.block_sizes = [0]
-            row = BED12(row, seq, coding=False, transcriptomic=True, max_regression=0, start_adjustment=False)
+            row = BED12(row, seq,
+                        coding=False, transcriptomic=True, max_regression=0, start_adjustment=False,
+                        table=self.codon_table)
             assert row.invalid is False, ("\n".join([str(row), row.invalid_reason]))
             yield row
 
@@ -793,7 +796,8 @@ class Transcript:
                 new_row = BED12(new_row,
                                 sequence=seq,
                                 phase=phase,
-                                coding=True, transcriptomic=True, max_regression=0, start_adjustment=False)
+                                coding=True, transcriptomic=True, max_regression=0, start_adjustment=False,
+                                table=self.codon_table)
                 if (cds_len - phase) % 3 != 0 and cds_end not in (self.start, self.end):
                     raise AssertionError("Invalid CDS length for {}:\n{}\n{}".format(self.id,
                                                                                      iorf,
@@ -1958,6 +1962,15 @@ index {3}, internal ORFs: {4}".format(
 
         self.__cds_tree = IntervalTree.from_tuples(
             [(cds[0], max(cds[1], cds[0] + 1)) for cds in self.combined_cds])
+
+    @property
+    def codon_table(self):
+        """This property returns the codon table for the project. Default: 0 (Standard, but only ATG is considered
+        a valid start codon)."""
+
+        if self.json_conf is None:
+            return 0
+        return self.json_conf.get("serialise", {}).get("codon_table", 0)
 
     @property
     def segmenttree(self):

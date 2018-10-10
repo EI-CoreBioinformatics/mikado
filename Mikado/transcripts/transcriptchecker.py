@@ -335,10 +335,6 @@ class TranscriptChecker(Transcript):
 
             orf = orfs[0]
             assert isinstance(orf, BED12)
-            # orf = BED12(str(orf), transcriptomic=True, sequence=self.cdna, max_regression=0, start_adjustment=False)
-            # orf.max_regression = 0
-            # orf.start_adjustment = False
-            # orf.sequence = self.cdna
 
             if orf.invalid:
                 self.logger.warning("Invalid ORF for %s (reason: %s)", self.id, orf.invalid_reason)

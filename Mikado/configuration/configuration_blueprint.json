@@ -189,7 +189,21 @@
         "max_target_seqs": {"type": "integer", "default": 100000, "minimum": 1},
         "force": {"type": "boolean", "default": false},
         "single_thread": {"type": "boolean", "default": false},
-        "procs": {"type": "integer", "default": 1, "minimum": 1}
+        "procs": {"type": "integer", "default": 1, "minimum": 1},
+        "codon_table": {
+              "enum": [0, 1, 2, 3, 4, 5, 6, 9, 10, 11, 12, 13, 14, 15, 16, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31,
+            "Standard", "SGC0", "Vertebrate Mitochondrial", "SGC1", "Yeast Mitochondrial", "SGC2", "Mold Mitochondrial",
+                  "Protozoan Mitochondrial", "Coelenterate Mitochondrial", "Mycoplasma", "Spiroplasma", "SGC3",
+                  "Invertebrate Mitochondrial", "SGC4", "Ciliate Nuclear", "Dasycladacean Nuclear",
+                  "Hexamita Nuclear", "SGC5", "Echinoderm Mitochondrial", "Flatworm Mitochondrial",
+                  "SGC8", "Euplotid Nuclear", "SGC9", "Bacterial", "Archaeal", "Plant Plastid",
+                  "Alternative Yeast Nuclear", "Ascidian Mitochondrial", "Alternative Flatworm Mitochondrial",
+                  "Blepharisma Macronuclear", "Chlorophycean Mitochondrial", "Trematode Mitochondrial",
+                  "Scenedesmus obliquus Mitochondrial", "Thraustochytrium Mitochondrial",
+                  "Pterobranchia Mitochondrial", "Candidate Division SR1", "Gracilibacteria",
+                  "Pachysolen tannophilus Nuclear", "Karyorelict Nuclear", "Condylostoma Nuclear",
+                  "Mesodinium Nuclear", "Peritrich Nuclear", "Blastocrithidia Nuclear"]
+            }
       }
     },
     "prepare":{

@@ -912,7 +912,8 @@ class Bed12Parser(Parser):
                  transcriptomic=False,
                  max_regression=0,
                  is_gff=False,
-                 coding=False):
+                 coding=False,
+                 table=0):
         """
         Constructor method.
         :param handle: the input BED file.
@@ -949,6 +950,7 @@ class Bed12Parser(Parser):
         self.fasta_index = fasta_index
         self.__closed = False
         self.header = False
+        self.__table = table
         self._is_bed12 = (not is_gff)
 
     def __iter__(self):
@@ -976,7 +978,8 @@ class Bed12Parser(Parser):
                           fasta_index=self.fasta_index,
                           transcriptomic=self.transcriptomic,
                           max_regression=self._max_regression,
-                          coding=self.coding)
+                          coding=self.coding,
+                          table=self.__table)
         return bed12
 
     def gff_next(self):
@@ -998,7 +1001,8 @@ class Bed12Parser(Parser):
             bed12 = BED12(line,
                           fasta_index=self.fasta_index,
                           transcriptomic=self.transcriptomic,
-                          max_regression=self._max_regression)
+                          max_regression=self._max_regression,
+                          table=self.__table)
         # raise NotImplementedError("Still working on this!")
         return bed12
 

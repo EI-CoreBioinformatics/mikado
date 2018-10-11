@@ -56,7 +56,7 @@ If you plan to generate the alignment and assembly part as well through Daijin, 
 
 If you use Mikado in your work, please consider to cite:
 
-> Venturini L., Caim S., Kaithakottil G., Mapleson D.L., Swarbreck D. Leveraging multiple transcriptome assembly methods for improved gene structure annotation. [bioRxiv:216994](https://doi.org/10.1101/216994)
+> Venturini L., Caim S., Kaithakottil G., Mapleson D.L., Swarbreck D. Leveraging multiple transcriptome assembly methods for improved gene structure annotation. GigaScience, Volume 7, Issue 8, 1 August 2018, giy093, [doi:10.1093/gigascience/giy093](https://doi.org/10.1093/gigascience/giy093)
 
 
 If you also use Portcullis to provide reliable junctions to Mikado, either independently or as part of the Daijin pipeline, please consider to cite:

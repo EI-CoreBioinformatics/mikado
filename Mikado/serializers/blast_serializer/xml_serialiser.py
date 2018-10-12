@@ -91,7 +91,7 @@ class _XmlPickler(multiprocessing.Process):
             self.logger.warning("Invalid BLAST file: %s", filename)
             return []
 
-        self.logger.info("Starting to pickle %s", filename)
+        self.logger.debug("Starting to pickle %s", filename)
         hits, hsps = [], []
 
         pickle_count = 0
@@ -131,7 +131,7 @@ class _XmlPickler(multiprocessing.Process):
         yield pickle_temp[1]
         pickle_count += 1
         # pfiles.append()
-        self.logger.info("Finished pickling %s in %s subsection", filename, pickle_count)
+        self.logger.debug("Finished pickling %s in %s subsection", filename, pickle_count)
         # del records
 
     def run(self):
@@ -154,7 +154,7 @@ class _XmlPickler(multiprocessing.Process):
                 continue
 
             if filename == "EXIT":
-                self.logger.info("Process %s received EXIT signal, terminating",
+                self.logger.debug("Process %s received EXIT signal, terminating",
                                  self._name)
                 self.filequeue.put((number, filename))
                 return 0
@@ -205,7 +205,7 @@ class XmlSerializer:
             self.logger = check_logger(logger)
         else:
             raise ValueError("No logger provided!")
-        self.logger.info("Started to serialise %s, log level: %s",
+        self.logger.debug("Started to serialise %s, log level: %s",
                          xml_name, self.logger.level)
 
         # Runtime arguments
@@ -242,7 +242,7 @@ class XmlSerializer:
         DBBASE.metadata.create_all(self.engine)  # @UndefinedVariable
         session = Session(bind=self.engine, autocommit=True, autoflush=True)
         self.session = session  # session()
-        self.logger.info("Created the session")
+        self.logger.debug("Created the session")
         # Load sequences if necessary
         self.__determine_sequences(query_seqs, target_seqs)
         self.xml = xml_name
@@ -257,7 +257,7 @@ class XmlSerializer:
 
         self.queries, self.targets = dict(), dict()
 
-        self.logger.info("Finished __init__")
+        self.logger.debug("Finished __init__")
 
     def __getstate__(self):
 
@@ -321,7 +321,7 @@ class XmlSerializer:
             })
 
             if len(objects) >= self.maxobjects:
-                self.logger.info("Loading %d objects into the \"query\" table (total %d)",
+                self.logger.debug("Loading %d objects into the \"query\" table (total %d)",
                                  self.maxobjects, counter)
 
                 # pylint: disable=no-member
@@ -335,7 +335,7 @@ class XmlSerializer:
                 objects = []
 
         if len(objects) > 0:
-            self.logger.info("Loading %d objects into the \"query\" table (total %d)",
+            self.logger.debug("Loading %d objects into the \"query\" table (total %d)",
                              len(objects), counter+len(objects))
             # pylint: disable=no-member
             counter += len(objects)
@@ -345,7 +345,7 @@ class XmlSerializer:
             # pylint: enable=no-member
             self.session.commit()
             # pylint: enable=no-member
-            self.logger.info("Loaded %d objects into the \"query\" table", counter)
+            self.logger.debug("Loaded %d objects into the \"query\" table", counter)
         for query in self.session.query(Query):
             queries[query.query_name] = (query.query_id, query.query_length)
         self.logger.info("%d in queries", len(queries))
@@ -381,7 +381,7 @@ class XmlSerializer:
                 # objects.append(Target(record, len(self.target_seqs[record])))
                 if len(objects) >= self.maxobjects:
                     # counter += len(objects)
-                    self.logger.info("Loading %d objects into the \"target\" table",
+                    self.logger.debug("Loading %d objects into the \"target\" table",
                                      counter)
                     # self.session.bulk_insert_mappings(Target, objects)
                     self.session.begin(subtransactions=True)
@@ -393,7 +393,7 @@ class XmlSerializer:
                     # self.logger.info("Loaded %d objects into the \"target\" table",
                     #                  len(objects))
                     # objects = []
-        self.logger.info("Loading %d objects into the \"target\" table, (total %d)",
+        self.logger.debug("Loading %d objects into the \"target\" table, (total %d)",
                          len(objects), counter)
         # pylint: disable=no-member
         self.session.begin(subtransactions=True)
@@ -404,7 +404,7 @@ class XmlSerializer:
         self.logger.info("Loaded %d objects into the \"target\" table", counter)
         for target in self.session.query(Target):
             targets[target.target_name] = (target.target_id, target.target_length is not None)
-        self.logger.info("%d in targets", len(targets))
+        self.logger.debug("%d in targets", len(targets))
         return targets
 
     def __serialise_sequences(self):
@@ -415,15 +415,15 @@ class XmlSerializer:
 
         targets = dict()
         queries = dict()
-        self.logger.info("Loading previous IDs")
+        self.logger.debug("Loading previous IDs")
         for query in self.session.query(Query):
             queries[query.query_name] = (query.query_id, (query.query_length is not None))
         for target in self.session.query(Target):
             targets[target.target_name] = (target.target_id, (target.target_length is not None))
-        self.logger.info("Loaded previous IDs; %d for queries, %d for targets",
+        self.logger.debug("Loaded previous IDs; %d for queries, %d for targets",
                          len(queries), len(targets))
 
-        self.logger.info("Started the sequence serialisation")
+        self.logger.debug("Started the sequence serialisation")
         if self.target_seqs:
             targets = self.__serialize_targets(targets)
             assert len(targets) > 0
@@ -456,7 +456,7 @@ class XmlSerializer:
 
         if tot_objects >= self.maxobjects or force:
             # Bulk load
-            self.logger.info("Loading %d BLAST objects into database", tot_objects)
+            self.logger.debug("Loading %d BLAST objects into database", tot_objects)
 
             try:
                 # pylint: disable=no-member
@@ -469,7 +469,7 @@ class XmlSerializer:
                 self.logger.critical("Failed to serialise BLAST!")
                 self.logger.exception(err)
                 raise err
-            self.logger.info("Loaded %d BLAST objects into database", tot_objects)
+            self.logger.debug("Loaded %d BLAST objects into database", tot_objects)
             hits, hsps = [], []
         return hits, hsps
 
@@ -525,7 +525,7 @@ class XmlSerializer:
             _, _ = self.__load_into_db(hits, hsps, force=True)
 
         else:
-            self.logger.info("Creating a pool with %d processes",
+            self.logger.debug("Creating a pool with %d processes",
                              min(self.procs, len(self.xml)))
 
             filequeue = multiprocessing.Queue(-1)
@@ -547,12 +547,12 @@ class XmlSerializer:
                 for _ in range(min([self.procs, len(self.xml)]))
                 ]
 
-            self.logger.info("Starting to pickle and serialise %d files", len(self.xml))
+            self.logger.debug("Starting to pickle and serialise %d files", len(self.xml))
             [_.start() for _ in procs]  # Start processes
             for number, xml_name in enumerate(self.xml):
                 filequeue.put((number, xml_name))
 
-            self.logger.info("Finished sending off the data for serialisation")
+            self.logger.debug("Finished sending off the data for serialisation")
 
             filequeue.put((None, "EXIT"))
             returned = []
@@ -575,7 +575,7 @@ class XmlSerializer:
                         hsps.extend(__hsps)
                         hits, hsps = load_into_db(self, hits, hsps, force=False)
                         if record_counter > 0 and record_counter % 10000 == 0:
-                            self.logger.info("Parsed %d queries", record_counter)
+                            self.logger.debug("Parsed %d queries", record_counter)
                     os.remove(pickle_file)
             [_.join() for _ in procs]  # Wait for processes to join
             self.logger.info("All %d children finished", len(procs))
@@ -720,7 +720,7 @@ def load_into_db(self, hits, hsps, force=False):
 
     if tot_objects >= self.maxobjects or force:
         # Bulk load
-        self.logger.info("Loading %d BLAST objects into database", tot_objects)
+        self.logger.debug("Loading %d BLAST objects into database", tot_objects)
 
         try:
             # pylint: disable=no-member
@@ -733,7 +733,7 @@ def load_into_db(self, hits, hsps, force=False):
             self.logger.critical("Failed to serialise BLAST!")
             self.logger.exception(err)
             raise err
-        self.logger.info("Loaded %d BLAST objects into database", tot_objects)
+        self.logger.debug("Loaded %d BLAST objects into database", tot_objects)
         hits, hsps = [], []
     return hits, hsps
 

@@ -80,7 +80,7 @@ I cannot proceed with this step!")
     for junction_file in iter(
             j_file for j_file in args.json_conf["serialise"]["files"]["junctions"]
             if j_file != ''):
-        logger.info("Loading junctions: %s", junction_file)
+        logger.debug("Loading junctions: %s", junction_file)
         serializer = junction.JunctionSerializer(
             junction_file,
             json_conf=args.json_conf,
@@ -137,7 +137,7 @@ def load_orfs(args, logger):
     if len(args.json_conf["serialise"]["files"]["orfs"]) > 0:
         logger.info("Starting to load ORF data")
         for orf_file in args.json_conf["serialise"]["files"]["orfs"]:
-            logger.info("Starting to load ORFs from %s", orf_file)
+            logger.debug("Starting to load ORFs from %s", orf_file)
             serializer = orf.OrfSerializer(orf_file,
                                            json_conf=args.json_conf,
                                            logger=logger)
@@ -263,6 +263,11 @@ def setup(args):
     if args.max_regression is not None:
         args.json_conf["serialise"]["max_regression"] = args.max_regression
 
+    if args.codon_table is not None:
+        args.json_conf["serialise"]["codon_table"] = args.codon_table
+    else:
+        assert "codon_table" in args.json_conf["serialise"]
+
     logger.setLevel("INFO")
     logger.info("Command line: %s",
                 " ".join(sys.argv))
@@ -300,15 +305,15 @@ def serialise(args):
     logger.info("Command line: %s",  " ".join(sys.argv))
 
     if args.json_conf["serialise"]["force"] is True:
-        logger.warn("Removing old data because force option in place")
         if args.json_conf["db_settings"]["dbtype"] == "sqlite" and os.path.exists(args.json_conf["db_settings"]["db"]):
+            logger.warn("Removing old data because force option in place")
             os.remove(args.json_conf["db_settings"]["db"])
 
         engine = dbutils.connect(args.json_conf)
         meta = sqlalchemy.MetaData(bind=engine)
         meta.reflect(engine)
         for tab in reversed(meta.sorted_tables):
-            logger.warn("Dropping %s", tab)
+            logger.debug("Dropping %s", tab)
             tab.drop()
             if args.json_conf["db_settings"]["dbtype"] == "mysql":
                 engine.execute("OPTIMIZE TABLE {}".format(tab.name))
@@ -369,6 +374,9 @@ def serialise_parser():
                       type=float, default=None,
                       help=""""Amount of sequence in the ORF (in %%) to backtrack
                       in order to find a valid START codon, if one is absent. Default: %(default)s""")
+    orfs.add_argument("--codon-table", dest="codon_table", default=None,
+                      help="""Codon table to use. Default: 0 (ie Standard, NCBI #1, but only ATG is considered
+                      a valid stop codon.""")
 
     blast = parser.add_argument_group()
     blast.add_argument("--max_target_seqs", type=int, default=None,

@@ -31,7 +31,7 @@
         "Settings related to the logs. Keys:",
         "- sql_level: verbosity for SQL calls. Default: WARNING.",
         "  In decreasing order: 'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'",
-        "- log_level: verbosity. Default: WARNING.",
+        "- log_level: verbosity. Default: INFO.",
         "  In decreasing order: 'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'"
       ],
       "type": "object",
@@ -45,7 +45,7 @@
             "ERROR",
             "CRITICAL"
           ],
-          "default": "WARNING"
+          "default": "INFO"
         },
         "sql_level": {
           "type": "string",
@@ -202,7 +202,8 @@
                   "Scenedesmus obliquus Mitochondrial", "Thraustochytrium Mitochondrial",
                   "Pterobranchia Mitochondrial", "Candidate Division SR1", "Gracilibacteria",
                   "Pachysolen tannophilus Nuclear", "Karyorelict Nuclear", "Condylostoma Nuclear",
-                  "Mesodinium Nuclear", "Peritrich Nuclear", "Blastocrithidia Nuclear"]
+                  "Mesodinium Nuclear", "Peritrich Nuclear", "Blastocrithidia Nuclear"],
+          "default": 0
             }
       }
     },

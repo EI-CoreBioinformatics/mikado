@@ -444,6 +444,9 @@ class Superlocus(Abstractlocus):
                 if len(new_tr) > 1:
                     to_add.update(new_tr)
                     to_remove = True
+                    self.logger.info("%s has been split into %d different transcripts.",
+                                     tid, len(new_tr))
+
         del data_dict
         return to_remove, to_add
         # @profile

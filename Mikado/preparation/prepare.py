@@ -121,8 +121,12 @@ def store_transcripts(shelf_stacks, logger, keep_redundant=False):
                                 logger.debug("The following transcripts are redundant: %s",
                                              ",".join([_[0] for _ in cds_list]))
                             to_keep = random.choice(cds_list)
-                            logger.debug("Keeping only %s out of the list",
-                                         to_keep)
+                            for tid in cds_list:
+                                if tid != to_keep:
+                                    logger.info("Discarding %s as redundant", tid[0])
+                                else:
+                                    logger.info("Keeping %s amongst redundant transcripts", tid[0])
+
                             tids.append(to_keep)
                     else:
                         tids.extend(tid_list)

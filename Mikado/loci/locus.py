@@ -938,5 +938,15 @@ def expand_transcript(transcript, new_start, new_end, fai, logger):
         logger.info("Padding %s would lead to an in-frame stop codon. Aborting.",
                     transcript.id)
         return backup
+    else:
+        message = "{transcript.id} has now start {transcript.start}, end {transcript.end}"
+        if ((backup.combined_cds_end != transcript.combined_cds_end) or
+                  (backup.combined_cds_start != transcript.combined_cds_start)):
+            transcript.attributes["cds_padded"] = True
+            message += "; CDS moved to {transcript.combined_cds_start}, end {transcript.combined_cds_end}"
+        else:
+            transcript.attributes["cds_padded"] = False
+            message += "."
+        logger.info(message.format(**locals()))
 
     return transcript

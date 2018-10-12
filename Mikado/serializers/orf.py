@@ -225,7 +225,7 @@ class OrfSerializer:
 
         if self.fasta_index is not None:
             done = 0
-            self.logger.info("%d entries already present in db, %d in the index",
+            self.logger.debug("%d entries already present in db, %d in the index",
                              len([fasta_key for fasta_key in self.fasta_index if
                                   fasta_key not in cache]),
                              len(self.fasta_index.keys()))
@@ -241,7 +241,7 @@ class OrfSerializer:
                     self.session.begin(subtransactions=True)
                     self.session.bulk_save_objects(objects)
                     self.session.commit()
-                    self.logger.info(
+                    self.logger.debug(
                         "Loaded %d transcripts into query table", done)
                     objects = []
 
@@ -249,7 +249,7 @@ class OrfSerializer:
             self.session.begin(subtransactions=True)
             self.session.bulk_save_objects(objects)
             self.session.commit()
-            self.logger.info(
+            self.logger.debug(
                 "Finished loading %d transcripts into query table", done)
         return cache
 
@@ -269,10 +269,10 @@ class OrfSerializer:
         done = 0
         cache = self.load_fasta(cache)
 
-        self.logger.info("Loading IDs into the cache")
+        self.logger.debug("Loading IDs into the cache")
         for record in self.session.query(Query):
             cache[record.query_name] = record.query_id
-        self.logger.info("Finished loading IDs into the cache")
+        self.logger.debug("Finished loading IDs into the cache")
 
         for row in self.bed12_parser:
             if row.header is True:
@@ -298,7 +298,7 @@ class OrfSerializer:
                 self.session.begin(subtransactions=True)
                 self.session.bulk_save_objects(objects)
                 self.session.commit()
-                self.logger.info("Loaded %d ORFs into the database", done)
+                self.logger.debug("Loaded %d ORFs into the database", done)
                 objects = []
 
         done += len(objects)

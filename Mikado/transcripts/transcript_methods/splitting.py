@@ -825,6 +825,7 @@ def split_by_cds(transcript):
 
         new_transc.verified_introns = set.intersection(set(new_transc.introns),
                                                        transcript.verified_introns)
+        new_transc.attributes["split"] = True
         yield new_transc
 
     return

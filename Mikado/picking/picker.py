@@ -96,7 +96,7 @@ class Picker:
                                          force=True)
 
         # self.setup_logger()
-        self.logger.info("Multiprocessing method: %s",
+        self.logger.debug("Multiprocessing method: %s",
                          self.json_conf["multiprocessing_method"])
 
         # pylint: enable=no-member
@@ -232,11 +232,11 @@ memory intensive, proceed with caution!")
         This method will copy the SQLite input DB into memory.
         """
 
-        self.main_logger.info("Copy into a SHM db: %s",
+        self.main_logger.debug("Copy into a SHM db: %s",
                               self.json_conf["pick"]["run_options"]["shm"])
         if self.json_conf["pick"]["run_options"]["shm"] is True:
             self.json_conf["pick"]["run_options"]["shm_shared"] = False
-            self.main_logger.info("Copying the DB into memory")
+            self.main_logger.debug("Copying the DB into memory")
             assert self.json_conf["db_settings"]["dbtype"] == "sqlite"
             self.json_conf["pick"]["run_options"]["preload"] = False
             if self.json_conf["pick"]["run_options"]["shm_db"] is not None:
@@ -253,7 +253,7 @@ memory intensive, proceed with caution!")
                 self.json_conf["pick"]["run_options"]["shm_db"] = temp
             if self.json_conf["pick"]["run_options"]["shm"]:
                 if not os.path.exists(self.json_conf["pick"]["run_options"]["shm_db"]):
-                    self.main_logger.info("Copying {0} into {1}".format(
+                    self.main_logger.debug("Copying {0} into {1}".format(
                         self.json_conf["db_settings"]["db"],
                         self.json_conf["pick"]["run_options"]["shm_db"]))
                     try:
@@ -265,7 +265,7 @@ memory intensive, proceed with caution!")
                             Back to using the DB on disk.""")
                         self.json_conf["pick"]["run_options"]["shm"] = False
                 else:
-                    self.main_logger.info("%s exists already. Doing nothing.",
+                    self.main_logger.debug("%s exists already. Doing nothing.",
                                           self.json_conf["pick"]["run_options"]["shm_db"])
             self.main_logger.info("DB copied into memory")
 
@@ -548,7 +548,7 @@ memory intensive, proceed with caution!")
                 hsps[hsp.query_id] = collections.defaultdict(list)
             hsps[hsp.query_id][hsp.target_id].append(hsp)
 
-        self.main_logger.info("{0} HSPs prepared".format(len(hsps)))
+        self.main_logger.debug("{0} HSPs prepared".format(len(hsps)))
 
         targets = dict((x.target_id, x) for x in engine.execute("select * from target"))
 
@@ -598,7 +598,7 @@ memory intensive, proceed with caution!")
 
         del hsps
         assert len(hits_dict) <= len(queries)
-        self.main_logger.info("%d BLAST hits loaded for %d queries",
+        self.main_logger.debug("%d BLAST hits loaded for %d queries",
                               hit_counter,
                               len(hits_dict))
         self.main_logger.debug("%s",
@@ -634,7 +634,7 @@ memory intensive, proceed with caution!")
 
         # data_dict["junctions"] = self.manager.dict(data_dict["junctions"], lock=False)
 
-        self.main_logger.info("%d junctions loaded",
+        self.main_logger.debug("%d junctions loaded",
                               len(data_dict["junctions"]))
         self.main_logger.debug("Example junctions:\n{0}".format(
             "\n".join(str(junc) for junc in list(
@@ -658,7 +658,7 @@ memory intensive, proceed with caution!")
 
         # data_dict['orf'] = self.manager.dict(orfs, lock=False)
 
-        self.main_logger.info("%d ORFs loaded",
+        self.main_logger.debug("%d ORFs loaded",
                               len(data_dict["orfs"]))
         self.main_logger.debug(",".join(
             list(data_dict["orfs"].keys())[:10]
@@ -800,7 +800,7 @@ memory intensive, proceed with caution!")
         """
 
         intron_range = self.json_conf["pick"]["run_options"]["intron_range"]
-        self.logger.info("Intron range: %s", intron_range)
+        self.logger.debug("Intron range: %s", intron_range)
 
         current_locus = None
         current_transcript = None
@@ -826,7 +826,7 @@ memory intensive, proceed with caution!")
         # tempdir = os.path.join(self.json_conf["pick"]["files"]["output_dir"], "mikado_pick_tmp")
         # os.makedirs(tempdir, exist_ok=True)
 
-        self.logger.info("Creating the worker processes")
+        self.logger.debug("Creating the worker processes")
         conn, cursor = self._create_temporary_store(tempdir)
         working_processes = [LociProcesser(self.json_conf,
                                            data_dict,
@@ -838,7 +838,7 @@ memory intensive, proceed with caution!")
                              for _ in range(1, self.procs+1)]
         # Start all processes
         [_.start() for _ in working_processes]
-        self.logger.info("Started all %d workers", self.procs)
+        self.logger.debug("Started all %d workers", self.procs)
         # No sense in keeping this data available on the main thread now
         del data_dict
 
@@ -927,7 +927,7 @@ memory intensive, proceed with caution!")
                           current_locus.id, counter,
                           ", ".join(list(current_locus.transcripts.keys())))
         locus_queue.put(("EXIT", ))
-        self.logger.info("Joining children processes")
+        self.logger.debug("Joining children processes")
         [_.join() for _ in working_processes]
         conn.close()
         self.logger.info("Joined children processes; starting to merge partial files")
@@ -988,7 +988,7 @@ memory intensive, proceed with caution!")
         logger.debug("Begun single-threaded run")
 
         intron_range = self.json_conf["pick"]["run_options"]["intron_range"]
-        logger.info("Intron range: %s", intron_range)
+        logger.debug("Intron range: %s", intron_range)
 
         handles = self.__get_output_files()
 
@@ -1170,7 +1170,7 @@ memory intensive, proceed with caution!")
         # Clean up the DB copied to SHM
         if (self.json_conf["pick"]["run_options"]["shm"] is True and
                 self.json_conf["pick"]["run_options"]["shm_shared"] is False):
-            self.main_logger.info("Removing shared memory DB %s",
+            self.main_logger.debug("Removing shared memory DB %s",
                                   self.json_conf["pick"]["run_options"]["shm_db"])
             os.remove(self.json_conf["pick"]["run_options"]["shm_db"])
 

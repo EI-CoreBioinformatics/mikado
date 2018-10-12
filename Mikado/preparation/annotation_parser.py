@@ -248,7 +248,7 @@ def load_into_storage(shelf_name, exon_lines, min_length, logger, strip_cds=True
 
         # Discard transcript under a certain size
         if tlength < min_length:
-            logger.debug("Discarding %s because its size (%d) is under the minimum of %d",
+            logger.info("Discarding %s because its size (%d) is under the minimum of %d",
                          tid, tlength, min_length)
             continue
 

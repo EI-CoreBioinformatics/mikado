@@ -201,10 +201,11 @@ class BED12:
 
         if "phase=" in self.name and "coding=" in self.name:  # Hack to include the properties
             groups = dict(re.findall("([^(;|=)]*)=([^;]*)", self.name))
-            if groups["phase"].isdigit():
-                self.phase = int(groups["phase"])
-            else:
-                self.phase = None
+            if phase is not None:
+                if groups["phase"].isdigit():
+                    self.phase = int(groups["phase"])
+                else:
+                    self.phase = None
             if groups["coding"] in ("True", "False"):
                 self.coding = eval(groups["coding"])
             else:

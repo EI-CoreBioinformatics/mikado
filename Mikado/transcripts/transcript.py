@@ -35,6 +35,7 @@ from .transcript_methods.printing import create_lines_cds
 from .transcript_methods.printing import create_lines_no_cds, create_lines_bed, as_bed12
 from ..utilities.intervaltree import Interval, IntervalTree
 from collections import Hashable
+import itertools
 import numpy as np
 
 
@@ -813,20 +814,61 @@ class Transcript:
 
     @property
     def framed_codons(self):
+        self.finalize()
         if self.is_coding is False:
             return []
         else:
             frames = []
-            first_bases = ()
-            # TODO finish this method
-            # for feature, exon, phase in self.selected_internal_orf:
-            #     if phase != 0:
-            #         pass
-            #     for num in range(exon[0] + phase, exon[1], 3):
-            #         frames.append((num, num + 1, num + 2))
-            #     if num <
-            #     first_bases = ()
+            last_bases = []  # Last bases of the previous codon
+            exons = sorted([(_[1][0], _[1][1], _[2]) for _ in self.selected_internal_orf
+                     if _[0] == "CDS"], key=operator.itemgetter(0, 1), reverse=(self.strand == "-"))
+            for start, end, phase in exons:
+                first_bases = []
+                if phase in (1, 2):
+                    if phase == 1:
+                        if self.strand == "-":
+                            first_bases = [end]
+                        else:
+                            first_bases = [start]
+                    elif phase == 2:
+                        if self.strand == "-":
+                            first_bases = [end, end - 1]
+                        else:
+                            first_bases = [start, start + 1]
+                elif phase == 0:
+                    first_bases = []
+                else:
+                    raise ValueError("Invalid phase in {}: {}, {}".format(self.id, phase, exons))
+                last_bases.extend(first_bases)
+                last_bases = tuple(last_bases)
+                if len(last_bases) not in (0, 3):
+                    raise AssertionError("Invalid last bases for {}: {}".format(self.id, last_bases))
+                if last_bases:
+                    frames.append(tuple(last_bases))
+                if self.strand == "-":
+                    frames.extend(itertools.zip_longest(range(end - phase, start - 1, -3),
+                                                        range(end - phase - 1, start - 1, -3),
+                                                        range(end - phase - 2, start - 1, -3)))
+                    last_bases = frames.pop()
+                    last_bases = [_ for _ in last_bases if _ is not None]
+                elif self.strand == "+":
+                    frames.extend(itertools.zip_longest(range(start + phase, end + 1, 3),
+                                                        range(start + phase + 1, end + 1, 3),
+                                                        range(start + phase + 2, end + 1, 3)))
+                    last_bases = frames.pop()
+                    last_bases = [_ for _ in last_bases if _ is not None]
+                assert len(last_bases) in range(0, 4), last_bases
 
+            if last_bases:
+                frames.append(tuple(last_bases))
+            assert sum(len(_) for _ in frames) == self.selected_cds_length, (
+                    sum(len(_) for _ in frames), self.selected_cds_length
+            )
+            return frames
+
+    @property
+    def frames(self):
+        return list(itertools.zip_longest(*self.framed_codons))
 
     @property
     def _selected_orf_transcript(self):

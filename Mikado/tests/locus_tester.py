@@ -669,7 +669,7 @@ class MonoHolderTester(unittest.TestCase):
         t2.start = 1350
         t2.end = 3850
         t2.add_exons([(1350, 1560), (2801, 3850)])
-        t2.add_exons([(1401, 1560), (2801, 3850)], "CDS")
+        t2.add_exons([(1402, 1560), (2801, 3850)], "CDS")
         # logger.setLevel("DEBUG")
         t2.logger = logger
         t2.finalize()
@@ -692,6 +692,54 @@ class MonoHolderTester(unittest.TestCase):
                                                                  min_cds_overlap=min_overlap,
                                                                  min_cdna_overlap=min_overlap,
                                                                  logger=logger), (min_overlap <= 0.07))
+
+    def check_frame_compatibility(self):
+
+        """Check that the phase method functions"""
+        logger = create_default_logger(inspect.getframeinfo(inspect.currentframe())[2])
+        for phase in [0, 1, 2]:
+            with self.subTest(phase=phase):
+                t2 = Transcript()
+                t2.chrom = "Chr1"
+                t2.strand = "+"
+                t2.score = 1
+                t2.id = "G2.1"
+                t2.parent = "G2"
+                t2.start = 1350 + phase
+                t2.end = 3850 + phase
+                t2.add_exons([(t2.start, 1560), (2801, t2.end)])
+                t2.add_exons([(1402 + phase, 1560), (2801, 3850 + phase)], "CDS")
+                self.assertIs(t2.is_coding, True)
+                self.assertIs(MonosublocusHolder.is_intersecting(self.t1,
+                                                                 t2,
+                                                                 cds_only=True,
+                                                                 min_cds_overlap=0.05,
+                                                                 min_cdna_overlap=0.05,
+                                                                 logger=logger), (phase == 0))
+
+        self.t1.unfinalize()
+        self.t1.strand = "-"
+        self.t1.finalize()
+        self.assertIs(self.t1.coding, True, "Something went wrong in finalising T1")
+        for phase in [0, 1, 2]:
+            with self.subTest(phase=phase):
+                t2 = Transcript()
+                t2.chrom = "Chr1"
+                t2.strand = "-"
+                t2.score = 1
+                t2.id = "G2.1"
+                t2.parent = "G2"
+                t2.start = 1350 + phase
+                t2.end = 3850 + phase
+                t2.add_exons([(t2.start, 1560), (2801, t2.end)])
+                t2.add_exons([(1402 + phase, 1560), (2801, 3850 + phase)], "CDS")
+                self.assertIs(t2.is_coding, True)
+                self.assertIs(MonosublocusHolder.is_intersecting(self.t1,
+                                                                 t2,
+                                                                 cds_only=True,
+                                                                 min_cds_overlap=0.05,
+                                                                 min_cdna_overlap=0.05,
+                                                                 logger=logger), (phase == 0))
 
     def test_no_overlap(self):
 
@@ -1104,12 +1152,12 @@ class TestLocus(unittest.TestCase):
         t1.strand = t2.strand = t1_1.strand = t2_1.strand = "+"
         t1.add_exons([(101, 500), (801, 1000)])
         t1.add_exons([(101, 500), (801, 1000)], features="CDS")
-        t1_1.add_exons([(101, 500), (901, 1100), (1301, 1550)])
-        t1_1.add_exons([(101, 500), (901, 1100), (1301, 1550)], features="CDS")
+        t1_1.add_exons([(101, 500), (903, 1100), (1301, 1550)])
+        t1_1.add_exons([(101, 500), (903, 1100), (1301, 1550)], features="CDS")
         t2.add_exons([(1601, 1800), (1901, 2000)])
         t2.add_exons([(1601, 1800), (1901, 2000)], features="CDS")
-        t2_1.add_exons([(1351, 1550), (1651, 1850), (1901, 2000)])
-        t2_1.add_exons([(1351, 1550), (1651, 1850), (1901, 2000)], features="CDS")
+        t2_1.add_exons([(1351, 1550), (1651, 1851), (1901, 2000)])
+        t2_1.add_exons([(1351, 1550), (1651, 1851), (1901, 2000)], features="CDS")
 
         for tr in [t1, t2, t1_1, t2_1]:
             with self.subTest(tr=tr):

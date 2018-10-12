@@ -555,10 +555,6 @@ reached the maximum number of isoforms for the locus".format(
                               other.id, overlap_reason)
             is_valid = False
 
-        # Check they are in frame
-        if self.primary_transcript.is_coding:
-            self._check_compatible_cds_frame(self.primary_transcript, other)
-
         if is_valid:
             for tid in iter(tid for tid in self.transcripts if
                             tid not in (self.primary_transcript_id, other.id)):
@@ -587,8 +583,8 @@ reached the maximum number of isoforms for the locus".format(
         except KeyError:
             raise KeyError(self.json_conf.keys())
 
-        five_graph = self.define_graph(self.transcripts, self._share_extreme, three_prime=False)
-        three_graph = self.define_graph(self.transcripts, self._share_extreme, three_prime=True)
+        five_graph = self.define_graph(objects=self.transcripts, inters=self._share_extreme, three_prime=False)
+        three_graph = self.define_graph(objects=self.transcripts, inters=self._share_extreme, three_prime=True)
 
         self.logger.debug("5' graph: %s", five_graph.edges)
         self.logger.debug("3' graph: %s", three_graph.edges)

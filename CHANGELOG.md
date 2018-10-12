@@ -7,6 +7,7 @@ The behaviour is controlled by the "pad" boolean switch, and by the "ts_max_spli
 Bugfixes and improvements:
 
 - Fixed a bug which caused some loci to crash at the last part of the picking stage
+- Made logging more sensible and informative.
 - Now coding and non-coding transcripts will be in different loci.
 - Mikado prepare now can accept models that lack any exon features but still have valid CDS/UTR features
 - Fixed [#34](https://github.com/lucventurini/mikado/issues/34): now Mikado can specify a valid codon table among those provided by [NCBI  through BioPython](ftp://ftp.ncbi.nih.gov/entrez/misc/data/gc.prt). The default is "0", ie the Standard table but with only the canonical "ATG" being accepted as valid start codon.
@@ -16,7 +17,8 @@ Bugfixes and improvements:
 - [#129](https://github.com/lucventurini/mikado/issues/129): Mikado is now capable of correctly padding the transcripts so to uniform their ends in a single locus. This will also have the effect of trying to enlarge the ORF of a transcript if it is truncated to begin with.
 - [#130](https://github.com/lucventurini/mikado/issues/130): it is now possible to specify a different metric inside the "filter" section of scoring.
 - [#131](https://github.com/lucventurini/mikado/issues/131): in rare instances, Mikado could have missed loci if they were lost between the sublocus and monosublocus stages. Now Mikado implements a basic backtracking recursive algorithm that should ensure no locus is missed.
-- [#132](https://github.com/lucventurini/mikado/issues/132): Mikado will now evaluate the CDS of transcripts during Mikado prepare.
+- [#132](https://github.com/lucventurini/mikado/issues/132),[#133](https://github.com/lucventurini/mikado/issues/133): Mikado will now evaluate the CDS of transcripts during Mikado prepare.
+
 
 # Version 1.2.4
 

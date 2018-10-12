@@ -746,9 +746,8 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             cds_overlap = cdna_overlap
         else:
             cds_overlap = 0
-            for segment in transcript.selected_cds:
-                for o_segment in other.selected_cds:
-                    cds_overlap += Abstractlocus.overlap(segment, o_segment, positive=True, flank=0)
+            for phase in [0, 1, 2]:
+                cds_overlap += len(set.intersection(set(transcript.frames[phase]), set(other.frames[phase])))
             cds_overlap /= min(transcript.selected_cds_length, other.selected_cds_length)
             assert cds_overlap <= 1
         intersecting = (cdna_overlap >= min_cdna_overlap and cds_overlap >= min_cds_overlap)

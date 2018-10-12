@@ -129,7 +129,7 @@ class BED12:
         self.__transcriptomic = False
         self.__parent = None
         self.transcriptomic = transcriptomic
-        if phase:
+        if phase is not None:
             self.phase = phase  # This will check the validity of the phase itself
         self.__strand = None
         self.__max_regression = 0
@@ -201,7 +201,7 @@ class BED12:
 
         if "phase=" in self.name and "coding=" in self.name:  # Hack to include the properties
             groups = dict(re.findall("([^(;|=)]*)=([^;]*)", self.name))
-            if phase is not None:
+            if phase is None:
                 if groups["phase"].isdigit():
                     self.phase = int(groups["phase"])
                 else:

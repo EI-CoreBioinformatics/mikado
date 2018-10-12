@@ -816,7 +816,17 @@ class Transcript:
         if self.is_coding is False:
             return []
         else:
-            pass
+            frames = []
+            first_bases = ()
+            # TODO finish this method
+            # for feature, exon, phase in self.selected_internal_orf:
+            #     if phase != 0:
+            #         pass
+            #     for num in range(exon[0] + phase, exon[1], 3):
+            #         frames.append((num, num + 1, num + 2))
+            #     if num <
+            #     first_bases = ()
+
 
     @property
     def _selected_orf_transcript(self):

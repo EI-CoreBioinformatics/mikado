@@ -555,6 +555,10 @@ reached the maximum number of isoforms for the locus".format(
                               other.id, overlap_reason)
             is_valid = False
 
+        # Check they are in frame
+        if self.primary_transcript.is_coding:
+            self._check_compatible_cds_frame(self.primary_transcript, other)
+
         if is_valid:
             for tid in iter(tid for tid in self.transcripts if
                             tid not in (self.primary_transcript_id, other.id)):

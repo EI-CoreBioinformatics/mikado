@@ -415,7 +415,7 @@ class BED12:
             self.start_codon = str(orf_sequence)[:3].upper()
             self.stop_codon = str(orf_sequence[-3:]).upper()
 
-            if self.start_codon in self.table.start_codons:
+            if self.start_codon in self.table.start_codons and (self.phase is None or self.phase == 0):
                 self.has_start_codon = True
                 self.phase = 0
             else:

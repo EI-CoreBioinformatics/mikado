@@ -804,12 +804,19 @@ class Transcript:
                                                                                      new_row))
 
                 if new_row.invalid is True:
-                    exception = "Invalid ORF for {id} (TS {new_row.thick_start} "
-                    exception += "TE {new_row.thick_end}, phase {new_row.phase} , reason: {reason}"
-                    exception = exception.format(id=self.id, reason=new_row.invalid_reason, **locals())
-                    raise AssertionError(exception)
+                    exc = "Invalid ORF for {id} ({new_row.thick_start}, {new_row.thick_end}, phase {new_row.phase})"
+                    exc += ", reason: {reason}"
+                    exc = exc.format(id=self.id, reason=new_row.invalid_reason, **locals())
+                    raise AssertionError(exc)
 
                 yield new_row
+
+    @property
+    def framed_codons(self):
+        if self.is_coding is False:
+            return []
+        else:
+            pass
 
     @property
     def _selected_orf_transcript(self):

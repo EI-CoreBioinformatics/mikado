@@ -29,12 +29,10 @@ class BlastBasics(unittest.TestCase):
             self.assertTrue(valid, (valid, exc))
             self.assertIsNone(exc, exc)
 
-
     def test_sniff_invalid(self):
 
         invalid_xml = tempfile.NamedTemporaryFile(delete=False)
         invalid_xml.write(b"failing\n")
-        # print(b"failing", file=invalid_xml)
         invalid_xml.close()
         with self.assertRaises(ValueError):
             valid, header, exc = blast_utils.BlastOpener(invalid_xml.name).sniff()

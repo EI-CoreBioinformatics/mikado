@@ -1203,7 +1203,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         segments = sorted(list(transcript.exons) + list(transcript.introns), reverse=(transcript.strand == "-"))
         # Add path FAILS if the transcript is monoexonic!
         graph.add_nodes_from(segments)
-        graph.add_path(segments)
+        networkx.add_path(graph, segments)
 
         # assert len(graph.nodes()) >= len(segments), (len(graph.nodes()), len(graph.edges()), len(segments))
 

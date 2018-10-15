@@ -55,7 +55,6 @@ class ScoreTester(unittest.TestCase):
         self.locus = Mikado.loci.Superlocus(self.t1, json_conf=self.json_conf)
         self.locus.add_transcript_to_locus(self.t2)
         self.locus.add_transcript_to_locus(self.t3)
-        print(self.locus.json_conf["requirements"])
 
     def test_exon_num_max(self):
 

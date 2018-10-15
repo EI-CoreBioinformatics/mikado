@@ -67,8 +67,6 @@ class WrongLoadedOrf(unittest.TestCase):
         with self.assertLogs("null", "DEBUG") as _:
             retrieval.load_orfs(self.tr, [b_valid, b_invalid])
 
-        # print(*cm.output, sep="\n")
-
         self.assertEqual(self.tr.number_internal_orfs, 1)
 
     def test_filter_non_transcriptomic(self):
@@ -402,7 +400,6 @@ class TestRetrieval(unittest.TestCase):
         self.assertFalse(b2.invalid)
         with self.assertLogs("null", "DEBUG") as _:
             after_overlap_check = retrieval.find_overlapping_cds(self.tr, [b1, b2])
-        # print(*_.output, sep="\n")
 
         self.assertEqual(len(after_overlap_check), 2, self.tr.json_conf["pick"]["orf_loading"])
         self.assertEqual(after_overlap_check,

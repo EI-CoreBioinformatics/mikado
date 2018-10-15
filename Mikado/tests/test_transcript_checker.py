@@ -345,6 +345,13 @@ class StopCodonChecker(unittest.TestCase):
         cls.genome = pyfaidx.Fasta(cls.__genomefile__.name)
         cls.maxDiff = None
 
+    @classmethod
+    def tearDownClass(cls):
+        cls.__genomefile__.close()
+        os.remove(cls.__genomefile__.name)
+        if os.path.exists(cls.__genomefile__.name + ".fai"):
+            os.remove(cls.__genomefile__.name + ".fai")
+
     def test_positive_strand(self):
 
         gtf_lines = """chr1A	Self_CESAR/windows_chr1A.gp	transcript	265021906	265026255	.	+	.	gene_id "TraesCS1A01G152900.1"; transcript_id "TraesCS1A01G152900.1";

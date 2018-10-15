@@ -215,7 +215,6 @@ Chr1\tfoo\texon\t801\t1000\t.\t-\t.\tID=tminus0:exon1;Parent=tminus0""".split("\
         t3.finalize()
 
         jconf = configurator.to_json(None)
-        # print(jconf["requirements"])
 
         del jconf["requirements"]
 

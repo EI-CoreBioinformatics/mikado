@@ -188,7 +188,7 @@ memory intensive, proceed with caution!")
                 warns = PendingDeprecationWarning(
                     """The \"{}\" property has now been moved to pick/{}. Please update your configuration files in the future.""".format(
                         key, new_home))
-                self.logger.warn(warns)
+                self.logger.warning(warns)
 
         self.context = multiprocessing.get_context()
         if self.json_conf["pick"]["scoring_file"].endswith((".pickle", ".model")):
@@ -260,7 +260,7 @@ memory intensive, proceed with caution!")
                         shutil.copy2(self.json_conf["db_settings"]["db"],
                                      self.json_conf["pick"]["run_options"]["shm_db"])
                     except PermissionError:
-                        self.main_logger.warn(
+                        self.main_logger.warning(
                             """Permission to write on /dev/shm denied.
                             Back to using the DB on disk.""")
                         self.json_conf["pick"]["run_options"]["shm"] = False
@@ -336,7 +336,7 @@ memory intensive, proceed with caution!")
         self.queue_logger.addHandler(self.logger_queue_handler)
 
         self.queue_logger.setLevel(logging.getLevelName(self.json_conf["log_settings"]["log_level"]))
-        self.logger.warn("Current level for queue: %s", logging.getLevelName(self.queue_logger.level))
+        self.logger.warning("Current level for queue: %s", logging.getLevelName(self.queue_logger.level))
 
         self.queue_logger.propagate = False
 

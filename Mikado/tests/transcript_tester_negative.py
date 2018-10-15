@@ -53,7 +53,6 @@ Chr1    TAIR10    exon    5928    6263    .    -    .    Parent=AT1G01020.1"""
 
     for l in tr_gff_lines:
         assert l.header is False
-    #         print(l)
 
     def setUp(self):
         """Basic creation test."""
@@ -112,12 +111,6 @@ Chr1\tTAIR10\tfive_prime_UTR\t8667\t8737\t.\t-\t.\tID=AT1G01020.1.five_prime_UTR
 
         rp = set(real_printed.split("\n"))
         fp = set(str(self.tr).split("\n"))
-
-        # print()
-        # print(real_printed)
-        # print("============")
-        # print(str(self.tr))
-        # print("============")
 
         diff = "\n====\n".join(["\n".join(sorted(list(rp - set.intersection(rp, fp)))),
                                "\n".join(sorted(list(fp - set.intersection(rp, fp))))])

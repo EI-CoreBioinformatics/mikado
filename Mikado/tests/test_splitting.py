@@ -147,8 +147,6 @@ class TestSplitMonoexonic(unittest.TestCase):
         # with self.assertLogs("test_mono", level="DEBUG") as log_split:
         new_transcripts = list(splitting.split_by_cds(self.transcript))
 
-        # print(log_split.output)
-
         # self.assertIn("DEBUG:test_mono:",
         #               log_split.output)
         self.assertEqual(len(new_transcripts), 2, "\n".join(str(_) for _ in new_transcripts))
@@ -408,8 +406,6 @@ class TestWithPhase(unittest.TestCase):
         # with self.assertLogs("test_mono", level="DEBUG") as log_split:
         new_transcripts = list(splitting.split_by_cds(self.transcript))
 
-        # print(log_split.output)
-
         # self.assertIn("DEBUG:test_mono:",
         #               log_split.output)
         self.assertEqual(len(new_transcripts), 2, "\n".join(str(_) for _ in new_transcripts))
@@ -469,10 +465,6 @@ class TestWithPhase(unittest.TestCase):
         # with self.assertLogs("test_mono", level="DEBUG") as log_split:
         new_transcripts = list(splitting.split_by_cds(self.transcript))
 
-        # print(log_split.output)
-
-        # self.assertIn("DEBUG:test_mono:",
-        #               log_split.output)
         self.assertEqual(len(new_transcripts), 2, "\n".join(str(_) for _ in new_transcripts))
         self.assertEqual(new_transcripts[0].start, self.transcript.start)
         self.assertEqual(new_transcripts[1].end, self.transcript.end)

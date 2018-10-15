@@ -248,6 +248,8 @@ class TranscriptChecker(Transcript):
                             canonical_counter["+"])
 
             elif canonical_counter["-"] > 0:
+                self.logger.debug("Transcript %s only has negative splice junctions, (%s), reversing.",
+                                  self.id, canonical_counter)
                 self.reverse_strand()
                 self.reversed = True
 

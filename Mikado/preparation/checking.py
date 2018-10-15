@@ -90,9 +90,9 @@ def create_transcript(lines,
                     lines["tid"])
         # logger.exception(exc)
         transcript_object = None
-    except exceptions.InvalidTranscript:
-        logger.info("Discarded generically invalid transcript %s",
-                    lines["tid"])
+    except exceptions.InvalidTranscript as exc:
+        logger.info("Discarded generically invalid transcript %s, exception: %s",
+                    lines["tid"], exc)
         transcript_object = None
     except KeyboardInterrupt:
         raise KeyboardInterrupt

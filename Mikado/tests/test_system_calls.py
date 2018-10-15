@@ -217,15 +217,15 @@ class PrepareCheck(unittest.TestCase):
                 with self.subTest(fname=fname, strip=strip):
                     self.conf["prepare"]["files"]["gff"] = [fname]
                     args.json_conf["prepare"]["strip_cds"] = strip
-                    prepare.prepare(args, self.logger)
-                    self.assertTrue(os.path.exists(os.path.join(self.conf["prepare"]["files"]["output_dir"],
-                                                                "mikado_prepared.fasta")))
-                    fa = pyfaidx.Fasta(os.path.join(self.conf["prepare"]["files"]["output_dir"],
-                                                    "mikado_prepared.fasta"))
+                    prepare.prepare(args, logger=self.logger)
+                    fasta = os.path.join(self.conf["prepare"]["files"]["output_dir"], "mikado_prepared.fasta")
+                    self.assertTrue(os.path.exists(fasta))
                     if strip is True or (strip is False and fname == ann_gff3):
+                        self.assertGreater(os.stat(fasta).st_size, 0)
+                        fa = pyfaidx.Fasta(fasta)
                         self.assertEqual(len(fa.keys()), 2)
                     else:
-                        self.assertEqual(len(fa.keys()), 0)
+                        self.assertEqual(os.stat(fasta).st_size, 0)
                     # Now verify that no model has CDS
                     gtf = os.path.join(self.conf["prepare"]["files"]["output_dir"], "mikado_prepared.gtf")
                     models = dict()

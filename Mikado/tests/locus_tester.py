@@ -2054,6 +2054,7 @@ class PaddingTester(unittest.TestCase):
                 else:
                     self.assertNotEqual(locus[corr[3]].start, locus[corr[1]].start)
 
+
     def test_padding(self):
         genome = pkg_resources.resource_filename("Mikado.tests", "padding_test.fa")
         transcripts = self.load_from_bed("Mikado.tests", "padding_test.bed12")

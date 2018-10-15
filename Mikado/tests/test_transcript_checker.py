@@ -348,6 +348,7 @@ class StopCodonChecker(unittest.TestCase):
     @classmethod
     def tearDownClass(cls):
         cls.__genomefile__.close()
+        cls.genome.close()
         os.remove(cls.__genomefile__.name)
         if os.path.exists(cls.__genomefile__.name + ".fai"):
             os.remove(cls.__genomefile__.name + ".fai")

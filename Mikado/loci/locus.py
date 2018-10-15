@@ -616,6 +616,8 @@ reached the maximum number of isoforms for the locus".format(
         self.exons = set()
         for tid in self:
             self.exons.update(self[tid].exons)
+        self.fai.close()
+        del self.fai
 
     def _find_communities_boundaries(self, five_clique, three_clique):
 

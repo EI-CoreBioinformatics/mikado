@@ -120,8 +120,8 @@ class Superlocus(Abstractlocus):
                          **kwargs)
         self.approximation_level = 0
         self.feature = self.__name__
-        if json_conf is None or not isinstance(json_conf, dict):
-            raise NoJsonConfigError("I am missing the configuration for prioritizing transcripts!")
+        # if json_conf is None or not isinstance(json_conf, dict):
+        #     raise NoJsonConfigError("I am missing the configuration for prioritizing transcripts!")
         self.__regressor = None
         self.stranded = stranded
         self.splices = set(self.splices)

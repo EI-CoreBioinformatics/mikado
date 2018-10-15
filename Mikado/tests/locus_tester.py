@@ -15,6 +15,7 @@ from Mikado.parsers.GTF import GtfLine
 from Mikado.loci import Transcript, Superlocus, Abstractlocus, Locus, Monosublocus, MonosublocusHolder, Sublocus
 from Mikado.utilities.log_utils import create_null_logger, create_default_logger
 from Mikado.utilities import overlap
+import itertools
 from Mikado.utilities.intervaltree import Interval
 import Mikado.loci
 import pickle
@@ -82,9 +83,9 @@ Chr1\tfoo\texon\t501\t600\t.\t+\t.\tID=t1:exon3;Parent=t1""".split("\n")
         with self.assertRaises(exceptions.ModificationError):
             for exon in gff_transcript2[1:]:
                 self.transcript2.add_exon(exon)
-        # Test that creating a superlocus without configuration fails
-        with self.assertRaises(exceptions.NoJsonConfigError):
-            _ = Superlocus(self.transcript1)
+        # # Test that creating a superlocus without configuration fails
+        # with self.assertRaises(exceptions.NoJsonConfigError):
+        #     _ = Superlocus(self.transcript1)
         self.my_json = os.path.join(os.path.dirname(__file__), "configuration.yaml")
         self.my_json = configurator.to_json(self.my_json)
         self.assertIn("scoring", self.my_json, self.my_json.keys())
@@ -143,6 +144,67 @@ Chr1\tfoo\texon\t801\t1000\t.\t-\t.\tID=tminus0:exon1;Parent=tminus0""".split("\
         minusuperlocus.define_loci()
         self.assertEqual(len(minusuperlocus.loci), 1)
         self.assertTrue(transcript3.strand != self.transcript1.strand)
+
+    def test_cannot_add(self):
+
+        for strand, stranded, ostrand in itertools.product(("+", "-", None), (True, False), ("+", "-", None)):
+            with self.subTest(strand=strand, stranded=stranded, ostrand=ostrand):
+                t1 = "1\t100\t2000\tID=T1;coding=False\t0\t{strand}\t100\t2000\t0\t1\t1900\t0".format(
+                    strand=strand if strand else ".", )
+                t1 = Transcript(BED12(t1))
+                t2 = "1\t105\t2300\tID=T2;coding=False\t0\t{strand}\t105\t2300\t0\t1\t2195\t0".format(
+                    strand=strand if strand else ".")
+                t2 = Transcript(BED12(t2))
+                sl = Mikado.loci.Superlocus(t1, stranded=stranded, json_conf=None)
+                self.assertIn(t1.id, sl)
+                if not stranded or t2.strand == t1.strand:
+                    sl.add_transcript_to_locus(t2)
+                    self.assertIn(t2.id, sl)
+                else:
+                    with self.assertRaises(Mikado.exceptions.NotInLocusError):
+                        sl.add_transcript_to_locus(t2)
+
+        with self.subTest():
+            t1 = "1\t100\t2000\tID=T1;coding=False\t0\t+\t100\t2000\t0\t1\t1900\t0"
+            t1 = Transcript(BED12(t1))
+            t1.finalize()
+            t2 = t1.copy()
+            t2.unfinalize()
+            t2.chrom = "2"
+            t2.id = "T2"
+            t2.finalize()
+            sl = Mikado.loci.Superlocus(t1, stranded=False)
+            with self.assertRaises(Mikado.exceptions.NotInLocusError):
+                sl.add_transcript_to_locus(t2)
+
+        st1 = "1\t100\t2000\tID=T1;coding=False\t0\t+\t100\t2000\t0\t1\t1900\t0"
+        t1 = Transcript(BED12(st1))
+        t1.finalize()
+        t2 = BED12(st1)
+        t2.start += 10000
+        t2.end += 10000
+        t2.thick_start += 10000
+        t2.thick_end += 1000
+        t2 = Transcript(t2)
+        for flank in [0, 1000, 10000, 20000]:
+            with self.subTest(flank=flank):
+                sl = Superlocus(t1, flank=flank)
+                if flank < 10000:
+                    with self.assertRaises(Mikado.exceptions.NotInLocusError):
+                        sl.add_transcript_to_locus(t2)
+                else:
+                    sl.add_transcript_to_locus(t2)
+                    self.assertIn(t2.id, sl)
+
+    def test_empty_locus(self):
+
+        st1 = "1\t100\t2000\tID=T1;coding=False\t0\t+\t100\t2000\t0\t1\t1900\t0"
+        t1 = Transcript(BED12(st1))
+        t1.finalize()
+        sl = Superlocus(t1)
+        sl.check_configuration()
+        sl.remove_transcript_from_locus(t1.id)
+        _ = sl.cds_segmenttree
 
     def test_verified_introns(self):
 

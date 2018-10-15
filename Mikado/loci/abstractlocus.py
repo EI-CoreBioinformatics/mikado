@@ -64,7 +64,8 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                  source="",
                  verified_introns=None,
                  json_conf=None,
-                 use_transcript_scores=False):
+                 use_transcript_scores=False,
+                 flank=None):
 
         # Mock values
         self.__source = source
@@ -101,6 +102,11 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         if transcript_instance is not None and isinstance(transcript_instance, Transcript):
             self.add_transcript_to_locus(transcript_instance)
         self.__use_transcript_scores = use_transcript_scores
+        self.__flank = 0
+        if flank is not None:
+            self.flank = flank
+        else:
+            self.flank = self.json_conf["pick"]["clustering"]["flank"]
 
     @abc.abstractmethod
     def __str__(self, *args, **kwargs):
@@ -404,6 +410,11 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
         transcript.finalize()
         self.monoexonic = self.monoexonic and transcript.monoexonic
+
+        if "flank" in kwargs:
+            pass
+        else:
+            kwargs["flank"] = self.flank
 
         if self.initialized is True:
             if check_in_locus is False:
@@ -1288,6 +1299,17 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         if not isinstance(flag, bool):
             raise ValueError("The stranded attribute must be boolean!")
         self.__stranded = flag
+
+    @property
+    def flank(self):
+        return self.__flank
+
+    @flank.setter
+    def flank(self, flank):
+        if isinstance(flank, int) and flank >= 0:
+            self.__flank = flank
+        else:
+            raise TypeError("Flank must be either null or an integer greater than 0")
 
     # pylint: disable=invalid-name
     @property

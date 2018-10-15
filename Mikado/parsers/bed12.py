@@ -220,6 +220,10 @@ class BED12:
                 raise ValueError(groups["coding"])
             self.name = groups["ID"]
 
+        elif "ID=" in self.name:
+            groups = dict(re.findall("([^(;|=)]*)=([^;]*)", self.name))
+            self.name = groups["ID"]
+
         self.__check_validity(transcriptomic, fasta_index, sequence)
 
         if self.invalid and self.coding:
@@ -481,7 +485,16 @@ class BED12:
             else:
                 return "#"
 
-        line = [self.chrom, self.start - 1, self.end, self.name]
+        line = [self.chrom, self.start - 1, self.end]
+
+        if self.transcriptomic is True:
+            name = "ID={};coding={}".format(self.id, self.coding)
+            if self.coding:
+                name += ";phase={}".format(self.phase)
+            line.append(name)
+        else:
+            line.append(self.name)
+
         if not self.score:
             line.append(0)
         else:

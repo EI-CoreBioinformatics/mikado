@@ -308,9 +308,13 @@ def as_bed12(transcript, transcriptomic=False):
 
     bed12.name = name
 
-    bed12.score = transcript.score
+    bed12.score = transcript.score if transcript.score else 0
     bed12.strand = transcript.strand
     if transcript.is_coding:
+        bed12.coding = True
+        first_exon = [_ for _ in transcript.selected_cds if transcript.selected_cds_start in _]
+        assert len(first_exon) == 1
+        bed12.phase = transcript.phases[first_exon.pop()]
         bed12.thick_start = transcript.selected_cds[0][0]
         bed12.thick_end = transcript.selected_cds[-1][1]
     else:
@@ -323,6 +327,7 @@ def as_bed12(transcript, transcriptomic=False):
             bed12.block_starts[pos] + bed12.block_sizes[pos] + intron[1] - intron[0] + 1)
     if transcriptomic:
         bed12 = bed12.to_transcriptomic()
+        bed12.chrom = transcript.id
     return bed12
 
 

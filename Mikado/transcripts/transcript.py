@@ -349,6 +349,21 @@ class Transcript:
         :return:
         """
 
+        if isinstance(transcript_row, (str, bytes)):
+            if isinstance(transcript_row, bytes):
+                transcript_row = transcript_row.decode()
+            _ = GffLine(transcript_row)
+            if _.header is False and _.is_transcript is True and _.id is not None:
+                transcript_row = _
+            else:
+                _ = GtfLine(transcript_row)
+                if _.header is False and _.is_transcript is True and _.id is not None:
+                    transcript_row = _
+                else:
+                    _ = BED12(transcript_row)
+                    if _.header is False and _.name is not None:
+                        transcript_row = _
+
         if isinstance(transcript_row, (GffLine, GtfLine)):
             self.__initialize_with_gf(transcript_row)
         elif isinstance(transcript_row, BED12):
@@ -437,7 +452,10 @@ class Transcript:
                 self.add_exon(transcript_row)
         else:
             self.parent = transcript_row.parent
-            self.id = transcript_row.id
+            if transcript_row.id is not None:
+                self.id = transcript_row.id
+            else:
+                raise ValueError(transcript_row)
             self.feature = intern(transcript_row.feature)
 
     def __str__(self, to_gtf=False, print_cds=True):

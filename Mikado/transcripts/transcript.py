@@ -813,62 +813,31 @@ class Transcript:
                 yield new_row
 
     @property
-    def framed_codons(self):
-        self.finalize()
-        if self.is_coding is False:
-            return []
-        else:
-            frames = []
-            last_bases = []  # Last bases of the previous codon
-            exons = sorted([(_[1][0], _[1][1], _[2]) for _ in self.selected_internal_orf
-                     if _[0] == "CDS"], key=operator.itemgetter(0, 1), reverse=(self.strand == "-"))
-            for start, end, phase in exons:
-                first_bases = []
-                if phase in (1, 2):
-                    if phase == 1:
-                        if self.strand == "-":
-                            first_bases = [end]
-                        else:
-                            first_bases = [start]
-                    elif phase == 2:
-                        if self.strand == "-":
-                            first_bases = [end, end - 1]
-                        else:
-                            first_bases = [start, start + 1]
-                elif phase == 0:
-                    first_bases = []
-                else:
-                    raise ValueError("Invalid phase in {}: {}, {}".format(self.id, phase, exons))
-                last_bases.extend(first_bases)
-                last_bases = tuple(last_bases)
-                if len(last_bases) not in (0, 3):
-                    raise AssertionError("Invalid last bases for {}: {}".format(self.id, last_bases))
-                if last_bases:
-                    frames.append(tuple(last_bases))
-                if self.strand == "-":
-                    frames.extend(itertools.zip_longest(range(end - phase, start - 1, -3),
-                                                        range(end - phase - 1, start - 1, -3),
-                                                        range(end - phase - 2, start - 1, -3)))
-                    last_bases = frames.pop()
-                    last_bases = [_ for _ in last_bases if _ is not None]
-                elif self.strand == "+":
-                    frames.extend(itertools.zip_longest(range(start + phase, end + 1, 3),
-                                                        range(start + phase + 1, end + 1, 3),
-                                                        range(start + phase + 2, end + 1, 3)))
-                    last_bases = frames.pop()
-                    last_bases = [_ for _ in last_bases if _ is not None]
-                assert len(last_bases) in range(0, 4), last_bases
-
-            if last_bases:
-                frames.append(tuple(last_bases))
-            assert sum(len(_) for _ in frames) == self.selected_cds_length, (
-                    sum(len(_) for _ in frames), self.selected_cds_length
-            )
-            return frames
-
-    @property
     def frames(self):
-        return list(itertools.zip_longest(*self.framed_codons))
+        self.finalize()
+        frames = {0: set(), 1: set(), 2: set()}
+        for orf in self.internal_orfs:
+            if self.strand == "-":
+                exons = sorted([(_[1][0], _[1][1], _[2]) for _ in orf
+                                if _[0] == "CDS"], key=operator.itemgetter(0, 1), reverse=True)
+                for start, end, phase in exons:
+                    frame = ((3 - phase) % 3 - 1) % 3
+                    for pos in range(end, start - 1, -1):
+                        frame = abs((frame + 1) % 3)
+                        frames[frame].add(pos)
+            else:
+                exons = sorted([(_[1][0], _[1][1], _[2]) for _ in orf
+                      if _[0] == "CDS"], key=operator.itemgetter(0, 1), reverse=False)
+                for start, end, phase in exons:
+                    frame = ((3 - phase) % 3 - 1) % 3  # Previous frame before beginning of the feature
+                    for pos in range(start, end + 1):
+                        frame = abs((frame + 1) % 3)
+                        frames[frame].add(pos)
+        return frames
+
+    # @property
+    # def framed_codons(self):
+    #     return list(zip(*[self.frames[0], self.frames[1], self.frames[2]]))
 
     @property
     def _selected_orf_transcript(self):

@@ -708,13 +708,14 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
     @staticmethod
     def _evaluate_transcript_overlap(
-            transcript,
             other,
+            transcript,
             min_cdna_overlap=0.2,
             min_cds_overlap=0.2,
             comparison=None,
             strict_cds_overlap=False,
-            is_internal_orf=False):
+            is_internal_orf=False,
+            fixed_perspective=True):
 
         """This private static method evaluates whether the cDNA and CDS overlap of two transcripts
         is enough to consider them as intersecting.
@@ -746,10 +747,21 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             cds_overlap = cdna_overlap
         else:
             cds_overlap = 0
-            for phase in [0, 1, 2]:
-                cds_overlap += len(set.intersection(set(transcript.frames[phase]), set(other.frames[phase])))
-            cds_overlap /= min(transcript.selected_cds_length, other.selected_cds_length)
-            assert cds_overlap <= 1
+            if transcript.strand != other.strand:
+                pass
+            else:
+                cds_overlap = 0
+                for frame in range(3):
+                    cds_overlap += len(set.intersection(
+                        other.frames[frame], transcript.frames[frame]
+                    ))
+
+                if fixed_perspective:
+                    cds_overlap /= transcript.combined_cds_length
+                else:
+                    cds_overlap /= min(transcript.selected_cds_length, other.selected_cds_length)
+                    assert cds_overlap <= 1
+
         intersecting = (cdna_overlap >= min_cdna_overlap and cds_overlap >= min_cds_overlap)
         reason = "{} and {} {}share enough cDNA ({}%, min. {}%) and CDS ({}%, min. {}%), {}intersecting".format(
             transcript.id, other.id,

@@ -635,7 +635,7 @@ class MonoHolderTester(unittest.TestCase):
         t2.add_exons([(1250, 1560), (1801, 2000)])
         t2.add_exons([(1401, 1560), (1801, 1850)], "CDS")
         t2.finalize()
-        logger = create_default_logger(inspect.getframeinfo(inspect.currentframe())[2])
+        logger = create_default_logger(inspect.getframeinfo(inspect.currentframe())[2], level="WARNING")
 
         for min_cds_overlap in [0.05, 0.1, 0.15, 0.2, 0.5]:
             with self.subTest(min_cds_overlap=min_cds_overlap):
@@ -676,12 +676,19 @@ class MonoHolderTester(unittest.TestCase):
         self.assertTrue(t2.is_coding)
         for min_overlap in [0.1, 0.2, 0.3, 0.5]:
             with self.subTest(min_overlap=min_overlap):
+                cds_overlap = 0
+                for frame in range(3):
+                    cds_overlap += len(set.intersection(
+                        self.t1.frames[frame], t2.frames[frame]
+                    ))
+
                 self.assertIs(MonosublocusHolder.is_intersecting(self.t1, t2,
                                                                  cds_only=False,
                                                                  min_cds_overlap=0.07,
                                                                  min_cdna_overlap=min_overlap,
-                                                                 logger=logger), (min_overlap <= 0.12))
-
+                                                                 logger=logger), (min_overlap <= 0.12),
+                              ((t2.selected_internal_orf_cds, self.t1.selected_internal_orf_cds),
+                               cds_overlap))
         self.assertTrue(t2.is_coding)
 
         for min_overlap in [0.01, 0.05, 0.1, 0.2]:
@@ -1969,7 +1976,10 @@ class PaddingTester(unittest.TestCase):
     def test_negative_padding(self):
         genome = pkg_resources.resource_filename("Mikado.tests", "neg_pad.fa")
         transcripts = self.load_from_bed("Mikado.tests", "neg_pad.bed12")
-        locus = Mikado.loci.Locus(transcripts['Human_coding_ENSP00000371111.2.m1'])
+        logger = create_default_logger(inspect.getframeinfo(inspect.currentframe())[2],
+                                       level="WARNING")
+        locus = Mikado.loci.Locus(transcripts['Human_coding_ENSP00000371111.2.m1'],
+                                  logger=logger)
         locus.json_conf["reference"]["genome"] = genome
         for t in transcripts:
             if t == locus.primary_transcript_id:
@@ -1999,6 +2009,9 @@ class PaddingTester(unittest.TestCase):
                 locus.json_conf["pick"]["alternative_splicing"]["ts_distance"] = pad_distance
                 locus.json_conf["pick"]["alternative_splicing"]["ts_max_splices"] = max_splice
                 locus.pad_transcripts()
+                for tid in corr:
+                    self.assertIn(corr[tid], locus.transcripts, corr[tid])
+
                 for transcript in locus:
                     self.assertGreater(locus[transcript].combined_cds_length, 0, transcript)
                     self.assertEqual(locus[transcript].combined_cds_start, cds_coordinates[transcript][0])

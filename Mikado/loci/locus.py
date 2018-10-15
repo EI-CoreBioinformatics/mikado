@@ -531,7 +531,7 @@ reached the maximum number of isoforms for the locus".format(
                     min_cdna_overlap=self.json_conf["pick"]["alternative_splicing"]["min_cdna_overlap"],
                     min_cds_overlap=self.json_conf["pick"]["alternative_splicing"]["min_cds_overlap"],
                     comparison=main_result,
-                    is_internal_orf=True)
+                    is_internal_orf=True, fixed_perspective=True)
             else:
                 main_result, _ = Assigner.compare(other,
                                                   self.primary_transcript)
@@ -541,7 +541,7 @@ reached the maximum number of isoforms for the locus".format(
                     min_cdna_overlap=self.json_conf["pick"]["alternative_splicing"]["min_cdna_overlap"],
                     min_cds_overlap=self.json_conf["pick"]["alternative_splicing"]["min_cds_overlap"],
                     comparison=main_result,
-                    is_internal_orf=False)
+                    is_internal_orf=False, fixed_perspective=True)
 
             main_ccode = main_result.ccode[0]
             if main_ccode not in valid_ccodes:

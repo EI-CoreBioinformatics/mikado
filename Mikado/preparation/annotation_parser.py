@@ -303,7 +303,9 @@ def load_from_gff(shelf_name,
     to_ignore = set()
 
     for row in gff_handle:
-        if row.is_transcript is True or row.feature == "match":
+        if row.feature == "protein":
+            continue
+        elif row.is_transcript is True or row.feature == "match":
             if label != '':
                 row.id = "{0}_{1}".format(label, row.id)
                 row.source = label
@@ -364,12 +366,14 @@ def load_from_gff(shelf_name,
                     row.transcript = ["{0}_{1}".format(label, tid) for tid in row.transcript]
 
                 parents = row.transcript[:]
+                to_delete = set()
                 for tid in parents:
+
                     if tid in found_ids:
                         __raise_redundant(tid, gff_handle.name, label)
                     elif tid in to_ignore:
                         continue
-                    if tid not in exon_lines:
+                    if tid not in exon_lines and tid in transcript2genes:
                         exon_lines[tid] = dict()
                         exon_lines[tid]["attributes"] = row.attributes.copy()
                         if label:
@@ -382,6 +386,8 @@ def load_from_gff(shelf_name,
                         exon_lines[tid]["tid"] = tid
                         exon_lines[tid]["parent"] = transcript2genes[tid]
                         exon_lines[tid]["strand_specific"] = strand_specific
+                    elif tid not in exon_lines and tid not in transcript2genes:
+                        continue
                     else:
                         if "exon_number" in row.attributes:
                             del row.attributes["exon_number"]
@@ -394,6 +400,7 @@ def load_from_gff(shelf_name,
                         exon_lines[tid]["features"][row.feature] = []
                     exon_lines[tid]["features"][row.feature].append((row.start, row.end, row.phase))
                     new_ids.add(tid)
+
             else:
                 continue
     gff_handle.close()

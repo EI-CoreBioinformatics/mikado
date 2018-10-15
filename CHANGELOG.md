@@ -1,4 +1,4 @@
-# Version 1.3
+# Version 1.3beta
 
 One of the major highlights of this release is the completion of the "padding" functionality.
 Briefly, if instructed to do so, now Mikado will be able to uniform the ends of transcripts within a single locus (similar to what was done for the last _Arabidopsis thaliana_ annotation release).

@@ -61,10 +61,7 @@ def __create_cds_lines(transcript,
         assert exon_line.end <= transcript.end, (transcript.end, segment, cds_run)
         if segment[0] == "CDS":
             assert len(segment) == 3, (segment, cds_run)
-            if to_gtf is False:
-                exon_line.phase = segment[2]
-            else:
-                exon_line.phase = (3 - int(segment[2])) % 3
+            exon_line.phase = segment[2]
         exon_lines.append(exon_line)
 
     assert not any(True for x in exon_lines if x.feature == "CDS" and x.phase is None), [str(_) for _ in exon_lines]

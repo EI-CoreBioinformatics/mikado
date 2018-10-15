@@ -7,9 +7,10 @@ The behaviour is controlled by the "pad" boolean switch, and by the "ts_max_spli
 Bugfixes and improvements:
 
 - Fixed a bug which caused some loci to crash at the last part of the picking stage
-- Made logging more sensible and informative.
+- Made logging more sensible and informative for all three steps of the pipeline (prepare, serialise, pick)
 - Now coding and non-coding transcripts will be in different loci.
-- Mikado prepare now can accept models that lack any exon features but still have valid CDS/UTR features
+- Mikado prepare now can accept models that lack any exon features but still have valid CDS/UTR features - this is necessary for some protein prediction tools.
+- [#135](https://github.com/lucventurini/mikado/issues/135): Mikado so far operated under the assumption that the 8th field in GTF files was the **frame**, not the **phase** like in GFF3s. This is actually incompatible with EnsEMBL and many widespread tools such as [GenomeTools](http://genometools.org/) or [GffRead](https://github.com/gpertea/gffread). Starting from this version, Mikado uniforms with these other tools.
 - Fixed [#34](https://github.com/lucventurini/mikado/issues/34): now Mikado can specify a valid codon table among those provided by [NCBI  through BioPython](ftp://ftp.ncbi.nih.gov/entrez/misc/data/gc.prt). The default is "0", ie the Standard table but with only the canonical "ATG" being accepted as valid start codon.
 - Fixed [#123](https://github.com/lucventurini/mikado/issues/123): now add_transcript_to_feature.gtf automatically splits chimeric transcripts and corrects mistakes related the intron size.
 - Fixed [#126](https://github.com/lucventurini/mikado/issues/126): now reversing the strand of a model will cause its CDS to be stripped.
@@ -18,7 +19,7 @@ Bugfixes and improvements:
 - [#130](https://github.com/lucventurini/mikado/issues/130): it is now possible to specify a different metric inside the "filter" section of scoring.
 - [#131](https://github.com/lucventurini/mikado/issues/131): in rare instances, Mikado could have missed loci if they were lost between the sublocus and monosublocus stages. Now Mikado implements a basic backtracking recursive algorithm that should ensure no locus is missed.
 - [#132](https://github.com/lucventurini/mikado/issues/132),[#133](https://github.com/lucventurini/mikado/issues/133): Mikado will now evaluate the CDS of transcripts during Mikado prepare.
-
+- [#134](https://github.com/lucventurini/mikado/issues/134): when checking for potential Alternative Splicing Events (ASEs), now Mikado will check whether the CDS phases are in frame with each other. Moreover, Mikado will now consider all CDS bases (not just those in the primary ORF) and **it will calculate the CDS overlap percentage based on the primary transcript CDS length**, not the minimum CDS length between primary and candidate.
 
 # Version 1.2.4
 

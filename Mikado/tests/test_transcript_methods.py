@@ -6,6 +6,8 @@ from sqlalchemy.engine import reflection
 from Mikado.configuration.configurator import to_json
 from Mikado.loci import Transcript
 from Mikado.parsers.bed12 import BED12
+from Mikado.parsers.GTF import GtfLine
+from Mikado.parsers.GFF import GffLine
 from Mikado.transcripts.transcript_methods import retrieval
 
 
@@ -264,7 +266,7 @@ Chr1\tMikado\texon\t1701\t2000\t.\t+\t.\tID=test1.exon2;Parent=test1"""
 Chr1\tMikado\tCDS\t101\t300\t.\t+\t0\tgene_id "gene1"; transcript_id "test1";
 Chr1\tMikado\texon\t101\t300\t.\t+\t.\tgene_id "gene1"; transcript_id "test1";
 Chr1\tMikado\tintron\t301\t1700\t.\t+\t.\tgene_id "gene1"; transcript_id "test1";
-Chr1\tMikado\tCDS\t1701\t2000\t.\t+\t2\tgene_id "gene1"; transcript_id "test1";
+Chr1\tMikado\tCDS\t1701\t2000\t.\t+\t1\tgene_id "gene1"; transcript_id "test1";
 Chr1\tMikado\texon\t1701\t2000\t.\t+\t.\tgene_id "gene1"; transcript_id "test1";"""
         self.assertEqual(gtf, res,
                          "++++\n\n" + "\n+++\n".join([gtf, res]))
@@ -308,6 +310,51 @@ Chr1\tMikado\tCDS\t1701\t2000\t.\t-\t0\tgene_id "gene1"; transcript_id "test1";
 Chr1\tMikado\texon\t1701\t2000\t.\t-\t.\tgene_id "gene1"; transcript_id "test1";"""
         self.assertEqual(gtf, res,
                          "++++\n\n" + "\n+++\n".join([gtf, res]))
+
+    def test_coding_negative_2(self):
+        tr = Transcript()
+        tr.chrom = "Chr1"
+        tr.start = 101
+        tr.end = 2000
+        tr.strand = "-"
+        tr.add_exons([(102, 300),
+                      (1701, 1999)])
+        tr.add_exons([(102, 300),
+                      (1701, 1999)], features="CDS")
+        tr.id = "test1"
+        tr.parent = "gene1"
+        tr.finalize()
+        self.assertTrue(tr.is_coding)
+        self.maxDiff = 10000
+
+        gtf_res = """Chr1\tMikado\tmRNA\t102\t1999\t.\t-\t.\tgene_id "gene1"; transcript_id "test1"; Name "test1";
+Chr1\tMikado\tCDS\t102\t300\t.\t-\t1\tgene_id "gene1"; transcript_id "test1";
+Chr1\tMikado\texon\t102\t300\t.\t-\t.\tgene_id "gene1"; transcript_id "test1";
+Chr1\tMikado\tCDS\t1701\t1999\t.\t-\t0\tgene_id "gene1"; transcript_id "test1";
+Chr1\tMikado\texon\t1701\t1999\t.\t-\t.\tgene_id "gene1"; transcript_id "test1";"""
+
+        gtf = tr.format("gtf")
+        self.assertEqual(gtf, gtf_res)
+
+        gff3_res = """Chr1\tMikado\tmRNA\t102\t1999\t.\t-\t.\tID=test1;Parent=gene1;Name=test1
+Chr1\tMikado\tCDS\t102\t300\t.\t-\t1\tID=test1.CDS1;Parent=test1
+Chr1\tMikado\texon\t102\t300\t.\t-\t.\tID=test1.exon1;Parent=test1
+Chr1\tMikado\tCDS\t1701\t1999\t.\t-\t0\tID=test1.CDS2;Parent=test1
+Chr1\tMikado\texon\t1701\t1999\t.\t-\t.\tID=test1.exon2;Parent=test1"""
+
+        gff3 = tr.format("gff3")
+        self.assertEqual(gff3, gff3_res)
+
+        gff3_cds = [GffLine(_) for _ in gff3.split("\n") if GffLine(_).feature == "CDS"]
+        gtf_cds = [GtfLine(_) for _ in gtf.split("\n") if GffLine(_).feature == "CDS"]
+        gff3_cds = dict(((_.start, _.end), _) for _ in gff3_cds)
+        gtf_cds = dict(((_.start, _.end), _) for _ in gtf_cds)
+
+        self.assertEqual(gff3_cds.keys(), gtf_cds.keys())
+        for key in gff3_cds:
+            gtf_8th = str(gtf_cds[key]).split("\t")[7]
+            gff_8th = str(gff3_cds[key]).split("\t")[7]
+            self.assertEqual(gff_8th, gtf_8th)
 
 
 class TestRetrieval(unittest.TestCase):

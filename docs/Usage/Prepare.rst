@@ -100,6 +100,7 @@ If two or more transcripts are found to be identical, only one will be retained,
 In addition to this, Mikado prepare will also sort the transcripts by coordinate, irrespective of strand, so that they are suitably displayed for the divide-et-impera algorithm of :ref:`Mikado pick <pick>`.
 
 .. warning:: To be considered *identical*, two transcripts must match down to the last base pair. A simple match or containment of the intron chain will not suffice. This is because using the cDNA data alone it is difficult to understand whether the longer form(s) is the correct assembly rather than a chimera or a trans-splice event.
+.. note:: From version 1.3 onwards, Mikado considers the CDS as well when performing the redundancy check. So, two transcripts having the same coordinates but different CDS (because of non-overlapping ORFs or disagrement on the frame and/or start codon position) will be kept as non-redundant.
 
 Check on strand correctness
 ---------------------------

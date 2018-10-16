@@ -86,6 +86,12 @@ def check_run_options(args, logger=None):
     if args.pad is True:
         args.json_conf["pick"]["alternative_splicing"]["pad"] = True
 
+    if args.pad_max_splices is not None:
+        args.json_conf["pick"]["alternative_splicing"]["ts_max_splices"] = True
+
+    if args.pad_max_distance is not None:
+        args.json_conf["pick"]["alternative_splicing"]["ts_distance"] = True
+
     if args.intron_range is not None:
         args.json_conf["pick"]["run_options"]["intron_range"] = tuple(sorted(args.intron_range))
 
@@ -186,6 +192,10 @@ def pick_parser():
     parser.add_argument("--pad", default=False,
                         action="store_true",
                         help="Whether to pad transcripts in loci.")
+    parser.add_argument("--pad-max-splices", default=None, dest="pad_max_splices",
+                        type=int, help="Maximum splice sites that can be crossed during transcript padding.")
+    parser.add_argument("--pad-max-distance", default=None, dest="pad_max_distance",
+                        type=int, help="Maximum amount of bps that transcripts can be padded with (per side).")
     parser.add_argument("--subloci_out", type=str, default=None)
     parser.add_argument("--monoloci_out", type=str, default=None)
     parser.add_argument("--loci_out", type=str, default=None,

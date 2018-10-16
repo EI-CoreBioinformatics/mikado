@@ -57,6 +57,8 @@ The detection and analysis of a locus proceeds as follows:
 #. Once the loci are created, track back to the original transcripts of the superlocus:
     #. discard any transcript overlapping more than one locus, as these are probably chimeras.
     #. For those transcripts that are overlapping to a single locus, verify that they are valid alternative splicing events using the :ref:`class code <ccodes>` of the comparison against the primary transcript. Transcripts are re-scored dynamically when they are re-added in this fashion, to ensure their quality when compared with the primary transcript.
+    #. If there are transcripts that do not overlap any of the final loci, create a new superlocus with the missed transcripts and perform the scoring and selection again on them, until no transcript is unaccounted for.
+#. After the alternative splicing events have been defined, Mikado can optionally "pad" them. See the :ref:`padding section<padding>` for details.
 #. Finally detect and either tag or discard fragments inside the initial *superlocus* (irrespective of strand):
     #. Check whether the primary transcript of any locus meets the criteria to be defined as a fragment (by default, maximum ORF of 30AA and maximum 2 exons - any transcript exceeding either criterion will be considered as non-fragment by default)
     #. If so, verify whether they are near enough any valid locus to be considered as a fragment (in general, class codes which constitute the "Intronic", "Fragmentary" and "No overlap" categories).
@@ -606,7 +608,23 @@ And if we wanted to consider any primary transcript with coverage gaps as a pote
 As external metrics allow Mikado to accept any arbitrary metric for each transcript, they allow the program to assess transcripts in any way the experimenter desires. However, currently we do not provide any way of automating the process.
 
 .. note:: also for external metrics, it is necessary to add a suffix to them if they are invoked more than once in an expression (see the :ref:`tutorial <scoring-tutorial-first-reqs>`). An invocation of e.g. "external.samples_expressed.mono" and "external.samples_expressed.multi", to distinguish between monoexonic and multiexonic transcripts, would be perfectly valid and actually *required* by Mikado. Notice the double use of the dot (".") as separator. Its usage as such is the reason that it cannot be present in the name of the metric itself (so, for example, "has.coverage.gaps" would be an invalid metric name).
-    
+
+
+.. _padding:
+
+Padding transcripts
+~~~~~~~~~~~~~~~~~~~
+
+Mikado can optionally "pad" transcripts so that all the transcripts in a locus share the same start and stop. The procedure is as follows:
+
+#. Amongst the transcripts in the locus, identify cases where extending a transcript until the end of another would:
+  - extend only by less than a given maximum length (defined in the configuration under pick/alternative_splicing/ts_distance)
+  - cause the extended part to cross at most a pre-defined number of splice sites (defined under pick/alternative_splicing/ts_max_splices)
+#. Once the transcript has been marked for extension, extend the terminal exon(s)
+#. If the transcript is coding, extract the cDNA sequence from the genome, then extract the ORF. If the extension causes the CDS to be enlarged, Mikado will calculate the position of the first start and stop codon it encounters - while keeping the same frame. If the new start codon would lead to an in-frame stop codon, Mikado will abort the expansion and report it in the log.
+
+This option is normally disabled. It has been written for using Mikado in conjunction with *ab initio* predictions, but it can be used fruitfully also with transcript assemblies.
+
 Technical details
 ~~~~~~~~~~~~~~~~~
 

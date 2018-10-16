@@ -243,8 +243,7 @@ class MonosublocusHolder(Sublocus, Abstractlocus):
                         logger=None,
                         min_cdna_overlap=0.2,
                         min_cds_overlap=0.2,
-                        simple_overlap_for_monoexonic=True,
-                        fixed_perspective=False) -> bool:
+                        simple_overlap_for_monoexonic=True) -> bool:
         """
         Implementation of the is_intersecting method. Now that we are comparing transcripts that
         by definition span multiple subloci, we have to be less strict in our definition of what
@@ -308,9 +307,7 @@ class MonosublocusHolder(Sublocus, Abstractlocus):
                     other._selected_orf_transcript,
                     min_cdna_overlap=min_cdna_overlap,
                     min_cds_overlap=min_cds_overlap,
-                    simple_overlap_for_monoexonic=simple_overlap_for_monoexonic,
-                    is_internal_orf=True,
-                    fixed_perspective=fixed_perspective)
+                    simple_overlap_for_monoexonic=simple_overlap_for_monoexonic)
         else:
             if overlap((transcript.start, transcript.end),
                        (other.start, other.end)) <= 0:
@@ -321,9 +318,7 @@ class MonosublocusHolder(Sublocus, Abstractlocus):
                     other,
                     min_cdna_overlap=min_cdna_overlap,
                     min_cds_overlap=min_cds_overlap,
-                    simple_overlap_for_monoexonic=simple_overlap_for_monoexonic,
-                    is_internal_orf=False,
-                    fixed_perspective=fixed_perspective)
+                    simple_overlap_for_monoexonic=simple_overlap_for_monoexonic)
 
         logger.debug(reason)
         return intersecting
@@ -334,9 +329,7 @@ class MonosublocusHolder(Sublocus, Abstractlocus):
                                       other: Transcript,
                                       min_cdna_overlap=0.2,
                                       min_cds_overlap=0.2,
-                                      simple_overlap_for_monoexonic=True,
-                                      fixed_perspective=False,
-                                      is_internal_orf=False):
+                                      simple_overlap_for_monoexonic=True):
         """Private method which is called by is_intersecting. It decouples the determination of whether two transcripts
         intersect from the public interface of the method.
         :param transcript
@@ -383,8 +376,7 @@ class MonosublocusHolder(Sublocus, Abstractlocus):
                 min_cdna_overlap=min_cdna_overlap,
                 min_cds_overlap=min_cds_overlap,
                 comparison=comparison,
-                is_internal_orf=is_internal_orf,
-                fixed_perspective=fixed_perspective)
+                fixed_perspective=False)
 
         return intersecting, reason
 

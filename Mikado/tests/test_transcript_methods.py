@@ -2,7 +2,7 @@ import os
 import unittest
 
 from sqlalchemy.engine import reflection
-
+import itertools
 from Mikado.configuration.configurator import to_json
 from Mikado.loci import Transcript
 from Mikado.parsers.bed12 import BED12
@@ -414,6 +414,104 @@ class TestRetrieval(unittest.TestCase):
 
         retrieval._connect_to_db(self.tr)
         reflector = reflection.Inspector.from_engine(self.tr.engine)
+
+
+class TestMiscellanea(unittest.TestCase):
+
+    def setUp(self):
+        gtf = """Chr5	TAIR10	mRNA	5256	5891	.	-	.	ID=AT5G01015.1;Parent=AT5G01015;Name=AT5G01015.1;Index=1
+Chr5	TAIR10	five_prime_UTR	5770	5891	.	-	.	Parent=AT5G01015.1
+Chr5	TAIR10	CDS	5697	5769	.	-	0	Parent=AT5G01015.1;
+Chr5	TAIR10	exon	5697	5891	.	-	.	Parent=AT5G01015.1
+Chr5	TAIR10	CDS	5335	5576	.	-	2	Parent=AT5G01015.1;
+Chr5	TAIR10	three_prime_UTR	5256	5334	.	-	.	Parent=AT5G01015.1
+Chr5	TAIR10	exon	5256	5576	.	-	.	Parent=AT5G01015.1"""
+
+        gtf_lines = [GffLine(_) for _ in gtf.split("\n")]
+
+        self.t1 = Transcript(gtf_lines[0])
+        self.t1.add_exons(gtf_lines[1:])
+        self.t1.finalize()
+        self.assertIs(self.t1.is_coding, True)
+
+    def test_frames(self):
+
+        self.assertIsInstance(self.t1.frames, dict)
+        self.assertEqual(len(self.t1.frames), 3)
+        self.assertEqual(set(self.t1.frames.keys()), {0, 1, 2})
+        for key in self.t1.frames:
+            self.assertEqual(len(self.t1.frames[key]), self.t1.combined_cds_length / 3)
+
+        correct_frames = []
+        current = []
+        for num in itertools.chain(range(5769, 5697 -1, -1), range(5576, 5335 -1, -1)):
+            current.append(num)
+            if len(current) == 3:
+                current = tuple(current)
+                correct_frames.append(current)
+                current = []
+        current = tuple(current)
+        if current:
+            correct_frames.append(current)
+
+        self.assertEqual(len(correct_frames), int(self.t1.combined_cds_length / 3), correct_frames)
+        self.assertEqual(self.t1.framed_codons, correct_frames)
+
+    def test_conversion(self):
+
+        asbed = self.t1.format("bed12")
+        t1 = Transcript(BED12(asbed))
+        t1.finalize()
+        self.assertEqual(t1, self.t1)
+
+        asgtf = self.t1.format("gtf")
+        asgtf = [GtfLine(_) for _ in asgtf.split("\n")]
+        t1 = Transcript(asgtf[0])
+        t1.add_exons(asgtf[1:])
+        t1.finalize()
+        self.assertEqual(t1, self.t1)
+
+        asgtf = self.t1.format("gff3")
+        asgtf = [GffLine(_) for _ in asgtf.split("\n")]
+        t1 = Transcript(asgtf[0])
+        t1.add_exons(asgtf[1:])
+        t1.finalize()
+        self.assertEqual(t1, self.t1)
+
+    def test_get_coding_exons(self):
+        correct = [(5697,5891), (5256, 5576)]
+        self.assertEqual(sorted(self.t1.coding_exons), sorted(correct))
+        t1 = self.t1.copy()
+        t1.strip_cds()
+        self.assertEqual([], t1.coding_exons)
+        t1.unfinalize()
+        t1.start = 4256
+        t1.add_exon((4256, 5000))
+        t1.finalize()
+        self.assertEqual(sorted(correct), sorted(self.t1.coding_exons))
+
+    def test_wrong_exons(self):
+        with self.assertRaises(NotImplementedError):
+            self.t1.exons = self.t1.exons
+        self.t1.unfinalize()
+        with self.assertRaises(TypeError):
+            self.t1.exons = [[5697,5891], [5256,5576]]
+        with self.assertRaises(TypeError):
+            self.t1.exons = [[5697,5891], ["5256",5576]]
+
+    def test_comparisons(self):
+
+        t1 = self.t1.deepcopy()
+        t1.unfinalize()
+        t1.start = 4256
+        t1.add_exon((4256, 5000))
+        t1.finalize()
+
+        self.assertLess(t1, self.t1)
+        self.assertGreater(self.t1, t1)
+        self.assertEqual(t1, t1)
+        self.assertEqual(self.t1, self.t1)
+
 
 if __name__ == '__main__':
     unittest.main()

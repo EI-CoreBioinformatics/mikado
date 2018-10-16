@@ -661,7 +661,7 @@ def finalize(transcript):
     _ = transcript.segmenttree
 
     # BUG somewhere ... I am not sorting this properly before (why?)
-    transcript.exons = sorted(transcript.exons)
+    # transcript.exons = sorted(transcript.exons)
     transcript.logger.debug("Checking various attributes")
     if "has_start_codon" in transcript.attributes:
         transcript.logger.debug("%s has start codon attribute (%s)", transcript.id,

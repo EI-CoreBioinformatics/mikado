@@ -19,7 +19,8 @@ Bugfixes and improvements:
 - [#130](https://github.com/lucventurini/mikado/issues/130): it is now possible to specify a different metric inside the "filter" section of scoring.
 - [#131](https://github.com/lucventurini/mikado/issues/131): in rare instances, Mikado could have missed loci if they were lost between the sublocus and monosublocus stages. Now Mikado implements a basic backtracking recursive algorithm that should ensure no locus is missed.
 - [#132](https://github.com/lucventurini/mikado/issues/132),[#133](https://github.com/lucventurini/mikado/issues/133): Mikado will now evaluate the CDS of transcripts during Mikado prepare.
-- [#134](https://github.com/lucventurini/mikado/issues/134): when checking for potential Alternative Splicing Events (ASEs), now Mikado will check whether the CDS phases are in frame with each other. Moreover, Mikado will now consider all CDS bases (not just those in the primary ORF) and **it will calculate the CDS overlap percentage based on the primary transcript CDS length**, not the minimum CDS length between primary and candidate.
+- [#134](https://github.com/lucventurini/mikado/issues/134): when checking for potential Alternative Splicing Events (ASEs), now Mikado will check whether the CDS phases are in frame with each other. Moreover
+ **Mikado will now calculate the CDS overlap percentage based on the primary transcript CDS length**, not the minimum CDS length between primary and candidate. Please note that the change **regarding the frame** also affects the monosublocus stage. Mikado still considers only the primary ORFs for the overlap.
 
 # Version 1.2.4
 

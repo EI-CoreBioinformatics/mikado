@@ -260,6 +260,7 @@ class Transcript:
 
         # Mock setting of base hidden variables
         self.__id = ""
+        self.__finalized = False  # Flag. We do not want to repeat the finalising more than once.
         self._first_phase = None
         self.__logger = None
         self.__strand = self.__score = None
@@ -305,7 +306,6 @@ class Transcript:
         self.logger = logger
         self.introns = set()
         self.splices = set()
-        self.finalized = False  # Flag. We do not want to repeat the finalising more than once.
         self.selected_internal_orf_index = None
         self.non_overlapping_cds = None
         self.__verified_introns = set()
@@ -832,6 +832,8 @@ class Transcript:
 
     @property
     def frames(self):
+        """This property will return a dictionary with three keys - the three possible frames, 0, 1 and 2 - and within
+        each, a set of the positions that are in that frame. If the transcript does not have """
         self.finalize()
         frames = {0: set(), 1: set(), 2: set()}
         for orf in self.internal_orfs:
@@ -853,9 +855,14 @@ class Transcript:
                         frames[frame].add(pos)
         return frames
 
-    # @property
-    # def framed_codons(self):
-    #     return list(zip(*[self.frames[0], self.frames[1], self.frames[2]]))
+    @property
+    def framed_codons(self):
+
+        codons = list(zip(*[sorted(self.frames[0]), sorted(self.frames[1]), sorted(self.frames[2])]))
+        if self.strand == "-":
+            codons = list(reversed(codons))
+
+        return codons
 
     @property
     def _selected_orf_transcript(self):
@@ -1694,7 +1701,6 @@ class Transcript:
                                segment[0] == "CDS"])))
         self.__max_internal_orf_length = int(np.subtract(ar[1], ar[0] - 1).sum())
 
-
     @property
     def internal_orf_lengths(self):
         """This property returns a list of the lengths of the internal ORFs.
@@ -1735,6 +1741,16 @@ class Transcript:
         self.__non_overlapping_cds = arg
 
     @property
+    def finalized(self):
+        return self.__finalized
+
+    @finalized.setter
+    def finalized(self, finalized):
+        if finalized not in (True, False):
+            raise ValueError("This is a boolean flag")
+        self.__finalized = finalized
+
+    @property
     def exons(self):
         """This property stores the exons of the transcript as (start,end) tuples.
 
@@ -1750,9 +1766,18 @@ class Transcript:
 
         """
 
+        if self.finalized is True:
+            raise NotImplementedError("I cannot reset the exons in a finalised transcript.")
+
         if not isinstance(args[0], (set, list)):
             raise TypeError(type(args[0]))
-        self.__exons = list(args[0])
+
+        for exon in args[0]:
+            if (not isinstance(exon, tuple) or len(exon) != 2 or
+                    not (isinstance(exon[0], int) and isinstance(exon[1], int))):
+                raise TypeError("Exons must be tuples of two integers!")
+
+        self.__exons = list(sorted(args[0]))
 
     @property
     def combined_cds_introns(self):
@@ -2163,12 +2188,7 @@ index {3}, internal ORFs: {4}".format(
     def selected_cds_length(self):
         """This property calculates the length of the CDS selected as best inside
         the cDNA."""
-        # self.finalize()
-        # if self.combined_cds_length == 0:
-        #     self.__max_internal_orf_length = 0
-        # else:
-        #     self.__max_internal_orf_length = sum(
-        #         _[1][1] - _[1][0] + 1 for _ in self.selected_internal_orf if _[0] == "CDS")
+
         return self.__max_internal_orf_length
 
     selected_cds_length.category = "CDS"

@@ -132,8 +132,8 @@ Chr1\tTAIR10\tfive_prime_UTR\t8667\t8737\t.\t-\t.\tID=AT1G01020.1.five_prime_UTR
         :return:
         """
 
-        self.tr.exons = []
         self.tr.finalized = False
+        self.tr.exons = []
         self.tr.finalize()
         self.assertEqual(self.tr.strand, "-")
         self.assertEqual(self.tr.number_internal_orfs, 1)

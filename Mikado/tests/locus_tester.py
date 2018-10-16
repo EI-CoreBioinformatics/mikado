@@ -694,7 +694,7 @@ class MonoHolderTester(unittest.TestCase):
         t2.start = 1250
         t2.end = 2000
         t2.add_exons([(1250, 1560), (1801, 2000)])
-        t2.add_exons([(1401, 1560), (1801, 1850)], "CDS")
+        t2.add_exons([(1402, 1560), (1801, 1851)], "CDS")
         t2.finalize()
         logger = create_default_logger(inspect.getframeinfo(inspect.currentframe())[2], level="WARNING")
 
@@ -705,7 +705,8 @@ class MonoHolderTester(unittest.TestCase):
                                                                  logger=logger,
                                                                  min_cds_overlap=min_cds_overlap,
                                                                  min_cdna_overlap=0.01),
-                              (min_cds_overlap <= 0.19))
+                              (min_cds_overlap <= 0.19),
+                              (self.t1.internal_orfs, t2.internal_orfs))
 
         t2.strip_cds()
         t2.finalized = False

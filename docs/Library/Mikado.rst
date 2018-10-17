@@ -21,22 +21,10 @@ Subpackages
 Submodules
 ----------
 
-Mikado.exceptions module
-------------------------
+.. toctree::
 
-.. automodule:: Mikado.exceptions
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-Mikado.version module
----------------------
-
-.. automodule:: Mikado.version
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
+   Mikado.exceptions
+   Mikado.version
 
 Module contents
 ---------------

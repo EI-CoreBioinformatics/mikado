@@ -18,6 +18,9 @@ install:
   - conda create --yes -n env_name python=$TRAVIS_PYTHON_VERSION
   - source activate env_name
   - conda install --yes setuptools cython atlas numpy scipy scikit-learn biopython
+  - pip install codecov;
   - pip install -r requirements.txt
 script:
   - python setup.py nosetests -exe;
+after_success:
+  - codecov

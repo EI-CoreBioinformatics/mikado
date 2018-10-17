@@ -17,7 +17,8 @@
    :target: https://bitbucket.org/snakemake/snakemake/wiki/Home
 .. |travis_status| image:: https://travis-ci.org/lucventurini/mikado.svg?branch=master
     :target: https://travis-ci.org/lucventurini/mikado
-.. |coverage| image:: coverage_shield.svg
+.. |coverage| image:: https://codecov.io/gh/lucventurini/mikado/branch/master/graph/badge.svg
+  :target: https://codecov.io/gh/lucventurini/mikado
 
 ============================
 Mikado: pick your transcript

@@ -4,8 +4,6 @@
 
 .. |python_badge| image:: https://img.shields.io/pypi/pyversions/snakemake.svg?style=flat-square
    :target: https://www.python.org/
-.. image:: https://codecov.io/gh/lucventurini/mikado/branch/master/graph/badge.svg
-  :target: https://codecov.io/gh/lucventurini/mikado
 
 Introduction
 ============

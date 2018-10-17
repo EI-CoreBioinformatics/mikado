@@ -4,22 +4,10 @@ Mikado.configuration package
 Submodules
 ----------
 
-Mikado.configuration.configurator module
-----------------------------------------
+.. toctree::
 
-.. automodule:: Mikado.configuration.configurator
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-Mikado.configuration.daijin\_configurator module
-------------------------------------------------
-
-.. automodule:: Mikado.configuration.daijin_configurator
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
+   Mikado.configuration.configurator
+   Mikado.configuration.daijin_configurator
 
 Module contents
 ---------------

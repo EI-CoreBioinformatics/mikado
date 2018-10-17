@@ -400,6 +400,7 @@ def load_from_gff(shelf_name,
                         exon_lines[tid]["features"][row.feature] = []
                     exon_lines[tid]["features"][row.feature].append((row.start, row.end, row.phase))
                     new_ids.add(tid)
+
             else:
                 continue
     gff_handle.close()

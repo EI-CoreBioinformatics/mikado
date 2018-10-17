@@ -220,6 +220,10 @@ class BED12:
                 raise ValueError(groups["coding"])
             self.name = groups["ID"]
 
+        elif "ID=" in self.name:
+            groups = dict(re.findall("([^(;|=)]*)=([^;]*)", self.name))
+            self.name = groups["ID"]
+
         self.__check_validity(transcriptomic, fasta_index, sequence)
 
         if self.invalid and self.coding:
@@ -435,7 +439,10 @@ class BED12:
                 if self.end - self.thick_end <= 2:
                     self.thick_end = self.end
 
-            translated_seq = orf_sequence[:-3].translate()
+            # Get only a proper multiple of three
+            last_pos = -3 - ((len(orf_sequence)) % 3)
+
+            translated_seq = orf_sequence[:last_pos].translate(table=self.table, gap='N')
             self.__internal_stop_codons = str(translated_seq).count("*")
 
             if self.invalid is True:
@@ -478,7 +485,16 @@ class BED12:
             else:
                 return "#"
 
-        line = [self.chrom, self.start - 1, self.end, self.name]
+        line = [self.chrom, self.start - 1, self.end]
+
+        if self.transcriptomic is True:
+            name = "ID={};coding={}".format(self.id, self.coding)
+            if self.coding:
+                name += ";phase={}".format(self.phase)
+            line.append(name)
+        else:
+            line.append(self.name)
+
         if not self.score:
             line.append(0)
         else:
@@ -794,6 +810,9 @@ class BED12:
                 self.__has_start = True
 
             coding_seq = Seq.Seq(sequence[self.thick_start + self.phase - 1:self.end])
+            if len(coding_seq) % 3 != 0:
+                # Only get a multiple of three
+                coding_seq = coding_seq[:-((len(coding_seq)) % 3)]
             prot_seq = coding_seq.translate(table=self.table, gap="N")
             if "*" in prot_seq:
                 self.thick_end = self.thick_start + self.phase - 1 + (1 + prot_seq.find("*")) * 3

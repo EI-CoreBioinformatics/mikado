@@ -43,7 +43,7 @@ class TranscriptChecker(Transcript):
         Constructor method. It inherits from Transcript, with some modifications.
 
         :param gffline: annotation line to begin the construction.
-        :type gffline: (Mikado.parsers.gfannotation.GFAnnotation|Transcript)
+        :type gffline: (Mikado.parsers.gfannotation.GFAnnotation|Transcript|Mikado.parsers.BED12|str)
 
         :param seq: a SeqIO indexed FASTA file
 
@@ -63,10 +63,7 @@ class TranscriptChecker(Transcript):
             self.__dict__.update(gffline.__dict__)
         else:
             super().__init__(gffline)
-        self.original_strand = gffline.strand
-        assert self.original_strand == self.strand
-        self.attributes.update(gffline.attributes)
-        self.parent = gffline.parent
+        self.original_strand = self.strand[:]
         self.__fasta_seq = None
         self.fasta_seq = seq
         self.strand_specific = strand_specific

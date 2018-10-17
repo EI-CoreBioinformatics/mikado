@@ -101,7 +101,6 @@ def create_config(args):
         config = create_simple_config()
 
     if len(args.mode) > 1:
-        print(args.mode)
         args.daijin = True
 
     if args.daijin is not False:

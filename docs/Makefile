@@ -134,7 +134,7 @@ epub3:
 .PHONY: rst
 rst:
 rst:
-	sphinx-apidoc --ext-autodoc --ext-coverage -f -o Library ../Mikado/ ../Mikado/tests/
+	sphinx-apidoc -e --ext-autodoc --ext-coverage -f -o Library ../Mikado/ ../Mikado/tests/
 	@ echo
 	@ echo "RST regenerated for the library"
 

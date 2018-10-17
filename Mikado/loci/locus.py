@@ -531,7 +531,7 @@ reached the maximum number of isoforms for the locus".format(
                     min_cdna_overlap=self.json_conf["pick"]["alternative_splicing"]["min_cdna_overlap"],
                     min_cds_overlap=self.json_conf["pick"]["alternative_splicing"]["min_cds_overlap"],
                     comparison=main_result,
-                    is_internal_orf=True)
+                    fixed_perspective=True)
             else:
                 main_result, _ = Assigner.compare(other,
                                                   self.primary_transcript)
@@ -541,7 +541,7 @@ reached the maximum number of isoforms for the locus".format(
                     min_cdna_overlap=self.json_conf["pick"]["alternative_splicing"]["min_cdna_overlap"],
                     min_cds_overlap=self.json_conf["pick"]["alternative_splicing"]["min_cds_overlap"],
                     comparison=main_result,
-                    is_internal_orf=False)
+                    fixed_perspective=True)
 
             main_ccode = main_result.ccode[0]
             if main_ccode not in valid_ccodes:
@@ -583,8 +583,8 @@ reached the maximum number of isoforms for the locus".format(
         except KeyError:
             raise KeyError(self.json_conf.keys())
 
-        five_graph = self.define_graph(self.transcripts, self._share_extreme, three_prime=False)
-        three_graph = self.define_graph(self.transcripts, self._share_extreme, three_prime=True)
+        five_graph = self.define_graph(objects=self.transcripts, inters=self._share_extreme, three_prime=False)
+        three_graph = self.define_graph(objects=self.transcripts, inters=self._share_extreme, three_prime=True)
 
         self.logger.debug("5' graph: %s", five_graph.edges)
         self.logger.debug("3' graph: %s", three_graph.edges)
@@ -616,6 +616,8 @@ reached the maximum number of isoforms for the locus".format(
         self.exons = set()
         for tid in self:
             self.exons.update(self[tid].exons)
+        self.fai.close()
+        del self.fai
 
     def _find_communities_boundaries(self, five_clique, three_clique):
 

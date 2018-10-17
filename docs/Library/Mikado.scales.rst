@@ -4,62 +4,15 @@ Mikado.scales package
 Submodules
 ----------
 
-Mikado.scales.accountant module
--------------------------------
+.. toctree::
 
-.. automodule:: Mikado.scales.accountant
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-Mikado.scales.assigner module
------------------------------
-
-.. automodule:: Mikado.scales.assigner
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-Mikado.scales.class\_codes module
----------------------------------
-
-.. automodule:: Mikado.scales.class_codes
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-Mikado.scales.compare module
-----------------------------
-
-.. automodule:: Mikado.scales.compare
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-Mikado.scales.contrast module
------------------------------
-
-.. automodule:: Mikado.scales.contrast
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-Mikado.scales.f1 module
------------------------
-
-.. automodule:: Mikado.scales.f1
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-Mikado.scales.resultstorer module
----------------------------------
-
-.. automodule:: Mikado.scales.resultstorer
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
+   Mikado.scales.accountant
+   Mikado.scales.assigner
+   Mikado.scales.class_codes
+   Mikado.scales.compare
+   Mikado.scales.contrast
+   Mikado.scales.f1
+   Mikado.scales.resultstorer
 
 Module contents
 ---------------

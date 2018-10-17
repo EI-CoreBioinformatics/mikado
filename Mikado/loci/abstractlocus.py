@@ -64,7 +64,8 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                  source="",
                  verified_introns=None,
                  json_conf=None,
-                 use_transcript_scores=False):
+                 use_transcript_scores=False,
+                 flank=None):
 
         # Mock values
         self.__source = source
@@ -101,6 +102,11 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         if transcript_instance is not None and isinstance(transcript_instance, Transcript):
             self.add_transcript_to_locus(transcript_instance)
         self.__use_transcript_scores = use_transcript_scores
+        self.__flank = 0
+        if flank is not None:
+            self.flank = flank
+        else:
+            self.flank = self.json_conf["pick"]["clustering"]["flank"]
 
     @abc.abstractmethod
     def __str__(self, *args, **kwargs):
@@ -405,6 +411,11 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         transcript.finalize()
         self.monoexonic = self.monoexonic and transcript.monoexonic
 
+        if "flank" in kwargs:
+            pass
+        else:
+            kwargs["flank"] = self.flank
+
         if self.initialized is True:
             if check_in_locus is False:
                 pass
@@ -708,13 +719,12 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
     @staticmethod
     def _evaluate_transcript_overlap(
-            transcript,
             other,
+            transcript,
             min_cdna_overlap=0.2,
             min_cds_overlap=0.2,
             comparison=None,
-            strict_cds_overlap=False,
-            is_internal_orf=False):
+            fixed_perspective=True):
 
         """This private static method evaluates whether the cDNA and CDS overlap of two transcripts
         is enough to consider them as intersecting.
@@ -733,31 +743,72 @@ class Abstractlocus(metaclass=abc.ABCMeta):
          even when all other conditions fail.
         :type min_cds_overlap: float
 
-        :param is_internal_orf: boolean. Set to True if we are considering only the CDS for this run.
-        :type is_internal_orf: bool
+        :param comparison: default None. If one is provided, it should be a pre-calculated output of Mikado compare.
+
+        :param fixed_perspective: boolean. If True, the method will consider the second transcript as the "reference" and
+        therefore the cDNA and CDS overlap percentages will be calculated using its ratio. Otherwise, the method will
+        consider the shortest cDNA and shortest CDS for calculating the ratio. Mikado uses the **former** method when
+        evaluating potential alternative splicing events (as we are interested in the relationship with the primary)
+        and the **latter** during the monosublocus stage.
+        :type fixed_perspective: bool
         """
 
         if comparison is None:
             comparison, _ = c_compare(other, transcript)
 
-        cdna_overlap = max(comparison.n_prec[0], comparison.n_recall[0]) / 100
-        if strict_cds_overlap is False and (
-                        is_internal_orf is True or not (transcript.is_coding and other.is_coding)):
+        cds_overlap = 0
+        if fixed_perspective is False:
+            cdna_overlap = max(comparison.n_prec[0], comparison.n_recall[0]) / 100
+        else:
+            cdna_overlap = comparison.n_recall[0] / 100
+
+        if not (transcript.is_coding and other.is_coding):
             cds_overlap = cdna_overlap
         else:
-            cds_overlap = 0
-            for segment in transcript.selected_cds:
-                for o_segment in other.selected_cds:
-                    cds_overlap += Abstractlocus.overlap(segment, o_segment, positive=True, flank=0)
-            cds_overlap /= min(transcript.selected_cds_length, other.selected_cds_length)
+            # Only consider the selected internal ORF
+            t_orfs = [(_[1][0], _[1][1], _[2]) for _ in transcript.selected_internal_orf if _[0] == "CDS"]
+            o_orfs = [(_[1][0], _[1][1], _[2]) for _ in other.selected_internal_orf if _[0] == "CDS"]
+
+            for start, end, phase in t_orfs:
+                for ostart, oend, ophase in o_orfs:
+                    seg_overlap = overlap((start, end), (ostart, oend))
+                    if seg_overlap <= 0:
+                        continue
+                    # For this, we do have to check whether the start + phase of the upstream transcript
+                    # (considering the strand) is in frame with the downstream start + phase
+                    if transcript.strand == "-":
+                        first, last = sorted([(start, end, phase), (ostart, oend, ophase)],
+                                             key=operator.itemgetter(1), reverse=True)
+                        in_frame = (0 == ((last[1] - last[2]) - (first[1] - first[2])) % 3)
+                    else:
+                        first, last = sorted([(start, end, phase), (ostart, oend, ophase)],
+                                             key=operator.itemgetter(0), reverse=False)
+                        in_frame = (0 == ((last[0] + last[2]) - (first[0] + first[2])) % 3)
+                    if in_frame is True:
+                        cds_overlap += seg_overlap
+
+            if fixed_perspective:
+                cds_overlap /= transcript.combined_cds_length
+            else:
+                cds_overlap /= min(transcript.selected_cds_length, other.selected_cds_length)
             assert cds_overlap <= 1
-        intersecting = (cdna_overlap >= min_cdna_overlap and cds_overlap >= min_cds_overlap)
-        reason = "{} and {} {}share enough cDNA ({}%, min. {}%) and CDS ({}%, min. {}%), {}intersecting".format(
-            transcript.id, other.id,
-            "do not " if not intersecting else "",
-            cdna_overlap * 100, min_cdna_overlap * 100,
-            cds_overlap * 100, min_cds_overlap * 100,
-            "not " if not intersecting else "")
+
+        if transcript.is_coding and other.is_coding:
+            intersecting = (cdna_overlap >= min_cdna_overlap and cds_overlap >= min_cds_overlap)
+            reason = "{} and {} {}share enough cDNA ({}%, min. {}%) and CDS ({}%, min. {}%), {}intersecting".format(
+                transcript.id, other.id,
+                "do not " if not intersecting else "",
+                cdna_overlap * 100, min_cdna_overlap * 100,
+                cds_overlap * 100, min_cds_overlap * 100,
+                "not " if not intersecting else "")
+        else:
+            intersecting = (cdna_overlap >= min_cdna_overlap)
+            reason = "{} and {} {}share enough cDNA ({}%, min. {}%), {}intersecting".format(
+                transcript.id, other.id,
+                "do not " if not intersecting else "",
+                cdna_overlap * 100, min_cdna_overlap * 100,
+                "not " if not intersecting else "")
+
         return intersecting, reason
 
     def print_metrics(self):
@@ -1192,7 +1243,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         segments = sorted(list(transcript.exons) + list(transcript.introns), reverse=(transcript.strand == "-"))
         # Add path FAILS if the transcript is monoexonic!
         graph.add_nodes_from(segments)
-        graph.add_path(segments)
+        networkx.add_path(graph, segments)
 
         # assert len(graph.nodes()) >= len(segments), (len(graph.nodes()), len(graph.edges()), len(segments))
 
@@ -1277,6 +1328,17 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         if not isinstance(flag, bool):
             raise ValueError("The stranded attribute must be boolean!")
         self.__stranded = flag
+
+    @property
+    def flank(self):
+        return self.__flank
+
+    @flank.setter
+    def flank(self, flank):
+        if isinstance(flank, int) and flank >= 0:
+            self.__flank = flank
+        else:
+            raise TypeError("Flank must be either null or an integer greater than 0")
 
     # pylint: disable=invalid-name
     @property

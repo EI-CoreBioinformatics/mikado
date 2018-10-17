@@ -339,7 +339,6 @@ CTAATAAATGCTGTTGTGTAAAAAAAAGGGGCTTTCTTT"""
         bed = bed12.BED12(self.bed_row, fasta_index=self.index,
                           transcriptomic=True,
                           max_regression=0.3)
-        # print(self.seq[bed.thick_start-1:bed.thick_end].seq.translate())
 
         self.assertEqual(bed.thick_start, 195)
         self.assertEqual(bed.phase, 0)
@@ -400,6 +399,8 @@ CGTTGACTATCTCGCCTGA"""
         bed_line = bed12.BED12(line, transcriptomic=True, fasta_index=index)
         self.assertFalse(bed_line.invalid, bed_line.invalid_reason)
         pep = sequence[bed_line.thick_start - 1 + 2:bed_line.thick_end]
+        if len(pep) % 3 != 0:
+            pep = pep[:-(len(pep) % 3)]
         pep = str(Seq.Seq(pep).translate())
         self.assertEqual(bed_line.phase, 2, (bed_line.thick_start, bed_line.thick_end, pep))
         self.assertFalse(bed_line.has_start_codon)

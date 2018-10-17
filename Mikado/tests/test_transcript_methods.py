@@ -2,10 +2,12 @@ import os
 import unittest
 
 from sqlalchemy.engine import reflection
-
+import itertools
 from Mikado.configuration.configurator import to_json
 from Mikado.loci import Transcript
 from Mikado.parsers.bed12 import BED12
+from Mikado.parsers.GTF import GtfLine
+from Mikado.parsers.GFF import GffLine
 from Mikado.transcripts.transcript_methods import retrieval
 
 
@@ -64,8 +66,6 @@ class WrongLoadedOrf(unittest.TestCase):
 
         with self.assertLogs("null", "DEBUG") as _:
             retrieval.load_orfs(self.tr, [b_valid, b_invalid])
-
-        # print(*cm.output, sep="\n")
 
         self.assertEqual(self.tr.number_internal_orfs, 1)
 
@@ -264,7 +264,7 @@ Chr1\tMikado\texon\t1701\t2000\t.\t+\t.\tID=test1.exon2;Parent=test1"""
 Chr1\tMikado\tCDS\t101\t300\t.\t+\t0\tgene_id "gene1"; transcript_id "test1";
 Chr1\tMikado\texon\t101\t300\t.\t+\t.\tgene_id "gene1"; transcript_id "test1";
 Chr1\tMikado\tintron\t301\t1700\t.\t+\t.\tgene_id "gene1"; transcript_id "test1";
-Chr1\tMikado\tCDS\t1701\t2000\t.\t+\t2\tgene_id "gene1"; transcript_id "test1";
+Chr1\tMikado\tCDS\t1701\t2000\t.\t+\t1\tgene_id "gene1"; transcript_id "test1";
 Chr1\tMikado\texon\t1701\t2000\t.\t+\t.\tgene_id "gene1"; transcript_id "test1";"""
         self.assertEqual(gtf, res,
                          "++++\n\n" + "\n+++\n".join([gtf, res]))
@@ -308,6 +308,51 @@ Chr1\tMikado\tCDS\t1701\t2000\t.\t-\t0\tgene_id "gene1"; transcript_id "test1";
 Chr1\tMikado\texon\t1701\t2000\t.\t-\t.\tgene_id "gene1"; transcript_id "test1";"""
         self.assertEqual(gtf, res,
                          "++++\n\n" + "\n+++\n".join([gtf, res]))
+
+    def test_coding_negative_2(self):
+        tr = Transcript()
+        tr.chrom = "Chr1"
+        tr.start = 101
+        tr.end = 2000
+        tr.strand = "-"
+        tr.add_exons([(102, 300),
+                      (1701, 1999)])
+        tr.add_exons([(102, 300),
+                      (1701, 1999)], features="CDS")
+        tr.id = "test1"
+        tr.parent = "gene1"
+        tr.finalize()
+        self.assertTrue(tr.is_coding)
+        self.maxDiff = 10000
+
+        gtf_res = """Chr1\tMikado\tmRNA\t102\t1999\t.\t-\t.\tgene_id "gene1"; transcript_id "test1"; Name "test1";
+Chr1\tMikado\tCDS\t102\t300\t.\t-\t1\tgene_id "gene1"; transcript_id "test1";
+Chr1\tMikado\texon\t102\t300\t.\t-\t.\tgene_id "gene1"; transcript_id "test1";
+Chr1\tMikado\tCDS\t1701\t1999\t.\t-\t0\tgene_id "gene1"; transcript_id "test1";
+Chr1\tMikado\texon\t1701\t1999\t.\t-\t.\tgene_id "gene1"; transcript_id "test1";"""
+
+        gtf = tr.format("gtf")
+        self.assertEqual(gtf, gtf_res)
+
+        gff3_res = """Chr1\tMikado\tmRNA\t102\t1999\t.\t-\t.\tID=test1;Parent=gene1;Name=test1
+Chr1\tMikado\tCDS\t102\t300\t.\t-\t1\tID=test1.CDS1;Parent=test1
+Chr1\tMikado\texon\t102\t300\t.\t-\t.\tID=test1.exon1;Parent=test1
+Chr1\tMikado\tCDS\t1701\t1999\t.\t-\t0\tID=test1.CDS2;Parent=test1
+Chr1\tMikado\texon\t1701\t1999\t.\t-\t.\tID=test1.exon2;Parent=test1"""
+
+        gff3 = tr.format("gff3")
+        self.assertEqual(gff3, gff3_res)
+
+        gff3_cds = [GffLine(_) for _ in gff3.split("\n") if GffLine(_).feature == "CDS"]
+        gtf_cds = [GtfLine(_) for _ in gtf.split("\n") if GffLine(_).feature == "CDS"]
+        gff3_cds = dict(((_.start, _.end), _) for _ in gff3_cds)
+        gtf_cds = dict(((_.start, _.end), _) for _ in gtf_cds)
+
+        self.assertEqual(gff3_cds.keys(), gtf_cds.keys())
+        for key in gff3_cds:
+            gtf_8th = str(gtf_cds[key]).split("\t")[7]
+            gff_8th = str(gff3_cds[key]).split("\t")[7]
+            self.assertEqual(gff_8th, gtf_8th)
 
 
 class TestRetrieval(unittest.TestCase):
@@ -355,7 +400,6 @@ class TestRetrieval(unittest.TestCase):
         self.assertFalse(b2.invalid)
         with self.assertLogs("null", "DEBUG") as _:
             after_overlap_check = retrieval.find_overlapping_cds(self.tr, [b1, b2])
-        # print(*_.output, sep="\n")
 
         self.assertEqual(len(after_overlap_check), 2, self.tr.json_conf["pick"]["orf_loading"])
         self.assertEqual(after_overlap_check,
@@ -370,6 +414,104 @@ class TestRetrieval(unittest.TestCase):
 
         retrieval._connect_to_db(self.tr)
         reflector = reflection.Inspector.from_engine(self.tr.engine)
+
+
+class TestMiscellanea(unittest.TestCase):
+
+    def setUp(self):
+        gtf = """Chr5	TAIR10	mRNA	5256	5891	.	-	.	ID=AT5G01015.1;Parent=AT5G01015;Name=AT5G01015.1;Index=1
+Chr5	TAIR10	five_prime_UTR	5770	5891	.	-	.	Parent=AT5G01015.1
+Chr5	TAIR10	CDS	5697	5769	.	-	0	Parent=AT5G01015.1;
+Chr5	TAIR10	exon	5697	5891	.	-	.	Parent=AT5G01015.1
+Chr5	TAIR10	CDS	5335	5576	.	-	2	Parent=AT5G01015.1;
+Chr5	TAIR10	three_prime_UTR	5256	5334	.	-	.	Parent=AT5G01015.1
+Chr5	TAIR10	exon	5256	5576	.	-	.	Parent=AT5G01015.1"""
+
+        gtf_lines = [GffLine(_) for _ in gtf.split("\n")]
+
+        self.t1 = Transcript(gtf_lines[0])
+        self.t1.add_exons(gtf_lines[1:])
+        self.t1.finalize()
+        self.assertIs(self.t1.is_coding, True)
+
+    def test_frames(self):
+
+        self.assertIsInstance(self.t1.frames, dict)
+        self.assertEqual(len(self.t1.frames), 3)
+        self.assertEqual(set(self.t1.frames.keys()), {0, 1, 2})
+        for key in self.t1.frames:
+            self.assertEqual(len(self.t1.frames[key]), self.t1.combined_cds_length / 3)
+
+        correct_frames = []
+        current = []
+        for num in itertools.chain(range(5769, 5697 -1, -1), range(5576, 5335 -1, -1)):
+            current.append(num)
+            if len(current) == 3:
+                current = tuple(current)
+                correct_frames.append(current)
+                current = []
+        current = tuple(current)
+        if current:
+            correct_frames.append(current)
+
+        self.assertEqual(len(correct_frames), int(self.t1.combined_cds_length / 3), correct_frames)
+        self.assertEqual(self.t1.framed_codons, correct_frames)
+
+    def test_conversion(self):
+
+        asbed = self.t1.format("bed12")
+        t1 = Transcript(BED12(asbed))
+        t1.finalize()
+        self.assertEqual(t1, self.t1)
+
+        asgtf = self.t1.format("gtf")
+        asgtf = [GtfLine(_) for _ in asgtf.split("\n")]
+        t1 = Transcript(asgtf[0])
+        t1.add_exons(asgtf[1:])
+        t1.finalize()
+        self.assertEqual(t1, self.t1)
+
+        asgtf = self.t1.format("gff3")
+        asgtf = [GffLine(_) for _ in asgtf.split("\n")]
+        t1 = Transcript(asgtf[0])
+        t1.add_exons(asgtf[1:])
+        t1.finalize()
+        self.assertEqual(t1, self.t1)
+
+    def test_get_coding_exons(self):
+        correct = [(5697,5891), (5256, 5576)]
+        self.assertEqual(sorted(self.t1.coding_exons), sorted(correct))
+        t1 = self.t1.copy()
+        t1.strip_cds()
+        self.assertEqual([], t1.coding_exons)
+        t1.unfinalize()
+        t1.start = 4256
+        t1.add_exon((4256, 5000))
+        t1.finalize()
+        self.assertEqual(sorted(correct), sorted(self.t1.coding_exons))
+
+    def test_wrong_exons(self):
+        with self.assertRaises(NotImplementedError):
+            self.t1.exons = self.t1.exons
+        self.t1.unfinalize()
+        with self.assertRaises(TypeError):
+            self.t1.exons = [[5697,5891], [5256,5576]]
+        with self.assertRaises(TypeError):
+            self.t1.exons = [[5697,5891], ["5256",5576]]
+
+    def test_comparisons(self):
+
+        t1 = self.t1.deepcopy()
+        t1.unfinalize()
+        t1.start = 4256
+        t1.add_exon((4256, 5000))
+        t1.finalize()
+
+        self.assertLess(t1, self.t1)
+        self.assertGreater(self.t1, t1)
+        self.assertEqual(t1, t1)
+        self.assertEqual(self.t1, self.t1)
+
 
 if __name__ == '__main__':
     unittest.main()

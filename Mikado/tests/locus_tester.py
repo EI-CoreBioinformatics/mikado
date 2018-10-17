@@ -15,6 +15,7 @@ from Mikado.parsers.GTF import GtfLine
 from Mikado.loci import Transcript, Superlocus, Abstractlocus, Locus, Monosublocus, MonosublocusHolder, Sublocus
 from Mikado.utilities.log_utils import create_null_logger, create_default_logger
 from Mikado.utilities import overlap
+import itertools
 from Mikado.utilities.intervaltree import Interval
 import Mikado.loci
 import pickle
@@ -82,9 +83,9 @@ Chr1\tfoo\texon\t501\t600\t.\t+\t.\tID=t1:exon3;Parent=t1""".split("\n")
         with self.assertRaises(exceptions.ModificationError):
             for exon in gff_transcript2[1:]:
                 self.transcript2.add_exon(exon)
-        # Test that creating a superlocus without configuration fails
-        with self.assertRaises(exceptions.NoJsonConfigError):
-            _ = Superlocus(self.transcript1)
+        # # Test that creating a superlocus without configuration fails
+        # with self.assertRaises(exceptions.NoJsonConfigError):
+        #     _ = Superlocus(self.transcript1)
         self.my_json = os.path.join(os.path.dirname(__file__), "configuration.yaml")
         self.my_json = configurator.to_json(self.my_json)
         self.assertIn("scoring", self.my_json, self.my_json.keys())
@@ -143,6 +144,67 @@ Chr1\tfoo\texon\t801\t1000\t.\t-\t.\tID=tminus0:exon1;Parent=tminus0""".split("\
         minusuperlocus.define_loci()
         self.assertEqual(len(minusuperlocus.loci), 1)
         self.assertTrue(transcript3.strand != self.transcript1.strand)
+
+    def test_cannot_add(self):
+
+        for strand, stranded, ostrand in itertools.product(("+", "-", None), (True, False), ("+", "-", None)):
+            with self.subTest(strand=strand, stranded=stranded, ostrand=ostrand):
+                t1 = "1\t100\t2000\tID=T1;coding=False\t0\t{strand}\t100\t2000\t0\t1\t1900\t0".format(
+                    strand=strand if strand else ".", )
+                t1 = Transcript(BED12(t1))
+                t2 = "1\t105\t2300\tID=T2;coding=False\t0\t{strand}\t105\t2300\t0\t1\t2195\t0".format(
+                    strand=strand if strand else ".")
+                t2 = Transcript(BED12(t2))
+                sl = Mikado.loci.Superlocus(t1, stranded=stranded, json_conf=None)
+                self.assertIn(t1.id, sl)
+                if not stranded or t2.strand == t1.strand:
+                    sl.add_transcript_to_locus(t2)
+                    self.assertIn(t2.id, sl)
+                else:
+                    with self.assertRaises(Mikado.exceptions.NotInLocusError):
+                        sl.add_transcript_to_locus(t2)
+
+        with self.subTest():
+            t1 = "1\t100\t2000\tID=T1;coding=False\t0\t+\t100\t2000\t0\t1\t1900\t0"
+            t1 = Transcript(BED12(t1))
+            t1.finalize()
+            t2 = t1.copy()
+            t2.unfinalize()
+            t2.chrom = "2"
+            t2.id = "T2"
+            t2.finalize()
+            sl = Mikado.loci.Superlocus(t1, stranded=False)
+            with self.assertRaises(Mikado.exceptions.NotInLocusError):
+                sl.add_transcript_to_locus(t2)
+
+        st1 = "1\t100\t2000\tID=T1;coding=False\t0\t+\t100\t2000\t0\t1\t1900\t0"
+        t1 = Transcript(BED12(st1))
+        t1.finalize()
+        t2 = BED12(st1)
+        t2.start += 10000
+        t2.end += 10000
+        t2.thick_start += 10000
+        t2.thick_end += 1000
+        t2 = Transcript(t2)
+        for flank in [0, 1000, 10000, 20000]:
+            with self.subTest(flank=flank):
+                sl = Superlocus(t1, flank=flank)
+                if flank < 10000:
+                    with self.assertRaises(Mikado.exceptions.NotInLocusError):
+                        sl.add_transcript_to_locus(t2)
+                else:
+                    sl.add_transcript_to_locus(t2)
+                    self.assertIn(t2.id, sl)
+
+    def test_empty_locus(self):
+
+        st1 = "1\t100\t2000\tID=T1;coding=False\t0\t+\t100\t2000\t0\t1\t1900\t0"
+        t1 = Transcript(BED12(st1))
+        t1.finalize()
+        sl = Superlocus(t1)
+        sl.check_configuration()
+        sl.remove_transcript_from_locus(t1.id)
+        _ = sl.cds_segmenttree
 
     def test_verified_introns(self):
 
@@ -215,7 +277,6 @@ Chr1\tfoo\texon\t801\t1000\t.\t-\t.\tID=tminus0:exon1;Parent=tminus0""".split("\
         t3.finalize()
 
         jconf = configurator.to_json(None)
-        # print(jconf["requirements"])
 
         del jconf["requirements"]
 
@@ -633,9 +694,9 @@ class MonoHolderTester(unittest.TestCase):
         t2.start = 1250
         t2.end = 2000
         t2.add_exons([(1250, 1560), (1801, 2000)])
-        t2.add_exons([(1401, 1560), (1801, 1850)], "CDS")
+        t2.add_exons([(1402, 1560), (1801, 1851)], "CDS")
         t2.finalize()
-        logger = create_default_logger(inspect.getframeinfo(inspect.currentframe())[2])
+        logger = create_default_logger(inspect.getframeinfo(inspect.currentframe())[2], level="WARNING")
 
         for min_cds_overlap in [0.05, 0.1, 0.15, 0.2, 0.5]:
             with self.subTest(min_cds_overlap=min_cds_overlap):
@@ -644,7 +705,8 @@ class MonoHolderTester(unittest.TestCase):
                                                                  logger=logger,
                                                                  min_cds_overlap=min_cds_overlap,
                                                                  min_cdna_overlap=0.01),
-                              (min_cds_overlap <= 0.19))
+                              (min_cds_overlap <= 0.19),
+                              (self.t1.internal_orfs, t2.internal_orfs))
 
         t2.strip_cds()
         t2.finalized = False
@@ -669,19 +731,26 @@ class MonoHolderTester(unittest.TestCase):
         t2.start = 1350
         t2.end = 3850
         t2.add_exons([(1350, 1560), (2801, 3850)])
-        t2.add_exons([(1401, 1560), (2801, 3850)], "CDS")
+        t2.add_exons([(1402, 1560), (2801, 3850)], "CDS")
         # logger.setLevel("DEBUG")
         t2.logger = logger
         t2.finalize()
         self.assertTrue(t2.is_coding)
         for min_overlap in [0.1, 0.2, 0.3, 0.5]:
             with self.subTest(min_overlap=min_overlap):
+                cds_overlap = 0
+                for frame in range(3):
+                    cds_overlap += len(set.intersection(
+                        self.t1.frames[frame], t2.frames[frame]
+                    ))
+
                 self.assertIs(MonosublocusHolder.is_intersecting(self.t1, t2,
                                                                  cds_only=False,
                                                                  min_cds_overlap=0.07,
                                                                  min_cdna_overlap=min_overlap,
-                                                                 logger=logger), (min_overlap <= 0.12))
-
+                                                                 logger=logger), (min_overlap <= 0.12),
+                              ((t2.selected_internal_orf_cds, self.t1.selected_internal_orf_cds),
+                               cds_overlap))
         self.assertTrue(t2.is_coding)
 
         for min_overlap in [0.01, 0.05, 0.1, 0.2]:
@@ -692,6 +761,54 @@ class MonoHolderTester(unittest.TestCase):
                                                                  min_cds_overlap=min_overlap,
                                                                  min_cdna_overlap=min_overlap,
                                                                  logger=logger), (min_overlap <= 0.07))
+
+    def check_frame_compatibility(self):
+
+        """Check that the phase method functions"""
+        logger = create_default_logger(inspect.getframeinfo(inspect.currentframe())[2])
+        for phase in [0, 1, 2]:
+            with self.subTest(phase=phase):
+                t2 = Transcript()
+                t2.chrom = "Chr1"
+                t2.strand = "+"
+                t2.score = 1
+                t2.id = "G2.1"
+                t2.parent = "G2"
+                t2.start = 1350 + phase
+                t2.end = 3850 + phase
+                t2.add_exons([(t2.start, 1560), (2801, t2.end)])
+                t2.add_exons([(1402 + phase, 1560), (2801, 3850 + phase)], "CDS")
+                self.assertIs(t2.is_coding, True)
+                self.assertIs(MonosublocusHolder.is_intersecting(self.t1,
+                                                                 t2,
+                                                                 cds_only=True,
+                                                                 min_cds_overlap=0.05,
+                                                                 min_cdna_overlap=0.05,
+                                                                 logger=logger), (phase == 0))
+
+        self.t1.unfinalize()
+        self.t1.strand = "-"
+        self.t1.finalize()
+        self.assertIs(self.t1.coding, True, "Something went wrong in finalising T1")
+        for phase in [0, 1, 2]:
+            with self.subTest(phase=phase):
+                t2 = Transcript()
+                t2.chrom = "Chr1"
+                t2.strand = "-"
+                t2.score = 1
+                t2.id = "G2.1"
+                t2.parent = "G2"
+                t2.start = 1350 + phase
+                t2.end = 3850 + phase
+                t2.add_exons([(t2.start, 1560), (2801, t2.end)])
+                t2.add_exons([(1402 + phase, 1560), (2801, 3850 + phase)], "CDS")
+                self.assertIs(t2.is_coding, True)
+                self.assertIs(MonosublocusHolder.is_intersecting(self.t1,
+                                                                 t2,
+                                                                 cds_only=True,
+                                                                 min_cds_overlap=0.05,
+                                                                 min_cdna_overlap=0.05,
+                                                                 logger=logger), (phase == 0))
 
     def test_no_overlap(self):
 
@@ -1104,12 +1221,12 @@ class TestLocus(unittest.TestCase):
         t1.strand = t2.strand = t1_1.strand = t2_1.strand = "+"
         t1.add_exons([(101, 500), (801, 1000)])
         t1.add_exons([(101, 500), (801, 1000)], features="CDS")
-        t1_1.add_exons([(101, 500), (901, 1100), (1301, 1550)])
-        t1_1.add_exons([(101, 500), (901, 1100), (1301, 1550)], features="CDS")
+        t1_1.add_exons([(101, 500), (903, 1100), (1301, 1550)])
+        t1_1.add_exons([(101, 500), (903, 1100), (1301, 1550)], features="CDS")
         t2.add_exons([(1601, 1800), (1901, 2000)])
         t2.add_exons([(1601, 1800), (1901, 2000)], features="CDS")
-        t2_1.add_exons([(1351, 1550), (1651, 1850), (1901, 2000)])
-        t2_1.add_exons([(1351, 1550), (1651, 1850), (1901, 2000)], features="CDS")
+        t2_1.add_exons([(1351, 1550), (1651, 1851), (1901, 2000)])
+        t2_1.add_exons([(1351, 1550), (1651, 1851), (1901, 2000)], features="CDS")
 
         for tr in [t1, t2, t1_1, t2_1]:
             with self.subTest(tr=tr):
@@ -1921,7 +2038,10 @@ class PaddingTester(unittest.TestCase):
     def test_negative_padding(self):
         genome = pkg_resources.resource_filename("Mikado.tests", "neg_pad.fa")
         transcripts = self.load_from_bed("Mikado.tests", "neg_pad.bed12")
-        locus = Mikado.loci.Locus(transcripts['Human_coding_ENSP00000371111.2.m1'])
+        logger = create_default_logger(inspect.getframeinfo(inspect.currentframe())[2],
+                                       level="WARNING")
+        locus = Mikado.loci.Locus(transcripts['Human_coding_ENSP00000371111.2.m1'],
+                                  logger=logger)
         locus.json_conf["reference"]["genome"] = genome
         for t in transcripts:
             if t == locus.primary_transcript_id:
@@ -1951,6 +2071,9 @@ class PaddingTester(unittest.TestCase):
                 locus.json_conf["pick"]["alternative_splicing"]["ts_distance"] = pad_distance
                 locus.json_conf["pick"]["alternative_splicing"]["ts_max_splices"] = max_splice
                 locus.pad_transcripts()
+                for tid in corr:
+                    self.assertIn(corr[tid], locus.transcripts, corr[tid])
+
                 for transcript in locus:
                     self.assertGreater(locus[transcript].combined_cds_length, 0, transcript)
                     self.assertEqual(locus[transcript].combined_cds_start, cds_coordinates[transcript][0])
@@ -1993,6 +2116,7 @@ class PaddingTester(unittest.TestCase):
                                      locus[corr[1]].start)
                 else:
                     self.assertNotEqual(locus[corr[3]].start, locus[corr[1]].start)
+
 
     def test_padding(self):
         genome = pkg_resources.resource_filename("Mikado.tests", "padding_test.fa")

@@ -257,7 +257,6 @@ CTCGGCAGATAG"""
 
         self.assertFalse(tbed.has_start_codon)
         self.assertEqual(tbed.thick_start, 1)
-        print(seq[tbed.thick_end - 3:tbed.thick_end])
         self.assertEqual(tbed.thick_end, 130)
         self.assertEqual(tbed.phase, 1)
         self.assertFalse(tbed.invalid, tbed.invalid_reason)

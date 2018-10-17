@@ -4,30 +4,11 @@ Mikado.preparation package
 Submodules
 ----------
 
-Mikado.preparation.annotation\_parser module
---------------------------------------------
+.. toctree::
 
-.. automodule:: Mikado.preparation.annotation_parser
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-Mikado.preparation.checking module
-----------------------------------
-
-.. automodule:: Mikado.preparation.checking
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-Mikado.preparation.prepare module
----------------------------------
-
-.. automodule:: Mikado.preparation.prepare
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
+   Mikado.preparation.annotation_parser
+   Mikado.preparation.checking
+   Mikado.preparation.prepare
 
 Module contents
 ---------------

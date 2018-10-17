@@ -106,7 +106,8 @@ class PrepareCheck(unittest.TestCase):
 
         cls.__genomefile__.close()
         os.remove(cls.__genomefile__.name)
-        os.remove("{}.fai".format(cls.__genomefile__.name))
+        if os.path.exists("{}.fai".format(cls.__genomefile__.name)):
+            os.remove("{}.fai".format(cls.__genomefile__.name))
 
     def setUp(self):
 
@@ -224,18 +225,20 @@ class PrepareCheck(unittest.TestCase):
                         self.assertGreater(os.stat(fasta).st_size, 0)
                         fa = pyfaidx.Fasta(fasta)
                         self.assertEqual(len(fa.keys()), 2)
+                        fa.close()
                     else:
                         self.assertEqual(os.stat(fasta).st_size, 0)
                     # Now verify that no model has CDS
                     gtf = os.path.join(self.conf["prepare"]["files"]["output_dir"], "mikado_prepared.gtf")
                     models = dict()
-                    for line in to_gff(gtf):
-                        if line.header:
-                            continue
-                        elif line.is_transcript:
-                            models[line.id] = Transcript(line)
-                        else:
-                            models[line.parent[0]].add_exon(line)
+                    with to_gff(gtf) as file_gtf:
+                        for line in file_gtf:
+                            if line.header:
+                                continue
+                            elif line.is_transcript:
+                                models[line.id] = Transcript(line)
+                            else:
+                                models[line.parent[0]].add_exon(line)
                     [models[model].finalize() for model in models]
                     for model in models:
                         if strip is False:
@@ -280,7 +283,7 @@ class PrepareCheck(unittest.TestCase):
                     self.assertIn("AT5G01530.3", fa.keys())
                     self.assertIn("AT5G01530.4", fa.keys())
                 gtf_file = os.path.join(self.conf["prepare"]["files"]["output_dir"], "mikado_prepared.gtf")
-
+                fa.close()
                 coding_count = 0
                 with to_gff(gtf_file) as gtf:
                     lines = [line for line in gtf]
@@ -418,6 +421,7 @@ class PrepareCheck(unittest.TestCase):
                                     "\n".join([str(line) for line in lines if line.transcript == "AT5G01015.5"]))
 
                 self.assertGreater(coding_count, 0)
+                fa.close()
 
     def test_truncated_cds(self):
         files = ["test_truncated_cds.gff3"]
@@ -441,11 +445,13 @@ class PrepareCheck(unittest.TestCase):
                                         "mikado_prepared.fasta"))
         self.assertEqual(len(fa.keys()), 1)
         gtf_file = os.path.join(self.conf["prepare"]["files"]["output_dir"], "mikado_prepared.gtf")
-        lines = [line for line in to_gff(gtf_file)]
+        with to_gff(gtf_file) as gtf_handle:
+            lines = [line for line in gtf_handle]
         cds = [_ for _ in lines if _.feature == "CDS"]
         self.assertEqual(len(cds), 1)
         self.assertEqual(cds[0].frame, 1)
         self.assertEqual(cds[0].phase, 2)
+        fa.close()
 
 
 class CompareCheck(unittest.TestCase):
@@ -494,6 +500,7 @@ class CompareCheck(unittest.TestCase):
                 os.remove(namespace.reference.name)
                 os.remove(namespace.log)
                 os.remove("{}.midx".format(namespace.reference.name))
+                namespace.reference.close()
 
     def test_compare_trinity(self):
 
@@ -579,6 +586,7 @@ class StatCheck(unittest.TestCase):
                     lines = [_.rstrip() for _ in out_handle]
                 self.assertEqual(std_lines, lines)
                 os.remove(out.name)
+                namespace.gff.close()
 
 
 class ConfigureCheck(unittest.TestCase):
@@ -1051,6 +1059,7 @@ Chr1	foo	exon	19000	20000	.	+	.	gene_id "foo"; transcript_id "foo2.1"""
             # Clean up
             for fname in ["mikado.db", "mikado.purging_{}.*".format(purging)]:
                 [os.remove(_) for _ in glob.glob(os.path.join(tempfile.gettempdir(), fname))]
+
 
 if __name__ == "__main__":
     unittest.main()

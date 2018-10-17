@@ -10,6 +10,7 @@ from Mikado.parsers.GTF import GtfLine
 from Mikado.transcripts.transcript import Transcript
 from Mikado.exceptions import InvalidTranscript
 from Mikado.utilities.log_utils import create_default_logger
+import Bio.Seq
 
 
 class TChekerTester(unittest.TestCase):
@@ -85,10 +86,39 @@ class TChekerTester(unittest.TestCase):
 
     def test_init(self):
 
+        with self.assertRaises(ValueError):
+            tcheck = TranscriptChecker(self.model, None)
+
+        for wrong_splices in ["AGGT", None, 100]:
+            with self.assertRaises(ValueError):
+                tcheck = TranscriptChecker(self.model, self.model_fasta, canonical_splices=wrong_splices)
+
         tcheck = TranscriptChecker(self.model, self.model_fasta)
         self.assertEqual(tcheck.cdna_length, 1718)
         self.assertEqual(sorted(tcheck.exons), sorted([(exon.start, exon.end) for exon in self.exons]))
         self.assertEqual(tcheck.fasta_seq, self.model_fasta)
+        transl_table = str.maketrans("ACGT", "TGCA")
+        self.assertEqual(transl_table, tcheck.translation_table)
+
+        with self.subTest(initializer=Bio.Seq.Seq):
+            _ = TranscriptChecker(self.model, Bio.Seq.Seq(str(self.model_fasta)))
+
+        with self.subTest(initializer=str):
+            _ = TranscriptChecker(self.model, str(self.model_fasta))
+
+        with self.subTest(initializer=pyfaidx.Sequence):
+            _ = TranscriptChecker(self.model, pyfaidx.Sequence(seq=str(self.model_fasta), name=tcheck.id))
+
+        # Now check initializing with a GFF/GTF line
+        for out_format in ["gtf", "gff3"]:
+            with self.subTest(out_format=out_format):
+                line = self.model.format(out_format).split("\n")[0]
+                try:
+                    tcheck = TranscriptChecker(line, self.model_fasta)
+                except ValueError as exc:
+                    raise ValueError(line)
+                # tcheck.finalize()
+                # self.assertGreater(tcheck.cdna_length, 0)
 
     def test_check_reverse_strand(self):
         
@@ -344,6 +374,14 @@ class StopCodonChecker(unittest.TestCase):
         cls.__genomefile__.flush()
         cls.genome = pyfaidx.Fasta(cls.__genomefile__.name)
         cls.maxDiff = None
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.__genomefile__.close()
+        cls.genome.close()
+        os.remove(cls.__genomefile__.name)
+        if os.path.exists(cls.__genomefile__.name + ".fai"):
+            os.remove(cls.__genomefile__.name + ".fai")
 
     def test_positive_strand(self):
 

@@ -35,6 +35,7 @@ from .transcript_methods.printing import create_lines_cds
 from .transcript_methods.printing import create_lines_no_cds, create_lines_bed, as_bed12
 from ..utilities.intervaltree import Interval, IntervalTree
 from collections import Hashable
+import itertools
 import numpy as np
 
 
@@ -259,6 +260,7 @@ class Transcript:
 
         # Mock setting of base hidden variables
         self.__id = ""
+        self.__finalized = False  # Flag. We do not want to repeat the finalising more than once.
         self._first_phase = None
         self.__logger = None
         self.__strand = self.__score = None
@@ -304,7 +306,6 @@ class Transcript:
         self.logger = logger
         self.introns = set()
         self.splices = set()
-        self.finalized = False  # Flag. We do not want to repeat the finalising more than once.
         self.selected_internal_orf_index = None
         self.non_overlapping_cds = None
         self.__verified_introns = set()
@@ -347,6 +348,21 @@ class Transcript:
         :param transcript_row:
         :return:
         """
+
+        if isinstance(transcript_row, (str, bytes)):
+            if isinstance(transcript_row, bytes):
+                transcript_row = transcript_row.decode()
+            _ = GffLine(transcript_row)
+            if _.header is False and _.is_transcript is True and _.id is not None:
+                transcript_row = _
+            else:
+                _ = GtfLine(transcript_row)
+                if _.header is False and _.is_transcript is True and _.id is not None:
+                    transcript_row = _
+                else:
+                    _ = BED12(transcript_row)
+                    if _.header is False and _.name is not None:
+                        transcript_row = _
 
         if isinstance(transcript_row, (GffLine, GtfLine)):
             self.__initialize_with_gf(transcript_row)
@@ -436,7 +452,10 @@ class Transcript:
                 self.add_exon(transcript_row)
         else:
             self.parent = transcript_row.parent
-            self.id = transcript_row.id
+            if transcript_row.id is not None:
+                self.id = transcript_row.id
+            else:
+                raise ValueError(transcript_row)
             self.feature = intern(transcript_row.feature)
 
     def __str__(self, to_gtf=False, print_cds=True):
@@ -812,11 +831,38 @@ class Transcript:
                 yield new_row
 
     @property
+    def frames(self):
+        """This property will return a dictionary with three keys - the three possible frames, 0, 1 and 2 - and within
+        each, a set of the positions that are in that frame. If the transcript does not have """
+        self.finalize()
+        frames = {0: set(), 1: set(), 2: set()}
+        for orf in self.internal_orfs:
+            if self.strand == "-":
+                exons = sorted([(_[1][0], _[1][1], _[2]) for _ in orf
+                                if _[0] == "CDS"], key=operator.itemgetter(0, 1), reverse=True)
+                for start, end, phase in exons:
+                    frame = ((3 - phase) % 3 - 1) % 3
+                    for pos in range(end, start - 1, -1):
+                        frame = abs((frame + 1) % 3)
+                        frames[frame].add(pos)
+            else:
+                exons = sorted([(_[1][0], _[1][1], _[2]) for _ in orf
+                      if _[0] == "CDS"], key=operator.itemgetter(0, 1), reverse=False)
+                for start, end, phase in exons:
+                    frame = ((3 - phase) % 3 - 1) % 3  # Previous frame before beginning of the feature
+                    for pos in range(start, end + 1):
+                        frame = abs((frame + 1) % 3)
+                        frames[frame].add(pos)
+        return frames
+
+    @property
     def framed_codons(self):
-        if self.is_coding is False:
-            return []
-        else:
-            pass
+
+        codons = list(zip(*[sorted(self.frames[0]), sorted(self.frames[1]), sorted(self.frames[2])]))
+        if self.strand == "-":
+            codons = list(reversed(codons))
+
+        return codons
 
     @property
     def _selected_orf_transcript(self):
@@ -1655,7 +1701,6 @@ class Transcript:
                                segment[0] == "CDS"])))
         self.__max_internal_orf_length = int(np.subtract(ar[1], ar[0] - 1).sum())
 
-
     @property
     def internal_orf_lengths(self):
         """This property returns a list of the lengths of the internal ORFs.
@@ -1696,6 +1741,16 @@ class Transcript:
         self.__non_overlapping_cds = arg
 
     @property
+    def finalized(self):
+        return self.__finalized
+
+    @finalized.setter
+    def finalized(self, finalized):
+        if finalized not in (True, False):
+            raise ValueError("This is a boolean flag")
+        self.__finalized = finalized
+
+    @property
     def exons(self):
         """This property stores the exons of the transcript as (start,end) tuples.
 
@@ -1711,9 +1766,18 @@ class Transcript:
 
         """
 
+        if self.finalized is True:
+            raise NotImplementedError("I cannot reset the exons in a finalised transcript.")
+
         if not isinstance(args[0], (set, list)):
             raise TypeError(type(args[0]))
-        self.__exons = list(args[0])
+
+        for exon in args[0]:
+            if (not isinstance(exon, tuple) or len(exon) != 2 or
+                    not (isinstance(exon[0], int) and isinstance(exon[1], int))):
+                raise TypeError("Exons must be tuples of two integers!")
+
+        self.__exons = list(sorted(args[0]))
 
     @property
     def combined_cds_introns(self):
@@ -2124,12 +2188,7 @@ index {3}, internal ORFs: {4}".format(
     def selected_cds_length(self):
         """This property calculates the length of the CDS selected as best inside
         the cDNA."""
-        # self.finalize()
-        # if self.combined_cds_length == 0:
-        #     self.__max_internal_orf_length = 0
-        # else:
-        #     self.__max_internal_orf_length = sum(
-        #         _[1][1] - _[1][0] + 1 for _ in self.selected_internal_orf if _[0] == "CDS")
+
         return self.__max_internal_orf_length
 
     selected_cds_length.category = "CDS"

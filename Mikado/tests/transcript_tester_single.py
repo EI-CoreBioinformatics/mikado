@@ -28,7 +28,6 @@ Chr1    TAIR10    exon    5928    8737    .    .    .    Parent=AT1G01020.1"""
 
     for l in tr_gff_lines:
         assert l.header is False
-    #         print(l)
 
     logger = create_null_logger("null")
 
@@ -825,7 +824,7 @@ Chr3\tCufflinks\texon\t2949168\t2952410\t.\t-\t.\tgene_id "cufflinks_star_at.106
 
         self.assertEqual(new_transcripts[0].start, self.tr.start)
         self.assertEqual(new_transcripts[0].end, 2949868, "\n\n".join([str(_) for _ in new_transcripts]))
-        # print(*new_transcripts, sep="\n")
+
 
 if __name__ == '__main__':
     unittest.main()

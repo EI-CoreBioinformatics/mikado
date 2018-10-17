@@ -261,7 +261,6 @@ class DrosoTester(unittest.TestCase):
         
     def test_code(self):
 
-        # print(Mikado.py.scales.assigner.Assigner.compare(self.pred, self.ref))
         self.ref.finalize()
         self.assertGreater(len(self.ref.combined_cds), 0)
         self.assertEqual(len(self.ref.selected_cds_introns), 7)
@@ -309,7 +308,6 @@ Chr2    TAIR10    three_prime_UTR    629070    629176    .    +    .    Parent=A
 
     for l in tr_gff_lines:
         assert l.header is False
-    #         print(l)
 
     def setUp(self):
         """Basic creation test."""

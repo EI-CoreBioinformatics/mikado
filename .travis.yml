@@ -21,6 +21,6 @@ install:
   - pip install codecov;
   - pip install -r requirements.txt
 script:
-  - python setup.py nosetests -exe;
+  - coverage run setup.py nosetests -exe;
 after_success:
-  - codecov
+  - codecov 

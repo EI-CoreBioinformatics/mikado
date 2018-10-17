@@ -1,4 +1,6 @@
 *.pyc
+.#*
+#*
 *.coverage
 sample_data/*loci*
 sample_data/*zip
@@ -75,3 +77,5 @@ sample_data/Daijin
 Mikado/tests/*fai
 .ipynb_checkpoints/
 Untitled*ipynb
+cover/
+coverage.xml

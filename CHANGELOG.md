@@ -21,6 +21,7 @@ Bugfixes and improvements:
 - [#132](https://github.com/lucventurini/mikado/issues/132),[#133](https://github.com/lucventurini/mikado/issues/133): Mikado will now evaluate the CDS of transcripts during Mikado prepare.
 - [#134](https://github.com/lucventurini/mikado/issues/134): when checking for potential Alternative Splicing Events (ASEs), now Mikado will check whether the CDS phases are in frame with each other. Moreover
  **Mikado will now calculate the CDS overlap percentage based on the primary transcript CDS length**, not the minimum CDS length between primary and candidate. Please note that the change **regarding the frame** also affects the monosublocus stage. Mikado still considers only the primary ORFs for the overlap.
+ - Solved a bug which led Mikado to recalculate the phases for each model during picking, potentially creating mistakes for models truncated at the 5' end.
 
 # Version 1.2.4
 

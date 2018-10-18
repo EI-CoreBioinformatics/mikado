@@ -419,7 +419,6 @@ def prepare(args, logger):
         args.json_conf["prepare"]["files"]["output_dir"],
         args.json_conf["prepare"]["files"]["out"]), 'w')
 
-
     logger.info("Loading reference file")
     args.json_conf["reference"]["genome"] = pyfaidx.Fasta(args.json_conf["reference"]["genome"])
 

@@ -1213,21 +1213,28 @@ class Transcript:
             self.exons.append(tuple(exon))
 
         self.internal_orfs = []
+        self.logger.debug("Starting to load the ORFs for %s", self.id)
         try:
             for orf in iter(state["orfs"][_] for _ in sorted(state["orfs"])):
                 neworf = []
                 for segment in orf:
-                    if segment[0] == "CDS":
+
+                    # if segment[0] == "CDS":
+                    if len(segment) == 3:
+                        assert segment[0] == "CDS"
+
                         new_segment = (segment[0],
                                        tuple(segment[1]),
                                        int(segment[2]))
                         self.combined_cds.append(tuple(segment[1]))
                     else:
+                        assert segment[0] != "CDS"
                         new_segment = (segment[0],
                                        tuple(segment[1]))
                     neworf.append(new_segment)
 
                 self.internal_orfs.append(neworf)
+            self.logger.debug("ORFs: %s", " ".join(str(_) for _ in self.internal_orfs))
             self.selected_internal_orf_index = state["selected_orf"]
         except (ValueError, IndexError):
             raise CorruptIndex("Invalid values for ORFs of {}".format(self.id))

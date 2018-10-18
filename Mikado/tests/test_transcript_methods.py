@@ -9,6 +9,7 @@ from Mikado.parsers.bed12 import BED12
 from Mikado.parsers.GTF import GtfLine
 from Mikado.parsers.GFF import GffLine
 from Mikado.transcripts.transcript_methods import retrieval
+from Mikado.utilities.log_utils import create_default_logger
 
 
 class WrongLoadedOrf(unittest.TestCase):
@@ -512,6 +513,82 @@ Chr5	TAIR10	exon	5256	5576	.	-	.	Parent=AT5G01015.1"""
         self.assertEqual(t1, t1)
         self.assertEqual(self.t1, self.t1)
 
+    def test_to_and_from_dict(self):
+
+        d = self.t1.as_dict()
+        self.assertIsInstance(d, dict)
+        self.assertIn("chrom", d)
+        t1 = Transcript()
+        t1.load_dict(d)
+        self.assertIs(t1.is_coding, True)
+        self.assertEqual(t1, self.t1)
+
+    def test_to_and_from_dict_truncated(self):
+
+        gtf = GtfLine("""Chr5\tfoo\tCDS\t100\t200\t.\t+\t2\ttranscript_id "test.1"; gene_id "test.2";""")
+        logger = create_default_logger("test_to_and_from_dict_truncated", level="WARNING")
+        t = Transcript(gtf)
+        t.finalize()
+        self.assertIs(t.is_coding, True)
+        self.assertEqual(t.selected_internal_orf, [("CDS", (100, 200), 2), ("exon", (100, 200))])
+
+        d = t.as_dict()
+        self.assertEqual(d["orfs"]["0"], [["CDS", [100, 200], 2], ["exon", [100, 200]]])
+
+        new_t = Transcript(logger=logger)
+        new_t.load_dict(d)
+        self.assertEqual(t.selected_internal_orf, new_t.selected_internal_orf)
+
+    def test_to_and_from_dict_multiple_truncated(self):
+
+        gtf = GtfLine("""Chr5\texon\texon\t1\t1200\t.\t+\t.\ttranscript_id "test.1"; gene_id "test.2";""")
+        logger = create_default_logger("tdmt", level="WARNING")
+        t = Transcript(gtf, logger=logger)
+        t.finalize()
+        orf = "test.1\t0\t1200\tID=test.1.orf1;coding=True;phase=2\t0\t+\t0\t320\t.\t1\t1200\t0"
+        self.assertEqual(len(orf.split("\t")), 12)
+        b = BED12(orf, transcriptomic=True, coding=True)
+        self.assertFalse(b.header)
+        self.assertFalse(b.invalid, b.invalid_reason)
+        orf2 = "test.1\t0\t1200\tID=test.1.orf1;coding=True;phase=0\t0\t+\t400\t1000\t.\t1\t1200\t0"
+        b2 = BED12(orf2, transcriptomic=True, coding=True)
+        self.assertFalse(b2.header)
+        self.assertFalse(b2.invalid, b2.invalid_reason)
+        t.load_orfs([b, b2])
+        self.assertTrue(t.is_coding)
+        self.assertEqual(t.number_internal_orfs, 2)
+        with self.subTest():
+            new_t = Transcript(logger=logger)
+            d = t.as_dict()
+            self.assertEqual(len(d["orfs"]), 2)
+            new_t.load_dict(d)
+            self.assertTrue(new_t.is_coding)
+            self.assertEqual(new_t.number_internal_orfs, 2)
+            self.assertEqual(new_t.combined_utr, [(321, 400), (1001, 1200)])
+
+        # Now let us test out what happens with three ORFs
+
+        with self.subTest():
+            new_t = Transcript(logger=logger)
+            d = t.as_dict()
+            d["orfs"]["2"] = [("exon", (1, 1200)), ("UTR", (1, 1099)), ("CDS", [1100, 1200], 0)]
+            new_t.load_dict(d)
+            self.assertTrue(new_t.is_coding)
+            self.assertEqual(new_t.number_internal_orfs, 3)
+            self.assertEqual(new_t.combined_utr, [(321, 400), (1001, 1099)])
+
+        # Now let us check what happens with the addition of an incompatible ORF
+        new_t = Transcript()
+        d = t.as_dict()
+        d["orfs"]["2"] = [("CDS", (900, 1200), 0)]
+        with self.assertLogs(logger=new_t.logger, level="DEBUG") as cmo:
+            new_t.load_dict(d)
+        self.assertFalse(new_t.is_coding)
+        self.assertIn(
+            "WARNING:{}:Error while inferring the UTR for a transcript with multiple ORFs: overlapping CDS found.".format(
+                new_t.logger.name
+            ),
+            cmo.output)
 
 if __name__ == '__main__':
     unittest.main()

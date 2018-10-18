@@ -444,6 +444,12 @@ def find_overlapping_cds(transcript, candidates: list) -> list:
     candidates = list(corf for corf in candidates if (
         corf.invalid is False and corf.transcriptomic is True))
 
+    ids = set(_.name for _ in candidates)
+    if len(ids) < len(candidates):
+        transcript.logger.debug("Colliding IDs found for the ORFs. Redefining them.")
+        for pos in range(1, len(candidates) + 1):
+            candidates[pos - 1].name = "{transcript.id}.orf{pos}".format(**locals())
+
     transcript.logger.debug("{0} filtered ORFs for {1}".format(len(candidates), transcript.id))
     if len(candidates) == 0:
         return []

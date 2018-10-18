@@ -138,6 +138,9 @@ def setup(args):
         args.fasta.close()
         args.json_conf["reference"]["genome"] = args.fasta.name
 
+    if args.keep_redundant is not None:
+        args.json_conf["prepare"]["keep_redundant"] = args.keep_redundant
+
     if args.lenient is not None:
         args.json_conf["prepare"]["lenient"] = True
 
@@ -250,6 +253,9 @@ def prepare_parser():
     parser.add_argument("--json-conf", dest="json_conf",
                         type=to_json, default="",
                         help="Configuration file.")
+    parser.add_argument("-k", "--keep-redundant", default=None, type=bool,
+                        dest="keep_redundant", action="store_true",
+                        help="Boolean flag. If invoked, Mikado prepare will retain redundant models.")
     parser.add_argument("gff", help="Input GFF/GTF file(s).", nargs="*")
     parser.set_defaults(func=prepare_launcher)
     return parser

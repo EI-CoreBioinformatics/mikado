@@ -265,7 +265,7 @@ class PrepareCheck(unittest.TestCase):
             with self.subTest(b=b):
                 args.json_conf = self.conf
                 args.keep_redundant = b
-                args.json_conf["prepare"]["keep_redundant"] = b
+                # args.json_conf["prepare"]["keep_redundant"] = b
                 self.logger.setLevel("DEBUG")
                 prepare.prepare(args, self.logger)
                 self.assertTrue(os.path.exists(os.path.join(self.conf["prepare"]["files"]["output_dir"],
@@ -342,7 +342,7 @@ class PrepareCheck(unittest.TestCase):
             with self.subTest(b=b):
                 args.json_conf = self.conf
                 args.keep_redundant = b
-                args.json_conf["prepare"]["keep_redundant"] = b
+                # args.json_conf["prepare"]["keep_redundant"] = b
                 prepare.prepare(args, self.logger)
                 self.assertTrue(os.path.exists(os.path.join(self.conf["prepare"]["files"]["output_dir"],
                                                             "mikado_prepared.fasta")))

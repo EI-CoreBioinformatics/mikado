@@ -16,10 +16,9 @@ __author__ = 'Luca Venturini'
 class TestLoadJunction(unittest.TestCase):
 
     logger = Mikado.utilities.log_utils.create_null_logger("test_junction")
-    dbfile = tempfile.mktemp(suffix=".db")
 
     def setUp(self):
-
+        self.dbfile = tempfile.mktemp(suffix=".db")
         self.json_conf = Mikado.configuration.configurator.to_json(None)
         self.json_conf["db_settings"]["dbtype"] = "sqlite"
         self.json_conf["db_settings"]["db"] = self.dbfile

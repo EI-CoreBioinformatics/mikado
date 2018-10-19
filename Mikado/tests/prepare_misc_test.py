@@ -110,7 +110,11 @@ class MiscTest(unittest.TestCase):
             with self.subTest(key=key):
                 _kwds = kwds.copy()
                 _kwds[key] = None
-                with self.assertRaises(ValueError):
+                if "queue" in key:
+                    error = TypeError
+                else:
+                    error = ValueError
+                with self.assertRaises(error):
                     Mikado.preparation.checking.CheckingProcess(**_kwds)
 
         with self.subTest(key="fasta"):

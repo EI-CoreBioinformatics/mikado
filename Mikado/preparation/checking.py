@@ -272,7 +272,7 @@ class CheckingProcess(multiprocessing.Process):
             submission.put_nowait = submission.put
         elif not isinstance(submission, (multiprocessing.queues.Queue,
                                        queue.Queue)):
-            raise ValueError("Invalid queue object: {}".format(type(submission)))
+            raise TypeError("Invalid queue object: {}".format(type(submission)))
         self.__submission_queue = submission
 
     @property

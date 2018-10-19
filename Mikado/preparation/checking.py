@@ -10,6 +10,8 @@ from ..utilities.log_utils import create_null_logger, create_queue_logger
 import logging
 import queue
 import time
+import sys
+
 
 __author__ = 'Luca Venturini'
 
@@ -265,6 +267,8 @@ class CheckingProcess(multiprocessing.Process):
 
     def __set_submission_queue(self, submission):
         if isinstance(submission, multiprocessing.queues.SimpleQueue):
+            if sys.version_info.minor < 5:
+                raise TypeError("Invalid queue object for Python 3.4 and earlier!")
             submission.put_nowait = submission.put
         elif not isinstance(submission, (multiprocessing.queues.Queue,
                                        queue.Queue)):
@@ -277,9 +281,11 @@ class CheckingProcess(multiprocessing.Process):
 
     def __set_logging_queue(self, logging_queue):
         if isinstance(logging_queue, multiprocessing.queues.SimpleQueue):
+            if sys.version_info.minor < 5:
+                raise TypeError("Invalid queue object for Python 3.4 and earlier!")
             logging_queue.put_nowait = logging_queue.put
         elif not isinstance(logging_queue, (multiprocessing.queues.Queue, queue.Queue)):
-            raise ValueError("Invalid queue object: {}".format(type(logging_queue)))
+            raise TypeError("Invalid queue object: {}".format(type(logging_queue)))
         self.__logging_queue = logging_queue
 
     @property

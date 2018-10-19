@@ -14,6 +14,7 @@ import pyfaidx
 import re
 from Mikado.tests.test_utils import ProcRunner
 from queue import Queue
+from sys import version_info
 
 
 class MiscTest(unittest.TestCase):
@@ -46,8 +47,9 @@ class MiscTest(unittest.TestCase):
         self.fasta_out = "temporary.fasta"
         self.gtf_out = "temporary.gtf"
 
+    @unittest.skipUnless((version_info.minor > 4 and version_info.major == 3),
+                         "SimpleQueues do not function properly for this in python 3.4 and earlier")
     def test_normal(self):
-        # TODO: this test is creating problems due to threading errors.
         logger, listener, logging_queue = self.create_logger("test_normal")
 
         with self.assertLogs(logger=logger, level="DEBUG") as cmo:
@@ -174,6 +176,8 @@ class MiscTest(unittest.TestCase):
             self.assertIn("WARNING:null:Transcript AT5G01530.0 has been assigned to the wrong strand, reversing it.",
                           cm.output)
 
+    @unittest.skipUnless((version_info.minor > 4 and version_info.major == 3),
+                         "SimpleQueues do not function properly for this in python 3.4 and earlier")
     def test_example_model_through_process(self):
 
         logger, listener, logging_queue = self.create_logger("test_example_model_through_process")

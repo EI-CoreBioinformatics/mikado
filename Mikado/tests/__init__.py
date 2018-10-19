@@ -15,7 +15,7 @@ from . import test_json
 from . import test_metrics
 from . import test_modifications
 from . import test_scores
-from . import test_serialisation
+from . import test_serialise_junctions
 from . import test_splitting
 from . import test_system_calls
 from . import test_transcript_checker

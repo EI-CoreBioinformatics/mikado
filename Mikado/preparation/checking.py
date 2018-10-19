@@ -264,7 +264,10 @@ class CheckingProcess(multiprocessing.Process):
         return self.__submission_queue
 
     def __set_submission_queue(self, submission):
-        if not isinstance(submission, (multiprocessing.queues.Queue, queue.Queue)):
+        if isinstance(submission, multiprocessing.queues.SimpleQueue):
+            submission.put_nowait = submission.put
+        elif not isinstance(submission, (multiprocessing.queues.Queue,
+                                       queue.Queue)):
             raise ValueError("Invalid queue object: {}".format(type(submission)))
         self.__submission_queue = submission
 
@@ -273,7 +276,9 @@ class CheckingProcess(multiprocessing.Process):
         return self.__logging_queue
 
     def __set_logging_queue(self, logging_queue):
-        if not isinstance(logging_queue, (multiprocessing.queues.Queue, queue.Queue)):
+        if isinstance(logging_queue, multiprocessing.queues.SimpleQueue):
+            logging_queue.put_nowait = logging_queue.put
+        elif not isinstance(logging_queue, (multiprocessing.queues.Queue, queue.Queue)):
             raise ValueError("Invalid queue object: {}".format(type(logging_queue)))
         self.__logging_queue = logging_queue
 

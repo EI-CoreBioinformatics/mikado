@@ -30,11 +30,12 @@ def setup(args):
     logger = logging.getLogger("prepare")
     logger.setLevel(logging.INFO)
 
-    if args.start_method is not None:
+    if args.start_method:
         args.json_conf["multiprocessing_method"] = args.start_method
 
     if args.output_dir is not None:
         args.json_conf["prepare"]["files"]["output_dir"] = getattr(args, "output_dir")
+
     if not os.path.exists(args.json_conf["prepare"]["files"]["output_dir"]):
         try:
             os.makedirs(args.json_conf["prepare"]["files"]["output_dir"])
@@ -44,9 +45,9 @@ def setup(args):
             raise
     elif not os.path.isdir(args.json_conf["prepare"]["files"]["output_dir"]):
         logger.error(
-            "The specified output directory %s exists and is not a file; aborting",
+            "The specified output directory %s exists and is not a folder; aborting",
             args.json_conf["prepare"]["output_dir"])
-        raise OSError("The specified output directory %s exists and is not a file; aborting" %
+        raise OSError("The specified output directory %s exists and is not a folder; aborting" %
                       args.json_conf["prepare"]["output_dir"])
 
     if args.log is not None:
@@ -54,18 +55,30 @@ def setup(args):
         args.json_conf["prepare"]["files"]["log"] = args.log.name
 
     if args.json_conf["prepare"]["files"]["log"]:
+        try:
+            _ = open(path_join(
+                    args.json_conf["prepare"]["files"]["output_dir"],
+                    os.path.basename(args.json_conf["prepare"]["files"]["log"])),
+                "wt")
+        except TypeError:
+            raise TypeError((args.json_conf["prepare"]["files"]["output_dir"],
+                    args.json_conf["prepare"]["files"]["log"]))
+
         handler = logging.FileHandler(
             path_join(
                 args.json_conf["prepare"]["files"]["output_dir"],
-                args.json_conf["prepare"]["files"]["log"]),
-            "w")
+                os.path.basename(args.json_conf["prepare"]["files"]["log"])),
+            mode="wt")
     else:
         handler = logging.StreamHandler()
 
     handler.setFormatter(formatter)
+    while logger.handlers:
+        logger.removeHandler(logger.handlers.pop())
     logger.addHandler(handler)
-    logger.info("Command line: %s",  " ".join(sys.argv))
+    assert logger.handlers == [handler]
     logger.propagate = False
+    logger.info("Command line: %s",  " ".join(sys.argv))
 
     if args.verbose is True:
         args.json_conf["log_settings"]["log_level"] = "DEBUG"
@@ -114,7 +127,7 @@ def setup(args):
                 if member not in args.json_conf["prepare"]["files"]["gff"]:
                     raise ValueError("Incorrect assembly file specified as strand-specific")
             args.json_conf["prepare"]["strand_specific_assemblies"] = args.strand_specific_assemblies
-        if args.labels != '':
+        if args.labels:
             args.labels = args.labels.split(",")
             # Checks labels are unique
             assert len(set(args.labels)) == len(args.labels)
@@ -127,12 +140,19 @@ def setup(args):
                 args.labels = [""] * len(args.json_conf["prepare"]["files"]["gff"])
                 args.json_conf["prepare"]["files"]["labels"] = args.labels
 
-    for option in ["out", "out_fasta",
-                   "minimum_length", "procs", "single"]:
-        if getattr(args, option) is None or getattr(args, option) is False:
+    for option in ["minimum_length", "procs", "single"]:
+        if getattr(args, option) in (None, False):
             continue
         else:
             args.json_conf["prepare"][option] = getattr(args, option)
+
+    for option in ["out", "out_fasta"]:
+        if getattr(args, option) in (None, False):
+            args.json_conf["prepare"]["files"][option] = os.path.basename(
+                args.json_conf["prepare"]["files"][option]
+            )
+        else:
+            args.json_conf["prepare"]["files"][option] = os.path.basename(getattr(args, option))
 
     if getattr(args, "fasta"):
         args.fasta.close()
@@ -146,11 +166,6 @@ def setup(args):
 
     if args.strip_cds is True:
         args.json_conf["prepare"]["strip_cds"] = True
-
-    if args.out is not None:
-        args.json_conf["prepare"]["files"]["out"] = args.out
-    if args.out_fasta is not None:
-        args.json_conf["prepare"]["files"]["out_fasta"] = args.out_fasta
 
     try:
         args.json_conf = check_json(args.json_conf)
@@ -253,7 +268,7 @@ def prepare_parser():
     parser.add_argument("--json-conf", dest="json_conf",
                         type=to_json, default="",
                         help="Configuration file.")
-    parser.add_argument("-k", "--keep-redundant", default=None, type=bool,
+    parser.add_argument("-k", "--keep-redundant", default=None,
                         dest="keep_redundant", action="store_true",
                         help="Boolean flag. If invoked, Mikado prepare will retain redundant models.")
     parser.add_argument("gff", help="Input GFF/GTF file(s).", nargs="*")

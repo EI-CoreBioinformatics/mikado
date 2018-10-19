@@ -11,14 +11,16 @@ import unittest
 import pkg_resources
 import pyfaidx
 import yaml
+import shutil
 import Mikado.daijin
 import Mikado.subprograms.configure
 from Mikado.configuration import configurator, daijin_configurator
-from Mikado.parsers import to_gff
 from Mikado.picking import picker
 from Mikado.preparation import prepare
 from Mikado.scales.compare import compare, load_index
 from Mikado.subprograms.util.stats import Calculator
+from Mikado.subprograms.prepare import prepare_launcher
+from Mikado.subprograms.prepare import setup as prepare_setup
 from Mikado.transcripts.transcript import Namespace
 from Mikado.utilities.log_utils import create_null_logger, create_default_logger
 from Mikado.parsers.GFF import GffLine
@@ -253,24 +255,49 @@ class PrepareCheck(unittest.TestCase):
         gtf = pkg_resources.resource_filename("Mikado.tests", "cds_test_1.gtf")
         self.conf["prepare"]["files"]["gff"] = [gtf]
         self.conf["prepare"]["files"]["labels"] = [""]
-        self.conf["prepare"]["files"]["output_dir"] = tempfile.gettempdir()
         self.conf["prepare"]["files"]["out_fasta"] = "mikado_prepared.fasta"
         self.conf["prepare"]["files"]["out"] = "mikado_prepared.gtf"
+        self.conf["prepare"]["files"]["log"] = "prepare.log"
         self.conf["prepare"]["strip_cds"] = False
 
-        args = Namespace()
+        args = Namespace(default=None)
         args.strip_cds = False
-        args.json_conf = self.conf
-        for b in (False, ):
+        args.json_conf = self.conf.copy()
+        del args.json_conf["prepare"]["files"]["output_dir"]
+        args.log = None
+        for b in (False, True):
             with self.subTest(b=b):
+                folder = tempfile.mktemp()
+                os.makedirs(folder)
+                # _ = open(os.path.join(folder, args.json_conf["prepare"]["files"]["log"]), "wt")
+                args.output_dir = folder
+                args.list = None
+                args.gffs = None
+                args.strand_specific_assemblies = None
+                args.labels = None
                 args.json_conf = self.conf
                 args.keep_redundant = b
-                # args.json_conf["prepare"]["keep_redundant"] = b
+                args.out, args.out_fasta = None, None
+                args.json_conf["prepare"]["files"]["log"] = "prepare.log"
+                args.log = None
                 self.logger.setLevel("DEBUG")
-                prepare.prepare(args, self.logger)
-                self.assertTrue(os.path.exists(os.path.join(self.conf["prepare"]["files"]["output_dir"],
-                                                            "mikado_prepared.fasta")))
-                fa = pyfaidx.Fasta(os.path.join(self.conf["prepare"]["files"]["output_dir"],
+                args, _ = prepare_setup(args)
+                self.assertEqual(args.output_dir, folder)
+                self.assertEqual(args.json_conf["prepare"]["files"]["output_dir"], folder)
+                self.assertIn(os.path.dirname(args.json_conf["prepare"]["files"]["out_fasta"]),
+                              (folder, ""), args.json_conf)
+                self.assertIn(os.path.dirname(args.json_conf["prepare"]["files"]["out"]),
+                              (folder, ""), args.json_conf)
+
+                with self.assertRaises(SystemExit) as exi:
+                    prepare_launcher(args)
+                self.assertTrue(os.path.exists(folder))
+                self.assertTrue(os.path.isdir(folder))
+                self.assertEqual(exi.exception.code, 0)
+                self.assertTrue(os.path.exists(os.path.join(folder,
+                                                            "mikado_prepared.fasta")),
+                                open(os.path.join(folder, "prepare.log")).read())
+                fa = pyfaidx.Fasta(os.path.join(folder,
                                                 "mikado_prepared.fasta"))
 
                 if b is True:
@@ -282,7 +309,7 @@ class PrepareCheck(unittest.TestCase):
                     self.assertTrue("AT5G01530.1" in fa.keys() or "AT5G01530.2" in fa.keys())
                     self.assertIn("AT5G01530.3", fa.keys())
                     self.assertIn("AT5G01530.4", fa.keys())
-                gtf_file = os.path.join(self.conf["prepare"]["files"]["output_dir"], "mikado_prepared.gtf")
+                gtf_file = os.path.join(folder, "mikado_prepared.gtf")
                 fa.close()
                 coding_count = 0
                 with to_gff(gtf_file) as gtf:
@@ -321,6 +348,7 @@ class PrepareCheck(unittest.TestCase):
                     self.assertTrue(a5.is_complete)
 
                 self.assertGreater(coding_count, 0)
+                shutil.rmtree(folder)
 
     def test_negative_cdna_redundant_cds_not(self):
         """This test will verify whether the new behaviour of not considering redundant two models with same
@@ -329,9 +357,9 @@ class PrepareCheck(unittest.TestCase):
         gtf = pkg_resources.resource_filename("Mikado.tests", "cds_test_2.gtf")
         self.conf["prepare"]["files"]["gff"] = [gtf]
         self.conf["prepare"]["files"]["labels"] = [""]
-        self.conf["prepare"]["files"]["output_dir"] = tempfile.gettempdir()
         self.conf["prepare"]["files"]["out_fasta"] = "mikado_prepared.fasta"
         self.conf["prepare"]["files"]["out"] = "mikado_prepared.gtf"
+        self.conf["prepare"]["files"]["log"] = "prepare.log"
         self.conf["prepare"]["strip_cds"] = False
         self.conf["prepare"]["minimum_length"] = 150  # Necessary for testing A5
 
@@ -340,9 +368,16 @@ class PrepareCheck(unittest.TestCase):
         args.json_conf = self.conf
         for b in (False, ):
             with self.subTest(b=b):
+                folder = tempfile.mktemp()
+                os.makedirs(folder)
                 args.json_conf = self.conf
                 args.keep_redundant = b
-                # args.json_conf["prepare"]["keep_redundant"] = b
+                args.output_dir = folder
+                args.log = None
+                args.gff = None
+                args.list = None
+                args.strand_specific_assemblies = None
+                args, _ = prepare_setup(args)
                 prepare.prepare(args, self.logger)
                 self.assertTrue(os.path.exists(os.path.join(self.conf["prepare"]["files"]["output_dir"],
                                                             "mikado_prepared.fasta")))
@@ -422,6 +457,7 @@ class PrepareCheck(unittest.TestCase):
 
                 self.assertGreater(coding_count, 0)
                 fa.close()
+                shutil.rmtree(folder)
 
     def test_truncated_cds(self):
         files = ["test_truncated_cds.gff3"]

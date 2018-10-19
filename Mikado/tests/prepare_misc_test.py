@@ -10,33 +10,10 @@ import gzip
 import pickle
 import os
 import time
-import threading
 import pyfaidx
 import re
-
-
-class ProcRunner(threading.Thread):
-
-    def __init__(self, function: [mp.Process], *args, **kwargs):
-
-        self.__function = function
-        self.args = args
-        self.kwargs = kwargs
-        self._func = self.__function(*self.args, **self.kwargs)
-        super().__init__()
-
-    def run(self):
-        self._func.run()
-
-    @property
-    def func(self):
-        return self._func
-
-    def join(self, *args, **kwargs):
-        if self.func._popen is not None:
-            self.func.join()
-            self.func.terminate()
-        super().join(timeout=0.1)
+from Mikado.tests.test_utils import ProcRunner
+from queue import Queue
 
 
 class MiscTest(unittest.TestCase):
@@ -51,7 +28,8 @@ class MiscTest(unittest.TestCase):
 
     @staticmethod
     def create_logger(name):
-        logging_queue = mp.JoinableQueue(-1)
+        logging_queue = Queue()
+        logging_queue.put_nowait = logging_queue.put
         log_queue_handler = logging.handlers.QueueHandler(logging_queue)
         log_queue_handler.setLevel(logging.DEBUG)
 
@@ -64,11 +42,10 @@ class MiscTest(unittest.TestCase):
 
     def setUp(self):
         # Create the queues for logging and submission
-        self.submission_queue = mp.JoinableQueue()
+        self.submission_queue = mp.SimpleQueue()
         self.fasta_out = "temporary.fasta"
         self.gtf_out = "temporary.gtf"
 
-    @unittest.skip
     def test_normal(self):
         # TODO: this test is creating problems due to threading errors.
         logger, listener, logging_queue = self.create_logger("test_normal")
@@ -94,10 +71,10 @@ class MiscTest(unittest.TestCase):
             self.assertTrue(os.path.exists(proc.func.gtf_out), proc.func.gtf_out)
             self.submission_queue.put(("EXIT", None, None, None))
             time.sleep(0.1)
-            proc.join()
-
+            proc.stop()
             os.remove(proc.func.fasta_out)
             os.remove(proc.func.gtf_out)
+            assert not proc.is_alive()
 
         self.maxDiff = 10000
         self.assertEqual(cmo.output, [
@@ -197,7 +174,6 @@ class MiscTest(unittest.TestCase):
             self.assertIn("WARNING:null:Transcript AT5G01530.0 has been assigned to the wrong strand, reversing it.",
                           cm.output)
 
-    @unittest.skip
     def test_example_model_through_process(self):
 
         logger, listener, logging_queue = self.create_logger("test_example_model_through_process")
@@ -238,16 +214,23 @@ class MiscTest(unittest.TestCase):
                     line = re.sub("0/", "", line)
                     fasta_lines.append(line)
 
+            self.assertGreater(len(fasta_lines), 1)
             fasta = pyfaidx.Fasta(self.fasta_temp.name)
             seq = str(fasta[lines["chrom"]][lines["start"] - 1:lines["end"]])
             res = Mikado.preparation.checking.create_transcript(lines, seq, lines["start"], lines["end"])
             self.assertTrue(len(res.cdna), (209593 - 208937 + 1) + (210445 - 209881 + 1))
 
             with tempfile.NamedTemporaryFile(suffix="fa", delete=True, mode="wt") as faix:
-                assert len(fasta_lines) > 0
-                print(*fasta_lines, file=faix, end="")
+
+                assert len(fasta_lines) > 1
+                assert fasta_lines[0][0] == ">"
+                for line in fasta_lines:
+                    print(line, file=faix)
                 faix.flush()
-                fa = pyfaidx.Fasta(faix.name)
+                try:
+                    fa = pyfaidx.Fasta(faix.name)
+                except TypeError:
+                    raise TypeError([_ for _ in open(faix.name)])
                 self.assertEqual(list(fa.keys()), ["AT5G01530.0"])
                 self.assertEqual(str(fa["AT5G01530.0"]), str(res.cdna))
                 self.assertEqual(len(str(fa["AT5G01530.0"])), res.cdna_length)

@@ -47,7 +47,7 @@ class MiscTest(unittest.TestCase):
         self.fasta_out = "temporary.fasta"
         self.gtf_out = "temporary.gtf"
 
-    @unittest.skipUnless((version_info.minor > 4 and version_info.major == 3),
+    @unittest.skipUnless((version_info.minor > 5 and version_info.major == 3),
                          "SimpleQueues do not function properly for this in python 3.4 and earlier")
     def test_normal(self):
         logger, listener, logging_queue = self.create_logger("test_normal")
@@ -120,6 +120,8 @@ class MiscTest(unittest.TestCase):
         with self.subTest(key="fasta"):
             _kwds = kwds.copy()
             _kwds["fasta"] = None
+
+
             with self.assertRaises(AttributeError):
                 Mikado.preparation.checking.CheckingProcess(**_kwds)
 
@@ -180,7 +182,7 @@ class MiscTest(unittest.TestCase):
             self.assertIn("WARNING:null:Transcript AT5G01530.0 has been assigned to the wrong strand, reversing it.",
                           cm.output)
 
-    @unittest.skipUnless((version_info.minor > 4 and version_info.major == 3),
+    @unittest.skipUnless((version_info.minor > 5 and version_info.major == 3),
                          "SimpleQueues do not function properly for this in python 3.4 and earlier")
     def test_example_model_through_process(self):
 

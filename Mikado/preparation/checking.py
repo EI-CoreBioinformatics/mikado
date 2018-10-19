@@ -267,8 +267,8 @@ class CheckingProcess(multiprocessing.Process):
 
     def __set_submission_queue(self, submission):
         if isinstance(submission, multiprocessing.queues.SimpleQueue):
-            if sys.version_info.minor < 5:
-                raise TypeError("Invalid queue object for Python 3.4 and earlier!")
+            if sys.version_info.minor < 6:
+                raise TypeError("Invalid queue object for Python 3.5 and earlier!")
             submission.put_nowait = submission.put
         elif not isinstance(submission, (multiprocessing.queues.Queue,
                                        queue.Queue)):
@@ -281,8 +281,8 @@ class CheckingProcess(multiprocessing.Process):
 
     def __set_logging_queue(self, logging_queue):
         if isinstance(logging_queue, multiprocessing.queues.SimpleQueue):
-            if sys.version_info.minor < 5:
-                raise TypeError("Invalid queue object for Python 3.4 and earlier!")
+            if sys.version_info.minor < 6:
+                raise TypeError("Invalid queue object for Python 3.5 and earlier!")
             logging_queue.put_nowait = logging_queue.put
         elif not isinstance(logging_queue, (multiprocessing.queues.Queue, queue.Queue)):
             raise TypeError("Invalid queue object: {}".format(type(logging_queue)))

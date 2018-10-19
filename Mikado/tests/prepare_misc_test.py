@@ -28,9 +28,12 @@ class MiscTest(unittest.TestCase):
         cls.fasta_temp.flush()
 
     @staticmethod
-    def create_logger(name):
-        logging_queue = Queue()
-        logging_queue.put_nowait = logging_queue.put
+    def create_logger(name, simple=True):
+        if simple is True:
+            logging_queue = Queue()
+            logging_queue.put_nowait = logging_queue.put
+        else:
+            logging_queue = mp.JoinableQueue(-1)
         log_queue_handler = logging.handlers.QueueHandler(logging_queue)
         log_queue_handler.setLevel(logging.DEBUG)
 
@@ -94,7 +97,11 @@ class MiscTest(unittest.TestCase):
 
     def test_wrong_initialisation(self):
 
-        logger, listener, logging_queue = self.create_logger("test_wrong_initialisation")
+        if version_info.minor < 6:
+            self.submission_queue = mp.Queue(-1)
+            logger, listener, logging_queue = self.create_logger("test_wrong_initialisation", simple=False)
+        else:
+            logger, listener, logging_queue = self.create_logger("test_wrong_initialisation", simple=True)
 
         kwds = {"submission_queue": self.submission_queue,
                 "logging_queue": logging_queue,

@@ -64,8 +64,8 @@ class TranscriptChecker(Transcript):
         else:
             super().__init__(gffline)
         self.original_strand = self.strand[:]
-        self.__fasta_seq = None
-        self.fasta_seq = seq
+        self.__set_fasta_seq(seq)
+        # self.fasta_seq = seq
         self.strand_specific = strand_specific
         self.checked = False
         self.lenient = lenient
@@ -95,8 +95,7 @@ class TranscriptChecker(Transcript):
     def fasta_seq(self):
         return self.__fasta_seq
 
-    @fasta_seq.setter
-    def fasta_seq(self, fasta_seq):
+    def __set_fasta_seq(self, fasta_seq):
 
         if isinstance(fasta_seq, Seq.Seq):
             self.__fasta_seq = pyfaidx.Sequence(name=self.id, seq=str(fasta_seq))

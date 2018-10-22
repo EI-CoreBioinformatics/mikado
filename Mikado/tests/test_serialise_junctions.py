@@ -9,6 +9,8 @@ import sqlalchemy.orm
 from sqlalchemy import and_  # , or_
 from pkg_resources import resource_stream
 import gzip
+import re
+
 
 __author__ = 'Luca Venturini'
 
@@ -95,6 +97,43 @@ class TestLoadJunction(unittest.TestCase):
                         Mikado.serializers.junction.Junction.name == "portcullis_junc_0",
                     )
             )])
+
+    def test_serialise_low_maxobject(self):
+
+        self.dbfile = tempfile.mktemp(suffix=".db")
+        self.json_conf = Mikado.configuration.configurator.to_json(None)
+        self.json_conf["db_settings"]["dbtype"] = "sqlite"
+        self.json_conf["db_settings"]["db"] = self.dbfile
+        self.json_conf["reference"]["genome_fai"] = os.path.join(
+            os.path.dirname(__file__),
+            "genome.fai")
+        self.session = Mikado.utilities.dbutils.connect(self.json_conf)
+        self.junction_file = os.path.join(
+            os.path.dirname(__file__),
+            "junctions.bed"
+        )
+
+        self.json_conf["serialise"]["max_objects"] = 100
+
+        self.logger.setLevel("DEBUG")
+        self.junction_serialiser = Mikado.serializers.junction.JunctionSerializer(
+            self.junction_file,
+            json_conf=self.json_conf,
+            logger=self.logger,
+
+        )
+
+        self.junction_parser = Mikado.parsers.bed12.Bed12Parser(
+            self.junction_file,
+            fasta_index=None,
+            transcriptomic=False
+        )
+
+        with self.assertLogs(self.logger, level="DEBUG") as cmo:
+            self.junction_serialiser()
+
+        self.assertTrue(any(re.search("DEBUG:{}:Serializing [0-9][0-9][0-9] objects".format(self.logger.name), _)
+                            for _ in cmo.output), cmo.output)
 
     def test_double_thick_end(self):
 

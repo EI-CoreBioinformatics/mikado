@@ -230,6 +230,7 @@ class JunctionSerializer:
             current_junction = Junction(row, current_chrom)
             objects.append(current_junction)
             if len(objects) >= self.maxobjects:
+                self.logger.debug("Serializing %d objects", len(objects))
                 self.session.begin(subtransactions=True)
                 self.session.bulk_save_objects(objects)
                 self.session.commit()

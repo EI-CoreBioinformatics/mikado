@@ -34,6 +34,7 @@ def launch(args):
         print(line, file=args.out)
     parser.close()
 
+
 def merger_parser():
     """
     Parser for the command line

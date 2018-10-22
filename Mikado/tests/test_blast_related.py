@@ -109,6 +109,11 @@ class BlastBasics(unittest.TestCase):
         valid, header, exc = blast_utils.BlastOpener("{0}.gz".format(valid_asn)).sniff()
         self.assertTrue(valid, (valid, exc))
         self.assertIsNone(exc, exc)
+        with blast_utils.BlastOpener("{0}.gz".format(valid_asn)) as gzasn:
+            self.assertFalse(gzasn.closed)
+            self.assertTrue(gzasn.open)
+            record = next(gzasn)
+
         # This should fix the issue of blast_formatter crashing
         time.sleep(1)
 

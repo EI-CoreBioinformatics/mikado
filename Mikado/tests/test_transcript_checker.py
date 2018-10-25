@@ -72,17 +72,17 @@ class TChekerTester(unittest.TestCase):
             cls.fasta.close()
             os.remove("{}.fai".format(cls.temp_genome.name))
 
-    def test_translation_table(self):
-
-        self.assertEqual(TranscriptChecker.get_translation_table(),
-                         {65: 84, 67: 71, 71: 67, 84: 65})
-
     def test_rev_complement(self):
 
         string = "AGTCGTGCAGNGTCGAAGTGCAACAGTGC"
 
         self.assertEqual(TranscriptChecker.rev_complement(string),
                          "GCACTGTTGCACTTCGACNCTGCACGACT")
+
+        string = "agtcGTGCAGNGTCGAAGTGCAACAgtgc"
+
+        self.assertEqual(TranscriptChecker.rev_complement(string),
+                         "gcacTGTTGCACTTCGACNCTGCACgact")
 
     def test_init(self):
 
@@ -97,8 +97,6 @@ class TChekerTester(unittest.TestCase):
         self.assertEqual(tcheck.cdna_length, 1718)
         self.assertEqual(sorted(tcheck.exons), sorted([(exon.start, exon.end) for exon in self.exons]))
         self.assertEqual(tcheck.fasta_seq, self.model_fasta)
-        transl_table = str.maketrans("ACGT", "TGCA")
-        self.assertEqual(transl_table, tcheck.translation_table)
 
         with self.subTest(initializer=Bio.Seq.Seq):
             _ = TranscriptChecker(self.model, Bio.Seq.Seq(str(self.model_fasta)))

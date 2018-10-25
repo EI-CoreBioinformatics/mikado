@@ -29,8 +29,6 @@ class TranscriptChecker(Transcript):
         of splices supporting each strand.
     """
 
-    __translation_table = str.maketrans("ACGT", "TGCA")
-
     # The arguments are all needed here.
     # pylint: disable=too-many-arguments
     def __init__(self, gffline, seq,
@@ -85,13 +83,6 @@ class TranscriptChecker(Transcript):
     # pylint: enable=too-many-arguments
 
     @property
-    def translation_table(self):
-        """
-        Returns the table used to reverse complement FASTA strings.
-        """
-        return self.__translation_table
-
-    @property
     def fasta_seq(self):
         return self.__fasta_seq
 
@@ -107,12 +98,6 @@ class TranscriptChecker(Transcript):
             raise ValueError("Unkown type: {}".format(type(fasta_seq)))
 
     @classmethod
-    def get_translation_table(cls):
-        """Class method to access the translation table."""
-
-        return cls.__translation_table
-
-    @classmethod
     def rev_complement(cls, string):
 
         """
@@ -123,9 +108,7 @@ class TranscriptChecker(Transcript):
         :type string: str
         """
 
-        return "".join(x for x in reversed(
-            string.translate(cls.get_translation_table())
-        ))
+        return Seq.reverse_complement(string)
 
     @property
     def strand_specific(self):

@@ -1,4 +1,8 @@
-# Version 1.3beta
+# Version 1.3
+
+**IMPORTANT**: this release fixes a bug ([#139](https://github.com/lucventurini/mikado/issues/139)) whereupon cDNAs completely or partially in letters different from ATGCNn (eg. **lowercase**, ie ***soft-masked*** nucleotides) would not have been reversed-complemented correctly. Therefore, any run on soft-masked genomes with prior releases ***would be invalid***.
+
+Users are ***very strongly recommended*** to update Mikado as soon as possible.
 
 One of the major highlights of this release is the completion of the "padding" functionality.
 Briefly, if instructed to do so, now Mikado will be able to uniform the ends of transcripts within a single locus (similar to what was done for the last _Arabidopsis thaliana_ annotation release).
@@ -10,6 +14,7 @@ Bugfixes and improvements:
 - Made logging more sensible and informative for all three steps of the pipeline (prepare, serialise, pick)
 - Now coding and non-coding transcripts will be in different loci.
 - Mikado prepare now can accept models that lack any exon features but still have valid CDS/UTR features - this is necessary for some protein prediction tools.
+- Fixed [#139](https://github.com/lucventurini/mikado/issues/139): Mikado was reverse complementing non-uppercase letters incorrectly.
 - [#135](https://github.com/lucventurini/mikado/issues/135): Mikado so far operated under the assumption that the 8th field in GTF files was the **frame**, not the **phase** like in GFF3s. This is actually incompatible with EnsEMBL and many widespread tools such as [GenomeTools](http://genometools.org/) or [GffRead](https://github.com/gpertea/gffread). Starting from this version, Mikado uniforms with these other tools.
 - Fixed [#34](https://github.com/lucventurini/mikado/issues/34): now Mikado can specify a valid codon table among those provided by [NCBI  through BioPython](ftp://ftp.ncbi.nih.gov/entrez/misc/data/gc.prt). The default is "0", ie the Standard table but with only the canonical "ATG" being accepted as valid start codon.
 - Fixed [#123](https://github.com/lucventurini/mikado/issues/123): now add_transcript_to_feature.gtf automatically splits chimeric transcripts and corrects mistakes related the intron size.
@@ -21,7 +26,7 @@ Bugfixes and improvements:
 - [#132](https://github.com/lucventurini/mikado/issues/132),[#133](https://github.com/lucventurini/mikado/issues/133): Mikado will now evaluate the CDS of transcripts during Mikado prepare.
 - [#134](https://github.com/lucventurini/mikado/issues/134): when checking for potential Alternative Splicing Events (ASEs), now Mikado will check whether the CDS phases are in frame with each other. Moreover
  **Mikado will now calculate the CDS overlap percentage based on the primary transcript CDS length**, not the minimum CDS length between primary and candidate. Please note that the change **regarding the frame** also affects the monosublocus stage. Mikado still considers only the primary ORFs for the overlap.
- - Solved a bug which led Mikado to recalculate the phases for each model during picking, potentially creating mistakes for models truncated at the 5' end.
+- [#138](https://github.com/lucventurini/mikado/issues/138): Solved a bug which led Mikado to recalculate the phases for each model during picking, potentially creating mistakes for models truncated at the 5' end.
 
 # Version 1.2.4
 

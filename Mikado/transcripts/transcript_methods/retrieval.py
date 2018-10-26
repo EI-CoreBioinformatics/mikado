@@ -309,7 +309,18 @@ def load_information_from_db(transcript, json_conf, introns=None, session=None,
         transcript.logger.debug("Retrieving the ORFs for %s", transcript.id)
         ext_results = transcript.external_baked(transcript.session).params(query=transcript.id).all()
         for row in ext_results:
-            transcript.external_scores[row.source] = row.score
+            if row.rtype == "int":
+                score = int(row.score)
+            elif row.rtype == "bool":
+                score = bool(int(row.score))
+            elif row.rtype == "complex":
+                score = complex(row.score)
+            elif row.rtype == "float":
+                score = float(row.score)
+            else:
+                raise ValueError("Invalid rtype: {}".format(row.rtype))
+
+            transcript.external_scores[row.source] = (score, row.valid_raw)
 
         for orf in retrieve_orfs(transcript):
             candidate_orfs.append(orf)

@@ -801,14 +801,15 @@ class PickTest(unittest.TestCase):
         json_conf["log_settings"]["log_level"] = "WARNING"
 
         pick_caller = picker.Picker(json_conf=json_conf)
-        with self.assertRaises(SystemExit), self.assertLogs("main_logger", "INFO"):
+        with self.assertRaises(SystemExit), self.assertLogs("main_logger", "INFO") as cm:
             pick_caller()
         self.assertTrue(os.path.exists(os.path.join(tempfile.gettempdir(), "mikado.monoproc.loci.gff3")))
         with to_gff(os.path.join(tempfile.gettempdir(), "mikado.monoproc.loci.gff3")) as inp_gff:
             lines = [_ for _ in inp_gff if not _.header is True]
             self.assertGreater(len(lines), 0)
             self.assertGreater(len([_ for _ in lines if _.is_transcript is True]), 0)
-            self.assertGreater(len([_ for _ in lines if _.feature == "mRNA"]), 0)
+            self.assertGreater(len([_ for _ in lines if _.feature == "mRNA"]), 0,
+                               [_ for _ in cm.output if "WARNING" in _])
             self.assertGreater(len([_ for _ in lines if _.feature == "CDS"]), 0)
 
         [os.remove(_) for _ in glob.glob(os.path.join(tempfile.gettempdir(), "mikado.monoproc.") + "*")]

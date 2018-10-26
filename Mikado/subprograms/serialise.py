@@ -156,10 +156,10 @@ def load_external(args, logger):
         return
     else:
         logger.info("Starting to load external data")
-        serializer = external.ExternalSerializer(args.json_conf["serialise"]["files"]["external_scores"],
+        with external.ExternalSerializer(args.json_conf["serialise"]["files"]["external_scores"],
                                                  json_conf=args.json_conf,
-                                                 logger=logger)
-        serializer()
+                                                 logger=logger) as serializer:
+            serializer()
         logger.info("Finished loading external data")
 
 
@@ -192,7 +192,7 @@ def setup(args):
                         setattr(args, file_key, getattr(args, file_key).split(","))
                     args.json_conf["serialise"]["files"][file_key] = getattr(args, file_key)
         elif key in ("SimpleComment", "Comment"):
-            # Necesarry for JSON configurations
+            # Necessary for JSON configurations
             continue
         else:
             if getattr(args, key, None) or getattr(args, key, None) == 0:
@@ -287,7 +287,7 @@ def setup(args):
                 args.json_conf["serialise"]["procs"],
                 args.json_conf["serialise"]["single_thread"])
 
-    return args, logger
+    return args, logger, sql_logger
 
 
 def serialise(args):
@@ -300,9 +300,9 @@ def serialise(args):
     :return:
     """
 
-    args, logger = setup(args)
+    args, logger, sql_logger = setup(args)
 
-    logger.info("Command line: %s",  " ".join(sys.argv))
+    # logger.info("Command line: %s",  " ".join(sys.argv))
 
     if args.json_conf["serialise"]["force"] is True:
         if args.json_conf["db_settings"]["dbtype"] == "sqlite" and os.path.exists(args.json_conf["db_settings"]["db"]):
@@ -324,10 +324,10 @@ def serialise(args):
             engine.execute("VACUUM")
         dbutils.DBBASE.metadata.create_all(engine)
 
+    load_external(args, logger)
     load_junctions(args, logger)
     load_orfs(args, logger)
     load_blast(args, logger)
-    load_external(args, logger)
     logger.info("Finished")
     try:
         return 0
@@ -336,6 +336,7 @@ def serialise(args):
     except Exception as exc:
         logger.exception(exc)
     finally:
+        logging.shutdown()
         return 0
 
 

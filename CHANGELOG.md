@@ -4,6 +4,9 @@
 
 Users are ***very strongly recommended*** to update Mikado as soon as possible.
 
+**IMPORTANT**: this release **changes the format of the mikado database**. As such, old mikado databases **have to be regenerated** in order for the run not to fail.
+
+
 One of the major highlights of this release is the completion of the "padding" functionality.
 Briefly, if instructed to do so, now Mikado will be able to uniform the ends of transcripts within a single locus (similar to what was done for the last _Arabidopsis thaliana_ annotation release).
 The behaviour is controlled by the "pad" boolean switch, and by the "ts_max_splices" and "ts_distance" parameters under "pick".
@@ -12,6 +15,8 @@ Bugfixes and improvements:
 
 - Fixed a bug which caused some loci to crash at the last part of the picking stage
 - Made logging more sensible and informative for all three steps of the pipeline (prepare, serialise, pick)
+- For the external scores, Mikado can now accept any type of numerical or boolean value. Mikado will understand at serialisation time whether a particular score can be used raw (ie its values are strictly comprised between 0 and 1) or whether it has to be forcibly scaled.
+  - This allows Mikado to use e.g. transcript expression as a valid metric.
 - Now coding and non-coding transcripts will be in different loci.
 - Mikado prepare now can accept models that lack any exon features but still have valid CDS/UTR features - this is necessary for some protein prediction tools.
 - Fixed [#139](https://github.com/lucventurini/mikado/issues/139): Mikado was reverse complementing non-uppercase letters incorrectly.

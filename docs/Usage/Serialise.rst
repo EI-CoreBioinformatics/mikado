@@ -26,6 +26,8 @@ After serialisation in the database, these sources will be available to use for 
 Mikado serialise can use three different SQL databases as backends - SQLite, MySQL and PostgreSQL - thanks to SQLAlchemy_.
 This step, together with the creation of the TransDecoder and BLAST data, is the most time consuming of the pipeline. In particular, although Mikado serialise will try to analyse the XML data in a parallelised fashion if so instructed, the insertion of the data in the database will still happen in a single thread and will therefore be of limited speed. If using SQLite as database (the default option), it is possible to decrease the runtime by modifying the "max_objects" parameters, at the cost however of increased RAM usage.
 
+.. important:: The schema of Mikado databases changed with version 1.3. Any database created prior to this version **should be regenerated**, otherwise Mikado pick will fail.
+
 Transdecoder ORFs
 ~~~~~~~~~~~~~~~~~
 

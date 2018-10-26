@@ -9,7 +9,7 @@ will have a tag, and internally the files will be TAB-delimited
 
 import os
 import pyfaidx
-from sqlalchemy import Column, String, Integer, ForeignKey, Float
+from sqlalchemy import Column, String, Integer, ForeignKey, Float, Boolean
 from sqlalchemy.sql.schema import PrimaryKeyConstraint
 from sqlalchemy.orm import column_property
 from sqlalchemy.orm.session import Session  # sessionmaker
@@ -17,10 +17,12 @@ from sqlalchemy import select
 from ..utilities.dbutils import DBBASE, Inspector, connect
 from .blast_serializer import Query
 from ..utilities.log_utils import check_logger, create_default_logger
-from csv import DictReader
 import numbers
-import sqlalchemy.exc
 import pandas as pd
+import numpy as np
+import re
+from collections import Counter
+import sqlalchemy.exc
 
 
 class ExternalSource(DBBASE):
@@ -28,11 +30,28 @@ class ExternalSource(DBBASE):
     __tablename__ = "external_sources"
 
     source_id = Column(Integer, primary_key=True)
-    source = Column(String)
+    source = Column(String, unique=True)
+    rtype = Column(String, unique=False)
+    valid_raw = Column(Boolean)
 
-    def __init__(self, source):
+    def __init__(self, source, rtype, valid_raw):
 
         self.source = source
+        if valid_raw not in (True, False):
+            raise ValueError("\"Valid raw\" flags must be boolean!")
+        if np.dtype("bool") == rtype:
+            rtype = "bool"
+        elif np.dtype("int") == rtype:
+            rtype = "int"
+        elif np.dtype("float") == rtype:
+            rtype = "float"
+        elif np.dtype("complex") == rtype:
+            rtype = "complex"
+        else:
+            raise ValueError("Invalid source rtype: {}".format(rtype))
+
+        self.rtype = rtype
+        self.valid_raw = valid_raw
 
 
 class External(DBBASE):
@@ -46,10 +65,16 @@ class External(DBBASE):
     ext_constraint = PrimaryKeyConstraint("query_id", "source_id", name="source_key")
     source = column_property(select([ExternalSource.source]).where(
         ExternalSource.source_id == source_id))
-    score = Column(Float)
+    score = Column(String, nullable=False)
 
     query = column_property(select([Query.query_name]).where(
         Query.query_id == query_id))
+
+    valid_raw = column_property(select([ExternalSource.valid_raw]).where(
+        ExternalSource.source_id == source_id))
+
+    rtype = column_property(select([ExternalSource.rtype]).where(
+        ExternalSource.source_id == source_id))
 
     __table_args__ = (ext_constraint, )
 
@@ -58,8 +83,10 @@ class External(DBBASE):
         self.query_id = query_id
         self.source_id = source_id
         if not isinstance(score, numbers.Number):
-            raise sqlalchemy.exc.ArgumentError("This class only accepts numeric scores")
-        self.score = score
+            raise sqlalchemy.exc.ArgumentError("Invalid score for external values: {}".format(type(score)))
+        score = str(score)
+        assert score.strip()
+        self.score = str(score)
 
 
 class ExternalSerializer:
@@ -127,15 +154,6 @@ class ExternalSerializer:
             raise error
 
         self.data.fillna(0, inplace=True)
-        for column in self.data.columns:
-            try:
-                self.data[column].astype("float")
-            except ValueError:
-                exc = ValueError("Invalid non-numeric values in external table, for column {}. Aborting".format(
-                    column
-                ))
-                self.logger.critical(exc)
-                raise
 
         self.engine = connect(json_conf, logger=logger)
 
@@ -157,9 +175,36 @@ class ExternalSerializer:
 
         sources = dict()
         self.session.begin(subtransactions=True)
+
+        # Check columns
+        cols = []
+        for col in self.data.columns:
+            cols.append(re.sub("\.[0-9]*", '', str(col)))
+
+        cols = Counter(cols)
+
+        if cols.most_common()[0][1] > 1:  # IE the most common element is present more than one time
+            raise IndexError("Duplicated values in the external table: {}".format(
+                ",".join([_[0] for _ in cols.most_common() if _[1] > 1])
+            ))
+
         for source in self.data.columns:
-            source = ExternalSource(source)
+
+            if ((self.data[source].dtype == np.dtype("float") or
+                    self.data[source].dtype == np.dtype("int")) and
+                    0 <= self.data[source].min() <= self.data[source].max() <= 1):
+                valid_raw = True
+            else:
+                valid_raw = False
+
+            rtype = self.data[source].dtype
+            if rtype == np.dtype("bool"):
+                # We have to cast booleans as integers otherwise the conversion after extraction will fail
+                self.data[source] = self.data[source].astype(int)
+
+            source = ExternalSource(source, rtype=rtype, valid_raw=valid_raw)
             self.session.add(source)
+
         self.session.commit()
 
         # Now retrieve the values from the dictionary
@@ -218,6 +263,12 @@ class ExternalSerializer:
         :return:
         """
 
+        if hasattr(self, "fasta_index") and self.fasta_index is not None:
+            self.fasta_index.close()
+        if hasattr(self, "session"):
+            self.session.close()
+        if hasattr(self, "engine"):
+            self.engine.dispose()
         return
 
     def load_fasta(self, cache):

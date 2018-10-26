@@ -537,17 +537,14 @@ The external scores file should have the following format:
 +--------------------------+------------------+------------------+-------+-----------------+
 | TID                      | Metric_one       | Metric_two       | ...   |  Metric_N       |
 +==========================+==================+==================+=======+=================+
-| Transcript_one           | value between 0  | value between 0  |       | value between 0 |
-|                          | and 1            | and 1            |       | and 1           |
+| Transcript_one           | value            | value            |       | value           |
 +--------------------------+------------------+------------------+-------+-----------------+
-| Transcript_two           | value between 0  | value between 0  |       | value between 0 |
-|                          | and 1            | and 1            |       | and 1           |
+| Transcript_two           | value            | value            |       | value           |
 +--------------------------+------------------+------------------+-------+-----------------+
 | ...                      | ...              | ...              |       | ...             |
 +--------------------------+------------------+------------------+-------+-----------------+
-| Transcript_N             | value between 0  | value between 0  |       | value between 0 |
-|                          | and 1            | and 1            |       | and 1           |
-+--------------------------+------------------+------------------+-------+-----------------+    
+| Transcript_N             | value            | value            |       | value           |
++--------------------------+------------------+------------------+-------+-----------------+
 
 
 Please note the following:
@@ -557,7 +554,8 @@ Please note the following:
 * the header provides the name of the metric as will be seen by Mikado. As such, it is advised to choose sensible and informative names (e.g. "fraction_covered") rather than uninformative ones (e.g. the "metric_one" from above)
 * Column names **must be unique**.
 * The transcript names present in the first column **must** be present in the FASTA file.
-* The values assigned to the transcripts must be numeric, and comprised between 0 and 1. This might change in future versions of Mikado, but currently, it is a hard limit.
+* The table should be tab-separated.
+* Values can be of any numerical or boolean type. However, only values that are determined **at serialisation** to be comprised within 0 and 1 (inclusive) can be used as raw values.
 
 A proper way of generating and using external scores would, therefore, be the following:
 
@@ -565,8 +563,8 @@ A proper way of generating and using external scores would, therefore, be the fo
 * Run all necessary supplementary analyses (ORF calling and/or homology analysis through DIAMOND or BLAST).
 * Run supplementary analyses to assess the transcripts, e.g. expression analysis. Normalise results so that they can be expressed with values between 0 and 1.
   * Please note that boolean results (e.g. presence or absence) can be expressed with 0 and 1 intead of "False" and "True". Customarily, in Python 0 stands for False and 1 for True, but you can choose to switch the order if you so desire.
-* Aggregate all results in a text table, like the one above, tab sepated.
-* Call mikado serialise, specifying the location of this table eitther through the configuration file or on the command line invocation.
+* Aggregate all results in a text table, like the one above, tab separated.
+* Call mikado serialise, specifying the location of this table either through the configuration file or on the command line invocation.
 
 Given the open ended nature of the external scores, the Daijin pipeline currently does not offer any system to generate these scores. This might change in the future.
 

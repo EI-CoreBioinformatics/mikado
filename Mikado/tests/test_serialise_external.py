@@ -1,16 +1,12 @@
-import logging
-import os
 import unittest
 import Mikado
 import tempfile
 import sqlalchemy.orm
-from sqlalchemy import and_  # , or_
-from pkg_resources import resource_stream
 import pandas as pd
+import numpy as np
 from Mikado.utilities.dbutils import DBBASE
 from Mikado.serializers.external import External, ExternalSource, ExternalSerializer
 from Mikado.serializers.orf import Query
-from Mikado.utilities.log_utils import create_default_logger
 import sqlalchemy.exc
 
 
@@ -37,7 +33,7 @@ class TestExternal(unittest.TestCase):
 
     def test_serialize_source(self):
 
-        source = ExternalSource("foo")
+        source = ExternalSource("foo", np.dtype("float"), False)
         self.session.add(source)
         self.session.commit()
 
@@ -45,7 +41,7 @@ class TestExternal(unittest.TestCase):
 
     def test_add_score(self):
 
-        source = ExternalSource("cdna_length")
+        source = ExternalSource("cdna_length", np.dtype("int"), False)
         query = Query("foo.1", 200)
         self.session.add(source)
         self.session.add(query)
@@ -63,7 +59,7 @@ class TestExternal(unittest.TestCase):
         self.assertEqual(self.session.query(Mikado.serializers.external.External).count(), 1)
 
     def test_wrong_score(self):
-        source = ExternalSource("cdna_length")
+        source = ExternalSource("cdna_length", np.dtype("int"), False)
         query = Query("foo.1", 200)
         self.session.add(source)
         self.session.add(query)

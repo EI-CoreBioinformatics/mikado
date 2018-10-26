@@ -537,7 +537,18 @@ class Superlocus(Abstractlocus):
                 external = []
 
             for ext in external:
-                data_dict["external"][ext.query][ext.source] = ext.score
+                if ext.rtype == "int":
+                    score = int(ext.score)
+                elif ext.rtype == "float":
+                    score = float(ext.score)
+                elif ext.rtype == "complex":
+                    score = complex(ext.score)
+                elif ext.rtype == "bool":
+                    score = bool(int(ext.score))
+                else:
+                    raise ValueError("Invalid rtype: {}".format(ext.rtype))
+
+                data_dict["external"][ext.query][ext.source] = (score, ext.valid_raw)
 
             # Load the ORFs from the table
             if query_ids:

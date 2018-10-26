@@ -54,11 +54,11 @@ class TestDbConnect(unittest.TestCase):
         # Simple tests based on the static content of the dictionary
         self.assertEqual(session.query(Mikado.serializers.junction.Junction).count(), 371,
                          self.json["db_settings"])
-        self.assertEqual(session.query(Mikado.serializers.orf.Orf).count(), 80)
+        self.assertEqual(session.query(Mikado.serializers.orf.Orf).count(), 169)
         self.assertEqual(session.query(Mikado.serializers.blast_serializer.Target).count(), 38909)
         self.assertEqual(session.query(Mikado.serializers.blast_serializer.Query).count(), 93)
-        self.assertEqual(session.query(Mikado.serializers.blast_serializer.Hit).count(), 344)
-        self.assertEqual(session.query(Mikado.serializers.blast_serializer.Hsp).count(), 410)
+        self.assertEqual(session.query(Mikado.serializers.blast_serializer.Hit).count(), 562)
+        self.assertEqual(session.query(Mikado.serializers.blast_serializer.Hsp).count(), 669)
 
         first_query = session.query(Mikado.serializers.blast_serializer.Query).limit(1).one()
         astup = first_query.as_tuple()

@@ -835,7 +835,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                     row[key] = "NA"
             for source in self.transcripts[tid].external_scores:
                 # Each score from external files also contains a multiplier.
-                row["external.{}".format(source)] = self.transcripts[tid].external_scores.get(source)
+                row["external.{}".format(source)] = self.transcripts[tid].external_scores.get(source)[0]
 
             assert row != {}
             yield row
@@ -1148,10 +1148,15 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         use_raw = self.json_conf["scoring"][param]["use_raw"]
         multiplier = self.json_conf["scoring"][param]["multiplier"]
 
-        metrics = dict((tid, getattr(self.transcripts[tid], param)) for tid in self.transcripts)
+        if param.startswith("external"):
+            # For external metrics, we have a tuple - first item is score, second item is usable_raw
+            metrics = dict((tid, getattr(self.transcripts[tid], param)[0]) for tid in self.transcripts)
+        else:
+            metrics = dict((tid, getattr(self.transcripts[tid], param)) for tid in self.transcripts)
 
         for tid in self.transcripts.keys():
             tid_metric = metrics[tid]
+
             if ("filter" in self.json_conf["scoring"][param] and
                     self.json_conf["scoring"][param]["filter"] != {}):
                 if "metric" not in self.json_conf["scoring"][param]["filter"]:
@@ -1171,8 +1176,14 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             for tid in self.transcripts:
                 self.scores[tid][param] = 0
         else:
+            if param.startswith("external"):
+                # Take any transcript and verify
+                usable_raw = getattr(self.transcripts[list(self.transcripts.keys())[0]], param)[1]
+            else:
+                usable_raw = getattr(Transcript, param).usable_raw
 
-            if use_raw is True and not param.startswith("external") and getattr(Transcript, param).usable_raw is False:
+            assert usable_raw in (False, True)
+            if use_raw is True and usable_raw is False:
                 self.logger.warning("The \"%s\" metric cannot be used as a raw score for %s, switching to False",
                                     param, self.id)
                 use_raw = False
@@ -1191,7 +1202,10 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                 elif use_raw is True and rescaling == "min":
                     denominator = -1
                 else:
-                    denominator = (max(metrics.values()) - min(metrics.values()))
+                    try:
+                        denominator = (max(metrics.values()) - min(metrics.values()))
+                    except TypeError:
+                        raise TypeError([param, metrics])
             if denominator == 0:
                 denominator = 1
 

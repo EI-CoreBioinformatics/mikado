@@ -85,18 +85,15 @@ Usage::
     $ mikado serialise --help
     usage: Mikado serialise [-h] [--start-method {fork,spawn,forkserver}]
                             [--orfs ORFS] [--transcripts TRANSCRIPTS]
-                            [-mr MAX_REGRESSION]
+                            [-mr MAX_REGRESSION] [--codon-table CODON_TABLE]
                             [--max_target_seqs MAX_TARGET_SEQS]
-                            [--blast_targets BLAST_TARGETS] [--discard-definition]
-                            [--xml XML] [-p PROCS] [--single-thread]
-                            [--genome_fai GENOME_FAI] [--junctions JUNCTIONS]
-                            [-mo MAX_OBJECTS] [-f] --json-conf JSON_CONF
-                            [-l [LOG]] [-od OUTPUT_DIR]
+                            [--blast_targets BLAST_TARGETS] [--xml XML] [-p PROCS]
+                            [--single-thread] [--genome_fai GENOME_FAI]
+                            [--junctions JUNCTIONS]
+                            [--external-scores EXTERNAL_SCORES] [-mo MAX_OBJECTS]
+                            [-f] --json-conf JSON_CONF [-l [LOG]] [-od OUTPUT_DIR]
                             [-lv {DEBUG,INFO,WARN,ERROR}]
                             [db]
-
-    Mikado serialise creates the database used by the pick program. It handles
-    Junction and ORF BED12 files as well as BLAST XML results.
 
     optional arguments:
       -h, --help            show this help message and exit
@@ -123,13 +120,14 @@ Usage::
                             "Amount of sequence in the ORF (in %) to backtrack in
                             order to find a valid START codon, if one is absent.
                             Default: None
+      --codon-table CODON_TABLE
+                            Codon table to use. Default: 0 (ie Standard, NCBI #1,
+                            but only ATG is considered a valid stop codon.
 
       --max_target_seqs MAX_TARGET_SEQS
                             Maximum number of target sequences.
       --blast_targets BLAST_TARGETS
                             Target sequences
-      --discard-definition  Flag. If set, the sequences IDs instead of their
-                            definition will be used for serialisation.
       --xml XML             XML file(s) to parse. They can be provided in three
                             ways: - a comma-separated list - as a base folder -
                             using bash-like name expansion (*,?, etc.). In this
@@ -146,6 +144,11 @@ Usage::
       --genome_fai GENOME_FAI
       --junctions JUNCTIONS
 
+      --external-scores EXTERNAL_SCORES
+                            Tabular file containing external scores for the
+                            transcripts. Each column should have a distinct name,
+                            and transcripts have to be listed on the first column.
+
       -mo MAX_OBJECTS, --max-objects MAX_OBJECTS
                             Maximum number of objects to cache in memory before
                             committing to the database. Default: 100,000 i.e.
@@ -157,17 +160,17 @@ Usage::
       -l [LOG], --log [LOG]
                             Optional log file. Default: stderr
       -lv {DEBUG,INFO,WARN,ERROR}, --log_level {DEBUG,INFO,WARN,ERROR}
-                            Log level. Default: INFO
+                            Log level. Default: derived from the configuration; if
+                            absent, INFO
       db                    Optional output database. Default: derived from
                             json_conf
-
 
 
 Technical details
 ~~~~~~~~~~~~~~~~~
 
-The schema of the database is quite simple, as it is composed only of 7 discrete tables in two groups. The first group, *chrom* and *junctions*, serialises the information pertaining to the reliable junctions - ie information which is not relative to the transcripts but rather to their genomic locations.
-The second group serialises the data regarding ORFs and BLAST files. The need of using a database is mainly driven by the latter, as querying a relational database is faster than retrieving the information from the XML files themselves at runtime.
+The schema of the database is quite simple, as it is composed only of 9 discrete tables in two groups. The first group, *chrom* and *junctions*, serialises the information pertaining to the reliable junctions - ie information which is not relative to the transcripts but rather to their genomic locations.
+The second group serialises the data regarding ORFs, BLAST files and external arbitrary data. The need of using a database is mainly driven by the latter, as querying a relational database is faster than retrieving the information from the XML files themselves at runtime.
 
 .. database figure generated with `SchemaCrawler <http://sualeh.github.io/SchemaCrawler/>`_, using the following command line:
     schemacrawler -c graph -url=jdbc:sqlite:sample_data/mikado.db -o docs/Usage/database_schema.png --outputformat=png -infolevel=maximum

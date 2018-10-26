@@ -48,16 +48,12 @@ Command line usage:
                           [-s | -sa STRAND_SPECIFIC_ASSEMBLIES] [--list LIST]
                           [-l LOG] [--lenient] [-m MINIMUM_LENGTH] [-p PROCS]
                           [-scds] [--labels LABELS] [--single] [-od OUTPUT_DIR]
-                          [-o OUT] [-of OUT_FASTA] [--json-conf JSON_CONF]
+                          [-o OUT] [-of OUT_FASTA] [--json-conf JSON_CONF] [-k]
                           [gff [gff ...]]
-
-    Mikado prepare analyses an input GTF file and prepares it for the picking
-    analysis by sorting its transcripts and performing some simple consistency
-    checks.
-
+    
     positional arguments:
       gff                   Input GFF/GTF file(s).
-
+    
     optional arguments:
       -h, --help            show this help message and exit
       --fasta FASTA         Genome FASTA file. Required.
@@ -79,7 +75,7 @@ Command line usage:
       -m MINIMUM_LENGTH, --minimum_length MINIMUM_LENGTH
                             Minimum length for transcripts. Default: 200 bps.
       -p PROCS, --procs PROCS
-                            Number of processors to use (default 1)
+                            Number of processors to use (default None)
       -scds, --strip_cds    Boolean flag. If set, ignores any CDS/UTR segment.
       --labels LABELS       Labels to attach to the IDs of the transcripts of the
                             input files, separated by comma.
@@ -91,6 +87,9 @@ Command line usage:
                             Output file. Default: mikado_prepared.fasta.
       --json-conf JSON_CONF
                             Configuration file.
+      -k, --keep-redundant  Boolean flag. If invoked, Mikado prepare will retain
+                            redundant models.
+
 
 Collection of transcripts from the annotation files
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -124,4 +123,3 @@ Mikado prepare will produce two files:
 * a FASTA file of the transcripts, in the proper cDNA orientation.
 
 .. warning:: contrary to other tools such as eg gffread from Cufflinks [Cufflinks]_, Mikado prepare will **not** try to calculate the loci for the transcripts. This task will be performed later in the pipeline. As such, the GTF file is formally incorrect, as multiple transcripts in the same locus but coming from different assemblies will *not* have the same gene_id but rather will have kept their original one. Moreover, if two gene_ids were identical but discrete in the input files (ie located on different sections of the genome), this error will not be corrected. If you desire to use this GTF file for any purpose, please use a tool like gffread to calculate the loci appropriately.
-

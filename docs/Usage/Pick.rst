@@ -319,18 +319,21 @@ Usage::
     usage: Mikado pick [-h] [--start-method {fork,spawn,forkserver}] [-p PROCS]
                        --json-conf JSON_CONF [--scoring-file SCORING_FILE]
                        [-i INTRON_RANGE INTRON_RANGE] [--pad]
+                       [--pad-max-splices PAD_MAX_SPLICES]
+                       [--pad-max-distance PAD_MAX_DISTANCE]
                        [--subloci_out SUBLOCI_OUT] [--monoloci_out MONOLOCI_OUT]
                        [--loci_out LOCI_OUT] [--prefix PREFIX] [--no_cds]
-                       [--source SOURCE] [--flank FLANK] [--purge]
-                       [--subloci-from-cds-only] [--monoloci-from-simple-overlap]
-                       [-db SQLITE_DB] [-od OUTPUT_DIR] [--single] [-l LOG]
-                       [-v | -nv] [-lv {DEBUG,INFO,WARNING,ERROR,CRITICAL}]
+                       [--source SOURCE] [--flank FLANK] [--purge] [--cds-only]
+                       [--monoloci-from-simple-overlap]
+                       [--consider-truncated-for-retained] [-db SQLITE_DB]
+                       [-od OUTPUT_DIR] [--single] [-l LOG] [-v | -nv]
+                       [-lv {DEBUG,INFO,WARNING,ERROR,CRITICAL}]
                        [--mode {nosplit,stringent,lenient,permissive,split}]
                        [gff]
-
+    
     positional arguments:
       gff
-
+    
     optional arguments:
       -h, --help            show this help message and exit
       --start-method {fork,spawn,forkserver}
@@ -350,6 +353,12 @@ Usage::
                             outside of this range will be penalised. Default: (60,
                             900) (default: None)
       --pad                 Whether to pad transcripts in loci. (default: False)
+      --pad-max-splices PAD_MAX_SPLICES
+                            Maximum splice sites that can be crossed during
+                            transcript padding. (default: None)
+      --pad-max-distance PAD_MAX_DISTANCE
+                            Maximum amount of bps that transcripts can be padded
+                            with (per side). (default: None)
       --subloci_out SUBLOCI_OUT
       --monoloci_out MONOLOCI_OUT
       --loci_out LOCI_OUT   This output file is mandatory. If it is not specified
@@ -357,7 +366,7 @@ Usage::
                             (default: None)
       --prefix PREFIX       Prefix for the genes. Default: Mikado (default: None)
       --no_cds              Flag. If set, not CDS information will be printed out
-                            in the GFF output files. (default: None)
+                            in the GFF output files. (default: False)
       --source SOURCE       Source field to use for the output files. (default:
                             None)
       --flank FLANK         Flanking distance (in bps) to group non-overlapping
@@ -366,8 +375,7 @@ Usage::
       --purge               Flag. If set, the pipeline will suppress any loci
                             whose transcripts do not pass the requirements set in
                             the JSON file. (default: False)
-      --subloci-from-cds-only
-                            "Flag. If set, Mikado will only look for overlap in
+      --cds-only            "Flag. If set, Mikado will only look for overlap in
                             the coding features when clustering transcripts
                             (unless one transcript is non-coding, in which case
                             the whole transcript will be considered). Default:
@@ -377,6 +385,11 @@ Usage::
                             "Flag. If set, in the final stage Mikado will cluster
                             transcripts by simple overlap, not by looking at the
                             presence of shared introns. Default: False. (default:
+                            False)
+      --consider-truncated-for-retained
+                            Flag. If set, Mikado will consider as retained intron
+                            events also transcripts which lack UTR but whose CDS
+                            ends within a CDS intron of another model. (default:
                             False)
       -db SQLITE_DB, --sqlite-db SQLITE_DB
                             Location of an SQLite database to overwrite what is
@@ -399,7 +412,7 @@ Usage::
                             but also split when both ORFs lack BLAST hits - split:
                             split multi-orf transcripts regardless of what BLAST
                             data is available. (default: None)
-
+    
     Log options:
       -l LOG, --log LOG     File to write the log to. Default: decided by the
                             configuration file. (default: None)
@@ -410,6 +423,7 @@ Usage::
       -lv {DEBUG,INFO,WARNING,ERROR,CRITICAL}, --log-level {DEBUG,INFO,WARNING,ERROR,CRITICAL}
                             Logging level. Default: retrieved by the configuration
                             file. (default: None)
+
 
 
 .. block end

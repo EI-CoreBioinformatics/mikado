@@ -264,7 +264,7 @@ class GtfLine(GFAnnotation):
         This property returns the "transcript_id" field of the GTF line.
         :rtype : str
         """
-        return self.attributes["transcript_id"]
+        return self.attributes.get("transcript_id", None)
 
     @transcript.setter
     def transcript(self, transcript):

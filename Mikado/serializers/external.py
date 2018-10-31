@@ -117,18 +117,28 @@ class ExternalSerializer:
             return
 
         fasta_index = json_conf["serialise"]["files"]["transcripts"]
-        if isinstance(fasta_index, str):
-            assert os.path.exists(fasta_index)
+        if isinstance(fasta_index, (str, bytes)):
+            if isinstance(fasta_index, bytes):
+                fasta_index = fasta_index.decode()
+            if not os.path.exists(fasta_index):
+                error = """I cannot find the mikado prepared FASTA file with the transcripts to analyse.
+                Please run mikado serialise in the folder with the correct files, and/or modify the configuration
+                or the command line options."""
+                self.logger.critical(error)
+                raise AssertionError(error)
             self.fasta_index = pyfaidx.Fasta(fasta_index)
             # self.fasta_index = SeqIO.index(fasta_index, "fasta")
         elif fasta_index is None:
             self.logger.debug("No fasta index provided, we presume transcripts are already in the DB.")
-            # exc = ValueError("A fasta index is needed for the serialization!")
-            # self.logger.exception(exc)
             self.fasta_index = None
-        else:
-            assert isinstance(fasta_index, pyfaidx.Fasta)
+        elif isinstance(fasta_index, pyfaidx.Fasta):
             self.fasta_index = fasta_index
+        else:
+            error = "Unkwnown FASTA index: {}. I will presume that the transcripts are in the database".format(
+                type(fasta_index))
+            self.logger.warning(error)
+            
+
 
         try:
             self.data = pd.read_csv(self.handle, delimiter=delimiter, index_col=["tid"])

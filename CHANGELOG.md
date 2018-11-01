@@ -18,6 +18,8 @@ Bugfixes and improvements:
 - For the external scores, Mikado can now accept any type of numerical or boolean value. Mikado will understand at serialisation time whether a particular score can be used raw (ie its values are strictly comprised between 0 and 1) or whether it has to be forcibly scaled.
   - This allows Mikado to use e.g. transcript expression as a valid metric.
 - Now coding and non-coding transcripts will be in different loci.
+- Corrected a bug in the calculation of overlapping intervals during BLAST serialisation.
+- Now BLAST HSPs will have stored as well whether there is an in-frame stop codon.
 - Mikado prepare now can accept models that lack any exon features but still have valid CDS/UTR features - this is necessary for some protein prediction tools.
 - Fixed [#139](https://github.com/lucventurini/mikado/issues/139): Mikado was reverse complementing non-uppercase letters incorrectly.
 - [#135](https://github.com/lucventurini/mikado/issues/135): Mikado so far operated under the assumption that the 8th field in GTF files was the **frame**, not the **phase** like in GFF3s. This is actually incompatible with EnsEMBL and many widespread tools such as [GenomeTools](http://genometools.org/) or [GffRead](https://github.com/gpertea/gffread). Starting from this version, Mikado uniforms with these other tools.

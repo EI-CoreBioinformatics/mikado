@@ -7,7 +7,7 @@ import unittest
 import os
 import gzip
 import subprocess
-import shutil
+from Mikado.serializers.blast_serializer import utils as seri_blast_utils
 import time
 
 
@@ -123,6 +123,63 @@ class BlastBasics(unittest.TestCase):
 
         os.remove(valid_asn)
         os.chdir(master)
+
+
+class TestMerging(unittest.TestCase):
+
+    """Small class to test basic cases of the merging algorithm."""
+
+    def test_merging_1(self):
+
+        l = [(-10, -5), (-6, 8), (5, 10), (20, 40)]
+        tot_length = 51
+        corr_merged = [(-10, 10), (20, 40)]
+        merged, tot_length = seri_blast_utils.merge(l, query_length=tot_length, offset=1)
+        self.assertEqual(merged, corr_merged)
+        self.assertEqual(tot_length, 10 - -10 +1 + 40 - 20 + 1)
+
+    def test_merging_2(self):
+
+        l = [(100, 200)]
+        for offset in [0, 1, 2]:
+            with self.subTest(offset=offset):
+                tot_length = l[0][1] - l[0][0] + offset
+                if offset == 2:
+                    with self.assertRaises(ValueError):
+                        _ = seri_blast_utils.merge(l, offset=offset)
+                else:
+                    merged, length = seri_blast_utils.merge(l, offset=offset)
+                    self.assertEqual(length, tot_length)
+                    self.assertEqual(merged, l)
+
+    def test_various_merging(self):
+
+        invalid = [
+            [('a', 0)],
+            [('a', 'b')],
+            [(10, 20), ('a', 'b')],
+            [(10, 20, 30), (40, 50, 60)]
+        ]
+
+        for inv in invalid:
+            with self.subTest(inv=inv):
+                with self.assertRaises(TypeError, msg=inv):
+                    seri_blast_utils.merge(inv)
+
+        valid = {
+            0: [[('10', '20')], [(10, 20)]],
+            1: [[(10, 30)], [(10, 30)]],
+            2: [[(-10.0, 5.5)], [(-10, 5)]],
+            3: [[(-4, -10)], [(-10, -4)]],
+            4: [[(-5, -10), (-2.2, -7.3)], [(-10, -2)]]
+        }
+
+        for val in valid:
+            inp, out = valid[val]
+            with self.subTest(val=val, msg=valid[val]):
+                _ = seri_blast_utils.merge(inp)
+                self.assertEqual(out, _[0])
+
 
 if __name__ == '__main__':
     unittest.main()

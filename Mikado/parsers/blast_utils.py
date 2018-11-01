@@ -293,9 +293,6 @@ def __calculate_merges(intervals: np.array):
     :return:
     """
 
-    if intervals.shape[1] != 2:
-        raise ValueError("Invalid array shape: {}".format(intervals.shape))
-
     if intervals.shape[0] == 1:
         return intervals
 
@@ -343,7 +340,17 @@ def merge(intervals: [(int, int)], query_length=None, offset=1):
 
     # Assume tuple of the form (start,end)
     # Create array and sort
-    intervals = np.array([sorted(_) for _ in intervals], dtype=np.int)
+    offset = int(offset)
+    if offset not in [0, 1]:
+        raise ValueError("Invalid offset - only 0 and 1 allowed: {}".format(offset))
+
+    try:
+        intervals = np.array([sorted(_) for _ in intervals], dtype=np.int)
+        if intervals.shape[1] != 2:
+            raise ValueError("Invalid shape for intervals: {}".format(intervals.shape))
+    except (TypeError, ValueError):
+        raise TypeError("Invalid array for intervals: {}".format(intervals))
+
     intervals = intervals[np.lexsort((intervals[:,1], intervals[:,0]))]
     intervals = __calculate_merges(intervals)
     total_length_covered = int(abs(intervals[:,1] - intervals[:,0] + offset).sum())

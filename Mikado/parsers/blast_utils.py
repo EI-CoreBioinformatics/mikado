@@ -18,7 +18,9 @@ import logging
 from . import HeaderError
 from ..utilities.log_utils import create_null_logger
 from .blast_xml import BlastXmlParser as xparser
+from ..utilities import overlap
 import xml.etree.ElementTree
+import numpy as np
 
 
 __author__ = 'Luca Venturini'
@@ -284,7 +286,45 @@ def check_beginning(handle, filename, previous_header):
     return handle, header, exc
 
 
-def merge(intervals: [(int, int)]):
+def __calculate_merges(intervals: np.array):
+    """
+    Internal function used by merge to perform the proper merging calculation.
+    :param intervals:
+    :return:
+    """
+
+    if intervals.shape[1] != 2:
+        raise ValueError("Invalid array shape: {}".format(intervals.shape))
+
+    if intervals.shape[0] == 1:
+        return intervals
+
+    new_intervals = np.ma.array(np.empty(intervals.shape, dtype=intervals.dtype),
+                                dtype=intervals.dtype,
+                                mask=True)
+
+    pos = 0
+    current = None
+
+    for iv in intervals:
+        if current is None:
+            current = iv
+            continue
+        else:
+            if overlap(current, iv, positive=False) >= 0:
+                current = (current[0], iv[1])
+            else:
+                new_intervals[pos] = current
+                current = iv
+                pos += 1
+
+    new_intervals[pos] = current
+    new_intervals = np.array(new_intervals[~new_intervals[:, 0].mask], dtype=new_intervals.dtype)
+    new_intervals = new_intervals[np.lexsort((new_intervals[:, 1], new_intervals[:, 0]))]
+    return new_intervals
+
+
+def merge(intervals: [(int, int)], query_length=None, offset=1):
     """
     This function is used to merge together intervals, which have to be supplied as a list
     of duplexes - (start,stop). The function will then merge together overlapping tuples and
@@ -293,28 +333,29 @@ def merge(intervals: [(int, int)]):
     :param intervals: a list of integer duplexes
     :type intervals: list
 
+    :param query_length: pre-defined length of the feature to calculate the intervals for.
+    If provided, it will verify that the total sum of the ranges is within the length.
+    :param offset: offset to subtract when calculating the total length. Default 1, it can be either 0 or 1.
+
+    :returns: merged intervals, length covered
+
     """
 
     # Assume tuple of the form (start,end)
-    # And return 0- and 1-length intervals
-    new_intervals = []
-    for interval in intervals:
-        new_intervals.append(tuple(sorted(interval)))
+    # Create array and sort
+    intervals = np.array([sorted(_) for _ in intervals], dtype=np.int)
+    intervals = intervals[np.lexsort((intervals[:,1], intervals[:,0]))]
+    intervals = __calculate_merges(intervals)
+    total_length_covered = int(abs(intervals[:,1] - intervals[:,0] + offset).sum())
 
-    intervals = new_intervals[:]
-    if len(intervals) < 2:
-        return intervals
+    if not query_length:
+        query_length = int(abs(intervals[:,1].max() - intervals[:,0].min() + offset))
 
-    # Sort according to start, end
-    intervals = sorted(intervals, key=operator.itemgetter(0, 1))
-    final_list = [intervals[0]]
+    if query_length and total_length_covered > query_length:
+        raise AssertionError("Something went wrong, original length {}, total length {}".format(
+            query_length, total_length_covered))
 
-    for start, end in intervals[1:]:
-        if start > final_list[-1][1]:
-            final_list.append(tuple([start, end]))
-        elif end > final_list[-1][1]:
-            final_list[-1] = tuple([final_list[-1][0], end])
-    return final_list
+    return [(int(_[0]), int(_[1])) for _ in intervals], total_length_covered
 
 
 # This is a private class, it does not need public methods

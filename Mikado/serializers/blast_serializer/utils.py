@@ -3,9 +3,9 @@ Generic utilities used for BLAST serialising into a DB.
 """
 
 from ...parsers.blast_utils import merge
-from ...exceptions import InvalidHit
 from Bio import __version__ as bio_version
-import operator
+import numpy as np
+
 
 __author__ = 'Luca Venturini'
 
@@ -86,10 +86,16 @@ def prepare_hsp(hsp, counter):
             match += "\\"
         elif query_aa == "-":
             target_pos += 1
-            match += "-"
+            if target_aa == "*":
+                match += "*"
+            else:
+                match += "-"
         elif target_aa == "-":
             query_pos += 1
-            match += "_"
+            if query_aa == "*":
+                match += "*"
+            else:
+                match += "_"
 
     assert query_pos <= hsp.query_end and target_pos <= hsp.hit_end
     # assert positive_count == hsp.positives and iden_count == hsp.identities
@@ -171,29 +177,29 @@ def prepare_hit(hit, query_id, target_id, **kwargs):
     hit_dict["query_id"] = query_id
     hit_dict["target_id"] = target_id
 
-    q_merged_intervals = sorted(merge(q_intervals), key=operator.itemgetter(0, 1))
-    q_aligned = sum([tup[1] - tup[0] for tup in q_merged_intervals])
+    q_merged_intervals, q_aligned = merge(q_intervals)
+    assert isinstance(q_aligned, np.int), (q_merged_intervals, q_aligned, type(q_aligned))
     hit_dict["query_aligned_length"] = q_aligned
-    hit_dict["query_start"] = q_merged_intervals[0][0]
-    hit_dict["query_end"] = q_merged_intervals[-1][1]
+    qstart, qend = q_merged_intervals[0][0], q_merged_intervals[-1][1]
+    assert isinstance(qstart, np.int), (q_merged_intervals, type(qstart))
+    assert isinstance(qend, np.int), (q_merged_intervals, type(qend))
 
-    t_merged_intervals = sorted(merge(t_intervals), key=operator.itemgetter(0, 1))
-    t_aligned = sum([tup[1] - tup[0] for tup in t_merged_intervals])
+    hit_dict["query_start"], hit_dict["query_end"] = qstart, qend
+
+    if len(identical_positions) * kwargs["query_multiplier"] > q_aligned:
+        raise ValueError("Number of identical positions ({}) greater than number of aligned positions ({})!".format(
+            len(identical_positions) * kwargs["query_multiplier"], q_aligned))
+
+    if len(positives) * kwargs["query_multiplier"] > q_aligned:
+        raise ValueError("Number of identical positions ({}) greater than number of aligned positions ({})!".format(
+            len(positives) * kwargs["query_multiplier"], q_aligned))
+
+    t_merged_intervals, t_aligned = merge(t_intervals)
     hit_dict["target_aligned_length"] = t_aligned
     hit_dict["target_start"] = t_merged_intervals[0][0]
     hit_dict["target_end"] = t_merged_intervals[-1][1]
     hit_dict["global_identity"] = len(identical_positions) * 100 * kwargs["query_multiplier"] / q_aligned
     hit_dict["global_positives"] = len(positives) * 100 * kwargs["query_multiplier"] / q_aligned
-    # hit_dict["target_identity"] = len(identical_positions) * 100 / t_aligned
-
-    # if hit_dict["evalue"] != best_hsp[0] or hit_dict["bits"] != best_hsp[1]:
-    #     raise InvalidHit("Discrepant evalue/bits for hsps and hit for {0} vs. {1}; \
-    #     best: {2}, reported {3}".format(
-    #         hit.id,
-    #         query_id,
-    #         best_hsp,
-    #         (hit_dict["evalue"], hit_dict["bits"])
-    #     ))
 
     return hit_dict, hsp_dict_list
 # pylint: enable=too-many-locals

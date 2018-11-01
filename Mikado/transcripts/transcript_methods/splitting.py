@@ -672,14 +672,12 @@ def __recalculate_hit(hit, boundary, minimal_overlap):
     if len(hsp_dict_list) == 0:
         return None
 
-    q_merged_intervals = sorted(merge(q_intervals), key=operator.itemgetter(0, 1))
-    q_aligned = sum([tup[1] - tup[0] + 1 for tup in q_merged_intervals])
+    q_merged_intervals, q_aligned = merge(q_intervals)
     hit_dict["query_aligned_length"] = q_aligned
     hit_dict["query_start"] = q_merged_intervals[0][0]
     hit_dict["query_end"] = q_merged_intervals[-1][1]
 
-    t_merged_intervals = sorted(merge(t_intervals), key=operator.itemgetter(0, 1))
-    t_aligned = sum([tup[1] - tup[0] + 1 for tup in t_merged_intervals])
+    t_merged_intervals, t_aligned = merge(t_intervals)
     hit_dict["target_aligned_length"] = t_aligned
     hit_dict["target_start"] = t_merged_intervals[0][0]
     hit_dict["target_end"] = t_merged_intervals[-1][1]

@@ -5,9 +5,9 @@ import Mikado.configuration
 # from Mikado.loci import Transcript
 # from Mikado.subprograms.util.trim import trim_coding, trim_noncoding
 import unittest
-# import tempfile
 import os
 import pkg_resources
+
 
 __author__ = 'Luca Venturini'
 

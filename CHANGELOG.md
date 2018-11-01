@@ -21,6 +21,7 @@ Bugfixes and improvements:
 - Corrected a bug in the calculation of overlapping intervals during BLAST serialisation.
 - Now BLAST HSPs will have stored as well whether there is an in-frame stop codon.
 - Mikado prepare now can accept models that lack any exon features but still have valid CDS/UTR features - this is necessary for some protein prediction tools.
+- Fixed [#124](https://github.com/lucventurini/mikado/issues/124): Mikado was giving an error when trying to launch from a folder with an invalid "plants.yaml" file, due to not checking correctly the validity of the file itself.
 - Fixed [#139](https://github.com/lucventurini/mikado/issues/139): Mikado was reverse complementing non-uppercase letters incorrectly.
 - [#135](https://github.com/lucventurini/mikado/issues/135): Mikado so far operated under the assumption that the 8th field in GTF files was the **frame**, not the **phase** like in GFF3s. This is actually incompatible with EnsEMBL and many widespread tools such as [GenomeTools](http://genometools.org/) or [GffRead](https://github.com/gpertea/gffread). Starting from this version, Mikado uniforms with these other tools.
 - Fixed [#34](https://github.com/lucventurini/mikado/issues/34): now Mikado can specify a valid codon table among those provided by [NCBI  through BioPython](ftp://ftp.ncbi.nih.gov/entrez/misc/data/gc.prt). The default is "0", ie the Standard table but with only the canonical "ATG" being accepted as valid start codon.

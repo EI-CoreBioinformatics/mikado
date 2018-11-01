@@ -137,7 +137,7 @@ class ExternalSerializer:
             error = "Unkwnown FASTA index: {}. I will presume that the transcripts are in the database".format(
                 type(fasta_index))
             self.logger.warning(error)
-            
+
 
 
         try:

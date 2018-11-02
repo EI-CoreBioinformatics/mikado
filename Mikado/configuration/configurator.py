@@ -207,7 +207,9 @@ def check_scoring(json_conf):
             \t{0}""".format("\n\t".join(list(invalid_raw)))
         raise InvalidJson(err_message)
 
-    return jdict
+    json_conf["scoring"] = jdict
+
+    return json_conf
 
 
 def check_all_requirements(json_conf):
@@ -451,7 +453,7 @@ def create_validator(simple=False):
     return validator
 
 
-def _check_scoring_file(json_conf, logger):
+def _check_scoring_file(json_conf: dict, logger):
 
     """The purpose of this section is the following:
     - check that the scoring file exists somewhere different from the system folder. If it does, check whether it is
@@ -461,14 +463,31 @@ def _check_scoring_file(json_conf, logger):
 
     """
 
-
     overwritten = False
 
     if json_conf.get("__loaded_scoring", json_conf["pick"]["scoring_file"]) != json_conf["pick"]["scoring_file"]:
-        logger.info("Overwriting the scoring configuration using '%s' as scoring file",
-                    json_conf["pick"]["scoring_file"])
-        overwritten = True
-        [json_conf.pop(_, None) for _ in ("scoring", "requirements", "as_requirements", "not_fragmentary")]
+        logger.debug("Overwriting the scoring configuration using '%s' as scoring file",
+                     json_conf["pick"]["scoring_file"])
+        [json_conf.pop(_, None) for _ in ("__loaded_scoring",
+            "scoring", "requirements", "as_requirements", "not_fragmentary")]
+    elif all(_ in json_conf for _ in ["scoring", "requirements", "as_requirements", "not_fragmentary"]):
+        try:
+            if not json_conf["__loaded_scoring"].endswith(("model", "pickle")):
+                # Random forest models are not standard scoring files
+                check_scoring(json_conf)
+            check_all_requirements(json_conf)
+            json_conf["__loaded_scoring"] = json_conf["pick"]["scoring_file"]
+            logger.debug("Verified everything is OK for the scoring, returning")
+            return json_conf, overwritten
+        except InvalidJson:
+            logger.debug("Invalid scoring for the jconf, resetting")
+            [json_conf.pop(_, None) for _ in ("scoring", "requirements", "as_requirements", "not_fragmentary")]
+            json_conf.pop("__loaded_scoring", None)
+    else:
+        logger.debug("Restarting")
+        json_conf.pop("__loaded_scoring", None)
+
+    overwritten = True
 
     options = [os.path.abspath(json_conf["pick"]["scoring_file"]),
                os.path.abspath(os.path.join(os.path.dirname(json_conf["filename"]),
@@ -483,7 +502,7 @@ def _check_scoring_file(json_conf, logger):
     for option in options:
         if not os.path.exists(option):
             continue
-        if option.endswith(("yaml", "json")):
+        elif option.endswith(("yaml", "json")):
             with open(option) as scoring_file:
                 if option.endswith("yaml"):
                     scoring = yaml.load(scoring_file)
@@ -491,15 +510,14 @@ def _check_scoring_file(json_conf, logger):
                     scoring = json.load(scoring_file)
                 if not isinstance(scoring, dict):
                     continue
-
                 try:
-                    scoring = check_all_requirements(scoring)
                     scoring = check_scoring(scoring)
+                    scoring = check_all_requirements(scoring)
                 except InvalidJson:
                     continue
                 json_conf = merge_dictionaries(json_conf, scoring)
                 found = True
-                break
+                json_conf["scoring_file"] = option
         elif option.endswith(("model", "pickle")):
             with open(option, "rb") as forest:
                 scoring = pickle.load(forest)
@@ -512,13 +530,22 @@ def _check_scoring_file(json_conf, logger):
                 del scoring["scoring"]
                 json_conf = merge_dictionaries(json_conf, scoring)
                 json_conf = check_all_requirements(json_conf)
+                json_conf["scoring_file"] = option
+                found = True
+        if found is True:
+            logger.info("Found the correct option: %s", option)
+            json_conf["scoring_file"] = option
+            json_conf["__loaded_scoring"] = option
+            break
 
     if found is False:
-        raise InvalidJson(
-            "Scoring file not found: {0}".format(
-                json_conf["pick"]["scoring_file"]))
+        raise InvalidJson("Scoring file not found: {0}".format(json_conf["pick"]["scoring_file"]))
+    else:
+        json_conf["__loaded_scoring"] = json_conf["pick"]["scoring_file"]
 
-    json_conf["__loaded_scoring"] = option
+    assert json_conf["pick"]["scoring_file"] == json_conf["__loaded_scoring"], (
+        json_conf["pick"]["scoring_file"], json_conf["__loaded_scoring"]
+    )
 
     return json_conf, overwritten
 

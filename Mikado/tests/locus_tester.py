@@ -277,6 +277,13 @@ Chr1\tfoo\texon\t801\t1000\t.\t-\t.\tID=tminus0:exon1;Parent=tminus0""".split("\
         t3.finalize()
 
         jconf = configurator.to_json(None)
+        log = create_default_logger("tester", level="DEBUG")
+        with self.assertLogs(log, "DEBUG") as cm:
+            jconf = configurator.check_json(jconf, logger=log)
+
+        self.assertIn("__loaded_scoring", jconf, cm.output)
+        self.assertEqual(jconf["__loaded_scoring"], jconf["pick"]["scoring_file"],
+                         cm.output)
 
         del jconf["requirements"]
 
@@ -301,7 +308,8 @@ Chr1\tfoo\texon\t801\t1000\t.\t-\t.\tID=tminus0:exon1;Parent=tminus0""".split("\
 
         self.assertEqual(
             jconf["requirements"]["expression"],
-            "evaluated[\"suspicious_splicing\"]")
+            "evaluated[\"suspicious_splicing\"]",
+            jconf["requirements"])
 
         logger = create_default_logger(inspect.getframeinfo(inspect.currentframe())[2])
         for suspicious in (False, True):

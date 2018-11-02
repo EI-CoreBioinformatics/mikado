@@ -91,7 +91,7 @@ class GFAnnotation(metaclass=abc.ABCMeta):
         return "\t".join([str(_) for _ in line])
 
     def __len__(self):
-        if self.end is not None:
+        if self.header is False and all([_ is not None for _ in [self.end, self.start]]):
             return self.end - self.start + 1
         else:
             return 0
@@ -272,6 +272,16 @@ class GFAnnotation(metaclass=abc.ABCMeta):
             return True
         return False
 
+    @property
+    @abc.abstractmethod
+    def _negative_order(self):
+        raise NotImplementedError("This is implemented in the children classes")
+
+    @property
+    @abc.abstractmethod
+    def _positive_order(self):
+        raise NotImplementedError("This is implemented in the children classes")
+
     def _sort_feature(self, feature):
         """
         Private method that sorts features according to the normal order in a GF file.
@@ -280,9 +290,11 @@ class GFAnnotation(metaclass=abc.ABCMeta):
         """
 
         if self.strand == "-":
-            order = self.__negative_order
+            order = self._negative_order
         else:
-            order = self.__positive_order
+            order = self._positive_order
+        assert order != []
+
         if feature not in order:
             return float("inf")
         else:

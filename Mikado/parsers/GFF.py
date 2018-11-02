@@ -16,20 +16,6 @@ from sys import intern
 class GffLine(GFAnnotation):
     """Object which serializes a GFF line."""
 
-    __negative_order = [intern(_) for _ in ["three_prime_utr",
-                                            "exon",
-                                            "stop_codon",
-                                            "CDS",
-                                            "start_codon",
-                                            "five_prime_utr"]]
-
-    __positive_order = [intern(_) for _ in ["five_prime_utr",
-                                            "exon",
-                                            "start_codon",
-                                            "CDS",
-                                            "stop_codon",
-                                            "three_prime_utr"]]
-
     def __init__(self, line, my_line='', header=False):
         """
         Constructor method.
@@ -284,6 +270,27 @@ class GffLine(GFAnnotation):
                 self.attributes["Derives_from"] = self.attributes[key[0]]
 
             return self.attributes["Derives_from"].split(",")
+
+    @property
+    def _negative_order(self):
+        negative_order = [intern(_) for _ in ["three_prime_utr",
+                                              "exon",
+                                              "stop_codon",
+                                              "CDS",
+                                              "start_codon",
+                                              "five_prime_utr"]]
+        return negative_order
+
+    @property
+    def _positive_order(self):
+        positive_order = [intern(_) for _ in
+                          ["five_prime_utr",
+                           "exon",
+                           "start_codon",
+                           "CDS",
+                           "stop_codon",
+                           "three_prime_utr"]]
+        return positive_order
 
 
 class GFF3(Parser):

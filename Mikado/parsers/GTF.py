@@ -35,19 +35,6 @@ class GtfLine(GFAnnotation):
     # _slots=['chrom','source','feature','start',\
     # 'end','score','strand','phase','info']
 
-    __negative_order = ["3UTR",
-                        "exon",
-                        "stop_codon",
-                        "CDS",
-                        "start_codon",
-                        "5UTR"]
-    __positive_order = ["5UTR",
-                        "exon",
-                        "start_codon",
-                        "CDS",
-                        "stop_codon",
-                        "3UTR"]
-
     def __init__(self, line, my_line='', header=False):
 
         self.__frame = None
@@ -327,33 +314,23 @@ class GtfLine(GFAnnotation):
 
         return self.__frame
 
-    # @frame.setter
-    # def frame(self, value):
-    #     """
-    #     Setter for the frame.
-    #     :param value: the new frame. One of None, 0, 1, 2.
-    #     :type value: (None | int | str)
-    #     :return:
-    #     """
-    #
-    #     if isinstance(value, str):
-    #         if value.isdigit() is True:
-    #             value = int(value)
-    #             if value not in (0, 1, 2):
-    #                 raise ValueError(value)
-    #             self.__frame = value
-    #             self.__phase = (3 - value) % 3
-    #         else:
-    #             if value not in (".", "?"):
-    #                 raise ValueError(value)
-    #             self.__phase = self.__frame = None
-    #     elif value is None:
-    #         self.__frame = self.__phase = None
-    #     elif isinstance(value, int):
-    #         if value not in (0, 1, 2):
-    #             raise ValueError(value)
-    #         self.__frame = value
-    #         self.__phase = (3 - value) % 3
+    @property
+    def _negative_order(self):
+        return ["3UTR",
+                "exon",
+                "stop_codon",
+                "CDS",
+                "start_codon",
+                "5UTR"]
+
+    @property
+    def _positive_order(self):
+        return ["5UTR",
+                "exon",
+                "start_codon",
+                "CDS",
+                "stop_codon",
+                "3UTR"]
 
     @property
     def phase(self):
@@ -379,6 +356,8 @@ class GtfLine(GFAnnotation):
                 raise ValueError(value)
             self.__phase = value
             self.__frame = (3 - value) % 3
+        else:
+            raise ValueError(value)
 
 
 class GTF(Parser):

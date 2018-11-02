@@ -20,6 +20,7 @@ install:
   - conda install --yes setuptools cython atlas numpy scipy scikit-learn biopython
   - pip install codecov;
   - pip install -r requirements.txt
+  - python3 setup.py develop;
 script:
   - touch plants.yaml && python -c "import Mikado; print(Mikado.version)" && rm plants.yaml;  # This is to verify we fixed bug #124
   - coverage run setup.py nosetests -exe;

@@ -17,7 +17,8 @@ import queue
 import logging
 from . import HeaderError
 from ..utilities.log_utils import create_null_logger
-from .blast_xml import BlastXmlParser as xparser
+from Bio.SearchIO.BlastIO.blast_xml import BlastXmlParser as xparser
+# from .blast_xml import BlastXmlParser as xparser
 from ..utilities import overlap
 import xml.etree.ElementTree
 import numpy as np
@@ -105,7 +106,7 @@ class BlastOpener:
     def __next__(self):
         if self.__handle is None:
             raise ValueError("Invalid handle")
-        return next(self.parser)
+        return next(iter(self.parser))
 
     @property
     def handle(self):

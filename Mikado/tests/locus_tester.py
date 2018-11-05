@@ -2125,7 +2125,6 @@ class PaddingTester(unittest.TestCase):
                 else:
                     self.assertNotEqual(locus[corr[3]].start, locus[corr[1]].start)
 
-
     def test_padding(self):
         genome = pkg_resources.resource_filename("Mikado.tests", "padding_test.fa")
         transcripts = self.load_from_bed("Mikado.tests", "padding_test.bed12")
@@ -2172,6 +2171,48 @@ class PaddingTester(unittest.TestCase):
                     self.assertGreater(locus[transcript].combined_cds_length, 0)
                     self.assertEqual(locus[transcript].combined_cds_start, cds_coordinates[transcript][0])
                     self.assertEqual(locus[transcript].combined_cds_end, cds_coordinates[transcript][1])
+
+    def test_padding_noncoding(self):
+
+        genome = pkg_resources.resource_filename("Mikado.tests", "padding_test.fa")
+        transcripts = self.load_from_bed("Mikado.tests", "padding_test.bed12")
+
+        # Remove the CDS
+        for tid in transcripts:
+            transcripts[tid].strip_cds()
+
+        self.assertTrue(all([not _.is_coding for _ in transcripts.values()]))
+
+        locus = Mikado.loci.Locus(transcripts['mikado.44G2.1'])
+        locus.json_conf["reference"]["genome"] = genome
+        for t in transcripts:
+            if t == locus.primary_transcript_id:
+                continue
+            locus.add_transcript_to_locus(transcripts[t])
+
+        for pad_distance, max_splice in zip((200, 1000, 5000), (1, 1, 5)):
+            with self.subTest(pad_distance=pad_distance, max_splice=max_splice):
+                logger = create_default_logger("logger", level="WARNING")
+                locus.logger = logger
+                locus.json_conf["pick"]["alternative_splicing"]["ts_distance"] = pad_distance
+                locus.json_conf["pick"]["alternative_splicing"]["ts_max_splices"] = max_splice
+                locus.pad_transcripts()
+
+                if pad_distance != 200:
+                    self.assertEqual(locus["mikado.44G2.1"].end, locus["mikado.44G2.2"].end)
+                    self.assertTrue(locus["mikado.44G2.2"].attributes["padded"])
+                else:
+                    self.assertFalse(locus["mikado.44G2.1"].attributes.get("padded", False))
+
+                self.assertEqual(locus["mikado.44G2.3"].end, locus["mikado.44G2.2"].end)
+                self.assertEqual(locus["mikado.44G2.4"].end, locus["mikado.44G2.2"].end)
+
+                if locus.ts_max_splices == 5:
+                    self.assertEqual(locus["mikado.44G2.4"].end, locus["mikado.44G2.5"].end)
+                    self.assertTrue(locus["mikado.44G2.1"].attributes.get("padded", False))
+                else:
+                    self.assertNotEqual(locus["mikado.44G2.4"].end, locus["mikado.44G2.5"].end)
+                    self.assertFalse(locus["mikado.44G2.1"].attributes.get("padded", False))
 
 
 if __name__ == '__main__':

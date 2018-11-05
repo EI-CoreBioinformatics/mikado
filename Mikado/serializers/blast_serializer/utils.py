@@ -3,7 +3,6 @@ Generic utilities used for BLAST serialising into a DB.
 """
 
 from ...parsers.blast_utils import merge
-from Bio import __version__ as bio_version
 import numpy as np
 
 
@@ -11,8 +10,6 @@ __author__ = 'Luca Venturini'
 
 valid_matches = set([chr(x) for x in range(65, 91)] + [chr(x) for x in range(97, 123)] +
                     ["|", "*"])
-
-bio_version = int(bio_version.split(".")[1])
 
 
 def prepare_hsp(hsp, counter):
@@ -34,43 +31,37 @@ def prepare_hsp(hsp, counter):
     :rtype: (dict, set, set)
     """
 
-    identical_positions, positives = set(), set()
-
     hsp_dict = dict()
-    # We must start from 1, otherwise MySQL crashes
-    # as its indices start from 1 not 0
+    # We must start from 1, otherwise MySQL crashes as its indices start from 1 not 0
+    match, identical_positions, positives = _prepare_aln_strings(hsp)
     hsp_dict["counter"] = counter + 1
     hsp_dict["query_hsp_start"] = hsp.query_start
     hsp_dict["query_hsp_end"] = hsp.query_end
     hsp_dict["query_frame"] = hsp.query_frame
-    # Prepare the list for later calculation
-    # q_intervals.append((hsp.query_start, hsp.query_end))
-
-    # hsp_dict["target_hsp_start"] = hsp.sbjct_start
-    # hsp_dict["target_hsp_end"] = hsp.sbjct_end
     hsp_dict["target_hsp_start"] = hsp.hit_start
     hsp_dict["target_hsp_end"] = hsp.hit_end
     hsp_dict["target_frame"] = hsp.hit_frame
-
-    # Prepare the list for later calculation
-    # t_intervals.append((hsp.sbjct_start, hsp.sbjct_end))
-
-    # hsp_dict["hsp_identity"] = hsp.identities / hsp.align_length * 100
-    # hsp_dict["hsp_positives"] = hsp.positives / hsp.align_length * 100
     hsp_dict["hsp_identity"] = hsp.ident_num / hsp.aln_span * 100
     hsp_dict["hsp_positives"] = hsp.pos_num / hsp.aln_span * 100
+    hsp_dict["match"] = match
+    hsp_dict["hsp_length"] = hsp.aln_span
+    hsp_dict["hsp_bits"] = hsp.bitscore
+    hsp_dict["hsp_evalue"] = hsp.evalue
+    return hsp_dict, identical_positions, positives
 
-    # Prepare the list for later calculation
-    # hit_dict["global_identity"].append(hsp_dict["hsp_identity"])
-    match = ""
-    query_pos, target_pos = hsp.query_start - 1, hsp.hit_start - 1
+
+def _prepare_aln_strings(hsp):
+
+    """This private method calculates the identical positions, the positives, and a re-factored match line
+    starting from the HSP."""
+
+    identical_positions, positives = set(), set()
     positive_count, iden_count = 0, 0
     # for query_aa, middle_aa, target_aa in zip(hsp.query, hsp.match, hsp.sbjct):
+    query_pos, target_pos = hsp.query_start - 1, hsp.hit_start - 1
 
-    if bio_version < 69:
-        zipper = zip(hsp.aln_annotation["similarity"], *hsp.aln.get_all_seqs())
-    else:
-        zipper = zip(hsp.aln_annotation["similarity"], *list(hsp.aln))
+    match = ""
+    zipper = zip(hsp.aln_annotation["similarity"], *list(hsp.aln))
 
     for middle_aa, query_aa, target_aa in zipper:
         if middle_aa in valid_matches or middle_aa == "+":
@@ -98,25 +89,8 @@ def prepare_hsp(hsp, counter):
                 match += "_"
 
     assert query_pos <= hsp.query_end and target_pos <= hsp.hit_end
-    # assert positive_count == hsp.positives and iden_count == hsp.identities
-    # assert positive_count == hsp.pos_num and iden_count == hsp.ident_num
 
-    hsp_dict["match"] = match
-
-    hsp_dict["hsp_length"] = hsp.aln_span
-    hsp_dict["hsp_bits"] = hsp.bitscore
-    hsp_dict["hsp_evalue"] = hsp.evalue
-
-    return hsp_dict, identical_positions, positives
-
-
-# Splitting this function would make it less clear, and the internal variables
-# are all necessary for a correct serialisation.
-# pylint: disable=too-many-locals
-
-# class InvalidHit(ValueError):
-#
-#     pass
+    return match, identical_positions, positives
 
 
 def prepare_hit(hit, query_id, target_id, **kwargs):
@@ -185,21 +159,23 @@ def prepare_hit(hit, query_id, target_id, **kwargs):
     assert isinstance(qend, np.int), (q_merged_intervals, type(qend))
 
     hit_dict["query_start"], hit_dict["query_end"] = qstart, qend
+    qmulti = kwargs["query_multiplier"]
+    assert isinstance(qmulti, float)
 
-    if len(identical_positions) * kwargs["query_multiplier"] > q_aligned:
+    if len(identical_positions) * qmulti > q_aligned:
         raise ValueError("Number of identical positions ({}) greater than number of aligned positions ({})!".format(
-            len(identical_positions) * kwargs["query_multiplier"], q_aligned))
+            len(identical_positions) * qmulti, q_aligned))
 
-    if len(positives) * kwargs["query_multiplier"] > q_aligned:
+    if len(positives) * qmulti > q_aligned:
         raise ValueError("Number of identical positions ({}) greater than number of aligned positions ({})!".format(
-            len(positives) * kwargs["query_multiplier"], q_aligned))
+            len(positives) * qmulti, q_aligned))
 
     t_merged_intervals, t_aligned = merge(t_intervals)
     hit_dict["target_aligned_length"] = t_aligned
     hit_dict["target_start"] = t_merged_intervals[0][0]
     hit_dict["target_end"] = t_merged_intervals[-1][1]
-    hit_dict["global_identity"] = len(identical_positions) * 100 * kwargs["query_multiplier"] / q_aligned
-    hit_dict["global_positives"] = len(positives) * 100 * kwargs["query_multiplier"] / q_aligned
+    hit_dict["global_identity"] = len(identical_positions) * 100 * qmulti / q_aligned
+    hit_dict["global_positives"] = len(positives) * 100 * qmulti / q_aligned
 
     return hit_dict, hsp_dict_list
 # pylint: enable=too-many-locals

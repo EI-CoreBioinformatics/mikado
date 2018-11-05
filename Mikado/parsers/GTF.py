@@ -99,9 +99,6 @@ class GtfLine(GFAnnotation):
         else:
             gene = self.gene
         self.attributes['gene_id'] = gene
-        if self.attributes['transcript_id'] is None:
-            self.attributes['transcript_id'] = self.transcript
-
         order = ['gene_id', 'transcript_id', 'exon_number', 'gene_name', 'transcript_name']
 
         for tag in order:
@@ -273,7 +270,7 @@ class GtfLine(GFAnnotation):
         True if we are looking at a transcript, False otherwise.
         :rtype : bool
         """
-        if self.is_transcript is True:
+        if any([self.is_transcript, self.is_gene]):
             return True
         return False
 

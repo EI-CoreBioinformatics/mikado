@@ -77,20 +77,13 @@ def __basic_final_checks(transcript):
                 raise ValueError("Invalid exon: {0}, type {1}".format(
                     exon, type(exon)))
         if exon[0] < transcript.start or exon[1] > transcript.end:
-            invalid = True
-            break
+            exc = InvalidTranscript("{} for {} is an invalid exon (start {}, end {})".format(
+                exon, transcript.id, transcript.start, transcript.end))
+            transcript.logger.exception(exc)
+            raise exc
         new_exons.append(exon)
 
     transcript.exons = sorted(new_exons)
-
-    if invalid:
-        exc = InvalidTranscript("""Exons out of bounds of the transcript:
-        ({start}, {end})
-        Exons: {exons}""".format(start=transcript.start,
-                                 end=transcript.end,
-                                 exons=transcript.exons))
-        transcript.logger.exception(exc)
-        raise exc
 
     if transcript._accept_undefined_multi is False and len(transcript.exons) > 1 and transcript.strand is None:
 

@@ -638,10 +638,9 @@ reached the maximum number of isoforms for the locus".format(
                 continue
             first = comm.popleft()
             five_found.add(first)
-            comm_start = self[first].start
-
             for tid in comm:
-                __to_modify[tid] = [comm_start, False]
+                # Now I have to find all the exons on the left of the transcript's end
+                __to_modify[tid] = [self[first].exons, False]
                 self.logger.debug("%s marked for modication", tid)
                 five_found.add(tid)
             comm = deque([_ for _ in comm if _ not in five_found])
@@ -662,12 +661,11 @@ reached the maximum number of isoforms for the locus".format(
                 continue
             first = comm.popleft()
             three_found.add(first)
-            comm_end = self[first].end
             for tid in comm:
                 if tid in __to_modify:
-                    __to_modify[tid][1] = comm_end
+                    __to_modify[tid][1] = self[first].exons
                 else:
-                    __to_modify[tid] = [False, comm_end]
+                    __to_modify[tid] = [False, self[first].exons]
                 three_found.add(tid)
 
             comm = deque([_ for _ in comm if _ not in three_found])
@@ -838,11 +836,11 @@ reached the maximum number of isoforms for the locus".format(
         return self.json_conf["pick"]["alternative_splicing"]["ts_max_splices"]
 
 
-def expand_transcript(transcript, new_start, new_end, fai, logger):
+def expand_transcript(transcript, new_starting_exons, new_final_exons, fai, logger):
 
     # If there is nothing to do, just get out
-    if ((not new_start or new_start >= transcript.start) and
-            (not new_end or new_end <= transcript.end)):
+
+    if not new_starting_exons and not new_final_exons:
         logger.debug("%s does not need to be expanded, exiting", transcript.id)
         return transcript
 
@@ -868,29 +866,49 @@ def expand_transcript(transcript, new_start, new_end, fai, logger):
 
     upstream = 0
     downstream = 0
-    if new_start and new_start < transcript.start:
-        __new_exon = (new_start, transcript.exons[0][1])
-        upstream = transcript.start - new_start
-        transcript.start = new_start
-        transcript.remove_exon(transcript.exons[0])
-        transcript.add_exon(__new_exon)
-        transcript.exons = sorted(transcript.exons)
-    if new_end and new_end > transcript.end:
-        __new_exon = (transcript.exons[-1][0], new_end)
-        downstream = new_end - transcript.end
-        transcript.end = new_end
-        transcript.remove_exon(transcript.exons[-1])
-        transcript.add_exon(__new_exon)
-        transcript.exons = sorted(transcript.exons)
+    up_exons = []
+    if new_starting_exons:
+        start_exon = transcript.exons[0]
+        for exon in new_starting_exons:
+            transcript.start = min(start_exon[0], exon[0])
+            if overlap(start_exon, exon) > 0:
+                transcript.remove_exon(start_exon)
+                upstream += max(0, start_exon[0] - exon[0])
+                new_exon = (min(exon[0], start_exon[0]), start_exon[1])
+            elif exon[1] < start_exon[0]:
+                new_exon = exon
+                upstream += exon[1] - exon[0] + 1
+            else:
+                continue
+            up_exons.append(new_exon)
+
+    down_exons = []
+    if new_final_exons:
+        end_exon = transcript.exons[-1]
+        for exon in new_final_exons:
+            transcript.end = max(end_exon[1], exon[1])
+            if overlap(exon, end_exon) > 0:
+                transcript.remove_exon(end_exon)
+                downstream += max(0, exon[1] - end_exon[1])
+                new_exon = (end_exon[0], max(end_exon[1], exon[1]))
+            elif exon[0] > end_exon[1]:
+                new_exon = exon
+                downstream += exon[1] - exon[0] + 1
+            else:
+                continue
+            down_exons.append(new_exon)
+
+    new_exons = up_exons + down_exons
+    if new_exons:
+        transcript.add_exons(new_exons)
 
     transcript.finalize()
     if transcript.strand == "-":
         downstream, upstream = upstream, downstream
 
     # Now for the difficult part
-    if internal_orfs and (new_start or new_end):
-        logger.debug("Enlarging the ORFs for TID %s (%s)",
-                     transcript.id, (new_start, new_end))
+    if internal_orfs and (up_exons or down_exons):
+        logger.debug("Enlarging the ORFs for TID %s", transcript.id)
         new_orfs = []
 
         assert transcript.end <= len(fai[transcript.chrom]), (transcript.end, len(fai[transcript.chrom]))
@@ -904,6 +922,10 @@ def expand_transcript(transcript, new_start, new_end, fai, logger):
             raise InvalidTranscript(error)
         seq = TranscriptChecker(transcript, genome_seq).cdna
         assert len(seq) == transcript.cdna_length, (len(seq), transcript.cdna_length, transcript.exons)
+        assert len(seq) == backup.cdna_length + upstream + downstream, (
+            len(seq), backup.cdna_length + upstream + downstream,
+            backup.cdna_length, upstream, downstream, new_starting_exons, new_final_exons, backup.exons)
+
         for orf in internal_orfs:
             logger.debug("Old ORF: %s", str(orf))
             try:
@@ -913,8 +935,8 @@ def expand_transcript(transcript, new_start, new_end, fai, logger):
             except AssertionError as err:
                 logger.error(err)
                 logger.error("%s, %s, %s, %s, %s, %s",
-                             new_start,
-                             new_end,
+                             new_starting_exons,
+                             new_final_exons,
                              upstream,
                              downstream,
                              transcript.exons,

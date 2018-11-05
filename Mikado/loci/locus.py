@@ -867,27 +867,31 @@ def expand_transcript(transcript, new_starting_exons, new_final_exons, fai, logg
     upstream = 0
     downstream = 0
     up_exons = []
-    if new_starting_exons:
+    if new_starting_exons is not False:
+        new_starting_introns = [(new_starting_exons[pos][1] + 1, new_starting_exons[pos + 1][0] - 1)
+                                for pos in range(len(new_starting_exons) - 1)]
         start_exon = transcript.exons[0]
-        for exon in new_starting_exons:
+        for exon, intron in itertools.zip_longest(new_starting_exons, new_starting_introns):
             transcript.start = min(start_exon[0], exon[0])
-            if overlap(start_exon, exon) > 0:
+            # Case 1 and 3: overlap with exon
+            # Case 2 and 4: overlap with intron
+            if overlap(start_exon, exon) > 0 or (intron is not None and overlap(start_exon, intron) > 0):
                 transcript.remove_exon(start_exon)
                 upstream += max(0, start_exon[0] - exon[0])
                 new_exon = (min(exon[0], start_exon[0]), start_exon[1])
-            elif exon[1] < start_exon[0]:
-                new_exon = exon
-                upstream += exon[1] - exon[0] + 1
             else:
                 continue
             up_exons.append(new_exon)
 
     down_exons = []
     if new_final_exons:
+        new_final_introns = [(new_final_exons[pos][1] + 1, new_final_exons[pos + 1][0] - 1)
+                             for pos in range(len(new_final_exons) - 1)]
+
         end_exon = transcript.exons[-1]
-        for exon in new_final_exons:
+        for exon, intron in itertools.zip_longest(new_final_exons, new_final_introns):
             transcript.end = max(end_exon[1], exon[1])
-            if overlap(exon, end_exon) > 0:
+            if overlap(exon, end_exon) > 0 or (intron is not None and overlap(end_exon, intron) > 0):
                 transcript.remove_exon(end_exon)
                 downstream += max(0, exon[1] - end_exon[1])
                 new_exon = (end_exon[0], max(end_exon[1], exon[1]))

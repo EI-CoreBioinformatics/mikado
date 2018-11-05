@@ -2591,14 +2591,14 @@ index {3}, internal ORFs: {4}".format(
         """This metric returns a score that is assigned to the transcript
         in virtue of its origin."""
 
-        if (self.json_conf and "pick" in self.json_conf and
-                self.source in self.json_conf["pick"]["source_score"]):
-            return self.json_conf["pick"]["source_score"][self.source]
+        if self.json_conf is not None:
+            return self.json_conf.get("prepare", {}).get("files", {}).get(
+                "source_score", {}).get(self.source, 0)
         else:
             return 0
 
     source_score.category = "External"
-    source_score.rtype = "int"
+    source_score.rtype = "float"
 
     @Metric
     def selected_end_distance_from_tes(self):

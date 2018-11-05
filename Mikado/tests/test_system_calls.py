@@ -489,6 +489,70 @@ class PrepareCheck(unittest.TestCase):
         self.assertEqual(cds[0].phase, 2)
         fa.close()
 
+    def test_source_selection(self):
+
+        # Chr5	TAIR10	mRNA	208937	210445	.	+	.	gene_id "AT5G01530"; transcript_id "AT5G01530.0";
+        # Chr5	TAIR10	exon	208937	209593	.	+	.	gene_id "AT5G01530"; transcript_id "AT5G01530.0";
+        # Chr5	TAIR10	exon	209881	210445	.	+	.	gene_id "AT5G01530"; transcript_id "AT5G01530.0";
+
+        self.conf["prepare"]["files"]["output_dir"] = tempfile.gettempdir()
+        self.conf["prepare"]["files"]["out_fasta"] = "mikado_prepared.fasta"
+        self.conf["prepare"]["files"]["out"] = "mikado_prepared.gtf"
+        self.conf["prepare"]["strip_cds"] = False
+        self.conf["prepare"]["keep_redundant"] = False
+
+        self.conf["reference"]["genome"] = self.__genomefile__.name
+
+        t = Transcript()
+        t.chrom, t.start, t.end, t.strand = "Chr5", 208937, 210445, "+"
+        t.add_exons([(208937, 209593), (209881, 210445)])
+        t.id = "file1.1"
+        t.parent = "file1"
+        t.finalize()
+
+        t2 = t.deepcopy()
+        t2.id = "file2.1"
+        t2.parent = "file2"
+
+        t_file = tempfile.NamedTemporaryFile(mode="wt", suffix=".gtf")
+        t2_file = tempfile.NamedTemporaryFile(mode="wt", suffix=".gtf")
+        print(t.format("gtf"), file=t_file)
+        t_file.flush()
+        print(t2.format("gtf"), file=t2_file)
+        t2_file.flush()
+
+        self.conf["prepare"]["files"]["gff"] = [t_file.name, t2_file.name]
+        self.conf["prepare"]["files"]["labels"] = ["T1", "T2"]
+
+        rounds = {
+            0: [0, 0, "rand"],
+            1: [-2, -2, "rand"],
+            2: [10, 10, "rand"],
+            3: [0, 0, "rand"],
+            4: [1, 0, "T1_file1.1"],
+            5: [0, 1, "T2_file2.1"],
+            6: [0, 1, "T2_file2.1"],
+            7: [0, 1, "T2_file2.1"],
+            8: [1, 0, "T1_file1.1"],
+            9: [10, 9, "T1_file1.1"],
+            10: [9, 10, "T2_file2.1"]
+        }
+
+        for round in rounds:
+            with self.subTest(round=round, msg="Starting round {} ({})".format(round, rounds[round])):
+                t1, t2, res = rounds[round]
+                self.conf["prepare"]["files"]["source_score"] = {"T1": t1, "T2": t2}
+                args = Namespace()
+                args.strip_cds = False
+                args.json_conf = self.conf
+                prepare.prepare(args, self.logger)
+                self.assertGreater(os.stat(self.conf["prepare"]["files"]["out_fasta"]).st_size, 0)
+                fa = pyfaidx.Fasta(self.conf["prepare"]["files"]["out_fasta"])
+                self.assertEqual(len(fa.keys()), 1, round)
+                if res != "rand":
+                    key = list(fa.keys())[0]
+                    self.assertEqual(key, res, round)
+
 
 class CompareCheck(unittest.TestCase):
 

@@ -197,7 +197,7 @@ def create_config(args):
             config["prepare"]["files"]["strand_specific_assemblies"] = args.strand_specific_assemblies
 
     elif args.list:
-        config["pick"]["source_score"] = dict()
+        config["prepare"]["files"]["source_score"] = dict()
         with open(args.list) as list_file:
             files, labels, strandedness, scores = [], [], [], []
             files_counter = Counter()
@@ -232,7 +232,7 @@ def create_config(args):
             config["prepare"]["files"]["strand_specific_assemblies"] = [files[_[0]] for _ in enumerate(strandedness)
                                                                         if _[1] == "True"]
             for source, score in zip(labels, scores):
-                config["pick"]["source_score"][source] = score
+                config["prepare"]["files"]["source_score"][source] = score
 
     elif args.no_files is True:
         for stage in ["pick", "prepare", "serialise"]:

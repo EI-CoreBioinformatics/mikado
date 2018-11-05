@@ -49,7 +49,6 @@ def store_transcripts(shelf_stacks, logger, keep_redundant=False):
     and organises the data into a proper dictionary.
     :param shelf_stacks: dictionary containing the name and the handles of the shelf DBs
     :type shelf_stacks: dict
-
     :param logger: logger instance.
     :type logger: logging.Logger
 
@@ -61,14 +60,13 @@ def store_transcripts(shelf_stacks, logger, keep_redundant=False):
     """
 
     transcripts = collections.defaultdict(dict)
-
     for shelf_name in shelf_stacks:
-
+        shelf_score = shelf_stacks[shelf_name]["score"]
         for values in shelf_stacks[shelf_name]["cursor"].execute("SELECT chrom, start, end, strand, tid FROM dump"):
             chrom, start, end, strand, tid = values
             if (start, end) not in transcripts[chrom]:
-                transcripts[chrom][(start, end)] = []
-            transcripts[chrom][(start, end)].append((tid, shelf_name))
+                transcripts[chrom][(start, end)] = list()
+            transcripts[chrom][(start, end)].append((tid, shelf_name, shelf_score))
 
     for chrom in sorted(transcripts.keys()):
 
@@ -82,44 +80,33 @@ def store_transcripts(shelf_stacks, logger, keep_redundant=False):
             if len(tids) > 1:
                 exons = collections.defaultdict(list)
                 di_features = dict()
-                for tid, shelf in tids:
+                for tid, shelf, score in tids:
                     strand, features = next(shelf_stacks[shelf]["cursor"].execute(
                         "select strand, features from dump where tid = ?", (tid,)))
                     features = json.loads(features)
                     exon_set = tuple(sorted([(exon[0], exon[1], strand) for exon in
                                             features["features"]["exon"]],
                                             key=operator.itemgetter(0, 1)))
-
-                    # exon_set = tuple(sorted(
-                    #     [(exon[0], exon[1], shelf_stacks[shelf][tid]["strand"]) for exon in
-                    #      shelf_stacks[shelf][tid]["features"]["exon"]],
-
-                    exons[exon_set].append((tid, shelf))  #, features))
+                    exons[exon_set].append((tid, shelf, score))
                     di_features[tid] = features
                 tids = []
                 logger.debug("%d exon chains for pos %s",
                              len(exons), "{}:{}-{}".format(chrom, key[0], key[1]))
                 for tid_list in exons.values():
                     if len(tid_list) > 1 and keep_redundant is False:
-
-                        # to_keep = random.choice(tid_list)
-                        # logger.debug("Keeping only %s out of the list",
-                        #              to_keep)
-                        # tids.append(to_keep)
-
-                        # If we are *not* stripping the CDS we have to double check that the redundancy extends to
-                        # that as well.
-
                         cds = collections.defaultdict(list)
-                        for tid, shelf in tid_list:
+                        for tid, shelf, score in tid_list:
                             cds_set = tuple(sorted([(exon[0], exon[1]) for exon in
                                                     di_features[tid]["features"].get("CDS", [])]))
-                            cds[cds_set].append((tid, shelf))
-
+                            cds[cds_set].append((tid, shelf, score))
+                        # Now checking the CDS
                         for cds_list in cds.values():
                             if len(cds_list) > 1:
                                 logger.debug("The following transcripts are redundant: %s",
                                              ",".join([_[0] for _ in cds_list]))
+                            # TODO: we have to select things so that we prioritise transcripts correctly
+                            max_score = max([_[2] for _ in cds_list])
+                            cds_list = [_ for _ in cds_list if _[2] == max_score]
                             to_keep = random.choice(cds_list)
                             for tid in cds_list:
                                 if tid != to_keep:
@@ -131,9 +118,9 @@ def store_transcripts(shelf_stacks, logger, keep_redundant=False):
                     else:
                         tids.extend(tid_list)
 
-            # seq = chrom_seq[key[0]-1:key[1]]
             for tid in tids:
                 # counter += 1
+                tid = tid[:2]
                 assert len(tid) == 2, tid
                 yield [tid, chrom, key]
 
@@ -258,7 +245,7 @@ def load_exon_lines(args, shelve_names, logger, min_length=0):
     :param min_length: minimal length of the transcript.
     If it is not met, the transcript will be discarded.
     :type min_length: int
-
+f
     :return: exon_lines
     :rtype: collections.defaultdict[list]
     """
@@ -446,10 +433,15 @@ def prepare(args, logger):
             # min_length=args.json_conf["prepare"]["minimum_length"]
         )
 
+        shelve_source_scores = []
+        for label in args.json_conf["prepare"]["files"]["labels"]:
+            shelve_source_scores.append(
+                args.json_conf["prepare"]["files"]["source_score"].get(label, 0)
+            )
         try:
-            for shelf in shelve_names:
+            for shelf, score in zip(shelve_names, shelve_source_scores):
                 conn = sqlite3.connect(shelf)
-                shelf_stacks[shelf] = {"conn": conn, "cursor": conn.cursor()}
+                shelf_stacks[shelf] = {"conn": conn, "cursor": conn.cursor(), "score": score}
             # shelf_stacks = dict((_, shelve.open(_, flag="r")) for _ in shelve_names)
         except Exception as exc:
             raise TypeError((shelve_names, exc))

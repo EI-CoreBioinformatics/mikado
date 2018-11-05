@@ -92,10 +92,12 @@ def setup(args):
 
         args.json_conf["prepare"]["files"]["gff"] = []
         args.json_conf["prepare"]["files"]["labels"] = []
-        args.json_conf["prepare"]["strand_specific_assemblies"] = []
+        args.json_conf["prepare"]["files"]["strand_specific_assemblies"] = []
+        args.json_conf["prepare"]["files"]["source_score"] = dict()
 
         for line in args.list:
-            gff_name, label, stranded = line.rstrip().split("\t")
+            fields = line.rstrip().split("\t")
+            gff_name, label, stranded = fields[:3]
             if stranded not in ("True", "False"):
                 raise ValueError("Malformed line for the list: {}".format(line))
             if gff_name in args.json_conf["prepare"]["files"]["gff"]:
@@ -108,6 +110,12 @@ def setup(args):
             args.json_conf["prepare"]["files"]["labels"].append(label)
             if stranded == "True":
                 args.json_conf["prepare"]["strand_specific_assemblies"].append(gff_name)
+            if len(fields) > 3:
+                try:
+                    score = float(fields[3])
+                except ValueError:
+                    score = 0
+                args.json_conf["prepare"]["files"]["source_score"][label] = score
 
     else:
         if args.gff:
@@ -240,7 +248,7 @@ def prepare_parser():
                         help="Comma-delimited list of strand specific assemblies.")
     parser.add_argument("--list", type=argparse.FileType("r"),
                         help="""Tab-delimited file containing rows with the following format
-                        <file>  <label> <strandedness>""")
+                        <file>  <label> <strandedness> <score(optional)> <always_keep(optional)>""")
     parser.add_argument("-l", "--log", type=argparse.FileType("w"), default=None,
                         help="Log file. Optional.")
     parser.add_argument("--lenient", action="store_true", default=None,

@@ -98,6 +98,10 @@ Different assemblers will produce data in different formats, typically in GFF or
 If two or more transcripts are found to be identical, only one will be retained, chosen at random among all the possibilities.
 In addition to this, Mikado prepare will also sort the transcripts by coordinate, irrespective of strand, so that they are suitably displayed for the divide-et-impera algorithm of :ref:`Mikado pick <pick>`.
 
+When two or more identical transcripts are present in a locus, Mikado will use the (optionally provided) source score to select the *a priori* best assembly amongst the choices.
+For example, if a mikado prepare run comprises both PacBio reads and Illumina assemblies and the experimenter has given a score of 1 or more to the former dataset but not the latter, if a PacBio read is present together with a stringtie assembly, the PacBio read will always be selected over the StringTie.
+Please note that this "score-based" selection ***only operates for transcripts that are identical**. No other selection is performed at this stage.
+
 .. warning:: To be considered *identical*, two transcripts must match down to the last base pair. A simple match or containment of the intron chain will not suffice. This is because using the cDNA data alone it is difficult to understand whether the longer form(s) is the correct assembly rather than a chimera or a trans-splice event.
 .. note:: From version 1.3 onwards, Mikado considers the CDS as well when performing the redundancy check. So, two transcripts having the same coordinates but different CDS (because of non-overlapping ORFs or disagrement on the frame and/or start codon position) will be kept as non-redundant.
 

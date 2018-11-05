@@ -251,7 +251,15 @@
             "log": {"type": "string", "default": "prepare.log"},
             "gff": { "type": "array", "default": []},
             "labels": {"type": "array", "default": []},
-            "strand_specific_assemblies": {"type": "array", "default": []}
+            "strand_specific_assemblies": {"type": "array", "default": []},
+            "source_score":{
+              "type": "object",
+              "default": {},
+              "properties": {
+                "source": {"type": "string"},
+                "score": {"type": "number"}
+          }
+        }
           }
         },
         "strip_cds": {"type": "boolean", "default": false},
@@ -281,14 +289,6 @@
           "type": "string",
           "default": "plants.yaml"
           },
-        "source_score":{
-          "type": "object",
-          "default": {},
-          "properties": {
-            "source": {"type": "string"},
-            "score": {"type": "number"}
-          }
-        },
         "alternative_splicing": {
           "Comment": [
             "Parameters related to alternative splicing reporting.",

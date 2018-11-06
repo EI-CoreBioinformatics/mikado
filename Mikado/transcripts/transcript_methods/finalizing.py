@@ -710,9 +710,9 @@ def finalize(transcript):
             internal_cds[0] == "CDS")
 
     # Create the internal trees
+    transcript._calculate_segment_tree()
     _ = transcript.cds_tree
     _ = transcript.cds_introntree
-    _ = transcript.segmenttree
 
     # BUG somewhere ... I am not sorting this properly before (why?)
     # transcript.exons = sorted(transcript.exons)

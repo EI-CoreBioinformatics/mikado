@@ -2210,6 +2210,9 @@ class PaddingTester(unittest.TestCase):
                 if locus.ts_max_splices == 5:
                     self.assertEqual(locus["mikado.44G2.4"].end, locus["mikado.44G2.5"].end)
                     self.assertTrue(locus["mikado.44G2.1"].attributes.get("padded", False))
+                    for exon in [(61252, 63112), (66689, 67118)]:
+                        for tid in ["mikado.44G2.1", "mikado.44G2.2", "mikado.44G2.3"]:
+                            self.assertIn(exon, locus[tid].exons)
                 else:
                     self.assertNotEqual(locus["mikado.44G2.4"].end, locus["mikado.44G2.5"].end)
                     self.assertFalse(locus["mikado.44G2.1"].attributes.get("padded", False))

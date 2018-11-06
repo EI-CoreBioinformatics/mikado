@@ -1251,6 +1251,33 @@ class Transcript:
 
         self.__derived_children.add(name)
 
+    def find(self, *args, **kwargs):
+
+        """Alias for search"""
+
+        self.search(*args, **kwargs)
+
+    def search(self, start, end, value=None, max_distance=0):
+
+        """Method to use the segment tree to find all segments intersecting the given segment."""
+        return self.segmenttree.search(start, end, max_distance=max_distance, value=value)
+
+    def find_upstream(self, start, end):
+
+        """Method to use the segment tree to find all segments in the transcript upstream of a given interval."""
+        return self.segmenttree.upstream_of_interval(Interval(start, end),
+                                                     num_intervals=self.exon_num + len(self.introns),
+                                                     max_dist=len(self))
+
+    def find_downstream(self, start, end):
+
+        """Method to use the segment tree to find all segments in the transcript downstream of a given interval."""
+
+        return self.segmenttree.downstream_of_interval(Interval(start, end),
+                                                       num_intervals=self.exon_num + len(self.introns),
+                                                       max_dist=len(self))
+
+
     # ###################Class methods#####################################
 
     @classmethod
@@ -2054,7 +2081,7 @@ index {3}, internal ORFs: {4}".format(
     def segmenttree(self):
 
         if len(self.__segmenttree) != self.exon_num + len(self.introns):
-            self.__calculate_segment_tree()
+            self._calculate_segment_tree()
 
         return self.__segmenttree
 
@@ -2070,12 +2097,14 @@ index {3}, internal ORFs: {4}".format(
                 [(_[0], _[1] + 1) for _ in self.combined_cds_introns])
         return self.__cds_introntree
 
-    def __calculate_segment_tree(self):
+    def _calculate_segment_tree(self):
 
-        self.__segmenttree = IntervalTree.from_tuples(
-                [Interval(*_, value="exon") for _ in self.exons] + [Interval(*_, value="intron") for _ in self.introns]
-            )
+        self.__segmenttree = IntervalTree()
+        for exon in self.exons:
+            self.__segmenttree.add(exon[0], exon[1], value=Interval(exon[0], exon[1], value="exon"))
 
+        for intron in self.introns:
+            self.__segmenttree.add(intron[0], intron[1], value=Interval(intron[0], intron[1], value="intron"))
 
     @property
     def derived_children(self):

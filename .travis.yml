@@ -21,7 +21,7 @@ install:
   - conda create --yes -n env_name python=$TRAVIS_PYTHON_VERSION
   - source activate env_name
   - conda install --yes setuptools cython atlas numpy scipy scikit-learn biopython
-  - conda install -c diamond prodigal samtools
+  - conda install -c bioconda diamond prodigal samtools
   - pip install codecov;
   - pip install -r requirements.txt
   - python3 setup.py develop;

@@ -104,6 +104,8 @@ Please note that this "score-based" selection ***only operates for transcripts t
 
 .. warning:: To be considered *identical*, two transcripts must match down to the last base pair. A simple match or containment of the intron chain will not suffice. This is because using the cDNA data alone it is difficult to understand whether the longer form(s) is the correct assembly rather than a chimera or a trans-splice event.
 .. note:: From version 1.3 onwards, Mikado considers the CDS as well when performing the redundancy check. So, two transcripts having the same coordinates but different CDS (because of non-overlapping ORFs or disagrement on the frame and/or start codon position) will be kept as non-redundant.
+.. note:: Transcripts that are considered to come from a "reference" assembly are never going to be excluded, and will always be prioritised over other assemblies.
+
 
 Check on strand correctness
 ---------------------------
@@ -117,6 +119,15 @@ During its run, Mikado prepare will also check the correctness of the transcript
 The couples of splice acceptors and donors which are considered as canonical :ref:`can be specified in the configuration file <canonical-configuration>`. By default, Mikado will consider as canonical both properly canonical splicing event (GT-AG) as well as the semi-canonical events (GC-AG, AT-AC). Any other couple will be considered as non-canonical.
 
 .. warning:: Mikado will check the strand of each junction inside a transcript *independently*. Therefore, if a transcript with 9 junctions on the plus strand is found to have a non-canonical splicing junction **which happens to be the reverse of a canonical one** (eg. CT-AC), it will deem this junction as misassigned to the wrong strand and flip it to the minus strand. In this example, the transcript will therefore be **considered as an error** as it contains both + and - junctions, and discarded.
+
+.. note:: Starting from Mikado version **1.3**, transcripts can be tagged as being from an assembly of "reference" quality. This implies that:
+
+* A transcript which is marked as “reference” will never have its CDS stripped
+* A transcript which is marked as “reference” will never be marked for removal due to redundancy, even if there are multiple copies of it, or if other assemblies with a higher score have identical transcripts (normally only one transcript would be retained, and that would be chosen amongst the highest scoring assemblies)
+* A transcript which is marked as reference will never have its strand removed or flipped.
+
+Please see the :ref:`configuration help page <configure>` for details.
+
 
 Output files
 ------------

@@ -3,6 +3,7 @@ python:
   - "3.4"
   - "3.5"
   - "3.6"
+  - "3.7"
 # Setup anaconda, see https://gist.github.com/dan-blanchard/7045057
 before_install:
   - wget https://repo.continuum.io/miniconda/Miniconda3-4.2.12-Linux-x86_64.sh -O miniconda.sh
@@ -18,12 +19,13 @@ install:
   - conda create --yes -n env_name python=$TRAVIS_PYTHON_VERSION
   - source activate env_name
   - conda install --yes setuptools cython atlas numpy scipy scikit-learn biopython
+  - conda install -c diamond prodigal samtools
   - pip install codecov;
   - pip install -r requirements.txt
   - python3 setup.py develop;
 script:
   - touch plants.yaml && python -c "import Mikado; print(Mikado.__version__)" && rm plants.yaml;  # This is to verify we fixed bug #124
   - coverage run setup.py nosetests -exe;
+  - cd sample_data; snakemake
 after_success:
   - codecov 
-

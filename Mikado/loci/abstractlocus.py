@@ -1150,7 +1150,10 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
         if param.startswith("external"):
             # For external metrics, we have a tuple - first item is score, second item is usable_raw
-            metrics = dict((tid, getattr(self.transcripts[tid], param)[0]) for tid in self.transcripts)
+            try:
+                metrics = dict((tid, getattr(self.transcripts[tid], param)[0]) for tid in self.transcripts)
+            except TypeError:
+                raise TypeError(param)
         else:
             metrics = dict((tid, getattr(self.transcripts[tid], param)) for tid in self.transcripts)
 

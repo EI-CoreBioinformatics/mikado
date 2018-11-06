@@ -414,8 +414,10 @@ def prepare(args, logger):
             for member in args.json_conf["prepare"]["files"]["gff"]]
 
     args.json_conf["prepare"]["files"]["reference"] = [
-        (member in args.json_conf["prepare"]["files"]["reference"])
-        for member in args.json_conf["prepare"]["files"]["gff"]
+        (member in args.json_conf["prepare"]["files"]["reference"] or
+         label in args.json_conf["prepare"]["files"]["reference"])
+        for member, label in zip(args.json_conf["prepare"]["files"]["gff"],
+                                 args.json_conf["prepare"]["files"]["labels"])
     ]
 
     shelve_names = [path_join(args.json_conf["prepare"]["files"]["output_dir"],

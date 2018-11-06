@@ -72,8 +72,8 @@ rule daijin:
         sub=os.path.join("Daijin", "5-mikado", "pick", "permissive", "mikado.subloci.gff3"),
         # mono=os.path.join("Daijin", "5-mikado", "pick", "permissive", "mikado.monoloci.gff3"),
         prep=os.path.join("Daijin", "5-mikado", "mikado_prepared.gtf")
-    message: "daijin mikado --nolock configuration.yaml"
-    shell: "daijin mikado --nolock configuration.yaml"
+    message: "daijin mikado --jobs 1 --cores 2 --threads 2 -nd --nolock configuration.yaml"
+    shell: "daijin mikado --jobs 1 --cores 2 --threads 2 -nd --nolock configuration.yaml"
 
 rule index_reference:
     input: reference="reference.gff3"

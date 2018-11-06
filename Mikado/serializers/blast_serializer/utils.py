@@ -160,7 +160,7 @@ def prepare_hit(hit, query_id, target_id, **kwargs):
 
     hit_dict["query_start"], hit_dict["query_end"] = qstart, qend
     qmulti = kwargs["query_multiplier"]
-    assert isinstance(qmulti, float)
+    assert isinstance(qmulti, (int, float)), type(qmulti)
 
     if len(identical_positions) * qmulti > q_aligned:
         raise ValueError("Number of identical positions ({}) greater than number of aligned positions ({})!".format(

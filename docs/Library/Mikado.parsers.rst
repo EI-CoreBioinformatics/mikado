@@ -10,7 +10,6 @@ Submodules
    Mikado.parsers.GTF
    Mikado.parsers.bed12
    Mikado.parsers.blast_utils
-   Mikado.parsers.blast_xml
    Mikado.parsers.gfannotation
 
 Module contents

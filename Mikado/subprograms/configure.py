@@ -213,7 +213,7 @@ def create_config(args):
                         raise ValueError("Non-unique label specified: {}".format(label))
                     labels.append(label)
                     strandedness.append(stranded)
-                    if len(_fields) > 3:
+                    if len(_fields) > 3 and _fields[3] != '':
                         score = float(_fields[3])
                     else:
                         score = 0

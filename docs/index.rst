@@ -13,6 +13,8 @@
    :target: https://www.python.org/downloads/release/python-351/
 .. |python_36_badge| image:: https://img.shields.io/badge/python-3.6-blue.svg
    :target: https://www.python.org/downloads/release/python-360/
+.. |python_37_badge| image:: https://img.shields.io/badge/python-3.7-blue.svg
+   :target: https://www.python.org/downloads/release/python-371/
 .. |snake_badge| image:: https://img.shields.io/badge/snakemake-≥3.5.2-brightgreen.svg?style=flat-square)]
    :target: https://bitbucket.org/snakemake/snakemake/wiki/Home
 .. |travis_status| image:: https://travis-ci.org/lucventurini/mikado.svg?branch=master
@@ -56,7 +58,10 @@ Luca Venturini, Shabhonam Caim, Gemy Kaithakottil, Daniel Lee Mapleson, David Sw
 Availability and License
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
-Open source code available on github: `https://github.com/lucventurini/mikado <https://github.com/lucventurini/mikado>`_
+Open source code available on github:
+* `https://github.com/EI-CoreBioinformatics/mikado <https://github.com/EI-CoreBioinformatics/mikado>`_
+
+Please report any issue you might encounter to the `EI-CoreBioinformatics issue tracker <https://github.com/EI-CoreBioinformatics/mikado/issues>`.
 
 This documentation is hosted publicly on read the docs: `https://mikado.readthedocs.org/en/latest/ <https://mikado.readthedocs.org/en/latest/>`_
 

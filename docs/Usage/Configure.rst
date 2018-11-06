@@ -31,6 +31,7 @@ Command line parameters:
    #. label for the file
    #. whether that assembly is strand-specific or not (write True/False)
    #. Optionally, a bonus/malus to be associated to transcripts coming from that assembly.
+   #. Optionally, signalling that the assembly is of "reference" quality and therefore its models should be passed through without modifications.
 * *-j*, *json*: flag. If present, the output file will be in JSON rather that YAML format.
 * *mode*: in which mode :ref:`Mikado pick <pick>` will run. See the :ref:`relative section <chimera_splitting>` for further details.
 * *scoring*: scoring file to be used for selection. At the moment, four configuration files are present:
@@ -188,6 +189,10 @@ This section of the configuration file deals with the :ref:`prepare stage of Mik
     * out_fasta: name of the corresponding output FASTA file.
     * output_dir: output directory. It will be created if it does not exist already.
     * strand_specific_assemblies: array of the names of the GFF/GTF files that are strand specific. **All the file names in this array must also appear in the gff array as well.**.
+    * source_score: dictionary linking the scores of each different assembly to a specific score, _**using the label as key**_, which will be applied in two different points:
+      * during the prepare stage itself, in order to give an order priority for transcripts that come from different assemblies.
+      * during the picking stage,
+
 
 .. code-block:: yaml
 
@@ -225,6 +230,8 @@ This section of the configuration file deals with the :ref:`prepare stage of Mik
         out_fasta: mikado_prepared.fasta
         output_dir: .
         strand_specific_assemblies: []
+        reference: []
+        source_score: {}
       keep_redundant: false
       lenient: false
       minimum_length: 200
@@ -329,21 +336,26 @@ This section of the configuration file deals with the :ref:`picking stage of Mik
 * scoring_file: This value specifies the :ref:`scoring file <scoring_files>` to be used for Mikado. These can be found in Mikado.configuration.scoring_files.
 .. hint:: It is possible to ask for the configuration file to be copied in-place for customisation when calling ``mikado configure``.
 
-.. _source_score:
-* source_score: in this section, it is possible to specify boni/mali to be assigned to specific labels. Eg, it might be possible to assign a bonus of 1 to any transcript coming from PacBio reads, or a malus to any transcript coming from a given assembler. Example of such a configuration:
-
-.. code-block:: yaml
-
-    pick:
-        source_score:
-            - Cufflinks: 0
-            - Trinity: 0
-            - PacBio: 2
-            - Stringtie: 1
-
 In this example, we asked Mikado to consider Stringtie transcripts as more trustworthy than the rest (1 additional point), and PacBio transcripts even more so (2 additional points).
 
 Each subsection of the pick configuration will be explained in its own right.
+
+.. _source_score:
+Giving different priorities to transcripts from different assemblies
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+It is possible to specify boni/mali to be assigned to specific labels. Eg, it might be possible to assign a bonus of 1 to any transcript coming from PacBio reads, or a malus to any transcript coming from a given assembler. Example of such a configuration:
+..warning:: Please note that this section, starting from Mikado **1.3**, is hosted under the "prepare/files" area of the configuration.
+
+.. code-block:: yaml
+
+    prepare:
+        files:
+            source_score:
+                - Cufflinks: 0
+                - Trinity: 0
+                - PacBio: 2
+                - Stringtie: 1
 
 .. _configure-alternative-splicing:
 

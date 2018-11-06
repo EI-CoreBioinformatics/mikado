@@ -360,6 +360,20 @@ Chr5	Cufflinks	exon	26577856	26578163	.	-	.	gene_id "cufflinks_star_at.23553";tr
         self.assertEqual(model.strand, "-")
         self.assertEqual(fasta, TranscriptChecker.rev_complement(seq))
 
+    def test_reference_not_flipped(self):
+
+        model = Transcript()
+        model.chrom, model.start, model.end = "Chr5", 9930, 13235
+        model.id, model.parent, model.strand = "AT5G01030.1", "AT5G01030", "-"
+        model.add_exons([(9930, 10172), (10620, 12665), (12797, 13235)])
+        model.add_exons([(10638, 12665), (12797, 13003)], features="CDS")
+        model.finalize()
+        model_fasta = self.fasta["Chr5"][model.start - 1:model.end]
+        check_model = TranscriptChecker(model, model_fasta, is_reference=True)
+        check_model.check_strand()
+        self.assertEqual(check_model.strand, "-")
+        self.assertGreater(check_model.combined_cds_length, 0)
+
 
 class StopCodonChecker(unittest.TestCase):
 

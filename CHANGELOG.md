@@ -35,7 +35,7 @@ Bugfixes and improvements:
 - [#134](https://github.com/lucventurini/mikado/issues/134): when checking for potential Alternative Splicing Events (ASEs), now Mikado will check whether the CDS phases are in frame with each other. Moreover
  **Mikado will now calculate the CDS overlap percentage based on the primary transcript CDS length**, not the minimum CDS length between primary and candidate. Please note that the change **regarding the frame** also affects the monosublocus stage. Mikado still considers only the primary ORFs for the overlap.
 - [#138](https://github.com/lucventurini/mikado/issues/138): Solved a bug which led Mikado to recalculate the phases for each model during picking, potentially creating mistakes for models truncated at the 5' end.
-- [#142](https://github.com/lucventurini/mikado/issues/142): padded transcripts will add terminal exons so that 
+- [#142](https://github.com/lucventurini/mikado/issues/142): padded transcripts will add terminal *exons* rather than just extending their terminal ends. This should prevent the creation of faux retained introns. Please see the issue for more details.
 
 # Version 1.2.4
 

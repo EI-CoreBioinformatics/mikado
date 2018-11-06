@@ -199,12 +199,12 @@ def create_config(args):
     elif args.list:
         config["prepare"]["files"]["source_score"] = dict()
         with open(args.list) as list_file:
-            files, labels, strandedness, scores = [], [], [], []
+            files, labels, strandedness, scores, is_references = [], [], [], [], []
             files_counter = Counter()
             for line in list_file:
                 try:
                     _fields = line.rstrip().split("\t")
-                    filename, label, stranded =  _fields[:3]
+                    filename, label, stranded = _fields[:3]
 
                     if not os.path.exists(filename):
                         raise ValueError("Invalid file name: {}".format(filename))
@@ -218,6 +218,15 @@ def create_config(args):
                     else:
                         score = 0
                     scores.append(score)
+                    if len(_fields) > 4:
+                        if _fields[4] == "True":
+                            is_reference = True
+                        else:
+                            is_reference = False
+                    else:
+                        is_reference = False
+                    is_references.append(is_reference)
+
                 except ValueError as exc:
                     raise ValueError("Malformed inputs file. Error:\n{}".format(exc))
             files_counter.update(files)
@@ -233,6 +242,9 @@ def create_config(args):
                                                                         if _[1] == "True"]
             for source, score in zip(labels, scores):
                 config["prepare"]["files"]["source_score"][source] = score
+
+            config["prepare"]["files"]["reference"] = [list(labels)[_[0]] for _ in enumerate(is_references)
+                                                       if _[1] is True]
 
     elif args.no_files is True:
         for stage in ["pick", "prepare", "serialise"]:

@@ -65,11 +65,11 @@ class AnnotationParser(multiprocessing.Process):
         while True:
             results = self.submission_queue.get()
             try:
-                label, handle, strand_specific, shelf_name = results
+                label, handle, strand_specific, is_reference, shelf_name = results
             except ValueError as exc:
                 raise ValueError("{}.\tValues: {}".format(exc, ", ".join([str(_) for _ in results])))
             if handle == "EXIT":
-                self.submission_queue.put(("EXIT", "EXIT", "EXIT", "EXIT"))
+                self.submission_queue.put(("EXIT", "EXIT", "EXIT", "EXIT", "EXIT"))
                 break
             counter += 1
             self.logger.debug("Received %s (label: %s; SS: %s, shelf_name: %s)",
@@ -87,6 +87,7 @@ class AnnotationParser(multiprocessing.Process):
                                             self.logger,
                                             min_length=self.min_length,
                                             strip_cds=self.__strip_cds,
+                                            is_reference=is_reference,
                                             strand_specific=strand_specific)
                 elif gff_handle.__annot_type__ == "gtf":
                     new_ids = load_from_gtf(shelf_name,
@@ -95,6 +96,7 @@ class AnnotationParser(multiprocessing.Process):
                                             found_ids,
                                             self.logger,
                                             min_length=self.min_length,
+                                            is_reference=is_reference,
                                             strip_cds=self.__strip_cds,
                                             strand_specific=strand_specific)
                 elif gff_handle.__annot_type__ == "bed12":
@@ -103,6 +105,7 @@ class AnnotationParser(multiprocessing.Process):
                                               label,
                                               found_ids,
                                               self.logger,
+                                              is_reference=is_reference,
                                               min_length=self.min_length,
                                               strip_cds=self.__strip_cds,
                                               strand_specific=strand_specific)
@@ -182,6 +185,7 @@ def load_into_storage(shelf_name, exon_lines, min_length, logger, strip_cds=True
             "CREATE TABLE dump (chrom text, start integer, end integer, strand text, tid text, features blob)")
 
     cursor.execute("CREATE INDEX idx ON dump (tid)")
+    logger.debug("Created tables for shelf %s", shelf_name)
 
     for tid in exon_lines:
         if "features" not in exon_lines[tid]:
@@ -248,9 +252,13 @@ def load_into_storage(shelf_name, exon_lines, min_length, logger, strip_cds=True
 
         # Discard transcript under a certain size
         if tlength < min_length:
-            logger.info("Discarding %s because its size (%d) is under the minimum of %d",
-                         tid, tlength, min_length)
-            continue
+            if exon_lines[tid]["is_reference"] is True:
+                logger.info("%s retained even if it is too short (%d) as it is a reference transcript.",
+                            tid)
+            else:
+                logger.info("Discarding %s because its size (%d) is under the minimum of %d",
+                             tid, tlength, min_length)
+                continue
 
         values = json.dumps(exon_lines[tid])
 
@@ -274,6 +282,7 @@ def load_from_gff(shelf_name,
                   found_ids,
                   logger,
                   min_length=0,
+                  is_reference=False,
                   strip_cds=False,
                   strand_specific=False):
     """
@@ -292,10 +301,15 @@ def load_from_gff(shelf_name,
     :type strip_cds: bool
     :param strand_specific: whether the assembly is strand-specific or not.
     :type strand_specific: bool
+    :param is_reference: boolean. If set to True, the transcript will always be retained.
+    :type is_reference: bool
     :return:
     """
 
     exon_lines = dict()
+
+    strip_cds = strip_cds and (not is_reference)
+    strand_specific = strand_specific or is_reference
 
     transcript2genes = dict()
     new_ids = set()
@@ -342,6 +356,7 @@ def load_from_gff(shelf_name,
                 exon_lines[row.id]["features"][row.feature].append((row.start, row.end, row.phase))
 
             exon_lines[row.id]["strand_specific"] = strand_specific
+            exon_lines[row.id]["is_reference"] = is_reference
             continue
         elif row.is_exon is True:
             if not row.is_cds or (row.is_cds is True and strip_cds is False):
@@ -366,7 +381,6 @@ def load_from_gff(shelf_name,
                     row.transcript = ["{0}_{1}".format(label, tid) for tid in row.transcript]
 
                 parents = row.transcript[:]
-                to_delete = set()
                 for tid in parents:
 
                     if tid in found_ids:
@@ -386,6 +400,7 @@ def load_from_gff(shelf_name,
                         exon_lines[tid]["tid"] = tid
                         exon_lines[tid]["parent"] = transcript2genes[tid]
                         exon_lines[tid]["strand_specific"] = strand_specific
+                        exon_lines[tid]["is_reference"] = is_reference
                     elif tid not in exon_lines and tid not in transcript2genes:
                         continue
                     else:
@@ -405,7 +420,9 @@ def load_from_gff(shelf_name,
                 continue
     gff_handle.close()
 
-    load_into_storage(shelf_name, exon_lines, logger=logger, min_length=min_length, strip_cds=strip_cds)
+    logger.info("Starting to load %s", shelf_name)
+    load_into_storage(shelf_name, exon_lines,
+                      logger=logger, min_length=min_length, strip_cds=strip_cds)
 
     return new_ids
 
@@ -416,6 +433,7 @@ def load_from_gtf(shelf_name,
                   found_ids,
                   logger,
                   min_length=0,
+                  is_reference=False,
                   strip_cds=False,
                   strand_specific=False):
     """
@@ -434,10 +452,15 @@ def load_from_gtf(shelf_name,
     :type strip_cds: bool
     :param strand_specific: whether the assembly is strand-specific or not.
     :type strand_specific: bool
+    :param is_reference: boolean. If set to True, the transcript will always be retained.
+    :type is_reference: bool
     :return:
     """
 
     exon_lines = dict()
+
+    strip_cds = strip_cds and (not is_reference)
+    strand_specific = strand_specific or is_reference
 
     # Reduce memory footprint
     [intern(_) for _ in ["chrom", "features", "strand", "attributes", "tid", "parent", "attributes"]]
@@ -470,6 +493,7 @@ def load_from_gtf(shelf_name,
             exon_lines[row.transcript]["tid"] = row.id
             exon_lines[row.transcript]["parent"] = "{}.gene".format(row.id)
             exon_lines[row.transcript]["strand_specific"] = strand_specific
+            exon_lines[row.transcript]["is_reference"] = is_reference
             if "exon_number" in exon_lines[row.transcript]["attributes"]:
                 del exon_lines[row.id]["attributes"]["exon_number"]
             continue
@@ -494,6 +518,7 @@ def load_from_gtf(shelf_name,
             exon_lines[row.id]["tid"] = row.transcript
             exon_lines[row.id]["parent"] = "{}.gene".format(row.id)
             exon_lines[row.id]["strand_specific"] = strand_specific
+            exon_lines[row.id]["is_reference"] = is_reference
         else:
             if row.transcript in to_ignore:
                 continue
@@ -509,7 +534,10 @@ def load_from_gtf(shelf_name,
         exon_lines[row.transcript]["features"][row.feature].append((row.start, row.end, row.phase))
         new_ids.add(row.transcript)
     gff_handle.close()
-    load_into_storage(shelf_name, exon_lines, logger=logger, min_length=min_length, strip_cds=strip_cds)
+    logger.info("Starting to load %s", shelf_name)
+    load_into_storage(shelf_name,
+                      exon_lines,
+                      logger=logger, min_length=min_length, strip_cds=strip_cds)
 
     return new_ids
 
@@ -520,6 +548,7 @@ def load_from_bed12(shelf_name,
                     found_ids,
                     logger,
                     min_length=0,
+                    is_reference=False,
                     strip_cds=False,
                     strand_specific=False):
     """
@@ -538,10 +567,15 @@ def load_from_bed12(shelf_name,
     :type strip_cds: bool
     :param strand_specific: whether the assembly is strand-specific or not.
     :type strand_specific: bool
+    :param is_reference: boolean. If set to True, the transcript will always be retained.
+    :type is_reference: bool
     :return:
     """
 
     exon_lines = dict()
+
+    strip_cds = strip_cds and (not is_reference)
+    strand_specific = strand_specific or is_reference
 
     # Reduce memory footprint
     [intern(_) for _ in ["chrom", "features", "strand", "attributes", "tid", "parent", "attributes"]]
@@ -573,6 +607,7 @@ def load_from_bed12(shelf_name,
             exon_lines[transcript.id]["tid"] = transcript.id
             exon_lines[transcript.id]["parent"] = "{}.gene".format(transcript.id)
             exon_lines[transcript.id]["strand_specific"] = strand_specific
+            exon_lines[transcript.id]["is_reference"] = is_reference
             exon_lines[transcript.id]["features"]["exon"] = [
                 (exon[0], exon[1]) for exon in transcript.exons
             ]
@@ -585,6 +620,7 @@ def load_from_bed12(shelf_name,
                 ]
         new_ids.add(transcript.id)
     gff_handle.close()
-    load_into_storage(shelf_name, exon_lines, logger=logger, min_length=min_length, strip_cds=strip_cds)
+    load_into_storage(shelf_name, exon_lines,
+                      logger=logger, min_length=min_length, strip_cds=strip_cds)
 
     return new_ids

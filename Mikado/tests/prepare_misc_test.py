@@ -218,6 +218,7 @@ class MiscTest(unittest.TestCase):
             lines["features"] = dict()
             lines["features"]["exon"] = [(208937, 209593), (209881, 210445)]
             lines["strand_specific"] = True
+            lines["is_reference"] = False
             self.submission_queue.put((lines, lines["start"], lines["end"], 0))
             self.submission_queue.put(("EXIT", None, None, None))
             proc.start()

@@ -240,7 +240,9 @@
             "- out_fasta: output transcript FASTA file",
             "- gff: array of input predictions for this step.",
             "- log: output log. Default: prepare.log",
-            "- labels: labels to be associated with the input GFFs. Default: None."
+            "- labels: labels to be associated with the input GFFs. Default: None.",
+            "- reference: these files are treated as reference-like, ie, these transcripts will never get discarded",
+            "  during the preparation step."
           ],
           "type": "object",
           "required": ["out", "out_fasta", "gff"],
@@ -252,6 +254,7 @@
             "gff": { "type": "array", "default": []},
             "labels": {"type": "array", "default": []},
             "strand_specific_assemblies": {"type": "array", "default": []},
+            "reference": {"type": "array", "default": []},
             "source_score":{
               "type": "object",
               "default": {},

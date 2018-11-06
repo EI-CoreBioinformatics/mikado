@@ -21,6 +21,7 @@ def create_transcript(lines,
                       start,
                       end,
                       lenient=False,
+                      is_reference=False,
                       strand_specific=False,
                       canonical_splices=(("GT", "AG"),
                                          ("GC", "AG"),
@@ -50,6 +51,9 @@ def create_transcript(lines,
     :type force_keep_cds: bool
 
     :param logger: optional logger to use during processing.
+
+    :param is_reference: boolean. If set, the transcript's strand will not be checked.
+
 
     :rtype: (None|TranscriptChecker)
     """
@@ -94,6 +98,7 @@ def create_transcript(lines,
                                               strand_specific=strand_specific,
                                               canonical_splices=canonical_splices,
                                               force_keep_cds=force_keep_cds,
+                                              is_reference=is_reference,
                                               logger=logger)
         logger.debug("Finished adding exon lines to %s", lines["tid"])
         transcript_object.finalize()
@@ -128,7 +133,6 @@ class CheckingProcess(multiprocessing.Process):
                  gtf_out,
                  tmpdir,
                  lenient=False,
-                 # strand_specific=False,
                  canonical_splices=(("GT", "AG"),
                                     ("GC", "AG"),
                                     ("AT", "AC")),
@@ -167,7 +171,7 @@ class CheckingProcess(multiprocessing.Process):
     def run(self):
 
         checker = functools.partial(create_transcript,
-                                    lenient=self.lenient,
+                                    # lenient=self.lenient,
                                     # strand_specific=self.strand_specific,
                                     canonical_splices=self.canonical,
                                     logger=self.logger)
@@ -190,10 +194,15 @@ class CheckingProcess(multiprocessing.Process):
                                            counter))
                 break
             self.logger.debug("Checking %s", lines["tid"])
+            if "is_reference" not in lines:
+                raise KeyError(lines)
+
             transcript = checker(lines,
                                  str(self.fasta[lines["chrom"]][start-1:end]),
                                  start,
                                  end,
+                                 lenient=self.lenient,
+                                 is_reference=lines["is_reference"],
                                  strand_specific=lines["strand_specific"])
 
             if transcript is None:

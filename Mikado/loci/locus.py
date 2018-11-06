@@ -924,7 +924,7 @@ def expand_transcript(transcript, new_starting_exons, new_final_exons, fai, logg
                                  transcript.start, transcript.end, len(genome_seq))
             logger.error(error)
             raise InvalidTranscript(error)
-        seq = TranscriptChecker(transcript, genome_seq).cdna
+        seq = TranscriptChecker(transcript, genome_seq, is_reference=True).cdna
         assert len(seq) == transcript.cdna_length, (len(seq), transcript.cdna_length, transcript.exons)
         assert len(seq) == backup.cdna_length + upstream + downstream, (
             len(seq), backup.cdna_length + upstream + downstream,

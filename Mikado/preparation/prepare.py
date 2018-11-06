@@ -2,7 +2,7 @@ import os
 import tempfile
 import gc
 from .checking import create_transcript, CheckingProcess
-from .annotation_parser import AnnotationParser, load_from_gtf, load_from_gff
+from .annotation_parser import AnnotationParser, load_from_gtf, load_from_gff, load_from_bed12
 from ..parsers import to_gff
 import operator
 import collections
@@ -62,11 +62,15 @@ def store_transcripts(shelf_stacks, logger, keep_redundant=False):
     transcripts = collections.defaultdict(dict)
     for shelf_name in shelf_stacks:
         shelf_score = shelf_stacks[shelf_name]["score"]
-        for values in shelf_stacks[shelf_name]["cursor"].execute("SELECT chrom, start, end, strand, tid FROM dump"):
-            chrom, start, end, strand, tid = values
-            if (start, end) not in transcripts[chrom]:
-                transcripts[chrom][(start, end)] = list()
-            transcripts[chrom][(start, end)].append((tid, shelf_name, shelf_score))
+        is_reference = shelf_stacks[shelf_name]["is_reference"]
+        try:
+            for values in shelf_stacks[shelf_name]["cursor"].execute("SELECT chrom, start, end, strand, tid FROM dump"):
+                chrom, start, end, strand, tid = values
+                if (start, end) not in transcripts[chrom]:
+                    transcripts[chrom][(start, end)] = list()
+                transcripts[chrom][(start, end)].append((tid, shelf_name, shelf_score, is_reference))
+        except sqlite3.OperationalError:
+            raise sqlite3.OperationalError("dump not found in {}".format(shelf_name))
 
     for chrom in sorted(transcripts.keys()):
 
@@ -80,14 +84,14 @@ def store_transcripts(shelf_stacks, logger, keep_redundant=False):
             if len(tids) > 1:
                 exons = collections.defaultdict(list)
                 di_features = dict()
-                for tid, shelf, score in tids:
+                for tid, shelf, score, is_reference in tids:
                     strand, features = next(shelf_stacks[shelf]["cursor"].execute(
                         "select strand, features from dump where tid = ?", (tid,)))
                     features = json.loads(features)
                     exon_set = tuple(sorted([(exon[0], exon[1], strand) for exon in
                                             features["features"]["exon"]],
                                             key=operator.itemgetter(0, 1)))
-                    exons[exon_set].append((tid, shelf, score))
+                    exons[exon_set].append((tid, shelf, score, is_reference))
                     di_features[tid] = features
                 tids = []
                 logger.debug("%d exon chains for pos %s",
@@ -95,26 +99,29 @@ def store_transcripts(shelf_stacks, logger, keep_redundant=False):
                 for tid_list in exons.values():
                     if len(tid_list) > 1 and keep_redundant is False:
                         cds = collections.defaultdict(list)
-                        for tid, shelf, score in tid_list:
+                        for tid, shelf, score, is_reference in tid_list:
                             cds_set = tuple(sorted([(exon[0], exon[1]) for exon in
                                                     di_features[tid]["features"].get("CDS", [])]))
-                            cds[cds_set].append((tid, shelf, score))
+                            cds[cds_set].append((tid, shelf, score, is_reference))
                         # Now checking the CDS
                         for cds_list in cds.values():
                             if len(cds_list) > 1:
                                 logger.debug("The following transcripts are redundant: %s",
                                              ",".join([_[0] for _ in cds_list]))
                             # TODO: we have to select things so that we prioritise transcripts correctly
-                            max_score = max([_[2] for _ in cds_list])
-                            cds_list = [_ for _ in cds_list if _[2] == max_score]
-                            to_keep = random.choice(cds_list)
+                            # First step: select things that are reference
+                            to_keep = [_ for _ in cds_list if _[3] is True]
+                            if len(to_keep) == 0:
+                                max_score = max([_[2] for _ in cds_list])
+                                cds_list = [_ for _ in cds_list if _[2] == max_score]
+                                to_keep = [random.choice(cds_list)]
+
                             for tid in cds_list:
-                                if tid != to_keep:
+                                if tid not in to_keep:
                                     logger.info("Discarding %s as redundant", tid[0])
                                 else:
                                     logger.info("Keeping %s amongst redundant transcripts", tid[0])
-
-                            tids.append(to_keep)
+                            tids.extend(to_keep)
                     else:
                         tids.extend(tid_list)
 
@@ -151,8 +158,6 @@ def perform_check(keys, shelve_stacks, args, logger):
         # with all necessary arguments aside for the lines
         partial_checker = functools.partial(
             create_transcript,
-            lenient=args.json_conf["prepare"]["lenient"],
-            # strand_specific=args.json_conf["prepare"]["strand_specific"],
             canonical_splices=args.json_conf["prepare"]["canonical"],
             logger=logger,
             force_keep_cds= not args.json_conf["prepare"]["strip_cds"])
@@ -169,6 +174,8 @@ def perform_check(keys, shelve_stacks, args, logger):
                 tobj,
                 str(args.json_conf["reference"]["genome"][chrom][key[0]-1:key[1]]),
                 key[0], key[1],
+                lenient=args.json_conf["prepare"]["lenient"],
+                is_reference=tobj["is_reference"],
                 strand_specific=tobj["strand_specific"])
             if transcript_object is None:
                 continue
@@ -195,7 +202,6 @@ def perform_check(keys, shelve_stacks, args, logger):
             os.path.basename(args.json_conf["prepare"]["files"]["out"].name),
             args.tempdir.name,
             lenient=args.json_conf["prepare"]["lenient"],
-            # strand_specific=args.json_conf["prepare"]["strand_specific"],
             canonical_splices=args.json_conf["prepare"]["canonical"],
             log_level=args.level) for _ in range(args.json_conf["prepare"]["procs"])]
 
@@ -234,6 +240,111 @@ def perform_check(keys, shelve_stacks, args, logger):
     return
 
 
+def _load_exon_lines_single_thread(args, shelve_names, logger, min_length, strip_cds):
+
+    logger.info("Starting to load lines from %d files (single-threaded)",
+                len(args.json_conf["prepare"]["files"]["gff"]))
+    previous_file_ids = collections.defaultdict(set)
+    to_do = list(zip(
+            shelve_names,
+            args.json_conf["prepare"]["files"]["labels"],
+            args.json_conf["prepare"]["files"]["strand_specific_assemblies"],
+            args.json_conf["prepare"]["files"]["reference"],
+            args.json_conf["prepare"]["files"]["gff"]))
+    logger.info("To do: %d combinations", len(to_do))
+
+    for new_shelf, label, strand_specific, is_reference, gff_name in to_do:
+        logger.info("Starting with %s", gff_name)
+        gff_handle = to_gff(gff_name)
+        found_ids = set.union(set(), *previous_file_ids.values())
+        if gff_handle.__annot_type__ == "gff3":
+            new_ids = load_from_gff(new_shelf,
+                                    gff_handle,
+                                    label,
+                                    found_ids,
+                                    logger,
+                                    min_length=min_length,
+                                    strip_cds=strip_cds and not is_reference,
+                                    is_reference=is_reference,
+                                    strand_specific=strand_specific or is_reference)
+        elif gff_handle.__annot_type__ == "bed12":
+            new_ids = load_from_bed12(new_shelf,
+                                      gff_handle,
+                                      label,
+                                      found_ids,
+                                      logger,
+                                      min_length=min_length,
+                                      strip_cds=strip_cds and not is_reference,
+                                      is_reference=is_reference,
+                                      strand_specific=strand_specific or is_reference)
+        else:
+            new_ids = load_from_gtf(new_shelf,
+                                    gff_handle,
+                                    label,
+                                    found_ids,
+                                    logger,
+                                    min_length=min_length,
+                                    strip_cds=strip_cds and not is_reference,
+                                    is_reference=is_reference,
+                                    strand_specific=strand_specific or is_reference)
+
+        previous_file_ids[gff_handle.name] = new_ids
+    return
+
+
+def _load_exon_lines_multi(args, shelve_names, logger, min_length, strip_cds, threads):
+    logger.info("Starting to load lines from %d files (using %d processes)",
+                len(args.json_conf["prepare"]["files"]["gff"]), threads)
+    submission_queue = multiprocessing.JoinableQueue(-1)
+
+    working_processes = []
+    # working_processes = [ for _ in range(threads)]
+
+    for num in range(threads):
+        proc = AnnotationParser(submission_queue,
+                                args.logging_queue,
+                                num + 1,
+                                log_level=args.level,
+                                min_length=min_length,
+                                strip_cds=strip_cds)
+        proc.start()
+        working_processes.append(proc)
+
+    # [_.start() for _ in working_processes]
+    for new_shelf, label, strand_specific, is_reference, gff_name in zip(
+            shelve_names,
+            args.json_conf["prepare"]["files"]["labels"],
+            args.json_conf["prepare"]["files"]["strand_specific_assemblies"],
+            args.json_conf["prepare"]["files"]["reference"],
+            args.json_conf["prepare"]["files"]["gff"]):
+        submission_queue.put((label, gff_name, strand_specific, is_reference, new_shelf))
+
+    submission_queue.put(("EXIT", "EXIT", "EXIT", "EXIT", "EXIT"))
+
+    [_.join() for _ in working_processes]
+
+    tid_counter = Counter()
+    for shelf in shelve_names:
+        conn = sqlite3.connect(shelf)
+        cursor = conn.cursor()
+        tid_counter.update([_[0] for _ in cursor.execute("SELECT tid FROM dump")])
+        if tid_counter.most_common()[0][1] > 1:
+            if set(args.json_conf["prepare"]["files"]["labels"]) == {""}:
+                exception = exceptions.RedundantNames(
+                    """Found redundant names during multiprocessed file analysis.
+                    Please repeat using distinct labels for your input files. Aborting.""")
+            else:
+                exception = exceptions.RedundantNames(
+                    """Found redundant names during multiprocessed file analysis, even if
+                    unique labels were provided. Please try to repeat with a different and
+                    more unique set of labels. Aborting.""")
+            logger.exception(exception)
+            raise exception
+
+    del working_processes
+    gc.collect()
+
+
 def load_exon_lines(args, shelve_names, logger, min_length=0):
 
     """This function loads all exon lines from the GFF inputs into a
@@ -255,89 +366,9 @@ f
     strip_cds = args.json_conf["prepare"]["strip_cds"]
 
     if args.json_conf["prepare"]["single"] is True or threads == 1:
-
-        logger.info("Starting to load lines from %d files (single-threaded)",
-                    len(args.json_conf["prepare"]["files"]["gff"]))
-        previous_file_ids = collections.defaultdict(set)
-        for new_shelf, label, strand_specific, gff_name in zip(
-                shelve_names,
-                args.json_conf["prepare"]["files"]["labels"],
-                args.json_conf["prepare"]["files"]["strand_specific_assemblies"],
-                args.json_conf["prepare"]["files"]["gff"]):
-            logger.info("Starting with %s", gff_name)
-            gff_handle = to_gff(gff_name)
-            found_ids = set.union(set(), *previous_file_ids.values())
-            if gff_handle.__annot_type__ == "gff3":
-                new_ids = load_from_gff(new_shelf,
-                                        gff_handle,
-                                        label,
-                                        found_ids,
-                                        logger,
-                                        min_length=min_length,
-                                        strip_cds=strip_cds,
-                                        strand_specific=strand_specific)
-            else:
-                new_ids = load_from_gtf(new_shelf,
-                                        gff_handle,
-                                        label,
-                                        found_ids,
-                                        logger,
-                                        min_length=min_length,
-                                        strip_cds=strip_cds,
-                                        strand_specific=strand_specific)
-
-            previous_file_ids[gff_handle.name] = new_ids
+        _load_exon_lines_single_thread(args, shelve_names, logger, min_length, strip_cds)
     else:
-        logger.info("Starting to load lines from %d files (using %d processes)",
-                    len(args.json_conf["prepare"]["files"]["gff"]), threads)
-        submission_queue = multiprocessing.JoinableQueue(-1)
-
-        working_processes = []
-        # working_processes = [ for _ in range(threads)]
-
-        for num in range(threads):
-            proc = AnnotationParser(submission_queue,
-                                    args.logging_queue,
-                                    num + 1,
-                                    log_level=args.level,
-                                    min_length=min_length,
-                                    strip_cds=strip_cds)
-            proc.start()
-            working_processes.append(proc)
-
-        # [_.start() for _ in working_processes]
-        for new_shelf, label, strand_specific, gff_name in zip(
-                shelve_names,
-                args.json_conf["prepare"]["files"]["labels"],
-                args.json_conf["prepare"]["files"]["strand_specific_assemblies"],
-                args.json_conf["prepare"]["files"]["gff"]):
-
-            submission_queue.put((label, gff_name, strand_specific, new_shelf))
-
-        submission_queue.put(("EXIT", "EXIT", "EXIT", "EXIT"))
-
-        [_.join() for _ in working_processes]
-
-        tid_counter = Counter()
-        for shelf in shelve_names:
-            conn = sqlite3.connect(shelf)
-            cursor = conn.cursor()
-            tid_counter.update([_[0] for _ in cursor.execute("SELECT tid FROM dump")])
-            if tid_counter.most_common()[0][1] > 1:
-                if set(args.json_conf["prepare"]["files"]["labels"]) == {""}:
-                    exception = exceptions.RedundantNames(
-                        """Found redundant names during multiprocessed file analysis.
-                        Please repeat using distinct labels for your input files. Aborting.""")
-                else:
-                    exception = exceptions.RedundantNames(
-                        """Found redundant names during multiprocessed file analysis, even if
-                        unique labels were provided. Please try to repeat with a different and
-                        more unique set of labels. Aborting.""")
-                logger.exception(exception)
-                raise exception
-
-        del working_processes
-        gc.collect()
+        _load_exon_lines_multi(args, shelve_names, logger, min_length, strip_cds, threads)
 
     logger.info("Finished loading lines from %d files",
                 len(args.json_conf["prepare"]["files"]["gff"]))
@@ -381,6 +412,11 @@ def prepare(args, logger):
         args.json_conf["prepare"]["files"]["strand_specific_assemblies"] = [
             (member in args.json_conf["prepare"]["files"]["strand_specific_assemblies"])
             for member in args.json_conf["prepare"]["files"]["gff"]]
+
+    args.json_conf["prepare"]["files"]["reference"] = [
+        (member in args.json_conf["prepare"]["files"]["reference"])
+        for member in args.json_conf["prepare"]["files"]["gff"]
+    ]
 
     shelve_names = [path_join(args.json_conf["prepare"]["files"]["output_dir"],
                               "mikado_shelf_{}.db".format(str(_).zfill(5))) for _ in
@@ -438,10 +474,14 @@ def prepare(args, logger):
             shelve_source_scores.append(
                 args.json_conf["prepare"]["files"]["source_score"].get(label, 0)
             )
+
         try:
-            for shelf, score in zip(shelve_names, shelve_source_scores):
+            for shelf, score, is_reference in zip(shelve_names, shelve_source_scores,
+                                    args.json_conf["prepare"]["files"]["reference"]):
+                assert isinstance(is_reference, bool)
                 conn = sqlite3.connect(shelf)
-                shelf_stacks[shelf] = {"conn": conn, "cursor": conn.cursor(), "score": score}
+                shelf_stacks[shelf] = {"conn": conn, "cursor": conn.cursor(), "score": score,
+                                       "is_reference": is_reference}
             # shelf_stacks = dict((_, shelve.open(_, flag="r")) for _ in shelve_names)
         except Exception as exc:
             raise TypeError((shelve_names, exc))

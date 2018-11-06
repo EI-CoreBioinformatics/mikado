@@ -24,6 +24,7 @@ from Mikado.subprograms.prepare import setup as prepare_setup
 from Mikado.transcripts.transcript import Namespace
 from Mikado.utilities.log_utils import create_null_logger, create_default_logger
 from Mikado.parsers.GFF import GffLine
+from Mikado.parsers.GTF import GtfLine
 from Mikado.parsers import to_gff
 from Mikado.transcripts import Transcript
 
@@ -143,8 +144,10 @@ class PrepareCheck(unittest.TestCase):
                 prepare.prepare(args, self.logger)
 
                 # Now that the program has run, let's check the output
-                fa = pyfaidx.Fasta(os.path.join(self.conf["prepare"]["files"]["output_dir"],
-                                                "mikado_prepared.fasta"))
+                fasta = os.path.join(self.conf["prepare"]["files"]["output_dir"],
+                                                "mikado_prepared.fasta")
+                self.assertGreater(os.stat(fasta).st_size, 0, test_file)
+                fa = pyfaidx.Fasta(fasta)
                 res = dict((_, len(fa[_])) for _ in fa.keys())
                 fa.close()
                 self.assertEqual(res, self.trinity_res)
@@ -552,6 +555,93 @@ class PrepareCheck(unittest.TestCase):
                 if res != "rand":
                     key = list(fa.keys())[0]
                     self.assertEqual(key, res, round)
+
+    def test_reference_selection(self):
+
+        self.conf["prepare"]["files"]["output_dir"] = outdir = tempfile.gettempdir()
+        self.conf["prepare"]["files"]["out_fasta"] = "mikado_prepared.fasta"
+        self.conf["prepare"]["files"]["out"] = "mikado_prepared.gtf"
+        self.conf["prepare"]["strip_cds"] = False
+        self.conf["prepare"]["keep_redundant"] = False
+
+        self.conf["reference"]["genome"] = self.__genomefile__.name
+
+        t = Transcript()
+        # This is *key*. Transcript T1 should never be selected, unless we are having a "lenient" analysis.
+        # However, by flagging T1 as a "reference" transcript, we should retain it
+        self.conf["prepare"]["lenient"] = False
+        t.chrom, t.start, t.end, t.strand = "Chr5", 208937, 210445, "-"
+        t.add_exons([(208937, 209593), (209881, 210445)])
+        t.id = "file1.1"
+        t.parent = "file1"
+        t.finalize()
+
+        # Likewise. We will also test that even when different scores are applied, we *still* retain all
+        # transcripts.
+        t2 = t.deepcopy()
+        t2.id = "file2.1"
+        t2.parent = "file2"
+
+        rounds = {
+            # Standard cases. I expect the transcripts to be reversed, and one to be picked
+            0: [0, 0, [], "rand", "+"],
+            1: [-2, -2, [], "rand", "+"],
+            2: [10, 10, [], "rand", "+"],
+            # T1 as reference. T1 should be kept, T1 should be on the negative strand.
+            3: [0, 0, ["T1"], sorted(["T1_file1.1"]), "-"],
+            # Both as reference. Both should be kept, both should be on the negative strand.
+            4: [1, 0, ["T1", "T2"],  sorted(["T1_file1.1", "T2_file2.1"]), "-"],
+            5: [0, 0, ["T2"], sorted(["T2_file2.1"]), "-"]
+
+        }
+
+        for fformat in ("gff3", "gtf", "bed12"):
+            t_file = tempfile.NamedTemporaryFile(mode="wt", suffix=".{}".format(fformat))
+            t2_file = tempfile.NamedTemporaryFile(mode="wt", suffix=".{}".format(fformat))
+            print(t.format(fformat), file=t_file)
+            t_file.flush()
+            print(t2.format(fformat), file=t2_file)
+            t2_file.flush()
+
+            self.conf["prepare"]["files"]["gff"] = [t_file.name, t2_file.name]
+            self.conf["prepare"]["files"]["strand_specific_assemblies"] = [t_file.name, t2_file.name]
+            self.conf["prepare"]["files"]["labels"] = ["T1", "T2"]
+
+            for round in rounds:
+                for iteration in range(4):  # Repeat each test 4 times
+                    with self.subTest(round=round, format=format, iteration=iteration,
+                                      msg="Starting round {} ({})".format(round, rounds[round])):
+                        t1_score, t2_score, is_ref, res, corr_strand = rounds[round]
+                        self.conf["prepare"]["files"]["source_score"] = {"T1": t1_score,
+                                                                         "T2": t2_score}
+                        self.conf["prepare"]["files"]["reference"] = []
+                        for label in is_ref:
+                            if label == "T1":
+                                self.conf["prepare"]["files"]["reference"].append(t_file.name)
+                            elif label == "T2":
+                                self.conf["prepare"]["files"]["reference"].append(t2_file.name)
+
+                        args = Namespace()
+                        args.strip_cds = False
+                        args.json_conf = self.conf
+                        with self.assertLogs(self.logger, "INFO") as cm:
+                            prepare.prepare(args, self.logger)
+                        self.assertGreater(os.stat(self.conf["prepare"]["files"]["out_fasta"]).st_size, 0,
+                                           (round, fformat, iteration, "\n".join(cm.output)))
+                        fa = pyfaidx.Fasta(os.path.join(outdir, os.path.basename(
+                            self.conf["prepare"]["files"]["out_fasta"])))
+                        if res != "rand":
+                            key = sorted(list(fa.keys()))
+                            self.assertEqual(key, res, round)
+                        else:
+                            self.assertEqual(len(fa.keys()), 1, (round, fa.keys(), res))
+                        gtf = os.path.join(outdir, os.path.basename(
+                            self.conf["prepare"]["files"]["out"]))
+                        strand = [_.strand for _ in to_gff(gtf)]
+                        self.assertEqual(len(set(strand)), 1, strand)
+                        self.assertEqual(set(strand).pop(), corr_strand,
+                                         (round, self.conf["prepare"]["files"]["reference"],
+                                          set(strand), corr_strand))
 
 
 class CompareCheck(unittest.TestCase):

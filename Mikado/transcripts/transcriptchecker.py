@@ -33,6 +33,7 @@ class TranscriptChecker(Transcript):
     # pylint: disable=too-many-arguments
     def __init__(self, gffline, seq,
                  strand_specific=False, lenient=False,
+                 is_reference=False,
                  canonical_splices=(("GT", "AG"), ("GC", "AG"), ("AT", "AC")),
                  force_keep_cds=False,
                  logger=None):
@@ -53,6 +54,7 @@ class TranscriptChecker(Transcript):
         :type lenient: bool
         """
         self.__strand_specific = False
+        self.__is_reference = False
         self.mixed_attribute = ""
 
         if seq is None:
@@ -61,16 +63,19 @@ class TranscriptChecker(Transcript):
             self.__dict__.update(gffline.__dict__)
         else:
             super().__init__(gffline)
-        self.original_strand = self.strand[:]
+        if self.strand is not None:
+            self.original_strand = self.strand[:]
+        else:
+            self.original_strand = None
         self.__set_fasta_seq(seq)
-        # self.fasta_seq = seq
-        self.strand_specific = strand_specific
         self.checked = False
-        self.lenient = lenient
         self.mixed_splices = False
         self.reversed = False
         self.canonical_splices = []
-        self.__force_keep_cds = force_keep_cds
+        self.is_reference = is_reference
+        self.__force_keep_cds = force_keep_cds or self.is_reference
+        self.lenient = lenient or self.is_reference
+        self.strand_specific = strand_specific or self.is_reference
         if not isinstance(canonical_splices, (tuple, list)):
             raise ValueError("Canonical splices should be provided as lists or tuples")
 
@@ -80,6 +85,7 @@ class TranscriptChecker(Transcript):
 
         self.canonical_junctions = []
         self.logger = logger
+
     # pylint: enable=too-many-arguments
 
     @property
@@ -109,6 +115,16 @@ class TranscriptChecker(Transcript):
         """
 
         return Seq.reverse_complement(string)
+
+    @property
+    def is_reference(self):
+        return self.__is_reference
+
+    @is_reference.setter
+    def is_reference(self, value):
+        if not isinstance(value, bool):
+            raise TypeError("This property only accepts boolean values")
+        self.__is_reference = value
 
     @property
     def strand_specific(self):
@@ -227,10 +243,15 @@ class TranscriptChecker(Transcript):
                             canonical_counter["+"])
 
             elif canonical_counter["-"] > 0:
-                self.logger.debug("Transcript %s only has negative splice junctions, (%s), reversing.",
+                if self.is_reference is False:
+                    self.logger.debug("Transcript %s only has negative splice junctions, (%s), reversing.",
                                   self.id, canonical_counter)
-                self.reverse_strand()
-                self.reversed = True
+                    self.reverse_strand()
+                    self.reversed = True
+                else:
+                    self.logger.debug(
+                        "Transcript %s only has negative splice junctions, but as it is a reference \
+                        we will not reverse it")
 
             if canonical_counter["+"] >= canonical_counter["-"] or (
                             max(canonical_counter["-"], canonical_counter["+"]) > 0 and self.strand_specific is True):

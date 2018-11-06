@@ -1012,19 +1012,23 @@ class ConfigureCheck(unittest.TestCase):
         namespace.out_dir = tempfile.gettempdir()
         namespace.threads = 1
 
-        namespace.scoring = random.choice(
-            pkg_resources.resource_listdir("Mikado.configuration", "scoring_files"))
+        for iteration in range(20):
+            with self.subTest(iteration=iteration):
+                namespace.scoring = random.choice(
+                    pkg_resources.resource_listdir("Mikado.configuration", "scoring_files"))
 
-        out = os.path.join(tempfile.gettempdir(), "configuration.yaml")
-        with open(out, "wt") as out_handle:
-            namespace.out = out_handle
-            daijin_configurator.create_daijin_config(namespace, level="ERROR")
-        self.assertGreater(os.stat(out).st_size, 0)
+                out = os.path.join(tempfile.gettempdir(), "configuration.yaml")
+                with open(out, "wt") as out_handle:
+                    namespace.out = out_handle
+                    daijin_configurator.create_daijin_config(namespace, level="ERROR")
+                self.assertGreater(os.stat(out).st_size, 0)
 
-        with open(out) as out_handle:
-            config = yaml.load(out_handle)
+                with open(out) as out_handle:
+                    config = yaml.load(out_handle)
 
-        daijin_configurator.check_config(config)
+                daijin_configurator.check_config(config)
+
+    
 
 
 class PickTest(unittest.TestCase):

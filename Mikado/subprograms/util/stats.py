@@ -105,7 +105,7 @@ class TranscriptComputer(Transcript):
                    "five_utr_length", "three_utr_length",
                    "five_utr_num", "three_utr_num",
                    "selected_end_distance_from_junction"]
-    data_tuple = namedtuple("transcript_data", data_fields, verbose=False)
+    data_tuple = namedtuple("transcript_data", data_fields)
 
     def __init__(self, *args, **kwargs):
         super().__init__(accept_undefined_multi=True, *args, **kwargs)

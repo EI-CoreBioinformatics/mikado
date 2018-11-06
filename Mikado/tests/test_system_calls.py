@@ -1028,8 +1028,6 @@ class ConfigureCheck(unittest.TestCase):
 
                 daijin_configurator.check_config(config)
 
-    
-
 
 class PickTest(unittest.TestCase):
 

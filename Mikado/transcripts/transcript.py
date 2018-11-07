@@ -542,7 +542,6 @@ class Transcript:
 
         state = copy.deepcopy(dict((key, val) for key, val in self.__dict__.items()
                                    if key not in ("_Transcript__segmenttree",
-                                                  "_Transcript__cds_introntree",
                                                   "_Transcript__cds_tree")))
         self.logger = logger
 
@@ -571,13 +570,8 @@ class Transcript:
 
     def __setstate__(self, state):
         self.__dict__.update(state)
-        self.__cds_tree = IntervalTree()
-        self.__segmenttree = IntervalTree()
-        self.__cds_introntree = IntervalTree()
-        _ = self.segmenttree
-        _ = self.cds_tree
-        _ = self.__cds_introntree
-
+        self._calculate_cds_tree()
+        self._calculate_segment_tree()
         # Set the logger to NullHandler
         self.logger = None
 
@@ -2054,19 +2048,27 @@ index {3}, internal ORFs: {4}".format(
     def cds_tree(self):
         """
         This property returns an interval tree of the CDS segments.
-        Used to calculate the non-coding parts of the CDS.
-        :rtype: intervaltree.Intervaltree
         """
-
-        if len(self.__cds_tree) != len(self.combined_cds):
-            self.__calculate_cds_tree()
+        if len(self.__segmenttree) != len(self.combined_cds) + len(self.combined_cds_introns):
+            self._calculate_segment_tree()
 
         return self.__cds_tree
 
-    def __calculate_cds_tree(self):
+    def _calculate_cds_tree(self):
 
-        self.__cds_tree = IntervalTree.from_tuples(
-            [(cds[0], max(cds[1], cds[0] + 1)) for cds in self.combined_cds])
+        """
+        :rtype: intervaltree.IntervalTree
+        """
+
+        self.__cds_tree = IntervalTree()
+
+        for exon in self.combined_cds:
+            self.__cds_tree.add(exon[0], exon[1], value=Interval(exon[0], exon[1], value="CDS"))
+
+        for intron in self.combined_cds_introns:
+            self.__cds_tree.add(intron[0], intron[1], value=Interval(intron[0], intron[1], value="intron"))
+
+        return
 
     @property
     def codon_table(self):
@@ -2080,22 +2082,14 @@ index {3}, internal ORFs: {4}".format(
     @property
     def segmenttree(self):
 
-        if len(self.__segmenttree) != self.exon_num + len(self.introns):
-            self._calculate_segment_tree()
-
-        return self.__segmenttree
-
-    @property
-    def cds_introntree(self):
-
         """
         :rtype: intervaltree.IntervalTree
         """
 
-        if len(self.__cds_introntree) != len(self.combined_cds_introns):
-            self.__cds_introntree = IntervalTree.from_tuples(
-                [(_[0], _[1] + 1) for _ in self.combined_cds_introns])
-        return self.__cds_introntree
+        if len(self.__segmenttree) != self.exon_num + len(self.introns):
+            self._calculate_segment_tree()
+
+        return self.__segmenttree
 
     def _calculate_segment_tree(self):
 

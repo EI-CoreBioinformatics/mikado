@@ -126,57 +126,122 @@ class Locus(Abstractlocus):
         max_isoforms = self.json_conf["pick"]["alternative_splicing"]["max_isoforms"]
 
         while True:
+            # *Never* lose the primary transcript
             to_keep = {self.primary_transcript_id}
             order = sorted([(tid, self.transcripts[tid].score) for tid in self.transcripts
                             if tid != self.primary_transcript_id],
                            key=operator.itemgetter(1), reverse=True)
             threshold = self.json_conf["pick"]["alternative_splicing"]["min_score_perc"] * self.primary_transcript.score
 
-            for tid, score in order:
-                if len(to_keep) == max_isoforms:
-                    self.logger.debug(
-                        "Discarding {} from the locus because we have \
-reached the maximum number of isoforms for the locus".format(
-                            ", ".join(list(set.difference(set(self.transcripts.keys()),
-                                                          to_keep)))
-                        ))
-                    break
-                if score < threshold:
-                    self.logger.debug(
-                        "Discarding {} from the locus because their scores are below the threshold ({})".format(
-                            ", ".join(list(set.difference(set(self.transcripts.keys()),
-                                                          to_keep))),
-                            round(threshold, 2)))
-                    break
-                to_keep.add(tid)
+            for obj in order:
+                self.logger.debug("Transcript, score, threshold: %s, %s, %s",
+                                  obj[0], obj[1], threshold)
+
+            # Islice will function also when the list is smaller than "max_isoforms"
+            score_passing = [_ for _ in order if _[1] >= threshold]
+            self.logger.debug("%d transcripts have a score over the threshold", len(score_passing))
+
+            to_keep.update(set([_[0] for _ in itertools.islice(score_passing, max_isoforms)]))
+            self.logger.debug("%d transcripts retained after the check for score and max. no. of isoforms (%d)",
+                              len(to_keep), max_isoforms)
 
             if to_keep == set(self.transcripts.keys()):
                 self.logger.debug("Finished to discard superfluous transcripts from {}".format(self.id))
-                break
             else:
                 for tid in set.difference(set(self.transcripts.keys()), to_keep):
+                    self.logger.debug("Removing %s from %s", tid, self.id)
                     self.remove_transcript_from_locus(tid)
                 assert len(self.transcripts) > 0, to_keep
                 self.metrics_calculated = False
                 self.scores_calculated = False
                 self.calculate_scores()
+                continue
 
-        self._remove_retained_introns()
+            # Now we have to calculate the padded transcripts.
 
-        if self.json_conf["pick"]["alternative_splicing"]["pad"] is True:
-            self.pad_transcripts()
-            self.metrics_calculated = False
-            self.scores_calculated = False
-            self.calculate_scores()
+            # I am already within a "while" loop. If I find something wrong, I can just "continue"
+            with_retained = self._remove_retained_introns()
+            if len(with_retained) > 0:
+                self.logger.debug("Transcripts with retained introns: %s", ", ".join(list(with_retained)))
+            else:
+                self.logger.debug("No transcripts with retained introns found.")
 
+            if self.json_conf["pick"]["alternative_splicing"]["pad"] is True:
+                self.logger.debug("Starting padding procedure for %s", self.id)
+                failed = self.__launch_padding()
+                if failed:
+                    continue
+            else:
+                self.logger.debug("No padding necessary. Exiting")
+
+            break
+
+        self.logger.debug("%s has %d transcripts (%s)", self.id, len(self.transcripts),
+                          ", ".join(list(self.transcripts.keys())))
         self._finalized = True
-
-        self._remove_retained_introns()
 
         return
 
+    def __launch_padding(self):
+
+        failed = False
+        backup = dict()
+        for tid in self.transcripts:
+            backup[tid] = self.transcripts[tid].deepcopy()
+
+        # The "templates" are the transcripts that we used to expand the others.
+        templates = self.pad_transcripts()
+        # First off, let us check that the main transcript is still valid.
+        # If it is not, remove the templates
+        self.metrics_calculated = False
+        self.scores_calculated = False
+        self.calculate_scores()
+        order = sorted([(tid, self.transcripts[tid].score) for tid in self.transcripts
+                        if tid != self.primary_transcript_id],
+                       key=operator.itemgetter(1), reverse=True)
+        self._not_passing = set()
+        self._check_requirements()
+        if self.primary_transcript_id in self._not_passing or set.intersection(templates, self._not_passing):
+            self.logger.debug(
+                "Either the primary or some template transcript has not passed the muster. Removing, restarting.")
+            # Templates are clearly wrong. Remove them
+            self.transcripts = backup.copy()
+            for tid in self._not_passing - {self.primary_transcript_id}:
+                self.remove_transcript_from_locus(tid)
+            self.metrics_calculated = False
+            self.scores_calculated = False
+            self.calculate_scores()
+            failed = True
+            return failed
+
+        # Now that we are sure that we have not ruined the primary transcript, let us see whether
+        # we should discard any other transcript.
+        newlocus = Locus(self.primary_transcript)
+        to_remove = set()
+        for tid in order:
+            if tid == self.primary_transcript_id:
+                continue
+            if newlocus.is_alternative_splicing(self.transcripts[tid]):
+                newlocus.add_transcript_to_locus(self.transcripts[tid])
+            else:
+                to_remove.add(tid)
+        to_remove.update(newlocus._remove_retained_introns())
+        # Now let us check whether we have removed any template transcript.
+        # If we have, remove the offending ones and restart
+        if len(set.intersection(set.union(set(templates), {self.primary_transcript_id}), to_remove)) > 0:
+            self.transcripts = backup
+            [self.remove_transcript_from_locus(tid) for tid in set.intersection(templates, to_remove)]
+            self.metrics_calculated = False
+            self.scores_calculated = False
+            self.calculate_scores()
+            failed = True
+            return failed
+
+        return failed
+
     def _remove_retained_introns(self):
         self.logger.debug("Now checking the retained introns for %s", self.id)
+        removed = set()
         while True:
             to_remove = set()
             for tid, transcript in self.transcripts.items():
@@ -192,6 +257,7 @@ reached the maximum number of isoforms for the locus".format(
             elif self.json_conf["pick"]["alternative_splicing"]["keep_retained_introns"] is False:
                 self.logger.debug("Removing {} because they contain retained introns".format(
                     ", ".join(list(to_remove))))
+                removed.update(to_remove)
                 for tid in to_remove:
                     self.remove_transcript_from_locus(tid)
                 self.metrics_calculated = False
@@ -201,7 +267,8 @@ reached the maximum number of isoforms for the locus".format(
                 for tid in to_remove:
                     self.transcripts[tid].attributes["retained_intron"] = True
                 break
-        return
+
+        return removed
 
     def remove_transcript_from_locus(self, tid: str):
 
@@ -600,8 +667,14 @@ reached the maximum number of isoforms for the locus".format(
 
         __to_modify = self._find_communities_boundaries(five_cliques, three_cliques)
 
+        templates = set()
+
         # Now we can do the proper modification
         for tid in __to_modify:
+            if __to_modify[tid][0]:
+                templates.add(__to_modify[tid][0].id)
+            if __to_modify[tid][1]:
+                templates.add(__to_modify[tid][1].id)
 
             self.logger.debug("Expanding %s to have start %s (from %s) and end %s (from %s)",
                               tid, __to_modify[tid][0],
@@ -618,6 +691,7 @@ reached the maximum number of isoforms for the locus".format(
             self.exons.update(self[tid].exons)
         self.fai.close()
         del self.fai
+        return templates
 
     def _find_communities_boundaries(self, five_clique, three_clique):
 

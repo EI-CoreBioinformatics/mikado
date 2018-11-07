@@ -40,11 +40,12 @@ Bugfixes and improvements:
 - [#138](https://github.com/EI-CoreBioinformatics/mikado/issues/138): Solved a bug which led Mikado to recalculate the phases for each model during picking, potentially creating mistakes for models truncated at the 5' end.
 - [#141](https://github.com/EI-CoreBioinformatics/mikado/issues/141): During configure and prepare, Mikado can now flag some transcripts as coming from a "reference". Transcripts flagged like this **will never be modified nor dropped during a mikado prepare run**, unless generic or critical errors are registered. Moreover, if source scores are provided, Mikado will preferentially keep one identical transcript from those that have the highest *a priori* score. This will allow to e.g. prioritise PacBio or reference assemblies during prepare.
   - Please note that this change **does not affect the final picking**, but rather is just a mechanism for allowing Mikado to accept pass-through data. 
-- [#142](https://github.com/EI-CoreBioinformatics/mikado/issues/142): padded transcripts will add terminal *exons* rather than just extending their terminal ends. This should prevent the creation of faux retained introns. Please see the issue for more details.
+- [#142](https://github.com/EI-CoreBioinformatics/mikado/issues/142): padded transcripts will add terminal *exons* rather than just extending their terminal ends. This should prevent the creation of faux retained introns. Moreover, now the padding procedure will explicitly find and discard transcripts that would become invalid after padding (e.g. because they end up with a far too long UTR, or retained introns). If some of the invalid transcripts had been used as template for the expansion, Mikado will remove the offending transcripts and restart the procedure.
   - As a consequence of fixing [#142](https://github.com/EI-CoreBioinformatics/mikado/issues/142), Transcript objects have been modified to expose the following methods related to the internal interval tree:
     - find/search (to find intersecting exonic or intronic intervals)
     - find_upstream (to find all intervals upstream of the requested one in the transcript)
     - find_downstream (to find all intervals downstream of the requested one in the transcript)
+    - Moreover, transcript objects now do not have any more the unused "cds_introntree" property. Combined CDS and CDS introns are now present in the "cds_tree" object.
 
 # Version 1.2.4
 

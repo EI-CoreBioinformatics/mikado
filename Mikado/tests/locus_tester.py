@@ -1264,6 +1264,7 @@ class TestLocus(unittest.TestCase):
             locus_id = [_ for _ in superlocus_one.loci.keys() if
                         t1.id in superlocus_one.loci[_].transcripts][0]
             self.assertEqual(len(superlocus_one.loci[locus_id].transcripts), 2)
+
         with self.subTest():
             superlocus_two = Superlocus(t2, json_conf=conf)
             superlocus_two.add_transcript_to_locus(t2_1)
@@ -1875,8 +1876,8 @@ class RetainedIntronTester(unittest.TestCase):
                       (2501, 2530)  # 30
                       ], features="CDS")
         t2.finalize()
-        self.assertEqual(len(t2.cds_tree), len(t2.combined_cds))
-        self.assertEqual(len(t2.cds_tree), 3)
+        self.assertEqual(len(t2.cds_tree), len(t2.combined_cds) + len(t2.combined_cds_introns))
+        self.assertEqual(len(t2.cds_tree), 5)
 
         sup = Superlocus(t1, json_conf=self.my_json)
         sup.add_transcript_to_locus(t2)
@@ -2008,8 +2009,8 @@ class PicklingTest(unittest.TestCase):
                 pickled = pickle.dumps(transcript)
                 unpickled = pickle.loads(pickled)
                 self.assertEqual(transcript, unpickled)
-                self.assertEqual(len(transcript.combined_cds), len(unpickled.cds_tree))
-                self.assertEqual(len(transcript.cds_introntree), len(unpickled.cds_introntree))
+                self.assertEqual(len(transcript.combined_cds) + len(transcript.combined_cds_introns),
+                                 len(unpickled.cds_tree))
                 self.assertEqual(len(transcript.segmenttree), len(unpickled.segmenttree))
 
     def test_locus_unpickling(self):

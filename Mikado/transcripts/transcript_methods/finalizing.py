@@ -711,8 +711,7 @@ def finalize(transcript):
 
     # Create the internal trees
     transcript._calculate_segment_tree()
-    _ = transcript.cds_tree
-    _ = transcript.cds_introntree
+    transcript._calculate_cds_tree()
 
     # BUG somewhere ... I am not sorting this properly before (why?)
     # transcript.exons = sorted(transcript.exons)

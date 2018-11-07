@@ -188,6 +188,16 @@ class TestTranscriptInit(unittest.TestCase):
         tr = Transcript(t)
         self.assertLess(tr, Transcript(t2))
 
+    def test_get_orfs(self):
+        t = "Chr1\t100\t1000\tID=t1;coding=False\t0\t+\t100\t1000\t0\t1\t900\t0"
+        tr = Transcript(t)
+        orfs = list(tr.get_internal_orf_beds())
+        self.assertEqual(len(orfs), 1)
+        orf = orfs.pop()
+        self.assertIsInstance(orf, BED12)
+        self.assertFalse(orf.coding)
+        self.assertEqual(tr._internal_orfs_transcripts, [])
+
 
 class WrongLoadedOrf(unittest.TestCase):
 
@@ -685,7 +695,10 @@ Chr5	TAIR10	exon	5256	5576	.	-	.	Parent=AT5G01015.1"""
         t1.add_exon((4256, 5000))
         t1.finalize()
 
+        self.assertEqual(t1.end, self.t1.end)
+        self.assertLess(t1.start, self.t1.start)
         self.assertLess(t1, self.t1)
+        self.assertEqual(t1.combined_cds_start, self.t1.combined_cds_start)
         self.assertGreater(self.t1, t1)
         self.assertEqual(t1, t1)
         self.assertEqual(self.t1, self.t1)

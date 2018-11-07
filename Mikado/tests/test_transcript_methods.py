@@ -136,6 +136,38 @@ class TestMetricClass(unittest.TestCase):
                         test.category = inc
 
 
+class TestTranscriptInit(unittest.TestCase):
+
+    def test_wrong_data(self):
+
+        incorrect = [0, dict(), 0j, [], tuple([]), set(), ""]
+
+        for inc in incorrect:
+            with self.subTest():
+                with self.assertRaises(TypeError):
+                    t = Transcript(inc)
+
+    def test_initialize_bed12_string(self):
+
+        t = "Chr1\t100\t1000\tID=t1;coding=False\t0\t+\t100\t1000\t0\t1\t900\t0"
+        self.assertFalse(BED12(t).header)
+        tr = Transcript(t)
+        self.assertEqual(tr.start, BED12(t).start)
+        self.assertEqual(tr.chrom, BED12(t).chrom)
+        tr = Transcript(t.encode())
+        self.assertEqual(tr.start, BED12(t).start)
+        self.assertEqual(tr.chrom, BED12(t).chrom)
+
+    def test_equality(self):
+        t = "Chr1\t100\t1000\tID=t1;coding=False\t0\t+\t100\t1000\t0\t1\t900\t0"
+        self.assertFalse(BED12(t).header)
+        tr = Transcript(t)
+        self.assertNotEqual(tr, "")
+        self.assertNotEqual(tr, t)
+        self.assertNotEqual(tr, BED12(t))
+        self.assertEqual(tr, Transcript(t))
+
+
 class WrongLoadedOrf(unittest.TestCase):
 
     def setUp(self):

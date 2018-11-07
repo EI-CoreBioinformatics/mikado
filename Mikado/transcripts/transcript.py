@@ -513,14 +513,23 @@ class Transcript:
         or if it begins before the other, or (in the case where they begin at the same location)
         it ends earlier than the other.
         """
+
+        if not hasattr(other, "chrom") or not hasattr(other, "start") or not hasattr(other, "end"):
+            raise TypeError("I cannot compare two different types")
+
         if self.chrom != other.chrom:
             return self.chrom < other.chrom
         if self == other:
             return False
-        if self.start < other.start:
+        elif self.start < other.start:
             return True
         elif self.start == other.start and self.end < other.end:
             return True
+        elif self.combined_cds_start < other.combined_cds_start:
+            return True
+        elif self.combined_cds_start == other.combined_cds_start and self.combined_cds_end < other.combined_cds_end:
+            return True
+
         return False
 
     def __gt__(self, other) -> bool:

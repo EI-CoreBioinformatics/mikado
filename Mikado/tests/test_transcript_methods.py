@@ -167,6 +167,27 @@ class TestTranscriptInit(unittest.TestCase):
         self.assertNotEqual(tr, BED12(t))
         self.assertEqual(tr, Transcript(t))
 
+    def test_comparison(self):
+        t = "Chr1\t100\t1000\tID=t1;coding=False\t0\t+\t100\t1000\t0\t1\t900\t0"
+        tr = Transcript(t)
+        with self.assertRaises(TypeError):
+            _ = (tr < "")
+
+        t2 = "Chr2\t100\t1000\tID=t1;coding=False\t0\t+\t100\t1000\t0\t1\t900\t0"
+        self.assertLess(tr, Transcript(t2))
+        t2 = "Chr1\t101\t1000\tID=t1;coding=False\t0\t+\t100\t1000\t0\t1\t900\t0"
+        self.assertLess(tr, Transcript(t2))
+        t2 = "Chr1\t100\t1001\tID=t1;coding=False\t0\t+\t100\t1000\t0\t1\t900\t0"
+        self.assertLess(tr, Transcript(t2))
+
+        # Now when they are coding
+        t2 = "Chr1\t100\t1000\tID=t1;coding=True\t0\t+\t600\t900\t0\t1\t900\t0"
+        self.assertLess(tr, Transcript(t2))
+
+        t = "Chr1\t100\t1000\tID=t1;coding=True\t0\t+\t200\t5000\t0\t1\t900\t0"
+        tr = Transcript(t)
+        self.assertLess(tr, Transcript(t2))
+
 
 class WrongLoadedOrf(unittest.TestCase):
 

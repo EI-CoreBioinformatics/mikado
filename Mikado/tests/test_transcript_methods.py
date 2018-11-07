@@ -175,9 +175,9 @@ class TestTranscriptInit(unittest.TestCase):
 
         t2 = "Chr2\t100\t1000\tID=t1;coding=False\t0\t+\t100\t1000\t0\t1\t900\t0"
         self.assertLess(tr, Transcript(t2))
-        t2 = "Chr1\t101\t1000\tID=t1;coding=False\t0\t+\t100\t1000\t0\t1\t900\t0"
+        t2 = "Chr1\t101\t1000\tID=t1;coding=False\t0\t+\t101\t1000\t0\t1\t899\t0"
         self.assertLess(tr, Transcript(t2))
-        t2 = "Chr1\t100\t1001\tID=t1;coding=False\t0\t+\t100\t1000\t0\t1\t900\t0"
+        t2 = "Chr1\t100\t1001\tID=t1;coding=False\t0\t+\t100\t1001\t0\t1\t901\t0"
         self.assertLess(tr, Transcript(t2))
 
         # Now when they are coding

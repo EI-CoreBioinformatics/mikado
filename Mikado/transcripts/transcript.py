@@ -6,7 +6,6 @@ This module defines the RNA objects. It also defines Metric, a property alias.
 
 # pylint: disable=too-many-lines
 
-import builtins
 import copy
 import functools
 import inspect
@@ -35,7 +34,6 @@ from .transcript_methods.printing import create_lines_cds
 from .transcript_methods.printing import create_lines_no_cds, create_lines_bed, as_bed12
 from ..utilities.intervaltree import Interval, IntervalTree
 from collections import Hashable
-import itertools
 import numpy as np
 
 
@@ -115,9 +113,9 @@ class Metric(property):
             raise TypeError("Invalid category specified: {}".format(category))
         self.__category__ = category
 
-    category = property(lambda self: self.category_getter(),
-                        lambda self, v: self.category_setter(v),
-                        lambda self: None)
+    category = property(fget=category_getter,
+                        fset=category_setter,
+                        fdel=None)
 
     # The "raw_valid"
     __usable_raw__ = False
@@ -131,9 +129,7 @@ class Metric(property):
             raise ValueError("The \"usable_raw\" property must be boolean!")
         self.__usable_raw__ = boolean
 
-    usable_raw = property(lambda self: self.raw_getter(),
-                          lambda self, v: self.raw_setter(v),
-                          lambda self: None)
+    usable_raw = property(fget=raw_getter, fset=raw_setter, fdel=None)
 
     __rtype__ = None
 
@@ -141,8 +137,9 @@ class Metric(property):
 
         return self.__rtype__
 
-    __valid_types = [_.__name__ for _ in dict(builtins.__dict__, **dict(globals(), **locals())).values()
-                     if hasattr(_, "__name__")] + [None]
+    __valid_types = [None, "int", "float", "str", "bytes",
+                     "complex", "dict", "bytearray", "set", "frozenset",
+                     "list", "bool", "object", "slice", "tuple"]
 
     def rtype_setter(self, string):
         if not isinstance(string, (str, bytes)) and string is not None:
@@ -154,9 +151,9 @@ class Metric(property):
 
         self.__rtype__ = string
 
-    rtype = property(lambda self: self.rtype_getter(),
-                     lambda self, v: self.rtype_setter(v),
-                     lambda self: None)
+    rtype = property(fget=rtype_getter,
+                     fset=rtype_setter,
+                     fdel=None)
 
     pass
 

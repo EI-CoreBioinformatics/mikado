@@ -1,6 +1,6 @@
 import os
 import unittest
-
+import builtins
 from sqlalchemy.engine import reflection
 import itertools
 from Mikado.configuration.configurator import to_json
@@ -8,8 +8,132 @@ from Mikado.loci import Transcript
 from Mikado.parsers.bed12 import BED12
 from Mikado.parsers.GTF import GtfLine
 from Mikado.parsers.GFF import GffLine
+from Mikado.transcripts.transcript import Metric
 from Mikado.transcripts.transcript_methods import retrieval
 from Mikado.utilities.log_utils import create_default_logger
+
+
+class TestMetricClass(unittest.TestCase):
+
+    def test_wrong_set(self):
+        class o(object):
+            def __init__(self):
+                self.__test = None
+
+            def getter(self):
+                return self.__test
+
+            def setter(self, value):
+                if not isinstance(value, int):
+                    raise ValueError
+                self.__test = value
+
+            def deleter(self):
+                self.__test = None
+
+            test = Metric(fget=getter, fset=setter, fdel=deleter)
+
+        p = o()
+
+        with self.assertRaises(ValueError):
+            p.test = '20'
+
+        self.assertIs(p.test, None)
+        p.test = 50
+        self.assertEqual(p.test, 50)
+        del p.test
+        self.assertIs(p.test, None)
+
+    def test_wrong_raw(self):
+
+        with self.assertRaises(ValueError):
+            class o:
+                def __init__(self):
+                    self.__test = 0
+
+                @Metric
+                def test(self):
+                    return self.__test
+
+                test.usable_raw = "foo"
+
+        class o2:
+            def __init__(self):
+                self.__test = 0
+
+            @Metric
+            def test(self):
+                return self.__test
+
+            test.usable_raw = True
+
+        p = o2()
+        self.assertTrue(hasattr(p, "test"))
+        self.assertTrue(getattr(o2, "test").usable_raw)
+
+    def test_wrong_rtype(self):
+        valid = ["int", "float", "str", "bytes",
+                     "complex", "dict", "bytearray", "set", "frozenset",
+                     "list", "bool", "object", "slice", "tuple", None]
+
+        for typ in valid:
+            for setter in (str, bytes):
+                with self.subTest(typ=typ, setter=setter):
+                    if setter == bytes and typ is not None:
+                        typ = typ.encode()
+
+                    class o:
+                        def __init__(self):
+                            self.__test = 0
+
+                        @Metric
+                        def test(self):
+                            return self.__test
+                        test.rtype = typ
+
+        for invalid in [0, "foo", dict(), unittest.TestCase, 0j]:
+            with self.subTest(typ=invalid):
+                with self.assertRaises(ValueError):
+                    class o:
+                        def __init__(self):
+                            self.__test = 0
+
+                        @Metric
+                        def test(self):
+                            return self.__test
+
+                        test.rtype = invalid
+
+    def test_category(self):
+
+        correct = ["External", None, "Internal", "SuperCali", "My_test"]
+        for corr, setter in itertools.product(correct, (str, bytes)):
+            with self.subTest(corr=corr, setter=setter):
+                if corr is not None and setter == bytes:
+                    corr = corr.encode()
+
+                class o:
+                    def __init__(self):
+                        self.__test = 0
+
+                    @Metric
+                    def test(self):
+                        return self.__test
+
+                    test.category = corr
+
+        incorr = [{}, dict, 0, 50j, 0.3, []]
+        for inc in incorr:
+            with self.subTest(inc=inc):
+                with self.assertRaises(TypeError):
+                    class o:
+                        def __init__(self):
+                            self.__test = 0
+
+                        @Metric
+                        def test(self):
+                            return self.__test
+                        test.category = inc
 
 
 class WrongLoadedOrf(unittest.TestCase):

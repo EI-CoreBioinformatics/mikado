@@ -1299,6 +1299,93 @@ class TestLocus(unittest.TestCase):
             self.assertEqual(len(superlocus.loci[locus_two_id].transcripts), 1)
 
 
+class EmptySuperlocus(unittest.TestCase):
+
+    def test_empty(self):
+
+        logger = create_null_logger()
+        logger.setLevel("WARNING")
+        with self.assertLogs(logger, level="WARNING"):
+            _ = Superlocus(transcript_instance=None)
+
+
+class WrongSplitting(unittest.TestCase):
+
+    def test_split(self):
+
+        t1 = Transcript(BED12("Chr1\t100\t1000\tID=t1;coding=False\t0\t+\t100\t1000\t0\t1\t900\t0"))
+        t2 = Transcript(BED12("Chr1\t100\t1000\tID=t2;coding=False\t0\t-\t100\t1000\t0\t1\t900\t0"))
+        sl = Superlocus(t1, stranded=False)
+        sl.add_transcript_to_locus(t2)
+        splitted = list(sl.split_strands())
+        self.assertEqual(len(splitted), 2)
+        self.assertIsInstance(splitted[0], Superlocus)
+        self.assertIsInstance(splitted[1], Superlocus)
+        self.assertTrue(splitted[0].stranded)
+        self.assertTrue(splitted[1].stranded)
+
+    def test_invalid_split(self):
+        t1 = Transcript(BED12("Chr1\t100\t1000\tID=t1;coding=False\t0\t+\t100\t1000\t0\t1\t900\t0"))
+        t2 = Transcript(BED12("Chr1\t100\t1000\tID=t2;coding=False\t0\t+\t100\t1000\t0\t1\t900\t0"))
+
+        logger = create_default_logger("test_invalid_split", level="WARNING")
+        with self.assertLogs(logger=logger, level="WARNING") as cm:
+            sl = Superlocus(t1, stranded=True, logger=logger)
+            sl.add_transcript_to_locus(t2)
+            splitted = list(sl.split_strands())
+
+        self.assertEqual(splitted[0], sl)
+        self.assertEqual(len(splitted), 1)
+        self.assertIn("WARNING:test_invalid_split:Trying to split by strand a stranded Locus, {}!".format(sl.id),
+                      cm.output, cm.output)
+
+
+class WrongLoadingAndIntersecting(unittest.TestCase):
+
+    def test_wrong_loading(self):
+        t1 = Transcript(BED12("Chr1\t100\t1000\tID=t1;coding=False\t0\t+\t100\t1000\t0\t1\t900\t0"))
+        sl = Superlocus(t1, stranded=True)
+        with self.assertRaises(ValueError):
+            sl.load_all_transcript_data(engine=None, data_dict=None)
+
+    @unittest.skip
+    def test_already_loaded(self):
+        t1 = Transcript(BED12("Chr1\t100\t1000\tID=t1;coding=False\t0\t+\t100\t1000\t0\t1\t900\t0"))
+        sl = Superlocus(t1, stranded=True)
+
+    def test_wrong_intersecting(self):
+        t1 = Transcript(BED12("Chr1\t100\t1000\tID=t1;coding=False\t0\t+\t100\t1000\t0\t1\t900\t0"))
+        sl = Superlocus(t1, stranded=True)
+
+        with self.subTest():
+            self.assertFalse(sl.is_intersecting(t1, t1))
+        t2 = Transcript(BED12("Chr1\t100\t1000\tID=t1;coding=False\t0\t-\t100\t1000\t0\t1\t900\t0"))
+
+        with self.subTest():
+            self.assertTrue(sl.is_intersecting(t1, t2))
+
+    def test_coding_intersecting(self):
+        t1 = Transcript(BED12("Chr1\t100\t1000\tID=t1;coding=True\t0\t+\t200\t500\t0\t1\t900\t0"))
+        sl = Superlocus(t1, stranded=True)
+        t2 = Transcript(BED12("Chr1\t100\t1000\tID=t2;coding=True\t0\t+\t600\t900\t0\t1\t900\t0"))
+        t3 = Transcript(BED12("Chr1\t100\t1000\tID=t3;coding=True\t0\t+\t300\t600\t0\t1\t900\t0"))
+        t1.finalize()
+        t2.finalize()
+        t3.finalize()
+        self.assertTrue(t1.is_coding)
+        self.assertTrue(t2.is_coding)
+        self.assertTrue(t3.is_coding)
+        self.assertNotEqual(t1, t2)
+        self.assertNotEqual(t1, t3)
+
+        with self.subTest():
+            self.assertTrue(sl.is_intersecting(t1, t2, cds_only=False))
+            self.assertFalse(sl.is_intersecting(t1, t2, cds_only=True))
+        with self.subTest():
+            self.assertTrue(sl.is_intersecting(t1, t3, cds_only=False))
+            self.assertTrue(sl.is_intersecting(t1, t3, cds_only=True))
+
+
 class RetainedIntronTester(unittest.TestCase):
 
     def setUp(self):

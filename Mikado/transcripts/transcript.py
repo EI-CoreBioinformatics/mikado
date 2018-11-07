@@ -489,16 +489,16 @@ class Transcript:
 
         if not isinstance(self, type(other)):
             return False
-        # self.finalize()
-        # other.finalize()
 
-        if self.strand == other.strand and self.chrom == other.chrom:
-            if other.start == self.start:
-                if self.end == other.end:
-                    if self.exons == other.exons:
-                        return True
-
-        return False
+        return all([
+            self.strand == other.strand,
+            self.chrom == other.chrom,
+            self.start == other.start,
+            self.end == other.end,
+            self.exons == other.exons,
+            self.combined_cds == other.combined_cds,
+            self.internal_orfs == other.internal_orfs
+        ])
 
     def __hash__(self):
         """Returns the hash of the object (call to super().__hash__()).

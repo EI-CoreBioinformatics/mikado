@@ -81,7 +81,7 @@ class Superlocus(Abstractlocus):
         """
 
         :param transcript_instance: an instance of the Transcript class
-        :type transcript_instance: Transcript
+        :type transcript_instance: [Transcript|None]
         :param stranded: boolean flag that indicates whether
         the Locus should use or ignore strand information
         :type stranded: bool
@@ -541,8 +541,6 @@ class Superlocus(Abstractlocus):
                     score = int(ext.score)
                 elif ext.rtype == "float":
                     score = float(ext.score)
-                elif ext.rtype == "complex":
-                    score = complex(ext.score)
                 elif ext.rtype == "bool":
                     score = bool(int(ext.score))
                 else:
@@ -1348,7 +1346,7 @@ class Superlocus(Abstractlocus):
 
         transcript.finalize()
         other.finalize()
-        if transcript.id == other.id:
+        if transcript == other:
             return False  # We do not want intersection with oneself
 
         if transcript.monoexonic is False and other.monoexonic is False:

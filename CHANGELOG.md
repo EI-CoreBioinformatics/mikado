@@ -21,6 +21,7 @@ Bugfixes and improvements:
 - Now coding and non-coding transcripts will be in different loci.
 - Corrected a bug in the calculation of overlapping intervals during BLAST serialisation.
 - Now BLAST HSPs will have stored as well whether there is an in-frame stop codon.
+- Now Mikado pick will be forced to run in single-threaded mode if the user is asking for debugging-level logs. This is to prevent a re-entrancy race condition that causes deadlocks (https://codewithoutrules.com/2017/08/16/concurrency-python/). 
 - Mikado prepare now can accept models that lack any exon features but still have valid CDS/UTR features - this is necessary for some protein prediction tools.
 - Fixed [#124](https://github.com/EI-CoreBioinformatics/mikado/issues/124): Mikado was giving an error when trying to launch from a folder with an invalid "plants.yaml" file, due to not checking correctly the validity of the file itself.
 - Fixed [#139](https://github.com/EI-CoreBioinformatics/mikado/issues/139): Mikado was reverse complementing non-uppercase letters incorrectly.

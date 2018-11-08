@@ -276,7 +276,7 @@ memory intensive, proceed with caution!")
         logging.handlers.QueueListener instance listening on the logging_queue
         instance attribute (which is a normal mp.Manager.Queue instance)."""
 
-        if sys.version_info.minor < 7:
+        if sys.version_info.minor >= 7:
             # The bug in re-entrant conditions should have been solved in python 3.7
             self.logging_queue = multiprocessing.SimpleQueue()
         else:

@@ -276,11 +276,7 @@ memory intensive, proceed with caution!")
         logging.handlers.QueueListener instance listening on the logging_queue
         instance attribute (which is a normal mp.Manager.Queue instance)."""
 
-        if sys.version_info.minor >= 7:
-            # The bug in re-entrant conditions should have been solved in python 3.7
-            self.logging_queue = multiprocessing.SimpleQueue()
-        else:
-            self.logging_queue = multiprocessing.Queue(-1)
+        self.logging_queue = multiprocessing.Queue(-1)
         self.printer_queue = multiprocessing.Queue(-1)
         self.formatter = formatter
         self.main_logger = logging.getLogger("main_logger")
@@ -317,11 +313,9 @@ memory intensive, proceed with caution!")
 
         if self.log_level == "DEBUG":
             self.main_logger.setLevel(logging.DEBUG)
-            if sys.version_info.minor < 7 and self.procs > 1:
-                self.main_logger.warning(
-                    "Due to a Python design bug (corrected in Python3.7 and subsequent), we have to force \
-                    Mikado to go in single-threaded mode when debugging.")
-                self.procs = self.json_conf["pick"]["run_options"]["procs"] = 1
+            self.main_logger.warning(
+                    "Due to a Python design bug, we have to force Mikado to go in single-threaded mode when debugging.")
+            self.procs = self.json_conf["pick"]["run_options"]["procs"] = 1
         else:
             self.main_logger.setLevel(logging.INFO)
         self.main_logger.addHandler(self.log_handler)

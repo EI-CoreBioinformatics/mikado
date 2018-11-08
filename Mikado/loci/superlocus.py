@@ -1216,6 +1216,7 @@ class Superlocus(Abstractlocus):
         cds_overlap = self.json_conf["pick"]["alternative_splicing"]["min_cds_overlap"]
         cdna_overlap = self.json_conf["pick"]["alternative_splicing"]["min_cdna_overlap"]
 
+        self.logger.debug("Defining the transcript graph")
         t_graph = self.define_graph(self.transcripts,
                                     inters=MonosublocusHolder.is_intersecting,
                                     cds_only=cds_only,
@@ -1223,12 +1224,21 @@ class Superlocus(Abstractlocus):
                                     min_cdna_overlap=cdna_overlap,
                                     min_cds_overlap=cds_overlap,
                                     simple_overlap_for_monoexonic=False)
+        self.logger.debug("Defined the transcript graph")
 
-        # cliques = self.find_cliques(t_graph)
-        # self.logger.debug("Cliques: %s", cliques)
-
-        loci_cliques = dict((lid, set(t_graph.neighbors(locus_instance.primary_transcript_id)))
-                            for lid, locus_instance in self.loci.items())
+        loci_cliques = dict()
+        for lid, locus_instance in self.loci.items():
+            try:
+                neighbors = t_graph.neighbors(locus_instance.primary_transcript_id)
+            except networkx.exception.NetworkXError:
+                raise networkx.exception.NetworkXError(
+                    "{} {} {}".format(
+                    locus_instance.primary_transcript.attributes["Alias"],
+                    locus_instance.primary_transcript_id,
+                    list(t_graph.nodes)
+                ))
+            loci_cliques[lid] = neighbors
+            self.logger.debug("Neighbours for %s: %s", lid, neighbors)
 
         for tid in iter(tid for tid in self.transcripts if tid not in primary_transcripts):
             loci_in = list(llid for llid in loci_cliques if
@@ -1246,6 +1256,7 @@ class Superlocus(Abstractlocus):
             for tid in sorted(candidates[lid],
                               key=lambda ttid: self.transcripts[ttid].score,
                               reverse=True):
+                self.logger.debug("Adding %s to %s", tid, lid)
                 self.loci[lid].add_transcript_to_locus(self.transcripts[tid])
             self.loci[lid].finalize_alternative_splicing()
 
@@ -1266,6 +1277,13 @@ class Superlocus(Abstractlocus):
                 self.loci[lid].remove_transcript_from_locus(tid)
 
             self.loci[lid].finalize_alternative_splicing()
+
+        # This is *necessary* because the names of the loci *MIGHT HAVE CHANGED*!
+        new = dict()
+        for lid in self.loci:
+            new[lid] = self.loci[lid]
+
+        self.loci = new
 
         return
 

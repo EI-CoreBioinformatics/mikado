@@ -291,6 +291,8 @@ class MonosublocusHolder(Sublocus, Abstractlocus):
         transcript.finalize()
         other.finalize()
 
+        logger.debug("Comparing %s vs. %s", transcript.id, other.id)
+
         if transcript == other or transcript.id == other.id or transcript.strand != other.strand:
             logger.debug("Cannot intersect with itself (%s vs %s) or a transcript on the other strand (%s and %s)",
                          transcript.id, other.id, transcript.strand, other.strand)
@@ -300,7 +302,9 @@ class MonosublocusHolder(Sublocus, Abstractlocus):
             logger.debug("Consider only the CDS: %s", cds_only)
             if overlap((transcript._selected_orf_transcript.start, transcript._selected_orf_transcript.end),
                        (other._selected_orf_transcript.start, other._selected_orf_transcript.end)) <= 0:
-                intersecting, reason = False, "No genomic overlap"
+                intersecting, reason = False, "No genomic overlap between {} and {}".format(
+                    transcript.id, other.id
+                )
             else:
                 intersecting, reason = cls._transcripts_are_intersecting(
                     transcript._selected_orf_transcript,
@@ -311,7 +315,9 @@ class MonosublocusHolder(Sublocus, Abstractlocus):
         else:
             if overlap((transcript.start, transcript.end),
                        (other.start, other.end)) <= 0:
-                intersecting, reason = False, "No genomic overlap"
+                intersecting, reason = False, "No genomic overlap between {} and {}".format(
+                    transcript.id, other.id
+                )
             else:
                 intersecting, reason = cls._transcripts_are_intersecting(
                     transcript,

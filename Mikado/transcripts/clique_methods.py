@@ -71,7 +71,9 @@ def define_graph(objects: dict, inters, **kwargs) -> networkx.Graph:
     graph.add_nodes_from(objects.keys())
 
     for obj, other_obj in combinations(objects.keys(), 2):
-        if inters(objects[obj], objects[other_obj], **kwargs):
+        if obj == other_obj:
+            continue
+        elif inters(objects[obj], objects[other_obj], **kwargs):
             # Connections are not directional
             graph.add_edge(*tuple(sorted([obj, other_obj])))
 

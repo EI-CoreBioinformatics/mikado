@@ -1258,12 +1258,14 @@ class TestLocus(unittest.TestCase):
             locus_one.logger = logger
             superlocus_one.loci[locus_one.id] = locus_one
             superlocus_one.loci_defined = True
-            superlocus_one.logger = logger
-            superlocus_one.define_alternative_splicing()
-            self.assertEqual(len(superlocus_one.loci), 1)
-            locus_id = [_ for _ in superlocus_one.loci.keys() if
-                        t1.id in superlocus_one.loci[_].transcripts][0]
-            self.assertEqual(len(superlocus_one.loci[locus_id].transcripts), 2)
+            with self.assertLogs(logger=logger, level="DEBUG") as cm:
+                superlocus_one.logger = logger
+                superlocus_one.define_alternative_splicing()
+                self.assertEqual(len(superlocus_one.loci), 1)
+                locus_id = [_ for _ in superlocus_one.loci.keys() if
+                            t1.id in superlocus_one.loci[_].transcripts][0]
+                self.assertEqual(len(superlocus_one.loci[locus_id].transcripts), 2,
+                                 cm.output)
 
         with self.subTest():
             superlocus_two = Superlocus(t2, json_conf=conf)
@@ -1282,21 +1284,26 @@ class TestLocus(unittest.TestCase):
             superlocus.add_transcript_to_locus(t2, check_in_locus=False)
             superlocus.add_transcript_to_locus(t1_1)
             superlocus.add_transcript_to_locus(t2_1)
-            locus_one = Locus(t1, json_conf=conf)
-            locus_two = Locus(t2, json_conf=conf)
+            locus_one = Locus(t1_1, json_conf=conf, logger=logger)
+            locus_two = Locus(t2, json_conf=conf, logger=logger)
             superlocus.loci[locus_one.id] = locus_one
             superlocus.loci[locus_two.id] = locus_two
+            self.assertEqual(len(superlocus.loci[locus_one.id].transcripts), 1)
+            self.assertEqual(len(superlocus.loci[locus_two.id].transcripts), 1)
             superlocus.loci_defined = True
-            superlocus.logger = logger
-            self.assertEqual(len(superlocus.loci), 2)
-            superlocus.define_alternative_splicing()
-            locus_one_id = [_ for _ in superlocus.loci.keys() if
-                            t1.id in superlocus.loci[_].transcripts][0]
-            locus_two_id = [_ for _ in superlocus.loci.keys() if
-                            t2.id in superlocus.loci[_].transcripts][0]
-            self.assertEqual(len(superlocus.loci), 2)
-            self.assertEqual(len(superlocus.loci[locus_one_id].transcripts), 1)
-            self.assertEqual(len(superlocus.loci[locus_two_id].transcripts), 1)
+            with self.assertLogs(logger=logger, level="DEBUG") as cm:
+                self.assertEqual(len(superlocus.loci), 2)
+                superlocus.define_alternative_splicing()
+                locus_one_id = [_ for _ in superlocus.loci.keys() if
+                                t1_1.id in superlocus.loci[_].transcripts][0]
+                locus_two_id = [_ for _ in superlocus.loci.keys() if
+                                t2.id in superlocus.loci[_].transcripts][0]
+                self.assertNotEqual(locus_one_id, locus_two_id)
+                self.assertEqual(len(superlocus.loci), 2)
+                self.assertEqual(len(superlocus.loci[locus_two_id].transcripts), 1,
+                                 (cm.output, superlocus.loci[locus_one_id].transcripts.keys()))
+                self.assertEqual(len(superlocus.loci[locus_one_id].transcripts), 1,
+                                 (cm.output, superlocus.loci[locus_one_id].transcripts.keys()))
 
 
 class EmptySuperlocus(unittest.TestCase):

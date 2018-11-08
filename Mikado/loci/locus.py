@@ -335,22 +335,7 @@ class Locus(Abstractlocus):
 
         # Add a check similar to what we do for the minimum requirements and the fragments
         if to_be_added and "as_requirements" in self.json_conf:
-            if ("compiled" not in self.json_conf["as_requirements"] or
-                        self.json_conf["as_requirements"]["compiled"] is None):
-                self.json_conf["as_requirements"]["compiled"] = compile(
-                    self.json_conf["as_requirements"]["expression"], "<json>",
-                    "eval")
-            evaluated = dict()
-            for key in self.json_conf["as_requirements"]["parameters"]:
-                value = getattr(transcript,
-                                self.json_conf["as_requirements"]["parameters"][key]["name"])
-                evaluated[key] = self.evaluate(
-                        value,
-                        self.json_conf["as_requirements"]["parameters"][key])
-                # pylint: disable=eval-used
-            if eval(self.json_conf["as_requirements"]["compiled"]) is False:
-                self.logger.debug("%s fails the minimum requirements for AS events", transcript.id)
-                to_be_added = False
+            to_be_added = self.__check_as_requirements(transcript)
 
         if to_be_added is True:
             is_alternative, ccode, _ = self.is_alternative_splicing(transcript)
@@ -373,6 +358,27 @@ class Locus(Abstractlocus):
         Abstractlocus.add_transcript_to_locus(self, transcript)
         self.locus_verified_introns.update(transcript.verified_introns)
 
+    def __check_as_requirements(self, transcript: Transcript) -> bool:
+
+        to_be_added = True
+        if ("compiled" not in self.json_conf["as_requirements"] or
+                self.json_conf["as_requirements"]["compiled"] is None):
+            self.json_conf["as_requirements"]["compiled"] = compile(
+                self.json_conf["as_requirements"]["expression"], "<json>",
+                "eval")
+        evaluated = dict()
+        for key in self.json_conf["as_requirements"]["parameters"]:
+            value = getattr(transcript,
+                            self.json_conf["as_requirements"]["parameters"][key]["name"])
+            evaluated[key] = self.evaluate(
+                value,
+                self.json_conf["as_requirements"]["parameters"][key])
+            # pylint: disable=eval-used
+        if eval(self.json_conf["as_requirements"]["compiled"]) is False:
+            self.logger.debug("%s fails the minimum requirements for AS events", transcript.id)
+            to_be_added = False
+        return to_be_added
+
     def is_intersecting(self, *args):
         """Not implemented: this function makes no sense for a single-transcript container.
         :param args: any argument to this nethod will be ignored.
@@ -389,6 +395,8 @@ class Locus(Abstractlocus):
             self.json_conf["not_fragmentary"]["expression"], "<json>",
             "eval")
 
+        current_id = self.id[:]
+
         evaluated = dict()
         for key in self.json_conf["not_fragmentary"]["parameters"]:
             value = getattr(self.primary_transcript,
@@ -399,12 +407,16 @@ class Locus(Abstractlocus):
         if eval(self.json_conf["not_fragmentary"]["compiled"]) is True:
             self.logger.debug("%s cannot be a fragment according to the definitions, keeping it",
                               self.id)
-            return False
+            fragment = False
         else:
             self.logger.debug(
                 "%s could be a fragment according to the definitions, tagging it for analysis",
                 self.id)
-            return True
+            fragment = True
+
+        self.id = current_id
+        assert self.id == current_id
+        return fragment
 
     def other_is_fragment(self,
                           other):
@@ -591,6 +603,8 @@ class Locus(Abstractlocus):
 
         else:
             if self.json_conf["pick"]["clustering"]["cds_only"] is True:
+                self.logger.debug("Checking whether the CDS of %s and %s are overlapping enough",
+                                  other.id, self.primary_transcript_id)
                 main_result, _ = Assigner.compare(other._selected_orf_transcript,
                                                   self.primary_transcript._selected_orf_transcript)
 
@@ -611,6 +625,8 @@ class Locus(Abstractlocus):
                     min_cds_overlap=self.json_conf["pick"]["alternative_splicing"]["min_cds_overlap"],
                     comparison=main_result,
                     fixed_perspective=True)
+
+            self.logger.debug(overlap_reason)
 
             main_ccode = main_result.ccode[0]
             if main_ccode not in valid_ccodes:
@@ -639,6 +655,10 @@ class Locus(Abstractlocus):
                                       other.id, candidate.id, result.ccode[0])
                     is_valid = False
                     break
+
+        if is_valid:
+            self.logger.debug("%s is a valid splicing isoform of %s (class code %s, overlap: %s)",
+                              other.id, self.id, main_ccode, overlap_reason)
 
         return is_valid, main_ccode, main_result
 
@@ -803,14 +823,15 @@ class Locus(Abstractlocus):
         Override of the abstractlocus method.
         :rtype str
         """
-        if self.__id is not None:
-            return self.__id
-        else:
+        if self.__id is None:
             myid = Abstractlocus.id.fget(self)  # @UndefinedVariable
 
             if self.counter > 0:
                 myid = "{0}.{1}".format(myid, self.counter)
-            return myid
+            # self.__set_id(myid)
+            self.__id = myid
+
+        return self.__id
 
     # pylint: disable=arguments-differ
     @id.setter
@@ -823,7 +844,16 @@ class Locus(Abstractlocus):
         """
 
         self.logger.debug("Setting new ID for %s to %s", self.id, string)
+        self.__set_id(string)
         self.__id = string
+
+    def __set_id(self, string):
+
+        if string == self.__id:
+            return
+        if self.__id is not None:
+            self.logger.warning("Changing the ID from %s to %s",
+                                self.__id, string)
         primary_id = "{0}.1".format(string)
         old_primary = self.primary_transcript.id
         self.primary_transcript.attributes["Alias"] = self.primary_transcript.id
@@ -852,6 +882,7 @@ class Locus(Abstractlocus):
             for index in range(len(self.metric_lines_store)):
                 self.metric_lines_store[index]["tid"] = mapper[self.metric_lines_store[index]["tid"]]
                 self.metric_lines_store[index]["parent"] = self.id
+
 
     # pylint: enable=invalid-name,arguments-differ
 

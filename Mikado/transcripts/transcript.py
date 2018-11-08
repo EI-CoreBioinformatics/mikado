@@ -525,20 +525,6 @@ class Transcript:
             return True
         elif self.start == other.start and self.end < other.end:
             return True
-        elif any([self.is_coding, other.is_coding]):
-            if self.is_coding:
-                s_c_start, s_c_end = self.combined_cds_start, self.combined_cds_end
-            else:
-                s_c_start, s_c_end = self.start, self.end
-            if other.is_coding:
-                o_c_start, o_c_end = other.combined_cds_start, other.combined_cds_end
-            else:
-                o_c_start, o_c_end = other.start, other.end
-
-            if s_c_start < o_c_start:
-                return True
-            elif s_c_start == o_c_start and s_c_end < o_c_end:
-                return True
 
         return False
 
@@ -565,8 +551,12 @@ class Transcript:
             if "json_conf" not in state:
                 state["json_conf"] = copy.deepcopy(self.json_conf)
             for key in state["json_conf"]:
+                if not isinstance(state["json_conf"][key], dict()):
+                    continue
                 if "compiled" in state["json_conf"][key]:
                     del state["json_conf"][key]["compiled"]
+                elif key == "compiled":
+                    del state["json_conf"][key]
 
         if hasattr(self, "session"):
             if state["session"] is not None:

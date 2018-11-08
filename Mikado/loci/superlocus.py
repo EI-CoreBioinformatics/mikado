@@ -680,7 +680,7 @@ class Superlocus(Abstractlocus):
                                      source=self.source)
                 else:
                     new.add_transcript_to_locus(transcript, check_in_locus=False)
-
+            assert isinstance(new, type(self))
             self = new
         elif len(to_remove) == len(self.transcripts):
             self.logger.warning("No transcripts left for %s", self.name)
@@ -696,8 +696,6 @@ class Superlocus(Abstractlocus):
             else:
                 self.transcripts[tid].feature = "ncRNA"
 
-        # num_coding = sum(1 for x in self.transcripts
-        #                  if self.transcripts[x].selected_cds_length > 0)
         self.logger.debug(
             "Found %d coding transcripts out of %d in %s",
             num_coding,
@@ -711,7 +709,7 @@ class Superlocus(Abstractlocus):
 
     # ##### Sublocus-related steps ######
 
-    def __reduce_complex_loci(self, transcript_graph):
+    def reduce_complex_loci(self, transcript_graph: networkx.Graph):
 
         """
         Method which checks whether a locus has too many transcripts and tries to reduce them.
@@ -720,7 +718,7 @@ class Superlocus(Abstractlocus):
         :return:
         """
 
-        max_edges = max([transcript_graph.degree(node) for node in transcript_graph.nodes()])
+        max_edges = max([d for n, d in transcript_graph.degree])
         self.approximation_level = 0
         if len(transcript_graph) < self._complex_limit[0] and max_edges < self._complex_limit[1]:
             return transcript_graph
@@ -729,10 +727,36 @@ class Superlocus(Abstractlocus):
                             len(transcript_graph), max_edges)
 
         self.approximation_level = 1
+        transcript_graph, max_edges = self.reduce_method_one(transcript_graph)
+        if len(transcript_graph) < self._complex_limit[0] and max_edges < self._complex_limit[1]:
+            self.logger.warning("Approximation level 1 for %s", self.id)
+            return transcript_graph
+
+        self.logger.warning("Still %d nodes with the most connected with %d edges \
+        after approximation 1",
+                            len(transcript_graph), max_edges)
+
+        self.approximation_level = 2
+        transcript_graph, max_edges = self.reduce_method_two(transcript_graph)
+        if len(transcript_graph) < self._complex_limit[0] and max_edges < self._complex_limit[1]:
+            self.logger.warning("Approximation level 2 for %s", self.id)
+            return transcript_graph
+        self.logger.warning("Still %d nodes with the most connected with %d edges \
+        after approximation 2",
+                            len(transcript_graph), max_edges)
+
+        self.approximation_level = 3
+        self.logger.warning("Approximation level 3 for %s; retained sources: %s",
+                            self.id, ",".join(self.__retained_sources))
+        transcript_graph = self.reduce_method_three(transcript_graph)
+        return transcript_graph
+
+    def reduce_method_one(self, transcript_graph: networkx.Graph) -> [networkx.Graph, int]:
+
         to_remove = set()
         for tid in transcript_graph:
             current = self.transcripts[tid]
-            for neighbour in transcript_graph.neighbors_iter(tid):
+            for neighbour in transcript_graph.neighbors(tid):
                 if neighbour in to_remove:
                     continue
                 neighbour = self.transcripts[neighbour]
@@ -743,20 +767,15 @@ class Superlocus(Abstractlocus):
                         to_remove.add(current.id)
                         break
         transcript_graph.remove_nodes_from(to_remove)
-        max_edges = max([transcript_graph.degree(node) for node in transcript_graph.nodes()])
-        if len(transcript_graph) < self._complex_limit[0] and max_edges < self._complex_limit[1]:
-            self.logger.warning("Approximation level 1 for %s", self.id)
-            return transcript_graph
+        max_edges = max([d for n, d in transcript_graph.degree])
+        return transcript_graph, max_edges
 
-        self.logger.warning("Still %d nodes with the most connected with %d edges \
-        after approximation 1",
-                            len(transcript_graph), max_edges)
+    def reduce_method_two(self, transcript_graph: networkx.Graph) -> [networkx.Graph, int]:
 
-        self.approximation_level = 2
         to_remove = set()
         for tid in transcript_graph:
             current = self.transcripts[tid]
-            for neighbour in transcript_graph.neighbors_iter(tid):
+            for neighbour in transcript_graph.neighbors(tid):
                 if neighbour in to_remove:
                     continue
                 neighbour = self.transcripts[neighbour]
@@ -790,23 +809,12 @@ class Superlocus(Abstractlocus):
                 else:
                     continue
 
-                # result, _ = Assigner.compare(neighbour, current)
-                # if result.j_prec == 1 and result.n_prec == 1:
-                #     # Neighbour completely contained
-                #     to_remove.add(neighbour.id)
-                # elif result.j_recall == 1 and result.n_recall == 1:
-                #     # Current completely contained
-                #     to_remove.add(current)
-                #     break
-
         transcript_graph.remove_nodes_from(to_remove)
-        max_edges = max([transcript_graph.degree(node) for node in transcript_graph.nodes()])
-        if len(transcript_graph) < self._complex_limit[0] and max_edges < self._complex_limit[1]:
-            self.logger.warning("Approximation level 2 for %s", self.id)
-            return transcript_graph
-        self.logger.warning("Still %d nodes with the most connected with %d edges \
-        after approximation 2",
-                            len(transcript_graph), max_edges)
+        max_edges = max([d for n, d in transcript_graph.degree])
+        return transcript_graph, max_edges
+
+    def reduce_method_three(self, transcript_graph: networkx.Graph) -> networkx.Graph:
+
         # Now we are going to collapse by method
         sources = collections.defaultdict(set)
         for tid in transcript_graph:
@@ -856,10 +864,6 @@ class Superlocus(Abstractlocus):
             new_graph.add_edges_from(edges)
             self.logger.debug("Retained source %s", source)
             self.__retained_sources.add(source)
-
-        self.approximation_level = 3
-        self.logger.warning("Approximation level 3 for %s; retained sources: %s",
-                            self.id, ",".join(self.__retained_sources))
         return new_graph
 
     def define_subloci(self):
@@ -889,7 +893,7 @@ class Superlocus(Abstractlocus):
         transcript_graph = self.define_graph(self.transcripts,
                                              inters=self.is_intersecting,
                                              cds_only=cds_only)
-        transcript_graph = self.__reduce_complex_loci(transcript_graph)
+        transcript_graph = self.reduce_complex_loci(transcript_graph)
         if len(self.transcripts) > len(transcript_graph):
             self.logger.warning("Discarded %d transcripts from %s due to approximation level %d",
                                 len(self.transcripts) - len(transcript_graph),

@@ -180,13 +180,15 @@ class TestTranscriptInit(unittest.TestCase):
         t2 = "Chr1\t100\t1001\tID=t1;coding=False\t0\t+\t100\t1001\t0\t1\t901\t0"
         self.assertLess(tr, Transcript(t2))
 
-        # Now when they are coding
+        # Now when they are coding.
+        # To prevent the whole sublocus situation to crumble, we have to avoid considering
+        # the coding part ..
         t2 = "Chr1\t100\t1000\tID=t1;coding=True\t0\t+\t600\t900\t0\t1\t900\t0"
-        self.assertLess(tr, Transcript(t2))
+        self.assertFalse(tr < Transcript(t2))
 
         t = "Chr1\t100\t1000\tID=t1;coding=True\t0\t+\t200\t5000\t0\t1\t900\t0"
         tr = Transcript(t)
-        self.assertLess(tr, Transcript(t2))
+        self.assertFalse(tr < Transcript(t2))
 
     def test_get_orfs(self):
         t = "Chr1\t100\t1000\tID=t1;coding=False\t0\t+\t100\t1000\t0\t1\t900\t0"

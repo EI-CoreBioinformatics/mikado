@@ -196,9 +196,7 @@ class Locus(Abstractlocus):
         self.metrics_calculated = False
         self.scores_calculated = False
         self.calculate_scores()
-        order = sorted([(tid, self.transcripts[tid].score) for tid in self.transcripts
-                        if tid != self.primary_transcript_id],
-                       key=operator.itemgetter(1), reverse=True)
+
         self._not_passing = set()
         self._check_requirements()
         if self.primary_transcript_id in self._not_passing or set.intersection(templates, self._not_passing):
@@ -213,6 +211,10 @@ class Locus(Abstractlocus):
             self.calculate_scores()
             failed = True
             return failed
+
+        order = sorted([(tid, self.transcripts[tid].score) for tid in self.transcripts
+                        if tid != self.primary_transcript_id],
+                       key=operator.itemgetter(1), reverse=True)
 
         # Now that we are sure that we have not ruined the primary transcript, let us see whether
         # we should discard any other transcript.

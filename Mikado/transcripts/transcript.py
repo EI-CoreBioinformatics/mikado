@@ -1260,12 +1260,12 @@ class Transcript:
     def search(self, start, end, value=None, max_distance=0):
 
         """Method to use the segment tree to find all segments intersecting the given segment."""
-        return self.segmenttree.search(start, end, max_distance=max_distance, value=value)
+        return self.segmenttree.search(start - 1, end, max_distance=max_distance, value=value)
 
     def find_upstream(self, start, end):
 
         """Method to use the segment tree to find all segments in the transcript upstream of a given interval."""
-        return self.segmenttree.upstream_of_interval(Interval(start, end),
+        return self.segmenttree.upstream_of_interval(Interval(start - 1, end),
                                                      num_intervals=self.exon_num + len(self.introns),
                                                      max_dist=len(self))
 
@@ -1273,7 +1273,7 @@ class Transcript:
 
         """Method to use the segment tree to find all segments in the transcript downstream of a given interval."""
 
-        return self.segmenttree.downstream_of_interval(Interval(start, end),
+        return self.segmenttree.downstream_of_interval(Interval(start - 1, end),
                                                        num_intervals=self.exon_num + len(self.introns),
                                                        max_dist=len(self))
 

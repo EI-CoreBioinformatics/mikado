@@ -1076,28 +1076,26 @@ def _enlarge_end(transcript: Transcript,
     down_exons = []
 
     if end_transcript:
-
         transcript.end = end_transcript.end
         downstream_exons = sorted([ _ for _ in
-            end_transcript.find_downstream(transcript.exons[-1][0], transcript.exons[-1][1])
-                                      if _.value == "exon"])
+                                    end_transcript.find_downstream(transcript.exons[-1][0], transcript.exons[-1][1])
+                                    if _.value == "exon"])
         intersecting_downstream = sorted(end_transcript.search(
             transcript.exons[-1][0], transcript.exons[-1][1]))
-
         if not intersecting_downstream:
             raise KeyError("No exon or intron found to be intersecting with %s vs %s, this is a mistake",
                            transcript.id, end_transcript.id)
-
+        # We are taking the right-most intersecting element.
         if intersecting_downstream[-1].value == "exon":
             if transcript.monoexonic and new_first_exon is not None:
                 new_exon = (new_first_exon[0], max(intersecting_downstream[-1][1], new_first_exon[1]))
-
                 if new_exon != new_first_exon:
                     up_exons.remove(new_first_exon)
                     downstream += new_exon[1] - backup.end
                     down_exons.append(new_exon)
             else:
-                new_exon = (transcript.exons[-1][0], max(intersecting_downstream[-1][1], transcript.exons[-1][1]))
+                new_exon = (transcript.exons[-1][0],
+                            max(intersecting_downstream[-1][1], transcript.exons[-1][1]))
                 if new_exon != transcript.exons[-1]:
                     downstream += new_exon[1] - backup.end
                     down_exons.append(new_exon)

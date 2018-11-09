@@ -620,14 +620,30 @@ Mikado can optionally "pad" transcripts so to uniform, as much as possible, thei
 #. Transcripts can be padded on one end if there is a **template** transcript for which the extension:
   - would have a *genomic* distance to the current end equal to *at most* a number of base-pairs specified under "ts_distance"
   - would not require to cross a number of splice junctions in the template over the number specified under "ts_max_splices"
-#. After grouping together the transcripts
-#. Amongst the transcripts in the locus, identify cases where extending a transcript until the end of another would:
-  - extend only by less than a given maximum length (defined in the configuration under pick/alternative_splicing/ts_distance)
-  - cause the extended part to cross at most a pre-defined number of splice sites (defined under pick/alternative_splicing/ts_max_splices)
-#. Once the transcript has been marked for extension, extend the terminal exon(s)
-#. If the transcript is coding, extract the cDNA sequence from the genome, then extract the ORF. If the extension causes the CDS to be enlarged, Mikado will calculate the position of the first start and stop codon it encounters - while keeping the same frame. If the new start codon would lead to an in-frame stop codon, Mikado will abort the expansion and report it in the log.
+#. Create a copy of the transcripts in the locus, for backtracking.
+#. After selecting the templates and the attached transcripts, expand the transcript.
+  #. Create a copy of the transcript for backtracking
+  #. Calculate whether the 5' terminal exon should be enlarged:
+    - if the transcript exon terminally overlaps a template exon, enlarge it until the end of the template
+    - If the template transcript has multiple exons upstream of the expanded exon, add those to the transcript.
+    - Calculate the number of bases that have been added upstream to the cDNA of the transcript
+  #. Calculate whether the 3' terminal exon should be enlarged:
+    - if the transcript exon terminally overlaps a template exon, enlarge it until the end of the template
+    - If the template transcript has multiple exons downstream of the expanded exon, add those to the transcript.
+    - Calculate the number of bases that have been added downstream to the cDNA of the transcript
+  #. If the transcript is coding:
+    #. Calculate the new putative CDS positions in the transcript, using the memoized amount of added basepairs downstream and upstream
+    #. Calculate the new CDS, **keeping the same frame as the original transcript**. If the transcript is incomplete, this might lead to find the proper start and stop codons
+    #. If we find an in-frame stop codon, the expansion would lead to an invalid transcript. Backtrack.
+#. Recalculate metrics and scores.
+#. Check whether we have made any transcript an invalid alternative splicing event; possible common causes include:
+  - Having created a retained intron
+  - Having expanded the number or size of the UTR so that the transcripts are no longer viable
+#. If any of the non-viable transcripts is either the primary transcript or one of the templates, remove the current templates from the locus and restart the analysis.
+#. Discard all the non-viable transcripts that are neither the primary nor templates.
 
 This option is normally disabled. It has been written for using Mikado in conjunction with *ab initio* predictions, but it can be used fruitfully also with transcript assemblies.
+Please note that some of the metrics might become invalid after the padding. In particular, BLASTX results will be invalid as the query sequence will have changed.
 
 Technical details
 ~~~~~~~~~~~~~~~~~

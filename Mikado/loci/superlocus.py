@@ -390,7 +390,7 @@ class Superlocus(Abstractlocus):
                     new_loci.append(new_locus)
 
             self.logger.debug(
-                "Defined %d loci by splitting by strand at %s.",
+                "Defined %d superloci by splitting by strand at %s.",
                 len(new_loci), self.id)
             for new_locus in iter(sorted(new_loci)):
                 if self.regressor is not None:

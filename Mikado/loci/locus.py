@@ -220,7 +220,7 @@ class Locus(Abstractlocus):
         # we should discard any other transcript.
         newlocus = Locus(self.primary_transcript)
         to_remove = set()
-        for tid in order:
+        for tid, score in order:
             if tid == self.primary_transcript_id:
                 continue
             if newlocus.is_alternative_splicing(self.transcripts[tid]):
@@ -851,9 +851,6 @@ class Locus(Abstractlocus):
 
         if string == self.__id:
             return
-        if self.__id is not None:
-            self.logger.warning("Changing the ID from %s to %s",
-                                self.__id, string)
         primary_id = "{0}.1".format(string)
         old_primary = self.primary_transcript.id
         self.primary_transcript.attributes["Alias"] = self.primary_transcript.id

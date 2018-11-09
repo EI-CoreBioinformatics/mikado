@@ -941,8 +941,8 @@ class Locus(Abstractlocus):
 
 
 def expand_transcript(transcript: Transcript,
-                      start_transcript: Transcript,
-                      end_transcript: Transcript,
+                      start_transcript: [Transcript, bool],
+                      end_transcript: [Transcript, bool],
                       fai, logger):
 
     # If there is nothing to do, just get out
@@ -975,6 +975,8 @@ def expand_transcript(transcript: Transcript,
     downstream = 0
     up_exons = []
     down_exons = []
+    new_first_exon = None  # We have to use it for monoexonic transcripts
+
     if start_transcript:
         transcript.start = start_transcript.start
         upstream_exons = sorted([ _ for _ in
@@ -989,24 +991,26 @@ def expand_transcript(transcript: Transcript,
                            transcript.id, start_transcript.id)
 
         if intersecting_upstream[0].value == "exon":
-            new_exon = (min(intersecting_upstream[0][0], backup.start),
-                        transcript.exons[0][1])
-            if new_exon != transcript.exons[0]:
-                upstream += backup.start - new_exon[0]
-                up_exons.append(new_exon)
+            new_first_exon = (min(intersecting_upstream[0][0], backup.start),
+                              transcript.exons[0][1])
+            if new_first_exon != transcript.exons[0]:
+                upstream += backup.start - new_first_exon[0]
+                up_exons.append(new_first_exon)
+            else:
+                new_first_exon = None
             if intersecting_upstream[0] in upstream_exons:
                 upstream_exons.remove(intersecting_upstream[0])
             upstream += sum(_[1] - _[0] + 1 for _ in upstream_exons)
-            up_exons.extend(upstream_exons)
+            up_exons.extend([(_[0], _[1]) for _ in upstream_exons])
         elif intersecting_upstream[0].value == "intron":
             # Now we have to expand until the first exon in the upstream_exons
             upstream_exon = upstream_exons[-1]
-            new_exon = (upstream_exon[0], transcript.exons[0][1])
+            new_first_exon = (upstream_exon[0], transcript.exons[0][1])
             upstream_exons.remove(upstream_exon)
-            upstream += backup.start - new_exon[0]
+            upstream += backup.start - new_first_exon[0]
             upstream += sum(_[1] - _[0] + 1 for _ in upstream_exons)
-            up_exons.extend(upstream_exons)
-            up_exons.append(new_exon)
+            up_exons.extend([(_[0], _[1]) for _ in upstream_exons])
+            up_exons.append(new_first_exon)
 
     if end_transcript:
 
@@ -1022,10 +1026,19 @@ def expand_transcript(transcript: Transcript,
                            transcript.id, start_transcript.id)
 
         if intersecting_downstream[-1].value == "exon":
-            new_exon = (transcript.exons[-1][0], max(intersecting_downstream[-1][1], transcript.exons[-1][1]))
-            if new_exon != transcript.exons[-1]:
-                downstream += new_exon[1] - backup.end
-                down_exons.append(new_exon)
+            if transcript.monoexonic and new_first_exon is not None:
+                new_exon = (new_first_exon[0], max(intersecting_downstream[-1][1], new_first_exon[1]))
+
+                if new_exon != new_first_exon:
+                    up_exons.remove(new_first_exon)
+                    downstream += new_exon[1] - backup.end
+                    down_exons.append(new_exon)
+            else:
+                new_exon = (transcript.exons[-1][0], max(intersecting_downstream[-1][1], transcript.exons[-1][1]))
+                if new_exon != transcript.exons[-1]:
+                    downstream += new_exon[1] - backup.end
+                    down_exons.append(new_exon)
+
             if intersecting_downstream[-1] in downstream_exons:
                 downstream_exons.remove(intersecting_downstream[-1])
             downstream += sum(_[1] - _[0] + 1 for _ in downstream_exons)
@@ -1035,7 +1048,11 @@ def expand_transcript(transcript: Transcript,
             downstream_exon = downstream_exons[0]
             assert downstream_exon[1] > backup.end
             assert downstream_exon[0] > backup.end
-            new_exon = (transcript.exons[-1][0], downstream_exon[1])
+            if transcript.monoexonic and new_first_exon is not None:
+                new_exon = (new_first_exon[0], downstream_exon[1])
+                up_exons.remove(new_first_exon)
+            else:
+                new_exon = (transcript.exons[-1][0], downstream_exon[1])
             downstream_exons.remove(downstream_exon)
             downstream += new_exon[1] - backup.end
             downstream += sum(_[1] - _[0] + 1 for _ in downstream_exons)
@@ -1044,8 +1061,7 @@ def expand_transcript(transcript: Transcript,
 
     first_exon, last_exon = transcript.exons[0], transcript.exons[-1]
 
-    assert upstream >= 0
-    assert downstream >= 0
+    assert upstream >= 0 and downstream >= 0
 
     if upstream > 0:
         # Remove the first exon
@@ -1082,15 +1098,21 @@ def expand_transcript(transcript: Transcript,
             raise InvalidTranscript(error)
         seq = TranscriptChecker(transcript, genome_seq, is_reference=True).cdna
         assert len(seq) == transcript.cdna_length, (len(seq), transcript.cdna_length, transcript.exons)
-        assert len(seq) == backup.cdna_length + upstream + downstream, (
-            len(seq), backup.cdna_length + upstream + downstream,
-            backup.cdna_length, upstream, downstream,
-            (transcript.start, transcript.end), (backup.start, backup.end),
-            (None if not start_transcript else start_transcript.start,
-             None if not end_transcript else end_transcript.end),
-            set.difference(set(transcript.exons), set(backup.exons)),
-            set.difference(set(backup.exons), set(transcript.exons))
-        )
+        if not len(seq) == backup.cdna_length + upstream + downstream:
+
+            error = [len(seq), backup.cdna_length + upstream + downstream,
+                     backup.cdna_length, upstream, downstream,
+                     (transcript.start, transcript.end), (backup.id, backup.start, backup.end),
+                     (None if not start_transcript else (start_transcript.id, start_transcript.end)),
+                     (None if not end_transcript else (end_transcript.id, end_transcript.end)),
+                     (backup.exons,
+                      None if not start_transcript else start_transcript.exons,
+                      None if not end_transcript else end_transcript.exons),
+                     set.difference(set(transcript.exons), set(backup.exons)),
+                     set.difference(set(backup.exons), set(transcript.exons))
+                     ]
+            error = "\n".join([str(_) for _ in error])
+            raise AssertionError(error)
 
         for orf in internal_orfs:
             logger.debug("Old ORF: %s", str(orf))

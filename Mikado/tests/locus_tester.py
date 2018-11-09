@@ -13,6 +13,7 @@ from Mikado import exceptions
 from Mikado.parsers import GFF  # ,GTF, bed12
 from Mikado.parsers.GTF import GtfLine
 from Mikado.loci import Transcript, Superlocus, Abstractlocus, Locus, Monosublocus, MonosublocusHolder, Sublocus
+from Mikado.loci.locus import expand_transcript
 from Mikado.utilities.log_utils import create_null_logger, create_default_logger
 from Mikado.utilities import overlap
 import itertools
@@ -21,6 +22,9 @@ import Mikado.loci
 import pickle
 import inspect
 from Mikado.parsers.bed12 import BED12
+import tempfile
+import gzip
+import pyfaidx
 # from Mikado.scales.contrast import compare as c_compare
 
 
@@ -2120,6 +2124,18 @@ class PicklingTest(unittest.TestCase):
 
 class PaddingTester(unittest.TestCase):
 
+    @classmethod
+    def setUpClass(cls):
+        cls.__genomefile__ = None
+
+        cls.__genomefile__ = tempfile.NamedTemporaryFile(mode="wb", delete=False, suffix=".fa", prefix="prepare")
+
+        with pkg_resources.resource_stream("Mikado.tests", "chr5.fas.gz") as _:
+            cls.__genomefile__.write(gzip.decompress(_.read()))
+        cls.__genomefile__.flush()
+        cls.fai = pyfaidx.Fasta(cls.__genomefile__.name)
+
+
     @staticmethod
     def load_from_bed(manager, resource):
         transcripts = dict()
@@ -2311,6 +2327,168 @@ class PaddingTester(unittest.TestCase):
                 else:
                     self.assertNotEqual(locus["mikado.44G2.4"].end, locus["mikado.44G2.5"].end)
                     self.assertFalse(locus["mikado.44G2.1"].attributes.get("padded", False))
+
+    def test_pad_monoexonic(self):
+
+        transcript = Transcript()
+        transcript.chrom, transcript.strand, transcript.id = "Chr5", "+", "mono.1"
+        transcript.add_exons([(2001, 3000)])
+        transcript.finalize()
+        backup = transcript.deepcopy()
+
+        template_one = Transcript()
+        template_one.chrom, template_one.strand, template_one.id = "Chr5", "+", "multi.1"
+        template_one.add_exons([(1931, 2500), (2701, 3500)])
+        template_one.finalize()
+        logger = create_null_logger("test_pad_monoexonic")
+
+        for case in range(3):
+            with self.subTest(case=case):
+                transcript = backup.deepcopy()
+                start = template_one if case % 2 == 0 else False
+                end = template_one if case > 0 else False
+
+                expanded_one = expand_transcript(transcript,
+                                                 start, end, self.fai, logger=logger)
+                if start:
+                    self.assertEqual(expanded_one.start, template_one.start)
+                else:
+                    self.assertEqual(expanded_one.start, transcript.start)
+                if end:
+                    self.assertEqual(expanded_one.end, template_one.end)
+                else:
+                    self.assertEqual(expanded_one.end, transcript.end)
+
+        # Now monoexonic template
+        template_two = Transcript()
+        template_two.chrom, template_two.strand, template_two.id = "Chr5", "+", "multi.1"
+        template_two.add_exons([(1931, 3500)])
+        template_two.finalize()
+
+        for case in range(3):
+            with self.subTest(case=case):
+                transcript = backup.deepcopy()
+                start = template_two if case % 2 == 0 else False
+                end = template_two if case > 0 else False
+
+                expanded_one = expand_transcript(transcript,
+                                                 start, end, self.fai, logger=logger)
+                if start:
+                    self.assertEqual(expanded_one.start, template_two.start)
+                else:
+                    self.assertEqual(expanded_one.start, transcript.start)
+                if end:
+                    self.assertEqual(expanded_one.end, template_two.end)
+                else:
+                    self.assertEqual(expanded_one.end, transcript.end)
+
+        # Now monoexonic template
+        template_three = Transcript()
+        template_three.chrom, template_three.strand, template_three.id = "Chr5", "+", "multi.1"
+        template_three.add_exons([(1501, 1700), (1931, 3500), (4001, 5000)])
+        template_three.finalize()
+
+        for case in range(3):
+            with self.subTest(case=case):
+                transcript = backup.deepcopy()
+                start = template_three if case % 2 == 0 else False
+                end = template_three if case > 0 else False
+
+                expanded_one = expand_transcript(transcript,
+                                                 start, end, self.fai, logger=logger)
+                if start:
+                    self.assertEqual(expanded_one.start, start.start)
+                    self.assertIn((1501, 1700), expanded_one.exons)
+                else:
+                    self.assertEqual(expanded_one.start, transcript.start)
+                    self.assertNotIn((1501, 1700), expanded_one.exons)
+                if end:
+                    self.assertEqual(expanded_one.end, end.end)
+                    self.assertIn((4001, 5000), expanded_one.exons)
+                else:
+                    self.assertEqual(expanded_one.end, transcript.end)
+                    self.assertNotIn((4001, 5000), expanded_one.exons)
+
+    def test_pad_multiexonic(self):
+
+        transcript = Transcript()
+        transcript.chrom, transcript.strand, transcript.id = "Chr5", "+", "mono.1"
+        transcript.add_exons([(2001, 2400), (2800, 3000)])
+        transcript.finalize()
+        backup = transcript.deepcopy()
+
+        template_one = Transcript()
+        template_one.chrom, template_one.strand, template_one.id = "Chr5", "+", "multi.1"
+        template_one.add_exons([(1931, 2500), (2701, 3500)])
+        template_one.finalize()
+        logger = create_null_logger("test_pad_monoexonic")
+
+        for case in range(3):
+            with self.subTest(case=case):
+                transcript = backup.deepcopy()
+                start = template_one if case % 2 == 0 else False
+                end = template_one if case > 0 else False
+
+                expanded_one = expand_transcript(transcript,
+                                                 start, end, self.fai, logger=logger)
+                if start:
+                    self.assertEqual(expanded_one.start, template_one.start)
+                else:
+                    self.assertEqual(expanded_one.start, backup.start)
+                if end:
+                    self.assertEqual(expanded_one.end, template_one.end)
+                else:
+                    self.assertEqual(expanded_one.end, backup.end)
+
+        # Now monoexonic template
+        template_two = Transcript()
+        template_two.chrom, template_two.strand, template_two.id = "Chr5", "+", "multi.1"
+        template_two.add_exons([(1931, 3500)])
+        template_two.finalize()
+
+        for case in range(3):
+            with self.subTest(case=case):
+                transcript = backup.deepcopy()
+                start = template_two if case % 2 == 0 else False
+                end = template_two if case > 0 else False
+
+                expanded_one = expand_transcript(transcript,
+                                                 start, end, self.fai, logger=logger)
+                if start:
+                    self.assertEqual(expanded_one.start, template_two.start)
+                else:
+                    self.assertEqual(expanded_one.start, backup.start)
+                if end:
+                    self.assertEqual(expanded_one.end, template_two.end)
+                else:
+                    self.assertEqual(expanded_one.end, transcript.end)
+
+        # Now monoexonic template
+        template_three = Transcript()
+        template_three.chrom, template_three.strand, template_three.id = "Chr5", "+", "multi.1"
+        template_three.add_exons([(1501, 1700), (1931, 3500), (4001, 5000)])
+        template_three.finalize()
+
+        for case in range(3):
+            with self.subTest(case=case):
+                transcript = backup.deepcopy()
+                start = template_three if case % 2 == 0 else False
+                end = template_three if case > 0 else False
+
+                expanded_one = expand_transcript(transcript,
+                                                 start, end, self.fai, logger=logger)
+                if start:
+                    self.assertEqual(expanded_one.start, start.start)
+                    self.assertIn((1501, 1700), expanded_one.exons)
+                else:
+                    self.assertEqual(expanded_one.start, backup.start)
+                    self.assertNotIn((1501, 1700), expanded_one.exons)
+                if end:
+                    self.assertEqual(expanded_one.end, end.end)
+                    self.assertIn((4001, 5000), expanded_one.exons)
+                else:
+                    self.assertEqual(expanded_one.end, backup.end)
+                    self.assertNotIn((4001, 5000), expanded_one.exons)
 
 
 if __name__ == '__main__':

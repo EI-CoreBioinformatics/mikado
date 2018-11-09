@@ -599,7 +599,10 @@ class Transcript:
 
         if isinstance(gffline, (tuple, list)):
             assert len(gffline) == 2
-            start, end = sorted(gffline)
+            try:
+                start, end = sorted(gffline)
+            except TypeError:
+                raise TypeError((gffline, type(gffline)))
             if feature is None:
                 feature = "exon"
         elif isinstance(gffline, intervaltree.Interval):

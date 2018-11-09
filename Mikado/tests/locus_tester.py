@@ -2563,5 +2563,37 @@ class PaddingTester(unittest.TestCase):
 
         self.assertIn("DEBUG:null:test does not need to be expanded, exiting", cm.output)
 
+    def test_edge_expansion(self):
+
+        transcript = Transcript()
+        transcript.id, transcript.chrom, transcript.strand = "test", "Chr5", "+"
+        transcript.add_exons([(194892, 195337), (195406, 195511),
+                              (195609, 195694), (195788, 195841),
+                              (195982, 196098), (196207, 196255),
+                              (196356, 196505), (196664, 196725),
+                              (197652, 197987)])
+        transcript.finalize()
+        backup = transcript.deepcopy()
+
+        start_transcript = Transcript()
+        start_transcript.id, start_transcript.chrom, start_transcript.strand = "template", "Chr5", "+"
+        start_transcript.add_exons([(194741, 194891), (195179, 195337), (195406, 195511),
+                                    (195609, 195694), (195788, 195841), (195982, 196098),
+                                    (196207, 196255), (196356, 196505), (196664, 196725),
+                                    (196848, 196943)])
+
+        logger = create_null_logger()
+        with self.assertLogs(logger=logger, level="DEBUG"):
+            expand_transcript(transcript, start_transcript, False, self.fai, logger)
+            self.assertNotEqual(transcript, backup)
+            self.assertEqual(transcript.exons,
+                             [(194741, 195337), (195406, 195511),
+                              (195609, 195694), (195788, 195841),
+                              (195982, 196098), (196207, 196255),
+                              (196356, 196505), (196664, 196725),
+                              (197652, 197987)]
+                             )
+
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)

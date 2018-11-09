@@ -960,6 +960,7 @@ def expand_transcript(transcript: Transcript,
 
     """This method will enlarge the coordinates and exon structure of a transcript, given:
     :param transcript: the transcript to modify.
+    :type transcript: Transcript
     :param start_transcript: the template transcript for the 5' end.
     :param end_transcript: the template transcript for the 3' end.
     :param fai: the indexed genomic sequence.
@@ -967,7 +968,13 @@ def expand_transcript(transcript: Transcript,
     """
 
     # If there is nothing to do, just get out
-    if not start_transcript and not end_transcript:
+    transcript.finalize()
+    if start_transcript not in (False, None):
+        start_transcript.finalize()
+    if end_transcript not in (False, None):
+        end_transcript.finalize()
+
+    if start_transcript in (False, None) and end_transcript in (False, None):
         logger.debug("%s does not need to be expanded, exiting", transcript.id)
         return transcript
 

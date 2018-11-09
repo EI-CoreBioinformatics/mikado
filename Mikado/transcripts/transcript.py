@@ -1266,18 +1266,18 @@ class Transcript:
         """Method to use the segment tree to find all segments intersecting the given segment."""
         return self.segmenttree.search(start - 1, end, max_distance=max_distance, value=value)
 
-    def find_upstream(self, start, end):
+    def find_upstream(self, start, end, offset=0):
 
         """Method to use the segment tree to find all segments in the transcript upstream of a given interval."""
-        return self.segmenttree.upstream_of_interval(Interval(start - 1, end),
+        return self.segmenttree.upstream_of_interval(Interval(start - offset, end),
                                                      num_intervals=self.exon_num + len(self.introns),
                                                      max_dist=10**9)
 
-    def find_downstream(self, start, end):
+    def find_downstream(self, start, end, offset=0):
 
         """Method to use the segment tree to find all segments in the transcript downstream of a given interval."""
 
-        return self.segmenttree.downstream_of_interval(Interval(start - 1, end),
+        return self.segmenttree.downstream_of_interval(Interval(start - offset, end),
                                                        num_intervals=self.exon_num + len(self.introns),
                                                        max_dist=10**9)
 

@@ -1190,8 +1190,8 @@ class Superlocus(Abstractlocus):
                 self.__lost.update({tid: self.transcripts[tid]})
 
         if len(self.__lost):
-            self.logger.warning("Lost %s transcripts from %s; starting the recovery process",
-                                len(self.lost_transcripts), self.id)
+            self.logger.debug("Lost %s transcripts from %s; starting the recovery process",
+                              len(self.lost_transcripts), self.id)
 
     def define_alternative_splicing(self):
 
@@ -1269,7 +1269,7 @@ class Superlocus(Abstractlocus):
                     is_compatible = MonosublocusHolder.in_locus(self.loci[olid],
                                                                 transcript)
                     if is_compatible is True:
-                        self.logger.warning("%s is compatible with more than one locus. Removing it.", tid)
+                        self.logger.info("%s is compatible with more than one locus. Removing it.", tid)
                         to_remove[lid].append(tid)
 
         for lid in to_remove:

@@ -206,10 +206,16 @@ class Locus(Abstractlocus):
         if self.primary_transcript_id in self._not_passing or set.intersection(templates, self._not_passing):
             self.logger.info(
                 "Either the primary or some template transcript has not passed the muster. Removing, restarting.")
+            if self._not_passing == {self.primary_transcript_id}:
+                self.logger.info("The primary transcript %s is invalidated by the other transcripts in the locus.\
+                Leaving only the main transcript in %s.", self.primary_transcript_id, self.id)
+                self._not_passing = set(self.transcripts.keys()) - {self.primary_transcript_id}
             # Templates are clearly wrong. Remove them
-            self.transcripts = backup.copy()
             for tid in self._not_passing - {self.primary_transcript_id}:
                 self.remove_transcript_from_locus(tid)
+            for tid in set(backup.keys()) - (self._not_passing - {self.primary_transcript_id}):
+                self.logger.debug("Swapping the old transcript for %s", tid)
+                self._swap_transcript(self.transcripts[tid], backup[tid])
             self.metrics_calculated = False
             self.scores_calculated = False
             self.calculate_scores()

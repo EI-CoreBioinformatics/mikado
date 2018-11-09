@@ -1106,14 +1106,28 @@ def _enlarge_start(transcript: Transcript,
             up_exons.extend([(_[0], _[1]) for _ in upstream_exons])
         elif intersecting_upstream[0].value == "intron":
             # Now we have to expand until the first exon in the upstream_exons
-            to_remove = True
-            upstream_exon = upstream_exons[-1]
-            new_first_exon = (upstream_exon[0], transcript.exons[0][1])
-            upstream_exons.remove(upstream_exon)
-            upstream += backup.start - new_first_exon[0]
+            if upstream_exons:
+                to_remove = True
+                upstream_exon = upstream_exons[-1]
+                new_first_exon = (upstream_exon[0], transcript.exons[0][1])
+                upstream_exons.remove(upstream_exon)
+                upstream += backup.start - new_first_exon[0]
+                up_exons.append(new_first_exon)
+            else:
+                # Something fishy going on here. Let us double check everything.
+                if start_transcript.exons[0][0] == transcript.start:
+                    raise ValueError(
+                        "Something has gone wrong. The template transcript should have returned upstream exons."
+                    )
+                elif start_transcript.exons[0][0] < transcript.start:
+                    raise ValueError(
+                        "Something has gone wrong. We should have found the correct exons."
+                    )
+                else:
+                    pass
+
             upstream += sum(_[1] - _[0] + 1 for _ in upstream_exons)
             up_exons.extend([(_[0], _[1]) for _ in upstream_exons])
-            up_exons.append(new_first_exon)
 
     return upstream, up_exons, new_first_exon, to_remove
 
@@ -1176,21 +1190,32 @@ def _enlarge_end(transcript: Transcript,
             down_exons.extend([(_[0], _[1]) for _ in downstream_exons])
         elif intersecting_downstream[-1].value == "intron":
             # Now we have to expand until the first exon in the upstream_exons
-            downstream_exon = downstream_exons[0]
-            assert downstream_exon[1] > backup.end
-            assert downstream_exon[0] > backup.end
-            if transcript.monoexonic and new_first_exon is not None:
-                new_exon = (new_first_exon[0], downstream_exon[1])
-                up_exons.remove(new_first_exon)
-                to_remove = True
+            if downstream_exons:
+                downstream_exon = downstream_exons[0]
+                assert downstream_exon[1] > backup.end
+                assert downstream_exon[0] > backup.end
+                if transcript.monoexonic and new_first_exon is not None:
+                    new_exon = (new_first_exon[0], downstream_exon[1])
+                    up_exons.remove(new_first_exon)
+                    to_remove = True
+                else:
+                    new_exon = (transcript.exons[-1][0], downstream_exon[1])
+                    to_remove = True
+                downstream_exons.remove(downstream_exon)
+                downstream += new_exon[1] - backup.end
+                down_exons.append(new_exon)
             else:
-                new_exon = (transcript.exons[-1][0], downstream_exon[1])
-                to_remove = True
-            downstream_exons.remove(downstream_exon)
-            downstream += new_exon[1] - backup.end
+                # Something fishy going on here. Let us double check everything.
+                if end_transcript.exons[-1][1] == transcript.end:
+                    raise ValueError(
+                        "Something has gone wrong. The template transcript should have returned upstream exons."
+                    )
+                elif end_transcript.exons[-1][1] > transcript.end:
+                    raise ValueError(
+                        "Something has gone wrong. We should have found the correct exons."
+                    )
             downstream += sum(_[1] - _[0] + 1 for _ in downstream_exons)
             down_exons.extend([(_[0], _[1]) for _ in downstream_exons])
-            down_exons.append(new_exon)
 
     return downstream, up_exons, down_exons, to_remove
 

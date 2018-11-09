@@ -1078,6 +1078,7 @@ def _enlarge_start(transcript: Transcript,
             up_exons.extend([(_[0], _[1]) for _ in upstream_exons])
         elif intersecting_upstream[0].value == "intron":
             # Now we have to expand until the first exon in the upstream_exons
+            to_remove = True
             upstream_exon = upstream_exons[-1]
             new_first_exon = (upstream_exon[0], transcript.exons[0][1])
             upstream_exons.remove(upstream_exon)

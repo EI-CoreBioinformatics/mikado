@@ -2500,7 +2500,6 @@ class PaddingTester(unittest.TestCase):
             (12751895, 12752032),
             (12752078, 12752839)])
         transcript.finalize()
-        backup = transcript.deepcopy()
 
         template = Transcript()
         template.chrom, template.strand, template.id = "Chr5", "-", "template"
@@ -2519,11 +2518,46 @@ class PaddingTester(unittest.TestCase):
         with self.subTest():
             expanded = expand_transcript(transcript, template, template,
                                          fai=self.fai, logger=logger)
-            self.assertEqual(transcript.exons,
+            self.assertEqual(expanded.exons,
                              [(12751151, 12751579),
                               (12751669, 12751808), (12751895, 12752032),
                               (12752078, 12752839), (12752974, 12753102)])
 
+    def test_expand_both_sides(self):
+
+        transcript = Transcript()
+        transcript.chrom, transcript.strand, transcript.id = "Chr5", "+", "test"
+        transcript.add_exons([(100053, 100220), (100657, 101832)])
+        transcript.finalize()
+
+        template = Transcript()
+        template.chrom, template.strand, template.id = "Chr5", "+", "template"
+        template.add_exons([(99726, 100031), (100657, 102000)])
+        template.finalize()
+
+        with self.subTest():
+            backup = transcript.deepcopy()
+            logger = create_null_logger()
+            expand_transcript(transcript, template, template, self.fai, logger=logger)
+            self.assertEqual(
+                transcript.exons,
+                [(99726, 100220), (100657, 102000)]
+
+            )
+
+    def no_expansion(self):
+        transcript = Transcript()
+        transcript.chrom, transcript.strand, transcript.id = "Chr5", "+", "test"
+        transcript.add_exons([(100053, 100220), (100657, 101832)])
+        transcript.finalize()
+        backup = transcript.deepcopy()
+        logger = create_null_logger(level="DEBUG")
+        with self.assertLogs(logger=logger, level="DEBUG") as cm:
+
+            expand_transcript(transcript, None, None, self.fai, logger)
+            self.assertEqual(transcript, backup)
+
+        self.assertIn("DEBUG:null:test does not need to be expanded, exiting", cm.output)
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)

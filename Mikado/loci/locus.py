@@ -184,6 +184,7 @@ class Locus(Abstractlocus):
 
     def __launch_padding(self):
 
+        self.logger.info("Launched padding for %s", self.id)
         failed = False
         backup = dict()
         for tid in self.transcripts:
@@ -191,8 +192,12 @@ class Locus(Abstractlocus):
 
         # The "templates" are the transcripts that we used to expand the others.
         templates = self.pad_transcripts()
-        # First off, let us check that the main transcript is still valid.
-        # If it is not, remove the templates
+        # First off, let us update the transcripts.
+        self.logger.info("Templates: %s\ntranscripts: %s", templates, transcripts.keys())
+        for tid in transcripts:
+            self.logger.info("Swapping %s", tid)
+            self._swap_transcript(backup[tid], self.transcripts[tid])
+
         self.metrics_calculated = False
         self.scores_calculated = False
         self.calculate_scores()
@@ -283,8 +288,24 @@ class Locus(Abstractlocus):
         super().remove_transcript_from_locus(tid)
         self._finalized = False
 
+    def _swap_transcript(self,
+                         original_transcript: Transcript,
+                         transcript: Transcript):
 
-    def add_transcript_to_locus(self, transcript: Transcript, **kwargs):
+        """This method is needed to exchange transcripts that might have been modified by padding."""
+        if original_transcript.tid != transcript.tid:
+            raise KeyError("I cannot hot swap two transcripts with two different IDs!")
+        if hash(original_transcript) == hash(transcript):  # Expensive operation, let us try to avoid it if possible
+            return
+
+        self.logger.info("Swapping %s with a new transcript", original_transcript.id)
+        self.transcripts[original_transcript.id] = original_transcript
+        Abstractlocus.remove_transcript_from_locus(self, original_transcript.id)
+        Abstractlocus.add_transcript_to_locus(self, transcript, check_in_locus=False)
+        return
+
+    def add_transcript_to_locus(self, transcript: Transcript, check_in_locus=True,
+                                **kwargs):
         """Implementation of the add_transcript_to_locus method.
         Before a transcript is added, the class checks that it is a valid splicing isoform
         and that we have not exceeded already the maximum number of isoforms for the Locus.
@@ -312,10 +333,18 @@ class Locus(Abstractlocus):
         :param transcript: the candidate transcript
         :type transcript: Transcript
 
+        :param check_in_locus: boolean flag to bypass *all* checks. Use with caution!
+        :type check_in_locus: bool
+
         :param kwargs: optional keyword arguments are ignored.
         """
 
         _ = kwargs
+        if check_in_locus is False:
+            Abstractlocus.add_transcript_to_locus(self, transcript, check_in_locus=False)
+            self.locus_verified_introns.update(transcript.verified_introns)
+            return
+
         to_be_added = True
 
         if to_be_added and transcript.strand != self.strand:
@@ -662,7 +691,7 @@ class Locus(Abstractlocus):
 
         return is_valid, main_ccode, main_result
 
-    def pad_transcripts(self):
+    def pad_transcripts(self) -> set:
 
         """
         """
@@ -711,8 +740,8 @@ class Locus(Abstractlocus):
         self.exons = set()
         for tid in self:
             self.exons.update(self[tid].exons)
-        self.fai.close()
-        del self.fai
+        # self.fai.close()
+        # del self.fai
         return templates
 
     def _find_communities_boundaries(self, five_clique, three_clique):

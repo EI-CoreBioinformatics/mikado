@@ -7,6 +7,7 @@ Very basic, all too basic test for some functionalities of locus-like classes.
 import unittest
 import os.path
 import logging
+logging.getLogger("matplotlib").setLevel(logging.WARNING)
 import pkg_resources
 from Mikado.configuration import configurator
 from Mikado import exceptions
@@ -2263,7 +2264,10 @@ class PaddingTester(unittest.TestCase):
                 locus.pad_transcripts()
 
                 if pad_distance != 200:
-                    self.assertEqual(locus["mikado.44G2.1"].end, locus["mikado.44G2.2"].end)
+                    self.assertEqual(locus["mikado.44G2.1"].end,
+                                     locus["mikado.44G2.2"].end,
+                                     ((locus["mikado.44G2.1"].start, locus["mikado.44G2.1"].end),
+                                      (locus["mikado.44G2.2"].start, locus["mikado.44G2.2"].end)))
                     self.assertTrue(locus["mikado.44G2.2"].attributes["padded"])
                 else:
                     self.assertFalse(locus["mikado.44G2.1"].attributes.get("padded", False))

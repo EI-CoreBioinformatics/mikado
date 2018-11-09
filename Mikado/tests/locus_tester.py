@@ -2490,6 +2490,40 @@ class PaddingTester(unittest.TestCase):
                     self.assertEqual(expanded_one.end, backup.end)
                     self.assertNotIn((4001, 5000), expanded_one.exons)
 
+    def test_expand_multi_end(self):
+
+        transcript = Transcript()
+        transcript.chrom, transcript.strand, transcript.id = "Chr5", "-", "multi.1"
+        transcript.add_exons([
+            (12751486, 12751579),
+            (12751669, 12751808),
+            (12751895, 12752032),
+            (12752078, 12752839)])
+        transcript.finalize()
+        backup = transcript.deepcopy()
+
+        template = Transcript()
+        template.chrom, template.strand, template.id = "Chr5", "-", "template"
+        template.add_exons([
+            (12751151, 12751579),
+            (12751669, 12751808),
+            (12751895, 12752839),  # This exon terminates exactly as the last exon of the transcript ends
+            (12752974, 12753102)
+        ])
+        template.finalize()
+
+        logger = create_null_logger("test_expand_multi_end")
+
+        # Now let us expand on both ends
+
+        with self.subTest():
+            expanded = expand_transcript(transcript, template, template,
+                                         fai=self.fai, logger=logger)
+            self.assertEqual(transcript.exons,
+                             [(12751151, 12751579),
+                              (12751669, 12751808), (12751895, 12752032),
+                              (12752078, 12752839), (12752974, 12753102)])
+
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)

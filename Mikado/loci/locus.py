@@ -200,7 +200,7 @@ class Locus(Abstractlocus):
         self._not_passing = set()
         self._check_requirements()
         if self.primary_transcript_id in self._not_passing or set.intersection(templates, self._not_passing):
-            self.logger.debug(
+            self.logger.info(
                 "Either the primary or some template transcript has not passed the muster. Removing, restarting.")
             # Templates are clearly wrong. Remove them
             self.transcripts = backup.copy()
@@ -955,15 +955,6 @@ def expand_transcript(transcript: Transcript,
 
     # First get the ORFs
     transcript.logger = logger
-    if transcript.combined_cds_length > 0:
-        try:
-            internal_orfs = list(transcript.get_internal_orf_beds())
-        except (ValueError, TypeError, AssertionError):
-            logger.error("Something went wrong with the CDS extraction for %s. Stripping it.",
-                         transcript.id)
-            internal_orfs = []
-    else:
-        internal_orfs = []
     # Remove the CDS and unfinalize
     strand = transcript.strand
     transcript.strip_cds()
@@ -971,12 +962,72 @@ def expand_transcript(transcript: Transcript,
 
     assert strand == transcript.strand
 
-    upstream = 0
     downstream = 0
-    up_exons = []
     down_exons = []
-    new_first_exon = None  # We have to use it for monoexonic transcripts
 
+    upstream, up_exons, new_first_exon = _enlarge_start(transcript, backup, start_transcript)
+    downstream, up_exons, down_exons = _enlarge_end(transcript, backup, end_transcript, up_exons, new_first_exon)
+
+    first_exon, last_exon = transcript.exons[0], transcript.exons[-1]
+
+    assert upstream >= 0 and downstream >= 0
+
+    if upstream > 0:
+        # Remove the first exon
+        transcript.remove_exon(first_exon)
+    if downstream > 0:
+        if not (upstream > 0 and first_exon == last_exon):
+            transcript.remove_exon(last_exon)
+
+    new_exons = up_exons + down_exons
+    transcript.add_exons(new_exons)
+    transcript.finalize()
+
+    if transcript.strand == "-":
+        downstream, upstream = upstream, downstream
+
+    if up_exons or down_exons:
+        seq = check_expanded(transcript, backup, start_transcript, end_transcript,
+                             fai, upstream, downstream, logger)
+        transcript = enlarge_orfs(transcript, backup, seq, upstream, downstream, logger)
+
+    # Now finalize again
+    if upstream > 0 or downstream > 0:
+        transcript.attributes["padded"] = True
+    transcript.finalize()
+
+    # Now check that we have a valid expansion
+    if backup.is_coding and not transcript.is_coding:
+        # Something has gone wrong. Just return the original transcript.
+        logger.info("Padding %s would lead to an invalid CDS. Aborting.",
+                    transcript.id)
+        return backup
+    elif (backup.is_coding and ((backup.strand == "-" and backup.combined_cds_end < transcript.combined_cds_end) or
+          (backup.combined_cds_end > transcript.combined_cds_end))):
+        logger.info("Padding %s would lead to an in-frame stop codon. Aborting.",
+                    transcript.id)
+        return backup
+    else:
+        message = "{transcript.id} has now start {transcript.start}, end {transcript.end}"
+        if (backup.is_coding and ((backup.combined_cds_end != transcript.combined_cds_end) or
+                  (backup.combined_cds_start != transcript.combined_cds_start))):
+            transcript.attributes["cds_padded"] = True
+            message += "; CDS moved to {transcript.combined_cds_start}, end {transcript.combined_cds_end}"
+        else:
+            transcript.attributes["cds_padded"] = False
+            message += "."
+        logger.info(message.format(**locals()))
+
+    return transcript
+
+
+def _enlarge_start(transcript: Transcript,
+                   backup: Transcript,
+                   start_transcript: Transcript) -> (int, list, [None, tuple]):
+
+    upstream = 0
+    up_exons = []
+    new_first_exon = None
     if start_transcript:
         transcript.start = start_transcript.start
         upstream_exons = sorted([ _ for _ in
@@ -1012,6 +1063,18 @@ def expand_transcript(transcript: Transcript,
             up_exons.extend([(_[0], _[1]) for _ in upstream_exons])
             up_exons.append(new_first_exon)
 
+    return upstream, up_exons, new_first_exon
+
+
+def _enlarge_end(transcript: Transcript,
+                 backup: Transcript,
+                 end_transcript: Transcript,
+                 up_exons: list,
+                 new_first_exon: [None, tuple]):
+
+    downstream = 0
+    down_exons = []
+
     if end_transcript:
 
         transcript.end = end_transcript.end
@@ -1023,7 +1086,7 @@ def expand_transcript(transcript: Transcript,
 
         if not intersecting_downstream:
             raise KeyError("No exon or intron found to be intersecting with %s vs %s, this is a mistake",
-                           transcript.id, start_transcript.id)
+                           transcript.id, end_transcript.id)
 
         if intersecting_downstream[-1].value == "exon":
             if transcript.monoexonic and new_first_exon is not None:
@@ -1059,106 +1122,79 @@ def expand_transcript(transcript: Transcript,
             down_exons.extend([(_[0], _[1]) for _ in downstream_exons])
             down_exons.append(new_exon)
 
-    first_exon, last_exon = transcript.exons[0], transcript.exons[-1]
+    return downstream, up_exons, down_exons
 
-    assert upstream >= 0 and downstream >= 0
 
-    if upstream > 0:
-        # Remove the first exon
-        transcript.remove_exon(first_exon)
-    if downstream > 0:
-        if not (upstream > 0 and first_exon == last_exon):
-            transcript.remove_exon(last_exon)
+def check_expanded(transcript, backup, start_transcript, end_transcript, fai, upstream, downstream, logger):
+    assert transcript.exons != backup.exons
 
-    new_exons = up_exons + down_exons
-    transcript.add_exons(new_exons)
-    transcript.finalize()
+    assert transcript.end <= len(fai[transcript.chrom]), (transcript.end, len(fai[transcript.chrom]))
+    genome_seq = "".join(fai[transcript.chrom][transcript.start - 1:transcript.end].seq.split("\n"))
 
-    if up_exons or down_exons:
-        assert transcript.start != backup.start or transcript.end != backup.end, (up_exons, down_exons,
-                                                                                  upstream, downstream)
-        assert transcript.exons != backup.exons
+    if not (transcript.exons[-1][1] - transcript.start + 1 == len(genome_seq)):
+        error = "{} should have a sequence of length {} ({} start, {} end), but one of length {} has been given"
+        error = error.format(transcript.id, transcript.exons[-1][1] - transcript.start + 1,
+                             transcript.start, transcript.end, len(genome_seq))
+        logger.error(error)
+        raise InvalidTranscript(error)
+    seq = TranscriptChecker(transcript, genome_seq, is_reference=True).cdna
+    assert len(seq) == transcript.cdna_length, (len(seq), transcript.cdna_length, transcript.exons)
+    if not len(seq) == backup.cdna_length + upstream + downstream:
+        error = [len(seq), backup.cdna_length + upstream + downstream,
+                 backup.cdna_length, upstream, downstream,
+                 (transcript.start, transcript.end), (backup.id, backup.start, backup.end),
+                 (None if not start_transcript else (start_transcript.id, start_transcript.end)),
+                 (None if not end_transcript else (end_transcript.id, end_transcript.end)),
+                 (backup.exons,
+                  None if not start_transcript else start_transcript.exons,
+                  None if not end_transcript else end_transcript.exons),
+                 set.difference(set(transcript.exons), set(backup.exons)),
+                 set.difference(set(backup.exons), set(transcript.exons))
+                 ]
+        error = "\n".join([str(_) for _ in error])
+        raise AssertionError(error)
+    return seq
 
-    if transcript.strand == "-":
-        downstream, upstream = upstream, downstream
 
-    # Now for the difficult part
-    if internal_orfs and (up_exons or down_exons):
-        logger.debug("Enlarging the ORFs for TID %s", transcript.id)
-        new_orfs = []
+def enlarge_orfs(transcript: Transcript,
+                 backup: Transcript,
+                 seq: str,
+                 upstream: int,
+                 downstream: int,
+                 logger) -> Transcript:
 
-        assert transcript.end <= len(fai[transcript.chrom]), (transcript.end, len(fai[transcript.chrom]))
-        genome_seq = "".join(fai[transcript.chrom][transcript.start-1:transcript.end].seq.split("\n"))
-
-        if not (transcript.exons[-1][1] - transcript.start + 1 == len(genome_seq)):
-            error = "{} should have a sequence of length {} ({} start, {} end), but one of length {} has been given"
-            error = error.format(transcript.id, transcript.exons[-1][1] - transcript.start + 1,
-                                 transcript.start, transcript.end, len(genome_seq))
-            logger.error(error)
-            raise InvalidTranscript(error)
-        seq = TranscriptChecker(transcript, genome_seq, is_reference=True).cdna
-        assert len(seq) == transcript.cdna_length, (len(seq), transcript.cdna_length, transcript.exons)
-        if not len(seq) == backup.cdna_length + upstream + downstream:
-
-            error = [len(seq), backup.cdna_length + upstream + downstream,
-                     backup.cdna_length, upstream, downstream,
-                     (transcript.start, transcript.end), (backup.id, backup.start, backup.end),
-                     (None if not start_transcript else (start_transcript.id, start_transcript.end)),
-                     (None if not end_transcript else (end_transcript.id, end_transcript.end)),
-                     (backup.exons,
-                      None if not start_transcript else start_transcript.exons,
-                      None if not end_transcript else end_transcript.exons),
-                     set.difference(set(transcript.exons), set(backup.exons)),
-                     set.difference(set(backup.exons), set(transcript.exons))
-                     ]
-            error = "\n".join([str(_) for _ in error])
-            raise AssertionError(error)
-
-        for orf in internal_orfs:
-            logger.debug("Old ORF: %s", str(orf))
-            try:
-                logger.debug("Sequence for %s: %s[..]%s (upstream %s, downstream %s)",
-                             transcript.id, seq[:10], seq[-10:], upstream, downstream)
-                orf.expand(seq, upstream, downstream, expand_orf=True, logger=logger)
-            except AssertionError as err:
-                logger.error(err)
-                logger.error("%s, %s, %s, %s, %s, %s",
-                             start_transcript.exons,
-                             end_transcript.exons,
-                             upstream,
-                             downstream,
-                             transcript.exons,
-                             transcript.cdna_length)
-                raise AssertionError(err)
-            logger.debug("New ORF: %s", str(orf))
-            new_orfs.append(orf)
-        transcript.load_orfs(new_orfs)
-
-    # Now finalize again
-    if upstream > 0 or downstream > 0:
-        transcript.attributes["padded"] = True
-    transcript.finalize()
-
-    # Now check that we have a valid expansion
-    if backup.is_coding and not transcript.is_coding:
-        # Something has gone wrong. Just return the original transcript.
-        logger.info("Padding %s would lead to an invalid CDS. Aborting.",
-                    transcript.id)
-        return backup
-    elif (backup.is_coding and ((backup.strand == "-" and backup.combined_cds_end < transcript.combined_cds_end) or
-          (backup.combined_cds_end > transcript.combined_cds_end))):
-        logger.info("Padding %s would lead to an in-frame stop codon. Aborting.",
-                    transcript.id)
-        return backup
+    if backup.combined_cds_length > 0:
+        try:
+            internal_orfs = list(backup.get_internal_orf_beds())
+        except (ValueError, TypeError, AssertionError):
+            logger.error("Something went wrong with the CDS extraction for %s. Stripping it.",
+                         backup.id)
+            internal_orfs = []
     else:
-        message = "{transcript.id} has now start {transcript.start}, end {transcript.end}"
-        if (backup.is_coding and ((backup.combined_cds_end != transcript.combined_cds_end) or
-                  (backup.combined_cds_start != transcript.combined_cds_start))):
-            transcript.attributes["cds_padded"] = True
-            message += "; CDS moved to {transcript.combined_cds_start}, end {transcript.combined_cds_end}"
-        else:
-            transcript.attributes["cds_padded"] = False
-            message += "."
-        logger.info(message.format(**locals()))
+        internal_orfs = []
 
+    if not internal_orfs:
+        return transcript
+
+    logger.debug("Enlarging the ORFs for TID %s", transcript.id)
+    new_orfs = []
+
+    for orf in internal_orfs:
+        logger.debug("Old ORF: %s", str(orf))
+        try:
+            logger.debug("Sequence for %s: %s[..]%s (upstream %s, downstream %s)",
+                         transcript.id, seq[:10], seq[-10:], upstream, downstream)
+            orf.expand(seq, upstream, downstream, expand_orf=True, logger=logger)
+        except AssertionError as err:
+            logger.error(err)
+            logger.error("%s, %s, %s, %s",
+                         upstream,
+                         downstream,
+                         transcript.exons,
+                         transcript.cdna_length)
+            raise AssertionError(err)
+        logger.debug("New ORF: %s", str(orf))
+        new_orfs.append(orf)
+
+    transcript.load_orfs(new_orfs)
     return transcript

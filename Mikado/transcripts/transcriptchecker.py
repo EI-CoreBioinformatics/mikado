@@ -353,7 +353,7 @@ class TranscriptChecker(Transcript):
             return
 
     @property
-    def cdna(self):
+    def cdna(self) -> str:
 
         """This property calculates the cDNA sequence of the transcript."""
 

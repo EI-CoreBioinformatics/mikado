@@ -462,6 +462,22 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
         return
 
+    def _swap_transcript(self,
+                         original_transcript: Transcript,
+                         transcript: Transcript):
+
+        """This method is needed to exchange transcripts that might have been modified by padding."""
+        if original_transcript.tid != transcript.tid:
+            raise KeyError("I cannot hot swap two transcripts with two different IDs!")
+        if hash(original_transcript) == hash(transcript):  # Expensive operation, let us try to avoid it if possible
+            return
+
+        self.logger.info("Swapping %s with a new transcript", original_transcript.id)
+        self.transcripts[original_transcript.id] = original_transcript
+        Abstractlocus.remove_transcript_from_locus(self, original_transcript.id)
+        Abstractlocus.add_transcript_to_locus(self, transcript, check_in_locus=False)
+        return
+
     def remove_transcript_from_locus(self, tid: str):
         """
         :param tid: name of the transcript to remove
@@ -915,7 +931,14 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         _ = len(set.intersection(self.exons, self.transcripts[tid].exons))
         fraction = _ / len(self.exons)
 
-        self.transcripts[tid].exon_fraction = fraction
+        try:
+            self.transcripts[tid].exon_fraction = fraction
+        except ValueError:
+            raise ValueError("Invalid fraction. Exons:\n{}\n{}".format(
+                self.transcripts[tid].exons,
+                self.exons
+            ))
+
         self.logger.debug("Calculated exon fraction for %s", tid)
 
         if len(self.introns) > 0:
@@ -1534,3 +1557,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             raise ValueError("This method takes only boolean values")
         self.__use_transcript_scores = val
         self.scores_calculated = val
+
+    @property
+    def perform_padding(self):
+        return self.json_conf["pick"]["alternative_splicing"]["pad"]

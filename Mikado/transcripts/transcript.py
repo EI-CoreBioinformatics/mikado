@@ -2479,8 +2479,10 @@ index {3}, internal ORFs: {4}".format(
         :type args: list(float) | float
         """
 
-        if not isinstance(args[0], (float, int)) or (args[0] <= 0 or args[0] > 1):
+        if not isinstance(args[0], (float, int)):
             raise TypeError("Invalid value for the fraction: {0}".format(args[0]))
+        elif args[0] <= 0 or args[0] > 1:
+            raise ValueError("Invalid value for the fraction: {0}".format(args[0]))
         self.__exon_fraction = args[0]
 
     exon_fraction.category = "Locus"

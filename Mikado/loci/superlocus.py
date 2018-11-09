@@ -1284,7 +1284,6 @@ class Superlocus(Abstractlocus):
             new[lid] = self.loci[lid]
 
         self.loci = new
-
         return
 
     def calculate_mono_metrics(self):

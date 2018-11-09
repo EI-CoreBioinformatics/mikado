@@ -166,7 +166,7 @@ class Locus(Abstractlocus):
             else:
                 self.logger.debug("No transcripts with retained introns found.")
 
-            if self.json_conf["pick"]["alternative_splicing"]["pad"] is True:
+            if self.perform_padding is True:
                 self.logger.debug("Starting padding procedure for %s", self.id)
                 failed = self.__launch_padding()
                 if failed:
@@ -286,22 +286,6 @@ class Locus(Abstractlocus):
 
         super().remove_transcript_from_locus(tid)
         self._finalized = False
-
-    def _swap_transcript(self,
-                         original_transcript: Transcript,
-                         transcript: Transcript):
-
-        """This method is needed to exchange transcripts that might have been modified by padding."""
-        if original_transcript.tid != transcript.tid:
-            raise KeyError("I cannot hot swap two transcripts with two different IDs!")
-        if hash(original_transcript) == hash(transcript):  # Expensive operation, let us try to avoid it if possible
-            return
-
-        self.logger.info("Swapping %s with a new transcript", original_transcript.id)
-        self.transcripts[original_transcript.id] = original_transcript
-        Abstractlocus.remove_transcript_from_locus(self, original_transcript.id)
-        Abstractlocus.add_transcript_to_locus(self, transcript, check_in_locus=False)
-        return
 
     def add_transcript_to_locus(self, transcript: Transcript, check_in_locus=True,
                                 **kwargs):

@@ -551,7 +551,7 @@ class Transcript:
             if "json_conf" not in state:
                 state["json_conf"] = copy.deepcopy(self.json_conf)
             for key in state["json_conf"]:
-                if not isinstance(state["json_conf"][key], dict()):
+                if not isinstance(state["json_conf"][key], dict):
                     continue
                 if "compiled" in state["json_conf"][key]:
                     del state["json_conf"][key]["compiled"]

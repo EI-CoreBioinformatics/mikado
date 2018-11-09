@@ -19,6 +19,7 @@ Bugfixes and improvements:
 - For the external scores, Mikado can now accept any type of numerical or boolean value. Mikado will understand at serialisation time whether a particular score can be used raw (ie its values are strictly comprised between 0 and 1) or whether it has to be forcibly scaled.
   - This allows Mikado to use e.g. transcript expression as a valid metric.
 - Now coding and non-coding transcripts will be in different loci.
+- Corrected a long-standing bug that made Mikado lose track of some fragments during the fragment removal phase. Somewhat confusingly, Mikado printed those loci into the output, but reported in the log file that there was a "missing locus". Now Mikado is able to correctly keeping track of them and removing them.
 - Corrected a bug in the calculation of overlapping intervals during BLAST serialisation.
 - Now BLAST HSPs will have stored as well whether there is an in-frame stop codon.
 - Now Mikado pick will be forced to run in single-threaded mode if the user is asking for debugging-level logs. This is to prevent a re-entrancy race condition that causes deadlocks (https://codewithoutrules.com/2017/08/16/concurrency-python/). 

@@ -613,8 +613,14 @@ As external metrics allow Mikado to accept any arbitrary metric for each transcr
 Padding transcripts
 ~~~~~~~~~~~~~~~~~~~
 
-Mikado can optionally "pad" transcripts so that all the transcripts in a locus share the same start and stop. The procedure is as follows:
+.. note:: The behaviour of this operation changed dramatically during the development of version 1.3.
 
+Mikado can optionally "pad" transcripts so to uniform, as much as possible, their start and stops. The procedure is as follows:
+
+#. Transcripts can be padded on one end if there is a **template** transcript for which the extension:
+  - would have a *genomic* distance to the current end equal to *at most* a number of base-pairs specified under "ts_distance"
+  - would not require to cross a number of splice junctions in the template over the number specified under "ts_max_splices"
+#. After grouping together the transcripts
 #. Amongst the transcripts in the locus, identify cases where extending a transcript until the end of another would:
   - extend only by less than a given maximum length (defined in the configuration under pick/alternative_splicing/ts_distance)
   - cause the extended part to cross at most a pre-defined number of splice sites (defined under pick/alternative_splicing/ts_max_splices)

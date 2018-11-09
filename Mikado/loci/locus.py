@@ -992,10 +992,10 @@ def expand_transcript(transcript: Transcript,
                            transcript.id, start_transcript.id)
 
         if intersecting_upstream[0].value == "exon":
-            new_exon = (min(intersecting_upstream[0][0], transcript.exons[0][0]),
+            new_exon = (min(intersecting_upstream[0][0], backup.start),
                         transcript.exons[0][1])
             if new_exon != transcript.exons[0]:
-                upstream += transcript.exons[0][1] - new_exon[0]
+                upstream += backup.start - new_exon[0]
                 up_exons.append(new_exon)
             if intersecting_upstream[0] in upstream_exons:
                 upstream_exons.remove(intersecting_upstream[0])
@@ -1006,7 +1006,7 @@ def expand_transcript(transcript: Transcript,
             upstream_exon = upstream_exons[-1]
             new_exon = (upstream_exon[0], transcript.exons[0][1])
             upstream_exons.remove(upstream_exon)
-            upstream += transcript.exons[0][1] - new_exon[0]
+            upstream += backup.start - new_exon[0]
             upstream += sum(_[1] - _[0] + 1 for _ in upstream_exons)
             up_exons.extend(upstream_exons)
             up_exons.append(new_exon)
@@ -1027,7 +1027,7 @@ def expand_transcript(transcript: Transcript,
         if intersecting_downstream[-1].value == "exon":
             new_exon = (transcript.exons[-1][0], max(intersecting_downstream[-1][1], transcript.exons[-1][1]))
             if new_exon != transcript.exons[-1]:
-                downstream += new_exon[1] - transcript.exons[-1][1]
+                downstream += new_exon[1] - backup.end
                 down_exons.append(new_exon)
             if intersecting_downstream[-1] in downstream_exons:
                 downstream_exons.remove(intersecting_downstream[-1])
@@ -1036,11 +1036,11 @@ def expand_transcript(transcript: Transcript,
         elif intersecting_downstream[-1].value == "intron":
             # Now we have to expand until the first exon in the upstream_exons
             downstream_exon = downstream_exons[0]
-            assert downstream_exon[1] > transcript.exons[-1][1]
-            assert downstream_exon[0] > transcript.exons[-1][1]
+            assert downstream_exon[1] > backup.end
+            assert downstream_exon[0] > backup.end
             new_exon = (transcript.exons[-1][0], downstream_exon[1])
             downstream_exons.remove(downstream_exon)
-            downstream += new_exon[1] - transcript.exons[-1][1]
+            downstream += new_exon[1] - backup.end
             downstream += sum(_[1] - _[0] + 1 for _ in downstream_exons)
             down_exons.extend([(_[0], _[1]) for _ in downstream_exons])
             down_exons.append(new_exon)

@@ -943,7 +943,16 @@ class Locus(Abstractlocus):
 def expand_transcript(transcript: Transcript,
                       start_transcript: [Transcript, bool],
                       end_transcript: [Transcript, bool],
-                      fai, logger):
+                      fai: pyfaidx.Fasta,
+                      logger):
+
+    """This method will enlarge the coordinates and exon structure of a transcript, given:
+    :param transcript: the transcript to modify.
+    :param start_transcript: the template transcript for the 5' end.
+    :param end_transcript: the template transcript for the 3' end.
+    :param fai: the indexed genomic sequence.
+    :param logger: the logger to be used in the function.
+    """
 
     # If there is nothing to do, just get out
     if not start_transcript and not end_transcript:
@@ -965,18 +974,19 @@ def expand_transcript(transcript: Transcript,
     downstream = 0
     down_exons = []
 
-    upstream, up_exons, new_first_exon = _enlarge_start(transcript, backup, start_transcript)
-    downstream, up_exons, down_exons = _enlarge_end(transcript, backup, end_transcript, up_exons, new_first_exon)
+    upstream, up_exons, new_first_exon, up_remove = _enlarge_start(transcript, backup, start_transcript)
+    downstream, up_exons, down_exons, down_remove = _enlarge_end(transcript,
+                                                               backup, end_transcript, up_exons, new_first_exon)
 
     first_exon, last_exon = transcript.exons[0], transcript.exons[-1]
 
     assert upstream >= 0 and downstream >= 0
 
-    if upstream > 0:
+    if up_remove is True:
         # Remove the first exon
         transcript.remove_exon(first_exon)
-    if downstream > 0:
-        if not (upstream > 0 and first_exon == last_exon):
+    if down_remove is True:
+        if not (up_remove is True and first_exon == last_exon):
             transcript.remove_exon(last_exon)
 
     new_exons = up_exons + down_exons
@@ -1023,11 +1033,23 @@ def expand_transcript(transcript: Transcript,
 
 def _enlarge_start(transcript: Transcript,
                    backup: Transcript,
-                   start_transcript: Transcript) -> (int, list, [None, tuple]):
+                   start_transcript: Transcript) -> (int, list, [None, tuple], bool):
+
+    """This method will enlarge the transcript at the 5' end, using another transcript as the template.
+    :param transcript: the original transcript to modify.
+    :param backup: a copy of the transcript. As we are modifying the original one, we do need a hard copy.
+    :param start_transcript: the template transcript.
+
+    The function returns the following:
+    :returns: the upstream modification, the list of upstream exons to add, the new first exon (if any),
+              a boolean flag indicating whether the first exon of the transcript should be removed.
+    """
+
 
     upstream = 0
     up_exons = []
     new_first_exon = None
+    to_remove = False
     if start_transcript:
         transcript.start = start_transcript.start
         upstream_exons = sorted([ _ for _ in
@@ -1047,6 +1069,7 @@ def _enlarge_start(transcript: Transcript,
             if new_first_exon != transcript.exons[0]:
                 upstream += backup.start - new_first_exon[0]
                 up_exons.append(new_first_exon)
+                to_remove = True
             else:
                 new_first_exon = None
             if intersecting_upstream[0] in upstream_exons:
@@ -1063,17 +1086,33 @@ def _enlarge_start(transcript: Transcript,
             up_exons.extend([(_[0], _[1]) for _ in upstream_exons])
             up_exons.append(new_first_exon)
 
-    return upstream, up_exons, new_first_exon
+    return upstream, up_exons, new_first_exon, to_remove
 
 
 def _enlarge_end(transcript: Transcript,
                  backup: Transcript,
                  end_transcript: Transcript,
                  up_exons: list,
-                 new_first_exon: [None, tuple]):
+                 new_first_exon: [None, tuple]) -> [int, list, list, bool]:
+
+    """
+    This method will enlarge the transcript at the 5' end, using another transcript as the template.
+    :param transcript: the original transcript to modify.
+    :param backup: a copy of the transcript. As we are modifying the original one, we do need a hard copy.
+    :param end_transcript: the template transcript.
+    :param up_exons: the list of exons added at the 5' end.
+    :param new_first_exon: the new coordinates of what used to be the first exon of the transcript.
+                           This is necessary because if the transcript is monoexonic, we might need to re-modify it.
+
+    The function returns the following:
+    :returns: the downstream modification, the (potentially modified) list of upstream exons to add,
+              the list of downstream exons to add, a boolean flag indicating whether the last exon of the transcript
+              should be removed.
+    """
 
     downstream = 0
     down_exons = []
+    to_remove = False
 
     if end_transcript:
         transcript.end = end_transcript.end
@@ -1093,12 +1132,14 @@ def _enlarge_end(transcript: Transcript,
                     up_exons.remove(new_first_exon)
                     downstream += new_exon[1] - backup.end
                     down_exons.append(new_exon)
+                    to_remove = True
             else:
                 new_exon = (transcript.exons[-1][0],
                             max(intersecting_downstream[-1][1], transcript.exons[-1][1]))
                 if new_exon != transcript.exons[-1]:
                     downstream += new_exon[1] - backup.end
                     down_exons.append(new_exon)
+                    to_remove = True
 
             if intersecting_downstream[-1] in downstream_exons:
                 downstream_exons.remove(intersecting_downstream[-1])
@@ -1112,18 +1153,34 @@ def _enlarge_end(transcript: Transcript,
             if transcript.monoexonic and new_first_exon is not None:
                 new_exon = (new_first_exon[0], downstream_exon[1])
                 up_exons.remove(new_first_exon)
+                to_remove = True
             else:
                 new_exon = (transcript.exons[-1][0], downstream_exon[1])
+                to_remove = True
             downstream_exons.remove(downstream_exon)
             downstream += new_exon[1] - backup.end
             downstream += sum(_[1] - _[0] + 1 for _ in downstream_exons)
             down_exons.extend([(_[0], _[1]) for _ in downstream_exons])
             down_exons.append(new_exon)
 
-    return downstream, up_exons, down_exons
+    return downstream, up_exons, down_exons, to_remove
 
 
-def check_expanded(transcript, backup, start_transcript, end_transcript, fai, upstream, downstream, logger):
+def check_expanded(transcript, backup, start_transcript, end_transcript, fai, upstream, downstream, logger) -> str:
+
+    """
+    This function checks that the expanded transcript is valid, and it also calculates and returns its cDNA sequence.
+    :param transcript: the modified transcript.
+    :param backup: The original transcript, before expansion.
+    :param start_transcript: the transcript used as template at the 5' end.
+    :param end_transcript: the transcript used as template at the 3' end.
+    :param fai: The pyfaidx.Fasta object indexing the genome.
+    :param upstream: the amount of transcriptomic base-pairs added to the transcript at its 5' end.
+    :param downstream: the amount of transcriptomic base-pairs added to the transcript at its 3' end.
+    :param logger: the logger to use.
+    :returns: the cDNA of the modified transcript, as a standard Python string.
+    """
+
     assert transcript.exons != backup.exons
 
     assert transcript.end <= len(fai[transcript.chrom]), (transcript.end, len(fai[transcript.chrom]))
@@ -1141,11 +1198,14 @@ def check_expanded(transcript, backup, start_transcript, end_transcript, fai, up
         error = [len(seq), backup.cdna_length + upstream + downstream,
                  backup.cdna_length, upstream, downstream,
                  (transcript.start, transcript.end), (backup.id, backup.start, backup.end),
-                 (None if not start_transcript else (start_transcript.id, start_transcript.end)),
-                 (None if not end_transcript else (end_transcript.id, end_transcript.end)),
-                 (backup.exons,
-                  None if not start_transcript else start_transcript.exons,
-                  None if not end_transcript else end_transcript.exons),
+                 (None if not start_transcript else (start_transcript.id, (start_transcript.start,
+                                                                           start_transcript.end))),
+                 (None if not end_transcript else (end_transcript.id, (end_transcript.start,
+                                                                       end_transcript.end))),
+                 (backup.id, backup.exons),
+                 None if not start_transcript else (start_transcript.id, start_transcript.exons),
+                 None if not end_transcript else (end_transcript.id, end_transcript.exons),
+                 (transcript.id + "_expanded", transcript.exons),
                  set.difference(set(transcript.exons), set(backup.exons)),
                  set.difference(set(backup.exons), set(transcript.exons))
                  ]
@@ -1160,6 +1220,18 @@ def enlarge_orfs(transcript: Transcript,
                  upstream: int,
                  downstream: int,
                  logger) -> Transcript:
+
+    """
+    This method will take an expanded transcript and recalculate its ORF(s). As a consequence of the expansion,
+    truncated transcripts might become whole.
+    :param transcript: the expanded transcript.
+    :param backup: the original transcript. Used to extract the original ORF(s).
+    :param seq: the new cDNA sequence of the expanded transcript.
+    :param upstream: the amount of expansion that happened at the 5'.
+    :param downstream: the amount of expansion that happened at the 3'.
+    :param logger: the logger.
+    :returns: the modified transcript with the ORF(s) recalculated.
+    """
 
     if backup.combined_cds_length > 0:
         try:

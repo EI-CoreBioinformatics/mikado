@@ -2594,6 +2594,65 @@ class PaddingTester(unittest.TestCase):
                               (197652, 197987)]
                              )
 
+    def test_swap_single(self):
+
+        transcript = Transcript()
+        transcript.id, transcript.chrom, transcript.strand = "test", "Chr5", "+"
+        transcript.add_exons([(101, 1000)])
+        transcript.finalize()
+        new = transcript.deepcopy()
+
+        locus = Locus(transcript)
+        self.assertEqual(locus.primary_transcript, transcript)
+        self.assertEqual(len(locus.exons), 1)
+
+        new.unfinalize()
+        new.remove_exon((101, 1000))
+        new.start, new.end = 51, 1200
+        new.add_exons([(51, 200), (501, 1200)])
+        new.finalize()
+        self.assertEqual(transcript.id, new.id)
+
+        locus._swap_transcript(transcript, new)
+        self.assertEqual(len(locus.exons), 2)
+        self.assertEqual(locus.exons, set(new.exons))
+        self.assertEqual(locus.primary_transcript, new)
+
+    def test_swap_see_metrics(self):
+
+        transcript = Transcript()
+        transcript.id, transcript.chrom, transcript.strand = "test", "Chr5", "+"
+        transcript.add_exons([(101, 1000), (1201, 1500)])
+        transcript.finalize()
+        new = transcript.deepcopy()
+        locus = Locus(transcript)
+        locus.json_conf["pick"]["alternative_splicing"]["only_confirmed_introns"] = False
+        second = Transcript()
+        second.id, second.chrom, second.strand = "test2", "Chr5", "+"
+        second.add_exons([(101, 1000), (1301, 1600)])
+        second.finalize()
+        locus.add_transcript_to_locus(second)
+        self.assertEqual(len(locus.transcripts), 2)
+        locus.calculate_scores()
+        self.assertAlmostEqual(locus[second.id].exon_fraction, 2/3, places=3)
+        self.assertAlmostEqual(locus[transcript.id].exon_fraction, 2 / 3, places=3)
+        self.assertEqual(locus.primary_transcript, transcript)
+
+        new.unfinalize()
+        new.remove_exon((101, 1000))
+        new.start, new.end = 51, 1500
+        new.add_exons([(51, 200), (501, 1000)])
+        new.finalize()
+        self.assertEqual(transcript.id, new.id)
+        self.assertEqual(locus.primary_transcript_id, transcript.id)
+
+        locus._swap_transcript(transcript, new)
+        self.assertEqual(locus.primary_transcript, new)
+        self.assertEqual(locus.exons, {(51, 200), (501, 1000), (101, 1000), (1301, 1600), (1201, 1500)})
+        locus.calculate_scores()
+        self.assertAlmostEqual(locus[second.id].exon_fraction, 2 / 5, places=3)
+        self.assertAlmostEqual(locus[transcript.id].exon_fraction, 3 / 5, places=3)
+
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)

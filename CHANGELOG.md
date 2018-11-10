@@ -51,7 +51,7 @@ Bugfixes and improvements:
 
 # Version 1.2.4
 
-Enhancement release. Following version 1.2.3, now Mikado can accept BED12 files as input for convert, compare and stats (see #122). This is becoming necessary as many long-reads alignment tools are preferentially outputting (or can be easily converted to) this format.
+Enhancement release. Following version 1.2.3, now Mikado can accept BED12 files as input for convert, compare and stats (see [#122](https://github.com/EI-CoreBioinformatics/mikado/issues/122)). This is becoming necessary as many long-reads alignment tools are preferentially outputting (or can be easily converted to) this format.
 
 # Version 1.2.3
 

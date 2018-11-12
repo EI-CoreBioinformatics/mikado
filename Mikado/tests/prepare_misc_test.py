@@ -37,7 +37,7 @@ class MiscTest(unittest.TestCase):
         log_queue_handler = logging.handlers.QueueHandler(logging_queue)
         log_queue_handler.setLevel(logging.DEBUG)
 
-        logger = Mikado.utilities.log_utils.create_default_logger(name, level="WARNING")
+        logger = Mikado.utilities.log_utils.create_null_logger(name, level="WARNING")
         logger.propagate = False
         listener = logging.handlers.QueueListener(logging_queue, logger)
         listener.propagate = False
@@ -254,6 +254,6 @@ class MiscTest(unittest.TestCase):
                 self.assertEqual(len(str(fa["AT5G01530.0"])), res.cdna_length)
 
                 os.remove(faix.name + ".fai")
+            fasta.close()
 
-        print(cmo.output)
         listener.stop()

@@ -294,10 +294,10 @@ class Transcript:
         self.__internal_orf_transcripts = []
 
         # Starting settings for everything else
-        self.chrom = None
+        self.__chrom = None
         self.source = source
         self.feature = "transcript"
-        self.start, self.end = None, None
+        self.__start, self.__end = None, None
         self.attributes = dict()
         self.exons, self.combined_cds, self.combined_utr = [], [], []
         self.stop_codon = []
@@ -371,7 +371,7 @@ class Transcript:
 
     def __initialize_with_bed12(self, transcript_row: BED12):
 
-        self.chrom = intern(str(transcript_row.chrom))
+        self.chrom = transcript_row.chrom
         self.name = self.id = transcript_row.name
         self.start, self.end = transcript_row.start, transcript_row.end
         self.score = transcript_row.score
@@ -393,7 +393,7 @@ class Transcript:
 
     def __initialize_with_gf(self, transcript_row: (GffLine, GtfLine)):
 
-        self.chrom = intern(transcript_row.chrom)
+        self.chrom = transcript_row.chrom
 
         # pylint: disable=invalid-name
         # pylint: enable=invalid-name
@@ -507,7 +507,10 @@ class Transcript:
 
     def __len__(self) -> int:
         """Returns the length occupied by the unspliced transcript on the genome."""
-        return self.end - self.start + 1
+        if self.end is not None and self.start is not None:
+            return self.end - self.start + 1
+        else:
+            return 0
 
     def __lt__(self, other) -> bool:
         """A transcript is lesser than another if it is on a lexicographic inferior chromosome,
@@ -1385,7 +1388,7 @@ class Transcript:
         """
         if logger is None:
             if self.__logger is None:
-                logger = create_null_logger(self)
+                logger = create_null_logger()
                 self.__logger = logger
             else:
                 pass
@@ -1422,6 +1425,44 @@ class Transcript:
         Destroyer for the logger. It sets the internal __logger attribute to None.
         """
         self.__logger = None
+
+    @property
+    def start(self):
+        return self.__start
+    
+    @start.setter
+    def start(self, start: [int,None]):
+        if self.finalized is True:
+            raise InvalidTranscript("I cannot modify the start of a finalised transcript!")
+        if start is not None and not isinstance(start, (int)):
+            raise TypeError("Start values can only be integers or None!")
+        self.__start = start
+    
+    @property
+    def end(self):
+        return self.__end
+
+    @end.setter
+    def end(self, end: [int, None]):
+        if self.finalized is True:
+            raise InvalidTranscript("I cannot modify the end of a finalised transcript!")
+        if end is not None and not isinstance(end, (int)):
+            raise TypeError("End values can only be integers or None!")
+        self.__end = end
+
+    @property
+    def chrom(self):
+        return self.__chrom
+
+    @chrom.setter
+    def chrom(self, chrom: [None, str]):
+        if self.finalized is True:
+            raise InvalidTranscript("I cannot modify the chromosome of a finalised transcript!")
+        if isinstance(chrom, bytes):
+            chrom = intern(chrom.decode())
+        elif chrom is not None:
+            chrom = intern(str(chrom))
+        self.__chrom = chrom
 
     @property
     def phases(self):

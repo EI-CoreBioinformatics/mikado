@@ -1,4 +1,4 @@
-# Version 1.3
+# Version 1.5
 
 **IMPORTANT**: this release fixes a bug ([#139](https://github.com/EI-CoreBioinformatics/mikado/issues/139)) whereupon cDNAs completely or partially in letters different from ATGCNn (eg. **lowercase**, ie ***soft-masked*** nucleotides) would not have been reversed-complemented correctly. Therefore, any run on soft-masked genomes with prior releases ***would be invalid***.
 
@@ -31,7 +31,6 @@ Bugfixes and improvements:
 - Fixed [#123](https://github.com/EI-CoreBioinformatics/mikado/issues/123): now add_transcript_to_feature.gtf automatically splits chimeric transcripts and corrects mistakes related the intron size.
 - Fixed [#126](https://github.com/EI-CoreBioinformatics/mikado/issues/126): now reversing the strand of a model will cause its CDS to be stripped.
 - Fixed [#127](https://github.com/EI-CoreBioinformatics/mikado/issues/127): previously, Mikado _prepare_ only considered cDNA coordinates when determining the redundancy of two models. In some edge cases, two models could be identical but have a different ORF called. Now Mikado will also consider the CDS before deciding whether to discard a model as redundant.
-- [#129](https://github.com/EI-CoreBioinformatics/mikado/issues/129): Mikado is now capable of correctly padding the transcripts so to uniform their ends in a single locus. This will also have the effect of trying to enlarge the ORF of a transcript if it is truncated to begin with.
 - [#130](https://github.com/EI-CoreBioinformatics/mikado/issues/130): it is now possible to specify a different metric inside the "filter" section of scoring.
 - [#131](https://github.com/EI-CoreBioinformatics/mikado/issues/131): in rare instances, Mikado could have missed loci if they were lost between the sublocus and monosublocus stages. Now Mikado implements a basic backtracking recursive algorithm that should ensure no locus is missed.
 - [#132](https://github.com/EI-CoreBioinformatics/mikado/issues/132),[#133](https://github.com/EI-CoreBioinformatics/mikado/issues/133): Mikado will now evaluate the CDS of transcripts during Mikado prepare.
@@ -42,12 +41,14 @@ Bugfixes and improvements:
 - [#138](https://github.com/EI-CoreBioinformatics/mikado/issues/138): Solved a bug which led Mikado to recalculate the phases for each model during picking, potentially creating mistakes for models truncated at the 5' end.
 - [#141](https://github.com/EI-CoreBioinformatics/mikado/issues/141): During configure and prepare, Mikado can now flag some transcripts as coming from a "reference". Transcripts flagged like this **will never be modified nor dropped during a mikado prepare run**, unless generic or critical errors are registered. Moreover, if source scores are provided, Mikado will preferentially keep one identical transcript from those that have the highest *a priori* score. This will allow to e.g. prioritise PacBio or reference assemblies during prepare.
   - Please note that this change **does not affect the final picking**, but rather is just a mechanism for allowing Mikado to accept pass-through data. 
+- [#129](https://github.com/EI-CoreBioinformatics/mikado/issues/129): Mikado is now capable of correctly padding the transcripts so to uniform their ends in a single locus. This will also have the effect of trying to enlarge the ORF of a transcript if it is truncated to begin with.
 - [#142](https://github.com/EI-CoreBioinformatics/mikado/issues/142): padded transcripts will add terminal *exons* rather than just extending their terminal ends. This should prevent the creation of faux retained introns. Moreover, now the padding procedure will explicitly find and discard transcripts that would become invalid after padding (e.g. because they end up with a far too long UTR, or retained introns). If some of the invalid transcripts had been used as template for the expansion, Mikado will remove the offending transcripts and restart the procedure.
   - As a consequence of fixing [#142](https://github.com/EI-CoreBioinformatics/mikado/issues/142), Transcript objects have been modified to expose the following methods related to the internal interval tree:
     - find/search (to find intersecting exonic or intronic intervals)
     - find_upstream (to find all intervals upstream of the requested one in the transcript)
     - find_downstream (to find all intervals downstream of the requested one in the transcript)
     - Moreover, transcript objects now do not have any more the unused "cds_introntree" property. Combined CDS and CDS introns are now present in the "cds_tree" object.
+  - Again as a consequence of [#142](https://github.com/EI-CoreBioinformatics/mikado/issues/142), now Locus objects have a new private method - _swap_transcript - that allows two Transcript objects with the same ID to be exchanged within the locus. This is essential to allow the Locus to recalculate most scores and metrics (e.g. all the exons or introns in the locus).
 
 # Version 1.2.4
 

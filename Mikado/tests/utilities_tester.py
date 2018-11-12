@@ -96,7 +96,9 @@ class LogUtilsTester(unittest.TestCase):
         self.assertEqual(null_logger.name, "null")
         null2 = Mikado.utilities.log_utils.create_null_logger("test", "will_nilly",
                                                               useless_val=None)
-        self.assertIs(null2, null_logger)
+        self.assertIsNot(null2, null_logger)
+        self.assertIsInstance(null2.handlers[0], logging.NullHandler)
+        self.assertIsInstance(null_logger.handlers[0], logging.NullHandler)
 
     def test_default_logger(self):
 

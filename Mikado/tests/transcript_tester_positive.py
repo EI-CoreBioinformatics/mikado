@@ -470,10 +470,10 @@ Chr2    TAIR10    three_prime_UTR    629070    629176    .    +    .    Parent=A
 
     def test_strip_cds(self):
 
-        with self.assertLogs("null", level="DEBUG") as log_split:
+        with self.assertLogs(logger=self.logger, level="DEBUG") as log_split:
             self.tr.strip_cds()
 
-        self.assertIn("DEBUG:null:Stripping CDS from AT2G02380.1", log_split.output)
+        self.assertIn("DEBUG:{}:Stripping CDS from AT2G02380.1".format(self.logger.name), log_split.output)
 
         self.assertEqual(self.tr.selected_cds_length, 0)
         self.assertEqual(self.tr.three_utr, [])
@@ -562,7 +562,7 @@ Chr2    TAIR10    exon    629070    629176    .    +    .    Parent=AT2G02380.1"
 
         """Test for loading a single ORF. We strip the CDS and reload it."""
 
-        with self.assertLogs("null", level="DEBUG") as cm_out:
+        with self.assertLogs(logger=self.logger, level="DEBUG") as cm_out:
             self.tr.strip_cds()
             self.assertIn("Stripping CDS", cm_out.output[0])
         self.tr.load_orfs([self.orf])

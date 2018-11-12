@@ -46,6 +46,7 @@ class OverlapTester(unittest.TestCase):
 class LocusTester(unittest.TestCase):
 
     logger = create_null_logger(inspect.getframeinfo(inspect.currentframe())[2])
+    logger_name = logger.name
 
     def setUp(self):
 
@@ -72,7 +73,7 @@ Chr1\tfoo\texon\t501\t600\t.\t+\t.\tID=t1:exon3;Parent=t1""".split("\n")
             self.transcript2.add_exon(exon)
         # Test that a transcript cannot be finalized if
         # the exons do not define the external boundaries
-        with self.assertLogs("null", level="WARNING") as _:
+        with self.assertLogs(logger=self.logger_name, level="WARNING") as _:
             self.transcript2.finalize()
         with self.assertRaises(exceptions.ModificationError):
             self.transcript2.add_exon(gff_transcript2[-1])
@@ -256,7 +257,7 @@ Chr1\tfoo\texon\t801\t1000\t.\t-\t.\tID=tminus0:exon1;Parent=tminus0""".split("\
 
     def test_boolean_requirement(self):
 
-        logger = create_null_logger(inspect.getframeinfo(inspect.currentframe())[2])
+        logger = create_null_logger()
         logger.setLevel("DEBUG")
         logger.info("Started")
 
@@ -1317,7 +1318,7 @@ class EmptySuperlocus(unittest.TestCase):
 
         logger = create_null_logger()
         logger.setLevel("WARNING")
-        with self.assertLogs(logger, level="WARNING"):
+        with self.assertLogs(logger=logger, level="WARNING"):
             _ = Superlocus(transcript_instance=None)
 
 

@@ -1422,7 +1422,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         #     self.__logger.disabled = True
 
         if logger is None:
-            self.__logger = create_null_logger(self)
+            self.__logger = create_null_logger()
             self.__logger.propagate = False
         elif not isinstance(logger, logging.Logger):
             raise TypeError("Invalid logger: {0}".format(type(logger)))

@@ -10,7 +10,7 @@ __title__ = "Mikado"
 __author__ = 'Luca Venturini'
 __license__ = 'GPL3'
 __copyright__ = 'Copyright 2015-2020 Luca Venturini'
-__version__ = "1.3beta"
+__version__ = "1.5"
 
 __all__ = ["configuration",
            "exceptions",

@@ -184,7 +184,7 @@ class Locus(Abstractlocus):
 
     def __launch_padding(self):
 
-        self.logger.info("Launched padding for %s", self.id)
+        self.logger.debug("Launched padding for %s", self.id)
         failed = False
         backup = dict()
         for tid in self.transcripts:
@@ -194,7 +194,7 @@ class Locus(Abstractlocus):
         templates = self.pad_transcripts()
         # First off, let us update the transcripts.
         for tid in self.transcripts:
-            self.logger.info("Swapping %s", tid)
+            self.logger.debug("Swapping %s", tid)
             self._swap_transcript(backup[tid], self.transcripts[tid])
 
         self.metrics_calculated = False
@@ -204,7 +204,7 @@ class Locus(Abstractlocus):
         self._not_passing = set()
         self._check_requirements()
         if self.primary_transcript_id in self._not_passing or set.intersection(templates, self._not_passing):
-            self.logger.info(
+            self.logger.debug(
                 "Either the primary or some template transcript has not passed the muster. Removing, restarting.")
             if self._not_passing == {self.primary_transcript_id}:
                 self.logger.info("The primary transcript %s is invalidated by the other transcripts in the locus.\

@@ -472,7 +472,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         if hash(original_transcript) == hash(transcript):  # Expensive operation, let us try to avoid it if possible
             return
 
-        self.logger.info("Swapping %s with a new transcript", original_transcript.id)
+        self.logger.debug("Swapping %s with a new transcript", original_transcript.id)
         self.transcripts[original_transcript.id] = original_transcript
         Abstractlocus.remove_transcript_from_locus(self, original_transcript.id)
         Abstractlocus.add_transcript_to_locus(self, transcript, check_in_locus=False)

@@ -66,6 +66,8 @@ Available parameters:
 * Parameters related to the treatment of ORF data:
     * *orfs*: ORF BED12 files, separated by comma.
     * *max-regression*: A percentage, expressed as a number between 0 and 1, which indicates how far can Mikado regress along the ORF to find a valid start codon. See the :ref:`relative section in the configuration <max-regression>` for details.
+    .. note:: new in version 1.5
+    * *codon-table*: this parameter specifies the codon table to use for the project. Mikado by default uses the NCBI codon table 1 (standard with eukaryotes) with the modification that only ATG is considered as a valid start codon, as ORF predictions usually inflate the number of non-standard starts.
 * Parameters related to BLAST data:
     * *blast_targets*: BLAST FASTA database.
     * *discard-definition*: Flag. Depending on how the database has been created, sometimes BLAST will substitute the ID of the sequence with "lcl|" ids. Mikado circumvents this by looking for the definition field in the XML file. Using this flag will disable this behaviour and force Mikado to use the ID - with the potential of having a mismatch between the sequences in the BLAST DB and the sequences in the BLAST files.

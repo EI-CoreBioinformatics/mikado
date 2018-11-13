@@ -279,6 +279,14 @@ The final score value is obtained by summing all the individual metrics.
 .. important:: If you compare the scores assigned to transcripts at the loci level with those assigned at the subloci level, you will notice that the scores are different and that even some of the raw metrics values are. The former phenomenon is due to the fact that :ref:`the Mikado scoring system is not absolute but relative <scoring_algorithm>`; the latter, to the fact that :ref:`some metrics are locus-dependent <Metrics>`, ie their values change due the presence or absence of other transcripts. A typical example is given by the "retained_intron" metrics; retained introns are identified by looking for non-coding regions of transcript which fall inside the intron of another transcript. Changing the transcripts in the locus will change the value associated to this metric, as non-coding sections will or will not be classified as "retained introns", and therefore the score associated with both the metric and the transcript.
 
 
+Transcript padding
+__________________
+
+After calculating the final loci, Mikado can try to uniform the ends of transcripts present in the locus, by extending
+the shorter ones so that their ends coincide with those of longer transcripts in the locus. The procedure is explained more
+in detail in the :ref:`dedicated section in the Algorithms page <padding>`. The approach has been inspired by the consolidation
+approach taken by the Araport annotation for *Arabidopsis thaliana* [AraPort]_.
+
 Usage
 ~~~~~
 

@@ -26,7 +26,7 @@
 Mikado: pick your transcript
 ============================
 
-|python_35_badge| |python_36_badge| |snake_badge| |travis_status| |coverage|
+|python_35_badge| |python_36_badge| |python_37_badge| |snake_badge| |travis_status| |coverage|
 
 :Authors:
     Venturini Luca,

@@ -39,6 +39,7 @@ References
 .. [EVM] **Automated eukaryotic gene structure annotation using EVidenceModeler and the Program to Assemble Spliced Alignments** Brian J Haas, Steven L Salzberg, Wei Zhu, Mihaela Pertea, Jonathan E Allen, Joshua Orvis, Owen White, C Robin Buell and Jennifer R Wortman. *Genome Biology*, 2008. doi:10.1186/gb-2008-9-1-r7
 .. [Augustus] **WebAUGUSTUS—a web service for training AUGUSTUS and predicting genes in eukaryotes** Katharina J. Hoff and Mario Stanke. *Nucleic Acid Research*, 2013. doi:10.1093/nar/gkt418
 .. [Maker2] **MAKER2: an annotation pipeline and genome-database management tool for second-generation genome projects** Carson Holt and Mark Yandell. *BMC Bioinformatics*, 2011. doi:10.1186/1471-2105-12-491
+.. [AraPort] **Araport11: a complete reannotation of the Arabidopsis thaliana reference genome** Chia‐Yi Cheng, Vivek Krishnakumar, Agnes P. Chan, Françoise Thibaud‐Nissen, Seth Schobel Christopher and D. Town. *The Plant Journal*, 2017, Volume 89, Issue 4, 789-804. doi: 10.1111/tpj.13415
 .. [PYinterval] https://github.com/chaimleib/intervaltree
 .. [BXPython] https://bitbucket.org/james_taylor/bx-python/overview
 .. [Snakeviz] https://jiffyclub.github.io/snakeviz/

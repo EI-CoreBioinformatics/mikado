@@ -257,6 +257,12 @@ This section of the configuration file deals with the :ref:`serialisation stage 
 .. _max-regression:
 
 * max_regression: this parameter is a float comprised between 0 and 1. TransDecoder will sometimes output open ORFs even in the presence of an in-frame start codon. Mikado can try to "regress" along the ORF until it finds one such start codon. This parameter imposes how much Mikado will regress, in percentage of the cDNA length.
+
+.. _codon-table:
+
+* codon_table: this parameter indicates the codon table to use. We use the `NCBI nomenclature <https://www.ncbi.nlm.nih.gov/Taxonomy/Utils/wprintgc.cgi>`, with a variation:
+  * the code "0" is added to indicate a variation on the standard code (identifier "1"), which differs only in that only "ATG" is considered as a valid start codon. This is because *in silico* ORF predictions tend to over-predict the presence of non-standard "ATG" codons, which are rare in nature.
+
 * max_target_seqs: equivalent to the BLAST+ parameter of the same name - it indicates the maximum number of discrete hits that can be assigned to one sequence in the database.
 * procs: number of processors to use. Most important for serialising BLAST+ files.
 * single_thread: boolean, if set to *true* it will forcibly disable multi-threading. Useful mostly for debugging purposes.
@@ -313,6 +319,7 @@ This section of the configuration file deals with the :ref:`serialisation stage 
       force: false
       max_objects: 100000
       max_regression: 0
+      codon_table: 0
       max_target_seqs: 100000
       procs: 1
       single_thread: false
@@ -372,6 +379,9 @@ After selecting the best model for each locus, Mikado will backtrack and try to 
 * only_confirmed_introns: boolean. This parameter determines whether to consider only transcripts whose introns are confirmed :ref:`in the dataset of reliable junctions <reliable_junctions>`, or whether to consider all possible candidate transcripts.
 * redundant_ccodes: any candidate AS will be :ref:`compared <Compare>` against all the transcripts already retained in the locus. If any of these comparisons returns one of the :ref:`class codes <ccodes>` specified in this array, **the transcript will be ignored**. Default class codes: =, _, m, c, n, C
 * valid_ccodes: any candidate AS will be :ref:`compared <Compare>` against *the primary transcript* to determine the type of AS event. If the :ref:`class code <ccodes>` is one of those specified in this array, the transcript will be considered further. Valid class codes are within the categories "Alternative splicing", "Extension" with junction F1 lower than 100%, and Overlap (with the exclusion of "m"). Default class codes: j, J, g, G, h.
+
+.. _pad-configuration:
+
 * pad: boolean option. If set to True, Mikado will try to pad transcripts so that they share the same 5'. Disabled by default.
 * ts_max_splices: numerical. When padding is activated, at *most* how many splice junctions can the extended exon cross?
 * ts_distance: numerical. When padding is activated, at *most* of how many base pairs can an exon be extended?

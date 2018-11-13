@@ -642,8 +642,12 @@ Mikado can optionally "pad" transcripts so to uniform, as much as possible, thei
 6. If any of the non-viable transcripts is either the primary transcript or one of the templates, remove the current templates from the locus and restart the analysis.
 7. Discard all the non-viable transcripts that are neither the primary nor templates.
 
+When calculating the new ORF, Mikado will use the same :ref:`codon table selected for the serialisation step <codon-table>`.
+
 This option is normally disabled. It has been written for using Mikado in conjunction with *ab initio* predictions, but it can be used fruitfully also with transcript assemblies.
 Please note that some of the metrics might become invalid after the padding. In particular, BLASTX results will be invalid as the query sequence will have changed.
+
+The options related to padding can be found under the pick section :ref:`in the configuration file <pad-configuration>`.
 
 Technical details
 ~~~~~~~~~~~~~~~~~

@@ -796,7 +796,7 @@ class BED12:
                                  -3):
                     codon = sequence[pos:pos + 3]
                     self.thick_start = pos
-                    if codon == "ATG":
+                    if codon in self.table.start_codons:
                         # self.thick_start = pos
                         self.start_codon = codon
                         self.__has_start = True

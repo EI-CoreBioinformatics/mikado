@@ -79,7 +79,7 @@ Highlights for this version:
 - Minor bugfixes.
 
 
-#Version 1.1 - "Prodigal"
+# Version 1.1 - "Prodigal"
 
 Highlights for this release are the swithing by default to Prodigal in lieu of TransDecoder and to DIAMOND instead of NCBI BLASTX. The rationale behind the change is that the two former default programs scale poorly with the size of datasets, as neither was designed to maintain a good execution speed with potentially million sequences. Prodigal and DIAMOND fare much better with big datasets, and do speed up significantly the execution of the whole Daijin pipeline.
 
@@ -98,7 +98,7 @@ Changes in this release:
 - Now Daijin by default recovers the information to load external software from an external configuration file. This allows for having a standard configuration file for external programs, without having to modify the main configuration all the time.
 - Now Daijin creates and/or load a standard configuration file for the cluster, "daijin_hpc.yaml".
 
-#Version 1.0.1
+# Version 1.0.1
 
 BugFix release.
 
@@ -109,7 +109,7 @@ BugFix release.
 - Fixed a bug while that caused a crash while Mikado was trying to approximate complex loci.
 - Switched away from using clique-based algorithms, as they tend to be very memory intensive.
 
-#Version 1.0
+# Version 1.0
 
 Changes in this release:
 
@@ -125,7 +125,7 @@ Changes in this release:
 - BF: Loci will never purge transcripts
 - After creating the final loci, now Mikado will check for, and remove, any AS event transcript which would cross into the AS event.
 
-#Version 1.0.0beta10
+# Version 1.0.0beta10
 
 Changes in this release:
 
@@ -165,7 +165,7 @@ Changes in this release:
 - Mikado now supports also Python3.6.
 
 
-#Version 1.0.0beta9 - "External scores"
+# Version 1.0.0beta9 - "External scores"
 
 Changes in this release:
 
@@ -187,11 +187,11 @@ Changes in this release:
 - Some bugs have been detected and solved thanks to the collaboration with Hugo Darras.
 - Many tests, including system ones, have been added to the test suite. Tests have been fixed for Python3.4 as well.
 
-#Version 1.0.0beta7.2
+# Version 1.0.0beta7.2
 
 Mainly fixes for Daijin, in order to be able to handle different versions of Trinity, GMAP and PortCullis.
 
-#Version 1.0.0beta7.1
+# Version 1.0.0beta7.1
 
 BugFix release:
 
@@ -200,7 +200,7 @@ BugFix release:
 - Bug fix for Mikado util stats - now it functions also when exonic features contain "derived_from" tags
 - Bug fix for bam2gtf.py
 
-#Version 1.0.0beta7 - "Storing the stacks"
+# Version 1.0.0beta7 - "Storing the stacks"
 
 Changes:
 
@@ -208,7 +208,7 @@ Changes:
 - TransDecoder is now optional in the Daijin pipeline
 - Mikado can be instructed to pad transcripts at their ends, to make all transcripts at a locus compatible in terms of their ends (eventually extended the CDS, if possible). The protocol was inspired by the AtRTD2 release: http://biorxiv.org/content/early/2016/05/06/051938
 
-#Version 1.0.0beta6
+# Version 1.0.0beta6
 
 Beta 6, Hopefully final release for the article. Highlights:
 
@@ -216,7 +216,7 @@ Beta 6, Hopefully final release for the article. Highlights:
 - Essential bugfix for handling correctly verified introns
 - Updated scoring files
 
-#Version 1.0.0beta5
+# Version 1.0.0beta5
 
 First public release of Mikado.
 
@@ -226,7 +226,7 @@ Changelog:
 - Documentation ready, inclusive of a tutorial for Daijin itself
 - Bug fixes, especially to Daijin
 
-#Version 1.0.0beta4
+# Version 1.0.0beta4
 
 Changelog:
 
@@ -234,7 +234,7 @@ Changelog:
 - Documentation is now more complete (see eg sections on Compare and Configuration)
 - Now mo and O have been renamed to g and G respectively
 
-#Version 1.0.0beta3
+# Version 1.0.0beta3
 
 Changelog:
 
@@ -245,7 +245,7 @@ Changelog:
     - rerun from a particular target
 - Minor polishes to command line interfaces and the like.
 
-#Version 1.0.0beta2
+# Version 1.0.0beta2
 
 Changes:
 
@@ -253,7 +253,7 @@ Changes:
 - Introduced a very basic configuration utility for DAGGER
 - Now Mikado programs have a sensible help message, including description.
 
-#Version 1.0.0beta1
+# Version 1.0.0beta1
 
 Finally almost ready! Major changes:
 
@@ -261,7 +261,7 @@ Finally almost ready! Major changes:
 - Both mikado and dagger are called as "mikado" and "dagger", without any trailing ".py"
 - We are now in feature freeze, with the exception of dagger.
 
-#Version 0.24.0 "Blade sharpening"
+# Version 0.24.0 "Blade sharpening"
 
 This release is mainly focused on two aims: integration with Dagger, and the possibility of performing a good self-comparison with mikado.py compare.
 
@@ -281,7 +281,7 @@ Detailed changes for the release:
 - pick and configure can now specify the mode of action (nosplit, split, stringent, lenient, permissive) by CL instead of having to modify the configuration file
 - cleaned up the sample_data directory, plus now the configuration file is created on the spot by Snakemake (ensuring compatibility with the latest version)
 
-#Version 0.23.2 "Stats bugfix"
+# Version 0.23.2 "Stats bugfix"
 
 Changes for this micro release:
 
@@ -289,7 +289,7 @@ Changes for this micro release:
 - Bug fixes for the stats utility
 - added the flank option for mikado
 
-#Version 0.23.1 "Faster stats"
+# Version 0.23.1 "Faster stats"
 
 Changes:
 
@@ -297,7 +297,7 @@ Changes:
 - Pick now preferentially outputs only one ORF per transcript, behaviour regulated by pick/output_format/report_all_orfs
 - BugFix for the detection of fragments during pick
 
-#Version 0.23.0 "Clap-o-meter"
+# Version 0.23.0 "Clap-o-meter"
 
 New features:
 
@@ -312,12 +312,12 @@ New features:
 
 It is generally *not* advised to use such an option unless the user really wants to emphasize or penalise a particular set of transcripts, eg. those coming from PacBio data.
 
-#Version 0.22.0 "FastXML"
+# Version 0.22.0 "FastXML"
 
 Transitioned the XML parser to the experimental Bio.SearchIO module, which uses internally C-level APIs and is therefore twice as fast than the canonical implementation. This required some rewriting at the class level in Mikado and a cloning of the original class to make it a proper iterative class.
 Moreover, now requirements for the scoring can accept also eg boolean values.
 
-#Version 0.21.0 "Trim galore"
+# Version 0.21.0 "Trim galore"
 
 Major changes for this release:
 

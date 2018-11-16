@@ -2,6 +2,7 @@
 .#*
 #*
 *.coverage
+htmlcov
 sample_data/*loci*
 sample_data/*zip
 sample_data/*fasta.n*

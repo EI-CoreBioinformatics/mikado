@@ -35,7 +35,7 @@ class TestLoadJunction(unittest.TestCase):
         self.junction_serialiser = Mikado.serializers.junction.JunctionSerializer(
             self.junction_file,
             json_conf=self.json_conf,
-            logger=self.logger
+            # logger=self.logger
         )
 
         self.junction_parser = Mikado.parsers.bed12.Bed12Parser(
@@ -203,11 +203,6 @@ class TestLoadJunction(unittest.TestCase):
         self.assertEqual(cm.output,
                          ['WARNING:test_exiting:No input file specified. Exiting.'] * 2,
                          cm.output)
-
-        # with Mikado.py.utilities.log_utils.create_default_logger("test_null") as new_logger:
-        #
-        #     with  as _:
-        #         self.assertLogs(new_logger, "No input file specified. Exiting.")
 
     def test_no_fai(self):
 

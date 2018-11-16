@@ -309,7 +309,7 @@ CTCGGCAGATAG"""
         self.assertTrue(tbed.transcriptomic)
         self.assertTrue(tbed.has_stop_codon)
 
-    def tran_to_bed12_neg(self):
+    def test_tran_to_bed12_neg(self):
 
         for end, phase in [(299, 0), (300, 1), (301, 2)]:
             with self.subTest():
@@ -317,12 +317,12 @@ CTCGGCAGATAG"""
                 t.chrom = "1"
                 t.start, t.end, t.strand, t.id = 11, end, "-", "test"
 
-                t.add_exon([(11, 100), (201, end)])
+                t.add_exons([(11, 100), (201, end)])
                 t.add_exons([(71, 100), (201, end)], features="CDS", phases=[0, phase])
                 t.finalize()
                 r = t.as_bed12()
                 self.assertEqual(r.name, "ID={};coding={};phase={}".format(t.id, True, phase))
-                self.assertEqual(r.phase, 2)
+                self.assertEqual(r.phase, phase, (end, phase))
                 self.assertEqual(r.thick_end, end)
                 self.assertFalse(r.invalid)
 

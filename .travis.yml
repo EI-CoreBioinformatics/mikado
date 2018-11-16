@@ -28,7 +28,7 @@ install:
   - python setup.py develop;
 script:
   - touch plants.yaml && python -c "import Mikado; print(Mikado.__version__)" && rm plants.yaml;  # This is to verify we fixed bug #124
-  - coverage run setup.py nosetests -exe;
+  - python setup.py test;
   - cd sample_data; snakemake
 after_success:
   - codecov 

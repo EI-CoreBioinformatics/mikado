@@ -561,6 +561,7 @@ class MonoHolderTester(unittest.TestCase):
         self.t1.add_exons([(401, 500), (601, 700), (1001, 1300), (1401, 1440)],
                           "CDS")
         self.t1.finalize()
+        self.assertIs(self.t1.is_coding, True)
 
     def testCdsOverlap(self):
 
@@ -776,7 +777,7 @@ class MonoHolderTester(unittest.TestCase):
                                                                  min_cdna_overlap=min_overlap,
                                                                  logger=logger), (min_overlap <= 0.07))
 
-    def check_frame_compatibility(self):
+    def test_frame_compatibility(self):
 
         """Check that the phase method functions"""
         logger = create_default_logger(inspect.getframeinfo(inspect.currentframe())[2])
@@ -802,8 +803,10 @@ class MonoHolderTester(unittest.TestCase):
 
         self.t1.unfinalize()
         self.t1.strand = "-"
+        self.t1.phases = {}  # Necessary for the correct recalculation of phases!
+        self.t1.logger = logger
         self.t1.finalize()
-        self.assertIs(self.t1.coding, True, "Something went wrong in finalising T1")
+        self.assertIs(self.t1.is_coding, True, "Something went wrong in finalising T1")
         for phase in [0, 1, 2]:
             with self.subTest(phase=phase):
                 t2 = Transcript()
@@ -2550,7 +2553,7 @@ class PaddingTester(unittest.TestCase):
 
             )
 
-    def no_expansion(self):
+    def test_no_expansion(self):
         transcript = Transcript()
         transcript.chrom, transcript.strand, transcript.id = "Chr5", "+", "test"
         transcript.add_exons([(100053, 100220), (100657, 101832)])

@@ -1,7 +1,7 @@
 *.pyc
 .#*
 #*
-*.coverage
+*.coverage*
 htmlcov
 sample_data/*loci*
 sample_data/*zip

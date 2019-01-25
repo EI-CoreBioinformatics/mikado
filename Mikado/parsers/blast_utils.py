@@ -17,8 +17,10 @@ import queue
 import logging
 from . import HeaderError
 from ..utilities.log_utils import create_null_logger
-from Bio.SearchIO.BlastIO.blast_xml import BlastXmlParser as xparser
-# from .blast_xml import BlastXmlParser as xparser
+# from Bio.SearchIO.BlastIO.blast_xml import BlastXmlParser as xparser
+import Bio.SearchIO
+import functools
+xparser = functools.partial(Bio.SearchIO.parse, format="blast-xml")
 from ..utilities import overlap
 import xml.etree.ElementTree
 import numpy as np

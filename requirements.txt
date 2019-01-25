@@ -23,3 +23,4 @@ ujson
 simplejson
 typing; python_version < "3.5"
 pandas
+pytest-cov

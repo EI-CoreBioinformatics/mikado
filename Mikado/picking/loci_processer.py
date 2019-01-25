@@ -67,7 +67,7 @@ def print_gene(current_gene, gene_counter, handle, prefix):
         try:
             # first = re.sub("{0}\.".format(current_transcript.parent[0]), "", other)
             # transcript_counter = int(re.sub("\.orf[0-9]+", "", first))
-            transcript_counter = int(re.sub("\.orf[0-9]+", "",
+            transcript_counter = int(re.sub(r"\.orf[0-9]+", "",
                                             current_transcript.id).split(".")[-1])
         except ValueError as exc:
             # Patch. For

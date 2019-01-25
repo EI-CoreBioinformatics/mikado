@@ -189,7 +189,7 @@ class ExternalSerializer:
         # Check columns
         cols = []
         for col in self.data.columns:
-            cols.append(re.sub("\.[0-9]*", '', str(col)))
+            cols.append(re.sub(r"\.[0-9]*", '', str(col)))
 
         cols = Counter(cols)
 

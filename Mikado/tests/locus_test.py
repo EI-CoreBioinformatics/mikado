@@ -161,6 +161,24 @@ class AbstractLocusTester(unittest.TestCase):
             self.assertFalse(child1._evaluate_transcript_overlap(self.transcript1, self.transcript2)[0])
             self.assertTrue(child1._evaluate_transcript_overlap(self.transcript1, self.transcript1)[0])
 
+    def test_invalid_sublocus(self):
+
+        with self.assertRaises(ValueError):
+            self.transcript1.json_conf = None
+            _ = Sublocus(self.transcript1, json_conf=None)
+
+        with self.assertRaises(FileNotFoundError):
+            _ = Sublocus(self.transcript1, json_conf="test")
+
+    def test_sublocus_from_sublocus(self):
+
+        s = Sublocus(self.transcript1)
+        s2 = Sublocus(s)
+        self.assertFalse(s.fixed_size)
+        self.assertTrue(s2.fixed_size)
+        for attr in ["parent", "chrom", "start", "end", "strand", "attributes"]:
+            self.assertEqual(getattr(s, attr), getattr(s2, attr))
+
 
 class LocusTester(unittest.TestCase):
 

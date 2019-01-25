@@ -861,7 +861,7 @@ memory intensive, proceed with caution!")
                 elif row.is_transcript is True:
                     if current_transcript is not None and invalid is False:
                         self.__test_sortedness(row, current_transcript)
-                        if Superlocus.in_locus(
+                        if current_locus is not None and Superlocus.in_locus(
                                 current_locus, current_transcript,
                                 flank=self.json_conf["pick"]["clustering"]["flank"]) is True:
                             current_locus.add_transcript_to_locus(current_transcript,
@@ -893,7 +893,7 @@ memory intensive, proceed with caution!")
                         intron_range=intron_range)
 
         if current_transcript is not None and invalid is False:
-            if Superlocus.in_locus(
+            if current_locus is not None and Superlocus.in_locus(
                     current_locus, current_transcript,
                     flank=self.json_conf["pick"]["clustering"]["flank"]) is True:
                 current_locus.add_transcript_to_locus(
@@ -1030,7 +1030,7 @@ memory intensive, proceed with caution!")
                 elif row.is_transcript is True:
                     if current_transcript is not None and invalid is False:
                         self.__test_sortedness(row, current_transcript)
-                        if Superlocus.in_locus(
+                        if current_locus is not None and Superlocus.in_locus(
                                 current_locus, current_transcript,
                                 flank=self.json_conf["pick"]["clustering"]["flank"]) is True:
                             current_locus.add_transcript_to_locus(current_transcript,
@@ -1071,7 +1071,7 @@ memory intensive, proceed with caution!")
                         intron_range=intron_range, logger=logger)
 
         if current_transcript is not None and invalid is False:
-            if Superlocus.in_locus(
+            if current_locus is not None and Superlocus.in_locus(
                     current_locus, current_transcript,
                     flank=self.json_conf["pick"]["clustering"]["flank"]) is True:
                 current_locus.add_transcript_to_locus(

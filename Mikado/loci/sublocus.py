@@ -84,13 +84,15 @@ class Sublocus(Abstractlocus):
 
         if isinstance(transcript_instance, Transcript):
             self.add_transcript_to_locus(transcript_instance)
+            self.attributes = transcript_instance.attributes.copy()
+            self.parent = transcript_instance.parent
         else:
-            self.parent = getattr(transcript_instance, "parent")
+            self.parent = getattr(transcript_instance, "parent", None)
             self.chrom = getattr(transcript_instance, "chrom")
             self.start = getattr(transcript_instance, "start")
             self.end = getattr(transcript_instance, "end")
             self.strand = getattr(transcript_instance, "strand")
-            self.attributes = getattr(transcript_instance, "attributes")
+            self.attributes = getattr(transcript_instance, "attributes", dict())
 
         self.monosubloci = []
         self.logger.debug("Initialized {0}".format(self.id))

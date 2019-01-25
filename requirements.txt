@@ -2,21 +2,21 @@ wheel>=0.28.0
 pyyaml
 jsonschema
 cython>=0.25
-numpy
-networkx>=1.10
+numpy>=1.15.0
+networkx>=2
 sqlalchemy>=1
 sqlalchemy_utils
 biopython>=1.70
 intervaltree
-nose
+nose  # for numpy tester
+pytest
 pyfaidx
 scikit-learn>=0.17.0
 scipy>=0.15.0
 frozendict
 python-magic
 drmaa
-snakemake<4.0.0; python_version < "3.5"
-snakemake; python_version >= "3.5"
+snakemake
 docutils!=0.13.1
 tabulate
 ujson

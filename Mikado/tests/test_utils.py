@@ -1,6 +1,5 @@
 import threading
 import multiprocessing as mp
-import multiprocessing.queues as mpqueues
 
 
 class ProcRunner(threading.Thread):

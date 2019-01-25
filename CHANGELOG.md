@@ -11,6 +11,8 @@ One of the major highlights of this release is the completion of the "padding" f
 Briefly, if instructed to do so, now Mikado will be able to uniform the ends of transcripts within a single locus (similar to what was done for the last _Arabidopsis thaliana_ annotation release).
 The behaviour is controlled by the "pad" boolean switch, and by the "ts_max_splices" and "ts_distance" parameters under "pick".
 
+With this release, we are also officially dropping support for Python 3.4.
+
 Bugfixes and improvements:
 
 - Mikado has now been tested to be compatible with Python 3.7. Please note that if you are using Python 3.7, at the time of release, datrie [has to be installed manually](https://github.com/pytries/datrie/issues/52) **before** installing Snakemake.
@@ -19,6 +21,7 @@ Bugfixes and improvements:
 - For the external scores, Mikado can now accept any type of numerical or boolean value. Mikado will understand at serialisation time whether a particular score can be used raw (ie its values are strictly comprised between 0 and 1) or whether it has to be forcibly scaled.
   - This allows Mikado to use e.g. transcript expression as a valid metric.
 - Now coding and non-coding transcripts will be in different loci.
+- Dropped the by-now obsolete "nosetests" suite for testing, moving to the modern and maintained "pytest".
 - Corrected a long-standing bug that made Mikado lose track of some fragments during the fragment removal phase. Somewhat confusingly, Mikado printed those loci into the output, but reported in the log file that there was a "missing locus". Now Mikado is able to correctly keeping track of them and removing them.
 - Corrected a bug in the calculation of overlapping intervals during BLAST serialisation.
 - Now BLAST HSPs will have stored as well whether there is an in-frame stop codon.

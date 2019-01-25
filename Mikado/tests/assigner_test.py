@@ -14,7 +14,7 @@ import Mikado.parsers
 import csv
 
 
-class AssignerTester(unittest.TestCase):
+class AssignerTest(unittest.TestCase):
     """
     This unit test has the purpose of testing the scales module of Mikado.py.
     """
@@ -114,7 +114,6 @@ class AssignerTester(unittest.TestCase):
             key=Mikado.scales.assigner.Assigner.get_f1, reverse=True),
             [result_perfect, result_x]
         )
-
 
     def test_self(self):
         reference = Mikado.loci.Transcript()

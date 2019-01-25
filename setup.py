@@ -54,6 +54,8 @@ setup(
     author="Luca Venturini",
     author_email="luca.venturini@earlham.ac.uk",
     license="GPL3",
+    setup_requires=["pytest-runner"],
+    tests_require=["pytest"],
     classifiers=[
         "Development Status :: 4 - Beta",
         "Topic :: Scientific/Engineering :: Bio-Informatics",
@@ -78,7 +80,7 @@ setup(
         "mysql": ["mysqlclient>=1.3.6"],
         "bam": ["pysam>=0.8"]
     },
-    test_suite="Mikado.test",
+    test_suite="nose2.collector.collector",
     package_data={
         "Mikado.configuration":
             glob.glob("Mikado/configuration/*json") + glob.glob("Mikado/configuration/*yaml"),

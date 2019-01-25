@@ -14,6 +14,7 @@ from Mikado import exceptions
 from Mikado.parsers import GFF  # ,GTF, bed12
 from Mikado.parsers.GTF import GtfLine
 from Mikado.loci import Transcript, Superlocus, Abstractlocus, Locus, Monosublocus, MonosublocusHolder, Sublocus
+from Mikado.loci import Excluded
 from Mikado.loci.locus import expand_transcript
 from Mikado.utilities.log_utils import create_null_logger, create_default_logger
 from Mikado.utilities import overlap
@@ -26,6 +27,7 @@ from Mikado.parsers.bed12 import BED12
 import tempfile
 import gzip
 import pyfaidx
+from itertools import combinations_with_replacement
 # from Mikado.scales.contrast import compare as c_compare
 
 
@@ -41,6 +43,123 @@ class OverlapTester(unittest.TestCase):
                          100)
         self.assertEqual(Abstractlocus.overlap((100, 200), (100, 200)),
                          overlap((100, 200), (100, 200)))
+
+
+class AbstractLocusTester(unittest.TestCase):
+
+    def setUp(self):
+        gff_transcript1 = """Chr1\tfoo\ttranscript\t101\t400\t.\t+\t.\tID=t0
+    Chr1\tfoo\texon\t101\t400\t.\t+\t.\tID=t0:exon1;Parent=t0
+    Chr1\tfoo\tCDS\t101\t350\t.\t+\t.\tID=t0:exon1;Parent=t0""".split("\n")
+        gff_transcript1 = [GFF.GffLine(x) for x in gff_transcript1]
+        self.assertEqual(gff_transcript1[0].chrom, "Chr1", gff_transcript1[0])
+        self.transcript1 = Transcript(gff_transcript1[0])
+        for exon in gff_transcript1[1:]:
+            self.transcript1.add_exon(exon)
+        self.transcript1.finalize()
+
+        gff_transcript2 = """Chr1\tfoo\ttranscript\t1001\t1400\t.\t+\t.\tID=t0
+            Chr1\tfoo\texon\t1001\t1400\t.\t+\t.\tID=t0:exon1;Parent=t0
+            Chr1\tfoo\tCDS\t1001\t1350\t.\t+\t.\tID=t0:exon1;Parent=t0""".split("\n")
+        gff_transcript2 = [GFF.GffLine(x) for x in gff_transcript2]
+        self.assertEqual(gff_transcript2[0].chrom, "Chr1", gff_transcript2[0])
+        self.transcript2 = Transcript(gff_transcript2[0])
+        for exon in gff_transcript2[1:]:
+            self.transcript2.add_exon(exon)
+        self.transcript2.finalize()
+
+        self.assertTrue(self.transcript1.monoexonic)
+        self.assertEqual(self.transcript1.chrom, gff_transcript1[0].chrom)
+
+        self.assertTrue(self.transcript2.monoexonic)
+        self.assertEqual(self.transcript2.chrom, gff_transcript2[0].chrom)
+        self.json_conf = configurator.to_json(None)
+
+        self.transcript1.json_conf = self.json_conf
+        self.transcript2.json_conf = self.json_conf
+
+    def test_not_implemented(self):
+        with self.assertRaises(TypeError):
+            _ = Abstractlocus(self.transcript1)
+
+    def test_equality(self):
+        for child1, child2 in combinations_with_replacement([Superlocus, Sublocus, Monosublocus, Locus], 2):
+            obj1, obj2 = (child1(self.transcript1, json_conf=self.json_conf),
+                          child2(self.transcript1, json_conf=self.json_conf))
+            if child1 == child2:
+                self.assertEqual(obj1, obj2)
+            else:
+                self.assertNotEqual(obj1, obj2)
+
+    def test_less_than(self):
+
+        for child in [Superlocus, Sublocus, Monosublocus, Locus]:
+            child1, child2 = (child(self.transcript1), child(self.transcript2))
+            self.assertLess(child1, child2)
+            self.assertLessEqual(child1, child2)
+            self.assertLessEqual(child1, child1)
+            self.assertLessEqual(child2, child2)
+            self.assertGreater(child2, child1)
+            self.assertGreaterEqual(child2, child1)
+            self.assertGreaterEqual(child2, child2)
+            self.assertGreaterEqual(child1, child1)
+
+    def test_serialisation(self):
+        for child in [Superlocus, Sublocus, Monosublocus, Locus]:
+            child1 = child(self.transcript1)
+            # Check compiled in dictionary
+            assert isinstance(child1.json_conf, dict)
+            assert any((isinstance(child1.json_conf[_], dict) and child1.json_conf[_].get("compiled", None) is not None)
+                       or not isinstance(child1.json_conf[_], dict) for _ in child1.json_conf.keys())
+            obj = pickle.dumps(child1)
+            nobj = pickle.loads(obj)
+            self.assertEqual(child1, nobj)
+
+    def test_in_locus(self):
+
+        for child in [Superlocus, Sublocus, Monosublocus, Locus]:
+            child1 = child(self.transcript1)
+            self.assertTrue(child.in_locus(child1, self.transcript1))
+            self.assertTrue(Abstractlocus.in_locus(child1, self.transcript1))
+            self.assertFalse(child.in_locus(child1, self.transcript2))
+            self.assertTrue(child.in_locus(child1, self.transcript2, flank=abs(self.transcript1.end - self.transcript2.end)))
+            self.assertFalse(Abstractlocus.in_locus(child1, self.transcript2))
+            self.assertTrue(Abstractlocus.in_locus(child1, self.transcript2,
+                                                   flank=abs(self.transcript1.end - self.transcript2.end)))
+
+            with self.assertRaises(TypeError):
+                child1.in_locus(child1, child1)
+
+            with self.assertRaises(TypeError):
+                Abstractlocus.in_locus(child1, child1)
+
+        # Check that we have a suitable error
+        with self.assertRaises(TypeError):
+            Abstractlocus.in_locus(self.transcript1, self.transcript2)
+
+    def test_load_scores(self):
+
+        scores = {self.transcript1.id: 10}
+        empty_scores = dict()
+        false_scores = set()
+
+        for child in [Superlocus, Sublocus, Monosublocus, Locus]:
+            child1 = child(self.transcript1)
+            with self.assertRaises(ValueError):
+                child1._load_scores(false_scores)
+            with self.assertRaises(KeyError):
+                child1._load_scores(empty_scores)
+            child1._load_scores(scores)
+            self.assertEqual(child1.scores[self.transcript1.id], 10)
+            self.assertTrue(child1.scores_calculated)
+            self.assertTrue(child1.metrics_calculated)
+
+    def test_evaluate_overlap(self):
+
+        for child in [Superlocus, Sublocus, Monosublocus, Locus]:
+            child1 = child(self.transcript1)
+            self.assertFalse(child1._evaluate_transcript_overlap(self.transcript1, self.transcript2)[0])
+            self.assertTrue(child1._evaluate_transcript_overlap(self.transcript1, self.transcript1)[0])
 
 
 class LocusTester(unittest.TestCase):
@@ -2610,6 +2729,9 @@ class PaddingTester(unittest.TestCase):
         self.assertEqual(locus.primary_transcript, transcript)
         self.assertEqual(len(locus.exons), 1)
 
+        # False swap
+        locus._swap_transcript(transcript, transcript)
+
         new.unfinalize()
         new.remove_exon((101, 1000))
         new.start, new.end = 51, 1200
@@ -2621,6 +2743,12 @@ class PaddingTester(unittest.TestCase):
         self.assertEqual(len(locus.exons), 2)
         self.assertEqual(locus.exons, set(new.exons))
         self.assertEqual(locus.primary_transcript, new)
+
+        new2 = transcript.deepcopy()
+        new2.id = "test2"
+
+        with self.assertRaises(KeyError):
+            locus._swap_transcript(transcript, new2)
 
     def test_swap_see_metrics(self):
 

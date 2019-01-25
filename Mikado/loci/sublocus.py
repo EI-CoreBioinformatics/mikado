@@ -70,6 +70,9 @@ class Sublocus(Abstractlocus):
         # Flag to indicate that we have not calculated the metrics for the transcripts
         # Flag to indicate that we have not calculated the scores for the transcripts
         setattr(self, "monoexonic", getattr(transcript_instance, "monoexonic", None))
+        if json_conf is None and transcript_instance.json_conf is not None:
+            json_conf = transcript_instance.json_conf
+
         if json_conf is None or not isinstance(json_conf, dict):
             raise ValueError("I am missing the configuration for prioritizing transcripts!")
 

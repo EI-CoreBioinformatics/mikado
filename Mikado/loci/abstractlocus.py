@@ -110,7 +110,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def __str__(self, *args, **kwargs):
-        raise NotImplementedError("This is an abstract class and it cannot be printed directly!")
+        """Printing method for the locus class. Each child class must have its own defined method."""
 
     def __repr__(self):
 
@@ -301,9 +301,17 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         - a "transcript" object (it must possess the "finalize" method)
         - flank - optional keyword"""
 
+        if not isinstance(transcript, Transcript):
+            raise TypeError("I can only perform this operation on transcript classes, not {}".format(
+                type(transcript)))
+
         transcript.finalize()
         # We want to check for the strand only if we are considering the strand
-        if locus_instance is None:
+        if not isinstance(locus_instance, cls):
+            raise TypeError("I cannot perform this operation on non-locus classes, this is a {}".format(
+                type(locus_instance)))
+
+        if not hasattr(locus_instance, "chrom"):
             return False
 
         if locus_instance.chrom == transcript.chrom:
@@ -835,6 +843,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
         # The rower is an instance of the DictWriter class from the standard CSV module
 
+        self.get_metrics()
         for tid in sorted(self.transcripts.keys(), key=lambda ttid: self.transcripts[ttid]):
             row = {}
             assert self.available_metrics != []

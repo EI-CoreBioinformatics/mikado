@@ -661,6 +661,6 @@ def to_json(string, simple=False, logger=None):
         logger.exception(exc)
         with open("ERROR.{}".format("json" if string.endswith("json") else "yaml"), "wt") as errored:
             errored.write(open(string).read())
-        raise
+        raise OSError(exc)
 
     return json_dict

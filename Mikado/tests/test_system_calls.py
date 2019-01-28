@@ -613,7 +613,7 @@ class PrepareCheck(unittest.TestCase):
             self.conf["prepare"]["files"]["labels"] = ["T1", "T2"]
 
             for round in rounds:
-                for iteration in range(4):  # Repeat each test 4 times
+                for iteration in range(2):  # Repeat each test 2 times, not more for time length reasons
                     with self.subTest(round=round, format=format, iteration=iteration,
                                       msg="Starting round {} ({})".format(round, rounds[round])):
                         t1_score, t2_score, is_ref, res, corr_strand = rounds[round]
@@ -703,7 +703,7 @@ class PrepareCheck(unittest.TestCase):
             self.conf["prepare"]["files"]["labels"] = ["T1", "T2"]
 
             for round in rounds:
-                for iteration in range(4):  # Repeat each test 4 times
+                for iteration in range(2):  # Repeat each test 2 times for time length reasons
                     with self.subTest(round=round, format=format, iteration=iteration,
                                       msg="Starting round {} ({})".format(round, rounds[round])):
                         t1_score, t2_score, is_ref, res, coding = rounds[round]
@@ -872,6 +872,7 @@ class StatCheck(unittest.TestCase):
                 os.remove(out.name)
                 namespace.gff.close()
                 dir.cleanup()
+
 
 class ConfigureCheck(unittest.TestCase):
 
@@ -1044,6 +1045,23 @@ class PickTest(unittest.TestCase):
     def setUp(self):
         
         self.json_conf = configurator.to_json(None)
+        self.json_conf["reference"]["genome"] = self.fai.filename
+
+    @classmethod
+    def setUpClass(cls):
+        cls.__genomefile__ = None
+
+        cls.__genomefile__ = tempfile.NamedTemporaryFile(mode="wb", delete=False, suffix=".fa", prefix="prepare")
+
+        with pkg_resources.resource_stream("Mikado.tests", "chr5.fas.gz") as _:
+            cls.__genomefile__.write(gzip.decompress(_.read()))
+        cls.__genomefile__.flush()
+        cls.fai = pyfaidx.Fasta(cls.__genomefile__.name)
+
+    @classmethod
+    def tearDownClass(cls):
+        os.remove(cls.__genomefile__.name)
+        os.remove(cls.fai.faidx.indexname)
 
     def test_single_proc(self):
 
@@ -1051,7 +1069,7 @@ class PickTest(unittest.TestCase):
         self.json_conf["db_settings"]["db"] = pkg_resources.resource_filename("Mikado.tests", "mikado.db")
 
         self.json_conf["pick"]["files"]["input"] = pkg_resources.resource_filename("Mikado.tests",
-                                                                              "mikado_prepared.gtf")
+                                                                                   "mikado_prepared.gtf")
         dir = tempfile.TemporaryDirectory()
         self.json_conf["pick"]["files"]["output_dir"] = dir.name
         self.json_conf["pick"]["files"]["loci_out"] = "mikado.monoproc.loci.gff3"
@@ -1103,7 +1121,7 @@ class PickTest(unittest.TestCase):
     def test_subprocess(self):
                 
         self.json_conf["pick"]["files"]["input"] = pkg_resources.resource_filename("Mikado.tests",
-                                                                              "mikado_prepared.gtf")
+                                                                                   "mikado_prepared.gtf")
         dir = tempfile.TemporaryDirectory()
         self.json_conf["pick"]["files"]["output_dir"] = dir.name
         self.json_conf["pick"]["files"]["loci_out"] = "mikado.subproc.loci.gff3"
@@ -1359,6 +1377,31 @@ Chr1	foo	exon	19000	20000	.	+	.	gene_id "foo"; transcript_id "foo2.1"""
             for fname in ["mikado.db", "mikado.purging_{}.*".format(purging)]:
                 [os.remove(_) for _ in glob.glob(os.path.join(tempfile.gettempdir(), fname))]
         dir.cleanup()
+
+
+class SerialiseChecker(unittest.TestCase):
+
+    def setUp(self):
+        self.json_conf = configurator.to_json(None)
+        self.json_conf["reference"]["genome"] = self.fai.filename
+
+    @classmethod
+    def setUpClass(cls):
+        cls.__genomefile__ = None
+
+        cls.__genomefile__ = tempfile.NamedTemporaryFile(mode="wb", delete=False, suffix=".fa", prefix="serialise")
+
+        with pkg_resources.resource_stream("Mikado.tests", "chr5.fas.gz") as _:
+            cls.__genomefile__.write(gzip.decompress(_.read()))
+        cls.__genomefile__.flush()
+        cls.fai = pyfaidx.Fasta(cls.__genomefile__.name)
+
+    @classmethod
+    def tearDownClass(cls):
+        os.remove(cls.__genomefile__.name)
+        os.remove(cls.fai.faidx.indexname)
+
+
 
 
 if __name__ == "__main__":

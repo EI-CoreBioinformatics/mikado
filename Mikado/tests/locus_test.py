@@ -185,6 +185,22 @@ class LocusTester(unittest.TestCase):
     logger = create_null_logger(inspect.getframeinfo(inspect.currentframe())[2])
     logger_name = logger.name
 
+    @classmethod
+    def setUpClass(cls):
+        cls.__genomefile__ = None
+
+        cls.__genomefile__ = tempfile.NamedTemporaryFile(mode="wb", delete=False, suffix=".fa", prefix="prepare")
+
+        with pkg_resources.resource_stream("Mikado.tests", "chr5.fas.gz") as _:
+            cls.__genomefile__.write(gzip.decompress(_.read()))
+        cls.__genomefile__.flush()
+        cls.fai = pyfaidx.Fasta(cls.__genomefile__.name)
+
+    @classmethod
+    def tearDownClass(cls):
+        os.remove(cls.__genomefile__.name)
+        os.remove(cls.fai.faidx.indexname)
+
     def setUp(self):
 
         gff_transcript1 = """Chr1\tfoo\ttranscript\t101\t400\t.\t+\t.\tID=t0
@@ -230,7 +246,9 @@ Chr1\tfoo\texon\t501\t600\t.\t+\t.\tID=t1:exon3;Parent=t1""".split("\n")
         # with self.assertRaises(exceptions.NoJsonConfigError):
         #     _ = Superlocus(self.transcript1)
         self.my_json = os.path.join(os.path.dirname(__file__), "configuration.yaml")
+
         self.my_json = configurator.to_json(self.my_json)
+        self.my_json["reference"]["genome"] = self.fai.filename
         self.assertIn("scoring", self.my_json, self.my_json.keys())
 
     def test_locus(self):
@@ -1102,6 +1120,22 @@ class TestLocus(unittest.TestCase):
 
     logger = Mikado.utilities.log_utils.create_default_logger("tester")
 
+    @classmethod
+    def setUpClass(cls):
+        cls.__genomefile__ = None
+
+        cls.__genomefile__ = tempfile.NamedTemporaryFile(mode="wb", delete=False, suffix=".fa", prefix="prepare")
+
+        with pkg_resources.resource_stream("Mikado.tests", "chr5.fas.gz") as _:
+            cls.__genomefile__.write(gzip.decompress(_.read()))
+        cls.__genomefile__.flush()
+        cls.fai = pyfaidx.Fasta(cls.__genomefile__.name)
+
+    @classmethod
+    def tearDownClass(cls):
+        os.remove(cls.__genomefile__.name)
+        os.remove(cls.fai.faidx.indexname)
+
     def setUp(self):
 
         """Set up for the unit test."""
@@ -1205,6 +1239,7 @@ class TestLocus(unittest.TestCase):
         # self.logger = logging.getLogger("tester")
         # self.handler = logging.StreamHandler()
         self.logger.setLevel(logging.WARNING)
+        self.json_conf["reference"]["genome"] = self.fai.filename
         # self.logger.addHandler(self.handler)
 
     def test_validity(self):
@@ -1396,10 +1431,12 @@ class TestLocus(unittest.TestCase):
                                    "parameters": {
                                        "cdna_length": {"operator": "gt", "value": 0, "name": "cdna_length"}
                                    }}
+        conf["pick"]["alternative_splicing"]["pad"] = False
 
         with self.subTest():
             superlocus_one = Superlocus(t1, json_conf=conf)
             superlocus_one.add_transcript_to_locus(t1_1)
+
             locus_one = Locus(t1, json_conf=conf)
             locus_one.logger = logger
             superlocus_one.loci[locus_one.id] = locus_one

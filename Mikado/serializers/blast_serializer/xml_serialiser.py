@@ -115,7 +115,7 @@ class _XmlPickler(multiprocessing.Process):
             conn = sqlite3.connect(dbname)
             cursor = conn.cursor()
             cursor.execute(creation_string)
-        cursor.execute("CREATE INDEX idx ON dump (tid)")
+        cursor.execute("CREATE INDEX idx ON dump (query_counter)")
         self.logger.debug("Created tables for shelf %s", dbname)
 
         return dbname, conn, cursor
@@ -148,6 +148,11 @@ class _XmlPickler(multiprocessing.Process):
                                        )
                         if query_counter % self.maxobjects and query_counter > 0:
                             conn.commit()
+                            cursor.close()
+                            conn.close()
+                            yield dbname
+                            dbname, conn, cursor = self._create_db(filename)
+                            pickle_count += 1
 
                 except ExpatError:
                     self.logger.error("%s is an invalid BLAST file, sending back anything salvageable",
@@ -156,7 +161,7 @@ class _XmlPickler(multiprocessing.Process):
             self.logger.error("%s is an invalid BLAST file, sending back anything salvageable",
                               filename)
 
-        self.logger.debug("Finished pickling %s in %s subsection", filename, pickle_count)
+        self.logger.debug("Finished serialising %s in %s subsection", filename, pickle_count)
         cursor.close()
         conn.commit()
         conn.close()
@@ -598,6 +603,8 @@ class XmlSerializer:
                     cursor = conn.cursor()
                     for query_counter, __hits, __hsps in cursor.execute("SELECT * FROM dump"):
                         record_counter += 1
+                        __hits = json.loads(__hits)
+                        __hsps = json.loads(__hsps)
                         hit_counter += len(__hits)
                         hits.extend(__hits)
                         hsps.extend(__hsps)

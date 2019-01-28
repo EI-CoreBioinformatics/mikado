@@ -7,7 +7,12 @@ import functools
 import logging.handlers as logging_handlers
 import logging
 import tempfile
-import pickle
+try:
+    import ujson as json
+except ImportError:
+    import json
+import sqlite3
+# import pickle
 import sqlalchemy
 import sqlalchemy.exc
 from sqlalchemy.orm.session import Session
@@ -83,6 +88,38 @@ class _XmlPickler(multiprocessing.Process):
         self.logger.addHandler(self.handler)
         self.logger.setLevel(self.level)
 
+    def _create_db(self, filename):
+
+        """Private method to create a DB for serialisation.
+        :param filename: the name of the file to serialise
+        :returns dbname, cursor: the name of the database and the SQLite cursor
+
+        """
+
+        directory = os.path.dirname(filename)
+        dbname = tempfile.mktemp(suffix=".db", dir=directory)
+        conn = sqlite3.connect(dbname)
+        cursor = conn.cursor()
+        creation_string = "CREATE TABLE dump (query_counter integer, hits blob, hsps blob)"
+        try:
+            cursor.execute(  # TODO: change
+                creation_string)
+        except sqlite3.OperationalError:
+            # Table already exists
+            self.logger.error(
+                "Temporary db %s already exists (maybe from a previous aborted run?), dropping its contents",
+                dbname)
+            cursor.close()
+            conn.close()
+            os.remove(dbname)
+            conn = sqlite3.connect(dbname)
+            cursor = conn.cursor()
+            cursor.execute(creation_string)
+        cursor.execute("CREATE INDEX idx ON dump (tid)")
+        self.logger.debug("Created tables for shelf %s", dbname)
+
+        return dbname, conn, cursor
+
     def _pickler(self, filename):
 
         # Check the header is alright
@@ -92,31 +129,26 @@ class _XmlPickler(multiprocessing.Process):
             return []
 
         self.logger.debug("Starting to pickle %s", filename)
-        hits, hsps = [], []
+        # hits, hsps = [], []
 
         pickle_count = 0
         query_counter = 0
+        # Create the database
+        dbname, conn, cursor = self._create_db(filename)
+
         try:
             with BlastOpener(filename) as opened:
                 try:
-                    for record in opened:
-                        query_counter += 1
-                        hits, hsps = objectify_record(self, record, hits, hsps,
+                    for query_counter, record in enumerate(opened, start=1):
+                        hits, hsps = objectify_record(self, record, [], [],
                                                       max_target_seqs=self.__max_target_seqs)
 
-                        if len(hits) + len(hsps) > self.maxobjects:
-                            pickle_temp = tempfile.mktemp(suffix=".pickle",
-                                                           dir=os.path.dirname(filename))
-                            with open(pickle_temp, "wb") as pickled:
-                                pickle.dump([query_counter, hits, hsps], pickled)
+                        cursor.execute("INSERT INTO dump VALUES (?, ?, ?)",
+                                       (query_counter, json.dumps(hits), json.dumps(hsps))
+                                       )
+                        if query_counter % self.maxobjects and query_counter > 0:
+                            conn.commit()
 
-                            pickle_count += 1
-                            query_counter = 0
-                            self.logger.debug("Sending %s back to the main thread (%d hits and %d hsps)",
-                                              pickle_temp[1], len(hits), len(hsps))
-                            yield pickle_temp
-                            # pfiles.append(pickle_temp[1])
-                            hits, hsps = [], []
                 except ExpatError:
                     self.logger.error("%s is an invalid BLAST file, sending back anything salvageable",
                                       filename)
@@ -124,14 +156,11 @@ class _XmlPickler(multiprocessing.Process):
             self.logger.error("%s is an invalid BLAST file, sending back anything salvageable",
                               filename)
 
-        pickle_temp = tempfile.mkstemp(suffix=".pickle",
-                                       dir=os.path.dirname(filename))
-        with open(pickle_temp[1], "wb") as pickled:
-            pickle.dump([query_counter, hits, hsps], pickled)
-        yield pickle_temp[1]
-        pickle_count += 1
-        # pfiles.append()
         self.logger.debug("Finished pickling %s in %s subsection", filename, pickle_count)
+        cursor.close()
+        conn.commit()
+        conn.close()
+        yield dbname
         # del records
 
     def run(self):
@@ -159,7 +188,7 @@ class _XmlPickler(multiprocessing.Process):
                 self.filequeue.put((number, filename))
                 return 0
             for pickled in self._pickler(filename):
-                self.logger.debug("Sending pickled {}".format(pickled))
+                self.logger.debug("Sending serialised information in {}".format(pickled))
                 self.returnqueue.put((number, [pickled]))
             self.returnqueue.put((number, "FINISHED"))
 
@@ -564,19 +593,19 @@ class XmlSerializer:
                     continue
                 if result == "EXIT":
                     continue
-                for pickle_file in result:
-                    with open(pickle_file, "rb") as pickled:
-                        __query_count, __hits, __hsps = pickle.load(pickled)
-                        record_counter += __query_count
-                        self.logger.debug("Received %d hits with %d HSPs",
-                                          len(__hits), len(__hsps))
+                for dbfile in result:
+                    conn = sqlite3.connect(dbfile)
+                    cursor = conn.cursor()
+                    for query_counter, __hits, __hsps in cursor.execute("SELECT * FROM dump"):
+                        record_counter += 1
                         hit_counter += len(__hits)
                         hits.extend(__hits)
                         hsps.extend(__hsps)
                         hits, hsps = load_into_db(self, hits, hsps, force=False)
                         if record_counter > 0 and record_counter % 10000 == 0:
                             self.logger.debug("Parsed %d queries", record_counter)
-                    os.remove(pickle_file)
+
+                    os.remove(dbfile)
             [_.join() for _ in procs]  # Wait for processes to join
             self.logger.info("All %d children finished", len(procs))
             del procs

@@ -644,7 +644,14 @@ Mikado can optionally "pad" transcripts so to uniform, as much as possible, thei
 
 When calculating the new ORF, Mikado will use the same :ref:`codon table selected for the serialisation step <codon-table>`.
 
-This option is normally disabled. It has been written for using Mikado in conjunction with *ab initio* predictions, but it can be used fruitfully also with transcript assemblies.
+This option is normally activated, with the parameters:
+
+* Default maximum splice sites that can be crossed: 1
+* Default maximum basepair distance: 300
+
+.. note:: please consider that the parameters above refer to the expansion **on both sides of the transcript**. So the parameters above allow transcripts to be expanded by up to 600 bps, ie 300 in both directions.
+
+This option has been written for using Mikado in conjunction with *ab initio* predictions, but it can be used fruitfully also with transcript assemblies.
 Please note that some of the metrics might become invalid after the padding. In particular, BLASTX results will be invalid as the query sequence will have changed.
 
 The options related to padding can be found under the pick section :ref:`in the configuration file <pad-configuration>`.

@@ -177,6 +177,8 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             for key in self.json_conf:
                 if (isinstance(self.json_conf[key], dict) and
                         self.json_conf[key].get("compiled", None) is not None):
+                    assert "json_conf" in state
+                    assert key in state["json_conf"]
                     del state["json_conf"][key]["compiled"]
 
         if hasattr(self, "session"):

@@ -1043,7 +1043,7 @@ class ConfigureCheck(unittest.TestCase):
 
 
 @mark.slow
-# @unittest.skip
+@unittest.skip
 class PickTest(unittest.TestCase):
 
     """This unit test will check that pick functions correctly."""
@@ -1301,7 +1301,7 @@ class PickTest(unittest.TestCase):
         temp_gtf.close()
         dir.cleanup()
 
-    # @unittest.skip
+    @unittest.skip
     def test_purging2(self):
 
         gtf, dir, temp_gtf, scoring = self.__get_purgeable_gff()

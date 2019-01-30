@@ -611,7 +611,8 @@ class XmlSerializer:
                         hits, hsps = load_into_db(self, hits, hsps, force=False)
                         if record_counter > 0 and record_counter % 10000 == 0:
                             self.logger.debug("Parsed %d queries", record_counter)
-
+                    cursor.close()
+                    conn.close()
                     os.remove(dbfile)
             [_.join() for _ in procs]  # Wait for processes to join
             self.logger.info("All %d children finished", len(procs))

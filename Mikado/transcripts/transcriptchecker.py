@@ -321,8 +321,14 @@ class TranscriptChecker(Transcript):
         if self.is_coding is False:
             return
         else:
+            try:
+                orfs = list(self.get_internal_orf_beds())
+            except AssertionError as exc:  # Invalid ORFs found
+                self.logger.warning("Invalid ORF(s) for %s. Stripping it of its CDS. Error: %s",
+                                    self.id, exc)
+                self.strip_cds()
+                return
 
-            orfs = list(self.get_internal_orf_beds())
             if len(orfs) > 1:
                 self.logger.warning("Multiple ORFs found for %s. Only considering the primary.", self.id)
             elif len(orfs) == 0:

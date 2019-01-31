@@ -793,7 +793,7 @@
               "type": "string",
               "default": ""
             },
-            "log": {"oneOf": [null, {"type": "string", "default": null}]}
+            "log": {"type": ["null", "string"], "default": null}
           }
         }
       }

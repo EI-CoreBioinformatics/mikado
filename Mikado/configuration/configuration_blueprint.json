@@ -793,10 +793,7 @@
               "type": "string",
               "default": ""
             },
-            "log": {
-            "type": "string",
-            "default": "mikado_pick.log"
-            }
+            "log": {"oneOf": [null, {"type": "string", "default": null}]}
           }
         }
       }

@@ -38,7 +38,7 @@ import multiprocessing.managers
 from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
 import pickle
 import warnings
-# from math import floor
+import pyfaidx
 logging.captureWarnings(True)
 warnings.simplefilter("always")
 import sqlite3
@@ -46,6 +46,7 @@ try:
     import ujson as json
 except ImportError:
     import json
+
 
 # pylint: disable=too-many-instance-attributes
 class Picker:
@@ -170,7 +171,14 @@ memory intensive, proceed with caution!")
             multiprocessing.set_start_method(self.json_conf["multiprocessing_method"],
                                              force=True)
             self.setup_logger()
-            self.json_conf = check_json(self.json_conf, logger=self.logger)
+            self.logger.debug("Checking the configuration dictionary")
+            try:
+                self.json_conf = check_json(self.json_conf, logger=self.logger)
+                self.logger.debug("Configuration dictionary passes checks")
+            except Exception as exc:
+                self.logger.critical("Something went wrong with the configuration, critical error, aborting.")
+                self.logger.critical(exc)
+                sys.exit(1)
         else:
             raise TypeError(type(self.json_conf))
         assert isinstance(self.json_conf, dict)
@@ -190,6 +198,19 @@ memory intensive, proceed with caution!")
                         key, new_home))
                 self.logger.warning(warns)
 
+        if self.json_conf.get("pick", {}).get("alternative_splicing", {}).get("pad", False) is True:
+            # Check that, when asks for padding, the reference genome is present
+            self.logger.debug("Checking for the presence of the reference genome")
+            try:
+                _ = pyfaidx.Fasta(self.json_conf["reference"]["genome"])
+            except:
+                self.logger.error("Transcript padding cannot be executed without a valid genome file.\
+                 Please, either disable the padding or provide a valid genome sequence.")
+                sys.exit(1)
+            self.logger.debug("Valid reference genome found")
+        else:
+            pass
+
         self.context = multiprocessing.get_context()
         if self.json_conf["pick"]["scoring_file"].endswith((".pickle", ".model")):
             with open(self.json_conf["pick"]["scoring_file"], "rb") as forest:
@@ -200,6 +221,8 @@ memory intensive, proceed with caution!")
                 return
         else:
             self.regressor = None
+
+        self.logger.debug("Configuration loaded successfully")
 
     def __create_output_handles(self):
 

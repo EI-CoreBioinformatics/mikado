@@ -167,7 +167,7 @@ class AbstractLocusTester(unittest.TestCase):
             self.transcript1.json_conf = None
             _ = Sublocus(self.transcript1, json_conf=None)
 
-        with self.assertRaises(FileNotFoundError):
+        with self.assertRaises((OSError, FileNotFoundError)):
             _ = Sublocus(self.transcript1, json_conf="test")
 
     def test_sublocus_from_sublocus(self):

@@ -659,8 +659,8 @@ def to_json(string, simple=False, logger=None):
         json_dict = check_json(json_dict, simple=simple, logger=logger)
     except Exception as exc:
         logger.exception(exc)
-        with open("ERROR.{}".format("json" if string.endswith("json") else "yaml"), "wt") as errored:
-            errored.write(open(string).read())
+        # with open("ERROR.{}".format("json" if string.endswith("json") else "yaml"), "wt") as errored:
+        #     errored.write(open(string).read())
         raise OSError(exc)
 
     return json_dict

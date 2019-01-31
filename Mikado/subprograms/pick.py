@@ -119,10 +119,20 @@ def check_run_options(args, logger=None):
 
                 args.json_conf["pick"]["files"][key] = val
 
+    if getattr(args, "fasta"):
+        args.fasta.close()
+        args.json_conf["reference"]["genome"] = args.fasta.name
+
     if args.scoring_file is not None:
         if not os.path.exists(args.scoring_file) and os.path.isfile(args.scoring_file):
             raise ValueError("Invalid/inexistent scoring file: {}".format(args.scoring_file))
         args.json_conf["pick"]["scoring_file"] = args.scoring_file
+
+    if (args.json_conf["pick"]["alternative_splicing"]["pad"] and
+            not os.path.exists(args.json_conf["reference"]["genome"])):
+        logger.critical("Transcript padding cannot function unless the genome file is specified. \
+        Please either provide a valid genome file or disable the padding.")
+        sys.exit(1)
 
     args.json_conf = check_json(args.json_conf, logger=logger)
 
@@ -189,6 +199,9 @@ def pick_parser():
                         help="""Range into which intron lengths should fall, as a couple of integers.
                         Transcripts with intron lengths outside of this range will be penalised.
                         Default: (60, 900)""")
+    parser.add_argument("--fasta", type=argparse.FileType(),
+                        help="Genome FASTA file. Required if pad is enabled (default).")
+    parser.add_argument("--no-pad", dest="pad", action="store_false", help="Disable transcript padding.")
     parser.add_argument("--pad", default=False,
                         action="store_true",
                         help="Whether to pad transcripts in loci.")

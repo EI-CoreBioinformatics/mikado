@@ -409,6 +409,9 @@ class Locus(Abstractlocus):
         """This method will use the expression in the "not_fragmentary" section
         of the configuration to determine whether it is itself a putative fragment."""
 
+        if any(self.transcripts[tid].is_reference is True for tid in self.transcripts):
+            return False
+
         self.json_conf["not_fragmentary"]["compiled"] = compile(
             self.json_conf["not_fragmentary"]["expression"], "<json>",
             "eval")
@@ -452,6 +455,10 @@ class Locus(Abstractlocus):
 
         if other.primary_transcript_id == self.primary_transcript_id:
             self.logger.debug("Self-comparisons are not allowed!")
+            return False, None
+
+        if any(other.transcripts[tid].is_reference is True for tid in other.transcripts.keys()):
+            self.logger.debug("Locus %s has a reference transcript, hence it will not be discarded", other.id)
             return False, None
 
         self.logger.debug("Comparing %s with %s",

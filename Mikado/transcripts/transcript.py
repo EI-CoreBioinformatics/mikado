@@ -331,6 +331,7 @@ class Transcript:
         self.__cds_introntree = IntervalTree()
         self._possibly_without_exons = False
         self._accept_undefined_multi = accept_undefined_multi
+        self.__is_reference = False
 
         if len(args) == 0:
             return
@@ -840,7 +841,13 @@ class Transcript:
     @property
     def is_reference(self):
         """Checks whether the transcript has been marked as reference by Mikado prepare"""
-        return self.attributes.get("is_reference", False) is True
+        return self.__is_reference
+
+    @is_reference.setter
+    def is_reference(self, value):
+        if value not in (False, True):
+            raise TypeError("The 'is_reference' attribute must be boolean")
+        self.__is_reference = value
 
     @property
     def frames(self):

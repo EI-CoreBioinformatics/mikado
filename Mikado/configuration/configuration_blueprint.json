@@ -635,6 +635,10 @@
               "type": "boolean",
               "default": false
             },
+            "only_reference_update": {
+              "type": "boolean",
+              "default": false
+            },
             "procs": {
               "type": "integer",
               "default": 1,

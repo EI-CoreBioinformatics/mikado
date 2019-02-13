@@ -964,6 +964,10 @@ class Locus(Abstractlocus):
     def ts_max_splices(self):
         return self.json_conf["pick"]["alternative_splicing"]["ts_max_splices"]
 
+    @property
+    def has_reference_transcript(self):
+        return any(transcript.is_reference is True for transcript in self)
+
 
 def expand_transcript(transcript: Transcript,
                       start_transcript: [Transcript, bool],

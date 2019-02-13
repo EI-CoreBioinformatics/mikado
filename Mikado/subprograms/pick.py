@@ -119,6 +119,9 @@ def check_run_options(args, logger=None):
 
                 args.json_conf["pick"]["files"][key] = val
 
+    if args.only_reference_update is True:
+        args.json_conf["pick"]["run_options"]["only_reference_update"] = True
+
     if getattr(args, "fasta"):
         args.fasta.close()
         args.json_conf["reference"]["genome"] = args.fasta.name
@@ -209,19 +212,23 @@ def pick_parser():
                         type=int, help="Maximum splice sites that can be crossed during transcript padding.")
     parser.add_argument("--pad-max-distance", default=None, dest="pad_max_distance",
                         type=int, help="Maximum amount of bps that transcripts can be padded with (per side).")
-    parser.add_argument("--subloci_out", type=str, default=None)
-    parser.add_argument("--monoloci_out", type=str, default=None)
-    parser.add_argument("--loci_out", type=str, default=None,
+
+    output = parser.add_argument_group("Options related to the output files.")
+    output.add_argument("--subloci_out", type=str, default=None)
+    output.add_argument("--monoloci_out", type=str, default=None)
+    output.add_argument("--loci_out", type=str, default=None,
                         help="""This output file is mandatory.
                         If it is not specified in the configuration file,
                         it must be provided here.""")
-    parser.add_argument("--prefix", type=str, default=None,
+    output.add_argument("--prefix", type=str, default=None,
                         help="Prefix for the genes. Default: Mikado")
+    output.add_argument('--source', type=str, default=None,
+                        help='Source field to use for the output files.')
+
     parser.add_argument("--no_cds", action="store_true", default=False,
                         help="""Flag. If set, not CDS information
                         will be printed out in the GFF output files.""")
-    parser.add_argument('--source', type=str, default=None,
-                        help='Source field to use for the output files.')
+
     parser.add_argument("--flank", default=None, type=int,
                         help="""Flanking distance (in bps) to group non-overlapping transcripts
                         into a single superlocus. Default: determined by the configuration file.""")
@@ -234,6 +241,12 @@ def pick_parser():
                         when clustering transcripts (unless one transcript is non-coding, in which case
                         the whole transcript will be considered). Default: False, Mikado will consider
                         transcripts in their entirety.""")
+    parser.add_argument("--only-reference-update", dest="only_reference_update", default=None,
+                        action="store_true",
+                        help="""Flag. If switched on, Mikado will only keep loci where at least one of the transcripts
+                        is marked as "reference". CAUTION: new and experimental. If no transcript has been marked as
+                        reference, the output will be completely empty!""")
+
     parser.add_argument("--monoloci-from-simple-overlap", dest="monoloci_from_simple_overlap",
                         default=False, action="store_true",
                         help=""""Flag. If set, in the final stage Mikado will cluster transcripts by simple overlap,

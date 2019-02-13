@@ -1,5 +1,5 @@
 import unittest
-from ..configuration import configurator
+from Mikado.configuration import configurator
 
 #
 # class TestConfigurator(unittest.TestCase):

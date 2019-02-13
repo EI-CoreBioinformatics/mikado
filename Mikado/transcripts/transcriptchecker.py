@@ -152,6 +152,8 @@ class TranscriptChecker(Transcript):
         self.check_orf()
         if self.mixed_splices is True:
             self.attributes["mixed_splices"] = self.mixed_attribute
+        if self.is_reference is True:
+            self.attributes["is_reference"] = self.is_reference
 
         return super().__str__(print_cds=print_cds, to_gtf=to_gtf)
 

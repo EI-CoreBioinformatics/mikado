@@ -1012,6 +1012,10 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         not_passing = set()
         for tid in iter(tid for tid in self.transcripts if
                         tid not in previous_not_passing):
+            if self.transcripts[tid].is_reference is True:
+                # Reference transcripts should be kept in, no matter what.
+                continue
+
             evaluated = dict()
             for key in self.json_conf["requirements"]["parameters"]:
                 value = getattr(self.transcripts[tid],

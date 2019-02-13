@@ -838,6 +838,11 @@ class Transcript:
                 yield new_row
 
     @property
+    def is_reference(self):
+        """Checks whether the transcript has been marked as reference by Mikado prepare"""
+        return self.attributes.get("is_reference", False) is True
+
+    @property
     def frames(self):
         """This property will return a dictionary with three keys - the three possible frames, 0, 1 and 2 - and within
         each, a set of the positions that are in that frame. If the transcript does not have """

@@ -966,7 +966,7 @@ class Locus(Abstractlocus):
 
     @property
     def has_reference_transcript(self):
-        return any(transcript.is_reference is True for transcript in self)
+        return any(self.transcripts[transcript].is_reference is True for transcript in self)
 
 
 def expand_transcript(transcript: Transcript,

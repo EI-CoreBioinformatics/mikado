@@ -254,7 +254,7 @@ def load_into_storage(shelf_name, exon_lines, min_length, logger, strip_cds=True
         if tlength < min_length:
             if exon_lines[tid]["is_reference"] is True:
                 logger.info("%s retained even if it is too short (%d) as it is a reference transcript.",
-                            tid)
+                            tid, tlength)
             else:
                 logger.info("Discarding %s because its size (%d) is under the minimum of %d",
                              tid, tlength, min_length)

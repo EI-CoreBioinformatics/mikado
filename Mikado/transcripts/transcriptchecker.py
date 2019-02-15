@@ -148,26 +148,27 @@ class TranscriptChecker(Transcript):
 
     def __str__(self, print_cds=True, to_gtf=False, with_introns=False):
 
-        self.check_strand()
-        self.check_orf()
-        if self.mixed_splices is True:
-            self.attributes["mixed_splices"] = self.mixed_attribute
-        if self.is_reference is True:
-            self.attributes["is_reference"] = self.is_reference
-
+        self.__prepare_for_printing()
         return super().__str__(print_cds=print_cds, to_gtf=to_gtf)
 
     def format(self, format_name, with_introns=False, with_cds=True,
                all_orfs=False,
                transcriptomic=False):
 
+        self.__prepare_for_printing()
+        return super().format(format_name, with_cds=with_cds, with_introns=with_introns,
+                              all_orfs=all_orfs, transcriptomic=transcriptomic)
+
+    def __prepare_for_printing(self):
+
         self.check_strand()
         self.check_orf()
         if self.mixed_splices is True:
             self.attributes["mixed_splices"] = self.mixed_attribute
-
-        return super().format(format_name, with_cds=with_cds, with_introns=with_introns,
-                              all_orfs=all_orfs, transcriptomic=transcriptomic)
+            self.logger.warning("%s has mixed splices", self.id)
+        if self.is_reference is True:
+            self.attributes["is_reference"] = "True"
+            self.logger.warning("%s is a reference transcript", self.id)
 
     def check_strand(self):
         """

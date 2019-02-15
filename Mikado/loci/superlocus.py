@@ -1157,7 +1157,7 @@ class Superlocus(Abstractlocus):
             self.__lost = new_locus.lost_transcripts
 
         if self.json_conf["pick"]["run_options"]["only_reference_update"] is True:
-            lids = self.loci.keys()
+            lids = list(self.loci.keys())[:]
             for lid in lids:
                 if self.loci[lid].has_reference_transcript is False:
                     self.logger.debug("Removing %s (primary: %s) as it has no reference transcripts",

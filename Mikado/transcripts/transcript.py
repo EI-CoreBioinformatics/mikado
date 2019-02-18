@@ -259,6 +259,7 @@ class Transcript:
         # Mock setting of base hidden variables
         self.__id = ""
         self.__finalized = False  # Flag. We do not want to repeat the finalising more than once.
+        self.__source = None
         self._first_phase = None
         self.__logger = None
         self.__strand = self.__score = None
@@ -295,7 +296,7 @@ class Transcript:
 
         # Starting settings for everything else
         self.__chrom = None
-        self.source = source
+        self.source = self._original_source = source
         self.feature = "transcript"
         self.__start, self.__end = None, None
         self.attributes = dict()
@@ -331,12 +332,12 @@ class Transcript:
         self.__cds_introntree = IntervalTree()
         self._possibly_without_exons = False
         self._accept_undefined_multi = accept_undefined_multi
-        self.__is_reference = False
 
         if len(args) == 0:
             return
         else:
             self.__initialize_with_line(args[0])
+            self._original_source = self.source
 
         self.feature = intern(self.feature)
 
@@ -838,16 +839,18 @@ class Transcript:
 
                 yield new_row
 
-    @property
+    @Metric
     def is_reference(self):
         """Checks whether the transcript has been marked as reference by Mikado prepare"""
-        return self.__is_reference
 
-    @is_reference.setter
-    def is_reference(self, value):
-        if value not in (False, True):
-            raise TypeError("The 'is_reference' attribute must be boolean")
-        self.__is_reference = value
+        if self.json_conf is not None:
+            return self.original_source in self.json_conf.get("prepare", {}).get("files", {}).get(
+                "reference", {})
+        else:
+            return False
+
+    is_reference.category = "External"
+    is_reference.rtype = "bool"
 
     @property
     def frames(self):
@@ -1205,6 +1208,7 @@ class Transcript:
                 state[key] = intern(state[key])
             setattr(self, key, state[key])
 
+        self._original_source = self.source
         self.attributes = {}
         for key, val in state["attributes"].items():
             if val in ["True", "False"]:
@@ -1378,7 +1382,7 @@ class Transcript:
         #     inspect.getmembers(cls)))
         # assert "tid" in metrics and "parent" in metrics and "score" in metrics
         _metrics = sorted([metric for metric in metrics])
-        final_metrics = ["tid", "alias", "parent", "score"] + _metrics
+        final_metrics = ["tid", "alias", "parent", "original_source", "score"] + _metrics
         return final_metrics
 
     # ###################Class properties##################################
@@ -1557,6 +1561,23 @@ class Transcript:
         self.attributes["gene_id"] = self.__parent
         if self.__parent:
             self.__parent = [intern(_) for _ in self.__parent]
+
+    @property
+    def source(self):
+        """Source of the transcript. Equivalent to the second field in the GFF/GTF files."""
+        return self.__source
+
+    @source.setter
+    def source(self, source):
+        if source is not None and not isinstance(source, str):
+            raise TypeError("Source values must be strings or None!")
+        self.__source = source
+
+    @property
+    def original_source(self):
+        """This property returns the original source assigned to the transcript (before Mikado assigns its own final
+        source value)."""
+        return self._original_source
 
     @property
     def gene(self):
@@ -2681,7 +2702,7 @@ index {3}, internal ORFs: {4}".format(
 
         if self.json_conf is not None:
             return self.json_conf.get("prepare", {}).get("files", {}).get(
-                "source_score", {}).get(self.source, 0)
+                "source_score", {}).get(self.original_source, 0)
         else:
             return 0
 

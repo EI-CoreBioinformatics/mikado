@@ -731,9 +731,12 @@ def finalize(transcript):
         transcript.logger.debug("No predetermined has_stop_codon attribute for %s. Attributes: %s",
                                 transcript.id, transcript.attributes)
 
-    for prop in transcript.attributes:
+    for prop in list(transcript.attributes.keys()):
         if hasattr(transcript, prop):
-            setattr(transcript, prop, transcript.attributes[prop])
+            try:
+                setattr(transcript, prop, transcript.attributes[prop])
+            except AttributeError:  # Some instance attributes CANNOT be set from the attributes of the GTF
+                transcript.attributes.pop(prop)
 
     # transcript = __calc_cds_introns(transcript)
 

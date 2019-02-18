@@ -1146,7 +1146,7 @@ class Superlocus(Abstractlocus):
                                            use_transcript_scores=self._use_transcript_scores,
                                            stranded=self.stranded,
                                            verified_introns=self.locus_verified_introns,
-                                           logger = self.logger,
+                                           logger=self.logger,
                                            source=self.source
                                            )
                 else:
@@ -1163,6 +1163,7 @@ class Superlocus(Abstractlocus):
                     self.logger.debug("Removing %s (primary: %s) as it has no reference transcripts",
                                       lid, self.loci[lid].primary_transcript_id)
                     del self.loci[lid]
+            self.logger.debug("Remaining loci in %s: %s", self.id, ",".join(list(self.loci.keys())))
 
         return
 

@@ -399,9 +399,9 @@ memory intensive, proceed with caution!")
             session = sqlalchemy.orm.sessionmaker(bind=engine)()
             dbutils.DBBASE.metadata.create_all(engine)
 
-        metrics = Superlocus.available_metrics[3:]
+        metrics = Superlocus.available_metrics[4:]
         metrics.extend(["external.{}".format(_.source) for _ in session.query(ExternalSource.source).all()])
-        metrics = Superlocus.available_metrics[:3] + sorted(metrics)
+        metrics = Superlocus.available_metrics[:4] + sorted(metrics)
 
         if self.sub_out != '':
             assert isinstance(self.sub_out, str)

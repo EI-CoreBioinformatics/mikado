@@ -1,0 +1,206 @@
+Bootstrap: docker
+From: centos:7
+OSversion: 7
+Include: yum wget
+# If you want the updates (available at the bootstrap date) to be installed
+# inside the container during the bootstrap instead of the General Availability
+# point release (7.x) then uncomment the following line
+
+# UpdateURL: http://yum-repos.hpccluster/centos/7/updates/$basearch/
+
+%test
+    python3.6 --version
+    pip3.6 --version
+    gcc --version
+    make --version
+
+    python3.6 -c "import numpy"
+
+
+%environment
+    export PATH="/usr/local/bin:$PATH:/usr/local/conda/bin/"
+    source /usr/local/conda/bin/activate
+    export AUGUSTUS_CONFIG_PATH=/opt/augustus-3.3/config/
+    export TRINITY_HOME=/usr/local/bin/trinityrnaseq/
+    export  PATH=$PATH:${TRINITY_HOME}
+    alias python=python3.6
+
+
+%post
+    mkdir /jic
+    mkdir /nbi
+    mkdir /tgac
+    mkdir /ei
+    mkdir /tsl
+    mkdir /opt/software
+
+    ### Install your packages ###
+    cd /opt/software/
+
+    yum -y install centos-release-scl
+    yum -y install scl-utils
+    yum -y install devtoolset-7-gcc*
+    scl enable devtoolset-7 bash
+    which gcc
+    gcc --version
+    mkdir -p /etc/profile.d/
+    echo -e '#!/bin/bash\nsource scl_source enable devtoolset-7' > /etc/profile.d/enablegcc7.sh
+
+    gcc --version
+    make --version
+
+    # Clean up yum
+    yum clean all
+
+    version=2.5.1
+    cd /usr/local/src
+    wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh
+    bash Miniconda3-latest-Linux-x86_64.sh -b -p /usr/local/conda
+    export PATH="/usr/local/conda/bin:$PATH"
+    source activate
+    conda install -y -c conda-forge pip
+
+    python3 --version
+    cd $(dirname $(which python3))
+    cd /opt/software/
+
+    # Install python requirements
+    wget https://github.com/lucventurini/mikado/blob/1.2.4/requirements.txt
+    cat requirements.txt
+    pip3 install -r requirements.txt
+
+    # Now install mikado
+    pip3.6 install --prefix=/usr/local/ mikado==1.2.4
+    # pip3.6 install --prefix=/usr/local/ networkit==4.6  # High-performance networks in Python
+    mikado --help
+
+    # Finally install EiAnnot
+    git clone --recursive https://github.com/lucventurini/ei-annotation.git
+    cd ei-annotation;
+    git checkout 0.0.2;
+    cd eicore;
+    python3 setup.py bdist_wheel;
+    pip3.6 install --prefix=/usr/local/ -U dist/*whl;
+    cd ../;
+    python3 setup.py bdist_wheel;
+    pip install --prefix=/usr/local/ -U dist/*whl;
+    cd /opt/software/
+
+
+%apprun snakemake
+	snakemake "@"
+
+%apprun hisat2-build
+	hisat2-build "@"
+
+%apprun jupyter
+	jupyter "@"
+
+%apprun gmap-build
+	gmap-build "@"
+
+%apprun gmap
+	gmap "@"
+
+%apprun gsnap
+	gsnap "@"
+
+%apprun mikado
+	mikado "@"
+
+%apprun samtools
+	samtools "@"
+
+%apprun portcullis
+	portcullis "@"
+
+%apprun junctools
+	junctools "@"
+
+%apprun stringtie
+	stringtie "@"
+
+%apprun class
+	class "@"
+
+%apprun hisat2
+	hisat2 "@"
+
+%apprun augustus
+        /opt/augustus-3.3/bin/augustus "@"
+
+%apprun filterBam
+	/opt/augustus-3.3/bin/filterBam "@"
+
+%apprun aln2wig
+	/opt/augustus-3.3/bin/aln2wig "@"
+
+%apprun joingenes
+	/opt/augustus-3.3/bin/joingenes "@"
+
+%apprun etraining
+	/opt/augustus-3.3/bin/etraining "@"
+
+%apprun bam2hints
+	/opt/augustus-3.3/bin/bam2hints "@"
+
+%apprun fastBlockSearch
+	/opt/augustus-3.3/bin/fastBlockSearch "@"
+
+%apprun homGeneMapping
+	/opt/augustus-3.3/bin/homGeneMapping "@"
+
+%apprun prepareAlign
+	prepareAlign "@"
+
+%apprun utrrnaseq
+	utrrnaseq "@"
+
+%apprun paftools
+	k8 $(which paftools.js) "@"
+
+%apprun k8
+	k8 "@"
+
+%apprun eiannot
+	eiannot "@"
+
+%apprun strawberry
+	strawberry "@"
+
+%apprun class
+	class "@"
+
+%apprun scallop
+	scallop "@"
+
+%apprun ruby
+	ruby "@"
+
+%apprun STAR
+	STAR "@"
+
+%apprun STARlong
+	STARlong "@"
+
+%apprun diamond
+    diamond "@"
+
+%apprun prinseq
+    /usr/local/bin/prinseq-lite-0.20.4/prinseq-lite.pl "@"
+
+%apprun "prinseq-lite.pl"
+    /usr/local/bin/prinseq-lite-0.20.4/prinseq-lite.pl "@"
+
+%apprun gt
+    gt "@"
+
+%apprun gffread
+    gffread "@"
+
+%apprun cufflinks
+    cufflinks "@"
+
+%apprun cuffcompare
+    cuffcompare "@"
+

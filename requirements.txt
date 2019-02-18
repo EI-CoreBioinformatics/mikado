@@ -5,7 +5,7 @@ cython>=0.25
 numpy>=1.16.0
 networkx>=2
 sqlalchemy>=1
-sqlalchemy_utils
+sqlalchemy-utils
 biopython>=1.70
 intervaltree
 pytest
@@ -20,6 +20,5 @@ docutils!=0.13.1
 tabulate
 ujson
 simplejson
-typing; python_version < "3.5"
 pandas
 pytest-cov

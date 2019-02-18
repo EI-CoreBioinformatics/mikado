@@ -61,9 +61,10 @@ setup(
         "Topic :: Scientific/Engineering :: Bio-Informatics",
         "License :: OSI Approved :: GNU Lesser General Public License v3 or later (LGPLv3+)",
         "Operating System :: POSIX :: Linux",
-        'Programming Language :: Python :: 3.4',
+        "Programming Language :: Python :: 3.4",
         "Programming Language :: Python :: 3.5",
-        "Programming Language :: Python :: 3.6"
+        "Programming Language :: Python :: 3.6",
+        'Programming Language :: Python :: 3.7'
     ],
     ext_modules=cythonize(extensions),
     zip_safe=False,

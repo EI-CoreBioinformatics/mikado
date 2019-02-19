@@ -21,4 +21,16 @@ RUN sed -i 's/;.*//' requirements.txt
 RUN conda install -n python36 --update-all -y -c conda-forge -c bioconda -c anaconda --file requirements.txt
 RUN python setup.py bdist_wheel
 RUN pip install dist/*whl
+RUN conda install -y -c bioconda -c anaconda -c conda-forge samtools==1.9 openssl=1.0 prodigal blast diamond==0.9.24 \
+          transdecoder==5.5.0 stringtie==1.3.4 cufflinks==2.2.1 hisat2==2.1.0 gmap==2018.07.04 \
+          portcullis trinity star==2.7.0b minimap2==2.15
+WORKDIR /opt/software
+RUN wget https://github.com/Kingsford-Group/scallop/releases/download/v0.10.3/scallop-0.10.3_linux_x86_64.tar.gz && tar xaf scallop-0.10.3_linux_x86_64.tar.gz
+RUN mv scallop-0.10.3_linux_x86_64/scallop /usr/local/conda/bin/ && rm -rf scallop-0.10.3_linux_x86_64 scallop-0.10.3_linux_x86_64.tar.gz
+RUN apt install -y unzip
+RUN wget https://github.com/mourisl/CLASS/archive/v2.1.7.zip && unzip v2.1.7.zip && rm v2.1.7.zip
+WORKDIR /opt/software/CLASS-2.1.7/ && sh build.sh && mv -t /usr/local/conda/bin/ class junc clnb grader addXS
+WORKDIR /opt/software/
+RUN rm -rf /opt/software/CLASS-2.1.7/
+WORKDIR /mnt/
 CMD mikado

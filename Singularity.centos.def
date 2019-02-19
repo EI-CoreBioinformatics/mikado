@@ -11,7 +11,6 @@ Include: yum wget
 %test
     export PATH="/usr/local/bin:$PATH:/usr/local/conda/bin/"
     source /usr/local/conda/bin/activate
-    conda activate python36
     python --version
     pip --version
     gcc --version
@@ -22,7 +21,6 @@ Include: yum wget
 %environment
     export PATH="/usr/local/bin:$PATH:/usr/local/conda/bin/"
     # source /usr/local/conda/bin/activate
-    # conda activate python36
 
 %post
 
@@ -32,9 +30,9 @@ Include: yum wget
 
     yum -y install centos-release-scl
     yum -y install scl-utils
-    yum -y install devtoolset-7-gcc* git which bzip2
+    yum -y install devtoolset-7-gcc* git which bzip2 openssl-libs
     scl enable devtoolset-7 bash
-    yum -y install gcc gcc-c++ make wget
+    yum -y install gcc gcc-c++ make wget gtk3
     mkdir -p /etc/profile.d/
     echo -e '#!/bin/bash\nsource scl_source enable devtoolset-7' > /etc/profile.d/enablegcc7.sh
     gcc --version
@@ -50,14 +48,7 @@ Include: yum wget
     source /usr/local/conda/bin/activate
     conda update -n base -c defaults conda
     ln -s /usr/local/conda/etc/profile.d/conda.sh /etc/profile.d/conda.sh
-    conda create -n python36 python==3.6.7
-    conda activate python36
-    conda install -y -c conda-forge pip
-
-    python3 --version
-    cd $(dirname $(which python3))
-    cd /opt/software/
-
+    conda install -y -c conda-forge pip python==3.6.7
     # Install python requirements
     git clone https://github.com/EI-CoreBioinformatics/mikado.git
     cd mikado
@@ -65,7 +56,18 @@ Include: yum wget
     conda install --update-all -y -c conda-forge -c bioconda -c anaconda --file requirements.txt
     python setup.py bdist_wheel
     pip install dist/*whl
-    mikado --help
+
+    # Various dependencies for Daijin
+    conda install -y -c bioconda -c anaconda -c conda-forge samtools==1.9 openssl=1.0 prodigal blast diamond==0.9.24 transdecoder==5.5.0 stringtie==1.3.4 cufflinks==2.2.1 hisat2==2.1.0 gmap==2018.07.04 portcullis trinity star==2.7.0b minimap2==2.15
+    cd /opt/software
+    wget https://github.com/Kingsford-Group/scallop/releases/download/v0.10.3/scallop-0.10.3_linux_x86_64.tar.gz && tar xaf scallop-0.10.3_linux_x86_64.tar.gz
+    mv scallop-0.10.3_linux_x86_64/scallop /usr/local/conda/bin/ && rm -rf scallop-0.10.3_linux_x86_64 scallop-0.10.3_linux_x86_64.tar.gz
+    yum install -y unzip
+    wget https://github.com/mourisl/CLASS/archive/v2.1.7.zip && unzip v2.1.7.zip && rm v2.1.7.zip
+    cd /opt/software/CLASS-2.1.7/ && sh build.sh && mv -t /usr/local/conda/bin/ class junc clnb grader addXS
+    cd /opt/software/
+    rm -rf /opt/software/CLASS-2.1.7/
+    cd /mnt/
 
 %apprun snakemake
 	snakemake "@"

@@ -97,6 +97,7 @@ rule clean:
     run:
         for filename in itertools.chain(glob.glob("*.ok"), glob.glob("uniprot*.fasta.p*"),
                                     glob.glob("*midx"), glob.glob("*fai"),
+				    "Daijin",
                                     glob.glob("uniprot*fasta"), glob.glob("*loci*"),
                                     ["mikado_prepared.gtf", "mikado_prepared.fasta", "chr5.fas", "mikado.prodigal.gff3"],
                                     glob.glob("compare*"), glob.glob(config["db_settings"]["db"]),

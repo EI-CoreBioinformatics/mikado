@@ -292,6 +292,10 @@ def create_config(args):
     if args.intron_range is not None:
         config["pick"]["run_options"]["intron_range"] = sorted(args.intron_range)
 
+    config.pop("__loaded_scoring", None)
+    config.pop("scoring_file", None)
+    config.pop("filename", None)
+
     # Check that the configuration file is correct
     tempcheck = tempfile.NamedTemporaryFile("wt", suffix=".yaml")
     output = yaml.dump(config, default_flow_style=False)

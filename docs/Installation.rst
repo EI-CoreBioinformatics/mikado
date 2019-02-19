@@ -44,7 +44,19 @@ If you desire, the unstable development version can be obtained with the command
 
 ``git checkout development``
 
-in the Git directory. Please note that at the time of this writing development proceeds quite rapidly.
+in the Git directory.
+
+Install using containers
+------------------------
+
+We support both Docker and Singularity as container technologies. On GitHub, we currently provide:
+
+* A `Docker file <https://github.com/EI-CoreBioinformatics/mikado/blob/master/Dockerfile.ubuntu>` tracking the "master" github branch, with a Ubuntu 18.04 guest
+* A `Docker file <https://github.com/EI-CoreBioinformatics/mikado/blob/master/Dockerfile.centos>` tracking the "master" github branch, with a Centos 7 guest
+* A `Singularity recipe <https://github.com/EI-CoreBioinformatics/mikado/blob/master/Singularity.ubuntu>` tracking the "master" github branch, with a Ubuntu 18.04 guest
+* A `Singularity recipe <https://github.com/EI-CoreBioinformatics/mikado/blob/master/Singularity.centos>` tracking the "master" github branch, with a Centos 7 guest
+
+We plan to release them in the Docker and Singularity hubs.
 
 Building and installing from source
 -----------------------------------

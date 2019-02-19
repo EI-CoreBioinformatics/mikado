@@ -1,0 +1,66 @@
+Bootstrap: docker
+From: ubuntu:bionic
+OSversion: 18.04
+Include: apt wget
+
+%test
+    export PATH="/usr/local/bin:$PATH:/usr/local/conda/bin/"
+    . /usr/local/conda/bin/activate
+    conda activate python36
+    python --version
+    pip --version
+    gcc --version
+    make --version
+    python -c "import numpy"
+    mikado --help
+
+%environment
+    export PATH="/usr/local/bin:$PATH:/usr/local/conda/bin/"
+    # source /usr/local/conda/bin/activate
+    # conda activate python36
+
+%post
+
+    ### Install your packages ###
+    mkdir /opt/software/
+    cd /opt/software/
+
+    apt update -y && apt upgrade -y
+    apt install -y build-essential make gcc bzip2 wget git
+    gcc --version
+    make --version
+
+    # Clean up yum
+    apt clean
+
+    cd /usr/local/src
+    wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh
+    bash Miniconda3-latest-Linux-x86_64.sh -b -p /usr/local/conda
+    export PATH="/usr/local/conda/bin:$PATH"
+    . /usr/local/conda/bin/activate
+    conda update -n base -c defaults conda
+    ln -s /usr/local/conda/etc/profile.d/conda.sh /etc/profile.d/conda.sh
+    conda create -n python36 python==3.6.7
+    conda init bash
+    conda activate python36
+    conda install -y -c conda-forge pip
+
+    python3 --version
+    cd $(dirname $(which python3))
+    cd /opt/software/
+
+    # Install python requirements
+    git clone https://github.com/EI-CoreBioinformatics/mikado.git
+    cd mikado
+    sed -i 's/;.*//' requirements.txt
+    conda install --update-all -y -c conda-forge -c bioconda -c anaconda --file requirements.txt
+    python setup.py bdist_wheel
+    pip install dist/*whl
+    mikado --help
+
+%apprun snakemake
+	snakemake "@"
+
+%apprun mikado
+	mikado "@"
+

@@ -46,7 +46,7 @@ Include: yum wget
     bash Miniconda3-latest-Linux-x86_64.sh -b -p /usr/local/conda
     export PATH="/usr/local/conda/bin:$PATH"
     source /usr/local/conda/bin/activate
-    conda update -n base -c defaults conda
+    conda update -y -n base -c defaults conda
     ln -s /usr/local/conda/etc/profile.d/conda.sh /etc/profile.d/conda.sh
     conda install -y -c conda-forge pip python==3.6.7
     # Install python requirements

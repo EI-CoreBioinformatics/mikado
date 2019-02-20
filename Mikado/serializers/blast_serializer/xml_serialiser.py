@@ -157,9 +157,14 @@ class _XmlPickler(multiprocessing.Process):
                 except ExpatError:
                     self.logger.error("%s is an invalid BLAST file, sending back anything salvageable",
                                       filename)
+                    raise
         except xml.etree.ElementTree.ParseError:
             self.logger.error("%s is an invalid BLAST file, sending back anything salvageable",
                               filename)
+            raise
+        except ValueError:
+            self.logger.error("Invalid BLAST entry")
+            raise
 
         self.logger.debug("Finished serialising %s in %s subsection", filename, pickle_count)
         cursor.close()
@@ -192,9 +197,16 @@ class _XmlPickler(multiprocessing.Process):
                                  self._name)
                 self.filequeue.put((number, filename))
                 return 0
-            for pickled in self._pickler(filename):
-                self.logger.debug("Sending serialised information in {}".format(pickled))
-                self.returnqueue.put((number, [pickled]))
+            try:
+                for pickled in self._pickler(filename):
+                    self.logger.debug("Sending serialised information in {}".format(pickled))
+                    self.returnqueue.put((number, [pickled]))
+            except Exception as exc:
+                self.logger.error("Error encountered in %s, blocking the program.", self.identifier)
+                self.returnqueue.put((number, "FINISHED"))
+                self.logger.exception(exc)
+                raise
+
             self.returnqueue.put((number, "FINISHED"))
 
     @property

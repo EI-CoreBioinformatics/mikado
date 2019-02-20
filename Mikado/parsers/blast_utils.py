@@ -312,7 +312,8 @@ def __calculate_merges(intervals: np.array):
             continue
         else:
             if overlap(current, iv, positive=False) >= 0:
-                current = (current[0], iv[1])
+                current = (min(current[0], iv[0]),
+                           max(current[1], iv[1]))
             else:
                 new_intervals[pos] = current
                 current = iv

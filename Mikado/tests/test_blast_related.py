@@ -180,6 +180,18 @@ class TestMerging(unittest.TestCase):
                 _ = seri_blast_utils.merge(inp)
                 self.assertEqual(out, _[0])
 
+    def test_included(self):
+
+        cases = {
+            tuple([(10, 60), (40, 100), (200, 400)]): [(10, 100), (200, 400)],
+            tuple([(54, 1194), (110, 790), (950, 1052)]): [(54, 1194)],
+            tuple([(54, 1194), (110, 790), (950, 1052), (1200, 1400)]): [(54, 1194), (1200, 1400)]
+        }
+        for val, out in cases.items():
+            with self.subTest(val=val, msg=cases[val]):
+                _ = seri_blast_utils.merge(list(val))
+                self.assertEqual(out, _[0])
+
 
 if __name__ == '__main__':
     unittest.main()

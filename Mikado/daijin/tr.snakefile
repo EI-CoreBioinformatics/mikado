@@ -386,6 +386,20 @@ def trinityParameters(command, sample, REF, TGG_MAX_MEM):
         cmd = "--full_cleanup {memory} --genome_guided_bam".format(memory=memory)
     return cmd
 
+@functools.lru_cahe(maxsize=4, typed=True)
+def getGmapVersion(command):
+    cmd = "{} gmap --version && set -u".format(command)
+    output = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE).stdout.read().decode()
+    try:
+        version = [_ for _ in output.split("\n") if re.match("GMAP version", _)][0]
+    except IndexError as exc:
+        print("Error in getGmapVersion")
+        raise IndexError(exc)
+    version = re.search("GMAP version ([0-9]{4}-[0-9]{2}-[0-9]{2}).*", version).groups()[0]
+    version = tuple(int(_) for _ in version.split("-"))
+    return version
+
+
 def gmap_intron_lengths(command, MAX_INTRON):
     cmd = "{} gmap --help".format(command)
     output = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL).stdout.read().decode()
@@ -393,6 +407,8 @@ def gmap_intron_lengths(command, MAX_INTRON):
         return "--max-intronlength-middle={mi} --max-intronlength-ends={mi}".format(mi=MAX_INTRON)
     else:
         return "--intronlength={}".format(MAX_INTRON)
+
+
 
 
 #########################
@@ -450,20 +466,21 @@ rule tophat_all:
 	output: ALIGN_DIR+"/tophat.done"
 	shell: "touch {output}"	
 
-rule align_gsnap_index:
-	input: REF
-	output: ALIGN_DIR + "/gsnap/index/" + NAME + "/" + NAME + ".sachildguide1024"
-	params: load=loadPre(config, "gmap")
-	log: ALIGN_DIR +"/gsnap.index.log"
-	threads: 1
-	message: "Indexing genome with gsnap"
-	shell: "{params.load} gmap_build --dir={ALIGN_DIR}/gsnap/index --db={NAME} {input} > {log} 2>&1"
+
+# rule align_gsnap_index:
+#    input: REF
+#    output: touch(os.path.join(ALIGN_DIR, "gsnap", "index", NAME, "index.done"))  # os.path.join(ALIGN_DIR, "gsnap", "index", NAME, + NAME + ".sachildguide1024")
+#    params: load=loadPre(config, "gmap")
+#    log: ALIGN_DIR +"/gsnap.index.log"
+#    threads: 1
+#    message: "Indexing genome with gsnap"
+#    shell: "{params.load} gmap_build --dir={ALIGN_DIR}/gsnap/index --db={NAME} {input} > {log} 2>&1"
 
 
 rule align_gsnap:
 	input:
 		r1=lambda wildcards: INPUT_1_MAP[wildcards.sample],
-		index=rules.align_gsnap_index.output
+		index=rules.gmap_index.output
 	output:
 		bam=ALIGN_DIR+"/gsnap/{sample}-{run,\d+}/gsnap.bam",
 		link=ALIGN_DIR+"/output/gsnap-{sample}-{run,\d+}.bam"
@@ -688,8 +705,8 @@ rule asm_trinitygg:
 	shell: "{params.load} Trinity --seqType=fq {params.strand} --output={params.outdir} {params.extra} --genome_guided_max_intron={MAX_INTRON}  --CPU={threads}  {params.base_parameters}={input.bam} > {log} 2>&1"
 
 rule gmap_index:
-        input: REF
-        output: ALIGN_DIR +"/gmap/index/"+NAME+"/"+NAME+".sachildguide1024"
+    input: REF
+    output: touch(os.path.join(ALIGN_DIR, "gmap", "index", NAME, "index.done")  #os.path.join(ALIGN_DIR, "gmap", "index", NAME, NAME+".sachildguide1024")
 	params:	load=loadPre(config, "gmap")
 	threads: 1
         log: ALIGN_DIR+"/gmap.index.log"

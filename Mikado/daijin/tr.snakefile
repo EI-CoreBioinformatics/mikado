@@ -37,8 +37,8 @@ if "long_reads" in config:
 
 # Required reference fields
 REF = config["reference"]["genome"]
-MIN_INTRON = max(config["reference"]["min_intron"], 20)
-MAX_INTRON = config["reference"]["max_intron"]
+MIN_INTRON = max(config["pick"]["run_options"]["intron_range"][0], 20)
+MAX_INTRON = config["pick"]["run_options"]["intron_range"][1]
 
 # Optional reference fields
 REF_TRANS = ""

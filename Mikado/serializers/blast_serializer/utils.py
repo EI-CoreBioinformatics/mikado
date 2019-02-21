@@ -12,7 +12,7 @@ valid_matches = set([chr(x) for x in range(65, 91)] + [chr(x) for x in range(97,
                     ["|", "*"])
 
 
-def prepare_hsp(hsp, counter):
+def prepare_hsp(hsp, counter, qmultiplier=1, tmultiplier=1):
 
     r"""
     Prepare a HSP for loading into the DB.
@@ -33,7 +33,7 @@ def prepare_hsp(hsp, counter):
 
     hsp_dict = dict()
     # We must start from 1, otherwise MySQL crashes as its indices start from 1 not 0
-    match, identical_positions, positives = _prepare_aln_strings(hsp)
+    match, identical_positions, positives = _prepare_aln_strings(hsp, qmultiplier=qmultiplier, tmultiplier=tmultiplier)
     hsp_dict["counter"] = counter + 1
     hsp_dict["query_hsp_start"] = hsp.query_start
     hsp_dict["query_hsp_end"] = hsp.query_end
@@ -50,43 +50,44 @@ def prepare_hsp(hsp, counter):
     return hsp_dict, identical_positions, positives
 
 
-def _prepare_aln_strings(hsp):
+def _prepare_aln_strings(hsp, qmultiplier=1, tmultiplier=1):
 
     """This private method calculates the identical positions, the positives, and a re-factored match line
     starting from the HSP."""
 
     identical_positions, positives = set(), set()
-    positive_count, iden_count = 0, 0
     # for query_aa, middle_aa, target_aa in zip(hsp.query, hsp.match, hsp.sbjct):
-    query_pos, target_pos = hsp.query_start - 1, hsp.hit_start - 1
+    query_pos, target_pos = hsp.query_start, hsp.hit_start
 
     match = ""
     zipper = zip(hsp.aln_annotation["similarity"], *list(hsp.aln))
 
     for middle_aa, query_aa, target_aa in zipper:
         if middle_aa in valid_matches or middle_aa == "+":
-            query_pos += 1
-            target_pos += 1
-            match += middle_aa
-            positives.add(query_pos)
-            positive_count += 1
             if middle_aa != "+":
-                iden_count += 1
-                identical_positions.add(query_pos)
+                identical_positions.update(set(range(query_pos, query_pos + qmultiplier)))
+            positives.update(set(range(query_pos, query_pos + qmultiplier)))
+            query_pos += qmultiplier
+            target_pos += tmultiplier
+            match += middle_aa
         elif query_aa == target_aa == "-":
             match += "\\"
         elif query_aa == "-":
-            target_pos += 1
+            target_pos += tmultiplier
             if target_aa == "*":
                 match += "*"
             else:
                 match += "-"
         elif target_aa == "-":
-            query_pos += 1
+            query_pos += qmultiplier
             if query_aa == "*":
                 match += "*"
             else:
                 match += "_"
+        elif middle_aa == " ":
+            match += " "
+            query_pos += qmultiplier
+            target_pos += tmultiplier
 
     assert query_pos <= hsp.query_end and target_pos <= hsp.hit_end
 
@@ -130,8 +131,16 @@ def prepare_hit(hit, query_id, target_id, **kwargs):
         evalue, bits = val
         return -evalue, bits
 
+    qmulti = kwargs["query_multiplier"]
+    tmulti = kwargs["target_multiplier"]
+    assert isinstance(qmulti, (int, float)), type(qmulti)
+    assert isinstance(tmulti, (int, float)), type(tmulti)
+    hit_dict.update(kwargs)
+    hit_dict["query_id"] = query_id
+    hit_dict["target_id"] = target_id
+
     for counter, hsp in enumerate(hit.hsps):
-        hsp_dict, ident, posit = prepare_hsp(hsp, counter)
+        hsp_dict, ident, posit = prepare_hsp(hsp, counter, qmultiplier=qmulti, tmultiplier=tmulti)
         identical_positions.update(ident)
         positives.update(posit)
         best_hsp = sorted([best_hsp,
@@ -147,10 +156,6 @@ def prepare_hit(hit, query_id, target_id, **kwargs):
         # t_intervals.append((hsp.sbjct_start, hsp.sbjct_end))
         t_intervals.append((hsp.hit_start, hsp.hit_end))
 
-    hit_dict.update(kwargs)
-    hit_dict["query_id"] = query_id
-    hit_dict["target_id"] = target_id
-
     q_merged_intervals, q_aligned = merge(q_intervals)
     assert isinstance(q_aligned, np.int), (q_merged_intervals, q_aligned, type(q_aligned))
     hit_dict["query_aligned_length"] = q_aligned
@@ -159,23 +164,21 @@ def prepare_hit(hit, query_id, target_id, **kwargs):
     assert isinstance(qend, np.int), (q_merged_intervals, type(qend))
 
     hit_dict["query_start"], hit_dict["query_end"] = qstart, qend
-    qmulti = kwargs["query_multiplier"]
-    assert isinstance(qmulti, (int, float)), type(qmulti)
 
-    if len(identical_positions) * qmulti > q_aligned:
+    if len(identical_positions) > q_aligned:
         raise ValueError("Number of identical positions ({}) greater than number of aligned positions ({})!".format(
-            len(identical_positions) * qmulti, q_aligned))
+            len(identical_positions), q_aligned))
 
-    if len(positives) * qmulti > q_aligned:
+    if len(positives) > q_aligned:
         raise ValueError("Number of identical positions ({}) greater than number of aligned positions ({})!".format(
-            len(positives) * qmulti, q_aligned))
+            len(positives), q_aligned))
 
     t_merged_intervals, t_aligned = merge(t_intervals)
     hit_dict["target_aligned_length"] = t_aligned
     hit_dict["target_start"] = t_merged_intervals[0][0]
     hit_dict["target_end"] = t_merged_intervals[-1][1]
-    hit_dict["global_identity"] = len(identical_positions) * 100 * qmulti / q_aligned
-    hit_dict["global_positives"] = len(positives) * 100 * qmulti / q_aligned
+    hit_dict["global_identity"] = len(identical_positions) * 100 / q_aligned
+    hit_dict["global_positives"] = len(positives) * 100 / q_aligned
 
     return hit_dict, hsp_dict_list
 # pylint: enable=too-many-locals

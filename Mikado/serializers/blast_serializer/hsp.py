@@ -120,7 +120,7 @@ class Hsp(DBBASE):
 
     __table_args__ = (pk_constraint, query_index, target_index, combined_index, hsp_evalue_index)
 
-    def __init__(self, hsp, counter, query_id, target_id):
+    def __init__(self, hsp, counter, query_id, target_id, qmultiplier=1, tmultiplier=1):
 
         """
 
@@ -138,7 +138,7 @@ class Hsp(DBBASE):
         """
 
         self.counter = counter
-        hsp_dict, _, _ = prepare_hsp(hsp, counter)
+        hsp_dict, _, _ = prepare_hsp(hsp, counter, qmultiplier=qmultiplier, tmultiplier=tmultiplier)
 
         for key in hsp_dict:
             setattr(self, key, hsp_dict[key])

@@ -1239,7 +1239,7 @@ class Superlocus(Abstractlocus):
         loci_cliques = dict()
         for lid, locus_instance in self.loci.items():
             try:
-                neighbors = t_graph.neighbors(locus_instance.primary_transcript_id)
+                neighbors = set(t_graph.neighbors(locus_instance.primary_transcript_id))
             except networkx.exception.NetworkXError:
                 raise networkx.exception.NetworkXError(
                     "{} {} {}".format(

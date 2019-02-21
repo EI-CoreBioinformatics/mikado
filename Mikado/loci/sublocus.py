@@ -226,7 +226,7 @@ class Sublocus(Abstractlocus):
                                   selected_tid, selected_transcript.score)
                 self.logger.debug("Removing as intersecting {0}: {1}".format(
                             selected_tid,
-                            ",".join(transcript_graph.neighbors(selected_tid))
+                            ",".join(set(transcript_graph.neighbors(selected_tid)))
                         ))
                 to_remove.update(set(transcript_graph.neighbors(selected_tid)))
                 # for tid in transcript_graph.neighbors(selected_tid)

@@ -85,13 +85,16 @@ def __basic_final_checks(transcript):
 
     transcript.exons = sorted(new_exons)
 
-    if transcript._accept_undefined_multi is False and len(transcript.exons) > 1 and transcript.strand is None:
+    if len(transcript.exons) > 1 and transcript.strand is None:
+        if transcript._accept_undefined_multi is False:
 
-        exc = InvalidTranscript(
-            "Multiexonic transcripts must have a defined strand! Error for {0}".format(
-                transcript.id))
-        transcript.logger.exception(exc)
-        raise exc
+            exc = InvalidTranscript(
+                "Multiexonic transcripts must have a defined strand! Error for {0}".format(
+                    transcript.id))
+            transcript.logger.exception(exc)
+            raise exc
+        else:
+            transcript.strand = "?"
 
     if transcript.combined_utr != [] and transcript.combined_cds == []:
 

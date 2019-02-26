@@ -13,6 +13,9 @@ def to_bam(string):
 
 def main():
     parser = argparse.ArgumentParser("Script to convert from BAM to GTF, for PB alignments")
+    parser.add_argument("--strict", action="store_true", default=False,
+                        help="Switch. If set, this script will never output multiexonic transcripts \
+                        without a defined strand.")
     parser.add_argument("bam", type=to_bam, help="Input BAM file")
     parser.add_argument("out", nargs="?", default=sys.stdout, type=argparse.FileType("wt"),
                         help="Optional output file")
@@ -91,7 +94,7 @@ Exons: {6}
             #            raise AssertionError(msg)
             continue
 
-        transcript = Transcript()
+        transcript = Transcript(accept_undefined_multi=(not args.strict))
         transcript.id = record.query_name
         transcript.exons = exons
         transcript.parent = transcript.attributes["gene_id"] = "{0}.gene".format(record.query_name)

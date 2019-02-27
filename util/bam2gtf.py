@@ -3,13 +3,14 @@
 import argparse
 import re
 import sys
-
 import pysam
 from Mikado.transcripts.transcript import Transcript
+from collections import Counter
 
 
 def to_bam(string):
     return pysam.Samfile(string, "rb")
+
 
 def main():
     parser = argparse.ArgumentParser("Script to convert from BAM to GTF, for PB alignments")
@@ -30,6 +31,8 @@ def main():
     # P 6 padding (silent deletion from padded reference)
     # = 7 sequence match
     # X 8 sequence mismatch
+
+    name_counter = Counter()
 
     for record in args.bam:
         record.cigar = [(key, val) if key not in (7, 8) else (0, val) for key, val in record.cigar]
@@ -95,9 +98,16 @@ Exons: {6}
             continue
 
         transcript = Transcript(accept_undefined_multi=(not args.strict))
-        transcript.id = record.query_name
+        if name_counter.get(record.query_name):
+            name = "{}_{}".format(record.query_name, name_counter.get(record.query_name))
+        else:
+            name = record.query_name
+
+        transcript.id = name
+        transcript.parent = transcript.attributes["gene_id"] = "{0}.gene".format(name)
+        name_counter.update([record.query_name])
+
         transcript.exons = exons
-        transcript.parent = transcript.attributes["gene_id"] = "{0}.gene".format(record.query_name)
         transcript.attributes["identity"] = identity
         transcript.attributes["coverage"] = coverage
         transcript.attributes["cigar"] = record.cigarstring

@@ -36,9 +36,9 @@ The source for the latest release on PyPI can be obtained with
 
 As the package contains some core Cython components, it might be necessary to download and compile the source code instead of relying on the wheel.
 
-Alternatively, Mikado can be installed from source by obtaining it from our `GitHub`_ repository. Either download the `latest release <https://github.com/lucventurini/mikado/releases/latest>`_  or download the latest stable development snapshot with
+Alternatively, Mikado can be installed from source by obtaining it from our `GitHub`_ repository. Either download the `latest release <https://github.com/EI-CoreBioinformatics/mikado/releases/latest>`_  or download the latest stable development snapshot with
 
-``git clone https://github.com/lucventurini/mikado.git; cd mikado``
+``git clone https://github.com/EI-CoreBioinformatics/mikado.git; cd mikado``
 
 If you desire, the unstable development version can be obtained with the command
 
@@ -85,4 +85,4 @@ It is possible to test whether Mikado has been built successfully by opening a p
 
 This will run all the tests included in the suite. Although code coverage is not perfect yet, it is at 70% for the whole package and over 80% for the core components.
 
-.. _GitHub: https://github.com/lucventurini/mikado
+.. _GitHub: https://github.com/EI-CoreBioinformatics/mikado

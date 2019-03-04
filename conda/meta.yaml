@@ -15,7 +15,7 @@ source:
   url: https://pypi.python.org/packages/c2/b9/41d0a6f2ebad5eab5bc183beca8de854b4187266c6674ae6da0d86053f63/Mikado-1.1.tar.gz
 
 about:
-  home: https://github.com/lucventurini/mikado/
+  home: https://github.com/EI-CoreBioinformatics/mikado/
   summary: "Mikado is a lightweight Python3 pipeline whose purpose is to facilitate the identification of expressed loci from RNA-Seq data and to select the best models in each locus."
   license: GPL3
   license_file: LICENSE.txt

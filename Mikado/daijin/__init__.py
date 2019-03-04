@@ -223,6 +223,10 @@ def assemble_transcripts_pipeline(args):
     :return:
     """
 
+    print("""DeprecationWarning: Daijin assemble is marked for retirement, as we are developing a novel,
+    more complete pipeline. See https://github.com/EI-CoreBioinformatics/ei-annotation""", file=sys.stderr)
+    print("""DeprecationWarning: Daijin assemble is marked for retirement, as we are developing a novel,
+        more complete pipeline. See https://github.com/EI-CoreBioinformatics/ei-annotation""")
     if args.config.endswith("json"):
         loader = json.load
     else:
@@ -517,7 +521,9 @@ def main(call_args=None):
                           description="Creates transcript assemblies from RNAseq data.",
                           help="""A pipeline that generates a variety of transcript assemblies
                           using various aligners and assemblers, as well a producing
-                          a configuration file suitable for driving Mikado.""")
+                          a configuration file suitable for driving Mikado.
+                          WARNING: this part of the Daijin pipeline will be DEPRECATED in future releases
+                          as a new, more complete annotation pipeline is currently in development.""")
     subparsers.choices["assemble"] = create_parser()
     subparsers.choices["assemble"].add_argument(
         "config",

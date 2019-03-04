@@ -17,7 +17,7 @@ During this analysis, you will require the following files:
 * :download:`orfs.bed`: a BED12 file containing the ORFs of the above transcripts, derived using TransDecoder [Trinity]_
 * :download:`uniprot_sprot_plants.fasta.gz`: a FASTA file containing the plant proteins released with SwissProt [Uniprot]_
 
-All of this data can also be found in the ``sample_data`` directory of the `Mikado source <http://www.github.com/lucventurini/Mikado>`_.
+All of this data can also be found in the ``sample_data`` directory of the `Mikado source <http://www.github.com/EI-CoreBioinformatics/Mikado>`_.
 
 You will also require the following software:
 

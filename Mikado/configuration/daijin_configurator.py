@@ -36,7 +36,7 @@ def create_daijin_validator():
 
     resolver = jsonschema.RefResolver.from_schema(schema)
 
-    with io.TextIOWrapper(resource_stream(__name__,
+    with io.TextIOWrapper(resource_stream("Mikado.configuration",
                                           "daijin_schema.json")) as blue:
         blue_print = json.load(blue)
 
@@ -63,11 +63,6 @@ def check_config(config, logger=None):
         logger = create_default_logger("daijin_validator")
 
     try:
-        # resolver = jsonschema.RefResolver("file:///{}".format(
-        #     resource_filename("Mikado.configuration", "configuration")), None)
-        # with io.TextIOWrapper(resource_stream(__name__,
-        #                                       "daijin_schema.json")) as blue:
-        #     blue_print = json.load(blue)
 
         validator = create_daijin_validator()
         # validator = jsonschema.Draft4Validator(blue_print, resolver=resolver)
@@ -265,7 +260,7 @@ def create_daijin_config(args, level="ERROR", piped=False):
                 json_conf = check_scoring(new_scoring)
 
         else:
-            with io.TextIOWrapper(resource_stream(__name__,
+            with io.TextIOWrapper(resource_stream("Mikado.configuration",
                                                   "scoring_blueprint.json")) as schema:
                 scoring_schema = json.load(schema)
 

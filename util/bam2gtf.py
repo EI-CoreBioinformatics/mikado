@@ -9,7 +9,7 @@ from collections import Counter
 
 
 def to_bam(string):
-    return pysam.Samfile(string, "rb")
+    return pysam.AlignmentFile(string, mode="rb")
 
 
 def main():

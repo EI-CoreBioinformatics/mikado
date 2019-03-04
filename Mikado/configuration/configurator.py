@@ -129,7 +129,7 @@ def check_scoring(json_conf):
 
     """
 
-    with io.TextIOWrapper(resource_stream(__name__,
+    with io.TextIOWrapper(resource_stream("Mikado.configuration",
                                           "scoring_blueprint.json")) as schema:
         scoring_schema = json.load(schema)
 
@@ -224,7 +224,7 @@ def check_all_requirements(json_conf):
 
     """
 
-    with io.TextIOWrapper(resource_stream(__name__,
+    with io.TextIOWrapper(resource_stream("Mikado.configuration",
                                           "requirements_blueprint.json")) as rs_blueprint:
         require_schema = json.load(rs_blueprint)
 
@@ -441,10 +441,10 @@ def create_validator(simple=False):
                                     simple=simple)
 
     resolver = jsonschema.RefResolver("file:///{}".format(os.path.abspath(
-        os.path.dirname(pkg_resources.resource_filename(__name__, __file__))
+        os.path.dirname(pkg_resources.resource_filename("Mikado.configuration", os.path.basename(__file__)))
     )), None)
 
-    with io.TextIOWrapper(resource_stream(__name__,
+    with io.TextIOWrapper(resource_stream("Mikado.configuration",
                                           "configuration_blueprint.json")) as blue:
         blue_print = json.load(blue)
 
@@ -492,7 +492,7 @@ def _check_scoring_file(json_conf: dict, logger):
     options = [os.path.abspath(json_conf["pick"]["scoring_file"]),
                os.path.abspath(os.path.join(os.path.dirname(json_conf["filename"]),
                                             json_conf["pick"]["scoring_file"])),
-               resource_filename(__name__,
+               resource_filename("Mikado.configuration",
                                  os.path.join("scoring_files",
                                               json_conf["pick"]["scoring_file"]))
                ]

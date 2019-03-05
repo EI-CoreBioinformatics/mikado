@@ -243,9 +243,10 @@ class ExternalSerializer:
                 self.logger.debug("Serialised %d values", done)
                 self.session.commit()
                 objects = []
-                if done >= self.data.shape[1] * 0.1 * decimal_place:
+                if done >= self.data.shape[1] * self.data.shape[0] * 0.1 * decimal_place:
                     self.logger.info("Serialised %s%% of the external values",
                                      decimal_place * 10)
+                    decimal_place += 1
 
         self.session.begin(subtransactions=True)
         self.session.bulk_save_objects(objects)

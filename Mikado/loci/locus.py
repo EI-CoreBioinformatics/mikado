@@ -422,9 +422,22 @@ class Locus(Abstractlocus):
         for key in self.json_conf["not_fragmentary"]["parameters"]:
             value = getattr(self.primary_transcript,
                             self.json_conf["not_fragmentary"]["parameters"][key]["name"])
-            evaluated[key] = self.evaluate(
-                value,
-                self.json_conf["not_fragmentary"]["parameters"][key])
+            if "external" in key:
+                value = value[0]
+            try:
+                evaluated[key] = self.evaluate(
+                    value,
+                    self.json_conf["not_fragmentary"]["parameters"][key])
+            except Exception as err:
+                self.logger.error(
+                    """Exception while calculating putative fragments. Key: {}, \
+                    Transcript value: {} (type {}) \
+                    configuration value: {} (type {}).""".format(
+                        key, value, type(value), self.json_conf["not_fragmentary"]["parameters"][key],
+                        type(self.json_conf["not_fragmentary"]["parameters"][key])
+                    ))
+                self.logger.exception(err)
+                raise err
         if eval(self.json_conf["not_fragmentary"]["compiled"]) is True:
             self.logger.debug("%s cannot be a fragment according to the definitions, keeping it",
                               self.id)

@@ -492,8 +492,7 @@ def _check_scoring_file(json_conf: dict, logger):
     options = [os.path.abspath(json_conf["pick"]["scoring_file"]),
                os.path.abspath(os.path.join(os.path.dirname(json_conf["filename"]), json_conf["pick"]["scoring_file"])),
                os.path.abspath(os.path.join(resource_filename("Mikado.configuration", "scoring_files"),
-                            json_conf["pick"]["scoring_file"]))
-               ]
+                            json_conf["pick"]["scoring_file"]))]
 
     found = False
 

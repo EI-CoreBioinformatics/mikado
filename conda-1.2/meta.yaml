@@ -10,7 +10,7 @@ package:
 
 source:
   fn: '{{ version }}.{{ file_ext }}'
-  url: https://github.com/lucventurini/mikado/archive/1.2.1.tar.gz
+  url: https://github.com/EI-CoreBioinformatics/mikado/archive/1.2.1.tar.gz
   '{{ hash_type }}': '{{ hash_value }}'
 
 build:
@@ -102,7 +102,7 @@ test:
     - python -c "import Mikado; Mikado.test()"
 
 about:
-  home: https://github.com/lucventurini/mikado
+  home: https://github.com/EI-CoreBioinformatics/mikado
   license: GNU Lesser General Public License v3 or later (LGPLv3+)
   license_family: LGPL
   summary: A Python3 annotation program to select the best gene model in each locus

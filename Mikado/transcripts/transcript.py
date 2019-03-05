@@ -1238,18 +1238,22 @@ class Transcript:
         self.internal_orfs = []
         self.logger.debug("Starting to load the ORFs for %s", self.id)
         try:
-            for orf in iter(state["orfs"][_] for _ in sorted(state["orfs"])):
+            indices = dict((int(_), _) for _ in state["orfs"])
+            __phases = dict()
+            for index in sorted(indices.keys()):
+                orf = state["orfs"][indices[index]]
                 neworf = []
-                for segment in orf:
 
-                    # if segment[0] == "CDS":
+                for segment in orf:
                     if len(segment) == 3:
                         assert segment[0] == "CDS"
 
                         new_segment = (segment[0],
                                        tuple(segment[1]),
                                        int(segment[2]))
-                        self.combined_cds.append(tuple(segment[1]))
+                        self.combined_cds.append(new_segment[1])
+                        if index == 0:
+                            __phases[new_segment[1]] = new_segment[2]
                     else:
                         assert segment[0] != "CDS"
                         new_segment = (segment[0],
@@ -1257,6 +1261,7 @@ class Transcript:
                     neworf.append(new_segment)
 
                 self.internal_orfs.append(neworf)
+                self.phases = __phases
             self.logger.debug("ORFs: %s", " ".join(str(_) for _ in self.internal_orfs))
             self.selected_internal_orf_index = state["selected_orf"]
         except (ValueError, IndexError):
@@ -1503,7 +1508,7 @@ class Transcript:
         :return:
         """
 
-        assert isinstance(phases, dict)
+        assert isinstance(phases, dict), (phases, type(phases))
         self.__phases = phases
 
     # This will be id, no changes.
@@ -2221,7 +2226,7 @@ index {3}, internal ORFs: {4}".format(
         #     c_length = int(np.subtract(ar[1], ar[0] - 1).sum())
         #     assert c_length > 0
 
-        return self.__combined_cds_length
+        return sum([e[1] - e[0] + 1 for e in self.combined_cds])
 
     combined_cds_length.category = "CDS"
     combined_cds_length.rtype = "int"

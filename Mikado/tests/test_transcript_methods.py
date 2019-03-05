@@ -775,12 +775,14 @@ Chr5	TAIR10	exon	5256	5576	.	-	.	Parent=AT5G01015.1"""
         d["orfs"]["2"] = [("CDS", (900, 1200), 0)]
         with self.assertLogs(logger=new_t.logger, level="DEBUG") as cmo:
             new_t.load_dict(d)
-        self.assertFalse(new_t.is_coding)
-        self.assertIn(
-            "WARNING:{}:Error while inferring the UTR for a transcript with multiple ORFs: overlapping CDS found.".format(
-                new_t.logger.name
-            ),
-            cmo.output)
+        self.assertTrue(new_t.is_coding)
+        self.assertEqual(new_t.number_internal_orfs, 2)
+        self.assertNotIn(("CDS", (900, 1200), 0), new_t.as_dict()["orfs"].get(2, []))
+        import pandas as pd
+        s = pd.Series(cmo.output)
+        self.assertTrue(any(s.str.contains(
+            "ORF 2 of test.1 is invalid, removing.*")), cmo.output)
+
 
 if __name__ == '__main__':
     unittest.main()

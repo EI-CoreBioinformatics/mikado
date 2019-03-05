@@ -8,8 +8,7 @@ import sys
 import os
 from ..picking import Picker
 from ..configuration.configurator import to_json, check_json
-from ..exceptions import UnsortedInput  # , InvalidJson
-from ..utilities.log_utils import create_default_logger, create_logger_from_conf
+from ..utilities.log_utils import create_default_logger
 
 
 def check_log_settings(args):

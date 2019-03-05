@@ -21,7 +21,8 @@ __all__ = ["configuration",
            "scales",
            "serializers",
            "subprograms",
-           "utilities"]
+           "utilities",
+           "__version__"]
 
 from . import configuration
 from . import exceptions
@@ -43,12 +44,6 @@ try:
 except ImportError:
     from numpy._pytesttester import PytestTester
 test = PytestTester(__name__)
-# import pkg_resources
-
-# __spec__ = "Mikado"
-
-
-# __main__ = pkg_resources.resource_filename(subprograms.__name__, "__main__.py")
 
 
 def main(call_args=None):

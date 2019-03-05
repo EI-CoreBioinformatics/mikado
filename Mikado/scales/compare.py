@@ -95,7 +95,7 @@ def setup_logger(args, manager):
 
 
 def finalize_reference(genes, positions, queue_logger, args) \
-        -> (dict, collections.defaultdict(dict)):
+        -> (dict, collections.defaultdict):
 
     """
 :param genes:
@@ -140,7 +140,7 @@ def finalize_reference(genes, positions, queue_logger, args) \
     return genes, positions
 
 
-def prepare_reference(args, queue_logger, ref_gff=False) -> (dict, collections.defaultdict(dict)):
+def prepare_reference(args, queue_logger, ref_gff=False) -> (dict, collections.defaultdict):
 
     """
     Method to prepare the data structures that hold the reference
@@ -160,7 +160,7 @@ def prepare_reference(args, queue_logger, ref_gff=False) -> (dict, collections.d
         if row.header is True:
             continue
         elif args.reference.__annot_type__ == Bed12Parser.__annot_type__:
-            transcript = Transcript(row, logger=queue_logger)
+            transcript = Transcript(row, logger=queue_logger, trust_orf=True, accept_undefined_multi=True)
             transcript.parent = gid = row.id
             transcript2gene[row.id] = gid
             if gid not in genes:
@@ -169,7 +169,7 @@ def prepare_reference(args, queue_logger, ref_gff=False) -> (dict, collections.d
 
         elif row.is_transcript is True or (ref_gff is True and row.feature == "match"):
             queue_logger.debug("Transcript\n%s", str(row))
-            transcript = Transcript(row, logger=queue_logger)
+            transcript = Transcript(row, logger=queue_logger, trust_orf=True, accept_undefined_multi=True)
             if row.feature == "match":
                 gid = row.id
             else:
@@ -188,7 +188,7 @@ def prepare_reference(args, queue_logger, ref_gff=False) -> (dict, collections.d
                     if row.id not in transcript2gene:
                         genes[row.id] = Gene(None, gid=row.id, logger=queue_logger)
                         transcript2gene[row.id] = row.id
-                        transcript = Transcript(row, logger=queue_logger)
+                        transcript = Transcript(row, logger=queue_logger, trust_orf=True, accept_undefined_multi=True)
                         genes[row.id].add(transcript)
                 found = False
                 for transcript in row.transcript:
@@ -209,7 +209,7 @@ def prepare_reference(args, queue_logger, ref_gff=False) -> (dict, collections.d
                     if row.gene not in genes:
                         genes[row.gene] = Gene(None, gid=row.gene, logger=queue_logger)
                     if row.transcript not in genes[row.gene]:
-                        transcript = Transcript(row, logger=queue_logger)
+                        transcript = Transcript(row, logger=queue_logger, trust_orf=True, accept_undefined_multi=True)
                         transcript2gene[row.id] = row.gene
                         genes[row.gene].add(transcript)
                     genes[row.gene][row.transcript].add_exon(row)
@@ -251,8 +251,8 @@ def parse_prediction(args, genes, positions, queue_logger):
             continue
         #         queue_logger.debug("Row:\n{0:>20}".format(str(row)))
         elif (row.is_transcript is True or
-                      args.prediction.__annot_type__ == Bed12Parser.__annot_type__ or
-                      row.feature == "match"):
+              args.prediction.__annot_type__ == Bed12Parser.__annot_type__ or
+              row.feature == "match"):
             queue_logger.debug("Transcript row:\n%s", str(row))
             if transcript is not None:
                 if re.search(r"\.orf[0-9]+$", transcript.id):
@@ -264,7 +264,7 @@ def parse_prediction(args, genes, positions, queue_logger):
                         pass
                 else:
                     assigner_instance.get_best(transcript)
-            transcript = Transcript(row, logger=queue_logger)
+            transcript = Transcript(row, logger=queue_logger, trust_orf=True, accept_undefined_multi=True)
             if is_bed12:
                 transcript.parent = transcript.id
 
@@ -290,7 +290,7 @@ def parse_prediction(args, genes, positions, queue_logger):
                         else:
                             assigner_instance.get_best(transcript)
                     queue_logger.debug("New transcript: %s", row.transcript)
-                    transcript = Transcript(row, logger=queue_logger)
+                    transcript = Transcript(row, logger=queue_logger, trust_orf=True, accept_undefined_multi=True)
             elif ref_gff is False:
                 if transcript is None or (transcript is not None and transcript.id != row.transcript):
                     if transcript is not None:
@@ -300,7 +300,7 @@ def parse_prediction(args, genes, positions, queue_logger):
                         else:
                             assigner_instance.get_best(transcript)
                     queue_logger.debug("New transcript: %s", row.transcript)
-                    transcript = Transcript(row, logger=queue_logger)
+                    transcript = Transcript(row, logger=queue_logger, trust_orf=True, accept_undefined_multi=True)
                 transcript.add_exon(row)
             else:
                 raise TypeError("Unmatched exon: {}".format(row))
@@ -364,7 +364,7 @@ def load_index(args, queue_logger):
     :rtype: ((None|collections.defaultdict),(None|collections.defaultdict))
     """
 
-    genes, positions = None, None
+    # genes, positions = None, None
 
     # New: now we are going to use SQLite for a faster experience
     wizard = magic.Magic(mime=True)
@@ -427,7 +427,6 @@ def _old_load_index(args, queue_logger):
     """
 
     genes, positions = None, None
-
 
     with gzip.open("{0}.midx".format(args.reference.name), "rt") as index:
         positions = collections.defaultdict(dict)

@@ -1184,9 +1184,6 @@ class AssignerTest(unittest.TestCase):
         prediction.exons = [(1200, 1500), (2200, 2450)]
         prediction.finalize()
 
-
-
-
     def test_non_h_case(self):
 
         """

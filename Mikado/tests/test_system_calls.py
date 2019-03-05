@@ -1236,18 +1236,19 @@ class PickTest(unittest.TestCase):
         self.assertEqual(os.path.basename(self.json_conf["pick"]["scoring_file"]),
                          "plants.yaml")
 
-        dir = tempfile.TemporaryDirectory()
+        outdir = tempfile.TemporaryDirectory()
         shutil.copy(pkg_resources.resource_filename("Mikado.tests", "mikado.db"),
-                    os.path.join(dir.name, "mikado.db"))
-        self.json_conf["db_settings"]["db"] = os.path.join(dir.name, "mikado.db")
-        self.json_conf["pick"]["files"]["output_dir"] = os.path.join(dir.name)
-        json_file = os.path.join(dir.name, "mikado.yaml")
+                    os.path.join(outdir.name, "mikado.db"))
+        self.json_conf["db_settings"]["db"] = os.path.join(outdir.name, "mikado.db")
+        self.json_conf["pick"]["files"]["output_dir"] = os.path.join(outdir.name)
+        json_file = os.path.join(outdir.name, "mikado.yaml")
         with open(json_file, "wt") as json_handle:
             Mikado.subprograms.configure.print_config(yaml.dump(self.json_conf, default_flow_style=False),
                                                       json_handle)
-        self.json_conf["pick"]["files"]["output_dir"] = os.path.join(dir.name)
+        self.json_conf["pick"]["files"]["output_dir"] = os.path.join(outdir.name)
         scoring_file = pkg_resources.resource_filename("Mikado.tests", "scoring_only_cds.yaml")
-        sys.argv = ["mikado", "pick", "--json-conf", json_file, "--scoring-file", scoring_file, "--single"]
+        sys.argv = ["mikado", "pick", "--json-conf", json_file, "--single",
+                    "--scoring-file", scoring_file]
 
         with self.assertRaises(SystemExit):
             pkg_resources.load_entry_point("Mikado", "console_scripts", "mikado")()
@@ -1260,7 +1261,7 @@ class PickTest(unittest.TestCase):
                             ("tid", "alias", "parent", "score", "source_score")]
             self.assertEqual(score_header, ["selected_cds_length"])
 
-        dir.cleanup()
+        outdir.cleanup()
 
     def __get_purgeable_gff(self):
 

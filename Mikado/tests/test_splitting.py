@@ -94,8 +94,7 @@ class TestSplitMonoexonic(unittest.TestCase):
         self.transcript.load_orfs([self.bed1, self.bed2])
         self.assertTrue(self.transcript.is_coding)
         self.assertEqual(self.transcript.number_internal_orfs,
-                         2,
-                         str(self.transcript))
+                         2, str(self.transcript))
         self.transcript.finalize()
         self.assertIn("pick", self.transcript.json_conf)
 
@@ -399,8 +398,7 @@ class TestWithPhase(unittest.TestCase):
         self.transcript.load_orfs([self.bed1, self.bed2])
         self.assertTrue(self.transcript.is_coding)
         self.assertEqual(self.transcript.number_internal_orfs,
-                         2,
-                         str(self.transcript))
+                         2, str(self.transcript))
         self.transcript.finalize()
 
         # with self.assertLogs("test_mono", level="DEBUG") as log_split:

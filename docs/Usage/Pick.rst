@@ -297,7 +297,7 @@ Usage
 * *db*: Optionally, it is possible to specify the database to Mikado on the command line, rather than on the configuration file. Currently, this option *supports SQLite databases only*.
 * Options related to how Mikado will treat the data:
     * *intron_range*: this option expects a couple of positive integers, in ascending order, indicating the 98% CI where most intron lengths should fall into. Gene models with introns whose lengths fall outside of this range might be penalized, depending on the scoring system used. If uncertain, it is possible to use the :ref:`included stats utility <stat-command>` on the gene annotation of a closely related species.
-    * *purge*: flag. If set, Mikado will not just identify putative fragments - it will completely exclude them from the output.
+    * *no-purge*: flag. If set, Mikado will not not exclude putative fragments from the output, but will report them (appropriately flagged).
     * *flank*: for the purposes of identifying fragments, it is useful to consider together loci which are not necessarily overlapping but which are lying relatively near on the genome sequence. This parameter (a positive integer) specifies the maximum distance for Mikado for gathering data together for this purpose.
     * *mode*: how Mikado will treat BLAST and ORF data in the presence of putative chimeras. See the :ref:`relevant section in the configuration page <chimera_splitting>` for details.
 * Options regarding the output files:
@@ -312,14 +312,17 @@ Usage
     * *procs*: number of processors to use.
     * *start-method*: multiprocessing start method. See the :ref:`explanation on Python multiprocessing <scheduler-multiprocessing>`
     * *single*: flag. If present, multiprocessing will be disabled.
-    * *shared-memory*: flag, available on Unix systems only. If set, Mikado will try to copy the SQLite database in RAM. It might provide a small boost if disk access is a limitation. Ineffective with databases other than SQLite.
-    * *shared-memory-db*: if the database has already been copied in memory, its new location can be given with this argument. Useful to have multiple Mikado picks share the same DB.
-    * *preload*: flag. If present, Mikado will load the database in memory before execution. **Discouraged unless the database size is quite small.**
 * Options regarding logging:
     * *log*: name of the log file. By default, "pick.log"
     * *verbose*: sets the log level to DEBUG. Please be advised that the debug mode is **extremely** verbose and is bestly invoked only for real, targeted debugging sessions.
     * *noverbose*: sets the log level to ERROR. If set, in most cases, the log file will be practically empty.
     * *log-level*: this flag directly sets the log level. Available values: DEBUG, INFO, WARNING, ERROR.
+* Options related to padding:
+    * *pad*: if set, this option will enforce transcript padding. The default is inferred from the configuration (on by default).
+    * *no-pad*: if set, this option will disable transcript padding. The default is inferred from the configuration (on by default).
+    * *pad-max-splices*: maximum amount of splicing sites that an expanded exon can cross. Default is inferred from the configuration file (currently default is 1)
+    * *pad-max-distance*: Maximum amount of basepairs that transcripts can be padded with (per side). Default is inferred from the configuration file (default 300 bps)
+    * *fasta*: genome FASTA file. **Required if the padding is switched on**. Default: inferred from the configuration file.
 
 Usage::
 

@@ -326,22 +326,22 @@ Usage::
     $ mikado pick --help
     usage: Mikado pick [-h] [--start-method {fork,spawn,forkserver}] [-p PROCS]
                        --json-conf JSON_CONF [--scoring-file SCORING_FILE]
-                       [-i INTRON_RANGE INTRON_RANGE] [--pad]
-                       [--pad-max-splices PAD_MAX_SPLICES]
+                       [-i INTRON_RANGE INTRON_RANGE] [--fasta FASTA]
+                       [--no-pad | --pad] [--pad-max-splices PAD_MAX_SPLICES]
                        [--pad-max-distance PAD_MAX_DISTANCE]
                        [--subloci_out SUBLOCI_OUT] [--monoloci_out MONOLOCI_OUT]
-                       [--loci_out LOCI_OUT] [--prefix PREFIX] [--no_cds]
-                       [--source SOURCE] [--flank FLANK] [--purge] [--cds-only]
-                       [--monoloci-from-simple-overlap]
+                       [--loci_out LOCI_OUT] [--prefix PREFIX] [--source SOURCE]
+                       [--no_cds] [--flank FLANK] [--no-purge] [--cds-only]
+                       [--only-reference-update]
                        [--consider-truncated-for-retained] [-db SQLITE_DB]
                        [-od OUTPUT_DIR] [--single] [-l LOG] [-v | -nv]
                        [-lv {DEBUG,INFO,WARNING,ERROR,CRITICAL}]
                        [--mode {nosplit,stringent,lenient,permissive,split}]
                        [gff]
-    
+
     positional arguments:
       gff
-    
+
     optional arguments:
       -h, --help            show this help message and exit
       --start-method {fork,spawn,forkserver}
@@ -360,27 +360,22 @@ Usage::
                             couple of integers. Transcripts with intron lengths
                             outside of this range will be penalised. Default: (60,
                             900) (default: None)
-      --pad                 Whether to pad transcripts in loci. (default: False)
+      --fasta FASTA         Genome FASTA file. Required if pad is enabled
+                            (default). (default: None)
+      --no-pad              Disable transcript padding. (default: None)
+      --pad                 Whether to pad transcripts in loci. (default: None)
       --pad-max-splices PAD_MAX_SPLICES
                             Maximum splice sites that can be crossed during
                             transcript padding. (default: None)
       --pad-max-distance PAD_MAX_DISTANCE
                             Maximum amount of bps that transcripts can be padded
                             with (per side). (default: None)
-      --subloci_out SUBLOCI_OUT
-      --monoloci_out MONOLOCI_OUT
-      --loci_out LOCI_OUT   This output file is mandatory. If it is not specified
-                            in the configuration file, it must be provided here.
-                            (default: None)
-      --prefix PREFIX       Prefix for the genes. Default: Mikado (default: None)
       --no_cds              Flag. If set, not CDS information will be printed out
                             in the GFF output files. (default: False)
-      --source SOURCE       Source field to use for the output files. (default:
-                            None)
       --flank FLANK         Flanking distance (in bps) to group non-overlapping
                             transcripts into a single superlocus. Default:
                             determined by the configuration file. (default: None)
-      --purge               Flag. If set, the pipeline will suppress any loci
+      --no-purge            Flag. If set, the pipeline will NOT suppress any loci
                             whose transcripts do not pass the requirements set in
                             the JSON file. (default: False)
       --cds-only            "Flag. If set, Mikado will only look for overlap in
@@ -389,11 +384,12 @@ Usage::
                             the whole transcript will be considered). Default:
                             False, Mikado will consider transcripts in their
                             entirety. (default: False)
-      --monoloci-from-simple-overlap
-                            "Flag. If set, in the final stage Mikado will cluster
-                            transcripts by simple overlap, not by looking at the
-                            presence of shared introns. Default: False. (default:
-                            False)
+      --only-reference-update
+                            Flag. If switched on, Mikado will only keep loci where
+                            at least one of the transcripts is marked as
+                            "reference". CAUTION: new and experimental. If no
+                            transcript has been marked as reference, the output
+                            will be completely empty! (default: None)
       --consider-truncated-for-retained
                             Flag. If set, Mikado will consider as retained intron
                             events also transcripts which lack UTR but whose CDS
@@ -420,7 +416,17 @@ Usage::
                             but also split when both ORFs lack BLAST hits - split:
                             split multi-orf transcripts regardless of what BLAST
                             data is available. (default: None)
-    
+
+    Options related to the output files.:
+      --subloci_out SUBLOCI_OUT
+      --monoloci_out MONOLOCI_OUT
+      --loci_out LOCI_OUT   This output file is mandatory. If it is not specified
+                            in the configuration file, it must be provided here.
+                            (default: None)
+      --prefix PREFIX       Prefix for the genes. Default: Mikado (default: None)
+      --source SOURCE       Source field to use for the output files. (default:
+                            None)
+
     Log options:
       -l LOG, --log LOG     File to write the log to. Default: decided by the
                             configuration file. (default: None)

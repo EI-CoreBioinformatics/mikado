@@ -2,6 +2,7 @@
 import argparse
 import sys
 from ...parsers import to_gff
+from ...parsers.bed12 import BED12
 from ...loci import Transcript, Gene
 
 
@@ -30,18 +31,24 @@ def launch(args):
     if out_format == "gff3":
         print("##gff-version\t3", file=args.out)
 
+    mock_gene_counter = 0
+
     for line in parser:
         if line.header is True:
             continue
+        if isinstance(line, BED12) or line.gene is None:
+            mock_gene_counter += 1
+            gene = "gene_{mock_gene_counter}".format(**locals())
+            line.parent = gene
+
         if current is None or ((line.is_gene or line.is_transcript) and line.gene != current.id):
             if current:
                 print(current.format(out_format), file=args.out)
-
             if hasattr(line, "feature") and "superlocus" in line.feature:  # Hack for Mikado files
                 continue
             elif line.is_gene is True:
                 current = Gene(line)
-            elif line.feature == "chromosome":
+            elif hasattr(line, "feature") and line.feature == "chromosome":
                 continue
             else:
                 if line.parent is None:

@@ -588,11 +588,13 @@ class Transcript:
         self.logger = None
 
     def __getattribute__(self, item):
-
-        if "external" in item and item != "external" and "." in item:
-            return getattr(self.external_scores, item.split(".")[1])
-        else:
-            return super().__getattribute__(item)
+        try:
+            return object.__getattribute__(self, item)
+        except AttributeError as exc:
+            if "external" in item and item != "external" and "." in item:
+                return getattr(self.external_scores, item.split(".")[1])
+            else:
+                raise AttributeError(exc)
 
     # ######## Class instance methods ####################
 
@@ -603,30 +605,31 @@ class Transcript:
         :type feature: flag to indicate what kind of feature we are adding
         """
 
-        if isinstance(gffline, (tuple, list)):
+        _gtype = type(gffline)
+
+        if _gtype in (tuple, list):
             assert len(gffline) == 2
             try:
                 start, end = sorted(gffline)
             except TypeError:
-                raise TypeError((gffline, type(gffline)))
+                raise TypeError((gffline, _gtype))
             if feature is None:
                 feature = "exon"
-        elif isinstance(gffline, intervaltree.Interval):
+        elif _gtype is intervaltree.Interval:
             start, end = gffline[0], gffline[1]
             if feature is None:
                 feature = "exon"
-        elif isinstance(gffline, Interval):
+        elif _gtype is Interval:
             start, end = gffline.start, gffline.end
             if feature is None:
                 feature = "exon"
-        elif not isinstance(gffline, (GtfLine, GffLine)):
-            raise InvalidTranscript("Unkwown feature type! %s",
-                                    type(gffline))
+        elif _gtype not in (GtfLine, GffLine):
+            raise InvalidTranscript("Unkwown feature type! %s", _gtype)
         else:
             start, end = sorted([gffline.start, gffline.end])
             if feature is None:
                 feature = gffline.feature
-            if isinstance(gffline, GffLine) and "cdna_match" in gffline.feature.lower():
+            if _gtype is GffLine and "cdna_match" in gffline.feature.lower():
                 gffline.parent = gffline.id
 
             if self.id not in gffline.parent:
@@ -669,11 +672,7 @@ class Transcript:
 
         segment = tuple([int(start), int(end)])
         if segment in store:
-            # raise InvalidTranscript(
-            #     "Attempt to add {} to {}, but it is already present!".format(
-            #         segment, self.id))
             return
-        # assert isinstance(segment[0], int) and isinstance(segment[1], int)
         if self.__expandable is True:
             self.start = min([self.start, start])
             self.end = max([self.end, end])
@@ -1382,10 +1381,6 @@ class Transcript:
         metrics = [member[0] for member in inspect.getmembers(cls) if
                    "__" not in member[0] and isinstance(cls.__dict__[member[0]], Metric)]
 
-        # metrics = list(x[0] for x in filter(
-        #     lambda y: "__" not in y[0] and isinstance(cls.__dict__[y[0]], Metric),
-        #     inspect.getmembers(cls)))
-        # assert "tid" in metrics and "parent" in metrics and "score" in metrics
         _metrics = sorted([metric for metric in metrics])
         final_metrics = ["tid", "alias", "parent", "original_source", "score"] + _metrics
         return final_metrics
@@ -1552,9 +1547,12 @@ class Transcript:
         :type parent: list
         :type parent: str
         """
-        if isinstance(parent, (list, type(None))):
+
+        _ptype = type(parent)
+
+        if _ptype in (list, type(None)):
             self.__parent = parent
-        elif isinstance(parent, str):
+        elif _ptype is str:
             if "," in parent:
                 self.__parent = parent.split(",")
             else:
@@ -1896,6 +1894,13 @@ class Transcript:
 
         self.__exons = list(sorted(args[0]))
 
+    def _set_exons(self, exons):
+        """Private method that bypasses the checks within the direct setter, for speed purposes in finalising."""
+        if self.finalized is True:
+            raise NotImplementedError("I cannot reset the exons in a finalised transcript.")
+
+        self.__exons = exons
+
     @property
     def combined_cds_introns(self):
         """This property returns the introns which are located between CDS
@@ -1976,14 +1981,6 @@ class Transcript:
         if ((not isinstance(combined, list)) or
                 any(self.__wrong_combined_entry(comb) for comb in combined)):
             raise TypeError("Invalid value for combined CDS: {0}".format(combined))
-        # if len(combined) > 0:
-        #     if isinstance(combined[0], tuple):
-        #         try:
-        #             combined = [intervaltree.Interval(_[0], _[1]) for _ in combined]
-        #         except IndexError:
-        #             raise IndexError(combined)
-        #     else:
-        #         assert isinstance(combined[0], intervaltree.Interval)
 
         if len(combined) > 0:
             ar = np.array(list(zip(*combined)))
@@ -2282,14 +2279,11 @@ index {3}, internal ORFs: {4}".format(
     @Metric
     def cdna_length(self):
         """This property returns the length of the transcript."""
-        # try:
-        #     self.__cdna_length = sum([e[1] - e[0] + 1 for e in self.exons])
-        # except TypeError:
-        #     raise TypeError(self.exons)
-        # if self.__cdna_length is None:
-        ar = np.array(list(zip(*self.exons)))
-        self.__cdna_length = int(np.subtract(ar[1], ar[0] -1).sum())
-
+        if self.__cdna_length is None and self.finalized is True:
+            raise AssertionError
+        if self.finalized is False or self.__cdna_length is None:
+            ar = np.array(list(zip(*self.exons)))
+            self.__cdna_length = int(np.subtract(ar[1], ar[0] - 1).sum())
         return self.__cdna_length
 
     cdna_length.category = "cDNA"

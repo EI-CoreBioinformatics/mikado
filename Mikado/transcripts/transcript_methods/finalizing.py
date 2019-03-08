@@ -20,7 +20,9 @@ def __basic_final_checks(transcript):
     :return:
     """
 
-    if len(transcript.exons) == 0:
+    _exons = transcript.exons
+
+    if not _exons:
         if transcript._possibly_without_exons is True:
             transcript.logger.debug("Inferring that %s is a single-exon transcript")
             new_exon = (transcript.start, transcript.end)
@@ -33,41 +35,41 @@ def __basic_final_checks(transcript):
             raise exc
         else:
             # Let us try to derive exons from CDS ...
-            transcript.exons = sorted([tuple([int(exon[0]), int(exon[1])]) for exon in transcript.combined_cds])
+            _exons = sorted([tuple([int(exon[0]), int(exon[1])]) for exon in transcript.combined_cds])
             if len(transcript.combined_utr) == 0:
                 # Enlarge the terminal exons to include the starts
                 if transcript.start is not None:
-                    transcript.exons[0] = (transcript.start, transcript.exons[0][1])
+                    _exons[0] = (transcript.start, _exons[0][1])
                 if transcript.end is not None:
-                    transcript.exons[-1] = (transcript.exons[-1][0], transcript.end)
+                    _exons[-1] = (_exons[-1][0], transcript.end)
             else:
                 __utr = sorted([tuple([int(exon[0]), int(exon[1])]) for exon in transcript.combined_utr])
                 try:
-                    __before = [_ for _ in __utr if _[1] < transcript.exons[0][0]]
+                    __before = [_ for _ in __utr if _[1] < _exons[0][0]]
                 except IndexError:
-                    raise IndexError((__utr, transcript.exons))
-                if __before[-1][1] == transcript.exons[0][0] - 1:
-                    transcript.exons[0] = (__before[-1][0], transcript.exons[0][1])
+                    raise IndexError((__utr, _exons))
+                if __before[-1][1] == _exons[0][0] - 1:
+                    _exons[0] = (__before[-1][0], _exons[0][1])
                     __before.pop()
-                __after = [_ for _ in __utr if _[0] > transcript.exons[-1][1]]
-                if __after[0][0] == transcript.exons[-1][1] + 1:
-                    transcript.exons[-1] = (transcript.exons[-1][0], __after[0][1])
+                __after = [_ for _ in __utr if _[0] > _exons[-1][1]]
+                if __after[0][0] == _exons[-1][1] + 1:
+                    _exons[-1] = (_exons[-1][0], __after[0][1])
                     __after = __after[1:]
-                transcript.exons = __before + transcript.exons + __after
+                _exons = __before + _exons + __after
 
     transcript.logger.debug("Converting to tuples")
-    transcript.exons = [tuple([int(exon[0]), int(exon[1])]) for exon in transcript.exons]
+    _exons = [tuple([int(exon[0]), int(exon[1])]) for exon in _exons]
 
     new_exons = []
-    invalid = False
+    # invalid = False
 
     # Set the start and end automatically if none has been explicitly provided
     if transcript.start is None:
-        transcript.start = min(_[0] for _ in transcript.exons)
+        transcript.start = min(_[0] for _ in _exons)
     if transcript.end is None:
-        transcript.end = max(_[1] for _ in transcript.exons)
+        transcript.end = max(_[1] for _ in _exons)
 
-    for exon in transcript.exons:
+    for exon in _exons:
         if not isinstance(exon, tuple):
             if (isinstance(exon, Interval) or
                     (isinstance(exon, list) and len(exon) == 2 and
@@ -83,7 +85,7 @@ def __basic_final_checks(transcript):
             raise exc
         new_exons.append(exon)
 
-    transcript.exons = sorted(new_exons)
+    transcript._set_exons(sorted(new_exons))
 
     if len(transcript.exons) > 1 and transcript.strand is None:
         if transcript._accept_undefined_multi is False:
@@ -533,60 +535,54 @@ def __check_phase_correctness(transcript):
     :return: Mikado.loci.transcript.Transcript
     """
 
-    if min(len(transcript.segments), len(transcript.internal_orfs)) == 0:
-        transcript.logger.debug("Redefining segments for %s", transcript.id)
+    segments, internal_orfs = transcript.segments, transcript.internal_orfs
+
+    if min(len(segments), len(internal_orfs)) == 0:
+        # transcript.logger.debug("Redefining segments for %s", transcript.id)
         # Define exons
-        transcript.segments = [("exon", tuple([e[0], e[1]]))
-                               for e in transcript.exons]
+        segments = [("exon", tuple([e[0], e[1]])) for e in transcript.exons]
         # Define CDS
-        if len(transcript.internal_orfs) > 0:
-            for orf in transcript.internal_orfs:
+        if len(internal_orfs) > 0:
+            for orf in internal_orfs:
                 for segment in orf:
                     if segment[0] == "exon":
                         continue
                     elif segment[0] == "UTR":
-                        transcript.segments.append(("UTR", (segment[1][0], segment[1][1])))
+                        segments.append(("UTR", (segment[1][0], segment[1][1])))
                     elif segment[0] == "CDS":
-                        transcript.segments.append(("CDS", (segment[1][0], segment[1][1])))
+                        segments.append(("CDS", (segment[1][0], segment[1][1])))
         else:
-            transcript.segments.extend([("CDS", tuple([c[0], c[1]]))
-                                    for c in transcript.combined_cds])
+            segments.extend([("CDS", tuple([c[0], c[1]])) for c in transcript.combined_cds])
         # Define UTR segments
-        transcript.segments.extend([("UTR", tuple([u[0], u[1]]))
-                                    for u in transcript.combined_utr])
+        segments.extend([("UTR", tuple([u[0], u[1]])) for u in transcript.combined_utr])
         # Mix and sort
-        transcript.segments = sorted(transcript.segments, key=operator.itemgetter(1, 0))
+        segments = sorted(segments, key=operator.itemgetter(1, 0))
         # Add to the store as a single entity
-        if not transcript.internal_orfs and any(_[0] == "CDS" for _ in transcript.segments):
-            transcript.internal_orfs = [transcript.segments]
+        if not internal_orfs and any(_[0] == "CDS" for _ in segments):
+            internal_orfs = [segments]
         else:
             transcript.selected_internal_orf_index = None
-    elif len(transcript.internal_orfs) == 0:
+    elif len(internal_orfs) == 0:
         exception = AssertionError("No internal ORF for {}".format(transcript.id))
         transcript.logger.exception(exception)
         raise exception
     else:
-        transcript.logger.debug("Segments and ORFs defined for %s", transcript.id)
+        pass
 
-    transcript.logger.debug("{} has {} internal ORF{}".format(
-        transcript.id, len(transcript.internal_orfs),
-        "s" if len(transcript.internal_orfs) > 1 else ""))
+    transcript.segments, transcript.internal_orfs = segments, internal_orfs
 
     __orfs_to_remove = []
-    for orf_index in range(len(transcript.internal_orfs)):
-        transcript.logger.debug("ORF #%d for %s: %s",
-                                orf_index, transcript.id, transcript.internal_orfs[orf_index])
+    for orf_index in range(len(internal_orfs)):
+        # transcript.logger.debug("ORF #%d for %s: %s",
+        #                         orf_index, transcript.id, transcript.internal_orfs[orf_index])
         try:
-            transcript = __check_internal_orf(transcript,
-                                              orf_index)
+            transcript = __check_internal_orf(transcript, orf_index)
         except (InvalidTranscript, InvalidCDS) as exc:
             transcript.logger.warning("ORF %s of %s is invalid, removing. Reason: %s",
                                       orf_index, transcript.id, exc)
             __orfs_to_remove.append(orf_index)
 
-            # transcript.logger.warning("Stripping the CDS from %s, error: %s",
-            #                           transcript.id, exc)
-    __num_orfs = transcript.number_internal_orfs
+    __num_orfs = len(internal_orfs)
     if (__num_orfs > 0) and (len(__orfs_to_remove) == __num_orfs):
         transcript.logger.warning("Every ORF of %s is invalid, stripping the CDS", transcript.id)
         transcript.strip_cds(strand_specific=True)
@@ -594,9 +590,10 @@ def __check_phase_correctness(transcript):
         transcript.logger.warning("Stripping %s of %s ORFs out of %s",
                                   transcript.id, len(__orfs_to_remove), __num_orfs)
         for orf_index in reversed(sorted(__orfs_to_remove)):
-            transcript.internal_orfs.pop(orf_index)
+            internal_orfs.pop(orf_index)
+        transcript.internal_orfs = internal_orfs
     else:
-        transcript.logger.debug("All internal ORFs of %s pass the muster.", transcript.id)
+        pass
 
     if len(transcript.internal_orfs) > 0:
         transcript.selected_internal_orf_index = 0
@@ -748,6 +745,7 @@ def finalize(transcript):
                 transcript.attributes.pop(prop)
 
     # transcript = __calc_cds_introns(transcript)
+    _ = transcript.cdna_length
 
     transcript.finalized = True
     transcript.logger.debug("Finished finalising %s", transcript.id)

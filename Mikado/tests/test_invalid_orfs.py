@@ -1,17 +1,16 @@
 import re
 import unittest
+from .. import parsers
+from ..transcripts import Transcript
+from ..utilities import log_utils
 
-import Mikado.exceptions
-import Mikado.parsers
-import Mikado.transcripts.transcript
-import Mikado.utilities.log_utils
 
 __author__ = 'Luca Venturini'
 
 
 class MultOrfTester(unittest.TestCase):
 
-    logger = Mikado.utilities.log_utils.create_default_logger("mult_orf")
+    logger = log_utils.create_default_logger("mult_orf")
 
     tr_gff = """
     Chr1    TAIR10    mRNA    5928    8737    .    -    .    ID=AT1G01020.1;Parent=AT1G01020;Name=AT1G01020.1;Index=1
@@ -42,7 +41,7 @@ class MultOrfTester(unittest.TestCase):
         tr_lines[pos] = re.sub("\s+", "\t", line)
         assert len(tr_lines[pos].split("\t")) == 9, line.split("\t")
 
-    tr_gff_lines = [Mikado.parsers.GFF.GffLine(line) for line in tr_lines]
+    tr_gff_lines = [parsers.GFF.GffLine(line) for line in tr_lines]
 
     for l in tr_gff_lines:
         assert l.header is False
@@ -50,7 +49,7 @@ class MultOrfTester(unittest.TestCase):
     def setUp(self):
         """Basic creation test."""
 
-        self.tr = Mikado.transcripts.transcript.Transcript(self.tr_gff_lines[0], logger=self.logger)
+        self.tr = Transcript(self.tr_gff_lines[0], logger=self.logger)
         for line in self.tr_gff_lines[1:]:
             self.tr.add_exon(line)
 
@@ -69,7 +68,7 @@ class MultOrfTester(unittest.TestCase):
 
         lines = ["\t".join(line.strip().split()) for line in lines.split("\n") if line.strip() != '']
         for line in lines:
-            line = Mikado.parsers.GFF.GffLine(line)
+            line = parsers.GFF.GffLine(line)
             self.assertFalse(line.header)
             self.assertEqual(line.parent[0], self.tr.id)
             self.tr.add_exon(line)
@@ -86,7 +85,7 @@ class MultOrfTester(unittest.TestCase):
 
         lines = ["\t".join(line.strip().split()) for line in lines.split("\n") if line.strip() != '']
         for line in lines:
-            line = Mikado.parsers.GFF.GffLine(line)
+            line = parsers.GFF.GffLine(line)
             self.assertFalse(line.header)
             self.tr.add_exon(line)
         with self.assertLogs("mult_orf", level="WARNING") as cm:
@@ -100,7 +99,7 @@ class MultOrfTester(unittest.TestCase):
 
         lines = ["\t".join(line.strip().split()) for line in lines.split("\n") if line.strip() != '']
         for line in lines:
-            line = Mikado.parsers.GFF.GffLine(line)
+            line = parsers.GFF.GffLine(line)
             self.tr.add_exon(line)
         self.assertTrue(self.tr.is_coding)
 

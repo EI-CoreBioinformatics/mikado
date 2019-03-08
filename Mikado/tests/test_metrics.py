@@ -2,8 +2,8 @@ __author__ = 'Luca Venturini'
 
 
 import unittest
-from Mikado.loci import Transcript
-from Mikado.utilities.log_utils import create_default_logger
+from ..loci import Transcript
+from ..utilities.log_utils import create_default_logger
 
 
 class TestMetricsEndDistances(unittest.TestCase):

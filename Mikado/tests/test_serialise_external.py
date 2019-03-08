@@ -1,12 +1,13 @@
 import unittest
-import Mikado
+# import Mikado
+from .. import utilities, configuration, serializers
 import tempfile
 import sqlalchemy.orm
 import pandas as pd
 import numpy as np
-from Mikado.utilities.dbutils import DBBASE
-from Mikado.serializers.external import External, ExternalSource, ExternalSerializer
-from Mikado.serializers.orf import Query
+from ..utilities.dbutils import DBBASE
+from ..serializers.external import External, ExternalSource, ExternalSerializer
+from ..serializers.orf import Query
 import sqlalchemy.exc
 
 
@@ -15,17 +16,17 @@ __author__ = 'Luca Venturini'
 
 class TestExternal(unittest.TestCase):
 
-    logger = Mikado.utilities.log_utils.create_null_logger("test_junction")
+    logger = utilities.log_utils.create_null_logger("test_junction")
 
     def setUp(self):
         self.dbfile = tempfile.mktemp(suffix=".db")
-        self.json_conf = Mikado.configuration.configurator.to_json(None)
+        self.json_conf = configuration.configurator.to_json(None)
         self.json_conf["db_settings"]["dbtype"] = "sqlite"
         self.json_conf["db_settings"]["db"] = self.dbfile
         self.__create_session()
 
     def __create_session(self):
-        self.engine = Mikado.utilities.dbutils.connect(
+        self.engine = utilities.dbutils.connect(
             self.json_conf, self.logger)
         self.sessionmaker = sqlalchemy.orm.sessionmaker(bind=self.engine)
         self.session = self.sessionmaker()
@@ -37,7 +38,7 @@ class TestExternal(unittest.TestCase):
         self.session.add(source)
         self.session.commit()
 
-        self.assertEqual(self.session.query(Mikado.serializers.external.ExternalSource).count(), 1)
+        self.assertEqual(self.session.query(serializers.external.ExternalSource).count(), 1)
 
     def test_add_score(self):
 
@@ -56,7 +57,7 @@ class TestExternal(unittest.TestCase):
 
         self.assertEqual(score.source, source.source)
         self.assertEqual(score.query, query.query_name)
-        self.assertEqual(self.session.query(Mikado.serializers.external.External).count(), 1)
+        self.assertEqual(self.session.query(serializers.external.External).count(), 1)
 
     def test_wrong_score(self):
         source = ExternalSource("cdna_length", np.dtype("int"), False)

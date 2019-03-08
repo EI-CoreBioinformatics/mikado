@@ -6,8 +6,8 @@ Test for the BED12 module.
 
 import unittest
 from Bio import Seq, SeqRecord
-from Mikado.parsers import bed12, GTF
-from Mikado.loci import Transcript
+from ..parsers import bed12, GTF
+from ..loci import Transcript
 from re import sub
 
 

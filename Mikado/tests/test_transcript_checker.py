@@ -4,12 +4,12 @@ import tempfile
 import unittest
 import pkg_resources
 import pyfaidx
-from Mikado.transcripts.transcriptchecker import TranscriptChecker
-from Mikado.parsers.GFF import GffLine
-from Mikado.parsers.GTF import GtfLine
-from Mikado.transcripts.transcript import Transcript
-from Mikado.exceptions import InvalidTranscript
-from Mikado.utilities.log_utils import create_default_logger
+from ..transcripts.transcriptchecker import TranscriptChecker
+from ..parsers.GFF import GffLine
+from ..parsers.GTF import GtfLine
+from ..transcripts.transcript import Transcript
+from ..exceptions import InvalidTranscript
+from ..utilities.log_utils import create_default_logger
 import Bio.Seq
 
 

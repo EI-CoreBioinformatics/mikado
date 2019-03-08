@@ -5,8 +5,9 @@ import operator
 import unittest
 from sys import version_info
 
-import Mikado
-from Mikado.transcripts.transcript_methods import splitting
+# import Mikado
+from .. import loci, parsers, utilities, configuration
+from ..transcripts.transcript_methods import splitting
 
 if version_info.minor < 5:
     from sortedcontainers import SortedDict
@@ -18,12 +19,12 @@ __author__ = 'Luca Venturini'
 
 class TestSplitMonoexonic(unittest.TestCase):
 
-    logger = Mikado.utilities.log_utils.create_null_logger("test_mono")
+    logger = utilities.log_utils.create_null_logger("test_mono")
     logger.setLevel(logging.DEBUG)
 
     def setUp(self):
         
-        self.transcript = Mikado.loci.Transcript()
+        self.transcript = loci.Transcript()
         self.transcript.chrom = "Chr1"
         self.transcript.start = 1001
         self.transcript.end = 6000
@@ -33,7 +34,7 @@ class TestSplitMonoexonic(unittest.TestCase):
         self.transcript.source = "Mikado"
         self.transcript.exons = [(1001, 6000)]
         
-        self.bed1 = Mikado.parsers.bed12.BED12()
+        self.bed1 = parsers.bed12.BED12()
         self.header = False
         self.bed1.chrom = "transcript1"
         self.bed1.start = 1
@@ -51,7 +52,7 @@ class TestSplitMonoexonic(unittest.TestCase):
         self.bed1.has_stop_codon = True
         self.assertFalse(self.bed1.invalid, self.bed1.invalid_reason)
 
-        self.bed2 = Mikado.parsers.bed12.BED12()
+        self.bed2 = parsers.bed12.BED12()
         self.header = False
         self.bed2.chrom = "transcript1"
         self.bed2.start = 1
@@ -334,12 +335,12 @@ class TestSplitMonoexonic(unittest.TestCase):
 
 class TestWithPhase(unittest.TestCase):
 
-    logger = Mikado.utilities.log_utils.create_default_logger("test_mono")
+    logger = utilities.log_utils.create_default_logger("test_mono")
     logger.setLevel(logging.INFO)
 
     def setUp(self):
 
-        self.transcript = Mikado.loci.Transcript()
+        self.transcript = loci.Transcript()
         self.transcript.chrom = "Chr1"
         self.transcript.start = 1001
         self.transcript.end = 6000
@@ -351,14 +352,14 @@ class TestWithPhase(unittest.TestCase):
         self.transcript.logger = self.logger
         self.transcript.logger.setLevel("INFO")
 
-        self.transcript.json_conf = Mikado.configuration.configurator.to_json("")
+        self.transcript.json_conf = configuration.configurator.to_json("")
         self.transcript.json_conf["pick"]["chimera_split"]["blast_check"] = False
         self.assertIsNotNone(self.transcript.json_conf)
         self.assertIn("pick", self.transcript.json_conf)
 
     def testPositive(self):
 
-        self.bed1 = Mikado.parsers.bed12.BED12()
+        self.bed1 = parsers.bed12.BED12()
         self.header = False
         self.bed1.chrom = "transcript1"
         self.bed1.start = 1
@@ -377,7 +378,7 @@ class TestWithPhase(unittest.TestCase):
         self.bed1.has_stop_codon = True
         self.assertFalse(self.bed1.invalid, self.bed1.invalid_reason)
 
-        self.bed2 = Mikado.parsers.bed12.BED12()
+        self.bed2 = parsers.bed12.BED12()
         self.header = False
         self.bed2.chrom = "transcript1"
         self.bed2.start = 1
@@ -411,7 +412,7 @@ class TestWithPhase(unittest.TestCase):
         self.assertEqual(new_transcripts[1].end, self.transcript.end)
 
     def testNegative(self):
-        self.bed1 = Mikado.parsers.bed12.BED12()
+        self.bed1 = parsers.bed12.BED12()
         self.header = False
         self.bed1.chrom = "transcript1"
         self.bed1.start = 1
@@ -430,7 +431,7 @@ class TestWithPhase(unittest.TestCase):
         self.bed1.has_stop_codon = True
         self.assertFalse(self.bed1.invalid, self.bed1.invalid_reason)
 
-        self.bed2 = Mikado.parsers.bed12.BED12()
+        self.bed2 = parsers.bed12.BED12()
         self.header = False
         self.bed2.chrom = "transcript1"
         self.bed2.start = 1

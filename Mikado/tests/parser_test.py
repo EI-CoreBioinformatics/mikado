@@ -1,5 +1,5 @@
 import unittest
-import Mikado.parsers
+from .. import parsers
 import tempfile
 import os
 
@@ -11,10 +11,10 @@ class TestParser(unittest.TestCase):
     def test_invalid_file(self):
 
         with self.assertRaises(FileNotFoundError):
-            _ = Mikado.parsers.GFF.GFF3("foo")
+            _ = parsers.GFF.GFF3("foo")
 
         with self.assertRaises(FileNotFoundError):
-            _ = Mikado.parsers.GTF.GTF("foo")
+            _ = parsers.GTF.GTF("foo")
 
     def test_with_construct(self):
 
@@ -28,11 +28,11 @@ class TestParser(unittest.TestCase):
         gtf_temp_reader = open(gtf_temp.name, "rt")
         gtf_temp_reader.close()
         with self.assertRaises(ValueError):
-            with Mikado.parsers.GTF.GTF(gtf_temp_reader) as gtf_reader:
+            with parsers.GTF.GTF(gtf_temp_reader) as gtf_reader:
                 _ = next(gtf_reader)
 
         with self.assertRaises(ValueError):
-            with Mikado.parsers.GFF.GFF3(gtf_temp_reader) as gtf_reader:
+            with parsers.GFF.GFF3(gtf_temp_reader) as gtf_reader:
                 _ = next(gtf_reader)
 
         os.remove(gtf_temp.name)
@@ -50,12 +50,12 @@ class TestParser(unittest.TestCase):
         gff_temp.flush()
         gtf_temp.flush()
 
-        with Mikado.parsers.GTF.GTF(open(gtf_temp.name)) as gtf_reader:
+        with parsers.GTF.GTF(open(gtf_temp.name)) as gtf_reader:
             self.assertEqual(gtf_temp.name, gtf_reader.name)
             self.assertEqual(next(gtf_reader)._line, gtf_line)
         self.assertTrue(gtf_reader.closed)
 
-        with Mikado.parsers.GFF.GFF3(open(gff_temp.name)) as gff_reader:
+        with parsers.GFF.GFF3(open(gff_temp.name)) as gff_reader:
             self.assertEqual(gff_temp.name, gff_reader.name)
             self.assertEqual(next(gff_reader)._line, gff_line)
         self.assertTrue(gff_reader.closed)
@@ -70,9 +70,9 @@ class TestParser(unittest.TestCase):
 
     def test_phase_frame(self):
         gtf_line = "Chr1\tmikado\texon\t1000\t2000\t.\t+\t0\tgene_id \"foo.1\"; transcript_id \"foo.1.1\";"
-        gtf_line = Mikado.parsers.GTF.GtfLine(gtf_line)
+        gtf_line = parsers.GTF.GtfLine(gtf_line)
         self.assertEqual(gtf_line.frame, 0)
-        gff_line = Mikado.parsers.GFF.GffLine(
+        gff_line = parsers.GFF.GffLine(
             "Chr1\tmikado\texon\t1000\t2000\t.\t+\t0\tParent=foo.1.1;"
         )
         self.assertEqual(gtf_line.transcript, gff_line.transcript[0])
@@ -101,7 +101,7 @@ class TestParser(unittest.TestCase):
     def test_gene_property(self):
 
         gff_line = "Chr1\tmikado\tgene\t1000\t2000\t.\t+\t0\tID=\"transcript:foo.1\";"
-        gff_line = Mikado.parsers.GFF.GffLine(gff_line)
+        gff_line = parsers.GFF.GffLine(gff_line)
         self.assertFalse(gff_line.is_gene)
         gff_line.id = "gene:foo.1"
         self.assertTrue(gff_line.is_gene)
@@ -113,7 +113,7 @@ class TestParser(unittest.TestCase):
     def test_cds_property(self):
 
         gff_line = "Chr1\tmikado\tgene\t1000\t2000\t.\t+\t0\tID=\"transcript:foo.1\";"
-        gff_line = Mikado.parsers.GFF.GffLine(gff_line)
+        gff_line = parsers.GFF.GffLine(gff_line)
         self.assertFalse(gff_line.is_cds)
         self.assertFalse(gff_line.is_exon)
 
@@ -129,7 +129,7 @@ class TestParser(unittest.TestCase):
     def test_gff_order(self):
 
         gff_line = "Chr1\tmikado\texon\t1000\t2000\t.\t+\t0\tParent=foo.1.1;"
-        gff_line = Mikado.parsers.GFF.GffLine(gff_line)
+        gff_line = parsers.GFF.GffLine(gff_line)
 
         lines = [gff_line]
 
@@ -195,7 +195,7 @@ class TestParser(unittest.TestCase):
     def test_gtf_order(self):
 
         gtf_line = "Chr1\tmikado\texon\t1000\t2000\t.\t+\t0\tgene_id \"foo.1\"; transcript_id \"foo.1.1\";"
-        gtf_line = Mikado.parsers.GTF.GtfLine(gtf_line)
+        gtf_line = parsers.GTF.GtfLine(gtf_line)
 
         lines = [gtf_line]
         for feature in ["5UTR", "3UTR", "CDS", "start_codon", "stop_codon"]:
@@ -279,12 +279,12 @@ class TestParser(unittest.TestCase):
     def test_length(self):
 
         gtf_line = "Chr1\tmikado\texon\t1000\t2000\t.\t+\t0\tgene_id \"foo.1\"; transcript_id \"foo.1.1\";"
-        gtf_line = Mikado.parsers.GTF.GtfLine(gtf_line)
+        gtf_line = parsers.GTF.GtfLine(gtf_line)
 
         self.assertEqual(len(gtf_line), 2000-1000+1)
 
         gff_line = "Chr1\tmikado\texon\t1000\t2000\t.\t+\t0\tParent=foo.1.1;"
-        gff_line = Mikado.parsers.GFF.GffLine(gff_line)
+        gff_line = parsers.GFF.GffLine(gff_line)
 
         self.assertEqual(len(gtf_line), 2000 - 1000 + 1)
 

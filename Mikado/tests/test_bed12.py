@@ -1,5 +1,5 @@
-from Mikado.parsers.bed12 import BED12
-from Mikado.transcripts import Transcript
+from ..parsers.bed12 import BED12
+from ..transcripts import Transcript
 import unittest
 # from Bio.Seq import Seq
 

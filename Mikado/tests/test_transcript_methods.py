@@ -3,14 +3,14 @@ import unittest
 import builtins
 from sqlalchemy.engine import reflection
 import itertools
-from Mikado.configuration.configurator import to_json
-from Mikado.loci import Transcript
-from Mikado.parsers.bed12 import BED12
-from Mikado.parsers.GTF import GtfLine
-from Mikado.parsers.GFF import GffLine
-from Mikado.transcripts.transcript import Metric
-from Mikado.transcripts.transcript_methods import retrieval
-from Mikado.utilities.log_utils import create_default_logger
+from ..configuration.configurator import to_json
+from ..loci import Transcript
+from ..parsers.bed12 import BED12
+from ..parsers.GTF import GtfLine
+from ..parsers.GFF import GffLine
+from ..transcripts.transcript import Metric
+from ..transcripts.transcript_methods import retrieval
+from ..utilities.log_utils import create_default_logger
 
 
 class TestMetricClass(unittest.TestCase):

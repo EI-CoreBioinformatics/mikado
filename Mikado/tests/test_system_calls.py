@@ -11,25 +11,23 @@ import unittest
 import pkg_resources
 import pyfaidx
 import yaml
-# import shutil
 from pytest import mark
-import Mikado.daijin
-import Mikado.subprograms.configure
-from Mikado.configuration import configurator, daijin_configurator
-from Mikado.picking import picker
-from Mikado.preparation import prepare
-from Mikado.scales.compare import compare, load_index
-from Mikado.subprograms.util.stats import Calculator
-from Mikado.subprograms.prepare import prepare_launcher
-from Mikado.subprograms.prepare import setup as prepare_setup
-from Mikado.transcripts.transcript import Namespace
-from Mikado.utilities.log_utils import create_null_logger, create_default_logger
-from Mikado.parsers.GFF import GffLine
-# from Mikado.parsers.GTF import GtfLine
+from .. import daijin, configuration
+from ..subprograms import configure as sub_configure
+from ..configuration import configurator, daijin_configurator
+from ..picking import picker
+from ..preparation import prepare
+from ..scales.compare import compare, load_index
+from ..subprograms.util.stats import Calculator
+from ..subprograms.prepare import prepare_launcher
+from ..subprograms.prepare import setup as prepare_setup
+from ..transcripts.transcript import Namespace
+from ..utilities.log_utils import create_null_logger, create_default_logger
+from ..parsers.GFF import GffLine
 import sqlite3
 import shutil
-from Mikado.parsers import to_gff
-from Mikado.transcripts import Transcript
+from ..parsers import to_gff
+from ..transcripts import Transcript
 import threading
 
 
@@ -916,11 +914,11 @@ class ConfigureCheck(unittest.TestCase):
         out = os.path.join(dir.name, "configuration.yaml")
         with open(out, "w") as out_handle:
             namespace.out = out_handle
-            Mikado.subprograms.configure.create_config(namespace)
+            sub_configure.create_config(namespace)
         self.assertGreater(os.stat(out).st_size, 0)
-        conf = Mikado.configuration.configurator.to_json(out)
-        conf = Mikado.configuration.configurator.check_json(conf)
-        conf = Mikado.configuration.configurator.check_json(conf)
+        conf = configuration.configurator.to_json(out)
+        conf = configuration.configurator.check_json(conf)
+        conf = configuration.configurator.check_json(conf)
         self.assertNotIn("asm_methods", conf)
         dir.cleanup()
 
@@ -941,11 +939,11 @@ class ConfigureCheck(unittest.TestCase):
         out = os.path.join(dir.name, "configuration.yaml")
         with open(out, "w") as out_handle:
             namespace.out = out_handle
-            Mikado.subprograms.configure.create_config(namespace)
+            sub_configure.create_config(namespace)
         self.assertGreater(os.stat(out).st_size, 0)
-        conf = Mikado.configuration.configurator.to_json(out)
-        conf = Mikado.configuration.configurator.check_json(conf)
-        conf = Mikado.configuration.configurator.check_json(conf)
+        conf = configuration.configurator.to_json(out)
+        conf = configuration.configurator.check_json(conf)
+        conf = configuration.configurator.check_json(conf)
         self.assertNotIn("asm_methods", conf)
         dir.cleanup()
 
@@ -966,11 +964,11 @@ class ConfigureCheck(unittest.TestCase):
         out = os.path.join(dir.name, "configuration.yaml")
         with open(out, "w") as out_handle:
             namespace.out = out_handle
-            Mikado.subprograms.configure.create_config(namespace)
+            sub_configure.create_config(namespace)
         self.assertGreater(os.stat(out).st_size, 0)
-        conf = Mikado.configuration.configurator.to_json(out)
-        conf = Mikado.configuration.configurator.check_json(conf)
-        conf = Mikado.configuration.configurator.check_json(conf)
+        conf = configuration.configurator.to_json(out)
+        conf = configuration.configurator.check_json(conf)
+        conf = configuration.configurator.check_json(conf)
         self.assertIn("asm_methods", conf)
         dir.cleanup()
 
@@ -991,11 +989,11 @@ class ConfigureCheck(unittest.TestCase):
         out = os.path.join(dir.name, "configuration.yaml")
         with open(out, "w") as out_handle:
             namespace.out = out_handle
-            Mikado.subprograms.configure.create_config(namespace)
+            sub_configure.create_config(namespace)
         self.assertGreater(os.stat(out).st_size, 0)
-        conf = Mikado.configuration.configurator.to_json(out)
-        conf = Mikado.configuration.configurator.check_json(conf)
-        conf = Mikado.configuration.configurator.check_json(conf)
+        conf = configuration.configurator.to_json(out)
+        conf = configuration.configurator.check_json(conf)
+        conf = configuration.configurator.check_json(conf)
         self.assertIn("asm_methods", conf)
         dir.cleanup()
 
@@ -1163,7 +1161,7 @@ class PickTest(unittest.TestCase):
                 self.json_conf["not_fragmentary"].pop("compiled", None)
 
                 with open(json_file, "wt") as json_handle:
-                    Mikado.subprograms.configure.print_config(yaml.dump(self.json_conf, default_flow_style=False),
+                    sub_configure.print_config(yaml.dump(self.json_conf, default_flow_style=False),
                                                               json_handle)
 
                 sys.argv = ["mikado", "pick", "--json-conf", json_file]
@@ -1206,7 +1204,7 @@ class PickTest(unittest.TestCase):
         self.json_conf["pick"]["files"]["output_dir"] = os.path.join(dir.name)
         json_file = os.path.join(dir.name, "mikado.yaml")
         with open(json_file, "wt") as json_handle:
-            Mikado.subprograms.configure.print_config(yaml.dump(self.json_conf, default_flow_style=False),
+            sub_configure.print_config(yaml.dump(self.json_conf, default_flow_style=False),
                                                       json_handle)
         sys.argv = ["mikado", "pick", "--json-conf", json_file, "--single"]
         with self.assertRaises(SystemExit):
@@ -1243,7 +1241,7 @@ class PickTest(unittest.TestCase):
         self.json_conf["pick"]["files"]["output_dir"] = os.path.join(outdir.name)
         json_file = os.path.join(outdir.name, "mikado.yaml")
         with open(json_file, "wt") as json_handle:
-            Mikado.subprograms.configure.print_config(yaml.dump(self.json_conf, default_flow_style=False),
+            sub_configure.print_config(yaml.dump(self.json_conf, default_flow_style=False),
                                                       json_handle)
         self.json_conf["pick"]["files"]["output_dir"] = os.path.join(outdir.name)
         scoring_file = pkg_resources.resource_filename("Mikado.tests", "scoring_only_cds.yaml")
@@ -1516,7 +1514,7 @@ class SerialiseChecker(unittest.TestCase):
         log = os.path.join(dir.name, "serialise.log")
 
         with open(json_file, "wt") as json_handle:
-            Mikado.subprograms.configure.print_config(yaml.dump(self.json_conf, default_flow_style=False),
+            sub_configure.print_config(yaml.dump(self.json_conf, default_flow_style=False),
                                                       json_handle)
         # Set up the command arguments
 

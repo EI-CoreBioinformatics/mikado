@@ -3,7 +3,8 @@
 import logging
 import os
 import unittest
-import Mikado
+# import Mikado
+from .. import utilities, configuration, parsers, serializers
 import tempfile
 import sqlalchemy.orm
 from sqlalchemy import and_  # , or_
@@ -17,28 +18,28 @@ __author__ = 'Luca Venturini'
 
 class TestLoadJunction(unittest.TestCase):
 
-    logger = Mikado.utilities.log_utils.create_null_logger("test_junction")
+    logger = utilities.log_utils.create_null_logger("test_junction")
 
     def setUp(self):
         self.dbfile = tempfile.mktemp(suffix=".db")
-        self.json_conf = Mikado.configuration.configurator.to_json(None)
+        self.json_conf = configuration.configurator.to_json(None)
         self.json_conf["db_settings"]["dbtype"] = "sqlite"
         self.json_conf["db_settings"]["db"] = self.dbfile
         self.json_conf["reference"]["genome_fai"] = os.path.join(
             os.path.dirname(__file__),
             "genome.fai")
-        self.session = Mikado.utilities.dbutils.connect(self.json_conf)
+        self.session = utilities.dbutils.connect(self.json_conf)
         self.junction_file = os.path.join(
             os.path.dirname(__file__),
             "junctions.bed"
         )
-        self.junction_serialiser = Mikado.serializers.junction.JunctionSerializer(
+        self.junction_serialiser = serializers.junction.JunctionSerializer(
             self.junction_file,
             json_conf=self.json_conf,
             # logger=self.logger
         )
 
-        self.junction_parser = Mikado.parsers.bed12.Bed12Parser(
+        self.junction_parser = parsers.bed12.Bed12Parser(
             self.junction_file,
             fasta_index=None,
             transcriptomic=False
@@ -48,7 +49,7 @@ class TestLoadJunction(unittest.TestCase):
     def test_first_junc(self):
 
         line = next(self.junction_parser)
-        self.assertIsInstance(line, Mikado.parsers.bed12.BED12)
+        self.assertIsInstance(line, parsers.bed12.BED12)
         self.assertTrue(line.header)
         line = next(self.junction_parser)
         self.assertFalse(line.header)
@@ -59,7 +60,7 @@ class TestLoadJunction(unittest.TestCase):
         self.assertEqual(line._line, _line)
 
     def __create_session(self):
-        engine = Mikado.utilities.dbutils.connect(
+        engine = utilities.dbutils.connect(
             self.json_conf, self.logger)
         sessionmaker = sqlalchemy.orm.sessionmaker(bind=engine)
         session = sessionmaker()
@@ -69,45 +70,45 @@ class TestLoadJunction(unittest.TestCase):
 
         session = self.__create_session()
         self.assertEqual(
-            session.query(Mikado.serializers.junction.Junction).count(),
+            session.query(serializers.junction.Junction).count(),
             372,
-            session.query(Mikado.serializers.junction.Junction).count()
+            session.query(serializers.junction.Junction).count()
         )
 
         self.assertEqual(
-            session.query(Mikado.serializers.junction.Junction).filter(
-                Mikado.serializers.junction.Junction.chrom != "Chr5"
+            session.query(serializers.junction.Junction).filter(
+                serializers.junction.Junction.chrom != "Chr5"
             ).count(), 1,
             [_.chrom for _ in
-                session.query(Mikado.serializers.junction.Junction).filter(
-                    Mikado.serializers.junction.Junction.chrom != "Chr5"
+                session.query(serializers.junction.Junction).filter(
+                    serializers.junction.Junction.chrom != "Chr5"
             )])
 
         # It's a BED file translated into 1-based, so add 1 to starts
         self.assertEqual(
-            session.query(Mikado.serializers.junction.Junction).filter(
+            session.query(serializers.junction.Junction).filter(
                 and_(
-                    Mikado.serializers.junction.Junction.chrom == "Chr5",
-                    Mikado.serializers.junction.Junction.start == 26510619,
+                    serializers.junction.Junction.chrom == "Chr5",
+                    serializers.junction.Junction.start == 26510619,
                 )
             ).count(), 1,
             [str(_) for _ in
-                session.query(Mikado.serializers.junction.Junction).filter(
+                session.query(serializers.junction.Junction).filter(
                     and_(
-                        Mikado.serializers.junction.Junction.name == "portcullis_junc_0",
+                        serializers.junction.Junction.name == "portcullis_junc_0",
                     )
             )])
 
     def test_serialise_low_maxobject(self):
 
         self.dbfile = tempfile.mktemp(suffix=".db")
-        self.json_conf = Mikado.configuration.configurator.to_json(None)
+        self.json_conf = configuration.configurator.to_json(None)
         self.json_conf["db_settings"]["dbtype"] = "sqlite"
         self.json_conf["db_settings"]["db"] = self.dbfile
         self.json_conf["reference"]["genome_fai"] = os.path.join(
             os.path.dirname(__file__),
             "genome.fai")
-        self.session = Mikado.utilities.dbutils.connect(self.json_conf)
+        self.session = utilities.dbutils.connect(self.json_conf)
         self.junction_file = os.path.join(
             os.path.dirname(__file__),
             "junctions.bed"
@@ -116,14 +117,14 @@ class TestLoadJunction(unittest.TestCase):
         self.json_conf["serialise"]["max_objects"] = 100
 
         self.logger.setLevel("DEBUG")
-        self.junction_serialiser = Mikado.serializers.junction.JunctionSerializer(
+        self.junction_serialiser = serializers.junction.JunctionSerializer(
             self.junction_file,
             json_conf=self.json_conf,
             logger=self.logger,
 
         )
 
-        self.junction_parser = Mikado.parsers.bed12.Bed12Parser(
+        self.junction_parser = parsers.bed12.Bed12Parser(
             self.junction_file,
             fasta_index=None,
             transcriptomic=False
@@ -139,31 +140,31 @@ class TestLoadJunction(unittest.TestCase):
 
         session = self.__create_session()
         self.assertEqual(
-            session.query(Mikado.serializers.junction.Junction).filter(
+            session.query(serializers.junction.Junction).filter(
                 and_(
-                    Mikado.serializers.junction.Junction.chrom == "Chr5",
-                    Mikado.serializers.junction.Junction.junction_end == 26514549,
+                    serializers.junction.Junction.chrom == "Chr5",
+                    serializers.junction.Junction.junction_end == 26514549,
                 )
             ).count(), 2,
-            session.query(Mikado.serializers.junction.Junction).filter(
+            session.query(serializers.junction.Junction).filter(
                 and_(
-                    Mikado.serializers.junction.Junction.chrom == "Chr5",
-                    Mikado.serializers.junction.Junction.junction_end == 26514549,
+                    serializers.junction.Junction.chrom == "Chr5",
+                    serializers.junction.Junction.junction_end == 26514549,
                 )
             )
         )
 
-        first = session.query(Mikado.serializers.junction.Junction).filter(
+        first = session.query(serializers.junction.Junction).filter(
                     and_(
-                        Mikado.serializers.junction.Junction.name == "portcullis_junc_0",
+                        serializers.junction.Junction.name == "portcullis_junc_0",
                     )).one()
-        first_double = session.query(Mikado.serializers.junction.Junction).filter(
+        first_double = session.query(serializers.junction.Junction).filter(
                         and_(
-                            Mikado.serializers.junction.Junction.name == "portcullis_junc_0",
+                            serializers.junction.Junction.name == "portcullis_junc_0",
                         )).one()
-        second = session.query(Mikado.serializers.junction.Junction).filter(
+        second = session.query(serializers.junction.Junction).filter(
                     and_(
-                        Mikado.serializers.junction.Junction.name == "portcullis_junc_1",
+                        serializers.junction.Junction.name == "portcullis_junc_1",
                     )).one()
 
         self.assertTrue(first.is_equal(first_double.chrom,
@@ -177,7 +178,7 @@ class TestLoadJunction(unittest.TestCase):
 
     def test_no_logger(self):
 
-        with Mikado.serializers.junction.JunctionSerializer(
+        with serializers.junction.JunctionSerializer(
                 self.junction_file,
                 json_conf=self.json_conf,
                 logger=None
@@ -193,7 +194,7 @@ class TestLoadJunction(unittest.TestCase):
         nlogger.addHandler(handler)
 
         with self.assertLogs("test_exiting", level="WARNING") as cm:
-            _ = Mikado.serializers.junction.JunctionSerializer(
+            _ = serializers.junction.JunctionSerializer(
                 None,
                 json_conf=self.json_conf,
                 logger=nlogger
@@ -217,7 +218,7 @@ class TestLoadJunction(unittest.TestCase):
 
         jconf["reference"]["genome"] = genome_file.name
 
-        seri = Mikado.serializers.junction.JunctionSerializer(
+        seri = serializers.junction.JunctionSerializer(
                 self.junction_file,
                 json_conf=self.json_conf,
                 logger=self.logger
@@ -230,7 +231,7 @@ class TestLoadJunction(unittest.TestCase):
     def test_invalid_bed12(self):
 
         with self.assertRaises(TypeError):
-            _ = Mikado.serializers.junction.Junction(None, 0)
+            _ = serializers.junction.Junction(None, 0)
 
     def tearDown(self):
         self.junction_serialiser.close()

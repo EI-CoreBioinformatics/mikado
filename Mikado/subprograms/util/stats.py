@@ -28,7 +28,7 @@ def itemize(counter):
     """
     Private static method to convert a counter into a 2-dimensional numpy array.
     :param counter: the counter to transform
-    :type counter: Counter
+    :type counter: dict
     :return: Numpy array of the counter
     :rtype: array
     """
@@ -45,8 +45,8 @@ def weighted_percentile(a, percentile=numpy.array([75, 25]), weights=None):
     From: http://stackoverflow.com/questions/21844024/weighted-percentile-using-numpy
     Kudos to SO user Nayyary http://stackoverflow.com/users/2004093/nayyarv
 
-    :param a: array or Counter
-    :type a: (Counter|list|numpy.array|set|tuple)
+    :param a: array
+    :type a: (dict|list|numpy.array|set|tuple)
 
     :param percentile: the percentiles to calculate.
     :type percentile: (numpy.array|list|tuple)
@@ -55,7 +55,7 @@ def weighted_percentile(a, percentile=numpy.array([75, 25]), weights=None):
 
     percentile = numpy.array(percentile)/100.0
 
-    if isinstance(a, Counter):
+    if isinstance(a, (dict, Counter)):
         a, weigths = itemize(a)
     else:
         assert isinstance(a, (list, set, tuple, numpy.ndarray)), (a, type(a))
@@ -190,8 +190,6 @@ class Calculator:
         self.only_coding = parsed_args.only_coding
         self.tab_handle = parsed_args.tab_stats
         if self.tab_handle is not None:
-            # TID, Parent, Exon number, cDNA length, CDS length, #coding exons, cDNA/CDS ratio
-            # 5'UTR, 5'UTR exons, 3'UTR, 3'UTR exons
             __fieldnames = ["TID", "GID",
                             "Coordinates",
                             "Strand",
@@ -239,7 +237,7 @@ class Calculator:
                 self.__store_gene(current_gene)
                 if not record.parent:
                     record.parent = "{}.gene".format(record.id)
-                current_gene = Gene(record.copy(), gid=record.parent[0], only_coding=self.only_coding,
+                current_gene = Gene(record, gid=record.parent[0], only_coding=self.only_coding,
                                     logger=self.__logger)
                 transcript2gene[record.id] = record.parent[0]
                 current_gene.transcripts[record.id] = TranscriptComputer(record, logger=self.__logger)
@@ -259,12 +257,10 @@ class Calculator:
                 if current_gene is None or gid != current_gene.id:
                     # Create a gene record
                     self.__store_gene(current_gene)
-                    new_record = record.copy()
                     # if record.feature != "match":
                     #     new_record.feature = "gene"
-
                     current_gene = Gene(
-                        new_record,
+                        record,
                         gid=gid,
                         only_coding=self.only_coding,
                         logger=self.__logger)
@@ -282,13 +278,14 @@ class Calculator:
                         continue
                     if current_gene is None or record.gene != current_gene.id:
                         self.__store_gene(current_gene)
-                        new_record = record.copy()
-                        new_record.feature = "gene"
-                        new_record.id = new_record.gene
+                        # new_record = record.copy()
+                        # new_record.feature = "gene"
+                        # new_record.id = new_record.gene
                         current_gene = Gene(
-                            new_record,
+                            record,
                             only_coding=self.only_coding,
-                            logger=self.__logger)
+                            logger=self.__logger,
+                            from_exon=True)
                         record.id = record.transcript
                         transcript2gene[record.transcript] = record.gene
                         current_gene.transcripts[record.transcript] = TranscriptComputer(record,
@@ -305,10 +302,10 @@ class Calculator:
                     record.parent = record.id
                     if current_gene is None or record.id != current_gene.id:
                         self.__store_gene(current_gene)
-                        new_record = record.copy()
+                        # new_record = record.copy()
                         current_gene = Gene(
-                            new_record,
-                            gid=new_record.id,
+                            record,
+                            gid=record.id,
                             only_coding=self.only_coding,
                             logger=self.__logger)
                         transcript2gene[record.id] = record.id
@@ -410,29 +407,29 @@ class Calculator:
         self.__stores["genes"] = set()
         self.__stores["coding_genes"] = set()
         self.__stores["monoexonic_genes"] = set()
-        self.__stores["transcripts_per_gene"] = Counter()
-        self.__stores["coding_transcripts_per_gene"] = Counter()
-        self.__stores["exons"], self.__stores["exons_coding"] = Counter(), Counter()
-        self.__stores["exon_num"], self.__stores["exon_num_coding"] = Counter(), Counter()
-        self.__stores["introns"], self.__stores["introns_coding"] = Counter(), Counter()
-        self.__stores["cds_introns"] = Counter()
-        self.__stores["cds_exons"] = Counter()
-        self.__stores["cds_exon_num"] = Counter()
-        self.__stores["cds_exon_num_coding"] = Counter()
-        self.__stores["cdna_lengths"] = Counter()  # Done
-        self.__stores["cdna_lengths_coding"] = Counter()
-        self.__stores["cds_lengths"] = Counter()  # Done
-        self.__stores["cds_lengths_coding"] = Counter()  # Done
-        self.__stores["cds_ratio"] = Counter()
-        self.__stores["monoexonic_lengths"] = Counter()
-        self.__stores["multiexonic_lengths"] = Counter()
-        self.__stores["monocds_lengths"] = Counter()
+        self.__stores["transcripts_per_gene"] = dict()
+        self.__stores["coding_transcripts_per_gene"] = dict()
+        self.__stores["exons"], self.__stores["exons_coding"] = dict(), dict()
+        self.__stores["exon_num"], self.__stores["exon_num_coding"] = dict(), dict()
+        self.__stores["introns"], self.__stores["introns_coding"] = dict(), dict()
+        self.__stores["cds_introns"] = dict()
+        self.__stores["cds_exons"] = dict()
+        self.__stores["cds_exon_num"] = dict()
+        self.__stores["cds_exon_num_coding"] = dict()
+        self.__stores["cdna_lengths"] = dict()  # Done
+        self.__stores["cdna_lengths_coding"] = dict()
+        self.__stores["cds_lengths"] = dict()  # Done
+        self.__stores["cds_lengths_coding"] = dict()  # Done
+        self.__stores["cds_ratio"] = dict()
+        self.__stores["monoexonic_lengths"] = dict()
+        self.__stores["multiexonic_lengths"] = dict()
+        self.__stores["monocds_lengths"] = dict()
 
-        self.__stores["five_utr_lengths"] = Counter()
-        self.__stores["five_utr_nums"] = Counter()
-        self.__stores["three_utr_lengths"] = Counter()
-        self.__stores["three_utr_nums"] = Counter()
-        self.__stores["end_distance_from_junction"] = Counter()
+        self.__stores["five_utr_lengths"] = dict()
+        self.__stores["five_utr_nums"] = dict()
+        self.__stores["three_utr_lengths"] = dict()
+        self.__stores["three_utr_nums"] = dict()
+        self.__stores["end_distance_from_junction"] = dict()
 
     def __store_gene(self, gene):
 
@@ -459,8 +456,11 @@ class Calculator:
             self.__coding_positions[gene.chrom].append((gene.start, gene.end, gene.strand))
             self.__stores["coding_genes"].add(gene.id)
 
-        self.__stores["transcripts_per_gene"].update([gene.num_transcripts])
-        self.__stores["coding_transcripts_per_gene"].update([gene.num_coding_transcripts])
+        self.__stores["transcripts_per_gene"][gene.num_transcripts] = self.__stores["transcripts_per_gene"].get(
+            gene.num_transcripts, 0) + 1
+        self.__stores["coding_transcripts_per_gene"][
+            gene.num_coding_transcripts] = self.__stores["coding_transcripts_per_gene"].get(
+            gene.num_coding_transcripts, 0) + 1
 
         if gene.monoexonic is True:
             self.__stores["monoexonic_genes"].add(gene.id)
@@ -497,62 +497,95 @@ class Calculator:
                 row["3'UTR exons"] = gene.transcripts[tid].three_utr_num
                 self.tab_writer.writerow(row)
 
-            self.__stores["exons"].update(
-                gene.transcripts[tid].exon_lengths)
+            for el in gene.transcripts[tid].exon_lengths:
+                self.__stores["exons"][el] = self.__stores["exons"].get(el, 0) + 1
             exon_number = len(gene.transcripts[tid].exon_lengths)
-            self.__stores["exon_num"].update([exon_number])
+            self.__stores["exon_num"][exon_number] = self.__stores["exon_num"].get(exon_number, 0) + 1
             if exon_number == 1:
-                self.__stores["monoexonic_lengths"].update(
-                    [gene.transcripts[tid].cdna_length])
+                self.__stores["monoexonic_lengths"][
+                    gene.transcripts[tid].cdna_length] = self.__stores["monoexonic_lengths"].get(
+                    gene.transcripts[tid].cdna_length, 0) + 1
             else:
-                self.__stores["multiexonic_lengths"].update(
-                    [gene.transcripts[tid].cdna_length])
-            self.__stores["introns"].update(gene.transcripts[tid].intron_lengths)
-            self.__stores["cds_introns"].update(gene.transcripts[tid].cds_intron_lengths)
-            self.__stores["cds_exons"].update(gene.transcripts[tid].cds_exon_lengths)
-            cds_num = len(gene.transcripts[tid].cds_exon_lengths)
-            if cds_num == 1:
-                self.__stores["monocds_lengths"].update(
-                    [gene.transcripts[tid].selected_cds_length])
-            elif exon_number == 1:
-                if gene.transcripts[tid].selected_cds_length > 0:
-                    self.__stores["monocds_lengths"].update(
-                        [gene.transcripts[tid].selected_cds_length])
+                self.__stores["multiexonic_lengths"][
+                    gene.transcripts[tid].cdna_length] = self.__stores["multiexonic_lengths"].get(
+                        gene.transcripts[tid].cdna_length, 0) + 1
 
-            self.__stores["cds_exon_num"].update([cds_num])
-            self.__stores["cdna_lengths"].update(
-                [gene.transcripts[tid].cdna_length])
-            self.__stores["cds_lengths"].update(
-                [gene.transcripts[tid].selected_cds_length])
+            for il in gene.transcripts[tid].intron_lengths:
+                self.__stores["introns"][il] = self.__stores["introns"].get(il, 0) + 1
+
+            for cdsil in gene.transcripts[tid].cds_intron_lengths:
+                self.__stores["cds_introns"][cdsil] = self.__stores["cds_introns"].get(cdsil, 0) + 1
+
+            for cdsel in gene.transcripts[tid].cds_exon_lengths:
+                self.__stores["cds_exons"][cdsel] = self.__stores["cds_exons"].get(cdsel, 0) + 1
+
+            cds_num = len(gene.transcripts[tid].cds_exon_lengths)
+            sel_length = gene.transcripts[tid].selected_cds_length
+            if (cds_num == 1) or (exon_number == 1 and gene.transcripts[tid].selected_cds_length > 0):
+                self.__stores["monocds_lengths"][sel_length] = self.__stores["monocds_lengths"].get(sel_length, 0) + 1
+
+            self.__stores["cds_exon_num"][cds_num] = self.__stores["cds_exon_num"].get(cds_num, 0) + 1
+            self.__stores["cdna_lengths"][
+                gene.transcripts[tid].cdna_length] = self.__stores["cdna_lengths"].get(
+                gene.transcripts[tid].cdna_length, 0) + 1
+            self.__stores["cds_lengths"][
+                gene.transcripts[tid].selected_cds_length] = self.__stores["cds_lengths"].get(
+                gene.transcripts[tid].selected_cds_length, 0) + 1
+
             if gene.transcripts[tid].selected_cds_length > 0:
                 __cds_length = gene.transcripts[tid].selected_cds_length
                 __cdna_length = gene.transcripts[tid].cdna_length
                 assert __cds_length > 0
-                self.__stores["cds_lengths_coding"].update(
-                    [gene.transcripts[tid].selected_cds_length])
-                self.__stores["five_utr_lengths"].update(
-                    [gene.transcripts[tid].five_utr_length])
-                self.__stores["three_utr_lengths"].update(
-                    [gene.transcripts[tid].three_utr_length])
-                self.__stores["five_utr_nums"].update(
-                    [gene.transcripts[tid].five_utr_num])
-                self.__stores["three_utr_nums"].update(
-                    [gene.transcripts[tid].three_utr_num])
-                self.__stores["end_distance_from_junction"].update(
-                    [gene.transcripts[tid].selected_end_distance_from_junction])
-                self.__stores["cds_ratio"].update([100 * __cds_length / __cdna_length])
+                self.__stores["cds_lengths_coding"][
+                    gene.transcripts[tid].selected_cds_length] = self.__stores["cds_lengths_coding"].get(
+                    gene.transcripts[tid].selected_cds_length, 0) + 1
+
+                self.__stores["five_utr_lengths"].set(gene.transcripts[tid].five_utr_length,
+                                                      self.__stores["five_utr_lengths"].get(
+                                                          gene.transcripts[tid].five_utr_length, 0) + 1)
+
+                self.__stores["three_utr_lengths"].set(gene.transcripts[tid].three_utr_length,
+                                                      self.__stores["three_utr_lengths"].get(
+                                                          gene.transcripts[tid].three_utr_length, 0) + 1)
+
+                self.__stores["five_utr_nums"].set(gene.transcripts[tid].five_utr_num,
+                                                      self.__stores["five_utr_nums"].get(
+                                                          gene.transcripts[tid].five_utr_num, 0) + 1)
+
+                self.__stores["three_utr_nums"].set(gene.transcripts[tid].three_utr_num,
+                                                       self.__stores["three_utr_nums"].get(
+                                                           gene.transcripts[tid].three_utr_num, 0) + 1)
+                self.__stores["end_distance_from_junction"].set(
+                    gene.transcripts[tid].selected_end_distance_from_junction,
+                    self.__stores["end_distance_from_junction"].get(
+                        gene.transcripts[tid].selected_end_distance_from_junction, 0) + 1
+                )
+
+                cds_ratio = 100 * __cds_length / __cdna_length
+                self.__stores["cds_ratio"].set(cds_ratio,
+                                               self.__stores["cds_ratio"].get(cds_ratio, 0) + 1)
 
             if self.only_coding is False:
                 if gene.transcripts[tid].selected_cds_length > 0:
-                    self.__stores["cdna_lengths_coding"].update(
-                        [gene.transcripts[tid].cdna_length])
-                    self.__stores["exons_coding"].update(gene.transcripts[tid].exon_lengths)
-                    self.__stores["exon_num_coding"].update(
-                        [len(gene.transcripts[tid].exon_lengths)])
-                    self.__stores["cds_exon_num_coding"].update(
-                        [len(gene.transcripts[tid].cds_exon_lengths)])
-                    self.__stores["introns_coding"].update(
-                        gene.transcripts[tid].intron_lengths)
+                    cdl = gene.transcripts[tid].cdna_length
+
+                    self.__stores["cdna_lengths_coding"].set(
+                        cdl,
+                        self.__stores["cdna_lengths_coding"].get(cdl, 0) + 1)
+                    for el in gene.transcripts[tid].exon_lengths:
+                        self.__stores["exons_coding"].set(el, self.__stores["exons_coding"].get(el, 0) + 1)
+                    num_exons = len(gene.transcripts[tid].exon_lengths)
+
+                    self.__stores["exon_num_coding"].set(
+                        num_exons,
+                        self.__stores["exon_num_coding"].get(num_exons, 0) + 1)
+                    cds_num_exons = len(gene.transcripts[tid].cds_exon_lengths)
+                    self.__stores["cds_exon_num_coding"].set(
+                        cds_num_exons,
+                        self.__stores["cds_exon_num_coding"].get(cds_num_exons, 0) + 1)
+                    for il in gene.transcripts[tid].intron_lengths:
+                        self.__stores["introns_coding"].set(
+                            il, self.__stores["introns_coding"].get(il, 0) + 1)
         return
 
     def __finalize_arrays(self):

@@ -26,7 +26,7 @@ class Gene:
 
     __name__ = "gene"
 
-    def __init__(self, transcr: [None, Transcript], gid=None, logger=None, only_coding=False):
+    def __init__(self, transcr: [None, Transcript], gid=None, logger=None, only_coding=False, from_exon=False):
 
         self.transcripts = dict()
         self.__logger = None
@@ -48,8 +48,10 @@ class Gene:
             elif isinstance(transcr, GffLine):
                 if transcr.is_gene is True:
                     self.__from_gene = True
-                elif not "match" in transcr.feature:
+                elif (from_exon is False) and ("match" not in transcr.feature):
                     raise AssertionError(str(transcr))
+                elif from_exon is True:
+                    self.__from_gene = False
 
                 self.id = transcr.id
                 self.attributes = transcr.attributes.copy()

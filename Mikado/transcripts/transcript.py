@@ -221,10 +221,7 @@ class Transcript:
     external_baked = bakery(lambda session: session.query(External))
     external_baked += lambda q: q.filter()
 
-
-
     # ######## Class special methods ####################
-
     def __init__(self, *args,
                  source=None,
                  logger=None,
@@ -587,14 +584,14 @@ class Transcript:
         # Set the logger to NullHandler
         self.logger = None
 
-    def __getattribute__(self, item):
-        try:
-            return object.__getattribute__(self, item)
-        except AttributeError as exc:
-            if "external" in item and item != "external" and "." in item:
-                return getattr(self.external_scores, item.split(".")[1])
-            else:
-                raise AttributeError(exc)
+    # def __getattribute__(self, item):
+    #     try:
+    #         return object.__getattribute__(self, item)
+    #     except AttributeError as exc:
+    #         if "external" in item and item != "external" and "." in item:
+    #             return getattr(self.external_scores, item.split(".")[1])
+    #         else:
+    #             raise AttributeError(exc)
 
     # ######## Class instance methods ####################
 
@@ -1195,7 +1192,7 @@ class Transcript:
         state["id"] = getattr(self, "id")
         return state
 
-    def load_dict(self, state):
+    def load_dict(self, state, trust_orf=False):
         self.finalized = False
 
         for key in ["chrom", "source",
@@ -1234,6 +1231,7 @@ class Transcript:
                 raise CorruptIndex("Invalid exonic values of {}".format(self.id))
             self.exons.append(tuple(exon))
 
+        self._trust_orf = trust_orf
         self.internal_orfs = []
         self.logger.debug("Starting to load the ORFs for %s", self.id)
         try:
@@ -1991,21 +1989,23 @@ class Transcript:
         self.__combined_cds = combined
 
     @property
-    @functools.lru_cache(maxsize=None, typed=True)
     def coding_exons(self):
 
         """This property returns a list of exons which have at least a coding part."""
 
-        if self.combined_cds_length == 0:
-            return []
-        coding = []
-        for exon in self.exons:
-            for ccd in self.combined_cds:
-                if self.overlap(exon, ccd) > 0:
-                    coding.append(exon)
-                    break
-                continue
-        return coding
+        @functools.lru_cache(maxsize=None, typed=True)
+        def _wrapped(combined_cds, combined_cds_length, exons):
+            if combined_cds_length == 0:
+                return []
+            coding = []
+            for exon in exons:
+                for ccd in combined_cds:
+                    if self.overlap(exon, ccd) > 0:
+                        coding.append(exon)
+                        break
+                    continue
+
+        return _wrapped(tuple(self.combined_cds), self.combined_cds_length, tuple(self.exons))
 
     @staticmethod
     def __wrong_combined_entry(to_test):
@@ -2223,7 +2223,11 @@ index {3}, internal ORFs: {4}".format(
         #     c_length = int(np.subtract(ar[1], ar[0] - 1).sum())
         #     assert c_length > 0
 
-        return sum([e[1] - e[0] + 1 for e in self.combined_cds])
+        @functools.lru_cache(typed=True, maxsize=4)
+        def _wrapped(combined_cds):
+            return sum([e[1] - e[0] + 1 for e in combined_cds])
+
+        return _wrapped(tuple(self.combined_cds))
 
     combined_cds_length.category = "CDS"
     combined_cds_length.rtype = "int"
@@ -2532,7 +2536,12 @@ index {3}, internal ORFs: {4}".format(
     @Metric
     def exon_num(self):
         """This property returns the number of exons of the transcript."""
-        return len(self.exons)
+
+        @functools.lru_cache(typed=True, maxsize=4)
+        def _wrapped(exons):
+            return len(exons)
+
+        return _wrapped(tuple(self.exons))
 
     exon_num.category = "cDNA"
     exon_num.rtype = "int"
@@ -3228,3 +3237,4 @@ index {3}, internal ORFs: {4}".format(
 
     max_exon_length.category = "cDNA"
     max_exon_length.rtype = "int"
+

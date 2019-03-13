@@ -22,6 +22,7 @@ from .contrast import compare as c_compare
 from .resultstorer import ResultStorer
 from ..exceptions import InvalidTranscript, InvalidCDS
 from ..utilities.intervaltree import IntervalTree
+import pickle
 
 
 # noinspection PyPropertyAccess,PyPropertyAccess
@@ -36,7 +37,9 @@ class Assigner:
                  genes: dict,
                  positions: collections.defaultdict,
                  args: argparse.Namespace,
-                 stat_calculator: Accountant):
+                 stat_calculator: Accountant,
+                 results=(),
+                 printout_tmap=True):
 
         """
 
@@ -52,6 +55,9 @@ class Assigner:
 
         :param stat_calculator: an instance of Accountant, to which the results will be sent to.
         :type stat_calculator: Accountant
+
+        :param printout_tmap: boolean value. If set to True, the object will print each row.
+        :type printout_tmap: bool
         """
 
         if args is None:
@@ -97,35 +103,62 @@ class Assigner:
 
         self.genes = genes
         self.positions = positions
+        self.printout_tmap = printout_tmap
+        # noinspection PyUnresolvedReferences
+        if self.printout_tmap:
+            if self.args.gzip is False:
+                self.tmap_out = open("{0}.tmap".format(args.out), 'wt')
+            else:
+                self.tmap_out = gzip.open("{0}.tmap.gz".format(args.out), 'wt')
+            self.tmap_rower = csv.DictWriter(self.tmap_out, ResultStorer.__slots__, delimiter="\t")
+            self.tmap_rower.writeheader()
+
         self.gene_matches = collections.defaultdict(dict)
+        self.done = 0
+        self.stat_calculator = stat_calculator
+        self.self_analysis = self.stat_calculator.self_analysis
+        self.tmap = dict()
         for gid in self.genes:
             for tid in self.genes[gid].transcripts:
                 self.gene_matches[gid][tid] = []
 
-        #
-        # for chrom in positions:
-        #     for key in positions[chrom]:
-        #         for gid in positions[chrom][key]:
-        #             self.gene_matches[gid] = dict()
-        #             for tid in self.genes[gid]:
-        #                 self.gene_matches[gid][tid.id] = []
-        #
+        if results:
+            self.__load_from_results(results)
+            return
 
         self.indexer = collections.defaultdict(list).fromkeys(self.positions)
-
         for chrom in positions:
             self.indexer[chrom] = IntervalTree.from_tuples(self.positions[chrom].keys())
 
-        # noinspection PyUnresolvedReferences
-        if self.args.gzip is False:
-            self.tmap_out = open("{0}.tmap".format(args.out), 'wt')
-        else:
-            self.tmap_out = gzip.open("{0}.tmap.gz".format(args.out), 'wt')
-        self.tmap_rower = csv.DictWriter(self.tmap_out, ResultStorer.__slots__, delimiter="\t")
-        self.tmap_rower.writeheader()
-        self.done = 0
-        self.stat_calculator = stat_calculator
-        self.self_analysis = self.stat_calculator.self_analysis
+    def __load_from_results(self, results):
+
+        """Private method to load together all the results from a previous run."""
+
+
+        for gene_match, tmap, stat_calculator in results:
+            for gid in gene_match:
+                for tid in gene_match[gid]:
+                    for match in gene_match[gid][tid]:
+                        self.gene_matches[gid][tid].append(match)
+            self.stat_calculator.merge_into(stat_calculator)
+            self.tmap.update(tmap)
+
+        if self.printout_tmap is True:
+            for key in self.tmap:
+                if isinstance(self.tmap[key], list):
+                    for res in self.tmap[key]:
+                        self.print_tmap(res)
+                else:
+                    self.print_tmap(self.tmap[key])
+
+    def dump(self, fname):
+
+        """Method to dump all results into a pickle object"""
+
+        with open(fname, "wb") as out:
+
+            simplified = self.stat_calculator.serialize()
+            pickle.dump((self.gene_matches, self.tmap, simplified), out)
 
     def add_to_refmap(self, result: ResultStorer) -> None:
         """
@@ -224,17 +257,16 @@ class Assigner:
             try:
                 prediction.strip_cds()
             except InvalidTranscript as err:
-                self.logger.warning("Invalid transcript (due to CDS): %s",
-                                 prediction.id)
+                self.logger.warning("Invalid transcript (due to CDS): %s", prediction.id)
                 self.logger.warning("Error message: %s", err)
-                self.done += 1
+                # self.done += 1
                 self.print_tmap(None)
                 return None
         except InvalidTranscript as err:
             #         args.queue.put_nowait("mock")
             self.logger.warning("Invalid transcript: %s", prediction.id)
             self.logger.warning("Error message: %s", err)
-            self.done += 1
+            # self.done += 1
             self.print_tmap(None)
             return None
         return prediction
@@ -560,7 +592,7 @@ class Assigner:
         if self.args.protein_coding is True and prediction.combined_cds_length == 0:
             #         args.queue.put_nowait("mock")
             self.logger.debug("No CDS for %s. Ignoring.", prediction.id)
-            self.done += 1
+            # self.done += 1
             self.print_tmap(None)
             return None
 
@@ -623,7 +655,8 @@ class Assigner:
         else:
             self.print_tmap(best_result)
 
-        self.done += 1
+        # self.done += 1
+        self.tmap[prediction.id] = best_result
         return best_result
 
     def finish(self):
@@ -700,10 +733,9 @@ class Assigner:
         :param res: result from compare
         :type res: (ResultStorer | None)
         """
-        if self.done % 10000 == 0 and self.done > 0:
-            self.logger.info("Done %d transcripts", self.done)
-        elif self.done % 1000 == 0 and self.done > 0:
-            self.logger.debug("Done %d transcripts", self.done)
+        if self.printout_tmap is False:
+            return
+
         if res is not None:
             if not isinstance(res, ResultStorer):
                 self.logger.exception("Wrong type for res: %s", str(type(res)))
@@ -738,17 +770,6 @@ class Assigner:
                    "f" in result.ccode)
 
         return orderer
-
-    # @classmethod
-    # def result_sorter(cls, result):
-    #
-    #     """
-    #     Public interface of __result_sorter
-    #     :param result: a result
-    #     :return:
-    #     """
-    #
-    #     return cls.__result_sorter(result)
 
     def print_refmap(self) -> None:
 

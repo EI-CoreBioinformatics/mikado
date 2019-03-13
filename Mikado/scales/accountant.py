@@ -11,7 +11,7 @@ import logging
 import operator
 from logging import handlers as log_handlers
 
-from Mikado.transcripts.transcript import Transcript
+from Mikado.transcripts.transcript import Transcript, Namespace
 from . import calc_f1
 from .resultstorer import ResultStorer
 
@@ -471,50 +471,94 @@ class Accountant:
         result = self.__extract_internal_stats(result)
         return result
 
-    def __store_multiexonic_result(self, transcr, strand, result):
+    def serialize(self):
+
+        simplified = Namespace()
+        for attr in ("pred_genes", "ref_genes", "intron_chains", "monoexonic_matches",
+                     "introns", "exons", "starts", "ends"):
+            setattr(simplified, attr, getattr(self, attr))
+        return simplified
+
+    def merge_into(self, accountant):
+
+        for parent in accountant.pred_genes:
+            if parent not in self.pred_genes:
+                self.pred_genes[parent] = accountant.pred_genes[parent]
+            else:
+                for tid in self.pred_genes[parent]:
+                    self.pred_genes[parent][tid] |= accountant.pred_genes[parent][tid]
+
+        for ref_gene in accountant.ref_genes:
+            for refid in accountant.ref_genes[ref_gene]:
+                self.ref_genes[ref_gene][refid] |= accountant.ref_genes[ref_gene][refid]
+
+        for chrom in accountant.intron_chains:
+            for strand in accountant.intron_chains[chrom]:
+                for ic_key in accountant.intron_chains[chrom][strand]:
+                    if ic_key not in self.intron_chains[chrom][strand]:
+                        self.intron_chains[chrom][strand][ic_key] = [set(), set()]
+                    self.intron_chains[chrom][strand][ic_key][0].update(
+                        accountant.intron_chains[chrom][strand][ic_key][0]
+                    )
+                    self.intron_chains[chrom][strand][ic_key][1].update(
+                        accountant.intron_chains[chrom][strand][ic_key][1]
+                    )
+
+        self.monoexonic_matches[0].update(accountant.monoexonic_matches[0])
+        self.monoexonic_matches[1].update(accountant.monoexonic_matches[1])
+
+        for feature in ("introns", "exons", "starts", "ends"):
+            store = getattr(accountant, feature)
+            my_store = getattr(self, feature)
+            for chrom in store:
+                for strand in store[chrom]:
+                    for feat in store[chrom][strand]:
+                        if feat not in my_store[chrom][strand]:
+                            my_store[chrom][strand][feat] = 0b0
+                        my_store[chrom][strand][feat] |= store[chrom][strand][feat]
+
+    def __store_multiexonic_result(self, transcr, strand):
 
         """
         Private procedure to store the results regarding a multiexonic
         transcript compared to the reference.
         :param transcr: a transcript instance
         :param strand: the strand to be used for storing
-        :param result: a ResultStorer instance
         :return:
         """
 
         # assert transcr.monoexonic is False
         ic_key = tuple([tuple([intron[0], intron[1]]) for intron in sorted(transcr.introns)])
-        # if result.ccode == ("=",):
-        #     assert ic_key in self.intron_chains[transcr.chrom][strand]
-        #     assert result.ref_id[0] in self.intron_chains[transcr.chrom][strand][ic_key][0]
-
-        if ic_key not in self.intron_chains[transcr.chrom][strand]:
-            self.intron_chains[transcr.chrom][strand][ic_key] = [set(), set()]
-        self.intron_chains[transcr.chrom][strand][ic_key][1].add(transcr.id)
+        # We register the variables here because multiple access slows the program down!
+        chrom = transcr.chrom[:]
+        exon_num = transcr.exon_num
+        if ic_key not in self.intron_chains[chrom][strand]:
+            self.intron_chains[chrom][strand][ic_key] = [set(), set()]
+        self.intron_chains[chrom][strand][ic_key][1].add(transcr.id)
 
         for intron in transcr.introns:
             intron = tuple([intron[0], intron[1]])
-            if intron not in self.introns[transcr.chrom][strand]:
+            if intron not in self.introns[chrom][strand]:
                 self.introns[transcr.chrom][strand][intron] = 0b0
-            self.introns[transcr.chrom][strand][intron] |= 0b10
+            self.introns[chrom][strand][intron] |= 0b10
 
         for index, exon in enumerate(transcr.exons):
             exon = tuple([exon[0], exon[1]])
-            if exon not in self.exons[transcr.chrom][strand]:
-                self.exons[transcr.chrom][strand][exon] = 0b0
-            self.exons[transcr.chrom][strand][exon] |= 0b10  # set it as "in prediction"
+            if exon not in self.exons[chrom][strand]:
+                self.exons[chrom][strand][exon] = 0b0
+            self.exons[chrom][strand][exon] |= 0b10  # set it as "in prediction"
             if index == 0:
-                self.exons[transcr.chrom][strand][exon] |= 0b010000
+                self.exons[chrom][strand][exon] |= 0b010000
                 if exon[1] not in self.starts[transcr.chrom][strand]:
-                    self.starts[transcr.chrom][strand][exon[1]] = 0b0
-                self.starts[transcr.chrom][strand][exon[1]] |= 0b10
-            elif index == transcr.exon_num - 1:
-                self.exons[transcr.chrom][strand][exon] |= 0b010000
-                if exon[0] not in self.ends[transcr.chrom][strand]:
-                    self.ends[transcr.chrom][strand][exon[0]] = 0b00
-                self.ends[transcr.chrom][strand][exon[0]] |= 0b10
+                    self.starts[chrom][strand][exon[1]] = 0b0
+                self.starts[chrom][strand][exon[1]] |= 0b10
+            elif index == exon_num - 1:
+                self.exons[chrom][strand][exon] |= 0b010000
+                if exon[0] not in self.ends[chrom][strand]:
+                    self.ends[chrom][strand][exon[0]] = 0b00
+                self.ends[chrom][strand][exon[0]] |= 0b10
             else:
-                self.exons[transcr.chrom][strand][exon] |= 0b01000
+                self.exons[chrom][strand][exon] |= 0b01000
 
     def __store_monoexonic_result(self, transcr, strand, result: ResultStorer, other_exon=None):
         """
@@ -614,7 +658,7 @@ class Accountant:
             self.intron_chains[transcr.chrom] = dict([("+", dict()), ("-", dict())])
 
         if transcr.exon_num > 1:
-            self.__store_multiexonic_result(transcr, strand, result)
+            self.__store_multiexonic_result(transcr, strand)
         else:
             self.__store_monoexonic_result(transcr, strand, result, other_exon=other_exon)
 

@@ -329,11 +329,6 @@ cpdef tuple compare(prediction, reference, bint lenient=False, bint strict_stran
                                       flank=0,
                                       positive=1)
 
-    # Quick verification that the overlap is not too big
-    assert nucl_overlap <= double_min(r_cdna_length, p_cdna_length), \
-        (prediction.id, prediction.cdna_length,
-         reference.id, reference.cdna_length, nucl_overlap)
-
     nucl_recall = nucl_overlap / r_cdna_length  # Sensitivity
     nucl_precision = nucl_overlap / p_cdna_length
     nucl_f1 = calc_f1(nucl_recall, nucl_precision)
@@ -396,10 +391,6 @@ cpdef tuple compare(prediction, reference, bint lenient=False, bint strict_stran
         else:
             ccode = "P"
         distance = long_max(p_start - r_end, r_start - p_end)
-
-#    elif nucl_precision == 1:
-#        if p_exon_num == 1 or (p_exon_num > 1 and junction_precision == 1):
-#            ccode = "c"
 
     if ccode == "":
         # stats = (nucl_recall, nucl_precision, nucl_f1,

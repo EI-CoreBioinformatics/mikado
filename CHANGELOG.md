@@ -25,7 +25,7 @@ Bugfixes and improvements:
 - Corrected a long-standing bug that made Mikado lose track of some fragments during the fragment removal phase. Somewhat confusingly, Mikado printed those loci into the output, but reported in the log file that there was a "missing locus". Now Mikado is able to correctly keeping track of them and removing them.
 - Corrected a bug in the calculation of overlapping intervals during BLAST serialisation.
 - Now BLAST HSPs will have stored as well whether there is an in-frame stop codon.
-- Now Mikado pick will be forced to run in single-threaded mode if the user is asking for debugging-level logs. This is to prevent a re-entrancy race condition that causes deadlocks (https://codewithoutrules.com/2017/08/16/concurrency-python/). 
+- Now Mikado pick will be forced to run in single-threaded mode if the user is asking for debugging-level logs. This is to prevent a [re-entrancy race condition that causes deadlocks](https://codewithoutrules.com/2017/08/16/concurrency-python/). 
 - Mikado prepare now can accept models that lack any exon features but still have valid CDS/UTR features - this is necessary for some protein prediction tools.
 - Fixed [#124](https://github.com/EI-CoreBioinformatics/mikado/issues/124): Mikado was giving an error when trying to launch from a folder with an invalid "plants.yaml" file, due to not checking correctly the validity of the file itself.
 - Fixed [#139](https://github.com/EI-CoreBioinformatics/mikado/issues/139): Mikado was reverse complementing non-uppercase letters incorrectly.
@@ -37,8 +37,7 @@ Bugfixes and improvements:
 - [#130](https://github.com/EI-CoreBioinformatics/mikado/issues/130): it is now possible to specify a different metric inside the "filter" section of scoring.
 - [#131](https://github.com/EI-CoreBioinformatics/mikado/issues/131): in rare instances, Mikado could have missed loci if they were lost between the sublocus and monosublocus stages. Now Mikado implements a basic backtracking recursive algorithm that should ensure no locus is missed.
 - [#132](https://github.com/EI-CoreBioinformatics/mikado/issues/132),[#133](https://github.com/EI-CoreBioinformatics/mikado/issues/133): Mikado will now evaluate the CDS of transcripts during Mikado prepare.
-- [#134](https://github.com/EI-CoreBioinformatics/mikado/issues/134): when checking for potential Alternative Splicing Events (ASEs), now Mikado will check whether the CDS phases are in frame with each other. Moreover
- **Mikado will now calculate the CDS overlap percentage based on the primary transcript CDS length**, not the minimum CDS length between primary and candidate. Please note that the change **regarding the frame** also affects the monosublocus stage. Mikado still considers only the primary ORFs for the overlap.
+- [#134](https://github.com/EI-CoreBioinformatics/mikado/issues/134): when checking for potential Alternative Splicing Events (ASEs), now Mikado will check whether the CDS phases are in frame with each other. Moreover, **Mikado will now calculate the CDS overlap percentage based on the primary transcript CDS length**, not the minimum CDS length between primary and candidate. Please note that the change **regarding the frame** also affects the monosublocus stage. Mikado still considers only the primary ORFs for the overlap.
 - [#136](https://github.com/EI-CoreBioinformatics/mikado/issues/136): documentation has been updated to reflect the changes in the latest releases.
 - [#137](https://github.com/EI-CoreBioinformatics/mikado/issues/137): unit-test coverage has been improved.
 - [#138](https://github.com/EI-CoreBioinformatics/mikado/issues/138): Solved a bug which led Mikado to recalculate the phases for each model during picking, potentially creating mistakes for models truncated at the 5' end.
@@ -52,6 +51,10 @@ Bugfixes and improvements:
     - find_downstream (to find all intervals downstream of the requested one in the transcript)
     - Moreover, transcript objects now do not have any more the unused "cds_introntree" property. Combined CDS and CDS introns are now present in the "cds_tree" object.
   - Again as a consequence of [#142](https://github.com/EI-CoreBioinformatics/mikado/issues/142), now Locus objects have a new private method - _swap_transcript - that allows two Transcript objects with the same ID to be exchanged within the locus. This is essential to allow the Locus to recalculate most scores and metrics (e.g. all the exons or introns in the locus).
+ - [#148](https://github.com/EI-CoreBioinformatics/mikado/issues/148): during the pick phase, "reference" transcripts will never be excluded because they do not pass the minimum requirements set in the scoring file.
+ - [#149](https://github.com/EI-CoreBioinformatics/mikado/issues/149): Now Mikado also provides a Docker file and a Singularity recipe, for ease of installation.
+ - [#153](https://github.com/EI-CoreBioinformatics/mikado/issues/153): General speed improvements due to modifications in the Transcript class. 
+ 
 
 # Version 1.2.4
 

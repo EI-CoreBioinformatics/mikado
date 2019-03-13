@@ -248,14 +248,14 @@ class Gene:
 
         return state
 
-    def load_dict(self, state, exclude_utr=False, protein_coding=False):
+    def load_dict(self, state, exclude_utr=False, protein_coding=False, trust_orf=False):
 
         for key in ["chrom", "source", "start", "end", "strand", "id"]:
             setattr(self, key, state[key])
 
         for tid, tvalues in state["transcripts"].items():
             transcript = Transcript(logger=self.logger)
-            transcript.load_dict(tvalues)
+            transcript.load_dict(tvalues, trust_orf=trust_orf)
             transcript.finalize()
             if protein_coding is True and transcript.is_coding is False:
                 self.logger.debug("{0} is non coding ({1}, {2})".format(

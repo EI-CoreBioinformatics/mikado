@@ -8,8 +8,7 @@ import sys
 import os
 from ..picking import Picker
 from ..configuration.configurator import to_json, check_json
-from ..exceptions import UnsortedInput  # , InvalidJson
-from ..utilities.log_utils import create_default_logger, create_logger_from_conf
+from ..utilities.log_utils import create_default_logger
 
 
 def check_log_settings(args):
@@ -54,8 +53,8 @@ def check_run_options(args, logger=None):
 
     if args.no_cds is not False:
         args.json_conf["pick"]["run_options"]["exclude_cds"] = True
-    if args.purge is not False:
-        args.json_conf["pick"]["clustering"]["purge"] = True
+    if args.no_purge is True:
+        args.json_conf["pick"]["clustering"]["purge"] = False
 
     if args.flank is not None:
         args.json_conf["pick"]["clustering"]["flank"] = args.flank
@@ -83,8 +82,8 @@ def check_run_options(args, logger=None):
                 args.json_conf["pick"]["chimera_split"]["blast_check"] = True
                 args.json_conf["pick"]["chimera_split"]["blast_params"]["leniency"] = args.mode.upper()
 
-    if args.pad is True:
-        args.json_conf["pick"]["alternative_splicing"]["pad"] = True
+    if args.pad is not None:
+        args.json_conf["pick"]["alternative_splicing"]["pad"] = args.pad
 
     if args.pad_max_splices is not None:
         args.json_conf["pick"]["alternative_splicing"]["ts_max_splices"] = True
@@ -94,9 +93,6 @@ def check_run_options(args, logger=None):
 
     if args.intron_range is not None:
         args.json_conf["pick"]["run_options"]["intron_range"] = tuple(sorted(args.intron_range))
-
-    if args.monoloci_from_simple_overlap is True:
-        args.json_conf["pick"]["run_options"]["monoloci_from_simple_overlap"] = True
 
     if args.cds_only is True:
         args.json_conf["pick"]["clustering"]["cds_only"] = True
@@ -138,7 +134,6 @@ def check_run_options(args, logger=None):
         sys.exit(1)
 
     args.json_conf = check_json(args.json_conf, logger=logger)
-
     return args
 
 
@@ -204,15 +199,15 @@ def pick_parser():
                         Default: (60, 900)""")
     parser.add_argument("--fasta", type=argparse.FileType(),
                         help="Genome FASTA file. Required if pad is enabled (default).")
-    parser.add_argument("--no-pad", dest="pad", action="store_false", help="Disable transcript padding.")
-    parser.add_argument("--pad", default=False,
-                        action="store_true",
-                        help="Whether to pad transcripts in loci.")
+    padding = parser.add_mutually_exclusive_group()
+    padding.add_argument("--no-pad", dest="pad", default=None, action="store_false", help="Disable transcript padding.")
+    padding.add_argument("--pad", default=None,
+                         action="store_true",
+                         help="Whether to pad transcripts in loci.")
     parser.add_argument("--pad-max-splices", default=None, dest="pad_max_splices",
                         type=int, help="Maximum splice sites that can be crossed during transcript padding.")
     parser.add_argument("--pad-max-distance", default=None, dest="pad_max_distance",
                         type=int, help="Maximum amount of bps that transcripts can be padded with (per side).")
-
     output = parser.add_argument_group("Options related to the output files.")
     output.add_argument("--subloci_out", type=str, default=None)
     output.add_argument("--monoloci_out", type=str, default=None)
@@ -232,8 +227,8 @@ def pick_parser():
     parser.add_argument("--flank", default=None, type=int,
                         help="""Flanking distance (in bps) to group non-overlapping transcripts
                         into a single superlocus. Default: determined by the configuration file.""")
-    parser.add_argument('--purge', action='store_true', default=False,
-                        help='''Flag. If set, the pipeline will suppress any loci
+    parser.add_argument('--no-purge', action='store_true', default=False,
+                        help='''Flag. If set, the pipeline will NOT suppress any loci
                         whose transcripts do not pass the requirements set in the JSON file.''')
     parser.add_argument("--cds-only", dest="cds_only",
                         default=False, action="store_true",
@@ -246,11 +241,6 @@ def pick_parser():
                         help="""Flag. If switched on, Mikado will only keep loci where at least one of the transcripts
                         is marked as "reference". CAUTION: new and experimental. If no transcript has been marked as
                         reference, the output will be completely empty!""")
-
-    parser.add_argument("--monoloci-from-simple-overlap", dest="monoloci_from_simple_overlap",
-                        default=False, action="store_true",
-                        help=""""Flag. If set, in the final stage Mikado will cluster transcripts by simple overlap,
-                        not by looking at the presence of shared introns. Default: False.""")
     parser.add_argument("--consider-truncated-for-retained", dest="consider_truncated_for_retained",
                         action="store_true", default=False,
                         help="""Flag. If set, Mikado will consider as retained intron events also transcripts

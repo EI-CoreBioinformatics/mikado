@@ -1,7 +1,8 @@
-import Mikado
-from Mikado.transcripts import Transcript
-from Mikado.parsers.bed12 import BED12
-from Mikado.utilities.log_utils import create_default_logger
+# import Mikado
+from .. import loci, configuration, transcripts
+from ..transcripts import Transcript
+from ..parsers.bed12 import BED12
+from ..utilities.log_utils import create_default_logger
 import unittest
 import ujson as json
 import io
@@ -41,7 +42,7 @@ class ScoreTester(unittest.TestCase):
         self.t3 = Transcript(b3)
         self.t3.finalize()
         self.assertTrue(self.t3.is_coding)
-        self.json_conf = Mikado.loci.abstractlocus.json_conf
+        self.json_conf = loci.abstractlocus.json_conf
         reqs = {"requirements":
                     {"expression": ["cdna_length"],
                      "parameters": {
@@ -50,9 +51,9 @@ class ScoreTester(unittest.TestCase):
                      }
                 }
 
-        reqs = Mikado.configuration.configurator.check_requirements(reqs, require_schema, "requirements")
+        reqs = configuration.configurator.check_requirements(reqs, require_schema, "requirements")
         self.json_conf["requirements"] = reqs["requirements"]
-        self.locus = Mikado.loci.Superlocus(self.t1, json_conf=self.json_conf)
+        self.locus = loci.Superlocus(self.t1, json_conf=self.json_conf)
         self.locus.add_transcript_to_locus(self.t2)
         self.locus.add_transcript_to_locus(self.t3)
 
@@ -200,8 +201,8 @@ class ScoreTester(unittest.TestCase):
 
     def test_default_scores(self):
 
-        json_conf = Mikado.loci.abstractlocus.json_conf
-        locus = Mikado.loci.Superlocus(self.t1, use_transcript_scores=True, json_conf=json_conf)
+        json_conf = loci.abstractlocus.json_conf
+        locus = loci.Superlocus(self.t1, use_transcript_scores=True, json_conf=json_conf)
         locus.add_transcript_to_locus(self.t2)
         locus.add_transcript_to_locus(self.t3)
         self.assertTrue(locus._use_transcript_scores)
@@ -218,7 +219,7 @@ class ScoreTester(unittest.TestCase):
 class LocusMissedTester(unittest.TestCase):
 
     def setUp(self):
-        self.json_conf = Mikado.loci.abstractlocus.json_conf
+        self.json_conf = loci.abstractlocus.json_conf
         reqs = {"requirements":
                     {"expression": ["cdna_length"],
                      "parameters": {
@@ -227,7 +228,7 @@ class LocusMissedTester(unittest.TestCase):
                      }
                 }
 
-        reqs = Mikado.configuration.configurator.check_requirements(reqs, require_schema, "requirements")
+        reqs = configuration.configurator.check_requirements(reqs, require_schema, "requirements")
         self.json_conf["requirements"] = reqs["requirements"]
 
     def test_transcript_not_missed(self):
@@ -239,7 +240,7 @@ class LocusMissedTester(unittest.TestCase):
         self.assertEqual(b1.thick_start, 201)
         self.assertEqual(b1.thick_end, 459)
         logger = create_default_logger("test_transcript_missed", level="ERROR")
-        t1 = Mikado.transcripts.Transcript(b1, logger=logger)
+        t1 = transcripts.Transcript(b1, logger=logger)
         t1.finalize()
         self.assertEqual(sorted(t1.exons), [(101, 300), (401,500)])
 
@@ -251,7 +252,7 @@ class LocusMissedTester(unittest.TestCase):
         self.assertEqual(b2.thick_start, 201)
         self.assertEqual(b2.thick_end, 901)
         # logger.setLevel("DEBUG")
-        t2 = Mikado.transcripts.Transcript(b2, logger=logger)
+        t2 = transcripts.Transcript(b2, logger=logger)
         t2.finalize()
         self.assertTrue(t2.is_coding)
         self.assertEqual(sorted(t2.exons), [(101, 300), (401, 550), (801, 1200), (1301, 1500)])
@@ -265,13 +266,13 @@ class LocusMissedTester(unittest.TestCase):
         self.assertEqual(b3.thick_start, 821)
         self.assertEqual(b3.thick_end, 1370)
         # logger.setLevel("DEBUG")
-        t3 = Mikado.transcripts.Transcript(b3, logger=logger)
+        t3 = transcripts.Transcript(b3, logger=logger)
         t3.finalize()
         self.assertTrue(t3.is_coding)
         self.assertEqual(sorted(t3.exons), [(801, 850), (951, 1050), (1101, 1200), (1301, 1500)])
         self.assertEqual([t3.combined_cds_start, t3.combined_cds_end], [821, 1370])
 
-        locus = Mikado.loci.Superlocus(t1, use_transcript_scores=True, json_conf=self.json_conf, logger=logger)
+        locus = loci.Superlocus(t1, use_transcript_scores=True, json_conf=self.json_conf, logger=logger)
         locus.add_transcript_to_locus(t2)
         locus.add_transcript_to_locus(t3)
         locus.define_loci()
@@ -295,7 +296,7 @@ class LocusMissedTester(unittest.TestCase):
         self.assertEqual(b1.thick_start, 201)
         self.assertEqual(b1.thick_end, 459)
         logger = create_default_logger("test_transcript_missed", level="ERROR")
-        t1 = Mikado.transcripts.Transcript(b1, logger=logger)
+        t1 = transcripts.Transcript(b1, logger=logger)
         t1.finalize()
         self.assertEqual(sorted(t1.exons), [(101, 300), (401, 500)])
 
@@ -307,7 +308,7 @@ class LocusMissedTester(unittest.TestCase):
         self.assertEqual(b2.thick_start, 201)
         self.assertEqual(b2.thick_end, 901)
         # logger.setLevel("DEBUG")
-        t2 = Mikado.transcripts.Transcript(b2, logger=logger)
+        t2 = transcripts.Transcript(b2, logger=logger)
         t2.finalize()
         self.assertTrue(t2.is_coding)
         self.assertEqual(sorted(t2.exons), [(101, 300), (401, 550), (801, 1200), (1331, 1500)])
@@ -321,13 +322,13 @@ class LocusMissedTester(unittest.TestCase):
         self.assertEqual(b3.thick_start, 821)
         self.assertEqual(b3.thick_end, 1370)
         # logger.setLevel("DEBUG")
-        t3 = Mikado.transcripts.Transcript(b3, logger=logger)
+        t3 = transcripts.Transcript(b3, logger=logger)
         t3.finalize()
         self.assertTrue(t3.is_coding)
         self.assertEqual(sorted(t3.exons), [(801, 850), (951, 1050), (1101, 1200), (1301, 1500)])
         self.assertEqual([t3.combined_cds_start, t3.combined_cds_end], [821, 1370])
 
-        locus = Mikado.loci.Superlocus(t1, use_transcript_scores=True, json_conf=self.json_conf, logger=logger)
+        locus = loci.Superlocus(t1, use_transcript_scores=True, json_conf=self.json_conf, logger=logger)
         locus.add_transcript_to_locus(t2)
         locus.add_transcript_to_locus(t3)
         locus.define_loci()

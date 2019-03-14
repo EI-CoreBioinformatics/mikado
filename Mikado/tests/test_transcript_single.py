@@ -7,12 +7,9 @@ Unit test for monoexonic transcripts.
 import operator
 import re
 import unittest
-
-import Mikado.exceptions
-import Mikado.loci
-import Mikado.parsers
-from Mikado.loci import Transcript
-from Mikado.utilities.log_utils import create_null_logger, create_default_logger
+from .. import exceptions, loci, parsers, transcripts
+from ..loci import Transcript
+from ..utilities.log_utils import create_null_logger, create_default_logger
 
 
 class TranscriptTester(unittest.TestCase):
@@ -24,7 +21,7 @@ Chr1    TAIR10    exon    5928    8737    .    .    .    Parent=AT1G01020.1"""
         tr_lines[pos] = re.sub("\s+", "\t", line)
         assert len(tr_lines[pos].split("\t")) == 9, line.split("\t")
 
-    tr_gff_lines = [Mikado.parsers.GFF.GffLine(line) for line in tr_lines]
+    tr_gff_lines = [parsers.GFF.GffLine(line) for line in tr_lines]
 
     for l in tr_gff_lines:
         assert l.header is False
@@ -48,7 +45,7 @@ Chr1    TAIR10    exon    5928    8737    .    .    .    Parent=AT1G01020.1"""
         self.tr.add_exon((8571, 8666), "CDS")
         self.tr.finalize()
 
-        self.orf = Mikado.parsers.bed12.BED12()
+        self.orf = parsers.bed12.BED12()
         self.orf.chrom = self.tr.id
         self.orf.start = 1
         self.orf.end = self.tr.cdna_length
@@ -69,7 +66,7 @@ Chr1    TAIR10    exon    5928    8737    .    .    .    Parent=AT1G01020.1"""
     def test_invalid_inizialization(self):
 
         with self.assertRaises(TypeError):
-            _ =  Mikado.loci.Transcript(self.tr_gff_lines[1])
+            _ =  loci.Transcript(self.tr_gff_lines[1])
 
     def test_basics(self):
 
@@ -112,7 +109,7 @@ Chr1    TAIR10    exon    5928    8737    .    .    .    Parent=AT1G01020.1"""
         new_transcript.strand = "+"  # It becomes a multiexonic transcript, so it must have a strand
         new_transcript.end = 9737
 
-        new_exon = Mikado.parsers.GFF.GffLine(self.tr_lines[-1])
+        new_exon = parsers.GFF.GffLine(self.tr_lines[-1])
         new_exon.strand = "+"
         new_exon.start = 9000
         new_exon.end = 9737
@@ -127,7 +124,7 @@ Chr1    TAIR10    exon    5928    8737    .    .    .    Parent=AT1G01020.1"""
         self.assertEqual(len(transcript_line), 1,
                          "\n".join([str(line) for line in self.tr_gff_lines]))
 
-        tr = Mikado.loci.Transcript(transcript_line[0])
+        tr = loci.Transcript(transcript_line[0])
         exon_lines = [line for line in self.tr_gff_lines if
                       line.is_exon is True and "UTR" not in line.feature.upper()]
         tr.add_exons(exon_lines)
@@ -143,20 +140,20 @@ Chr1\tTAIR10\tCDS\t8571\t7500\t.\t.\t0\tParent=AT1G01020.1;
 Chr1\tTAIR10\tCDS\t7503\t8666\t.\t.\t0\tParent=AT1G01020.1;
 Chr1\tTAIR10\texon\t5928\t8737\t.\t.\t.\tParent=AT1G01020.1"""
 
-        gff_lines = [Mikado.parsers.GFF.GffLine(line) for line in lines.split("\n")]
-        self.assertIsInstance(gff_lines[0], Mikado.parsers.GFF.GffLine)
+        gff_lines = [parsers.GFF.GffLine(line) for line in lines.split("\n")]
+        self.assertIsInstance(gff_lines[0], parsers.GFF.GffLine)
         checker = False
         if gff_lines[0].feature.endswith("transcript") or "RNA" in gff_lines[0].feature.upper():
             checker = True
         self.assertTrue(checker)
         self.assertTrue(gff_lines[0].is_transcript)
-        transcript = Mikado.loci.Transcript(gff_lines[0])
+        transcript = loci.Transcript(gff_lines[0])
 
         transcript.logger = self.logger
         transcript.add_exons(gff_lines[1:])
 
-        with self.assertRaises(Mikado.exceptions.InvalidCDS):
-            Mikado.transcripts.transcript_methods.finalizing._check_cdna_vs_utr(transcript)
+        with self.assertRaises(exceptions.InvalidCDS):
+            transcripts.transcript_methods.finalizing._check_cdna_vs_utr(transcript)
 
     def test_utr(self):
 
@@ -249,7 +246,7 @@ Chr1\tTAIR10\texon\t5928\t8737\t.\t.\t.\tParent=AT1G01020.1"""
         self.tr.strip_cds()
         self.tr.finalized = False
 
-        first_orf = Mikado.parsers.bed12.BED12()
+        first_orf = parsers.bed12.BED12()
         first_orf.chrom = self.tr.id
         first_orf.start = 1
         first_orf.end = self.tr.cdna_length
@@ -269,7 +266,7 @@ Chr1\tTAIR10\texon\t5928\t8737\t.\t.\t.\tParent=AT1G01020.1"""
         self.assertFalse(first_orf.invalid)
 
         # This should not be incorporated
-        second_orf = Mikado.parsers.bed12.BED12()
+        second_orf = parsers.bed12.BED12()
         second_orf.chrom = self.tr.id
         second_orf.start = 1
         second_orf.end = self.tr.cdna_length
@@ -288,11 +285,11 @@ Chr1\tTAIR10\texon\t5928\t8737\t.\t.\t.\tParent=AT1G01020.1"""
         second_orf.transcriptomic = True
         self.assertFalse(second_orf.invalid)
 
-        self.assertTrue(Mikado.loci.Transcript.is_overlapping_cds(
+        self.assertTrue(loci.Transcript.is_overlapping_cds(
             first_orf, second_orf))
 
         # This should be added
-        third_orf = Mikado.parsers.bed12.BED12()
+        third_orf = parsers.bed12.BED12()
         third_orf.chrom = self.tr.id
         third_orf.start = 1
         third_orf.end = self.tr.cdna_length
@@ -311,8 +308,8 @@ Chr1\tTAIR10\texon\t5928\t8737\t.\t.\t.\tParent=AT1G01020.1"""
         third_orf.transcriptomic = True
         self.assertFalse(third_orf.invalid)
 
-        self.assertFalse(Mikado.loci.Transcript.is_overlapping_cds(first_orf, third_orf))
-        self.assertFalse(Mikado.loci.Transcript.is_overlapping_cds(second_orf, third_orf))
+        self.assertFalse(loci.Transcript.is_overlapping_cds(first_orf, third_orf))
+        self.assertFalse(loci.Transcript.is_overlapping_cds(second_orf, third_orf))
 
         self.assertFalse(third_orf == second_orf)
         self.assertFalse(first_orf == second_orf)
@@ -352,7 +349,7 @@ Chr1\tTAIR10\texon\t5928\t8737\t.\t.\t.\tParent=AT1G01020.1"""
         self.tr.strip_cds(strand_specific=False)
         self.tr.finalized = False
 
-        first_orf = Mikado.parsers.bed12.BED12()
+        first_orf = parsers.bed12.BED12()
         first_orf.chrom = self.tr.id
         first_orf.start = 1
         first_orf.end = self.tr.cdna_length
@@ -372,7 +369,7 @@ Chr1\tTAIR10\texon\t5928\t8737\t.\t.\t.\tParent=AT1G01020.1"""
         self.assertFalse(first_orf.invalid)
 
         # This should not be incorporated
-        second_orf = Mikado.parsers.bed12.BED12()
+        second_orf = parsers.bed12.BED12()
         second_orf.chrom = self.tr.id
         second_orf.start = 1
         second_orf.end = self.tr.cdna_length
@@ -392,11 +389,11 @@ Chr1\tTAIR10\texon\t5928\t8737\t.\t.\t.\tParent=AT1G01020.1"""
 
         self.assertFalse(second_orf.invalid)
 
-        # self.assertTrue(Mikado.loci.Transcript.is_overlapping_cds(first_orf,
+        # self.assertTrue(loci.Transcript.is_overlapping_cds(first_orf,
         #                                                           second_orf))
 
         # This should be added
-        third_orf = Mikado.parsers.bed12.BED12()
+        third_orf = parsers.bed12.BED12()
         third_orf.chrom = self.tr.id
         third_orf.start = 1
         third_orf.end = self.tr.cdna_length
@@ -416,10 +413,10 @@ Chr1\tTAIR10\texon\t5928\t8737\t.\t.\t.\tParent=AT1G01020.1"""
         self.assertFalse(third_orf.invalid)
 
         self.assertFalse(
-            Mikado.loci.Transcript.is_overlapping_cds(
+            loci.Transcript.is_overlapping_cds(
                 first_orf, third_orf))
         self.assertFalse(
-            Mikado.loci.Transcript.is_overlapping_cds(
+            loci.Transcript.is_overlapping_cds(
                 second_orf, third_orf))
 
         self.assertFalse(third_orf == second_orf)
@@ -453,7 +450,7 @@ Chr1\tTAIR10\texon\t5928\t8737\t.\t.\t.\tParent=AT1G01020.1"""
 
     def test_wrong_orf(self):
         # This should be added
-        orf = Mikado.parsers.bed12.BED12()
+        orf = parsers.bed12.BED12()
         orf.chrom = self.tr.id
         orf.start = 1
         orf.end = self.tr.cdna_length + 1
@@ -487,7 +484,7 @@ class TestWheatRNA(unittest.TestCase):
 
     def test_negative_orf(self):
 
-        transcript = Mikado.loci.Transcript()
+        transcript = loci.Transcript()
         transcript.chrom = "Triticum_aestivum_CS42_TGACv1_scaffold_018953_1AS"
         transcript.strand = None
         transcript.start = 215963
@@ -498,7 +495,7 @@ class TestWheatRNA(unittest.TestCase):
         transcript.score = 23
         transcript.finalize()
 
-        bed = Mikado.parsers.bed12.BED12()
+        bed = parsers.bed12.BED12()
         bed.chrom = "TGAC_Root_Cufflinks_CL_Root.3672.1"
         bed.transcriptomic = True
         bed.start = 1
@@ -512,7 +509,7 @@ class TestWheatRNA(unittest.TestCase):
         bed.header = False
         self.assertFalse(bed.invalid)
 
-        bed2 = Mikado.parsers.bed12.BED12()
+        bed2 = parsers.bed12.BED12()
         bed2.chrom = "TGAC_Root_Cufflinks_CL_Root.3672.1"
         bed2.transcriptomic = True
         bed2.start = 1
@@ -543,7 +540,7 @@ class TestWheatRNA(unittest.TestCase):
                           ))
 
     def test_orf_sorter(self):
-        bed = Mikado.parsers.bed12.BED12()
+        bed = parsers.bed12.BED12()
         bed.chrom = "TGAC_Root_Cufflinks_CL_Root.3672.1"
         bed.transcriptomic = True
         bed.start = 1
@@ -556,7 +553,7 @@ class TestWheatRNA(unittest.TestCase):
         bed.has_stop_codon = True
         self.assertFalse(bed.invalid)
 
-        bed2 = Mikado.parsers.bed12.BED12()
+        bed2 = parsers.bed12.BED12()
         bed2.chrom = "TGAC_Root_Cufflinks_CL_Root.3672.1"
         bed2.transcriptomic = True
         bed2.start = 1
@@ -570,7 +567,7 @@ class TestWheatRNA(unittest.TestCase):
 
         after_sorting = sorted([bed, bed2],
                                reverse=True,
-                               key=Mikado.transcripts.transcript_methods.retrieval.orf_sorter
+                               key=transcripts.transcript_methods.retrieval.orf_sorter
                                )
 
         self.assertEqual(after_sorting[0], bed)
@@ -582,11 +579,11 @@ class TestNegativeSplit(unittest.TestCase):
 
         tr = """Triticum_aestivum_CS42_TGACv1_scaffold_018974_1AS\tCufflinks\ttranscript\t72914\t76276\t1000\t.\t.\tgene_id "CL_10DPA.2184"; transcript_id "ERP004505_10DPA_Cufflinks_CL_10DPA.2184.1"; exon_number "1"; FPKM "0.1596439944"; conf_hi "0.205257"; conf_lo "0.114031"; frac "1.000000"; cov "3.066911"; Name "ERP004505_10DPA_Cufflinks_CL_10DPA.2184.1";
 Triticum_aestivum_CS42_TGACv1_scaffold_018974_1AS\tCufflinks\texon\t72914\t76276\t.\t.\t.\tgene_id "CL_10DPA.2184"; transcript_id "ERP004505_10DPA_Cufflinks_CL_10DPA.2184.1";"""
-        tr_lines = [Mikado.parsers.GTF.GtfLine(_) for _ in tr.split("\n")]
-        self.tr = Mikado.loci.Transcript(tr_lines[0])
+        tr_lines = [parsers.GTF.GtfLine(_) for _ in tr.split("\n")]
+        self.tr = loci.Transcript(tr_lines[0])
         self.tr.add_exon(tr_lines[1])
 
-        self.bed1 = Mikado.parsers.bed12.BED12()
+        self.bed1 = parsers.bed12.BED12()
         self.bed1.header = False
         self.bed1.chrom = "ERP004505_10DPA_Cufflinks_CL_10DPA.2184.1"
         self.bed1.start = 1
@@ -600,7 +597,7 @@ Triticum_aestivum_CS42_TGACv1_scaffold_018974_1AS\tCufflinks\texon\t72914\t76276
         self.bed1.transcriptomic = True
         self.assertEqual(self.bed1.cds_len, 579)
         
-        self.bed2 = Mikado.parsers.bed12.BED12()
+        self.bed2 = parsers.bed12.BED12()
         self.bed2.header = False
         self.bed2.chrom = "ERP004505_10DPA_Cufflinks_CL_10DPA.2184.1"
         self.bed2.start = 1
@@ -659,13 +656,13 @@ class TestTripleNegative(unittest.TestCase):
 
         trlines = """Triticum_aestivum_CS42_TGACv1_scaffold_019715_1AS\tCufflinks\ttranscript\t44187\t49369\t1000\t.\t.\tgene_id "CL_Spike.6733"; transcript_id "TGAC_Spike_Cufflinks_CL_Spike.6733.1"; exon_number "1"; cov "2963.838405"; frac "0.338459"; FPKM "46.8523047496"; conf_hi "48.870099"; Name "TGAC_Spike_Cufflinks_CL_Spike.6733.1"; conf_lo "44.834511";
 Triticum_aestivum_CS42_TGACv1_scaffold_019715_1AS\tCufflinks\texon\t44187\t49369\t.\t.\t.\tgene_id "CL_Spike.6733"; transcript_id "TGAC_Spike_Cufflinks_CL_Spike.6733.1";"""
-        trlines = [Mikado.parsers.GTF.GtfLine(_) for _ in trlines.split("\n")]
+        trlines = [parsers.GTF.GtfLine(_) for _ in trlines.split("\n")]
 
-        self.tr = Mikado.loci.Transcript(trlines[0])
+        self.tr = loci.Transcript(trlines[0])
         self.tr.add_exon(trlines[1])
         self.tr.finalize()
 
-        self.bed1 = Mikado.parsers.bed12.BED12(transcriptomic=True)
+        self.bed1 = parsers.bed12.BED12(transcriptomic=True)
         self.bed1.header = False
         self.bed1.chrom = self.tr.id
         self.bed1.start = 1
@@ -679,7 +676,7 @@ Triticum_aestivum_CS42_TGACv1_scaffold_019715_1AS\tCufflinks\texon\t44187\t49369
         # self.bed1.has_stop_codon = False
         self.assertEqual(self.bed1.cds_len, 429)
         
-        self.bed2 = Mikado.parsers.bed12.BED12(transcriptomic=True)
+        self.bed2 = parsers.bed12.BED12(transcriptomic=True)
         self.bed2.header = False
         self.bed2.chrom = self.tr.id
         self.bed2.start = 1
@@ -693,7 +690,7 @@ Triticum_aestivum_CS42_TGACv1_scaffold_019715_1AS\tCufflinks\texon\t44187\t49369
         # self.bed2.has_start_codon = True
         self.assertEqual(self.bed2.cds_len, 1161)
         
-        self.bed3 = Mikado.parsers.bed12.BED12(transcriptomic=True)
+        self.bed3 = parsers.bed12.BED12(transcriptomic=True)
         self.bed3.header = False
         self.bed3.chrom = self.tr.id
         self.bed3.start = 1
@@ -734,13 +731,13 @@ class TestNegativeMonoexonicLoad(unittest.TestCase):
         trlines="""Chr3\tCufflinks\ttranscript\t2949168\t2952410\t1000\t-\t.\tgene_id "cufflinks_star_at.10687"; transcript_id "cufflinks_cufflinks_star_at.10687.1"; exon_number "1"; conf_lo "0.169545"; FPKM "0.1111324743"; frac "0.781250"; conf_hi "0.308263"; cov "3.129756";
 Chr3\tCufflinks\texon\t2949168\t2952410\t.\t-\t.\tgene_id "cufflinks_star_at.10687"; transcript_id "cufflinks_cufflinks_star_at.10687.1";"""
 
-        trlines = [Mikado.parsers.GTF.GtfLine(_) for _ in trlines.split("\n")]
+        trlines = [parsers.GTF.GtfLine(_) for _ in trlines.split("\n")]
 
-        self.tr = Mikado.loci.Transcript(trlines[0])
+        self.tr = loci.Transcript(trlines[0])
         self.tr.add_exon(trlines[1])
         self.tr.finalize()
 
-        self.bed1 = Mikado.parsers.bed12.BED12()
+        self.bed1 = parsers.bed12.BED12()
         self.bed1.header = False
         self.bed1.chrom = self.tr.id
         self.bed1.start = 1
@@ -756,7 +753,7 @@ Chr3\tCufflinks\texon\t2949168\t2952410\t.\t-\t.\tgene_id "cufflinks_star_at.106
         self.bed1.score = 0
         self.assertFalse(self.bed1.invalid)
 
-        self.bed2 = Mikado.parsers.bed12.BED12()
+        self.bed2 = parsers.bed12.BED12()
         self.bed2.header = False
         self.bed2.chrom = self.tr.id
         self.bed2.start = 1

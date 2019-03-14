@@ -182,7 +182,7 @@ def create_config_parser():
     scoring_file.add_argument("--scoring", type=str, default=None,
                          help="""Available scoring files. Either provide your own of choose from
                          one of the pre-packaged scoring files:
-                         {}""".format("\n".join(["- {}".format(_) for _ in pkg_resources.resource_listdir(
+                             {}""".format("\n".join(["- {}".format(_) for _ in pkg_resources.resource_listdir(
                              "Mikado", os.path.join("configuration", "scoring_files"))]
                                                 )))
     scoring_file.add_argument("--custom-scoring", type=str, default=None,

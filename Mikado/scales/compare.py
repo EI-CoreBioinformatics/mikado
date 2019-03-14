@@ -26,6 +26,8 @@ from ..parsers import to_gff
 from ..utilities.log_utils import create_default_logger, formatter
 import magic
 import sqlite3
+import multiprocessing as mp
+import pickle
 try:
     # import ujson as json
     import json as json
@@ -34,6 +36,7 @@ except ImportError:
 import gzip
 import itertools
 from ..utilities import NumpyEncoder
+import functools
 
 __author__ = 'Luca Venturini'
 
@@ -42,10 +45,10 @@ __author__ = 'Luca Venturini'
 # This becomes necessary when we happen to have a corrupted index
 if not hasattr(json, "decoder"):
 
-    class decoder:
+    class Decoder:
         class JSONDecodeError(TypeError):
             pass
-    json.decoder = decoder
+    json.decoder = Decoder
 
 
 def setup_logger(args, manager):
@@ -61,6 +64,9 @@ def setup_logger(args, manager):
     args.queue_handler = log_handlers.QueueHandler(args.log_queue)
 
     if args.log is not None:
+        _log_folder = os.path.dirname(args.log)
+        if _log_folder and not os.path.exists(_log_folder):
+            os.makedirs(_log_folder)
         handler = logging.FileHandler(args.log, mode="w")
         logger = logging.getLogger("main_compare")
         handler.setFormatter(formatter)
@@ -95,7 +101,7 @@ def setup_logger(args, manager):
 
 
 def finalize_reference(genes, positions, queue_logger, args) \
-        -> (dict, collections.defaultdict(dict)):
+        -> (dict, collections.defaultdict):
 
     """
 :param genes:
@@ -140,7 +146,7 @@ def finalize_reference(genes, positions, queue_logger, args) \
     return genes, positions
 
 
-def prepare_reference(args, queue_logger, ref_gff=False) -> (dict, collections.defaultdict(dict)):
+def prepare_reference(args, queue_logger, ref_gff=False) -> (dict, collections.defaultdict):
 
     """
     Method to prepare the data structures that hold the reference
@@ -160,7 +166,7 @@ def prepare_reference(args, queue_logger, ref_gff=False) -> (dict, collections.d
         if row.header is True:
             continue
         elif args.reference.__annot_type__ == Bed12Parser.__annot_type__:
-            transcript = Transcript(row, logger=queue_logger)
+            transcript = Transcript(row, logger=queue_logger, trust_orf=True, accept_undefined_multi=True)
             transcript.parent = gid = row.id
             transcript2gene[row.id] = gid
             if gid not in genes:
@@ -169,7 +175,7 @@ def prepare_reference(args, queue_logger, ref_gff=False) -> (dict, collections.d
 
         elif row.is_transcript is True or (ref_gff is True and row.feature == "match"):
             queue_logger.debug("Transcript\n%s", str(row))
-            transcript = Transcript(row, logger=queue_logger)
+            transcript = Transcript(row, logger=queue_logger, trust_orf=True, accept_undefined_multi=True)
             if row.feature == "match":
                 gid = row.id
             else:
@@ -188,7 +194,7 @@ def prepare_reference(args, queue_logger, ref_gff=False) -> (dict, collections.d
                     if row.id not in transcript2gene:
                         genes[row.id] = Gene(None, gid=row.id, logger=queue_logger)
                         transcript2gene[row.id] = row.id
-                        transcript = Transcript(row, logger=queue_logger)
+                        transcript = Transcript(row, logger=queue_logger, trust_orf=True, accept_undefined_multi=True)
                         genes[row.id].add(transcript)
                 found = False
                 for transcript in row.transcript:
@@ -209,7 +215,7 @@ def prepare_reference(args, queue_logger, ref_gff=False) -> (dict, collections.d
                     if row.gene not in genes:
                         genes[row.gene] = Gene(None, gid=row.gene, logger=queue_logger)
                     if row.transcript not in genes[row.gene]:
-                        transcript = Transcript(row, logger=queue_logger)
+                        transcript = Transcript(row, logger=queue_logger, trust_orf=True, accept_undefined_multi=True)
                         transcript2gene[row.id] = row.gene
                         genes[row.gene].add(transcript)
                     genes[row.gene][row.transcript].add_exon(row)
@@ -219,6 +225,29 @@ def prepare_reference(args, queue_logger, ref_gff=False) -> (dict, collections.d
     if len(genes) == 0:
         raise KeyError("No genes remained for the reference!")
     return genes, positions
+
+
+class Assigners(mp.Process):
+
+    def __init__(self, genes, positions, args, queue, returnqueue, counter):
+        super().__init__()
+        self.accountant_instance = Accountant(genes, args)
+        self.assigner_instance = Assigner(genes, positions, args, self.accountant_instance, printout_tmap=False)
+        self.queue = queue
+        self.returnqueue = returnqueue
+        self.__args = args
+        self.__counter = counter
+
+    def run(self):
+        while True:
+            transcr = self.queue.get(timeout=10)
+            if transcr == "EXIT":
+                self.queue.put("EXIT")
+                out = os.path.join(self.__args.out + str(self.__counter) + ".pickle")
+                self.assigner_instance.dump(out)
+                self.returnqueue.put(out)
+                break
+            self.assigner_instance.get_best(transcr)
 
 
 def parse_prediction(args, genes, positions, queue_logger):
@@ -236,35 +265,48 @@ def parse_prediction(args, genes, positions, queue_logger):
     """
 
     # start the class which will manage the statistics
-    accountant_instance = Accountant(genes, args)
-    assigner_instance = Assigner(genes, positions, args, accountant_instance)
-
     transcript = None
     if hasattr(args, "self") and args.self is True:
         args.prediction = to_gff(args.reference.name)
     ref_gff = isinstance(args.prediction, GFF3)
     __found_with_orf = set()
     is_bed12 = isinstance(args.prediction, Bed12Parser)
+    queue = mp.JoinableQueue(-1)
+    returnqueue = mp.JoinableQueue(-1)
+    procs = [Assigners(genes, positions, args, queue, returnqueue, counter)
+             for counter in range(1, args.processes + 1)]
 
+    [proc.start() for proc in procs]
+    constructor = functools.partial(Transcript,
+                                    logger=queue_logger, trust_orf=True, accept_undefined_multi=True)
+
+    done = 0
     for row in args.prediction:
         if row.header is True:
             continue
-        #         queue_logger.debug("Row:\n{0:>20}".format(str(row)))
         elif (row.is_transcript is True or
-                      args.prediction.__annot_type__ == Bed12Parser.__annot_type__ or
-                      row.feature == "match"):
+              args.prediction.__annot_type__ == Bed12Parser.__annot_type__ or
+              row.feature == "match"):
             queue_logger.debug("Transcript row:\n%s", str(row))
             if transcript is not None:
                 if re.search(r"\.orf[0-9]+$", transcript.id):
                     __name = re.sub(r"\.orf[0-9]+$", "", transcript.id)
                     if __name not in __found_with_orf:
                         __found_with_orf.add(__name)
-                        assigner_instance.get_best(transcript)
+                        done += 1
+                        if done and done % 10000 == 0:
+                            queue_logger.info("Parsed %s transcripts", done)
+                        queue.put(transcript)
+                        # assigner_instance.get_best(transcript)
                     else:
                         pass
                 else:
-                    assigner_instance.get_best(transcript)
-            transcript = Transcript(row, logger=queue_logger)
+                    done += 1
+                    if done and done % 10000 == 0:
+                        queue_logger.info("Parsed %s transcripts", done)
+                    queue.put(transcript)
+                    # assigner_instance.get_best(transcript)
+            transcript = constructor(row)
             if is_bed12:
                 transcript.parent = transcript.id
 
@@ -288,9 +330,13 @@ def parse_prediction(args, genes, positions, queue_logger):
                                 (not transcript.id.endswith("orf1")):
                             pass
                         else:
-                            assigner_instance.get_best(transcript)
+                            done += 1
+                            if done and done % 10000 == 0:
+                                queue_logger.info("Done %s transcripts", done)
+                            queue.put(transcript)
+                            # assigner_instance.get_best(transcript)
                     queue_logger.debug("New transcript: %s", row.transcript)
-                    transcript = Transcript(row, logger=queue_logger)
+                    transcript = constructor(row)
             elif ref_gff is False:
                 if transcript is None or (transcript is not None and transcript.id != row.transcript):
                     if transcript is not None:
@@ -298,9 +344,13 @@ def parse_prediction(args, genes, positions, queue_logger):
                                 (not transcript.id.endswith("orf1")):
                             pass
                         else:
-                            assigner_instance.get_best(transcript)
+                            done += 1
+                            if done and done % 10000 == 0:
+                                queue_logger.info("Done %s transcripts", done)
+                            queue.put(transcript)
+                            # assigner_instance.get_best(transcript)
                     queue_logger.debug("New transcript: %s", row.transcript)
-                    transcript = Transcript(row, logger=queue_logger)
+                    transcript = constructor(row)
                 transcript.add_exon(row)
             else:
                 raise TypeError("Unmatched exon: {}".format(row))
@@ -314,11 +364,29 @@ def parse_prediction(args, genes, positions, queue_logger):
         if re.search(r"\.orf[0-9]+$", transcript.id) and not transcript.id.endswith("orf1"):
             pass
         else:
-            assigner_instance.get_best(transcript)
+            done += 1
+            if done and done % 10000 == 0:
+                queue_logger.info("Done %s transcripts", done)
+            queue.put(transcript)
+            # assigner_instance.get_best(transcript)
 
     # Finish everything, including printing refmap and stats
+    queue_logger.info("Finished parsing, %s transcripts in total", done)
+    queue.put("EXIT")
+    queue.close()
+    [proc.join() for proc in procs]
+    results = []
+
+    while len(results) < len(procs):
+        fname = returnqueue.get()
+        results.append(pickle.load(open(fname, "rb")))
+        os.remove(fname)
+
+    accountant_instance = Accountant(genes, args)
+    assigner_instance = Assigner(genes, positions, args, accountant_instance,
+                                 results=results,
+                                 printout_tmap=True)
     assigner_instance.finish()
-    args.prediction.close()
 
 
 def parse_self(args, genes, queue_logger):
@@ -364,7 +432,7 @@ def load_index(args, queue_logger):
     :rtype: ((None|collections.defaultdict),(None|collections.defaultdict))
     """
 
-    genes, positions = None, None
+    # genes, positions = None, None
 
     # New: now we are going to use SQLite for a faster experience
     wizard = magic.Magic(mime=True)
@@ -398,65 +466,16 @@ def load_index(args, queue_logger):
             gene = Gene(None, logger=queue_logger)
             gene.load_dict(json.loads(obj),
                            exclude_utr=args.exclude_utr,
-                           protein_coding=args.protein_coding)
+                           protein_coding=args.protein_coding,
+                           trust_orf=True)
             if len(gene.transcripts) > 0:
                 genes[gid] = gene
-                # if (gene.start, gene.end) not in positions[gene.chrom]:
-                #     positions[gene.chrom][(gene.start, gene.end)] = []
-                # positions[gene.chrom][(gene.start, gene.end)].append(gene.id)
             else:
                 queue_logger.warning("No transcripts for %s", gid)
         except (EOFError, json.decoder.JSONDecodeError) as exc:
             queue_logger.exception(exc)
             raise CorruptIndex("Invalid index file")
         except (TypeError, ValueError) as exc:
-            queue_logger.exception(exc)
-            raise CorruptIndex("Corrupted index file; deleting and rebuilding.")
-
-    return genes, positions
-
-
-def _old_load_index(args, queue_logger):
-
-    """
-    Function to load the genes and positions from the indexed GFF.
-    :param args:
-    :param queue_logger:
-    :return: genes, positions
-    :rtype: ((None|collections.defaultdict),(None|collections.defaultdict))
-    """
-
-    genes, positions = None, None
-
-
-    with gzip.open("{0}.midx".format(args.reference.name), "rt") as index:
-        positions = collections.defaultdict(dict)
-        try:
-            cp_genes = json.load(index)
-            genes = dict()
-            for gid, gobj in cp_genes.items():
-                gene = Gene(None, logger=queue_logger)
-                gene.load_dict(gobj,
-                               exclude_utr=args.exclude_utr,
-                               protein_coding=args.protein_coding)
-                # Necessary for when we are excluding non-coding
-                if len(gene.transcripts) > 0:
-                    genes[gid] = gene
-                    if (gene.start, gene.end) not in positions[gene.chrom]:
-                        positions[gene.chrom][(gene.start, gene.end)] = []
-                    positions[gene.chrom][(gene.start, gene.end)].append(gene.id)
-                else:
-                    queue_logger.warning("No transcripts for %s", gid)
-
-            if not (isinstance(genes, dict) and
-                    isinstance(positions, collections.defaultdict) and
-                    positions.default_factory is dict):
-                raise EOFError
-        except (EOFError, json.decoder.JSONDecodeError) as exc:
-            queue_logger.exception(exc)
-            raise CorruptIndex("Invalid index file")
-        except (TypeError, ValueError) as exc:
-            genes, positions = None, None
             queue_logger.exception(exc)
             raise CorruptIndex("Corrupted index file; deleting and rebuilding.")
 
@@ -513,6 +532,11 @@ def compare(args):
     context = multiprocessing.get_context()
     manager = context.Manager()
     # pylint: enable=no-member
+
+    if isinstance(args.out, str):
+        _out_folder = os.path.dirname(args.out)
+        if _out_folder and not os.path.exists(_out_folder):
+            os.makedirs(_out_folder)
 
     args, handler, logger, log_queue_listener, queue_logger = setup_logger(
         args, manager)

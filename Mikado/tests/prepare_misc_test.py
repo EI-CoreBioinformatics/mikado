@@ -1,6 +1,7 @@
 import unittest
-import Mikado.preparation.checking
-import Mikado
+from ..preparation import checking
+from .. import utilities
+from .. import transcripts
 import multiprocessing as mp
 import pkg_resources
 import tempfile
@@ -12,7 +13,7 @@ import os
 import time
 import pyfaidx
 import re
-from Mikado.tests.test_utils import ProcRunner
+from ..tests.test_utils import ProcRunner
 from queue import Queue
 from sys import version_info
 
@@ -37,7 +38,7 @@ class MiscTest(unittest.TestCase):
         log_queue_handler = logging.handlers.QueueHandler(logging_queue)
         log_queue_handler.setLevel(logging.DEBUG)
 
-        logger = Mikado.utilities.log_utils.create_null_logger(name, level="WARNING")
+        logger = utilities.log_utils.create_null_logger(name, level="WARNING")
         logger.propagate = False
         listener = logging.handlers.QueueListener(logging_queue, logger)
         listener.propagate = False
@@ -59,7 +60,7 @@ class MiscTest(unittest.TestCase):
             # FASTA out and GTF out are just the file names, without the temporary directory
             # Moreover they will be complemented by the identifier!
 
-            proc = ProcRunner(Mikado.preparation.checking.CheckingProcess,
+            proc = ProcRunner(checking.CheckingProcess,
                               self.submission_queue,
                               logging_queue,
                               fasta=self.fasta_temp.name,
@@ -122,7 +123,7 @@ class MiscTest(unittest.TestCase):
                 else:
                     error = ValueError
                 with self.assertRaises(error):
-                    Mikado.preparation.checking.CheckingProcess(**_kwds)
+                    checking.CheckingProcess(**_kwds)
 
         with self.subTest(key="fasta"):
             _kwds = kwds.copy()
@@ -130,7 +131,7 @@ class MiscTest(unittest.TestCase):
 
 
             with self.assertRaises(AttributeError):
-                Mikado.preparation.checking.CheckingProcess(**_kwds)
+                checking.CheckingProcess(**_kwds)
 
         for tentative in [None, [], [("A", "G")], [("AG", bytes("GT", encoding="ascii"))]]:
             with self.subTest(tentative=tentative):
@@ -138,15 +139,15 @@ class MiscTest(unittest.TestCase):
                 _kwds["canonical_splices"] = tentative
                 if tentative is None:
                     with self.assertRaises(TypeError):
-                        Mikado.preparation.checking.CheckingProcess(**_kwds)
+                        checking.CheckingProcess(**_kwds)
                 else:
                     with self.assertRaises(ValueError):
-                        Mikado.preparation.checking.CheckingProcess(**_kwds)
+                        checking.CheckingProcess(**_kwds)
 
         _kwds = kwds.copy()
         _kwds["canonical_splices"] = [("AG", "GT")]
         # just test it does not raise
-        _ = Mikado.preparation.checking.CheckingProcess(**_kwds)
+        _ = checking.CheckingProcess(**_kwds)
 
     def test_example_model(self):
 
@@ -164,10 +165,10 @@ class MiscTest(unittest.TestCase):
 
         logger, listener, logging_queue = self.create_logger("test_example_model")
 
-        res = Mikado.preparation.checking.create_transcript(lines, seq, lines["start"], lines["end"],
+        res = checking.create_transcript(lines, seq, lines["start"], lines["end"],
                                                             logger=logger)
         listener.stop()
-        self.assertIsInstance(res, Mikado.transcripts.TranscriptChecker)
+        self.assertIsInstance(res, transcripts.TranscriptChecker)
 
         for kwd in lines.keys():
             if kwd in ["end", "start"]:
@@ -176,16 +177,16 @@ class MiscTest(unittest.TestCase):
                 _lines = lines.copy()
                 del _lines[kwd]
                 with self.assertLogs("null", level="DEBUG"):
-                    res = Mikado.preparation.checking.create_transcript(_lines, seq, lines["start"], lines["end"])
+                    res = checking.create_transcript(_lines, seq, lines["start"], lines["end"])
                 self.assertIs(res, None)
 
         _lines = lines.copy()
         _lines["strand"] = "-"
         with self.subTest(msg="Testing an invalid strand"):
             with self.assertLogs("null", level="INFO") as cm:
-                res = Mikado.preparation.checking.create_transcript(_lines, seq, lines["start"], lines["end"],
+                res = checking.create_transcript(_lines, seq, lines["start"], lines["end"],
                                                                     strand_specific=True)
-            self.assertIsInstance(res, Mikado.transcripts.TranscriptChecker)
+            self.assertIsInstance(res, transcripts.TranscriptChecker)
             self.assertIn("WARNING:null:Transcript AT5G01530.0 has been assigned to the wrong strand, reversing it.",
                           cm.output)
 
@@ -199,7 +200,7 @@ class MiscTest(unittest.TestCase):
             # FASTA out and GTF out are just the file names, without the temporary directory
             # Moreover they will be complemented by the identifier!
 
-            proc = ProcRunner(Mikado.preparation.checking.CheckingProcess,
+            proc = ProcRunner(checking.CheckingProcess,
                               self.submission_queue,
                               logging_queue,
                               fasta=self.fasta_temp.name,
@@ -235,7 +236,7 @@ class MiscTest(unittest.TestCase):
             self.assertGreater(len(fasta_lines), 1)
             fasta = pyfaidx.Fasta(self.fasta_temp.name)
             seq = str(fasta[lines["chrom"]][lines["start"] - 1:lines["end"]])
-            res = Mikado.preparation.checking.create_transcript(lines, seq, lines["start"], lines["end"])
+            res = checking.create_transcript(lines, seq, lines["start"], lines["end"])
             self.assertTrue(len(res.cdna), (209593 - 208937 + 1) + (210445 - 209881 + 1))
 
             with tempfile.NamedTemporaryFile(suffix="fa", delete=True, mode="wt") as faix:

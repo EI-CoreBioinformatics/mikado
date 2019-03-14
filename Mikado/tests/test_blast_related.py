@@ -2,12 +2,12 @@
 
 
 import tempfile
-from Mikado.parsers import blast_utils
+from ..parsers import blast_utils
 import unittest
 import os
 import gzip
 import subprocess
-from Mikado.serializers.blast_serializer import utils as seri_blast_utils
+from ..serializers.blast_serializer import utils as seri_blast_utils
 import time
 
 

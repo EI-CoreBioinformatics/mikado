@@ -1,4 +1,4 @@
-from Mikado.loci import Transcript, Gene
+from ..loci import Transcript, Gene
 import unittest
 
 

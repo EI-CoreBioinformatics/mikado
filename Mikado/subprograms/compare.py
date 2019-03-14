@@ -12,6 +12,7 @@ assembling or checking the expression.
 import argparse
 from ..scales.compare import compare
 from . import to_gff
+from multiprocessing import cpu_count
 
 __author__ = "Luca Venturini"
 
@@ -22,6 +23,10 @@ def compare_parser():
 
     :return: the argument parser
     """
+
+    def get_procs(arg):
+
+        return max(min(int(arg), cpu_count()), 1)
 
     parser = argparse.ArgumentParser(
         'Tool to define the spec/sens of predictions vs. references.')
@@ -89,6 +94,8 @@ the internal junction has been recovered.""")
                         action="store_true",
                         default=False,
                         help="Flag. If set, TMAP and REFMAP files will be GZipped.")
+    parser.add_argument("--processes", default=1,
+                        type=get_procs)
     parser.set_defaults(func=compare)
 
     return parser

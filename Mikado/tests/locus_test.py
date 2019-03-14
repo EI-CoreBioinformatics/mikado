@@ -9,26 +9,25 @@ import os.path
 import logging
 logging.getLogger("matplotlib").setLevel(logging.WARNING)
 import pkg_resources
-from Mikado.configuration import configurator
-from Mikado import exceptions
-from Mikado.parsers import GFF  # ,GTF, bed12
-from Mikado.parsers.GTF import GtfLine
-from Mikado.loci import Transcript, Superlocus, Abstractlocus, Locus, Monosublocus, MonosublocusHolder, Sublocus
-from Mikado.loci import Excluded
-from Mikado.loci.locus import expand_transcript
-from Mikado.utilities.log_utils import create_null_logger, create_default_logger
-from Mikado.utilities import overlap
+from ..configuration import configurator
+from .. import exceptions, scales
+from ..parsers import GFF  # ,GTF, bed12
+from ..parsers.GTF import GtfLine
+from ..loci import Transcript, Superlocus, Abstractlocus, Locus, Monosublocus, MonosublocusHolder, Sublocus
+from ..loci.locus import expand_transcript
+from ..utilities.log_utils import create_null_logger, create_default_logger
+from ..utilities import overlap
 import itertools
-from Mikado.utilities.intervaltree import Interval
-import Mikado.loci
+from ..utilities.intervaltree import Interval
+from .. import loci
 import pickle
 import inspect
-from Mikado.parsers.bed12 import BED12
+from ..parsers.bed12 import BED12
 import tempfile
 import gzip
 import pyfaidx
 from itertools import combinations_with_replacement
-# from Mikado.scales.contrast import compare as c_compare
+# from scales.contrast import compare as c_compare
 
 
 class OverlapTester(unittest.TestCase):
@@ -316,13 +315,13 @@ Chr1\tfoo\texon\t801\t1000\t.\t-\t.\tID=tminus0:exon1;Parent=tminus0""".split("\
                 t2 = "1\t105\t2300\tID=T2;coding=False\t0\t{strand}\t105\t2300\t0\t1\t2195\t0".format(
                     strand=strand if strand else ".")
                 t2 = Transcript(BED12(t2))
-                sl = Mikado.loci.Superlocus(t1, stranded=stranded, json_conf=None)
+                sl = loci.Superlocus(t1, stranded=stranded, json_conf=None)
                 self.assertIn(t1.id, sl)
                 if not stranded or t2.strand == t1.strand:
                     sl.add_transcript_to_locus(t2)
                     self.assertIn(t2.id, sl)
                 else:
-                    with self.assertRaises(Mikado.exceptions.NotInLocusError):
+                    with self.assertRaises(exceptions.NotInLocusError):
                         sl.add_transcript_to_locus(t2)
 
         with self.subTest():
@@ -334,8 +333,8 @@ Chr1\tfoo\texon\t801\t1000\t.\t-\t.\tID=tminus0:exon1;Parent=tminus0""".split("\
             t2.chrom = "2"
             t2.id = "T2"
             t2.finalize()
-            sl = Mikado.loci.Superlocus(t1, stranded=False)
-            with self.assertRaises(Mikado.exceptions.NotInLocusError):
+            sl = loci.Superlocus(t1, stranded=False)
+            with self.assertRaises(exceptions.NotInLocusError):
                 sl.add_transcript_to_locus(t2)
 
         st1 = "1\t100\t2000\tID=T1;coding=False\t0\t+\t100\t2000\t0\t1\t1900\t0"
@@ -351,7 +350,7 @@ Chr1\tfoo\texon\t801\t1000\t.\t-\t.\tID=tminus0:exon1;Parent=tminus0""".split("\
             with self.subTest(flank=flank):
                 sl = Superlocus(t1, flank=flank)
                 if flank < 10000:
-                    with self.assertRaises(Mikado.exceptions.NotInLocusError):
+                    with self.assertRaises(exceptions.NotInLocusError):
                         sl.add_transcript_to_locus(t2)
                 else:
                     sl.add_transcript_to_locus(t2)
@@ -1118,7 +1117,7 @@ class TestLocus(unittest.TestCase):
     This unit test is focused on the locus definition and alternative splicings.
     """
 
-    logger = Mikado.utilities.log_utils.create_default_logger("tester")
+    logger = create_default_logger("tester")
 
     @classmethod
     def setUpClass(cls):
@@ -1171,7 +1170,7 @@ class TestLocus(unittest.TestCase):
         """
 
         t1lines = [GtfLine(line) for line in t1.split("\n") if line]
-        self.t1 = Mikado.loci.Transcript(t1lines[0])
+        self.t1 = loci.Transcript(t1lines[0])
         for exon in t1lines[1:]:
             if exon.header:
                 continue
@@ -1188,7 +1187,7 @@ class TestLocus(unittest.TestCase):
         """
 
         t1_contained_lines = [GtfLine(line) for line in t1_contained.split("\n") if line]
-        self.t1_contained = Mikado.loci.Transcript(t1_contained_lines[0])
+        self.t1_contained = loci.Transcript(t1_contained_lines[0])
         for exon in t1_contained_lines[1:]:
             if exon.header:
                 continue
@@ -1209,7 +1208,7 @@ class TestLocus(unittest.TestCase):
         """
 
         t1_as_lines = [GtfLine(line) for line in t1_as.split("\n") if line]
-        self.t1_as = Mikado.loci.Transcript(t1_as_lines[0])
+        self.t1_as = loci.Transcript(t1_as_lines[0])
         for exon in t1_as_lines[1:]:
             if exon.header:
                 continue
@@ -1228,7 +1227,7 @@ class TestLocus(unittest.TestCase):
         """
 
         t1_retained_lines = [GtfLine(line) for line in t1_retained.split("\n") if line]
-        self.t1_retained = Mikado.loci.Transcript(t1_retained_lines[0])
+        self.t1_retained = loci.Transcript(t1_retained_lines[0])
         for exon in t1_retained_lines[1:]:
             if exon.header:
                 continue
@@ -1249,15 +1248,15 @@ class TestLocus(unittest.TestCase):
         """
 
         # The fragment should have a c assigned
-        result, _ = Mikado.scales.assigner.Assigner.compare(self.t1_contained, self.t1)
+        result, _ = scales.assigner.Assigner.compare(self.t1_contained, self.t1)
         self.assertEqual(result.ccode[0], "c")
 
         # The valid AS should have a j assigned
-        result, _ = Mikado.scales.assigner.Assigner.compare(self.t1_as, self.t1)
+        result, _ = scales.assigner.Assigner.compare(self.t1_as, self.t1)
         self.assertEqual(result.ccode[0], "j")
 
         # The retained intron AS should have a j assigned
-        result, _ = Mikado.scales.assigner.Assigner.compare(self.t1_retained, self.t1)
+        result, _ = scales.assigner.Assigner.compare(self.t1_retained, self.t1)
         self.assertEqual(result.ccode[0], "j", result.ccode)
 
     def testCreate(self):
@@ -1267,7 +1266,7 @@ class TestLocus(unittest.TestCase):
         :return:
         """
 
-        locus = Mikado.loci.Locus(self.t1, logger=self.logger)
+        locus = loci.Locus(self.t1, logger=self.logger)
         locus.json_conf = self.json_conf
         self.assertEqual(len(locus.transcripts), 1)
 
@@ -1275,7 +1274,7 @@ class TestLocus(unittest.TestCase):
 
         """Test that we exclude a transcript with a contained class code (c)"""
 
-        locus = Mikado.loci.Locus(self.t1, logger=self.logger)
+        locus = loci.Locus(self.t1, logger=self.logger)
         locus.json_conf = self.json_conf
         self.assertEqual(len(locus.transcripts), 1)
         locus.add_transcript_to_locus(self.t1_contained)
@@ -1286,7 +1285,7 @@ class TestLocus(unittest.TestCase):
         """Test that we add a transcript with a contained class code (c) if
         we explicitly ask for it"""
 
-        locus = Mikado.loci.Locus(self.t1, logger=self.logger)
+        locus = loci.Locus(self.t1, logger=self.logger)
         locus.json_conf = self.json_conf
         locus.json_conf["pick"]["alternative_splicing"]["valid_ccodes"].append("c")
         self.assertEqual(len(locus.transcripts), 1)
@@ -1298,7 +1297,7 @@ class TestLocus(unittest.TestCase):
         """Test that we can successfully add a transcript to the locus if
         it passes the muster."""
 
-        locus = Mikado.loci.Locus(self.t1, logger=self.logger)
+        locus = loci.Locus(self.t1, logger=self.logger)
         locus.json_conf = self.json_conf
         self.assertEqual(len(locus.transcripts), 1)
         locus.add_transcript_to_locus(self.t1_as)
@@ -1312,7 +1311,7 @@ class TestLocus(unittest.TestCase):
         - we ask for perfect (100%) CDS overlap
         """
 
-        locus = Mikado.loci.Locus(self.t1, logger=self.logger)
+        locus = loci.Locus(self.t1, logger=self.logger)
         locus.json_conf = self.json_conf
         self.assertEqual(len(locus.transcripts), 1)
 
@@ -1333,7 +1332,7 @@ class TestLocus(unittest.TestCase):
         candidate.reverse_strand()
         logger = self.logger
         # logger.setLevel(logging.DEBUG)
-        locus = Mikado.loci.Locus(self.t1, logger=logger)
+        locus = loci.Locus(self.t1, logger=logger)
         locus.json_conf = self.json_conf
         self.assertEqual(len(locus.transcripts), 1)
         locus.add_transcript_to_locus(candidate)
@@ -2338,7 +2337,7 @@ class PaddingTester(unittest.TestCase):
         transcripts = self.load_from_bed("Mikado.tests", "neg_pad.bed12")
         logger = create_default_logger(inspect.getframeinfo(inspect.currentframe())[2],
                                        level="WARNING")
-        locus = Mikado.loci.Locus(transcripts['Human_coding_ENSP00000371111.2.m1'],
+        locus = loci.Locus(transcripts['Human_coding_ENSP00000371111.2.m1'],
                                   logger=logger)
         locus.json_conf["reference"]["genome"] = genome
         for t in transcripts:
@@ -2419,7 +2418,7 @@ class PaddingTester(unittest.TestCase):
         genome = pkg_resources.resource_filename("Mikado.tests", "padding_test.fa")
         transcripts = self.load_from_bed("Mikado.tests", "padding_test.bed12")
 
-        locus = Mikado.loci.Locus(transcripts['mikado.44G2.1'])
+        locus = loci.Locus(transcripts['mikado.44G2.1'])
         locus.json_conf["reference"]["genome"] = genome
         for t in transcripts:
             if t == locus.primary_transcript_id:
@@ -2476,7 +2475,7 @@ class PaddingTester(unittest.TestCase):
 
         self.assertTrue(all([not _.is_coding for _ in transcripts.values()]))
 
-        locus = Mikado.loci.Locus(transcripts['mikado.44G2.1'])
+        locus = loci.Locus(transcripts['mikado.44G2.1'])
         locus.json_conf["reference"]["genome"] = genome
         for t in transcripts:
             if t == locus.primary_transcript_id:

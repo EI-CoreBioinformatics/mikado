@@ -1,8 +1,7 @@
-import Mikado.utilities
-import Mikado.exceptions
-from Mikado.parsers.GFF import GffLine
-from Mikado.loci import Transcript
-from Mikado.subprograms.util.trim import trim_coding, trim_noncoding
+from .. import utilities, exceptions
+from ..parsers.GFF import GffLine
+from ..loci import Transcript
+from ..subprograms.util.trim import trim_coding, trim_noncoding
 import unittest
 
 __author__ = 'Luca Venturini'
@@ -40,7 +39,7 @@ class TestTrimming(unittest.TestCase):
                               "ID=ENST00000560636.cds1;Parent=ENST00000560636"])
         cds_line = GffLine(cds_line)
         transcript.add_exon(cds_line)
-        logger = Mikado.utilities.log_utils.create_null_logger()
+        logger = utilities.log_utils.create_null_logger()
         transcript.logger = logger
         with self.assertLogs("null", level="WARNING"):
             transcript.finalize()
@@ -73,7 +72,7 @@ class TestTrimming(unittest.TestCase):
         transcript.strand = "+"
         transcript.finalize()
 
-        logger = Mikado.utilities.log_utils.create_null_logger("correct_cds")
+        logger = utilities.log_utils.create_null_logger("correct_cds")
 
         copied = transcript.deepcopy()
 
@@ -89,7 +88,7 @@ class TestTrimming(unittest.TestCase):
 
     def test_noncoding(self):
 
-        logger = Mikado.utilities.log_utils.create_null_logger("correct_cds2")
+        logger = utilities.log_utils.create_null_logger("correct_cds2")
         transcript = Transcript(logger=logger)
         transcript.chrom = "Chr1"
         transcript.source = "test"

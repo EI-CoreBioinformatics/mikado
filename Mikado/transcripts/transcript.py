@@ -221,10 +221,7 @@ class Transcript:
     external_baked = bakery(lambda session: session.query(External))
     external_baked += lambda q: q.filter()
 
-
-
     # ######## Class special methods ####################
-
     def __init__(self, *args,
                  source=None,
                  logger=None,
@@ -587,12 +584,14 @@ class Transcript:
         # Set the logger to NullHandler
         self.logger = None
 
-    def __getattribute__(self, item):
-
-        if "external" in item and item != "external" and "." in item:
-            return getattr(self.external_scores, item.split(".")[1])
-        else:
-            return super().__getattribute__(item)
+    # def __getattribute__(self, item):
+    #     try:
+    #         return object.__getattribute__(self, item)
+    #     except AttributeError as exc:
+    #         if "external" in item and item != "external" and "." in item:
+    #             return getattr(self.external_scores, item.split(".")[1])
+    #         else:
+    #             raise AttributeError(exc)
 
     # ######## Class instance methods ####################
 
@@ -603,30 +602,31 @@ class Transcript:
         :type feature: flag to indicate what kind of feature we are adding
         """
 
-        if isinstance(gffline, (tuple, list)):
+        _gtype = type(gffline)
+
+        if _gtype in (tuple, list):
             assert len(gffline) == 2
             try:
                 start, end = sorted(gffline)
             except TypeError:
-                raise TypeError((gffline, type(gffline)))
+                raise TypeError((gffline, _gtype))
             if feature is None:
                 feature = "exon"
-        elif isinstance(gffline, intervaltree.Interval):
+        elif _gtype is intervaltree.Interval:
             start, end = gffline[0], gffline[1]
             if feature is None:
                 feature = "exon"
-        elif isinstance(gffline, Interval):
+        elif _gtype is Interval:
             start, end = gffline.start, gffline.end
             if feature is None:
                 feature = "exon"
-        elif not isinstance(gffline, (GtfLine, GffLine)):
-            raise InvalidTranscript("Unkwown feature type! %s",
-                                    type(gffline))
+        elif _gtype not in (GtfLine, GffLine):
+            raise InvalidTranscript("Unkwown feature type! %s", _gtype)
         else:
             start, end = sorted([gffline.start, gffline.end])
             if feature is None:
                 feature = gffline.feature
-            if isinstance(gffline, GffLine) and "cdna_match" in gffline.feature.lower():
+            if _gtype is GffLine and "cdna_match" in gffline.feature.lower():
                 gffline.parent = gffline.id
 
             if self.id not in gffline.parent:
@@ -669,11 +669,7 @@ class Transcript:
 
         segment = tuple([int(start), int(end)])
         if segment in store:
-            # raise InvalidTranscript(
-            #     "Attempt to add {} to {}, but it is already present!".format(
-            #         segment, self.id))
             return
-        # assert isinstance(segment[0], int) and isinstance(segment[1], int)
         if self.__expandable is True:
             self.start = min([self.start, start])
             self.end = max([self.end, end])
@@ -1196,7 +1192,7 @@ class Transcript:
         state["id"] = getattr(self, "id")
         return state
 
-    def load_dict(self, state):
+    def load_dict(self, state, trust_orf=False):
         self.finalized = False
 
         for key in ["chrom", "source",
@@ -1235,21 +1231,26 @@ class Transcript:
                 raise CorruptIndex("Invalid exonic values of {}".format(self.id))
             self.exons.append(tuple(exon))
 
+        self._trust_orf = trust_orf
         self.internal_orfs = []
         self.logger.debug("Starting to load the ORFs for %s", self.id)
         try:
-            for orf in iter(state["orfs"][_] for _ in sorted(state["orfs"])):
+            indices = dict((int(_), _) for _ in state["orfs"])
+            __phases = dict()
+            for index in sorted(indices.keys()):
+                orf = state["orfs"][indices[index]]
                 neworf = []
-                for segment in orf:
 
-                    # if segment[0] == "CDS":
+                for segment in orf:
                     if len(segment) == 3:
                         assert segment[0] == "CDS"
 
                         new_segment = (segment[0],
                                        tuple(segment[1]),
                                        int(segment[2]))
-                        self.combined_cds.append(tuple(segment[1]))
+                        self.combined_cds.append(new_segment[1])
+                        if index == 0:
+                            __phases[new_segment[1]] = new_segment[2]
                     else:
                         assert segment[0] != "CDS"
                         new_segment = (segment[0],
@@ -1257,6 +1258,7 @@ class Transcript:
                     neworf.append(new_segment)
 
                 self.internal_orfs.append(neworf)
+                self.phases = __phases
             self.logger.debug("ORFs: %s", " ".join(str(_) for _ in self.internal_orfs))
             self.selected_internal_orf_index = state["selected_orf"]
         except (ValueError, IndexError):
@@ -1377,10 +1379,6 @@ class Transcript:
         metrics = [member[0] for member in inspect.getmembers(cls) if
                    "__" not in member[0] and isinstance(cls.__dict__[member[0]], Metric)]
 
-        # metrics = list(x[0] for x in filter(
-        #     lambda y: "__" not in y[0] and isinstance(cls.__dict__[y[0]], Metric),
-        #     inspect.getmembers(cls)))
-        # assert "tid" in metrics and "parent" in metrics and "score" in metrics
         _metrics = sorted([metric for metric in metrics])
         final_metrics = ["tid", "alias", "parent", "original_source", "score"] + _metrics
         return final_metrics
@@ -1503,7 +1501,7 @@ class Transcript:
         :return:
         """
 
-        assert isinstance(phases, dict)
+        assert isinstance(phases, dict), (phases, type(phases))
         self.__phases = phases
 
     # This will be id, no changes.
@@ -1547,9 +1545,12 @@ class Transcript:
         :type parent: list
         :type parent: str
         """
-        if isinstance(parent, (list, type(None))):
+
+        _ptype = type(parent)
+
+        if _ptype in (list, type(None)):
             self.__parent = parent
-        elif isinstance(parent, str):
+        elif _ptype is str:
             if "," in parent:
                 self.__parent = parent.split(",")
             else:
@@ -1891,6 +1892,13 @@ class Transcript:
 
         self.__exons = list(sorted(args[0]))
 
+    def _set_exons(self, exons):
+        """Private method that bypasses the checks within the direct setter, for speed purposes in finalising."""
+        if self.finalized is True:
+            raise NotImplementedError("I cannot reset the exons in a finalised transcript.")
+
+        self.__exons = exons
+
     @property
     def combined_cds_introns(self):
         """This property returns the introns which are located between CDS
@@ -1971,14 +1979,6 @@ class Transcript:
         if ((not isinstance(combined, list)) or
                 any(self.__wrong_combined_entry(comb) for comb in combined)):
             raise TypeError("Invalid value for combined CDS: {0}".format(combined))
-        # if len(combined) > 0:
-        #     if isinstance(combined[0], tuple):
-        #         try:
-        #             combined = [intervaltree.Interval(_[0], _[1]) for _ in combined]
-        #         except IndexError:
-        #             raise IndexError(combined)
-        #     else:
-        #         assert isinstance(combined[0], intervaltree.Interval)
 
         if len(combined) > 0:
             ar = np.array(list(zip(*combined)))
@@ -1989,21 +1989,23 @@ class Transcript:
         self.__combined_cds = combined
 
     @property
-    @functools.lru_cache(maxsize=None, typed=True)
     def coding_exons(self):
 
         """This property returns a list of exons which have at least a coding part."""
 
-        if self.combined_cds_length == 0:
-            return []
-        coding = []
-        for exon in self.exons:
-            for ccd in self.combined_cds:
-                if self.overlap(exon, ccd) > 0:
-                    coding.append(exon)
-                    break
-                continue
-        return coding
+        @functools.lru_cache(maxsize=None, typed=True)
+        def _wrapped(combined_cds, combined_cds_length, exons):
+            if combined_cds_length == 0:
+                return []
+            coding = []
+            for exon in exons:
+                for ccd in combined_cds:
+                    if self.overlap(exon, ccd) > 0:
+                        coding.append(exon)
+                        break
+                    continue
+
+        return _wrapped(tuple(self.combined_cds), self.combined_cds_length, tuple(self.exons))
 
     @staticmethod
     def __wrong_combined_entry(to_test):
@@ -2221,7 +2223,11 @@ index {3}, internal ORFs: {4}".format(
         #     c_length = int(np.subtract(ar[1], ar[0] - 1).sum())
         #     assert c_length > 0
 
-        return self.__combined_cds_length
+        @functools.lru_cache(typed=True, maxsize=4)
+        def _wrapped(combined_cds):
+            return sum([e[1] - e[0] + 1 for e in combined_cds])
+
+        return _wrapped(tuple(self.combined_cds))
 
     combined_cds_length.category = "CDS"
     combined_cds_length.rtype = "int"
@@ -2277,14 +2283,11 @@ index {3}, internal ORFs: {4}".format(
     @Metric
     def cdna_length(self):
         """This property returns the length of the transcript."""
-        # try:
-        #     self.__cdna_length = sum([e[1] - e[0] + 1 for e in self.exons])
-        # except TypeError:
-        #     raise TypeError(self.exons)
-        # if self.__cdna_length is None:
-        ar = np.array(list(zip(*self.exons)))
-        self.__cdna_length = int(np.subtract(ar[1], ar[0] -1).sum())
-
+        if self.__cdna_length is None and self.finalized is True:
+            raise AssertionError
+        if self.finalized is False or self.__cdna_length is None:
+            ar = np.array(list(zip(*self.exons)))
+            self.__cdna_length = int(np.subtract(ar[1], ar[0] - 1).sum())
         return self.__cdna_length
 
     cdna_length.category = "cDNA"
@@ -2533,7 +2536,12 @@ index {3}, internal ORFs: {4}".format(
     @Metric
     def exon_num(self):
         """This property returns the number of exons of the transcript."""
-        return len(self.exons)
+
+        @functools.lru_cache(typed=True, maxsize=4)
+        def _wrapped(exons):
+            return len(exons)
+
+        return _wrapped(tuple(self.exons))
 
     exon_num.category = "cDNA"
     exon_num.rtype = "int"
@@ -3229,3 +3237,4 @@ index {3}, internal ORFs: {4}".format(
 
     max_exon_length.category = "cDNA"
     max_exon_length.rtype = "int"
+

@@ -1,9 +1,5 @@
-import Mikado.utilities
-import Mikado.exceptions
-import Mikado.configuration
-# from Mikado.parsers.GFF import GffLine
-# from Mikado.loci import Transcript
-# from Mikado.subprograms.util.trim import trim_coding, trim_noncoding
+from .. import configuration
+# from .. import utilities, exceptions, configuration
 import unittest
 import os
 import pkg_resources
@@ -27,7 +23,7 @@ class TestScoring(unittest.TestCase):
         scor_conf["requirements"]["parameters"]["combined_cds_length"]["operator"] = "ge"
         scor_conf["requirements"]["parameters"]["combined_cds_length"]["value"] = 0
 
-        Mikado.configuration.configurator.check_all_requirements(scor_conf)
+        configuration.configurator.check_all_requirements(scor_conf)
         self.assertIn("as_requirements", scor_conf, scor_conf)
         self.assertIn("not_fragmentary", scor_conf, scor_conf)
 
@@ -48,7 +44,7 @@ class TestScoring(unittest.TestCase):
         scor_conf["not_fragmentary"]["parameters"]["combined_cds_length"]["operator"] = "ge"
         scor_conf["not_fragmentary"]["parameters"]["combined_cds_length"]["value"] = 0
 
-        Mikado.configuration.configurator.check_all_requirements(scor_conf)
+        configuration.configurator.check_all_requirements(scor_conf)
         self.assertIn("as_requirements", scor_conf, scor_conf)
         self.assertIn("not_fragmentary", scor_conf, scor_conf)
 
@@ -71,7 +67,7 @@ class TestScoring(unittest.TestCase):
         scor_conf["as_requirements"]["parameters"]["combined_cds_length"]["operator"] = "ge"
         scor_conf["as_requirements"]["parameters"]["combined_cds_length"]["value"] = 0
 
-        Mikado.configuration.configurator.check_all_requirements(scor_conf)
+        configuration.configurator.check_all_requirements(scor_conf)
         self.assertIn("as_requirements", scor_conf, scor_conf)
         self.assertIn("not_fragmentary", scor_conf, scor_conf)
 
@@ -101,7 +97,7 @@ class TestScoring(unittest.TestCase):
         scor_conf["not_fragmentary"]["parameters"]["selected_cds_length"]["operator"] = "ge"
         scor_conf["not_fragmentary"]["parameters"]["selected_cds_length"]["value"] = 0
 
-        Mikado.configuration.configurator.check_all_requirements(scor_conf)
+        configuration.configurator.check_all_requirements(scor_conf)
         self.assertIn("as_requirements", scor_conf, scor_conf)
         self.assertIn("not_fragmentary", scor_conf, scor_conf)
 
@@ -116,16 +112,16 @@ class TestScoring(unittest.TestCase):
             conf["pick"] = dict()
             conf["pick"]["scoring_file"] = scorer
             conf["filename"] = os.path.join(os.getcwd(), "foo.yaml")
-            self.assertIsInstance(Mikado.configuration.configurator.check_json(conf),
+            self.assertIsInstance(configuration.configurator.check_json(conf),
                                   dict, scorer)
 
     def test_analyse_twice(self):
 
         """Verify that parsing and reparsing the configuration dictionary will not cause any errors."""
 
-        scor_conf = Mikado.configuration.configurator.to_json(None)
+        scor_conf = configuration.configurator.to_json(None)
         self.assertIn("as_requirements", scor_conf)
-        scor_conf = Mikado.configuration.configurator.check_json(scor_conf)
+        scor_conf = configuration.configurator.check_json(scor_conf)
         self.assertIn("as_requirements", scor_conf)
 
 

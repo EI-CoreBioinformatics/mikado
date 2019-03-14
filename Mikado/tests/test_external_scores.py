@@ -1,6 +1,6 @@
 import unittest
 
-from Mikado.loci import Transcript
+from ..loci import Transcript
 
 
 class ExternalTester(unittest.TestCase):

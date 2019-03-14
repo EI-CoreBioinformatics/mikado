@@ -26,7 +26,7 @@ class Gene:
 
     __name__ = "gene"
 
-    def __init__(self, transcr: [None, Transcript], gid=None, logger=None, only_coding=False):
+    def __init__(self, transcr: [None, Transcript], gid=None, logger=None, only_coding=False, from_exon=False):
 
         self.transcripts = dict()
         self.__logger = None
@@ -48,8 +48,10 @@ class Gene:
             elif isinstance(transcr, GffLine):
                 if transcr.is_gene is True:
                     self.__from_gene = True
-                elif not "match" in transcr.feature:
+                elif (from_exon is False) and ("match" not in transcr.feature):
                     raise AssertionError(str(transcr))
+                elif from_exon is True:
+                    self.__from_gene = False
 
                 self.id = transcr.id
                 self.attributes = transcr.attributes.copy()
@@ -246,14 +248,14 @@ class Gene:
 
         return state
 
-    def load_dict(self, state, exclude_utr=False, protein_coding=False):
+    def load_dict(self, state, exclude_utr=False, protein_coding=False, trust_orf=False):
 
         for key in ["chrom", "source", "start", "end", "strand", "id"]:
             setattr(self, key, state[key])
 
         for tid, tvalues in state["transcripts"].items():
             transcript = Transcript(logger=self.logger)
-            transcript.load_dict(tvalues)
+            transcript.load_dict(tvalues, trust_orf=trust_orf)
             transcript.finalize()
             if protein_coding is True and transcript.is_coding is False:
                 self.logger.debug("{0} is non coding ({1}, {2})".format(

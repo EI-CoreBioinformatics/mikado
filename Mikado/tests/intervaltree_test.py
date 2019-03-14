@@ -5,7 +5,7 @@
 
 import random
 import unittest
-from Mikado.utilities.intervaltree import Interval, IntervalNode, IntervalTree
+from ..utilities.intervaltree import Interval, IntervalNode, IntervalTree
 
 
 class NeighborTestCase(unittest.TestCase):

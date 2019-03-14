@@ -613,7 +613,7 @@ As external metrics allow Mikado to accept any arbitrary metric for each transcr
 Padding transcripts
 ~~~~~~~~~~~~~~~~~~~
 
-.. note:: The behaviour of this operation changed dramatically during the development of version 1.3.
+.. note:: The behaviour of this operation changed dramatically during the development of version 1.5.
 
 Mikado can optionally "pad" transcripts so to uniform, as much as possible, their start and stops. The procedure is as follows:
 

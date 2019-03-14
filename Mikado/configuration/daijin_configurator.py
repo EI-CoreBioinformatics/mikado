@@ -259,7 +259,7 @@ def create_daijin_config(args, level="ERROR", piped=False):
                 if args.new_scoring.endswith("json"):
                     new_scoring = json.load(_)
                 else:
-                    new_scoring = yaml.load(_)
+                    new_scoring = yaml.load(_, Loader=yaml.SafeLoader)
 
                 json_conf = check_all_requirements(new_scoring)
                 json_conf = check_scoring(new_scoring)

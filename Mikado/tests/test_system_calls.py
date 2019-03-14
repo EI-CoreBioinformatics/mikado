@@ -1038,7 +1038,7 @@ class ConfigureCheck(unittest.TestCase):
                 self.assertGreater(os.stat(out).st_size, 0)
 
                 with open(out) as out_handle:
-                    config = yaml.load(out_handle)
+                    config = yaml.load(out_handle, Loader=yaml.SafeLoader)
 
                 daijin_configurator.check_config(config)
                 dir.cleanup()

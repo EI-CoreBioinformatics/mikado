@@ -12,6 +12,7 @@ from ..configuration import configurator, daijin_configurator, print_config, che
 from ..exceptions import InvalidJson
 from ..utilities import comma_split  # , merge_dictionaries
 from ..transcripts.transcript import Namespace
+import functools
 try:
     import ujson as json
 except ImportError:
@@ -141,7 +142,7 @@ def create_config(args):
         if args.external.endswith("json"):
             loader = json.load
         else:
-            loader = yaml.load
+            loader = functools.partial(yaml.load, Loader=yaml.SafeLoader)
         with open(args.external) as external:
             external_conf = loader(external)
         # Overwrite values specific to Mikado

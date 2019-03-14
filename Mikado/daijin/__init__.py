@@ -20,6 +20,7 @@ from ..configuration.daijin_configurator import create_daijin_config, check_conf
 import shutil
 import pkg_resources
 import tempfile
+import functools
 
 # import logging
 # import logging.handlers
@@ -230,7 +231,7 @@ def assemble_transcripts_pipeline(args):
     if args.config.endswith("json"):
         loader = json.load
     else:
-        loader = yaml.load
+        loader = functools.partial(yaml.load, Loader=yaml.SafeLoader)
 
     with open(args.config, 'r') as _:
         doc = loader(_)
@@ -239,7 +240,7 @@ def assemble_transcripts_pipeline(args):
         if args.exe.endswith("json"):
             loader = json.load
         else:
-            loader = yaml.load
+            loader = functools.partial(yaml.load, Loader=yaml.SafeLoader)
         with open(args.exe) as _:
             doc["load"] = loader(_)
 
@@ -396,7 +397,7 @@ def mikado_pipeline(args):
     if args.config.endswith("json"):
         loader = json.load
     else:
-        loader = yaml.load
+        loader = functools.partial(yaml.load, Loader=yaml.SafeLoader)
 
     with open(args.config, 'r') as _:
         doc = loader(_)
@@ -409,7 +410,7 @@ def mikado_pipeline(args):
         if args.exe.endswith("json"):
             loader = json.load
         else:
-            loader = yaml.load
+            loader = functools.partial(yaml.load, Loader=yaml.SafeLoader)
         with open(args.exe) as _:
             doc["load"] = loader(_)
 

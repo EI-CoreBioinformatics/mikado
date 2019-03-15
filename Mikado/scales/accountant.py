@@ -483,10 +483,13 @@ class Accountant:
 
         for parent in accountant.pred_genes:
             if parent not in self.pred_genes:
-                self.pred_genes[parent] = accountant.pred_genes[parent]
+                self.pred_genes[parent] = accountant.pred_genes[parent].copy()
             else:
-                for tid in self.pred_genes[parent]:
-                    self.pred_genes[parent][tid] |= accountant.pred_genes[parent][tid]
+                for tid in accountant.pred_genes[parent]:
+                    if tid in self.pred_genes[parent]:
+                        self.pred_genes[parent][tid] |= accountant.pred_genes[parent][tid]
+                    else:
+                        self.pred_genes[parent][tid] = accountant.pred_genes[parent][tid]
 
         for ref_gene in accountant.ref_genes:
             for refid in accountant.ref_genes[ref_gene]:

@@ -240,9 +240,9 @@ class Assigners(mp.Process):
 
     def run(self):
         while True:
-            transcr = self.queue.get(timeout=10)
+            transcr = self.queue.get()
             if transcr == "EXIT":
-                self.queue.put("EXIT")
+                self.queue.put_nowait("EXIT")
                 out = os.path.join(self.__args.out + str(self.__counter) + ".pickle")
                 self.assigner_instance.dump(out)
                 self.returnqueue.put(out)

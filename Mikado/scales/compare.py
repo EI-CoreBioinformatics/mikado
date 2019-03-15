@@ -28,6 +28,7 @@ import magic
 import sqlite3
 import multiprocessing as mp
 import pickle
+from ..exceptions import InvalidTranscript
 try:
     # import ujson as json
     import json as json
@@ -231,8 +232,9 @@ class Assigners(mp.Process):
 
     def __init__(self, genes, positions, args, queue, returnqueue, counter):
         super().__init__()
-        self.accountant_instance = Accountant(genes, args)
-        self.assigner_instance = Assigner(genes, positions, args, self.accountant_instance, printout_tmap=False)
+        self.accountant_instance = Accountant(genes, args, counter=counter)
+        self.assigner_instance = Assigner(genes, positions, args, self.accountant_instance, printout_tmap=False,
+                                          counter=counter)
         self.queue = queue
         self.returnqueue = returnqueue
         self.__args = args
@@ -281,6 +283,7 @@ def parse_prediction(args, genes, positions, queue_logger):
                                     logger=queue_logger, trust_orf=True, accept_undefined_multi=True)
 
     done = 0
+    invalids = set()
     for row in args.prediction:
         if row.header is True:
             continue
@@ -306,12 +309,22 @@ def parse_prediction(args, genes, positions, queue_logger):
                         queue_logger.info("Parsed %s transcripts", done)
                     queue.put(transcript)
                     # assigner_instance.get_best(transcript)
-            transcript = constructor(row)
+            try:
+                transcript = constructor(row)
+            except (InvalidTranscript, AssertionError, TypeError, ValueError):
+                queue_logger.warning("Row %s is invalid, skipping.", row)
+                transcript = None
+                invalids.add(row.id)
+                continue
+
             if is_bed12:
                 transcript.parent = transcript.id
 
         elif row.is_exon is True:
             # Case 1: we are talking about cDNA_match and GFF
+            if any(_ in invalids for _ in row.parent):
+                # Skip children of invalid things
+                continue
             if ref_gff is True and "match" not in row.feature:
                 if transcript is None:
                     raise TypeError("Transcript not defined inside the GFF; line:\n{}".format(row))

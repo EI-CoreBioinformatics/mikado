@@ -117,7 +117,7 @@ def to_gff(string):
     elif ".gff" in string or ".gff3" in string:
     # elif string.endswith('gff') or string.endswith('gff3'):
         return GFF.GFF3(string)
-    elif ".bed12" in string:
+    elif ".bed12" in string or ".bed" in string:
         return bed12.Bed12Parser(string)
     else:
         raise ValueError('Unrecognized format for {}'.format(string))

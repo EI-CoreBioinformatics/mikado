@@ -39,7 +39,8 @@ class Assigner:
                  args: argparse.Namespace,
                  stat_calculator: Accountant,
                  results=(),
-                 printout_tmap=True):
+                 printout_tmap=True,
+                 counter=None):
 
         """
 
@@ -91,7 +92,10 @@ class Assigner:
         # pylint: disable=no-member
         self.queue_handler = log_handlers.QueueHandler(self.args.log_queue)
         # pylint: enable=no-member
-        self.logger = logging.getLogger("Assigner")
+        if counter is None:
+            self.logger = logging.getLogger("Assigner")
+        else:
+            self.logger = logging.getLogger("Assigner-{}".format(counter))
         self.logger.addHandler(self.queue_handler)
         # noinspection PyUnresolvedReferences
         if args.verbose:
@@ -586,6 +590,7 @@ class Assigner:
             return None
         elif prediction.finalized is False:
             self.logger.error("%s failed to be finalised. Ignoring it.", prediction.id)
+            return None
 
         # Ignore non-coding RNAs if we are interested in protein-coding transcripts only
         # noinspection PyUnresolvedReferences
@@ -634,7 +639,13 @@ class Assigner:
                                      key=operator.attrgetter("distance"))[0]
             else:
                 # All other cases
-                results, best_result = self.__prepare_result(prediction, distances)
+                try:
+                    results, best_result = self.__prepare_result(prediction, distances)
+                except (InvalidTranscript, ZeroDivisionError, AssertionError) as exc:
+                    self.logger.error("Something went wrong with %s. Ignoring it.",
+                                      prediction.id)
+                    self.logger.debug(exc)
+                    return None
 
         if self.use_prediction_alias is True:
             if isinstance(best_result, list):

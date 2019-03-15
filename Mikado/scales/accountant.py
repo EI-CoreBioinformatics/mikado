@@ -22,7 +22,7 @@ class Accountant:
     """This class stores the data necessary to calculate the final statistics
      - base and exon Sn/Sp/F1 etc."""
 
-    def __init__(self, genes: dict, args: argparse.Namespace):
+    def __init__(self, genes: dict, args: argparse.Namespace, counter=None):
 
         """Class constructor. It requires:
         :param genes: a dictionary
@@ -34,6 +34,7 @@ class Accountant:
         self.args = args
         self.queue_handler = None
         self.logger = None
+        self._counter = counter
         self.__setup_logger()
         self.logger.debug("Started with stat printing")
 
@@ -141,7 +142,10 @@ class Accountant:
             self.queue_handler = log_handlers.QueueHandler(self.args.log_queue)
         else:
             self.queue_handler = logging.NullHandler
-        self.logger = logging.getLogger("stat_logger")
+        if self._counter is None:
+            self.logger = logging.getLogger("stat_logger")
+        else:
+            self.logger = logging.getLogger("stat_logger-{}".format(self._counter))
         self.logger.addHandler(self.queue_handler)
         # noinspection PyUnresolvedReferences
         if self.args.verbose:

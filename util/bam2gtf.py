@@ -17,6 +17,7 @@ def main():
     parser.add_argument("--strict", action="store_true", default=False,
                         help="Switch. If set, this script will never output multiexonic transcripts \
                         without a defined strand.")
+    parser.add_argument("--outfmt", choices=["gtf", "bed12"], default="gtf")
     parser.add_argument("bam", type=to_bam, help="Input BAM file")
     parser.add_argument("out", nargs="?", default=sys.stdout, type=argparse.FileType("wt"),
                         help="Optional output file")
@@ -75,9 +76,19 @@ def main():
                     matches += length
                     alen += length
 
-        snps = sum(len(_) for _ in re.split("[0-9]*", [_[1] for _ in record.tags if _[0] == "MD"][0]) if not _.startswith("^"))
+        md_found = False
+        snps = 0
+        for tag in record.tags:
+            if tag[0] == "MD":
+                md_found = True
+                snps = sum(len(_) for _ in re.split("[0-9]*", tag[1]) if not _.startswith("^"))
+                break
 
-        identity = round(100 * (matches - snps) / r_length, 2)
+        if md_found:
+            identity = round(100 * (matches - snps) / r_length, 2)
+        else:
+            identity = "NA"
+
         coverage = round(100 * alen / r_length, 2)
 
         exons.append(current_exon)
@@ -135,6 +146,7 @@ Exons: {6}
             else:
                 transcript.strand = "+"
 
-        print(transcript.__str__(to_gtf=True), file=args.out)
+        print(transcript.format(args.outfmt), file=args.out)
+
 
 main()

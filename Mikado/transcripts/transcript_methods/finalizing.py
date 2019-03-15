@@ -81,7 +81,7 @@ def __basic_final_checks(transcript):
         if exon[0] < transcript.start or exon[1] > transcript.end:
             exc = InvalidTranscript("{} for {} is an invalid exon (start {}, end {})".format(
                 exon, transcript.id, transcript.start, transcript.end))
-            transcript.logger.exception(exc)
+            transcript.logger.debug(exc)
             raise exc
         new_exons.append(exon)
 
@@ -237,9 +237,9 @@ def __calculate_introns(transcript):
             exona, exonb = transcript.exons[index:index + 2]
             if exona[1] >= exonb[0]:
                 exc = InvalidTranscript(
-                    "Overlapping exons found!\n{0} {1}/{2}\n{3}".format(
+                    "Overlapping exons found for\n{0} {1}/{2}\n{3}".format(
                         transcript.id, exona, exonb, transcript.exons))
-                transcript.logger.exception(exc)
+                transcript.logger.debug(exc)
                 raise exc
             # Append the splice junction
             introns.append(tuple([exona[1] + 1, exonb[0] - 1]))
@@ -670,8 +670,8 @@ def finalize(transcript):
             try:
                 _check_cdna_vs_utr(transcript)
             except InvalidCDS as exc:
-                transcript.logger.error("CDS for %s completely invalid. Removing it.",
-                                        transcript.id)
+                transcript.logger.warning("CDS for %s completely invalid. Removing it.",
+                                          transcript.id)
                 transcript.logger.exception(exc)
                 transcript.combined_cds = []
                 transcript.combined_utr = []

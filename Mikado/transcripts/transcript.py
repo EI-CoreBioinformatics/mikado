@@ -11,7 +11,6 @@ import functools
 import inspect
 import logging
 import re
-from sys import maxsize
 from ast import literal_eval
 from sys import intern, maxsize
 import operator
@@ -36,6 +35,7 @@ from .transcript_methods.printing import create_lines_no_cds, create_lines_bed, 
 from ..utilities.intervaltree import Interval, IntervalTree
 from collections import Hashable
 import numpy as np
+import pysam
 
 
 class Namespace:
@@ -250,7 +250,6 @@ class Transcript:
         :param accept_undefined_multi: optional boolean flag. If set to True, Mikado will not mark the transcript as
         invalid if it is multiexonic but without a defined strand. Normally, we would discard such transcripts.
         :type accept_undefined_multi: bool
-
         """
 
         # Mock setting of base hidden variables
@@ -365,10 +364,18 @@ class Transcript:
             self.__initialize_with_gf(transcript_row)
         elif isinstance(transcript_row, BED12):
             self.__initialize_with_bed12(transcript_row)
+        elif isinstance(transcript_row, pysam.AlignedSegment):
+            self.__initialize_with_bam(transcript_row)
         else:
             raise TypeError("Invalid data type: {0}".format(type(transcript_row)))
 
     def __initialize_with_bed12(self, transcript_row: BED12):
+
+        """
+        :param transcript_row:
+        :type transcript_row: pysam.AlignedSegment
+        :return:
+        """
 
         self.chrom = transcript_row.chrom
         self.name = self.id = transcript_row.name
@@ -388,6 +395,80 @@ class Transcript:
                     cds.append((int(max(exon[0], transcript_row.thick_start)),
                                 int(min(exon[1], transcript_row.thick_end))))
             self.add_exons(cds, features="CDS")
+        self.finalize()
+
+    def __initialize_with_bam(self, transcript_row: pysam.AlignedSegment):
+
+        if transcript_row.is_unmapped is True:
+            raise InvalidTranscript("I cannot transform BAM unmapped reads.")
+
+        self.chrom = str(transcript_row.reference_name)
+        transcript_row.cigar = [(key, val) if key not in (7, 8) else (0, val) for key, val in transcript_row.cigar]
+
+        try:
+            start, end = transcript_row.reference_start, transcript_row.get_blocks()[-1][1]
+        except IndexError:
+            exc = "Invalid start and end for BAM row: {}".format(transcript_row)
+            raise InvalidTranscript(exc)
+
+        current = start
+        current_exon = None
+        self.score = transcript_row.mapq
+
+        r_length = transcript_row.inferred_length  # Read length
+        matches = 0
+        alen = 0
+
+        # Get the exons
+        for cigar, length in transcript_row.cigartuples:
+            if cigar in (4, 5):  # Insertion, clipping (soft or hard)
+                continue
+            elif cigar == 1:
+                alen += length
+            elif cigar == 3:  # Intron
+                if current_exon is None:
+                    continue  # Read positioned at the end/beginning of scaffold
+                # assert current_exon is not None
+                self.add_exon(current_exon)
+                current_exon = None
+                current += length
+            elif cigar in (0, 2):  # Match or deletion
+                if current_exon is None:
+                    current_exon = (current + 1, current + length)
+                else:
+                    current_exon = (current_exon[0], current_exon[1] + length)
+                current += length
+                if cigar == 0:
+                    matches += length
+                    alen += length
+        self.add_exon(current_exon)
+        coverage = round(100 * alen / r_length, 2)
+        # Get the tags
+        tags = dict(transcript_row.tags)
+        if "MD" in tags:
+            snps = sum(len(_) for _ in re.split("[0-9]*", tags["MD"]) if not _.startswith("^"))
+            identity = round(100 * (matches - snps) / r_length, 2)
+            self.attributes["identity"] = identity
+            del tags["MD"]
+
+        # Set the strand
+        if "XS" in tags:
+            self.strand = tags["XS"]
+            del tags["XS"]
+        elif "ts" in tags:
+            self.strand = tags["ts"]  # Minimap2
+            del tags["ts"]
+        else:
+            if transcript_row.is_reverse:
+                self.strand = "-"
+            else:
+                self.strand = "+"
+
+        self.attributes.update(tags)
+        self.attributes["coverage"] = coverage
+        self.attributes["cigar"] = transcript_row.cigarstring
+        self.id = transcript_row.query_name
+        self.parent = self.attributes["gene_id"] = "{0}.gene".format(transcript_row.query_name)
         self.finalize()
 
     def __initialize_with_gf(self, transcript_row: (GffLine, GtfLine)):

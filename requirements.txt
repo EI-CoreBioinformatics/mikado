@@ -22,3 +22,4 @@ ujson
 simplejson
 pandas
 pytest-cov
+pysam >= 0.15.1

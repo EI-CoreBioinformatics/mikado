@@ -14,6 +14,7 @@ from sqlalchemy import bindparam
 from sqlalchemy.engine import Engine
 from sqlalchemy.ext import baked
 from sqlalchemy.orm.session import sessionmaker
+from sqlalchemy.orm import session as sasession
 from sqlalchemy.sql.expression import and_
 from ..transcripts.transcript import Transcript
 from .abstractlocus import Abstractlocus
@@ -658,7 +659,8 @@ class Superlocus(Abstractlocus):
             self.logger.debug("Finished retrieving data for %d transcripts",
                               len(tid_keys))
             self.session.close()
-            self.sessionmaker.close_all()
+            sasession.close_all_sessions()
+            # self.sessionmaker.close_all_sessions()
 
         for tid in tid_keys:
             remove_flag, new_transcripts = self.load_transcript_data(tid, data_dict)

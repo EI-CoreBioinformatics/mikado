@@ -810,6 +810,7 @@ class CompareCheck(unittest.TestCase):
             with self.subTest(ref=ref, pred=pred):
                 namespace.reference = to_gff(ref)
                 namespace.prediction = to_gff(pred)
+                namespace.processes = 2
                 dir = tempfile.TemporaryDirectory()
                 namespace.log = os.path.join(dir.name, "compare_{}_{}.log".format(
                     files.index(ref), files.index(pred)))

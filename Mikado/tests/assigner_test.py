@@ -1107,6 +1107,7 @@ class AssignerTest(unittest.TestCase):
         args.self = False
         args.extended_refmap = False
         args.gzip = False
+        args.processes = 1
 
         scales.compare.compare(args)
 

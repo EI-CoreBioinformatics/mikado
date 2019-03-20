@@ -2085,6 +2085,7 @@ class Transcript:
                         coding.append(exon)
                         break
                     continue
+            return coding
 
         return _wrapped(tuple(self.combined_cds), self.combined_cds_length, tuple(self.exons))
 

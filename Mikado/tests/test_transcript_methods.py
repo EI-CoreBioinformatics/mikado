@@ -669,7 +669,9 @@ Chr5	TAIR10	exon	5256	5576	.	-	.	Parent=AT5G01015.1"""
         self.assertEqual(t1, self.t1)
 
     def test_get_coding_exons(self):
-        correct = [(5697,5891), (5256, 5576)]
+        correct = sorted([(5697,5891), (5256, 5576)])
+        self.t1.finalize()
+        self.assertIsNotNone(self.t1.coding_exons)
         self.assertEqual(sorted(self.t1.coding_exons), sorted(correct))
         t1 = self.t1.copy()
         t1.strip_cds()

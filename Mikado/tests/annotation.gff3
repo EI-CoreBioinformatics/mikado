@@ -1,4 +1,4 @@
-Chr5	TAIR10	gene	1223	5061	.	-	.	ID=AT5G01010;Note=protein_coding_gene;Name=AT5G01010
+Chr5	TAIR10	gene	1251	5043	.	-	.	ID=AT5G01010;Note=protein_coding_gene;Name=AT5G01010
 Chr5	TAIR10	mRNA	1251	5043	.	-	.	ID=AT5G01010.1;Parent=AT5G01010;Name=AT5G01010.1;Index=1
 Chr5	TAIR10	five_prime_UTR	4925	5043	.	-	.	Parent=AT5G01010.1
 Chr5	TAIR10	CDS	4765	4924	.	-	0	Parent=AT5G01010.1;

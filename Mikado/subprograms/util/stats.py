@@ -540,52 +540,33 @@ class Calculator:
                     gene.transcripts[tid].selected_cds_length] = self.__stores["cds_lengths_coding"].get(
                     gene.transcripts[tid].selected_cds_length, 0) + 1
 
-                self.__stores["five_utr_lengths"].set(gene.transcripts[tid].five_utr_length,
-                                                      self.__stores["five_utr_lengths"].get(
-                                                          gene.transcripts[tid].five_utr_length, 0) + 1)
-
-                self.__stores["three_utr_lengths"].set(gene.transcripts[tid].three_utr_length,
-                                                      self.__stores["three_utr_lengths"].get(
-                                                          gene.transcripts[tid].three_utr_length, 0) + 1)
-
-                self.__stores["five_utr_nums"].set(gene.transcripts[tid].five_utr_num,
-                                                      self.__stores["five_utr_nums"].get(
-                                                          gene.transcripts[tid].five_utr_num, 0) + 1)
-
-                self.__stores["three_utr_nums"].set(gene.transcripts[tid].three_utr_num,
-                                                       self.__stores["three_utr_nums"].get(
-                                                           gene.transcripts[tid].three_utr_num, 0) + 1)
-                self.__stores["end_distance_from_junction"].set(
-                    gene.transcripts[tid].selected_end_distance_from_junction,
-                    self.__stores["end_distance_from_junction"].get(
-                        gene.transcripts[tid].selected_end_distance_from_junction, 0) + 1
-                )
+                for key, attribute in (("five_utr_lengths", "five_utr_length"),
+                                       ("three_utr_lengths", "three_utr_length"),
+                                       ("five_utr_nums", "five_utr_num"),
+                                       ("three_utr_nums", "three_utr_num"),
+                                       ("end_distance_from_junction", "end_distance_from_junction")):
+                    val = getattr(gene.transcripts[tid], attribute)
+                    self.__stores[key][val] = self.__stores[key].get(val, 0) + 1
 
                 cds_ratio = 100 * __cds_length / __cdna_length
-                self.__stores["cds_ratio"].set(cds_ratio,
-                                               self.__stores["cds_ratio"].get(cds_ratio, 0) + 1)
+                self.__stores["cds_ratio"][cds_ratio] = self.__stores["cds_ratio"].get(cds_ratio, 0) + 1
 
             if self.only_coding is False:
                 if gene.transcripts[tid].selected_cds_length > 0:
                     cdl = gene.transcripts[tid].cdna_length
-
-                    self.__stores["cdna_lengths_coding"].set(
-                        cdl,
-                        self.__stores["cdna_lengths_coding"].get(cdl, 0) + 1)
+                    self.__stores["cdna_lengths_coding"][cdl] = self.__stores["cdna_lengths_coding"].get(cdl, 0) + 1
                     for el in gene.transcripts[tid].exon_lengths:
-                        self.__stores["exons_coding"].set(el, self.__stores["exons_coding"].get(el, 0) + 1)
+                        self.__stores["exons_coding"][el] = self.__stores["exons_coding"].get(el, 0) + 1
                     num_exons = len(gene.transcripts[tid].exon_lengths)
 
-                    self.__stores["exon_num_coding"].set(
-                        num_exons,
-                        self.__stores["exon_num_coding"].get(num_exons, 0) + 1)
+                    self.__stores["exon_num_coding"][num_exons] = self.__stores["exon_num_coding"].get(num_exons,
+                                                                                                       0) + 1
                     cds_num_exons = len(gene.transcripts[tid].cds_exon_lengths)
-                    self.__stores["cds_exon_num_coding"].set(
-                        cds_num_exons,
-                        self.__stores["cds_exon_num_coding"].get(cds_num_exons, 0) + 1)
+                    self.__stores["cds_exon_num_coding"][cds_num_exons] = self.__stores[
+                                                                              "cds_exon_num_coding"].get(cds_num_exons,
+                                                                                                         0) + 1
                     for il in gene.transcripts[tid].intron_lengths:
-                        self.__stores["introns_coding"].set(
-                            il, self.__stores["introns_coding"].get(il, 0) + 1)
+                        self.__stores["introns_coding"][il] = self.__stores["introns_coding"].get(il, 0) + 1
         return
 
     def __finalize_arrays(self):

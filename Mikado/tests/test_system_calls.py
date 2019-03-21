@@ -1499,13 +1499,14 @@ class SerialiseChecker(unittest.TestCase):
         os.remove(cls.__genomefile__.name)
         os.remove(cls.fai.faidx.indexname)
 
-    @unittest.skip
+    #@unittest.skip
     def test_subprocess_multi(self):
 
         xml = pkg_resources.resource_filename("Mikado.tests", "chunk-001-proteins.xml.gz")
         transcripts = pkg_resources.resource_filename("Mikado.tests", "mikado_prepared.fasta")
         junctions = pkg_resources.resource_filename("Mikado.tests", "junctions.bed")
         orfs = pkg_resources.resource_filename("Mikado.tests", "transcripts.fasta.prodigal.gff3")
+        uniprot = pkg_resources.resource_filename("Mikado.tests", "uniprot_sprot_plants.fasta.gz")
         mobjects = 300  # Let's test properly the serialisation for BLAST
         procs = 3
 
@@ -1513,6 +1514,9 @@ class SerialiseChecker(unittest.TestCase):
         json_file = os.path.join(dir.name, "mikado.yaml")
         db = os.path.join(dir.name, "mikado.db")
         log = os.path.join(dir.name, "serialise.log")
+        uni_out = os.path.join(dir.name, "uniprot_sprot_plants.fasta")
+        with gzip.open(uniprot, "rb") as uni, open(uni_out, "wb") as uni_out_handle:
+            uni_out_handle.write(uni.read())
 
         with open(json_file, "wt") as json_handle:
             sub_configure.print_config(yaml.dump(self.json_conf, default_flow_style=False),
@@ -1520,12 +1524,11 @@ class SerialiseChecker(unittest.TestCase):
         # Set up the command arguments
 
         sys.argv = [str(_) for _ in ["mikado", "serialise", "--json-conf", json_file,
-                    "--transcripts", transcripts,
+                    "--transcripts", transcripts, "--blast_targets", uni_out,
                     "--orfs", orfs, "--junctions", junctions, "--xml", xml,
                     "-p", procs, "-mo", mobjects, db, "--log", log]]
 
-        with self.assertRaises(SystemExit):
-            pkg_resources.load_entry_point("Mikado", "console_scripts", "mikado")()
+        pkg_resources.load_entry_point("Mikado", "console_scripts", "mikado")()
 
         self.assertTrue(os.path.exists(db))
         conn = sqlite3.connect(db)
@@ -1536,11 +1539,36 @@ class SerialiseChecker(unittest.TestCase):
         self.assertEqual(cursor.execute("select count(distinct(query_id)) from hit").fetchall()[0][0], 71)
         self.assertEqual(cursor.execute("select count(distinct(target_id)) from hsp").fetchall()[0][0], 32)
         self.assertEqual(cursor.execute("select count(distinct(target_id)) from hit").fetchall()[0][0], 32)
-        self.assertEqual(cursor.execute("select count(*) from junctions").fetchall()[0][0], 371)
-        self.assertEqual(cursor.execute("select count(distinct(chrom_id)) from junctions").fetchall()[0][0], 1)
+        self.assertEqual(cursor.execute("select count(*) from junctions").fetchall()[0][0], 372)
+        self.assertEqual(cursor.execute("select count(distinct(chrom_id)) from junctions").fetchall()[0][0], 2)
         self.assertEqual(cursor.execute("select count(*) from orf").fetchall()[0][0], 169)
         self.assertEqual(cursor.execute("select count(distinct(query_id)) from orf").fetchall()[0][0], 81)
         dir.cleanup()
+
+
+class StatsTest(unittest.TestCase):
+
+    def test_annotation_stats(self):
+
+        annotation_file = pkg_resources.resource_filename("Mikado.tests", "annotation.gff3")
+        annotation_check = pkg_resources.resource_filename("Mikado.tests", "annotation.gff3.stats")
+
+        dir = tempfile.TemporaryDirectory()
+        out = os.path.join(dir.name, "annotation.gff3.stats")
+        sys.argv = [str(_) for _ in ["mikado", "util", "stats", annotation_file, out]]
+        # with self.assertRaises(SystemExit):
+        #     pkg_resources.load_entry_point("Mikado", "console_scripts", "mikado")()
+        pkg_resources.load_entry_point("Mikado", "console_scripts", "mikado")()
+
+        self.assertTrue(os.path.exists(out))
+
+        with open(annotation_check) as check:
+            check_lines = [_.strip() for _ in check]
+
+        with open(out) as out_handle:
+            out_lines = [_.strip() for _ in out_handle]
+
+        self.assertEqual(check_lines, out_lines)
 
 
 if __name__ == "__main__":

@@ -9,12 +9,16 @@ Module to serialize GFF files.
 from . import Parser
 from .gfannotation import GFAnnotation
 from sys import intern
+import re
 
 
 # This class has exactly how many attributes I need it to have
 # pylint: disable=too-many-instance-attributes
 class GffLine(GFAnnotation):
     """Object which serializes a GFF line."""
+
+    # The (?:;|$) means "match, but **do not capture**, either semicolon or end of the line.
+    _attribute_pattern = re.compile(r"([^;]*)=([^$=]*)(?:;|$)")
 
     def __init__(self, line, my_line='', header=False):
         """
@@ -41,19 +45,25 @@ class GffLine(GFAnnotation):
 
         self.attribute_order = []
 
-        for item in iter(x for x in self._attr.rstrip().split(';') if x != ''):
-            itemized = item.strip().split('=')
-            try:
-                if itemized[0].lower() == "parent":
-                    self.parent = itemized[1].split(",")
+        infolist = re.findall(self._attribute_pattern, self._attr.rstrip().rstrip(";"))
 
-                elif itemized[0].upper() == "ID":
-                    self.id = itemized[1]
-                else:
-                    self.attributes[itemized[0]] = itemized[1]
-                    self.attribute_order.append(itemized[0])
-            except IndexError:
-                pass
+        for item in infolist:
+            key, val = item
+            if key.lower() == "parent":
+                self.parent = val.split(",")
+            elif key.upper() == "ID":
+                self.id = val
+            else:
+                try:
+                    val = int(val)
+                except ValueError:
+                    try:
+                        val = float(val)
+                    except ValueError:
+                        pass
+                finally:
+                    self.attributes[key] = val
+                    self.attribute_order.append(key)
 
     def _format_attributes(self):
         """

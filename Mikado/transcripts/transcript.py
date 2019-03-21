@@ -489,7 +489,6 @@ class Transcript:
         booleans = {"True": True, "False": False, "None": None}
 
         for key, val in transcript_row.attributes.items():
-
             if not isinstance(val, Hashable):
                 pass
             elif val in booleans:
@@ -497,7 +496,7 @@ class Transcript:
             else:
                 try:
                     val = int(val)
-                except ValueError:
+                except (ValueError, OverflowError):
                     try:
                         val = float(val)
                     except ValueError:

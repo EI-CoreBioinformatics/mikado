@@ -1270,8 +1270,8 @@ class PickTest(unittest.TestCase):
         Chr1	foo	exon	100	800	.	+	.	gene_id "foo1"; transcript_id "foo1.2"
         Chr1	foo	exon	1900	2000	.	+	.	gene_id "foo1"; transcript_id "foo1.2"
         Chr1	foo	transcript	10000	20000	.	+	.	gene_id "foo2"; transcript_id "foo2.1"
-        Chr1	foo	exon	10000	13000	.	+	.	gene_id "foo2; transcript_id "foo2.1"
-        Chr1	foo	exon	19000	20000	.	+	.	gene_id "foo"; transcript_id "foo2.1"""
+        Chr1	foo	exon	10000	13000	.	+	.	gene_id "foo2"; transcript_id "foo2.1"
+        Chr1	foo	exon	19000	20000	.	+	.	gene_id "foo"; transcript_id "foo2.1\""""
 
         dir = tempfile.TemporaryDirectory()
         temp_gtf = tempfile.NamedTemporaryFile(mode="wt", suffix=".gtf", dir=dir.name, delete=True)
@@ -1336,10 +1336,10 @@ class PickTest(unittest.TestCase):
 
                 with to_gff(os.path.join(dir.name,
                                          self.json_conf["pick"]["files"]["loci_out"])) as gff:
-
                     lines = [line for line in gff if line.header is False]
                 self.assertGreater(len(lines), 0)
-                self.assertTrue(any([_ for _ in lines if _.attributes.get("alias", "") == "foo2.1"]))
+                self.assertTrue(any([_ for _ in lines if _.attributes.get("alias", "") == "foo2.1"]),
+                                "\n".join([str(_) for _ in lines]))
                 if purging is True:
                     self.assertFalse(any([_ for _ in lines if _.attributes.get("alias", "") in ("foo1.2", "foo1.1")]))
                 else:
@@ -1460,7 +1460,8 @@ class PickTest(unittest.TestCase):
                                          self.json_conf["pick"]["files"]["loci_out"])) as gff:
                     lines = [line for line in gff if line.header is False]
                 self.assertGreater(len(lines), 0)
-                self.assertTrue(any([_ for _ in lines if _.attributes.get("alias", "") == "foo2.1"]))
+                self.assertTrue(any([_ for _ in lines if _.attributes.get("alias", "") == "foo2.1"]),
+                                "\n".join([str(_) for _ in lines]))
                 if purging is True:
                     self.assertFalse(any([_ for _ in lines if _.attributes.get("alias", "") == "foo1.2"]))
                 else:

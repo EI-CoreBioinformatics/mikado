@@ -293,6 +293,28 @@ class TestParser(unittest.TestCase):
         gtf_line.header, gtf_line.start, gtf_line.end = True, None, gtf_line.end
         self.assertEqual(len(gff_line), 0)
 
+    def test_pesky_gtf_line(self):
+
+        line = """LG01\tbam2gtf\ttranscript\t44857\t46213\t60\t+\t.\tgene_id "transcript/12468.gene"; transcript_id "transcript/12468"; NM "92"; ms "842"; AS "806"; nn "0"; tp "P"; cm "145"; s1 "625"; s2 "372"; de "0.07109999656677246"; SA "GmG20150304_scaffold_7394,26960,-,673S2322M750D143S,60,68;GmG20150304_scaffold_5658,14965,+,50S192M723D2896S,37,22;"; coverage "100.0"; cigar "8M1I86M9I37M1I213M4I553M266N3M1I41M1D56M4I93M2028H”;"""
+        gtf_line = parsers.GTF.GtfLine(line)
+        self.assertEqual(gtf_line.feature, "transcript")
+        self.assertIn("SA", gtf_line.attributes.keys(), gtf_line.attributes)
+        self.assertEqual(
+            gtf_line.attributes["SA"],
+            "GmG20150304_scaffold_7394,26960,-,673S2322M750D143S,60,68;" +
+            "GmG20150304_scaffold_5658,14965,+,50S192M723D2896S,37,22;",
+            gtf_line.attributes)
+
+    def test_pesky_gff_line(self):
+
+        line = """LG01\tbam2gtf\ttranscript\t44857\t46213\t60\t+\t.\tID=transcript/12468;Parent="transcript/12468.gene";NM=92;ms=842;AS=806;nn=0;tp=P;cm=145;s1=625;s2=372;de=0.07109999656677246;SA=GmG20150304_scaffold_7394,26960,-,673S2322M750D143S,60,68;GmG20150304_scaffold_5658,14965,+,50S192M723D2896S,37,22;;coverage=100.0;cigar=8M1I86M9I37M1I213M4I553M266N3M1I41M1D56M4I93M2028H;"""
+        gff_line = parsers.GFF.GffLine(line)
+        self.assertEqual(gff_line.feature, "transcript")
+        self.assertEqual(
+            gff_line.attributes["SA"],
+            "GmG20150304_scaffold_7394,26960,-,673S2322M750D143S,60,68;" +
+            "GmG20150304_scaffold_5658,14965,+,50S192M723D2896S,37,22;")
+
 
 if __name__ == '__main__':
     unittest.main()

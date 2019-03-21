@@ -6,6 +6,7 @@ Generic parser for GTF files.
 
 from . import Parser
 from .gfannotation import GFAnnotation
+import re
 
 
 # This class has exactly how many attributes I need it to have
@@ -35,6 +36,8 @@ class GtfLine(GFAnnotation):
     # _slots=['chrom','source','feature','start',\
     # 'end','score','strand','phase','info']
 
+    _attribute_pattern = re.compile(r"([^;\s]*) \"([^\"]*)\"(?:;|$)")
+
     def __init__(self, line, my_line='', header=False):
 
         self.__frame = None
@@ -49,40 +52,29 @@ class GtfLine(GFAnnotation):
         :return:
         """
 
-        # info_list = []
-        for info in iter(x for x in self._attr.rstrip().split(';') if x != ''):
-            info = info.strip().split(' ')
-            # info_list.append(info)
-            # info = info.lstrip().split(' ')
+        # for info in iter(x for x in self._attr.rstrip().split(';') if x != ''):
+        #     info = info.strip().split(' ')
+        #     # info_list.append(info)
+        #     # info = info.lstrip().split(' ')
+        #     try:
+        #         self.attributes[info[0]] = info[1].replace('"', '')
+        #     except IndexError as exc:
+        #         # something wrong has happened, let us just skip
+        #         import sys
+        #         print("Wrong attributes ({}) in line:\n{}".format(info, "\t".join(self._fields)), file=sys.stderr)
+        #     if info[0] == "exon_number":
+        #         self.attributes['exon_number'] = int(self.attributes['exon_number'])
+
+        infodict = dict(re.findall(self._attribute_pattern, self._attr.rstrip()))
+        for key, val in infodict.items():
             try:
-                self.attributes[info[0]] = info[1].replace('"', '')
-            except IndexError as exc:
-                # something wrong has happened, let us just skip
-                import sys
-                print("Wrong attributes ({}) in line:\n{}".format(info, "\t".join(self._fields)), file=sys.stderr)
-            if info[0] == "exon_number":
-                self.attributes['exon_number'] = int(self.attributes['exon_number'])
-            # elif info[0] in ("nearest_ref", "tss_id"):
-            #     setattr(self, info[0], info[1])
-
-            # try:
-            #
-            # except IndexError:
-            #     raise IndexError(info_list, info)
-
-        # if 'exon_number' in self.attributes:
-        #     self.attributes['exon_number'] = int(self.attributes['exon_number'])
-        assert 'gene_id', 'transcript_id' in self.attributes
-
-        # if 'nearest_ref' in self.attributes:
-        #     self.nearest_ref = self.attributes['nearest_ref']
-        # if 'tss_id' in self.attributes:
-        #     self.tss_id = self.attributes['tss_id']
-
-        # for tag in iter(att for att in self.attributes if
-        #                 att not in ('gene_id', 'transcript_id', 'nearest_ref',
-        #                             'tss_id', 'class_code')):
-        #     self.__dict__[tag.lower()] = self.attributes[tag]
+                val = int(val)
+            except ValueError:
+                try:
+                    val = float(val)
+                except ValueError:
+                    val = val.replace('"', '')
+            self.attributes[key] = val
 
     def _format_attributes(self):
 

@@ -26,11 +26,30 @@ if version_info.minor < 5:
     from sortedcontainers import SortedDict
 else:
     from collections import OrderedDict as SortedDict
-
+import functools
 
 # I do not care that there are too many attributes: this IS a massive class!
 # pylint: disable=too-many-instance-attributes,too-many-public-methods
 json_conf = to_json(None)
+
+
+def rhasattr(obj, attr, *args):
+    """Recursive version of getattr.
+        Source: https://stackoverflow.com/questions/31174295/getattr-and-setattr-on-nested-objects"""
+
+    def _hasattr(obj, attr):
+        return hasattr(obj, attr, *args)
+
+    return functools.reduce(_hasattr, [obj] + attr.split("."))
+
+
+def rgetattr(obj, attr, *args):
+    """Recursive version of getattr.
+    Source: https://stackoverflow.com/questions/31174295/getattr-and-setattr-on-nested-objects"""
+
+    def _getattr(obj, attr):
+        return getattr(obj, attr, *args)
+    return functools.reduce(_getattr, [obj] + attr.split("."))
 
 
 class Abstractlocus(metaclass=abc.ABCMeta):
@@ -1018,8 +1037,8 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
             evaluated = dict()
             for key in self.json_conf["requirements"]["parameters"]:
-                value = getattr(self.transcripts[tid],
-                                self.json_conf["requirements"]["parameters"][key]["name"])
+                value = rgetattr(self.transcripts[tid],
+                                 self.json_conf["requirements"]["parameters"][key]["name"])
 
                 evaluated[key] = self.evaluate(
                     value,
@@ -1189,7 +1208,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         if param.startswith("external"):
             # For external metrics, we have a tuple - first item is score, second item is usable_raw
             try:
-                metrics = dict((tid, getattr(self.transcripts[tid], param)[0]) for tid in self.transcripts)
+                metrics = dict((tid, rgetattr(self.transcripts[tid], param)[0]) for tid in self.transcripts)
             except TypeError:
                 raise TypeError(param)
         else:
@@ -1204,9 +1223,9 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                     metric_to_evaluate = tid_metric
                 else:
                     metric_key = self.json_conf["scoring"][param]["filter"]["metric"]
-                    if not hasattr(self.transcripts[tid], metric_key):
+                    if not rhasattr(self.transcripts[tid], metric_key):
                         raise KeyError("Asked for an invalid metric in filter: {}".format(metric_key))
-                    metric_to_evaluate = getattr(self.transcripts[tid], metric_key)
+                    metric_to_evaluate = rgetattr(self.transcripts[tid], metric_key)
                 check = self.evaluate(metric_to_evaluate, self.json_conf["scoring"][param]["filter"])
                 if not check:
                     del metrics[tid]
@@ -1219,7 +1238,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         else:
             if param.startswith("external"):
                 # Take any transcript and verify
-                usable_raw = getattr(self.transcripts[list(self.transcripts.keys())[0]], param)[1]
+                usable_raw = rgetattr(self.transcripts[list(self.transcripts.keys())[0]], param)[1]
             else:
                 usable_raw = getattr(Transcript, param).usable_raw
 

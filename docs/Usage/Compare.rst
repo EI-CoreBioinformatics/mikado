@@ -27,18 +27,20 @@ Mikado compare is invoked by specifying the *reference* annotation and the desir
  #. In the *"internal"* mode of operations, compare will again perform a self-comparison, focussed on multi-isoform genes. For those, compare will perform and report all possible comparisons. It is useful to understand the relationships between the transcripts in a single locus.
 
 
-Mikado stores the information of the reference in a specialised index, with a ".midx" suffix, which will be created by the program upon its first execution with a new reference. If the index file is already present, Mikado will try to use it rather than read again the annotation.
+Mikado stores the information of the reference in a specialised SQLite index, with a ".midx" suffix, which will be created by the program upon its first execution with a new reference. If the index file is already present, Mikado will try to use it rather than read again the annotation.
+
+.. note: Starting from version 1.5, Mikado compare supports multiprocessing. Please note that memory usage scales approximately **linearly** with the amount of processes requested.
 
 Command line
 ------------
 
 .. code-block:: bash
 
-    $ mikado compare --help
-    usage: Mikado compare [-h] -r REFERENCE
+        usage: Mikado compare [-h] -r REFERENCE
                           (-p PREDICTION | --self | --internal | --index)
                           [--distance DISTANCE] [-pc] [-o OUT] [--lenient] [-eu]
-                          [-n] [-l LOG] [-v]
+                          [-n] [-erm] [-upa] [-l LOG] [-v] [-z]
+                          [--processes PROCESSES]
 
     optional arguments:
       -h, --help            show this help message and exit
@@ -57,8 +59,18 @@ Command line
       -n, --no-index, --no-save-index
                             Unless this flag is set, compare will save an index of
                             the reference to quicken multiple calls.
+      -erm, --extended-refmap
+                            Flag. If set, the RefMap will also contain recall and
+                            precision statistics - not just the F1.
+      -upa, --use-prediction-alias
+                            Flag. If set, Mikado Compare will use the alias -
+                            rather than the transcript ID - to report the results
+                            for prediction transcripts in the TMAP and REFMAP
+                            files.
       -l LOG, --log LOG
       -v, --verbose
+      -z, --gzip            Flag. If set, TMAP and REFMAP files will be GZipped.
+      --processes PROCESSES
 
     Prediction and annotation files.:
       -r REFERENCE, --reference REFERENCE
@@ -75,6 +87,7 @@ Command line
                             relationships between the transcripts in each gene.
       --index               Flag. If set, compare will stop after having generated
                             the GFF index for the reference.
+
 
 Output files
 ~~~~~~~~~~~~

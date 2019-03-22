@@ -664,15 +664,6 @@ class Transcript:
         # Set the logger to NullHandler
         self.logger = None
 
-    # def __getattribute__(self, item):
-    #     try:
-    #         return object.__getattribute__(self, item)
-    #     except AttributeError as exc:
-    #         if "external" in item and item != "external" and "." in item:
-    #             return getattr(self.external_scores, item.split(".")[1])
-    #         else:
-    #             raise AttributeError(exc)
-
     # ######## Class instance methods ####################
 
     def add_exon(self, gffline, feature=None, phase=None):
@@ -2288,6 +2279,15 @@ index {3}, internal ORFs: {4}".format(
 
         return self.__external_scores
 
+    @property
+    def external(self):
+
+        """
+        **SPECIAL** this Namespace contains all the information regarding external scores
+        for the transcript. If an absent property is not defined in the Namespace,
+        Mikado will set a default value of 0 into the Namespace and return it.
+        """
+        return self.__external_scores
 
     # ################### Class metrics ##################################
 

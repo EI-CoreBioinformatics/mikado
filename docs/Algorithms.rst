@@ -57,6 +57,7 @@ The detection and analysis of a locus proceeds as follows:
 #. Once the loci are created, track back to the original transcripts of the superlocus:
     #. discard any transcript overlapping more than one locus, as these are probably chimeras.
     #. For those transcripts that are overlapping to a single locus, verify that they are valid alternative splicing events using the :ref:`class code <ccodes>` of the comparison against the primary transcript. Transcripts are re-scored dynamically when they are re-added in this fashion, to ensure their quality when compared with the primary transcript.
+        * For coding loci, transcripts will be added as alternative splicing events **only if they are in the same frame as the primary transcript**. New in version 1.5.
     #. If there are transcripts that do not overlap any of the final loci, create a new superlocus with the missed transcripts and perform the scoring and selection again on them, until no transcript is unaccounted for.
 #. After the alternative splicing events have been defined, Mikado can optionally "pad" them. See the :ref:`padding section<padding>` for details.
 #. Finally detect and either tag or discard fragments inside the initial *superlocus* (irrespective of strand):

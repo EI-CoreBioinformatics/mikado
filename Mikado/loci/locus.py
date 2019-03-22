@@ -12,11 +12,9 @@ from collections import deque
 import pyfaidx
 from ..transcripts.transcript import Transcript
 from ..transcripts.transcriptchecker import TranscriptChecker
-from .abstractlocus import Abstractlocus
-from .sublocus import Sublocus
+from .abstractlocus import Abstractlocus, rgetattr
 from ..parsers.GFF import GffLine
 from ..scales.assigner import Assigner
-from ..utilities import overlap
 from ..exceptions import InvalidTranscript
 
 
@@ -386,8 +384,8 @@ class Locus(Abstractlocus):
                 "eval")
         evaluated = dict()
         for key in self.json_conf["as_requirements"]["parameters"]:
-            value = getattr(transcript,
-                            self.json_conf["as_requirements"]["parameters"][key]["name"])
+            value = rgetattr(transcript,
+                             self.json_conf["as_requirements"]["parameters"][key]["name"])
             evaluated[key] = self.evaluate(
                 value,
                 self.json_conf["as_requirements"]["parameters"][key])
@@ -420,8 +418,8 @@ class Locus(Abstractlocus):
 
         evaluated = dict()
         for key in self.json_conf["not_fragmentary"]["parameters"]:
-            value = getattr(self.primary_transcript,
-                            self.json_conf["not_fragmentary"]["parameters"][key]["name"])
+            value = rgetattr(self.primary_transcript,
+                             self.json_conf["not_fragmentary"]["parameters"][key]["name"])
             if "external" in key:
                 value = value[0]
             try:

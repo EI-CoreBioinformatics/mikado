@@ -1039,6 +1039,8 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             for key in self.json_conf["requirements"]["parameters"]:
                 value = rgetattr(self.transcripts[tid],
                                  self.json_conf["requirements"]["parameters"][key]["name"])
+                if "external" in key:
+                    value = value[0]
 
                 evaluated[key] = self.evaluate(
                     value,

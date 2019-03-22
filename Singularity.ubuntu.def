@@ -14,7 +14,6 @@ Include: apt wget
     mikado --help
 
 %environment
-	export MIKADO_COMMIT_HASH=$(cd /usr/local/src/mikado && git log | head -n 1 | cut -f 2 -d " ")
     export PATH="/usr/local/bin:$PATH:/usr/local/conda/bin/"
     # . /usr/local/conda/bin/activate
 

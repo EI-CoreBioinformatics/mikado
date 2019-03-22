@@ -1228,6 +1228,9 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                     if not rhasattr(self.transcripts[tid], metric_key):
                         raise KeyError("Asked for an invalid metric in filter: {}".format(metric_key))
                     metric_to_evaluate = rgetattr(self.transcripts[tid], metric_key)
+                    if "external" in metric_key:
+                        metric_to_evaluate = metric_to_evaluate[0]
+
                 check = self.evaluate(metric_to_evaluate, self.json_conf["scoring"][param]["filter"])
                 if not check:
                     del metrics[tid]

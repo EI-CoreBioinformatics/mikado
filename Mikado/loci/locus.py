@@ -386,6 +386,9 @@ class Locus(Abstractlocus):
         for key in self.json_conf["as_requirements"]["parameters"]:
             value = rgetattr(transcript,
                              self.json_conf["as_requirements"]["parameters"][key]["name"])
+            if "external" in key:
+                value = value[0]
+
             evaluated[key] = self.evaluate(
                 value,
                 self.json_conf["as_requirements"]["parameters"][key])

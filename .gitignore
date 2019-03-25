@@ -1,5 +1,6 @@
 *.pyc
 *.pyd
+*.cpp
 *.simg
 .#*
 #*

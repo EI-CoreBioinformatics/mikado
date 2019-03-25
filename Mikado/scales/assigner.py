@@ -705,7 +705,8 @@ class Assigner:
     def compare(prediction: Transcript,
                 reference: Transcript,
                 lenient=False,
-                strict_strandedness=False) -> (ResultStorer, tuple):
+                strict_strandedness=False,
+                fuzzy_match=0) -> (ResultStorer, tuple):
 
         """Function to compare two transcripts and determine a ccode. Thin wrapper
         around the compare cython code.
@@ -736,7 +737,8 @@ class Assigner:
         return c_compare(prediction,
                          reference,
                          lenient=lenient,
-                         strict_strandedness=strict_strandedness)
+                         strict_strandedness=strict_strandedness,
+                         fuzzymatch=fuzzy_match)
 
     def print_tmap(self, res):
         """

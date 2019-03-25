@@ -1,6 +1,7 @@
 from .resultstorer import ResultStorer
 from ..loci import Transcript
 from ..utilities.overlap cimport c_overlap
+from ..utilities.intervaltree cimport Interval, IntervalTree
 from .f1 cimport calc_f1
 import cython
 
@@ -111,7 +112,7 @@ cdef str __assign_monoexonic_ccode(prediction, reference, long nucl_overlap, dou
     return ccode
 
 
-cdef str __assign_multiexonic_ccode(prediction, reference, long nucl_overlap, double stats[9]):
+cdef str __assign_multiexonic_ccode(prediction, reference, long nucl_overlap, double stats[9], int fuzzymatch=0):
 
     """
     Static method to assign a class code when both transcripts are multiexonic.
@@ -137,6 +138,7 @@ cdef str __assign_multiexonic_ccode(prediction, reference, long nucl_overlap, do
         long over
         set r_splices, p_splices
         set r_introns, p_introns
+        IntervalTree r_segtree, p_segtree
         long intron_start, intron_end
         bint start_in, end_ind
         long min_splice, max_splice, splice
@@ -145,6 +147,8 @@ cdef str __assign_multiexonic_ccode(prediction, reference, long nucl_overlap, do
 
     r_splices, p_splices = reference.splices, prediction.splices
     r_introns, p_introns = reference.introns, prediction.introns
+    r_segtree, p_segtree = reference.segmenttree, prediction.segmenttree
+
     p_exon_num, p_start, p_end = prediction.exon_num, prediction.start, prediction.end
     r_exon_num, r_start, r_end = reference.exon_num, reference.start, reference.end
 
@@ -229,7 +233,7 @@ cdef str __assign_multiexonic_ccode(prediction, reference, long nucl_overlap, do
 
 @cython.profile(True)
 @cython.cdivision(True)
-cpdef tuple compare(prediction, reference, bint lenient=False, bint strict_strandedness=False):
+cpdef tuple compare(prediction, reference, bint lenient=False, bint strict_strandedness=False, int fuzzymatch=0):
 
     """Cython function to compare two transcripts and determine a ccode.
 
@@ -280,6 +284,7 @@ cpdef tuple compare(prediction, reference, bint lenient=False, bint strict_stran
 
     prediction.finalize()
     reference.finalize()
+    fuzzymatch = abs(fuzzymatch)
 
     cdef:
         long nucl_overlap, distance
@@ -289,11 +294,15 @@ cpdef tuple compare(prediction, reference, bint lenient=False, bint strict_stran
         double nucl_recall, nucl_precision, nucl_f1
         double exon_recall, exon_precision, exon_f1
         double junction_recall, junction_precision, junction_f1
+        IntervalTree r_tree, p_tree
+        int r_splice_start, r_splice_end
+        Interval p_splice
         long r_exon_num, p_exon_num
         long p_start, p_end, r_start, r_end
         double recalled_exons
         set r_splices, p_splices
-        double len_r_splices, len_p_splices
+        int len_r_splices, len_p_splices
+        int p_splice_start, p_splice_end
         long junction_overlap
         double stats[9]
         str r_strand, p_strand
@@ -317,13 +326,14 @@ cpdef tuple compare(prediction, reference, bint lenient=False, bint strict_stran
 
     __pred_exons = set()
     __ref_exons = set()
+    r_tree = reference.segmenttree
 
     for exon in prediction.exons:
         exon_a, exon_b = exon[0], exon[1] + 1
         __pred_exons.add(exon)
-        for other_exon in reference.exons:
+        for other_exon in r_tree.find(exon[0], exon[1] + 1, 0, fuzzymatch, 1000, "exon"):
             other_exon_a, other_exon_b = other_exon[0], other_exon[1] + 1
-            __ref_exons.add(other_exon)
+            __ref_exons.add((other_exon[0], other_exon[1]))
             nucl_overlap += c_overlap(exon_a, exon_b,
                                       other_exon_a, other_exon_b,
                                       flank=0,
@@ -357,10 +367,23 @@ cpdef tuple compare(prediction, reference, bint lenient=False, bint strict_stran
     reference_exon = None
 
     # Both multiexonic
+    junction_overlap = 0
     if p_exon_num > 1 and r_exon_num > 1:
         r_splices, p_splices = reference.splices, prediction.splices
+        for p_intron in prediction.introns:
+            p_splice_start, p_splice_end = p_intron
+            found = r_tree.find(p_splice_start - 1, p_splice_start + 1, 0, fuzzymatch, 1000, "intron")
+            for r_intron in found:
+                if  p_splice_start - fuzzymatch <= r_intron.start <= p_splice_start + fuzzymatch:
+                    junction_overlap += 1
+                    # break
+            found = r_tree.find(p_splice_end - 1, p_splice_end, 0, fuzzymatch, 1000, "intron")
+            for r_intron in found:
+                if  p_splice_end - fuzzymatch <= r_intron.end <= p_splice_end + fuzzymatch:
+                    junction_overlap += 1
+                    # break
+
         len_rsplices, len_psplices = len(r_splices), len(p_splices)
-        junction_overlap = len(set.intersection(p_splices, r_splices))
         junction_recall = junction_overlap / len_rsplices
         junction_precision = junction_overlap / len_psplices
         junction_f1 = calc_f1(junction_recall, junction_precision)
@@ -409,7 +432,7 @@ cpdef tuple compare(prediction, reference, bint lenient=False, bint strict_stran
 
         if double_min(p_exon_num, r_exon_num) > 1:
             ccode = __assign_multiexonic_ccode(prediction, reference,
-                                               nucl_overlap, stats)
+                                               nucl_overlap, stats, fuzzymatch)
         else:
             ccode = __assign_monoexonic_ccode(prediction, reference,
                                               nucl_overlap, stats)

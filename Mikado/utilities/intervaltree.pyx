@@ -17,9 +17,12 @@ preserves all information about the intervals (unlike bitset projection methods)
 #    handle half-open intervals strictly, to maintain sort order, and to
 #    implement the same interface as the original Intersecter.
 
+#distutils: language = c++
 #cython: cdivision=True
 
 import operator
+from libcpp.vector cimport vector
+from cpython cimport array
 
 cdef extern from "stdlib.h":
     int ceil(float f)
@@ -57,6 +60,7 @@ cdef inline int imin2(int a, int b):
 
 cdef float nlog = -1.0 / log(0.5)
 
+
 cdef class IntervalNode:
     """
     A single node of an `IntervalTree`.
@@ -64,11 +68,6 @@ cdef class IntervalNode:
     NOTE: Unless you really know what you are doing, you probably should use
           `IntervalTree` rather than using this directly.
     """
-    cdef float priority
-    cdef public object interval
-    cdef public int start, end
-    cdef int minend, maxend, minstart
-    cdef IntervalNode cleft, cright, croot
 
     property left_node:
         def __get__(self):
@@ -103,8 +102,6 @@ cdef class IntervalNode:
        state = []
        state.append(self.priority)
        state.append(self.start)
-
-
 
     def __setstate__(self, state):
        pass
@@ -295,9 +292,6 @@ cdef class Interval:
     Interval(34, 48, value={'anno': 'transposon', 'chr': 12})
 
     """
-    cdef public int start, end
-    cdef public int begin
-    cdef public object value, chrom, strand
 
     def __init__(self, int start, int end, object value=None, object chrom=None, object strand=None ):
         assert start <= end, "start must be less than end"
@@ -415,9 +409,6 @@ cdef class IntervalTree:
 
     """
 
-    cdef IntervalNode root
-    cdef int num_intervals
-
     def __cinit__( self ):
         root = None
         num_intervals = 0
@@ -454,6 +445,7 @@ cdef class IntervalTree:
         be counted as full matches. If set to False, also partial matches will count.
         """
 
+
         if self.root is None:
             return []
 
@@ -487,6 +479,9 @@ cdef class IntervalTree:
     def __len__(self):
         """Return the number of intervals in the tree."""
 
+        return self.num_intervals
+
+    cpdef int size(self):
         return self.num_intervals
 
     def before( self, position, num_intervals=1, max_dist=2000):

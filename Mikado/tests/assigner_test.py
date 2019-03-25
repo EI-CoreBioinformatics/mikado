@@ -1305,6 +1305,42 @@ class AssignerTest(unittest.TestCase):
         result, _ = scales.assigner.Assigner.compare(t1, t2)
         self.assertEqual(result.ccode, ("J",))
 
+    def test_fuzzy_match(self):
+
+        t1 = loci.Transcript()
+        t1.chrom = "Chr1"
+        t1.strand = "+"
+        t1.score = 10
+        t1.source = "mikado"
+        t1.id = "t1.1"
+        t1.parent = "t1"
+        t1.start = 101
+        t1.end = 5000
+        t1.add_exons([(101, 1000), (1501, 2000), (2301, 4000), (4501, 5000)])
+        t1.finalize()
+
+        t2 = loci.Transcript()
+        t2.chrom = "Chr1"
+        t2.strand = "+"
+        t2.score = 10
+        t2.source = "mikado"
+        t2.id = "t2.1"
+        t2.parent = "t2"
+        t2.start = 401
+        t2.end = 5130
+        t2.add_exons([(401, 1010), (1491, 2005), (2305, 4002), (4509, 5130)])
+        t2.finalize()
+
+        for fuzzymatch in (0, 1, 5, 10, 20, 30):
+            with self.subTest(fuzzymatch=fuzzymatch):
+                result, _ = scales.assigner.Assigner.compare(t2, t1, fuzzy_match=fuzzymatch)
+                if fuzzymatch < 5:
+                    self.assertEqual(result.ccode, ("h",))
+                elif fuzzymatch >= 10:
+                    self.assertEqual(result.ccode, ("=",))
+                else:
+                    self.assertEqual(result.ccode, ("j",), fuzzymatch)
+
 
 if __name__ == '__main__':
     unittest.main()

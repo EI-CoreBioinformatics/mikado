@@ -67,7 +67,7 @@ setup(
         "Programming Language :: Python :: 3.6",
         'Programming Language :: Python :: 3.7'
     ],
-    ext_modules=cythonize(extensions),
+    ext_modules=cythonize(extensions, compiler_directives = {"language_level": "3"}),
     zip_safe=False,
     keywords="rna-seq annotation genomics transcriptomics",
     packages=find_packages(),

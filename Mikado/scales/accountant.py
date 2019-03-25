@@ -265,14 +265,26 @@ class Accountant:
         """
 
         intron_stats = [0, 0, 0]  # Common, prediction, reference
+        splice_stats = [0, 0, 0]  # Common, prediction, reference
 
         for chrom in self.introns:
             for strand in self.introns[chrom]:
+                splice_starts = [set(), set()]  # prediction, reference
+                splice_ends = [set(), set()]
                 for intron in self.introns[chrom][strand]:
+                    if (0b10 & self.introns[chrom][strand][intron]) >> 1:
+                        splice_starts[0].add(intron[0])
+                        splice_ends[0].add(intron[1])
+                    if 0b01 & self.introns[chrom][strand][intron]:
+                        splice_starts[1].add(intron[0])
+                        splice_ends[1].add(intron[1])
                     intron_stats[0] += (0b01 & self.introns[chrom][strand][intron]) & \
                                      ((0b10 & self.introns[chrom][strand][intron]) >> 1)
                     intron_stats[1] += (0b10 & self.introns[chrom][strand][intron]) >> 1
                     intron_stats[2] += 0b01 & self.introns[chrom][strand][intron]
+                splice_stats[0] += len(set.intersection(*splice_starts)) + len(set.intersection(*splice_ends))
+                splice_stats[1] += len(splice_starts[0]) + len(splice_ends[0])
+                splice_stats[2] += len(splice_starts[1]) + len(splice_ends[1])
 
         # Common, prediction, reference
         intron_chains_nonred = [0, 0, 0]
@@ -317,11 +329,14 @@ class Accountant:
 
         result_dictionary = dict()
         result_dictionary["introns"] = intron_stats
+        result_dictionary["splices"] = splice_stats
         result_dictionary["intron_chains"] = dict()
         result_dictionary["intron_chains"]["non_redundant"] = intron_chains_nonred
 
         result_dictionary["intron_chains"]["redundant"] = [intron_chains_common_pred,
-                                                           intron_chains_common_ref]
+                                                           intron_chains_common_ref,
+                                                           intron_chains_pred,
+                                                           intron_chains_ref]
         return result_dictionary
 
     def __extract_terminal_stats(self, result_dictionary):
@@ -693,6 +708,30 @@ class Accountant:
         return precision, recall, f1stat
 
     @staticmethod
+    def __calculate_redundant_statistics(common_pred, common_ref, pred, ref):
+        """
+        Function to calculate precision, recall and F1 for non-redundant statistics given
+        the numbers in common for the prediction, for the reference, and then the numbers of the reference and
+        of the prediction.
+        :param common:
+        :param pred:
+        :param ref:
+        :return: precision, recall, f1stat
+        """
+
+        if ref > 0:
+            recall = common_ref / ref
+        else:
+            recall = 0
+        if pred > 0:
+            precision = common_pred / pred
+        else:
+            precision = 0
+        f1stat = calc_f1(recall, precision)
+
+        return precision, recall, f1stat
+
+    @staticmethod
     def __redundant_stats(common_pred, common_ref, pred, ref):
 
         """
@@ -806,14 +845,24 @@ class Accountant:
         (exon_lenient_precision, exon_lenient_recall, exon_lenient_f1) = (
             self.__calculate_statistics(*bases_exon_result["exons"]["lenient"]))
 
+        (splice_precision, splice_recall, splice_f1) = self.__calculate_statistics(
+            *intron_results["splices"]
+        )
+
         intron_precision, intron_recall, intron_f1 = self.__calculate_statistics(
             *intron_results["introns"]
         )
 
-        intron_stats = self.__calculate_statistics(
+        # TODO: revise
+        intron_chain_stats = self.__calculate_redundant_statistics(
+            *intron_results["intron_chains"]["redundant"])
+
+        intron_chains_precision, intron_chains_recall, intron_chains_f1 = intron_chain_stats
+
+        intron_chain_nr_stats = self.__calculate_statistics(
             *intron_results["intron_chains"]["non_redundant"])
 
-        intron_chains_precision, intron_chains_recall, intron_chains_f1 = intron_stats
+        intron_chains_nr_precision, intron_chains_nr_recall, intron_chains_nr_f1 = intron_chain_nr_stats
 
         # Transcript level
         # noinspection PyTypeChecker
@@ -893,6 +942,11 @@ class Accountant:
                 exon_lenient_precision * 100,
                 exon_lenient_f1 * 100), file=out)
             print("{0} {1:.2f}  {2:.2f}  {3:.2f}".format(
+                self.__format_rowname("Splice site level"),
+                splice_recall * 100,
+                splice_precision * 100,
+                splice_f1 * 100), file=out)
+            print("{0} {1:.2f}  {2:.2f}  {3:.2f}".format(
                 self.__format_rowname("Intron level"),
                 intron_recall * 100,
                 intron_precision * 100, intron_f1 * 100), file=out)
@@ -901,6 +955,11 @@ class Accountant:
                 intron_chains_recall * 100,
                 intron_chains_precision * 100,
                 intron_chains_f1 * 100), file=out)
+            print("{0} {1:.2f}  {2:.2f}  {3:.2f}".format(
+                self.__format_rowname("Intron chain level (NR)"),
+                intron_chains_nr_recall * 100,
+                intron_chains_nr_precision * 100,
+                intron_chains_nr_f1 * 100), file=out)
             print("{0} {1:.2f}  {2:.2f}  {3:.2f}".format(
                 self.__format_rowname("Transcript level (stringent)"),
                 tr_recall_stringent * 100,

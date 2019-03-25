@@ -66,6 +66,11 @@ def compare_parser():
                         (both in reference and prediction) will be considered.""")
     parser.add_argument("-o", "--out", default="mikado_compare", type=str,
                         help="Prefix for the output files. Default: %(default)s")
+    parser.add_argument("-fm", "--fuzzy-intron-match", dest="fuzzymatch", default=0,
+                        type=int,
+                        help="""This parameter controls whether an intron should be considered as "matched" even if
+                        its splices are within N bases from the annotated splice junctions. By default this is set to 0
+                        (ie only proper matches count).""")
     parser.add_argument("--lenient", action="store_true", default=False,
                         help="""If set, exonic statistics will be calculated leniently
 in the TMAP as well - ie they will consider an exon as match even if only

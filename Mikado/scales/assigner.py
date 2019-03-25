@@ -275,7 +275,7 @@ class Assigner:
             return None
         return prediction
 
-    def __check_for_fusions(self, prediction, matches):
+    def __check_for_fusions(self, prediction, matches, fuzzymatch=0):
 
         """
         This private method checks whether a transcript with
@@ -305,7 +305,7 @@ class Assigner:
                                          match_to_gene[match[0]]):
                 strands[gene_match.strand].add(gene)
                 new_matches[gene] = sorted(
-                    [self.calc_and_store_compare(prediction, tra) for tra in gene_match],
+                    [self.calc_and_store_compare(prediction, tra, fuzzymatch=fuzzymatch) for tra in gene_match],
                     key=self.get_f1, reverse=True)
 
         # If we have candidates for the fusion which are on its same strand
@@ -390,7 +390,7 @@ class Assigner:
 
         return results, best_result
 
-    def __prepare_result(self, prediction, distances):
+    def __prepare_result(self, prediction, distances, fuzzymatch=0):
 
         """
         This private method prepares the matching result for cases where the
@@ -424,14 +424,14 @@ class Assigner:
             self.logger.debug("More than one match for %s: %s",
                               prediction.id,
                               matches)
-            results, best_result = self.__check_for_fusions(prediction, matches)
+            results, best_result = self.__check_for_fusions(prediction, matches, fuzzymatch=fuzzymatch)
         else:
             matches = [self.genes[_] for _
                        in self.positions[prediction.chrom][matches[0][0]]]
             results = []
             for match in matches:
                 self.logger.debug("%s: type %s", repr(match), type(match))
-                results.extend([self.calc_and_store_compare(prediction, tra) for tra in match])
+                results.extend([self.calc_and_store_compare(prediction, tra, fuzzymatch=fuzzymatch) for tra in match])
 
             results = sorted(results, reverse=True,
                              key=self.get_f1)
@@ -565,7 +565,7 @@ class Assigner:
 
         return results, best_result
 
-    def get_best(self, prediction: Transcript):
+    def get_best(self, prediction: Transcript, fuzzymatch=0):
 
         """
         :param prediction: the candidate transcript to be analysed
@@ -612,7 +612,8 @@ class Assigner:
                                          (prediction.start, prediction.end),
                                          distance=self.args.distance)
         if self.self_analysis is True:
-            results, best_result = self.self_analyse_prediction(prediction, distances)
+            results, best_result = self.self_analyse_prediction(prediction, distances,
+                                                                fuzzymatch=fuzzymatch)
         else:
             self.logger.debug("Distances for %s: %s",
                               prediction.id,
@@ -640,7 +641,7 @@ class Assigner:
             else:
                 # All other cases
                 try:
-                    results, best_result = self.__prepare_result(prediction, distances)
+                    results, best_result = self.__prepare_result(prediction, distances, fuzzymatch=fuzzymatch)
                 except (InvalidTranscript, ZeroDivisionError, AssertionError) as exc:
                     self.logger.error("Something went wrong with %s. Ignoring it.",
                                       prediction.id)
@@ -682,7 +683,7 @@ class Assigner:
         self.stat_calculator.print_stats()
         self.tmap_out.close()
 
-    def calc_and_store_compare(self, prediction: Transcript, reference: Transcript) -> ResultStorer:
+    def calc_and_store_compare(self, prediction: Transcript, reference: Transcript, fuzzymatch=0) -> ResultStorer:
         """Thin layer around the calc_and_store_compare class method.
 
         :param prediction: a Transcript instance.
@@ -694,7 +695,7 @@ class Assigner:
         """
 
         result, reference_exon = c_compare(prediction, reference,
-                                           lenient=self.lenient)
+                                           lenient=self.lenient, fuzzymatch=fuzzymatch)
 
         assert reference_exon is None or reference_exon in reference.exons
         self.stat_calculator.store(prediction, result, reference_exon)

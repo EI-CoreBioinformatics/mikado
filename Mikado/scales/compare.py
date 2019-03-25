@@ -233,8 +233,14 @@ class Assigners(mp.Process):
     def __init__(self, genes, positions, args, queue, returnqueue, counter):
         super().__init__()
         self.accountant_instance = Accountant(genes, args, counter=counter)
-        self.assigner_instance = Assigner(genes, positions, args, self.accountant_instance, printout_tmap=False,
+        self.assigner_instance = Assigner(genes, positions, args, self.accountant_instance,
+                                          printout_tmap=False,
                                           counter=counter)
+        if hasattr(args, "fuzzymatch"):
+            self.__fuzzymatch = args.fuzzymatch
+        else:
+            self.__fuzzymatch = 0
+
         self.queue = queue
         self.returnqueue = returnqueue
         self.__args = args
@@ -249,7 +255,7 @@ class Assigners(mp.Process):
                 self.assigner_instance.dump(out)
                 self.returnqueue.put(out)
                 break
-            self.assigner_instance.get_best(transcr)
+            self.assigner_instance.get_best(transcr, fuzzymatch=self.__fuzzymatch)
 
 
 def parse_prediction(args, genes, positions, queue_logger):

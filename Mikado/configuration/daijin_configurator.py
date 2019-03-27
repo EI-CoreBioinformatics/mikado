@@ -7,67 +7,44 @@ import io
 import yaml
 import jsonschema
 from pkg_resources import resource_stream, resource_filename
-from .configurator import merge_dictionaries, check_all_requirements, check_scoring
+from .configurator import extend_with_default, merge_dictionaries, check_all_requirements, check_scoring
 from . import print_config, check_has_requirements
 from ..exceptions import InvalidJson
 from ..utilities.log_utils import create_default_logger
 import sys
-import re
 
 
-def extend_with_default(validator_class, resolver):
-    validate_properties = validator_class.VALIDATORS["properties"]
+def _substitute_conf(schema):
+    """Hack to solve my resolution JSON problems. It will change the $ref to the absolute location
+    of this file."""
+    base = resource_filename("Mikado", "configuration")
 
-    def set_defaults(validator, properties, instance, schema):
-        if not isinstance(instance, dict):
-            return
-
-        for property, subschema in properties.items():
-            if instance is None:
-                instance = dict()
-            if "default" in subschema:
-                instance.setdefault(property, subschema["default"])
-            elif property not in instance:
-                instance[property] = dict()
-                if "type" not in subschema:
-                    continue
-                elif subschema["type"] == "object":
-                    instance[property] = dict()
-                    instance[property] = set_defaults(validator,
-                                                      instance[property],
-                                                      subschema["properties"])
-
-        for error in validate_properties(
-            validator, properties, instance, schema,
-        ):
-            yield error
-
-    return jsonschema.validators.extend(
-        validator_class, {"properties" : set_defaults, "resolver": resolver},
-    )
+    for key in schema:
+        if key == "$ref":
+            schema[key] = "file://" + base + "/" + schema[key]
+        elif isinstance(schema[key], dict):
+            schema[key] = _substitute_conf(schema[key])
+        else:
+            continue
+    return schema
 
 
 def create_daijin_validator():
 
-    fname = os.path.abspath(resource_filename("Mikado.configuration", "configuration_blueprint.json"))
-
     with io.TextIOWrapper(resource_stream("Mikado.configuration", "configuration_blueprint.json")) as _:
         schema = json.load(_)
 
-    resolver = jsonschema.RefResolver(referrer=schema,
-                                      base_uri=fname)
+    resolver = jsonschema.RefResolver.from_schema(schema)
 
     with io.TextIOWrapper(resource_stream("Mikado.configuration",
                                           "daijin_schema.json")) as blue:
-        blue = blue.read()
-        re.sub("configuration_blueprint.json",
-               "file://" + fname,
-               blue)
-        blue_print = json.loads(blue)
+        blue_print = json.load(blue)
 
-    # blue_print = _substitute_conf(blue_print)
-    validator = extend_with_default(jsonschema.Draft7Validator, resolver)
-    validator = validator(blue_print, resolver=resolver)
+    _substitute_conf(blue_print)
+    validator = extend_with_default(jsonschema.Draft4Validator,
+                                    resolver=resolver,
+                                    simple=True)
+    validator = validator(blue_print)
 
     return validator
 
@@ -91,7 +68,6 @@ def check_config(config, logger=None):
         # validator = jsonschema.Draft4Validator(blue_print, resolver=resolver)
         validator.validate(config)
     except Exception as exc:
-        raise BaseException((exc, config))
         logger.exception(exc)
         sys.exit(1)
 
@@ -115,8 +91,8 @@ def create_daijin_base_config():
 
         # Get to the latest position
         for key in ckey:
-            if key in ("Comment", "SimpleComment"):
-                continue
+            # if key in ("Comment", "SimpleComment"):
+            #     continue
             try:
                 defa = defa[key]
             except KeyError:
@@ -226,7 +202,7 @@ def create_daijin_config(args, level="ERROR", piped=False):
 
     config = create_daijin_base_config()
     assert "reference" in config, config.keys()
-    assert "pick" in config, config.keys()
+    # print(config)
     config["reference"]["genome"] = args.genome
     config["reference"]["transcriptome"] = args.transcriptome
 
@@ -253,7 +229,7 @@ def create_daijin_config(args, level="ERROR", piped=False):
 
     config["threads"] = args.threads
 
-    config["mikado"]["modes"] = list(args.modes)
+    config["mikado"]["modes"] = args.modes
 
     for method in args.asm_methods:
         config["asm_methods"][method] = [""]
@@ -270,10 +246,7 @@ def create_daijin_config(args, level="ERROR", piped=False):
                     for line in original:
                         print(line.decode(), file=out, end="")
             args.scoring = os.path.abspath(args.copy_scoring)
-        try:
-            config["pick"]["scoring_file"] = args.scoring
-        except KeyError:
-            raise KeyError(yaml.dump(config))
+        config.get("pick", dict())["scoring_file"] = args.scoring
     elif args.new_scoring is not None:
         if os.path.exists(args.new_scoring):
             # Check it's a valid scoring file
@@ -300,15 +273,14 @@ def create_daijin_config(args, level="ERROR", piped=False):
                     json.dump(ns, out)
                 else:
                     yaml.dump(ns, out)
-            config["pick"]["scoring_file"] = args.new_scoring
+            config.get("pick", dict())["scoring_file"] = args.new_scoring
 
     if args.flank is not None:
-        config["pick"]["clustering"]["flank"] = args.flank
-        config["pick"]["fragments"]["max_distance"] = args.flank
+        config.get("pick", {}).get("clustering", {})["flank"] = args.flank
+        config.get("pick", {}).get("fragments", {})["max_distance"] = args.flank
     if args.intron_range is not None:
         args.intron_range = sorted(args.intron_range)
-        config["pick"]["run_options"]["intron_range"] = args.intron_range
-        config["reference"]["min_intron"], config["reference"]["max_intron"] = args.intron_range
+        config.get("pick", {}).get("run_options", {})["intron_range"] = args.intron_range
 
     config["blastx"]["prot_db"] = args.prot_db
     assert "prot_db" in config["blastx"]

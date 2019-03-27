@@ -13,11 +13,8 @@ RUN source /usr/local/conda/bin/activate
 RUN conda update -n base -c defaults conda
 RUN ln -s /usr/local/conda/etc/profile.d/conda.sh /etc/profile.d/conda.sh
 RUN conda install -y -c conda-forge pip python==3.6.7
-RUN mkdir -p /opt/software/
-WORKDIR /opt/software/
 RUN git clone https://github.com/EI-CoreBioinformatics/mikado.git
-WORKDIR /opt/software/mikado
-RUN git log | head -n 1 | cut -f 2 -d " " > ~/MIKADO_COMMIT_HASH
+WORKDIR /usr/local/src/mikado
 RUN sed -i 's/;.*//' requirements.txt
 RUN conda install --update-all -y -c conda-forge -c bioconda -c anaconda --file requirements.txt
 RUN python setup.py bdist_wheel

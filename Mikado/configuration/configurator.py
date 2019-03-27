@@ -68,12 +68,12 @@ def extend_with_default(validator_class, resolver=None, simple=False):
         for prop, subschema in properties.items():
             if instance is None:
                 instance = dict()
-            if "$ref" in subschema:
-                # Automatically resolve and load the reference
-                assert resolver is not None
-                properties[prop] = resolver.resolve(subschema["$ref"])[1]
-                subschema = properties[prop]
-
+            # if "$ref" in subschema:
+            #     # Automatically resolve and load the reference
+            #     assert resolver is not None
+            #     properties[prop] = resolver.resolve(subschema["$ref"])[1]
+            #     subschema = properties[prop]
+            #
             if "default" in subschema:
                 instance.setdefault(prop, subschema["default"])
             elif prop not in instance:
@@ -107,7 +107,7 @@ def extend_with_default(validator_class, resolver=None, simple=False):
         instance = set_default(instance, properties, simple_comment=simple)
 
     return jsonschema.validators.extend(
-        validator_class, {"properties": set_defaults},
+        validator_class, {"properties": set_defaults, "resolver": resolver},
     )
 
 

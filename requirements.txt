@@ -21,5 +21,6 @@ tabulate
 ujson
 simplejson
 pandas
+jsonref>=0.2
 pytest-cov
-pysam >= 0.15.1
+pysam>=0.15.1

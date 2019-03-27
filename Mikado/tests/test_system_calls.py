@@ -1023,6 +1023,7 @@ class ConfigureCheck(unittest.TestCase):
         namespace.transcriptome = ""
         namespace.name = "Daijin"
         namespace.threads = 1
+        namespace.full = False
 
         for iteration in range(20):
             with self.subTest(iteration=iteration):

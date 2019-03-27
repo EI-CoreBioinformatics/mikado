@@ -129,6 +129,7 @@ def create_config_parser():
     runtime.add_argument("-c", "--cluster_config",
                         type=str, default=None,
                         help="Cluster configuration file to write to.")
+    parser.add_argument("--full", action="store_true", default=False)
     runtime.add_argument("--threads", "-t", action="store", metavar="N", type=int, default=4,
                         help="""Maximum number of threads per job. Default: %(default)s""")
     runtime.add_argument("-od", "--out-dir", dest="out_dir", default=None, required=False,

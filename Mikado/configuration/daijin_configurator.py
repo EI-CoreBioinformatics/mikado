@@ -12,6 +12,7 @@ from . import print_config, check_has_requirements
 from ..exceptions import InvalidJson
 from ..utilities.log_utils import create_default_logger
 import sys
+import jsonref
 
 
 def _substitute_conf(schema):
@@ -29,21 +30,21 @@ def _substitute_conf(schema):
     return schema
 
 
-def create_daijin_validator():
+def create_daijin_validator(simple=True):
 
-    with io.TextIOWrapper(resource_stream("Mikado.configuration", "configuration_blueprint.json")) as _:
-        schema = json.load(_)
+    cname = resource_filename("Mikado.configuration", "configuration_blueprint.json")
 
-    resolver = jsonschema.RefResolver.from_schema(schema)
-
+    # We have to repeate twice the ending configuration (bug in jsonref?)
+    baseuri = "file://" +  os.path.join(os.path.dirname(cname), os.path.basename(os.path.dirname(cname)))
     with io.TextIOWrapper(resource_stream("Mikado.configuration",
                                           "daijin_schema.json")) as blue:
-        blue_print = json.load(blue)
+        blue_print = jsonref.load(blue,
+                                  jsonschema=True,
+                                  base_uri=baseuri)
 
-    _substitute_conf(blue_print)
-    validator = extend_with_default(jsonschema.Draft4Validator,
-                                    resolver=resolver,
-                                    simple=True)
+    # _substitute_conf(blue_print)
+    validator = extend_with_default(jsonschema.Draft7Validator,
+                                    simple=simple)
     validator = validator(blue_print)
 
     return validator
@@ -72,9 +73,9 @@ def check_config(config, logger=None):
         sys.exit(1)
 
 
-def create_daijin_base_config():
+def create_daijin_base_config(simple=True):
 
-    validator = create_daijin_validator()
+    validator = create_daijin_validator(simple=simple)
     conf = dict()
     validator.validate(conf)
 
@@ -200,7 +201,7 @@ def create_daijin_config(args, level="ERROR", piped=False):
 
     logger = create_default_logger("daijin_config", level=level)
 
-    config = create_daijin_base_config()
+    config = create_daijin_base_config(simple=(not args.full))
     assert "reference" in config, config.keys()
     # print(config)
     config["reference"]["genome"] = args.genome

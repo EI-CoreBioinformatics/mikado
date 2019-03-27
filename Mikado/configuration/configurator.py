@@ -72,8 +72,8 @@ def extend_with_default(validator_class, resolver=None, simple=False):
                 # Automatically resolve and load the reference
                 assert resolver is not None
                 properties[prop] = resolver.resolve(subschema["$ref"])[1]
-                # subschema = resolver.resolve(subschema["$ref"])[1]
                 subschema = properties[prop]
+
             if "default" in subschema:
                 instance.setdefault(prop, subschema["default"])
             elif prop not in instance:
@@ -655,9 +655,8 @@ def to_json(string, simple=False, logger=None):
         # json_dict = frozendict(check_json(json_dict, simple=simple))
         json_dict = check_json(json_dict, simple=simple, logger=logger)
     except Exception as exc:
-        logger.exception(exc)
         # with open("ERROR.{}".format("json" if string.endswith("json") else "yaml"), "wt") as errored:
         #     errored.write(open(string).read())
-        raise OSError(exc)
+        raise OSError((exc, string))
 
     return json_dict

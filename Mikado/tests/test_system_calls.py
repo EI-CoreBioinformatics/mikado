@@ -980,6 +980,7 @@ class ConfigureCheck(unittest.TestCase):
         namespace.reference = ""
         namespace.external = None
         namespace.mode = ["permissive", "split"]
+        # namespace.mode = ["permissive"]
         namespace.threads = 1
         namespace.blast_targets = []
         namespace.junctions = []

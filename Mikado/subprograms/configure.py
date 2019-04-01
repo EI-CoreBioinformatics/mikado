@@ -298,7 +298,7 @@ def create_config(args):
     config.pop("filename", None)
 
     # Check that the configuration file is correct
-    tempcheck = tempfile.NamedTemporaryFile("wt", suffix=".yaml")
+    tempcheck = tempfile.NamedTemporaryFile("wt", suffix=".yaml", delete=False)
     output = yaml.dump(config, default_flow_style=False)
     print_config(output, tempcheck)
     tempcheck.flush()

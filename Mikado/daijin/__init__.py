@@ -223,11 +223,6 @@ def assemble_transcripts_pipeline(args):
     :param args:
     :return:
     """
-
-    print("""DeprecationWarning: Daijin assemble is marked for retirement, as we are developing a novel,
-    more complete pipeline. See https://github.com/EI-CoreBioinformatics/ei-annotation""", file=sys.stderr)
-    print("""DeprecationWarning: Daijin assemble is marked for retirement, as we are developing a novel,
-        more complete pipeline. See https://github.com/EI-CoreBioinformatics/ei-annotation""")
     if args.config.endswith("json"):
         loader = json.load
     else:
@@ -506,7 +501,10 @@ def main(call_args=None):
         Basically, a pipeline for driving Mikado. It will first align RNAseq reads against
         a genome using multiple tools, then creates transcript assemblies using multiple tools,
         and find junctions in the alignments using Portcullis.
-        This input is then passed into Mikado.""")
+        This input is then passed into Mikado.
+        
+        WARNING: the "assemble" part of this pipeline will be soon DEPRECATED. 
+        """)
 
     subparsers = parser.add_subparsers(
         title="Pipelines",
@@ -560,34 +558,6 @@ def main(call_args=None):
         logger.exception(exc)
         sys.exit(1)
 
-    # args = parser.parse_args(call_args)
-    # pylint: disable=broad-except
-    # try:
-    #
-    #     args = parser.parse_args(call_args)
-    #     if len(call_args) == 0:
-    #         parser.print_help()
-    #         sys.exit(1)
-    #
-    #     if call_args[0] == "assemble":
-    #         assemble_transcripts_pipeline(args)
-    #     elif call_args[0] == "mikado":
-    #         mikado_pipeline(args)
-    #     elif call_args[0] == "configure":
-    #         daijin_config(args)
-    #     else:
-    #         raise ValueError("Invalid subprogram specified!")
-    #
-    # except KeyboardInterrupt:
-    #     raise KeyboardInterrupt
-    # except BrokenPipeError:
-    #     pass
-    # except Exception as exc:
-    #     logger = create_default_logger("main")
-    #     logger.error("daijin crashed, cause:")
-    #     logger.exception(exc)
-    #     sys.exit(2)
-    # pylint: enable=broad-except
 
 if __name__ == '__main__':
     # pylint: disable=redefined-builtin

@@ -14,7 +14,7 @@ import os
 import re
 import sys
 from logging import handlers as log_handlers
-from Mikado.transcripts.transcript import Transcript
+from ..transcripts.transcript import Transcript
 from .accountant import Accountant
 from .assigner import Assigner
 from .resultstorer import ResultStorer
@@ -22,6 +22,7 @@ from ..exceptions import CorruptIndex
 from ..loci.reference_gene import Gene
 from ..parsers.GFF import GFF3
 from ..parsers.bed12 import Bed12Parser
+from ..parsers.bam_parser import BamParser
 from ..parsers import to_gff
 from ..utilities.log_utils import create_default_logger, formatter
 import magic
@@ -290,8 +291,25 @@ def parse_prediction(args, genes, positions, queue_logger):
 
     done = 0
     invalids = set()
+    name_counter = collections.Counter()  # This is needed for BAMs
+
     for row in args.prediction:
-        if row.header is True:
+        if args.prediction.__annot_type__ == BamParser.__annot_type__:
+            if row.is_unmapped is True:
+                continue
+            if transcript is not None:
+                done += 1
+                if done and done % 10000 == 0:
+                    queue_logger.info("Parsed %s transcripts", done)
+                queue.put(transcript)
+            transcript = Transcript(row, accept_undefined_multi=True)
+            if name_counter.get(row.query_name):
+                name = "{}_{}".format(row.query_name, name_counter.get(row.query_name))
+            else:
+                name = row.query_name
+            transcript.id = name
+            transcript.parent = transcript.attributes["gene_id"] = "{0}.gene".format(name)
+        elif row.header is True:
             continue
         elif (row.is_transcript is True or
               args.prediction.__annot_type__ == Bed12Parser.__annot_type__ or

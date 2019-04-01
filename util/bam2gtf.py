@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 import argparse
-import re
 import sys
 import pysam
 from Mikado.transcripts.transcript import Transcript

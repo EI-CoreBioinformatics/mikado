@@ -101,7 +101,7 @@ from . import GTF
 from . import bed12
 # noinspection PyPep8
 from . import blast_utils
-
+from . import bam_parser
 
 def to_gff(string):
     """
@@ -112,6 +112,8 @@ def to_gff(string):
     """
 
     # handle = open(string)
+    if string.endswith(".bam"):
+        return bam_parser.BamParser(string)
     if ".gtf" in string:
         return GTF.GTF(string)
     elif ".gff" in string or ".gff3" in string:

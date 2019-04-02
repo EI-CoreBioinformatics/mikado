@@ -111,6 +111,7 @@ class Assigner:
         self.genes = genes
         self.positions = positions
         self.printout_tmap = printout_tmap
+        self.__done = 0
         # noinspection PyUnresolvedReferences
         if self.printout_tmap:
             if self.args.gzip is False:
@@ -781,6 +782,10 @@ class Assigner:
                 if self.printout_tmap is False:
                     self._cursor.execute("INSERT INTO tmap VALUES (?)",
                                          (pickle.dumps(res), ))
+                    self.__done += 1
+                    if self.__done % 10000 == 0 and self.__done > 10000:
+                        self._connection.commit()
+
                 else:
                     self.tmap_rower.writerow(res.as_dict())
 

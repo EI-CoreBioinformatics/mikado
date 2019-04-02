@@ -108,7 +108,9 @@ class Accountant:
         for intron in sorted(transcr.introns):
             intron = tuple([intron[0], intron[1]])
             intron_chain.append(intron)
-            self.introns[transcr.chrom][strand][intron] = 0b01
+            if intron not in self.introns[transcr.chrom]:
+                self.introns[transcr.chrom][strand][intron] = [0, 0]
+            self.introns[transcr.chrom][strand][intron][0] += 1
         intron_chain = tuple(intron_chain)
         if intron_chain not in self.intron_chains[transcr.chrom][strand]:
             self.intron_chains[transcr.chrom][
@@ -264,7 +266,8 @@ class Accountant:
         :rtype: dict
         """
 
-        intron_stats = [0, 0, 0]  # Common, prediction, reference
+        intron_stats = [0, 0, 0, 0]  # Common - pred side, common - ref side, prediction, reference
+        intron_nr_stats = [0, 0, 0]  # Common, prediction, reference
         splice_stats = [0, 0, 0]  # Common, prediction, reference
 
         for chrom in self.introns:
@@ -272,16 +275,25 @@ class Accountant:
                 splice_starts = [set(), set()]  # prediction, reference
                 splice_ends = [set(), set()]
                 for intron in self.introns[chrom][strand]:
-                    if (0b10 & self.introns[chrom][strand][intron]) >> 1:
+                    if self.introns[chrom][strand][intron][0]:
                         splice_starts[0].add(intron[0])
                         splice_ends[0].add(intron[1])
-                    if 0b01 & self.introns[chrom][strand][intron]:
+                    if self.introns[chrom][strand][intron][1]:
                         splice_starts[1].add(intron[0])
                         splice_ends[1].add(intron[1])
-                    intron_stats[0] += (0b01 & self.introns[chrom][strand][intron]) & \
-                                     ((0b10 & self.introns[chrom][strand][intron]) >> 1)
-                    intron_stats[1] += (0b10 & self.introns[chrom][strand][intron]) >> 1
-                    intron_stats[2] += 0b01 & self.introns[chrom][strand][intron]
+
+                    if ((self.introns[chrom][strand][intron][0]) &
+                                           (self.introns[chrom][strand][intron][1])):
+                        intron_stats[0] += self.introns[chrom][strand][intron][1]
+                        intron_stats[1] += self.introns[chrom][strand][intron][0]
+                        intron_nr_stats[0] += 1
+
+                    intron_stats[2] += self.introns[chrom][strand][intron][1]
+                    intron_stats[3] += self.introns[chrom][strand][intron][0]
+
+                    intron_nr_stats[1] += (self.introns[chrom][strand][intron][1] > 0)
+                    intron_nr_stats[2] += (self.introns[chrom][strand][intron][0] > 0)
+
                 splice_stats[0] += len(set.intersection(*splice_starts)) + len(set.intersection(*splice_ends))
                 splice_stats[1] += len(splice_starts[0]) + len(splice_ends[0])
                 splice_stats[2] += len(splice_starts[1]) + len(splice_ends[1])
@@ -328,7 +340,9 @@ class Accountant:
                           intron_chains_common_pred)
 
         result_dictionary = dict()
-        result_dictionary["introns"] = intron_stats
+        result_dictionary["introns"] = dict()
+        result_dictionary["introns"]["non_redundant"] = intron_nr_stats
+        result_dictionary["introns"]["redundant"] = intron_stats
         result_dictionary["splices"] = splice_stats
         result_dictionary["intron_chains"] = dict()
         result_dictionary["intron_chains"]["non_redundant"] = intron_chains_nonred
@@ -525,11 +539,16 @@ class Accountant:
                     self.intron_chains[chrom][strand][ic_key][1].update(
                         accountant.intron_chains[chrom][strand][ic_key][1]
                     )
+                for intron in accountant.introns[chrom][strand]:
+                    if intron not in self.introns[chrom][strand]:
+                        self.introns[chrom][strand][intron] = [0, 0]
+                    self.introns[chrom][strand][intron][0] += accountant.introns[chrom][strand][intron][0]
+                    self.introns[chrom][strand][intron][1] += accountant.introns[chrom][strand][intron][1]
 
         self.monoexonic_matches[0].update(accountant.monoexonic_matches[0])
         self.monoexonic_matches[1].update(accountant.monoexonic_matches[1])
 
-        for feature in ("introns", "exons", "starts", "ends"):
+        for feature in ("exons", "starts", "ends"):
             store = getattr(accountant, feature)
             my_store = getattr(self, feature)
             for chrom in store:
@@ -561,8 +580,8 @@ class Accountant:
         for intron in transcr.introns:
             intron = tuple([intron[0], intron[1]])
             if intron not in self.introns[chrom][strand]:
-                self.introns[transcr.chrom][strand][intron] = 0b0
-            self.introns[chrom][strand][intron] |= 0b10
+                self.introns[transcr.chrom][strand][intron] = [0, 0]
+            self.introns[chrom][strand][intron][1] += 1
 
         for index, exon in enumerate(transcr.exons):
             exon = tuple([exon[0], exon[1]])
@@ -849,8 +868,12 @@ class Accountant:
             *intron_results["splices"]
         )
 
-        intron_precision, intron_recall, intron_f1 = self.__calculate_statistics(
-            *intron_results["introns"]
+        intron_precision, intron_recall, intron_f1 = self.__calculate_redundant_statistics(
+            *intron_results["intron_chains"]["redundant"]
+        )
+
+        intron_nr_precision, intron_nr_recall, intron_nr_f1 = self.__calculate_statistics(
+            *intron_results["introns"]["non_redundant"]
         )
 
         # TODO: revise
@@ -951,6 +974,10 @@ class Accountant:
                 intron_recall * 100,
                 intron_precision * 100, intron_f1 * 100), file=out)
             print("{0} {1:.2f}  {2:.2f}  {3:.2f}".format(
+                self.__format_rowname("Intron level (NR)"),
+                intron_nr_recall * 100,
+                intron_nr_precision * 100, intron_nr_f1 * 100), file=out)
+            print("{0} {1:.2f}  {2:.2f}  {3:.2f}".format(
                 self.__format_rowname("Intron chain level"),
                 intron_chains_recall * 100,
                 intron_chains_precision * 100,
@@ -1035,12 +1062,12 @@ class Accountant:
                   file=out)
 
             print(self.__format_comparison_segments("Missed introns",
-                                                    intron_results["introns"][2],
-                                                    intron_results["introns"][0]),
+                                                    intron_results["introns"]["non_redundant"][2],
+                                                    intron_results["introns"]["non_redundant"][0]),
                   file=out)
             print(self.__format_comparison_segments("Novel introns",
-                                                    intron_results["introns"][1],
-                                                    intron_results["introns"][0]),
+                                                    intron_results["introns"]["non_redundant"][1],
+                                                    intron_results["introns"]["non_redundant"][0]),
                   file=out)
             print("", file=out)
 

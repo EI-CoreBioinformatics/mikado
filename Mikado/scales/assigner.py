@@ -174,6 +174,7 @@ class Assigner:
         """Method to dump all results into the database"""
 
         assert self._cursor is not None
+        self._connection.commit()
 
         self._cursor.execute("CREATE TABLE gene_matches (gid varchar(100), match blob)")
         self._connection.commit()
@@ -780,7 +781,6 @@ class Assigner:
                 if self.printout_tmap is False:
                     self._cursor.execute("INSERT INTO tmap VALUES (?)",
                                          (pickle.dumps(res), ))
-                    self._connection.commit()
                 else:
                     self.tmap_rower.writerow(res.as_dict())
 

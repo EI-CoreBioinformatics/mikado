@@ -28,8 +28,9 @@ from ..utilities.log_utils import create_default_logger, formatter
 import magic
 import sqlite3
 import multiprocessing as mp
-import pickle
+import tempfile
 from ..exceptions import InvalidTranscript
+from time import sleep
 try:
     # import ujson as json
     import json as json
@@ -231,8 +232,11 @@ def prepare_reference(args, queue_logger, ref_gff=False) -> (dict, collections.d
 
 class Assigners(mp.Process):
 
-    def __init__(self, genes, positions, args, queue, returnqueue, counter):
+    def __init__(self, genes, positions, args, queue, returnqueue, counter, dump_dbname):
         super().__init__()
+        self.__connection = sqlite3.connect(dump_dbname, timeout=600)
+        self.__cursor = self.__connection.cursor()
+
         self.accountant_instance = Accountant(genes, args, counter=counter)
         self.assigner_instance = Assigner(genes, positions, args, self.accountant_instance,
                                           printout_tmap=False,
@@ -250,13 +254,29 @@ class Assigners(mp.Process):
     def run(self):
         while True:
             transcr = self.queue.get()
+            #
             if transcr == "EXIT":
                 self.queue.put_nowait("EXIT")
                 # out = os.path.join(self.__args.out + str(self.__counter) + ".pickle")
                 self.assigner_instance.dump()
                 self.returnqueue.put(self.assigner_instance.db.name)
                 break
-            self.assigner_instance.get_best(transcr, fuzzymatch=self.__fuzzymatch)
+            else:
+                tries = 0
+                dumped = None
+                dumped = self.__cursor.execute("SELECT json FROM dump WHERE idx=?", (transcr,)).fetchone()
+                dumped = json.loads(dumped[0])
+                transcr = Transcript()
+                transcr.load_dict(dumped, trust_orf=True)
+                self.assigner_instance.get_best(transcr, fuzzymatch=self.__fuzzymatch)
+
+        self.__connection.close()
+
+
+def transmit_transcript(index, transcript: Transcript, connection: sqlite3.Connection):
+
+    connection.execute("INSERT INTO dump VALUES (?, ?)",
+                       (index, json.dumps(transcript.as_dict(remove_attributes=True))))
 
 
 def parse_prediction(args, genes, positions, queue_logger):
@@ -282,7 +302,15 @@ def parse_prediction(args, genes, positions, queue_logger):
     is_bed12 = isinstance(args.prediction, Bed12Parser)
     queue = mp.JoinableQueue(-1)
     returnqueue = mp.JoinableQueue(-1)
-    procs = [Assigners(genes, positions, args, queue, returnqueue, counter)
+    dump_dbhandle = tempfile.NamedTemporaryFile(delete=True, prefix=".compare_dump", suffix=".db", dir=".")
+    dump_db = sqlite3.connect(dump_dbhandle.name, check_same_thread=False, timeout=60)
+    dump_db.execute("CREATE TABLE dump (idx INTEGER, json BLOB)")
+    dump_db.execute("CREATE UNIQUE INDEX dump_idx ON dump(idx)")
+    dump_db.commit()
+
+    transmitter = functools.partial(transmit_transcript, connection=dump_db)
+
+    procs = [Assigners(genes, positions, args, queue, returnqueue, counter, dump_dbhandle.name)
              for counter in range(1, args.processes + 1)]
 
     [proc.start() for proc in procs]
@@ -293,6 +321,8 @@ def parse_prediction(args, genes, positions, queue_logger):
     invalids = set()
     name_counter = collections.Counter()  # This is needed for BAMs
 
+    lastdone = 1
+
     for row in args.prediction:
         if args.prediction.__annot_type__ == BamParser.__annot_type__:
             if row.is_unmapped is True:
@@ -301,13 +331,17 @@ def parse_prediction(args, genes, positions, queue_logger):
                 done += 1
                 if done and done % 10000 == 0:
                     queue_logger.info("Parsed %s transcripts", done)
-                queue.put(transcript)
+                    dump_db.commit()
+                    [queue.put(_) for _ in range(lastdone, done)]
+                    lastdone = done
+
+                transmitter(done, transcript)
             transcript = Transcript(row, accept_undefined_multi=True)
             if name_counter.get(row.query_name):
                 name = "{}_{}".format(row.query_name, name_counter.get(row.query_name))
             else:
                 name = row.query_name
-            transcript.id = name
+            transcript.id = transcript.name = transcript.alias = name
             transcript.parent = transcript.attributes["gene_id"] = "{0}.gene".format(name)
         elif row.header is True:
             continue
@@ -323,7 +357,11 @@ def parse_prediction(args, genes, positions, queue_logger):
                         done += 1
                         if done and done % 10000 == 0:
                             queue_logger.info("Parsed %s transcripts", done)
-                        queue.put(transcript)
+                            dump_db.commit()
+                            [queue.put(_) for _ in range(lastdone, done)]
+                            lastdone = done
+
+                        transmitter(done, transcript)
                         # assigner_instance.get_best(transcript)
                     else:
                         pass
@@ -331,7 +369,11 @@ def parse_prediction(args, genes, positions, queue_logger):
                     done += 1
                     if done and done % 10000 == 0:
                         queue_logger.info("Parsed %s transcripts", done)
-                    queue.put(transcript)
+                        dump_db.commit()
+                        [queue.put(_) for _ in range(lastdone, done)]
+                        lastdone = done
+
+                    transmitter(done, transcript)
                     # assigner_instance.get_best(transcript)
             try:
                 transcript = constructor(row)
@@ -370,7 +412,11 @@ def parse_prediction(args, genes, positions, queue_logger):
                             done += 1
                             if done and done % 10000 == 0:
                                 queue_logger.info("Done %s transcripts", done)
-                            queue.put(transcript)
+                                dump_db.commit()
+                                [queue.put(_) for _ in range(lastdone, done)]
+                                lastdone = done
+
+                            transmitter(done, transcript)
                             # assigner_instance.get_best(transcript)
                     queue_logger.debug("New transcript: %s", row.transcript)
                     transcript = constructor(row)
@@ -384,7 +430,11 @@ def parse_prediction(args, genes, positions, queue_logger):
                             done += 1
                             if done and done % 10000 == 0:
                                 queue_logger.info("Done %s transcripts", done)
-                            queue.put(transcript)
+                                dump_db.commit()
+                                [queue.put(_) for _ in range(lastdone, done)]
+                                lastdone = done
+
+                            transmitter(done, transcript)
                             # assigner_instance.get_best(transcript)
                     queue_logger.debug("New transcript: %s", row.transcript)
                     transcript = constructor(row)
@@ -404,14 +454,19 @@ def parse_prediction(args, genes, positions, queue_logger):
             done += 1
             if done and done % 10000 == 0:
                 queue_logger.info("Done %s transcripts", done)
-            queue.put(transcript)
+                [queue.put(_) for _ in range(lastdone, done)]
+                lastdone = done
+            transmitter(done, transcript)
             # assigner_instance.get_best(transcript)
-
+    dump_db.commit()
+    [queue.put(_) for _ in range(lastdone, done + 1)]
+    # lastdone = done
     # Finish everything, including printing refmap and stats
     queue_logger.info("Finished parsing, %s transcripts in total", done)
     queue.put("EXIT")
     queue.close()
     [proc.join() for proc in procs]
+    dump_dbhandle.close()
     results = []
 
     while len(results) < len(procs):

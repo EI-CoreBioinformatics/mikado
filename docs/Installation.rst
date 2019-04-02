@@ -81,8 +81,14 @@ It is possible to test whether Mikado has been built successfully by opening a p
     >>  import Mikado
     >>  Mikado.test()
 
+Alternatively, you use pytest:
+
+.. code-block:: bash
+
+    $ pytest --pyargs Mikado
+
 .. block-end
 
-This will run all the tests included in the suite. Although code coverage is not perfect yet, it is at 70% for the whole package and over 80% for the core components.
+This will run all the tests included in the suite.
 
 .. _GitHub: https://github.com/EI-CoreBioinformatics/mikado

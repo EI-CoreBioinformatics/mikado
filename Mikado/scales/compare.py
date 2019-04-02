@@ -252,9 +252,9 @@ class Assigners(mp.Process):
             transcr = self.queue.get()
             if transcr == "EXIT":
                 self.queue.put_nowait("EXIT")
-                out = os.path.join(self.__args.out + str(self.__counter) + ".pickle")
-                self.assigner_instance.dump(out)
-                self.returnqueue.put(out)
+                # out = os.path.join(self.__args.out + str(self.__counter) + ".pickle")
+                self.assigner_instance.dump()
+                self.returnqueue.put(self.assigner_instance.db.name)
                 break
             self.assigner_instance.get_best(transcr, fuzzymatch=self.__fuzzymatch)
 
@@ -416,8 +416,8 @@ def parse_prediction(args, genes, positions, queue_logger):
 
     while len(results) < len(procs):
         fname = returnqueue.get()
-        results.append(pickle.load(open(fname, "rb")))
-        os.remove(fname)
+        results.append(fname)
+        # os.remove(fname)
 
     accountant_instance = Accountant(genes, args)
     assigner_instance = Assigner(genes, positions, args, accountant_instance,

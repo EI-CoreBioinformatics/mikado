@@ -16,13 +16,16 @@ from collections import namedtuple
 from functools import partial
 from logging import handlers as log_handlers
 from re import search as re_search
-from Mikado.transcripts.transcript import Transcript
+from Mikado.transcripts.transcript import Transcript, Namespace
 from .accountant import Accountant
+import os
 from .contrast import compare as c_compare
 from .resultstorer import ResultStorer
 from ..exceptions import InvalidTranscript, InvalidCDS
 from ..utilities.intervaltree import IntervalTree
 import pickle
+import sqlite3
+import tempfile
 
 
 # noinspection PyPropertyAccess,PyPropertyAccess
@@ -116,12 +119,18 @@ class Assigner:
                 self.tmap_out = gzip.open("{0}.tmap.gz".format(args.out), 'wt')
             self.tmap_rower = csv.DictWriter(self.tmap_out, ResultStorer.__slots__, delimiter="\t")
             self.tmap_rower.writeheader()
+            self.db, self._connection, self._cursor = [None] * 3
+        else:
+            self.db = tempfile.NamedTemporaryFile(prefix=".compare", suffix=".db", dir=".", delete=False)
+            self.db.close()
+            self._connection = sqlite3.connect(self.db.name)
+            self._cursor = self._connection.cursor()
+            self._cursor.execute("CREATE TABLE tmap (row blob)")
 
         self.gene_matches = collections.defaultdict(dict)
         self.done = 0
         self.stat_calculator = stat_calculator
         self.self_analysis = self.stat_calculator.self_analysis
-        self.tmap = dict()
         for gid in self.genes:
             for tid in self.genes[gid].transcripts:
                 self.gene_matches[gid][tid] = []
@@ -134,35 +143,51 @@ class Assigner:
         for chrom in positions:
             self.indexer[chrom] = IntervalTree.from_tuples(self.positions[chrom].keys())
 
-    def __load_from_results(self, results):
+    def __load_from_results(self, dbnames):
 
         """Private method to load together all the results from a previous run."""
 
+        for dbname in dbnames:
+            connection = sqlite3.connect(dbname)
+            cursor = connection.cursor()
 
-        for gene_match, tmap, stat_calculator in results:
-            for gid in gene_match:
-                for tid in gene_match[gid]:
-                    for match in gene_match[gid][tid]:
+            if self.printout_tmap is True:
+                for tmap_row in cursor.execute("SELECT * from tmap"):
+                    tmap_row = pickle.loads(tmap_row[0])
+                    self.print_tmap(tmap_row)
+
+            for gid, gene_match in cursor.execute("SELECT * from gene_matches"):
+                gene_match = pickle.loads(gene_match)
+                for tid in gene_match:
+                    for match in gene_match[tid]:
                         self.gene_matches[gid][tid].append(match)
-            self.stat_calculator.merge_into(stat_calculator)
-            self.tmap.update(tmap)
 
-        if self.printout_tmap is True:
-            for key in self.tmap:
-                if isinstance(self.tmap[key], list):
-                    for res in self.tmap[key]:
-                        self.print_tmap(res)
-                else:
-                    self.print_tmap(self.tmap[key])
+            temp_stats = Namespace()
+            for attr, stat in cursor.execute("SELECT * from stats"):
+                setattr(temp_stats, attr, pickle.loads(stat))
 
-    def dump(self, fname):
+            self.stat_calculator.merge_into(temp_stats)
+            os.remove(dbname)
 
-        """Method to dump all results into a pickle object"""
+    def dump(self):
 
-        with open(fname, "wb") as out:
+        """Method to dump all results into the database"""
 
-            simplified = self.stat_calculator.serialize()
-            pickle.dump((self.gene_matches, self.tmap, simplified), out)
+        assert self._cursor is not None
+
+        self._cursor.execute("CREATE TABLE gene_matches (gid varchar(100), match blob)")
+        self._connection.commit()
+        self._cursor.executemany("INSERT INTO gene_matches ('gid', 'match') VALUES (?, ?)",
+                                 [(gid, pickle.dumps(self.gene_matches[gid])) for gid in self.gene_matches])
+        self._connection.commit()
+        self._cursor.execute("CREATE TABLE stats (level varchar(40), stats blob)")
+        self._connection.commit()
+        simplified = self.stat_calculator.serialize()
+        for attribute in simplified.attributes:
+            self._cursor.execute("INSERT INTO stats VALUES (?, ?)", (attribute,
+                                                                     pickle.dumps(getattr(simplified, attribute))))
+        self._connection.commit()
+        self._connection.close()
 
     def add_to_refmap(self, result: ResultStorer) -> None:
         """
@@ -667,8 +692,6 @@ class Assigner:
         else:
             self.print_tmap(best_result)
 
-        # self.done += 1
-        self.tmap[prediction.id] = best_result
         return best_result
 
     def finish(self):
@@ -747,8 +770,6 @@ class Assigner:
         :param res: result from compare
         :type res: (ResultStorer | None)
         """
-        if self.printout_tmap is False:
-            return
 
         if res is not None:
             if not isinstance(res, ResultStorer):
@@ -756,7 +777,12 @@ class Assigner:
                 self.logger.exception(repr(res))
                 raise ValueError
             else:
-                self.tmap_rower.writerow(res.as_dict())
+                if self.printout_tmap is False:
+                    self._cursor.execute("INSERT INTO tmap VALUES (?)",
+                                         (pickle.dumps(res), ))
+                    self._connection.commit()
+                else:
+                    self.tmap_rower.writerow(res.as_dict())
 
     @staticmethod
     def result_sorter(result):

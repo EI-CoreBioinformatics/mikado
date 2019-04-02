@@ -507,9 +507,12 @@ class Accountant:
     def serialize(self):
 
         simplified = Namespace()
-        for attr in ("pred_genes", "ref_genes", "intron_chains", "monoexonic_matches",
-                     "introns", "exons", "starts", "ends"):
+        simplified.attributes = ("pred_genes", "ref_genes", "intron_chains", "monoexonic_matches",
+                                 "introns", "exons", "starts", "ends")
+
+        for attr in simplified.attributes:
             setattr(simplified, attr, getattr(self, attr))
+
         return simplified
 
     def merge_into(self, accountant):

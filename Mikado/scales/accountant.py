@@ -10,7 +10,7 @@ import collections
 import logging
 import operator
 from logging import handlers as log_handlers
-
+from .gene_dict import GeneDict
 from ..transcripts import Transcript, Namespace
 from . import calc_f1
 from .resultstorer import ResultStorer
@@ -22,11 +22,11 @@ class Accountant:
     """This class stores the data necessary to calculate the final statistics
      - base and exon Sn/Sp/F1 etc."""
 
-    def __init__(self, genes: dict, args: argparse.Namespace, preload=False, counter=None):
+    def __init__(self, genes, args: argparse.Namespace, counter=None):
 
         """Class constructor. It requires:
         :param genes: a dictionary
-        :type genes: dict
+        :type genes: [dict|GeneDict]
         :param args: A namespace (like those provided by argparse)
         containing the parameters for the run.
         """
@@ -46,8 +46,7 @@ class Accountant:
         self.monoexonic_matches = (set(), set())
         self.ref_genes = dict()
         self.pred_genes = dict()
-        if preload is True:
-            self.__setup_reference_data(genes)
+        self.__setup_reference_data(genes)
         self.self_analysis = False
         if hasattr(args, "self") and args.self is True:
             self.self_analysis = True
@@ -666,7 +665,6 @@ class Accountant:
             found_one = False
 
             for refid, refgene, nf1 in zip(result.ref_id, result.ref_gene, result.n_f1):
-                # self.ref_genes[refgene][refid] |= 0b1000
                 if nf1 > 0:
                     self.ref_genes[refgene][refid] &= ~(1 << 3)  # Clear the fourth bit
                     found_one = True

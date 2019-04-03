@@ -139,9 +139,10 @@ class Assigner:
 
         self.gene_matches = collections.defaultdict(dict)
         self.done = 0
-        self.genes = GeneDict(self.cursor, self.logger)
-        if preload is True:
-            self.genes = dict(self.genes.load_all())  # preload everything
+        self.genes = GeneDict(self.dbname, self.logger)
+        for gid in self.genes:
+            for tid in self.genes[gid].transcripts:
+                self.gene_matches[gid][tid] = []
 
         self.stat_calculator = Accountant(self.genes, args=args)
         self.self_analysis = self.stat_calculator.self_analysis

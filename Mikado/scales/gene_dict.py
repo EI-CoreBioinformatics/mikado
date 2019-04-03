@@ -5,9 +5,11 @@ import json
 
 class GeneDict:
 
-    def __init__(self, cursor: sqlite3.Cursor, logger):
+    def __init__(self, dbname: str, logger=None):
 
-        self.__cursor = cursor
+        self.__dbname = dbname
+        self.__db = sqlite3.connect("file:{}?mode=ro".format(self.__dbname), uri=True)
+        self.__cursor = self.__db.cursor()
         self.logger = logger
 
     def __getitem__(self, item):
@@ -33,3 +35,14 @@ class GeneDict:
             gid, gene = row[0], self.__load_gene(row[1])
             yield (gid, gene)
 
+    def __iter__(self):
+        self.__db.row_factory = lambda cursor, row: row[0]
+        cursor = self.__db.cursor()
+        for gid in cursor.execute("SELECT gid from genes"):
+            yield gid
+        self.__db.row_factory = None
+
+    def items(self):
+
+        for gid in self:
+            yield (gid, self[gid])

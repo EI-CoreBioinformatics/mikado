@@ -472,10 +472,8 @@ def parse_prediction(args, index, queue_logger):
         results.append(fname)
         # os.remove(fname)
 
-    accountant_instance = Accountant(genes, args)
-    assigner_instance = Assigner(genes, positions, args, accountant_instance,
-                                 results=results,
-                                 printout_tmap=True)
+    # accountant_instance = Accountant(genes, args)
+    assigner_instance = Assigner(index, args, results=results, printout_tmap=True)
     assigner_instance.finish()
 
 
@@ -669,40 +667,42 @@ def compare(args):
             queue_logger.warning("Reference index obsolete, deleting and rebuilding.")
             os.remove("{0}.midx".format(args.reference.name))
         elif os.path.exists("{0}.midx".format(args.reference.name)):
-            queue_logger.info("Starting loading the indexed reference")
-            try:
-                genes, positions = load_index(args, queue_logger)
-            except CorruptIndex as exc:
-                queue_logger.warning(exc)
-                queue_logger.warning("Reference index corrupt, deleting and rebuilding.")
-                os.remove("{0}.midx".format(args.reference.name))
-                genes, positions = None, None
-        if genes is None:
-            queue_logger.info("Starting parsing the reference")
-            exclude_utr, protein_coding = args.exclude_utr, args.protein_coding
-            # if args.no_save_index is False:
-            #     args.exclude_utr, args.protein_coding = False, False
-            genes, positions = prepare_reference(args,
-                                                 queue_logger,
-                                                 ref_gff=ref_gff)
-            if args.no_save_index is False:
-                create_index(positions, genes, "{0}.midx".format(args.reference.name))
-                if exclude_utr is True or protein_coding is True:
-                    args.exclude_utr, args.protein_coding = exclude_utr, protein_coding
-                    positions = collections.defaultdict(dict)
-                    finalize_reference(genes, positions, queue_logger, args)
+            # queue_logger.info("Starting loading the indexed reference")
+            queue_logger.info("Index found")
+            # try:
+            #     genes, positions = load_index(args, queue_logger)
+            # except CorruptIndex as exc:
+            #     queue_logger.warning(exc)
+            #     queue_logger.warning("Reference index corrupt, deleting and rebuilding.")
+            #     os.remove("{0}.midx".format(args.reference.name))
+            #     genes, positions = None, None
+        # if genes is None:
+        #     queue_logger.info("Starting parsing the reference")
+        #     exclude_utr, protein_coding = args.exclude_utr, args.protein_coding
+        #     # if args.no_save_index is False:
+        #     #     args.exclude_utr, args.protein_coding = False, False
+        #     genes, positions = prepare_reference(args,
+        #                                          queue_logger,
+        #                                          ref_gff=ref_gff)
+        #     if args.no_save_index is False:
+        #         create_index(positions, genes, "{0}.midx".format(args.reference.name))
+        #         if exclude_utr is True or protein_coding is True:
+        #             args.exclude_utr, args.protein_coding = exclude_utr, protein_coding
+        #             positions = collections.defaultdict(dict)
+        #             finalize_reference(genes, positions, queue_logger, args)
 
-        assert isinstance(genes, dict)
+        # assert isinstance(genes, dict)
 
         # Needed for refmap
-        queue_logger.info("Finished preparation; found %d reference gene%s",
-                          len(genes), "s" if len(genes) > 1 else "")
-        queue_logger.debug("Gene names (first 20): %s",
-                           "\n\t".join(list(genes.keys())[:20]))
+        # queue_logger.info("Finished preparation; found %d reference gene%s",
+        #                   len(genes), "s" if len(genes) > 1 else "")
+        # queue_logger.debug("Gene names (first 20): %s",
+        #                    "\n\t".join(list(genes.keys())[:20]))
 
         try:
             if hasattr(args, "internal") and args.internal is True:
-                parse_self(args, genes, queue_logger)
+                raise NotImplementedError()
+                # parse_self(args, genes, queue_logger)
             else:
                 parse_prediction(args, "{0}.midx".format(args.reference.name), queue_logger)
         except Exception as err:

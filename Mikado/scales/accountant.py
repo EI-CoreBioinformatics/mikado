@@ -11,7 +11,7 @@ import logging
 import operator
 from logging import handlers as log_handlers
 
-from Mikado.transcripts.transcript import Transcript, Namespace
+from ..transcripts import Transcript, Namespace
 from . import calc_f1
 from .resultstorer import ResultStorer
 
@@ -22,7 +22,7 @@ class Accountant:
     """This class stores the data necessary to calculate the final statistics
      - base and exon Sn/Sp/F1 etc."""
 
-    def __init__(self, genes: dict, args: argparse.Namespace, counter=None):
+    def __init__(self, genes: dict, args: argparse.Namespace, preload=False, counter=None):
 
         """Class constructor. It requires:
         :param genes: a dictionary
@@ -46,7 +46,8 @@ class Accountant:
         self.monoexonic_matches = (set(), set())
         self.ref_genes = dict()
         self.pred_genes = dict()
-        self.__setup_reference_data(genes)
+        if preload is True:
+            self.__setup_reference_data(genes)
         self.self_analysis = False
         if hasattr(args, "self") and args.self is True:
             self.self_analysis = True

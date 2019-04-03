@@ -15,8 +15,8 @@ import sys
 from collections import namedtuple
 from functools import partial
 from logging import handlers as log_handlers
-from re import search as re_search
-from Mikado.transcripts.transcript import Transcript, Namespace
+# from re import search as re_search
+from ..transcripts.transcript import Transcript, Namespace
 from .accountant import Accountant
 import os
 from .contrast import compare as c_compare
@@ -26,9 +26,12 @@ from ..utilities.intervaltree import IntervalTree
 import pickle
 import sqlite3
 import tempfile
+from .gene_dict import GeneDict
 
 
 # noinspection PyPropertyAccess,PyPropertyAccess
+
+
 class Assigner:
 
     """
@@ -37,11 +40,10 @@ class Assigner:
     """
 
     def __init__(self,
-                 genes: dict,
-                 positions: collections.defaultdict,
+                 index: str,
                  args: argparse.Namespace,
-                 stat_calculator: Accountant,
                  results=(),
+                 preload=False,
                  printout_tmap=True,
                  counter=None):
 
@@ -107,9 +109,16 @@ class Assigner:
             self.logger.setLevel(logging.INFO)
 
         self.logger.propagate = False
-
-        self.genes = genes
-        self.positions = positions
+        self.dbname = index
+        try:
+            self.db = sqlite3.connect("file:{}?mode=ro".format(self.dbname), uri=True)
+        except sqlite3.OperationalError:
+            raise sqlite3.OperationalError(self.dbname)
+        self.cursor = self.db.cursor()
+        # self.genes = genes
+        self.positions = collections.defaultdict(dict)
+        self.indexer = collections.defaultdict(list)
+        self._load_positions()
         self.printout_tmap = printout_tmap
         self.__done = 0
         # noinspection PyUnresolvedReferences
@@ -130,18 +139,26 @@ class Assigner:
 
         self.gene_matches = collections.defaultdict(dict)
         self.done = 0
-        self.stat_calculator = stat_calculator
-        self.self_analysis = self.stat_calculator.self_analysis
-        for gid in self.genes:
-            for tid in self.genes[gid].transcripts:
-                self.gene_matches[gid][tid] = []
+        self.genes = GeneDict(self.cursor, self.logger)
+        if preload is True:
+            self.genes = dict(self.genes.load_all())  # preload everything
 
+        self.stat_calculator = Accountant(self.genes, args=args)
+        self.self_analysis = self.stat_calculator.self_analysis
         if results:
             self.__load_from_results(results)
             return
 
-        self.indexer = collections.defaultdict(list).fromkeys(self.positions)
-        for chrom in positions:
+    def _load_positions(self):
+
+        for row in self.cursor.execute("SELECT * from positions"):
+            chrom, start, end, gid = row
+            key = (start, end)
+            if key not in self.positions:
+                self.positions[chrom][key] = []
+            self.positions[chrom][key].append(gid)
+
+        for chrom in self.positions:
             self.indexer[chrom] = IntervalTree.from_tuples(self.positions[chrom].keys())
 
     def __load_from_results(self, dbnames):

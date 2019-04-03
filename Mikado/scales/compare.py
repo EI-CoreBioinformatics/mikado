@@ -232,13 +232,13 @@ def prepare_reference(args, queue_logger, ref_gff=False) -> (dict, collections.d
 
 class Assigners(mp.Process):
 
-    def __init__(self, genes, positions, args, queue, returnqueue, counter, dump_dbname):
+    def __init__(self, index, args, queue, returnqueue, counter, dump_dbname):
         super().__init__()
         self.__connection = sqlite3.connect(dump_dbname, timeout=600)
         self.__cursor = self.__connection.cursor()
 
-        self.accountant_instance = Accountant(genes, args, counter=counter)
-        self.assigner_instance = Assigner(genes, positions, args, self.accountant_instance,
+        # self.accountant_instance = Accountant(genes, args, counter=counter)
+        self.assigner_instance = Assigner(index, args,
                                           printout_tmap=False,
                                           counter=counter)
         if hasattr(args, "fuzzymatch"):
@@ -262,8 +262,6 @@ class Assigners(mp.Process):
                 self.returnqueue.put(self.assigner_instance.db.name)
                 break
             else:
-                tries = 0
-                dumped = None
                 dumped = self.__cursor.execute("SELECT json FROM dump WHERE idx=?", (transcr,)).fetchone()
                 dumped = json.loads(dumped[0])
                 transcr = Transcript()
@@ -279,7 +277,7 @@ def transmit_transcript(index, transcript: Transcript, connection: sqlite3.Conne
                        (index, json.dumps(transcript.as_dict(remove_attributes=True))))
 
 
-def parse_prediction(args, genes, positions, queue_logger):
+def parse_prediction(args, index, queue_logger):
 
     """
     This function performs the real comparison between the reference and the prediction.
@@ -310,7 +308,7 @@ def parse_prediction(args, genes, positions, queue_logger):
 
     transmitter = functools.partial(transmit_transcript, connection=dump_db)
 
-    procs = [Assigners(genes, positions, args, queue, returnqueue, counter, dump_dbhandle.name)
+    procs = [Assigners(index, args, queue, returnqueue, counter, dump_dbhandle.name)
              for counter in range(1, args.processes + 1)]
 
     [proc.start() for proc in procs]
@@ -706,7 +704,7 @@ def compare(args):
             if hasattr(args, "internal") and args.internal is True:
                 parse_self(args, genes, queue_logger)
             else:
-                parse_prediction(args, genes, positions, queue_logger)
+                parse_prediction(args, "{0}.midx".format(args.reference.name), queue_logger)
         except Exception as err:
             queue_logger.exception(err)
             log_queue_listener.enqueue_sentinel()

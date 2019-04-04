@@ -107,7 +107,7 @@ class Assigner:
         else:
             self.logger.setLevel(logging.INFO)
 
-        self.logger.propagate = False
+        self.logger.propagate = True
         self.dbname = index
         try:
             self.db = sqlite3.connect("file:{}?mode=ro".format(self.dbname), uri=True)
@@ -156,7 +156,7 @@ class Assigner:
         for row in self.cursor.execute("SELECT * from positions"):
             chrom, start, end, gid = row
             key = (start, end)
-            if key not in self.positions:
+            if key not in self.positions[chrom]:
                 self.positions[chrom][key] = []
             self.positions[chrom][key].append(gid)
 
@@ -450,9 +450,8 @@ class Assigner:
         """
 
         matches = list(distance for distance in distances if distance[1] == 0)
-        self.logger.debug("Matches for %s: %s",
-                          prediction.id,
-                          matches)
+        self.logger.debug("Matches for %s: %s", prediction.id,
+                          ", ".join([_.id for _ in self.genes[self.positions[prediction.chrom][distances[0][0]][0]]]))
 
         same_strand = False
         if len(matches) > 1 and prediction.strand is not None:
@@ -664,9 +663,7 @@ class Assigner:
             results, best_result = self.self_analyse_prediction(prediction, distances,
                                                                 fuzzymatch=fuzzymatch)
         else:
-            self.logger.debug("Distances for %s: %s",
-                              prediction.id,
-                              distances)
+            self.logger.debug("Distances for %s: %s", prediction.id, distances)
             # Unknown transcript
             # noinspection PyUnresolvedReferences
             if len(distances) == 0 or distances[0][1] > self.args.distance:
@@ -685,8 +682,7 @@ class Assigner:
                 # Polymerase run-on
                 match = self.genes[self.positions[prediction.chrom][distances[0][0]][0]]
                 results = [self.calc_and_store_compare(prediction, reference) for reference in match]
-                best_result = sorted(results,
-                                     key=operator.attrgetter("distance"))[0]
+                best_result = sorted(results, key=operator.attrgetter("distance"))[0]
             else:
                 # All other cases
                 try:

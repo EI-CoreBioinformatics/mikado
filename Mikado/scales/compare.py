@@ -272,9 +272,14 @@ class Assigners(mp.Process):
 
 
 def transmit_transcript(index, transcript: Transcript, connection: sqlite3.Connection):
-
+    transcript.finalize()
     connection.execute("INSERT INTO dump VALUES (?, ?)",
                        (index, json.dumps(transcript.as_dict(remove_attributes=True))))
+
+
+def get_best_result(_, transcript, assigner_instance: Assigner):
+    transcript.finalize()
+    assigner_instance.get_best(transcript)
 
 
 def parse_prediction(args, index, queue_logger):
@@ -306,12 +311,17 @@ def parse_prediction(args, index, queue_logger):
     dump_db.execute("CREATE UNIQUE INDEX dump_idx ON dump(idx)")
     dump_db.commit()
 
-    transmitter = functools.partial(transmit_transcript, connection=dump_db)
+    if args.processes > 1:
+        procs = [Assigners(index, args, queue, returnqueue, counter, dump_dbhandle.name)
+                            for counter in range(1, args.processes + 1)]
+        [proc.start() for proc in procs]
+        transmitter = functools.partial(transmit_transcript, connection=dump_db)
+        assigner_instance = None
+    else:
+        procs = []
+        assigner_instance = Assigner(index, args, printout_tmap=True)
+        transmitter = functools.partial(get_best_result, assigner_instance=assigner_instance)
 
-    procs = [Assigners(index, args, queue, returnqueue, counter, dump_dbhandle.name)
-             for counter in range(1, args.processes + 1)]
-
-    [proc.start() for proc in procs]
     constructor = functools.partial(Transcript,
                                     logger=queue_logger, trust_orf=True, accept_undefined_multi=True)
 
@@ -329,8 +339,9 @@ def parse_prediction(args, index, queue_logger):
                 done += 1
                 if done and done % 10000 == 0:
                     queue_logger.info("Parsed %s transcripts", done)
-                    dump_db.commit()
-                    [queue.put(_) for _ in range(lastdone, done)]
+                    if assigner_instance is None:
+                        dump_db.commit()
+                        [queue.put(_) for _ in range(lastdone, done)]
                     lastdone = done
 
                 transmitter(done, transcript)
@@ -355,24 +366,25 @@ def parse_prediction(args, index, queue_logger):
                         done += 1
                         if done and done % 10000 == 0:
                             queue_logger.info("Parsed %s transcripts", done)
-                            dump_db.commit()
-                            [queue.put(_) for _ in range(lastdone, done)]
+                            if assigner_instance is None:
+                                dump_db.commit()
+                                [queue.put(_) for _ in range(lastdone, done)]
                             lastdone = done
-
                         transmitter(done, transcript)
-                        # assigner_instance.get_best(transcript)
                     else:
                         pass
                 else:
                     done += 1
                     if done and done % 10000 == 0:
                         queue_logger.info("Parsed %s transcripts", done)
-                        dump_db.commit()
-                        [queue.put(_) for _ in range(lastdone, done)]
+                        if assigner_instance is None:
+                            dump_db.commit()
+                            [queue.put(_) for _ in range(lastdone, done)]
                         lastdone = done
-
-                    transmitter(done, transcript)
-                    # assigner_instance.get_best(transcript)
+                    try:
+                        transmitter(done, transcript)
+                    except AssertionError:
+                        raise AssertionError((transcript.id, str(row)))
             try:
                 transcript = constructor(row)
             except (InvalidTranscript, AssertionError, TypeError, ValueError):
@@ -393,8 +405,7 @@ def parse_prediction(args, index, queue_logger):
                 if transcript is None:
                     raise TypeError("Transcript not defined inside the GFF; line:\n{}".format(row))
                 else:
-                    queue_logger.debug("Adding exon to transcript %s: %s",
-                                       transcript.id, row)
+                    queue_logger.debug("Adding exon to transcript %s: %s", transcript.id, row)
                     transcript.add_exon(row)
             elif ref_gff is True and "match" in row.feature:
                 if transcript is not None and row.id == transcript.id:
@@ -410,14 +421,15 @@ def parse_prediction(args, index, queue_logger):
                             done += 1
                             if done and done % 10000 == 0:
                                 queue_logger.info("Done %s transcripts", done)
-                                dump_db.commit()
-                                [queue.put(_) for _ in range(lastdone, done)]
+                                if assigner_instance is None:
+                                    dump_db.commit()
+                                    [queue.put(_) for _ in range(lastdone, done)]
                                 lastdone = done
 
                             transmitter(done, transcript)
-                            # assigner_instance.get_best(transcript)
                     queue_logger.debug("New transcript: %s", row.transcript)
                     transcript = constructor(row)
+                assert len(transcript.exons) > 0, (row,)
             elif ref_gff is False:
                 if transcript is None or (transcript is not None and transcript.id != row.transcript):
                     if transcript is not None:
@@ -428,12 +440,11 @@ def parse_prediction(args, index, queue_logger):
                             done += 1
                             if done and done % 10000 == 0:
                                 queue_logger.info("Done %s transcripts", done)
-                                dump_db.commit()
-                                [queue.put(_) for _ in range(lastdone, done)]
+                                if assigner_instance is None:
+                                    dump_db.commit()
+                                    [queue.put(_) for _ in range(lastdone, done)]
                                 lastdone = done
-
                             transmitter(done, transcript)
-                            # assigner_instance.get_best(transcript)
                     queue_logger.debug("New transcript: %s", row.transcript)
                     transcript = constructor(row)
                 transcript.add_exon(row)
@@ -452,28 +463,29 @@ def parse_prediction(args, index, queue_logger):
             done += 1
             if done and done % 10000 == 0:
                 queue_logger.info("Done %s transcripts", done)
-                [queue.put(_) for _ in range(lastdone, done)]
+                if assigner_instance is None:
+                    [queue.put(_) for _ in range(lastdone, done)]
                 lastdone = done
             transmitter(done, transcript)
-            # assigner_instance.get_best(transcript)
-    dump_db.commit()
-    [queue.put(_) for _ in range(lastdone, done + 1)]
-    # lastdone = done
-    # Finish everything, including printing refmap and stats
+
+    if assigner_instance is None:
+        dump_db.commit()
+        [queue.put(_) for _ in range(lastdone, done + 1)]
     queue_logger.info("Finished parsing, %s transcripts in total", done)
-    queue.put("EXIT")
-    queue.close()
-    [proc.join() for proc in procs]
     dump_dbhandle.close()
-    results = []
-
-    while len(results) < len(procs):
-        fname = returnqueue.get()
-        results.append(fname)
-        # os.remove(fname)
-
-    # accountant_instance = Accountant(genes, args)
-    assigner_instance = Assigner(index, args, results=results, printout_tmap=True)
+    if assigner_instance is None:
+        queue.put("EXIT")
+        results = []
+        [proc.join() for proc in procs]
+        while len(results) < len(procs):
+            fname = returnqueue.get()
+            results.append(fname)
+        assigner_instance = Assigner(index, args, results=results, printout_tmap=True)
+    else:
+        returnqueue.close()
+        assert not procs, procs
+        assert isinstance(assigner_instance, Assigner)
+    queue.close()
     assigner_instance.finish()
 
 
@@ -570,7 +582,7 @@ def load_index(args, queue_logger):
     return genes, positions
 
 
-def create_index(positions, genes, index_name):
+def create_index(args, queue_logger, index_name, ref_gff=False):
 
     """Method to create the simple indexed database for features."""
 
@@ -583,6 +595,8 @@ def create_index(positions, genes, index_name):
     cursor = conn.cursor()
     cursor.execute("CREATE TABLE positions (chrom text, start integer, end integer, gid text)")
     cursor.execute("CREATE INDEX pos_idx ON positions (chrom, start, end)")
+    genes, positions = prepare_reference(args, queue_logger, ref_gff=ref_gff)
+
     for chrom in positions:
         for key in positions[chrom]:
             start, end = key
@@ -636,8 +650,7 @@ def compare(args):
 
     logger.handlers[0].flush()
 
-    genes, positions = None, None
-
+    index_name = os.path.abspath("{0}.midx".format(args.reference.name))
     if args.index is True:
         queue_logger.info("Starting to create an index for %s", args.reference.name)
         if os.path.exists("{0}.midx".format(args.reference.name)):
@@ -645,14 +658,8 @@ def compare(args):
             os.remove("{0}.midx".format(args.reference.name))
         args.protein_coding = False
         args.exclude_utr = False
-        genes, positions = prepare_reference(args,
-                                             queue_logger,
-                                             ref_gff=ref_gff)
-
-        create_index(positions, genes, "{0}.midx".format(args.reference.name))
-
-        queue_logger.info("Finished to create an index for %s, with %d genes",
-                          args.reference.name, len(genes))
+        create_index(args, queue_logger, index_name, ref_gff=ref_gff)
+        queue_logger.info("Finished to create an index for %s", args.reference.name)
     else:
         if os.path.dirname(args.out) and os.path.dirname(args.out) != os.path.dirname(os.path.abspath(".")):
             dirname = os.path.dirname(args.out)
@@ -660,13 +667,10 @@ def compare(args):
                 assert os.path.isdir(dirname)
             else:
                 os.makedirs(dirname)
-
-        if (os.path.exists("{0}.midx".format(args.reference.name)) and
-            os.stat(args.reference.name).st_mtime >= os.stat(
-                    "{0}.midx".format(args.reference.name)).st_mtime):
+        if (os.path.exists(index_name) and os.stat(args.reference.name).st_mtime >= os.stat(index_name).st_mtime):
             queue_logger.warning("Reference index obsolete, deleting and rebuilding.")
             os.remove("{0}.midx".format(args.reference.name))
-        elif os.path.exists("{0}.midx".format(args.reference.name)):
+        elif os.path.exists(index_name):
             # queue_logger.info("Starting loading the indexed reference")
             queue_logger.info("Index found")
             # try:
@@ -676,35 +680,17 @@ def compare(args):
             #     queue_logger.warning("Reference index corrupt, deleting and rebuilding.")
             #     os.remove("{0}.midx".format(args.reference.name))
             #     genes, positions = None, None
-        # if genes is None:
-        #     queue_logger.info("Starting parsing the reference")
-        #     exclude_utr, protein_coding = args.exclude_utr, args.protein_coding
-        #     # if args.no_save_index is False:
-        #     #     args.exclude_utr, args.protein_coding = False, False
-        #     genes, positions = prepare_reference(args,
-        #                                          queue_logger,
-        #                                          ref_gff=ref_gff)
-        #     if args.no_save_index is False:
-        #         create_index(positions, genes, "{0}.midx".format(args.reference.name))
-        #         if exclude_utr is True or protein_coding is True:
-        #             args.exclude_utr, args.protein_coding = exclude_utr, protein_coding
-        #             positions = collections.defaultdict(dict)
-        #             finalize_reference(genes, positions, queue_logger, args)
-
-        # assert isinstance(genes, dict)
-
-        # Needed for refmap
-        # queue_logger.info("Finished preparation; found %d reference gene%s",
-        #                   len(genes), "s" if len(genes) > 1 else "")
-        # queue_logger.debug("Gene names (first 20): %s",
-        #                    "\n\t".join(list(genes.keys())[:20]))
-
+        else:
+            if args.no_save_index is True:
+                __index = tempfile.NamedTemporaryFile(suffix=".midx")
+                index_name = __index.name
+            create_index(args, queue_logger, index_name, ref_gff=ref_gff)
         try:
             if hasattr(args, "internal") and args.internal is True:
                 raise NotImplementedError()
                 # parse_self(args, genes, queue_logger)
             else:
-                parse_prediction(args, "{0}.midx".format(args.reference.name), queue_logger)
+                parse_prediction(args, index_name, queue_logger)
         except Exception as err:
             queue_logger.exception(err)
             log_queue_listener.enqueue_sentinel()

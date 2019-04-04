@@ -804,9 +804,9 @@ class CompareCheck(unittest.TestCase):
         namespace = Namespace(default=False)
         namespace.distance = 2000
         namespace.no_save_index = True
+        namespace.processes = 1
 
         for ref, pred in itertools.permutations(files, 2):
-
             with self.subTest(ref=ref, pred=pred):
                 namespace.reference = to_gff(ref)
                 namespace.prediction = to_gff(pred)

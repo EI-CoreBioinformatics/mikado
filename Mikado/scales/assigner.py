@@ -43,7 +43,6 @@ class Assigner:
                  index: str,
                  args: argparse.Namespace,
                  results=(),
-                 preload=False,
                  printout_tmap=True,
                  counter=None):
 
@@ -146,8 +145,10 @@ class Assigner:
 
         self.stat_calculator = Accountant(self.genes, args=args)
         self.self_analysis = self.stat_calculator.self_analysis
+        self.__merged = False
         if results:
             self.__load_from_results(results)
+            self.__merged = True
             return
 
     def _load_positions(self):
@@ -169,10 +170,12 @@ class Assigner:
         for dbname in dbnames:
             connection = sqlite3.connect(dbname)
             cursor = connection.cursor()
+            done = set()
 
             if self.printout_tmap is True:
                 for tmap_row in cursor.execute("SELECT * from tmap"):
                     tmap_row = pickle.loads(tmap_row[0])
+                    done.add(tmap_row.tid)
                     self.print_tmap(tmap_row)
 
             for gid, gene_match in cursor.execute("SELECT * from gene_matches"):
@@ -187,6 +190,7 @@ class Assigner:
 
             self.stat_calculator.merge_into(temp_stats)
             os.remove(dbname)
+            self.done += len(done)
 
     def dump(self):
 
@@ -720,8 +724,9 @@ class Assigner:
         It will print out the reference file assignments into the refmap
         file, and the final statistics into the stats file.
         """
-        self.logger.info("Finished parsing, total: %d transcript%s.",
-                         self.done, "s" if self.done > 1 else "")
+
+        self.logger.debug("Finished parsing, total: %d transcript%s.", self.done, "s" if self.done > 1 else "")
+
         self.print_refmap()
         self.stat_calculator.print_stats()
         self.tmap_out.close()

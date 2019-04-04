@@ -93,6 +93,7 @@ class Accountant:
                     self.exons[transcr.chrom][strand][exon] |= 0b100
                 else:
                     self.__store_multiexonic_reference(transcr, strand)
+
         return
 
     def __store_multiexonic_reference(self, transcr, strand):
@@ -108,15 +109,13 @@ class Accountant:
         for intron in sorted(transcr.introns):
             intron = tuple([intron[0], intron[1]])
             intron_chain.append(intron)
-            if intron not in self.introns[transcr.chrom]:
+            if intron not in self.introns[transcr.chrom][strand]:
                 self.introns[transcr.chrom][strand][intron] = [0, 0]
             self.introns[transcr.chrom][strand][intron][0] += 1
         intron_chain = tuple(intron_chain)
         if intron_chain not in self.intron_chains[transcr.chrom][strand]:
-            self.intron_chains[transcr.chrom][
-                strand][intron_chain] = [set(), set()]
-        self.intron_chains[transcr.chrom][
-            strand][intron_chain][0].add(transcr.id)
+            self.intron_chains[transcr.chrom][strand][intron_chain] = [set(), set()]
+        self.intron_chains[transcr.chrom][strand][intron_chain][0].add(transcr.id)
 
         for index, exon in enumerate(transcr.exons):
             exon = tuple([exon[0], exon[1]])
@@ -271,42 +270,6 @@ class Accountant:
 
         splice_stats = [0, 0, 0]  # Common, prediction, reference
 
-        for chrom in self.introns:
-            for strand in self.introns[chrom]:
-                intron_nrs = [collections.Counter(), collections.Counter()]
-                splice_starts = [set(), set()]  # reference, prediction
-                splice_ends = [set(), set()]
-                for intron in self.introns[chrom][strand]:
-                    if self.introns[chrom][strand][intron][0]:  # reference
-                        splice_starts[0].add(intron[0])
-                        splice_ends[0].add(intron[1])
-                    if self.introns[chrom][strand][intron][1]:  # prediction
-                        splice_starts[1].add(intron[0])
-                        splice_ends[1].add(intron[1])
-
-                    intron_nrs[0][intron] += self.introns[chrom][strand][intron][0]
-                    intron_nrs[1][intron] += self.introns[chrom][strand][intron][1]
-
-                splice_stats[0] += len(set.intersection(*splice_starts)) + len(set.intersection(*splice_ends))
-                splice_stats[2] += len(splice_starts[1]) + len(splice_ends[1])  # prediction
-                splice_stats[1] += len(splice_starts[0]) + len(splice_ends[0])  # reference
-
-                for key in set.union(set(intron_nrs[0].keys()), set(intron_nrs[1].keys())):
-                    __ref_val, __pred_val = intron_nrs[0][key], intron_nrs[1][key]
-                    if min(__ref_val, __pred_val) > 0:
-                        intron_stats[1] += __ref_val
-                        intron_stats[0] += __pred_val
-                        intron_nr_stats[0] += 1
-
-                    intron_stats[2] += __pred_val
-                    intron_stats[3] += __ref_val
-                    intron_nr_stats[1] += (__pred_val > 0)
-                    intron_nr_stats[2] += (__ref_val > 0)
-
-        self.logger.info("Intron stats: {}".format(", ".join([str(_) for _ in intron_stats])))
-        # intron_nr_stats = [len(set.intersection(*intron_nrs)), len(intron_nrs[1]), len(intron_nrs[0])]
-        self.logger.info("Intron NR stats: {}".format(", ".join([str(_) for _ in intron_nr_stats])))
-
         # Common, prediction, reference
         intron_chains_nonred = [0, 0, 0]
         intron_chains_common_ref = set()
@@ -316,7 +279,22 @@ class Accountant:
 
         for chrom in self.intron_chains:
             for strand in self.intron_chains[chrom]:
-                for _, intron_val in self.intron_chains[chrom][strand].items():
+                splice_starts = [set(), set()]  # reference, prediction
+                splice_ends = [set(), set()]
+                intron_nrs = [collections.Counter(), collections.Counter()]
+                for chain, intron_val in self.intron_chains[chrom][strand].items():
+                    __ref_ic_val = len(intron_val[0])
+                    __pred_ic_val = len(intron_val[1])
+                    for intron in chain:
+                        if __ref_ic_val:  # reference
+                            splice_starts[0].add(intron[0])
+                            splice_ends[0].add(intron[1])
+                        if __pred_ic_val:  # prediction
+                            splice_starts[1].add(intron[0])
+                            splice_ends[1].add(intron[1])
+                        intron_nrs[0][intron] += __ref_ic_val
+                        intron_nrs[1][intron] += __pred_ic_val
+
                     if len(intron_val[0]) > 0 and len(intron_val[1]) > 0:
                         intron_chains_nonred[0] += 1
                         intron_chains_common_ref.update(intron_val[0])
@@ -332,6 +310,24 @@ class Accountant:
                         # intron_chains_pred_nonred += 1
                         intron_chains_pred += len(intron_val[1])
 
+                splice_stats[0] += len(set.intersection(*splice_starts)) + len(set.intersection(*splice_ends))
+                splice_stats[2] += len(splice_starts[1]) + len(splice_ends[1])  # prediction
+                splice_stats[1] += len(splice_starts[0]) + len(splice_ends[0])  # reference
+                for key in set.union(set(intron_nrs[0].keys()), set(intron_nrs[1].keys())):
+                    __ref_val, __pred_val = intron_nrs[0][key], intron_nrs[1][key]
+                    if min(__ref_val, __pred_val) > 0:
+                        intron_stats[1] += __ref_val
+                        intron_stats[0] += __pred_val
+                        intron_nr_stats[0] += 1
+
+                    intron_stats[2] += __pred_val
+                    intron_stats[3] += __ref_val
+                    intron_nr_stats[1] += (__pred_val > 0)
+                    intron_nr_stats[2] += (__ref_val > 0)
+
+        self.logger.debug("Intron stats: {}".format(", ".join([str(_) for _ in intron_stats])))
+        # intron_nr_stats = [len(set.intersection(*intron_nrs)), len(intron_nrs[1]), len(intron_nrs[0])]
+        self.logger.debug("Intron NR stats: {}".format(", ".join([str(_) for _ in intron_nr_stats])))
         intron_chains_common_ref = len(intron_chains_common_ref)
         intron_chains_common_pred = len(intron_chains_common_pred)
 
@@ -551,11 +547,6 @@ class Accountant:
                     self.intron_chains[chrom][strand][ic_key][1].update(
                         accountant.intron_chains[chrom][strand][ic_key][1]
                     )
-                for intron in accountant.introns[chrom][strand]:
-                    if intron not in self.introns[chrom][strand]:
-                        self.introns[chrom][strand][intron] = [0, 0]
-                    # self.introns[chrom][strand][intron][0] += accountant.introns[chrom][strand][intron][0]
-                    self.introns[chrom][strand][intron][1] += accountant.introns[chrom][strand][intron][1]
 
         self.monoexonic_matches[0].update(accountant.monoexonic_matches[0])
         self.monoexonic_matches[1].update(accountant.monoexonic_matches[1])
@@ -588,12 +579,6 @@ class Accountant:
         if ic_key not in self.intron_chains[chrom][strand]:
             self.intron_chains[chrom][strand][ic_key] = [set(), set()]
         self.intron_chains[chrom][strand][ic_key][1].add(transcr.id)
-
-        for intron in transcr.introns:
-            intron = tuple([intron[0], intron[1]])
-            if intron not in self.introns[chrom][strand]:
-                self.introns[transcr.chrom][strand][intron] = [0, 0]
-            self.introns[chrom][strand][intron][1] += 1
 
         for index, exon in enumerate(transcr.exons):
             exon = tuple([exon[0], exon[1]])

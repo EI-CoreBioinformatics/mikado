@@ -145,7 +145,7 @@ def check_scoring(json_conf):
         raise InvalidJson("Empty \"scoring\" dictionary.")
 
     jdict = json_conf["scoring"].copy()
-    validator = extend_with_default(jsonschema.Draft4Validator)
+    validator = extend_with_default(jsonschema.Draft7Validator)
 
     for parameter in jdict:
         if parameter not in available_metrics:
@@ -437,7 +437,7 @@ def create_validator(simple=False):
     :rtype: jsonschema.Draft4Validator
     """
 
-    validator = extend_with_default(jsonschema.Draft4Validator,
+    validator = extend_with_default(jsonschema.Draft7Validator,
                                     simple=simple)
 
     resolver = jsonschema.RefResolver("file:///{}".format(os.path.abspath(
@@ -568,16 +568,6 @@ def check_json(json_conf, simple=False, external_dict=None, logger=None):
     :return json_conf
     :rtype: dict
     """
-
-    # validator = extend_with_default(jsonschema.Draft4Validator)
-    #
-    # blue_print = os.path.join(
-    #     os.path.dirname(os.path.abspath(__file__)),
-    #     "configuration_blueprint.json"
-    # )
-    #
-    # with open(blue_print) as blue:
-    #     blue_print = json.load(blue)
 
     if not isinstance(logger, Logger):
         logger = create_default_logger("check_json")

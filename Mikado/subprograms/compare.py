@@ -105,6 +105,7 @@ the internal junction has been recovered.""")
 
     return parser
 
+
 if __name__ == '__main__':
     __args__ = compare_parser().parse_args()
     __args__.func(__args__)

@@ -2253,10 +2253,10 @@ index {3}, internal ORFs: {4}".format(
 
         self.__segmenttree = IntervalTree()
         for exon in self.exons:
-            self.__segmenttree.add(exon[0], exon[1], value=Interval(exon[0], exon[1], value="exon"))
+            self.__segmenttree.add(exon[0], exon[1], value="exon")
 
         for intron in self.introns:
-            self.__segmenttree.add(intron[0], intron[1], value=Interval(intron[0], intron[1], value="intron"))
+            self.__segmenttree.add(intron[0], intron[1], value="intron")
 
     @property
     def derived_children(self):

@@ -22,7 +22,7 @@ class Accountant:
     """This class stores the data necessary to calculate the final statistics
      - base and exon Sn/Sp/F1 etc."""
 
-    def __init__(self, genes, args: argparse.Namespace, counter=None):
+    def __init__(self, genes, args: argparse.Namespace, counter=None, fuzzymatch=0):
 
         """Class constructor. It requires:
         :param genes: a dictionary
@@ -48,6 +48,7 @@ class Accountant:
         self.pred_genes = dict()
         self.__setup_reference_data(genes)
         self.self_analysis = False
+        self.__fuzzymatch = fuzzymatch
         if hasattr(args, "self") and args.self is True:
             self.self_analysis = True
 

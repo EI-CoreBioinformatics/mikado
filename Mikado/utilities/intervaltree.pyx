@@ -79,6 +79,10 @@ cdef class IntervalNode:
         def __get__(self):
             return self.croot if self.croot is not EmptyNode else None
 
+    property value:
+        def __get__(self):
+            return self.interval.value
+
     def __repr__(self):
         return "IntervalNode(%i, %i)" % (self.start, self.end)
 
@@ -90,6 +94,8 @@ cdef class IntervalNode:
         self.priority = ceil(nlog * log(-1.0/(1.0 * rand()/RAND_MAX - 1)))
         self.start    = start
         self.end      = end
+        if not isinstance(interval, (Interval, IntervalNode)):
+            interval = Interval(start, end, interval)
         self.interval = interval
         self.maxend   = end
         self.minstart = start
@@ -106,7 +112,7 @@ cdef class IntervalNode:
     def __setstate__(self, state):
        pass
 
-    cpdef IntervalNode insert(IntervalNode self, int start, int end, object interval):
+    cpdef IntervalNode insert(IntervalNode self, int start, int end, object value=None):
         """
         Insert a new IntervalNode into the tree of which this node is
         currently the root. The return value is the new root of the tree (which
@@ -116,24 +122,27 @@ cdef class IntervalNode:
         # If starts are the same, decide which to add interval to based on
         # end, thus maintaining sortedness relative to start/end
         cdef int decision_endpoint = start
+        if isinstance(value, Interval):
+            value = value.value
+
         if start == self.start:
             decision_endpoint = end
 
         if decision_endpoint > self.start:
             # insert to cright tree
             if self.cright is not EmptyNode:
-                self.cright = self.cright.insert( start, end, interval )
+                self.cright = self.cright.insert( start, end, value )
             else:
-                self.cright = IntervalNode( start, end, interval )
+                self.cright = IntervalNode( start, end, value)
             # rebalance tree
             if self.priority < self.cright.priority:
                 croot = self.rotate_left()
         else:
             # insert to cleft tree
             if self.cleft is not EmptyNode:
-                self.cleft = self.cleft.insert( start, end, interval)
+                self.cleft = self.cleft.insert( start, end, value)
             else:
-                self.cleft = IntervalNode( start, end, interval)
+                self.cleft = IntervalNode( start, end, value)
             # rebalance tree
             if self.priority < self.cleft.priority:
                 croot = self.rotate_right()
@@ -194,6 +203,17 @@ cdef class IntervalNode:
         if self.cright is not EmptyNode and self.start < end:
             self.cright._intersect( start, end, results )
 
+    def __getitem__(self, int index):
+        self.set_ends()
+        if index == 0:
+            return self.start
+        elif index == 1:
+            return self.end
+        elif index == 2:
+            return self.value
+        else:
+            return [self.start, self.end, self.value][index]
+            # raise IndexError("Intervals only have starts and ends!")
 
     cdef void _seek_left(IntervalNode self, int position, list results, int n, int max_dist):
         # we know we can bail in these 2 cases.
@@ -214,8 +234,6 @@ cdef class IntervalNode:
         if self.cleft is not EmptyNode:
                 self.cleft._seek_left(position, results, n, max_dist)
 
-
-
     cdef void _seek_right(IntervalNode self, int position, list results, int n, int max_dist):
         # we know we can bail in these 2 cases.
         if self.maxend < position: return
@@ -234,7 +252,6 @@ cdef class IntervalNode:
         if self.cright is not EmptyNode:
                 self.cright._seek_right(position, results, n, max_dist)
 
-
     cpdef left(self, position, int n=1, int max_dist=2500):
         """
         find n features with a start > than `position`
@@ -243,7 +260,7 @@ cdef class IntervalNode:
         max_dist: the maximum distance to look before giving up.
         """
         cdef list results = []
-        # use start - 1 becuase .left() assumes strictly left-of
+        # use start - 1 because .left() assumes strictly left-of
         self._seek_left( position - 1, results, n, max_dist )
         if len(results) == n: return results
         r = results
@@ -273,6 +290,40 @@ cdef class IntervalNode:
         if self.cleft is not EmptyNode: self.cleft._traverse(func)
         func(self)
         if self.cright is not EmptyNode: self.cright._traverse(func)
+
+    def __iter__(self):
+        if self.cleft is not EmptyNode:
+            for iv in self.cleft:
+                yield iv
+        yield self
+        if self.cright is not EmptyNode:
+            for iv in self.cright:
+                yield iv
+
+    def __hash__(self):
+        self.set_ends()
+        return hash(tuple([self.start, self.end]))
+
+    def __eq__(IntervalNode self, IntervalNode other):
+
+        if not isinstance(other, IntervalNode):
+            return False
+
+        return self.start == other.start and self.end == other.end
+
+    cpdef bint fuzzy_equal(IntervalNode self, IntervalNode other, int fuzzy):
+
+        cdef int istart, iend
+        cdef int ostart, oend
+        if not isinstance(other, IntervalNode):
+            return False
+
+        istart, iend = self.start, self.end
+        ostart, oend = other.start, other.end
+        if abs(ostart - istart) <= fuzzy and abs(oend - iend) <= fuzzy:
+            return True
+        return False
+
 
 cdef IntervalNode EmptyNode = IntervalNode( 0, 0, Interval(0, 0))
 
@@ -355,6 +406,9 @@ cdef class Interval:
     cpdef tuple _as_tuple(self):
         return (self.start, self.end)
 
+    def __hash__(self):
+        return hash(self._as_tuple())
+
 
 cdef class IntervalTree:
     """
@@ -409,6 +463,16 @@ cdef class IntervalTree:
 
     """
 
+    property start:
+        def __get__(self):
+            self.set_ends()
+            return self.root.minstart
+
+    property end:
+        def __get__(self):
+            self.set_ends()
+            return self.root.maxend
+
     def __cinit__( self ):
         root = None
         num_intervals = 0
@@ -433,7 +497,7 @@ cdef class IntervalTree:
         if self.root is None:
             self.root = IntervalNode( start, end, value )
         else:
-            self.root = self.root.insert( start, end, value )
+            self.root = self.root.insert(start, end, value)
         self.num_intervals += 1
 
     add = insert
@@ -509,7 +573,7 @@ cdef class IntervalTree:
         Insert an "interval" like object (one with at least start and end
         attributes)
         """
-        self.insert( interval.start, interval.end, interval )
+        self.insert(interval.start, interval.end, interval.value)
         # self.num_intervals += 1
 
     add_interval = insert_interval
@@ -586,6 +650,60 @@ cdef class IntervalTree:
         for iv in intervals:
             tree.insert_interval(iv)
         return tree
+
+    def __iter__(self):
+        return self.root.__iter__()
+
+    def __len__(self):
+        return self.size()
+
+    def __eq__(self, other):
+        if not isinstance(other, IntervalTree):
+            return False
+
+        if self.size() != other.size():
+            return False
+        equal = True
+        found = False
+
+        for iv in self:
+            found = False
+            for oiv in other:
+                if iv.start == oiv.start and iv.end == oiv.end:
+                    found = True
+                    break
+            if not found:
+                equal = False
+                break
+
+        return equal
+
+    cdef inline void set_ends(IntervalTree self):
+        self.root.set_ends()
+
+    def fuzzy_equal(self, other, fuzzymatch=0):
+        if not isinstance(other, IntervalTree):
+            return False
+
+        if self.size() != other.size():
+            return False
+        equal = True
+        found = False
+
+        for iv in self:
+            found = False
+            for oiv in other:
+                if iv.fuzzy_equal(oiv, fuzzymatch):
+                    found = True
+                    break
+            if not found:
+                equal = False
+                break
+
+        return equal
+
+    def __hash__(self):
+        return hash(tuple(list(iter(self))))
 
 
 # For backward compatibility

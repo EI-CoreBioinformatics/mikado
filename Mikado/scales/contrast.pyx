@@ -300,9 +300,10 @@ cpdef tuple compare(prediction, reference, bint lenient=False, bint strict_stran
         long r_exon_num, p_exon_num
         long p_start, p_end, r_start, r_end
         double recalled_exons
-        set r_splices, p_splices
+        set r_splices, p_splices, c_splices
         int len_r_splices, len_p_splices
         int p_splice_start, p_splice_end
+        int best
         long junction_overlap
         double stats[9]
         str r_strand, p_strand
@@ -368,22 +369,35 @@ cpdef tuple compare(prediction, reference, bint lenient=False, bint strict_stran
 
     # Both multiexonic
     junction_overlap = 0
+    c_splices = set()
     if p_exon_num > 1 and r_exon_num > 1:
         r_splices, p_splices = reference.splices, prediction.splices
         for p_intron in prediction.introns:
             p_splice_start, p_splice_end = p_intron
             found = r_tree.find(p_splice_start - 1, p_splice_start + 1, 0, fuzzymatch, 1000, "intron")
+            curr_distance = 10000000
+            best = -1
             for r_intron in found:
-                if  p_splice_start - fuzzymatch <= r_intron.start <= p_splice_start + fuzzymatch:
-                    junction_overlap += 1
-                    # break
+                r_splice_start = r_intron.start
+                distance = abs(r_splice_start - p_splice_start)
+                if distance <= min(fuzzymatch, curr_distance):
+                    best = p_splice_start
+                    curr_distance = distance
+            if best > 0:
+                c_splices.add(best)
+            best = -1
+            curr_distance = 10000000
             found = r_tree.find(p_splice_end - 1, p_splice_end, 0, fuzzymatch, 1000, "intron")
             for r_intron in found:
-                if  p_splice_end - fuzzymatch <= r_intron.end <= p_splice_end + fuzzymatch:
-                    junction_overlap += 1
-                    # break
+                r_splice_end = r_intron.end
+                distance = abs(r_splice_end - p_splice_end)
+                if distance <= min(fuzzymatch, curr_distance):
+                    best = p_splice_end
+                    curr_distance = distance
+            if best > 0:
+                c_splices.add(best)
 
-        len_rsplices, len_psplices = len(r_splices), len(p_splices)
+        len_rsplices, len_psplices, junction_overlap = len(r_splices), len(p_splices), len(c_splices)
         junction_recall = junction_overlap / len_rsplices
         junction_precision = junction_overlap / len_psplices
         junction_f1 = calc_f1(junction_recall, junction_precision)

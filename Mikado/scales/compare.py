@@ -238,13 +238,15 @@ class Assigners(mp.Process):
         self.__cursor = self.__connection.cursor()
 
         # self.accountant_instance = Accountant(genes, args, counter=counter)
-        self.assigner_instance = Assigner(index, args,
-                                          printout_tmap=False,
-                                          counter=counter)
         if hasattr(args, "fuzzymatch"):
             self.__fuzzymatch = args.fuzzymatch
         else:
             self.__fuzzymatch = 0
+
+        self.assigner_instance = Assigner(index, args,
+                                          printout_tmap=False,
+                                          counter=counter,
+                                          fuzzymatch=self.__fuzzymatch)
 
         self.queue = queue
         self.returnqueue = returnqueue
@@ -266,7 +268,7 @@ class Assigners(mp.Process):
                 dumped = json.loads(dumped[0])
                 transcr = Transcript()
                 transcr.load_dict(dumped, trust_orf=True)
-                self.assigner_instance.get_best(transcr, fuzzymatch=self.__fuzzymatch)
+                self.assigner_instance.get_best(transcr)
 
         self.__connection.close()
 

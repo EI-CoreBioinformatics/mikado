@@ -16,7 +16,8 @@ cdef class IntervalNode:
     cdef void _traverse(IntervalNode self, object func)
     cpdef right(self, position, int n=?, int max_dist=?)
     cpdef left(self, position, int n=?, int max_dist=?)
-    cpdef IntervalNode insert(IntervalNode self, int start, int end, object interval)
+    cpdef IntervalNode insert(IntervalNode self, int start, int end, object value=*)
+    cpdef bint fuzzy_equal(IntervalNode self, IntervalNode other, int fuzzy)
 
 
 cdef class Interval:
@@ -31,3 +32,4 @@ cdef class IntervalTree:
     cdef IntervalNode root
     cdef int num_intervals
     cpdef int size(self)
+    cdef inline void set_ends(IntervalTree self)

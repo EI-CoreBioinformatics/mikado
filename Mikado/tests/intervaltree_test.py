@@ -11,11 +11,12 @@ from ..utilities.intervaltree import Interval, IntervalNode, IntervalTree
 class NeighborTestCase(unittest.TestCase):
 
     def setUp(self):
-        iv = IntervalNode( 50, 59, Interval(50, 59))
+        iv = IntervalNode(50, 59, Interval(50, 59))
         for i in range(0, 110, 10):
-            if i == 50: continue
-            f = Interval(i, i + 9)
-            iv = iv.insert( f.start, f.end, f)
+            if i == 50:
+                continue
+            f = Interval(i, i + 9, value=None)
+            iv = iv.insert(f.start, f.end, f)
         self.intervals = iv
 
     def test_left(self):
@@ -28,8 +29,7 @@ class NeighborTestCase(unittest.TestCase):
 
     def test_toomany(self):
         iv = self.intervals
-        self.assertEqual(len(iv.left(60, n=200)) , 6)
-
+        self.assertEqual(len(iv.left(60, n=200)), 6)
 
     def test_right(self):
         iv = self.intervals

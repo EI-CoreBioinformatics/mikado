@@ -44,6 +44,7 @@ class Assigner:
                  args: argparse.Namespace,
                  results=(),
                  printout_tmap=True,
+                 fuzzymatch=0,
                  counter=None):
 
         """
@@ -107,6 +108,11 @@ class Assigner:
         else:
             self.logger.setLevel(logging.INFO)
 
+        if not isinstance(fuzzymatch, int) and not (fuzzymatch is None):
+            raise TypeError(fuzzymatch)
+
+        self.__fuzzymatch = fuzzymatch
+
         self.logger.propagate = True
         self.dbname = index
         try:
@@ -143,7 +149,7 @@ class Assigner:
             for tid in self.genes[gid].transcripts:
                 self.gene_matches[gid][tid] = []
 
-        self.stat_calculator = Accountant(self.genes, args=args)
+        self.stat_calculator = Accountant(self.genes, args=args, fuzzymatch=self.__fuzzymatch)
         self.self_analysis = self.stat_calculator.self_analysis
         self.__merged = False
         if results:
@@ -257,9 +263,9 @@ class Assigner:
         for key in found:
             # Append the key (to be used later for retrieval) and the distance
             distances.append(
-                ((key.begin, key.end),
+                ((key.start, key.end),
                  max(0,
-                     max(start, key.begin) - min(end, key.end))))
+                     max(start, key.start) - min(end, key.end))))
 
         # Sort by distance
         distances = sorted(distances, key=operator.itemgetter(1))
@@ -324,7 +330,7 @@ class Assigner:
             return None
         return prediction
 
-    def __check_for_fusions(self, prediction, matches, fuzzymatch=0):
+    def __check_for_fusions(self, prediction, matches, fuzzymatch=None):
 
         """
         This private method checks whether a transcript with
@@ -613,11 +619,14 @@ class Assigner:
 
         return results, best_result
 
-    def get_best(self, prediction: Transcript, fuzzymatch=0):
+    def get_best(self, prediction: Transcript, fuzzymatch=None):
 
         """
         :param prediction: the candidate transcript to be analysed
         :type prediction: Transcript
+
+        :param fuzzymatch: leniency in determining whether two introns are related
+        :type fuzzymatch: (int|None)
 
         This function will get the best possible assignment for each transcript.
         Fusion genes are called when the following conditions are verified:
@@ -631,6 +640,9 @@ class Assigner:
         """
 
         self.logger.debug("Started with %s", prediction.id)
+
+        if fuzzymatch is None:
+            fuzzymatch = self.__fuzzymatch
 
         # Quickly check that the transcript is OK
         prediction = self.__prepare_transcript(prediction)

@@ -524,6 +524,27 @@ def parse_self(args, genes, queue_logger):
     queue_logger.info("Finished.")
 
 
+def check_index(args, queue_logger):
+    wizard = magic.Magic(mime=True)
+
+    if wizard.from_file("{0}.midx".format(args.reference.name)) == b"application/gzip":
+        queue_logger.warning("Old index format detected. Starting to generate a new one.")
+        raise CorruptIndex("Invalid index file")
+
+    try:
+        conn = sqlite3.connect("{0}.midx".format(args.reference.name))
+        cursor = conn.cursor()
+        tables = cursor.execute("SELECT name FROM sqlite_master WHERE type='table';").fetchall()
+        if sorted(tables) != sorted([("positions",), ("genes",)]):
+            raise CorruptIndex("Invalid database file")
+        res = cursor.execute("PRAGMA integrity_check;").fetchone()
+        if res[0] != "ok":
+            raise CorruptIndex("Corrupt database, integrity value: {}".format(res[0]))
+
+    except sqlite3.DatabaseError:
+        raise CorruptIndex("Invalid database file")
+
+
 def load_index(args, queue_logger):
 
     """
@@ -549,6 +570,11 @@ def load_index(args, queue_logger):
         tables = cursor.execute("SELECT name FROM sqlite_master WHERE type='table';").fetchall()
         if sorted(tables) != sorted([("positions",), ("genes",)]):
             raise CorruptIndex("Invalid database file")
+        # Integrity check
+        res = cursor.execute("PRAGMA integrity_check;").fetchone()
+        if res[0] != "ok":
+            raise CorruptIndex("Corrupt database, integrity value: {}".format(res[0]))
+
     except sqlite3.DatabaseError:
         raise CorruptIndex("Invalid database file")
 
@@ -676,13 +702,13 @@ def compare(args):
         elif os.path.exists(index_name):
             # queue_logger.info("Starting loading the indexed reference")
             queue_logger.info("Index found")
-            # try:
-            #     genes, positions = load_index(args, queue_logger)
-            # except CorruptIndex as exc:
-            #     queue_logger.warning(exc)
-            #     queue_logger.warning("Reference index corrupt, deleting and rebuilding.")
-            #     os.remove("{0}.midx".format(args.reference.name))
-            #     genes, positions = None, None
+            try:
+                check_index(args, queue_logger)
+            except CorruptIndex as exc:
+                queue_logger.warning(exc)
+                queue_logger.warning("Reference index corrupt, deleting and rebuilding.")
+                os.remove("{0}.midx".format(args.reference.name))
+                create_index(args, queue_logger, index_name, ref_gff=ref_gff)
         else:
             if args.no_save_index is True:
                 __index = tempfile.NamedTemporaryFile(suffix=".midx")

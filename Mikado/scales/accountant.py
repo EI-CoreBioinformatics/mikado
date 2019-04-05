@@ -289,7 +289,6 @@ class Accountant:
         for ichain, chain in evaluator.items():
             found = positions.find(ichain.start, ichain.end)
             for ochain in found:
-                self.logger.warning("%s vs %s, fuzzy match: %s", evaluator[ochain.value], chain, self.__fuzzymatch)
                 if ichain.fuzzy_equal(ochain.value, self.__fuzzymatch):  # Define which chains are broadly similar
                     graph.add_edge(ichain, ochain.value)
 
@@ -317,7 +316,6 @@ class Accountant:
         intron_chains_red = np.array([intron_chains_common_pred, intron_chains_common_ref,
                                        intron_chains_pred, intron_chains_ref])
 
-        self.logger.warning("Inside internal function. %s", intron_chains_red)
         return intron_chains_red, intron_chains_nonred
 
     def __calculate_intron_stats(self):

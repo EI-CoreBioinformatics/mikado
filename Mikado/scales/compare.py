@@ -672,6 +672,7 @@ def compare(args):
         if (os.path.exists(index_name) and os.stat(args.reference.name).st_mtime >= os.stat(index_name).st_mtime):
             queue_logger.warning("Reference index obsolete, deleting and rebuilding.")
             os.remove("{0}.midx".format(args.reference.name))
+            create_index(args, queue_logger, index_name, ref_gff=ref_gff)
         elif os.path.exists(index_name):
             # queue_logger.info("Starting loading the indexed reference")
             queue_logger.info("Index found")

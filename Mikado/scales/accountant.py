@@ -10,10 +10,12 @@ import collections
 import logging
 import operator
 from logging import handlers as log_handlers
-from .gene_dict import GeneDict
 from ..transcripts import Transcript, Namespace
 from . import calc_f1
 from .resultstorer import ResultStorer
+from ..utilities.intervaltree import Interval, IntervalTree
+import networkx as nx
+import numpy as np
 
 
 # noinspection PyPropertyAccess,PyPropertyAccess,PyPropertyAccess
@@ -258,6 +260,66 @@ class Accountant:
 
         return result
 
+    def __calculate_chains_stats(self, chains):
+
+        """
+        This takes up a dictionary of the form (intron_chain: set(reference ids), set(prediction ids))
+
+        :param chains:
+        :return:
+        """
+
+        graph = nx.Graph()
+        positions = IntervalTree()
+
+        evaluator = dict()
+        intron_chains_common_ref = set()
+        intron_chains_common_pred = set()
+        intron_chains_pred = 0
+        intron_chains_ref = 0
+
+        intron_chains_nonred = np.array([0, 0, 0])
+
+        for chain in chains:
+            ichain = IntervalTree.from_tuples(chain)
+            evaluator[ichain] = chain
+            graph.add_node(ichain)
+            positions.insert(ichain.start, ichain.end, value=ichain)
+
+        for ichain, chain in evaluator.items():
+            found = positions.find(ichain.start, ichain.end)
+            for ochain in found:
+                self.logger.warning("%s vs %s, fuzzy match: %s", evaluator[ochain.value], chain, self.__fuzzymatch)
+                if ichain.fuzzy_equal(ochain.value, self.__fuzzymatch):  # Define which chains are broadly similar
+                    graph.add_edge(ichain, ochain.value)
+
+        communities = nx.algorithms.connected_components(graph)
+        for community in communities:  # Now we have to go back to the original sets ...
+            ref_vals = set()
+            pred_vals = set()
+            for chain in community:
+                ref_vals.update(chains[evaluator[chain]][0])
+                pred_vals.update(chains[evaluator[chain]][1])
+            if ref_vals and pred_vals:
+                intron_chains_common_ref.update(ref_vals)
+                intron_chains_common_pred.update(pred_vals)
+                intron_chains_nonred[0] += 1
+
+            if ref_vals:
+                intron_chains_nonred[2] += 1
+                intron_chains_ref += len(ref_vals)
+            if pred_vals:
+                intron_chains_nonred[1] += 1
+                intron_chains_pred += len(pred_vals)
+
+        intron_chains_common_ref = len(intron_chains_common_ref)
+        intron_chains_common_pred = len(intron_chains_common_pred)
+        intron_chains_red = np.array([intron_chains_common_pred, intron_chains_common_ref,
+                                       intron_chains_pred, intron_chains_ref])
+
+        self.logger.warning("Inside internal function. %s", intron_chains_red)
+        return intron_chains_red, intron_chains_nonred
+
     def __calculate_intron_stats(self):
 
         """
@@ -272,18 +334,15 @@ class Accountant:
         splice_stats = [0, 0, 0]  # Common, prediction, reference
 
         # Common, prediction, reference
-        intron_chains_nonred = [0, 0, 0]
-        intron_chains_common_ref = set()
-        intron_chains_common_pred = set()
-        intron_chains_pred = 0
-        intron_chains_ref = 0
+        intron_chains_red = np.array([0, 0, 0, 0])  # Common - pred side, common - ref side, prediction, reference
+        intron_chains_nonred = np.array([0, 0, 0])
 
         for chrom in self.intron_chains:
             for strand in self.intron_chains[chrom]:
                 splice_starts = [set(), set()]  # reference, prediction
                 splice_ends = [set(), set()]
                 intron_nrs = [collections.Counter(), collections.Counter()]
-                for chain, intron_val in self.intron_chains[chrom][strand].items():
+                for chain, intron_val in self.intron_chains[chrom][strand].items():  # Two sets, refs and preds
                     __ref_ic_val = len(intron_val[0])
                     __pred_ic_val = len(intron_val[1])
                     for intron in chain:
@@ -296,20 +355,9 @@ class Accountant:
                         intron_nrs[0][intron] += __ref_ic_val
                         intron_nrs[1][intron] += __pred_ic_val
 
-                    if len(intron_val[0]) > 0 and len(intron_val[1]) > 0:
-                        intron_chains_nonred[0] += 1
-                        intron_chains_common_ref.update(intron_val[0])
-                        intron_chains_common_pred.update(intron_val[1])
-                    # In reference
-                    if len(intron_val[0]) > 0:
-                        intron_chains_nonred[2] += 1
-                        # intron_chains_ref_nonred += 1
-                        intron_chains_ref += len(intron_val[0])
-                    # In prediction
-                    if len(intron_val[1]) > 0:
-                        intron_chains_nonred[1] += 1
-                        # intron_chains_pred_nonred += 1
-                        intron_chains_pred += len(intron_val[1])
+                __red, __nonred = self.__calculate_chains_stats(self.intron_chains[chrom][strand])
+                intron_chains_red += __red
+                intron_chains_nonred += __nonred
 
                 splice_stats[0] += len(set.intersection(*splice_starts)) + len(set.intersection(*splice_ends))
                 splice_stats[2] += len(splice_starts[1]) + len(splice_ends[1])  # prediction
@@ -329,21 +377,20 @@ class Accountant:
         self.logger.debug("Intron stats: {}".format(", ".join([str(_) for _ in intron_stats])))
         # intron_nr_stats = [len(set.intersection(*intron_nrs)), len(intron_nrs[1]), len(intron_nrs[0])]
         self.logger.debug("Intron NR stats: {}".format(", ".join([str(_) for _ in intron_nr_stats])))
-        intron_chains_common_ref = len(intron_chains_common_ref)
-        intron_chains_common_pred = len(intron_chains_common_pred)
+
 
         self.logger.debug("""Intron chains:\
         \treference %d\t%d
         \tprediction\t%d
         \t%d
         \tcommon\t%d %d %d""",
-                          intron_chains_ref,
+                          intron_chains_red[3],
                           intron_chains_nonred[2],
-                          intron_chains_pred,
+                          intron_chains_red[2],
                           intron_chains_nonred[1],
                           intron_chains_nonred[0],
-                          intron_chains_common_ref,
-                          intron_chains_common_pred)
+                          intron_chains_red[1],
+                          intron_chains_red[0])
 
         result_dictionary = dict()
         result_dictionary["introns"] = dict()
@@ -353,10 +400,7 @@ class Accountant:
         result_dictionary["intron_chains"] = dict()
         result_dictionary["intron_chains"]["non_redundant"] = intron_chains_nonred
 
-        result_dictionary["intron_chains"]["redundant"] = [intron_chains_common_pred,
-                                                           intron_chains_common_ref,
-                                                           intron_chains_pred,
-                                                           intron_chains_ref]
+        result_dictionary["intron_chains"]["redundant"] = intron_chains_red
         return result_dictionary
 
     def __extract_terminal_stats(self, result_dictionary):

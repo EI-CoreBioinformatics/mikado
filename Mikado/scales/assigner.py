@@ -108,6 +108,10 @@ class Assigner:
         else:
             self.logger.setLevel(logging.INFO)
 
+        if hasattr(args, "fuzzymatch") and args.fuzzymatch not in (0, None):
+            if fuzzymatch in (0, None):
+                fuzzymatch = args.fuzzymatch
+
         if not isinstance(fuzzymatch, int) and not (fuzzymatch is None):
             raise TypeError(fuzzymatch)
 

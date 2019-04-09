@@ -103,7 +103,7 @@ from . import bed12
 from . import blast_utils
 from . import bam_parser
 
-def to_gff(string):
+def to_gff(string, input_format=None):
     """
     Function to recognize the input file type (GFF or GTF).
     :param string:
@@ -112,14 +112,19 @@ def to_gff(string):
     """
 
     # handle = open(string)
-    if string.endswith(".bam"):
+    if isinstance(string, io.TextIOWrapper):
+        fname = "-"
+    else:
+        fname = string
+
+    if input_format == "bam" or fname.endswith(".bam"):
         return bam_parser.BamParser(string)
-    if ".gtf" in string:
+    if input_format == "gtf" or".gtf" in fname:
         return GTF.GTF(string)
-    elif ".gff" in string or ".gff3" in string:
+    elif input_format == "gff3" or ".gff" in fname or ".gff3" in fname:
     # elif string.endswith('gff') or string.endswith('gff3'):
         return GFF.GFF3(string)
-    elif ".bed12" in string or ".bed" in string:
+    elif input_format == "bed12" or ".bed12" in fname or ".bed" in fname:
         return bed12.Bed12Parser(string)
     else:
-        raise ValueError('Unrecognized format for {}'.format(string))
+        raise ValueError('Unrecognized format for {}'.format(fname))

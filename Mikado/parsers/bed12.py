@@ -35,6 +35,8 @@ class BED12:
     BED12 parsing class.
     """
 
+    __valid_coding = {"True": True, "False": False, True: True, False: False}
+
     def __init__(self, *args: Union[str, list, tuple, GffLine],
                  fasta_index=None,
                  phase=None,
@@ -43,6 +45,7 @@ class BED12:
                  max_regression=0,
                  start_adjustment=True,
                  coding=True,
+                 lenient=False,
                  table=0):
 
         """
@@ -154,6 +157,7 @@ class BED12:
         self.__table = standard
         self.__table_index = 0
         self.table = table
+        self.__lenient = lenient
 
         if len(args) == 0:
             self.header = True
@@ -199,25 +203,19 @@ class BED12:
             self._fields = self._line
             self.__set_values_from_fields()
 
-        if "phase=" in self.name and "coding=" in self.name:  # Hack to include the properties
+        if re.search("(ID|coding|phase)", self.name):
             groups = dict(re.findall("([^(;|=)]*)=([^;]*)", self.name))
-            if phase is None:
-                if groups["phase"].isdigit():
-                    self.phase = int(groups["phase"])
-                else:
-                    self.phase = None
-            if groups["coding"] in ("True", "False"):
-                self.coding = eval(groups["coding"])
+            _coding = groups.get("coding", "False")
+            phase = phase or groups.get("phase", None)
+            if phase:
+                phase = int(phase)
+                self.coding = True
             else:
-                raise ValueError(groups["coding"])
-            self.name = groups["ID"]
-        elif "coding=" in self.name:
-            groups = dict(re.findall("([^(;|=)]*)=([^;]*)", self.name))
-            # self.phase = int(groups["phase"])
-            if groups["coding"] in ("True", "False"):
-                self.coding = eval(groups["coding"])
-            else:
-                raise ValueError(groups["coding"])
+                self.coding = self.__valid_coding.get(groups.get("coding", False), False)
+                if transcriptomic is True:
+                    phase = 0
+
+            self.phase = phase
             self.name = groups["ID"]
 
         elif "ID=" in self.name:
@@ -228,6 +226,9 @@ class BED12:
 
         if self.invalid and self.coding:
             self.coding = False
+
+        if self.coding and self.phase is None:
+            self.phase = 0
 
     @property
     def is_transcript(self):
@@ -385,10 +386,8 @@ class BED12:
             self.has_start_codon = False
             self.has_stop_codon = False
 
-            # if self.strand == "-":
-            #     self.thick_end -= 3
-
         if transcriptomic is True and self.coding is True and (fasta_index is not None or sequence is not None):
+            orig_phase = self.phase
 
             if sequence is not None:
                 self.fasta_length = len(sequence)
@@ -442,8 +441,10 @@ class BED12:
             # Get only a proper multiple of three
             last_pos = -3 - ((len(orf_sequence)) % 3)
 
-            translated_seq = orf_sequence[:last_pos].translate(table=self.table, gap='N')
-            self.__internal_stop_codons = str(translated_seq).count("*")
+            if self.__lenient is False:
+                translated_seq = orf_sequence[:last_pos].translate(table=self.table, gap='N')
+                self.__internal_stop_codons = str(translated_seq).count("*")
+                self.phase = orig_phase
 
             if self.invalid is True:
                 return
@@ -842,7 +843,7 @@ class BED12:
 
         return _blocks
 
-    def to_transcriptomic(self, sequence=None, fasta_index=None, start_adjustment=False):
+    def to_transcriptomic(self, sequence=None, fasta_index=None, start_adjustment=False, lenient=False):
 
         """This method will return a transcriptomic version of the BED12. If the object is already transcriptomic,
         it will return itself."""
@@ -908,12 +909,14 @@ class BED12:
             bsizes,
             bstarts
         )))
+
         new = BED12(new,
                     phase=self.phase,
                     sequence=sequence,
                     coding=self.coding,
                     fasta_index=fasta_index,
                     transcriptomic=True,
+                    lenient=lenient,
                     start_adjustment=start_adjustment)
         # assert new.invalid is False
         assert isinstance(new, type(self)), type(new)

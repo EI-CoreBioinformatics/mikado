@@ -8,10 +8,15 @@ from ...loci import Transcript, Gene
 
 def launch(args):
 
-    args.gf.close()
-    args.gf = args.gf.name
+    # args.gf.close()
+    # args.gf = args.gf.name
+    if args.gf == "-":
+        if args.in_format is None:
+            raise ValueError("I need a format if it cannot be inferred from the string")
+        parser = to_gff(sys.stdin, input_format=args.in_format)
+    else:
+        parser = to_gff(sys.stdin, input_format=args.in_format)
 
-    parser = to_gff(args.gf)
     current = None
     if parser.__annot_type__ == "gtf":
         out_format = "gff3"
@@ -80,7 +85,9 @@ def convert_parser():
         "Utility to covert across GTF, GFF3 and BED12.")
     parser.add_argument("-of", "--out-format", dest="out_format",
                         choices=["bed12", "gtf", "gff3"], default=None)
-    parser.add_argument("gf", type=argparse.FileType())
+    parser.add_argument("-if", "--in-format", dest="in_format",
+                        choices=["bed12", "gtf", "gff3", "bam"], default=None)
+    parser.add_argument("gf")
     parser.add_argument("out", type=argparse.FileType("w"), nargs="?", default=sys.stdout)
     parser.set_defaults(func=launch)
     return parser

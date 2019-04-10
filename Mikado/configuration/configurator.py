@@ -23,9 +23,7 @@ from ..transcripts.transcript import Transcript
 from ..exceptions import InvalidJson, UnrecognizedRescaler
 from ..utilities import merge_dictionaries
 from ..utilities.log_utils import create_default_logger
-from typing import Hashable
 
-# from frozendict import frozendict
 
 __author__ = "Luca Venturini"
 
@@ -652,11 +650,8 @@ def to_json(string, simple=False, logger=None):
                 else:
                     json_dict = json.load(json_file)
         json_dict["filename"] = string
-        # json_dict = frozendict(check_json(json_dict, simple=simple))
         json_dict = check_json(json_dict, simple=simple, logger=logger)
     except Exception as exc:
-        # with open("ERROR.{}".format("json" if string.endswith("json") else "yaml"), "wt") as errored:
-        #     errored.write(open(string).read())
         raise OSError((exc, string))
 
     return json_dict

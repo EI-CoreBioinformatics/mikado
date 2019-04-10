@@ -1,2 +1,1 @@
-from Mikado import __version__
-_ = __version__
+__version__ = "1.5"

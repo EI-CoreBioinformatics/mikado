@@ -10,13 +10,9 @@ from . import log_utils
 import collections
 import gzip
 import numpy
-try:
-    import simplejson as json
-except ImportError:
-    import json
+import json
 from itertools import zip_longest
 from .overlap import overlap
-# from ..parsers import to_gff
 
 __author__ = 'Luca Venturini'
 
@@ -193,10 +189,7 @@ def merge_ranges(ranges):
     """
     ranges = iter(sorted(ranges))
     try:
-        _ = next(ranges)
-        current_start, current_stop = _
-    except ValueError:
-        raise ValueError((_, list(ranges)))
+        current_start, current_stop = next(ranges)
     except StopIteration:
         return
     for start, stop in ranges:

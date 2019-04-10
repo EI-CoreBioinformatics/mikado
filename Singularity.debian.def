@@ -15,7 +15,7 @@ From: conda/miniconda3-centos7
     ### Install your packages ###
 
     conda env update -n base -f /environment.yml
-    yum -y install git wget zlib1g-dev gcc gcc-c++ && yum clean all
+    apt update && apt-get install -qq -y git wget zlib1g-dev g++ && apt clean
     git clone https://github.com/EI-CoreBioinformatics/mikado.git /usr/local/src/mikado
     cd /usr/local/src/mikado
     python setup.py bdist_wheel && pip install --prefix /usr/local dist/*whl

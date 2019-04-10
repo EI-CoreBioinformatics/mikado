@@ -12,15 +12,12 @@ pytest
 pyfaidx
 scikit-learn>=0.17.0
 scipy>=1.0.0
-frozendict
 python-magic
 drmaa
 snakemake
 docutils!=0.13.1
 tabulate
 ujson
-simplejson
 pandas
-jsonref>=0.2
-pytest-cov
+jsonref
 pysam>=0.15.1

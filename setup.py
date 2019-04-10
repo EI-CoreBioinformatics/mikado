@@ -17,20 +17,14 @@ here = path.abspath(path.dirname("__file__"))
 with open(path.join(here, "DESCRIPTION.md"), encoding="utf-8") as description:
     long_description = description.read()
 
-version = None
-with open(path.join(here, "Mikado", "__init__.py"), "rt") as fp:
-    # exec(fp.read(), globals(), version)
-    for line in fp:
-        if line.startswith("__version__"):
-            version = line.rstrip().split(" = ")[1].strip('"')
-            break
+version = {}
+with open(path.join(here, "Mikado", "version.py")) as fp:
+    exec(fp.read(), version)
+version = version["__version__"]
 
 if version is None:
     print("No version found, exiting", file=sys.stderr)
     sys.exit(1)
-
-# version = version["__version__"]
-assert version
 
 if sys.version_info.major != 3:
     raise EnvironmentError("""Mikado is a pipeline specifically programmed for python3,

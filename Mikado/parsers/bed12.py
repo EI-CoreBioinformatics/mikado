@@ -19,7 +19,6 @@ from typing import Union
 import re
 from ..utilities.log_utils import create_null_logger
 from Bio.Data import CodonTable
-import pickle
 
 standard = CodonTable.ambiguous_dna_by_id[1]
 standard.start_codons = ["ATG"]
@@ -406,16 +405,15 @@ class BED12:
 
             # Just double check that the sequence length is the same as what the BED would suggest
             if self.invalid is True:
+                self.coding = False
                 return
 
-            if self.strand == "+":
+            if self.strand != "-":
                 orf_sequence = sequence[
                                (self.thick_start - 1 if not self.phase else self.start + self.phase - 1):self.thick_end]
-            elif self.strand == "-":
+            else:
                 orf_sequence = sequence[(self.thick_start - 1):(
                     self.thick_end if not self.phase else self.end - self.phase)].reverse_complement()
-            else:
-                pass
 
             self.start_codon = str(orf_sequence)[:3].upper()
             self.stop_codon = str(orf_sequence[-3:]).upper()
@@ -428,7 +426,6 @@ class BED12:
                 # internally, not externally, to the ORF
 
                 self.has_start_codon = False
-
                 if self.start_adjustment is True:
                     self._adjust_start(orf_sequence)
 
@@ -446,13 +443,13 @@ class BED12:
             if self.__lenient is False:
                 translated_seq = orf_sequence[:last_pos].translate(table=self.table, gap='N')
                 self.__internal_stop_codons = str(translated_seq).count("*")
-                self.phase = orig_phase
 
             if self.invalid is True:
                 return
 
     def _adjust_start(self, orf_sequence):
 
+        assert len(orf_sequence) == (self.thick_end - self.thick_start + 1)
         for pos in range(3,
                          int(len(orf_sequence) * self.max_regression),
                          3):
@@ -471,7 +468,8 @@ class BED12:
         if self.has_start_codon is False:
             # The validity will be automatically checked
             if self.strand == "+":
-                self.phase = max(self.thick_start - self.start, 0)
+                new_phase = max(self.thick_start - self.start, 0)
+                self.phase = new_phase
                 self.thick_start = self.start
             else:
                 if self.end - self.thick_end <= 2:
@@ -479,6 +477,8 @@ class BED12:
                     self.thick_end = self.end
                 else:
                     self.phase = 0
+        if self.invalid:
+            raise ValueError(self.invalid_reason)
 
     def __str__(self):
 

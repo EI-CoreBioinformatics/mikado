@@ -154,6 +154,8 @@ class BED12:
         self.max_regression = max_regression
         self.start_adjustment = start_adjustment
         self.coding = coding
+        if self.coding and self.phase is None:
+            self.phase = 0
         self.__table = standard
         self.__table_index = 0
         self.table = table
@@ -676,7 +678,9 @@ class BED12:
             )
             return True
 
-        if self.transcriptomic is True and (self.cds_len - self.phase) % 3 != 0 and self.thick_end != self.end:
+        if self.__lenient is True:
+            pass
+        elif self.transcriptomic is True and (self.cds_len - self.phase) % 3 != 0 and self.thick_end != self.end:
             self.invalid_reason = "Invalid CDS length: {0} % 3 = {1}".format(
                 self.cds_len - self.phase,
                 (self.cds_len - self.phase) % 3

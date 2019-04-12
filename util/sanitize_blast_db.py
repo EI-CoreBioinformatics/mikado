@@ -13,11 +13,19 @@ the chances of invalid characters creeping in. It will also check the consistenc
 the identifiers and remove duplicated ones."""
 
 
+def pos(string: str):
+    if not string.isdigit():
+        raise ValueError("I can only accept numbers")
+    string = abs(round(float(string), 0))
+    return string
+
+
 def main():
 
     logger = create_default_logger("sanitizer")
 
     parser = argparse.ArgumentParser(__doc__)
+    parser.add_argument("-ml", "--min-length", default=0, type=pos)
     parser.add_argument("-o", "--out", default=sys.stdout, type=argparse.FileType("wt"))
     parser.add_argument("fasta", nargs="+", type=argparse.FileType("rt"))
     args = parser.parse_args()
@@ -36,10 +44,13 @@ def main():
             if record.id in found_ids:
                 logger.warning("ID found other {} time{} in the input files!".format(
                     found_ids[record.id], "s" if found_ids[record.id] > 1 else ""))
-            record.id = "{}{}".format(prefix, re.sub("\|", "_", record.id))
+            record.id = "{}{}".format(prefix, re.sub(r"\|", "_", record.id))
             record.description = ""
+            if len(record) < args.min_length:
+                continue
             Bio.SeqIO.write(record, args.out, "fasta")
 
     args.out.close()
+
 
 main()

@@ -74,8 +74,11 @@ def load_orfs(transcript, candidate_orfs):
     # This will keep in memory the original BED12 objects
     transcript.loaded_bed12 = []
 
+    primary_phase = None
     for orf in candidate_orfs:
         # Minimal check
+        transcript.logger.debug("ORF for %s: start %s, end %s (%s), phase %s",
+                                transcript.id, orf.thick_start, orf.thick_end, orf.end, orf.phase)
         if primary_orf is False and orf.strand != primary_strand:
             continue
 
@@ -101,16 +104,17 @@ def load_orfs(transcript, candidate_orfs):
         if primary_orf is True:
             (transcript.has_start_codon, transcript.has_stop_codon) = (orf.has_start_codon,
                                                                        orf.has_stop_codon)
+            primary_phase = orf.phase
             primary_orf = False
             primary_strand = orf.strand
             transcript.selected_internal_orf_index = transcript.internal_orfs.index(cds_exons)
         # transcript.phases.append(cds_exons[0][0], 0)
 
     # Now verify the loaded content
-    check_loaded_orfs(transcript)
+    check_loaded_orfs(transcript, primary_phase=primary_phase)
 
 
-def check_loaded_orfs(transcript):
+def check_loaded_orfs(transcript, primary_phase=0):
 
     """
     This function verifies the ORF status after
@@ -118,6 +122,9 @@ def check_loaded_orfs(transcript):
 
     :param transcript: the transcript instance
     :type transcript: Mikado.loci_objects.transcript.Transcript
+
+    :param primary_phase: the starting phase of the primary ORF.
+    :type primary_phase: int
 
     :return:
     """
@@ -187,6 +194,8 @@ def check_loaded_orfs(transcript):
         transcript.feature = "mRNA"
 
     transcript.phases = dict()
+    transcript._first_phase = primary_phase
+    transcript._trust_orf = False
     transcript.finalize()
 
 
@@ -509,8 +518,9 @@ def __create_internal_orf(transcript, orf):
     cds_exons = []
     current_start, current_end = 0, 0
 
+    transcript.logger.debug("Initial phase for %s: %s", transcript.id, orf.phase)
     if orf.strand == "-":
-        phase = 0
+        phase = orf.phase
         # We might decide to remove this check
         assert transcript.monoexonic is True
         current_end = transcript.start + (orf.thick_start - 1)
@@ -533,7 +543,7 @@ def __create_internal_orf(transcript, orf):
             cds_exons.append(("UTR", tuple([current_start + 1, transcript.end])))
         transcript.strand = "-"
     else:
-        previous = - orf.phase
+        previous = -orf.phase
         for exon in sorted(transcript.exons, key=operator.itemgetter(0, 1),
                            reverse=(transcript.strand == "-")):
             cds_exons.append(("exon", tuple([exon[0], exon[1]])))

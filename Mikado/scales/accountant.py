@@ -44,7 +44,7 @@ class Accountant:
         self.exons = dict()
         self.starts = dict()
         self.ends = dict()
-        self.intron_chains = collections.Counter()
+        self.intron_chains = dict()
         self.monoexonic_matches = (set(), set())
         self.ref_genes = dict()
         self.pred_genes = dict()

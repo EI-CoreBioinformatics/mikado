@@ -580,7 +580,11 @@ class Accountant:
                 self.ref_genes[ref_gene][refid] |= accountant.ref_genes[ref_gene][refid]
 
         for chrom in accountant.intron_chains:
+            if chrom not in self.intron_chains:
+                self.intron_chains[chrom] = dict()
             for strand in accountant.intron_chains[chrom]:
+                if strand not in self.intron_chains[chrom]:
+                    self.intron_chains[chrom][strand] = dict()
                 for ic_key in accountant.intron_chains[chrom][strand]:
                     if ic_key not in self.intron_chains[chrom][strand]:
                         self.intron_chains[chrom][strand][ic_key] = [set(), set()]
@@ -598,7 +602,11 @@ class Accountant:
             store = getattr(accountant, feature)
             my_store = getattr(self, feature)
             for chrom in store:
+                if chrom not in my_store:
+                    my_store[chrom] = dict()
                 for strand in store[chrom]:
+                    if strand not in my_store[chrom]:
+                        my_store[chrom][strand] = dict()
                     for feat in store[chrom][strand]:
                         if feat not in my_store[chrom][strand]:
                             my_store[chrom][strand][feat] = 0b0

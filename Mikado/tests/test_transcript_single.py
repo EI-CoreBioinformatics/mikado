@@ -18,7 +18,7 @@ Chr1    TAIR10    exon    5928    8737    .    .    .    Parent=AT1G01020.1"""
 
     tr_lines = tr_gff.split("\n")
     for pos, line in enumerate(tr_lines):
-        tr_lines[pos] = re.sub("\s+", "\t", line)
+        tr_lines[pos] = re.sub(r"\s+", "\t", line)
         assert len(tr_lines[pos].split("\t")) == 9, line.split("\t")
 
     tr_gff_lines = [parsers.GFF.GffLine(line) for line in tr_lines]

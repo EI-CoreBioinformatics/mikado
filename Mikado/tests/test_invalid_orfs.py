@@ -38,7 +38,7 @@ class MultOrfTester(unittest.TestCase):
 
     tr_lines = [line.strip() for line in tr_gff.split("\n") if line.strip() != '']
     for pos, line in enumerate(tr_lines):
-        tr_lines[pos] = re.sub("\s+", "\t", line)
+        tr_lines[pos] = re.sub(r"\s+", r"\t", line)
         assert len(tr_lines[pos].split("\t")) == 9, line.split("\t")
 
     tr_gff_lines = [parsers.GFF.GffLine(line) for line in tr_lines]

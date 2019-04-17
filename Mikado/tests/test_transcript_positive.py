@@ -299,7 +299,7 @@ Chr2    TAIR10    three_prime_UTR    629070    629176    .    +    .    Parent=A
 
     tr_lines = tr_gff.split("\n")
     for pos, line in enumerate(tr_lines):
-        tr_lines[pos] = re.sub("\s+", "\t", line)
+        tr_lines[pos] = re.sub(r"\s+", r"\t", line)
         assert len(tr_lines[pos].split("\t")) == 9, line.split("\t")
 
     tr_gff_lines = [parsers.GFF.GffLine(line) for line in tr_lines]
@@ -514,7 +514,7 @@ Chr2    TAIR10    exon    629070    629176    .    +    .    Parent=AT2G02380.1"
         logger = create_default_logger("test")
         logger.setLevel("INFO")
         for pos, line in enumerate(tr_lines):
-            tr_lines[pos] = re.sub("\s+", "\t", line)
+            tr_lines[pos] = re.sub(r"\s+", "\t", line)
             assert len(tr_lines[pos].split("\t")) == 9, line.split("\t")
 
         tr_gff_lines = [parsers.GFF.GffLine(line) for line in tr_lines]

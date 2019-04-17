@@ -15,7 +15,7 @@ before_install:
   - conda update --yes conda
 # Install packages
 install:
-  - sed "s/defaults::python.*/defaults::python=$TRAVIS_PYTHON_VERSION/" environment.yml
+  - sed -i "s/defaults::python.*/defaults::python=$TRAVIS_PYTHON_VERSION/" environment.yml
   - conda env create -n env_name --file environment.yml
   - source activate env_name
   - conda install --yes setuptools cython atlas numpy scipy scikit-learn biopython

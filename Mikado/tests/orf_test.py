@@ -217,14 +217,18 @@ CAGA"""
         self.assertEqual(b4.cds_len, 1115 - 641, (b4.cds_len, 1115 - 641))
 
     def test_b1_seq(self):
-        b1 = bed12.BED12(self.bed1, transcriptomic=True, fasta_index=self.index)
+        b1 = bed12.BED12(self.bed1, transcriptomic=True, fasta_index=self.index, coding=True)
         self.assertIn(str(self.index[b1.chrom][386 + 3:386 + 6].seq), ("TAG", "TGA", "TAA"))
+        self.assertFalse(b1.invalid, b1.invalid_reason)
+        self.assertTrue(b1.transcriptomic)
+        self.assertTrue(b1.coding)
 
         self.assertEqual(b1.start, 1)
         self.assertEqual(len(b1), 784)
         self.assertEqual("ATG", str(self.index[b1.chrom][b1.thick_start - 1:b1.thick_start + 2].seq),
                          str(self.index[b1.chrom][b1.thick_start - 1:b1.thick_start + 2].seq))
 
+        self.assertTrue(b1.has_start_codon, b1.validity_checked)
         self.assertEqual("ATG", b1.start_codon, b1.start_codon)
         self.assertEqual(b1.thick_start, 30)
         self.assertEqual(b1.thick_end, 386)

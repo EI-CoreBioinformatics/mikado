@@ -206,18 +206,21 @@ class BED12:
 
         if re.search("(ID|coding|phase)", self.name):
             groups = dict(re.findall("([^(;|=)]*)=([^;]*)", self.name))
-            _coding = groups.get("coding", "False")
+            _coding = groups.get("coding", None)
             phase = phase or groups.get("phase", None)
             if phase:
                 phase = int(phase)
                 self.coding = True
             else:
-                self.coding = self.__valid_coding.get(groups.get("coding", False), False)
+                if _coding is not None:
+                    self.coding = self.__valid_coding.get(_coding, False)
+                else:
+                    self.coding = coding
                 if transcriptomic is True:
                     phase = 0
 
             self.phase = phase
-            self.name = groups["ID"]
+            self.name = groups.get("ID", self.name)
 
         elif "ID=" in self.name:
             groups = dict(re.findall("([^(;|=)]*)=([^;]*)", self.name))
@@ -335,19 +338,6 @@ class BED12:
     def __set_values_from_bed12(self, line):
 
         self.__setstate__(line.__getstate__())
-        #
-        # for attr in ["chrom", "start", "end", "name", "score", "strand",
-        #              "thick_start", "thick_end", "rgb",
-        #              "block_count", "block_starts", "block_sizes"]:
-        #     setattr(self, attr, getattr(self._line, attr))
-        #
-        # intern(self.chrom)
-        # self.has_start_codon = None
-        # self.has_stop_codon = None
-        # self.start_codon = None
-        # self.stop_codon = None
-        # self.fasta_length = len(self)
-        # self.transcriptomic = self._line.transcriptomic
         return
 
     def __set_values_from_gff(self, fasta_length):
@@ -389,13 +379,12 @@ class BED12:
 
         if transcriptomic is True and self.coding is True and (fasta_index is not None or sequence is not None):
             orig_phase = self.phase
-
+            self.validity_checked = True
             if sequence is not None:
                 self.fasta_length = len(sequence)
                 if isinstance(sequence, str):
                     sequence = Seq.Seq(sequence)
             else:
-
                 if self.id not in fasta_index:
                     self.__in_index = False
                     return

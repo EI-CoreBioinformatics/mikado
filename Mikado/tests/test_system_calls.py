@@ -29,6 +29,7 @@ import shutil
 from ..parsers import to_gff
 from ..transcripts import Transcript
 import threading
+from time import sleep
 
 
 @mark.slow
@@ -791,6 +792,7 @@ class CompareCheck(unittest.TestCase):
                 os.remove("{}.midx".format(namespace.reference.name))
                 namespace.reference.close()
 
+    @mark.skipif()
     def test_compare_trinity(self):
 
         # Create the list of files
@@ -817,16 +819,17 @@ class CompareCheck(unittest.TestCase):
                 namespace.out = os.path.join(dir.name, "compare_{}_{}".format(
                     files.index(ref), files.index(pred)))
                 compare(namespace)
+                sleep(1)
                 refmap = "{}.refmap".format(namespace.out)
                 tmap = "{}.tmap".format(namespace.out)
                 stats = "{}.stats".format(namespace.out)
 
                 self.assertTrue(os.path.exists(namespace.log))
-                # with open(log) as log_handle:
-                #     log = [_.rstrip() for _ in log_handle]
+                with open(namespace.log) as log_handle:
+                    log = [_.rstrip() for _ in log_handle]
                 for fname in [refmap, stats, tmap]:
-                    self.assertTrue(os.path.exists(fname))
-                    self.assertGreater(os.stat(fname).st_size, 0)
+                    self.assertTrue(os.path.exists(fname), (fname, ref, pred, "\n".join(log)))
+                    self.assertGreater(os.stat(fname).st_size, 0, (fname, ref, pred, "\n".join(log)))
 
                 with open(refmap) as _:
                     reader = csv.DictReader(_, delimiter="\t")

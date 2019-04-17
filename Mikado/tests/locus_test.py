@@ -186,12 +186,10 @@ class LocusTester(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.__genomefile__ = None
 
-        cls.__genomefile__ = tempfile.NamedTemporaryFile(mode="wb", delete=False, suffix=".fa", prefix="prepare")
+        cls.__genomefile__ = tempfile.NamedTemporaryFile(mode="wb", delete=False, suffix=".fa.gz", prefix="prepare")
 
-        with pkg_resources.resource_stream("Mikado.tests", "chr5.fas.gz") as _:
-            cls.__genomefile__.write(gzip.decompress(_.read()))
+        cls.__genomefile__.write(pkg_resources.resource_stream("Mikado.tests", "chr5.fas.gz").read())
         cls.__genomefile__.flush()
         cls.fai = pyfaidx.Fasta(cls.__genomefile__.name)
 

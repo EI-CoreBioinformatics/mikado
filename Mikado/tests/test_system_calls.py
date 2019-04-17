@@ -39,11 +39,10 @@ class PrepareCheck(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.__genomefile__ = tempfile.NamedTemporaryFile(mode="wb", delete=False, suffix=".fa", prefix="prepare")
-
-        with pkg_resources.resource_stream("Mikado.tests", "chr5.fas.gz") as _:
-            cls.__genomefile__.write(gzip.decompress(_.read()))
+        cls.__genomefile__ = tempfile.NamedTemporaryFile(mode="wb", delete=False, suffix=".fa.gz", prefix="prepare")
+        cls.__genomefile__.write(pkg_resources.resource_stream("Mikado.tests", "chr5.fas.gz").read())
         cls.__genomefile__.flush()
+        cls.fai = pyfaidx.Fasta(cls.__genomefile__.name)
 
         cls.trinity_res = dict((_[0], _[1]) for _ in [("tr_c73_g1_i1.mrna1.160", 286),
                                                       ("tr_c11_g1_i2.mrna1.111", 844),
@@ -890,10 +889,11 @@ class ConfigureCheck(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.__genomefile__ = tempfile.NamedTemporaryFile(mode="wb", delete=False, suffix=".fa", prefix="configure")
-
-        with pkg_resources.resource_stream("Mikado.tests", "chr5.fas.gz") as _:
-            cls.__genomefile__.write(gzip.decompress(_.read()))
+        cls.__genomefile__ = tempfile.NamedTemporaryFile(mode="wb", delete=False, suffix=".fa.gz",
+                                                         prefix="configure")
+        cls.__genomefile__.write(pkg_resources.resource_stream("Mikado.tests", "chr5.fas.gz").read())
+        cls.__genomefile__.flush()
+        cls.fai = pyfaidx.Fasta(cls.__genomefile__.name)
         cls.__genomefile__.flush()
 
     @classmethod
@@ -1062,10 +1062,8 @@ class PickTest(unittest.TestCase):
     def setUpClass(cls):
         cls.__genomefile__ = None
 
-        cls.__genomefile__ = tempfile.NamedTemporaryFile(mode="wb", delete=False, suffix=".fa", prefix="prepare")
-
-        with pkg_resources.resource_stream("Mikado.tests", "chr5.fas.gz") as _:
-            cls.__genomefile__.write(gzip.decompress(_.read()))
+        cls.__genomefile__ = tempfile.NamedTemporaryFile(mode="wb", delete=False, suffix=".fa.gz", prefix="pick")
+        cls.__genomefile__.write(pkg_resources.resource_stream("Mikado.tests", "chr5.fas.gz").read())
         cls.__genomefile__.flush()
         cls.fai = pyfaidx.Fasta(cls.__genomefile__.name)
 
@@ -1491,12 +1489,9 @@ class SerialiseChecker(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.__genomefile__ = None
+        cls.__genomefile__ = tempfile.NamedTemporaryFile(mode="wb", delete=False, suffix=".fa.gz", prefix="prepare")
 
-        cls.__genomefile__ = tempfile.NamedTemporaryFile(mode="wb", delete=False, suffix=".fa", prefix="serialise")
-
-        with pkg_resources.resource_stream("Mikado.tests", "chr5.fas.gz") as _:
-            cls.__genomefile__.write(gzip.decompress(_.read()))
+        cls.__genomefile__.write(pkg_resources.resource_stream("Mikado.tests", "chr5.fas.gz").read())
         cls.__genomefile__.flush()
         cls.fai = pyfaidx.Fasta(cls.__genomefile__.name)
 

@@ -22,10 +22,10 @@ class MiscTest(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
+
         cls.fasta = pkg_resources.resource_filename("Mikado.tests", "chr5.fas.gz")
-        cls.fasta_temp = tempfile.NamedTemporaryFile(suffix=".fa")
-        with gzip.open(cls.fasta) as ffile:
-            cls.fasta_temp.write(ffile.read())
+        cls.fasta_temp = tempfile.NamedTemporaryFile(mode="wb", delete=False, suffix=".fa.gz")
+        cls.fasta_temp.write(pkg_resources.resource_stream("Mikado.tests", "chr5.fas.gz").read())
         cls.fasta_temp.flush()
 
     @staticmethod

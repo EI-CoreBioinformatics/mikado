@@ -208,12 +208,12 @@ class TestLoadJunction(unittest.TestCase):
     def test_no_fai(self):
 
         db = tempfile.mktemp(suffix=".db")
-        genome_file = tempfile.NamedTemporaryFile("wb", suffix=".fa", prefix="Chr5", dir=".")
+        genome_file = tempfile.NamedTemporaryFile("wb", suffix=".fa.gz", prefix="Chr5", dir=".")
         jconf = self.json_conf.copy()
         jconf["db_settings"]["db"] = db
         jconf["reference"]["genome_fai"] = None
         with resource_stream("Mikado.tests", "chr5.fas.gz") as _:
-            genome_file.write(gzip.decompress(_.read()))
+            genome_file.write(_.read())
         genome_file.flush()
 
         jconf["reference"]["genome"] = genome_file.name

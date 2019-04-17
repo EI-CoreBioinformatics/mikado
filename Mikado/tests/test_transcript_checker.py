@@ -21,12 +21,10 @@ class TChekerTester(unittest.TestCase):
     def setUpClass(cls):
 
         # Prepare the genome
-        cls.temp_genome = tempfile.NamedTemporaryFile(mode="wb", suffix=".fa")
-        with pkg_resources.resource_stream("Mikado.tests", "chr5.fas.gz") as comp:
-            cls.temp_genome.write(gzip.decompress(comp.read()))
-        cls.temp_genome.flush()
-        cls.fasta = pyfaidx.Fasta(cls.temp_genome.name)
-
+        cls.fasta = pkg_resources.resource_filename("Mikado.tests", "chr5.fas.gz")
+        cls.fasta_temp = tempfile.NamedTemporaryFile(mode="wb", delete=False, suffix=".fa.gz")
+        cls.fasta_temp.write(pkg_resources.resource_stream("Mikado.tests", "chr5.fas.gz").read())
+        cls.fasta = pyfaidx.Fasta(cls.fasta_temp.name)
 
     def setUp(self):
 

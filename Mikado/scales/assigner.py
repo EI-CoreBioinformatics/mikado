@@ -149,15 +149,18 @@ class Assigner:
         self.gene_matches = collections.defaultdict(dict)
         self.done = 0
         self.genes = GeneDict(self.dbname, self.logger)
-        for gid in self.genes:
-            for tid in self.genes[gid].transcripts:
-                self.gene_matches[gid][tid] = []
+        if self.printout_tmap is True:
+            for gid in self.genes:
+                for tid in self.genes[gid].transcripts:
+                    self.gene_matches[gid][tid] = []
 
-        self.stat_calculator = Accountant(self.genes, args=args, fuzzymatch=self.__fuzzymatch)
+        self.stat_calculator = Accountant(self.genes, args=args,
+                                          fuzzymatch=self.__fuzzymatch, counter=counter,
+                                          load_ref=self.printout_tmap)
         self.self_analysis = self.stat_calculator.self_analysis
         self.__merged = False
         if results:
-            self.__load_from_results(results)
+            self.load_from_results(results)
             self.__merged = True
             return
 
@@ -173,34 +176,38 @@ class Assigner:
         for chrom in self.positions:
             self.indexer[chrom] = IntervalTree.from_tuples(self.positions[chrom].keys())
 
-    def __load_from_results(self, dbnames):
+    def load_from_results(self, dbnames):
 
         """Private method to load together all the results from a previous run."""
 
         for dbname in dbnames:
-            connection = sqlite3.connect(dbname)
-            cursor = connection.cursor()
-            done = set()
+            self.load_result(dbname)
 
-            if self.printout_tmap is True:
-                for tmap_row in cursor.execute("SELECT * from tmap"):
-                    tmap_row = pickle.loads(tmap_row[0])
-                    done.add(tmap_row.tid)
-                    self.print_tmap(tmap_row)
+    def load_result(self, dbname):
 
-            for gid, gene_match in cursor.execute("SELECT * from gene_matches"):
-                gene_match = pickle.loads(gene_match)
-                for tid in gene_match:
-                    for match in gene_match[tid]:
-                        self.gene_matches[gid][tid].append(match)
+        connection = sqlite3.connect(dbname)
+        cursor = connection.cursor()
+        done = set()
 
-            temp_stats = Namespace()
-            for attr, stat in cursor.execute("SELECT * from stats"):
-                setattr(temp_stats, attr, pickle.loads(stat))
+        if self.printout_tmap is True:
+            for tmap_row in cursor.execute("SELECT * from tmap"):
+                tmap_row = pickle.loads(tmap_row[0])
+                done.add(tmap_row.tid)
+                self.print_tmap(tmap_row)
 
-            self.stat_calculator.merge_into(temp_stats)
-            os.remove(dbname)
-            self.done += len(done)
+        for gid, gene_match in cursor.execute("SELECT * from gene_matches"):
+            gene_match = pickle.loads(gene_match)
+            for tid in gene_match:
+                for match in gene_match[tid]:
+                    self.gene_matches[gid][tid].append(match)
+
+        temp_stats = Namespace()
+        for attr, stat in cursor.execute("SELECT * from stats"):
+            setattr(temp_stats, attr, pickle.loads(stat))
+
+        self.stat_calculator.merge_into(temp_stats)
+        os.remove(dbname)
+        self.done += len(done)
 
     def dump(self):
 
@@ -233,7 +240,12 @@ class Assigner:
         """
 
         if result is not None and result.ccode != ("u",):
-            self.gene_matches[result.ref_gene[0]][result.ref_id[0]].append(result)
+            gid, tid = result.ref_gene[0], result.ref_id[0]
+            if gid not in self.gene_matches:
+                self.gene_matches[gid] = dict()
+            if tid not in self.gene_matches[gid]:
+                self.gene_matches[gid][tid] = list()
+            self.gene_matches[gid][tid].append(result)
         return
 
     @classmethod
@@ -704,8 +716,9 @@ class Assigner:
                 try:
                     results, best_result = self.__prepare_result(prediction, distances, fuzzymatch=fuzzymatch)
                 except (InvalidTranscript, ZeroDivisionError, AssertionError) as exc:
-                    self.logger.error("Something went wrong with %s. Ignoring it.",
-                                      prediction.id)
+                    raise exc
+                    self.logger.error("Something went wrong with %s. Ignoring it. Error: %s",
+                                      prediction.id, exc)
                     self.logger.debug(exc)
                     return None
 

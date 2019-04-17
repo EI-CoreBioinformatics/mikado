@@ -40,6 +40,7 @@ import gzip
 import itertools
 from ..utilities import NumpyEncoder
 import functools
+from threading import Thread
 
 __author__ = 'Luca Venturini'
 
@@ -273,6 +274,23 @@ class Assigners(mp.Process):
         self.__connection.close()
 
 
+class FinalAssigner(mp.Process):
+
+    def __init__(self, index: str, args, queue):
+
+        super().__init__()
+        self.assigner = Assigner(index, args, printout_tmap=True)
+        self.queue = queue
+
+    def run(self):
+        while True:
+            dbname = self.queue.get()
+            if dbname == "EXIT":
+                break
+            self.assigner.load_result(dbname)
+        self.assigner.finish()
+
+
 def transmit_transcript(index, transcript: Transcript, connection: sqlite3.Connection):
     transcript.finalize()
     connection.execute("INSERT INTO dump VALUES (?, ?)",
@@ -315,8 +333,10 @@ def parse_prediction(args, index, queue_logger):
 
     if args.processes > 1:
         procs = [Assigners(index, args, queue, returnqueue, counter, dump_dbhandle.name)
-                            for counter in range(1, args.processes + 1)]
+                            for counter in range(1, args.processes)]
+        final_proc = FinalAssigner(index, args, returnqueue)
         [proc.start() for proc in procs]
+        final_proc.start()
         transmitter = functools.partial(transmit_transcript, connection=dump_db)
         assigner_instance = None
     else:
@@ -477,18 +497,14 @@ def parse_prediction(args, index, queue_logger):
     dump_dbhandle.close()
     if assigner_instance is None:
         queue.put("EXIT")
-        results = []
         [proc.join() for proc in procs]
-        while len(results) < len(procs):
-            fname = returnqueue.get()
-            results.append(fname)
-        assigner_instance = Assigner(index, args, results=results, printout_tmap=True)
+        returnqueue.put("EXIT")
     else:
         returnqueue.close()
         assert not procs, procs
         assert isinstance(assigner_instance, Assigner)
+        assigner_instance.finish()
     queue.close()
-    assigner_instance.finish()
 
 
 def parse_self(args, genes, queue_logger):

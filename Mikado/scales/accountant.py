@@ -24,7 +24,7 @@ class Accountant:
     """This class stores the data necessary to calculate the final statistics
      - base and exon Sn/Sp/F1 etc."""
 
-    def __init__(self, genes, args: argparse.Namespace, counter=None, fuzzymatch=0):
+    def __init__(self, genes, args: argparse.Namespace, counter=None, fuzzymatch=0, load_ref=False):
 
         """Class constructor. It requires:
         :param genes: a dictionary
@@ -48,7 +48,9 @@ class Accountant:
         self.monoexonic_matches = (set(), set())
         self.ref_genes = dict()
         self.pred_genes = dict()
-        self.__setup_reference_data(genes)
+        if load_ref is True:
+            self.logger.info("Starting loading the reference for the accountant %s", self._counter)
+            self.__setup_reference_data(genes)
         self.self_analysis = False
         self.__fuzzymatch = fuzzymatch
         if hasattr(args, "self") and args.self is True:
@@ -671,9 +673,11 @@ class Accountant:
         if other_exon is not None:
             # other_exon = tuple([other_exon[0], other_exon[1]])
             assert isinstance(other_exon, tuple)
-            assert other_exon in self.exons[transcr.chrom][strand], (transcr.id,
-                                                                     transcr.exons,
-                                                                     other_exon)
+            if other_exon not in self.exons[transcr.chrom][strand]:
+                self.exons[transcr.chrom][strand][other_exon] = 0b1  # Necessary as we are trying to avoid preloading
+
+            assert other_exon in self.exons[transcr.chrom][strand]
+
             if not 0b100 & self.exons[transcr.chrom][strand][other_exon]:
                 # Check the other exon is marked as single
                 self.exons[transcr.chrom][strand][other_exon] |= 0b100
@@ -710,6 +714,11 @@ class Accountant:
             found_one = False
 
             for refid, refgene, nf1 in zip(result.ref_id, result.ref_gene, result.n_f1):
+                if refgene not in self.ref_genes:
+                    self.ref_genes[refgene] = dict()
+                if refid not in self.ref_genes[refgene]:
+                    self.ref_genes[refgene][refid] = 0b1000
+
                 if nf1 > 0:
                     self.ref_genes[refgene][refid] &= ~(1 << 3)  # Clear the fourth bit
                     found_one = True

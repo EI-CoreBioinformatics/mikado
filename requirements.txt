@@ -6,7 +6,7 @@ numpy>=1.16.0
 networkx>=2
 sqlalchemy>=1.3
 sqlalchemy-utils
-biopython>=1.70
+biopython>=1.73
 intervaltree
 pytest
 pyfaidx

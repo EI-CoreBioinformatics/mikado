@@ -8,17 +8,15 @@ python:
   - "3.7"
 # Setup anaconda, see https://gist.github.com/dan-blanchard/7045057
 before_install:
-  - wget https://repo.continuum.io/miniconda/Miniconda3-4.2.12-Linux-x86_64.sh -O miniconda.sh
+  - wget https://repo.continuum.io/miniconda/Miniconda3-latest.sh -O miniconda.sh
   - chmod +x miniconda.sh
   - ./miniconda.sh -b
   - export PATH=/home/travis/miniconda3/bin:$PATH
   - conda update --yes conda
-  # The next couple lines fix a crash with multiprocessing on Travis and are not specific to using Miniconda
-  # - sudo rm -rf /dev/shm
-  # - sudo ln -s /run/shm /dev/shm
 # Install packages
 install:
-  - conda create --yes -n env_name python=$TRAVIS_PYTHON_VERSION
+  - sed "s/defaults::python.*/defaults::python=$TRAVIS_PYTHON_VERSION/" environment.yml
+  - conda env create -n env_name --file environment.yml
   - source activate env_name
   - conda install --yes setuptools cython atlas numpy scipy scikit-learn biopython
   - conda install --yes -c bioconda diamond prodigal samtools

@@ -3,11 +3,10 @@ channels:
   - defaults
   - bioconda
   - conda-forge
-  - anaconda
 dependencies:
   - defaults::python>=3.5
-  - anaconda::pyyaml>=5.1
-  - anaconda::msgpack-python>=0.5
+  - pyyaml>=5.1
+  - msgpack-python>=0.5
   - conda-forge::wheel>=0.33.1
   - conda-forge::jsonschema>=3.0.1
   - conda-forge::cython>=0.29.6
@@ -38,4 +37,4 @@ dependencies:
   - bioconda::prodigal>=2.6.3
   - bioconda::diamond>=0.9.24
   - bioconda::blast>=2.7.1
-  - anaconda::ujson>=1.35
+  - ujson>=1.35

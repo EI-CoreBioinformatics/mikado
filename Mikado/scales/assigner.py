@@ -23,13 +23,40 @@ from .contrast import compare as c_compare
 from .resultstorer import ResultStorer
 from ..exceptions import InvalidTranscript, InvalidCDS
 from ..utilities.intervaltree import IntervalTree
-import pickle
+import msgpack as json
 import sqlite3
 import tempfile
 from .gene_dict import GeneDict
 
 
 # noinspection PyPropertyAccess,PyPropertyAccess
+
+def msgpack_default(o):
+    """Function to convert the types for msgpack"""
+    if isinstance(o, tuple):
+        return {'__type__': 'tuple', 'value': list(o)} 
+    elif isinstance(o, set):
+        return {'__type__': 'set', 'value': list(o)}
+    elif isinstance(o, ResultStorer):
+        return {'__type__': 'rstor', 'value': o.as_dict()}
+    else:
+        return o
+ 
+def msgpack_convert(o):
+    """Function to re-extract the data from msgpack"""
+    if isinstance(o, dict) and o.get('__type__', None):
+        if o['__type__'] == "set":
+            return set(o['value'])
+        elif o['__type__'] == b'list':
+            return list(o[b'value'])
+        elif o['__type__'] == 'tuple':
+            return tuple(o['value'])
+        elif o['__type__'] == 'rstor':
+            return ResultStorer(state=o['value'])
+        else:
+            return o['value']
+    else:
+        return o
 
 
 class Assigner:
@@ -191,19 +218,22 @@ class Assigner:
 
         if self.printout_tmap is True:
             for tmap_row in cursor.execute("SELECT * from tmap"):
-                tmap_row = pickle.loads(tmap_row[0])
+                tmap_row = ResultStorer(state=json.loads(tmap_row[0],
+                                                         raw=False,
+                                                         object_hook=msgpack_convert))
                 done.add(tmap_row.tid)
                 self.print_tmap(tmap_row)
 
         for gid, gene_match in cursor.execute("SELECT * from gene_matches"):
-            gene_match = pickle.loads(gene_match)
+            gene_match = json.loads(gene_match, raw=False,
+                                    object_hook=msgpack_convert)
             for tid in gene_match:
                 for match in gene_match[tid]:
                     self.gene_matches[gid][tid].append(match)
 
         temp_stats = Namespace()
         for attr, stat in cursor.execute("SELECT * from stats"):
-            setattr(temp_stats, attr, pickle.loads(stat))
+            setattr(temp_stats, attr, json.loads(stat, raw=False, object_hook=msgpack_convert))
 
         self.stat_calculator.merge_into(temp_stats)
         os.remove(dbname)
@@ -219,14 +249,14 @@ class Assigner:
         self._cursor.execute("CREATE TABLE gene_matches (gid varchar(100), match blob)")
         self._connection.commit()
         self._cursor.executemany("INSERT INTO gene_matches ('gid', 'match') VALUES (?, ?)",
-                                 [(gid, pickle.dumps(self.gene_matches[gid])) for gid in self.gene_matches])
+                                 [(gid, json.dumps(self.gene_matches[gid], default=msgpack_default, strict_types=True)) for gid in self.gene_matches])
         self._connection.commit()
         self._cursor.execute("CREATE TABLE stats (level varchar(40), stats blob)")
         self._connection.commit()
         simplified = self.stat_calculator.serialize()
         for attribute in simplified.attributes:
             self._cursor.execute("INSERT INTO stats VALUES (?, ?)", (attribute,
-                                                                     pickle.dumps(getattr(simplified, attribute))))
+                                                                     json.dumps(getattr(simplified, attribute), default=msgpack_default, strict_types=True)))
         self._connection.commit()
         self._connection.close()
 
@@ -829,7 +859,7 @@ class Assigner:
             else:
                 if self.printout_tmap is False:
                     self._cursor.execute("INSERT INTO tmap VALUES (?)",
-                                         (pickle.dumps(res), ))
+                                         (json.dumps(res, strict_types=True, default=msgpack_default), ))
                     self.__done += 1
                     if self.__done % 10000 == 0 and self.__done > 10000:
                         self._connection.commit()

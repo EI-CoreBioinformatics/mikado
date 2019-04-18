@@ -32,7 +32,6 @@ import tempfile
 from ..exceptions import InvalidTranscript
 from time import sleep
 try:
-    # import ujson as json
     import json as json
 except ImportError:
     import json
@@ -499,6 +498,7 @@ def parse_prediction(args, index, queue_logger):
         queue.put("EXIT")
         [proc.join() for proc in procs]
         returnqueue.put("EXIT")
+        final_proc.join()
     else:
         returnqueue.close()
         assert not procs, procs

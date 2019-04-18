@@ -17,7 +17,7 @@ class ResultStorer:
                  "distance",
                  "location"]
 
-    def __init__(self, *args):
+    def __init__(self, *args, state=None):
 
         """
         :param args: a list/tuple
@@ -25,6 +25,10 @@ class ResultStorer:
 
         """
 
+        if state is not None and len(args) == 0:
+            self._load_dict(state)
+            return
+        
         if len(args) != len(self.__slots__):
             err_msg = "Result_storer expected {0} but only received {1}".format(
                 len(self.__slots__), len(args))
@@ -53,6 +57,12 @@ class ResultStorer:
                     setattr(self, self.__slots__[index],
                             tuple([getattr(self, self.__slots__[index])]))
 
+    def _load_dict(self, state):
+
+        for key in self.__slots__:
+            setattr(self, key, state[key])
+        return
+                    
     def _asdict(self):
 
         """
@@ -60,21 +70,24 @@ class ResultStorer:
         :rtype : dict
         """
         result_dict = dict().fromkeys(self.__slots__)
-
-        for attr in self.__slots__[:3]:
-            try:
-                result_dict[attr] = ",".join(list(getattr(self, attr)))
-            except TypeError as exc:
-                raise TypeError("{0}; {1}".format(exc, getattr(self, attr)))
-        for attr in self.__slots__[3:6]:
+        for attr in self.__slots__:
             result_dict[attr] = getattr(self, attr)
-        for attr in (self.__slots__[6],):  # prediction exons
-            result_dict[attr] = ",".join("{0}".format(x) for x in getattr(self, attr))
-        for attr in self.__slots__[7:-2]:
-            result_dict[attr] = ",".join("{0:,.2f}".format(x) for x in getattr(self, attr))
-        result_dict["distance"] = self.distance[0]  # Last attribute
-        result_dict["location"] = self.location[0]
         return result_dict
+        
+        # for attr in self.__slots__[:3]:
+        #     try:
+        #         result_dict[attr] = ",".join(list(getattr(self, attr)))
+        #     except TypeError as exc:
+        #         raise TypeError("{0}; {1}".format(exc, getattr(self, attr)))
+        # for attr in self.__slots__[3:6]:
+        #     result_dict[attr] = getattr(self, attr)
+        # for attr in (self.__slots__[6],):  # prediction exons
+        #     result_dict[attr] = ",".join("{0}".format(x) for x in getattr(self, attr))
+        # for attr in self.__slots__[7:-2]:
+        #     result_dict[attr] = ",".join("{0:,.2f}".format(x) for x in getattr(self, attr))
+        # result_dict["distance"] = self.distance   # [0]  # Last attribute
+        # result_dict["location"] = self.location   # [0]
+        # return result_dict
 
     def as_dict(self):
         """

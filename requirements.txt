@@ -17,6 +17,7 @@ drmaa
 snakemake
 docutils!=0.13.1
 tabulate
+msgpack>=0.5
 ujson
 pandas
 jsonref

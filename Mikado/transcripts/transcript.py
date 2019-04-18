@@ -33,7 +33,7 @@ from .transcript_methods.finalizing import finalize
 from .transcript_methods.printing import create_lines_cds
 from .transcript_methods.printing import create_lines_no_cds, create_lines_bed, as_bed12
 from ..utilities.intervaltree import Interval, IntervalTree
-from collections import Hashable
+from collections.abc import Hashable
 import numpy as np
 import pysam
 

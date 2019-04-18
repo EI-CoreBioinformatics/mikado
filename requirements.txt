@@ -1,6 +1,6 @@
 wheel>=0.28.0
 pyyaml
-jsonschema
+jsonschema>=3.0.1
 cython>=0.25
 numpy>=1.16.0
 networkx>=2

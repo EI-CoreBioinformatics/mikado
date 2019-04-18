@@ -278,10 +278,11 @@ class FinalAssigner(mp.Process):
     def __init__(self, index: str, args, queue):
 
         super().__init__()
-        self.assigner = Assigner(index, args, printout_tmap=True)
+        self.index, self.args = index, args
         self.queue = queue
 
     def run(self):
+        self.assigner = Assigner(self.index, self.args, printout_tmap=True)
         while True:
             dbname = self.queue.get()
             if dbname == "EXIT":

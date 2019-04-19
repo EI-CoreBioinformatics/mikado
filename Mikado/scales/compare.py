@@ -31,15 +31,14 @@ import multiprocessing as mp
 import tempfile
 from ..exceptions import InvalidTranscript
 from time import sleep
-try:
-    import json as json
-except ImportError:
-    import json
+import json
 import gzip
 import itertools
 from ..utilities import NumpyEncoder
 import functools
 from threading import Thread
+import msgpack
+
 
 __author__ = 'Luca Venturini'
 
@@ -609,7 +608,7 @@ def load_index(args, queue_logger):
     for gid, obj in cursor.execute("SELECT * from genes"):
         try:
             gene = Gene(None, logger=queue_logger)
-            gene.load_dict(json.loads(obj),
+            gene.load_dict(msgpack.loads(obj, raw=False),
                            exclude_utr=args.exclude_utr,
                            protein_coding=args.protein_coding,
                            trust_orf=True)
@@ -653,8 +652,7 @@ def create_index(args, queue_logger, index_name, ref_gff=False):
     cursor.execute("CREATE TABLE genes (gid text, json blob)")
     cursor.execute("CREATE INDEX gid_idx on genes(gid)")
     for gid, gobj in genes.items():
-        cursor.execute("INSERT INTO genes VALUES (?, ?)", (gid, json.dumps(gobj.as_dict(),
-                                                                           cls=NumpyEncoder)))
+        cursor.execute("INSERT INTO genes VALUES (?, ?)", (gid, msgpack.dumps(gobj.as_dict()))) #, cls=NumpyEncoder)))
     cursor.close()
     conn.commit()
     conn.close()

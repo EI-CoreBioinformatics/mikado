@@ -1,6 +1,8 @@
 from ..loci.reference_gene import Gene
 import sqlite3
 import json
+from time import sleep
+import msgpack
 
 
 class GeneDict:
@@ -14,7 +16,17 @@ class GeneDict:
 
     def __getitem__(self, item):
 
-        res = self.__cursor.execute("SELECT json from genes where gid=?", (item,)).fetchmany()
+        failed = 0
+        while True:
+            try:
+                res = self.__cursor.execute("SELECT json from genes where gid=?", (item,)).fetchmany()
+                break
+            except sqlite3.OperationalError as exc:
+                failed += 1
+                if failed > 10:
+                    raise sqlite3.OperationalError(exc)
+                sleep(3)
+
         if res:
             try:
                 return self.__load_gene(res[0][0])
@@ -25,7 +37,7 @@ class GeneDict:
 
     def __load_gene(self, jdict):
         gene = Gene(None, logger=self.logger)
-        gene.load_dict(json.loads(jdict))
+        gene.load_dict(msgpack.loads(jdict, raw=False))
         gene.finalize()
         return gene
 

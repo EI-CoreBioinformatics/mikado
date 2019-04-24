@@ -37,7 +37,12 @@ class GeneDict:
 
     def __load_gene(self, jdict):
         gene = Gene(None, logger=self.logger)
-        gene.load_dict(msgpack.loads(jdict, raw=False))
+        if not isinstance(jdict, dict):
+            try:
+                jdict = msgpack.loads(jdict, raw=False)
+            except TypeError:
+                jdict = json.loads(jdict)
+        gene.load_dict(jdict)
         gene.finalize()
         return gene
 

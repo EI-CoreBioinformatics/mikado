@@ -103,6 +103,7 @@ class Assigner:
             self.args.verbose = False
             self.lenient = False
             self.use_prediction_alias = False
+            self.__report_fusions = True
         else:
             self.args = args
             if not hasattr(args, "out"):
@@ -119,6 +120,7 @@ class Assigner:
                 self.args.verbose = False
             self.lenient = getattr(args, "lenient", False)
             self.use_prediction_alias = getattr(args, "use_prediction_alias", False)
+            self.__report_fusions = getattr(args, "report_fusions", True)
 
         # noinspection PyUnresolvedReferences
         # pylint: disable=no-member
@@ -444,45 +446,47 @@ class Assigner:
             if len(local_best) > 0:
                 best.add((match, sorted(local_best, key=self.get_f1, reverse=True)[0]))
 
-        if len(best) > 1:  # We have a fusion
-            # Now retrieve the results according to their order on the genome
-            # Keep only the result, not their position
-            best = [_[1] for _ in sorted(best, key=lambda res: (res[0][0], res[0][1]))]
-            chrom = prediction.chrom
-            start = min([prediction.start] + [self.genes[_.ref_gene[0]][_.ref_id[0]].start for _ in best])
-            end = max([prediction.end] + [self.genes[_.ref_gene[0]][_.ref_id[0]].end for _ in best])
-            location = "{}:{}..{}".format(chrom, start, end)
-
-            best_result = []
-            for result in best:
-                new_result = []
-                for key in ResultStorer.__slots__:
-                    if key == "location":
-                        new_result.append(location)
-                    elif key == "ccode":
-                        tup = tuple(["f"] + [getattr(result, key)[0]])
-                        new_result.append(tup)
-                    else:
-                        new_result.append(getattr(result, key))
-                new_result = ResultStorer(*new_result)
-                best_result.append(new_result)
-
-            for match, genes in fused.items():
-                for gene in iter(_ for _ in genes if _ not in dubious):
-                    for position, result in enumerate(new_matches[gene]):
-                        if result.j_f1[0] > 0 or result.n_recall[0] > 10:
-                            result.ccode = ("f", result.ccode[0])
-                            new_matches[gene][position] = result
-
-        elif len(best) == 1:
-            best_result = best.pop()[1]
-        else:  # We have to retrieve the best result from the dubious
+        if len(best) == 0:
             self.logger.debug("Filtered out all results for %s, selecting the best dubious one",
                               prediction.id)
             # I have filtered out all the results,
             # because I only match partially the reference genes
             best_result = sorted([new_matches[gene][0] for gene in dubious],
                                  key=self.get_f1, reverse=True)[0]
+
+        else:
+            best = [_[1] for _ in sorted(best, key=lambda res: (res[0][0], res[0][1]))]
+            if not (len(best) > 1 and self.__report_fusions is True):
+                best_result = best.pop()
+            else:  # We have a fusion
+                # Now retrieve the results according to their order on the genome
+                # Keep only the result, not their position
+
+                chrom = prediction.chrom
+                start = min([prediction.start] + [self.genes[_.ref_gene[0]][_.ref_id[0]].start for _ in best])
+                end = max([prediction.end] + [self.genes[_.ref_gene[0]][_.ref_id[0]].end for _ in best])
+                location = "{}:{}..{}".format(chrom, start, end)
+
+                best_result = []
+                for result in best:
+                    new_result = []
+                    for key in ResultStorer.__slots__:
+                        if key == "location":
+                            new_result.append(location)
+                        elif key == "ccode":
+                            tup = tuple(["f"] + [getattr(result, key)[0]])
+                            new_result.append(tup)
+                        else:
+                            new_result.append(getattr(result, key))
+                    new_result = ResultStorer(*new_result)
+                    best_result.append(new_result)
+
+                for match, genes in fused.items():
+                    for gene in iter(_ for _ in genes if _ not in dubious):
+                        for position, result in enumerate(new_matches[gene]):
+                            if result.j_f1[0] > 0 or result.n_recall[0] > 10:
+                                result.ccode = ("f", result.ccode[0])
+                                new_matches[gene][position] = result
 
         # Finally add the results
         for gene in new_matches:

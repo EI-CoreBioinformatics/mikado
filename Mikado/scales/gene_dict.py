@@ -12,9 +12,14 @@ class GeneDict:
         self.__dbname = dbname
         self.__db = sqlite3.connect("file:{}?mode=ro".format(self.__dbname), uri=True)
         self.__cursor = self.__db.cursor()
+        self.__cache = dict()
+
         self.logger = logger
 
     def __getitem__(self, item):
+
+        if item in self.__cache:
+            return self.__cache[item]
 
         failed = 0
         while True:
@@ -29,7 +34,9 @@ class GeneDict:
 
         if res:
             try:
-                return self.__load_gene(res[0][0])
+                gene = self.__load_gene(res[0][0])
+                self.__cache[item] = gene
+                return gene
             except IndexError:
                 raise IndexError(res)
         else:
@@ -49,7 +56,7 @@ class GeneDict:
     def load_all(self):
 
         for row in self.__cursor.execute("SELECT gid, json from genes"):
-            gid, gene = row[0], self.__load_gene(row[1])
+            gid, gene = row[0], self.__load_gene(row[0])
             yield (gid, gene)
 
     def __iter__(self):

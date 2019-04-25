@@ -72,22 +72,9 @@ class ResultStorer:
         result_dict = dict().fromkeys(self.__slots__)
         for attr in self.__slots__:
             result_dict[attr] = getattr(self, attr)
+            if isinstance(result_dict[attr], (tuple, list)):
+                result_dict[attr] = ",".join(["{}".format(_) for _ in result_dict[attr]])
         return result_dict
-        
-        # for attr in self.__slots__[:3]:
-        #     try:
-        #         result_dict[attr] = ",".join(list(getattr(self, attr)))
-        #     except TypeError as exc:
-        #         raise TypeError("{0}; {1}".format(exc, getattr(self, attr)))
-        # for attr in self.__slots__[3:6]:
-        #     result_dict[attr] = getattr(self, attr)
-        # for attr in (self.__slots__[6],):  # prediction exons
-        #     result_dict[attr] = ",".join("{0}".format(x) for x in getattr(self, attr))
-        # for attr in self.__slots__[7:-2]:
-        #     result_dict[attr] = ",".join("{0:,.2f}".format(x) for x in getattr(self, attr))
-        # result_dict["distance"] = self.distance   # [0]  # Last attribute
-        # result_dict["location"] = self.location   # [0]
-        # return result_dict
 
     def as_dict(self):
         """

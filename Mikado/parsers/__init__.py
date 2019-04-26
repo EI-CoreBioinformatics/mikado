@@ -107,13 +107,16 @@ def to_gff(string, input_format=None):
     """
     Function to recognize the input file type (GFF or GTF).
     :param string:
-    :type string: str
+    :type string: (str|io.TextIOWrapper|io.BytesIO|io.BufferedReader|IO)
     :rtype: (Mikado.parsers.GTF.GTF | Mikado.parsers.GFF.GFF3)
     """
 
     # handle = open(string)
     if isinstance(string, io.TextIOWrapper):
         fname = "-"
+    elif isinstance(string, (io.BytesIO, io.BufferedReader)):
+        fname = "-"
+        string = io.TextIOWrapper(string)
     else:
         fname = string
 

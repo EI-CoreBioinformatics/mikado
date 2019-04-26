@@ -314,6 +314,24 @@ class GFAnnotation(metaclass=abc.ABCMeta):
             else:
                 return False
 
+    def remove_attribute(self, attribute):
+        """Method to remove attributes from the internal dictionary."""
+
+        if attribute in self.attributes:
+            del self.attributes[attribute]
+        try:
+            self.attribute_order.remove(attribute)
+        except ValueError:
+            pass
+        return
+
+    def add_attribute(self, attribute, value):
+
+        self.attributes[attribute] = value
+
+        if attribute not in self.attribute_order:
+            self.attribute_order.append(attribute)
+
     def __eq__(self, other):
 
         if self.is_exon is True:

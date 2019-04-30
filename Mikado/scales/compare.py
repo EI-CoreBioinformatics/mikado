@@ -15,7 +15,6 @@ import re
 import sys
 from logging import handlers as log_handlers
 from ..transcripts.transcript import Transcript
-from .accountant import Accountant
 from .assigner import Assigner
 from .resultstorer import ResultStorer
 from ..exceptions import CorruptIndex
@@ -30,13 +29,10 @@ import sqlite3
 import multiprocessing as mp
 import tempfile
 from ..exceptions import InvalidTranscript
-from time import sleep
 import json
 import gzip
 import itertools
-from ..utilities import NumpyEncoder
 import functools
-from threading import Thread
 import msgpack
 
 
@@ -330,6 +326,7 @@ def parse_prediction(args, index, queue_logger):
     dump_db.execute("CREATE UNIQUE INDEX dump_idx ON dump(idx)")
     dump_db.commit()
 
+    queue_logger.info("Starting to parse the prediction")
     if args.processes > 1:
         procs = [Assigners(index, args, queue, returnqueue, counter, dump_dbhandle.name)
                             for counter in range(1, args.processes)]
@@ -553,9 +550,24 @@ def check_index(args, queue_logger):
         tables = cursor.execute("SELECT name FROM sqlite_master WHERE type='table';").fetchall()
         if sorted(tables) != sorted([("positions",), ("genes",)]):
             raise CorruptIndex("Invalid database file")
-        res = cursor.execute("PRAGMA integrity_check;").fetchone()
-        if res[0] != "ok":
-            raise CorruptIndex("Corrupt database, integrity value: {}".format(res[0]))
+        # res = cursor.execute("PRAGMA integrity_check;").fetchone()
+        # if res[0] != "ok":
+        #     raise CorruptIndex("Corrupt database, integrity value: {}".format(res[0]))
+        gid, obj = cursor.execute("SELECT * from genes").fetchone()
+        try:
+            obj = msgpack.loads(obj, raw=False)
+        except TypeError:
+            try:
+                obj = json.loads(obj)
+            except (ValueError, TypeError, json.decoder.JSONDecodeError):
+                raise CorruptIndex("Corrupt index")
+            raise CorruptIndex("Old index, deleting and rebuilding")
+
+        gene = Gene(None)
+        try:
+            gene.load_dict(obj)
+        except:
+            raise CorruptIndex("Invalid value for genes, indicating a corrupt index. Deleting and rebuilding.")
 
     except sqlite3.DatabaseError:
         raise CorruptIndex("Invalid database file")
@@ -719,6 +731,7 @@ def compare(args):
             queue_logger.info("Index found")
             try:
                 check_index(args, queue_logger)
+                queue_logger.info("Index valid, proceeding.")
             except CorruptIndex as exc:
                 queue_logger.warning(exc)
                 queue_logger.warning("Reference index corrupt, deleting and rebuilding.")

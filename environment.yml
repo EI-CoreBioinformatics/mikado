@@ -4,7 +4,7 @@ channels:
   - bioconda
   - conda-forge
 dependencies:
-  - defaults::python>=3.5
+  - defaults::python>=3.6
   - pyyaml>=5.1
   - msgpack-python>=0.5
   - conda-forge::wheel>=0.33.1

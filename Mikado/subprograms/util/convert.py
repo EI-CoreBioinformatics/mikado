@@ -15,7 +15,7 @@ def launch(args):
             raise ValueError("I need a format if it cannot be inferred from the string")
         parser = to_gff(sys.stdin, input_format=args.in_format)
     else:
-        parser = to_gff(sys.stdin, input_format=args.in_format)
+        parser = to_gff(args.gf, input_format=args.in_format)
 
     current = None
     if parser.__annot_type__ == "gtf":

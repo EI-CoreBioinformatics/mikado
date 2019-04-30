@@ -1113,8 +1113,7 @@ memory intensive, proceed with caution!")
                     stranded=False,
                     json_conf=self.json_conf,
                     source=self.json_conf["pick"]["output_format"]["source"])
-                self.logger.debug("Created last locus %s",
-                                  current_locus)
+                self.logger.debug("Created last locus %s", current_locus.id)
         elif current_transcript is not None and invalid is True:
             if current_locus is not None:
                 counter += 1

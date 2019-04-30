@@ -509,19 +509,33 @@ class Transcript:
         self.json_conf = None
 
         if transcript_row.is_transcript is False:
-            if transcript_row.is_exon is False and transcript_row.feature != "match":
+            if transcript_row.is_exon is False and transcript_row.feature not in ("match", "tss", "tts"):
                 raise TypeError("Invalid GF line")
             elif transcript_row.is_exon is True and isinstance(transcript_row, GffLine) and transcript_row.feature not in ("cDNA_match", "match"):
                 raise TypeError("GFF files should not provide orphan exons. Line:\n{}".format(transcript_row))
             self.__expandable = True
+
             if "cDNA_match" in transcript_row.feature and isinstance(transcript_row, GffLine):
                 self.parent = transcript_row.id
                 self.id = transcript_row.id
                 self.__expandable = True
-            elif transcript_row.feature == "match":
+            elif transcript_row.feature in ("match",):
                 self.parent = transcript_row.parent or transcript_row.id
-                self.id = transcript_row.id
+                if transcript_row.id is not None:
+                    self.id = transcript_row.id
+                else:
+                    self.id = transcript_row.transcript
                 self._possibly_without_exons = True
+                # if transcript_row.feature == "tts":  # Termination site, especially in Augustus
+                #     if self.strand == "-":
+                #         self.end = transcript_row.start
+                #     else:
+                #         self.end = transcript_row.end
+                # elif transcript_row.feature == "tss":  # Transcription start site, especially in Augustus
+                #     if self.strand == "-":
+                #         self.start = transcript_row.end
+                #     else:
+                #         self.start = transcript_row.start
             else:
                 self.parent = transcript_row.gene
                 self.id = transcript_row.transcript

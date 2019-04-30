@@ -15,6 +15,7 @@ import numpy
 from collections import namedtuple, Counter
 from ...utilities.log_utils import create_default_logger
 from collections import defaultdict
+import sklearn.utils.extmath
 
 __author__ = "Luca Venturini"
 
@@ -372,12 +373,10 @@ class Calculator:
         if len(weights) > 0 and sum(weights) != 0:
             row["Average"] = "{0:,.2f}".format(round(
                 sum(_[0] * _[1] for _ in zip(array, weights)) / sum(weights), 2))
-            sorter = numpy.argsort(weights)
-            try:
-                moder = array[sorter][weights[sorter].searchsorted(weights.max()):]
-            except TypeError as exc:
-                raise TypeError((exc, array, weights, sorter))
-            row["Mode"] = ";".join(str(x) for x in sorted(moder))
+
+            mode = sklearn.utils.extmath.weighted_mode(array, weights)
+            # mode = scipy.stats.mode(array, axis=None)
+            row["Mode"] = mode[0][0]
         else:
             row["Average"] = "NA"
             row["Mode"] = "NA"

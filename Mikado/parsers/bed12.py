@@ -784,11 +784,11 @@ class BED12:
         self.thick_start += upstream
         self.thick_end += upstream
         if expand_orf is True:
-            if str(self.start_codon) not in self.table.start_codons:
+            if str(self.start_codon).upper() not in self.table.start_codons:
                 for pos in range(self.thick_start - self.phase,
                                  0,
                                  -3):
-                    codon = sequence[pos:pos + 3]
+                    codon = sequence[pos:pos + 3].upper()
                     self.thick_start = pos
                     if codon in self.table.start_codons:
                         # self.thick_start = pos
@@ -810,7 +810,7 @@ class BED12:
             prot_seq = coding_seq.translate(table=self.table, gap="N")
             if "*" in prot_seq:
                 self.thick_end = self.thick_start + self.phase - 1 + (1 + prot_seq.find("*")) * 3
-                self.stop_codon = coding_seq[prot_seq.find("*") * 3:(1 + prot_seq.find("*")) * 3]
+                self.stop_codon = coding_seq[prot_seq.find("*") * 3:(1 + prot_seq.find("*")) * 3].upper()
                 self.__has_stop = True
                 logger.debug("New stop codon for %s: %s", self.name, self.thick_end)
 

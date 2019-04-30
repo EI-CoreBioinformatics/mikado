@@ -15,6 +15,7 @@ import numpy
 from collections import namedtuple, Counter
 from ...utilities.log_utils import create_default_logger
 from collections import defaultdict
+import scipy.stats
 
 __author__ = "Luca Venturini"
 
@@ -377,7 +378,8 @@ class Calculator:
                 moder = array[sorter][weights[sorter].searchsorted(weights.max()):]
             except TypeError as exc:
                 raise TypeError((exc, array, weights, sorter))
-            row["Mode"] = ";".join(str(x) for x in sorted(moder))
+            # mode = scipy.stats.mode(array, axis=None)
+            row["Mode"] = moder[0]
         else:
             row["Average"] = "NA"
             row["Mode"] = "NA"

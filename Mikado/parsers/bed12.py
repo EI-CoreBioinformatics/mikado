@@ -159,6 +159,7 @@ class BED12:
         self.__table_index = 0
         self.table = table
         self.__lenient = lenient
+        self.alias = None
 
         if len(args) == 0:
             self.header = True
@@ -221,10 +222,12 @@ class BED12:
 
             self.phase = phase
             self.name = groups.get("ID", self.name)
+            self.alias = groups.get("alias", groups.get("Alias", None))
 
         elif "ID=" in self.name:
             groups = dict(re.findall("([^(;|=)]*)=([^;]*)", self.name))
             self.name = groups["ID"]
+            self.alias = groups.get("alias", groups.get("Alias", None))
 
         self.__check_validity(transcriptomic, fasta_index, sequence)
 
@@ -483,6 +486,9 @@ class BED12:
             name = "ID={};coding={}".format(self.id, self.coding)
             if self.coding:
                 name += ";phase={}".format(self.phase)
+            if self.alias is not None:
+                name += ";alias={}".format(self.alias)
+
             line.append(name)
         else:
             line.append(self.name)
@@ -836,7 +842,7 @@ class BED12:
 
         return _blocks
 
-    def to_transcriptomic(self, sequence=None, fasta_index=None, start_adjustment=False, lenient=False):
+    def to_transcriptomic(self, sequence=None, fasta_index=None, start_adjustment=False, lenient=False, alias=None):
 
         """This method will return a transcriptomic version of the BED12. If the object is already transcriptomic,
         it will return itself."""
@@ -847,7 +853,7 @@ class BED12:
         # First six fields of a BED object
 
         # Now we have to calculate the thickStart
-        block_count = self.block_count
+        # block_count = self.block_count
 
         # Now we have to calculate the thickStart, thickEnd ..
         tStart, tEnd = None, None
@@ -886,6 +892,9 @@ class BED12:
                                                          self.phase if self.phase is not None else 0)
         else:
             new_name = "ID={};coding={}".format(self.name.split(";")[0], self.coding)
+
+        if alias is not None:
+            new_name += ";alias={}".format(alias)
 
         new = list((self.name.split(";")[0],
                     0,

@@ -41,14 +41,14 @@ def launch(args):
     for line in parser:
         if line.header is True:
             continue
-        if isinstance(line, BED12) or line.gene is None:
+        if isinstance(line, BED12) or (line.is_exon is False and line.gene is None):
             mock_gene_counter += 1
             gene = "gene_{mock_gene_counter}".format(**locals())
             line.parent = gene
 
         if current is None or ((line.is_gene or line.is_transcript) and line.gene != current.id):
             if current:
-                print(current.format(out_format), file=args.out)
+                print(current.format(out_format, transcriptomic=args.transcriptomic), file=args.out)
             if hasattr(line, "feature") and "superlocus" in line.feature:  # Hack for Mikado files
                 continue
             elif line.is_gene is True:
@@ -62,7 +62,7 @@ def launch(args):
         elif parser.__annot_type__ == "gtf" and line.is_exon is True and (
                         current is None or current.id != line.gene):
             if current:
-                print(current.format(out_format), file=args.out)
+                print(current.format(out_format, transcriptomic=args.transcriptomic), file=args.out)
             current = Gene(Transcript(line))
         elif (parser.__annot_type__ == "gtf" and
                       line.is_exon is True and line.transcript not in current.transcripts):
@@ -72,7 +72,7 @@ def launch(args):
         elif line.is_exon is True:
             current.add_exon(line)
     if current is not None:
-        print(current.format(out_format), file=args.out)
+        print(current.format(out_format, transcriptomic=args.transcriptomic), file=args.out)
 
 
 def convert_parser():
@@ -87,6 +87,8 @@ def convert_parser():
                         choices=["bed12", "gtf", "gff3"], default=None)
     parser.add_argument("-if", "--in-format", dest="in_format",
                         choices=["bed12", "gtf", "gff3", "bam"], default=None)
+    parser.add_argument("-t", "--transcriptomic", default=False, action="store_true",
+                        help="Flag. If on, the file will be converted to a transcriptomic version.")
     parser.add_argument("gf")
     parser.add_argument("out", type=argparse.FileType("w"), nargs="?", default=sys.stdout)
     parser.set_defaults(func=launch)

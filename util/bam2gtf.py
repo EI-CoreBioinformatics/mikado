@@ -43,7 +43,10 @@ def main():
         else:
             name = record.query_name
 
-        transcript.id = name
+        if name != transcript.id:
+            transcript.alias = transcript.id
+            transcript.id = name
+
         transcript.parent = transcript.attributes["gene_id"] = "{0}.gene".format(name)
         name_counter.update([record.query_name])
         transcript.source = "bam2gtf"

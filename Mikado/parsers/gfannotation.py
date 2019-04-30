@@ -253,7 +253,7 @@ class GFAnnotation(metaclass=abc.ABCMeta):
             return False
         _ = self.feature.lower()
         if ("cds" in _ or _.endswith("exon") or "utr" in _ or "codon" in _
-            or _ == "cdna_match" or _ == "match_part"):
+            or _ in ("cdna_match", "match_part")):
             return True
         return False
 

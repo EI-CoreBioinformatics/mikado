@@ -486,7 +486,7 @@ class BED12:
             name = "ID={};coding={}".format(self.id, self.coding)
             if self.coding:
                 name += ";phase={}".format(self.phase)
-            if self.alias is not None:
+            if self.alias is not None and self.alias != self.id:
                 name += ";alias={}".format(self.alias)
 
             line.append(name)

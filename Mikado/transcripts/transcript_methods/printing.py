@@ -306,7 +306,7 @@ def as_bed12(transcript, transcriptomic=False):
             # Now we have to get the phase of the first CDS exon ..
             )
 
-    if transcript.alias is not None:
+    if transcript.alias is not None and transcript.alias != transcript.id:
         name += ";alias={}".format(transcript.alias)
 
     bed12.name = name

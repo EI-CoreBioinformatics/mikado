@@ -22,6 +22,8 @@ class ResultStorer:
         if isinstance(tup, (tuple, list)):
             return tuple([float(_) for _ in tup])
         elif isinstance(tup, (str, float, int, bytes)):
+            if tup == "-":
+                return tuple([tup])
             return tuple([float(tup)])
         else:
             raise TypeError(type(tup))
@@ -31,6 +33,8 @@ class ResultStorer:
         if isinstance(tup, (tuple, list)):
             return tuple([int(_) for _ in tup])
         elif isinstance(tup, (str, float, int, bytes)):
+            if tup == "-":
+                return tuple([tup])
             return tuple([int(tup)])
         else:
             raise TypeError(type(tup))
@@ -49,7 +53,7 @@ class ResultStorer:
     @property
     def types(self):
         return [self.to_tuple, self.to_tuple, self.to_tuple,
-                str, str, int, int,
+                str, str, int, self.to_int_tuple,
                 self.to_float_tuple, self.to_float_tuple, self.to_float_tuple,
                 self.to_float_tuple, self.to_float_tuple, self.to_float_tuple,
                 self.to_float_tuple, self.to_float_tuple, self.to_float_tuple,

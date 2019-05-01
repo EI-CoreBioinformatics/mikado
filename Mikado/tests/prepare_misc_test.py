@@ -12,6 +12,7 @@ import pickle
 import os
 import time
 import pyfaidx
+import pysam
 import re
 from ..tests.test_utils import ProcRunner
 from queue import Queue
@@ -24,9 +25,7 @@ class MiscTest(unittest.TestCase):
     def setUpClass(cls):
 
         cls.fasta = pkg_resources.resource_filename("Mikado.tests", "chr5.fas.gz")
-        cls.fasta_temp = tempfile.NamedTemporaryFile(mode="wb", delete=False, suffix=".fa.gz")
-        cls.fasta_temp.write(pkg_resources.resource_stream("Mikado.tests", "chr5.fas.gz").read())
-        cls.fasta_temp.flush()
+        cls.fai = pysam.FastaFile(cls.fasta)
 
     @staticmethod
     def create_logger(name, simple=True):
@@ -63,7 +62,7 @@ class MiscTest(unittest.TestCase):
             proc = ProcRunner(checking.CheckingProcess,
                               self.submission_queue,
                               logging_queue,
-                              fasta=self.fasta_temp.name,
+                              fasta=self.fasta,
                               identifier=0,
                               fasta_out=self.fasta_out,
                               gtf_out=self.gtf_out,
@@ -108,7 +107,7 @@ class MiscTest(unittest.TestCase):
                 "fasta_out": self.fasta_out,
                 "gtf_out": self.gtf_out,
                 "tmpdir": tempfile.gettempdir(),
-                "fasta": self.fasta_temp.name,
+                "fasta": self.fasta,
                 "log_level": "WARNING"
                 }
 
@@ -127,8 +126,7 @@ class MiscTest(unittest.TestCase):
             _kwds = kwds.copy()
             _kwds["fasta"] = None
 
-
-            with self.assertRaises(AttributeError):
+            with self.assertRaises((AttributeError, TypeError)):
                 checking.CheckingProcess(**_kwds)
 
         for tentative in [None, [], [("A", "G")], [("AG", bytes("GT", encoding="ascii"))]]:
@@ -150,7 +148,7 @@ class MiscTest(unittest.TestCase):
     @mark.slow
     def test_example_model(self):
 
-        fasta = pyfaidx.Fasta(self.fasta_temp.name)
+        fasta = pyfaidx.Fasta(self.fasta)
         lines = dict()
         lines["chrom"] = "Chr5"
         lines["strand"] = "+"
@@ -202,7 +200,7 @@ class MiscTest(unittest.TestCase):
             proc = ProcRunner(checking.CheckingProcess,
                               self.submission_queue,
                               logging_queue,
-                              fasta=self.fasta_temp.name,
+                              fasta=self.fasta,
                               identifier=logger.name,
                               fasta_out=self.fasta_out,
                               gtf_out=self.gtf_out,
@@ -233,8 +231,7 @@ class MiscTest(unittest.TestCase):
                     fasta_lines.append(line)
 
             self.assertGreater(len(fasta_lines), 1)
-            fasta = pyfaidx.Fasta(self.fasta_temp.name)
-            seq = str(fasta[lines["chrom"]][lines["start"] - 1:lines["end"]])
+            seq = self.fai.fetch(lines["chrom"], lines["start"] - 1, lines["end"])
             res = checking.create_transcript(lines, seq, lines["start"], lines["end"])
             self.assertTrue(len(res.cdna), (209593 - 208937 + 1) + (210445 - 209881 + 1))
 
@@ -254,6 +251,5 @@ class MiscTest(unittest.TestCase):
                 self.assertEqual(len(str(fa["AT5G01530.0"])), res.cdna_length)
 
                 os.remove(faix.name + ".fai")
-            fasta.close()
 
         listener.stop()

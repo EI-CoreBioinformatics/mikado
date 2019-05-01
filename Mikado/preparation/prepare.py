@@ -6,7 +6,6 @@ from .annotation_parser import AnnotationParser, load_from_gtf, load_from_gff, l
 from ..parsers import to_gff
 import operator
 import collections
-import io
 from .. import exceptions
 import logging.handlers
 import random
@@ -19,6 +18,7 @@ import logging
 from ..utilities import path_join, merge_partial
 from collections import Counter
 import sqlite3
+import pysam
 try:
     import ujson as json
 except ImportError:
@@ -172,7 +172,7 @@ def perform_check(keys, shelve_stacks, args, logger):
 
             transcript_object = partial_checker(
                 tobj,
-                str(args.json_conf["reference"]["genome"][chrom][key[0]-1:key[1]]),
+                str(args.json_conf["reference"]["genome"].fetch(chrom, key[0]-1, key[1])),
                 key[0], key[1],
                 lenient=args.json_conf["prepare"]["lenient"],
                 is_reference=tobj["is_reference"],
@@ -384,7 +384,7 @@ def prepare(args, logger):
     :type logger: logging.Logger
     """
 
-    if not isinstance(args.json_conf["reference"]["genome"], (io.TextIOWrapper, pyfaidx.Fasta)):
+    if not isinstance(args.json_conf["reference"]["genome"], (pysam.libcfaidx.FastaFile)):
         if not (isinstance(args.json_conf["reference"]["genome"], str) and
                 os.path.exists(args.json_conf["reference"]["genome"])):
             logger.critical("Invalid FASTA file: %s",
@@ -394,7 +394,7 @@ def prepare(args, logger):
             pass
     else:
         args.json_conf["reference"]["genome"].close()
-        if isinstance(args.json_conf["reference"]["genome"], pyfaidx.Fasta):
+        if isinstance(args.json_conf["reference"]["genome"], pysam.libcfaidx.FastaFile):
             args.json_conf["reference"]["genome"] = args.json_conf["reference"]["genome"].filename
         else:
             args.json_conf["reference"]["genome"] = args.json_conf["reference"]["genome"].name
@@ -449,11 +449,9 @@ def prepare(args, logger):
                 args.json_conf["prepare"]["files"]["out"].name,
                 args.json_conf["prepare"]["files"]["out_fasta"].name)
     logger.info("Loading reference file")
-    args.json_conf["reference"]["genome"] = pyfaidx.Fasta(args.json_conf["reference"]["genome"])
-
+    args.json_conf["reference"]["genome"] = pysam.FastaFile(args.json_conf["reference"]["genome"])
     logger.info("Finished loading genome file")
     logger.info("Started loading exon lines")
-
     shelf_stacks = dict()
     try:
         load_exon_lines(args,

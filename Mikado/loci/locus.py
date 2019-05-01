@@ -9,7 +9,7 @@ import collections
 import itertools
 import operator
 from collections import deque
-import pyfaidx
+import pysam
 from ..transcripts.transcript import Transcript
 from ..transcripts.transcriptchecker import TranscriptChecker
 from .abstractlocus import Abstractlocus, rgetattr
@@ -707,7 +707,7 @@ class Locus(Abstractlocus):
         """
 
         try:
-            self.fai = pyfaidx.Fasta(self.json_conf["reference"]["genome"])
+            self.fai = pysam.FastaFile(self.json_conf["reference"]["genome"])
         except KeyError:
             raise KeyError(self.json_conf.keys())
 
@@ -986,7 +986,7 @@ class Locus(Abstractlocus):
 def expand_transcript(transcript: Transcript,
                       start_transcript: [Transcript, bool],
                       end_transcript: [Transcript, bool],
-                      fai: pyfaidx.Fasta,
+                      fai: pysam.libcfaidx.FastaFile,
                       logger):
 
     """This method will enlarge the coordinates and exon structure of a transcript, given:
@@ -1250,7 +1250,7 @@ def check_expanded(transcript, backup, start_transcript, end_transcript, fai, up
     :param backup: The original transcript, before expansion.
     :param start_transcript: the transcript used as template at the 5' end.
     :param end_transcript: the transcript used as template at the 3' end.
-    :param fai: The pyfaidx.Fasta object indexing the genome.
+    :param fai: The pysam.libcfaidx.FastaFile object indexing the genome.
     :param upstream: the amount of transcriptomic base-pairs added to the transcript at its 5' end.
     :param downstream: the amount of transcriptomic base-pairs added to the transcript at its 3' end.
     :param logger: the logger to use.
@@ -1260,7 +1260,7 @@ def check_expanded(transcript, backup, start_transcript, end_transcript, fai, up
     assert transcript.exons != backup.exons
 
     assert transcript.end <= len(fai[transcript.chrom]), (transcript.end, len(fai[transcript.chrom]))
-    genome_seq = "".join(fai[transcript.chrom][transcript.start - 1:transcript.end].seq.split("\n"))
+    genome_seq = fai.fetch(transcript.chrom, transcript.start - 1, transcript.end)
 
     if not (transcript.exons[-1][1] - transcript.start + 1 == len(genome_seq)):
         error = "{} should have a sequence of length {} ({} start, {} end), but one of length {} has been given"

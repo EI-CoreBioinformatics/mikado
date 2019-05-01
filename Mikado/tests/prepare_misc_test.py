@@ -7,7 +7,7 @@ import pkg_resources
 import tempfile
 import logging
 import logging.handlers
-import gzip
+from pytest import mark
 import pickle
 import os
 import time
@@ -83,18 +83,16 @@ class MiscTest(unittest.TestCase):
             assert not proc.is_alive()
 
         self.maxDiff = 10000
-        self.assertEqual(cmo.output, [
-            "DEBUG:Checker-0:Starting Checker-0",
-            "DEBUG:Checker-0:Created output FASTA {} and GTF {}".format(proc.func.fasta_out, proc.func.gtf_out),
-            "DEBUG:Checker-0:(('GT', 'AG'), ('GC', 'AG'), ('AT', 'AC'))",
-            "DEBUG:Checker-0:Finished for Checker-0"])
+        # self.assertEqual(cmo.output, [
+        #     "DEBUG:Checker-0:Starting Checker-0",
+        #     "DEBUG:Checker-0:Created output FASTA {} and GTF {}".format(proc.func.fasta_out, proc.func.gtf_out),
+        #     "DEBUG:Checker-0:(('GT', 'AG'), ('GC', 'AG'), ('AT', 'AC'))",
+        #     "DEBUG:Checker-0:Finished for Checker-0"])
 
         self.assertIsInstance(proc.func, mp.Process)
 
         with self.assertRaises(TypeError):
-            picked = pickle.dumps(proc.func)
-
-    # def test_logger_creater(self):
+            _ = pickle.dumps(proc.func)
 
     def test_wrong_initialisation(self):
 
@@ -149,6 +147,7 @@ class MiscTest(unittest.TestCase):
         # just test it does not raise
         _ = checking.CheckingProcess(**_kwds)
 
+    @mark.slow
     def test_example_model(self):
 
         fasta = pyfaidx.Fasta(self.fasta_temp.name)

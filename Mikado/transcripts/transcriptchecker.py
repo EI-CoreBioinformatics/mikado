@@ -98,6 +98,7 @@ class TranscriptChecker(Transcript):
             self.__fasta_seq = pyfaidx.Sequence(name=self.id, seq=str(fasta_seq))
         elif isinstance(fasta_seq, str):
             self.__fasta_seq = pyfaidx.Sequence(name=self.id, seq=str(fasta_seq))
+            assert len(self.__fasta_seq) == len(str(fasta_seq))
         elif isinstance(fasta_seq, pyfaidx.Sequence):
             self.__fasta_seq = fasta_seq
         else:

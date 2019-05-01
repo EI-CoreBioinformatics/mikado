@@ -12,6 +12,7 @@ import argparse
 import os
 from .. import parsers
 import csv
+from pytest import mark
 
 
 class AssignerTest(unittest.TestCase):
@@ -1081,6 +1082,7 @@ class AssignerTest(unittest.TestCase):
                          [((350, 500), 4850), ((10, 200), 5150)]
                          )
 
+    @mark.slow
     def test_false_fusion(self):
 
         """

@@ -25,9 +25,9 @@ import inspect
 from ..parsers.bed12 import BED12
 import tempfile
 import gzip
-import pyfaidx
+# import pyfaidx
+import pysam
 from itertools import combinations_with_replacement
-# from scales.contrast import compare as c_compare
 
 
 class OverlapTester(unittest.TestCase):
@@ -187,16 +187,16 @@ class LocusTester(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
 
-        cls.__genomefile__ = tempfile.NamedTemporaryFile(mode="wb", delete=False, suffix=".fa.gz", prefix="prepare")
+        # cls.__genomefile__ = tempfile.NamedTemporaryFile(mode="wb", delete=False, suffix=".fa.gz", prefix="prepare")
+        #
+        # cls.__genomefile__.write(pkg_resources.resource_stream("Mikado.tests", "chr5.fas.gz").read())
+        # cls.__genomefile__.flush()
+        cls.fai = pysam.FastaFile(pkg_resources.resource_filename("Mikado.tests", "chr5.fas.gz"))
 
-        cls.__genomefile__.write(pkg_resources.resource_stream("Mikado.tests", "chr5.fas.gz").read())
-        cls.__genomefile__.flush()
-        cls.fai = pyfaidx.Fasta(cls.__genomefile__.name)
-
-    @classmethod
-    def tearDownClass(cls):
-        os.remove(cls.__genomefile__.name)
-        os.remove(cls.fai.faidx.indexname)
+    # @classmethod
+    # def tearDownClass(cls):
+    #     os.remove(cls.__genomefile__.name)
+    #     os.remove(cls.fai.faidx.indexname)
 
     def setUp(self):
 
@@ -1119,19 +1119,14 @@ class TestLocus(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.__genomefile__ = None
-
-        cls.__genomefile__ = tempfile.NamedTemporaryFile(mode="wb", delete=False, suffix=".fa", prefix="prepare")
-
-        with pkg_resources.resource_stream("Mikado.tests", "chr5.fas.gz") as _:
-            cls.__genomefile__.write(gzip.decompress(_.read()))
-        cls.__genomefile__.flush()
-        cls.fai = pyfaidx.Fasta(cls.__genomefile__.name)
-
-    @classmethod
-    def tearDownClass(cls):
-        os.remove(cls.__genomefile__.name)
-        os.remove(cls.fai.faidx.indexname)
+        # cls.__genomefile__ = None
+        #
+        # cls.__genomefile__ = tempfile.NamedTemporaryFile(mode="wb", delete=False, suffix=".fa", prefix="prepare")
+        #
+        # with pkg_resources.resource_stream("Mikado.tests", "chr5.fas.gz") as _:
+        #     cls.__genomefile__.write(gzip.decompress(_.read()))
+        # cls.__genomefile__.flush()
+        cls.fai = pysam.FastaFile(pkg_resources.resource_filename("Mikado.tests", "chr5.fas.gz"))
 
     def setUp(self):
 
@@ -1236,7 +1231,7 @@ class TestLocus(unittest.TestCase):
         # self.logger = logging.getLogger("tester")
         # self.handler = logging.StreamHandler()
         self.logger.setLevel(logging.WARNING)
-        self.json_conf["reference"]["genome"] = self.fai.filename
+        self.json_conf["reference"]["genome"] = self.fai.filename.decode()
         # self.logger.addHandler(self.handler)
 
     def test_validity(self):
@@ -2302,15 +2297,15 @@ class PaddingTester(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.__genomefile__ = None
-
-        cls.__genomefile__ = tempfile.NamedTemporaryFile(mode="wb", delete=False, suffix=".fa", prefix="prepare")
-
-        with pkg_resources.resource_stream("Mikado.tests", "chr5.fas.gz") as _:
-            cls.__genomefile__.write(gzip.decompress(_.read()))
-        cls.__genomefile__.flush()
-        cls.fai = pyfaidx.Fasta(cls.__genomefile__.name)
-
+        # cls.__genomefile__ = None
+        #
+        # cls.__genomefile__ = tempfile.NamedTemporaryFile(mode="wb", delete=False, suffix=".fa", prefix="prepare")
+        #
+        # with pkg_resources.resource_stream("Mikado.tests", "chr5.fas.gz") as _:
+        #     cls.__genomefile__.write(gzip.decompress(_.read()))
+        # cls.__genomefile__.flush()
+        # cls.fai = pyfaidx.Fasta(cls.__genomefile__.name)
+        cls.fai = pysam.FastaFile(pkg_resources.resource_filename("Mikado.tests", "chr5.fas.gz"))
 
     @staticmethod
     def load_from_bed(manager, resource):

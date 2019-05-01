@@ -11,11 +11,12 @@ Two of the major highlits of this release are:
   - the completion of the "padding" functionality. Briefly, if instructed to do so, now Mikado will be able to uniform the ends of transcripts within a single locus (similar to what was done for the last _Arabidopsis thaliana_ annotation release). The behaviour is controlled by the "pad" boolean switch, and by the "ts_max_splices" and "ts_distance" parameters under "pick".
   - general improvements in speed and multiprocessing, as well as flexibility, for the Mikado compare utility.
 
-With this release, we are also officially dropping support for Python 3.4.
+With this release, we are also officially dropping support for Python 3.4. Python 3.5 will not be automatically tested for as many Conda dependencies are not up-to-date, complicating the TRAVIS setup.
 
 Bugfixes and improvements:
 
 - Mikado has now been tested to be compatible with Python 3.7. Please note that if you are using Python 3.7, at the time of release, datrie [has to be installed manually](https://github.com/pytries/datrie/issues/52) **before** installing Snakemake.
+- Mikado now always uses PySam, instead of PyFaidx, to fetch chromosomal regions (e.g. during prepare and pick). This speeds up and lightens the program, as well as making tests more manageable.
 - Fixed a bug which caused some loci to crash at the last part of the picking stage
 - Made logging more sensible and informative for all three steps of the pipeline (prepare, serialise, pick)
 - For the external scores, Mikado can now accept any type of numerical or boolean value. Mikado will understand at serialisation time whether a particular score can be used raw (ie its values are strictly comprised between 0 and 1) or whether it has to be forcibly scaled.

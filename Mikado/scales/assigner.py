@@ -943,10 +943,9 @@ class Assigner:
                         row = tuple([tid, gid] + ["NA"] * 6)
                     else:
                         # Choose the best hit for the transcript
-                        if any(True if (x.j_f1[0] > 0 or x.n_f1[0] > 0) else False
-                               for x in self.gene_matches[gid][tid]):
-                            best = sorted(self.gene_matches[gid][tid],
-                                          key=self.result_sorter, reverse=True)[0]
+                        if any((x.j_f1[0] > 0 or x.n_f1[0] > 0) for x in self.gene_matches[gid][tid]):
+                                best = sorted(self.gene_matches[gid][tid],
+                                              key=self.result_sorter, reverse=True)[0]
                         else:
                             best = sorted(self.gene_matches[gid][tid],
                                           key=operator.attrgetter("distance"),

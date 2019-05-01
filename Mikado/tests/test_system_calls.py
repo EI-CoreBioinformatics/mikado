@@ -30,19 +30,21 @@ from ..parsers import to_gff
 from ..transcripts import Transcript
 import threading
 from time import sleep
+import pysam
 
 
-@mark.slow
+# @mark.slow
 class PrepareCheck(unittest.TestCase):
 
     __genomefile__ = None
 
     @classmethod
     def setUpClass(cls):
-        cls.__genomefile__ = tempfile.NamedTemporaryFile(mode="wb", delete=False, suffix=".fa.gz", prefix="prepare")
-        cls.__genomefile__.write(pkg_resources.resource_stream("Mikado.tests", "chr5.fas.gz").read())
-        cls.__genomefile__.flush()
-        cls.fai = pyfaidx.Fasta(cls.__genomefile__.name)
+        # cls.__genomefile__ = tempfile.NamedTemporaryFile(mode="wb", delete=False, suffix=".fa.gz", prefix="prepare")
+        # cls.__genomefile__.write(pkg_resources.resource_stream("Mikado.tests", "chr5.fas.gz").read())
+        # cls.__genomefile__.flush()
+        # cls.fai = pyfaidx.Fasta(cls.__genomefile__.name)
+        cls.fai = pysam.FastaFile(pkg_resources.resource_filename("Mikado.tests", "chr5.fas.gz"))
 
         cls.trinity_res = dict((_[0], _[1]) for _ in [("tr_c73_g1_i1.mrna1.160", 286),
                                                       ("tr_c11_g1_i2.mrna1.111", 844),
@@ -106,19 +108,20 @@ class PrepareCheck(unittest.TestCase):
 
         cls.maxDiff = None
 
-    @classmethod
-    def tearDownClass(cls):
-        """"""
-
-        cls.__genomefile__.close()
-        os.remove(cls.__genomefile__.name)
-        if os.path.exists("{}.fai".format(cls.__genomefile__.name)):
-            os.remove("{}.fai".format(cls.__genomefile__.name))
+    # @classmethod
+    # def tearDownClass(cls):
+    #     """"""
+    #
+    #     cls.__genomefile__.close()
+    #     os.remove(cls.__genomefile__.name)
+    #     if os.path.exists("{}.fai".format(cls.__genomefile__.name)):
+    #         os.remove("{}.fai".format(cls.__genomefile__.name))
 
     def setUp(self):
 
         self.conf = configurator.to_json(None)
-        self.conf["reference"]["genome"] = self.__genomefile__.name
+        self.conf["reference"]["genome"] = self.fai.filename.decode()
+        assert isinstance(self.conf["reference"]["genome"], str)
         self.logger = create_null_logger("prepare")
         self.conf["prepare"]["keep_redundant"] = True
 
@@ -497,6 +500,7 @@ class PrepareCheck(unittest.TestCase):
         self.assertEqual(cds[0].phase, 2)
         fa.close()
 
+    @mark.slow
     def test_source_selection(self):
 
         # Chr5	TAIR10	mRNA	208937	210445	.	+	.	gene_id "AT5G01530"; transcript_id "AT5G01530.0";
@@ -510,7 +514,7 @@ class PrepareCheck(unittest.TestCase):
         self.conf["prepare"]["strip_cds"] = False
         self.conf["prepare"]["keep_redundant"] = False
 
-        self.conf["reference"]["genome"] = self.__genomefile__.name
+        self.conf["reference"]["genome"] = self.fai.filename.decode()
 
         t = Transcript()
         t.chrom, t.start, t.end, t.strand = "Chr5", 208937, 210445, "+"
@@ -562,6 +566,7 @@ class PrepareCheck(unittest.TestCase):
                     key = list(fa.keys())[0]
                     self.assertEqual(key, res, round)
 
+    @mark.slow
     def test_reference_selection(self):
 
         dir = tempfile.TemporaryDirectory()
@@ -571,7 +576,7 @@ class PrepareCheck(unittest.TestCase):
         self.conf["prepare"]["strip_cds"] = False
         self.conf["prepare"]["keep_redundant"] = False
 
-        self.conf["reference"]["genome"] = self.__genomefile__.name
+        self.conf["reference"]["genome"] = self.fai.filename.decode()
 
         t = Transcript()
         # This is *key*. Transcript T1 should never be selected, unless we are having a "lenient" analysis.
@@ -651,6 +656,7 @@ class PrepareCheck(unittest.TestCase):
                                          (round, self.conf["prepare"]["files"]["reference"],
                                           set(strand), corr_strand))
 
+    @mark.slow
     def test_reference_cds_kept(self):
 
         t = Transcript()
@@ -677,7 +683,7 @@ class PrepareCheck(unittest.TestCase):
         self.conf["prepare"]["strip_cds"] = True
         self.conf["prepare"]["keep_redundant"] = False
 
-        self.conf["reference"]["genome"] = self.__genomefile__.name
+        self.conf["reference"]["genome"] = self.fai.filename.decode()
 
         rounds = {
             # Standard cases. I expect the transcripts to be reversed, and one to be picked
@@ -744,7 +750,7 @@ class PrepareCheck(unittest.TestCase):
                         self.assertEqual(coding, with_cds)
 
 
-@mark.slow
+# @mark.slow
 class CompareCheck(unittest.TestCase):
 
     """Test to check that compare interacts correctly with match, match_part, cDNA_match"""
@@ -791,7 +797,7 @@ class CompareCheck(unittest.TestCase):
                 os.remove("{}.midx".format(namespace.reference.name))
                 namespace.reference.close()
 
-    @mark.skipif()
+    @mark.slow
     def test_compare_trinity(self):
 
         # Create the list of files
@@ -827,7 +833,8 @@ class CompareCheck(unittest.TestCase):
                 with open(namespace.log) as log_handle:
                     log = [_.rstrip() for _ in log_handle]
                 for fname in [refmap, stats, tmap]:
-                    self.assertTrue(os.path.exists(fname), (fname, ref, pred, "\n".join(log)))
+                    self.assertTrue(os.path.exists(fname),
+                                    (fname, ref, pred, glob.glob(namespace.out + "*"), "\n".join(log)))
                     self.assertGreater(os.stat(fname).st_size, 0, (fname, ref, pred, "\n".join(log)))
 
                 with open(refmap) as _:
@@ -848,6 +855,7 @@ class StatCheck(unittest.TestCase):
     """This unit test takes care of verifying that statistics are generated correctly when
     considering four different inputs. Output will be checked against a standard file."""
 
+    @mark.skip
     def test_stat(self):
 
         files = ["trinity.gtf",
@@ -889,19 +897,19 @@ class ConfigureCheck(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.__genomefile__ = tempfile.NamedTemporaryFile(mode="wb", delete=False, suffix=".fa.gz",
-                                                         prefix="configure")
-        cls.__genomefile__.write(pkg_resources.resource_stream("Mikado.tests", "chr5.fas.gz").read())
-        cls.__genomefile__.flush()
-        cls.fai = pyfaidx.Fasta(cls.__genomefile__.name)
-        cls.__genomefile__.flush()
+        # cls.__genomefile__ = tempfile.NamedTemporaryFile(mode="wb", delete=False, suffix=".fa.gz",
+        #                                                  prefix="configure")
+        # cls.__genomefile__.write(pkg_resources.resource_stream("Mikado.tests", "chr5.fas.gz").read())
+        # cls.__genomefile__.flush()
+        cls.fai = pysam.FastaFile(pkg_resources.resource_filename("Mikado.tests", "chr5.fas.gz"))
+        # cls.__genomefile__.flush()
 
-    @classmethod
-    def tearDownClass(cls):
-        """"""
-
-        cls.__genomefile__.close()
-        os.remove(cls.__genomefile__.name)
+    # @classmethod
+    # def tearDownClass(cls):
+    #     """"""
+    #
+    #     cls.__genomefile__.close()
+    #     os.remove(cls.__genomefile__.name)
 
     def test_mikado_config(self):
         namespace = Namespace(default=False)
@@ -1022,7 +1030,7 @@ class ConfigureCheck(unittest.TestCase):
         namespace.flank = None
         namespace.intron_range = None
         namespace.prot_db = []
-        namespace.genome = self.__genomefile__.name
+        namespace.genome = self.fai.filename.decode()
         namespace.transcriptome = ""
         namespace.name = "Daijin"
         namespace.threads = 1
@@ -1048,7 +1056,7 @@ class ConfigureCheck(unittest.TestCase):
                 dir.cleanup()
 
 
-@mark.slow
+# @mark.slow
 class PickTest(unittest.TestCase):
 
     """This unit test will check that pick functions correctly."""
@@ -1056,21 +1064,11 @@ class PickTest(unittest.TestCase):
     def setUp(self):
         
         self.json_conf = configurator.to_json(None)
-        self.json_conf["reference"]["genome"] = self.fai.filename
+        self.json_conf["reference"]["genome"] = self.fai.filename.decode()
 
     @classmethod
     def setUpClass(cls):
-        cls.__genomefile__ = None
-
-        cls.__genomefile__ = tempfile.NamedTemporaryFile(mode="wb", delete=False, suffix=".fa.gz", prefix="pick")
-        cls.__genomefile__.write(pkg_resources.resource_stream("Mikado.tests", "chr5.fas.gz").read())
-        cls.__genomefile__.flush()
-        cls.fai = pyfaidx.Fasta(cls.__genomefile__.name)
-
-    @classmethod
-    def tearDownClass(cls):
-        os.remove(cls.__genomefile__.name)
-        os.remove(cls.fai.faidx.indexname)
+        cls.fai = pysam.FastaFile(pkg_resources.resource_filename("Mikado.tests", "chr5.fas.gz"))
 
     def tearDown(self):
         all_child_threads = [thread for thread in threading.enumerate() if thread != threading.main_thread()]
@@ -1139,6 +1137,7 @@ class PickTest(unittest.TestCase):
 
         dir.cleanup()
 
+    @mark.slow
     def test_subprocess(self):
                 
         self.json_conf["pick"]["files"]["input"] = pkg_resources.resource_filename("Mikado.tests",
@@ -1184,7 +1183,7 @@ class PickTest(unittest.TestCase):
 
         dir.cleanup()
 
-    # @unittest.skip
+    @mark.slow
     def test_different_scoring(self):
 
         self.json_conf["pick"]["files"]["input"] = pkg_resources.resource_filename("Mikado.tests",
@@ -1223,6 +1222,7 @@ class PickTest(unittest.TestCase):
             self.assertEqual(sorted(score_names), sorted(score_header))
         dir.cleanup()
 
+    @mark.slow
     def test_different_scoring_2(self):
 
         self.json_conf["pick"]["files"]["input"] = pkg_resources.resource_filename("Mikado.tests",
@@ -1485,20 +1485,11 @@ class SerialiseChecker(unittest.TestCase):
 
     def setUp(self):
         self.json_conf = configurator.to_json(None)
-        self.json_conf["reference"]["genome"] = self.fai.filename
+        self.json_conf["reference"]["genome"] = self.fai.filename.decode()
 
     @classmethod
     def setUpClass(cls):
-        cls.__genomefile__ = tempfile.NamedTemporaryFile(mode="wb", delete=False, suffix=".fa.gz", prefix="prepare")
-
-        cls.__genomefile__.write(pkg_resources.resource_stream("Mikado.tests", "chr5.fas.gz").read())
-        cls.__genomefile__.flush()
-        cls.fai = pyfaidx.Fasta(cls.__genomefile__.name)
-
-    @classmethod
-    def tearDownClass(cls):
-        os.remove(cls.__genomefile__.name)
-        os.remove(cls.fai.faidx.indexname)
+        cls.fai = pysam.FastaFile(pkg_resources.resource_filename("Mikado.tests", "chr5.fas.gz"))
 
     #@unittest.skip
     def test_subprocess_multi(self):
@@ -1549,6 +1540,7 @@ class SerialiseChecker(unittest.TestCase):
 
 class StatsTest(unittest.TestCase):
 
+    @mark.skip
     def test_annotation_stats(self):
 
         annotation_file = pkg_resources.resource_filename("Mikado.tests", "annotation.gff3")

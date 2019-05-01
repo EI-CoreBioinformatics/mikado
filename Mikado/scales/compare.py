@@ -98,14 +98,15 @@ def setup_logger(args, manager):
     return args, handler, logger, log_queue_listener, queue_logger
 
 
-def finalize_reference(genes, positions, queue_logger, args) \
+def finalize_reference(genes, positions, queue_logger, exclude_utr=False, protein_coding=False) \
         -> (dict, collections.defaultdict):
 
     """
 :param genes:
 :param positions:
 :param queue_logger:
-:param args:
+:param exclude_utr:
+:param protein_coding:
 :return:
 """
 
@@ -113,11 +114,11 @@ def finalize_reference(genes, positions, queue_logger, args) \
     genes_to_remove = set()
     for gid in genes:
         genes[gid].logger = queue_logger
-        genes[gid].finalize(exclude_utr=args.exclude_utr)
+        genes[gid].finalize(exclude_utr=exclude_utr)
         if len(genes[gid]) == 0:
             genes_to_remove.add(gid)
             continue
-        if args.protein_coding is True:
+        if protein_coding is True:
             to_remove = []
             for tid in genes[gid].transcripts:
                 if genes[gid].transcripts[tid].combined_cds_length == 0:
@@ -144,26 +145,29 @@ def finalize_reference(genes, positions, queue_logger, args) \
     return genes, positions
 
 
-def prepare_reference(args, queue_logger, ref_gff=False) -> (dict, collections.defaultdict):
+def prepare_reference(reference, queue_logger, ref_gff=False,
+                      exclude_utr=False, protein_coding=False) -> (dict, collections.defaultdict):
 
     """
     Method to prepare the data structures that hold the reference
     information for the parsing.
-    :param args:
+    :param reference:
     :param queue_logger:
     :param ref_gff:
     :return: genes, positions
+    :param exclude_utr:
+    :param protein_coding:
     """
 
     genes = dict()
     positions = collections.defaultdict(dict)
     transcript2gene = dict()
 
-    for row in args.reference:
+    for row in reference:
         # Assume we are going to use GTF for the moment
         if row.header is True:
             continue
-        elif args.reference.__annot_type__ == Bed12Parser.__annot_type__:
+        elif reference.__annot_type__ == Bed12Parser.__annot_type__:
             transcript = Transcript(row, logger=queue_logger, trust_orf=True, accept_undefined_multi=True)
             transcript.parent = gid = row.id
             transcript2gene[row.id] = gid
@@ -218,7 +222,8 @@ def prepare_reference(args, queue_logger, ref_gff=False) -> (dict, collections.d
                         genes[row.gene].add(transcript)
                     genes[row.gene][row.transcript].add_exon(row)
 
-    genes, positions = finalize_reference(genes, positions, queue_logger, args)
+    genes, positions = finalize_reference(genes, positions, queue_logger, exclude_utr=exclude_utr,
+                                          protein_coding=protein_coding)
 
     if len(genes) == 0:
         raise KeyError("No genes remained for the reference!")
@@ -638,7 +643,8 @@ def load_index(args, queue_logger):
     return genes, positions
 
 
-def create_index(args, queue_logger, index_name, ref_gff=False):
+def create_index(reference, queue_logger, index_name, ref_gff=False,
+                 exclude_utr=False, protein_coding=False):
 
     """Method to create the simple indexed database for features."""
 
@@ -651,7 +657,8 @@ def create_index(args, queue_logger, index_name, ref_gff=False):
     cursor = conn.cursor()
     cursor.execute("CREATE TABLE positions (chrom text, start integer, end integer, gid text)")
     cursor.execute("CREATE INDEX pos_idx ON positions (chrom, start, end)")
-    genes, positions = prepare_reference(args, queue_logger, ref_gff=ref_gff)
+    genes, positions = prepare_reference(reference, queue_logger, ref_gff=ref_gff,
+                                         exclude_utr=exclude_utr, protein_coding=protein_coding)
 
     for chrom in positions:
         for key in positions[chrom]:
@@ -713,7 +720,8 @@ def compare(args):
             os.remove("{0}.midx".format(args.reference.name))
         args.protein_coding = False
         args.exclude_utr = False
-        create_index(args, queue_logger, index_name, ref_gff=ref_gff)
+        create_index(args.reference, queue_logger, index_name, ref_gff=ref_gff,
+                     protein_coding=args.protein_coding, exclude_utr=args.exclude_utr)
         queue_logger.info("Finished to create an index for %s", args.reference.name)
     else:
         if os.path.dirname(args.out) and os.path.dirname(args.out) != os.path.dirname(os.path.abspath(".")):
@@ -725,7 +733,8 @@ def compare(args):
         if (os.path.exists(index_name) and os.stat(args.reference.name).st_mtime >= os.stat(index_name).st_mtime):
             queue_logger.warning("Reference index obsolete, deleting and rebuilding.")
             os.remove("{0}.midx".format(args.reference.name))
-            create_index(args, queue_logger, index_name, ref_gff=ref_gff)
+            create_index(args.reference, queue_logger, index_name, ref_gff=ref_gff,
+                         protein_coding=args.protein_coding, exclude_utr=args.exclude_utr)
         elif os.path.exists(index_name):
             # queue_logger.info("Starting loading the indexed reference")
             queue_logger.info("Index found")
@@ -736,12 +745,14 @@ def compare(args):
                 queue_logger.warning(exc)
                 queue_logger.warning("Reference index corrupt, deleting and rebuilding.")
                 os.remove("{0}.midx".format(args.reference.name))
-                create_index(args, queue_logger, index_name, ref_gff=ref_gff)
+                create_index(args.reference, queue_logger, index_name, ref_gff=ref_gff,
+                             protein_coding=args.protein_coding, exclude_utr=args.exclude_utr)
         else:
             if args.no_save_index is True:
                 __index = tempfile.NamedTemporaryFile(suffix=".midx")
                 index_name = __index.name
-            create_index(args, queue_logger, index_name, ref_gff=ref_gff)
+            create_index(args.reference, queue_logger, index_name, ref_gff=ref_gff,
+                         protein_coding=args.protein_coding, exclude_utr=args.exclude_utr)
         try:
             if hasattr(args, "internal") and args.internal is True:
                 raise NotImplementedError()

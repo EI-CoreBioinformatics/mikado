@@ -17,6 +17,45 @@ class ResultStorer:
                  "distance",
                  "location"]
 
+    @staticmethod
+    def to_float_tuple(tup):
+        if isinstance(tup, (tuple, list)):
+            return tuple([float(_) for _ in tup])
+        elif isinstance(tup, (str, float, int, bytes)):
+            return tuple([float(tup)])
+        else:
+            raise TypeError(type(tup))
+
+    @staticmethod
+    def to_int_tuple(tup):
+        if isinstance(tup, (tuple, list)):
+            return tuple([int(_) for _ in tup])
+        elif isinstance(tup, (str, float, int, bytes)):
+            return tuple([int(tup)])
+        else:
+            raise TypeError(type(tup))
+
+    @staticmethod
+    def to_tuple(tup):
+        if isinstance(tup, (tuple, list)):
+            return tuple([_ for _ in tup])
+        elif isinstance(tup, (str, float, int)):
+            return tuple([str(tup)])
+        elif isinstance(tup, bytes):
+            return tuple([tup.decode()])
+        else:
+            raise TypeError(type(tup))
+
+    @property
+    def types(self):
+        return [self.to_tuple, self.to_tuple, self.to_tuple,
+                str, str, int, int,
+                self.to_float_tuple, self.to_float_tuple, self.to_float_tuple,
+                self.to_float_tuple, self.to_float_tuple, self.to_float_tuple,
+                self.to_float_tuple, self.to_float_tuple, self.to_float_tuple,
+                self.to_int_tuple, str]
+
+
     def __init__(self, *args, state=None):
 
         """
@@ -42,25 +81,27 @@ class ResultStorer:
             self.distance, self.location = args
 
         for index, key in enumerate(self.__slots__):
-            if index < 3:
-                if isinstance(getattr(self, self.__slots__[index]), str):
-                    setattr(self, key, tuple([getattr(self, self.__slots__[index])]))
-            elif 6 <= index < len(self.__slots__):
-                if isinstance(getattr(self, self.__slots__[index]), (float, int)):
-                    setattr(self, key, tuple([getattr(self, self.__slots__[index])]))
-                elif isinstance(getattr(self, self.__slots__[index]), str):
-                    __val = tuple(getattr(self, self.__slots__[index]).split(","))
-                    if str.isdecimal(__val[0]) or str.isdigit(__val[0]):
-                        __val = tuple([float(_) for _ in __val])
-                    setattr(self, key, __val)
-                elif not isinstance(getattr(self, self.__slots__[index]), tuple):
-                    setattr(self, self.__slots__[index],
-                            tuple([getattr(self, self.__slots__[index])]))
+            setattr(self, key, self.types[index](getattr(self, self.__slots__[index])))
+            #
+            # if index < 3:
+            #     if isinstance(getattr(self, self.__slots__[index]), str):
+            #         setattr(self, key, tuple([getattr(self, self.__slots__[index])]))
+            # elif 6 <= index < len(self.__slots__):
+            #     if isinstance(getattr(self, self.__slots__[index]), (float, int)):
+            #         setattr(self, key, tuple([]))
+            #     elif isinstance(getattr(self, self.__slots__[index]), str):
+            #         __val = tuple(getattr(self, self.__slots__[index]).split(","))
+            #         if str.isdecimal(__val[0]) or str.isdigit(__val[0]):
+            #             __val = tuple([float(_) for _ in __val])
+            #         setattr(self, key, __val)
+            #     elif not isinstance(getattr(self, self.__slots__[index]), tuple):
+            #         setattr(self, self.__slots__[index],
+            #                 tuple([getattr(self, self.__slots__[index])]))
 
     def _load_dict(self, state):
 
-        for key in self.__slots__:
-            setattr(self, key, state[key])
+        for index, key in enumerate(self.__slots__):
+            setattr(self, key, self.types[index](state[key]))
         return
                     
     def _asdict(self):

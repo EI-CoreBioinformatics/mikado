@@ -542,15 +542,15 @@ def parse_self(args, genes, queue_logger):
     queue_logger.info("Finished.")
 
 
-def check_index(args, queue_logger):
+def check_index(reference, queue_logger):
     wizard = magic.Magic(mime=True)
 
-    if wizard.from_file("{0}.midx".format(args.reference.name)) == b"application/gzip":
+    if wizard.from_file("{0}.midx".format(reference)) == b"application/gzip":
         queue_logger.warning("Old index format detected. Starting to generate a new one.")
         raise CorruptIndex("Invalid index file")
 
     try:
-        conn = sqlite3.connect("{0}.midx".format(args.reference.name))
+        conn = sqlite3.connect("{0}.midx".format(reference))
         cursor = conn.cursor()
         tables = cursor.execute("SELECT name FROM sqlite_master WHERE type='table';").fetchall()
         if sorted(tables) != sorted([("positions",), ("genes",)]):
@@ -739,7 +739,7 @@ def compare(args):
             # queue_logger.info("Starting loading the indexed reference")
             queue_logger.info("Index found")
             try:
-                check_index(args, queue_logger)
+                check_index(args.reference.name, queue_logger)
                 queue_logger.info("Index valid, proceeding.")
             except CorruptIndex as exc:
                 queue_logger.warning(exc)

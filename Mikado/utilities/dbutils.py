@@ -105,12 +105,16 @@ def create_connector(json_conf, logger=None):
 @event.listens_for(Engine, "connect")
 def set_sqlite_pragma(dbapi_connection, connection_record):
     cursor = dbapi_connection.cursor()
-    cursor.execute("PRAGMA foreign_keys=ON")
-    cursor.execute("PRAGMA synchronous=OFF")
-    cursor.execute("PRAGMA temp_store=MEMORY")
-    cursor.execute("PRAGMA journal_mode=MEMORY")
-    cursor.execute("PRAGMA count_changes=OFF")
-    cursor.close()
+    try:
+        cursor.execute("PRAGMA foreign_keys=ON")
+        cursor.execute("PRAGMA synchronous=OFF")
+        cursor.execute("PRAGMA temp_store=MEMORY")
+        cursor.execute("PRAGMA journal_mode=MEMORY")
+        cursor.execute("PRAGMA count_changes=OFF")
+    except sqlite3.OperationalError:
+        pass
+    finally:
+        cursor.close()
 
 
 def connect(json_conf, logger=None):

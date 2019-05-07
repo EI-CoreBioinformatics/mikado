@@ -326,6 +326,17 @@ CTCGGCAGATAG"""
                 self.assertEqual(r.thick_end, end)
                 self.assertFalse(r.invalid)
 
+    def test_touching_exons(self):
+
+        bed12line = ["chr1", 172601, 175626, "ID=foo.1", 100, "-", 172601, 175626, "0,0,0", 3, "199,1281,861,",
+                     "0,199,2164"]
+        bed = BED12(bed12line, transcriptomic=False)
+        self.assertFalse(bed.invalid, bed.invalid_reason)
+        t = Transcript(bed)
+        t.finalize()
+        self.assertEqual(t.exon_num, 2)  # The touching exons should have been merged
+        self.assertEqual(t.exons, [(172602, 174081), (174766, 175626)], t.exons)
+
 
 if __name__ == "__main__":
     unittest.main()

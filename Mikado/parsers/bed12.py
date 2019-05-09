@@ -446,7 +446,7 @@ class BED12:
         assert len(orf_sequence) == (self.thick_end - self.thick_start + 1)
         # Let's check UPstream first.
         # This means that we DO NOT have a starting Met and yet we are starting far upstream.
-        if (self.strand == "+" and self.thick_start > 2) or (self.strand == "-" and self.end - self.thick_end > 2):
+        if (self.strand == "+" and self.thick_start > 3) or (self.strand == "-" and self.end - self.thick_end > 3):
             for pos in range(self.thick_start, 3, -3):
                 if self.strand == "+":
                     self.thick_start -= 3

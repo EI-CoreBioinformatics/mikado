@@ -195,7 +195,7 @@ class Assigner:
 
     def _load_positions(self):
 
-        for row in self.cursor.execute("SELECT * from positions"):
+        for row in self.genes.positions:
             chrom, start, end, gid = row
             key = (start, end)
             if key not in self.positions[chrom]:

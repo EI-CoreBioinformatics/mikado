@@ -328,7 +328,10 @@ def as_bed12(transcript, transcriptomic=False):
         bed12.block_starts.append(
             bed12.block_starts[pos] + bed12.block_sizes[pos] + intron[1] - intron[0] + 1)
     if transcriptomic:
-        bed12 = bed12.to_transcriptomic(alias=transcript.alias, start_adjustment=False)
+        bed12 = bed12.to_transcriptomic(alias=transcript.alias, start_adjustment=False,
+                                        coding=transcript.is_coding)
+
+
         bed12.chrom = transcript.id
     return bed12
 

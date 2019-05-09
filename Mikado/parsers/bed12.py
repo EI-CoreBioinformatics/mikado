@@ -419,7 +419,9 @@ class BED12:
 
                 self.has_start_codon = False
                 if self.start_adjustment is True:
-                    self._adjust_start(orf_sequence)
+                    if self.strand == "-":
+                        sequence = sequence.reverse_complement()
+                    self._adjust_start(sequence, orf_sequence)
 
             if self.stop_codon in self.table.stop_codons:
                 self.has_stop_codon = True
@@ -439,36 +441,61 @@ class BED12:
             if self.invalid is True:
                 return
 
-    def _adjust_start(self, orf_sequence):
+    def _adjust_start(self, sequence, orf_sequence):
 
         assert len(orf_sequence) == (self.thick_end - self.thick_start + 1)
-        for pos in range(3,
-                         int(len(orf_sequence) * self.max_regression),
-                         3):
-            if orf_sequence[pos:pos + 3] in self.table.start_codons:
-                # Now we have to shift the start accordingly
-                self.has_start_codon = True
+        # Let's check UPstream first.
+        # This means that we DO NOT have a starting Met and yet we are starting far upstream.
+        if (self.strand == "+" and self.thick_start > 2) or (self.strand == "-" and self.end - self.thick_end > 2):
+            for pos in range(self.thick_start, 3, -3):
                 if self.strand == "+":
-                    self.thick_start += pos
+                    self.thick_start -= 3
                 else:
-                    # TODO: check that this is right and we do not have to do some other thing
-                    self.thick_end -= pos
-                break
-            else:
+                    self.thick_end += 3
+                if sequence[pos -3:pos] in self.table.start_codons:
+                    # We have found a valid methionine.
+                    break
+                elif sequence[pos -3:pos] in self.table.stop_codons:
+                    if self.strand == "+":
+                        self.thick_start += 3
+                    else:
+                        self.thick_end -= 3
+                    break
                 continue
-
+        else:
+            for pos in range(3,
+                             int(len(orf_sequence) * self.max_regression),
+                             3):
+                if orf_sequence[pos:pos + 3] in self.table.start_codons:
+                    # Now we have to shift the start accordingly
+                    self.has_start_codon = True
+                    if self.strand == "+":
+                        self.thick_start += pos
+                    else:
+                        # TODO: check that this is right and we do not have to do some other thing
+                        self.thick_end -= pos
+                    break
+                else:
+                    continue
         if self.has_start_codon is False:
             # The validity will be automatically checked
             if self.strand == "+":
-                new_phase = max(self.thick_start - self.start, 0)
-                self.phase = new_phase
-                self.thick_start = self.start
+                if self.thick_start - self.start <= 2:
+                    new_phase = max(self.thick_start - self.start, 0)
+                    self.phase = new_phase
+                    self.thick_start = self.start
+                else:
+                    self.phase = 0
             else:
                 if self.end - self.thick_end <= 2:
                     self.phase = self.end - self.thick_end
                     self.thick_end = self.end
                 else:
                     self.phase = 0
+        else:
+            self.phase = 0
+
+
         if self.invalid:
             raise ValueError(self.invalid_reason)
 
@@ -842,13 +869,15 @@ class BED12:
 
         return _blocks
 
-    def to_transcriptomic(self, sequence=None, fasta_index=None, start_adjustment=False, lenient=False, alias=None):
+    def to_transcriptomic(self, sequence=None, fasta_index=None, start_adjustment=False,
+                          lenient=False, alias=None, coding=True):
 
         """This method will return a transcriptomic version of the BED12. If the object is already transcriptomic,
         it will return itself."""
 
         if self.transcriptomic is True:
             return self
+        self.coding = coding
 
         # First six fields of a BED object
 

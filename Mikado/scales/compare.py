@@ -28,6 +28,7 @@ import magic
 import sqlite3
 import multiprocessing as mp
 import tempfile
+from .gene_dict import check_index
 from ..exceptions import InvalidTranscript
 import json
 import gzip
@@ -540,42 +541,6 @@ def parse_self(args, genes, queue_logger):
             tmap_rower.writerow(result.as_dict())
 
     queue_logger.info("Finished.")
-
-
-def check_index(reference, queue_logger):
-    wizard = magic.Magic(mime=True)
-
-    if wizard.from_file("{0}.midx".format(reference)) == b"application/gzip":
-        queue_logger.warning("Old index format detected. Starting to generate a new one.")
-        raise CorruptIndex("Invalid index file")
-
-    try:
-        conn = sqlite3.connect("{0}.midx".format(reference))
-        cursor = conn.cursor()
-        tables = cursor.execute("SELECT name FROM sqlite_master WHERE type='table';").fetchall()
-        if sorted(tables) != sorted([("positions",), ("genes",)]):
-            raise CorruptIndex("Invalid database file")
-        # res = cursor.execute("PRAGMA integrity_check;").fetchone()
-        # if res[0] != "ok":
-        #     raise CorruptIndex("Corrupt database, integrity value: {}".format(res[0]))
-        gid, obj = cursor.execute("SELECT * from genes").fetchone()
-        try:
-            obj = msgpack.loads(obj, raw=False)
-        except TypeError:
-            try:
-                obj = json.loads(obj)
-            except (ValueError, TypeError, json.decoder.JSONDecodeError):
-                raise CorruptIndex("Corrupt index")
-            raise CorruptIndex("Old index, deleting and rebuilding")
-
-        gene = Gene(None)
-        try:
-            gene.load_dict(obj)
-        except:
-            raise CorruptIndex("Invalid value for genes, indicating a corrupt index. Deleting and rebuilding.")
-
-    except sqlite3.DatabaseError:
-        raise CorruptIndex("Invalid database file")
 
 
 def load_index(args, queue_logger):

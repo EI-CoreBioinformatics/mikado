@@ -12,7 +12,7 @@ import pkg_resources
 import pyfaidx
 import yaml
 from pytest import mark
-from .. import daijin, configuration
+from .. import configuration
 from ..subprograms import configure as sub_configure
 from ..configuration import configurator, daijin_configurator
 from ..picking import picker
@@ -850,45 +850,6 @@ class CompareCheck(unittest.TestCase):
                 dir.cleanup()
 
 
-class StatCheck(unittest.TestCase):
-
-    """This unit test takes care of verifying that statistics are generated correctly when
-    considering four different inputs. Output will be checked against a standard file."""
-
-    @mark.skip
-    def test_stat(self):
-
-        files = ["trinity.gtf",
-                 "trinity.gff3",
-                 "trinity.cDNA_match.gff3",
-                 "trinity.match_matchpart.gff3",
-                 "trinity.bed12"]
-        files = [pkg_resources.resource_filename("Mikado.tests", filename) for filename in files]
-
-        std_lines = []
-        with pkg_resources.resource_stream("Mikado.tests", "trinity_stats.txt") as t_stats:
-            for line in t_stats:
-                std_lines.append(line.decode().rstrip())
-
-        namespace = Namespace(default=False)
-        namespace.tab_stats = None
-        for filename in files:
-            with self.subTest(filename=filename):
-                namespace.gff = to_gff(filename)
-                dir = tempfile.TemporaryDirectory()
-                with open(os.path.join(dir.name,
-                                       "{}.txt".format(os.path.basename(filename))), "w") as out:
-                    namespace.out = out
-                    Calculator(namespace)()
-                self.assertGreater(os.stat(out.name).st_size, 0)
-                with open(out.name) as out_handle:
-                    lines = [_.rstrip() for _ in out_handle]
-                self.assertEqual(std_lines, lines)
-                os.remove(out.name)
-                namespace.gff.close()
-                dir.cleanup()
-
-
 class ConfigureCheck(unittest.TestCase):
 
     """Test for creating configuration files"""
@@ -1186,6 +1147,8 @@ class PickTest(unittest.TestCase):
     @mark.slow
     def test_different_scoring(self):
 
+        dir = tempfile.TemporaryDirectory()
+        self.json_conf["pick"]["files"]["output_dir"] = os.path.abspath(dir.name)
         self.json_conf["pick"]["files"]["input"] = pkg_resources.resource_filename("Mikado.tests",
                                                                                    "mikado_prepared.gtf")
 
@@ -1198,17 +1161,13 @@ class PickTest(unittest.TestCase):
 
         self.assertEqual(os.path.basename(self.json_conf["pick"]["scoring_file"]),
                          "plants.yaml")
-
-        dir = tempfile.TemporaryDirectory()
         shutil.copy(pkg_resources.resource_filename("Mikado.tests", "mikado.db"),
-                    os.path.join(dir.name, "mikado.db"))
-        self.json_conf["db_settings"]["db"] = os.path.join(dir.name, "mikado.db")
-
-        self.json_conf["pick"]["files"]["output_dir"] = os.path.join(dir.name)
-        json_file = os.path.join(dir.name, "mikado.yaml")
+                    os.path.join(self.json_conf["pick"]["files"]["output_dir"], "mikado.db"))
+        self.json_conf["db_settings"]["db"] = os.path.join(self.json_conf["pick"]["files"]["output_dir"],
+                                                           "mikado.db")
+        json_file = os.path.join(self.json_conf["pick"]["files"]["output_dir"], "mikado.yaml")
         with open(json_file, "wt") as json_handle:
-            sub_configure.print_config(yaml.dump(self.json_conf, default_flow_style=False),
-                                                      json_handle)
+            sub_configure.print_config(yaml.dump(self.json_conf, default_flow_style=False), json_handle)
         sys.argv = ["mikado", "pick", "--json-conf", json_file, "--single"]
         with self.assertRaises(SystemExit):
             pkg_resources.load_entry_point("Mikado", "console_scripts", "mikado")()
@@ -1327,7 +1286,9 @@ class PickTest(unittest.TestCase):
         for purging in (False, True):
             with self.subTest(purging=purging):
                 self.json_conf["pick"]["files"]["loci_out"] = "mikado.purging_{}.loci.gff3".format(purging)
-                self.json_conf["pick"]["files"]["log"] = "mikado.purging_{}.log".format(purging)
+                self.json_conf["pick"]["files"]["log"] = os.path.join(
+                    dir.name,
+                    "mikado.purging_{}.log".format(purging))
                 self.json_conf["pick"]["clustering"]["purge"] = purging
                 self.json_conf["pick"]["scoring_file"] = scoring_file.name
                 self.json_conf = configurator.check_json(self.json_conf)
@@ -1491,7 +1452,6 @@ class SerialiseChecker(unittest.TestCase):
     def setUpClass(cls):
         cls.fai = pysam.FastaFile(pkg_resources.resource_filename("Mikado.tests", "chr5.fas.gz"))
 
-    #@unittest.skip
     def test_subprocess_multi(self):
 
         xml = pkg_resources.resource_filename("Mikado.tests", "chunk-001-proteins.xml.gz")
@@ -1540,7 +1500,6 @@ class SerialiseChecker(unittest.TestCase):
 
 class StatsTest(unittest.TestCase):
 
-    @mark.skip
     def test_annotation_stats(self):
 
         annotation_file = pkg_resources.resource_filename("Mikado.tests", "annotation.gff3")
@@ -1562,6 +1521,41 @@ class StatsTest(unittest.TestCase):
             out_lines = [_.strip() for _ in out_handle]
 
         self.assertEqual(check_lines, out_lines)
+
+    def test_stat(self):
+
+        """This unit test takes care of verifying that statistics are generated correctly when
+            considering four different inputs. Output will be checked against a standard file."""
+
+        files = ["trinity.gtf",
+                 "trinity.gff3",
+                 "trinity.cDNA_match.gff3",
+                 "trinity.match_matchpart.gff3",
+                 "trinity.bed12"]
+        files = [pkg_resources.resource_filename("Mikado.tests", filename) for filename in files]
+
+        std_lines = []
+        with pkg_resources.resource_stream("Mikado.tests", "trinity_stats.txt") as t_stats:
+            for line in t_stats:
+                std_lines.append(line.decode().rstrip())
+
+        namespace = Namespace(default=False)
+        namespace.tab_stats = None
+        for filename in files:
+            with self.subTest(filename=filename):
+                namespace.gff = to_gff(filename)
+                dir = tempfile.TemporaryDirectory()
+                with open(os.path.join(dir.name,
+                                       "{}.txt".format(os.path.basename(filename))), "w") as out:
+                    namespace.out = out
+                    Calculator(namespace)()
+                self.assertGreater(os.stat(out.name).st_size, 0)
+                with open(out.name) as out_handle:
+                    lines = [_.rstrip() for _ in out_handle]
+                self.assertEqual(std_lines, lines)
+                os.remove(out.name)
+                namespace.gff.close()
+                dir.cleanup()
 
 
 if __name__ == "__main__":

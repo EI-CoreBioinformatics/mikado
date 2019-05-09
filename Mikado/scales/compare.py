@@ -717,7 +717,13 @@ def compare(args):
         queue_logger.info("Starting to create an index for %s", args.reference.name)
         if os.path.exists("{0}.midx".format(args.reference.name)):
             queue_logger.warning("Removing the old index")
-            os.remove("{0}.midx".format(args.reference.name))
+            try:
+                os.remove("{0}.midx".format(args.reference.name))
+            except (OSError, PermissionError) as exc:
+                queue_logger.critical(exc)
+                queue_logger.critical(
+                    "I cannot delete the old index, due to permission errors. Please investigate and relaunch.")
+                sys.exit(1)
         args.protein_coding = False
         args.exclude_utr = False
         create_index(args.reference, queue_logger, index_name, ref_gff=ref_gff,
@@ -732,7 +738,13 @@ def compare(args):
                 os.makedirs(dirname)
         if (os.path.exists(index_name) and os.stat(args.reference.name).st_mtime >= os.stat(index_name).st_mtime):
             queue_logger.warning("Reference index obsolete, deleting and rebuilding.")
-            os.remove("{0}.midx".format(args.reference.name))
+            try:
+                os.remove("{0}.midx".format(args.reference.name))
+            except (OSError, PermissionError) as exc:
+                queue_logger.error(
+                    "I cannot delete the old index due to permission errors. I will create a temporary one instead.")
+                __index = tempfile.NamedTemporaryFile(suffix=".midx")
+                index_name = __index.name
             create_index(args.reference, queue_logger, index_name, ref_gff=ref_gff,
                          protein_coding=args.protein_coding, exclude_utr=args.exclude_utr)
         elif os.path.exists(index_name):
@@ -744,7 +756,13 @@ def compare(args):
             except CorruptIndex as exc:
                 queue_logger.warning(exc)
                 queue_logger.warning("Reference index corrupt, deleting and rebuilding.")
-                os.remove("{0}.midx".format(args.reference.name))
+                try:
+                    os.remove("{0}.midx".format(args.reference.name))
+                except (OSError, PermissionError) as exc:
+                    queue_logger.error(
+                        "I cannot delete the old index due to permission errors. I will create a temporary one instead.")
+                    __index = tempfile.NamedTemporaryFile(suffix=".midx")
+                    index_name = __index.name
                 create_index(args.reference, queue_logger, index_name, ref_gff=ref_gff,
                              protein_coding=args.protein_coding, exclude_utr=args.exclude_utr)
         else:

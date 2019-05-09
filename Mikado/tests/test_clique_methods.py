@@ -12,7 +12,7 @@ class TestCliques(unittest.TestCase):
 
     def setUp(self):
 
-        """
+        r"""
         We are going to create a graph composed of three disjoint subgraphs:
 
 

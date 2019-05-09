@@ -97,8 +97,12 @@ class _XmlPickler(multiprocessing.Process):
         """
 
         directory = os.path.dirname(filename)
-        dbname = tempfile.mktemp(suffix=".db", dir=directory)
-        conn = sqlite3.connect(dbname)
+        try:
+            dbname = tempfile.mktemp(suffix=".db", dir=directory)
+            conn = sqlite3.connect(dbname)
+        except (OSError, PermissionError, sqlite3.OperationalError):
+            dbname = tempfile.mktemp(suffix=".db")
+            conn = sqlite3.connect(dbname)
         cursor = conn.cursor()
         creation_string = "CREATE TABLE dump (query_counter integer, hits blob, hsps blob)"
         try:

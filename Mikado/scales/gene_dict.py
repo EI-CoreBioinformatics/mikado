@@ -56,8 +56,9 @@ class GeneDict:
     def load_all(self):
 
         for row in self.__cursor.execute("SELECT gid, json from genes"):
-            gid, gene = row[0], self.__load_gene(row[0])
-            yield (gid, gene)
+            gid, gene = row[0], self.__load_gene(row[1])
+            self.__cache[gid] = gene
+            # yield (gid, gene)
 
     def __iter__(self):
         self.__db.row_factory = lambda cursor, row: row[0]

@@ -323,13 +323,17 @@ memory intensive, proceed with caution!")
                 self.json_conf["pick"]["files"]["log"] == "stream"):
             self.log_handler = logging.StreamHandler()
         else:
-            self.log_handler = logging.FileHandler(
-                path_join(
-                    self.json_conf["pick"]["files"]["output_dir"],
-                    self.json_conf["pick"]["files"]["log"]), 'w')
+            if os.path.basename(self.json_conf["pick"]["files"]["log"]) == self.json_conf["pick"]["files"]["log"]:
+                fname = path_join(self.json_conf["pick"]["files"]["output_dir"],
+                                  self.json_conf["pick"]["files"]["log"])
+            else:
+                fname = self.json_conf["pick"]["files"]["log"]
+
+            self.log_handler = logging.FileHandler(filename=fname, mode='w')
+            assert os.path.exists(fname)
+
         # For the main logger I want to keep it at the "INFO" level
         self.log_level = self.json_conf["log_settings"]["log_level"]
-
         self.log_handler.setFormatter(self.formatter)
         self.logger.setLevel(self.log_level)
         self.logger.addHandler(self.log_handler)

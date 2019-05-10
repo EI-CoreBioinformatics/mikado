@@ -149,7 +149,8 @@ class Assigner:
 
         self.logger.propagate = True
         self.dbname = index
-        self.genes = GeneDict(self.dbname, self.logger)
+        self.genes = GeneDict(self.dbname, logger=self.logger,
+                              exclude_utr=self.args.exclude_utr, protein_coding=self.args.protein_coding)
         self.positions = collections.defaultdict(dict)
         self.indexer = collections.defaultdict(list)
         self._load_positions()

@@ -11,15 +11,18 @@ import logging
 
 class GeneDict:
 
-    def __init__(self, dbname: str, logger=None):
+    def __init__(self, dbname: str, logger=None, exclude_utr=False, check=True, protein_coding=False):
 
         self.__dbname = dbname
         self.__logger = create_null_logger()
         self.logger = logger
-        try:
-            check_index(dbname, self.logger)
-        except CorruptIndex:
-            raise
+        if check is True:
+            try:
+                check_index(dbname, self.logger)
+            except CorruptIndex:
+                raise
+        self.__exclude_utr = exclude_utr
+        self.__protein_coding = protein_coding
         self.__db = sqlite3.connect("file:{}?mode=ro".format(self.__dbname), uri=True)
         self.__cursor = self.__db.cursor()
         self.__cache = dict()
@@ -80,7 +83,8 @@ class GeneDict:
                 jdict = msgpack.loads(jdict, raw=False)
             except TypeError:
                 jdict = json.loads(jdict)
-        gene.load_dict(jdict)
+
+        gene.load_dict(jdict, exclude_utr=self.__exclude_utr, protein_coding=self.__protein_coding)
         gene.finalize()
         return gene
 

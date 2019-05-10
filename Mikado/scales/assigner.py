@@ -125,6 +125,7 @@ class Assigner:
         # noinspection PyUnresolvedReferences
         # pylint: disable=no-member
         self.queue_handler = log_handlers.QueueHandler(self.args.log_queue)
+
         # pylint: enable=no-member
         if counter is None:
             self.logger = logging.getLogger("Assigner")
@@ -148,12 +149,7 @@ class Assigner:
 
         self.logger.propagate = True
         self.dbname = index
-        try:
-            self.db = sqlite3.connect("file:{}?mode=ro".format(self.dbname), uri=True)
-        except sqlite3.OperationalError:
-            raise sqlite3.OperationalError(self.dbname)
-        self.cursor = self.db.cursor()
-        # self.genes = genes
+        self.genes = GeneDict(self.dbname, self.logger)
         self.positions = collections.defaultdict(dict)
         self.indexer = collections.defaultdict(list)
         self._load_positions()
@@ -177,7 +173,7 @@ class Assigner:
 
         self.gene_matches = collections.defaultdict(dict)
         self.done = 0
-        self.genes = GeneDict(self.dbname, self.logger)
+
         if self.printout_tmap is True:
             for gid in self.genes:
                 for tid in self.genes[gid].transcripts:

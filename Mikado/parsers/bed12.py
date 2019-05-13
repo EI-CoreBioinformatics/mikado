@@ -36,6 +36,8 @@ class BED12:
 
     __valid_coding = {"True": True, "False": False, True: True, False: False}
 
+    _attribute_pattern = re.compile(r"([^;]*)=([^$=]*)(?:;|$)")
+
     def __init__(self, *args: Union[str, list, tuple, GffLine],
                  fasta_index=None,
                  phase=None,
@@ -174,7 +176,7 @@ class BED12:
                 self.header = True
                 return
             self._fields = self._line.split("\t")
-            if len(self._fields) == 12:
+            if len(self._fields) in (12, 13):
                 self.__set_values_from_fields()
                 self.header = False
             else:
@@ -205,29 +207,7 @@ class BED12:
             self._fields = self._line
             self.__set_values_from_fields()
 
-        if re.search("(ID|coding|phase)", self.name):
-            groups = dict(re.findall("([^(;|=)]*)=([^;]*)", self.name))
-            _coding = groups.get("coding", None)
-            phase = phase or groups.get("phase", None)
-            if phase:
-                phase = int(phase)
-                self.coding = True
-            else:
-                if _coding is not None:
-                    self.coding = self.__valid_coding.get(_coding, False)
-                else:
-                    self.coding = coding
-                if transcriptomic is True:
-                    phase = 0
-
-            self.phase = phase
-            self.name = groups.get("ID", self.name)
-            self.alias = groups.get("alias", groups.get("Alias", None))
-
-        elif "ID=" in self.name:
-            groups = dict(re.findall("([^(;|=)]*)=([^;]*)", self.name))
-            self.name = groups["ID"]
-            self.alias = groups.get("alias", groups.get("Alias", None))
+        # self._parse_attributes(self.name)
 
         self.__check_validity(transcriptomic, fasta_index, sequence)
 
@@ -304,6 +284,35 @@ class BED12:
         self.__dict__.update(state)
         self.table = self.__table_index
 
+    def _parse_attributes(self, attributes):
+
+        """
+        Private method that parses the last field of the GFF line.
+        :return:
+        """
+
+        self.attribute_order = []
+
+        infolist = re.findall(self._attribute_pattern, attributes.rstrip().rstrip(";"))
+
+        for item in infolist:
+            key, val = item
+            if key.lower() in ("parent", "geneid"):
+                self.parent = val
+            elif "phase" in key.lower():
+                self.phase = int(val)
+                self.coding = True
+            elif key.lower() == "coding":
+                self.coding = self.__valid_coding.get(val, False)
+                if self.transcriptomic is True:
+                    self.phase = 0
+            elif key.lower() == "alias":
+                self.alias = val
+            elif key.lower() == "id":
+                self.name = val
+            else:
+                continue
+
     def __set_values_from_fields(self):
 
         """
@@ -313,7 +322,7 @@ class BED12:
         self.chrom, self.start, self.end, \
             self.name, self.score, self.strand, \
             self.thick_start, self.thick_end, self.rgb, \
-            self.block_count, block_sizes, block_starts = self._fields
+            self.block_count, block_sizes, block_starts = self._fields[:12]
 
         # Reduce memory usage
         intern(self.chrom)
@@ -331,6 +340,9 @@ class BED12:
             self.block_starts = [int(x) for x in block_starts.split(",") if x]
         else:
             self.block_starts = [int(x) for x in block_starts]
+        self._parse_attributes(self.name)
+        if len(self._fields) == 13:
+            self._parse_attributes(self._fields[-1])
         self.has_start_codon = None
         self.has_stop_codon = None
         self.start_codon = None

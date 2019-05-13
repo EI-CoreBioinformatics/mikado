@@ -2328,10 +2328,9 @@ class PaddingTester(unittest.TestCase):
     def test_negative_padding(self):
         genome = pkg_resources.resource_filename("Mikado.tests", "neg_pad.fa")
         transcripts = self.load_from_bed("Mikado.tests", "neg_pad.bed12")
-        logger = create_default_logger(inspect.getframeinfo(inspect.currentframe())[2],
-                                       level="WARNING")
-        locus = loci.Locus(transcripts['Human_coding_ENSP00000371111.2.m1'],
-                                  logger=logger)
+        logger = create_default_logger(inspect.getframeinfo(inspect.currentframe())[2], level="WARNING")
+        self.assertIn('Human_coding_ENSP00000371111.2.m1', transcripts.keys(), transcripts.keys())
+        locus = loci.Locus(transcripts['Human_coding_ENSP00000371111.2.m1'], logger=logger)
         locus.json_conf["reference"]["genome"] = genome
         for t in transcripts:
             if t == locus.primary_transcript_id:

@@ -334,7 +334,7 @@ def __verify_boundaries(transcript):
             err, transcript.id, str(transcript.exons))
 
 
-def __calculate_phases(coding, previous):
+def __calculate_phases(coding: list, previous: int) -> (int, dict):
     """
 
     :param coding:
@@ -368,16 +368,17 @@ def __check_internal_orf(transcript, index):
     :rtype: Mikado.loci.Transcript
     """
 
-    if  transcript._trust_orf is True and index == 0:
-        if transcript.is_coding:
-            assert transcript.phases
-        new_orf = []
-        for segment in transcript.internal_orfs[index]:
-            if segment[0] == "CDS":
-                segment = tuple([segment[0], segment[1], transcript.phases[segment[1]]])
-            new_orf.append(segment)
-        transcript.internal_orfs[index] = new_orf
-        return transcript
+    if transcript._trust_orf is True and index == 0:
+        if (transcript.is_coding and transcript.phases) or not transcript.is_coding:
+            new_orf = []
+            for segment in transcript.internal_orfs[index]:
+                if segment[0] == "CDS":
+                    segment = tuple([segment[0], segment[1], transcript.phases[segment[1]]])
+                new_orf.append(segment)
+            transcript.internal_orfs[index] = new_orf
+            return transcript
+        else:
+            pass
 
     orf, new_orf = transcript.internal_orfs[index], []
 

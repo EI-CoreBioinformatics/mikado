@@ -170,7 +170,10 @@ def prepare_reference(reference, queue_logger, ref_gff=False,
             continue
         elif reference.__annot_type__ == Bed12Parser.__annot_type__:
             transcript = Transcript(row, logger=queue_logger, trust_orf=True, accept_undefined_multi=True)
-            transcript.parent = gid = row.id
+            if transcript.parent:
+                gid = transcript.parent[0]
+            else:
+                transcript.parent = gid = row.id
             transcript2gene[row.id] = gid
             if gid not in genes:
                 genes[gid] = Gene(transcript, gid=gid, logger=queue_logger)

@@ -24,6 +24,7 @@ as_requirements:
     five_utr_length: {operator: le, value: 2500}
     three_utr_length: {operator: le, value: 2500}
     suspicious_splicing: {operator: ne, value: true}
+    max_intron_length: {operator: le, value: 5000}
 not_fragmentary:
  expression: [((exon_num.multi and (cdna_length.multi or selected_cds_length.multi)), or, (exon_num.mono and ((snowy_blast_score and selected_cds_length.zero)  or selected_cds_length.mono)))]
  parameters:
@@ -31,7 +32,7 @@ not_fragmentary:
    exon_num.multi: {operator: gt, value: 2}
    cdna_length.multi: {operator: ge, value: 300}
    selected_cds_length.multi: {operator: gt, value: 250}
-   exon_num.mono: {operator: eq, value: 1}
+   # exon_num.mono: {operator: eq, value: 1}
    snowy_blast_score: {operator: gt, value: 0}  # 0.3
    selected_cds_length.mono: {operator: gt, value: 600} # 900
    exon_num.mono: {operator: le, value: 2}

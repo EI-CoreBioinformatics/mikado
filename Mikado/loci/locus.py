@@ -726,6 +726,8 @@ class Locus(Abstractlocus):
         self.logger.debug("5' community: %s", five_cliques)
         self.logger.debug("3' community: %s", three_cliques)
 
+        # TODO: Tie breaks!
+
         __to_modify = self._find_communities_boundaries(five_cliques, three_cliques)
 
         templates = set()
@@ -811,7 +813,7 @@ class Locus(Abstractlocus):
 
         return __to_modify
 
-    def _share_extreme(self, first, second, three_prime=False):
+    def _share_extreme(self, first: Transcript, second: Transcript, three_prime=False):
 
         """
         This function will determine whether two transcripts "overlap" at the 3' or 5' end.
@@ -822,27 +824,63 @@ class Locus(Abstractlocus):
         :param second:
         :return:
         """
+        reason = None
+        ts_splices = 0
+        ts_distance = 0
 
-        if (three_prime is False and first.strand in ("+", ".")) or (three_prime is True and first.strand == "-"):
+        if self.strand == "-":  # Remember we have to invert on the negative strand!
+            three_prime = not three_prime
+
+        if three_prime is False:
             # 5' case
             first, second = sorted([first, second], key=operator.attrgetter("start"))  # so we know which comes first
-            dist = second.start + 1 - first.start
-            assert dist > 0
-            splices = len([_ for _ in first.splices if _ <= second.start])
-            decision = (dist <= self.ts_distance) and (splices <= self.ts_max_splices)
-        elif (three_prime is False and first.strand == "-") or (three_prime is True and first.strand in ("+", ".")):
-            # 3' case
-            first, second = sorted([first, second], key=operator.attrgetter("end"))
-            dist = second.end + 1 - first.end
-            assert dist > 0
-            splices = len([_ for _ in second.splices if _ >= first.end])
-            decision = (dist <= self.ts_distance) and (splices <= self.ts_max_splices)
+            # Now let us check whether the second falls within an intron
+            matched = first.segmenttree.find(second.exons[0][0], second.exons[0][1])
+            if matched[0].value == "intron":
+                decision = False
+                reason = "{second} first exon ends within an intron of {first}".format(**locals())
+            else:
+                upstream = [_ for _ in first.find_upstream(second.exons[0][0], second.exons[0][1])
+                            if _.value == "exon" and _ not in matched]
+                if matched[0][0] < second.start:
+                    if upstream:
+                        ts_splices += 1
+                    ts_distance += second.start - matched[0][0] + 1
+                for up in upstream:
+                    if up.start == first.start:
+                        ts_splices += 1
+                    else:
+                        ts_splices += 2
+                    ts_distance += up.end - up.start - 1
         else:
-            raise ValueError("Undetermined case")
+            # 3' case
+            # so we know which comes first
+            first, second = sorted([first, second], key=operator.attrgetter("end"), reverse=True)
+            # Now let us check whether the second falls within an intron
+            matched = first.segmenttree.find(second.exons[-1][0], second.exons[-1][1])
+            if matched[-1].value == "intron":
+                decision = False
+                reason = "{second.id} last exon ends within an intron of {first.id}".format(**locals())
+            else:
+                downstream = [_ for _ in first.find_downstream(second.exons[-1][0], second.exons[-1][1])
+                              if _.value == "exon" and _ not in matched]
 
-        self.logger.debug("%s and %s do %s overlap (distance %s - max %s, splices %s - max %s)",
-                          first.id, second.id, "" if decision else "not",
-                          dist, self.ts_distance, splices, self.ts_max_splices)
+                if matched[-1][1] > second.end:
+                    if downstream:
+                        ts_splices += 1
+                    ts_distance += matched[-1][1] - second.end + 1
+                for down in downstream:
+                    if down.end == second.end:
+                        ts_splices += 1
+                    else:
+                        ts_splices += 2
+                    ts_distance += down.end - down.start - 1
+
+        if reason is None:
+            decision = (ts_distance <= self.ts_distance) and (ts_splices <= self.ts_max_splices)
+            reason = "{second.id} {doesit} overlap {first.id} (distance {ts_distance} max {self.ts_distance}, splices {ts_splices} max {self.ts_max_splices})".format(
+                doesit="does" if decision else "does not", **locals())
+        self.logger.debug(reason)
         return decision
 
     @property
@@ -1181,7 +1219,7 @@ def _enlarge_end(transcript: Transcript,
 
     if end_transcript:
         transcript.end = end_transcript.end
-        downstream_exons = sorted([ _ for _ in
+        downstream_exons = sorted([_ for _ in
                                     end_transcript.find_downstream(transcript.exons[-1][0], transcript.exons[-1][1])
                                     if _.value == "exon"])
         intersecting_downstream = sorted(end_transcript.search(

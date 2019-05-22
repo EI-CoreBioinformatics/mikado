@@ -1212,7 +1212,10 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             try:
                 metrics = dict((tid, rgetattr(self.transcripts[tid], param)[0]) for tid in self.transcripts)
             except TypeError:
-                raise TypeError(param)
+                try:
+                    metrics = dict((tid, rgetattr(self.transcripts[tid], param)) for tid in self.transcripts)
+                except TypeError:
+                    raise TypeError(param)
         else:
             try:
                 metrics = dict((tid, getattr(self.transcripts[tid], param)) for tid in self.transcripts)

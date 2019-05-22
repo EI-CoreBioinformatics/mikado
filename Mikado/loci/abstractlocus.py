@@ -1207,28 +1207,34 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         use_raw = self.json_conf["scoring"][param]["use_raw"]
         multiplier = self.json_conf["scoring"][param]["multiplier"]
 
+        metrics = dict()
         if param.startswith("external"):
             # For external metrics, we have a tuple - first item is score, second item is usable_raw
-            try:
-                metrics = dict((tid, rgetattr(self.transcripts[tid], param)[0]) for tid in self.transcripts)
-            except TypeError:
+            for tid in self.transcripts:
                 try:
-                    metrics = dict((tid, rgetattr(self.transcripts[tid], param)) for tid in self.transcripts)
+                    metric = rgetattr(self.transcripts[tid], param)
+                    if isinstance(metric, (tuple, list)):
+                        metric = metric[0]
+                    metrics[tid] = metric
                 except TypeError:
                     raise TypeError(param)
+                except KeyError:
+                    raise KeyError(param)
+                except AttributeError:
+                    raise AttributeError(param)
         else:
-            try:
-                metrics = dict((tid, getattr(self.transcripts[tid], param)) for tid in self.transcripts)
-            except (TypeError, KeyError) as exc:
+            for tid in self.transcripts:
                 try:
-                    metrics = dict((tid, rgetattr(self.transcripts[tid], "external." + param)[0])
-                                   for tid in self.transcripts)
+                    metric = getattr(self.transcripts[tid], param)
+                    if isinstance(metric, (tuple, list)):
+                        metric = metric[0]
+                    metrics[tid] = metric
                 except TypeError:
                     raise TypeError(param)
-                finally:
-                    self.logger.warning(
-                        "Malformed parameter name. It should have been \"external.{param}\", not {param}".format(
-                            **locals()))
+                except KeyError:
+                    raise KeyError(param)
+                except AttributeError:
+                    raise AttributeError(param)
 
         for tid in self.transcripts.keys():
             tid_metric = metrics[tid]

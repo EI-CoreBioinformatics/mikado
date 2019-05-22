@@ -1214,7 +1214,18 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             except TypeError:
                 raise TypeError(param)
         else:
-            metrics = dict((tid, getattr(self.transcripts[tid], param)) for tid in self.transcripts)
+            try:
+                metrics = dict((tid, getattr(self.transcripts[tid], param)) for tid in self.transcripts)
+            except (TypeError, KeyError) as exc:
+                try:
+                    metrics = dict((tid, rgetattr(self.transcripts[tid], "external." + param)[0])
+                                   for tid in self.transcripts)
+                except TypeError:
+                    raise TypeError(param)
+                finally:
+                    self.logger.warning(
+                        "Malformed parameter name. It should have been \"external.{param}\", not {param}".format(
+                            **locals()))
 
         for tid in self.transcripts.keys():
             tid_metric = metrics[tid]

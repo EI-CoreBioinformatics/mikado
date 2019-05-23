@@ -1263,7 +1263,22 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         else:
             if param.startswith("external"):
                 # Take any transcript and verify
-                usable_raw = rgetattr(self.transcripts[list(self.transcripts.keys())[0]], param)[1]
+                try:
+                    transcript = self.transcripts[list(self.transcripts.keys())[0]]
+                except (IndexError, TypeError, KeyError):
+                    raise TypeError("No transcripts left!")
+                try:
+                    metric = rgetattr(transcript, param)
+                except (IndexError, TypeError, KeyError):
+                    raise TypeError("{param} not found in transcripts of {self.id}".format(**locals()))
+                try:
+                    usable_raw = metric[1]
+                    if usable_raw[1] not in (True, False):
+                        raise TypeError
+                except (IndexError, TypeError, KeyError):
+                    raise TypeError(
+                        "Value of {param} is {metric}. It should be a tuple with a boolean second element".format(
+                            **locals()))
             else:
                 usable_raw = getattr(Transcript, param).usable_raw
 

@@ -178,6 +178,8 @@ def pick_parser():
     """
     parser = argparse.ArgumentParser("Launcher of the Mikado pipeline.",
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser.add_argument("--fasta", type=argparse.FileType(),
+                        help="Genome FASTA file. Required for transcript padding.")
     parser.add_argument("--start-method", dest="start_method",
                         choices=["fork", "spawn", "forkserver"],
                         default=None, help="Multiprocessing start method.")

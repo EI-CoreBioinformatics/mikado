@@ -495,9 +495,30 @@ memory intensive, proceed with caution!")
                 all of these are file handles
         """
 
+        engine = create_engine("{0}://".format(self.json_conf["db_settings"]["dbtype"]),
+                               creator=self.db_connection)
+        session = sqlalchemy.orm.sessionmaker(bind=engine)()
+
+        external_metrics = ["external.{}".format(_.source) for _ in session.query(ExternalSource.source).all()]
+
         score_keys = ["source_score"]
         if self.regressor is None:
-            score_keys += sorted(list(self.json_conf["scoring"].keys()))
+            __scores = sorted(list(self.json_conf["scoring"].keys()))
+            # Check that the external scores are all present. If they are not, raise a warning.
+            __externals = set([_ for _ in __scores if _.startswith("external.")])
+            if __externals - set(external_metrics):
+                self.logger.error(
+                    ("The following external metrics, found in the scoring file, are not present in the database. " +
+                     "Please check their existence:\n" + "\n".join(
+                                ["    - {metric}".format(metric=metric) for metric in sorted(
+                                    __externals - set(external_metrics))]
+                                )
+                    )
+                )
+                sys.exit(1)
+                # __scores = sorted(set(__scores) - (__externals - set(external_metrics)))
+
+            score_keys += __scores
         else:
             score_keys += self.regressor["scoring"].metrics
 
@@ -508,12 +529,8 @@ memory intensive, proceed with caution!")
         locus_scores_file = open(re.sub("$", ".scores.tsv", re.sub(
             ".gff.?$", "", self.locus_out)), "w")
 
-        engine = create_engine("{0}://".format(self.json_conf["db_settings"]["dbtype"]),
-                               creator=self.db_connection)
-        session = sqlalchemy.orm.sessionmaker(bind=engine)()
-
         metrics = Superlocus.available_metrics[4:]
-        metrics.extend(["external.{}".format(_.source) for _ in session.query(ExternalSource.source).all()])
+        metrics.extend(external_metrics)
         metrics = Superlocus.available_metrics[:4] + sorted(metrics)
         session.close()
         engine.dispose()

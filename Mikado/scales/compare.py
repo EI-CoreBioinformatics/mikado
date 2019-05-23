@@ -35,6 +35,7 @@ import gzip
 import itertools
 import functools
 import msgpack
+from .gene_dict import GeneDict
 
 
 __author__ = 'Luca Venturini'
@@ -513,12 +514,12 @@ def parse_prediction(args, index, queue_logger):
     queue.close()
 
 
-def parse_self(args, genes, queue_logger):
+def parse_self(args, gdict: GeneDict, queue_logger):
 
     """
     This function is called when we desire to compare a reference against itself.
     :param args:
-    :param genes:
+    :param gdict: gene MIDX database
     :param queue_logger:
     :return:
     """
@@ -532,7 +533,7 @@ def parse_self(args, genes, queue_logger):
     tmap_rower = csv.DictWriter(tmap_out, ResultStorer.__slots__, delimiter="\t")
     tmap_rower.writeheader()
 
-    for gid, gene in genes.items():
+    for gid, gene in gdict.items():
         assert isinstance(gene, Gene)
         if len(gene.transcripts) == 1:
             continue
@@ -540,7 +541,8 @@ def parse_self(args, genes, queue_logger):
         combinations = itertools.combinations(gene.transcripts.keys(), 2)
         for combination in combinations:
             result, _ = Assigner.compare(gene.transcripts[combination[0]],
-                                         gene.transcripts[combination[1]])
+                                         gene.transcripts[combination[1]],
+                                         fuzzy_match=args.fuzzymatch)
             tmap_rower.writerow(result.as_dict())
 
     queue_logger.info("Finished.")
@@ -741,8 +743,8 @@ def compare(args):
                          protein_coding=args.protein_coding, exclude_utr=args.exclude_utr)
         try:
             if hasattr(args, "internal") and args.internal is True:
-                raise NotImplementedError()
-                # parse_self(args, genes, queue_logger)
+                # raise NotImplementedError()
+                parse_self(args, GeneDict(index_name), queue_logger)
             else:
                 parse_prediction(args, index_name, queue_logger)
         except Exception as err:

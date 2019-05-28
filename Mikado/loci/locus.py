@@ -8,7 +8,7 @@ i.e. the locus.
 import collections
 import itertools
 import operator
-from collections import deque
+from collections import deque, defaultdict
 import pysam
 from ..transcripts.transcript import Transcript
 from ..transcripts.transcriptchecker import TranscriptChecker
@@ -16,6 +16,8 @@ from .abstractlocus import Abstractlocus, rgetattr
 from ..parsers.GFF import GffLine
 from ..scales.assigner import Assigner
 from ..exceptions import InvalidTranscript
+import networkx as nx
+from itertools import combinations
 
 
 class Locus(Abstractlocus):
@@ -714,21 +716,21 @@ class Locus(Abstractlocus):
         five_graph = self.define_graph(objects=self.transcripts, inters=self._share_extreme, three_prime=False)
         three_graph = self.define_graph(objects=self.transcripts, inters=self._share_extreme, three_prime=True)
 
-        self.logger.debug("5' graph: %s", five_graph.edges)
-        self.logger.debug("3' graph: %s", three_graph.edges)
-
-        five_cliques = deque(sorted(self.find_cliques(five_graph),
-                                    key=lambda clique: min(self[_].start for _ in clique)))
-
-        three_cliques = deque(sorted(self.find_cliques(three_graph),
-                                    key=lambda clique: min(self[_].start for _ in clique)))
-
-        self.logger.debug("5' community: %s", five_cliques)
-        self.logger.debug("3' community: %s", three_cliques)
+        # self.logger.debug("5' graph: %s", five_graph.edges)
+        # self.logger.debug("3' graph: %s", three_graph.edges)
+        #
+        # five_cliques = deque(sorted(self.find_cliques(five_graph),
+        #                             key=lambda clique: min(self[_].start for _ in clique)))
+        #
+        # three_cliques = deque(sorted(self.find_cliques(three_graph),
+        #                             key=lambda clique: min(self[_].start for _ in clique)))
+        #
+        # self.logger.debug("5' community: %s", five_cliques)
+        # self.logger.debug("3' community: %s", three_cliques)
 
         # TODO: Tie breaks!
 
-        __to_modify = self._find_communities_boundaries(five_cliques, three_cliques)
+        __to_modify = self._find_communities_boundaries(five_graph, three_graph)
 
         templates = set()
 
@@ -756,58 +758,66 @@ class Locus(Abstractlocus):
         # del self.fai
         return templates
 
-    def _find_communities_boundaries(self, five_clique, three_clique):
+    def define_graph(self, objects: dict, inters=None, three_prime=False):
+
+        graph = nx.DiGraph()
+        graph.add_nodes_from(objects.keys())
+
+        if inters is None:
+            inters = self._share_extreme
+
+        for obj, other_obj in combinations(objects.keys(), 2):
+            if obj == other_obj:
+                continue
+            else:
+                edge = inters(objects[obj], objects[other_obj], three_prime=three_prime)
+                if edge:
+                    assert edge[0].id in self
+                    assert edge[1].id in self
+                    # assert edge[1].id in self.scores
+                    graph.add_edge(edge[0].id, edge[1].id)
+
+        return graph
+
+    def _find_communities_boundaries(self, five_graph, three_graph):
 
         five_found = set()
 
         __to_modify = dict()
-        if self.strand == "-":
-            five_clique, three_clique = three_clique, five_clique
 
-        self.logger.debug("5' communities to uniform: %s", five_clique)
+        while len(five_graph) > 0:
+            # Find the sinks
+            sinks = {node for node in five_graph.nodes() if node not in
+                     {edge[0] for edge in five_graph.edges()}}
+            __putative = defaultdict(list)
+            for sink in sinks:
+                for ancestor in nx.ancestors(five_graph, sink):
+                    __putative[ancestor].append((sink, self[sink].score))
 
-        while len(five_clique) > 0:
+            for ancestor in __putative:
+                best = sorted(__putative[ancestor], key=operator.itemgetter(1), reverse=True)[0][0]
+                __to_modify[ancestor] = [self[best], False]
+                five_found.add(ancestor)
 
-            comm = five_clique.popleft()
-            comm = deque(sorted(list(set.difference(set(comm), five_found)),
-                         key=lambda internal_tid: self[internal_tid].start))
-            if len(comm) < 2:
-                continue
-            first = comm.popleft()
-            five_found.add(first)
-            for tid in comm:
-                # Now I have to find all the exons on the left of the transcript's end
-                __to_modify[tid] = [self[first], False]
-                self.logger.debug("%s marked for modication", tid)
-                five_found.add(tid)
-            comm = deque([_ for _ in comm if _ not in five_found])
-
-            if comm:
-                five_clique.appendleft(comm)
-        # Then do the 3' end
+            five_graph.remove_nodes_from(set.union(sinks, __putative.keys()))
 
         three_found = set()
-        self.logger.debug("3' communities to uniform: %s", three_clique)
+        while len(three_graph) > 0:
+            sinks = {node for node in three_graph.nodes() if node not in
+                     {edge[0] for edge in three_graph.edges()}}
+            __putative = defaultdict(list)
+            for sink in sinks:
+                for ancestor in nx.ancestors(three_graph, sink):
+                    __putative[ancestor].append((sink, self[sink].score))
 
-        while len(three_clique) > 0:
-
-            comm = three_clique.popleft()
-            comm = deque(sorted(list(set.difference(set(comm), three_found)),
-                         key=lambda internal_tid: self[internal_tid].end, reverse=True))
-            if len(comm) < 2:
-                continue
-            first = comm.popleft()
-            three_found.add(first)
-            for tid in comm:
-                if tid in __to_modify:
-                    __to_modify[tid][1] = self[first]
+            for ancestor in __putative:
+                best = sorted(__putative[ancestor], key=operator.itemgetter(1), reverse=True)[0][0]
+                if ancestor in __to_modify:
+                    __to_modify[ancestor][1] = self[best]
                 else:
-                    __to_modify[tid] = [False, self[first]]
-                three_found.add(tid)
-
-            comm = deque([_ for _ in comm if _ not in three_found])
-            if comm:
-                three_clique.appendleft(comm)
+                    __to_modify[ancestor] = [False, self[best]]
+                three_found.add(ancestor)
+            three_graph.remove_nodes_from(set.union(sinks, __putative.keys()))
 
         self.logger.debug("Communities for modifications: %s", __to_modify)
 
@@ -827,6 +837,8 @@ class Locus(Abstractlocus):
         reason = None
         ts_splices = 0
         ts_distance = 0
+
+        decision = False
 
         if self.strand == "-":  # Remember we have to invert on the negative strand!
             three_prime = not three_prime
@@ -878,6 +890,8 @@ class Locus(Abstractlocus):
 
         if reason is None:
             decision = (ts_distance <= self.ts_distance) and (ts_splices <= self.ts_max_splices)
+            if decision:
+                decision = (first, second)
             reason = "{second.id} {doesit} overlap {first.id} (distance {ts_distance} max {self.ts_distance}, splices {ts_splices} max {self.ts_max_splices})".format(
                 doesit="does" if decision else "does not", **locals())
         self.logger.debug(reason)
@@ -1079,6 +1093,7 @@ def expand_transcript(transcript: Transcript,
 
     new_exons = up_exons + down_exons
     transcript.add_exons(new_exons)
+    transcript.start, transcript.end = None, None
     transcript.finalize()
 
     if transcript.strand == "-":

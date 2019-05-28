@@ -2348,9 +2348,9 @@ class PaddingTester(unittest.TestCase):
         for transcript in locus:
             cds_coordinates[transcript] = (locus[transcript].combined_cds_start, locus[transcript].combined_cds_end)
 
-        corr = {1: "Human_coding_ENSP00000371111.2.m1", # 1645	33976
-                2: "Mikado_gold_mikado.0G230.1", # 1	34063
-                3: "ACOCA10068_run2_woRNA_ACOCA10068_r3_0032600.1" # 1032	34095
+        corr = {1: "Human_coding_ENSP00000371111.2.m1",  # 1645	33976
+                2: "Mikado_gold_mikado.0G230.1",  # 1	34063
+                3: "ACOCA10068_run2_woRNA_ACOCA10068_r3_0032600.1"  # 1032	34095
                 }
 
         for pad_distance, max_splice in zip((130, 700, 1500, 2000), (1, )):
@@ -2367,7 +2367,7 @@ class PaddingTester(unittest.TestCase):
                     self.assertGreater(locus[transcript].combined_cds_length, 0, transcript)
                     self.assertEqual(locus[transcript].combined_cds_start, cds_coordinates[transcript][0])
                     self.assertEqual(locus[transcript].combined_cds_end, cds_coordinates[transcript][1])
-                if pad_distance > 120:  # Ends must be uniform
+                if pad_distance > 720:  # Ends must be uniform
                     self.assertEqual(locus[corr[1]].end, locus[corr[3]].end,
                                      ([locus[corr[_]].end for _ in range(1, 4)],
                                      locus._share_extreme(transcripts[corr[1]],
@@ -2376,7 +2376,7 @@ class PaddingTester(unittest.TestCase):
                                      )
                     self.assertEqual(locus[corr[1]].end, locus[corr[2]].end,
                                      ([locus[corr[_]].end for _ in range(1, 4)],
-                                     locus._share_extreme(transcripts[corr[1]],
+                                      locus._share_extreme(transcripts[corr[1]],
                                                           transcripts[corr[2]],
                                                           three_prime=False))
                                      )
@@ -2453,6 +2453,8 @@ class PaddingTester(unittest.TestCase):
                     self.assertEqual(locus["mikado.44G2.1"].end,
                                      locus["mikado.44G2.2"].end,
                                      ((max_splice, pad_distance, coding),
+                                      locus._share_extreme(locus["mikado.44G2.1"], locus["mikado.44G2.2"],
+                                                           three_prime=True),
                                       (locus["mikado.44G2.1"].start, locus["mikado.44G2.1"].end),
                                       (locus["mikado.44G2.2"].start, locus["mikado.44G2.2"].end)))
                     self.assertTrue(locus["mikado.44G2.2"].attributes["padded"])

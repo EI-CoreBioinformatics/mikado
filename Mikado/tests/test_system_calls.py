@@ -1160,7 +1160,7 @@ class PickTest(unittest.TestCase):
         self.json_conf["log_settings"]["log_level"] = "DEBUG"
 
         self.assertEqual(os.path.basename(self.json_conf["pick"]["scoring_file"]),
-                         "plants.yaml")
+                         "plant.yaml")
         shutil.copy(pkg_resources.resource_filename("Mikado.tests", "mikado.db"),
                     os.path.join(self.json_conf["pick"]["files"]["output_dir"], "mikado.db"))
         self.json_conf["db_settings"]["db"] = os.path.join(self.json_conf["pick"]["files"]["output_dir"],
@@ -1195,7 +1195,7 @@ class PickTest(unittest.TestCase):
         self.json_conf["log_settings"]["log_level"] = "DEBUG"
 
         self.assertEqual(os.path.basename(self.json_conf["pick"]["scoring_file"]),
-                         "plants.yaml")
+                         "plant.yaml")
 
         outdir = tempfile.TemporaryDirectory()
         shutil.copy(pkg_resources.resource_filename("Mikado.tests", "mikado.db"),

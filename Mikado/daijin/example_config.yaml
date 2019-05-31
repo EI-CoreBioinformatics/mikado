@@ -109,8 +109,8 @@ db_settings:
 
 #Mikado picking
 pick:
-        # Available scoring models: {worm.yaml,insects.yaml,plants.yaml,human.yaml}
-        scoring: "plants.yaml"
+        # Available scoring models: {mammalian.yaml,plant.yaml}
+        scoring: "plant.yaml"
         alternative_splicing:
                 #  Parameters related to alternative splicing reporting.
                 #  - report: whether to report at all or not the AS events.

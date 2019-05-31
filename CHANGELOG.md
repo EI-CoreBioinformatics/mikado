@@ -6,12 +6,13 @@ Users are ***very strongly recommended*** to update Mikado as soon as possible.
 
 **IMPORTANT**: this release **changes the format of the mikado database**. As such, old mikado databases **have to be regenerated with Mikado serialise** in order for the run not to fail.
 
+**IMPORTANT**: this release has completely overhauled the scoring files. We now provide only two ("plant.yaml" and "mammalian.yaml"). "Plant.yaml" should function also for insect or fungal species, but we have not tested it extensively. Old scoring files can be found under "HISTORIC".
 
 Two of the major highlits of this release are:
-  - the completion of the "padding" functionality. Briefly, if instructed to do so, now Mikado will be able to uniform the ends of transcripts within a single locus (similar to what was done for the last _Arabidopsis thaliana_ annotation release). The behaviour is controlled by the "pad" boolean switch, and by the "ts_max_splices" and "ts_distance" parameters under "pick".
+	- the completion of the "padding" functionality. Briefly, if instructed to do so, now Mikado will be able to uniform the ends of transcripts within a single locus (similar to what was done for the last _Arabidopsis thaliana_ annotation release). The behaviour is controlled by the "pad" boolean switch, and by the "ts_max_splices" and "ts_distance" parameters under "pick". Please note that now "ts_distance" refers to the **transcriptomic** distance, ie, long introns are not considered for this purpose.
   - general improvements in speed and multiprocessing, as well as flexibility, for the Mikado compare utility.
 
-With this release, we are also officially dropping support for Python 3.4. Python 3.5 will not be automatically tested for as many Conda dependencies are not up-to-date, complicating the TRAVIS setup.
+With this release, we are also officially dropping support for Python 3.4. Python 3.5 will not be automatically tested for, as many Conda dependencies are not up-to-date, complicating the TRAVIS setup.
 
 Bugfixes and improvements:
 

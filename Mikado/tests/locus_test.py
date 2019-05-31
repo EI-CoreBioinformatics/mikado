@@ -2411,9 +2411,24 @@ class PaddingTester(unittest.TestCase):
         genome = pkg_resources.resource_filename("Mikado.tests", "padding_test.fa")
         transcripts = self.load_from_bed("Mikado.tests", "padding_test.bed12")
 
-        for pad_distance, max_splice, coding in itertools.product((200, 1000, 1200, 5000), (1, 1, 5), (True, False)):
-            with self.subTest(pad_distance=pad_distance, max_splice=max_splice, coding=coding):
-                primary = transcripts['mikado.44G2.1'].copy()
+        ids = ["mikado.44G2.{}".format(_) for _ in range(1, 6)]
+
+        params = {
+            "mikado.44G2.1": (sum([exon[1] + 1 - max(exon[0], transcripts["mikado.44G2.2"].end)
+                                   for exon in transcripts["mikado.44G2.1"].exons
+                                   if exon[1] > transcripts["mikado.44G2.2"].end]), 1),
+            "mikado.44G2.5": (sum([exon[1] + 1 - max(exon[0], transcripts["mikado.44G2.2"].end)
+                                   for exon in transcripts["mikado.44G2.5"].exons
+                                   if exon[1] > transcripts["mikado.44G2.2"].end]), 4)
+        }
+
+        print(params)
+
+        for pad_distance, max_splice, coding, best in itertools.product((200, 1000, 1200, 5000), (1, 1, 5),
+                                                                        (True, False),
+                                                                        ("mikado.44G2.1", "mikado.44G2.5")):
+            with self.subTest(pad_distance=pad_distance, max_splice=max_splice, coding=coding, best=best):
+                primary = transcripts[best].copy()
                 if coding is False:
                     primary.strip_cds()
                 locus = loci.Locus(primary)
@@ -2425,6 +2440,14 @@ class PaddingTester(unittest.TestCase):
                     if coding is False:
                         trans.strip_cds()
                     locus.add_transcript_to_locus(trans)
+
+                # Now add the scores
+                scores = {best: 15}
+                for tid in ids:
+                    if tid != best:
+                        scores[tid] = 10
+
+                locus._load_scores(scores=scores)
 
                 if coding:
                     cds_coordinates = dict()
@@ -2439,26 +2462,30 @@ class PaddingTester(unittest.TestCase):
                 locus.pad_transcripts()
 
                 # The .1 transcript can NEVER be expanded, it ends within an intron.
-                self.assertFalse(locus["mikado.44G2.1"].attributes.get("padded", False))
-                if pad_distance < 1000:
-                    self.assertFalse(locus["mikado.44G2.2"].attributes.get("padded", False),
-                                     (locus["mikado.44G2.2"].end, max_splice, pad_distance, coding))
+                self.assertFalse(locus[best].attributes.get("padded", False))
+                # self.assertFalse(locus["mikado.44G2.1"].attributes.get("padded", False))
 
-                elif pad_distance > 1367 and max_splice >= 4:
-                    self.assertEqual(locus["mikado.44G2.1"].end,
-                                     locus["mikado.44G2.2"].end,
-                                     ((locus["mikado.44G2.1"].start, locus["mikado.44G2.1"].end),
-                                      (locus["mikado.44G2.2"].start, locus["mikado.44G2.2"].end)))
-                    self.assertTrue(locus["mikado.44G2.2"].attributes["padded"])
-                elif pad_distance > 1000 and max_splice < 4:
-                    self.assertEqual(locus["mikado.44G2.1"].end,
-                                     locus["mikado.44G2.2"].end,
-                                     ((max_splice, pad_distance, coding),
-                                      locus._share_extreme(locus["mikado.44G2.1"], locus["mikado.44G2.2"],
-                                                           three_prime=True),
-                                      (locus["mikado.44G2.1"].start, locus["mikado.44G2.1"].end),
-                                      (locus["mikado.44G2.2"].start, locus["mikado.44G2.2"].end)))
-                    self.assertTrue(locus["mikado.44G2.2"].attributes["padded"])
+                if params[best][0] <= pad_distance and params[best][1] <= max_splice:
+                    for trans in ids:
+                        if trans in params.keys():
+                            continue
+                        self.assertTrue(locus[trans].attributes.get("padded", False),
+                                        (locus[trans].id, best, locus[trans].end, pad_distance, max_splice,
+                                         params[best],
+                                         {item for item in locus[trans].attributes.items() if "ts" in item[0]}))
+                        self.assertEqual(locus[trans].end, locus[best].end,
+                                         (locus[trans].id, best, locus[trans].end, pad_distance, max_splice,
+                                          params[best],
+                                          {item for item in locus[trans].attributes.items() if "ts" in item[0]}
+                                          ))
+                else:
+                    for trans in ids:
+                        if trans in params.keys():
+                            continue
+                        self.assertFalse(locus[trans].attributes.get("padded", False),
+                                         (locus[trans].id, best, locus[trans].end, pad_distance, max_splice,
+                                          params[best],
+                                          {item for item in locus[trans].attributes.items() if "ts" in item[0]}))
 
                 self.assertEqual(locus["mikado.44G2.3"].end, locus["mikado.44G2.2"].end)
                 self.assertEqual(locus["mikado.44G2.4"].end, locus["mikado.44G2.2"].end)

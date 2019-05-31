@@ -834,65 +834,86 @@ class Locus(Abstractlocus):
         :param second:
         :return:
         """
+
+        if self.strand == "-":  # Remember we have to invert on the negative strand!
+            three_prime = not three_prime
+
+        if three_prime:
+            return self._share_three_prime(first, second)
+        else:
+            return self._share_five_prime(first, second)
+
+    def _share_five_prime(self, first: Transcript, second: Transcript):
+
         reason = None
         ts_splices = 0
         ts_distance = 0
 
         decision = False
 
-        if self.strand == "-":  # Remember we have to invert on the negative strand!
-            three_prime = not three_prime
-
-        if three_prime is False:
-            # 5' case
-            first, second = sorted([first, second], key=operator.attrgetter("start"))  # so we know which comes first
-            # Now let us check whether the second falls within an intron
-            matched = first.segmenttree.find(second.exons[0][0], second.exons[0][1])
-            if matched[0].value == "intron":
-                decision = False
-                reason = "{second} first exon ends within an intron of {first}".format(**locals())
-            else:
-                upstream = [_ for _ in first.find_upstream(second.exons[0][0], second.exons[0][1])
-                            if _.value == "exon" and _ not in matched]
-                if matched[0][0] < second.start:
-                    if upstream:
-                        ts_splices += 1
-                    ts_distance += second.start - matched[0][0] + 1
-                for up in upstream:
-                    if up.start == first.start:
-                        ts_splices += 1
-                    else:
-                        ts_splices += 2
-                    ts_distance += up.end - up.start - 1
+        first, second = sorted([first, second], key=operator.attrgetter("start"))
+        # Now let us check whether the second falls within an intron
+        matched = first.segmenttree.find(second.exons[0][0], second.exons[0][1])
+        if matched[0].value == "intron":
+            decision = False
+            reason = "{second} first exon ends within an intron of {first}".format(**locals())
         else:
-            # 3' case
-            # so we know which comes first
-            first, second = sorted([first, second], key=operator.attrgetter("end"), reverse=True)
-            # Now let us check whether the second falls within an intron
-            matched = first.segmenttree.find(second.exons[-1][0], second.exons[-1][1])
-            if matched[-1].value == "intron":
-                decision = False
-                reason = "{second.id} last exon ends within an intron of {first.id}".format(**locals())
-            else:
-                downstream = [_ for _ in first.find_downstream(second.exons[-1][0], second.exons[-1][1])
-                              if _.value == "exon" and _ not in matched]
+            upstream = [_ for _ in first.find_upstream(second.exons[0][0], second.exons[0][1])
+                        if _.value == "exon" and _ not in matched]
+            if matched[0][0] < second.start:
+                if upstream:
+                    ts_splices += 1
+                ts_distance += second.start - matched[0][0] + 1
+            for up in upstream:
+                if up.start == first.start:
+                    ts_splices += 1
+                else:
+                    ts_splices += 2
+                ts_distance += up.end - up.start - 1
 
-                if matched[-1][1] > second.end:
-                    if downstream:
-                        ts_splices += 1
-                    ts_distance += matched[-1][1] - second.end + 1
-                for down in downstream:
-                    if down.end == second.end:
-                        ts_splices += 1
-                    else:
-                        ts_splices += 2
-                    ts_distance += down.end - down.start - 1
+        if reason is None:
+            decision = (ts_distance <= self.ts_distance) and (ts_splices <= self.ts_max_splices)
+            if decision:
+                decision = (second, first)
+            reason = "{first.id} {doesit} overlap {second.id} (distance {ts_distance} max {self.ts_distance}, splices {ts_splices} max {self.ts_max_splices})".format(
+                doesit="does" if decision else "does not", **locals())
+        self.logger.debug(reason)
+        return decision
+
+    def _share_three_prime(self, first: Transcript, second: Transcript):
+
+        reason = None
+        ts_splices = 0
+        ts_distance = 0
+        decision = False
+        first, second = sorted([first, second], key=operator.attrgetter("end"), reverse=False)
+        # Now let us check whether the second falls within an intron
+        matched = second.segmenttree.find(first.exons[-1][0], first.exons[-1][1])
+        if matched[-1].value == "intron":
+            decision = False
+            reason = "{second.id} last exon ends within an intron of {first.id}".format(**locals())
+        else:
+            downstream = [_ for _ in second.find_downstream(first.exons[-1][0], first.exons[-1][1])
+                          if _.value == "exon" and _ not in matched]
+
+            if matched[-1][1] > first.end:
+                if downstream:
+                    ts_splices += 1
+                ts_distance += matched[-1][1] - first.end + 1
+
+            for down in downstream:
+                if down.end == first.end:
+                    ts_splices += 1
+                else:
+                    ts_splices += 2
+                ts_distance += down.end - down.start - 1
 
         if reason is None:
             decision = (ts_distance <= self.ts_distance) and (ts_splices <= self.ts_max_splices)
             if decision:
                 decision = (first, second)
-            reason = "{second.id} {doesit} overlap {first.id} (distance {ts_distance} max {self.ts_distance}, splices {ts_splices} max {self.ts_max_splices})".format(
+            reason = "{second.id} {doesit} overlap {first.id} (distance {ts_distance} max \
+{self.ts_distance}, splices {ts_splices} max {self.ts_max_splices})".format(
                 doesit="does" if decision else "does not", **locals())
         self.logger.debug(reason)
         return decision
@@ -1078,7 +1099,7 @@ def expand_transcript(transcript: Transcript,
 
     upstream, up_exons, new_first_exon, up_remove = _enlarge_start(transcript, backup, start_transcript)
     downstream, up_exons, down_exons, down_remove = _enlarge_end(transcript,
-                                                               backup, end_transcript, up_exons, new_first_exon)
+                                                                 backup, end_transcript, up_exons, new_first_exon)
 
     first_exon, last_exon = transcript.exons[0], transcript.exons[-1]
 

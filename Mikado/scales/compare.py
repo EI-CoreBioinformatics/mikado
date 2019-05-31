@@ -347,7 +347,7 @@ def parse_prediction(args, index, queue_logger):
         assigner_instance = None
     else:
         procs = []
-        assigner_instance = Assigner(index, args, printout_tmap=True)
+        assigner_instance = Assigner(index, args, printout_tmap=True, )
         transmitter = functools.partial(get_best_result, assigner_instance=assigner_instance)
 
     constructor = functools.partial(Transcript,

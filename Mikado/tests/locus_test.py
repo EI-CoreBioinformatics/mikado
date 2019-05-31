@@ -25,8 +25,8 @@ import inspect
 from ..parsers.bed12 import BED12
 import tempfile
 import gzip
-# import pyfaidx
 import pysam
+from pytest import mark
 from itertools import combinations_with_replacement
 
 
@@ -2406,6 +2406,7 @@ class PaddingTester(unittest.TestCase):
                 else:
                     self.assertNotEqual(locus[corr[3]].start, locus[corr[1]].start)
 
+    @mark.triage
     def test_padding(self):
         genome = pkg_resources.resource_filename("Mikado.tests", "padding_test.fa")
         transcripts = self.load_from_bed("Mikado.tests", "padding_test.bed12")

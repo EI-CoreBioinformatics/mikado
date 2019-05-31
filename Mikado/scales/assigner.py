@@ -556,8 +556,6 @@ class Assigner:
                 if prediction.id in gene.transcripts.keys():
                     __gene_found = True
                     if len(gene.transcripts) == 1:
-                        # self.logger.warning("Ignoring {} for transcript {}".format(gene.id,
-                        #                                                            prediction.id))
                         __gene_removed = True
                         continue
                 genes.append((self.genes[posis], distance[1]))
@@ -579,7 +577,7 @@ class Assigner:
                                        *[0] * 9 + ["-"] + [prediction.location])
             self.stat_calculator.store(prediction, best_result, None)
             results = [best_result]
-        elif genes[0][1] > 0:
+        elif genes[0][1] > 0:  # Up or downstream
             results = [self.calc_and_store_compare(prediction, reference, fuzzymatch=fuzzymatch)
                        for reference in genes[0][0]]
             best_result = sorted(results,
@@ -600,7 +598,6 @@ class Assigner:
                 assert len(results) > 0, (genes[0].transcripts.keys(), prediction.id)
                 best_result = sorted(results,
                                      key=operator.attrgetter("distance"))[0]
-
             else:
                 result_dict = dict()
                 results = []
@@ -635,7 +632,7 @@ class Assigner:
                             best_results.append(result_dict[gene][0])
                     if len(best_results) == 1:
                         best_result = best_results[0]
-                    elif len(best_results) > 1:
+                    elif len(best_results) > 1 and self.__report_fusions is True:
                         values = []
                         for key in ResultStorer.__slots__:
                             if key in ["gid", "tid", "distance", "tid_num_exons"]:
@@ -649,6 +646,9 @@ class Assigner:
                         for result in results:
                             if result.j_f1[0] > 0 or result.n_recall[0] > 10:
                                 result.ccode = ("f", result.ccode[0])
+                    elif len(best_results) > 1 and self.__report_fusions is False:
+                        best_result = [_ for _ in sorted(best_results, key=operator.attrgetter("j_f1", "n_f1"))
+                                       ].pop()
 
                 # Check how many
                 if not results:

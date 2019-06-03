@@ -833,7 +833,7 @@ class BED12:
                 for pos in range(self.thick_start - self.phase,
                                  0,
                                  -3):
-                    codon = sequence[pos:pos + 3].upper()
+                    codon = sequence[pos -1:pos + 2].upper()
                     self.thick_start = pos
                     if codon in self.table.start_codons:
                         # self.thick_start = pos

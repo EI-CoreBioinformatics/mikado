@@ -716,18 +716,6 @@ class Locus(Abstractlocus):
         five_graph = self.define_graph(objects=self.transcripts, inters=self._share_extreme, three_prime=False)
         three_graph = self.define_graph(objects=self.transcripts, inters=self._share_extreme, three_prime=True)
 
-        # self.logger.debug("5' graph: %s", five_graph.edges)
-        # self.logger.debug("3' graph: %s", three_graph.edges)
-        #
-        # five_cliques = deque(sorted(self.find_cliques(five_graph),
-        #                             key=lambda clique: min(self[_].start for _ in clique)))
-        #
-        # three_cliques = deque(sorted(self.find_cliques(three_graph),
-        #                             key=lambda clique: min(self[_].start for _ in clique)))
-        #
-        # self.logger.debug("5' community: %s", five_cliques)
-        # self.logger.debug("3' community: %s", three_cliques)
-
         # TODO: Tie breaks!
 
         __to_modify = self._find_communities_boundaries(five_graph, three_graph)
@@ -796,6 +784,7 @@ class Locus(Abstractlocus):
 
             for ancestor in __putative:
                 best = sorted(__putative[ancestor], key=operator.itemgetter(1), reverse=True)[0][0]
+                self.logger.debug("Putative 5' for %s: %s. Best: %s", ancestor, __putative[ancestor], best)
                 __to_modify[ancestor] = [self[best], False]
                 five_found.add(ancestor)
 
@@ -817,6 +806,7 @@ class Locus(Abstractlocus):
                 else:
                     __to_modify[ancestor] = [False, self[best]]
                 three_found.add(ancestor)
+                self.logger.debug("Putative 3' for %s: %s. Best: %s", ancestor, __putative[ancestor], best)
             three_graph.remove_nodes_from(set.union(sinks, __putative.keys()))
 
         self.logger.debug("Communities for modifications: %s", __to_modify)
@@ -849,8 +839,11 @@ class Locus(Abstractlocus):
         ts_splices = 0
         ts_distance = 0
 
-        decision = False
+        if second.start == first.start:
+            self.logger.debug("%s and %s start at the same coordinate. No expanding.", first.id, second.id)
+            return False
 
+        decision = False
         first, second = sorted([first, second], key=operator.attrgetter("start"))
         # Now let us check whether the second falls within an intron
         matched = first.segmenttree.find(second.exons[0][0], second.exons[0][1])
@@ -882,6 +875,10 @@ class Locus(Abstractlocus):
 
     def _share_three_prime(self, first: Transcript, second: Transcript):
 
+        if second.end == first.end:
+            self.logger.debug("%s and %s end at the same coordinate. No expanding.", first.id, second.id)
+            return False
+
         reason = None
         ts_splices = 0
         ts_distance = 0
@@ -902,7 +899,7 @@ class Locus(Abstractlocus):
                 ts_distance += matched[-1][1] - first.end + 1
 
             for down in downstream:
-                if down.end == first.end:
+                if down.end == second.end:
                     ts_splices += 1
                 else:
                     ts_splices += 2
@@ -1082,6 +1079,9 @@ def expand_transcript(transcript: Transcript,
         logger.debug("%s does not need to be expanded, exiting", transcript.id)
         return transcript
 
+    if transcript.strand == "-":
+        start_transcript, end_transcript = end_transcript, start_transcript
+
     # Make a backup copy of the transcript
     backup = transcript.deepcopy()
 
@@ -1113,6 +1113,9 @@ def expand_transcript(transcript: Transcript,
             transcript.remove_exon(last_exon)
 
     new_exons = up_exons + down_exons
+    if not new_exons:
+        return backup
+
     transcript.add_exons(new_exons)
     transcript.start, transcript.end = None, None
     transcript.finalize()
@@ -1124,22 +1127,28 @@ def expand_transcript(transcript: Transcript,
         seq = check_expanded(transcript, backup, start_transcript, end_transcript,
                              fai, upstream, downstream, logger)
         transcript = enlarge_orfs(transcript, backup, seq, upstream, downstream, logger)
+        transcript.finalize()
+    else:
+        return backup
 
     # Now finalize again
     if upstream > 0 or downstream > 0:
         transcript.attributes["padded"] = True
-    transcript.finalize()
 
     # Now check that we have a valid expansion
     if backup.is_coding and not transcript.is_coding:
         # Something has gone wrong. Just return the original transcript.
+        assert new_exons
         logger.info("Padding %s would lead to an invalid CDS. Aborting.",
-                    transcript.id)
+                    transcript.id, up_exons)
         return backup
     elif (backup.is_coding and ((backup.strand == "-" and backup.combined_cds_end < transcript.combined_cds_end) or
           (backup.combined_cds_end > transcript.combined_cds_end))):
-        logger.info("Padding %s would lead to an in-frame stop codon. Aborting.",
-                    transcript.id)
+        message = "Padding %s would lead to an in-frame stop codon (%s to %s, vs original %s to %s. Aborting." % (
+            transcript.id, transcript.combined_cds_start, transcript.combined_cds_end,
+            backup.combined_cds_start, backup.combined_cds_end
+        )
+        logger.info(message)
         return backup
     else:
         message = "{transcript.id} has now start {transcript.start}, end {transcript.end}"
@@ -1176,7 +1185,7 @@ def _enlarge_start(transcript: Transcript,
     to_remove = False
     if start_transcript:
         transcript.start = start_transcript.start
-        upstream_exons = sorted([ _ for _ in
+        upstream_exons = sorted([_ for _ in
             start_transcript.find_upstream(transcript.exons[0][0], transcript.exons[0][1])
                                       if _.value == "exon"])
 
@@ -1392,6 +1401,7 @@ def enlarge_orfs(transcript: Transcript,
             internal_orfs = []
     else:
         internal_orfs = []
+        internal_orfs = []
 
     if not internal_orfs:
         return transcript
@@ -1414,7 +1424,15 @@ def enlarge_orfs(transcript: Transcript,
                          transcript.cdna_length)
             raise AssertionError(err)
         logger.debug("New ORF: %s", str(orf))
+        if orf.coding is False:
+            raise ValueError(orf)
+        elif orf.invalid:
+            raise InvalidTranscript(orf.invalid_reason)
+
         new_orfs.append(orf)
 
     transcript.load_orfs(new_orfs)
+    transcript.finalize()
+    if backup.is_coding and not transcript.is_coding:
+        raise InvalidTranscript(new_orfs)
     return transcript

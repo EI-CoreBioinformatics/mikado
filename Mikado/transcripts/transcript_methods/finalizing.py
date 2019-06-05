@@ -47,16 +47,18 @@ def __basic_final_checks(transcript):
                 __utr = sorted([tuple([int(exon[0]), int(exon[1])]) for exon in transcript.combined_utr])
                 try:
                     __before = [_ for _ in __utr if _[1] < _exons[0][0]]
+                    if __before and __before[-1][1] == _exons[0][0] - 1:
+                        _exons[0] = (__before[-1][0], _exons[0][1])
+                        __before.pop()
+                    __after = [_ for _ in __utr if _[0] > _exons[-1][1]]
+                    if __after and __after[0][0] == _exons[-1][1] + 1:
+                        _exons[-1] = (_exons[-1][0], __after[0][1])
+                        __after = __after[1:]
+                    _exons = __before + _exons + __after
                 except IndexError:
-                    raise IndexError((__utr, _exons))
-                if __before and __before[-1][1] == _exons[0][0] - 1:
-                    _exons[0] = (__before[-1][0], _exons[0][1])
-                    __before.pop()
-                __after = [_ for _ in __utr if _[0] > _exons[-1][1]]
-                if __after and __after[0][0] == _exons[-1][1] + 1:
-                    _exons[-1] = (_exons[-1][0], __after[0][1])
-                    __after = __after[1:]
-                _exons = __before + _exons + __after
+                    exc = InvalidTranscript("Transcript {} has a mangled CDS/UTR annotation. Please revise it.")
+                    transcript.logger.exception(exc)
+                    raise exc
 
     transcript.logger.debug("Converting to tuples")
     _exons = [tuple([int(exon[0]), int(exon[1])]) for exon in _exons]
@@ -332,7 +334,7 @@ def __verify_boundaries(transcript):
             err, transcript.id, str(transcript.exons))
 
 
-def __calculate_phases(coding, previous):
+def __calculate_phases(coding: list, previous: int) -> (int, dict):
     """
 
     :param coding:
@@ -366,16 +368,17 @@ def __check_internal_orf(transcript, index):
     :rtype: Mikado.loci.Transcript
     """
 
-    if  transcript._trust_orf is True and index == 0:
-        if transcript.is_coding:
-            assert transcript.phases
-        new_orf = []
-        for segment in transcript.internal_orfs[index]:
-            if segment[0] == "CDS":
-                segment = tuple([segment[0], segment[1], transcript.phases[segment[1]]])
-            new_orf.append(segment)
-        transcript.internal_orfs[index] = new_orf
-        return transcript
+    if transcript._trust_orf is True and index == 0:
+        if (transcript.is_coding and transcript.phases) or not transcript.is_coding:
+            new_orf = []
+            for segment in transcript.internal_orfs[index]:
+                if segment[0] == "CDS":
+                    segment = tuple([segment[0], segment[1], transcript.phases[segment[1]]])
+                new_orf.append(segment)
+            transcript.internal_orfs[index] = new_orf
+            return transcript
+        else:
+            pass
 
     orf, new_orf = transcript.internal_orfs[index], []
 

@@ -27,7 +27,7 @@ def launch(args):
 
     if (args.out_format is not None and
                 args.out_format != out_format):
-        if args.out_format != parser.__annot_type__:
+        if args.out_format != parser.__annot_type__ or args.transcriptomic is True:
             out_format = args.out_format
         else:
             print("Input and output format are the same, aborting.", file=sys.stderr)

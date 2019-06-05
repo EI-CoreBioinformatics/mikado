@@ -360,8 +360,8 @@ class Accountant:
                 intron_chains_nonred += __nonred
 
                 splice_stats[0] += len(set.intersection(*splice_starts)) + len(set.intersection(*splice_ends))
-                splice_stats[2] += len(splice_starts[1]) + len(splice_ends[1])  # prediction
-                splice_stats[1] += len(splice_starts[0]) + len(splice_ends[0])  # reference
+                splice_stats[1] += len(splice_starts[1]) + len(splice_ends[1])  # prediction
+                splice_stats[2] += len(splice_starts[0]) + len(splice_ends[0])  # reference
                 for key in set.union(set(intron_nrs[0].keys()), set(intron_nrs[1].keys())):
                     __ref_val, __pred_val = intron_nrs[0][key], intron_nrs[1][key]
                     if min(__ref_val, __pred_val) > 0:

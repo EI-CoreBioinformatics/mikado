@@ -164,7 +164,13 @@ def setup(args):
 
     if getattr(args, "fasta"):
         args.fasta.close()
-        args.json_conf["reference"]["genome"] = args.fasta.name
+        name = args.fasta.name
+        if isinstance(name, bytes):
+            name = name.decode()
+        args.json_conf["reference"]["genome"] = name
+
+    if isinstance(args.json_conf["reference"]["genome"], bytes):
+        args.json_conf["reference"]["genome"] = args.json_conf["reference"]["genome"].decode()
 
     if args.keep_redundant is not None:
         args.json_conf["prepare"]["keep_redundant"] = args.keep_redundant

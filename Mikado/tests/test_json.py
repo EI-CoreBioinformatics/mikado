@@ -3,6 +3,7 @@ from .. import configuration
 import unittest
 import os
 import pkg_resources
+import glob
 
 
 __author__ = 'Luca Venturini'
@@ -107,7 +108,8 @@ class TestScoring(unittest.TestCase):
 
     def test_available_scoring_files(self):
 
-        for scorer in pkg_resources.resource_listdir("Mikado.configuration", "scoring_files"):
+        for scorer in glob.iglob(os.path.join(pkg_resources.resource_filename("Mikado.configuration", "scoring_files"),
+                                 "**", "*yaml"), recursive=True):
             conf = dict()
             conf["pick"] = dict()
             conf["pick"]["scoring_file"] = scorer

@@ -28,12 +28,14 @@ import magic
 import sqlite3
 import multiprocessing as mp
 import tempfile
+from .gene_dict import check_index
 from ..exceptions import InvalidTranscript
 import json
 import gzip
 import itertools
 import functools
 import msgpack
+from .gene_dict import GeneDict
 
 
 __author__ = 'Luca Venturini'
@@ -98,14 +100,15 @@ def setup_logger(args, manager):
     return args, handler, logger, log_queue_listener, queue_logger
 
 
-def finalize_reference(genes, positions, queue_logger, args) \
+def finalize_reference(genes, positions, queue_logger, exclude_utr=False, protein_coding=False) \
         -> (dict, collections.defaultdict):
 
     """
 :param genes:
 :param positions:
 :param queue_logger:
-:param args:
+:param exclude_utr:
+:param protein_coding:
 :return:
 """
 
@@ -113,11 +116,11 @@ def finalize_reference(genes, positions, queue_logger, args) \
     genes_to_remove = set()
     for gid in genes:
         genes[gid].logger = queue_logger
-        genes[gid].finalize(exclude_utr=args.exclude_utr)
+        genes[gid].finalize(exclude_utr=exclude_utr)
         if len(genes[gid]) == 0:
             genes_to_remove.add(gid)
             continue
-        if args.protein_coding is True:
+        if protein_coding is True:
             to_remove = []
             for tid in genes[gid].transcripts:
                 if genes[gid].transcripts[tid].combined_cds_length == 0:
@@ -144,28 +147,34 @@ def finalize_reference(genes, positions, queue_logger, args) \
     return genes, positions
 
 
-def prepare_reference(args, queue_logger, ref_gff=False) -> (dict, collections.defaultdict):
+def prepare_reference(reference, queue_logger, ref_gff=False,
+                      exclude_utr=False, protein_coding=False) -> (dict, collections.defaultdict):
 
     """
     Method to prepare the data structures that hold the reference
     information for the parsing.
-    :param args:
+    :param reference:
     :param queue_logger:
     :param ref_gff:
     :return: genes, positions
+    :param exclude_utr:
+    :param protein_coding:
     """
 
     genes = dict()
     positions = collections.defaultdict(dict)
     transcript2gene = dict()
 
-    for row in args.reference:
+    for row in reference:
         # Assume we are going to use GTF for the moment
         if row.header is True:
             continue
-        elif args.reference.__annot_type__ == Bed12Parser.__annot_type__:
+        elif reference.__annot_type__ == Bed12Parser.__annot_type__:
             transcript = Transcript(row, logger=queue_logger, trust_orf=True, accept_undefined_multi=True)
-            transcript.parent = gid = row.id
+            if transcript.parent:
+                gid = transcript.parent[0]
+            else:
+                transcript.parent = gid = row.id
             transcript2gene[row.id] = gid
             if gid not in genes:
                 genes[gid] = Gene(transcript, gid=gid, logger=queue_logger)
@@ -218,7 +227,8 @@ def prepare_reference(args, queue_logger, ref_gff=False) -> (dict, collections.d
                         genes[row.gene].add(transcript)
                     genes[row.gene][row.transcript].add_exon(row)
 
-    genes, positions = finalize_reference(genes, positions, queue_logger, args)
+    genes, positions = finalize_reference(genes, positions, queue_logger, exclude_utr=exclude_utr,
+                                          protein_coding=protein_coding)
 
     if len(genes) == 0:
         raise KeyError("No genes remained for the reference!")
@@ -337,7 +347,7 @@ def parse_prediction(args, index, queue_logger):
         assigner_instance = None
     else:
         procs = []
-        assigner_instance = Assigner(index, args, printout_tmap=True)
+        assigner_instance = Assigner(index, args, printout_tmap=True, )
         transmitter = functools.partial(get_best_result, assigner_instance=assigner_instance)
 
     constructor = functools.partial(Transcript,
@@ -504,12 +514,12 @@ def parse_prediction(args, index, queue_logger):
     queue.close()
 
 
-def parse_self(args, genes, queue_logger):
+def parse_self(args, gdict: GeneDict, queue_logger):
 
     """
     This function is called when we desire to compare a reference against itself.
     :param args:
-    :param genes:
+    :param gdict: gene MIDX database
     :param queue_logger:
     :return:
     """
@@ -523,7 +533,7 @@ def parse_self(args, genes, queue_logger):
     tmap_rower = csv.DictWriter(tmap_out, ResultStorer.__slots__, delimiter="\t")
     tmap_rower.writeheader()
 
-    for gid, gene in genes.items():
+    for gid, gene in gdict.items():
         assert isinstance(gene, Gene)
         if len(gene.transcripts) == 1:
             continue
@@ -531,46 +541,11 @@ def parse_self(args, genes, queue_logger):
         combinations = itertools.combinations(gene.transcripts.keys(), 2)
         for combination in combinations:
             result, _ = Assigner.compare(gene.transcripts[combination[0]],
-                                         gene.transcripts[combination[1]])
+                                         gene.transcripts[combination[1]],
+                                         fuzzy_match=args.fuzzymatch)
             tmap_rower.writerow(result.as_dict())
 
     queue_logger.info("Finished.")
-
-
-def check_index(args, queue_logger):
-    wizard = magic.Magic(mime=True)
-
-    if wizard.from_file("{0}.midx".format(args.reference.name)) == b"application/gzip":
-        queue_logger.warning("Old index format detected. Starting to generate a new one.")
-        raise CorruptIndex("Invalid index file")
-
-    try:
-        conn = sqlite3.connect("{0}.midx".format(args.reference.name))
-        cursor = conn.cursor()
-        tables = cursor.execute("SELECT name FROM sqlite_master WHERE type='table';").fetchall()
-        if sorted(tables) != sorted([("positions",), ("genes",)]):
-            raise CorruptIndex("Invalid database file")
-        # res = cursor.execute("PRAGMA integrity_check;").fetchone()
-        # if res[0] != "ok":
-        #     raise CorruptIndex("Corrupt database, integrity value: {}".format(res[0]))
-        gid, obj = cursor.execute("SELECT * from genes").fetchone()
-        try:
-            obj = msgpack.loads(obj, raw=False)
-        except TypeError:
-            try:
-                obj = json.loads(obj)
-            except (ValueError, TypeError, json.decoder.JSONDecodeError):
-                raise CorruptIndex("Corrupt index")
-            raise CorruptIndex("Old index, deleting and rebuilding")
-
-        gene = Gene(None)
-        try:
-            gene.load_dict(obj)
-        except:
-            raise CorruptIndex("Invalid value for genes, indicating a corrupt index. Deleting and rebuilding.")
-
-    except sqlite3.DatabaseError:
-        raise CorruptIndex("Invalid database file")
 
 
 def load_index(args, queue_logger):
@@ -638,7 +613,8 @@ def load_index(args, queue_logger):
     return genes, positions
 
 
-def create_index(args, queue_logger, index_name, ref_gff=False):
+def create_index(reference, queue_logger, index_name, ref_gff=False,
+                 exclude_utr=False, protein_coding=False):
 
     """Method to create the simple indexed database for features."""
 
@@ -651,7 +627,8 @@ def create_index(args, queue_logger, index_name, ref_gff=False):
     cursor = conn.cursor()
     cursor.execute("CREATE TABLE positions (chrom text, start integer, end integer, gid text)")
     cursor.execute("CREATE INDEX pos_idx ON positions (chrom, start, end)")
-    genes, positions = prepare_reference(args, queue_logger, ref_gff=ref_gff)
+    genes, positions = prepare_reference(reference, queue_logger, ref_gff=ref_gff,
+                                         exclude_utr=exclude_utr, protein_coding=protein_coding)
 
     for chrom in positions:
         for key in positions[chrom]:
@@ -710,10 +687,17 @@ def compare(args):
         queue_logger.info("Starting to create an index for %s", args.reference.name)
         if os.path.exists("{0}.midx".format(args.reference.name)):
             queue_logger.warning("Removing the old index")
-            os.remove("{0}.midx".format(args.reference.name))
+            try:
+                os.remove("{0}.midx".format(args.reference.name))
+            except (OSError, PermissionError) as exc:
+                queue_logger.critical(exc)
+                queue_logger.critical(
+                    "I cannot delete the old index, due to permission errors. Please investigate and relaunch.")
+                sys.exit(1)
         args.protein_coding = False
         args.exclude_utr = False
-        create_index(args, queue_logger, index_name, ref_gff=ref_gff)
+        create_index(args.reference, queue_logger, index_name, ref_gff=ref_gff,
+                     protein_coding=args.protein_coding, exclude_utr=args.exclude_utr)
         queue_logger.info("Finished to create an index for %s", args.reference.name)
     else:
         if os.path.dirname(args.out) and os.path.dirname(args.out) != os.path.dirname(os.path.abspath(".")):
@@ -724,28 +708,43 @@ def compare(args):
                 os.makedirs(dirname)
         if (os.path.exists(index_name) and os.stat(args.reference.name).st_mtime >= os.stat(index_name).st_mtime):
             queue_logger.warning("Reference index obsolete, deleting and rebuilding.")
-            os.remove("{0}.midx".format(args.reference.name))
-            create_index(args, queue_logger, index_name, ref_gff=ref_gff)
+            try:
+                os.remove("{0}.midx".format(args.reference.name))
+            except (OSError, PermissionError) as exc:
+                queue_logger.error(
+                    "I cannot delete the old index due to permission errors. I will create a temporary one instead.")
+                __index = tempfile.NamedTemporaryFile(suffix=".midx")
+                index_name = __index.name
+            create_index(args.reference, queue_logger, index_name, ref_gff=ref_gff,
+                         protein_coding=args.protein_coding, exclude_utr=args.exclude_utr)
         elif os.path.exists(index_name):
             # queue_logger.info("Starting loading the indexed reference")
             queue_logger.info("Index found")
             try:
-                check_index(args, queue_logger)
+                check_index(args.reference.name, queue_logger)
                 queue_logger.info("Index valid, proceeding.")
             except CorruptIndex as exc:
                 queue_logger.warning(exc)
                 queue_logger.warning("Reference index corrupt, deleting and rebuilding.")
-                os.remove("{0}.midx".format(args.reference.name))
-                create_index(args, queue_logger, index_name, ref_gff=ref_gff)
+                try:
+                    os.remove("{0}.midx".format(args.reference.name))
+                except (OSError, PermissionError) as exc:
+                    queue_logger.error(
+                        "I cannot delete the old index due to permission errors. I will create a temporary one instead.")
+                    __index = tempfile.NamedTemporaryFile(suffix=".midx")
+                    index_name = __index.name
+                create_index(args.reference, queue_logger, index_name, ref_gff=ref_gff,
+                             protein_coding=args.protein_coding, exclude_utr=args.exclude_utr)
         else:
             if args.no_save_index is True:
                 __index = tempfile.NamedTemporaryFile(suffix=".midx")
                 index_name = __index.name
-            create_index(args, queue_logger, index_name, ref_gff=ref_gff)
+            create_index(args.reference, queue_logger, index_name, ref_gff=ref_gff,
+                         protein_coding=args.protein_coding, exclude_utr=args.exclude_utr)
         try:
             if hasattr(args, "internal") and args.internal is True:
-                raise NotImplementedError()
-                # parse_self(args, genes, queue_logger)
+                # raise NotImplementedError()
+                parse_self(args, GeneDict(index_name), queue_logger)
             else:
                 parse_prediction(args, index_name, queue_logger)
         except Exception as err:

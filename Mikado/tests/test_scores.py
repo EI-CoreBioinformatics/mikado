@@ -230,6 +230,7 @@ class LocusMissedTester(unittest.TestCase):
 
         reqs = configuration.configurator.check_requirements(reqs, require_schema, "requirements")
         self.json_conf["requirements"] = reqs["requirements"]
+        self.json_conf["pick"]["alternative_splicing"]["pad"] = False
 
     def test_transcript_not_missed(self):
 

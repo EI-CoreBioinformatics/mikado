@@ -2,7 +2,7 @@ import functools
 import multiprocessing
 import multiprocessing.queues
 import os
-import pyfaidx
+import pysam
 from Mikado.transcripts.transcriptchecker import TranscriptChecker
 from .. import exceptions
 from ..loci import Transcript
@@ -160,7 +160,7 @@ class CheckingProcess(multiprocessing.Process):
         self.__fasta = fasta
         self.__submission_queue = None
         self.__set_submission_queue(submission_queue)
-        self.fasta = pyfaidx.Fasta(self.__fasta)
+        self.fasta = pysam.FastaFile(self.__fasta)
         self.fasta_out = os.path.join(tmpdir, "{0}-{1}".format(
             fasta_out, self.identifier
         ))
@@ -198,7 +198,7 @@ class CheckingProcess(multiprocessing.Process):
                 raise KeyError(lines)
 
             transcript = checker(lines,
-                                 str(self.fasta[lines["chrom"]][start-1:end]),
+                                 str(self.fasta.fetch(lines["chrom"], start-1, end)),
                                  start,
                                  end,
                                  lenient=self.lenient,
@@ -239,7 +239,7 @@ class CheckingProcess(multiprocessing.Process):
     def __setstate__(self, state):
         self.__dict__.update(state)
         create_queue_logger(self)
-        self.fasta = pyfaidx.Fasta(self.__fasta)
+        self.fasta = pysam.FastaFile(self.__fasta)
 
     @property
     def identifier(self):

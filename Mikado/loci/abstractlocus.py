@@ -680,6 +680,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
         for tid in self.transcripts:
             self.scores[tid] = scores[tid]
+            self[tid].score = scores[tid]
 
         self.scores_calculated = True
         self.metrics_calculated = True
@@ -1207,14 +1208,34 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         use_raw = self.json_conf["scoring"][param]["use_raw"]
         multiplier = self.json_conf["scoring"][param]["multiplier"]
 
+        metrics = dict()
         if param.startswith("external"):
             # For external metrics, we have a tuple - first item is score, second item is usable_raw
-            try:
-                metrics = dict((tid, rgetattr(self.transcripts[tid], param)[0]) for tid in self.transcripts)
-            except TypeError:
-                raise TypeError(param)
+            for tid in self.transcripts:
+                try:
+                    metric = rgetattr(self.transcripts[tid], param)
+                    if isinstance(metric, (tuple, list)):
+                        metric = metric[0]
+                    metrics[tid] = metric
+                except TypeError:
+                    raise TypeError(param)
+                except KeyError:
+                    raise KeyError(param)
+                except AttributeError:
+                    raise AttributeError(param)
         else:
-            metrics = dict((tid, getattr(self.transcripts[tid], param)) for tid in self.transcripts)
+            for tid in self.transcripts:
+                try:
+                    metric = getattr(self.transcripts[tid], param)
+                    if isinstance(metric, (tuple, list)):
+                        metric = metric[0]
+                    metrics[tid] = metric
+                except TypeError:
+                    raise TypeError(param)
+                except KeyError:
+                    raise KeyError(param)
+                except AttributeError:
+                    raise AttributeError(param)
 
         for tid in self.transcripts.keys():
             tid_metric = metrics[tid]
@@ -1243,7 +1264,22 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         else:
             if param.startswith("external"):
                 # Take any transcript and verify
-                usable_raw = rgetattr(self.transcripts[list(self.transcripts.keys())[0]], param)[1]
+                try:
+                    transcript = self.transcripts[list(self.transcripts.keys())[0]]
+                except (IndexError, TypeError, KeyError):
+                    raise TypeError("No transcripts left!")
+                try:
+                    metric = rgetattr(transcript, param)
+                except (IndexError, TypeError, KeyError):
+                    raise TypeError("{param} not found in transcripts of {self.id}".format(**locals()))
+                try:
+                    usable_raw = metric[1]
+                    if usable_raw[1] not in (True, False):
+                        raise TypeError
+                except (IndexError, TypeError, KeyError):
+                    raise TypeError(
+                        "Value of {param} is {metric}. It should be a tuple with a boolean second element".format(
+                            **locals()))
             else:
                 usable_raw = getattr(Transcript, param).usable_raw
 

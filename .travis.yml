@@ -28,7 +28,7 @@ script:
   - touch plants.yaml && python -c "import Mikado; print(Mikado.__version__)" && rm plants.yaml;  # This is to verify we fixed bug #124
   - cd sample_data; snakemake
   - cd ..;
-  - python -c "import Mikado; Mikado.test()";
-  - python setup.py test;  
+  - python -c "import Mikado; Mikado.test(label='fast')";
+  - python setup.py test --addopts " --cov Mikado -m '(slow or not slow) and not triage'";
 after_success:
   - codecov 

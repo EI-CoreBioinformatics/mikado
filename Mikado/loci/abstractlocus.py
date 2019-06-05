@@ -680,6 +680,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
         for tid in self.transcripts:
             self.scores[tid] = scores[tid]
+            self[tid].score = scores[tid]
 
         self.scores_calculated = True
         self.metrics_calculated = True

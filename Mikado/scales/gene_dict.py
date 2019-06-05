@@ -40,7 +40,6 @@ class GeneDict:
         else:
             self.__logger = logger
 
-
     @property
     def positions(self):
         return iter(self.__cursor.execute("SELECT chrom, start, end, gid FROM positions"))

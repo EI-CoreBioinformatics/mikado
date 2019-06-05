@@ -18,7 +18,7 @@ From: conda/miniconda3-centos7
     yum -y install git wget zlib1g-dev gcc gcc-c++ && yum clean all
     git clone https://github.com/EI-CoreBioinformatics/mikado.git /usr/local/src/mikado
     cd /usr/local/src/mikado
-    python setup.py bdist_wheel && pip install --prefix /usr/local dist/*whl
+    python3 setup.py bdist_wheel && pip install --prefix /usr/local dist/*whl
 
     echo '#!/bin/bash' >> /usr/local/bin/show_commit_hash
     echo 'cd /usr/local/src/mikado' >> /usr/local/bin/show_commit_hash

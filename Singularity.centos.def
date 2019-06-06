@@ -24,6 +24,12 @@ From: conda/miniconda3-centos7
     echo 'cd /usr/local/src/mikado' >> /usr/local/bin/show_commit_hash
     echo 'git log | head -n1 | cut -f 2 -d " "' >> /usr/local/bin/show_commit_hash
     chmod 775 /usr/local/bin/show_commit_hash
+    
+    chmod -R 775 /usr/local/src/mikado/util/*
+    for TOOL in /usr/local/src/mikado/util/*
+    	do
+		script=$(basename ${TOOL}) && ln -sf ${TOOL} /usr/local/bin/${script}
+        done
 
 %apprun snakemake
 	snakemake "@"

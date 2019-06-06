@@ -1274,7 +1274,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                     raise TypeError("{param} not found in transcripts of {self.id}".format(**locals()))
                 try:
                     usable_raw = metric[1]
-                    if usable_raw[1] not in (True, False):
+                    if usable_raw not in (True, False):
                         raise TypeError
                 except (IndexError, TypeError, KeyError):
                     raise TypeError(

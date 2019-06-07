@@ -730,8 +730,10 @@ class Locus(Abstractlocus):
                 templates.add(__to_modify[tid][1].id)
 
             self.logger.debug("Expanding %s to have start %s (from %s) and end %s (from %s)",
-                              tid, __to_modify[tid][0],
-                              self[tid].start, __to_modify[tid][1], self[tid].end)
+                              tid, __to_modify[tid][0] if not __to_modify[tid][0] else __to_modify[tid][0].start,
+                              self[tid].start,
+                              __to_modify[tid][1] if not __to_modify[tid][1] else __to_modify[tid][1].end,
+                              self[tid].end)
             new_transcript = expand_transcript(self[tid].deepcopy(),
                                                __to_modify[tid][0],
                                                __to_modify[tid][1],

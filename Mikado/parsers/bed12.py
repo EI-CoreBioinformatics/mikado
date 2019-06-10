@@ -500,7 +500,8 @@ class BED12:
                     self.phase = 0
             else:
                 if self.end - self.thick_end <= 2:
-                    self.phase = self.end - self.thick_end
+                    new_phase = max(self.end - self.thick_end, 0)
+                    self.phase = new_phase
                     self.thick_end = self.end
                 else:
                     self.phase = 0

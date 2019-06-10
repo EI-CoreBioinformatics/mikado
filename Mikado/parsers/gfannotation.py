@@ -240,6 +240,8 @@ class GFAnnotation(metaclass=abc.ABCMeta):
             elif self.id is not None and self.id.startswith("gene:"):
                 # Hack for EnsEMBL
                 return True
+            elif self.feature in ("sublocus", "monosublocus", "monosublocusholder"):
+                return True
         return False
 
     @property

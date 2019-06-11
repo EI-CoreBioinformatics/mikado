@@ -1403,7 +1403,6 @@ def enlarge_orfs(transcript: Transcript,
             internal_orfs = []
     else:
         internal_orfs = []
-        internal_orfs = []
 
     if not internal_orfs:
         return transcript

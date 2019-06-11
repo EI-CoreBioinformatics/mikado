@@ -820,7 +820,7 @@ class BED12:
 
         assert 0 < len(self.stop_codon) <= 3, self.stop_codon
 
-        logger.debug("%s: start codon %s, old start %s; stop codon %s, old start %s",
+        logger.debug("%s: start codon %s, old start %s; stop codon %s, old stop %s",
                      self.name, self.start_codon, self.thick_start + self.phase,
                      self.stop_codon, self.thick_end)
         # Now expand
@@ -829,15 +829,17 @@ class BED12:
         self.thick_end += upstream
         if expand_orf is True:
             if str(self.start_codon).upper() not in self.table.start_codons:
-                for pos in range(self.thick_start - self.phase,
+                for pos in range(self.thick_start + (3 - self.phase) % 3 - 1,
                                  0,
                                  -3):
                     codon = sequence[pos - 1:pos + 2].upper()
+
                     self.thick_start = pos
                     if codon in self.table.start_codons:
                         # self.thick_start = pos
                         self.start_codon = codon
                         self.__has_start = True
+                        logger.debug("Position %d, codon %s. Start codon found.", pos, codon)
                         break
 
             if self.start_codon not in self.table.start_codons:

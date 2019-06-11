@@ -7,7 +7,6 @@ Very basic, all too basic test for some functionalities of locus-like classes.
 import unittest
 import os.path
 import logging
-logging.getLogger("matplotlib").setLevel(logging.WARNING)
 import pkg_resources
 from ..configuration import configurator
 from .. import exceptions, scales
@@ -23,12 +22,10 @@ from .. import loci
 import pickle
 import inspect
 from ..parsers.bed12 import BED12
-import tempfile
-import gzip
-# import pyfaidx
 import pysam
 from pytest import mark
 from itertools import combinations_with_replacement
+logging.getLogger("matplotlib").setLevel(logging.WARNING)
 
 
 class OverlapTester(unittest.TestCase):
@@ -188,16 +185,7 @@ class LocusTester(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
 
-        # cls.__genomefile__ = tempfile.NamedTemporaryFile(mode="wb", delete=False, suffix=".fa.gz", prefix="prepare")
-        #
-        # cls.__genomefile__.write(pkg_resources.resource_stream("Mikado.tests", "chr5.fas.gz").read())
-        # cls.__genomefile__.flush()
         cls.fai = pysam.FastaFile(pkg_resources.resource_filename("Mikado.tests", "chr5.fas.gz"))
-
-    # @classmethod
-    # def tearDownClass(cls):
-    #     os.remove(cls.__genomefile__.name)
-    #     os.remove(cls.fai.faidx.indexname)
 
     def setUp(self):
 
@@ -1120,13 +1108,6 @@ class TestLocus(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        # cls.__genomefile__ = None
-        #
-        # cls.__genomefile__ = tempfile.NamedTemporaryFile(mode="wb", delete=False, suffix=".fa", prefix="prepare")
-        #
-        # with pkg_resources.resource_stream("Mikado.tests", "chr5.fas.gz") as _:
-        #     cls.__genomefile__.write(gzip.decompress(_.read()))
-        # cls.__genomefile__.flush()
         cls.fai = pysam.FastaFile(pkg_resources.resource_filename("Mikado.tests", "chr5.fas.gz"))
 
     def setUp(self):
@@ -2298,14 +2279,6 @@ class PaddingTester(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        # cls.__genomefile__ = None
-        #
-        # cls.__genomefile__ = tempfile.NamedTemporaryFile(mode="wb", delete=False, suffix=".fa", prefix="prepare")
-        #
-        # with pkg_resources.resource_stream("Mikado.tests", "chr5.fas.gz") as _:
-        #     cls.__genomefile__.write(gzip.decompress(_.read()))
-        # cls.__genomefile__.flush()
-        # cls.fai = pyfaidx.Fasta(cls.__genomefile__.name)
         cls.fai = pysam.FastaFile(pkg_resources.resource_filename("Mikado.tests", "chr5.fas.gz"))
 
     @staticmethod
@@ -2326,6 +2299,99 @@ class PaddingTester(unittest.TestCase):
                 transcripts[transcript.id] = transcript
         return transcripts
 
+    @mark.slow
+    def test_complete_padding(self):
+
+        transcripts = self.load_from_bed("Mikado.tests", "complete_padding.bed12")
+        logger = create_default_logger(inspect.getframeinfo(inspect.currentframe())[2], level="WARNING")
+        for idx in range(1, 5):
+            self.assertIn('AT5G01030.{}'.format(idx), transcripts.keys(), transcripts.keys())
+        cds_coordinates = dict()
+        genome = pkg_resources.resource_filename("Mikado.tests", "chr5.fas.gz")
+        # Distance of .4 to .1 or .2: 600
+        # Distance of .3 to .1: 270
+        # Distance of .3 to .2: 384
+
+        for pad_distance, max_splice, coding, best in itertools.product(
+                (300, 400, 601),
+                (0, 1, 2, 3),
+                (False, True,),
+                tuple(["AT5G01030.1", "AT5G01030.2"])):
+            with self.subTest(pad_distance=pad_distance, max_splice=max_splice, coding=coding, best=best):
+                primary = transcripts[best].copy()
+                if coding is False:
+                    primary.strip_cds()
+                locus = loci.Locus(primary)
+                locus.json_conf["reference"]["genome"] = genome
+                for t in transcripts:
+                    if t == locus.primary_transcript_id:
+                        continue
+                    trans = transcripts[t].copy()
+                    if coding is False:
+                        trans.strip_cds()
+                    locus.add_transcript_to_locus(trans)
+
+                # Now add the scores
+                scores = {best: 15}
+                for tid in transcripts.keys():
+                    if tid not in ("AT5G01030.1", "AT5G01030.2"):
+                        scores[tid] = 9
+                    else:
+                        scores[tid] = 10
+
+                locus._load_scores(scores=scores)
+                locus._load_scores(scores=scores)
+
+                if coding:
+                    cds_coordinates = dict()
+                    for transcript in locus:
+                        cds_coordinates[transcript] = (
+                            locus[transcript].combined_cds_start, locus[transcript].combined_cds_end)
+
+                logger = create_default_logger("logger", level="WARNING")
+                locus.logger = logger
+                locus.json_conf["pick"]["alternative_splicing"]["ts_distance"] = pad_distance
+                locus.json_conf["pick"]["alternative_splicing"]["ts_max_splices"] = max_splice
+                locus.pad_transcripts()
+
+                self.assertEqual(locus[best].start, transcripts["AT5G01030.2"].start)
+                self.assertIn(best, locus)
+                if max_splice < 2 or pad_distance <= 250:
+                    with self.assertLogs(logger, "DEBUG") as cm:
+                        locus.logger.setLevel("DEBUG")
+                        share = locus._share_five_prime(transcripts["AT5G01030.3"],
+                                                        transcripts["AT5G01030.1"])
+                        self.assertEqual(False, share, cm.output)
+
+                    self.assertEqual(locus["AT5G01030.3"].start, transcripts["AT5G01030.3"].start,
+                                     (pad_distance, max_splice, coding, best))
+                    self.assertNotIn("padded", locus["AT5G01030.3"].attributes,
+                                     (pad_distance, max_splice, coding, best))
+                else:
+                    self.assertEqual(locus["AT5G01030.3"].start, transcripts["AT5G01030.2"].start,
+                                     (locus["AT5G01030.3"].start, pad_distance, max_splice, coding, best))
+                    self.assertTrue(locus["AT5G01030.3"].attributes.get("padded", False),
+                                    (pad_distance, max_splice, coding, best))
+                    self.assertEqual(locus["AT5G01030.3"].exons,
+                                     [(9869, 10172), (10574, 12665), (12803, 13235)])
+
+                    if coding:
+                        self.assertEqual(locus["AT5G01030.3"].combined_cds_start,
+                                         transcripts["AT5G01030.2"].combined_cds_start)
+                # self.assertFalse(locus[best].attributes.get("padded", False))
+                if max_splice < 2 or pad_distance < 600:
+                    self.assertEqual(locus["AT5G01030.4"].end, transcripts["AT5G01030.4"].end)
+                    self.assertNotIn("padded", locus["AT5G01030.4"].attributes,
+                                     (pad_distance, max_splice, coding, best))
+                else:
+                    self.assertEqual(locus["AT5G01030.4"].end, transcripts["AT5G01030.2"].end,
+                                     (pad_distance, max_splice, coding, best))
+                    self.assertTrue(locus["AT5G01030.4"].attributes.get("padded", False))
+                    if coding:
+                        self.assertEqual(locus["AT5G01030.4"].combined_cds_end,
+                                         transcripts["AT5G01030.2"].combined_cds_end)
+
+    @mark.triage
     def test_negative_padding(self):
         genome = pkg_resources.resource_filename("Mikado.tests", "neg_pad.fa")
         transcripts = self.load_from_bed("Mikado.tests", "neg_pad.bed12")
@@ -2349,9 +2415,9 @@ class PaddingTester(unittest.TestCase):
         for transcript in locus:
             cds_coordinates[transcript] = (locus[transcript].combined_cds_start, locus[transcript].combined_cds_end)
 
-        corr = {1: "Human_coding_ENSP00000371111.2.m1", # 1645	33976
-                2: "Mikado_gold_mikado.0G230.1", # 1	34063
-                3: "ACOCA10068_run2_woRNA_ACOCA10068_r3_0032600.1" # 1032	34095
+        corr = {1: "Human_coding_ENSP00000371111.2.m1",  # 1645	33976
+                2: "Mikado_gold_mikado.0G230.1",  # 1	34063
+                3: "ACOCA10068_run2_woRNA_ACOCA10068_r3_0032600.1"  # 1032	34095
                 }
 
         for pad_distance, max_splice in zip((130, 700, 1500, 2000), (1, )):
@@ -2360,7 +2426,8 @@ class PaddingTester(unittest.TestCase):
                 locus.logger = logger
                 locus.json_conf["pick"]["alternative_splicing"]["ts_distance"] = pad_distance
                 locus.json_conf["pick"]["alternative_splicing"]["ts_max_splices"] = max_splice
-                locus.pad_transcripts()
+                with self.assertLogs(logger) as pado:
+                    locus.pad_transcripts()
                 for tid in corr:
                     self.assertIn(corr[tid], locus.transcripts, corr[tid])
 
@@ -2368,7 +2435,7 @@ class PaddingTester(unittest.TestCase):
                     self.assertGreater(locus[transcript].combined_cds_length, 0, transcript)
                     self.assertEqual(locus[transcript].combined_cds_start, cds_coordinates[transcript][0])
                     self.assertEqual(locus[transcript].combined_cds_end, cds_coordinates[transcript][1])
-                if pad_distance > 120:  # Ends must be uniform
+                if pad_distance > 720:  # Ends must be uniform
                     self.assertEqual(locus[corr[1]].end, locus[corr[3]].end,
                                      ([locus[corr[_]].end for _ in range(1, 4)],
                                      locus._share_extreme(transcripts[corr[1]],
@@ -2377,7 +2444,7 @@ class PaddingTester(unittest.TestCase):
                                      )
                     self.assertEqual(locus[corr[1]].end, locus[corr[2]].end,
                                      ([locus[corr[_]].end for _ in range(1, 4)],
-                                     locus._share_extreme(transcripts[corr[1]],
+                                      locus._share_extreme(transcripts[corr[1]],
                                                           transcripts[corr[2]],
                                                           three_prime=False))
                                      )
@@ -2404,17 +2471,51 @@ class PaddingTester(unittest.TestCase):
                 if pad_distance >= (abs(transcripts[corr[1]].start - transcripts[corr[3]].start)):
                     self.assertEqual(locus[corr[3]].start,
                                      locus[corr[1]].start)
-                else:
-                    self.assertNotEqual(locus[corr[3]].start, locus[corr[1]].start)
+                elif pad_distance <= 130:
+                    with self.assertLogs(logger, "DEBUG") as cm:
+                        five_graph = locus.define_graph(objects=transcripts,
+                                                        inters=locus._share_extreme, three_prime=False)
+                        three_graph = locus.define_graph(objects=transcripts,
+                                                        inters=locus._share_extreme, three_prime=True)
+                        print(five_graph.edges)
+                        print(three_graph.edges)
+
+                        boundaries = locus._find_communities_boundaries(five_graph, three_graph)
+                        print(boundaries)
+
+                        # locus.logger.setLevel("DEBUG")
+                        shared = locus._share_five_prime(transcripts[corr[2]], transcripts[corr[3]])
+                        self.assertTrue(shared is False, cm.output)
+                        shared = locus._share_five_prime(transcripts[corr[1]], transcripts[corr[3]])
+                        self.assertTrue(shared is False, cm.output)
+
+                    # self.assertEqual()
+                    self.assertNotEqual(locus[corr[3]].start, locus[corr[1]].start,
+                                        pado.output)
 
     @mark.triage
     def test_padding(self):
         genome = pkg_resources.resource_filename("Mikado.tests", "padding_test.fa")
         transcripts = self.load_from_bed("Mikado.tests", "padding_test.bed12")
 
-        for pad_distance, max_splice, coding in itertools.product((200, 1000, 1200, 5000), (1, 1, 5), (True, False)):
-            with self.subTest(pad_distance=pad_distance, max_splice=max_splice, coding=coding):
-                primary = transcripts['mikado.44G2.1'].copy()
+        ids = ["mikado.44G2.{}".format(_) for _ in range(1, 6)]
+
+        params = {
+            "mikado.44G2.1": (sum([exon[1] + 1 - max(exon[0], transcripts["mikado.44G2.2"].end)
+                                   for exon in transcripts["mikado.44G2.1"].exons
+                                   if exon[1] > transcripts["mikado.44G2.2"].end]), 1),
+            "mikado.44G2.5": (sum([exon[1] + 1 - max(exon[0], transcripts["mikado.44G2.2"].end)
+                                   for exon in transcripts["mikado.44G2.5"].exons
+                                   if exon[1] > transcripts["mikado.44G2.2"].end]), 4)
+        }
+
+        print(params)
+
+        for pad_distance, max_splice, coding, best in itertools.product((200, 1000, 1200, 5000), (1, 1, 5),
+                                                                        (True, False),
+                                                                        ("mikado.44G2.1", "mikado.44G2.5")):
+            with self.subTest(pad_distance=pad_distance, max_splice=max_splice, coding=coding, best=best):
+                primary = transcripts[best].copy()
                 if coding is False:
                     primary.strip_cds()
                 locus = loci.Locus(primary)
@@ -2426,6 +2527,14 @@ class PaddingTester(unittest.TestCase):
                     if coding is False:
                         trans.strip_cds()
                     locus.add_transcript_to_locus(trans)
+
+                # Now add the scores
+                scores = {best: 15}
+                for tid in ids:
+                    if tid != best:
+                        scores[tid] = 10
+
+                locus._load_scores(scores=scores)
 
                 if coding:
                     cds_coordinates = dict()
@@ -2440,24 +2549,30 @@ class PaddingTester(unittest.TestCase):
                 locus.pad_transcripts()
 
                 # The .1 transcript can NEVER be expanded, it ends within an intron.
-                self.assertFalse(locus["mikado.44G2.1"].attributes.get("padded", False))
-                if pad_distance < 1000:
-                    self.assertFalse(locus["mikado.44G2.2"].attributes.get("padded", False),
-                                     (locus["mikado.44G2.2"].end, max_splice, pad_distance, coding))
+                self.assertFalse(locus[best].attributes.get("padded", False))
+                # self.assertFalse(locus["mikado.44G2.1"].attributes.get("padded", False))
 
-                elif pad_distance > 1367 and max_splice >= 4:
-                    self.assertEqual(locus["mikado.44G2.1"].end,
-                                     locus["mikado.44G2.2"].end,
-                                     ((locus["mikado.44G2.1"].start, locus["mikado.44G2.1"].end),
-                                      (locus["mikado.44G2.2"].start, locus["mikado.44G2.2"].end)))
-                    self.assertTrue(locus["mikado.44G2.2"].attributes["padded"])
-                elif pad_distance > 1000 and max_splice < 4:
-                    self.assertEqual(locus["mikado.44G2.1"].end,
-                                     locus["mikado.44G2.2"].end,
-                                     ((max_splice, pad_distance, coding),
-                                      (locus["mikado.44G2.1"].start, locus["mikado.44G2.1"].end),
-                                      (locus["mikado.44G2.2"].start, locus["mikado.44G2.2"].end)))
-                    self.assertTrue(locus["mikado.44G2.2"].attributes["padded"])
+                if params[best][0] <= pad_distance and params[best][1] <= max_splice:
+                    for trans in ids:
+                        if trans in params.keys():
+                            continue
+                        self.assertTrue(locus[trans].attributes.get("padded", False),
+                                        (locus[trans].id, best, locus[trans].end, pad_distance, max_splice,
+                                         params[best],
+                                         {item for item in locus[trans].attributes.items() if "ts" in item[0]}))
+                        self.assertEqual(locus[trans].end, locus[best].end,
+                                         (locus[trans].id, best, locus[trans].end, pad_distance, max_splice,
+                                          params[best],
+                                          {item for item in locus[trans].attributes.items() if "ts" in item[0]}
+                                          ))
+                else:
+                    for trans in ids:
+                        if trans in params.keys():
+                            continue
+                        self.assertFalse(locus[trans].attributes.get("padded", False),
+                                         (locus[trans].id, best, locus[trans].end, pad_distance, max_splice,
+                                          params[best],
+                                          {item for item in locus[trans].attributes.items() if "ts" in item[0]}))
 
                 self.assertEqual(locus["mikado.44G2.3"].end, locus["mikado.44G2.2"].end)
                 self.assertEqual(locus["mikado.44G2.4"].end, locus["mikado.44G2.2"].end)

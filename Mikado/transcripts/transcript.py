@@ -287,7 +287,7 @@ class Transcript:
         self.__phases = dict()  # will contain (start, phase) for each CDS exon
         self.__blast_score = 0  # Homology score
         self.__derived_children = set()
-        self.__external_scores = Namespace(default=0)
+        self.__external_scores = Namespace(default=(0, False))
         self.__internal_orf_transcripts = []
 
         # Starting settings for everything else

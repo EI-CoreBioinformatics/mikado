@@ -4,7 +4,8 @@
   "type": "object",
   "properties": {
     "SimpleComment": {"type": "object", "properties": {},
-      "SimpleComment": ["Configuration file for Mikado. Sections:",
+      "SimpleComment": ["Configuration file for Mikado. Please note that absent values, e.g. if a field is deleted, will be imputed by the default values for the program.",
+      "Sections:",
       "- log_settings: settings related to the verbosity of logs.",
       "- db_settings: Database settings, for Mikado serialise and pick.",
       "- reference: Settings related to the genome reference.",
@@ -12,7 +13,8 @@
       "- serialise: settings related to the Mikado serialise stage",
       "- pick: settings related to the Mikado pick stage",
     "- multiprocessing_method: which method (fork, spawn, forkserver) Mikado should use for multiprocessing."],
-    "Comment": ["Configuration file for Mikado. Sections:",
+    "Comment": ["Configuration file for Mikado.  Please note that absent values, e.g. if a field is deleted, will be imputed by the default values for the program.",
+      "Sections:",
       "- log_settings: settings related to the verbosity of logs.",
       "- db_settings: Database settings, for Mikado serialise and pick.",
       "- reference: Settings related to the genome reference.",
@@ -420,7 +422,7 @@
             },
             "ts_distance": {
               "type": "integer",
-              "default": 300,
+              "default": 1000,
               "minimum": 0
             },
             "pad": {
@@ -430,7 +432,7 @@
             "ts_max_splices": {
               "type": "integer",
               "minimum": 0,
-              "default": 1
+              "default": 2
             }
           }
         },

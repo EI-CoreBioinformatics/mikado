@@ -541,7 +541,7 @@ class Assigner:
 
         return results, best_result
 
-    def self_analyse_prediction(self, prediction: Transcript, distances):
+    def self_analyse_prediction(self, prediction: Transcript, distances, fuzzymatch=0):
 
         """This method will be invoked during a self analysis run."""
 
@@ -593,7 +593,7 @@ class Assigner:
                     same_strand = True
 
             if len(genes) == 1:
-                results = [self.calc_and_store_compare(prediction, reference)
+                results = [self.calc_and_store_compare(prediction, reference, fuzzymatch=fuzzymatch)
                            for reference in genes[0] if reference.id != prediction.id]
                 assert len(results) > 0, (genes[0].transcripts.keys(), prediction.id)
                 best_result = sorted(results,
@@ -612,7 +612,7 @@ class Assigner:
                                     gene.id, __gene_removed))
 
                     result_dict[gene.id] = sorted(
-                        [self.calc_and_store_compare(prediction, reference)
+                        [self.calc_and_store_compare(prediction, reference, fuzzymatch=fuzzymatch)
                          for reference in gene if reference.id != prediction.id],
                         key=self.get_f1,
                         reverse=True)

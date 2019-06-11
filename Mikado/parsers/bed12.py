@@ -393,7 +393,6 @@ class BED12:
             self.has_stop_codon = False
 
         if transcriptomic is True and self.coding is True and (fasta_index is not None or sequence is not None):
-            orig_phase = self.phase
             self.validity_checked = True
             if sequence is not None:
                 self.fasta_length = len(sequence)
@@ -417,7 +416,7 @@ class BED12:
                                (self.thick_start - 1 if not self.phase else self.start + self.phase - 1):self.thick_end]
             else:
                 orf_sequence = sequence[(self.thick_start - 1):(
-                    self.thick_end if not self.phase else self.end - self.phase)].reverse_complement()
+                    self.thick_end if not self.phase else self.end - (3 - self.phase) % 3)].reverse_complement()
 
             self.start_codon = str(orf_sequence)[:3].upper()
             self.stop_codon = str(orf_sequence[-3:]).upper()
@@ -464,10 +463,10 @@ class BED12:
                     self.thick_start -= 3
                 else:
                     self.thick_end += 3
-                if sequence[pos -3:pos] in self.table.start_codons:
+                if sequence[pos - 3:pos] in self.table.start_codons:
                     # We have found a valid methionine.
                     break
-                elif sequence[pos -3:pos] in self.table.stop_codons:
+                elif sequence[pos - 3:pos] in self.table.stop_codons:
                     if self.strand == "+":
                         self.thick_start += 3
                     else:
@@ -500,13 +499,13 @@ class BED12:
                     self.phase = 0
             else:
                 if self.end - self.thick_end <= 2:
-                    self.phase = self.end - self.thick_end
+                    new_phase = max(self.end - self.thick_end, 0)
+                    self.phase = new_phase
                     self.thick_end = self.end
                 else:
                     self.phase = 0
         else:
             self.phase = 0
-
 
         if self.invalid:
             raise ValueError(self.invalid_reason)
@@ -813,32 +812,34 @@ class BED12:
         # I presume that the sequence is already in the right orientation
 
         self.start_codon = str(
-            old_sequence[self.thick_start + self.phase - 1:self.thick_start + self.phase + 2]).upper()
+            old_sequence[self.thick_start + (3 - self.phase) % 3 - 1:
+                         self.thick_start + (3 - self.phase) % 3 + 2]).upper()
 
         last_codon_start = (self.thick_end - 3) - ((self.thick_end - self.thick_start - self.phase - 2) % 3)
         self.stop_codon = str(old_sequence[last_codon_start:last_codon_start + 3]).upper()
 
         assert 0 < len(self.stop_codon) <= 3, self.stop_codon
 
-        logger.debug("%s: start codon %s, old start %s; stop codon %s, old start %s",
-                       self.name, self.start_codon, self.thick_start + self.phase,
-                       self.stop_codon, self.thick_end
-                       )
+        logger.debug("%s: start codon %s, old start %s; stop codon %s, old stop %s",
+                     self.name, self.start_codon, self.thick_start + self.phase,
+                     self.stop_codon, self.thick_end)
         # Now expand
         self.end = len(sequence)
         self.thick_start += upstream
         self.thick_end += upstream
         if expand_orf is True:
             if str(self.start_codon).upper() not in self.table.start_codons:
-                for pos in range(self.thick_start - self.phase,
+                for pos in range(self.thick_start + (3 - self.phase) % 3 - 1,
                                  0,
                                  -3):
-                    codon = sequence[pos:pos + 3].upper()
+                    codon = sequence[pos - 1:pos + 2].upper()
+
                     self.thick_start = pos
                     if codon in self.table.start_codons:
                         # self.thick_start = pos
                         self.start_codon = codon
                         self.__has_start = True
+                        logger.debug("Position %d, codon %s. Start codon found.", pos, codon)
                         break
 
             if self.start_codon not in self.table.start_codons:

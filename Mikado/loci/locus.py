@@ -709,7 +709,10 @@ class Locus(Abstractlocus):
         """
 
         try:
-            self.fai = pysam.FastaFile(self.json_conf["reference"]["genome"])
+            if isinstance(self.json_conf["reference"]["genome"], pysam.FastaFile):
+                self.fai = self.json_conf["reference"]["genome"]
+            else:
+                self.fai = pysam.FastaFile(self.json_conf["reference"]["genome"])
         except KeyError:
             raise KeyError(self.json_conf.keys())
 
@@ -848,12 +851,12 @@ class Locus(Abstractlocus):
         decision = False
         first, second = sorted([first, second], key=operator.attrgetter("start"))
         # Now let us check whether the second falls within an intron
-        matched = first.segmenttree.find(second.exons[0][0], second.exons[0][1])
+        matched = first.segmenttree.find(second.exons[0][0] - 1, second.exons[0][1])
         if matched[0].value == "intron":
             decision = False
             reason = "{second} first exon ends within an intron of {first}".format(**locals())
         else:
-            upstream = [_ for _ in first.find_upstream(second.exons[0][0], second.exons[0][1])
+            upstream = [_ for _ in first.find_upstream(second.exons[0][0] - 1, second.exons[0][1])
                         if _.value == "exon" and _ not in matched]
             if matched[0][0] < second.start:
                 if upstream:

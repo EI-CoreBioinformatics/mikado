@@ -2299,6 +2299,55 @@ class PaddingTester(unittest.TestCase):
                 transcripts[transcript.id] = transcript
         return transcripts
 
+    def test_one_off(self):
+        logger = create_default_logger(inspect.getframeinfo(inspect.currentframe())[2], level="WARNING")
+        for strand in ("+", "-"):
+            with self.subTest(strand=strand):
+                logger.setLevel("WARNING")
+                t1 = Transcript()
+                t1.chrom, t1.strand, t1.start, t1.end, t1.id, t1.parent = ["Chr5", strand, 100, 1000, "t1", "loc"]
+                t1.add_exons([(100, 200), (300, 500), (700, 800), (900, 1000)])
+                t1.finalize()
+                loc = Locus(t1, logger=logger)
+                loc.json_conf["reference"]["genome"] = self.fai
+                # We need these to be padded
+                loc.json_conf["pick"]["alternative_splicing"]["ts_distance"] = 1000
+                loc.json_conf["pick"]["alternative_splicing"]["ts_max_splices"] = 10
+                loc.json_conf["pick"]["alternative_splicing"]["only_confirmed_introns"] = False
+                loc.json_conf["pick"]["alternative_splicing"]["min_cdna_overlap"] = 0.1
+                t2 = Transcript()
+                t2.chrom, t2.strand, t2.start, t2.end, t2.id, t2.parent = ["Chr5", strand, 299, 1000, "t2", "loc"]
+                t2.add_exons([(299, 400), (700, 800), (900, 1000)])
+                t2.finalize()
+                loc.add_transcript_to_locus(t2)
+                self.assertIn(t2.id, loc)
+                t3 = Transcript()
+                t3.chrom, t3.strand, t3.start, t3.end, t3.id, t3.parent = ["Chr5", strand, 100, 801, "t3", "loc"]
+                t3.add_exons([(100, 150), (350, 500), (700, 801)])
+                t3.finalize()
+                loc.add_transcript_to_locus(t3)
+                self.assertIn(t3.id, loc)
+                t4 = Transcript()
+                t4.chrom, t4.strand, t4.start, t4.end, t4.id, t4.parent = ["Chr5", strand, 300, 1000, "t4", "loc"]
+                t4.add_exons([(300, 320), (600, 800), (900, 1000)])
+                t4.finalize()
+                self.assertGreaterEqual(t4.cdna_length, 300)
+                loc.add_transcript_to_locus(t4)
+                self.assertIn(t4.id, loc)
+                t5 = Transcript()
+                t5.chrom, t5.strand, t5.start, t5.end, t5.id, t5.parent = ["Chr5", strand, 100, 800, "t5", "loc"]
+                t5.add_exons([(100, 140), (360, 650), (700, 800)])
+                t5.finalize()
+                loc.add_transcript_to_locus(t5)
+                loc._load_scores({"t1": 20, "t2": 10, "t3": 10, "t4": 15, "t5": 15})
+                self.assertIn(t5.id, loc)
+                loc.logger.setLevel("DEBUG")
+                loc.pad_transcripts()
+                self.assertEqual(loc["t4"].start, 100)
+                self.assertEqual(loc["t5"].end, 1000)
+                self.assertEqual(loc["t2"].start, 299)
+                self.assertEqual(loc["t3"].end, 801)
+
     @mark.slow
     def test_complete_padding(self):
 

@@ -749,9 +749,9 @@ class Locus(Abstractlocus):
                 self.logger.exception(exc)
                 raise
             if (new_transcript.start == self.transcripts[tid].end) and (new_transcript.end == self.transcripts[tid].end):
-                self.logger.warning("No expansion took place for %s!", tid)
+                self.logger.debug("No expansion took place for %s!", tid)
             else:
-                self.logger.warning("Expansion took place for %s!", tid)
+                self.logger.debug("Expansion took place for %s!", tid)
             self.transcripts[tid] = new_transcript
 
         self.exons = set()
@@ -1428,9 +1428,7 @@ def enlarge_orfs(transcript: Transcript,
     if not internal_orfs:
         return transcript
 
-    logger.warning("Enlarging the ORFs for TID %s", transcript.id)
     new_orfs = []
-
     for orf in internal_orfs:
         logger.debug("Old ORF: %s", str(orf))
         try:

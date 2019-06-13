@@ -814,7 +814,7 @@ class BED12:
         old_start_pos = self.thick_start + self.phase - 1
         old_end_pos = self.thick_end - (self.thick_end - old_start_pos) % 3
         old_orf = old_sequence[old_start_pos:old_end_pos].upper()
-        logger.error("Old sequence of %s (%s bps): %s[...]%s", self.id, len(old_sequence),
+        logger.debug("Old sequence of %s (%s bps): %s[...]%s", self.id, len(old_sequence),
                      old_sequence[:10], old_sequence[-10:])
         assert len(old_orf) > 0, (old_start_pos, old_end_pos)
         assert len(old_orf) % 3 == 0, (old_start_pos, old_end_pos)
@@ -847,7 +847,7 @@ class BED12:
                         # self.thick_start = pos
                         self.start_codon = codon
                         self.__has_start = True
-                        logger.warning("Position %d, codon %s. Start codon found.", pos, codon)
+                        logger.debug("Position %d, codon %s. Start codon found.", pos, codon)
                         break
 
             if self.start_codon not in self.table.start_codons:

@@ -737,11 +737,21 @@ class Locus(Abstractlocus):
                               self[tid].start,
                               __to_modify[tid][1] if not __to_modify[tid][1] else __to_modify[tid][1].end,
                               self[tid].end)
-            new_transcript = expand_transcript(self[tid].deepcopy(),
-                                               __to_modify[tid][0],
-                                               __to_modify[tid][1],
-                                               self.fai,
-                                               self.logger)
+            try:
+                new_transcript = expand_transcript(self[tid].deepcopy(),
+                                                   __to_modify[tid][0],
+                                                   __to_modify[tid][1],
+                                                   self.fai,
+                                                   self.logger)
+            except KeyboardInterrupt:
+                raise
+            except Exception as exc:
+                self.logger.exception(exc)
+                raise
+            if (new_transcript.start == self.transcripts[tid].end) and (new_transcript.end == self.transcripts[tid].end):
+                self.logger.warning("No expansion took place for %s!", tid)
+            else:
+                self.logger.warning("Expansion took place for %s!", tid)
             self.transcripts[tid] = new_transcript
 
         self.exons = set()
@@ -760,6 +770,7 @@ class Locus(Abstractlocus):
             inters = self._share_extreme
 
         for obj, other_obj in combinations(objects.keys(), 2):
+            self.logger.debug("Comparing %s to %s (%s')", obj, other_obj, "5" if not three_prime else "3")
             if obj == other_obj:
                 continue
             else:
@@ -851,12 +862,14 @@ class Locus(Abstractlocus):
         decision = False
         first, second = sorted([first, second], key=operator.attrgetter("start"))
         # Now let us check whether the second falls within an intron
-        matched = first.segmenttree.find(second.exons[0][0] - 1, second.exons[0][1])
-        if matched[0].value == "intron":
+        matched = first.segmenttree.find(second.exons[0][0], second.exons[0][1])
+        self.logger.debug("{second.id} last exon {second.exons[0]} intersects in {first.id}: {matched}".format(
+            **locals()))
+        if matched[0].value == "intron" or second.exons[0][0] < matched[0].start:
             decision = False
-            reason = "{second} first exon ends within an intron of {first}".format(**locals())
+            reason = "{second.id} first exon ends within an intron of {first.id}".format(**locals())
         else:
-            upstream = [_ for _ in first.find_upstream(second.exons[0][0] - 1, second.exons[0][1])
+            upstream = [_ for _ in first.find_upstream(second.exons[0][0], second.exons[0][1])
                         if _.value == "exon" and _ not in matched]
             if matched[0][0] < second.start:
                 if upstream:
@@ -873,8 +886,8 @@ class Locus(Abstractlocus):
             decision = (ts_distance <= self.ts_distance) and (ts_splices <= self.ts_max_splices)
             if decision:
                 decision = (second, first)
-            reason = "{first.id} {doesit} overlap {second.id} (distance {ts_distance} max {self.ts_distance}, splices {ts_splices} max {self.ts_max_splices})".format(
-                doesit="does" if decision else "does not", **locals())
+            reason = "{first.id} {doesit} overlap {second.id} (distance {ts_distance} max {self.ts_distance}, splices \
+{ts_splices} max {self.ts_max_splices})".format(doesit="does" if decision else "does not", **locals())
         self.logger.debug(reason)
         return decision
 
@@ -891,7 +904,7 @@ class Locus(Abstractlocus):
         first, second = sorted([first, second], key=operator.attrgetter("end"), reverse=False)
         # Now let us check whether the second falls within an intron
         matched = second.segmenttree.find(first.exons[-1][0], first.exons[-1][1])
-        if matched[-1].value == "intron":
+        if matched[-1].value == "intron" or first.exons[-1][1] > matched[-1].end:
             decision = False
             reason = "{second.id} last exon ends within an intron of {first.id}".format(**locals())
         else:
@@ -1088,17 +1101,16 @@ def expand_transcript(transcript: Transcript,
         start_transcript, end_transcript = end_transcript, start_transcript
 
     # Make a backup copy of the transcript
+    logger.debug("Starting expansion of %s", transcript.id)
     backup = transcript.deepcopy()
 
     # First get the ORFs
-    transcript.logger = logger
     # Remove the CDS and unfinalize
+    logger.debug("Starting expansion of %s", transcript.id)
     strand = transcript.strand
     transcript.strip_cds()
     transcript.unfinalize()
-
     assert strand == transcript.strand
-
     downstream = 0
     down_exons = []
 
@@ -1119,6 +1131,7 @@ def expand_transcript(transcript: Transcript,
 
     new_exons = up_exons + down_exons
     if not new_exons:
+        logger.debug("%s does not need to be expanded, exiting", transcript.id)
         return backup
 
     transcript.add_exons(new_exons)
@@ -1128,23 +1141,28 @@ def expand_transcript(transcript: Transcript,
     if transcript.strand == "-":
         downstream, upstream = upstream, downstream
 
-    if up_exons or down_exons:
-        seq = check_expanded(transcript, backup, start_transcript, end_transcript,
-                             fai, upstream, downstream, logger)
-        transcript = enlarge_orfs(transcript, backup, seq, upstream, downstream, logger)
-        transcript.finalize()
+    if (up_exons or down_exons):
+        if backup.is_coding:
+            seq = check_expanded(transcript, backup, start_transcript, end_transcript,
+                                 fai, upstream, downstream, logger)
+            transcript = enlarge_orfs(transcript, backup, seq, upstream, downstream, logger)
+            transcript.finalize()
     else:
         return backup
 
     # Now finalize again
-    if upstream > 0 or downstream > 0:
+    logger.debug("%s: start (before %s, now %s, %s), end (before %s, now %s, %s)",
+                 transcript.id,
+                 backup.start, transcript.start, transcript.start < backup.start,
+                 backup.end, transcript.end, transcript.end > backup.end)
+    if transcript.start < backup.start or transcript.end > backup.end:
         transcript.attributes["padded"] = True
 
     # Now check that we have a valid expansion
     if backup.is_coding and not transcript.is_coding:
         # Something has gone wrong. Just return the original transcript.
         assert new_exons
-        logger.info("Padding %s would lead to an invalid CDS. Aborting.",
+        logger.info("Padding %s would lead to an invalid CDS (up exons: %s). Aborting.",
                     transcript.id, up_exons)
         return backup
     elif (backup.is_coding and ((backup.strand == "-" and backup.combined_cds_end < transcript.combined_cds_end) or
@@ -1410,7 +1428,7 @@ def enlarge_orfs(transcript: Transcript,
     if not internal_orfs:
         return transcript
 
-    logger.debug("Enlarging the ORFs for TID %s", transcript.id)
+    logger.warning("Enlarging the ORFs for TID %s", transcript.id)
     new_orfs = []
 
     for orf in internal_orfs:

@@ -1017,7 +1017,7 @@ class ConfigureCheck(unittest.TestCase):
                 dir.cleanup()
 
 
-# @mark.slow
+@mark.slow
 class PickTest(unittest.TestCase):
 
     """This unit test will check that pick functions correctly."""
@@ -1041,6 +1041,7 @@ class PickTest(unittest.TestCase):
             thread._wait_for_tstate_lock(block=True, timeout=0.00001)
             thread._stop()
 
+    @mark.slow
     def test_single_proc(self):
 
         self.json_conf["pick"]["run_options"]["procs"] = 1
@@ -1071,6 +1072,7 @@ class PickTest(unittest.TestCase):
 
         dir.cleanup()
 
+    @mark.slow
     def test_multi_proc(self):
         self.json_conf["pick"]["run_options"]["procs"] = 2
         self.json_conf["pick"]["files"]["input"] = pkg_resources.resource_filename("Mikado.tests",
@@ -1266,6 +1268,7 @@ class PickTest(unittest.TestCase):
 
         return gtf, dir, temp_gtf, scoring
 
+    @mark.slow
     def test_purging1(self):
 
         # Now the scoring
@@ -1319,6 +1322,7 @@ class PickTest(unittest.TestCase):
         temp_gtf.close()
         dir.cleanup()
 
+    @mark.slow
     def test_purging2(self):
 
         gtf, dir, temp_gtf, scoring = self.__get_purgeable_gff()
@@ -1377,6 +1381,7 @@ class PickTest(unittest.TestCase):
         temp_gtf.close()
         dir.cleanup()
 
+    @mark.slow
     def test_purging3(self):
 
         gtf, dir, temp_gtf, scoring = self.__get_purgeable_gff()

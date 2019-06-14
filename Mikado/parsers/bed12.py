@@ -829,7 +829,7 @@ class BED12:
         logger.debug("%s: start codon %s, old start %s (%s); stop codon %s, old stop %s (%s)",
                      self.name, self.start_codon, self.thick_start + self.phase,
                      (self.thick_start + self.phase + upstream),
-                     self.stop_codon, self.thick_end, (self.thick_start + self.phase + upstream))
+                     self.stop_codon, self.thick_end, (self.thick_end + upstream))
         # Now expand
         self.end = len(sequence)
         self.thick_start += upstream

@@ -2315,10 +2315,31 @@ class PaddingTester(unittest.TestCase):
         locus.add_transcript_to_locus(transcripts["mikado.Chr5G2.2"])
         self.assertIn("mikado.Chr5G2.1", locus.transcripts)
         self.assertIn("mikado.Chr5G2.2", locus.transcripts)
-        locus.logger.setLevel("DEBUG")
         locus.pad_transcripts()
         for tid in locus:
             self.assertEqual(locus[tid].end, locus.end, tid)
+
+    def test_ad_three_prime(self):
+        logger = create_default_logger(inspect.getframeinfo(inspect.currentframe())[2], level="WARNING")
+        transcripts = self.load_from_bed("Mikado.tests", "pad_three_neg.bed12")
+        locus = Locus(transcripts["mikado.Chr5G486.1"], logger=logger)
+        locus.json_conf["reference"]["genome"] = self.fai
+        locus.add_transcript_to_locus(transcripts["mikado.Chr5G486.2"])
+        # We need to pad
+        locus.json_conf["pick"]["alternative_splicing"]["pad"] = True
+        locus.json_conf["pick"]["alternative_splicing"]["ts_distance"] = 10000
+        locus.json_conf["pick"]["alternative_splicing"]["ts_max_splices"] = 10
+        locus.json_conf["pick"]["alternative_splicing"]["ts_distance"] = 1000
+        locus.json_conf["pick"]["alternative_splicing"]["ts_max_splices"] = 10
+        locus.json_conf["pick"]["alternative_splicing"]["only_confirmed_introns"] = False
+        locus.json_conf["pick"]["alternative_splicing"]["min_cdna_overlap"] = 0.1
+        self.assertIn("mikado.Chr5G486.1", locus.transcripts)
+        self.assertIn("mikado.Chr5G486.2", locus.transcripts)
+        locus.logger.setLevel("DEBUG")
+        locus.pad_transcripts()
+        for tid in locus:
+            self.assertEqual(locus[tid].start, locus.start, tid)
+
 
     def test_one_off(self):
         logger = create_default_logger(inspect.getframeinfo(inspect.currentframe())[2], level="WARNING")

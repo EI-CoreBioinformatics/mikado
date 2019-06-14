@@ -1165,24 +1165,28 @@ def expand_transcript(transcript: Transcript,
         logger.info("Padding %s would lead to an invalid CDS (up exons: %s). Aborting.",
                     transcript.id, up_exons)
         return backup
-    elif (backup.is_coding and ((backup.strand == "-" and backup.combined_cds_end < transcript.combined_cds_end) or
-          (backup.combined_cds_end > transcript.combined_cds_end))):
-        message = "Padding %s would lead to an in-frame stop codon (%s to %s, vs original %s to %s. Aborting." % (
-            transcript.id, transcript.combined_cds_start, transcript.combined_cds_end,
-            backup.combined_cds_start, backup.combined_cds_end
-        )
-        logger.info(message)
-        return backup
-    else:
-        message = "{transcript.id} has now start {transcript.start}, end {transcript.end}"
-        if (backup.is_coding and ((backup.combined_cds_end != transcript.combined_cds_end) or
-                  (backup.combined_cds_start != transcript.combined_cds_start))):
+    elif backup.is_coding:
+        abort = False
+        if backup.strand == "-" and backup.combined_cds_end < transcript.combined_cds_end:
+            abort = True
+        elif backup.strand != "-" and backup.combined_cds_end > transcript.combined_cds_end:
+            abort = True
+        if abort is True:
+            msg = "Padding {} (strand: {}) would lead to an in-frame stop codon ({} to {}, vs original {} to {}.\
+Aborting.".format(transcript.id, backup.strand, transcript.combined_cds_start, transcript.combined_cds_end,
+                  backup.combined_cds_start, backup.combined_cds_end)
+            logger.info(msg)
+            return backup
+
+    message = "{transcript.id} has now start {transcript.start}, end {transcript.end}"
+    if (backup.is_coding and ((backup.combined_cds_end != transcript.combined_cds_end) or
+        (backup.combined_cds_start != transcript.combined_cds_start))):
             transcript.attributes["cds_padded"] = True
             message += "; CDS moved to {transcript.combined_cds_start}, end {transcript.combined_cds_end}"
-        else:
-            transcript.attributes["cds_padded"] = False
-            message += "."
-        logger.info(message.format(**locals()))
+    elif backup.is_coding:
+        transcript.attributes["cds_padded"] = False
+    message += "."
+    logger.info(message.format(**locals()))
 
     return transcript
 

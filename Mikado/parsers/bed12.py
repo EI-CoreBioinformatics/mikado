@@ -810,18 +810,19 @@ class BED12:
         self.fasta_length = len(sequence)
 
         # I presume that the sequence is already in the right orientation
-
         old_start_pos = self.thick_start + self.phase - 1
         old_end_pos = self.thick_end - (self.thick_end - old_start_pos) % 3
         old_orf = old_sequence[old_start_pos:old_end_pos].upper()
         logger.debug("Old sequence of %s (%s bps): %s[...]%s", self.id, len(old_sequence),
                      old_sequence[:10], old_sequence[-10:])
+        logger.debug("Old ORF of %s (%s bps, phase %s): %s[...]%s", self.id, len(old_orf), self.phase,
+                     old_orf[:10], old_orf[-10:])
         assert len(old_orf) > 0, (old_start_pos, old_end_pos)
         assert len(old_orf) % 3 == 0, (old_start_pos, old_end_pos)
         old_pep = Seq.Seq(old_orf).translate(self.table, gap="N")
         if "*" in old_pep and old_pep.find("*") < len(old_pep) - 1:
-            logger.error("Stop codon found within the ORF (pos %s of %s; phase %s). This is invalid!",
-                         old_pep.find("*"), len(old_pep), self.phase)
+            logger.error("Stop codon found within the ORF of %s (pos %s of %s; phase %s). This is invalid!",
+                         self.id, old_pep.find("*"), len(old_pep), self.phase)
 
         self.start_codon = old_orf[:3]
         self.stop_codon = old_orf[-3:]
@@ -849,13 +850,14 @@ class BED12:
                         self.__has_start = True
                         logger.debug("Position %d, codon %s. Start codon found.", pos, codon)
                         break
-
-            if self.start_codon not in self.table.start_codons:
-                self.phase = self.thick_start % 3
-                self.thick_start = 1
-            else:
-                self.phase = 0
-                self.__has_start = True
+                if self.start_codon not in self.table.start_codons:
+                    self.phase = (self.thick_start - 1) % 3
+                    logger.debug("No start codon found for %s. Thick start %s, new phase: %s",
+                                 self.id, self.thick_start, self.phase)
+                    self.thick_start = 1
+                else:
+                    self.phase = 0
+                    self.__has_start = True
 
             coding_seq = Seq.Seq(sequence[self.thick_start + self.phase - 1:self.end])
             if len(coding_seq) % 3 != 0:

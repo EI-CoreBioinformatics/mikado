@@ -97,6 +97,7 @@ class Picker:
                                          force=True)
 
         # self.setup_logger()
+        self.logger.info("Random seed: %s", self.json_conf["seed"])
         self.logger.debug("Multiprocessing method: %s",
                          self.json_conf["multiprocessing_method"])
 

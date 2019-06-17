@@ -48,7 +48,7 @@ def get_key(new_dict, key, default):
     return new_dict
 
 
-def create_simple_config():
+def create_simple_config(seed=None):
 
     """
     Method to create a stripped down configuration dictionary
@@ -67,7 +67,7 @@ def create_simple_config():
     new_dict = dict()
     composite_keys = [(ckey[1:]) for ckey in
                       check_has_requirements(default,
-                                             validator.schema["properties"])]
+                                             validator.schema["properties"])] + [["seed"]]
 
     # Sort the composite keys by depth
     for ckey in sorted(composite_keys, key=len, reverse=True):
@@ -83,6 +83,9 @@ def create_simple_config():
             val = {k: val}
 
         new_dict = configurator.merge_dictionaries(new_dict, val)
+
+    if seed is not None:
+        new_dict["seed"] = seed
 
     return new_dict
 
@@ -102,7 +105,7 @@ def create_config(args):
         del default["as_requirements"]
         config = default
     else:
-        config = create_simple_config()
+        config = create_simple_config(seed=args.seed)
 
     if len(args.mode) > 1:
         args.daijin = True
@@ -160,7 +163,9 @@ def create_config(args):
         #             del external_conf["mikado"][key]
         config = configurator.merge_dictionaries(config, external_conf)
 
-    config["seed"] = args.seed
+    if args.seed is not None:
+        config["seed"] = args.seed
+
     if args.reference is not None:
         config["reference"]["genome"] = args.reference
 

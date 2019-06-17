@@ -909,7 +909,11 @@ class ConfigureCheck(unittest.TestCase):
                 conf = configuration.configurator.check_json(conf)
                 conf = configuration.configurator.check_json(conf)
                 self.assertNotIn("asm_methods", conf)
-                self.assertEqual(conf["seed"], trial)
+                if trial is not None:
+                    self.assertEqual(conf["seed"], trial)
+                else:
+                    self.assertNotEqual(conf["seed"], trial)
+                    self.assertIsInstance(conf["seed"], int)
 
         for mistake in (False, "hello", 10.5, b"890"):
             with self.subTest(mistake=mistake):

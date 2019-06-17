@@ -277,6 +277,7 @@ def setup(args):
     logger.setLevel("INFO")
     logger.info("Command line: %s",
                 " ".join(sys.argv))
+    logger.info("Random seed: %s", args.json_conf["seed"])
     logger.setLevel(args.log_level)
 
     # Add sqlalchemy logging

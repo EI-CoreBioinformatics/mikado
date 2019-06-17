@@ -173,9 +173,6 @@ def pick(args):
 
     args.json_conf.close()
     args.json_conf = to_json(args.json_conf.name, logger=logger)
-    if args.seed is not None:
-        args.json_conf["seed"] = args.seed
-        random.seed(args.seed, version=2)
 
     try:
         args = check_log_settings(args)

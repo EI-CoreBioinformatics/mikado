@@ -84,6 +84,7 @@ def setup(args):
     assert logger.handlers == [handler]
     logger.propagate = False
     logger.info("Command line: %s",  " ".join(sys.argv))
+    logger.info("Random seed: %s", args.json_conf["seed"])
 
     if args.verbose is True:
         args.json_conf["log_settings"]["log_level"] = "DEBUG"

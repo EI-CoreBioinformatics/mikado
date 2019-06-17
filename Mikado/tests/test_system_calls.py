@@ -120,6 +120,7 @@ class PrepareCheck(unittest.TestCase):
     def setUp(self):
 
         self.conf = configurator.to_json(None)
+        self.conf["seed"] = 1066
         self.conf["reference"]["genome"] = self.fai.filename.decode()
         assert isinstance(self.conf["reference"]["genome"], str)
         self.logger = create_null_logger("prepare")
@@ -858,19 +859,7 @@ class ConfigureCheck(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        # cls.__genomefile__ = tempfile.NamedTemporaryFile(mode="wb", delete=False, suffix=".fa.gz",
-        #                                                  prefix="configure")
-        # cls.__genomefile__.write(pkg_resources.resource_stream("Mikado.tests", "chr5.fas.gz").read())
-        # cls.__genomefile__.flush()
         cls.fai = pysam.FastaFile(pkg_resources.resource_filename("Mikado.tests", "chr5.fas.gz"))
-        # cls.__genomefile__.flush()
-
-    # @classmethod
-    # def tearDownClass(cls):
-    #     """"""
-    #
-    #     cls.__genomefile__.close()
-    #     os.remove(cls.__genomefile__.name)
 
     def test_mikado_config(self):
         namespace = Namespace(default=False)
@@ -883,6 +872,7 @@ class ConfigureCheck(unittest.TestCase):
         namespace.blast_targets = []
         namespace.junctions = []
         namespace.new_scoring = None
+        namespace.seed = None
         dir = tempfile.TemporaryDirectory()
         out = os.path.join(dir.name, "configuration.yaml")
         with open(out, "w") as out_handle:
@@ -893,6 +883,43 @@ class ConfigureCheck(unittest.TestCase):
         conf = configuration.configurator.check_json(conf)
         conf = configuration.configurator.check_json(conf)
         self.assertNotIn("asm_methods", conf)
+        dir.cleanup()
+
+    def test_seed(self):
+        namespace = Namespace(default=False)
+        namespace.scoring = None
+        namespace.intron_range = None
+        namespace.reference = ""
+        namespace.external = None
+        namespace.threads = 1
+        namespace.blast_targets = []
+        namespace.junctions = []
+        namespace.new_scoring = None
+        dir = tempfile.TemporaryDirectory()
+        out = os.path.join(dir.name, "configuration.yaml")
+        for trial in (None, 1066, 175108):
+            with self.subTest(trial=trial):
+                namespace.mode = ["permissive"]
+                namespace.seed = trial
+                with open(out, "w") as out_handle:
+                    namespace.out = out_handle
+                    sub_configure.create_config(namespace)
+                self.assertGreater(os.stat(out).st_size, 0)
+                conf = configuration.configurator.to_json(out)
+                conf = configuration.configurator.check_json(conf)
+                conf = configuration.configurator.check_json(conf)
+                self.assertNotIn("asm_methods", conf)
+                self.assertEqual(conf["seed"], trial)
+
+        for mistake in (False, "hello", 10.5, b"890"):
+            with self.subTest(mistake=mistake):
+                namespace.mode = ["permissive"]
+                with self.assertRaises(OSError):
+                    namespace.seed = mistake
+                    with open(out, "w") as out_handle:
+                        namespace.out = out_handle
+                        sub_configure.create_config(namespace)
+
         dir.cleanup()
 
     def test_mikado_config_full(self):
@@ -908,6 +935,7 @@ class ConfigureCheck(unittest.TestCase):
         namespace.new_scoring = None
         namespace.full = True
         namespace.daijin = False
+        namespace.seed = None
         dir = tempfile.TemporaryDirectory()
         out = os.path.join(dir.name, "configuration.yaml")
         with open(out, "w") as out_handle:
@@ -933,6 +961,7 @@ class ConfigureCheck(unittest.TestCase):
         namespace.new_scoring = None
         namespace.full = True
         namespace.daijin = True
+        namespace.seed = None
         dir = tempfile.TemporaryDirectory()
         out = os.path.join(dir.name, "configuration.yaml")
         with open(out, "w") as out_handle:
@@ -959,6 +988,7 @@ class ConfigureCheck(unittest.TestCase):
         namespace.new_scoring = None
         namespace.full = True
         namespace.daijin = False
+        namespace.seed = None
         dir = tempfile.TemporaryDirectory()
         out = os.path.join(dir.name, "configuration.yaml")
         with open(out, "w") as out_handle:
@@ -996,6 +1026,7 @@ class ConfigureCheck(unittest.TestCase):
         namespace.name = "Daijin"
         namespace.threads = 1
         namespace.full = False
+        namespace.seed = None
 
         for iteration in range(20):
             with self.subTest(iteration=iteration):
@@ -1130,7 +1161,7 @@ class PickTest(unittest.TestCase):
                     sub_configure.print_config(yaml.dump(self.json_conf, default_flow_style=False),
                                                               json_handle)
 
-                sys.argv = ["mikado", "pick", "--json-conf", json_file]
+                sys.argv = ["mikado", "pick", "--json-conf", json_file, "--seed", "1078"]
                 with self.assertRaises(SystemExit):
                     pkg_resources.load_entry_point("Mikado", "console_scripts", "mikado")()
 
@@ -1170,7 +1201,7 @@ class PickTest(unittest.TestCase):
         json_file = os.path.join(self.json_conf["pick"]["files"]["output_dir"], "mikado.yaml")
         with open(json_file, "wt") as json_handle:
             sub_configure.print_config(yaml.dump(self.json_conf, default_flow_style=False), json_handle)
-        sys.argv = ["mikado", "pick", "--json-conf", json_file, "--single"]
+        sys.argv = ["mikado", "pick", "--json-conf", json_file, "--single", "--seed", "1078"]
         with self.assertRaises(SystemExit):
             pkg_resources.load_entry_point("Mikado", "console_scripts", "mikado")()
 
@@ -1211,7 +1242,7 @@ class PickTest(unittest.TestCase):
         self.json_conf["pick"]["files"]["output_dir"] = os.path.join(outdir.name)
         scoring_file = pkg_resources.resource_filename("Mikado.tests", "scoring_only_cds.yaml")
         sys.argv = ["mikado", "pick", "--json-conf", json_file, "--single",
-                    "--scoring-file", scoring_file]
+                    "--scoring-file", scoring_file, "--seed", "1078"]
 
         with self.assertRaises(SystemExit):
             pkg_resources.load_entry_point("Mikado", "console_scripts", "mikado")()
@@ -1483,7 +1514,7 @@ class SerialiseChecker(unittest.TestCase):
         sys.argv = [str(_) for _ in ["mikado", "serialise", "--json-conf", json_file,
                     "--transcripts", transcripts, "--blast_targets", uni_out,
                     "--orfs", orfs, "--junctions", junctions, "--xml", xml,
-                    "-p", procs, "-mo", mobjects, db, "--log", log]]
+                    "-p", procs, "-mo", mobjects, db, "--log", log, "--seed", "1078"]]
 
         pkg_resources.load_entry_point("Mikado", "console_scripts", "mikado")()
 

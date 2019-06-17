@@ -160,6 +160,7 @@ def create_config(args):
         #             del external_conf["mikado"][key]
         config = configurator.merge_dictionaries(config, external_conf)
 
+    config["seed"] = args.seed
     if args.reference is not None:
         config["reference"]["genome"] = args.reference
 
@@ -333,6 +334,8 @@ def configure_parser():
     parser = argparse.ArgumentParser(description="Configuration utility for Mikado",
                                      formatter_class=argparse.RawTextHelpFormatter)
     parser.add_argument("--full", action="store_true", default=False)
+    parser.add_argument("--seed", type=int, default=None,
+                        help="Random seed number.")
     scoring = parser.add_argument_group("Options related to the scoring system")
     scoring.add_argument("--scoring", type=str, default=None,
                          help="Scoring file to use. Mikado provides the following:\n{}".format(

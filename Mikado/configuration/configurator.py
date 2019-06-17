@@ -23,6 +23,7 @@ from ..transcripts.transcript import Transcript
 from ..exceptions import InvalidJson, UnrecognizedRescaler
 from ..utilities import merge_dictionaries
 from ..utilities.log_utils import create_default_logger
+import random
 
 
 __author__ = "Luca Venturini"
@@ -644,4 +645,5 @@ def to_json(string, simple=False, logger=None):
     except Exception as exc:
         raise OSError((exc, string))
 
+    random.seed(json_dict.get("seed", None), version=2)
     return json_dict

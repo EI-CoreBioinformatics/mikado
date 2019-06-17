@@ -9,6 +9,7 @@ import os
 from ..picking import Picker
 from ..configuration.configurator import to_json, check_json
 from ..utilities.log_utils import create_default_logger, create_null_logger
+import random
 
 
 def check_log_settings(args):
@@ -172,6 +173,9 @@ def pick(args):
 
     args.json_conf.close()
     args.json_conf = to_json(args.json_conf.name, logger=logger)
+    if args.seed is not None:
+        args.json_conf["seed"] = args.seed
+        random.seed(args.seed, version=2)
 
     try:
         args = check_log_settings(args)
@@ -301,6 +305,8 @@ def pick_parser():
                          either of the ORFs lacks a BLAST hit (but not both).
                         - permissive: like lenient, but also split when both ORFs lack BLAST hits
                         - split: split multi-orf transcripts regardless of what BLAST data is available.""")
+    parser.add_argument("--seed", type=int, default=None,
+                        help="Random seed number.")
     # parser.formatter_class = argparse.HelpFormatter
     parser.add_argument("gff", nargs="?", default=None)
     parser.set_defaults(func=pick)

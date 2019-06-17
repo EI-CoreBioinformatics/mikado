@@ -15,6 +15,7 @@ from ..utilities.log_utils import formatter
 from ..preparation.prepare import prepare
 from ..configuration.configurator import to_json, check_json
 from Mikado.exceptions import InvalidJson
+import random
 
 
 __author__ = 'Luca Venturini'
@@ -53,6 +54,10 @@ def setup(args):
     if args.log is not None:
         args.log.close()
         args.json_conf["prepare"]["files"]["log"] = args.log.name
+
+    if args.seed is not None:
+        args.json_conf["seed"] = args.seed
+        random.seed(args.seed, version=2)
 
     if args.json_conf["prepare"]["files"]["log"]:
         try:
@@ -285,6 +290,8 @@ def prepare_parser():
     parser.add_argument("-k", "--keep-redundant", default=None,
                         dest="keep_redundant", action="store_true",
                         help="Boolean flag. If invoked, Mikado prepare will retain redundant models.")
+    parser.add_argument("--seed", type=int, default=None,
+                        help="Random seed number.")
     parser.add_argument("gff", help="Input GFF/GTF file(s).", nargs="*")
     parser.set_defaults(func=prepare_launcher)
     return parser

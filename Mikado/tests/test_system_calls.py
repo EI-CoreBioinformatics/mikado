@@ -1500,7 +1500,6 @@ class SerialiseChecker(unittest.TestCase):
         orfs = pkg_resources.resource_filename("Mikado.tests", "transcripts.fasta.prodigal.gff3")
         uniprot = pkg_resources.resource_filename("Mikado.tests", "uniprot_sprot_plants.fasta.gz")
         mobjects = 300  # Let's test properly the serialisation for BLAST
-        procs = 3
 
         dir = tempfile.TemporaryDirectory()
         json_file = os.path.join(dir.name, "mikado.yaml")
@@ -1514,27 +1513,29 @@ class SerialiseChecker(unittest.TestCase):
             sub_configure.print_config(yaml.dump(self.json_conf, default_flow_style=False),
                                                       json_handle)
         # Set up the command arguments
+        for procs in (1, 3):
+            with self.subTest(proc=procs):
+                sys.argv = [str(_) for _ in ["mikado", "serialise", "--json-conf", json_file,
+                            "--transcripts", transcripts, "--blast_targets", uni_out,
+                            "--orfs", orfs, "--junctions", junctions, "--xml", xml,
+                            "-p", procs, "-mo", mobjects, db, "--log", log, "--seed", "1078"]]
+                pkg_resources.load_entry_point("Mikado", "console_scripts", "mikado")()
+                logged = [_.rstrip() for _ in open(log)]
 
-        sys.argv = [str(_) for _ in ["mikado", "serialise", "--json-conf", json_file,
-                    "--transcripts", transcripts, "--blast_targets", uni_out,
-                    "--orfs", orfs, "--junctions", junctions, "--xml", xml,
-                    "-p", procs, "-mo", mobjects, db, "--log", log, "--seed", "1078"]]
-
-        pkg_resources.load_entry_point("Mikado", "console_scripts", "mikado")()
-
-        self.assertTrue(os.path.exists(db))
-        conn = sqlite3.connect(db)
-        cursor = conn.cursor()
-        self.assertEqual(cursor.execute("select count(*) from hit").fetchall()[0][0], 562)
-        self.assertEqual(cursor.execute("select count(*) from hsp").fetchall()[0][0], 669)
-        self.assertEqual(cursor.execute("select count(distinct(query_id)) from hsp").fetchall()[0][0], 71)
-        self.assertEqual(cursor.execute("select count(distinct(query_id)) from hit").fetchall()[0][0], 71)
-        self.assertEqual(cursor.execute("select count(distinct(target_id)) from hsp").fetchall()[0][0], 32)
-        self.assertEqual(cursor.execute("select count(distinct(target_id)) from hit").fetchall()[0][0], 32)
-        self.assertEqual(cursor.execute("select count(*) from junctions").fetchall()[0][0], 372)
-        self.assertEqual(cursor.execute("select count(distinct(chrom_id)) from junctions").fetchall()[0][0], 2)
-        self.assertEqual(cursor.execute("select count(*) from orf").fetchall()[0][0], 169)
-        self.assertEqual(cursor.execute("select count(distinct(query_id)) from orf").fetchall()[0][0], 81)
+                self.assertTrue(os.path.exists(db))
+                conn = sqlite3.connect(db)
+                cursor = conn.cursor()
+                self.assertEqual(cursor.execute("select count(*) from hit").fetchall()[0][0], 562, logged)
+                self.assertEqual(cursor.execute("select count(*) from hsp").fetchall()[0][0], 669)
+                self.assertEqual(cursor.execute("select count(distinct(query_id)) from hsp").fetchall()[0][0], 71)
+                self.assertEqual(cursor.execute("select count(distinct(query_id)) from hit").fetchall()[0][0], 71)
+                self.assertEqual(cursor.execute("select count(distinct(target_id)) from hsp").fetchall()[0][0], 32)
+                self.assertEqual(cursor.execute("select count(distinct(target_id)) from hit").fetchall()[0][0], 32)
+                self.assertEqual(cursor.execute("select count(*) from junctions").fetchall()[0][0], 372)
+                self.assertEqual(cursor.execute("select count(distinct(chrom_id)) from junctions").fetchall()[0][0], 2)
+                self.assertEqual(cursor.execute("select count(*) from orf").fetchall()[0][0], 169)
+                self.assertEqual(cursor.execute("select count(distinct(query_id)) from orf").fetchall()[0][0], 81)
+                os.remove(db)
         dir.cleanup()
 
 

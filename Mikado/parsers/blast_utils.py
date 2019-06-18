@@ -7,7 +7,6 @@ This module contains generic-purpose utilities to deal with BLAST XML files.
 import os
 import subprocess
 import gzip
-import operator
 import multiprocessing
 import io
 import collections
@@ -18,9 +17,10 @@ import logging
 from . import HeaderError
 from ..utilities.log_utils import create_null_logger
 # from Bio.SearchIO.BlastIO.blast_xml import BlastXmlParser as xparser
-import Bio.SearchIO
-import functools
-xparser = functools.partial(Bio.SearchIO.parse, format="blast-xml")
+from Bio.Blast.NCBIXML import parse as xparser
+# import Bio.SearchIO
+# import functools
+# xparser = functools.partial(Bio.SearchIO.parse, format="blast-xml")
 from ..utilities import overlap
 import xml.etree.ElementTree
 import numpy as np

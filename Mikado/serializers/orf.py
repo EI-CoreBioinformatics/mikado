@@ -7,7 +7,7 @@ This module contains the necessary classes for serialising and querying ORF data
 
 import os
 import sqlite3
-import pyfaidx
+import pysam
 from sqlalchemy import Column, String, Integer, ForeignKey, CHAR, Index, Float, Boolean
 import sqlalchemy.exc
 from sqlalchemy.orm import relationship, backref, column_property
@@ -173,17 +173,19 @@ class OrfSerializer:
         fasta_index = json_conf["serialise"]["files"]["transcripts"]
         self._max_regression = json_conf["serialise"]["max_regression"]
         self._table = json_conf["serialise"]["codon_table"]
+        self.procs = json_conf["serialise"]["procs"]
+        self.single_thread = json_conf["serialise"]["single_thread"]
 
         if isinstance(fasta_index, str):
             assert os.path.exists(fasta_index)
-            self.fasta_index = pyfaidx.Fasta(fasta_index)
+            self.fasta_index = pysam.FastaFile(fasta_index)
             # self.fasta_index = SeqIO.index(fasta_index, "fasta")
         elif fasta_index is None:
             exc = ValueError("A fasta index is needed for the serialization!")
             self.logger.exception(exc)
             return
         else:
-            assert isinstance(fasta_index, pyfaidx.Fasta)
+            assert isinstance(fasta_index, pysam.FastaFile)
             self.fasta_index = fasta_index
 
         if isinstance(handle, str):
@@ -226,16 +228,16 @@ class OrfSerializer:
         if self.fasta_index is not None:
             done = 0
             self.logger.debug("%d entries already present in db, %d in the index",
-                             len([fasta_key for fasta_key in self.fasta_index if
+                             len([fasta_key for fasta_key in self.fasta_index.references if
                                   fasta_key not in cache]),
-                             len(self.fasta_index.keys()))
+                             self.fasta_index.nreferences)
             found = set()
-            for record in self.fasta_index.keys():
-                if record in cache:
+            for ref, length in zip(self.fasta_index.references, self.fasta_index.lengths):
+                if ref in cache:
                     continue
-                objects.append(Query(record, len(self.fasta_index[record])))
-                assert record not in found, record
-                found.add(record)
+                objects.append(Query(ref, length))
+                assert ref not in found, ref
+                found.add(ref)
                 if len(objects) >= self.maxobjects:
                     done += len(objects)
                     self.session.begin(subtransactions=True)

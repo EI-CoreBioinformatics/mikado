@@ -217,7 +217,7 @@ class GffLine(GFAnnotation):
         :rtype str
         """
 
-        if self.is_transcript is True:
+        if self.is_transcript is True and self.parent:
             return self.parent[0]
         elif self.is_gene:
             return self.id

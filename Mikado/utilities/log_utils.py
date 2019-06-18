@@ -34,13 +34,11 @@ def create_null_logger(*args, **kwargs):
         null_special_logger = logging.getLogger(args[0])
         null_special_handler = logging.NullHandler()
         null_special_handler.setFormatter(formatter)
+        null_special_logger.handlers = [null_special_handler]
         if "level" in kwargs:
             null_special_logger.setLevel(kwargs["level"])
         else:
             null_special_logger.setLevel(logging.CRITICAL)
-        for _, handler in enumerate(null_special_logger.handlers):
-            null_special_logger.removeHandler(handler)
-        null_special_logger.addHandler(null_special_handler)
         return null_special_logger
 
     return null_logger

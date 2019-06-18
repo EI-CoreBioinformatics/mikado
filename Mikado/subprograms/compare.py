@@ -75,6 +75,10 @@ def compare_parser():
                         help="""If set, exonic statistics will be calculated leniently
 in the TMAP as well - ie they will consider an exon as match even if only
 the internal junction has been recovered.""")
+    parser.add_argument("-nF", "--do-not-report-fusions", dest="report_fusions", action="store_false",
+                        default=True,
+                        help="Flag. If invoked, Mikado compare will not report fusions in the input. Useful \
+when the reference transcripts have not been clustered properly into genes (e.g. a Mikado prepare run).")
     parser.add_argument("-eu", "--exclude-utr", dest="exclude_utr",
                         default=False, action="store_true",
                         help="""Flag. If set, reference and prediction transcripts

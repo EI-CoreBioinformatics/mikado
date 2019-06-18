@@ -8,14 +8,16 @@ i.e. the locus.
 import collections
 import itertools
 import operator
-from collections import deque
-import pyfaidx
+from collections import deque, defaultdict
+import pysam
 from ..transcripts.transcript import Transcript
 from ..transcripts.transcriptchecker import TranscriptChecker
 from .abstractlocus import Abstractlocus, rgetattr
 from ..parsers.GFF import GffLine
 from ..scales.assigner import Assigner
 from ..exceptions import InvalidTranscript
+import networkx as nx
+from itertools import combinations
 
 
 class Locus(Abstractlocus):
@@ -707,26 +709,19 @@ class Locus(Abstractlocus):
         """
 
         try:
-            self.fai = pyfaidx.Fasta(self.json_conf["reference"]["genome"])
+            if isinstance(self.json_conf["reference"]["genome"], pysam.FastaFile):
+                self.fai = self.json_conf["reference"]["genome"]
+            else:
+                self.fai = pysam.FastaFile(self.json_conf["reference"]["genome"])
         except KeyError:
             raise KeyError(self.json_conf.keys())
 
         five_graph = self.define_graph(objects=self.transcripts, inters=self._share_extreme, three_prime=False)
         three_graph = self.define_graph(objects=self.transcripts, inters=self._share_extreme, three_prime=True)
 
-        self.logger.debug("5' graph: %s", five_graph.edges)
-        self.logger.debug("3' graph: %s", three_graph.edges)
+        # TODO: Tie breaks!
 
-        five_cliques = deque(sorted(self.find_cliques(five_graph),
-                                    key=lambda clique: min(self[_].start for _ in clique)))
-
-        three_cliques = deque(sorted(self.find_cliques(three_graph),
-                                    key=lambda clique: min(self[_].start for _ in clique)))
-
-        self.logger.debug("5' community: %s", five_cliques)
-        self.logger.debug("3' community: %s", three_cliques)
-
-        __to_modify = self._find_communities_boundaries(five_cliques, three_cliques)
+        __to_modify = self._find_communities_boundaries(five_graph, three_graph)
 
         templates = set()
 
@@ -738,13 +733,25 @@ class Locus(Abstractlocus):
                 templates.add(__to_modify[tid][1].id)
 
             self.logger.debug("Expanding %s to have start %s (from %s) and end %s (from %s)",
-                              tid, __to_modify[tid][0],
-                              self[tid].start, __to_modify[tid][1], self[tid].end)
-            new_transcript = expand_transcript(self[tid].deepcopy(),
-                                               __to_modify[tid][0],
-                                               __to_modify[tid][1],
-                                               self.fai,
-                                               self.logger)
+                              tid, __to_modify[tid][0] if not __to_modify[tid][0] else __to_modify[tid][0].start,
+                              self[tid].start,
+                              __to_modify[tid][1] if not __to_modify[tid][1] else __to_modify[tid][1].end,
+                              self[tid].end)
+            try:
+                new_transcript = expand_transcript(self[tid].deepcopy(),
+                                                   __to_modify[tid][0],
+                                                   __to_modify[tid][1],
+                                                   self.fai,
+                                                   self.logger)
+            except KeyboardInterrupt:
+                raise
+            except Exception as exc:
+                self.logger.exception(exc)
+                raise
+            if (new_transcript.start == self.transcripts[tid].end) and (new_transcript.end == self.transcripts[tid].end):
+                self.logger.debug("No expansion took place for %s!", tid)
+            else:
+                self.logger.debug("Expansion took place for %s!", tid)
             self.transcripts[tid] = new_transcript
 
         self.exons = set()
@@ -754,64 +761,75 @@ class Locus(Abstractlocus):
         # del self.fai
         return templates
 
-    def _find_communities_boundaries(self, five_clique, three_clique):
+    def define_graph(self, objects: dict, inters=None, three_prime=False):
+
+        graph = nx.DiGraph()
+        graph.add_nodes_from(objects.keys())
+
+        if inters is None:
+            inters = self._share_extreme
+
+        for obj, other_obj in combinations(objects.keys(), 2):
+            self.logger.debug("Comparing %s to %s (%s')", obj, other_obj, "5" if not three_prime else "3")
+            if obj == other_obj:
+                continue
+            else:
+                edge = inters(objects[obj], objects[other_obj], three_prime=three_prime)
+                if edge:
+                    assert edge[0].id in self
+                    assert edge[1].id in self
+                    # assert edge[1].id in self.scores
+                    graph.add_edge(edge[0].id, edge[1].id)
+
+        return graph
+
+    def _find_communities_boundaries(self, five_graph, three_graph):
 
         five_found = set()
 
         __to_modify = dict()
-        if self.strand == "-":
-            five_clique, three_clique = three_clique, five_clique
 
-        self.logger.debug("5' communities to uniform: %s", five_clique)
+        while len(five_graph) > 0:
+            # Find the sinks
+            sinks = {node for node in five_graph.nodes() if node not in
+                     {edge[0] for edge in five_graph.edges()}}
+            __putative = defaultdict(list)
+            for sink in sinks:
+                for ancestor in nx.ancestors(five_graph, sink):
+                    __putative[ancestor].append((sink, self[sink].score))
 
-        while len(five_clique) > 0:
+            for ancestor in __putative:
+                best = sorted(__putative[ancestor], key=operator.itemgetter(1), reverse=True)[0][0]
+                self.logger.debug("Putative 5' for %s: %s. Best: %s", ancestor, __putative[ancestor], best)
+                __to_modify[ancestor] = [self[best], False]
+                five_found.add(ancestor)
 
-            comm = five_clique.popleft()
-            comm = deque(sorted(list(set.difference(set(comm), five_found)),
-                         key=lambda internal_tid: self[internal_tid].start))
-            if len(comm) < 2:
-                continue
-            first = comm.popleft()
-            five_found.add(first)
-            for tid in comm:
-                # Now I have to find all the exons on the left of the transcript's end
-                __to_modify[tid] = [self[first], False]
-                self.logger.debug("%s marked for modication", tid)
-                five_found.add(tid)
-            comm = deque([_ for _ in comm if _ not in five_found])
-
-            if comm:
-                five_clique.appendleft(comm)
-        # Then do the 3' end
+            five_graph.remove_nodes_from(set.union(sinks, __putative.keys()))
 
         three_found = set()
-        self.logger.debug("3' communities to uniform: %s", three_clique)
+        while len(three_graph) > 0:
+            sinks = {node for node in three_graph.nodes() if node not in
+                     {edge[0] for edge in three_graph.edges()}}
+            __putative = defaultdict(list)
+            for sink in sinks:
+                for ancestor in nx.ancestors(three_graph, sink):
+                    __putative[ancestor].append((sink, self[sink].score))
 
-        while len(three_clique) > 0:
-
-            comm = three_clique.popleft()
-            comm = deque(sorted(list(set.difference(set(comm), three_found)),
-                         key=lambda internal_tid: self[internal_tid].end, reverse=True))
-            if len(comm) < 2:
-                continue
-            first = comm.popleft()
-            three_found.add(first)
-            for tid in comm:
-                if tid in __to_modify:
-                    __to_modify[tid][1] = self[first]
+            for ancestor in __putative:
+                best = sorted(__putative[ancestor], key=operator.itemgetter(1), reverse=True)[0][0]
+                if ancestor in __to_modify:
+                    __to_modify[ancestor][1] = self[best]
                 else:
-                    __to_modify[tid] = [False, self[first]]
-                three_found.add(tid)
-
-            comm = deque([_ for _ in comm if _ not in three_found])
-            if comm:
-                three_clique.appendleft(comm)
+                    __to_modify[ancestor] = [False, self[best]]
+                three_found.add(ancestor)
+                self.logger.debug("Putative 3' for %s: %s. Best: %s", ancestor, __putative[ancestor], best)
+            three_graph.remove_nodes_from(set.union(sinks, __putative.keys()))
 
         self.logger.debug("Communities for modifications: %s", __to_modify)
 
         return __to_modify
 
-    def _share_extreme(self, first, second, three_prime=False):
+    def _share_extreme(self, first: Transcript, second: Transcript, three_prime=False):
 
         """
         This function will determine whether two transcripts "overlap" at the 3' or 5' end.
@@ -823,26 +841,96 @@ class Locus(Abstractlocus):
         :return:
         """
 
-        if (three_prime is False and first.strand in ("+", ".")) or (three_prime is True and first.strand == "-"):
-            # 5' case
-            first, second = sorted([first, second], key=operator.attrgetter("start"))  # so we know which comes first
-            dist = second.start + 1 - first.start
-            assert dist > 0
-            splices = len([_ for _ in first.splices if _ <= second.start])
-            decision = (dist <= self.ts_distance) and (splices <= self.ts_max_splices)
-        elif (three_prime is False and first.strand == "-") or (three_prime is True and first.strand in ("+", ".")):
-            # 3' case
-            first, second = sorted([first, second], key=operator.attrgetter("end"))
-            dist = second.end + 1 - first.end
-            assert dist > 0
-            splices = len([_ for _ in second.splices if _ >= first.end])
-            decision = (dist <= self.ts_distance) and (splices <= self.ts_max_splices)
-        else:
-            raise ValueError("Undetermined case")
+        if self.strand == "-":  # Remember we have to invert on the negative strand!
+            three_prime = not three_prime
 
-        self.logger.debug("%s and %s do %s overlap (distance %s - max %s, splices %s - max %s)",
-                          first.id, second.id, "" if decision else "not",
-                          dist, self.ts_distance, splices, self.ts_max_splices)
+        if three_prime:
+            return self._share_three_prime(first, second)
+        else:
+            return self._share_five_prime(first, second)
+
+    def _share_five_prime(self, first: Transcript, second: Transcript):
+
+        reason = None
+        ts_splices = 0
+        ts_distance = 0
+
+        if second.start == first.start:
+            self.logger.debug("%s and %s start at the same coordinate. No expanding.", first.id, second.id)
+            return False
+
+        decision = False
+        first, second = sorted([first, second], key=operator.attrgetter("start"))
+        # Now let us check whether the second falls within an intron
+        matched = first.segmenttree.find(second.exons[0][0], second.exons[0][1])
+        self.logger.debug("{second.id} last exon {second.exons[0]} intersects in {first.id}: {matched}".format(
+            **locals()))
+        if matched[0].value == "intron" or second.exons[0][0] < matched[0].start:
+            decision = False
+            reason = "{second.id} first exon ends within an intron of {first.id}".format(**locals())
+        else:
+            upstream = [_ for _ in first.find_upstream(second.exons[0][0], second.exons[0][1])
+                        if _.value == "exon" and _ not in matched]
+            if matched[0][0] < second.start:
+                if upstream:
+                    ts_splices += 1
+                ts_distance += second.start - matched[0][0] + 1
+            for up in upstream:
+                if up.start == first.start:
+                    ts_splices += 1
+                else:
+                    ts_splices += 2
+                ts_distance += up.end - up.start - 1
+
+        if reason is None:
+            decision = (ts_distance <= self.ts_distance) and (ts_splices <= self.ts_max_splices)
+            if decision:
+                decision = (second, first)
+            reason = "{first.id} {doesit} overlap {second.id} (distance {ts_distance} max {self.ts_distance}, splices \
+{ts_splices} max {self.ts_max_splices})".format(doesit="does" if decision else "does not", **locals())
+        self.logger.debug(reason)
+        return decision
+
+    def _share_three_prime(self, first: Transcript, second: Transcript):
+
+        if second.end == first.end:
+            self.logger.debug("%s and %s end at the same coordinate. No expanding.", first.id, second.id)
+            return False
+
+        reason = None
+        ts_splices = 0
+        ts_distance = 0
+        decision = False
+        first, second = sorted([first, second], key=operator.attrgetter("end"), reverse=False)
+        # Now let us check whether the second falls within an intron
+        matched = second.segmenttree.find(first.exons[-1][0], first.exons[-1][1])
+        if matched[-1].value == "intron" or first.exons[-1][1] > matched[-1].end:
+            decision = False
+            reason = "{second.id} last exon ends within an intron of {first.id}".format(**locals())
+        else:
+            downstream = [_ for _ in second.find_downstream(first.exons[-1][0], first.exons[-1][1])
+                          if _.value == "exon" and _ not in matched]
+
+            if matched[-1][1] > first.end:
+                if downstream:
+                    ts_splices += 1
+                ts_distance += matched[-1][1] - first.end + 1
+
+            for down in downstream:
+                if down.end == second.end:
+                    ts_splices += 1
+                else:
+                    ts_splices += 2
+                ts_distance += down.end - down.start - 1
+
+        if reason is None:
+            decision = (ts_distance <= self.ts_distance) and (ts_splices <= self.ts_max_splices)
+            if decision:
+                decision = (first, second)
+            reason = "{second.id} {doesit} overlap {first.id} (distance {ts_distance} max \
+{self.ts_distance}, splices {ts_splices} max {self.ts_max_splices})".format(
+                doesit="does" if decision else "does not", **locals())
+        self.logger.debug(reason)
         return decision
 
     @property
@@ -986,7 +1074,7 @@ class Locus(Abstractlocus):
 def expand_transcript(transcript: Transcript,
                       start_transcript: [Transcript, bool],
                       end_transcript: [Transcript, bool],
-                      fai: pyfaidx.Fasta,
+                      fai: pysam.libcfaidx.FastaFile,
                       logger):
 
     """This method will enlarge the coordinates and exon structure of a transcript, given:
@@ -1009,24 +1097,26 @@ def expand_transcript(transcript: Transcript,
         logger.debug("%s does not need to be expanded, exiting", transcript.id)
         return transcript
 
+    if transcript.strand == "-":
+        start_transcript, end_transcript = end_transcript, start_transcript
+
     # Make a backup copy of the transcript
+    logger.debug("Starting expansion of %s", transcript.id)
     backup = transcript.deepcopy()
 
     # First get the ORFs
-    transcript.logger = logger
     # Remove the CDS and unfinalize
+    logger.debug("Starting expansion of %s", transcript.id)
     strand = transcript.strand
     transcript.strip_cds()
     transcript.unfinalize()
-
     assert strand == transcript.strand
-
     downstream = 0
     down_exons = []
 
     upstream, up_exons, new_first_exon, up_remove = _enlarge_start(transcript, backup, start_transcript)
     downstream, up_exons, down_exons, down_remove = _enlarge_end(transcript,
-                                                               backup, end_transcript, up_exons, new_first_exon)
+                                                                 backup, end_transcript, up_exons, new_first_exon)
 
     first_exon, last_exon = transcript.exons[0], transcript.exons[-1]
 
@@ -1040,43 +1130,63 @@ def expand_transcript(transcript: Transcript,
             transcript.remove_exon(last_exon)
 
     new_exons = up_exons + down_exons
+    if not new_exons:
+        logger.debug("%s does not need to be expanded, exiting", transcript.id)
+        return backup
+
     transcript.add_exons(new_exons)
+    transcript.start, transcript.end = None, None
     transcript.finalize()
 
     if transcript.strand == "-":
         downstream, upstream = upstream, downstream
 
-    if up_exons or down_exons:
-        seq = check_expanded(transcript, backup, start_transcript, end_transcript,
-                             fai, upstream, downstream, logger)
-        transcript = enlarge_orfs(transcript, backup, seq, upstream, downstream, logger)
+    if (up_exons or down_exons):
+        if backup.is_coding:
+            seq = check_expanded(transcript, backup, start_transcript, end_transcript,
+                                 fai, upstream, downstream, logger)
+            transcript = enlarge_orfs(transcript, backup, seq, upstream, downstream, logger)
+            transcript.finalize()
+    else:
+        return backup
 
     # Now finalize again
-    if upstream > 0 or downstream > 0:
+    logger.debug("%s: start (before %s, now %s, %s), end (before %s, now %s, %s)",
+                 transcript.id,
+                 backup.start, transcript.start, transcript.start < backup.start,
+                 backup.end, transcript.end, transcript.end > backup.end)
+    if transcript.start < backup.start or transcript.end > backup.end:
         transcript.attributes["padded"] = True
-    transcript.finalize()
 
     # Now check that we have a valid expansion
     if backup.is_coding and not transcript.is_coding:
         # Something has gone wrong. Just return the original transcript.
-        logger.info("Padding %s would lead to an invalid CDS. Aborting.",
-                    transcript.id)
+        assert new_exons
+        logger.info("Padding %s would lead to an invalid CDS (up exons: %s). Aborting.",
+                    transcript.id, up_exons)
         return backup
-    elif (backup.is_coding and ((backup.strand == "-" and backup.combined_cds_end < transcript.combined_cds_end) or
-          (backup.combined_cds_end > transcript.combined_cds_end))):
-        logger.info("Padding %s would lead to an in-frame stop codon. Aborting.",
-                    transcript.id)
-        return backup
-    else:
-        message = "{transcript.id} has now start {transcript.start}, end {transcript.end}"
-        if (backup.is_coding and ((backup.combined_cds_end != transcript.combined_cds_end) or
-                  (backup.combined_cds_start != transcript.combined_cds_start))):
+    elif backup.is_coding:
+        abort = False
+        if backup.strand == "-" and backup.combined_cds_end < transcript.combined_cds_end:
+            abort = True
+        elif backup.strand != "-" and backup.combined_cds_end > transcript.combined_cds_end:
+            abort = True
+        if abort is True:
+            msg = "Padding {} (strand: {}) would lead to an in-frame stop codon ({} to {}, vs original {} to {}.\
+Aborting.".format(transcript.id, backup.strand, transcript.combined_cds_start, transcript.combined_cds_end,
+                  backup.combined_cds_start, backup.combined_cds_end)
+            logger.info(msg)
+            return backup
+
+    message = "{transcript.id} has now start {transcript.start}, end {transcript.end}"
+    if (backup.is_coding and ((backup.combined_cds_end != transcript.combined_cds_end) or
+        (backup.combined_cds_start != transcript.combined_cds_start))):
             transcript.attributes["cds_padded"] = True
             message += "; CDS moved to {transcript.combined_cds_start}, end {transcript.combined_cds_end}"
-        else:
-            transcript.attributes["cds_padded"] = False
-            message += "."
-        logger.info(message.format(**locals()))
+    elif backup.is_coding:
+        transcript.attributes["cds_padded"] = False
+    message += "."
+    logger.info(message.format(**locals()))
 
     return transcript
 
@@ -1102,7 +1212,7 @@ def _enlarge_start(transcript: Transcript,
     to_remove = False
     if start_transcript:
         transcript.start = start_transcript.start
-        upstream_exons = sorted([ _ for _ in
+        upstream_exons = sorted([_ for _ in
             start_transcript.find_upstream(transcript.exons[0][0], transcript.exons[0][1])
                                       if _.value == "exon"])
 
@@ -1181,7 +1291,7 @@ def _enlarge_end(transcript: Transcript,
 
     if end_transcript:
         transcript.end = end_transcript.end
-        downstream_exons = sorted([ _ for _ in
+        downstream_exons = sorted([_ for _ in
                                     end_transcript.find_downstream(transcript.exons[-1][0], transcript.exons[-1][1])
                                     if _.value == "exon"])
         intersecting_downstream = sorted(end_transcript.search(
@@ -1250,7 +1360,7 @@ def check_expanded(transcript, backup, start_transcript, end_transcript, fai, up
     :param backup: The original transcript, before expansion.
     :param start_transcript: the transcript used as template at the 5' end.
     :param end_transcript: the transcript used as template at the 3' end.
-    :param fai: The pyfaidx.Fasta object indexing the genome.
+    :param fai: The pysam.libcfaidx.FastaFile object indexing the genome.
     :param upstream: the amount of transcriptomic base-pairs added to the transcript at its 5' end.
     :param downstream: the amount of transcriptomic base-pairs added to the transcript at its 3' end.
     :param logger: the logger to use.
@@ -1260,7 +1370,7 @@ def check_expanded(transcript, backup, start_transcript, end_transcript, fai, up
     assert transcript.exons != backup.exons
 
     assert transcript.end <= len(fai[transcript.chrom]), (transcript.end, len(fai[transcript.chrom]))
-    genome_seq = "".join(fai[transcript.chrom][transcript.start - 1:transcript.end].seq.split("\n"))
+    genome_seq = fai.fetch(transcript.chrom, transcript.start - 1, transcript.end)
 
     if not (transcript.exons[-1][1] - transcript.start + 1 == len(genome_seq)):
         error = "{} should have a sequence of length {} ({} start, {} end), but one of length {} has been given"
@@ -1322,9 +1432,7 @@ def enlarge_orfs(transcript: Transcript,
     if not internal_orfs:
         return transcript
 
-    logger.debug("Enlarging the ORFs for TID %s", transcript.id)
     new_orfs = []
-
     for orf in internal_orfs:
         logger.debug("Old ORF: %s", str(orf))
         try:
@@ -1340,7 +1448,15 @@ def enlarge_orfs(transcript: Transcript,
                          transcript.cdna_length)
             raise AssertionError(err)
         logger.debug("New ORF: %s", str(orf))
+        if orf.coding is False:
+            raise ValueError(orf)
+        elif orf.invalid:
+            raise InvalidTranscript(orf.invalid_reason)
+
         new_orfs.append(orf)
 
     transcript.load_orfs(new_orfs)
+    transcript.finalize()
+    if backup.is_coding and not transcript.is_coding:
+        raise InvalidTranscript(new_orfs)
     return transcript

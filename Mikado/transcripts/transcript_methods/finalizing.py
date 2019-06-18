@@ -4,8 +4,9 @@ e.g. reliability of the CDS/UTR, sanity of borders, etc.
 """
 
 from Mikado.utilities.intervaltree import Interval, IntervalTree
+from Mikado.utilities.overlap import overlap
 import operator
-from sys import intern
+# from sys import intern
 from Mikado.exceptions import InvalidCDS, InvalidTranscript
 
 __author__ = 'Luca Venturini'
@@ -46,16 +47,18 @@ def __basic_final_checks(transcript):
                 __utr = sorted([tuple([int(exon[0]), int(exon[1])]) for exon in transcript.combined_utr])
                 try:
                     __before = [_ for _ in __utr if _[1] < _exons[0][0]]
+                    if __before and __before[-1][1] == _exons[0][0] - 1:
+                        _exons[0] = (__before[-1][0], _exons[0][1])
+                        __before.pop()
+                    __after = [_ for _ in __utr if _[0] > _exons[-1][1]]
+                    if __after and __after[0][0] == _exons[-1][1] + 1:
+                        _exons[-1] = (_exons[-1][0], __after[0][1])
+                        __after = __after[1:]
+                    _exons = __before + _exons + __after
                 except IndexError:
-                    raise IndexError((__utr, _exons))
-                if __before[-1][1] == _exons[0][0] - 1:
-                    _exons[0] = (__before[-1][0], _exons[0][1])
-                    __before.pop()
-                __after = [_ for _ in __utr if _[0] > _exons[-1][1]]
-                if __after[0][0] == _exons[-1][1] + 1:
-                    _exons[-1] = (_exons[-1][0], __after[0][1])
-                    __after = __after[1:]
-                _exons = __before + _exons + __after
+                    exc = InvalidTranscript("Transcript {} has a mangled CDS/UTR annotation. Please revise it.")
+                    transcript.logger.exception(exc)
+                    raise exc
 
     transcript.logger.debug("Converting to tuples")
     _exons = [tuple([int(exon[0]), int(exon[1])]) for exon in _exons]
@@ -331,7 +334,7 @@ def __verify_boundaries(transcript):
             err, transcript.id, str(transcript.exons))
 
 
-def __calculate_phases(coding, previous):
+def __calculate_phases(coding: list, previous: int) -> (int, dict):
     """
 
     :param coding:
@@ -365,16 +368,17 @@ def __check_internal_orf(transcript, index):
     :rtype: Mikado.loci.Transcript
     """
 
-    if  transcript._trust_orf is True and index == 0:
-        if transcript.is_coding:
-            assert transcript.phases
-        new_orf = []
-        for segment in transcript.internal_orfs[index]:
-            if segment[0] == "CDS":
-                segment = tuple([segment[0], segment[1], transcript.phases[segment[1]]])
-            new_orf.append(segment)
-        transcript.internal_orfs[index] = new_orf
-        return transcript
+    if transcript._trust_orf is True and index == 0:
+        if (transcript.is_coding and transcript.phases) or not transcript.is_coding:
+            new_orf = []
+            for segment in transcript.internal_orfs[index]:
+                if segment[0] == "CDS":
+                    segment = tuple([segment[0], segment[1], transcript.phases[segment[1]]])
+                new_orf.append(segment)
+            transcript.internal_orfs[index] = new_orf
+            return transcript
+        else:
+            pass
 
     orf, new_orf = transcript.internal_orfs[index], []
 
@@ -600,6 +604,50 @@ def __check_phase_correctness(transcript):
         _ = transcript.selected_internal_orf
 
 
+def _fix_stop_codon(transcript):
+
+    """This private function will fix the CDS and stop codons when the transcript comes from GTF2
+    and therefore has, incorrectly, the stop codon outside the CDS."""
+
+    if transcript.strand == "-":
+        transcript.combined_cds[0] = (transcript.stop_codon.pop(-1)[0],
+                                      transcript.combined_cds[0][1])
+        transcript.combined_cds = [tuple(_) for _ in transcript.stop_codon] + transcript.combined_cds
+        for pos, utr in enumerate(transcript.combined_utr):
+            if utr[0] > transcript.combined_cds[-1][1]:
+                continue  # Skip the 5'
+            over = overlap(utr, transcript.combined_cds[0])
+            if over < 0:
+                continue
+            elif over > 3:
+                raise InvalidCDS("Invalid overlap between UTR and CDS found")
+            else:
+                if over == utr[1] - utr[0] + 1:  # This is equivalent to a fragment. Remove.
+                    transcript.combined_utr[pos] = None
+                else:
+                    transcript.combined_utr[pos] = (utr[0], max(utr[0], transcript.combined_cds[0][0] - 1))
+    else:
+        transcript.combined_cds[-1] = (transcript.combined_cds[-1][0],
+                                       transcript.stop_codon.pop(0)[1])
+        transcript.combined_cds.extend([tuple(_) for _ in transcript.stop_codon])
+        for pos, utr in enumerate(transcript.combined_utr):
+            if utr[1] < transcript.combined_cds[0][0]:
+                continue  # Skip the 5'
+            over = overlap(utr, transcript.combined_cds[-1])
+            if over < 0:
+                continue
+            elif over > 3:
+                raise InvalidCDS("Invalid overlap between UTR and CDS found")
+            else:
+                if over == utr[1] - utr[0] + 1:  # This is equivalent to a fragment. Remove.
+                    transcript.combined_utr[pos] = None
+                else:
+                    transcript.combined_utr[pos] = (min(utr[1], transcript.combined_cds[-1][1] + 1),
+                                                    utr[1])
+    transcript.combined_utr = [_ for _ in transcript.combined_utr if _ is not None]  # Remove the deleted UTRs
+    return transcript
+
+
 def finalize(transcript):
     """Function to calculate the internal introns from the exons.
     In the first step, it will sort the exons by their internal coordinates.
@@ -619,40 +667,18 @@ def finalize(transcript):
         transcript.logger.debug("Adding the stop codon to %s", transcript.id)
         transcript.stop_codon = sorted(transcript.stop_codon)
         transcript.combined_cds = sorted(transcript.combined_cds)
-        if transcript.strand == "-":
-            transcript.logger.debug("%s: CDS[0]: %s, Stop codon: %s",
-                                    transcript.id,
-                                    transcript.combined_cds[0],
-                                    transcript.stop_codon)
-            if transcript.combined_cds[0][0] == transcript.stop_codon[-1][1] + 1:
-                transcript.logger.debug("Moving %s last CDS from %d to %d",
-                                        transcript.id,
-                                        transcript.combined_cds[0][0],
-                                        transcript.stop_codon[-1][0]
-                                        )
-                transcript.combined_cds[0] = (
-                    transcript.stop_codon.pop(-1)[0],
-                    transcript.combined_cds[0][1])
-            transcript.logger.debug("Extend the CDS with: %s", transcript.stop_codon)
-            transcript.combined_cds.extend(transcript.stop_codon)
-            transcript.logger.debug("Final CDS: %s", transcript.combined_cds)
-        else:
-            transcript.logger.debug("%s: CDS[-1]: %s, Stop codon: %s",
-                                    transcript.id,
-                                    transcript.combined_cds[-1],
-                                    transcript.stop_codon)
-            if transcript.combined_cds[-1][1] == transcript.stop_codon[0][0] - 1:
-                transcript.logger.debug("Moving %s last CDS from %d to %d",
-                                        transcript.id,
-                                        transcript.combined_cds[-1][1],
-                                        transcript.stop_codon[0][1]
-                                        )
-                transcript.combined_cds[-1] = (
-                    transcript.combined_cds[-1][0],
-                    transcript.stop_codon.pop(0)[1])
-            transcript.logger.debug("Extend the CDS with: %s", transcript.stop_codon)
-            transcript.combined_cds.extend(transcript.stop_codon)
-            transcript.logger.debug("Final CDS: %s", transcript.combined_cds)
+        transcript.combined_utr = sorted(transcript.combined_utr)
+        stop_in_cds = True
+        if transcript.strand == "-" and transcript.combined_cds[0][0] > transcript.stop_codon[-1][1]:
+            stop_in_cds = False
+        elif transcript.combined_cds[-1][1] < transcript.stop_codon[0][0]:
+            stop_in_cds = False
+        if not stop_in_cds:
+            # Here comes the complicated part
+            try:
+                transcript = _fix_stop_codon(transcript)
+            except InvalidCDS:
+                transcript.strip_cds()
 
     transcript.__cdna_length = None
     __basic_final_checks(transcript)

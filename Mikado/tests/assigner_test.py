@@ -12,6 +12,8 @@ import argparse
 import os
 from .. import parsers
 import csv
+from pytest import mark
+import tempfile
 
 
 class AssignerTest(unittest.TestCase):
@@ -1091,14 +1093,16 @@ class AssignerTest(unittest.TestCase):
         """
 
         master = os.path.dirname(os.path.abspath(__file__))
+        out = tempfile.TemporaryDirectory()
+
         args = argparse.Namespace()
         args.no_save_index = True
         args.reference = parsers.GFF.GFF3(
             os.path.join(master, "fusion_test", "fusion_test_ref.gff3"))
         args.prediction = parsers.GTF.GTF(
             os.path.join(master, "fusion_test", "fusion_test_pred.gtf"))
-        args.log = os.path.join(master, "fusion_test", "fusion_test.log")
-        args.out = os.path.join(master, "fusion_test", "fusion_test")
+        args.log = os.path.join(out.name, "fusion_test", "fusion_test.log")
+        args.out = os.path.join(out.name, "fusion_test", "fusion_test")
         args.distance = 2000
         args.verbose = True
         args.exclude_utr = False
@@ -1111,7 +1115,7 @@ class AssignerTest(unittest.TestCase):
 
         scales.compare.compare(args)
 
-        out_refmap = os.path.join(master, "fusion_test", "fusion_test.refmap")
+        out_refmap = os.path.join(out.name, "fusion_test", "fusion_test.refmap")
         self.assertTrue(os.path.exists(out_refmap))
         self.assertGreater(os.stat(out_refmap).st_size, 0)
         with open(out_refmap) as refmap:
@@ -1121,10 +1125,6 @@ class AssignerTest(unittest.TestCase):
                 self.assertEqual(line["ccode"], "=", line)
         args.reference.close()
         args.prediction.close()
-        os.remove(args.log)
-        os.remove(out_refmap)
-        os.remove(os.path.join(master, "fusion_test", "fusion_test.stats"))
-        os.remove(os.path.join(master, "fusion_test", "fusion_test.tmap"))
 
     def test_h_case(self):
 

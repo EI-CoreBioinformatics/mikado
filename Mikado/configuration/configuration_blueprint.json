@@ -4,7 +4,8 @@
   "type": "object",
   "properties": {
     "SimpleComment": {"type": "object", "properties": {},
-      "SimpleComment": ["Configuration file for Mikado. Sections:",
+      "SimpleComment": ["Configuration file for Mikado. Please note that absent values, e.g. if a field is deleted, will be imputed by the default values for the program.",
+      "Sections:",
       "- log_settings: settings related to the verbosity of logs.",
       "- db_settings: Database settings, for Mikado serialise and pick.",
       "- reference: Settings related to the genome reference.",
@@ -12,7 +13,8 @@
       "- serialise: settings related to the Mikado serialise stage",
       "- pick: settings related to the Mikado pick stage",
     "- multiprocessing_method: which method (fork, spawn, forkserver) Mikado should use for multiprocessing."],
-    "Comment": ["Configuration file for Mikado. Sections:",
+    "Comment": ["Configuration file for Mikado.  Please note that absent values, e.g. if a field is deleted, will be imputed by the default values for the program.",
+      "Sections:",
       "- log_settings: settings related to the verbosity of logs.",
       "- db_settings: Database settings, for Mikado serialise and pick.",
       "- reference: Settings related to the genome reference.",
@@ -20,6 +22,10 @@
       "- serialise: settings related to the Mikado serialise stage",
       "- pick: settings related to the Mikado pick stage",
     "- multiprocessing_method: which method (fork, spawn, forkserver) Mikado should use for multiprocessing."]
+    },
+    "seed": {
+      "type": ["integer", "null"],
+      "default": null
     },
     "multiprocessing_method": {
       "type": "string",
@@ -279,18 +285,18 @@
     "pick": {
       "type": "object",
       "required": ["scoring_file"],
-      "Comment": ["- scoring_file: a scoring file for the analysis. Default: plants.yaml.",
+      "Comment": ["- scoring_file: a scoring file for the analysis. Default: plant.yaml.",
       "- source_score: a dictionary with pre-defined scores to assign to the transcripts according to their source. Eg all Cufflinks transcripts from the seed (label: \"cuff_seed\") could be assigned a default additional score of 1."],
       "SimpleComment": ["Parameters related to the Mikado pick stage.",
         "- alternative_splicing: Parameters related to which AS events to consider as valid during picking.",
         "- chimera_split: parameters related to splitting of transcripts in the presence of multiple ORFs",
         "- files: input and output files",
         "- run_options: generic options related to the run, eg number of processors to use.",
-        "- scoring_file: a scoring file for the analysis. Default: plants.yaml."],
+        "- scoring_file: a scoring file for the analysis. Default: plant.yaml."],
       "properties": {
         "scoring_file": {
           "type": "string",
-          "default": "plants.yaml"
+          "default": "plant.yaml"
           },
         "alternative_splicing": {
           "Comment": [
@@ -420,7 +426,7 @@
             },
             "ts_distance": {
               "type": "integer",
-              "default": 300,
+              "default": 1000,
               "minimum": 0
             },
             "pad": {
@@ -430,7 +436,7 @@
             "ts_max_splices": {
               "type": "integer",
               "minimum": 0,
-              "default": 1
+              "default": 2
             }
           }
         },

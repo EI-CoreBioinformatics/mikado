@@ -103,6 +103,7 @@ class Assigner:
             self.args.verbose = False
             self.lenient = False
             self.use_prediction_alias = False
+            self.__report_fusions = True
         else:
             self.args = args
             if not hasattr(args, "out"):
@@ -119,10 +120,12 @@ class Assigner:
                 self.args.verbose = False
             self.lenient = getattr(args, "lenient", False)
             self.use_prediction_alias = getattr(args, "use_prediction_alias", False)
+            self.__report_fusions = getattr(args, "report_fusions", True)
 
         # noinspection PyUnresolvedReferences
         # pylint: disable=no-member
         self.queue_handler = log_handlers.QueueHandler(self.args.log_queue)
+
         # pylint: enable=no-member
         if counter is None:
             self.logger = logging.getLogger("Assigner")
@@ -146,12 +149,8 @@ class Assigner:
 
         self.logger.propagate = True
         self.dbname = index
-        try:
-            self.db = sqlite3.connect("file:{}?mode=ro".format(self.dbname), uri=True)
-        except sqlite3.OperationalError:
-            raise sqlite3.OperationalError(self.dbname)
-        self.cursor = self.db.cursor()
-        # self.genes = genes
+        self.genes = GeneDict(self.dbname, logger=self.logger,
+                              exclude_utr=self.args.exclude_utr, protein_coding=self.args.protein_coding)
         self.positions = collections.defaultdict(dict)
         self.indexer = collections.defaultdict(list)
         self._load_positions()
@@ -175,7 +174,7 @@ class Assigner:
 
         self.gene_matches = collections.defaultdict(dict)
         self.done = 0
-        self.genes = GeneDict(self.dbname, self.logger)
+
         if self.printout_tmap is True:
             for gid in self.genes:
                 for tid in self.genes[gid].transcripts:
@@ -193,7 +192,7 @@ class Assigner:
 
     def _load_positions(self):
 
-        for row in self.cursor.execute("SELECT * from positions"):
+        for row in self.genes.positions:
             chrom, start, end, gid = row
             key = (start, end)
             if key not in self.positions[chrom]:
@@ -444,45 +443,47 @@ class Assigner:
             if len(local_best) > 0:
                 best.add((match, sorted(local_best, key=self.get_f1, reverse=True)[0]))
 
-        if len(best) > 1:  # We have a fusion
-            # Now retrieve the results according to their order on the genome
-            # Keep only the result, not their position
-            best = [_[1] for _ in sorted(best, key=lambda res: (res[0][0], res[0][1]))]
-            chrom = prediction.chrom
-            start = min([prediction.start] + [self.genes[_.ref_gene[0]][_.ref_id[0]].start for _ in best])
-            end = max([prediction.end] + [self.genes[_.ref_gene[0]][_.ref_id[0]].end for _ in best])
-            location = "{}:{}..{}".format(chrom, start, end)
-
-            best_result = []
-            for result in best:
-                new_result = []
-                for key in ResultStorer.__slots__:
-                    if key == "location":
-                        new_result.append(location)
-                    elif key == "ccode":
-                        tup = tuple(["f"] + [getattr(result, key)[0]])
-                        new_result.append(tup)
-                    else:
-                        new_result.append(getattr(result, key))
-                new_result = ResultStorer(*new_result)
-                best_result.append(new_result)
-
-            for match, genes in fused.items():
-                for gene in iter(_ for _ in genes if _ not in dubious):
-                    for position, result in enumerate(new_matches[gene]):
-                        if result.j_f1[0] > 0 or result.n_recall[0] > 10:
-                            result.ccode = ("f", result.ccode[0])
-                            new_matches[gene][position] = result
-
-        elif len(best) == 1:
-            best_result = best.pop()[1]
-        else:  # We have to retrieve the best result from the dubious
+        if len(best) == 0:
             self.logger.debug("Filtered out all results for %s, selecting the best dubious one",
                               prediction.id)
             # I have filtered out all the results,
             # because I only match partially the reference genes
             best_result = sorted([new_matches[gene][0] for gene in dubious],
                                  key=self.get_f1, reverse=True)[0]
+
+        else:
+            best = [_[1] for _ in sorted(best, key=lambda res: (res[0][0], res[0][1]))]
+            if not (len(best) > 1 and self.__report_fusions is True):
+                best_result = best.pop()
+            else:  # We have a fusion
+                # Now retrieve the results according to their order on the genome
+                # Keep only the result, not their position
+
+                chrom = prediction.chrom
+                start = min([prediction.start] + [self.genes[_.ref_gene[0]][_.ref_id[0]].start for _ in best])
+                end = max([prediction.end] + [self.genes[_.ref_gene[0]][_.ref_id[0]].end for _ in best])
+                location = "{}:{}..{}".format(chrom, start, end)
+
+                best_result = []
+                for result in best:
+                    new_result = []
+                    for key in ResultStorer.__slots__:
+                        if key == "location":
+                            new_result.append(location)
+                        elif key == "ccode":
+                            tup = tuple(["f"] + [getattr(result, key)[0]])
+                            new_result.append(tup)
+                        else:
+                            new_result.append(getattr(result, key))
+                    new_result = ResultStorer(*new_result)
+                    best_result.append(new_result)
+
+                for match, genes in fused.items():
+                    for gene in iter(_ for _ in genes if _ not in dubious):
+                        for position, result in enumerate(new_matches[gene]):
+                            if result.j_f1[0] > 0 or result.n_recall[0] > 10:
+                                result.ccode = ("f", result.ccode[0])
+                                new_matches[gene][position] = result
 
         # Finally add the results
         for gene in new_matches:
@@ -540,7 +541,7 @@ class Assigner:
 
         return results, best_result
 
-    def self_analyse_prediction(self, prediction: Transcript, distances):
+    def self_analyse_prediction(self, prediction: Transcript, distances, fuzzymatch=0):
 
         """This method will be invoked during a self analysis run."""
 
@@ -555,8 +556,6 @@ class Assigner:
                 if prediction.id in gene.transcripts.keys():
                     __gene_found = True
                     if len(gene.transcripts) == 1:
-                        # self.logger.warning("Ignoring {} for transcript {}".format(gene.id,
-                        #                                                            prediction.id))
                         __gene_removed = True
                         continue
                 genes.append((self.genes[posis], distance[1]))
@@ -578,8 +577,8 @@ class Assigner:
                                        *[0] * 9 + ["-"] + [prediction.location])
             self.stat_calculator.store(prediction, best_result, None)
             results = [best_result]
-        elif genes[0][1] > 0:
-            results = [self.calc_and_store_compare(prediction, reference)
+        elif genes[0][1] > 0:  # Up or downstream
+            results = [self.calc_and_store_compare(prediction, reference, fuzzymatch=fuzzymatch)
                        for reference in genes[0][0]]
             best_result = sorted(results,
                                  key=operator.attrgetter("distance"))[0]
@@ -594,12 +593,11 @@ class Assigner:
                     same_strand = True
 
             if len(genes) == 1:
-                results = [self.calc_and_store_compare(prediction, reference)
+                results = [self.calc_and_store_compare(prediction, reference, fuzzymatch=fuzzymatch)
                            for reference in genes[0] if reference.id != prediction.id]
                 assert len(results) > 0, (genes[0].transcripts.keys(), prediction.id)
                 best_result = sorted(results,
                                      key=operator.attrgetter("distance"))[0]
-
             else:
                 result_dict = dict()
                 results = []
@@ -614,7 +612,7 @@ class Assigner:
                                     gene.id, __gene_removed))
 
                     result_dict[gene.id] = sorted(
-                        [self.calc_and_store_compare(prediction, reference)
+                        [self.calc_and_store_compare(prediction, reference, fuzzymatch=fuzzymatch)
                          for reference in gene if reference.id != prediction.id],
                         key=self.get_f1,
                         reverse=True)
@@ -634,7 +632,7 @@ class Assigner:
                             best_results.append(result_dict[gene][0])
                     if len(best_results) == 1:
                         best_result = best_results[0]
-                    elif len(best_results) > 1:
+                    elif len(best_results) > 1 and self.__report_fusions is True:
                         values = []
                         for key in ResultStorer.__slots__:
                             if key in ["gid", "tid", "distance", "tid_num_exons"]:
@@ -648,6 +646,9 @@ class Assigner:
                         for result in results:
                             if result.j_f1[0] > 0 or result.n_recall[0] > 10:
                                 result.ccode = ("f", result.ccode[0])
+                    elif len(best_results) > 1 and self.__report_fusions is False:
+                        best_result = [_ for _ in sorted(best_results, key=operator.attrgetter("j_f1", "n_f1"))
+                                       ].pop()
 
                 # Check how many
                 if not results:
@@ -939,10 +940,9 @@ class Assigner:
                         row = tuple([tid, gid] + ["NA"] * 6)
                     else:
                         # Choose the best hit for the transcript
-                        if any(True if (x.j_f1[0] > 0 or x.n_f1[0] > 0) else False
-                               for x in self.gene_matches[gid][tid]):
-                            best = sorted(self.gene_matches[gid][tid],
-                                          key=self.result_sorter, reverse=True)[0]
+                        if any((x.j_f1[0] > 0 or x.n_f1[0] > 0) for x in self.gene_matches[gid][tid]):
+                                best = sorted(self.gene_matches[gid][tid],
+                                              key=self.result_sorter, reverse=True)[0]
                         else:
                             best = sorted(self.gene_matches[gid][tid],
                                           key=operator.attrgetter("distance"),

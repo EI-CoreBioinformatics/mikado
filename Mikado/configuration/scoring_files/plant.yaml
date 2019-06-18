@@ -1,47 +1,41 @@
+  # Scoring file suitable for any species with intron sizes similar to plants
 requirements:
-  expression:
-  - ((exon_num.multi and (cdna_length.multi or selected_cds_length.multi)
-  - and
-  - max_intron_length and min_intron_length and proportion_verified_introns_inlocus)
-  - or
-  - (exon_num.mono and ((snowy_blast_score and selected_cds_length.zero) or selected_cds_length.mono)))
+  expression: [(combined_cds_fraction.ncrna or combined_cds_fraction.coding), and, ((exon_num.multi and  (cdna_length.multi, or,  combined_cds_length.multi) and max_intron_length, and, min_intron_length and proportion_verified_introns_inlocus ) or (exon_num.mono and (combined_cds_length.mono or cdna_length.mono))) ]
   parameters:
-    snowy_blast_score: {operator: gt, value: 0} # 0.2
-    selected_cds_length.mono: {operator: gt, value: 300} # 600
-    selected_cds_length.zero: {operator: gt, value: 0}
-    cdna_length.multi: {operator: ge, value: 400}
-    selected_cds_length.multi: {operator: gt, value: 200}
+    combined_cds_fraction.ncrna: {operator: eq, value: 0}
+    combined_cds_fraction.coding: {operator: gt, value: 0.30}
+    cdna_length.mono: {operator: gt, value: 400}
+    cdna_length.multi: {operator: ge, value: 300}
+    combined_cds_length.mono: {operator: gt, value: 225}
+    combined_cds_length.multi: {operator: gt, value: 150}
     exon_num.mono: {operator: eq, value: 1}
     exon_num.multi: {operator: gt, value: 1}
-    max_intron_length: {operator: le, value: 150000}
-    min_intron_length: {operator: ge, value: 20}
+    max_intron_length: {operator: le, value: 20000}
+    min_intron_length: {operator: ge, value: 5}
     proportion_verified_introns_inlocus: {operator: gt, value: 0}
 as_requirements:
   expression: [cdna_length and three_utr_length and five_utr_length and utr_length and suspicious_splicing]
   parameters:
-    cdna_length: {operator: ge, value: 200}
+    cdna_length: {operator: ge, value: 300}
     utr_length: {operator: le, value: 2500}
     five_utr_length: {operator: le, value: 2500}
     three_utr_length: {operator: le, value: 2500}
     suspicious_splicing: {operator: ne, value: true}
+    max_intron_length: {operator: le, value: 10000}
 not_fragmentary:
- expression: [((exon_num.multi and (cdna_length.multi or selected_cds_length.multi)), or, (exon_num.mono and ((snowy_blast_score and selected_cds_length.zero)  or selected_cds_length.mono)))]
+ expression: [((exon_num.multi and (cdna_length.multi or combined_cds_length.multi)), or, (exon_num.mono and combined_cds_length.mono))]
  parameters:
-   selected_cds_length.zero: {operator: gt, value: 300} # 600
-   exon_num.multi: {operator: gt, value: 2}
-   cdna_length.multi: {operator: ge, value: 300}
-   selected_cds_length.multi: {operator: gt, value: 250}
+   is_complete: {operator: eq, value: true}
+   exon_num.multi: {operator: gt, value: 1}
+   cdna_length.multi: {operator: ge, value: 400}
+   combined_cds_length.multi: {operator: gt, value: 200}
    exon_num.mono: {operator: eq, value: 1}
-   snowy_blast_score: {operator: gt, value: 0}  # 0.3
-   selected_cds_length.mono: {operator: gt, value: 600} # 900
-   exon_num.mono: {operator: le, value: 2}
+   combined_cds_length.mono: {operator: gt, value: 600}
 scoring:
-  # blast_score: {rescaling: max}
-  snowy_blast_score: {rescaling: max}
+  blast_score: {rescaling: max}
   cdna_length: {rescaling: max}
   cds_not_maximal: {rescaling: min}
   cds_not_maximal_fraction: {rescaling: min}
-  # exon_fraction: {rescaling: max}
   exon_num: {
     rescaling: max,
     filter: {
@@ -51,7 +45,7 @@ scoring:
   five_utr_length:
     filter: {operator: le, value: 2500}
     rescaling: target
-    value: 100
+    value: 200
   five_utr_num:
     filter: {operator: lt, value: 4}
     rescaling: target
@@ -63,7 +57,6 @@ scoring:
   intron_fraction: {rescaling: max}
   is_complete: {rescaling: target, value: true}
   number_internal_orfs: {rescaling: target, value: 1}
-  # proportion_verified_introns: {rescaling: max}
   non_verified_introns_num: {rescaling: min}
   proportion_verified_introns_inlocus: {rescaling: max}
   retained_fraction: {rescaling: min}
@@ -75,7 +68,7 @@ scoring:
   three_utr_length:
     filter: {operator: le, value: 2500}
     rescaling: target
-    value: 200
+    value: 400
   three_utr_num:
     filter: {operator: lt, value: 3}
     rescaling: target

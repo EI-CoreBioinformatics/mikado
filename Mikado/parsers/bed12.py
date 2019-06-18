@@ -36,6 +36,8 @@ class BED12:
 
     __valid_coding = {"True": True, "False": False, True: True, False: False}
 
+    _attribute_pattern = re.compile(r"([^;]*)=([^$=]*)(?:;|$)")
+
     def __init__(self, *args: Union[str, list, tuple, GffLine],
                  fasta_index=None,
                  phase=None,
@@ -159,6 +161,7 @@ class BED12:
         self.__table_index = 0
         self.table = table
         self.__lenient = lenient
+        self.alias = None
 
         if len(args) == 0:
             self.header = True
@@ -173,7 +176,7 @@ class BED12:
                 self.header = True
                 return
             self._fields = self._line.split("\t")
-            if len(self._fields) == 12:
+            if len(self._fields) in (12, 13):
                 self.__set_values_from_fields()
                 self.header = False
             else:
@@ -204,27 +207,7 @@ class BED12:
             self._fields = self._line
             self.__set_values_from_fields()
 
-        if re.search("(ID|coding|phase)", self.name):
-            groups = dict(re.findall("([^(;|=)]*)=([^;]*)", self.name))
-            _coding = groups.get("coding", None)
-            phase = phase or groups.get("phase", None)
-            if phase:
-                phase = int(phase)
-                self.coding = True
-            else:
-                if _coding is not None:
-                    self.coding = self.__valid_coding.get(_coding, False)
-                else:
-                    self.coding = coding
-                if transcriptomic is True:
-                    phase = 0
-
-            self.phase = phase
-            self.name = groups.get("ID", self.name)
-
-        elif "ID=" in self.name:
-            groups = dict(re.findall("([^(;|=)]*)=([^;]*)", self.name))
-            self.name = groups["ID"]
+        # self._parse_attributes(self.name)
 
         self.__check_validity(transcriptomic, fasta_index, sequence)
 
@@ -301,6 +284,35 @@ class BED12:
         self.__dict__.update(state)
         self.table = self.__table_index
 
+    def _parse_attributes(self, attributes):
+
+        """
+        Private method that parses the last field of the GFF line.
+        :return:
+        """
+
+        self.attribute_order = []
+
+        infolist = re.findall(self._attribute_pattern, attributes.rstrip().rstrip(";"))
+
+        for item in infolist:
+            key, val = item
+            if key.lower() in ("parent", "geneid"):
+                self.parent = val
+            elif "phase" in key.lower():
+                self.phase = int(val)
+                self.coding = True
+            elif key.lower() == "coding":
+                self.coding = self.__valid_coding.get(val, False)
+                if self.transcriptomic is True:
+                    self.phase = 0
+            elif key.lower() == "alias":
+                self.alias = val
+            elif key.lower() == "id":
+                self.name = val
+            else:
+                continue
+
     def __set_values_from_fields(self):
 
         """
@@ -310,7 +322,7 @@ class BED12:
         self.chrom, self.start, self.end, \
             self.name, self.score, self.strand, \
             self.thick_start, self.thick_end, self.rgb, \
-            self.block_count, block_sizes, block_starts = self._fields
+            self.block_count, block_sizes, block_starts = self._fields[:12]
 
         # Reduce memory usage
         intern(self.chrom)
@@ -328,6 +340,9 @@ class BED12:
             self.block_starts = [int(x) for x in block_starts.split(",") if x]
         else:
             self.block_starts = [int(x) for x in block_starts]
+        self._parse_attributes(self.name)
+        if len(self._fields) == 13:
+            self._parse_attributes(self._fields[-1])
         self.has_start_codon = None
         self.has_stop_codon = None
         self.start_codon = None
@@ -378,7 +393,6 @@ class BED12:
             self.has_stop_codon = False
 
         if transcriptomic is True and self.coding is True and (fasta_index is not None or sequence is not None):
-            orig_phase = self.phase
             self.validity_checked = True
             if sequence is not None:
                 self.fasta_length = len(sequence)
@@ -402,7 +416,7 @@ class BED12:
                                (self.thick_start - 1 if not self.phase else self.start + self.phase - 1):self.thick_end]
             else:
                 orf_sequence = sequence[(self.thick_start - 1):(
-                    self.thick_end if not self.phase else self.end - self.phase)].reverse_complement()
+                    self.thick_end if not self.phase else self.end - (3 - self.phase) % 3)].reverse_complement()
 
             self.start_codon = str(orf_sequence)[:3].upper()
             self.stop_codon = str(orf_sequence[-3:]).upper()
@@ -416,7 +430,9 @@ class BED12:
 
                 self.has_start_codon = False
                 if self.start_adjustment is True:
-                    self._adjust_start(orf_sequence)
+                    if self.strand == "-":
+                        sequence = sequence.reverse_complement()
+                    self._adjust_start(sequence, orf_sequence)
 
             if self.stop_codon in self.table.stop_codons:
                 self.has_stop_codon = True
@@ -436,36 +452,61 @@ class BED12:
             if self.invalid is True:
                 return
 
-    def _adjust_start(self, orf_sequence):
+    def _adjust_start(self, sequence, orf_sequence):
 
         assert len(orf_sequence) == (self.thick_end - self.thick_start + 1)
-        for pos in range(3,
-                         int(len(orf_sequence) * self.max_regression),
-                         3):
-            if orf_sequence[pos:pos + 3] in self.table.start_codons:
-                # Now we have to shift the start accordingly
-                self.has_start_codon = True
+        # Let's check UPstream first.
+        # This means that we DO NOT have a starting Met and yet we are starting far upstream.
+        if (self.strand == "+" and self.thick_start > 3) or (self.strand == "-" and self.end - self.thick_end > 3):
+            for pos in range(self.thick_start, 3, -3):
                 if self.strand == "+":
-                    self.thick_start += pos
+                    self.thick_start -= 3
                 else:
-                    # TODO: check that this is right and we do not have to do some other thing
-                    self.thick_end -= pos
-                break
-            else:
+                    self.thick_end += 3
+                if sequence[pos - 3:pos] in self.table.start_codons:
+                    # We have found a valid methionine.
+                    break
+                elif sequence[pos - 3:pos] in self.table.stop_codons:
+                    if self.strand == "+":
+                        self.thick_start += 3
+                    else:
+                        self.thick_end -= 3
+                    break
                 continue
-
+        else:
+            for pos in range(3,
+                             int(len(orf_sequence) * self.max_regression),
+                             3):
+                if orf_sequence[pos:pos + 3] in self.table.start_codons:
+                    # Now we have to shift the start accordingly
+                    self.has_start_codon = True
+                    if self.strand == "+":
+                        self.thick_start += pos
+                    else:
+                        # TODO: check that this is right and we do not have to do some other thing
+                        self.thick_end -= pos
+                    break
+                else:
+                    continue
         if self.has_start_codon is False:
             # The validity will be automatically checked
             if self.strand == "+":
-                new_phase = max(self.thick_start - self.start, 0)
-                self.phase = new_phase
-                self.thick_start = self.start
+                if self.thick_start - self.start <= 2:
+                    new_phase = max(self.thick_start - self.start, 0)
+                    self.phase = new_phase
+                    self.thick_start = self.start
+                else:
+                    self.phase = 0
             else:
                 if self.end - self.thick_end <= 2:
-                    self.phase = self.end - self.thick_end
+                    new_phase = max(self.end - self.thick_end, 0)
+                    self.phase = new_phase
                     self.thick_end = self.end
                 else:
                     self.phase = 0
+        else:
+            self.phase = 0
+
         if self.invalid:
             raise ValueError(self.invalid_reason)
 
@@ -483,6 +524,9 @@ class BED12:
             name = "ID={};coding={}".format(self.id, self.coding)
             if self.coding:
                 name += ";phase={}".format(self.phase)
+            if self.alias is not None and self.alias != self.id:
+                name += ";alias={}".format(self.alias)
+
             line.append(name)
         else:
             line.append(self.name)
@@ -766,42 +810,54 @@ class BED12:
         self.fasta_length = len(sequence)
 
         # I presume that the sequence is already in the right orientation
+        old_start_pos = self.thick_start + self.phase - 1
+        old_end_pos = self.thick_end - (self.thick_end - old_start_pos) % 3
+        old_orf = old_sequence[old_start_pos:old_end_pos].upper()
+        logger.debug("Old sequence of %s (%s bps): %s[...]%s", self.id, len(old_sequence),
+                     old_sequence[:10], old_sequence[-10:])
+        logger.debug("Old ORF of %s (%s bps, phase %s): %s[...]%s", self.id, len(old_orf), self.phase,
+                     old_orf[:10], old_orf[-10:])
+        assert len(old_orf) > 0, (old_start_pos, old_end_pos)
+        assert len(old_orf) % 3 == 0, (old_start_pos, old_end_pos)
+        old_pep = Seq.Seq(old_orf).translate(self.table, gap="N")
+        if "*" in old_pep and old_pep.find("*") < len(old_pep) - 1:
+            logger.error("Stop codon found within the ORF of %s (pos %s of %s; phase %s). This is invalid!",
+                         self.id, old_pep.find("*"), len(old_pep), self.phase)
 
-        self.start_codon = str(
-            old_sequence[self.thick_start + self.phase - 1:self.thick_start + self.phase + 2]).upper()
-
-        last_codon_start = (self.thick_end - 3) - ((self.thick_end - self.thick_start - self.phase - 2) % 3)
-        self.stop_codon = str(old_sequence[last_codon_start:last_codon_start + 3]).upper()
-
-        assert 0 < len(self.stop_codon) <= 3, self.stop_codon
-
-        logger.debug("%s: start codon %s, old start %s; stop codon %s, old start %s",
-                       self.name, self.start_codon, self.thick_start + self.phase,
-                       self.stop_codon, self.thick_end
-                       )
+        self.start_codon = old_orf[:3]
+        self.stop_codon = old_orf[-3:]
+        logger.debug("%s: start codon %s, old start %s (%s); stop codon %s, old stop %s (%s)",
+                     self.name, self.start_codon, self.thick_start + self.phase,
+                     (self.thick_start + self.phase + upstream),
+                     self.stop_codon, self.thick_end, (self.thick_end + upstream))
         # Now expand
         self.end = len(sequence)
         self.thick_start += upstream
         self.thick_end += upstream
-        if expand_orf is True:
-            if str(self.start_codon).upper() not in self.table.start_codons:
-                for pos in range(self.thick_start - self.phase,
+        self.has_start_codon = (str(self.start_codon).upper() in self.table.start_codons)
+        self.has_stop_codon = (str(self.stop_codon).upper() in self.table.stop_codons)
+        if expand_orf is True and not (self.has_start_codon and self.has_stop_codon):
+            if not self.has_start_codon:
+                for pos in range(old_start_pos + upstream,
                                  0,
                                  -3):
                     codon = sequence[pos:pos + 3].upper()
-                    self.thick_start = pos
+
+                    self.thick_start = pos + 1
                     if codon in self.table.start_codons:
                         # self.thick_start = pos
                         self.start_codon = codon
                         self.__has_start = True
+                        logger.debug("Position %d, codon %s. Start codon found.", pos, codon)
                         break
-
-            if self.start_codon not in self.table.start_codons:
-                self.phase = self.thick_start % 3
-                self.thick_start = 1
-            else:
-                self.phase = 0
-                self.__has_start = True
+                if self.start_codon not in self.table.start_codons:
+                    self.phase = (self.thick_start - 1) % 3
+                    logger.debug("No start codon found for %s. Thick start %s, new phase: %s",
+                                 self.id, self.thick_start, self.phase)
+                    self.thick_start = 1
+                else:
+                    self.phase = 0
+                    self.__has_start = True
 
             coding_seq = Seq.Seq(sequence[self.thick_start + self.phase - 1:self.end])
             if len(coding_seq) % 3 != 0:
@@ -836,18 +892,20 @@ class BED12:
 
         return _blocks
 
-    def to_transcriptomic(self, sequence=None, fasta_index=None, start_adjustment=False, lenient=False):
+    def to_transcriptomic(self, sequence=None, fasta_index=None, start_adjustment=False,
+                          lenient=False, alias=None, coding=True):
 
         """This method will return a transcriptomic version of the BED12. If the object is already transcriptomic,
         it will return itself."""
 
         if self.transcriptomic is True:
             return self
+        self.coding = coding
 
         # First six fields of a BED object
 
         # Now we have to calculate the thickStart
-        block_count = self.block_count
+        # block_count = self.block_count
 
         # Now we have to calculate the thickStart, thickEnd ..
         tStart, tEnd = None, None
@@ -886,6 +944,9 @@ class BED12:
                                                          self.phase if self.phase is not None else 0)
         else:
             new_name = "ID={};coding={}".format(self.name.split(";")[0], self.coding)
+
+        if alias is not None:
+            new_name += ";alias={}".format(alias)
 
         new = list((self.name.split(";")[0],
                     0,

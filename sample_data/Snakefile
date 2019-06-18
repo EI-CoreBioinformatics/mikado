@@ -17,8 +17,8 @@ zipDBs=["{0}.gz".format(db) for db in DBs]
 
 configname = "configuration.yaml"
 if not os.path.exists(configname):
-    command = "mikado configure --list list.txt --reference chr5.fas --mode permissive --daijin -t 3 \
-        --scoring plants.yaml --junctions junctions.bed -bt {swiss} -bc 1 {configname}".format(configname=configname, swiss=swissprot)
+    command = "mikado configure --list list.txt --reference chr5.fas.gz --mode permissive --daijin -t 3 \
+        --scoring plant.yaml --junctions junctions.bed -bt {swiss} -bc 1 {configname}".format(configname=configname, swiss=swissprot)
     snake_logger.info("Creating the configuration file")
     snake_logger.info(command)
     subprocess.call(command, shell=True)
@@ -37,15 +37,15 @@ rule complete:
 
 rule test_json:
     input: db=zipDBs, config=configname
-    output: touch("{}.ok".format(configname)), "chr5.fas"
-    message: "gunzip -c chr5.fas.gz > chr5.fas"
+    output: touch("{}.ok".format(configname))
+    message: "Checking the configuration"
     run:
         try:
             __= Mikado.configuration.configurator.to_json(configname)
         except:
             os.remove(configname)
             raise
-        subprocess.call("gunzip -c chr5.fas.gz > chr5.fas", shell=True)
+        # subprocess.call("gunzip -c chr5.fas.gz > chr5.fas", shell=True)
         # shell("touch {output}")
 
 rule uncompress_blast:
@@ -56,7 +56,7 @@ rule uncompress_blast:
       "gzip -dc {input} > {output}"
 
 rule daijin:
-    input: "class.gtf", "cufflinks.gtf", "stringtie.gtf", "trinity.gff3", "mikado.bed", rules.test_json.output[0], rules.test_json.output[1], rules.uncompress_blast.output
+    input: "class.gtf", "cufflinks.gtf", "stringtie.gtf", "trinity.gff3", "mikado.bed", rules.test_json.output, rules.uncompress_blast.output
     output:
         loci=os.path.join("Daijin", "5-mikado", "pick", "permissive", "mikado-permissive.loci.gff3"),
         sub=os.path.join("Daijin", "5-mikado", "pick", "permissive", "mikado.subloci.gff3"),
@@ -99,7 +99,7 @@ rule clean:
                                     glob.glob("*midx"), glob.glob("*fai"),
 				    "Daijin",
                                     glob.glob("uniprot*fasta"), glob.glob("*loci*"),
-                                    ["mikado_prepared.gtf", "mikado_prepared.fasta", "chr5.fas", "mikado.prodigal.gff3"],
+                                    ["mikado_prepared.gtf", "mikado_prepared.fasta", "mikado.prodigal.gff3"],
                                     glob.glob("compare*"), glob.glob(config["db_settings"]["db"]),
                                     glob.glob("*.log"), glob.glob("*xml"), ["chr5.fas"],
                                     ["configuration.yaml"]):

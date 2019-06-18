@@ -24,6 +24,7 @@ as_requirements:
     five_utr_length: {operator: le, value: 2500}
     three_utr_length: {operator: le, value: 2500}
     suspicious_splicing: {operator: ne, value: true}
+    max_intron_length: {operator: le, value: 5000}
 not_fragmentary:
  expression: [((exon_num.multi and (cdna_length.multi or selected_cds_length.multi)), or, (exon_num.mono and ((snowy_blast_score and selected_cds_length.zero)  or selected_cds_length.mono)))]
  parameters:
@@ -31,7 +32,7 @@ not_fragmentary:
    exon_num.multi: {operator: gt, value: 2}
    cdna_length.multi: {operator: ge, value: 300}
    selected_cds_length.multi: {operator: gt, value: 250}
-   exon_num.mono: {operator: eq, value: 1}
+   # exon_num.mono: {operator: eq, value: 1}
    snowy_blast_score: {operator: gt, value: 0}  # 0.3
    selected_cds_length.mono: {operator: gt, value: 600} # 900
    exon_num.mono: {operator: le, value: 2}
@@ -61,14 +62,13 @@ scoring:
   highest_cds_exon_number: {rescaling: max}
   intron_fraction: {rescaling: max}
   is_complete: {rescaling: target, value: true}
-  # num_introns_smaller_than_min: {rescaling: target, value: 0}
-  # num_introns_greater_than_max: {rescaling: target, value: 0}
   number_internal_orfs: {rescaling: target, value: 1}
   # proportion_verified_introns: {rescaling: max}
+  non_verified_introns_num: {rescaling: min}
   proportion_verified_introns_inlocus: {rescaling: max}
   retained_fraction: {rescaling: min}
   retained_intron_num: {rescaling: min}
-  selected_cds_fraction: {rescaling: target, value: 0.85}
+  selected_cds_fraction: {rescaling: target, value: 0.8}
   selected_cds_intron_fraction: {rescaling: max}
   selected_cds_length: {rescaling: max}
   selected_cds_num: {rescaling: max}

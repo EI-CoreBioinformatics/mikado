@@ -22,7 +22,8 @@ from ..serializers import orf, blast_serializer, junction
 from ..serializers import external
 from ..exceptions import InvalidJson
 import pyfaidx
-# from csv import DictReader
+import random
+
 
 __author__ = 'Luca Venturini'
 
@@ -156,9 +157,10 @@ def load_external(args, logger):
         return
     else:
         logger.info("Starting to load external data")
-        with external.ExternalSerializer(args.json_conf["serialise"]["files"]["external_scores"],
-                                                 json_conf=args.json_conf,
-                                                 logger=logger) as serializer:
+        with external.ExternalSerializer(
+                args.json_conf["serialise"]["files"]["external_scores"],
+                json_conf=args.json_conf,
+                logger=logger) as serializer:
             serializer()
         logger.info("Finished loading external data")
 
@@ -204,6 +206,10 @@ def setup(args):
     if args.db is not None:
         args.json_conf["db_settings"]["db"] = args.db
         args.json_conf["dbtype"] = "sqlite"
+
+    if args.seed is not None:
+        args.json_conf["seed"] = args.seed
+        random.seed(args.seed, version=2)
 
     if args.output_dir is not None:
         args.json_conf["serialise"]["files"]["output_dir"] = args.output_dir
@@ -271,6 +277,7 @@ def setup(args):
     logger.setLevel("INFO")
     logger.info("Command line: %s",
                 " ".join(sys.argv))
+    logger.info("Random seed: %s", args.json_conf["seed"])
     logger.setLevel(args.log_level)
 
     # Add sqlalchemy logging
@@ -406,11 +413,12 @@ def serialise_parser():
     junctions.add_argument("--genome_fai", default=None)
     junctions.add_argument("--junctions", type=str, default=None)
 
-    external = parser.add_argument_group()
-    external.add_argument("--external-scores", dest="external_scores",
-                          help="""Tabular file containing external scores for the transcripts.
-                               Each column should have a distinct name, and transcripts have to be listed
-                               on the first column.""")
+    external_args = parser.add_argument_group()
+    external_args.add_argument(
+        "--external-scores",
+        dest="external_scores",
+        help="""Tabular file containing external scores for the transcripts.
+        Each column should have a distinct name, and transcripts have to be listed on the first column.""")
 
     generic = parser.add_argument_group()
     generic.add_argument("-mo", "--max-objects", dest="max_objects",
@@ -437,6 +445,7 @@ def serialise_parser():
     generic.add_argument("db", type=str, default=None,
                          nargs='?',
                          help="Optional output database. Default: derived from json_conf")
-
+    generic.add_argument("--seed", type=int, default=None,
+                         help="Random seed number.")
     parser.set_defaults(func=serialise)
     return parser

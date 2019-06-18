@@ -7,7 +7,9 @@
 Mikado configure
 ================
 
-This utility prepares the configuration file that will be used throughout the pipeline stages. While the most important options can be set at runtime through the command line, many algorithmic details can be accessed and intervened upon only through the file produced through this command.
+This utility prepares the configuration file that will be used throughout the pipeline stages.
+While the most important options can be set at runtime through the command line, many algorithmic details can be accessed and intervened upon only through the file produced through this command.
+.. important:: Please note that any value absent from the configuration at runtime **will be imputed to the default value for Mikado, as specified internally**.
 
 Usage
 ~~~~~

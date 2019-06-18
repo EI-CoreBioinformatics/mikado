@@ -287,7 +287,7 @@ class Transcript:
         self.__phases = dict()  # will contain (start, phase) for each CDS exon
         self.__blast_score = 0  # Homology score
         self.__derived_children = set()
-        self.__external_scores = Namespace(default=0)
+        self.__external_scores = Namespace(default=(0, False))
         self.__internal_orf_transcripts = []
 
         # Starting settings for everything else
@@ -384,6 +384,14 @@ class Transcript:
         self.strand = transcript_row.strand
         exon_starts = np.array([_ + self.start for _ in transcript_row.block_starts])
         exon_ends = exon_starts + np.array(transcript_row.block_sizes) - 1
+        isizes = exon_starts[1:] - exon_ends[:-1]  # This functions also for monoexonic
+        if np.where(isizes < 0)[0].size > 0:
+            raise InvalidTranscript("Overlapping exons found for {}!".format(self.id))
+        if np.where(isizes <= 1)[0].size > 0:
+            self.logger.debug("Merging touching exons")
+            exon_starts = np.concatenate((np.array([exon_starts[0]]), exon_starts[np.where(isizes > 1)[0] + 1]))
+            exon_ends = np.concatenate((exon_ends[np.where(isizes > 1)[0]], np.array([exon_ends[-1]])))
+
         self.add_exons(list(zip(list(exon_starts), list(exon_ends))))
         self.parent = getattr(transcript_row, "parent", transcript_row.id)
         self.source = getattr(transcript_row, "source", None)
@@ -509,19 +517,33 @@ class Transcript:
         self.json_conf = None
 
         if transcript_row.is_transcript is False:
-            if transcript_row.is_exon is False and transcript_row.feature != "match":
+            if transcript_row.is_exon is False and transcript_row.feature not in ("match", "tss", "tts"):
                 raise TypeError("Invalid GF line")
             elif transcript_row.is_exon is True and isinstance(transcript_row, GffLine) and transcript_row.feature not in ("cDNA_match", "match"):
                 raise TypeError("GFF files should not provide orphan exons. Line:\n{}".format(transcript_row))
             self.__expandable = True
+
             if "cDNA_match" in transcript_row.feature and isinstance(transcript_row, GffLine):
                 self.parent = transcript_row.id
                 self.id = transcript_row.id
                 self.__expandable = True
-            elif transcript_row.feature == "match":
+            elif transcript_row.feature in ("match",):
                 self.parent = transcript_row.parent or transcript_row.id
-                self.id = transcript_row.id
+                if transcript_row.id is not None:
+                    self.id = transcript_row.id
+                else:
+                    self.id = transcript_row.transcript
                 self._possibly_without_exons = True
+                # if transcript_row.feature == "tts":  # Termination site, especially in Augustus
+                #     if self.strand == "-":
+                #         self.end = transcript_row.start
+                #     else:
+                #         self.end = transcript_row.end
+                # elif transcript_row.feature == "tss":  # Transcription start site, especially in Augustus
+                #     if self.strand == "-":
+                #         self.start = transcript_row.end
+                #     else:
+                #         self.start = transcript_row.start
             else:
                 self.parent = transcript_row.gene
                 self.id = transcript_row.transcript
@@ -1478,7 +1500,7 @@ class Transcript:
             else:
                 pass
         else:
-            assert isinstance(logger, logging.Logger)
+            assert isinstance(logger, logging.Logger), type(logger)
             self.__logger = logger
         self.__logger.propagate = False
 

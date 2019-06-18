@@ -5,6 +5,7 @@ Pretty basic class that defines a reference gene with its transcripts.
 Minimal checks.
 """
 
+import re
 import copy
 import logging
 import operator
@@ -157,6 +158,9 @@ class Gene:
 
         for parent in (_ for _ in row.parent if _ not in self.transcripts):
             found = False
+            if parent.endswith("-Protein") and re.sub("-Protein", "", parent) in self.transcripts:
+                continue
+            
             for tid in self.transcripts:
                 if parent in self.transcripts[tid].derived_children:
                     found = True
@@ -345,7 +349,7 @@ class Gene:
             return True
         return False
 
-    def format(self, format_name):
+    def format(self, format_name, transcriptomic=False):
 
         if format_name not in ("gff", "gtf", "gff3", "bed12", "bed"):
             raise ValueError(
@@ -354,7 +358,7 @@ class Gene:
 
         self.finalize()  # Necessary to sort the exons
         lines = []
-        if format_name in ("gff", "gff3"):
+        if format_name in ("gff", "gff3") and transcriptomic is False:
             line = GffLine(None)
             for attr in ["chrom",
                          "source",
@@ -362,7 +366,6 @@ class Gene:
                          "end",
                          "strand"]:
                 setattr(line, attr, getattr(self, attr))
-
             line.feature = self.feature
             line.attributes = self.attributes.copy()
             line.id = self.id
@@ -370,7 +373,7 @@ class Gene:
             lines.append(str(line))
 
         for tid, transcript in sorted(self.transcripts.items(), key=operator.itemgetter(1)):
-            lines.append(transcript.format(format_name))
+            lines.append(transcript.format(format_name, transcriptomic=transcriptomic))
 
         if format_name in ("gff", "gff3"):
             lines.append("###")

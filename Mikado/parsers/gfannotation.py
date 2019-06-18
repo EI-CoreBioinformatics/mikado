@@ -240,6 +240,8 @@ class GFAnnotation(metaclass=abc.ABCMeta):
             elif self.id is not None and self.id.startswith("gene:"):
                 # Hack for EnsEMBL
                 return True
+            elif self.feature in ("sublocus", "monosublocus", "monosublocusholder"):
+                return True
         return False
 
     @property
@@ -253,7 +255,7 @@ class GFAnnotation(metaclass=abc.ABCMeta):
             return False
         _ = self.feature.lower()
         if ("cds" in _ or _.endswith("exon") or "utr" in _ or "codon" in _
-            or _ == "cdna_match" or _ == "match_part"):
+            or _ in ("cdna_match", "match_part")):
             return True
         return False
 
@@ -313,6 +315,24 @@ class GFAnnotation(metaclass=abc.ABCMeta):
                 return self._sort_feature(self.feature) < self._sort_feature(other.feature)
             else:
                 return False
+
+    def remove_attribute(self, attribute):
+        """Method to remove attributes from the internal dictionary."""
+
+        if attribute in self.attributes:
+            del self.attributes[attribute]
+        try:
+            self.attribute_order.remove(attribute)
+        except ValueError:
+            pass
+        return
+
+    def add_attribute(self, attribute, value):
+
+        self.attributes[attribute] = value
+
+        if attribute not in self.attribute_order:
+            self.attribute_order.append(attribute)
 
     def __eq__(self, other):
 

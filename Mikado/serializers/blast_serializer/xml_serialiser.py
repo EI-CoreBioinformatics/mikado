@@ -3,28 +3,23 @@ XML serialisation class.
 """
 
 import os
-import functools
 import logging.handlers as logging_handlers
 import logging
 import tempfile
-try:
-    import ujson as json
-except ImportError:
-    import json
+import ujson as json
 import sqlite3
-# import pickle
 import sqlalchemy
 import sqlalchemy.exc
 from sqlalchemy.orm.session import Session
 from ...utilities.dbutils import DBBASE
-import pyfaidx
+import pysam
 from ...utilities.dbutils import connect
 from ...parsers.blast_utils import BlastOpener  # , XMLMerger
 from ...utilities.log_utils import create_null_logger, check_logger
 from . import Query, Target, Hsp, Hit, prepare_hit, InvalidHit
 from xml.parsers.expat import ExpatError
 import xml
-from queue import Empty
+# from queue import Empty
 import multiprocessing
 
 
@@ -34,184 +29,75 @@ __author__ = 'Luca Venturini'
 # A serialisation class must have a ton of attributes ...
 # pylint: disable=too-many-instance-attributes
 
-class _XmlPickler(multiprocessing.Process):
 
-    def __init__(self,
-                 queries,
-                 targets,
-                 filequeue: multiprocessing.Queue,
-                 returnqueue,
-                 default_header,
-                 identifier,
-                 logging_queue,
-                 level="WARN",
-                 max_target_seqs=10,
-                 maxobjects=20000):
+def _create_xml_db(filename):
+    """Private method to create a DB for serialisation.
+    :param filename: the name of the file to serialise
+    :returns dbname, cursor: the name of the database and the SQLite cursor
 
-        super().__init__()
-        self.queries = queries
-        self.targets = targets
-        self.level = level
-        self.logging_queue = logging_queue
-        self.handler = logging_handlers.QueueHandler(logging_queue)
-        self.handler.setLevel(self.level)
-        self.__identifier = identifier
-        self.name = self._name = "_XmlPickler-{0}".format(self.identifier)
-        self.logger = logging.getLogger(self.name)
-        self.logger.addHandler(self.handler)
-        self.logger.setLevel(self.level)
-        self.filequeue = filequeue
-        self.returnqueue = returnqueue
-        self.default_header = default_header
-        self.maxobjects = maxobjects
-        self.__max_target_seqs = max_target_seqs
-        self.logger.debug("Started %s", self.name)
+    """
 
-    def __getstate__(self):
-
-        state = self.__dict__.copy()
-
-        state["logger"].removeHandler(state["handler"])
-        state["handler"].close()
-        state["handler"] = None
-
-        # state["_pickler"] = None
-        state["logger"] = None
-        return state
-
-    def __setstate__(self, state):
-
-        self.__dict__.update(state)
-        self.handler = logging_handlers.QueueHandler(self.logging_queue)
-        self.handler.setLevel(self.level)
-        self.logger = logging.getLogger(self.name)
-        self.logger.addHandler(self.handler)
-        self.logger.setLevel(self.level)
-
-    def _create_db(self, filename):
-
-        """Private method to create a DB for serialisation.
-        :param filename: the name of the file to serialise
-        :returns dbname, cursor: the name of the database and the SQLite cursor
-
-        """
-
-        directory = os.path.dirname(filename)
+    directory = os.path.dirname(filename)
+    try:
         dbname = tempfile.mktemp(suffix=".db", dir=directory)
         conn = sqlite3.connect(dbname)
-        cursor = conn.cursor()
-        creation_string = "CREATE TABLE dump (query_counter integer, hits blob, hsps blob)"
-        try:
-            cursor.execute(  # TODO: change
-                creation_string)
-        except sqlite3.OperationalError:
-            # Table already exists
-            self.logger.error(
-                "Temporary db %s already exists (maybe from a previous aborted run?), dropping its contents",
-                dbname)
-            cursor.close()
-            conn.close()
-            os.remove(dbname)
-            conn = sqlite3.connect(dbname)
-            cursor = conn.cursor()
-            cursor.execute(creation_string)
-        cursor.execute("CREATE INDEX idx ON dump (query_counter)")
-        self.logger.debug("Created tables for shelf %s", dbname)
-
-        return dbname, conn, cursor
-
-    def _pickler(self, filename):
-
-        # Check the header is alright
-        valid, _, exc = BlastOpener(filename).sniff(default_header=self.default_header)
-        if not valid:
-            self.logger.warning("Invalid BLAST file: %s", filename)
-            return []
-
-        self.logger.debug("Starting to pickle %s", filename)
-        # hits, hsps = [], []
-
-        pickle_count = 0
-        query_counter = 0
-        # Create the database
-        dbname, conn, cursor = self._create_db(filename)
-
-        try:
-            with BlastOpener(filename) as opened:
-                try:
-                    for query_counter, record in enumerate(opened, start=1):
-                        hits, hsps = objectify_record(self, record, [], [],
-                                                      max_target_seqs=self.__max_target_seqs)
-
-                        cursor.execute("INSERT INTO dump VALUES (?, ?, ?)",
-                                       (query_counter, json.dumps(hits), json.dumps(hsps))
-                                       )
-                        if query_counter % self.maxobjects and query_counter > 0:
-                            conn.commit()
-                            cursor.close()
-                            conn.close()
-                            yield dbname
-                            dbname, conn, cursor = self._create_db(filename)
-                            pickle_count += 1
-
-                except ExpatError:
-                    self.logger.error("%s is an invalid BLAST file, sending back anything salvageable",
-                                      filename)
-                    raise
-        except xml.etree.ElementTree.ParseError:
-            self.logger.error("%s is an invalid BLAST file, sending back anything salvageable",
-                              filename)
-            raise
-        except ValueError:
-            self.logger.error("Invalid BLAST entry")
-            raise
-
-        self.logger.debug("Finished serialising %s in %s subsection", filename, pickle_count)
+    except (OSError, PermissionError, sqlite3.OperationalError):
+        dbname = tempfile.mktemp(suffix=".db")
+        conn = sqlite3.connect(dbname)
+    cursor = conn.cursor()
+    creation_string = "CREATE TABLE dump (query_counter integer, hits blob, hsps blob)"
+    try:
+        cursor.execute(  # TODO: change
+            creation_string)
+    except sqlite3.OperationalError:
+        # Table already exists
         cursor.close()
-        conn.commit()
         conn.close()
-        yield dbname
-        # del records
+        os.remove(dbname)
+        conn = sqlite3.connect(dbname)
+        cursor = conn.cursor()
+        cursor.execute(creation_string)
+    cursor.execute("CREATE INDEX idx ON dump (query_counter)")
+    return dbname, conn, cursor
 
-    def run(self):
-        """
-        While running, the process will get the filenames to analyse from the first queue
-        and return them through the second one.
-        """
 
-        while True:
+def xml_pickler(json_conf, filename, default_header,
+                max_target_seqs=10):
+    valid, _, exc = BlastOpener(filename).sniff(default_header=default_header)
+    engine = connect(json_conf)
+    session = Session(bind=engine)
+
+    if not valid:
+        err = "Invalid BLAST file: %s" % filename
+        raise TypeError(err)
+    dbname, conn, cursor = _create_xml_db(filename)
+    try:
+        with BlastOpener(filename) as opened:
             try:
-                number, filename = self.filequeue.get(timeout=10)
-            except multiprocessing.TimeoutError:
-                self.logger.error(
-                    "Something has gone awry in %s, no data received from the queue after waiting 10s. Aborting.",
-                    self._name)
-                # self.filequeue.put("EXIT")
-                # return 0
-                raise
-            except Empty:
-                continue
+                for query_counter, record in enumerate(opened, start=1):
+                    hits, hsps = objectify_record(session, record, [], [],
+                                                  max_target_seqs=max_target_seqs)
 
-            if filename == "EXIT":
-                self.logger.debug("Process %s received EXIT signal, terminating",
-                                 self._name)
-                self.filequeue.put((number, filename))
-                return 0
-            try:
-                for pickled in self._pickler(filename):
-                    self.logger.debug("Sending serialised information in {}".format(pickled))
-                    self.returnqueue.put((number, [pickled]))
-            except Exception as exc:
-                self.logger.error("Error encountered in %s, blocking the program.", self.identifier)
-                self.returnqueue.put((number, "FINISHED"))
-                self.logger.exception(exc)
-                raise
+                    cursor.execute("INSERT INTO dump VALUES (?, ?, ?)",
+                                   (query_counter, json.dumps(hits), json.dumps(hsps))
+                                   )
+            except ExpatError as err:
+                # logger.error("%s is an invalid BLAST file, sending back anything salvageable", filename)
+                raise ExpatError("{} is an invalid BLAST file, sending back anything salvageable.\n{}".format(filename,
+                                                                                                              err))
+    except xml.etree.ElementTree.ParseError as err:
+        # logger.error("%s is an invalid BLAST file, sending back anything salvageable", filename)
+        raise xml.etree.ElementTree.ParseError(
+            "{} is an invalid BLAST file, sending back anything salvageable.\n{}".format(filename, err))
+    except ValueError as err:
+        # logger.error("Invalid BLAST entry")
+        raise ValueError(
+            "{} is an invalid BLAST file, sending back anything salvageable.\n{}".format(filename, err))
 
-            self.returnqueue.put((number, "FINISHED"))
-
-    @property
-    def identifier(self):
-        return self.__identifier
+    cursor.close()
+    conn.commit()
+    conn.close()
+    return dbname
 
 
 class XmlSerializer:
@@ -325,7 +211,7 @@ class XmlSerializer:
 
         if isinstance(query_seqs, str):
             assert os.path.exists(query_seqs)
-            self.query_seqs = pyfaidx.Fasta(query_seqs)
+            self.query_seqs = pysam.FastaFile(query_seqs)
         elif query_seqs is None:
             self.query_seqs = None
         else:
@@ -337,7 +223,7 @@ class XmlSerializer:
         for target in target_seqs:
             if not os.path.exists(target):
                 raise ValueError("{} not found!".format(target))
-            self.target_seqs.append(pyfaidx.Fasta(target))
+            self.target_seqs.append(pysam.FastaFile(target))
 
         return
 
@@ -350,20 +236,20 @@ class XmlSerializer:
         counter = 0
         self.logger.info("Started to serialise the queries")
         objects = []
-        for record in self.query_seqs.records:
+        for record, length in zip(self.query_seqs.references, self.query_seqs.lengths):
             if not record:
                 continue
             if record in queries and queries[record][1] is not None:
                 continue
             elif record in queries:
                 self.session.query(Query).filter(Query.query_name == record).update(
-                    {"query_length": len(self.query_seqs[record])})
-                queries[record] = (queries[record][0], len(self.query_seqs[record]))
+                    {"query_length": length})
+                queries[record] = (queries[record][0], length)
                 continue
 
             objects.append({
                 "query_name": record,
-                "query_length": len(self.query_seqs[record])
+                "query_length": length
             })
 
             if len(objects) >= self.maxobjects:
@@ -409,18 +295,18 @@ class XmlSerializer:
         objects = []
         self.logger.info("Started to serialise the targets")
         for target in self.target_seqs:
-            for record in target.records:
+            for record, length in zip(target.references, target.lengths):
                 if record in targets and targets[record][1] is True:
                     continue
                 elif record in targets:
                     self.session.query(Target).filter(Target.target_name == record).update(
-                        {"target_length": len(self.target_seqs[record])})
+                        {"target_length": length})
                     targets[record] = (targets[record][0], True)
                     continue
 
                 objects.append({
                     "target_name": record,
-                    "target_length": len(target[record])
+                    "target_length": length
                 })
                 counter += 1
                 #
@@ -531,10 +417,6 @@ class XmlSerializer:
         else:
             assert isinstance(self.xml, (list, set))
 
-        # Create the function that will retrieve the query_id given the name
-        # self.get_query = functools.partial(self.__get_query_for_blast,
-        #                                    **{"queries": self.queries})
-
         hits, hsps = [], []
         hit_counter, record_counter = 0, 0
 
@@ -546,7 +428,7 @@ class XmlSerializer:
                 self.logger.error(exc)
                 self.xml.remove(filename)
 
-        if self.single_thread is True:
+        if self.single_thread is True or self.procs == 1:
             for filename in self.xml:
                 valid, _, exc = BlastOpener(filename).sniff(default_header=self.header)
                 if not valid:
@@ -559,86 +441,53 @@ class XmlSerializer:
                             record_counter += 1
                             if record_counter > 0 and record_counter % 10000 == 0:
                                 self.logger.info("Parsed %d queries", record_counter)
-                            hits, hsps = objectify_record(self, record, hits, hsps,
-                                                          max_target_seqs=self.__max_target_seqs)
+                            hits, hsps = objectify_record(self.session,
+                                                          record, hits, hsps,
+                                                          max_target_seqs=self.__max_target_seqs, logger=self.logger)
 
                             hits, hsps = load_into_db(self, hits, hsps, force=False)
                     self.logger.debug("Finished %s", filename)
                 except ExpatError:
-                    self.logger.error("%s is an invalid BLAST file, saving what's available",
-                                      filename)
-
+                    self.logger.error("%s is an invalid BLAST file, saving what's available", filename)
             _, _ = self.__load_into_db(hits, hsps, force=True)
 
         else:
             self.logger.debug("Creating a pool with %d processes",
-                             min(self.procs, len(self.xml)))
+                              min(self.procs, len(self.xml)))
 
-            filequeue = multiprocessing.Queue(-1)
-            returnqueue = multiprocessing.Queue(-1)
+            pool = multiprocessing.Pool(self.procs)
+            results = []
+            for num, filename in enumerate(self.xml):
+                args = (self.json_conf, filename, self.header)
+                kwds = {"max_target_seqs": self.__max_target_seqs}
+                pool.apply_async(xml_pickler, args=args, kwds=kwds, callback=results.append)
+            pool.close()
+            pool.join()
 
-            procs = [_XmlPickler(
-                self.queries,
-                self.targets,
-                filequeue,
-                returnqueue,
-                self.header,
-                _,
-                logging_queue=self.logging_queue,
-                # level=self.logger.level,
-                level=self.json_conf["log_settings"]["log_level"],
-                maxobjects=int(self.maxobjects/self.procs),
-                max_target_seqs=self.__max_target_seqs
-            )
-                for _ in range(min([self.procs, len(self.xml)]))
-                ]
-
-            self.logger.debug("Starting to pickle and serialise %d files", len(self.xml))
-            [_.start() for _ in procs]  # Start processes
-            for number, xml_name in enumerate(self.xml):
-                filequeue.put((number, xml_name))
+            for dbfile in results:
+                conn = sqlite3.connect(dbfile)
+                cursor = conn.cursor()
+                for query_counter, __hits, __hsps in cursor.execute("SELECT * FROM dump"):
+                    record_counter += 1
+                    __hits = json.loads(__hits)
+                    __hsps = json.loads(__hsps)
+                    hit_counter += len(__hits)
+                    hits.extend(__hits)
+                    hsps.extend(__hsps)
+                    hits, hsps = load_into_db(self, hits, hsps, force=False)
+                    if record_counter > 0 and record_counter % 10000 == 0:
+                        self.logger.debug("Parsed %d queries", record_counter)
+                cursor.close()
+                conn.close()
+                os.remove(dbfile)
 
             self.logger.debug("Finished sending off the data for serialisation")
-
-            filequeue.put((None, "EXIT"))
-            returned = []
-            while len(returned) != len(self.xml):
-                number, result = returnqueue.get()
-                if result == "FINISHED":
-                    self.logger.debug("Finished receiving pickles for %d", number)
-                    returned.append(number)
-                    continue
-                if result == "EXIT":
-                    continue
-                for dbfile in result:
-                    conn = sqlite3.connect(dbfile)
-                    cursor = conn.cursor()
-                    for query_counter, __hits, __hsps in cursor.execute("SELECT * FROM dump"):
-                        record_counter += 1
-                        __hits = json.loads(__hits)
-                        __hsps = json.loads(__hsps)
-                        hit_counter += len(__hits)
-                        hits.extend(__hits)
-                        hsps.extend(__hsps)
-                        hits, hsps = load_into_db(self, hits, hsps, force=False)
-                        if record_counter > 0 and record_counter % 10000 == 0:
-                            self.logger.debug("Parsed %d queries", record_counter)
-                    cursor.close()
-                    conn.close()
-                    os.remove(dbfile)
-            [_.join() for _ in procs]  # Wait for processes to join
-            self.logger.info("All %d children finished", len(procs))
-            del procs
-
             _, _ = self.__load_into_db(hits, hsps, force=True)
-            returnqueue.close()
-            filequeue.close()
 
         self.logger.info("Loaded %d alignments for %d queries",
                          hit_counter, record_counter)
 
         self.logger.info("Finished loading blast hits")
-        # [_.close() for _ in self.logger.handlers]
         if hasattr(self, "logging_queue"):
             self.logging_queue.close()
 
@@ -655,13 +504,14 @@ class XmlSerializer:
         Private quick method to determine the multipliers for a BLAST alignment
         according to the application present in the record.
         :param record:
+        :type record: Bio.Blast.Record.Blast
         :return:
         """
 
         q_mult, h_mult = 1, 1
 
         # application = record.application.upper()
-        application = record.program.upper()
+        application = record.application.upper()
 
         if application in ("BLASTN", "TBLASTX", "BLASTP"):
             q_mult = 1
@@ -718,7 +568,7 @@ def load_into_db(self, hits, hsps, force=False):
     return hits, hsps
 
 
-def _get_query_for_blast(self, record):
+def _get_query_for_blast(session: sqlalchemy.orm.session.Session, record):
     """ This private method formats the name of the query
     recovered from the BLAST hit. It will cause an exception if the target is not
     present in the dictionary.
@@ -726,23 +576,14 @@ def _get_query_for_blast(self, record):
     :return: current_query (ID in the database), name
     """
 
-    if record.id in self.queries:
-        name = record.id
-    else:
-        name = record.id.split()[0]
-        if name not in self.queries:
-            raise KeyError("{} not found in the queries!".format(record))
-
-    self.logger.debug("Started with %s", name)
-
-    if self.queries[name][1] is False:
-        raise KeyError("{} not found in the queries!".format(record))
-
-    current_query = self.queries[name][0]
-    return current_query, name
+    got = session.query(Query).filter(sqlalchemy.or_(
+        Query.query_name == record.query,
+        Query.query_name == record.query.split()[0],
+    )).one()
+    return got.query_id, got.query_name
 
 
-def _get_target_for_blast(self, alignment):
+def _get_target_for_blast(session, alignment):
     """ This private method retrieves the correct target_id
     key for the target of the BLAST. If the entry is not present
     in the database, it will be created on the fly.
@@ -752,22 +593,20 @@ def _get_target_for_blast(self, alignment):
     :return: current_target (ID in the database), targets
     """
 
-    if alignment.accession in self.targets:
-        accession = alignment.accession
-    elif alignment.id in self.targets:
-        accession = alignment.id
-    else:
-        raise KeyError("{} not found in the targets!".format(alignment.accession))
+    got = session.query(Target).filter(sqlalchemy.or_(
+        Target.target_name == alignment.accession,
+        Target.target_name == alignment.hit_id)).one()
 
-    current_target = self.targets[accession][0]
-    return current_target
+    # current_target = targets[accession][0]
+    return got.target_id
 
 
-def objectify_record(self, record, hits, hsps, max_target_seqs=10000):
+def objectify_record(session, record, hits, hsps, max_target_seqs=10000, logger=create_null_logger()):
     """
     Private method to serialise a single record into the DB.
 
     :param record: The BLAST record to load into the DB.
+    :type record: Bio.Blast.Record.Blast
     :param hits: Cache of hits to load into the DB.
     :type hits: list
 
@@ -778,29 +617,27 @@ def objectify_record(self, record, hits, hsps, max_target_seqs=10000):
     :rtype: (list, list)
     """
 
-    if len(record.hits) == 0:
+    if len(record.alignments) == 0:
         return hits, hsps
 
-    current_query, name = _get_query_for_blast(self, record)
+    current_query, name = _get_query_for_blast(session, record)
 
     current_evalue = -1
     current_counter = 0
 
     # for ccc, alignment in enumerate(record.alignments):
-    for ccc, alignment in enumerate(record.hits):
+    for ccc, alignment in enumerate(record.alignments):
         if ccc + 1 > max_target_seqs:
             break
 
-        self.logger.debug("Started the hit %s vs. %s",
-                          # name, record.alignments[ccc].accession)
-                          name, record.hits[ccc].id)
-        current_target = _get_target_for_blast(self, alignment)
+        logger.debug("Started the hit %s vs. %s", name, record.alignments[ccc].hit_id)
+        current_target = _get_target_for_blast(session, alignment)
 
         hit_dict_params = dict()
         (hit_dict_params["query_multiplier"],
          hit_dict_params["target_multiplier"]) = XmlSerializer.get_multipliers(record)
-        hit_evalue = min(_.evalue for _ in record.hits[ccc].hsps)
-        hit_bs = max(_.bitscore for _ in record.hits[ccc].hsps)
+        hit_evalue = min(_.expect for _ in record.alignments[ccc].hsps)
+        hit_bs = max(_.score for _ in record.alignments[ccc].hsps)
         if current_evalue < hit_evalue:
             current_counter += 1
             current_evalue = hit_evalue
@@ -814,7 +651,7 @@ def objectify_record(self, record, hits, hsps, max_target_seqs=10000):
             hit, hit_hsps = prepare_hit(alignment, current_query,
                                         current_target, **hit_dict_params)
         except InvalidHit as exc:
-            self.logger.error(exc)
+            logger.error(exc)
             continue
         hits.append(hit)
         hsps.extend(hit_hsps)

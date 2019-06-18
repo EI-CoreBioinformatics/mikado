@@ -5,7 +5,9 @@
 
 import yaml
 import os
-from pkg_resources import resource_listdir, resource_stream
+import re
+from pkg_resources import resource_filename, resource_stream
+import glob
 import argparse
 import sys
 from ..configuration import configurator, daijin_configurator, print_config, check_has_requirements
@@ -46,7 +48,7 @@ def get_key(new_dict, key, default):
     return new_dict
 
 
-def create_simple_config():
+def create_simple_config(seed=None):
 
     """
     Method to create a stripped down configuration dictionary
@@ -65,7 +67,7 @@ def create_simple_config():
     new_dict = dict()
     composite_keys = [(ckey[1:]) for ckey in
                       check_has_requirements(default,
-                                             validator.schema["properties"])]
+                                             validator.schema["properties"])] + [["seed"]]
 
     # Sort the composite keys by depth
     for ckey in sorted(composite_keys, key=len, reverse=True):
@@ -81,6 +83,9 @@ def create_simple_config():
             val = {k: val}
 
         new_dict = configurator.merge_dictionaries(new_dict, val)
+
+    if seed is not None:
+        new_dict["seed"] = seed
 
     return new_dict
 
@@ -100,7 +105,7 @@ def create_config(args):
         del default["as_requirements"]
         config = default
     else:
-        config = create_simple_config()
+        config = create_simple_config(seed=args.seed)
 
     if len(args.mode) > 1:
         args.daijin = True
@@ -157,6 +162,9 @@ def create_config(args):
         #         for key in __mikado_keys:
         #             del external_conf["mikado"][key]
         config = configurator.merge_dictionaries(config, external_conf)
+
+    if args.seed is not None:
+        config["seed"] = args.seed
 
     if args.reference is not None:
         config["reference"]["genome"] = args.reference
@@ -321,14 +329,22 @@ def configure_parser():
     :rtype: argparse.ArgumentParser
     """
 
+    scoring_folder = resource_filename("Mikado", os.path.join("configuration", "scoring_files"))
+    trailing = re.compile(r"^{}".format(os.path.sep))
+    fold_path = re.compile(scoring_folder)
+
+    scoring_files = [re.sub(trailing, r"", re.sub(fold_path, r"", fname))
+                     for fname in glob.iglob(os.path.join(scoring_folder, "**", "*yaml"), recursive=True)]
+
     parser = argparse.ArgumentParser(description="Configuration utility for Mikado",
                                      formatter_class=argparse.RawTextHelpFormatter)
     parser.add_argument("--full", action="store_true", default=False)
+    parser.add_argument("--seed", type=int, default=None,
+                        help="Random seed number.")
     scoring = parser.add_argument_group("Options related to the scoring system")
     scoring.add_argument("--scoring", type=str, default=None,
-                         help="Scoring file to use. Mikado provides the following: {}".format(
-                             ",".join(resource_listdir("Mikado", os.path.join("configuration", "scoring_files"))
-                         )))
+                         help="Scoring file to use. Mikado provides the following:\n{}".format(
+                             ",\n".join(scoring_files)))
     scoring.add_argument("--copy-scoring", default=False,
                          type=str, dest="copy_scoring",
                          help="File into which to copy the selected scoring file, for modification.")

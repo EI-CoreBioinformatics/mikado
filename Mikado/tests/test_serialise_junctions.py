@@ -11,6 +11,7 @@ from sqlalchemy import and_  # , or_
 from pkg_resources import resource_stream
 import gzip
 import re
+from pytest import mark
 
 
 __author__ = 'Luca Venturini'
@@ -205,6 +206,7 @@ class TestLoadJunction(unittest.TestCase):
                          ['WARNING:test_exiting:No input file specified. Exiting.'] * 2,
                          cm.output)
 
+    @mark.slow
     def test_no_fai(self):
 
         db = tempfile.mktemp(suffix=".db")

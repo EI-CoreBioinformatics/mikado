@@ -8,7 +8,8 @@ import sys
 import os
 from ..picking import Picker
 from ..configuration.configurator import to_json, check_json
-from ..utilities.log_utils import create_default_logger
+from ..utilities.log_utils import create_default_logger, create_null_logger
+import random
 
 
 def check_log_settings(args):
@@ -35,11 +36,12 @@ def check_log_settings(args):
     return args
 
 
-def check_run_options(args, logger=None):
+def check_run_options(args, logger=create_null_logger()):
     """
     Quick method to check the consistency of run option settings
     from the namespace.
     :param args: a Namespace
+    :param logger: a logger instance.
     :return: args
     """
 
@@ -60,7 +62,9 @@ def check_run_options(args, logger=None):
         args.json_conf["pick"]["clustering"]["flank"] = args.flank
 
     if args.output_dir is not None:
-        args.json_conf["pick"]["files"]["output_dir"] = args.output_dir
+        args.json_conf["pick"]["files"]["output_dir"] = os.path.abspath(args.output_dir)
+    else:
+        args.json_conf["pick"]["files"]["output_dir"] = os.path.abspath(args.json_conf["pick"]["files"]["output_dir"])
 
     if args.source is not None:
         args.json_conf["pick"]["output_format"]["source"] = args.source
@@ -68,8 +72,28 @@ def check_run_options(args, logger=None):
         args.json_conf["pick"]["output_format"]["id_prefix"] = args.prefix
 
     if args.sqlite_db is not None:
+        if not os.path.exists(args.sqlite_db):
+            logger.critical("Mikado database {} not found. Exiting.", args.sqlite_db)
+            sys.exit(1)
         args.json_conf["db_settings"]["db"] = args.sqlite_db
         args.json_conf["db_settings"]["dbtype"] = "sqlite"
+
+    elif not (args.json_conf["db_settings"]["dbtype"] == "sqlite" and
+        not os.path.exists(args.json_conf["db_settings"]["db"]) and
+        os.path.abspath(args.json_conf["pick"]["files"]["output_dir"]) != os.path.dirname(
+                args.json_conf["db_settings"]["db"])
+    ):
+        __compound = os.path.join(args.json_conf["pick"]["files"]["output_dir"],
+                                  args.json_conf["db_settings"]["db"])
+        __base = os.path.join(args.json_conf["pick"]["files"]["output_dir"],
+                                  args.json_conf["db_settings"]["db"])
+        if os.path.exists(__compound):
+            args.json_conf["db_settings"]["db"] = __compound
+        elif os.path.exists(__base):
+            args.json_conf["db_settings"]["db"] = __base
+        else:
+            logger.critical("Mikado database {} not found. Exiting.", args.sqlite_db)
+            sys.exit(1)
 
     if args.mode is not None:
         if args.mode == "nosplit":
@@ -178,6 +202,8 @@ def pick_parser():
     """
     parser = argparse.ArgumentParser("Launcher of the Mikado pipeline.",
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser.add_argument("--fasta", type=argparse.FileType(),
+                        help="Genome FASTA file. Required for transcript padding.")
     parser.add_argument("--start-method", dest="start_method",
                         choices=["fork", "spawn", "forkserver"],
                         default=None, help="Multiprocessing start method.")
@@ -197,8 +223,6 @@ def pick_parser():
                         help="""Range into which intron lengths should fall, as a couple of integers.
                         Transcripts with intron lengths outside of this range will be penalised.
                         Default: (60, 900)""")
-    parser.add_argument("--fasta", type=argparse.FileType(),
-                        help="Genome FASTA file. Required if pad is enabled (default).")
     padding = parser.add_mutually_exclusive_group()
     padding.add_argument("--no-pad", dest="pad", default=None, action="store_false", help="Disable transcript padding.")
     padding.add_argument("--pad", default=None,
@@ -278,6 +302,8 @@ def pick_parser():
                          either of the ORFs lacks a BLAST hit (but not both).
                         - permissive: like lenient, but also split when both ORFs lack BLAST hits
                         - split: split multi-orf transcripts regardless of what BLAST data is available.""")
+    parser.add_argument("--seed", type=int, default=None,
+                        help="Random seed number.")
     # parser.formatter_class = argparse.HelpFormatter
     parser.add_argument("gff", nargs="?", default=None)
     parser.set_defaults(func=pick)

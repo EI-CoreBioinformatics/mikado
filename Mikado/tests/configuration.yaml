@@ -9,7 +9,7 @@ db_settings:
   db: mikado.db
   dbtype: sqlite
 pick:
-  #  scoring_file: a scoring file for the analysis. Default: plants.yaml.
+  #  scoring_file: a scoring file for the analysis. Default: plant.yaml.
   alternative_splicing:
     #  Parameters related to alternative splicing reporting.
     #  - report: whether to report at all or not the AS events.
@@ -80,7 +80,7 @@ pick:
     intron_range: [60, 90]
     procs: 1
     single_thread: false
-  scoring_file: plants.yaml
+  scoring_file: plant.yaml
 prepare:
   #  Options related to the input data preparation.
   #  - procs: Number of processes to use.

@@ -1500,7 +1500,7 @@ class Transcript:
             else:
                 pass
         else:
-            assert isinstance(logger, logging.Logger)
+            assert isinstance(logger, logging.Logger), type(logger)
             self.__logger = logger
         self.__logger.propagate = False
 

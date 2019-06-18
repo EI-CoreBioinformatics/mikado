@@ -120,6 +120,7 @@ class PrepareCheck(unittest.TestCase):
     def setUp(self):
 
         self.conf = configurator.to_json(None)
+        self.conf["seed"] = 1066
         self.conf["reference"]["genome"] = self.fai.filename.decode()
         assert isinstance(self.conf["reference"]["genome"], str)
         self.logger = create_null_logger("prepare")
@@ -858,19 +859,7 @@ class ConfigureCheck(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        # cls.__genomefile__ = tempfile.NamedTemporaryFile(mode="wb", delete=False, suffix=".fa.gz",
-        #                                                  prefix="configure")
-        # cls.__genomefile__.write(pkg_resources.resource_stream("Mikado.tests", "chr5.fas.gz").read())
-        # cls.__genomefile__.flush()
         cls.fai = pysam.FastaFile(pkg_resources.resource_filename("Mikado.tests", "chr5.fas.gz"))
-        # cls.__genomefile__.flush()
-
-    # @classmethod
-    # def tearDownClass(cls):
-    #     """"""
-    #
-    #     cls.__genomefile__.close()
-    #     os.remove(cls.__genomefile__.name)
 
     def test_mikado_config(self):
         namespace = Namespace(default=False)
@@ -883,6 +872,7 @@ class ConfigureCheck(unittest.TestCase):
         namespace.blast_targets = []
         namespace.junctions = []
         namespace.new_scoring = None
+        namespace.seed = None
         dir = tempfile.TemporaryDirectory()
         out = os.path.join(dir.name, "configuration.yaml")
         with open(out, "w") as out_handle:
@@ -893,6 +883,47 @@ class ConfigureCheck(unittest.TestCase):
         conf = configuration.configurator.check_json(conf)
         conf = configuration.configurator.check_json(conf)
         self.assertNotIn("asm_methods", conf)
+        dir.cleanup()
+
+    def test_seed(self):
+        namespace = Namespace(default=False)
+        namespace.scoring = None
+        namespace.intron_range = None
+        namespace.reference = ""
+        namespace.external = None
+        namespace.threads = 1
+        namespace.blast_targets = []
+        namespace.junctions = []
+        namespace.new_scoring = None
+        dir = tempfile.TemporaryDirectory()
+        out = os.path.join(dir.name, "configuration.yaml")
+        for trial in (None, 1066, 175108):
+            with self.subTest(trial=trial):
+                namespace.mode = ["permissive"]
+                namespace.seed = trial
+                with open(out, "w") as out_handle:
+                    namespace.out = out_handle
+                    sub_configure.create_config(namespace)
+                self.assertGreater(os.stat(out).st_size, 0)
+                conf = configuration.configurator.to_json(out)
+                conf = configuration.configurator.check_json(conf)
+                conf = configuration.configurator.check_json(conf)
+                self.assertNotIn("asm_methods", conf)
+                if trial is not None:
+                    self.assertEqual(conf["seed"], trial)
+                else:
+                    self.assertNotEqual(conf["seed"], trial)
+                    self.assertIsInstance(conf["seed"], int)
+
+        for mistake in (False, "hello", 10.5, b"890"):
+            with self.subTest(mistake=mistake):
+                namespace.mode = ["permissive"]
+                with self.assertRaises(OSError):
+                    namespace.seed = mistake
+                    with open(out, "w") as out_handle:
+                        namespace.out = out_handle
+                        sub_configure.create_config(namespace)
+
         dir.cleanup()
 
     def test_mikado_config_full(self):
@@ -908,6 +939,7 @@ class ConfigureCheck(unittest.TestCase):
         namespace.new_scoring = None
         namespace.full = True
         namespace.daijin = False
+        namespace.seed = None
         dir = tempfile.TemporaryDirectory()
         out = os.path.join(dir.name, "configuration.yaml")
         with open(out, "w") as out_handle:
@@ -933,6 +965,7 @@ class ConfigureCheck(unittest.TestCase):
         namespace.new_scoring = None
         namespace.full = True
         namespace.daijin = True
+        namespace.seed = None
         dir = tempfile.TemporaryDirectory()
         out = os.path.join(dir.name, "configuration.yaml")
         with open(out, "w") as out_handle:
@@ -959,6 +992,7 @@ class ConfigureCheck(unittest.TestCase):
         namespace.new_scoring = None
         namespace.full = True
         namespace.daijin = False
+        namespace.seed = None
         dir = tempfile.TemporaryDirectory()
         out = os.path.join(dir.name, "configuration.yaml")
         with open(out, "w") as out_handle:
@@ -996,6 +1030,7 @@ class ConfigureCheck(unittest.TestCase):
         namespace.name = "Daijin"
         namespace.threads = 1
         namespace.full = False
+        namespace.seed = None
 
         for iteration in range(20):
             with self.subTest(iteration=iteration):
@@ -1017,7 +1052,7 @@ class ConfigureCheck(unittest.TestCase):
                 dir.cleanup()
 
 
-# @mark.slow
+@mark.slow
 class PickTest(unittest.TestCase):
 
     """This unit test will check that pick functions correctly."""
@@ -1041,6 +1076,7 @@ class PickTest(unittest.TestCase):
             thread._wait_for_tstate_lock(block=True, timeout=0.00001)
             thread._stop()
 
+    @mark.slow
     def test_single_proc(self):
 
         self.json_conf["pick"]["run_options"]["procs"] = 1
@@ -1071,6 +1107,7 @@ class PickTest(unittest.TestCase):
 
         dir.cleanup()
 
+    @mark.slow
     def test_multi_proc(self):
         self.json_conf["pick"]["run_options"]["procs"] = 2
         self.json_conf["pick"]["files"]["input"] = pkg_resources.resource_filename("Mikado.tests",
@@ -1128,7 +1165,7 @@ class PickTest(unittest.TestCase):
                     sub_configure.print_config(yaml.dump(self.json_conf, default_flow_style=False),
                                                               json_handle)
 
-                sys.argv = ["mikado", "pick", "--json-conf", json_file]
+                sys.argv = ["mikado", "pick", "--json-conf", json_file, "--seed", "1078"]
                 with self.assertRaises(SystemExit):
                     pkg_resources.load_entry_point("Mikado", "console_scripts", "mikado")()
 
@@ -1168,7 +1205,7 @@ class PickTest(unittest.TestCase):
         json_file = os.path.join(self.json_conf["pick"]["files"]["output_dir"], "mikado.yaml")
         with open(json_file, "wt") as json_handle:
             sub_configure.print_config(yaml.dump(self.json_conf, default_flow_style=False), json_handle)
-        sys.argv = ["mikado", "pick", "--json-conf", json_file, "--single"]
+        sys.argv = ["mikado", "pick", "--json-conf", json_file, "--single", "--seed", "1078"]
         with self.assertRaises(SystemExit):
             pkg_resources.load_entry_point("Mikado", "console_scripts", "mikado")()
 
@@ -1209,7 +1246,7 @@ class PickTest(unittest.TestCase):
         self.json_conf["pick"]["files"]["output_dir"] = os.path.join(outdir.name)
         scoring_file = pkg_resources.resource_filename("Mikado.tests", "scoring_only_cds.yaml")
         sys.argv = ["mikado", "pick", "--json-conf", json_file, "--single",
-                    "--scoring-file", scoring_file]
+                    "--scoring-file", scoring_file, "--seed", "1078"]
 
         with self.assertRaises(SystemExit):
             pkg_resources.load_entry_point("Mikado", "console_scripts", "mikado")()
@@ -1266,6 +1303,7 @@ class PickTest(unittest.TestCase):
 
         return gtf, dir, temp_gtf, scoring
 
+    @mark.slow
     def test_purging1(self):
 
         # Now the scoring
@@ -1319,6 +1357,7 @@ class PickTest(unittest.TestCase):
         temp_gtf.close()
         dir.cleanup()
 
+    @mark.slow
     def test_purging2(self):
 
         gtf, dir, temp_gtf, scoring = self.__get_purgeable_gff()
@@ -1377,6 +1416,7 @@ class PickTest(unittest.TestCase):
         temp_gtf.close()
         dir.cleanup()
 
+    @mark.slow
     def test_purging3(self):
 
         gtf, dir, temp_gtf, scoring = self.__get_purgeable_gff()
@@ -1460,7 +1500,6 @@ class SerialiseChecker(unittest.TestCase):
         orfs = pkg_resources.resource_filename("Mikado.tests", "transcripts.fasta.prodigal.gff3")
         uniprot = pkg_resources.resource_filename("Mikado.tests", "uniprot_sprot_plants.fasta.gz")
         mobjects = 300  # Let's test properly the serialisation for BLAST
-        procs = 3
 
         dir = tempfile.TemporaryDirectory()
         json_file = os.path.join(dir.name, "mikado.yaml")
@@ -1474,27 +1513,29 @@ class SerialiseChecker(unittest.TestCase):
             sub_configure.print_config(yaml.dump(self.json_conf, default_flow_style=False),
                                                       json_handle)
         # Set up the command arguments
+        for procs in (1, 3):
+            with self.subTest(proc=procs):
+                sys.argv = [str(_) for _ in ["mikado", "serialise", "--json-conf", json_file,
+                            "--transcripts", transcripts, "--blast_targets", uni_out,
+                            "--orfs", orfs, "--junctions", junctions, "--xml", xml,
+                            "-p", procs, "-mo", mobjects, db, "--log", log, "--seed", "1078"]]
+                pkg_resources.load_entry_point("Mikado", "console_scripts", "mikado")()
+                logged = [_.rstrip() for _ in open(log)]
 
-        sys.argv = [str(_) for _ in ["mikado", "serialise", "--json-conf", json_file,
-                    "--transcripts", transcripts, "--blast_targets", uni_out,
-                    "--orfs", orfs, "--junctions", junctions, "--xml", xml,
-                    "-p", procs, "-mo", mobjects, db, "--log", log]]
-
-        pkg_resources.load_entry_point("Mikado", "console_scripts", "mikado")()
-
-        self.assertTrue(os.path.exists(db))
-        conn = sqlite3.connect(db)
-        cursor = conn.cursor()
-        self.assertEqual(cursor.execute("select count(*) from hit").fetchall()[0][0], 562)
-        self.assertEqual(cursor.execute("select count(*) from hsp").fetchall()[0][0], 669)
-        self.assertEqual(cursor.execute("select count(distinct(query_id)) from hsp").fetchall()[0][0], 71)
-        self.assertEqual(cursor.execute("select count(distinct(query_id)) from hit").fetchall()[0][0], 71)
-        self.assertEqual(cursor.execute("select count(distinct(target_id)) from hsp").fetchall()[0][0], 32)
-        self.assertEqual(cursor.execute("select count(distinct(target_id)) from hit").fetchall()[0][0], 32)
-        self.assertEqual(cursor.execute("select count(*) from junctions").fetchall()[0][0], 372)
-        self.assertEqual(cursor.execute("select count(distinct(chrom_id)) from junctions").fetchall()[0][0], 2)
-        self.assertEqual(cursor.execute("select count(*) from orf").fetchall()[0][0], 169)
-        self.assertEqual(cursor.execute("select count(distinct(query_id)) from orf").fetchall()[0][0], 81)
+                self.assertTrue(os.path.exists(db))
+                conn = sqlite3.connect(db)
+                cursor = conn.cursor()
+                self.assertEqual(cursor.execute("select count(*) from hit").fetchall()[0][0], 562, logged)
+                self.assertEqual(cursor.execute("select count(*) from hsp").fetchall()[0][0], 669)
+                self.assertEqual(cursor.execute("select count(distinct(query_id)) from hsp").fetchall()[0][0], 71)
+                self.assertEqual(cursor.execute("select count(distinct(query_id)) from hit").fetchall()[0][0], 71)
+                self.assertEqual(cursor.execute("select count(distinct(target_id)) from hsp").fetchall()[0][0], 32)
+                self.assertEqual(cursor.execute("select count(distinct(target_id)) from hit").fetchall()[0][0], 32)
+                self.assertEqual(cursor.execute("select count(*) from junctions").fetchall()[0][0], 372)
+                self.assertEqual(cursor.execute("select count(distinct(chrom_id)) from junctions").fetchall()[0][0], 2)
+                self.assertEqual(cursor.execute("select count(*) from orf").fetchall()[0][0], 169)
+                self.assertEqual(cursor.execute("select count(distinct(query_id)) from orf").fetchall()[0][0], 81)
+                os.remove(db)
         dir.cleanup()
 
 

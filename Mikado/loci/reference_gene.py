@@ -5,6 +5,7 @@ Pretty basic class that defines a reference gene with its transcripts.
 Minimal checks.
 """
 
+import re
 import copy
 import logging
 import operator
@@ -157,6 +158,9 @@ class Gene:
 
         for parent in (_ for _ in row.parent if _ not in self.transcripts):
             found = False
+            if parent.endswith("-Protein") and re.sub("-Protein", "", parent) in self.transcripts:
+                continue
+            
             for tid in self.transcripts:
                 if parent in self.transcripts[tid].derived_children:
                     found = True

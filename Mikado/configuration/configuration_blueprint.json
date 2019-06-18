@@ -23,6 +23,10 @@
       "- pick: settings related to the Mikado pick stage",
     "- multiprocessing_method: which method (fork, spawn, forkserver) Mikado should use for multiprocessing."]
     },
+    "seed": {
+      "type": ["integer", "null"],
+      "default": null
+    },
     "multiprocessing_method": {
       "type": "string",
       "default": "",

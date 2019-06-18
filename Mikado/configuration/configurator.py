@@ -23,6 +23,8 @@ from ..transcripts.transcript import Transcript
 from ..exceptions import InvalidJson, UnrecognizedRescaler
 from ..utilities import merge_dictionaries
 from ..utilities.log_utils import create_default_logger
+import sys
+import random
 
 
 __author__ = "Luca Venturini"
@@ -603,6 +605,13 @@ def check_json(json_conf, simple=False, external_dict=None, logger=None):
         logger.debug("Scoring parameters: {}".format("\n".join(["\n"] + [
             "{}: {}".format(_, json_conf["scoring"][_]) for _ in json_conf["scoring"].keys()])))
 
+    seed = json_conf.get("seed", None)
+    if seed is None:
+        seed = random.randint(0, sys.maxsize)
+        logger.info("Random seed: {}", seed)
+        json_conf["seed"] = seed
+    random.seed(seed)
+
     return json_conf
 
 
@@ -643,5 +652,11 @@ def to_json(string, simple=False, logger=None):
         json_dict = check_json(json_dict, simple=simple, logger=logger)
     except Exception as exc:
         raise OSError((exc, string))
+
+    seed = json_dict.get("seed", None)
+    if seed is None:
+        seed = random.randint(0, sys.maxsize)
+        logger.info("Random seed: {}", seed)
+    random.seed(seed)
 
     return json_dict

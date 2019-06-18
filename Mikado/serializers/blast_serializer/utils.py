@@ -25,7 +25,7 @@ def prepare_hsp(hsp, counter, qmultiplier=1, tmultiplier=1):
 
     :param hsp: An HSP object from Bio.Blast.NCBIXML
     # :type hsp: Bio.Blast.Record.HSP
-    :type hsp: Bio.SearchIO._model.hsp.HSP
+    :type hsp: Bio.Blast.Record.HSP
     :param counter: a digit that indicates the priority of the HSP in the hit
     :return: hsp_dict, identical_positions, positives
     :rtype: (dict, set, set)
@@ -37,16 +37,16 @@ def prepare_hsp(hsp, counter, qmultiplier=1, tmultiplier=1):
     hsp_dict["counter"] = counter + 1
     hsp_dict["query_hsp_start"] = hsp.query_start
     hsp_dict["query_hsp_end"] = hsp.query_end
-    hsp_dict["query_frame"] = hsp.query_frame
-    hsp_dict["target_hsp_start"] = hsp.hit_start
-    hsp_dict["target_hsp_end"] = hsp.hit_end
-    hsp_dict["target_frame"] = hsp.hit_frame
-    hsp_dict["hsp_identity"] = hsp.ident_num / hsp.aln_span * 100
-    hsp_dict["hsp_positives"] = hsp.pos_num / hsp.aln_span * 100
+    hsp_dict["query_frame"] = hsp.frame[0]
+    hsp_dict["target_hsp_start"] = hsp.sbjct_start
+    hsp_dict["target_hsp_end"] = hsp.sbjct_end
+    hsp_dict["target_frame"] = hsp.frame[1]
+    hsp_dict["hsp_identity"] = hsp.identities / hsp.align_length * 100
+    hsp_dict["hsp_positives"] = hsp.positives / hsp.align_length * 100
     hsp_dict["match"] = match
-    hsp_dict["hsp_length"] = hsp.aln_span
-    hsp_dict["hsp_bits"] = hsp.bitscore
-    hsp_dict["hsp_evalue"] = hsp.evalue
+    hsp_dict["hsp_length"] = hsp.align_length
+    hsp_dict["hsp_bits"] = hsp.score
+    hsp_dict["hsp_evalue"] = hsp.expect
     return hsp_dict, identical_positions, positives
 
 
@@ -57,12 +57,12 @@ def _prepare_aln_strings(hsp, qmultiplier=1, tmultiplier=1):
 
     identical_positions, positives = set(), set()
     # for query_aa, middle_aa, target_aa in zip(hsp.query, hsp.match, hsp.sbjct):
-    query_pos, target_pos = hsp.query_start, hsp.hit_start
+    query_pos, target_pos = hsp.query_start - 1, hsp.sbjct_start - 1
 
     match = ""
-    zipper = zip(hsp.aln_annotation["similarity"], *list(hsp.aln))
+    # zipper = zip(hsp.aln_annotation["similarity"], *list(hsp.aln))
 
-    for middle_aa, query_aa, target_aa in zipper:
+    for middle_aa, query_aa, target_aa in zip(hsp.match, hsp.query, hsp.sbjct):
         if middle_aa in valid_matches or middle_aa == "+":
             if middle_aa != "+":
                 identical_positions.update(set(range(query_pos, query_pos + qmultiplier)))
@@ -89,7 +89,9 @@ def _prepare_aln_strings(hsp, qmultiplier=1, tmultiplier=1):
             query_pos += qmultiplier
             target_pos += tmultiplier
 
-    assert query_pos <= hsp.query_end and target_pos <= hsp.hit_end
+    assert query_pos <= hsp.query_end and target_pos <= hsp.sbjct_end, ((query_pos, hsp.query_end),
+                                                                        (target_pos, hsp.sbjct_end),
+                                                                        hsp.match, hsp.query, hsp.sbjct)
 
     return match, identical_positions, positives
 
@@ -100,7 +102,7 @@ def prepare_hit(hit, query_id, target_id, **kwargs):
     global_identity: the identity rate for the global hit *using the query perspective*
 
     :param hit: the hit to parse.
-    :type hit: Bio.SearchIO._model.hit.Hit
+    :type hit: Bio.Blast.Record.Alignment
 
     :param query_id: the numeric ID of the query in the database. Necessary for serialisation.
     :type query_id: int
@@ -114,7 +116,6 @@ def prepare_hit(hit, query_id, target_id, **kwargs):
 
     hit_dict = dict()
     hsp_dict_list = []
-    # hit_dict["global_identity"] = []
     q_intervals = []
     t_intervals = []
 
@@ -154,7 +155,7 @@ def prepare_hit(hit, query_id, target_id, **kwargs):
         hsp_dict_list.append(hsp_dict)
         q_intervals.append((hsp.query_start, hsp.query_end))
         # t_intervals.append((hsp.sbjct_start, hsp.sbjct_end))
-        t_intervals.append((hsp.hit_start, hsp.hit_end))
+        t_intervals.append((hsp.sbjct_start, hsp.sbjct_end))
 
     q_merged_intervals, q_aligned = merge(q_intervals)
     assert isinstance(q_aligned, np.int), (q_merged_intervals, q_aligned, type(q_aligned))

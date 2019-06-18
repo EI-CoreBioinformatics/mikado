@@ -193,10 +193,11 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
         if hasattr(self, "json_conf"):
             # This removes unpicklable compiled attributes, eg in "requirements" or "as_requirements"
+            if "json_conf" not in state:
+                state["json_conf"] = self.json_conf.copy()
             for key in self.json_conf:
                 if (isinstance(self.json_conf[key], dict) and
                         self.json_conf[key].get("compiled", None) is not None):
-                    assert "json_conf" in state
                     assert key in state["json_conf"]
                     del state["json_conf"][key]["compiled"]
 

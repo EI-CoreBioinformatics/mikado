@@ -166,6 +166,12 @@ def create_config(args):
     if args.seed is not None:
         config["seed"] = args.seed
 
+    if args.min_cdna_length is not None:
+        config["prepare"]["minimum_length"] = args.min_cdna_length
+
+    if args.max_intron_length is not None:
+        config["prepare"]["max_intron_length"] = args.max_intron_length
+
     if args.reference is not None:
         config["reference"]["genome"] = args.reference
 
@@ -341,6 +347,11 @@ def configure_parser():
     parser.add_argument("--full", action="store_true", default=False)
     parser.add_argument("--seed", type=int, default=None,
                         help="Random seed number.")
+    preparer = parser.add_argument_group("Options related to the prepare stage.")
+    preparer.add_argument("--mininimum-cdna-length", default=None, type=int, dest="min_cdna_length",
+                          help="Minimum cDNA length for transcripts.")
+    preparer.add_argument("--max-intron-size", default=None, type=int, dest="max_intron_length",
+                          help="Maximum intron length for transcripts.")
     scoring = parser.add_argument_group("Options related to the scoring system")
     scoring.add_argument("--scoring", type=str, default=None,
                          help="Scoring file to use. Mikado provides the following:\n{}".format(
@@ -355,9 +366,9 @@ def configure_parser():
                          help="""Range into which intron lengths should fall, as a couple of integers.
                              Transcripts with intron lengths outside of this range will be penalised.
                              Default: (60, 900)""")
-    picking.add_argument("--pad", default=False,
-                         action="store_true",
-                         help="Whether to pad transcripts in loci.")
+    picking.add_argument("--no-pad", default=True, dest="pad",
+                         action="store_false",
+                         help="Whether to disable padding transcripts.")
     parser.add_argument("--strand-specific", default=False,
                         action="store_true",
                         help="""Boolean flag indicating whether all the assemblies are strand-specific.""")

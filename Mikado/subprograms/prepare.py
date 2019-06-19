@@ -154,7 +154,7 @@ def setup(args):
                 args.labels = [""] * len(args.json_conf["prepare"]["files"]["gff"])
                 args.json_conf["prepare"]["files"]["labels"] = args.labels
 
-    for option in ["minimum_length", "procs", "single"]:
+    for option in ["minimum_length", "procs", "single", "max_intron_length"]:
         if getattr(args, option) in (None, False):
             continue
         else:
@@ -268,6 +268,8 @@ def prepare_parser():
                         splices will be output as well.""")
     parser.add_argument("-m", "--minimum_length", default=None, type=positive,
                         help="Minimum length for transcripts. Default: 200 bps.")
+    parser.add_argument("-MI", "--max-intron-length", default=None, type=positive, dest="max_intron_length",
+                        help="Maximum intron length for transcripts. Default: 1,000,000 bps.")
     parser.add_argument("-p", "--procs",
                         help="Number of processors to use (default %(default)s)",
                         type=to_cpu_count, default=None)

@@ -166,10 +166,10 @@ def create_config(args):
     if args.seed is not None:
         config["seed"] = args.seed
 
-    if args.min_cdna_length is not None:
+    if args.min_cdna_length not in (None, False):
         config["prepare"]["minimum_length"] = args.min_cdna_length
 
-    if args.max_intron_length is not None:
+    if args.max_intron_length not in (None, False):
         config["prepare"]["max_intron_length"] = args.max_intron_length
 
     if args.reference is not None:

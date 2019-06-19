@@ -26,12 +26,14 @@ class AnnotationParser(multiprocessing.Process):
                  logging_queue,
                  identifier,
                  min_length=0,
+                 max_intron=3*10**5,
                  log_level="WARNING",
                  strip_cds=False):
 
         super().__init__()
         self.submission_queue = submission_queue
         self.min_length = min_length
+        self.max_intron = max_intron
         self.__strip_cds = strip_cds
         self.logging_queue = logging_queue
         self.log_level = log_level
@@ -86,6 +88,7 @@ class AnnotationParser(multiprocessing.Process):
                                             found_ids,
                                             self.logger,
                                             min_length=self.min_length,
+                                            max_intron=self.max_intron,
                                             strip_cds=self.__strip_cds,
                                             is_reference=is_reference,
                                             strand_specific=strand_specific)
@@ -96,6 +99,7 @@ class AnnotationParser(multiprocessing.Process):
                                             found_ids,
                                             self.logger,
                                             min_length=self.min_length,
+                                            max_intron=self.max_intron,
                                             is_reference=is_reference,
                                             strip_cds=self.__strip_cds,
                                             strand_specific=strand_specific)
@@ -107,6 +111,7 @@ class AnnotationParser(multiprocessing.Process):
                                               self.logger,
                                               is_reference=is_reference,
                                               min_length=self.min_length,
+                                              max_intron=self.max_intron,
                                               strip_cds=self.__strip_cds,
                                               strand_specific=strand_specific)
                 else:
@@ -164,7 +169,7 @@ def __raise_invalid(row_id, name, label):
             "(label: {0})".format(label) if label != '' else ""))
 
 
-def load_into_storage(shelf_name, exon_lines, min_length, logger, strip_cds=True):
+def load_into_storage(shelf_name, exon_lines, min_length, logger, strip_cds=True, max_intron=3*10**5):
 
     """Function to load the exon_lines dictionary into the temporary storage."""
 
@@ -246,9 +251,17 @@ def load_into_storage(shelf_name, exon_lines, min_length, logger, strip_cds=True
         else:
             raise KeyError(exon_lines[tid]["features"])
 
-        tlength = sum(exon[1] + 1 - exon[0] for exon in segments)
-        start = min((_[0] for _ in segments))
-        end = max((_[1] for _ in segments))
+        segments = sorted(segments, key=itemgetter(0))
+        tlength = 0
+        start, end = segments[0][0], segments[-1][1]
+        biggest_intron = -1
+        num_segments = len(segments)
+        for pos, segment in enumerate(segments):
+            if pos < num_segments - 1:
+                later = segments[pos + 1]
+                biggest_intron = max(biggest_intron,
+                                     later[0] - (segment[1] + 1))
+            tlength += segment[1] + 1 - segment[0]
 
         # Discard transcript under a certain size
         if tlength < min_length:
@@ -258,6 +271,17 @@ def load_into_storage(shelf_name, exon_lines, min_length, logger, strip_cds=True
             else:
                 logger.info("Discarding %s because its size (%d) is under the minimum of %d",
                              tid, tlength, min_length)
+                continue
+
+        # Discard transcripts with introns over the limit
+        if biggest_intron > max(-1, max_intron):
+            if exon_lines[tid]["is_reference"] is True:
+                logger.info(
+                    "%s retained even if its longest intron is over the limit (%d) as it is a reference transcript.",
+                    tid, biggest_intron)
+            else:
+                logger.info("Discarding %s because its longest intron (%d) is over the maximum of %d",
+                             tid, biggest_intron, max_intron)
                 continue
 
         values = json.dumps(exon_lines[tid])
@@ -282,6 +306,7 @@ def load_from_gff(shelf_name,
                   found_ids,
                   logger,
                   min_length=0,
+                  max_intron=3*10**5,
                   is_reference=False,
                   strip_cds=False,
                   strand_specific=False):
@@ -297,6 +322,8 @@ def load_from_gff(shelf_name,
     :type logger: logging.Logger
     :param min_length: minimum length for a cDNA to be considered as valid
     :type min_length: int
+    :param max_intron: maximum intron length for a cDNA to be considered as valid
+    :type max_intron: int
     :param strip_cds: boolean flag. If true, all CDS lines will be ignored.
     :type strip_cds: bool
     :param strand_specific: whether the assembly is strand-specific or not.
@@ -422,7 +449,7 @@ def load_from_gff(shelf_name,
 
     logger.info("Starting to load %s", shelf_name)
     load_into_storage(shelf_name, exon_lines,
-                      logger=logger, min_length=min_length, strip_cds=strip_cds)
+                      logger=logger, min_length=min_length, strip_cds=strip_cds, max_intron=max_intron)
 
     return new_ids
 
@@ -433,6 +460,7 @@ def load_from_gtf(shelf_name,
                   found_ids,
                   logger,
                   min_length=0,
+                  max_intron=3*10**5,
                   is_reference=False,
                   strip_cds=False,
                   strand_specific=False):
@@ -448,6 +476,8 @@ def load_from_gtf(shelf_name,
     :type logger: logging.Logger
     :param min_length: minimum length for a cDNA to be considered as valid
     :type min_length: int
+    :param max_intron: maximum intron length for a cDNA to be considered as valid
+    :type max_intron: int
     :param strip_cds: boolean flag. If true, all CDS lines will be ignored.
     :type strip_cds: bool
     :param strand_specific: whether the assembly is strand-specific or not.
@@ -537,7 +567,7 @@ def load_from_gtf(shelf_name,
     logger.info("Starting to load %s", shelf_name)
     load_into_storage(shelf_name,
                       exon_lines,
-                      logger=logger, min_length=min_length, strip_cds=strip_cds)
+                      logger=logger, min_length=min_length, strip_cds=strip_cds, max_intron=max_intron)
 
     return new_ids
 
@@ -548,6 +578,7 @@ def load_from_bed12(shelf_name,
                     found_ids,
                     logger,
                     min_length=0,
+                    max_intron=3*10**5,
                     is_reference=False,
                     strip_cds=False,
                     strand_specific=False):
@@ -563,6 +594,8 @@ def load_from_bed12(shelf_name,
     :type logger: logging.Logger
     :param min_length: minimum length for a cDNA to be considered as valid
     :type min_length: int
+    :param max_intron: maximum intron length for a cDNA to be considered as valid
+    :type max_intron: int
     :param strip_cds: boolean flag. If true, all CDS lines will be ignored.
     :type strip_cds: bool
     :param strand_specific: whether the assembly is strand-specific or not.
@@ -621,6 +654,6 @@ def load_from_bed12(shelf_name,
         new_ids.add(transcript.id)
     gff_handle.close()
     load_into_storage(shelf_name, exon_lines,
-                      logger=logger, min_length=min_length, strip_cds=strip_cds)
+                      logger=logger, min_length=min_length, strip_cds=strip_cds, max_intron=max_intron)
 
     return new_ids

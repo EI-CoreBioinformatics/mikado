@@ -17,6 +17,8 @@ from ..subprograms import configure as sub_configure
 from ..configuration import configurator, daijin_configurator
 from ..picking import picker
 from ..preparation import prepare
+from ..parsers import to_gff
+from ..exceptions import InvalidJson
 from ..scales.compare import compare, load_index
 from ..subprograms.util.stats import Calculator
 from ..subprograms.prepare import prepare_launcher
@@ -108,15 +110,6 @@ class PrepareCheck(unittest.TestCase):
 
         cls.maxDiff = None
 
-    # @classmethod
-    # def tearDownClass(cls):
-    #     """"""
-    #
-    #     cls.__genomefile__.close()
-    #     os.remove(cls.__genomefile__.name)
-    #     if os.path.exists("{}.fai".format(cls.__genomefile__.name)):
-    #         os.remove("{}.fai".format(cls.__genomefile__.name))
-
     def setUp(self):
 
         self.conf = configurator.to_json(None)
@@ -128,6 +121,36 @@ class PrepareCheck(unittest.TestCase):
 
     def tearDown(self):
         logging.shutdown()
+
+    @mark.slow
+    def test_varying_max_intron(self):
+
+        self.conf["prepare"]["files"]["labels"].append("tr")
+        dir = tempfile.TemporaryDirectory()
+        self.conf["prepare"]["files"]["output_dir"] = dir.name
+        args = Namespace()
+        args.json_conf = self.conf
+        test_file = "trinity.gtf"
+        self.conf["prepare"]["files"]["gff"] = [pkg_resources.resource_filename("Mikado.tests",
+                                                                                test_file)]
+
+        for max_intron in (20, 200, 1000, 5000):
+            with self.subTest(max_intron=max_intron):
+                self.conf["prepare"]["max_intron_length"] = max_intron
+                prepare.prepare(args, self.logger)
+                gtf = os.path.join(self.conf["prepare"]["files"]["output_dir"], "mikado_prepared.gtf")
+                self.assertGreater(os.stat(gtf).st_size, 0, test_file)
+                transcripts = dict()
+                for row in to_gff(gtf):
+                    if row.is_transcript:
+                        transcripts[row.transcript] = Transcript(row)
+                    else:
+                        transcripts[row.transcript].add_exon(row)
+                self.assertGreater(len(transcripts), 0)
+                [_.finalize() for _ in transcripts.values()]
+                self.assertLessEqual(max([_.max_intron_length for _ in transcripts.values()]),
+                                     max_intron)
+                os.remove(gtf)
 
     def test_prepare_trinity_gff(self):
 

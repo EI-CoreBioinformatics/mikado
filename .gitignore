@@ -78,7 +78,6 @@ Mikado/*/*.c
 Mikado/utilities/overlap.c
 sample_data/Daijin
 .eggs/
-Mikado/tests/*fai
 .ipynb_checkpoints/
 Untitled*ipynb
 cover/

@@ -239,6 +239,9 @@
         "minimum_length": {
           "type": "integer", "default": 200, "minimum": 1
         },
+        "max_intron_length": {
+          "type": "integer", "default": 1000000, "minimum": 20
+        },
         "procs": {"type": "integer", "default": 1},
         "files": {
           "Comment": ["Options related to the input and output files.",

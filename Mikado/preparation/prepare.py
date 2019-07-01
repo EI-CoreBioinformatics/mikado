@@ -240,7 +240,7 @@ def perform_check(keys, shelve_stacks, args, logger):
     return
 
 
-def _load_exon_lines_single_thread(args, shelve_names, logger, min_length, strip_cds):
+def _load_exon_lines_single_thread(args, shelve_names, logger, min_length, strip_cds, max_intron):
 
     logger.info("Starting to load lines from %d files (single-threaded)",
                 len(args.json_conf["prepare"]["files"]["gff"]))
@@ -264,6 +264,7 @@ def _load_exon_lines_single_thread(args, shelve_names, logger, min_length, strip
                                     found_ids,
                                     logger,
                                     min_length=min_length,
+                                    max_intron=max_intron,
                                     strip_cds=strip_cds and not is_reference,
                                     is_reference=is_reference,
                                     strand_specific=strand_specific or is_reference)
@@ -274,6 +275,7 @@ def _load_exon_lines_single_thread(args, shelve_names, logger, min_length, strip
                                       found_ids,
                                       logger,
                                       min_length=min_length,
+                                      max_intron=max_intron,
                                       strip_cds=strip_cds and not is_reference,
                                       is_reference=is_reference,
                                       strand_specific=strand_specific or is_reference)
@@ -284,6 +286,7 @@ def _load_exon_lines_single_thread(args, shelve_names, logger, min_length, strip
                                     found_ids,
                                     logger,
                                     min_length=min_length,
+                                    max_intron=max_intron,
                                     strip_cds=strip_cds and not is_reference,
                                     is_reference=is_reference,
                                     strand_specific=strand_specific or is_reference)
@@ -292,7 +295,7 @@ def _load_exon_lines_single_thread(args, shelve_names, logger, min_length, strip
     return
 
 
-def _load_exon_lines_multi(args, shelve_names, logger, min_length, strip_cds, threads):
+def _load_exon_lines_multi(args, shelve_names, logger, min_length, strip_cds, threads, max_intron=3*10**5):
     logger.info("Starting to load lines from %d files (using %d processes)",
                 len(args.json_conf["prepare"]["files"]["gff"]), threads)
     submission_queue = multiprocessing.JoinableQueue(-1)
@@ -306,6 +309,7 @@ def _load_exon_lines_multi(args, shelve_names, logger, min_length, strip_cds, th
                                 num + 1,
                                 log_level=args.level,
                                 min_length=min_length,
+                                max_intron=max_intron,
                                 strip_cds=strip_cds)
         proc.start()
         working_processes.append(proc)
@@ -345,7 +349,7 @@ def _load_exon_lines_multi(args, shelve_names, logger, min_length, strip_cds, th
     gc.collect()
 
 
-def load_exon_lines(args, shelve_names, logger, min_length=0):
+def load_exon_lines(args, shelve_names, logger, min_length=0, max_intron=3*10**5):
 
     """This function loads all exon lines from the GFF inputs into a
      defaultdict instance.
@@ -353,8 +357,8 @@ def load_exon_lines(args, shelve_names, logger, min_length=0):
     :param shelve_names: list of names of the shelf DB files.
     :param logger: the logger instance.
     :type logger: logging.Logger
-    :param min_length: minimal length of the transcript.
-    If it is not met, the transcript will be discarded.
+    :param min_length: minimal length of the transcript. If it is not met, the transcript will be discarded.
+    :param max_intron: maximum length for an intron. If it is not met, the transcript will be discarded.
     :type min_length: int
 f
     :return: exon_lines
@@ -366,9 +370,9 @@ f
     strip_cds = args.json_conf["prepare"]["strip_cds"]
 
     if args.json_conf["prepare"]["single"] is True or threads == 1:
-        _load_exon_lines_single_thread(args, shelve_names, logger, min_length, strip_cds)
+        _load_exon_lines_single_thread(args, shelve_names, logger, min_length, strip_cds, max_intron)
     else:
-        _load_exon_lines_multi(args, shelve_names, logger, min_length, strip_cds, threads)
+        _load_exon_lines_multi(args, shelve_names, logger, min_length, strip_cds, threads, max_intron)
 
     logger.info("Finished loading lines from %d files",
                 len(args.json_conf["prepare"]["files"]["gff"]))
@@ -457,7 +461,8 @@ def prepare(args, logger):
         load_exon_lines(args,
                         shelve_names,
                         logger,
-                        min_length=args.json_conf["prepare"]["minimum_length"])
+                        min_length=args.json_conf["prepare"]["minimum_length"],
+                        max_intron=args.json_conf["prepare"]["max_intron_length"],)
 
         logger.info("Finished loading exon lines")
 

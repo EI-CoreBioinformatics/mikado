@@ -53,6 +53,10 @@ def check_run_options(args, logger=create_null_logger()):
 
     args.json_conf["pick"]["run_options"]["single_thread"] = args.single
 
+    if args.seed is not None:
+        args.json_conf["seed"] = args.seed
+        random.seed(args.seed, version=2)
+
     if args.no_cds is not False:
         args.json_conf["pick"]["run_options"]["exclude_cds"] = True
     if args.no_purge is True:

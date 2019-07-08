@@ -39,6 +39,11 @@ class Locus(Abstractlocus):
 
         self.counter = 0
         transcript.attributes["primary"] = True
+        if transcript.is_coding:
+            transcript.feature = "mRNA"
+        else:
+            transcript.feature = "ncRNA"
+
         self.counter = 0  # simple tag to avoid collisions
         Abstractlocus.__init__(self, logger=logger, json_conf=json_conf, **kwargs)
         # this must be defined straight away
@@ -373,7 +378,12 @@ class Locus(Abstractlocus):
                           transcript.id, self.id)
         transcript.attributes["primary"] = False
 
+        if transcript.is_coding:
+            transcript.feature = "mRNA"
+        else:
+            transcript.feature = "ncRNA"
         Abstractlocus.add_transcript_to_locus(self, transcript)
+
         self.locus_verified_introns.update(transcript.verified_introns)
 
     def __check_as_requirements(self, transcript: Transcript) -> bool:

@@ -179,7 +179,6 @@ class OrfSerializer:
         if isinstance(fasta_index, str):
             assert os.path.exists(fasta_index)
             self.fasta_index = pysam.FastaFile(fasta_index)
-            # self.fasta_index = SeqIO.index(fasta_index, "fasta")
         elif fasta_index is None:
             exc = ValueError("A fasta index is needed for the serialization!")
             self.logger.exception(exc)

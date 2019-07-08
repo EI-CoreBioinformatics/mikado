@@ -8,7 +8,6 @@ but at the same time more pythonic.
 
 import random
 import os
-from Bio import SeqIO
 from Bio import Seq
 import Bio.SeqRecord
 from . import Parser
@@ -19,6 +18,7 @@ from typing import Union
 import re
 from ..utilities.log_utils import create_null_logger
 from Bio.Data import CodonTable
+import pysam
 
 standard = CodonTable.ambiguous_dna_by_id[1]
 standard.start_codons = ["ATG"]
@@ -396,16 +396,25 @@ class BED12:
             self.validity_checked = True
             if sequence is not None:
                 self.fasta_length = len(sequence)
-                if isinstance(sequence, str):
-                    sequence = Seq.Seq(sequence)
+                if hasattr(sequence, "seq"):
+                    sequence = str(sequence.seq)
+                if not isinstance(sequence, str):
+                    sequence = str(sequence)
+                # if isinstance(sequence, str):
+                #     sequence = Seq.Seq(sequence)
             else:
                 if self.id not in fasta_index:
                     self.__in_index = False
                     return
 
                 self.fasta_length = len(fasta_index[self.id])
-                sequence = fasta_index[self.id].seq
+                sequence = fasta_index[self.id]
+                if hasattr(sequence, "seq"):
+                    sequence = str(sequence.seq)
+                if not isinstance(sequence, str):
+                    sequence = str(sequence)
 
+            assert isinstance(sequence, str)
             # Just double check that the sequence length is the same as what the BED would suggest
             if self.invalid is True:
                 self.coding = False
@@ -415,8 +424,9 @@ class BED12:
                 orf_sequence = sequence[
                                (self.thick_start - 1 if not self.phase else self.start + self.phase - 1):self.thick_end]
             else:
-                orf_sequence = sequence[(self.thick_start - 1):(
-                    self.thick_end if not self.phase else self.end - (3 - self.phase) % 3)].reverse_complement()
+                orf_sequence = Seq.reverse_complement(
+                    sequence[(self.thick_start - 1):(
+                        self.thick_end if not self.phase else self.end - (3 - self.phase) % 3)])
 
             self.start_codon = str(orf_sequence)[:3].upper()
             self.stop_codon = str(orf_sequence[-3:]).upper()
@@ -430,8 +440,8 @@ class BED12:
 
                 self.has_start_codon = False
                 if self.start_adjustment is True:
-                    if self.strand == "-":
-                        sequence = sequence.reverse_complement()
+                    # if self.strand == "-":
+                    #     sequence = Seq.reverse_complement(sequence)
                     self._adjust_start(sequence, orf_sequence)
 
             if self.stop_codon in self.table.stop_codons:
@@ -446,7 +456,7 @@ class BED12:
             last_pos = -3 - ((len(orf_sequence)) % 3)
 
             if self.__lenient is False:
-                translated_seq = orf_sequence[:last_pos].translate(table=self.table, gap='N')
+                translated_seq = Seq.translate(orf_sequence[:last_pos], table=self.table, gap='N')
                 self.__internal_stop_codons = str(translated_seq).count("*")
 
             if self.invalid is True:
@@ -457,22 +467,27 @@ class BED12:
         assert len(orf_sequence) == (self.thick_end - self.thick_start + 1)
         # Let's check UPstream first.
         # This means that we DO NOT have a starting Met and yet we are starting far upstream.
-        if (self.strand == "+" and self.thick_start > 3) or (self.strand == "-" and self.end - self.thick_end > 3):
+        if self.strand == "+" and self.thick_start > 3:
             for pos in range(self.thick_start, 3, -3):
-                if self.strand == "+":
-                    self.thick_start -= 3
-                else:
-                    self.thick_end += 3
+                self.thick_start -= 3
                 if sequence[pos - 3:pos] in self.table.start_codons:
                     # We have found a valid methionine.
                     break
                 elif sequence[pos - 3:pos] in self.table.stop_codons:
-                    if self.strand == "+":
-                        self.thick_start += 3
-                    else:
-                        self.thick_end -= 3
+                    self.thick_start += 3
                     break
                 continue
+
+        elif self.strand == "-" and self.end - self.thick_end > 3:
+            for pos in range(self.thick_end, self.end - 3, 3):
+                self.thick_end += 3
+                if Seq.reverse_complement(sequence[pos - 3:pos]) in self.table.start_codons:
+                    # We have found a valid methionine.
+                    break
+                elif Seq.reverse_complement(sequence[pos - 3:pos]) in self.table.stop_codons:
+                    self.thick_end -= 3
+                    break
+            print("Thick end:", self.thick_end)
         else:
             for pos in range(3,
                              int(len(orf_sequence) * self.max_regression),
@@ -488,6 +503,8 @@ class BED12:
                     break
                 else:
                     continue
+            print("Thick end:", self.thick_end)
+
         if self.has_start_codon is False:
             # The validity will be automatically checked
             if self.strand == "+":
@@ -863,7 +880,7 @@ class BED12:
             if len(coding_seq) % 3 != 0:
                 # Only get a multiple of three
                 coding_seq = coding_seq[:-((len(coding_seq)) % 3)]
-            prot_seq = coding_seq.translate(table=self.table, gap="N")
+            prot_seq = Seq.translate(coding_seq, table=self.table, gap="N")
             if "*" in prot_seq:
                 self.thick_end = self.thick_start + self.phase - 1 + (1 + prot_seq.find("*")) * 3
                 self.stop_codon = coding_seq[prot_seq.find("*") * 3:(1 + prot_seq.find("*")) * 3].upper()
@@ -1020,9 +1037,9 @@ class Bed12Parser(Parser):
         elif fasta_index is not None:
             if isinstance(fasta_index, str):
                 assert os.path.exists(fasta_index)
-                fasta_index = SeqIO.index(fasta_index, "fasta")
+                fasta_index = pysam.FastaFile(fasta_index)
             else:
-                assert "SeqIO" in repr(fasta_index) and "index" in repr(fasta_index)
+                assert isinstance(fasta_index, pysam.FastaFile)
 
         self.fasta_index = fasta_index
         self.__closed = False

@@ -21,7 +21,7 @@ dependencies:
   - conda-forge::biopython>=1.73
   - conda-forge::intervaltree>=3.0.2
   - conda-forge::pytest>=4.4.0
-  - bioconda::pyfaidx>=0.5.3
+  - bioconda::pyfaidx>=0.5.5.2
   - conda-forge::python-magic>=0.4.15
   - bioconda::snakemake-minimal>=5.4.4
   - conda-forge::drmaa>=0.7.7

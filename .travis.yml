@@ -18,11 +18,8 @@ install:
   - sed -i "s/defaults::python.*/defaults::python=$TRAVIS_PYTHON_VERSION/" environment.yml
   - conda env create -n env_name --file environment.yml
   - source activate env_name
-  - conda install --yes setuptools cython atlas numpy scipy scikit-learn biopython
-  - conda install --yes -c bioconda diamond prodigal samtools
   - pip install pytest-cov codecov;
   - if [[ "$(python -c "import sys; print(sys.version_info.minor)")" == "7" ]]; then wget https://github.com/pytries/datrie/archive/0.7.1.tar.gz; tar xf 0.7.1.tar.gz; cd datrie-0.7.1; ./update_c.sh; python3.7 setup.py build; python3.7 setup.py install; cd ../; fi;
-  - pip install -r requirements.txt
   - python setup.py develop;
 script:
   - touch plants.yaml && python -c "import Mikado; print(Mikado.__version__)" && rm plants.yaml;  # This is to verify we fixed bug #124

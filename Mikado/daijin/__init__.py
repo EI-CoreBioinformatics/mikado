@@ -74,6 +74,8 @@ def create_parser():
                         help="""Configuration file that allows the user to override
                         resource requests for each rule when running under a scheduler
                         in a HPC environment.""")
+    parser.add_argument("--latency-wait", default=None, type=int, dest="latency_wait",
+                        help="Latency wait for Daijin. Default: 1s if local, 60s for scheduler jobs.")
     parser.add_argument("-d", "--dryrun", action="store_true", default=False,
                         help="Do a dry run for testing.")
     parser.add_argument("--jobs", "-J", action="store", metavar="N", type=int, default="10",
@@ -356,6 +358,13 @@ def assemble_transcripts_pipeline(args):
     yaml.dump(doc, yaml_file)
     yaml_file.flush()
 
+    if args.latency_wait is not None:
+        latency = abs(args.latency_wait)
+    elif SCHEDULER != '':
+        latency = 60
+    else:
+        latency = 1
+
     snakemake.snakemake(
         pkg_resources.resource_filename("Mikado",
                                         os.path.join("daijin", "tr.snakefile")),
@@ -374,7 +383,7 @@ def assemble_transcripts_pipeline(args):
         force_incomplete=args.rerun_incomplete,
         detailed_summary=args.detailed_summary,
         list_resources=args.list,
-        latency_wait=60 if SCHEDULER else 1,
+        latency_wait=latency,
         printdag=args.dag,
         forceall=args.dag,
         forcerun=args.forcerun,
@@ -458,6 +467,13 @@ def mikado_pipeline(args):
                                             )
     yaml.dump(doc, yaml_file)
     yaml_file.flush()
+
+    if args.latency_wait:
+        latency = abs(args.latency_wait)
+    elif SCHEDULER != '':
+        latency = 60
+    else:
+        latency = 1
 
     snakemake.snakemake(
         pkg_resources.resource_filename("Mikado",

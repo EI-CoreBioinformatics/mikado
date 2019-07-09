@@ -1746,9 +1746,15 @@ class Transcript:
     def alias(self):
         """This property returns the alias of the transcript, if present, else its ID"""
         if "alias" in self.attributes.keys():
-            return self.attributes["alias"]
+            if "," not in self.attributes["alias"]:
+                return self.attributes["alias"]
+            else:
+                return self.attributes["alias"].split(",")
         elif "Alias" in self.attributes.keys():
-            return self.attributes["Alias"]
+            if "," not in self.attributes["Alias"]:
+                return self.attributes["Alias"]
+            else:
+                return self.attributes["Alias"].split(",")
         else:
             return self.id
 

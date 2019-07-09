@@ -88,18 +88,19 @@ def print_gene(current_gene, gene_counter, handle, prefix):
 
         current_transcript.parent = current_gene["gene"].id
         current_exons = current_gene["transcripts"][transcript]["exons"]
-        current_transcript.attributes["Alias"] = current_transcript.id[:]
-        # name = re.sub("\.orf[0-9]+", "", tid)
-        # tid_corrs[re.sub("\.orf[0-9]+", "", current_transcript.id)] = name
+
+        old_alias = current_transcript.id[:]
+        if "alias" not in current_transcript.attributes:
+            current_transcript.attributes["alias"] = old_alias
         tid_corrs[current_transcript.id] = tid
         current_transcript.id = tid
         current_transcript.name = tid
         print(current_transcript, file=handle)
         for exon in current_exons:
             exon.parent = tid
-            exon.id = re.sub(current_transcript.attributes["Alias"],
+            exon.id = re.sub(old_alias,
                              tid, exon.id)
-            exon.name = re.sub(current_transcript.attributes["Alias"],
+            exon.name = re.sub(old_alias,
                                tid, exon.id)
             print(exon, file=handle)
     return tid_corrs

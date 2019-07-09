@@ -176,6 +176,9 @@ def create_config_parser():
         help="Strandedness of the reads. Specify it 0, 1, or number of samples times. Choices: %(choices)s.")
     parser.add_argument("-al", "--aligners", choices=["gsnap", "star", "hisat", "tophat"], required=False,
                         default=[], nargs="*", help="Aligner(s) to use for the analysis. Choices: %(choices)s")
+    parser.add_argument("-lal", "--long-read-aligners", dest="long_aln_methods", choices=["star", "gmap"],
+                        required=False, default=[], nargs="*",
+                        help="Aligner(s) to use for long reads. Choices: %(choices)s")
     parser.add_argument("-as", "--assemblers", dest="asm_methods", required=False,
                         choices=["class", "cufflinks", "stringtie", "trinity", "scallop"],
                         default=[], nargs="*", help="Assembler(s) to use for the analysis. Choices: %(choices)s")

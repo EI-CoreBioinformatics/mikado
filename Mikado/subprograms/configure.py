@@ -117,6 +117,7 @@ def create_config(args):
         namespace.samples = []
         namespace.strandedness = []
         namespace.asm_methods = []
+        namespace.long_aln_methods = []
         namespace.aligners = []
         if args.mode is not None:
             namespace.modes = args.mode[:]

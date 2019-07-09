@@ -1054,6 +1054,7 @@ class ConfigureCheck(unittest.TestCase):
         namespace.threads = 1
         namespace.full = False
         namespace.seed = None
+        namespace.long_aln_methods = []
 
         for iteration in range(20):
             with self.subTest(iteration=iteration):

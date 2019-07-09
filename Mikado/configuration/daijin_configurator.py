@@ -232,10 +232,29 @@ def create_daijin_config(args, level="ERROR", piped=False):
 
     config["mikado"]["modes"] = args.modes
 
-    for method in args.asm_methods:
-        config["asm_methods"][method] = [""]
+    failed = False
+    if config["short_reads"]["r1"] and not args.aligners:
+        logger.critical(
+            "No short read aligner selected, but there are short read samples. Please select at least one alignment method.")
+        failed = True
+    if config["short_reads"]["r1"] and not args.asm_methods:
+        logger.critical(
+            "No short read assembler selected, but there are short read samples. Please select at least one assembly method.")
+        failed = True
+    if config["long_reads"]["files"] and not args.long_aln_methods:
+        logger.critical(
+            "No long read aligner selected, but there are long read samples. Please select at least one assembly method.")
+        failed = True
+
+    if failed:
+        sys.exit(1)
+
     for method in args.aligners:
         config["align_methods"][method] = [""]
+    for method in args.asm_methods:
+        config["asm_methods"][method] = [""]
+    for method in args.long_aln_methods:
+        config["long_read_align_methods"][method] = [""]
 
     # Set and eventually copy the scoring file.
     if args.scoring is not None:

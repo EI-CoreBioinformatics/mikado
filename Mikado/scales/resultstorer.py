@@ -5,6 +5,36 @@ This class defines the results of the Assigner.compare method.
 """
 
 
+import itertools
+
+
+def _convert_item(item, final_type):
+    it_type = type(item)
+    if it_type == bytes:
+        item = it_type.decode()
+        it_type = str
+    if item == "-":  # Null value.
+        return [item]
+    elif it_type == str and "," in item:
+        return list(itertools.chain.from_iterable([_convert_item(_, final_type) for _ in item.split(",")]))
+    else:
+        if final_type is not None:
+            return [final_type(item)]
+        else:
+            return [item]
+
+
+def _tupling(obj, final_type):
+    tup_type = type(obj)
+    if tup_type in (tuple, list):
+        return tuple(itertools.chain.from_iterable([_convert_item(item, final_type) for item in obj]))
+    elif tup_type in (str, float, int, bytes):
+        return tuple(_convert_item(obj, final_type))
+    else:
+        raise TypeError(type(obj))
+
+
+
 class ResultStorer:
     """This class stores the results in pre-defined slots, to reduce memory usage."""
 
@@ -19,36 +49,15 @@ class ResultStorer:
 
     @staticmethod
     def to_float_tuple(tup):
-        if isinstance(tup, (tuple, list)):
-            return tuple([float(_) for _ in tup])
-        elif isinstance(tup, (str, float, int, bytes)):
-            if tup == "-":
-                return tuple([tup])
-            return tuple([float(tup)])
-        else:
-            raise TypeError(type(tup))
+        return _tupling(tup, float)
 
     @staticmethod
     def to_int_tuple(tup):
-        if isinstance(tup, (tuple, list)):
-            return tuple([int(_) for _ in tup])
-        elif isinstance(tup, (str, float, int, bytes)):
-            if tup == "-":
-                return tuple([tup])
-            return tuple([int(tup)])
-        else:
-            raise TypeError(type(tup))
+        return _tupling(tup, int)
 
     @staticmethod
     def to_tuple(tup):
-        if isinstance(tup, (tuple, list)):
-            return tuple([_ for _ in tup])
-        elif isinstance(tup, (str, float, int)):
-            return tuple([str(tup)])
-        elif isinstance(tup, bytes):
-            return tuple([tup.decode()])
-        else:
-            raise TypeError(type(tup))
+        return _tupling(tup, None)
 
     @property
     def types(self):
@@ -58,7 +67,6 @@ class ResultStorer:
                 self.to_float_tuple, self.to_float_tuple, self.to_float_tuple,
                 self.to_float_tuple, self.to_float_tuple, self.to_float_tuple,
                 self.to_int_tuple, str]
-
 
     def __init__(self, *args, state=None):
 
@@ -86,21 +94,6 @@ class ResultStorer:
 
         for index, key in enumerate(self.__slots__):
             setattr(self, key, self.types[index](getattr(self, self.__slots__[index])))
-            #
-            # if index < 3:
-            #     if isinstance(getattr(self, self.__slots__[index]), str):
-            #         setattr(self, key, tuple([getattr(self, self.__slots__[index])]))
-            # elif 6 <= index < len(self.__slots__):
-            #     if isinstance(getattr(self, self.__slots__[index]), (float, int)):
-            #         setattr(self, key, tuple([]))
-            #     elif isinstance(getattr(self, self.__slots__[index]), str):
-            #         __val = tuple(getattr(self, self.__slots__[index]).split(","))
-            #         if str.isdecimal(__val[0]) or str.isdigit(__val[0]):
-            #             __val = tuple([float(_) for _ in __val])
-            #         setattr(self, key, __val)
-            #     elif not isinstance(getattr(self, self.__slots__[index]), tuple):
-            #         setattr(self, self.__slots__[index],
-            #                 tuple([getattr(self, self.__slots__[index])]))
 
     def _load_dict(self, state):
 

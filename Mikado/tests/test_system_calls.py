@@ -35,6 +35,24 @@ from time import sleep
 import pysam
 
 
+class ConvertCheck(unittest.TestCase):
+
+    @mark.slow
+    def test_convert_from_bam(self):
+
+        bam_inp = pkg_resources.resource_filename("Mikado.tests", "test_mRNA.bam")
+        for outp in ("gff3", "gtf", "bed12"):
+            with self.subTest(outp=outp):
+                outfile = tempfile.NamedTemporaryFile(mode="wt")
+                outfile.close()
+                sys.argv = ["", "util", "convert", "-of", outp, bam_inp, outfile.name]
+                # with self.assertRaises(SystemExit):
+                pkg_resources.load_entry_point("Mikado", "console_scripts", "mikado")()
+                self.assertGreater(os.stat(outfile.name).st_size, 0)
+                lines = [_ for _ in open(outfile.name)]
+                assert any(["TraesCS2B02G055500.1" in line for line in lines])
+
+
 # @mark.slow
 class PrepareCheck(unittest.TestCase):
 

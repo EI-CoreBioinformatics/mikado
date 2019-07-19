@@ -20,7 +20,7 @@ def launch(args):
     current = None
     if parser.__annot_type__ == "gtf":
         out_format = "gff3"
-    elif parser.__annot_type__ in ("bed12", "gff3"):
+    elif parser.__annot_type__ in ("bed12", "gff3", "bam"):
         out_format = "gtf"
     else:
         raise TypeError("Invalid annotation type: {}".format(parser.__annot_type__))
@@ -41,7 +41,19 @@ def launch(args):
     for line in parser:
         if line.header is True:
             continue
-        if isinstance(line, BED12) or (line.is_exon is False and line.gene is None):
+        if parser.__annot_type__ == "bam":
+            # BAM file. We need to do things a little bit differently
+            if line.is_unmapped is True:
+                continue
+
+            mock_gene_counter += 1
+            gene = "gene_{mock_gene_counter}".format(**locals())
+            transcript = Transcript(line)
+            transcript.parent = gene
+            print(Gene(transcript).format(out_format, transcriptomic=args.transcriptomic), file=args.out)
+            continue
+
+        elif isinstance(line, BED12) or (line.is_exon is False and line.gene is None):
             mock_gene_counter += 1
             gene = "gene_{mock_gene_counter}".format(**locals())
             line.parent = gene
@@ -71,6 +83,7 @@ def launch(args):
             current.add(Transcript(line))
         elif line.is_exon is True:
             current.add_exon(line)
+
     if current is not None:
         print(current.format(out_format, transcriptomic=args.transcriptomic), file=args.out)
 

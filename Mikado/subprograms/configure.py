@@ -167,8 +167,8 @@ def create_config(args):
     if args.seed is not None:
         config["seed"] = args.seed
 
-    if args.min_cdna_length not in (None, False):
-        config["prepare"]["minimum_length"] = args.min_cdna_length
+    if args.minimum_cdna_length not in (None, False):
+        config["prepare"]["minimum_cdna_length"] = args.minimum_cdna_length
 
     if args.max_intron_length not in (None, False):
         config["prepare"]["max_intron_length"] = args.max_intron_length
@@ -349,7 +349,7 @@ def configure_parser():
     parser.add_argument("--seed", type=int, default=None,
                         help="Random seed number.")
     preparer = parser.add_argument_group("Options related to the prepare stage.")
-    preparer.add_argument("--mininimum-cdna-length", default=None, type=int, dest="min_cdna_length",
+    preparer.add_argument("--minimum-cdna-length", default=None, type=int, dest="minimum_cdna_length",
                           help="Minimum cDNA length for transcripts.")
     preparer.add_argument("--max-intron-size", default=None, type=int, dest="max_intron_length",
                           help="Maximum intron length for transcripts.")
@@ -379,8 +379,9 @@ def configure_parser():
                        Invoking the "--gff" option will disable this flag.""",
                        default=False, action="store_true")
     files.add_argument("--gff", help="Input GFF/GTF file(s), separated by comma", type=str)
-    files.add_argument("--list", help="""List of the inputs, one by line, in the form:
-<file1>  <label>  <strandedness (true/false)> <bonus/malus (default 0)>""")
+    files.add_argument("--list",
+                       help="""Tab-delimited file containing rows with the following format
+                        <file>  <label> <strandedness> <score(optional)> <always_keep(optional)>""")
     parser.add_argument("--reference", help="Fasta genomic reference.", default=None)
     serialisers = parser.add_argument_group(
         "Options related to the serialisation step")

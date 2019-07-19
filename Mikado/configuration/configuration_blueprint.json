@@ -236,7 +236,7 @@
         "keep_redundant": {
           "type": "boolean", "default": false
         },
-        "minimum_length": {
+        "minimum_cdna_length": {
           "type": "integer", "default": 200, "minimum": 1
         },
         "max_intron_length": {

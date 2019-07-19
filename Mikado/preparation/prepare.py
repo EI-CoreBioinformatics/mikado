@@ -461,7 +461,7 @@ def prepare(args, logger):
         load_exon_lines(args,
                         shelve_names,
                         logger,
-                        min_length=args.json_conf["prepare"]["minimum_length"],
+                        min_length=args.json_conf["prepare"]["minimum_cdna_length"],
                         max_intron=args.json_conf["prepare"]["max_intron_length"],)
 
         logger.info("Finished loading exon lines")
@@ -471,7 +471,6 @@ def prepare(args, logger):
             store_transcripts,
             logger=logger,
             keep_redundant=args.json_conf["prepare"]["keep_redundant"]
-            # min_length=args.json_conf["prepare"]["minimum_length"]
         )
 
         shelve_source_scores = []

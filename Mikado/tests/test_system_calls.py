@@ -396,7 +396,7 @@ class PrepareCheck(unittest.TestCase):
         self.conf["prepare"]["files"]["out"] = "mikado_prepared.gtf"
         self.conf["prepare"]["files"]["log"] = "prepare.log"
         self.conf["prepare"]["strip_cds"] = False
-        self.conf["prepare"]["minimum_length"] = 150  # Necessary for testing A5
+        self.conf["prepare"]["minimum_cdna_length"] = 150  # Necessary for testing A5
 
         args = Namespace()
         args.strip_cds = False

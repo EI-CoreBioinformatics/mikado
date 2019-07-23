@@ -525,7 +525,7 @@ def load_from_gtf(shelf_name,
             exon_lines[row.transcript]["strand_specific"] = strand_specific
             exon_lines[row.transcript]["is_reference"] = is_reference
             if "exon_number" in exon_lines[row.transcript]["attributes"]:
-                del exon_lines[row.id]["attributes"]["exon_number"]
+                del exon_lines[row.transcript]["attributes"]["exon_number"]
             continue
 
         if row.is_exon is False or (row.is_cds is True and strip_cds is True):
@@ -545,10 +545,10 @@ def load_from_gtf(shelf_name,
             exon_lines[row.transcript]["strand"] = row.strand
             exon_lines[row.transcript]["exon"] = []
             exon_lines[row.transcript]["attributes"] = row.attributes.copy()
-            exon_lines[row.id]["tid"] = row.transcript
-            exon_lines[row.id]["parent"] = "{}.gene".format(row.id)
-            exon_lines[row.id]["strand_specific"] = strand_specific
-            exon_lines[row.id]["is_reference"] = is_reference
+            exon_lines[row.transcript]["tid"] = row.transcript
+            exon_lines[row.transcript]["parent"] = "{}.gene".format(row.id)
+            exon_lines[row.transcript]["strand_specific"] = strand_specific
+            exon_lines[row.transcript]["is_reference"] = is_reference
         else:
             if row.transcript in to_ignore:
                 continue

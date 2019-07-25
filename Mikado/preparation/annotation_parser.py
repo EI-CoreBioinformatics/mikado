@@ -541,12 +541,13 @@ def load_from_gtf(shelf_name,
                 exon_lines[row.transcript]["source"] = label
             else:
                 exon_lines[row.transcript]["source"] = row.source
+            exon_lines[row.transcript]["features"] = dict()
             exon_lines[row.transcript]["chrom"] = row.chrom
             exon_lines[row.transcript]["strand"] = row.strand
             exon_lines[row.transcript]["exon"] = []
             exon_lines[row.transcript]["attributes"] = row.attributes.copy()
             exon_lines[row.transcript]["tid"] = row.transcript
-            exon_lines[row.transcript]["parent"] = "{}.gene".format(row.id)
+            exon_lines[row.transcript]["parent"] = "{}.gene".format(row.transcript)
             exon_lines[row.transcript]["strand_specific"] = strand_specific
             exon_lines[row.transcript]["is_reference"] = is_reference
         else:

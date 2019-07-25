@@ -181,7 +181,8 @@ class PrepareCheck(unittest.TestCase):
         for test_file in ("trinity.gff3",
                           "trinity.match_matchpart.gff3",
                           "trinity.cDNA_match.gff3",
-                          "trinity.gtf"):
+                          "trinity.gtf",
+                          "trinity.no_transcript_feature.gtf"):
             with self.subTest(test_file=test_file):
                 self.conf["prepare"]["files"]["gff"] = [pkg_resources.resource_filename("Mikado.tests",
                                                                                         test_file)]
@@ -203,26 +204,26 @@ class PrepareCheck(unittest.TestCase):
     def test_prepare_trinity_and_cufflinks(self):
 
         self.conf["prepare"]["files"]["labels"] = ["cl", "tr"]
-        self.conf["prepare"]["files"]["gff"].append(pkg_resources.resource_filename("Mikado.tests",
-                                                                                    "cufflinks.gtf"))
-        self.conf["prepare"]["files"]["gff"].append("")
+
+        self.conf["prepare"]["files"]["gff"] = [None, None]
         dir = tempfile.TemporaryDirectory()
         self.conf["prepare"]["files"]["output_dir"] = dir.name
         self.conf["prepare"]["files"]["out_fasta"] = "mikado_prepared.fasta"
         self.conf["prepare"]["files"]["out"] = "mikado_prepared.gtf"
         args = Namespace()
 
-        for test_file in ("trinity.gff3",
-                          "trinity.match_matchpart.gff3",
-                          "trinity.cDNA_match.gff3",
-                          "trinity.gtf"):
-            with self.subTest(test_file=test_file):
+        for cuff_file, test_file in itertools.product(
+                ("cufflinks.gtf", "cufflinks.no_transcript.gtf"),
+                (("trinity.gff3", "trinity.match_matchpart.gff3", "trinity.cDNA_match.gff3", "trinity.gtf",
+                  "trinity.no_transcript_feature.gtf"))):
+            with self.subTest(test_file=test_file, cuff_file=cuff_file):
+                self.conf["prepare"]["files"]["gff"][0] = pkg_resources.resource_filename("Mikado.tests",
+                                                                                          cuff_file)
                 self.conf["prepare"]["files"]["gff"][1] = pkg_resources.resource_filename("Mikado.tests",
                                                                                           test_file)
                 self.conf["prepare"]["files"]["out_fasta"] = "mikado_prepared.fasta"
                 self.conf["prepare"]["files"]["out"] = "mikado_prepared.gtf"
                 args.strip_cds = True
-
                 args.json_conf = self.conf
                 prepare.prepare(args, self.logger)
 

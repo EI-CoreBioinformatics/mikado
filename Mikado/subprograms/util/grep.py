@@ -135,17 +135,15 @@ def grep_gtf(args, gene_ids, mrna_ids):
         if not record:
             continue
         if args.genes is False:
-            if record.transcript in mrna_ids:
-                if not args.reverse:
-                    print(record, file=args.out)
-                elif args.reverse:
-                    print(record, file=args.out)
+            if record.transcript in mrna_ids and not args.reverse:
+                print(record, file=args.out)
+            elif record.transcript not in mrna_ids and args.reverse:
+                print(record, file=args.out)
         else:
-            if record.gene in gene_ids:
-                if not args.reverse:
-                    print(record, file=args.out)
-                elif args.reverse:
-                    print(record, file=args.out)
+            if record.gene in gene_ids and not args.reverse:
+                print(record, file=args.out)
+            elif record.gene not in gene_ids and args.reverse:
+                print(record, file=args.out)
 
 
 def launch(args):

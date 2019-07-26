@@ -33,6 +33,7 @@ from ..transcripts import Transcript
 import threading
 from time import sleep
 import pysam
+import io
 
 
 class ConvertCheck(unittest.TestCase):
@@ -1640,6 +1641,66 @@ class StatsTest(unittest.TestCase):
                 os.remove(out.name)
                 namespace.gff.close()
                 dir.cleanup()
+
+
+class GrepTest(unittest.TestCase):
+
+    @mark.slow
+    def test_grep(self):
+        files = [pkg_resources.resource_filename("Mikado.tests", fname) for fname in ["trinity.gtf", "trinity.gff3"]]
+        with io.TextIOWrapper(pkg_resources.resource_stream("Mikado.tests", "trinity.ids")) as id_file:
+            ids = [tuple(line.rstrip().split("\t")) for line in id_file]
+
+        id_temp_file = tempfile.NamedTemporaryFile("wt", suffix=".txt")
+        to_write = list(random.sample(ids, 10))
+        [print(*idline, sep="\t", file=id_temp_file) for idline in to_write]
+        id_temp_file.flush()
+
+        for fname in files:
+            with self.subTest(fname=fname):
+                form = os.path.splitext(fname)[1]
+                outfile = tempfile.NamedTemporaryFile("wt", suffix=form)
+                outfile.close()
+                self.assertFalse(os.path.exists(outfile.name))
+                sys.argv = ["mikado", "util", "grep", id_temp_file.name, fname, outfile.name]
+                pkg_resources.load_entry_point("Mikado", "console_scripts", "mikado")()
+                self.assertTrue(os.path.exists(outfile.name))
+                found = set()
+                with to_gff(outfile.name, input_format=form[1:]) as stream:
+                    for record in stream:
+                        if record.is_transcript:
+                            found.add(record.transcript)
+                self.assertEqual(len(found), 10)
+                self.assertEqual(found, set(_[0] for _ in to_write))
+
+    @mark.slow
+    def test_v_grep(self):
+        files = [pkg_resources.resource_filename("Mikado.tests", fname) for fname in ["trinity.gtf", "trinity.gff3"]]
+        with io.TextIOWrapper(pkg_resources.resource_stream("Mikado.tests", "trinity.ids")) as id_file:
+            ids = [tuple(line.rstrip().split("\t")) for line in id_file]
+
+        id_temp_file = tempfile.NamedTemporaryFile("wt", suffix=".txt")
+        to_write = list(random.sample(ids, 10))
+        others = [_ for _ in ids if _ not in to_write]
+        [print(*idline, sep="\t", file=id_temp_file) for idline in to_write]
+        id_temp_file.flush()
+
+        for fname in files:
+            with self.subTest(fname=fname):
+                form = os.path.splitext(fname)[1]
+                outfile = tempfile.NamedTemporaryFile("wt", suffix=form)
+                outfile.close()
+                self.assertFalse(os.path.exists(outfile.name))
+                sys.argv = ["mikado", "util", "grep", "-v", id_temp_file.name, fname, outfile.name]
+                pkg_resources.load_entry_point("Mikado", "console_scripts", "mikado")()
+                self.assertTrue(os.path.exists(outfile.name))
+                found = set()
+                with to_gff(outfile.name, input_format=form[1:]) as stream:
+                    for record in stream:
+                        if record.is_transcript:
+                            found.add(record.transcript)
+                self.assertEqual(len(found), len(others))
+                self.assertEqual(found, set(_[0] for _ in others))
 
 
 if __name__ == "__main__":

@@ -646,7 +646,8 @@ def create_index(reference, queue_logger, index_name, ref_gff=False,
     conn.commit()
     conn.close()
 
-    shutil.move(temp_db, index_name)
+    shutil.copy(temp_db, index_name)
+    os.remove(temp_db)
 
     return
 

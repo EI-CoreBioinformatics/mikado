@@ -52,8 +52,7 @@ Detailed list of bugfixes and improvements:
 
 ## General
 
-- Mikado has now been tested to be compatible with Python 3.7. Please note that if you are using Python 3.7, at the time
-  of release, datrie [has to be installed manually](https://github.com/pytries/datrie/issues/52) **before** installing Snakemake.
+- Mikado has now been tested to be compatible with Python 3.7.
 - Mikado now always uses PySam, instead of PyFaidx, to fetch chromosomal regions (e.g. during prepare and pick).
   This speeds up and lightens the program, as well as making tests more manageable.
 - Made logging more sensible and informative for all three steps of the pipeline (prepare, serialise, pick)

@@ -1,67 +1,176 @@
-# Version 1.5
+# Version 2.0
 
-**IMPORTANT**: this release fixes a bug ([#139](https://github.com/EI-CoreBioinformatics/mikado/issues/139)) whereupon cDNAs completely or partially in letters different from ATGCNn (eg. **lowercase**, ie ***soft-masked*** nucleotides) would not have been reversed-complemented correctly. Therefore, any run on soft-masked genomes with prior releases ***would be invalid***.
+This is the second major release of Mikado. It contains **backwards-incompatible changes** to the data structures used in the program;
+as such, all users are **warmly invited to update the program as soon as possible**. Due to these changes, old runs might need to be redone
+(e.g. for Mikado serialise). 
 
-Users are ***very strongly recommended*** to update Mikado as soon as possible.
+Please also note that **we are planning to retire Daijin in the near future and its development is now discontinued**.
+We are working on an alternative pipeline, which is a project in its own right.
 
-**IMPORTANT**: this release **changes the format of the mikado database**. As such, old mikado databases **have to be regenerated with Mikado serialise** in order for the run not to fail.
+Aside from numerous bug fixes, this release brings the following highlights:
 
-**IMPORTANT**: this release has completely overhauled the scoring files. We now provide only two ("plant.yaml" and "mammalian.yaml"). "Plant.yaml" should function also for insect or fungal species, but we have not tested it extensively. Old scoring files can be found under "HISTORIC".
+- Mikado will now function correctly with soft-masked genomes.
+- Mikado pick now will **backtrack** during the picking stage. This prevents loci from being missed due to chaining in the early stages of the algorithm.
+- Mikado is now capable of padding transcripts in a locus so that they will share the same 5' and 3', if appropriate.
+  This leads to more coherent gene models, and can lead to recover gene models that are present only in fragmentary form,
+  by piggybacking on other, more complete models. This padding behaviour is now **default** in Mikado.
+- The Mikado database (for Mikado serialise) and the GF index (used by Mikado compare) have been overhauled and are **not** back compatible.
+- Mikado compare is now fully multi-processed.
+- Mikado compare now **can consider fuzzy matching for the introns**.
+  This helps in e.g. evaluating the results from noisy long reads, such as those from NanoPore. Briefly, when activated,
+  Mikado compare will consider a match to a reference intron any match which is within the specified amount of bases.
+- Mikado can now load arbitrary external metrics for all transcripts, that can be in numerical or boolean values. They are not limited any longer to floats between 0 and 1.
+- Alternative transcript events will now have to have the same coding frame, in coding loci.
+- Mikado now provides only two scoring files ("*plant.yaml*" and "*mammalian.yaml*").
+  "*Plant.yaml*" should function also for insect or fungal species, but we have not tested it extensively.
+  Old scoring files can be found under "HISTORIC".
+- Mikado now can specify a **random seed generator** as a 32bit integer. This allows to produce fully reproducible runs.  
 
-Two of the major highlits of this release are:
-  - the completion of the "padding" functionality. Briefly, if instructed to do so, now Mikado will be able to uniform the ends of transcripts within a single locus (similar to what was done for the last _Arabidopsis thaliana_ annotation release). The behaviour is controlled by the "pad" boolean switch, and by the "ts_max_splices" and "ts_distance" parameters under "pick". Please note that now "ts_distance" refers to the **transcriptomic** distance, ie, long introns are not considered for this purpose.
-  - general improvements in speed and multiprocessing, as well as flexibility, for the Mikado compare utility.
+With this release, we are also officially dropping support for Python 3.4.
+Python 3.5 will not be automatically tested for, as many Conda dependencies are not up-to-date, complicating the TRAVIS setup.
 
-With this release, we are also officially dropping support for Python 3.4. Python 3.5 will not be automatically tested for, as many Conda dependencies are not up-to-date, complicating the TRAVIS setup.
+Contributors to this release:
 
-Bugfixes and improvements:
+- Gemy George Kaithakottil (@gemygk)
+- Christian Schudoma (@cschu)
+- David Swarbreck (@swarbred)
 
-- Mikado has now been tested to be compatible with Python 3.7. Please note that if you are using Python 3.7, at the time of release, datrie [has to be installed manually](https://github.com/pytries/datrie/issues/52) **before** installing Snakemake.
-- Mikado now always uses PySam, instead of PyFaidx, to fetch chromosomal regions (e.g. during prepare and pick). This speeds up and lightens the program, as well as making tests more manageable.
-- Fixed a bug which caused some loci to crash at the last part of the picking stage
+Ackwnoledgement for contributing by bug reports and suggestions:
+
+- Tom Mathers (@tommathers)
+- @AsclepiusDoc
+- Justin S (@codeandkey)
+- @zebrafish-507
+- Dr Robert King (@rob123king)
+- @mndavies286
+- Ole Tørresen (@Thieron)
+- Ferdinand Marlétaz (@fmarletaz)
+- Luohao Xu (@lurebgi)
+- Sagnik Banerjee (@sagnikbanerjee15)
+
+Detailed list of bugfixes and improvements:
+
+## General
+
+- Mikado has now been tested to be compatible with Python 3.7. Please note that if you are using Python 3.7, at the time
+  of release, datrie [has to be installed manually](https://github.com/pytries/datrie/issues/52) **before** installing Snakemake.
+- Mikado now always uses PySam, instead of PyFaidx, to fetch chromosomal regions (e.g. during prepare and pick).
+  This speeds up and lightens the program, as well as making tests more manageable.
 - Made logging more sensible and informative for all three steps of the pipeline (prepare, serialise, pick)
-- For the external scores, Mikado can now accept any type of numerical or boolean value. Mikado will understand at serialisation time whether a particular score can be used raw (ie its values are strictly comprised between 0 and 1) or whether it has to be forcibly scaled.
-  - This allows Mikado to use e.g. transcript expression as a valid metric.
-- Now coding and non-coding transcripts will be in different loci.
+- Mikado now supports the BED12+1 format (ie a BED12 format with GFF-like attributes on the 13th field)
+- Now Mikado can use alternative translation tables among those provided by 
+  [NCBI  through BioPython](ftp://ftp.ncbi.nih.gov/entrez/misc/data/gc.prt). The default is "0", ie the Standard table
+  but with only the canonical "ATG" being accepted as valid start codon. ([#34](https://github.com/EI-CoreBioinformatics/mikado/issues/34)).
+  Please note that this is still a **global** value, it is not yet possible to specify a subset of chromosomes functioning with a different table.
+- Now Mikado correctly considers the phase (instead of the incorrect frame) for GTFs. This makes it
+  compatible with EnsEMBL and [GenomeTools](http://genometools.org/) or [GffRead](https://github.com/gpertea/gffread), among others ([#135](https://github.com/EI-CoreBioinformatics/mikado/issues/135))
+- Mikado was not dealing correctly with soft-masked genomes ([#139](https://github.com/EI-CoreBioinformatics/mikado/issues/139))
+- Increased coverage of the unit tests to approximately 83% ([#137](https://github.com/EI-CoreBioinformatics/mikado/issues/137))  
+- Created proper Docker and Singularity recipes for Mikado ([#149](https://github.com/EI-CoreBioinformatics/mikado/issues/149), [#164](https://github.com/EI-CoreBioinformatics/mikado/issues/164))
+- Fixed an incorrect algorithm for merging overlapping intervals ([#150](https://github.com/EI-CoreBioinformatics/mikado/issues/150))
+- Improved Mikado performance by removing the default overloading of `__getattribute__` in the *Transcript* class ([#153](https://github.com/EI-CoreBioinformatics/mikado/issues/153), [#154](https://github.com/EI-CoreBioinformatics/mikado/issues/154))
+- The configuration file has been overhauled for simplicity's sake ([#158](https://github.com/EI-CoreBioinformatics/mikado/issues/158))
 - Dropped the by-now obsolete "nosetests" suite for testing, moving to the modern and maintained "pytest".
-- Corrected a long-standing bug that made Mikado lose track of some fragments during the fragment removal phase. Somewhat confusingly, Mikado printed those loci into the output, but reported in the log file that there was a "missing locus". Now Mikado is able to correctly keeping track of them and removing them.
-- Corrected a bug in the calculation of overlapping intervals during BLAST serialisation.
-- Now BLAST HSPs will have stored as well whether there is an in-frame stop codon.
-- Now Mikado pick will be forced to run in single-threaded mode if the user is asking for debugging-level logs. This is to prevent a [re-entrancy race condition that causes deadlocks](https://codewithoutrules.com/2017/08/16/concurrency-python/).
-- Mikado prepare now can accept models that lack any exon features but still have valid CDS/UTR features - this is necessary for some protein prediction tools.
-- Fixed [#124](https://github.com/EI-CoreBioinformatics/mikado/issues/124): Mikado was giving an error when trying to launch from a folder with an invalid "plants.yaml" file, due to not checking correctly the validity of the file itself.
-- Fixed [#139](https://github.com/EI-CoreBioinformatics/mikado/issues/139): Mikado was reverse complementing non-uppercase letters incorrectly.
-- [#135](https://github.com/EI-CoreBioinformatics/mikado/issues/135): Mikado so far operated under the assumption that the 8th field in GTF files was the **frame**, not the **phase** like in GFF3s. This is actually incompatible with EnsEMBL and many widespread tools such as [GenomeTools](http://genometools.org/) or [GffRead](https://github.com/gpertea/gffread). Starting from this version, Mikado uniforms with these other tools.
-- Fixed [#34](https://github.com/EI-CoreBioinformatics/mikado/issues/34): now Mikado can specify a valid codon table among those provided by [NCBI  through BioPython](ftp://ftp.ncbi.nih.gov/entrez/misc/data/gc.prt). The default is "0", ie the Standard table but with only the canonical "ATG" being accepted as valid start codon.
-- Fixed [#123](https://github.com/EI-CoreBioinformatics/mikado/issues/123): now add_transcript_to_feature.gtf automatically splits chimeric transcripts and corrects mistakes related the intron size.
-- Fixed [#126](https://github.com/EI-CoreBioinformatics/mikado/issues/126): now reversing the strand of a model will cause its CDS to be stripped.
-- Fixed [#127](https://github.com/EI-CoreBioinformatics/mikado/issues/127): previously, Mikado _prepare_ only considered cDNA coordinates when determining the redundancy of two models. In some edge cases, two models could be identical but have a different ORF called. Now Mikado will also consider the CDS before deciding whether to discard a model as redundant.
-- [#130](https://github.com/EI-CoreBioinformatics/mikado/issues/130): it is now possible to specify a different metric inside the "filter" section of scoring.
-- [#131](https://github.com/EI-CoreBioinformatics/mikado/issues/131): in rare instances, Mikado could have missed loci if they were lost between the sublocus and monosublocus stages. Now Mikado implements a basic backtracking recursive algorithm that should ensure no locus is missed.
-- [#132](https://github.com/EI-CoreBioinformatics/mikado/issues/132),[#133](https://github.com/EI-CoreBioinformatics/mikado/issues/133): Mikado will now evaluate the CDS of transcripts during Mikado prepare.
-- [#134](https://github.com/EI-CoreBioinformatics/mikado/issues/134): when checking for potential Alternative Splicing Events (ASEs), now Mikado will check whether the CDS phases are in frame with each other. Moreover, **Mikado will now calculate the CDS overlap percentage based on the primary transcript CDS length**, not the minimum CDS length between primary and candidate. Please note that the change **regarding the frame** also affects the monosublocus stage. Mikado still considers only the primary ORFs for the overlap.
-- [#136](https://github.com/EI-CoreBioinformatics/mikado/issues/136): documentation has been updated to reflect the changes in the latest releases.
-- [#137](https://github.com/EI-CoreBioinformatics/mikado/issues/137): unit-test coverage has been improved.
-- [#138](https://github.com/EI-CoreBioinformatics/mikado/issues/138): Solved a bug which led Mikado to recalculate the phases for each model during picking, potentially creating mistakes for models truncated at the 5' end.
-- [#141](https://github.com/EI-CoreBioinformatics/mikado/issues/141): During configure and prepare, Mikado can now flag some transcripts as coming from a "reference". Transcripts flagged like this **will never be modified nor dropped during a mikado prepare run**, unless generic or critical errors are registered. Moreover, if source scores are provided, Mikado will preferentially keep one identical transcript from those that have the highest *a priori* score. This will allow to e.g. prioritise PacBio or reference assemblies during prepare.
+- Now Mikado will be forced to run in single-threaded mode if the user is asking for debugging-level logs.
+  This is to prevent a [re-entrancy race condition that causes deadlocks](https://codewithoutrules.com/2017/08/16/concurrency-python/).
+- During configure and prepare, Mikado can now flag some transcripts as coming from a "reference".
+  Transcripts flagged like this **will never be modified nor dropped during a mikado prepare run**, unless generic or
+  critical errors are registered. Moreover, if source scores are provided, Mikado will preferentially keep one identical
+  transcript from those that have the highest *a priori* score. This will allow to e.g. prioritise PacBio or reference
+  assemblies during prepare ([#141](https://github.com/EI-CoreBioinformatics/mikado/issues/141)).
   - Please note that this change **does not affect the final picking**, but rather is just a mechanism for allowing Mikado to accept pass-through data.
   - If you desire to prioritise reference transcripts, please directly assign a source score higher than 0 to these sets.
-- [#129](https://github.com/EI-CoreBioinformatics/mikado/issues/129): Mikado is now capable of correctly padding the transcripts so to uniform their ends in a single locus. This will also have the effect of trying to enlarge the ORF of a transcript if it is truncated to begin with.
-- [#142](https://github.com/EI-CoreBioinformatics/mikado/issues/142): padded transcripts will add terminal *exons* rather than just extending their terminal ends. This should prevent the creation of faux retained introns. Moreover, now the padding procedure will explicitly find and discard transcripts that would become invalid after padding (e.g. because they end up with a far too long UTR, or retained introns). If some of the invalid transcripts had been used as template for the expansion, Mikado will remove the offending transcripts and restart the procedure.
-  - As a consequence of fixing [#142](https://github.com/EI-CoreBioinformatics/mikado/issues/142), Transcript objects have been modified to expose the following methods related to the internal interval tree:
+  - Alternatively, use the `--only-update-reference` flag for having Mikado only try to add ASEs to known loci (see under *Mikado pick*)
+- Mikado runs should now be fully reproducible, by specifying a seed. One will be generated automatically by Mikado
+  when launching the configuration, so that repeated runs using the same configuration file will be deterministically identical. 
+- [#136](https://github.com/EI-CoreBioinformatics/mikado/issues/136): documentation has been updated to reflect the changes in the latest releases.  
+
+## Mikado prepare
+- Mikado will now always strip the CDS when a transcript is reversed ([#126](https://github.com/EI-CoreBioinformatics/mikado/issues/126)).
+- Mikado prepare now will *not* consider redundant transcripts that have the same cDNA but *different* CDS
+  ([#127](https://github.com/EI-CoreBioinformatics/mikado/issues/127)).
+- Mikado prepare will now ascertain whether a CDS has a valid start and/or stop codon, 
+  ([#132](https://github.com/EI-CoreBioinformatics/mikado/issues/132)) and will retain the original phase values
+  ([#133](https://github.com/EI-CoreBioinformatics/mikado/issues/133)).
+- Mikado prepare now will preferentially keep "reference" transcripts and transcripts with a higher source score, in this order.
+  Reference transcripts will be never discarded for failing a requirements check ([#141](https://github.com/EI-CoreBioinformatics/mikado/issues/141)).
+- Mikado prepare was not considering correctly GTFs without a `transcript` line feature ([#196](https://github.com/EI-CoreBioinformatics/mikado/issues/196)).
+- Mikado prepare now can accept models that lack any exon features but still have valid CDS/UTR features - this is necessary for some protein prediction tools.
+
+## Mikado serialise
+- Use of temporary SQLite databases for inter-process communication in Mikado serialise, with consequent speedup ([#97](https://github.com/EI-CoreBioinformatics/mikado/issues/97))
+- Fixed bugs related to Prodigal ORFs on the negative strand ([#181](https://github.com/EI-CoreBioinformatics/mikado/issues/181))
+- Now BLAST HSPs will have stored as well whether there is an in-frame stop codon.
+
+## Mikado pick
+
+- For the external scores, Mikado can now accept any type of numerical or boolean value. Mikado will understand at
+  serialisation time whether a particular score can be used raw (ie its values are strictly comprised between 0 and 1)
+  or whether it has to be forcibly scaled.
+  - This allows Mikado to use e.g. transcript expression as a valid metric.
+- Mikado is now capable of correctly padding the transcripts so to uniform their ends in a single locus. This will
+  also have the effect of trying to enlarge the ORF of a transcript if it is truncated to begin with. Please note that
+  padded transcripts will add terminal *exons* rather than just extending their terminal ends. This should prevent the
+  creation of faux retained introns. Moreover, now the padding procedure will explicitly find and discard transcripts
+  that would become invalid after padding (e.g. because they end up with a far too long UTR, or retained introns).
+  If some of the invalid transcripts had been used as template for the expansion, Mikado will remove the offending
+  transcripts and restart the procedure ([#129](https://github.com/EI-CoreBioinformatics/mikado/issues/129),
+  [#142](https://github.com/EI-CoreBioinformatics/mikado/issues/142)). Moreover:  
+  - As a consequence of this change, Transcript objects have been modified to expose the following methods related to the internal interval tree:
     - find/search (to find intersecting exonic or intronic intervals)
     - find_upstream (to find all intervals upstream of the requested one in the transcript)
     - find_downstream (to find all intervals downstream of the requested one in the transcript)
     - Moreover, transcript objects now do not have any more the unused "cds_introntree" property. Combined CDS and CDS introns are now present in the "cds_tree" object.
-  - Again as a consequence of [#142](https://github.com/EI-CoreBioinformatics/mikado/issues/142), now Locus objects have a new private method - _swap_transcript - that allows two Transcript objects with the same ID to be exchanged within the locus. This is essential to allow the Locus to recalculate most scores and metrics (e.g. all the exons or introns in the locus).
- - [#148](https://github.com/EI-CoreBioinformatics/mikado/issues/148): during the pick phase, "reference" transcripts will never be excluded because they do not pass the minimum requirements set in the scoring file.
- - [#149](https://github.com/EI-CoreBioinformatics/mikado/issues/149): Now Mikado also provides a Docker file and a Singularity recipe, for ease of installation.
- - [#153](https://github.com/EI-CoreBioinformatics/mikado/issues/153): General speed improvements due to modifications in the Transcript class.
- - [#166](https://github.com/EI-CoreBioinformatics/mikado/issues/166): Mikado compare has been greatly improved, with the addition of:
+  - Again as a consequence, now Locus objects have a new private method - _swap_transcript - that allows two Transcript
+    objects with the same ID to be exchanged within the locus. This is essential to allow the Locus to recalculate most
+    scores and metrics (e.g. all the exons or introns in the locus).
+- Fixed a bug which caused some loci to crash at the last part of the picking stage.
+- After picking, loci will be either coding or non-coding - no admixture.
+- Solved a bug which led Mikado to recalculate the phases for each model during picking, potentially creating mistakes
+  for models truncated at the 5' end ([#138](https://github.com/EI-CoreBioinformatics/mikado/issues/138)).
+- Transcript padding has been overhauled and bugfixes related to it fixed ([#124](https://github.com/EI-CoreBioinformatics/mikado/issues/124),
+  [#142](https://github.com/EI-CoreBioinformatics/mikado/issues/142)).
+- During scoring, it is now possible to specify conditions **related to a different metric** as a filtering option; moreover,
+  Mikado now will ignore for the purposes of scoring transcripts that have not passed the minimum filter.
+  See [#130](https://github.com/EI-CoreBioinformatics/mikado/issues/130) and documentation for details. 
+- Mikado pick now will backtrack if it realises that some loci have been lost due to chaining. 
+  Previously, Mikado could have missed loci if they were lost between the sublocus and monosublocus stages.
+  Now Mikado implements a basic backtracking recursive algorithm that should ensure no locus is missed.
+  This check happens during the last stage of the picking. ([#131](https://github.com/EI-CoreBioinformatics/mikado/issues/131))
+- Now all coding transcripts of a Mikado pick locus will share the same frame. Moreover,
+  **Mikado will now calculate the CDS overlap percentage based on the primary transcript CDS length**, not the minimum
+  CDS length between primary and candidate. Please note that the change **regarding the frame** also affects the monosublocus stage.
+  Mikado still considers only the primary ORFs for the overlap. ([#134](https://github.com/EI-CoreBioinformatics/mikado/issues/134))
+- Mikado pick was forgetting the original phases of transcripts, when not loading them from a database ([#138](https://github.com/EI-CoreBioinformatics/mikado/issues/138)).
+- Mikado pick will never discard a reference transcript for failing the requirements check. Moreover,
+  **it is now possible to instruct Mikado to only update a reference** rather than trying to come up with an annotation on its own.
+  When so instructed, Mikado pick will ignore any locus without a reference transcript, consider those as pass-through, and try to add
+  new transcripts that are compatible with the known loci ([#148](https://github.com/EI-CoreBioinformatics/mikado/issues/148)).
+- Mikado now contains only two scoring files, *plants.yaml* and *mammals.yaml* ([#155](https://github.com/EI-CoreBioinformatics/mikado/issues/155)).
+- Mikado pick now uses the [WAL](https://www.sqlite.org/wal.html) method for faster dispatching of data and to avoid crashes
+  ([#205](https://github.com/EI-CoreBioinformatics/mikado/issues/205)).
+- Corrected a long-standing bug that made Mikado lose track of some fragments during the fragment removal phase.
+  Somewhat confusingly, Mikado printed those loci into the output, but reported in the log file that there was a
+  "missing locus". Now Mikado is able to correctly keeping track of them and removing them.
+
+## Mikado compare
+
+- Mikado compare now reports statistics related to **non-redundant introns and intron chains**. This provides a better picture of the prediction in some instances, eg. when 
+  analysing IsoSeq/ONT runs.
+- Always in Mikado compare, possibility of considering "fuzzy matches" for the introns. This means that two transcripts might be considered as a "match" even if their introns
+  are slightly staggered. This helps e.g. when assessing imperfect data such as Nanopore, where the experimenter usually knows that the per-base precision is quite low.  
+- Switched to the lighter [msgpack](https://github.com/msgpack/msgpack-python) from ujson, with increase in performance, for the Mikado index ([#168](https://github.com/EI-CoreBioinformatics/mikado/issues/168))
+- Mikado compare has been greatly improved ([#166](https://github.com/EI-CoreBioinformatics/mikado/issues/166)), with the addition of:
 	- proper multiprocessing
-	- faster startup times
-	- possibility of considering "fuzzy matches" for the introns. This means that two transcripts might be considered as a "match" even if their introns are slightly staggered. This helps e.g. when assessing imperfect data such as Nanopore, where the experimenter usually knows that the per-base precision is quite low.
-	- the index has been modified, so that now gene objects are stored as [msgpack](https://github.com/msgpack/msgpack-python) json dumps rather than pure strings. This should make the indices smaller and faster to load.
+	- faster startup times   
+
+## Other
+
+- The `add_transcript_feature.py` script has been improved. It now automatically splits chimeric transcripts
+  and corrects mistakes related the intron size, mostly to deal with Nanopore reads ([#123](https://github.com/EI-CoreBioinformatics/mikado/issues/123))
+- Fixed some parsing errors for GTFs created by converting from BAM files ([#157](https://github.com/EI-CoreBioinformatics/mikado/issues/157))
+- Mikado util convert now functions with BAM files ([#197](https://github.com/EI-CoreBioinformatics/mikado/issues/197))
+- Mikado `util grep -v` functions also for GTFs ([#203](https://github.com/EI-CoreBioinformatics/mikado/issues/203))
 
 # Version 1.2.4
 

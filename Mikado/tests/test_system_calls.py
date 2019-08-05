@@ -4,7 +4,7 @@ import gzip
 import itertools
 import logging
 import os
-import random
+import numpy
 import sys
 import tempfile
 import unittest
@@ -17,8 +17,6 @@ from ..subprograms import configure as sub_configure
 from ..configuration import configurator, daijin_configurator
 from ..picking import picker
 from ..preparation import prepare
-from ..parsers import to_gff
-from ..exceptions import InvalidJson
 from ..scales.compare import compare, load_index
 from ..subprograms.util.stats import Calculator
 from ..subprograms.prepare import prepare_launcher
@@ -1080,8 +1078,9 @@ class ConfigureCheck(unittest.TestCase):
             with self.subTest(iteration=iteration):
                 dir = tempfile.TemporaryDirectory()
                 namespace.out_dir = dir.name
-                namespace.scoring = random.choice(
-                    pkg_resources.resource_listdir("Mikado.configuration", "scoring_files"))
+                scorers = sorted(pkg_resources.resource_listdir("Mikado.configuration", "scoring_files"))
+
+                namespace.scoring = scorers[numpy.random.choice(len(scorers))]
 
                 out = os.path.join(dir.name, "configuration.yaml")
                 with open(out, "wt") as out_handle:
@@ -1652,7 +1651,7 @@ class GrepTest(unittest.TestCase):
             ids = [tuple(line.rstrip().split("\t")) for line in id_file]
 
         id_temp_file = tempfile.NamedTemporaryFile("wt", suffix=".txt")
-        to_write = list(random.sample(ids, 10))
+        to_write = [ids[_] for _ in numpy.random.choice(len(ids), 10, replace=False)]
         [print(*idline, sep="\t", file=id_temp_file) for idline in to_write]
         id_temp_file.flush()
 
@@ -1680,7 +1679,7 @@ class GrepTest(unittest.TestCase):
             ids = [tuple(line.rstrip().split("\t")) for line in id_file]
 
         id_temp_file = tempfile.NamedTemporaryFile("wt", suffix=".txt")
-        to_write = list(random.sample(ids, 10))
+        to_write = [ids[_] for _ in numpy.random.choice(len(ids), 10, replace=False)]
         others = [_ for _ in ids if _ not in to_write]
         [print(*idline, sep="\t", file=id_temp_file) for idline in to_write]
         id_temp_file.flush()

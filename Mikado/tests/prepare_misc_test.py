@@ -66,6 +66,7 @@ class MiscTest(unittest.TestCase):
                               identifier=0,
                               fasta_out=self.fasta_out,
                               gtf_out=self.gtf_out,
+                              seed=None,
                               tmpdir=tempfile.gettempdir(),
                               log_level="DEBUG")
             proc.start()
@@ -108,6 +109,7 @@ class MiscTest(unittest.TestCase):
                 "gtf_out": self.gtf_out,
                 "tmpdir": tempfile.gettempdir(),
                 "fasta": self.fasta,
+                "seed": None,
                 "log_level": "WARNING"
                 }
 
@@ -204,6 +206,7 @@ class MiscTest(unittest.TestCase):
                               identifier=logger.name,
                               fasta_out=self.fasta_out,
                               gtf_out=self.gtf_out,
+                              seed=None,
                               tmpdir=tempfile.gettempdir(),
                               log_level="DEBUG")
             lines = dict()

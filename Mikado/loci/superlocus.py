@@ -481,14 +481,6 @@ class Superlocus(Abstractlocus):
             ver_introns = dict(((junc.junction_start, junc.junction_end), junc.strand)
                                for junc in ver_introns)
 
-            # ver_introns = set((junc.junction_start, junc.junction_end) for junc in
-            #                   self.junction_baked(self.session).params(
-            #                       chrom=self.chrom,
-            #                       strand=self.strand,
-            #                       junctionStart=self.start,
-            #                       junctionEnd=self.end
-            #                     ))
-
             self.logger.debug("Found %d verifiable introns for %s",
                               len(ver_introns), self.id)
 

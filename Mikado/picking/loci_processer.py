@@ -1,6 +1,7 @@
 from multiprocessing import Process
 from multiprocessing.managers import AutoProxy
 import logging
+import numpy
 from itertools import product
 import logging.handlers as logging_handlers
 import functools
@@ -639,6 +640,7 @@ class LociProcesser(Process):
 
         # current_counter, gene_counter, current_chrom = shared_values
         super(LociProcesser, self).__init__()
+
         self.logging_queue = logging_queue
         self.__identifier = identifier  # Property directly unsettable
         self.name = "LociProcesser-{0}".format(self.identifier)
@@ -649,7 +651,6 @@ class LociProcesser(Process):
         self.logger.setLevel(self.json_conf["log_settings"]["log_level"])
         self.logger.propagate = False
         self._tempdir = tempdir
-
         self.__data_dict = data_dict
         self.locus_queue = locus_queue
         # self.lock = lock
@@ -743,8 +744,11 @@ class LociProcesser(Process):
         self.handler.close()
 
         for group in self._handles:
-            [_.flush() for _ in group if hasattr(_, "flush") and _.closed is False]
-            [_.close() for _ in group if hasattr(_, "close") and _.closed is False]
+            try:
+                [_.flush() for _ in group if hasattr(_, "flush") and _.closed is False]
+                [_.close() for _ in group if hasattr(_, "close") and _.closed is False]
+            except ValueError:
+                pass  # This is for when we are terminating Mikado due to a crash.
         if self.engine is not None:
             self.engine.dispose()
 

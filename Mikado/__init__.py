@@ -122,6 +122,10 @@ by Cufflinks's cuffcompare and ParsEval.")
         logger = create_default_logger("main")
         logger.error("Mikado crashed, cause:")
         logger.exception(exc)
+        import multiprocessing as mp
+        for child in mp.active_children():
+            child.terminate()
+
         sys.exit(1)
 
 if __name__ == '__main__':

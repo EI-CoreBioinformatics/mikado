@@ -6,7 +6,7 @@ but at the same time more pythonic.
 """
 
 
-import random
+import numpy
 import os
 from Bio import Seq
 import Bio.SeqRecord
@@ -1032,7 +1032,7 @@ class Bed12Parser(Parser):
         if isinstance(fasta_index, dict):
             # check that this is a bona fide dictionary ...
             assert isinstance(
-                fasta_index[random.sample(fasta_index.keys(), 1)],
+                fasta_index[numpy.random.choice(fasta_index.keys(), 1)],
                 Bio.SeqRecord.SeqRecord)
         elif fasta_index is not None:
             if isinstance(fasta_index, str):

@@ -39,6 +39,7 @@ from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
 import pickle
 import warnings
 import pyfaidx
+import numpy
 logging.captureWarnings(True)
 warnings.simplefilter("always")
 import sqlite3
@@ -98,6 +99,10 @@ class Picker:
 
         # self.setup_logger()
         self.logger.info("Random seed: %s", self.json_conf["seed"])
+        if self.json_conf["seed"] is not None:
+            numpy.random.seed((self.json_conf["seed"]) % (2 ** 32 - 1))
+        else:
+            numpy.random.seed(None)
         self.logger.debug("Multiprocessing method: %s",
                          self.json_conf["multiprocessing_method"])
 
@@ -824,15 +829,18 @@ memory intensive, proceed with caution!")
         transcripts = json.dumps([_.as_dict() for _ in transcripts])
         cursor.execute("INSERT INTO transcripts VALUES (?, ?)", (counter, transcripts))
         conn.commit()
-
         return
 
     @staticmethod
     def _create_temporary_store(tempdirectory):
 
-        conn = sqlite3.connect(os.path.join(tempdirectory, "temp_store.db"))
+        conn = sqlite3.connect(os.path.join(tempdirectory, "temp_store.db"),
+                               isolation_level="DEFERRED",
+                               timeout=60,
+                               check_same_thread=False  # Necessary for SQLite3 to function in multiprocessing
+                               )
         cursor = conn.cursor()
-        # cursor.execute("PRAGMA journal_mode=wal")
+        cursor.execute("PRAGMA journal_mode=wal")
         cursor.execute("CREATE TABLE transcripts (counter integer, json blob)")
         cursor.execute("CREATE INDEX tid_idx on transcripts(counter)")
 
@@ -905,7 +913,11 @@ memory intensive, proceed with caution!")
                         invalid = True
                 elif row.is_transcript is True:
                     if current_transcript is not None and invalid is False:
-                        self.__test_sortedness(row, current_transcript)
+                        try:
+                            self.__test_sortedness(row, current_transcript)
+                        except UnsortedInput:
+                            [_.terminate() for _ in working_processes]
+                            raise
                         if current_locus is not None and Superlocus.in_locus(
                                 current_locus, current_transcript,
                                 flank=self.json_conf["pick"]["clustering"]["flank"]) is True:
@@ -1206,6 +1218,7 @@ memory intensive, proceed with caution!")
         except UnsortedInput as _:
             self.logger.error(
                 "The input files were not properly sorted! Please run prepare and retry.")
+
             sys.exit(1)
 
         # list(map(job.get() for job in jobs if job is not None))

@@ -1,0 +1,216 @@
+#  This is a standard configuration file for Daijin. Fields:
+#  - short_reads: this section deals with RNA-Seq short read input data.
+#  - name: name of the species under analysis.
+#  - reference: reference data to use. A reference genome is required.
+align_methods: {}
+asm_methods:
+  trinitydn: false
+blastx:
+  chunks: 1
+  evalue: 1.0e-07
+  max_target_seqs: 10
+  prot_db:
+  - uniprot_sprot_plants.fasta
+db_settings:
+  #  Settings related to DB connection. Parameters:
+  #  db: the DB to connect to. Required. Default: mikado.db
+  #  dbtype: Type of DB to use. Choices: sqlite, postgresql, mysql. Default: sqlite.
+  #  dbhost: Host of the database. Unused if dbtype is sqlite. Default: localhost
+  #  dbuser: DB user. Default: 
+  #  dbpasswd: DB password for the user. Default: 
+  #  dbport: Integer. It indicates the default port for the DB.
+  db: /tmp/mikado.db
+  dbtype: sqlite
+extra:
+  #  Options related to indexing.
+  star_index: ''
+long_read_align_methods: {}
+long_reads:
+  #  Parameters related to long reads to use for the assemblies.
+  files: []
+  samples: []
+  skip_split: true
+  strandedness: []
+mikado:
+  db_settings:
+    #  Settings related to DB connection. Parameters:
+    #  db: the DB to connect to. Required. Default: mikado.db
+    #  dbtype: Type of DB to use. Choices: sqlite, postgresql, mysql. Default: sqlite.
+    #  dbhost: Host of the database. Unused if dbtype is sqlite. Default: localhost
+    #  dbuser: DB user. Default: 
+    #  dbpasswd: DB password for the user. Default: 
+    #  dbport: Integer. It indicates the default port for the DB.
+    db: mikado.db
+    dbhost: localhost
+    dbpasswd: ''
+    dbport: 0
+    dbtype: sqlite
+    dbuser: ''
+  modes:
+  - permissive
+  use_diamond: true
+  use_prodigal: true
+name: Daijin
+out_dir: Daijin
+pick:
+  #  Parameters related to the Mikado pick stage.
+  #  - alternative_splicing: Parameters related to which AS events to consider as
+  #  valid during picking.
+  #  - chimera_split: parameters related to splitting of transcripts in the presence
+  #  of multiple ORFs
+  #  - files: input and output files
+  #  - run_options: generic options related to the run, eg number of processors to
+  #  use.
+  #  - scoring_file: a scoring file for the analysis. Default: plant.yaml.
+  alternative_splicing:
+    #  Parameters related to alternative splicing reporting.
+    #  - report: whether to report at all or not the AS events.
+    #  - max_isoforms: Maximum number of isoforms per locus. 1 implies no AS reported.
+    #  Default: 3
+    #  - only_confirmed_introns: bring back AS events only when their introns are
+    #  either
+    #   present in the primary transcript or in the set of confirmed introns.
+    max_isoforms: 5
+    only_confirmed_introns: true
+    pad: true
+    report: true
+  chimera_split:
+    #  Parameters related to the splitting of transcripts in the presence of
+    #  two or more ORFs. Parameters:
+    #  - execute: whether to split multi-ORF transcripts at all. Boolean.
+    #  - blast_check: whether to use BLAST information to take a decision. See blast_params
+    #  for details.
+    #  - blast_params: Parameters related to which BLAST data we want to analyse.
+    blast_check: true
+    blast_params:
+      #  Parameters for the BLAST check prior to splitting.
+      #  - evalue: Minimum evalue for the whole hit. Default: 1e-6
+      #  - leniency: One of STRINGENT, LENIENT, PERMISSIVE. Default: LENIENT
+      #  - max_target_seqs: maximum number of hits to consider. Default: 3
+      {}
+    execute: true
+  clustering:
+    #  Parameters related to the clustering of transcripts into loci.
+    #  - flank: maximum distance for transcripts to be clustered within the same superlocus.
+    {}
+  files:
+    #  Input and output files for Mikado pick.
+    #  - gff: input GTF/GFF3 file. Default: mikado_prepared.gtf
+    #  - loci_out: output GFF3 file from Mikado pick. Default: mikado.loci.gff3
+    #  - subloci_out: optional GFF file with the intermediate subloci. Default: no
+    #  output
+    #  - monoloci_out: optional GFF file with the intermediate monoloci. Default:
+    #  no output
+    #  - log: log file for this step.
+    input: mikado_prepared.gtf
+  fragments:
+    #  Parameters related to the handling of fragments.
+    #  - remove: boolean. Whether to remove fragments or leave them, properly tagged.
+    {}
+  run_options:
+    #  Generic run options.
+    #  - procs: number of processes to use. Default: 1
+    #  - intron_range: A range where most of the introns (99%) should fall into. Transcripts
+    #  with too many
+    #   introns larger or smaller than what is defined in this range will be penalised
+    #   in the scoring. Default: [60, 900]
+    #  - preload: boolean flag. If set, the whole database will be preloaded into
+    #  memory for potentially faster access.
+    #  - single_thread: boolean flag. If set, multithreading will be disabled - useful
+    #  for profiling and debugging.
+    #  - flank: DEPRECATED. Now set in the clustering section.
+    procs: 1
+    single_thread: false
+  scoring_file: plant.yaml
+portcullis:
+  #  Options related to portcullis
+  canonical_juncs: C,S
+  do: true
+prepare:
+  #  Options related to the input data preparation.
+  #  - procs: Number of processes to use.
+  #  - strand_specific: if set to True, transcripts will be assumed to be in the correct
+  #  orientation, no strand flipping or removal
+  #  - strip_cds: Boolean. It indicates whether to remove the CDS from the predictions
+  #  during preparation.
+  files:
+    gff:
+    - class.gtf
+    - cufflinks.gtf
+    - stringtie.gtf
+    - trinity.gff3
+    labels:
+    - cl
+    - cuff
+    - st
+    - tr
+    log: prepare.log
+    out: mikado_prepared.gtf
+    out_fasta: mikado_prepared.fasta
+    output_dir: .
+    reference:
+    - st
+    source_score:
+      cl: 0
+      cuff: 0
+      st: 1.0
+      tr: -0.5
+    strand_specific_assemblies:
+    - class.gtf
+    - cufflinks.gtf
+    - stringtie.gtf
+  procs: 1
+  strand_specific: false
+reference:
+  genome: chr5.fas.gz
+  genome_fai: ''
+  transcriptome: ''
+scheduler: ''
+seed: 1841739094
+serialise:
+  #  Options related to serialisation
+  #  - force: whether to drop and reload everything into the DB
+  #  - max_regression: if the ORF lacks a valid start site, this percentage indicates
+  #  how far
+  #    along the sequence Mikado should look for a good start site. Eg. with a value
+  #  of 0.1,
+  #    on a 300bp sequence with an open ORF Mikado would look for an alternative in-frame
+  #  start codon
+  #    in the first 30 bps (10% of the cDNA).
+  #  - procs: Number of processors to use. Default: 1.
+  files:
+    blast_targets:
+    - uniprot_sprot_plants.fasta
+    external_scores: null
+    junctions:
+    - junctions.bed
+    log: serialise.log
+    orfs: []
+    output_dir: .
+    transcripts: mikado_prepared.fasta
+    xml: []
+  max_regression: 0.1
+  procs: 1
+short_reads:
+  #  Parameters related to the reads to use for the assemblies. Voices:
+  #  - r1: array of left read files.
+  #  - r2: array of right read files. It must be of the same length of r1; if one
+  #    one or more of the samples are single-end reads, add an empty string.
+  #  - samples: array of the sample names. It must be of the same length of r1.
+  #  - strandedness: array of strand-specificity of the samples. It must be of the
+  #    same length of r1. Valid values: fr-firststrand, fr-secondstrand, fr-unstranded.
+  r1: []
+  r2: []
+  samples: []
+  strandedness: []
+tgg:
+  #  Options related to genome-guided Trinity.
+  coverage: 0.7
+  identity: 0.95
+  max_mem: 6000
+  npaths: 0
+threads: 3
+transdecoder:
+  execute: true
+  min_protein_len: 30
+

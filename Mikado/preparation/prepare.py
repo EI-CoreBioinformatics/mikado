@@ -8,17 +8,17 @@ import operator
 import collections
 from .. import exceptions
 import logging.handlers
-import random
+import numpy
 import functools
 import multiprocessing
 import multiprocessing.connection
 import multiprocessing.sharedctypes
-import pyfaidx
 import logging
 from ..utilities import path_join, merge_partial
 from collections import Counter
 import sqlite3
 import pysam
+import numpy as np
 try:
     import ujson as json
 except ImportError:
@@ -42,7 +42,7 @@ def __cleanup(args, shelves):
     [os.remove(fname) for fname in shelves if os.path.exists(fname)]
 
 
-def store_transcripts(shelf_stacks, logger, keep_redundant=False):
+def store_transcripts(shelf_stacks, logger, keep_redundant=False, seed=None):
 
     """
     Function that analyses the exon lines from the original file
@@ -88,12 +88,19 @@ def store_transcripts(shelf_stacks, logger, keep_redundant=False):
                     strand, features = next(shelf_stacks[shelf]["cursor"].execute(
                         "select strand, features from dump where tid = ?", (tid,)))
                     features = json.loads(features)
-                    exon_set = tuple(sorted([(exon[0], exon[1], strand) for exon in
-                                            features["features"]["exon"]],
-                                            key=operator.itemgetter(0, 1)))
+                    try:
+                        exon_set = tuple(sorted([(exon[0], exon[1], strand) for exon in
+                                                features["features"]["exon"]],
+                                                key=operator.itemgetter(0, 1)))
+                    except (TypeError, IndexError, ValueError):
+                        logger.error("Error in analysing %s. Skipping",
+                                     tid)
+                        continue
                     exons[exon_set].append((tid, shelf, score, is_reference))
                     di_features[tid] = features
                 tids = []
+                if len(exons) == 0:
+                    continue
                 logger.debug("%d exon chains for pos %s",
                              len(exons), "{}:{}-{}".format(chrom, key[0], key[1]))
                 for tid_list in exons.values():
@@ -113,8 +120,9 @@ def store_transcripts(shelf_stacks, logger, keep_redundant=False):
                             to_keep = [_ for _ in cds_list if _[3] is True]
                             if len(to_keep) == 0:
                                 max_score = max([_[2] for _ in cds_list])
-                                cds_list = [_ for _ in cds_list if _[2] == max_score]
-                                to_keep = [random.choice(cds_list)]
+                                cds_list = sorted([_ for _ in cds_list if _[2] == max_score])
+                                np.random.seed(seed)
+                                to_keep = [cds_list[numpy.random.choice(len(cds_list))]]
 
                             for tid in cds_list:
                                 if tid not in to_keep:
@@ -191,7 +199,7 @@ def perform_check(keys, shelve_stacks, args, logger):
     else:
         # pylint: disable=no-member
 
-        submission_queue = multiprocessing.Queue(-1)
+        submission_queue = multiprocessing.JoinableQueue(-1)
 
         working_processes = [CheckingProcess(
             submission_queue,
@@ -201,6 +209,7 @@ def perform_check(keys, shelve_stacks, args, logger):
             os.path.basename(args.json_conf["prepare"]["files"]["out_fasta"].name),
             os.path.basename(args.json_conf["prepare"]["files"]["out"].name),
             args.tempdir.name,
+            seed=args.json_conf["seed"],
             lenient=args.json_conf["prepare"]["lenient"],
             canonical_splices=args.json_conf["prepare"]["canonical"],
             log_level=args.level) for _ in range(args.json_conf["prepare"]["procs"])]
@@ -310,7 +319,8 @@ def _load_exon_lines_multi(args, shelve_names, logger, min_length, strip_cds, th
                                 log_level=args.level,
                                 min_length=min_length,
                                 max_intron=max_intron,
-                                strip_cds=strip_cds)
+                                strip_cds=strip_cds,
+                                seed=args.json_conf["seed"])
         proc.start()
         working_processes.append(proc)
 
@@ -470,6 +480,7 @@ def prepare(args, logger):
         sorter = functools.partial(
             store_transcripts,
             logger=logger,
+            seed=args.json_conf["seed"],
             keep_redundant=args.json_conf["prepare"]["keep_redundant"]
         )
 

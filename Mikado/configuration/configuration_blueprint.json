@@ -4,7 +4,8 @@
   "type": "object",
   "properties": {
     "SimpleComment": {"type": "object", "properties": {},
-      "SimpleComment": ["Configuration file for Mikado. Please note that absent values, e.g. if a field is deleted, will be imputed by the default values for the program.",
+      "SimpleComment": [
+        "Configuration file for Mikado. Please note that absent values, e.g. if a field is deleted, will be imputed by the default values for the program.",
       "Sections:",
       "- log_settings: settings related to the verbosity of logs.",
       "- db_settings: Database settings, for Mikado serialise and pick.",
@@ -12,7 +13,7 @@
       "- prepare: settings related to the Mikado prepare stage",
       "- serialise: settings related to the Mikado serialise stage",
       "- pick: settings related to the Mikado pick stage",
-    "- multiprocessing_method: which method (fork, spawn, forkserver) Mikado should use for multiprocessing."],
+      "- multiprocessing_method: which method (fork, spawn, forkserver) Mikado should use for multiprocessing."],
     "Comment": ["Configuration file for Mikado.  Please note that absent values, e.g. if a field is deleted, will be imputed by the default values for the program.",
       "Sections:",
       "- log_settings: settings related to the verbosity of logs.",
@@ -35,10 +36,8 @@
     "log_settings": {
       "Comment": [
         "Settings related to the logs. Keys:",
-        "- sql_level: verbosity for SQL calls. Default: WARNING.",
-        "  In decreasing order: 'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'",
-        "- log_level: verbosity. Default: INFO.",
-        "  In decreasing order: 'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'"
+        "- sql_level: verbosity for SQL calls. Default: WARNING. In decreasing order: 'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'",
+        "- log_level: verbosity. Default: INFO. In decreasing order: 'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'"
       ],
       "type": "object",
       "properties": {
@@ -72,21 +71,21 @@
     "db_settings": {
       "Comment": [
         "Settings related to DB connection. Parameters:",
-        "db: the DB to connect to. Required. Default: mikado.db",
-        "dbtype: Type of DB to use. Choices: sqlite, postgresql, mysql. Default: sqlite.",
-        "dbhost: Host of the database. Unused if dbtype is sqlite. Default: localhost",
-        "dbuser: DB user. Default: ''",
-        "dbpasswd: DB password for the user. Default: ''",
-        "dbport: Integer. It indicates the default port for the DB."
+        "- db: the DB to connect to. Required. Default: mikado.db",
+        "- dbtype: Type of DB to use. Choices: sqlite, postgresql, mysql. Default: sqlite.",
+        "- dbhost: Host of the database. Unused if dbtype is sqlite. Default: localhost",
+        "- dbuser: DB user. Default: ''",
+        "- dbpasswd: DB password for the user. Default: ''",
+        "- dbport: Integer. It indicates the default port for the DB."
       ],
       "SimpleComment": [
         "Settings related to DB connection. Parameters:",
-        "db: the DB to connect to. Required. Default: mikado.db",
-        "dbtype: Type of DB to use. Choices: sqlite, postgresql, mysql. Default: sqlite.",
-        "dbhost: Host of the database. Unused if dbtype is sqlite. Default: localhost",
-        "dbuser: DB user. Default: ''",
-        "dbpasswd: DB password for the user. Default: ''",
-        "dbport: Integer. It indicates the default port for the DB."
+        "- db: the DB to connect to. Required. Default: mikado.db",
+        "- dbtype: Type of DB to use. Choices: sqlite, postgresql, mysql. Default: sqlite.",
+        "- dbhost: Host of the database. Unused if dbtype is sqlite. Default: localhost",
+        "- dbuser: DB user. Default: ''",
+        "- dbpasswd: DB password for the user. Default: ''",
+        "- dbport: Integer. It indicates the default port for the DB."
       ],
       "type": "object",
       "properties": {
@@ -306,32 +305,25 @@
             "Parameters related to alternative splicing reporting.",
             "- report: whether to report at all or not the AS events.",
             "- min_cds_overlap: minimum overlap between the CDS of the primary transcript and any AS event. Default: 60%.",
-            "- min_cdna_overlap: minimum overlap between the CDNA of the primary transcript and any AS event.",
-            "Default: 0% i.e. disabled, we check for the CDS overlap.",
-            "- keep_retained_introns: Whether to consider as valid AS events where one intron",
-            "is retained compared to the primary or any other valid AS. Default: false.",
+            "- min_cdna_overlap: minimum overlap between the CDNA of the primary transcript and any AS event. Default: 0% i.e. disabled, we check for the CDS overlap.",
+            "- keep_retained_introns: Whether to consider as valid AS events where one intron is retained compared to the primary or any other valid AS. Default: false.",
             "- max_isoforms: Maximum number of isoforms per locus. 1 implies no AS reported. Default: 3",
             "- valid_ccodes: Valid class codes for AS events. Valid codes are in categories",
             "'Alternative splicing', 'Extension' (with junction F1 lower than 100%), and Overlap (exluding m). Default: j, J, g, G, C, h",
             "- max_utr_length: Maximum length of the UTR for AS events. Default: 10e6 (i.e. no limit)",
             "- max_fiveutr_length: Maximum length of the 5'UTR for AS events. Default: 10e6 (i.e. no limit)",
             "- max_threeutr_length: Maximum length of the 5'UTR for AS events. Default: 10e6 (i.e. no limit)",
-            "- min_score_perc: Minimum score threshold for subsequent AS events.",
-            " Only transcripts with a score at least (best) * value are retained.",
-            "- only_confirmed_introns: bring back AS events only when their introns are either",
-            " present in the primary transcript or in the set of confirmed introns.",
+            "- min_score_perc: Minimum score threshold for subsequent AS events. Only transcripts with a score at least (best) * value are retained.",
+            "- only_confirmed_introns: bring back AS events only when their introns are either present in the primary transcript or in the set of confirmed introns.",
             "- pad: boolean switch. If true, Mikado will pad all the transcript in a gene so that their ends are the same",
-            "- ts_distance: if padding, this is the maximum distance in base-pairs between the starts of transcripts",
-            "  to be considered to be padded together.",
-            "- ts_max_splices: if padding, this is the maximum amount of splicing junctions that the transcript to pad",
-            " is allowed to cross. If padding would lead to cross more than this number, the transcript will not be padded."
+            "- ts_distance: if padding, this is the maximum distance in base-pairs between the starts of transcripts to be considered to be padded together.",
+            "- ts_max_splices: if padding, this is the maximum amount of splicing junctions that the transcript to pad is allowed to cross. If padding would lead to cross more than this number, the transcript will not be padded."
           ],
           "SimpleComment": [
             "Parameters related to alternative splicing reporting.",
             "- report: whether to report at all or not the AS events.",
             "- max_isoforms: Maximum number of isoforms per locus. 1 implies no AS reported. Default: 3",
-            "- only_confirmed_introns: bring back AS events only when their introns are either",
-            " present in the primary transcript or in the set of confirmed introns."
+            "- only_confirmed_introns: bring back AS events only when their introns are either present in the primary transcript or in the set of confirmed introns."
           ],
           "required": ["report", "max_isoforms", "only_confirmed_introns"],
           "type": "object",
@@ -469,12 +461,9 @@
           "type": "object",
           "Comment": [
             "Parameters related to ORF loading.",
-            "- minimal_secondary_orf_length: Minimum length of a *secondary* ORF",
-            "  to be loaded after the first, in bp. Default: 200 bps",
-            "- minimal_orf_length: Minimum length in bps of an ORF to be loaded,",
-            "  as the primary ORF, onto a transcript. Default: 50 bps",
-            "- strand_specific: Boolean flag. If set to true, monoexonic transcripts",
-            "  will not have their ORF reversed even if they would have an ORF on the opposite strand."
+            "- minimal_secondary_orf_length: Minimum length of a *secondary* ORF to be loaded after the first, in bp. Default: 200 bps",
+            "- minimal_orf_length: Minimum length in bps of an ORF to be loaded, as the primary ORF, onto a transcript. Default: 50 bps",
+            "- strand_specific: Boolean flag. If set to true, monoexonic transcripts will not have their ORF reversed even if they would have an ORF on the opposite strand."
           ],
           "properties": {
             "minimal_secondary_orf_length": {
@@ -531,9 +520,7 @@
                 "- leniency: One of 'STRINGENT', 'LENIENT', 'PERMISSIVE'. Default: LENIENT",
                 "- max_target_seqs: maximum number of hits to consider. Default: 3",
                 "- minimal_hsp_overlap: minimum overlap of the ORF with the HSP (*not* reciprocal). Default: 0.8, i.e. 80%",
-                "- min_overlap_duplication: minimum overlap (in %) for two ORFs to consider them as target duplications.",
-                "  This means that if two ORFs have no HSPs in common, but the coverage of their disjoint HSPs covers more",
-                "  Than this % of the length of the *target*, they represent most probably a duplicated gene."
+                "- min_overlap_duplication: minimum overlap (in %) for two ORFs to consider them as target duplications. This means that if two ORFs have no HSPs in common, but the coverage of their disjoint HSPs covers more than this % of the length of the *target*, they represent most probably a duplicated gene."
               ],
               "SimpleComment": [
                 "Parameters for the BLAST check prior to splitting.",
@@ -592,29 +579,22 @@
           "Comment": [
             "Generic run options.",
             "- shm: boolean flag. If set and the DB is sqlite, it will be copied onto the /dev/shm faux partition",
-            "- shm_db: String. It indicates a DB that has to be copied onto SHM and left there for",
-            "  concurrent Mikado runs.",
-            "- shm_shared: boolean flag. If set, the database loaded onto SHM will be shared and should not be",
-            "  deleted at the end of the run (see shm_db).",
-            "  for faster access. Default: false",
+            "- shm_db: String. It indicates a DB that has to be copied onto SHM and left there for concurrent Mikado runs.",
+            "- shm_shared: boolean flag. If set, the database loaded onto SHM will be shared and should not be deleted at the end of the run (see shm_db). Default: false",
             "- exclude_cds: boolean flag. If set, the CDS information will not be printed in Mikado output. Default: false",
             "- procs: number of processes to use. Default: 1",
-            "- preload: boolean flag. If set, the whole database will be preloaded into memory for faster access. Useful when",
-            "  using SQLite databases.",
+            "- intron_range: A range where most of the introns (99%) should fall into. Transcripts with too many introns larger or smaller than what is defined in this range will be penalised in the scoring. Default: [60, 900]",
+            "- preload: boolean flag. If set, the whole database will be preloaded into memory for faster access. Useful when using SQLite databases.",
+            "- only_reference_update: boolean flag. If set, Mikado pick will **only** consider loci that contain reference transcripts, with the purpose of adding potential, compatible ASEs that are present in the other inputs. Any locus which does not contain any reference transcript will be completely ignored.",
             "- single_thread: boolean flag. If set, multithreading will be disabled - useful for profiling and debugging.",
-            "- consider_truncated_for_retained: boolean. Normally, Mikado considers only exons which span a whole intron as possible retained intron events. If this flag is set to true, also terminal exons will be considered.",
-            "- remove_overlapping_fragments: DEPRECATED, see clustering.",
-            "- purge: DEPRECATED, see clustering."
+            "- consider_truncated_for_retained: boolean. Normally, Mikado considers only exons which span a whole intron as possible retained intron events. If this flag is set to true, also terminal exons will be considered."
           ],
           "SimpleComment": [
             "Generic run options.",
             "- procs: number of processes to use. Default: 1",
-            "- intron_range: A range where most of the introns (99%) should fall into. Transcripts with too many",
-            " introns larger or smaller than what is defined in this range will be penalised",
-            " in the scoring. Default: [60, 900]",
+            "- intron_range: A range where most of the introns (99%) should fall into. Transcripts with too many introns larger or smaller than what is defined in this range will be penalised in the scoring. Default: [60, 900]",
             "- preload: boolean flag. If set, the whole database will be preloaded into memory for potentially faster access.",
-            "- single_thread: boolean flag. If set, multithreading will be disabled - useful for profiling and debugging.",
-            "- flank: DEPRECATED. Now set in the clustering section."
+            "- single_thread: boolean flag. If set, multithreading will be disabled - useful for profiling and debugging."
           ],
           "properties": {
             "shm": {
@@ -673,9 +653,7 @@
             "- flank: maximum distance for transcripts to be clustered within the same superlocus.",
             "- remove_overlapping_fragments: boolean, it specifies whether to remove putative fragments.",
             "- purge: boolean, it specifies whether to remove transcripts which fail the minimum requirements check - or whether to ignore those requirements altogether.",
-            "- simple_overlap_for_monoexonic: boolean. If set to true (default), then any overlap mean inclusion",
-            "in a locus for or against a monoexonic transcript. If set to false, normal controls for the percentage",
-            "of overlap will apply.",
+            "- simple_overlap_for_monoexonic: boolean. If set to true (default), then any overlap mean inclusion in a locus for or against a monoexonic transcript. If set to false, normal controls for the percentage of overlap will apply.",
             "- max_distance_for_fragments: maximum distance from a valid locus for another to be considered a fragment."
           ],
           "SimpleComment": [
@@ -719,9 +697,8 @@
             "Comment": ["Parameters related to the handling of fragments.",
             "- remove: boolean. Whether to remove fragments or leave them, properly tagged.",
             "- max_distance: maximum distance of a putative fragment from a valid gene.",
-            "- valid_class_codes: which class codes will be considered as fragments. Default:",
-            "(p, P, x, X, i, m, _). Choices: '_' plus any class code with category",
-             "'Intronic', 'Fragment', or 'Overlap'."],
+            "- valid_class_codes: which class codes will be considered as fragments. Default: (p, P, x, X, i, m, _). Choices: '_' plus any class code with category 'Intronic', 'Fragment', or 'Overlap'."
+            ],
             "SimpleComment": ["Parameters related to the handling of fragments.",
             "- remove: boolean. Whether to remove fragments or leave them, properly tagged."],
             "properties": {

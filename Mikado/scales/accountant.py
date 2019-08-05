@@ -1135,24 +1135,24 @@ class Accountant:
             print("", file=out)
 
             # noinspection PyTypeChecker
-            print(self.__format_comparison_line("Missed transcripts",
+            print(self.__format_comparison_line("Missed transcripts (0% nF1)",
                                                 gene_transcript_results["ref"]["private"][0],
                                                 gene_transcript_results["ref"]["total"]),
                   file=out)
 
             # noinspection PyTypeChecker
-            print(self.__format_comparison_line("Novel transcripts",
+            print(self.__format_comparison_line("Novel transcripts (0% nF1)",
                                                 gene_transcript_results["pred"]["private"][0],
                                                 gene_transcript_results["pred"]["total"]),
                   file=out)
 
             # noinspection PyTypeChecker
-            print(self.__format_comparison_line("Missed genes",
+            print(self.__format_comparison_line("Missed genes (0% nF1)",
                                                 gene_transcript_results["ref"]["private"][1],
                                                 len(self.ref_genes)), file=out)
 
             # noinspection PyTypeChecker
-            print(self.__format_comparison_line("Novel genes",
+            print(self.__format_comparison_line("Novel genes (0% nF1)",
                                                 gene_transcript_results["pred"]["private"][1],
                                                 len(self.pred_genes)), file=out)
 

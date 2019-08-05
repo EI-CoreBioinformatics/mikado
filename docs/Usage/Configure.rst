@@ -20,49 +20,30 @@ Command line parameters:
 
 * *full*: By default, Mikado configure will output a stripped-down configuration file, with only some of the fields explicitly present. Use this flag to show all the available fields.
 
-.. hint:: If a parameter is not explicitly present, its value will be set to the available default.
-
-* *external*: an external JSON/YAML file from which Mikado should recover parameters. If something is specified both on the command line and in the external configuration file, **command line options take precedence**.
-* *reference*: Reference genome FASTA file. Required for the correct functioning of Mikado.
-* *gff*: list of GFFs/GTFs of the assemblies to use for Mikado, comma separated.
-* *labels*: optional list of labels to be assigned to each assembly. The label will be also the "source" field in the output of :ref:`Mikado prepare <prepare>`.
-* *strand-specific-assemblies*: list of strand specific assemblies among those specified with the *gff* flag.
-* *strand-specific*: flag. If set, all assemblies will be treated as strand-specific.
-* *list*: in alternative to specifying all the information on the command line, it is possible to give to Mikado a *tab-separated* file with the following contents:
-   #. Location of the file
-   #. label for the file
-   #. whether that assembly is strand-specific or not (write True/False)
-   #. Optionally, a bonus/malus to be associated to transcripts coming from that assembly.
-   #. Optionally, signalling that the assembly is of "reference" quality and therefore its models should be passed through without modifications.
-* *-j*, *json*: flag. If present, the output file will be in JSON rather that YAML format.
-* *mode*: in which mode :ref:`Mikado pick <pick>` will run. See the :ref:`relative section <chimera_splitting>` for further details.
-* *scoring*: scoring file to be used for selection. At the moment, four configuration files are present:
-   * plants
-   * human
-   * worm
-   * insects
-* *copy-scoring*: this flag specifies a file the scoring file will be copied to. Useful for customisation on new species. The configuration file will account for this and list the location of the *copied* file as the scoring file to be used for the run.
-* *junctions*: Reliable junctions derived from the RNA-Seq alignments. Usually obtained through Portcullis_, but we also support eg junctions from Tophat2. This file must be in BED12_ format.
-* *blast_targets*: FASTA database of blast targets, for the serialisation stage.
-
 Usage:
 
-.. code-block:: bash
+.. code-block::
 
     $ mikado configure --help
-    usage: Mikado configure [-h] [--full]
-                            [--scoring {insects.yaml,human.yaml,plants.yaml,worm.yaml}]
-                            [--copy-scoring COPY_SCORING] [--strand-specific]
+    usage: Mikado configure [-h] [--full] [--seed SEED]
+                            [--minimum-cdna-length MINIMUM_CDNA_LENGTH]
+                            [--max-intron-size MAX_INTRON_LENGTH]
+                            [--scoring SCORING] [--copy-scoring COPY_SCORING]
+                            [-i INTRON_RANGE INTRON_RANGE] [--no-pad]
+                            [--strand-specific]
                             [--no-files | --gff GFF | --list LIST]
                             [--reference REFERENCE] [--junctions JUNCTIONS]
                             [-bt BLAST_TARGETS]
                             [--strand-specific-assemblies STRAND_SPECIFIC_ASSEMBLIES]
-                            [--labels LABELS] [--external EXTERNAL]
-                            [--mode {nosplit,stringent,lenient,permissive,split}]
-                            [-j]
+                            [--labels LABELS] [--external EXTERNAL] [--daijin]
+                            [-bc BLAST_CHUNKS] [--use-blast] [--use-transdecoder]
+                            [--mode {nosplit,stringent,lenient,permissive,split} [{nosplit,stringent,lenient,permissive,split} ...]]
+                            [-t THREADS]
+                            [--skip-split SKIP_SPLIT [SKIP_SPLIT ...]] [-j]
+                            [-od OUT_DIR]
                             [out]
 
-    This utility guides the user through the process of creating a configuration file for Mikado.
+    Configuration utility for Mikado
 
     positional arguments:
       out
@@ -70,12 +51,13 @@ Usage:
     optional arguments:
       -h, --help            show this help message and exit
       --full
+      --seed SEED           Random seed number.
       --strand-specific     Boolean flag indicating whether all the assemblies are strand-specific.
       --no-files            Remove all files-specific options from the printed configuration file.
                                                    Invoking the "--gff" option will disable this flag.
       --gff GFF             Input GFF/GTF file(s), separated by comma
-      --list LIST           List of the inputs, one by line, in the form:
-                            <file1>  <label>  <strandedness (true/false)>
+      --list LIST           Tab-delimited file containing rows with the following format
+                                                    <file>  <label> <strandedness> <score(optional)> <always_keep(optional)>
       --reference REFERENCE
                             Fasta genomic reference.
       --strand-specific-assemblies STRAND_SPECIFIC_ASSEMBLIES
@@ -84,8 +66,54 @@ Usage:
                                     separated by comma.
       --external EXTERNAL   External configuration file to overwrite/add values from.
                                 Parameters specified on the command line will take precedence over those present in the configuration file.
-      --mode {nosplit,stringent,lenient,permissive,split}
-                            Mode in which Mikado will treat transcripts with multiple ORFs.
+      -t THREADS, --threads THREADS
+      --skip-split SKIP_SPLIT [SKIP_SPLIT ...]
+                            List of labels for which splitting will be disabled (eg long reads such as PacBio)
+      -j, --json            Output will be in JSON instead of YAML format.
+      -od OUT_DIR, --out-dir OUT_DIR
+                            Destination directory for the output.
+
+    Options related to the prepare stage.:
+      --minimum-cdna-length MINIMUM_CDNA_LENGTH
+                            Minimum cDNA length for transcripts.
+      --max-intron-size MAX_INTRON_LENGTH
+                            Maximum intron length for transcripts.
+
+    Options related to the scoring system:
+      --scoring SCORING     Scoring file to use. Mikado provides the following:
+                            mammalian.yaml,
+                            plant.yaml,
+                            HISTORIC/human.yaml,
+                            HISTORIC/scerevisiae.yaml,
+                            HISTORIC/insects.yaml,
+                            HISTORIC/plants.yaml,
+                            HISTORIC/worm.yaml,
+                            HISTORIC/dmelanogaster_scoring.yaml,
+                            HISTORIC/athaliana_scoring.yaml,
+                            HISTORIC/hsapiens_scoring.yaml,
+                            HISTORIC/celegans_scoring.yaml
+      --copy-scoring COPY_SCORING
+                            File into which to copy the selected scoring file, for modification.
+
+    Options related to the picking:
+      -i INTRON_RANGE INTRON_RANGE, --intron-range INTRON_RANGE INTRON_RANGE
+                            Range into which intron lengths should fall, as a couple of integers.
+                                                         Transcripts with intron lengths outside of this range will be penalised.
+                                                         Default: (60, 900)
+      --no-pad              Whether to disable padding transcripts.
+
+    Options related to the serialisation step:
+      --junctions JUNCTIONS
+      -bt BLAST_TARGETS, --blast_targets BLAST_TARGETS
+
+    Options related to configuring a Daijin run.:
+      --daijin              Flag. If set, the configuration file will be also valid for Daijin.
+      -bc BLAST_CHUNKS, --blast-chunks BLAST_CHUNKS
+                            Number of parallel DIAMOND/BLAST jobs to run. Default: 10.
+      --use-blast           Flag. If switched on, Mikado will use BLAST instead of DIAMOND.
+      --use-transdecoder    Flag. If switched on, Mikado will use TransDecoder instead of Prodigal.
+      --mode {nosplit,stringent,lenient,permissive,split} [{nosplit,stringent,lenient,permissive,split} ...]
+                            Mode(s) in which Mikado will treat transcripts with multiple ORFs.
                             - nosplit: keep the transcripts whole.
                             - stringent: split multi-orf transcripts if two consecutive ORFs have both BLAST hits
                                          and none of those hits is against the same target.
@@ -93,24 +121,12 @@ Usage:
                                        either of the ORFs lacks a BLAST hit (but not both).
                             - permissive: like lenient, but also split when both ORFs lack BLAST hits
                             - split: split multi-orf transcripts regardless of what BLAST data is available.
-      -j, --json            Output will be in JSON instead of YAML format.
-
-    Options related to the scoring system:
-      --scoring {insects.yaml,human.yaml,plants.yaml,worm.yaml}
-                            Available scoring files.
-      --copy-scoring COPY_SCORING
-                            File into which to copy the selected scoring file, for modification.
-
-    Options related to the serialisation step:
-      --junctions JUNCTIONS
-      -bt BLAST_TARGETS, --blast_targets BLAST_TARGETS
+                            If multiple modes are specified, Mikado will create a Daijin-compatible configuration file.
 
 .. _conf_anatomy:
 
 Anatomy of the configuration file
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-The guide here describes all voices of the configuration file. However, the configuration created by default by ``mikado configure`` is much simpler
 
 .. _db-settings:
 
@@ -177,7 +193,8 @@ This section of the configuration file deals with the :ref:`prepare stage of Mik
 * canonical: this voice specifies the splice site donors and acceptors that are considered canonical for the species. By default, Mikado uses the canonical splice site (GT/AG) and the two semi-canonical pairs (GC/AG and AT/AC). Type: Array of two-element arrays, composed by two-letter strings.
 * keep_redundant: if set to false (default), Mikado will only keep one copy of transcripts that are completely identical.
 * lenient: boolean value. If set to *false*, transcripts that either only have non-canonical splice sites or have a mixture of canonical junctions on *both* strands will be **removed** from the output. Otherwise, they will left in, be properly tagged.
-* minimum_length: minimum length of the transcripts to be kept.
+* minimum_cdna_length: minimum length of the transcripts to be kept.
+* max_intron_length: Transcripts with introns greater than this will be **discarded**. The default is one million base pairs (effectively disabling the option).
 * procs: number of processors to be used.
 * strand_specific: boolean. If set to *true*, **all** input assemblies will be treated as strand-specific, therefore keeping the strand of monoexonic fragments as it was. Multiexonic transcripts will not have their strand reversed even if doing that would mean making some or all non-canonical junctions canonical.
 * strip_cds: boolean. If set to *true*, the CDS features will be stripped off the input transcripts. This might be necessary for eg transcripts obtained through alignment with `GMAP <http://research-pub.gene.com/gmap/>`_ [GMAP]_.
@@ -236,7 +253,8 @@ This section of the configuration file deals with the :ref:`prepare stage of Mik
         source_score: {}
       keep_redundant: false
       lenient: false
-      minimum_length: 200
+      max_intron_length: 1000000
+      minimum_cdna_length: 200
       procs: 1
       single: false
       strand_specific: false
@@ -263,7 +281,8 @@ This section of the configuration file deals with the :ref:`serialisation stage 
 .. _codon-table:
 
 * codon_table: this parameter indicates the codon table to use. We use the `NCBI nomenclature <https://www.ncbi.nlm.nih.gov/Taxonomy/Utils/wprintgc.cgi>`, with a variation:
-  * the code "0" is added to indicate a variation on the standard code (identifier "1"), which differs only in that only "ATG" is considered as a valid start codon. This is because *in silico* ORF predictions tend to over-predict the presence of non-standard "ATG" codons, which are rare in nature.
+  * the code "0" is added to indicate a variation on the standard code (identifier "1"), which differs only in that only "ATG" is considered as a valid start codon.
+  This is because *in silico* ORF predictions tend to over-predict the presence of non-standard "ATG" codons, which are rare in nature.
 
 * max_target_seqs: equivalent to the BLAST+ parameter of the same name - it indicates the maximum number of discrete hits that can be assigned to one sequence in the database.
 * procs: number of processors to use. Most important for serialising BLAST+ files.
@@ -326,7 +345,9 @@ This section of the configuration file deals with the :ref:`serialisation stage 
       procs: 1
       single_thread: false
 
-.. hint:: The most expensive operation in a "Mikado serialise" run is by far the serialisation of the BLAST files. Splitting the input files in multiple chunks, and analysing them separately, allows Mikado to parallelise the analysis of the BLAST results. If a single monolythic XML/ASN file is produced, by contrast, Mikado will be quite slow as it will have to parse it all.
+.. hint:: The most expensive operation in a "Mikado serialise" run is by far the serialisation of the BLAST files.
+Splitting the input files in multiple chunks, and analysing them separately, allows Mikado to parallelise the analysis of the BLAST results.
+If a single monolythic XML/ASN file is produced, by contrast, Mikado will be quite slow as it will have to parse it all.
 
 .. _misc-settings:
 
@@ -583,6 +604,11 @@ These modes can be controlled directly from the :ref:`pick command line <pick>`.
 The behaviour, and when to trigger the check, is controlled by the following parameters:
 
 * *execute*: boolean. If set to *false*, Mikado will operate in the *nosplit* mode. If set to *true*, the choice of the mode will be determined by the other parameters.
+* *skip*: this is list of input assemblies (identified by the label in prepare, above) that will **never** have the transcripts split.
+
+.. hint:: cDNAs, reference transcripts, and the like should end up in the "skip" category. These are, after all, transcripts
+that are presupposed to be originated from a single RNA molecule and therefore without fusions.
+
 * *blast_check*: boolean. Whether to execute the check on the BLAST hits. If set to *false*, Mikado will operate in the *split* mode, unless *execute* is set to *false* (execute takes precedence over the other parameters).
 * *blast_params*: this section contains the settings relative to the *permissive*, *lenient* and *stringent* mode.
    * *evalue*: maximum evalue of a hit to be assigned to the transcript and therefore be considered.
@@ -627,6 +653,7 @@ The behaviour, and when to trigger the check, is controlled by the following par
           min_overlap_duplication: 0.8
           minimal_hsp_overlap: 0.9
         execute: true
+        skip: []
 
 Parameters regarding input and output files
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -718,6 +745,7 @@ Parameters:
         intron_range:
         - 60
         - 900
+        only_reference_update: false
         preload: false
         procs: 1
         shm: false
@@ -737,7 +765,6 @@ It is possible to set high-level settings for the logs in the ``log_settings`` s
 
 * log_level: level of the logging for Mikado. Options: *DEBUG, INFO, WARNING, ERROR, CRITICAL*. By default, Mikado will be quiet and output log messages of severity *WARNING* or greater.
 * sql_level: level of the logging for messages regarding the database connection (through `SQLAlchemy`_). By default, SQLAlchemy will be set in quiet mode and asked to output only messages of severity *WARNING* or greater.
-
 
 .. warning:: Mikado and SQLAlchemy can be greatly verbose if asked to output *DEBUG* or *INFO* messages, to the point of slowing down the program significantly due to the amount of writing to disk. Please consider setting the level to *DEBUG* only when there is a real problem to debug, not otherwise!
 

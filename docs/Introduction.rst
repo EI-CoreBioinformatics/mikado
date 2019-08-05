@@ -1,3 +1,4 @@
+.. _Prodigal: https://github.com/hyattpd/Prodigal
 .. _Portcullis: https://github.com/maplesond/portcullis
 .. _Transdecoder: http://transdecoder.github.io/
 .. _Introduction:
@@ -23,7 +24,10 @@ A different but related line of research has focused on how to integrate data co
 
 Our tool, Mikado, contributes to this area of research by proposing a novel algorithm to integrate multiple transcript assemblies, leveraging additional data regarding the position of ORFs (generally derived with Transdecoder [Trinity]_), sequence similarity (derived with BLAST [Blastplus]_) and reliable splicing junctions (generally derived using Portcullis [Portcullis]_). Through the combination of these input data sources, we are capable of identifying artefacts - especially gene fusions and small fragments - and retrieve the original transcripts in each locus with high accuracy and sensitivity.
 
-An important caveat is that our approach does not look for the *best* candidate in terms of the input data, as Transrate [Transrate]_ or RSEM-Eval [RSEMeval]_ do. Rather, our approach is more similar to EvidentialGene [EviGeneTobacco]_ as Mikado will try to find the candidates most likely to represent the isoforms which would be annotated as canonical by a human annotator. Biological events such as intron retentions or trans-splicing that might be present in the sample are explicitly selected against, in order to provide a clean annotation of the genome.
+An important caveat is that our approach does not look for the *best* candidate in terms of the input data, as Transrate [Transrate]_ or RSEM-Eval [RSEMeval]_ do.
+Rather, our approach is more similar to EvidentialGene [EviGeneTobacco]_ as Mikado will try to find the candidates most likely to represent the isoforms
+which would be annotated as canonical by a human annotator. Biological events such as intron retentions or trans-splicing that might be present in the sample are
+explicitly selected **against**, in order to provide a clean annotation of the genome.
 
 
 Overview
@@ -35,9 +39,14 @@ Mikado analyses an ensemble of RNA-Seq assemblies by looking for overlapping tra
 #. :ref:`In the second step <serialise>`, ``mikado serialise`` will collect data from multiple sources (Portcullis_, Transdecoder_, BLASTX) and load it into a database for fast integration with the input data.
 #. :ref:`In the final step <pick>`, ``mikado pick`` will integrate the prepared transcripts with the serialised additional data to choose the best transcripts.
 
-By far, the most important source of data for Mikado is Transdecoder_, as the algorithms for finding and splitting chimeras depend on the detection of the ORFs on the transcript sequences. Please refer to the :ref:`Algorithms <Algorithms>` section for more details on how Mikado operates.
+By far, the most important source of data for Mikado is the ORF calling, which can be executed with Prodigal_ or Transdecoder_.
+This is because many of the algorithms for finding and splitting chimeras depend on the detection of the ORFs on the transcript sequences.
+Moreover, the ORF features are a very important part of the scoring mechanism. Please refer to the :ref:`Algorithms <Algorithms>` section for more details on how Mikado operates.
 
-Using these multiple data sources, and its distinctive iterative method to identify and disentangle gene loci, Mikado is capable of bringing together methods with very different results, and interpret the composition of a locus similarly to how a manual annotator would. This leads to cleaned RNA-Seq annotations that can be used as the basis of the downstream analysis of choice, such as eg a hint-based *ab initio* annotation with Augustus [Augustus]_ or Maker2 [Maker]_.
+Using these multiple data sources, and its distinctive iterative method to identify and disentangle gene loci,
+Mikado is capable of bringing together methods with very different results, and interpret the composition of a locus similarly to how a manual annotator would.
+This leads to cleaned RNA-Seq annotations that can be used as the basis of the downstream analysis of choice, such as eg a hint-based
+*ab initio* annotation with Augustus [Augustus]_ or Maker2 [Maker]_.
 
 .. topic:: Mikado in action: recovering fused gene loci
 

@@ -4,15 +4,27 @@ Mikado.picking package
 Submodules
 ----------
 
-.. toctree::
+Mikado.picking.loci\_processer module
+-------------------------------------
 
-   Mikado.picking.loci_processer
-   Mikado.picking.picker
+.. automodule:: Mikado.picking.loci_processer
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+Mikado.picking.picker module
+----------------------------
+
+.. automodule:: Mikado.picking.picker
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 
 Module contents
 ---------------
 
 .. automodule:: Mikado.picking
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:

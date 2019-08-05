@@ -4,18 +4,59 @@ Mikado.parsers package
 Submodules
 ----------
 
-.. toctree::
+Mikado.parsers.GFF module
+-------------------------
 
-   Mikado.parsers.GFF
-   Mikado.parsers.GTF
-   Mikado.parsers.bed12
-   Mikado.parsers.blast_utils
-   Mikado.parsers.gfannotation
+.. automodule:: Mikado.parsers.GFF
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+Mikado.parsers.GTF module
+-------------------------
+
+.. automodule:: Mikado.parsers.GTF
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+Mikado.parsers.bam\_parser module
+---------------------------------
+
+.. automodule:: Mikado.parsers.bam_parser
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+Mikado.parsers.bed12 module
+---------------------------
+
+.. automodule:: Mikado.parsers.bed12
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+Mikado.parsers.blast\_utils module
+----------------------------------
+
+.. automodule:: Mikado.parsers.blast_utils
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+Mikado.parsers.gfannotation module
+----------------------------------
+
+.. automodule:: Mikado.parsers.gfannotation
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 
 Module contents
 ---------------
 
 .. automodule:: Mikado.parsers
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:

@@ -84,7 +84,7 @@ mikado:
       - G
       - g
       - h
-    scoring_file: /tgac/scratch/venturil/At_Mikado_tutorial/plants.yaml
+    scoring_file: /tgac/scratch/venturil/At_Mikado_tutorial/plant.yaml
   prepare:
     #  Options related to Mikado prepare. Possibilities:
     #  - lenient: whether to activate the lenient mode of Mikado.

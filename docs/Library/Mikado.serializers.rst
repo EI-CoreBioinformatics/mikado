@@ -6,21 +6,40 @@ Subpackages
 
 .. toctree::
 
-    Mikado.serializers.blast_serializer
+   Mikado.serializers.blast_serializer
 
 Submodules
 ----------
 
-.. toctree::
+Mikado.serializers.external module
+----------------------------------
 
-   Mikado.serializers.external
-   Mikado.serializers.junction
-   Mikado.serializers.orf
+.. automodule:: Mikado.serializers.external
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+Mikado.serializers.junction module
+----------------------------------
+
+.. automodule:: Mikado.serializers.junction
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+Mikado.serializers.orf module
+-----------------------------
+
+.. automodule:: Mikado.serializers.orf
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 
 Module contents
 ---------------
 
 .. automodule:: Mikado.serializers
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:

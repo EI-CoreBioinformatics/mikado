@@ -4,21 +4,75 @@ Mikado.loci package
 Submodules
 ----------
 
-.. toctree::
+Mikado.loci.abstractlocus module
+--------------------------------
 
-   Mikado.loci.abstractlocus
-   Mikado.loci.excluded
-   Mikado.loci.locus
-   Mikado.loci.monosublocus
-   Mikado.loci.monosublocusholder
-   Mikado.loci.reference_gene
-   Mikado.loci.sublocus
-   Mikado.loci.superlocus
+.. automodule:: Mikado.loci.abstractlocus
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+Mikado.loci.excluded module
+---------------------------
+
+.. automodule:: Mikado.loci.excluded
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+Mikado.loci.locus module
+------------------------
+
+.. automodule:: Mikado.loci.locus
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+Mikado.loci.monosublocus module
+-------------------------------
+
+.. automodule:: Mikado.loci.monosublocus
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+Mikado.loci.monosublocusholder module
+-------------------------------------
+
+.. automodule:: Mikado.loci.monosublocusholder
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+Mikado.loci.reference\_gene module
+----------------------------------
+
+.. automodule:: Mikado.loci.reference_gene
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+Mikado.loci.sublocus module
+---------------------------
+
+.. automodule:: Mikado.loci.sublocus
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+Mikado.loci.superlocus module
+-----------------------------
+
+.. automodule:: Mikado.loci.superlocus
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 
 Module contents
 ---------------
 
 .. automodule:: Mikado.loci
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:

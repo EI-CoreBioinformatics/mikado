@@ -9,7 +9,7 @@ import os
 from ..picking import Picker
 from ..configuration.configurator import to_json, check_json
 from ..utilities.log_utils import create_default_logger, create_null_logger
-import random
+import numpy
 
 
 def check_log_settings(args):
@@ -55,7 +55,9 @@ def check_run_options(args, logger=create_null_logger()):
 
     if args.seed is not None:
         args.json_conf["seed"] = args.seed
-        random.seed(args.seed, version=2)
+        numpy.random.seed(args.seed % (2 ** 32 - 1))
+    else:
+        numpy.random.seed(None)
 
     if args.no_cds is not False:
         args.json_conf["pick"]["run_options"]["exclude_cds"] = True
@@ -192,11 +194,6 @@ def pick(args):
 
     creator = Picker(args.json_conf, commandline=" ".join(sys.argv))
     creator()
-    # try:
-    #     creator()  # Run
-    # except Exception as exc:
-    #     logger.error(exc)
-
     sys.exit(0)
 
 

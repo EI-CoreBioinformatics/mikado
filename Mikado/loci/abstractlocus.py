@@ -6,8 +6,8 @@ Module that defines the blueprint for all loci classes.
 
 import abc
 import itertools
+import numpy as np
 import logging
-import random
 from sys import maxsize
 import networkx
 from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
@@ -401,8 +401,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
         return find_cliques(graph, self.logger)
 
-    @classmethod
-    def choose_best(cls, transcripts: dict) -> str:
+    def choose_best(self, transcripts: dict) -> str:
         """
         :param transcripts: the dictionary of transcripts of the instance
         :type transcripts: dict
@@ -413,10 +412,15 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         """
 
         # Choose one transcript randomly between those that have the maximum score
+        if len(transcripts) == 1:
+            return list(transcripts.keys())[0]
+        np.random.seed(self.json_conf["seed"])
         max_score = max(transcripts.values(),
                         key=operator.attrgetter("score")).score
-        return random.choice(
-            [transc for transc in transcripts if transcripts[transc].score == max_score])
+        valid = sorted([transc for transc in transcripts if transcripts[transc].score == max_score])
+        chosen = valid[numpy.random.choice(len(valid))]
+        self.logger.debug("Chosen {chosen} out of {}".format(", ".join(valid), chosen=chosen))
+        return chosen
 
     # ###### Class instance methods  #######
 

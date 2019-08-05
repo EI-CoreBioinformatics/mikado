@@ -229,14 +229,6 @@ class Sublocus(Abstractlocus):
                             ",".join(set(transcript_graph.neighbors(selected_tid)))
                         ))
                 to_remove.update(set(transcript_graph.neighbors(selected_tid)))
-                # for tid in transcript_graph.neighbors(selected_tid)
-                # for clique in cliques:
-                #     if selected_tid in clique:
-                #         self.logger.debug("Removing as intersecting {0}: {1}".format(
-                #             selected_tid,
-                #             ",".join(list(clique))
-                #         ))
-                #         to_remove.update(clique)
                 if purge is False or selected_transcript.score > 0:
                     new_locus = Monosublocus(selected_transcript,
                                              logger=self.logger,

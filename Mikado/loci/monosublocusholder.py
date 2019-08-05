@@ -217,10 +217,6 @@ class MonosublocusHolder(Sublocus, Abstractlocus):
                 selected_transcript = self.transcripts[selected_tid]
                 to_remove.add(selected_tid)
                 to_remove.update(set(graph.neighbors(selected_tid)))
-                # for clique in cliques:
-                #     if selected_tid in clique:
-                #         to_remove.update(clique)
-
                 if purge is False or selected_transcript.score > 0:
                     new_locus = Locus(selected_transcript, logger=self.logger, json_conf=self.json_conf,
                                       use_transcript_scores=self._use_transcript_scores)

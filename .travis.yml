@@ -29,5 +29,14 @@ script:
   - cd ..;
   - python -c "import Mikado; Mikado.test(label='fast')";
   - python setup.py test --addopts " --cov Mikado -m '(slow or not slow) and not triage'";
+  # Check that the seed is set properly
+  - mikado pick --procs 2 --seed 20 --fasta Mikado/tests/chr5.fas.gz  --json-conf Mikado/tests/check_seed.yaml -od 20a Mikado/tests/check_seed.gtf
+  - mikado pick --procs 2 --seed 20 --fasta Mikado/tests/chr5.fas.gz  --json-conf Mikado/tests/check_seed.yaml -od 20b Mikado/tests/check_seed.gtf  
+  - mikado pick --procs 2 --seed 20 --fasta Mikado/tests/chr5.fas.gz  --json-conf Mikado/tests/check_seed.yaml -od 20c Mikado/tests/check_seed.gtf
+  - mikado pick --procs 2 --seed 20 --fasta Mikado/tests/chr5.fas.gz  --json-conf Mikado/tests/check_seed.yaml -od 20d Mikado/tests/check_seed.gtf     
+  - mikado pick --procs 2 --seed 10 --fasta Mikado/tests/chr5.fas.gz  --json-conf Mikado/tests/check_seed.yaml -od 10 Mikado/tests/check_seed.gtf
+  - if [[ $(diff -q 20a 20b) || $(diff -q 20a 20c) || $(diff -q 20a 20d) ]]; then exit 1; fi
+  - if [[ ! $(diff -q 20a 10) ]]; then exit 1; fi
+
 after_success:
   - codecov 

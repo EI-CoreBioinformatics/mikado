@@ -3,7 +3,7 @@
 """
 
 
-import random
+import numpy
 import unittest
 from ..utilities.intervaltree import Interval, IntervalNode, IntervalTree
 
@@ -144,8 +144,8 @@ class LotsaTestCase(unittest.TestCase):
     def test_find(self):
         iv = self.intervals
         for t in range(25):
-            start = random.randint(0, self.max - 10000)
-            end = start + random.randint(100, 10000)
+            start = numpy.random.randint(0, self.max - 10000)
+            end = start + numpy.random.randint(100, 10000)
 
             results = iv.find(start, end)
             for feat in results:

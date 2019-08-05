@@ -15,7 +15,7 @@ from ..utilities.log_utils import formatter
 from ..preparation.prepare import prepare
 from ..configuration.configurator import to_json, check_json
 from Mikado.exceptions import InvalidJson
-import random
+import numpy
 
 
 __author__ = 'Luca Venturini'
@@ -57,7 +57,9 @@ def setup(args):
 
     if args.seed is not None:
         args.json_conf["seed"] = args.seed
-        random.seed(args.seed, version=2)
+        numpy.random.seed(args.seed % (2 ** 32 - 1))
+    else:
+        numpy.random.seed(None)
 
     if args.json_conf["prepare"]["files"]["log"]:
         try:

@@ -11,6 +11,7 @@ import logging
 import queue
 import time
 import sys
+import numpy
 
 
 __author__ = 'Luca Venturini'
@@ -83,13 +84,19 @@ def create_transcript(lines,
         for feature in lines["features"]:
             coords, phases = [], []
             for feat in lines["features"][feature]:
-                assert isinstance(feat, (list, tuple)) and 2 <= len(feat) <= 3, feat
+                try:
+                    assert isinstance(feat, (list, tuple)) and 2 <= len(feat) <= 3, feat
+                except AssertionError:
+                    raise exceptions.InvalidTranscript("Invalid feature")
                 coords.append((feat[0], feat[1]))
                 if len(feat) == 3 and feat[2] in (0, 1, 2, None):
                     phases.append(feat[2])
                 else:
                     phases.append(None)
-            assert len(phases) == len(coords)
+            try:
+                assert len(phases) == len(coords)
+            except AssertionError:
+                raise exceptions.InvalidTranscript("Invalid phases/coords")
             transcript_line.add_exons(coords, features=feature, phases=phases)
 
         transcript_object = TranscriptChecker(transcript_line,
@@ -113,6 +120,10 @@ def create_transcript(lines,
         logger.info("Discarded generically invalid transcript %s, exception: %s",
                     lines["tid"], exc)
         transcript_object = None
+    except AssertionError as exc:
+        logger.info("Validation failed on %s, assertion failure: %s",
+                    lines["tid"], exc)
+        transcript_object = None
     except KeyboardInterrupt:
         raise KeyboardInterrupt
     except Exception as exc:
@@ -133,6 +144,7 @@ class CheckingProcess(multiprocessing.Process):
                  gtf_out,
                  tmpdir,
                  lenient=False,
+                 seed=None,
                  canonical_splices=(("GT", "AG"),
                                     ("GC", "AG"),
                                     ("AT", "AC")),
@@ -142,6 +154,10 @@ class CheckingProcess(multiprocessing.Process):
         super().__init__()
         self.__identifier = ""
         self.__set_identifier(identifier)
+        if seed is not None:
+            numpy.random.seed(seed % (2 ** 32 - 1))
+        else:
+            numpy.random.seed(None)
         # self.strand_specific = strand_specific
         self.__canonical = []
         self.__set_canonical(canonical_splices)
@@ -184,37 +200,45 @@ class CheckingProcess(multiprocessing.Process):
         self.logger.debug(self.canonical)
 
         __printed = 0
-        while True:
-            lines, start, end, counter = self.submission_queue.get()
-            if lines == "EXIT":
-                self.logger.debug("Finished for %s", self.name)
-                self.submission_queue.put((lines,
-                                           start,
-                                           end,
-                                           counter))
-                break
-            self.logger.debug("Checking %s", lines["tid"])
-            if "is_reference" not in lines:
-                raise KeyError(lines)
+        try:
+            while True:
+                lines, start, end, counter = self.submission_queue.get()
+                if lines == "EXIT":
+                    self.logger.debug("Finished for %s", self.name)
+                    self.submission_queue.put((lines,
+                                               start,
+                                               end,
+                                               counter))
+                    break
+                self.logger.debug("Checking %s", lines["tid"])
+                if "is_reference" not in lines:
+                    raise KeyError(lines)
 
-            transcript = checker(lines,
-                                 str(self.fasta.fetch(lines["chrom"], start-1, end)),
-                                 start,
-                                 end,
-                                 lenient=self.lenient,
-                                 is_reference=lines["is_reference"],
-                                 strand_specific=lines["strand_specific"])
+                transcript = checker(lines,
+                                     str(self.fasta.fetch(lines["chrom"], start-1, end)),
+                                     start,
+                                     end,
+                                     lenient=self.lenient,
+                                     is_reference=lines["is_reference"],
+                                     strand_specific=lines["strand_specific"])
 
-            if transcript is None:
-                self.logger.debug("%s failed the check", lines["tid"])
-                continue
-            else:
-                self.logger.debug("Printing %s", lines["tid"])
-                __printed += 1
-                print("\n".join(["{0}/{1}".format(counter, line) for line in
-                                 transcript.format("gtf").split("\n")]), file=gtf_out)
-                print("\n".join(["{0}/{1}".format(counter, line) for line in
-                                 transcript.fasta.split("\n")]), file=fasta_out)
+                if transcript is None:
+                    self.logger.debug("%s failed the check", lines["tid"])
+                    continue
+                else:
+                    self.logger.debug("Printing %s", lines["tid"])
+                    __printed += 1
+                    print("\n".join(["{0}/{1}".format(counter, line) for line in
+                                     transcript.format("gtf").split("\n")]), file=gtf_out)
+                    print("\n".join(["{0}/{1}".format(counter, line) for line in
+                                     transcript.fasta.split("\n")]), file=fasta_out)
+        except KeyboardInterrupt:
+            raise KeyboardInterrupt
+        except Exception as exc:
+            self.logger.error(exc)
+            self.submission_queue.close()
+            self.logging_queue.close()
+            raise
 
         time.sleep(0.1)
         fasta_out.flush()

@@ -11,7 +11,7 @@ except ImportError:
     import json
 import sqlite3
 import os
-# from ..parsers.bed12 import BED12
+import numpy
 from ..transcripts import Transcript
 from operator import itemgetter
 
@@ -28,9 +28,15 @@ class AnnotationParser(multiprocessing.Process):
                  min_length=0,
                  max_intron=3*10**5,
                  log_level="WARNING",
+                 seed=None,
                  strip_cds=False):
 
         super().__init__()
+        if seed is not None:
+            numpy.random.seed(seed % (2 ** 32 - 1))
+        else:
+            numpy.random.seed(None)
+
         self.submission_queue = submission_queue
         self.min_length = min_length
         self.max_intron = max_intron

@@ -17,6 +17,8 @@ import sys
 import os
 from Mikado.version import __version__
 import datetime
+# import guzzle_sphinx_theme
+
 
 # import sphinxtheme.plone
 
@@ -28,7 +30,7 @@ import datetime
 # -- General configuration ------------------------------------------------
 
 # If your documentation needs a minimal Sphinx version, state it here.
-#needs_sphinx = '1.0'
+needs_sphinx = '1.0'
 
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
@@ -105,7 +107,7 @@ exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 
 # If true, sectionauthor and moduleauthor directives will be shown in the
 # output. They are ignored by default.
-#show_authors = False
+show_authors = True
 
 # The name of the Pygments (syntax highlighting) style to use.
 pygments_style = 'sphinx'
@@ -129,7 +131,12 @@ todo_include_todos = False
 # a list of builtin themes.
 # html_theme = 'sphinx_rtd_theme'
 # html_theme = 'plone_org_4'
-html_theme = 'nature'
+
+# html_translator_class = 'guzzle_sphinx_theme.HTMLTranslator'
+# html_theme_path = guzzle_sphinx_theme.html_theme_path()
+# html_theme = 'guzzle_sphinx_theme'
+html_theme = 'sphinx_rtd_theme'
+# extensions.append("guzzle_sphinx_theme")
 
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
@@ -141,6 +148,7 @@ html_theme_options = {
     "github_repo": "mikado",
     "github_button": "true",
     # "codecov_button": "true",
+    "project_nav_name": "Mikado",
     "page_width": "auto"
 }
 

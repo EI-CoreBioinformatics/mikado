@@ -127,7 +127,9 @@ def create_config_parser():
     """
 
     parser = argparse.ArgumentParser("""Configure the pipeline""")
-    runtime = parser.add_argument_group("Options related to how to run Daijin - threads, cluster configuration, etc.")
+    runtime = parser.add_argument_group(""""Options related to how to run Daijin - threads, cluster configuration, etc.
+Please note that the development of the assembly pipeline has now been DISCONTINUED. We will continue to provide support
+for the "mikado" part of daijin.""")
     runtime.add_argument("-c", "--cluster_config",
                         type=str, default=None,
                         help="Cluster configuration file to write to.")

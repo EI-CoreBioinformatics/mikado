@@ -167,7 +167,7 @@ class ExternalSerializer:
 
         self.engine = connect(json_conf, logger=logger)
 
-        session = Session(bind=self.engine, autocommit=True, autoflush=True)
+        session = Session(bind=self.engine, autocommit=False, autoflush=False, expire_on_commit=False)
         inspector = Inspector.from_engine(self.engine)
         if External.__tablename__ not in inspector.get_table_names():
             DBBASE.metadata.create_all(self.engine)  # @UndefinedVariable

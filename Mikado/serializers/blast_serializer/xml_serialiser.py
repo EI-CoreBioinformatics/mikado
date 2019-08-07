@@ -19,6 +19,7 @@ from ...utilities.log_utils import create_null_logger, check_logger
 from . import Query, Target, Hsp, Hit, prepare_hit, InvalidHit
 from xml.parsers.expat import ExpatError
 import xml
+import pandas as pd
 # from queue import Empty
 import multiprocessing
 
@@ -64,7 +65,7 @@ def _create_xml_db(filename):
 def xml_pickler(json_conf, filename, default_header,
                 max_target_seqs=10):
     valid, _, exc = BlastOpener(filename).sniff(default_header=default_header)
-    engine = connect(json_conf)
+    engine = connect(json_conf, strategy="threadlocal")
     session = Session(bind=engine)
 
     if not valid:
@@ -172,7 +173,7 @@ class XmlSerializer:
 
         # session = sessionmaker(autocommit=True)
         DBBASE.metadata.create_all(self.engine)  # @UndefinedVariable
-        session = Session(bind=self.engine, autocommit=True, autoflush=True)
+        session = Session(bind=self.engine, autocommit=False, autoflush=False, expire_on_commit=False)
         self.session = session  # session()
         self.logger.debug("Created the session")
         # Load sequences if necessary
@@ -278,8 +279,12 @@ class XmlSerializer:
             self.session.commit()
             # pylint: enable=no-member
             self.logger.debug("Loaded %d objects into the \"query\" table", counter)
-        for query in self.session.query(Query):
-            queries[query.query_name] = (query.query_id, query.query_length)
+
+        _queries = pd.read_sql_table("query", self.engine, index_col="query_name",
+                                    columns=["query_id", "query_length"])
+        _queries_d = _queries.to_dict("list")
+        queries = dict((key, (qid, qlen)) for (key, qid, qlen) in
+                          zip(_queries.index, _queries_d["query_id"], _queries_d["query_length"]))
         self.logger.info("%d in queries", len(queries))
         return queries
 
@@ -320,11 +325,6 @@ class XmlSerializer:
                     self.engine.execute(Target.__table__.insert(), objects)
                     self.session.commit()
                     objects = []
-                    # pylint: disable=no-member
-                    # pylint: enable=no-member
-                    # self.logger.info("Loaded %d objects into the \"target\" table",
-                    #                  len(objects))
-                    # objects = []
         self.logger.debug("Loading %d objects into the \"target\" table, (total %d)",
                          len(objects), counter)
         # pylint: disable=no-member
@@ -334,8 +334,11 @@ class XmlSerializer:
         self.session.commit()
 
         self.logger.info("Loaded %d objects into the \"target\" table", counter)
-        for target in self.session.query(Target):
-            targets[target.target_name] = (target.target_id, target.target_length is not None)
+        _targets = pd.read_sql_table("target", self.engine, index_col="target_name",
+                                     columns=["target_id", "target_length"])
+        _targets_d = _targets.to_dict("list")
+        targets = dict((key, (qid, qlen)) for (key, qid, qlen) in
+                       zip(_targets.index, _targets_d["target_id"], _targets_d["target_length"]))
         self.logger.debug("%d in targets", len(targets))
         return targets
 

@@ -487,7 +487,6 @@ class BED12:
                 elif Seq.reverse_complement(sequence[pos - 3:pos]) in self.table.stop_codons:
                     self.thick_end -= 3
                     break
-            print("Thick end:", self.thick_end)
         else:
             for pos in range(3,
                              int(len(orf_sequence) * self.max_regression),
@@ -503,7 +502,6 @@ class BED12:
                     break
                 else:
                     continue
-            print("Thick end:", self.thick_end)
 
         if self.has_start_codon is False:
             # The validity will be automatically checked

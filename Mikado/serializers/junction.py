@@ -159,7 +159,7 @@ class JunctionSerializer:
         self.bed12_parser = bed12.Bed12Parser(handle)
         self.engine = connect(json_conf, logger=logger)
 
-        session = Session(bind=self.engine, autocommit=True, autoflush=True)
+        session = Session(bind=self.engine, autocommit=False, autoflush=False, expire_on_commit=False)
         inspector = Inspector.from_engine(self.engine)
         if Junction.__tablename__ not in inspector.get_table_names():
             DBBASE.metadata.create_all(self.engine)  # @UndefinedVariable
@@ -235,7 +235,7 @@ class JunctionSerializer:
                 self.session.bulk_save_objects(objects)
                 self.session.commit()
                 objects = []
-        self.session.begin(subtransactions=True)
+
         self.session.bulk_save_objects(objects)
         self.session.commit()
         self.close()

@@ -39,16 +39,15 @@ def print_config(output, out):
                     comment_line = " ".join([_ for _ in comment if _ != ''])
                     comment_line = re.sub("'", "", re.sub(" - ", "\n- ", comment_line))
                     for part in comment_line.split("\n"):
-                        for comment_line in textwrap.wrap(part.rstrip(), 80, replace_whitespace=True,
+                        for part_line in textwrap.wrap(part.rstrip(), 80, replace_whitespace=True,
                                                       initial_indent=" "*comment_level + "# ",
                                                       subsequent_indent=" "*comment_level + "# "):
-                            comment_line = re.sub("# - ", "# ", comment_line)
-                            print(comment_line, file=out)
-                        # if level < comment_level:
-                        #     print("{0}{{}}".format(" " * comment_level), file=out)
+                            part_line = re.sub("# - ", "# ", part_line)
+                            print(part_line, file=out)
+                    if level < comment_level:
+                        print("{0}{{}}".format(" " * comment_level), file=out)
                     comment = []
                     comment_level = -1
-
                     print(line.rstrip(), file=out)
             else:
                 comment = [re.sub("(Comment|SimpleComment):", "", line.strip())]

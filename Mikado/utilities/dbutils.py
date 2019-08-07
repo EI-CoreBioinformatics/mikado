@@ -117,7 +117,7 @@ def set_sqlite_pragma(dbapi_connection, connection_record):
         cursor.close()
 
 
-def connect(json_conf, logger=None):
+def connect(json_conf, logger=None, **kwargs):
 
     """
     Function to create an engine to connect to a DB with, using the
@@ -128,11 +128,11 @@ def connect(json_conf, logger=None):
     """
 
     if json_conf is None:
-        return create_engine("sqlite:///:memory:")
+        return create_engine("sqlite:///:memory:", **kwargs)
 
     db_connection = functools.partial(create_connector, json_conf, logger=logger)
     engine = create_engine("{0}://".format(json_conf["db_settings"]["dbtype"]),
-                           creator=db_connection)
+                           creator=db_connection, **kwargs)
     DBBASE.metadata.create_all(engine, checkfirst=True)
 
     return engine

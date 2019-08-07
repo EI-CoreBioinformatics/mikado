@@ -23,6 +23,8 @@ from ..serializers import external
 from ..exceptions import InvalidJson
 import pyfaidx
 import numpy
+from ..exceptions import InvalidSerialization
+from numpy import random
 
 
 __author__ = 'Luca Venturini'
@@ -139,10 +141,15 @@ def load_orfs(args, logger):
         logger.info("Starting to load ORF data")
         for orf_file in args.json_conf["serialise"]["files"]["orfs"]:
             logger.debug("Starting to load ORFs from %s", orf_file)
-            serializer = orf.OrfSerializer(orf_file,
-                                           json_conf=args.json_conf,
-                                           logger=logger)
-            serializer()
+            try:
+                serializer = orf.OrfSerializer(orf_file,
+                                               json_conf=args.json_conf,
+                                               logger=logger)
+                serializer()
+            except InvalidSerialization:
+                logger.critical("Mikado serialise failed due to problems with the input data. Please check the logs.")
+                os.remove(args.json_conf["db_settings"]["db"])
+                sys.exit(1)
         logger.info("Finished loading ORF data")
     else:
         logger.info("No ORF data provided, skipping")
@@ -238,20 +245,30 @@ def setup(args):
             args.json_conf["serialise"]["files"]["output_dir"],
             args.json_conf["db_settings"]["db"])
 
+    if args.log is not None:
+        args.json_conf["serialise"]["files"]["log"] = args.log
+
+    args.json_conf["log_settings"]["log"] = args.json_conf["serialise"]["files"]["log"][:]
+
     if args.json_conf["serialise"]["files"]["log"] is not None:
+        if args.log != args.json_conf["serialise"]["files"]["log"] and args.log is not None:
+            args.json_conf["serialise"]["files"]["log"] = args.log
         if not isinstance(args.json_conf["serialise"]["files"]["log"], str):
             args.json_conf["serialise"]["files"]["log"].close()
-            args.json_conf["serialise"]["files"]["log"] = args.json_conf[
-                "serialise"]["files"]["log"].name
+            args.json_conf["serialise"]["files"]["log"] = args.json_conf["serialise"]["files"]["log"].name
         args.json_conf["serialise"]["files"]["log"] = \
-            path_join(
-                args.json_conf["serialise"]["files"]["output_dir"],
-                args.json_conf["serialise"]["files"]["log"])
-        logger.removeHandler(logger.handlers[0])
-        handler = logging.FileHandler(
-            args.json_conf["serialise"]["files"]["log"], "w")
+            path_join(args.json_conf["serialise"]["files"]["output_dir"], args.json_conf["serialise"]["files"]["log"])
+        for handler in logger.handlers:
+            if hasattr(handler, "baseFilename"):
+                logger.removeHandler(handler)
+        handler = logging.FileHandler(args.json_conf["serialise"]["files"]["log"], "w")
         handler.setFormatter(formatter)
         logger.addHandler(handler)
+
+    logger.setLevel("INFO")
+    logger.info("Command line: %s", " ".join(sys.argv))
+    logger.info("Random seed: %s", args.json_conf["seed"])
+    logger.setLevel(args.log_level)
 
     if args.json_conf["serialise"]["files"]["junctions"] is not None:
         if args.genome_fai is not None:
@@ -275,12 +292,6 @@ def setup(args):
         args.json_conf["serialise"]["codon_table"] = args.codon_table
     else:
         assert "codon_table" in args.json_conf["serialise"]
-
-    logger.setLevel("INFO")
-    logger.info("Command line: %s",
-                " ".join(sys.argv))
-    logger.info("Random seed: %s", args.json_conf["seed"])
-    logger.setLevel(args.log_level)
 
     # Add sqlalchemy logging
     sql_logger = logging.getLogger("sqlalchemy.engine")
@@ -435,9 +446,7 @@ def serialise_parser():
     generic.add_argument("--json-conf", default=None,
                          dest="json_conf", type=configurator.to_json,
                          required=True)
-    generic.add_argument("-l", "--log", type=str, default=None,
-                         nargs='?',
-                         help="Optional log file. Default: stderr")
+    generic.add_argument("-l", "--log", type=str, default=None, nargs='?', help="Optional log file. Default: stderr")
     parser.add_argument("-od", "--output-dir", dest="output_dir",
                         type=str, default=None,
                         help="Output directory. Default: current working directory")

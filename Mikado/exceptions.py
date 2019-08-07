@@ -111,3 +111,9 @@ class InvalidHit(ValueError):
     """
     Exception to be raised when a Hit has discrepant declared and real best e-value.
     """
+
+
+class InvalidSerialization(KeyError):
+    """
+    Exception to be raised when trying to include in the Mikado database incongruent data.
+    """

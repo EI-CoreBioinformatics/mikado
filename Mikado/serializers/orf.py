@@ -11,15 +11,14 @@ import pysam
 from sqlalchemy import Column, String, Integer, ForeignKey, CHAR, Index, Float, Boolean
 import sqlalchemy.exc
 from sqlalchemy.orm import relationship, backref, column_property
-from sqlalchemy.orm.session import Session  # sessionmaker
+from sqlalchemy.orm.session import sessionmaker
 from sqlalchemy import select
 from ..utilities.dbutils import DBBASE, Inspector, connect
 from ..parsers import bed12  # , GFF
 from .blast_serializer import Query
 from ..utilities.log_utils import create_null_logger, check_logger
-from ..parsers import to_gff
-# from ..loci import Transcript
-# from Bio import SeqIO
+import pandas as pd
+from ..exceptions import InvalidSerialization
 
 
 # This is a serialization class, it must have a ton of attributes ...
@@ -123,18 +122,6 @@ class Orf(DBBASE):
 
         return self.as_bed12_static(self, self.query)
 
-    # @hybrid_property
-    # def query(self):
-    #     """
-    #     This property returns the name column value of the corresponding Query object.
-    #     """
-    #
-    #     return self.query_object.query_name
-    #
-    # @query.expression
-    # def query(cls):
-    #     return Query.query_name
-
 
 class OrfSerializer:
     """
@@ -199,9 +186,10 @@ class OrfSerializer:
                                               max_regression=self._max_regression,
                                               table=self._table)
 
-        self.engine = connect(json_conf, logger)
+        self.engine = connect(json_conf, logger)  # , echo=False)
 
-        session = Session(bind=self.engine, autocommit=True, autoflush=True)
+        Session = sessionmaker(bind=self.engine, autocommit=False, autoflush=False, expire_on_commit=False)
+        session = Session()
         # session.configure(bind=self.engine)
 
         inspector = Inspector.from_engine(self.engine)
@@ -210,7 +198,7 @@ class OrfSerializer:
         self.session = session
         self.maxobjects = json_conf["serialise"]["max_objects"]
 
-    def load_fasta(self, cache):
+    def load_fasta(self):
 
         """
         Private method to load data from the FASTA file into the database.
@@ -223,6 +211,9 @@ class OrfSerializer:
         """
 
         objects = []
+
+        cache = pd.read_sql_table("query", self.engine, index_col="query_name", columns=["query_name", "query_id"])
+        cache = cache.to_dict()["query_id"]
 
         if self.fasta_index is not None:
             done = 0
@@ -239,7 +230,6 @@ class OrfSerializer:
                 found.add(ref)
                 if len(objects) >= self.maxobjects:
                     done += len(objects)
-                    self.session.begin(subtransactions=True)
                     self.session.bulk_save_objects(objects)
                     self.session.commit()
                     self.logger.debug(
@@ -247,12 +237,11 @@ class OrfSerializer:
                     objects = []
 
             done += len(objects)
-            self.session.begin(subtransactions=True)
+            # self.session.begin(subtransactions=True)
             self.session.bulk_save_objects(objects)
             self.session.commit()
-            self.logger.debug(
-                "Finished loading %d transcripts into query table", done)
-        return cache
+            self.logger.debug("Finished loading %d transcripts into query table", done)
+        return
 
     def serialize(self):
         """
@@ -262,19 +251,20 @@ class OrfSerializer:
 
         objects = []
         # Dictionary to hold the data before bulk loading into the database
+
         cache = dict()
-
         for record in self.session.query(Query):
             cache[record.query_name] = record.query_id
 
+        self.load_fasta()
+        # Reload
+
+        cache = pd.read_sql_table("query", self.engine, index_col="query_name", columns=["query_name", "query_id"])
+        cache = cache.to_dict()["query_id"]
+        initial_cache = (len(cache) > 0)
         done = 0
-        cache = self.load_fasta(cache)
 
-        self.logger.debug("Loading IDs into the cache")
-        for record in self.session.query(Query):
-            cache[record.query_name] = record.query_id
-        self.logger.debug("Finished loading IDs into the cache")
-
+        not_found = set()
         for row in self.bed12_parser:
             if row.header is True:
                 continue
@@ -285,12 +275,18 @@ class OrfSerializer:
                 continue
             if row.id in cache:
                 current_query = cache[row.id]
-            else:
+            elif not initial_cache:
                 current_query = Query(row.id, row.end)
+                not_found.add(row.id)
                 self.session.add(current_query)
                 self.session.commit()
                 cache[current_query.query_name] = current_query.query_id
                 current_query = current_query.query_id
+            else:
+                self.logger.critical(
+                    "The provided ORFs do not match the transcripts provided and already present in the database.\
+Please check your input files.")
+                raise InvalidSerialization
 
             current_junction = Orf(row, current_query)
             objects.append(current_junction)
@@ -303,10 +299,17 @@ class OrfSerializer:
                 objects = []
 
         done += len(objects)
-        self.session.begin(subtransactions=True)
-        self.session.bulk_save_objects(objects)
-        self.logger.info("Finished loading %d ORFs into the database", done)
+        # self.session.begin(subtransactions=True)
+        self.session.bulk_save_objects(objects, update_changed_only=False)
         self.session.commit()
+        self.session.close()
+        self.logger.info("Finished loading %d ORFs into the database", done)
+
+        orfs = pd.read_sql_table("orf", self.engine, index_col="query_id")
+        if orfs.shape[0] != done:
+            raise ValueError("I should have serialised {} ORFs, but only {} are present!".format(
+                done, orfs.shape[0]
+            ))
 
     def __call__(self):
         """

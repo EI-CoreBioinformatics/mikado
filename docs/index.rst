@@ -13,8 +13,6 @@
    :target: https://www.python.org/downloads/release/python-360/
 .. |python_37_badge| image:: https://img.shields.io/badge/python-3.7-blue.svg
    :target: https://www.python.org/downloads/release/python-371/
-.. |snake_badge| image:: https://img.shields.io/badge/snakemake-≥5-brightgreen.svg?style=flat-square)]
-   :target: https://snakemake.readthedocs.io/en/stable/
 .. |travis_status| image:: https://travis-ci.org/lucventurini/mikado.svg?branch=master
     :target: https://travis-ci.org/lucventurini/mikado
 .. |coverage| image:: https://codecov.io/gh/lucventurini/mikado/branch/master/graph/badge.svg
@@ -23,12 +21,15 @@
   :target: https://github.com/EI-CoreBioinformatics/mikado/releases
 .. |downloads| image:: https://img.shields.io/github/downloads/EI-CoreBioinformatics/mikado/total.svg?style=social&logo=github&label=download
   :target: https://github.com/EI-CoreBioinformatics/mikado/releases
-	   
+
+.. |conda downloads| image:: https://anaconda.org/bioconda/mikado/badges/downloads.svg
+  :target: https://anaconda.org/bioconda/mikado
+
 ############################
 Mikado: pick your transcript
 ############################
 
-|releases| |downloads| |python_36_badge| |python_37_badge| |snake_badge| |travis_status| |coverage|
+|releases| |downloads| |conda downloads| |python_36_badge| |python_37_badge| |travis_status| |coverage|
 
 :Authors:
     Venturini Luca,
@@ -60,16 +61,16 @@ and then to create a final gene annotation by comparing multiple *ab initio* ann
 Starting from this version, Mikado is therefore capable of considering arbitrary measures of transcript quality (e.g. transcript quantification or similarity of the
 predicted ORF against a known protein database); moreover, it is capable of reconcile the structures of the transcripts present in a single locus. This allows to e.g.
 add an inferred UTR for *ab initio* predictions using complementary RNAseq data. Through this mechanism, Mikado is also capable of reconstructing the correct ORF of transcripts
-present only in fragmentary form - as long as there is at least another transcript in the locus that can provide the missing data. This mechanism is similar to the one implemented
-in [PASA]_ and that was used in [Araport]_ for the latest release of the *A. thaliana* genome annotation.
-
+present only in fragmentary form - as long as there is at least another transcript in the locus that can provide the missing data.
+This mechanism is similar to the one implemented in [PASA]_. Please see the :ref:`relevant section in Algorithms <padding>` for details.
 
 Citing
 ~~~~~~
 
 Please cite the following:
 
-Luca Venturini, Shabhonam Caim, Gemy Kaithakottil, Daniel Lee Mapleson, David Swarbreck: "Leveraging multiple transcriptome assembly methods for improved gene structure annotation", GigaScience, Volume 7, Issue 8, 1 August 2018, giy093, https://doi.org/10.1093/gigascience/giy093
+Luca Venturini, Shabhonam Caim, Gemy Kaithakottil, Daniel Lee Mapleson, David Swarbreck:
+"Leveraging multiple transcriptome assembly methods for improved gene structure annotation", GigaScience, Volume 7, Issue 8, 1 August 2018, giy093, https://doi.org/10.1093/gigascience/giy093
 
 
 Availability and License

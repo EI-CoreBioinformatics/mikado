@@ -614,15 +614,20 @@ As external metrics allow Mikado to accept any arbitrary metric for each transcr
 Padding transcripts
 ~~~~~~~~~~~~~~~~~~~
 
-.. note:: The behaviour of this operation changed dramatically during the development of version 1.5.
+.. note:: The behaviour of this operation changed dramatically during the development of version 2.0.
 
-Mikado can optionally "pad" transcripts so to uniform, as much as possible, their start and stops. The procedure is as follows:
+Mikado has the ability of padding transcripts in a locus, so to uniform their starts and stops, and to infer the presence
+of missing exons from neighbouring data. The procedure is similar to the one employed by PASA and functions as follows:
 
-1. Transcripts can be padded on one end if there is a **template** transcript for which the extension:
-  - would have a *genomic* distance to the current end equal to *at most* a number of base-pairs specified under "ts_distance"
-  - would not require to cross a number of splice junctions in the template over the number specified under "ts_max_splices"
+1. A transcript can function as **template** for a candidate if:
+  - the candidate's terminal exon falls within an **exon** of the template
+  - the extension would enlarge the candidate by at most *"ts_distance"* basepairs (not including introns), default **1000** bps
+  - the extension would add at most *"ts_max_splices"* splice sites to the candidate, default **2**.
+2. A graph of possible extensions is built for both the 5' end and the 3' end of the locus.
+   Transcripts are then divided in extension groups, starting with the outmost (ie the potential **template** for the group). Links that would cause chains
+   (e.g. A can act as template for B and B can act as template for C, but A *cannot* act as template for C) are broken.
 2. Create a copy of the transcripts in the locus, for backtracking.
-3. After selecting the templates and the attached transcripts, expand the transcript.
+3. Start expanding each transcript:
   a. Create a copy of the transcript for backtracking
   b. Calculate whether the 5' terminal exon should be enlarged:
     - if the transcript exon terminally overlaps a template exon, enlarge it until the end of the template
@@ -647,13 +652,13 @@ When calculating the new ORF, Mikado will use the same :ref:`codon table selecte
 
 This option is normally activated, with the parameters:
 
-* Default maximum splice sites that can be crossed: 1
-* Default maximum basepair distance: 300
+* Default maximum splice sites that can be crossed: 2
+* Default maximum basepair distance: 1000
 
-.. note:: please consider that the parameters above refer to the expansion **on both sides of the transcript**. So the parameters above allow transcripts to be expanded by up to 600 bps, ie 300 in both directions.
+.. note:: please consider that the parameters above refer to the expansion **on both sides of the transcript**. So the parameters above allow transcripts to be expanded by up to 2000 bps, ie 1000 in both directions.
 
 This option has been written for using Mikado in conjunction with *ab initio* predictions, but it can be used fruitfully also with transcript assemblies.
-Please note that some of the metrics might become invalid after the padding. In particular, BLASTX results will be invalid as the query sequence will have changed.
+.. warning:: Please note that some of the metrics might become invalid after the padding. In particular, BLASTX results will be invalid as the query sequence will have changed.
 
 The options related to padding can be found under the pick section :ref:`in the configuration file <pad-configuration>`.
 

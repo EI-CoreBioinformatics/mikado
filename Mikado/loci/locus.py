@@ -1248,7 +1248,10 @@ def _enlarge_start(transcript: Transcript,
             up_exons.extend([(_[0], _[1]) for _ in upstream_exons])
         elif intersecting_upstream[0].value == "intron":
             # Now we have to expand until the first exon in the upstream_exons
-            if upstream_exons:
+            if intersecting_upstream[0][1] == transcript.exons[0][0] - 1:
+                assert upstream_exons
+                to_remove = False
+            elif upstream_exons:
                 to_remove = True
                 upstream_exon = upstream_exons[-1]
                 new_first_exon = (upstream_exon[0], transcript.exons[0][1])
@@ -1332,7 +1335,10 @@ def _enlarge_end(transcript: Transcript,
             down_exons.extend([(_[0], _[1]) for _ in downstream_exons])
         elif intersecting_downstream[-1].value == "intron":
             # Now we have to expand until the first exon in the upstream_exons
-            if downstream_exons:
+            if intersecting_downstream[-1][0] == transcript.exons[-1][1] + 1:
+                assert downstream_exons
+                to_remove = False
+            elif downstream_exons:
                 downstream_exon = downstream_exons[0]
                 assert downstream_exon[1] > backup.end
                 assert downstream_exon[0] > backup.end

@@ -12,7 +12,7 @@ from sys import maxsize
 import networkx
 from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
 import numpy
-from ..transcripts.clique_methods import find_cliques, find_communities, define_graph
+from ..transcripts.clique_methods import find_communities, define_graph
 from ..transcripts.transcript import Transcript
 from ..configuration.configurator import to_json, check_json
 from ..exceptions import NotInLocusError
@@ -110,9 +110,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
         self.scores_calculated = False
         self.scores = dict()
-        self.__cds_introntree = IntervalTree()
         self.__segmenttree = IntervalTree()
-        self.__cds_segmenttree = IntervalTree()
         self.__regressor = None
         self.session = None
         self.metrics_calculated = False
@@ -387,20 +385,20 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
         return find_communities(graph, self.logger)
 
-    def find_cliques(self, graph: networkx.Graph) -> (networkx.Graph, list):
-        """
-
-        :param graph: graph to which it is necessary to call the cliques for.
-
-        Wrapper for the BronKerbosch algorithm, which returns the maximal cliques in the graph.
-        It is the new interface for the BronKerbosch function, which is not called directly
-        from outside this class any longer.
-        The "inters" keyword provides the function used to determine
-        whether two vertices are connected or not in the graph.
-        """
-
-        return find_cliques(graph, self.logger)
-
+    # def find_cliques(self, graph: networkx.Graph) -> (networkx.Graph, list):
+    #     """
+    #
+    #     :param graph: graph to which it is necessary to call the cliques for.
+    #
+    #     Wrapper for the BronKerbosch algorithm, which returns the maximal cliques in the graph.
+    #     It is the new interface for the BronKerbosch function, which is not called directly
+    #     from outside this class any longer.
+    #     The "inters" keyword provides the function used to determine
+    #     whether two vertices are connected or not in the graph.
+    #     """
+    #
+    #     return find_cliques(graph, self.logger)
+    #
     def choose_best(self, transcripts: dict) -> str:
         """
         :param transcripts: the dictionary of transcripts of the instance
@@ -717,10 +715,10 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         :returns : None
         :rtype : None"""
 
-        self.logger.debug("Starting to calculate retained introns for %s", transcript.id)
+        # self.logger.debug("Starting to calculate retained introns for %s", transcript.id)
         if len(self.introns) == 0:
             transcript.retained_introns = tuple()
-            self.logger.debug("No introns in the locus to check against. Exiting.")
+            # self.logger.debug("No introns in the locus to check against. Exiting.")
             return
         transcript.logger = self.logger
         transcript.finalize()
@@ -735,7 +733,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
         for exon in transcript.exons:
 
-            self.logger.debug("Checking exon %s of %s", exon, transcript.id)
+            # self.logger.debug("Checking exon %s of %s", exon, transcript.id)
             # is_retained = False
             to_consider, frags, terminal = self._exon_to_be_considered(
                 exon, transcript, consider_truncated=consider_truncated)
@@ -743,8 +741,8 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                 self.logger.debug("Exon %s of %s is not to be considered", exon, transcript.id)
                 continue
 
-            self.logger.debug("Number of exons, introns, intervals in segmenttree: %d, %d, %d",
-                              len(self.exons), len(self.introns), len(self.segmenttree))
+            # self.logger.debug("Number of exons, introns, intervals in segmenttree: %d, %d, %d",
+            #                   len(self.exons), len(self.introns), len(self.segmenttree))
 
             is_retained = self._is_exon_retained(
                 exon,
@@ -1561,36 +1559,12 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
         return self.__segmenttree
 
-    @property
-    def cds_segmenttree(self):
-
-        if len(self.__cds_segmenttree) != len(self.combined_cds_exons) + len(self.combined_cds_introns):
-            self.__cds_segmenttree = self._calculate_segment_tree(self.combined_cds_exons, self.combined_cds_introns)
-
-        return self.__cds_segmenttree
-
     @staticmethod
     def _calculate_segment_tree(exons, introns):
 
         return IntervalTree.from_intervals(
                 [Interval(*_, value="exon") for _ in exons] + [Interval(*_, value="intron") for _ in introns]
             )
-
-    @property
-    def _cds_introntree(self):
-
-        """
-        :rtype: IntervalTree
-        """
-
-        if len(self.__cds_introntree) != len(self.combined_cds_introns):
-            self.__cds_introntree = IntervalTree.from_tuples(
-                [(_[0], _[1] + 1) for _ in self.combined_cds_introns])
-        return self.__cds_introntree
-
-    @property
-    def longest_transcript(self):
-        return max([len(_) for _ in self.transcripts.values()])
 
     @property
     def regressor(self):
@@ -1641,3 +1615,8 @@ class Abstractlocus(metaclass=abc.ABCMeta):
     @property
     def perform_padding(self):
         return self.json_conf["pick"]["alternative_splicing"]["pad"]
+
+    def _set_padding(self, value):
+        if value not in (False, True):
+            raise ValueError
+        self.json_conf["pick"]["alternative_splicing"]["pad"] = value

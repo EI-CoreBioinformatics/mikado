@@ -227,6 +227,7 @@ class Transcript:
                  logger=None,
                  intron_range=(0, maxsize),
                  trust_orf=False,
+                 is_reference=None,
                  accept_undefined_multi=False):
 
         """Initialise the transcript object, using a mRNA/transcript line.
@@ -292,7 +293,7 @@ class Transcript:
 
         # Starting settings for everything else
         self.__chrom = None
-        self.source = self._original_source = source
+        self.__is_reference = is_reference
         self.feature = "transcript"
         self.__start, self.__end = None, None
         self.attributes = dict()
@@ -335,6 +336,8 @@ class Transcript:
             self.__initialize_with_line(args[0])
             self._original_source = self.source
 
+        if source is not None:
+            self.source = self._original_source = source
         self.feature = intern(self.feature)
 
     def __initialize_with_line(self, transcript_row):
@@ -932,11 +935,23 @@ class Transcript:
     def is_reference(self):
         """Checks whether the transcript has been marked as reference by Mikado prepare"""
 
-        if self.json_conf is not None:
+        if self.__is_reference is not None:
+            return self.__is_reference
+        elif self.json_conf is not None:
             return self.original_source in self.json_conf.get("prepare", {}).get("files", {}).get(
                 "reference", {})
         else:
             return False
+
+    @is_reference.setter
+    def is_reference(self, value):
+        if value not in (False, True, None):
+            raise ValueError("Invalid value: {}".format(value))
+        self.__is_reference = value
+
+    @is_reference.deleter
+    def is_reference(self):
+        self.__is_reference = None
 
     is_reference.category = "External"
     is_reference.rtype = "bool"

@@ -7,6 +7,7 @@ option has been enabled.
 """
 
 from .abstractlocus import Abstractlocus
+from ..transcripts import Transcript
 
 
 class Excluded(Abstractlocus):
@@ -16,7 +17,7 @@ class Excluded(Abstractlocus):
 
     __name__ = "excluded_transcripts"
 
-    def __init__(self, monosublocus_instance, json_conf=None, logger=None):
+    def __init__(self, monosublocus_instance=None, json_conf=None, logger=None):
         """
         Constructor method
 
@@ -29,13 +30,17 @@ class Excluded(Abstractlocus):
         :param logger: logger instance
         :type logger: logging.Logger | None
         """
+
         Abstractlocus.__init__(self)
         self.splitted = False
         self.metrics_calculated = False
         self.json_conf = json_conf
-        # Add the transcript to the Locus
-        self.add_monosublocus(monosublocus_instance)
         self.logger = logger
+        if isinstance(monosublocus_instance, Transcript):
+            Abstractlocus.__init__(self, transcript_instance=monosublocus_instance)
+        elif isinstance(monosublocus_instance, Abstractlocus):
+            # Add the transcript to the Locus
+            self.add_monosublocus(monosublocus_instance)
 
     def add_transcript_to_locus(self, transcript, **kwargs):
         """Override of the sublocus method, and reversal to the original

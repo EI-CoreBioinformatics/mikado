@@ -1,0 +1,2 @@
+[run]
+omit = Mikado/tests/*, Mikado/subprograms/class_codes.py, Mikado/subprograms/awk_gtf.py, Mikado/subprograms/metrics.py, Mikado/configuration/daijin_configurator.py

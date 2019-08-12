@@ -169,6 +169,7 @@ class PrepareCheck(unittest.TestCase):
                                      max_intron)
                 os.remove(gtf)
 
+    @mark.slow
     def test_prepare_trinity_gff(self):
 
         self.conf["prepare"]["files"]["labels"].append("tr")
@@ -200,6 +201,7 @@ class PrepareCheck(unittest.TestCase):
                                        "mikado_prepared.fasta.fai"))
         dir.cleanup()
 
+    @mark.slow
     def test_prepare_trinity_and_cufflinks(self):
 
         self.conf["prepare"]["files"]["labels"] = ["cl", "tr"]
@@ -215,34 +217,37 @@ class PrepareCheck(unittest.TestCase):
                 ("cufflinks.gtf", "cufflinks.no_transcript.gtf"),
                 (("trinity.gff3", "trinity.match_matchpart.gff3", "trinity.cDNA_match.gff3", "trinity.gtf",
                   "trinity.no_transcript_feature.gtf"))):
-            with self.subTest(test_file=test_file, cuff_file=cuff_file):
-                self.conf["prepare"]["files"]["gff"][0] = pkg_resources.resource_filename("Mikado.tests",
-                                                                                          cuff_file)
-                self.conf["prepare"]["files"]["gff"][1] = pkg_resources.resource_filename("Mikado.tests",
-                                                                                          test_file)
-                self.conf["prepare"]["files"]["out_fasta"] = "mikado_prepared.fasta"
-                self.conf["prepare"]["files"]["out"] = "mikado_prepared.gtf"
-                args.strip_cds = True
-                args.json_conf = self.conf
-                prepare.prepare(args, self.logger)
+            for proc in (1, 3):
+                with self.subTest(test_file=test_file, cuff_file=cuff_file, proc=proc):
+                    self.conf["prepare"]["files"]["gff"][0] = pkg_resources.resource_filename("Mikado.tests",
+                                                                                              cuff_file)
+                    self.conf["prepare"]["files"]["gff"][1] = pkg_resources.resource_filename("Mikado.tests",
+                                                                                              test_file)
+                    self.conf["prepare"]["files"]["out_fasta"] = "mikado_prepared.fasta"
+                    self.conf["prepare"]["files"]["out"] = "mikado_prepared.gtf"
+                    args.strip_cds = True
+                    args.json_conf = self.conf
+                    args.procs = proc
+                    prepare.prepare(args, self.logger)
 
-                # Now that the program has run, let's check the output
-                self.assertTrue(os.path.exists(os.path.join(self.conf["prepare"]["files"]["output_dir"],
-                                                            "mikado_prepared.fasta")))
-                self.assertGreater(os.stat(os.path.join(self.conf["prepare"]["files"]["output_dir"],
-                                                        "mikado_prepared.fasta")).st_size, 0)
+                    # Now that the program has run, let's check the output
+                    self.assertTrue(os.path.exists(os.path.join(self.conf["prepare"]["files"]["output_dir"],
+                                                                "mikado_prepared.fasta")))
+                    self.assertGreater(os.stat(os.path.join(self.conf["prepare"]["files"]["output_dir"],
+                                                            "mikado_prepared.fasta")).st_size, 0)
 
-                fa = pyfaidx.Fasta(os.path.join(self.conf["prepare"]["files"]["output_dir"],
-                                                "mikado_prepared.fasta"))
-                res = dict((_, len(fa[_])) for _ in fa.keys())
-                fa.close()
-                precal = self.trinity_res.copy()
-                precal.update(self.cuff_results)
-                self.assertEqual(res, precal)
-                os.remove(os.path.join(self.conf["prepare"]["files"]["output_dir"],
-                                       "mikado_prepared.fasta.fai"))
+                    fa = pyfaidx.Fasta(os.path.join(self.conf["prepare"]["files"]["output_dir"],
+                                                    "mikado_prepared.fasta"))
+                    res = dict((_, len(fa[_])) for _ in fa.keys())
+                    fa.close()
+                    precal = self.trinity_res.copy()
+                    precal.update(self.cuff_results)
+                    self.assertEqual(res, precal)
+                    os.remove(os.path.join(self.conf["prepare"]["files"]["output_dir"],
+                                           "mikado_prepared.fasta.fai"))
         dir.cleanup()
 
+    @mark.slow
     def test_prepare_with_cds(self):
 
         rev_strand = {"+": "-", "-": "+"}
@@ -270,37 +275,43 @@ class PrepareCheck(unittest.TestCase):
 
         for fname in [ann_gff3, rev_ann_gff3.name]:
             for strip in (True, False):
-                with self.subTest(fname=fname, strip=strip):
-                    self.conf["prepare"]["files"]["gff"] = [fname]
-                    args.json_conf["prepare"]["strip_cds"] = strip
-                    prepare.prepare(args, logger=self.logger)
-                    fasta = os.path.join(self.conf["prepare"]["files"]["output_dir"], "mikado_prepared.fasta")
-                    self.assertTrue(os.path.exists(fasta))
-                    if strip is True or (strip is False and fname == ann_gff3):
-                        self.assertGreater(os.stat(fasta).st_size, 0)
-                        fa = pyfaidx.Fasta(fasta)
-                        self.assertEqual(len(fa.keys()), 2)
-                        fa.close()
-                    else:
-                        self.assertEqual(os.stat(fasta).st_size, 0)
-                    # Now verify that no model has CDS
-                    gtf = os.path.join(self.conf["prepare"]["files"]["output_dir"], "mikado_prepared.gtf")
-                    models = dict()
-                    with to_gff(gtf) as file_gtf:
-                        for line in file_gtf:
-                            if line.header:
-                                continue
-                            elif line.is_transcript:
-                                models[line.id] = Transcript(line)
-                            else:
-                                models[line.parent[0]].add_exon(line)
-                    [models[model].finalize() for model in models]
-                    for model in models:
-                        if strip is False:
-                            self.assertTrue(models[model].is_coding, models[model].format("gtf"))
+                for proc in (1, 3):
+                    with self.subTest(fname=fname, strip=strip, proc=proc):
+                        self.conf["prepare"]["files"]["gff"] = [fname]
+                        args.json_conf["prepare"]["strip_cds"] = strip
+                        args.json_conf["prepare"]["procs"] = proc
+                        with self.assertLogs(self.logger, "INFO") as cm:
+                            prepare.prepare(args, logger=self.logger)
+                        fasta = os.path.join(self.conf["prepare"]["files"]["output_dir"], "mikado_prepared.fasta")
+                        self.assertTrue(os.path.exists(fasta), "\n".join(cm.output))
+                        if strip is True or (strip is False and fname == ann_gff3):
+                            self.assertGreater(os.stat(fasta).st_size, 0, "\n".join(cm.output))
+                            fa = pyfaidx.Fasta(fasta)
+                            self.assertEqual(len(fa.keys()), 2, "\n".join(cm.output))
+                            fa.close()
                         else:
-                            self.assertFalse(models[model].is_coding, models[model].format("gtf"))
+                            self.assertEqual(os.stat(fasta).st_size, 0,
+                                             str(strip) + " " + str(fname) + "\n" + "\n".join(cm.output))
 
+                        # Now verify that no model has CDS
+                        gtf = os.path.join(self.conf["prepare"]["files"]["output_dir"], "mikado_prepared.gtf")
+                        models = dict()
+                        with to_gff(gtf) as file_gtf:
+                            for line in file_gtf:
+                                if line.header:
+                                    continue
+                                elif line.is_transcript:
+                                    models[line.id] = Transcript(line)
+                                else:
+                                    models[line.parent[0]].add_exon(line)
+                        [models[model].finalize() for model in models]
+                        for model in models:
+                            if strip is False:
+                                self.assertTrue(models[model].is_coding, models[model].format("gtf"))
+                            else:
+                                self.assertFalse(models[model].is_coding, models[model].format("gtf"))
+
+    @mark.slow
     def test_cdna_redundant_cds_not(self):
         """This test will verify whether the new behaviour of not considering redundant two models with same
         exon structure but different CDS does function properly."""
@@ -401,6 +412,7 @@ class PrepareCheck(unittest.TestCase):
 
                 self.assertGreater(coding_count, 0)
 
+    @mark.slow
     def test_negative_cdna_redundant_cds_not(self):
         """This test will verify whether the new behaviour of not considering redundant two models with same
         exon structure but different CDS does function properly."""
@@ -511,6 +523,7 @@ class PrepareCheck(unittest.TestCase):
                 fa.close()
                 folder.cleanup()
 
+    @mark.slow
     def test_truncated_cds(self):
         files = ["test_truncated_cds.gff3"]
         files = [pkg_resources.resource_filename("Mikado.tests", filename) for filename in files]
@@ -792,7 +805,7 @@ class PrepareCheck(unittest.TestCase):
                         self.assertEqual(coding, with_cds)
 
 
-# @mark.slow
+@mark.slow
 class CompareCheck(unittest.TestCase):
 
     """Test to check that compare interacts correctly with match, match_part, cDNA_match"""
@@ -892,6 +905,7 @@ class CompareCheck(unittest.TestCase):
                 dir.cleanup()
 
 
+@mark.slow
 class ConfigureCheck(unittest.TestCase):
 
     """Test for creating configuration files"""

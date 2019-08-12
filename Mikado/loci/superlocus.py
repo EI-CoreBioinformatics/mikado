@@ -27,6 +27,9 @@ from ..serializers.external import External
 from ..serializers.junction import Junction, Chrom
 from ..serializers.orf import Orf
 from ..utilities import dbutils, grouper
+from ..scales.assigner import Assigner
+import bisect
+import numpy as np
 if version_info.minor < 5:
     from sortedcontainers import SortedDict
 else:
@@ -143,7 +146,7 @@ class Superlocus(Abstractlocus):
         # Connection objects
         self.engine = self.sessionmaker = self.session = None
         # Excluded object
-        self.excluded_transcripts = None
+        self.excluded_transcripts = Excluded(json_conf=self.json_conf)
         self.__retained_sources = set()
         self.__data_loaded = False
         self.__lost = dict()
@@ -722,143 +725,200 @@ class Superlocus(Abstractlocus):
 
         self.approximation_level = 1
         transcript_graph, max_edges = self.reduce_method_one(transcript_graph)
+
         if len(transcript_graph) < self._complex_limit[0] and max_edges < self._complex_limit[1]:
             self.logger.warning("Approximation level 1 for %s", self.id)
+            self.logger.debug("Remaining transcripts: %s", ", ".join(self.transcripts.keys()))
             return transcript_graph
 
-        self.logger.warning("Still %d nodes with the most connected with %d edges \
-        after approximation 1",
-                            len(transcript_graph), max_edges)
+        self.logger.warning(
+            "Still %d nodes with the most connected with %d edges after approximation 1",
+            len(transcript_graph), max_edges)
 
         self.approximation_level = 2
         transcript_graph, max_edges = self.reduce_method_two(transcript_graph)
-        if len(transcript_graph) < self._complex_limit[0] and max_edges < self._complex_limit[1]:
-            self.logger.warning("Approximation level 2 for %s", self.id)
-            return transcript_graph
-        self.logger.warning("Still %d nodes with the most connected with %d edges \
-        after approximation 2",
-                            len(transcript_graph), max_edges)
-
-        self.approximation_level = 3
-        self.logger.warning("Approximation level 3 for %s; retained sources: %s",
-                            self.id, ",".join(self.__retained_sources))
-        transcript_graph = self.reduce_method_three(transcript_graph)
+        # if len(transcript_graph) < self._complex_limit[0] and max_edges < self._complex_limit[1]:
+        self.logger.warning("Approximation level 2 for %s", self.id)
         return transcript_graph
+
+        # self.logger.warning("Still %d nodes with the most connected with %d edges \
+        # after approximation 2",
+        #                     len(transcript_graph), max_edges)
+        #
+        # self.approximation_level = 3
+        # self.logger.warning("Approximation level 3 for %s; retained sources: %s",
+        #                     self.id, ",".join(self.__retained_sources))
+        # transcript_graph = self.reduce_method_three(transcript_graph)
+        # return transcript_graph
 
     def reduce_method_one(self, transcript_graph: networkx.Graph) -> [networkx.Graph, int]:
 
+        ichains = collections.defaultdict(list)
+        cds_only = self.json_conf["pick"]["clustering"]["cds_only"]
+        for transcript in self.transcripts.values():
+            # Ordered by coordinates
+            if cds_only:
+                bisect.insort(ichains[tuple(sorted(transcript.selected_cds_introns))], transcript)
+            else:
+                bisect.insort(ichains[tuple(sorted(transcript.introns))], transcript)
+
         to_remove = set()
-        for tid in transcript_graph:
-            current = self.transcripts[tid]
-            for neighbour in transcript_graph.neighbors(tid):
-                if neighbour in to_remove:
+        for ichain, transcripts in ichains.items():
+            current_coords = [transcripts[0].start, transcripts[0].end]
+            current_id = transcripts[0].id
+            for transcript in transcripts[1:]:  # we know that they are sorted left to right
+                self.logger.debug("Comparing %s to %s", current_id, transcript.id)
+                if transcript.id not in transcript_graph.neighbors(current_id):
+                    self.logger.debug("%s and %s are not neighbours.", current_id, transcript.id)
                     continue
-                neighbour = self.transcripts[neighbour]
-                if neighbour.introns == current.introns:
-                    if neighbour.start >= current.start and neighbour.end <= current.end:
-                        to_remove.add(neighbour.id)
-                    elif neighbour.start <= current.start and neighbour.end >= current.end:
-                        to_remove.add(current.id)
-                        break
-        transcript_graph.remove_nodes_from(to_remove)
+                if transcript.end <= current_coords[1] and transcript.start > current_coords[0]:
+                    if transcript.is_reference:
+                        continue
+                    else:
+                        to_remove.add(transcript.id)
+                elif transcript.end == current_coords[1] and transcript.start == current_coords[0]:
+                    if transcript.is_reference:
+                        current_id = transcript.id
+                        if not self.transcripts[current_id].is_reference:
+                            to_remove.add(current_id)
+                    elif self.transcripts[current_id].is_reference:
+                        to_remove.add(transcript.id)
+                    else:
+                        chosen = np.random.choice(sorted([current_id, transcript.id]))
+                        if current_id == chosen:
+                            to_remove.add(transcript.id)
+                        else:
+                            to_remove.add(chosen)
+                            current_id = transcript.id
+                elif transcript.end > current_coords[1]:
+                    if transcript.start == current_coords[0] and not self.transcripts[current_id].is_reference:
+                        to_remove.add(current_id)
+                    current_coords, current_id = (transcript.start, transcript.end), transcript.id
+
+        if to_remove:
+            transcript_graph.remove_nodes_from(to_remove)
+            [self.excluded_transcripts.add_transcript_to_locus(self.transcripts[tid]) for tid in to_remove]
+            self.logger.debug("Removing the following transcripts from %s: %s",
+                              self.id, ", ".join(to_remove))
+            for tid in to_remove:
+                self.remove_transcript_from_locus(tid)
+
         max_edges = max([d for n, d in transcript_graph.degree])
         return transcript_graph, max_edges
 
     def reduce_method_two(self, transcript_graph: networkx.Graph) -> [networkx.Graph, int]:
 
         to_remove = set()
+        done = set()
+        cds_only = self.json_conf["pick"]["clustering"]["cds_only"]
         for tid in transcript_graph:
             current = self.transcripts[tid]
             for neighbour in transcript_graph.neighbors(tid):
+                couple = tuple(sorted((neighbour, tid)))
+                if couple in done:
+                    continue
+                done.add(couple)
+                self.logger.warning("Comparing %s to %s", tid, neighbour)
                 if neighbour in to_remove:
                     continue
                 neighbour = self.transcripts[neighbour]
                 inters = set.intersection(current.introns, neighbour.introns)
                 if inters == current.introns:
-                    neigh_first_corr = [_ for _ in neighbour.exons if
-                                        _[1] == sorted(current.exons)[0][1]]
-                    # assert len(neigh_first_corr) == 1
-                    if neigh_first_corr[0][0] > current.start:
+                    self.logger.warning("Evaluating %s (template %s) for removal", current.id, neighbour.id)
+                    if current.is_reference:
                         continue
-                    neigh_last_corr = [_ for _ in neighbour.exons if
-                                       _[0] == sorted(current.exons)[-1][0]]
-                    # assert len(neigh_last_corr) == 1
-                    if neigh_last_corr[0][1] < current.end:
-                        continue
-                    to_remove.add(current.id)
-                    break
+                    if cds_only:
+                        comparison = Assigner.compare(current.copy().remove_utr(),
+                                                  neighbour.copy().remove_utr())[0]
+                    else:
+                        comparison = Assigner.compare(current, neighbour)[0]
+                    self.logger.warning(
+                        "Evaluating %s (template %s) for removal (%s)",
+                        current.id, neighbour.id, (comparison.n_prec[0], comparison.n_recall[0]))
+                    if comparison.n_prec[0] == 100:
+                        to_remove.add(current.id)
+                        break
                 elif inters == neighbour.introns:
-                    curr_first_corr = [_ for _ in current.exons if
-                                       _[1] == sorted(neighbour.exons)[0][1]]
-                    # assert len(curr_first_corr) == 1
-                    if curr_first_corr[0][0] > neighbour.start:
+                    if neighbour.is_reference:
                         continue
-                    curr_last_corr = [_ for _ in current.exons if
-                                      _[0] == sorted(neighbour.exons)[-1][0]]
-                    # assert len(curr_last_corr) == 1
-                    if curr_last_corr[0][1] < neighbour.end:
-                        continue
-                    to_remove.add(neighbour.id)
-                    continue
+                    if cds_only:
+                        comparison = Assigner.compare(neighbour.copy().remove_utr(),
+                                                      current.copy().remove_utr())[0]
+                    else:
+                        comparison = Assigner.compare(neighbour, current)[0]
+                    self.logger.warning(
+                        "Evaluating %s (template %s) for removal (%s)",
+                        current.id, neighbour.id, (comparison.n_prec[0], comparison.n_recall[0]))
+                    if comparison.n_prec[0] == 100:
+                        to_remove.add(neighbour.id)
+                        break
                 else:
                     continue
 
-        transcript_graph.remove_nodes_from(to_remove)
+        if to_remove:
+            transcript_graph.remove_nodes_from(to_remove)
+            [self.excluded_transcripts.add_transcript_to_locus(self.transcripts[tid]) for tid in to_remove]
+            self.logger.debug("Removing the following transcripts from %s: %s",
+                              self.id, ", ".join(to_remove))
+            for tid in to_remove:
+                self.remove_transcript_from_locus(tid)
+
         max_edges = max([d for n, d in transcript_graph.degree])
         return transcript_graph, max_edges
 
-    def reduce_method_three(self, transcript_graph: networkx.Graph) -> networkx.Graph:
-
-        # Now we are going to collapse by method
-        sources = collections.defaultdict(set)
-        for tid in transcript_graph:
-            found = False
-            for tag in self.json_conf["prepare"]["labels"]:
-                if tag != '' and tag in tid:
-                    sources[tag].add(tid)
-                    found = True
-                    break
-            if found is False:
-                # Fallback
-                self.logger.debug("Label not found for %s", tid)
-                sources[self.transcripts[tid].source].add(tid)
-
-        new_graph = networkx.Graph()
-
-        counter = dict()
-        for source in sources:
-            counter[source] = len(sources[source])
-        self.logger.debug("Sources to consider: %s", counter)
-        for source in sorted(sources, key=lambda key: len(sources[key])):
-            self.logger.debug("Considering source %s, counter: %d",
-                              source, counter[source])
-            nodes = sources[source]
-            acceptable = set.union(nodes, set(new_graph.nodes()))
-            edges = set([edge for edge in transcript_graph.edges(
-                nbunch=set.union(set(new_graph.nodes()), nodes)) if
-                         edge[0] in acceptable and edge[1] in acceptable])
-
-            counter = collections.Counter()
-            for edge in edges:
-                counter.update(edge)
-
-            if len(counter.most_common()) == 0:
-                edges_most_connected = 0
-            else:
-                edges_most_connected = counter.most_common(1)[0][1]
-
-            if (len(acceptable) > self._complex_limit[0] or
-                    edges_most_connected > self._complex_limit[1]):
-                self.logger.debug("Reached the limit with source %s, %d nodes, %d max edges",
-                                  source,
-                                  len(acceptable),
-                                  edges_most_connected)
-                break
-            new_graph.add_nodes_from(nodes)
-            new_graph.add_edges_from(edges)
-            self.logger.debug("Retained source %s", source)
-            self.__retained_sources.add(source)
-        return new_graph
+    # def reduce_method_three(self, transcript_graph: networkx.Graph) -> networkx.Graph:
+    #
+    #     # Now we are going to collapse by method
+    #     sources = collections.defaultdict(set)
+    #     for tid in transcript_graph:
+    #         found = False
+    #         for tag in self.json_conf["prepare"]["labels"]:
+    #             if tag != '' and tag in tid:
+    #                 sources[tag].add(tid)
+    #                 found = True
+    #                 break
+    #         if found is False:
+    #             # Fallback
+    #             self.logger.debug("Label not found for %s", tid)
+    #             sources[self.transcripts[tid].source].add(tid)
+    #
+    #     new_graph = networkx.Graph()
+    #
+    #     counter = dict()
+    #     for source in sources:
+    #         counter[source] = len(sources[source])
+    #     self.logger.debug("Sources to consider: %s", counter)
+    #     for source in sorted(sources, key=lambda key: len(sources[key])):
+    #         self.logger.debug("Considering source %s, counter: %d",
+    #                           source, counter[source])
+    #         nodes = sources[source]
+    #         acceptable = set.union(nodes, set(new_graph.nodes()))
+    #         edges = set([edge for edge in transcript_graph.edges(
+    #             nbunch=set.union(set(new_graph.nodes()), nodes)) if
+    #                      edge[0] in acceptable and edge[1] in acceptable])
+    #
+    #         counter = collections.Counter()
+    #         for edge in edges:
+    #             counter.update(edge)
+    #
+    #         if len(counter.most_common()) == 0:
+    #             edges_most_connected = 0
+    #         else:
+    #             edges_most_connected = counter.most_common(1)[0][1]
+    #
+    #         if (len(acceptable) > self._complex_limit[0] or
+    #                 edges_most_connected > self._complex_limit[1]):
+    #             self.logger.debug("Reached the limit with source %s, %d nodes, %d max edges",
+    #                               source,
+    #                               len(acceptable),
+    #                               edges_most_connected)
+    #             break
+    #         new_graph.add_nodes_from(nodes)
+    #         new_graph.add_edges_from(edges)
+    #         self.logger.debug("Retained source %s", source)
+    #         self.__retained_sources.add(source)
+    #
+    #     return new_graph
 
     def define_subloci(self):
         """This method will define all subloci inside the superlocus.
@@ -884,9 +944,8 @@ class Superlocus(Abstractlocus):
 
         cds_only = self.json_conf["pick"]["clustering"]["cds_only"]
         self.logger.debug("Calculating the transcript graph for %d transcripts", len(self.transcripts))
-        transcript_graph = self.define_graph(self.transcripts,
-                                             inters=self.is_intersecting,
-                                             cds_only=cds_only)
+        transcript_graph = self.define_graph(cds_only=cds_only)
+
         transcript_graph = self.reduce_complex_loci(transcript_graph)
         if len(self.transcripts) > len(transcript_graph):
             self.logger.warning("Discarded %d transcripts from %s due to approximation level %d",
@@ -1028,9 +1087,6 @@ class Superlocus(Abstractlocus):
         for slocus in self.subloci:
             for row in slocus.print_scores():
                 yield row
-        # if self.excluded_transcripts is not None:
-        #     for row in self.excluded_transcripts.print_scores():
-        #         yield row
 
     def print_monoholder_metrics(self):
 
@@ -1169,8 +1225,8 @@ class Superlocus(Abstractlocus):
         cdna_overlap = self.json_conf["pick"]["clustering"]["min_cdna_overlap"]
         cds_overlap = self.json_conf["pick"]["clustering"]["min_cds_overlap"]
 
-        t_graph = self.define_graph(self.transcripts,
-                                    inters=MonosublocusHolder.is_intersecting,
+        t_graph = super().define_graph(self.transcripts,
+                                       inters=MonosublocusHolder.is_intersecting,
                                     cds_only=cds_only,
                                     logger=self.logger,
                                     min_cdna_overlap=cdna_overlap,
@@ -1220,7 +1276,7 @@ class Superlocus(Abstractlocus):
         cdna_overlap = self.json_conf["pick"]["alternative_splicing"]["min_cdna_overlap"]
 
         self.logger.debug("Defining the transcript graph")
-        t_graph = self.define_graph(self.transcripts,
+        t_graph = super().define_graph(self.transcripts,
                                     inters=MonosublocusHolder.is_intersecting,
                                     cds_only=cds_only,
                                     logger=self.logger,
@@ -1294,7 +1350,7 @@ class Superlocus(Abstractlocus):
         self.monoholders = []
         self.define_monosubloci()
 
-        mono_graph = self.define_graph(
+        mono_graph = super().define_graph(
             self.monosubloci,
             inters=MonosublocusHolder.in_locus,
             logger=self.logger,
@@ -1343,6 +1399,43 @@ class Superlocus(Abstractlocus):
 
     # The discrepancy is by design
     # pylint: disable=arguments-differ
+
+    def define_graph(self, cds_only=False) -> networkx.Graph:
+
+        """Overloading of the original method to avoind being a O(n**2) algorithm"""
+
+        graph = networkx.Graph()
+
+        # As we are using intern for transcripts, this should prevent
+        # memory usage to increase too much
+        objects = self.transcripts
+        graph.add_nodes_from(objects.keys())
+
+        monoexonic = []
+        intronic = collections.defaultdict(set)
+
+        for tid, transcript in objects.items():
+            if cds_only is True and len(transcript.selected_cds_introns) == 0:
+                bisect.insort(monoexonic, (transcript.selected_cds_start, transcript.selected_cds_end, tid))
+            elif cds_only is False and transcript.monoexonic is True:
+                bisect.insort(monoexonic, (transcript.start, transcript.end, tid))
+            if cds_only is False or not transcript.is_coding:
+                store = transcript.introns
+            else:
+                store = transcript.selected_cds_introns
+            for intron in store:
+                intronic[intron].add(tid)
+
+        for key in intronic:
+            graph.add_edges_from(itertools.combinations(intronic[key], 2))
+
+        # This will be quadratic. Hopefully it will not break the program.
+        for one, other in itertools.combinations(monoexonic, 2):
+            if self.overlap((one[0], one[1]), (other[0], other[1]), positive=False) > 0:
+                graph.add_edge(one[2], other[2])
+
+        return graph
+
     @classmethod
     def is_intersecting(cls, transcript, other, cds_only=False):
         """

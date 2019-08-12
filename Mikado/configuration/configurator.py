@@ -36,7 +36,7 @@ def extend_with_default(validator_class, resolver=None, simple=False):
     so that they also set the default values provided inside the schema
     itself. Source:
     https://python-jsonschema.readthedocs.org/en/latest/faq/?highlight=default
-    :param validator_class: the validator class to extend (e.g. Draft4Validator)
+    :param validator_class: the validator class to extend (e.g. Draft7Validator)
 
     :param simple: boolean flag. If set to True, only required properties will be extended.
     :type simple: bool
@@ -158,9 +158,9 @@ def check_scoring(json_conf):
         if parameter in parameters_found:
             double_parameters.append(parameter)
 
-        if not jsonschema.Draft4Validator(scoring_schema).is_valid(
+        if not jsonschema.Draft7Validator(scoring_schema).is_valid(
                 jdict[parameter]):
-            errors = [str(_) for _ in list(jsonschema.Draft4Validator(scoring_schema).iter_errors(
+            errors = [str(_) for _ in list(jsonschema.Draft7Validator(scoring_schema).iter_errors(
                 jdict[parameter]))]
             raise InvalidJson("Invalid scoring for {}:\n{}".format(
                 parameter, "\n".join(errors)))
@@ -318,9 +318,9 @@ def check_requirements(json_conf, require_schema, index):
             else:
                 parameters_not_found.append(key_name)
                 continue
-        if not jsonschema.Draft4Validator(require_schema["definitions"]["parameter"]).is_valid(
+        if not jsonschema.Draft7Validator(require_schema["definitions"]["parameter"]).is_valid(
                 json_conf[index]["parameters"][key]):
-            errors = list(jsonschema.Draft4Validator(require_schema).iter_errors(
+            errors = list(jsonschema.Draft7Validator(require_schema).iter_errors(
                 json_conf[index]["parameters"][key]
             ))
             raise InvalidJson("Invalid parameter for {0} in {1}: \n{2}".format(
@@ -347,7 +347,7 @@ def check_requirements(json_conf, require_schema, index):
         newexpr = json_conf[index]["expression"][:]
         json_conf[index]["__expression"] = json_conf[index]["expression"][:]
     else:
-        if not jsonschema.Draft4Validator(
+        if not jsonschema.Draft7Validator(
                 require_schema["definitions"]["expression"]).is_valid(
                     json_conf[index]["expression"]):
             raise InvalidJson("Invalid expression field")
@@ -434,7 +434,7 @@ def create_validator(simple=False):
     :type simple: bool
 
     :return validator
-    :rtype: jsonschema.Draft4Validator
+    :rtype: jsonschema.Draft7Validator
     """
 
     validator = extend_with_default(jsonschema.Draft7Validator,

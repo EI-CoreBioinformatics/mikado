@@ -18,6 +18,7 @@ from ..scales.assigner import Assigner
 from ..exceptions import InvalidTranscript
 import networkx as nx
 from itertools import combinations
+import numpy as np
 
 
 class Locus(Abstractlocus):
@@ -26,7 +27,8 @@ class Locus(Abstractlocus):
     additional transcripts if they are valid splicing isoforms.
     """
 
-    def __init__(self, transcript: Transcript, logger=None, json_conf=None, **kwargs):
+    def __init__(self, transcript: Transcript, logger=None, json_conf=None,
+                 pad_transcripts=None, **kwargs):
         """
         Constructor class. Like all loci, also Locus is defined starting from a transcript.
 
@@ -65,6 +67,16 @@ class Locus(Abstractlocus):
         self.__id = None
         self.fai = None
         self.__finalized = False
+
+        if pad_transcripts in (False, True):
+            # self._set_padding(pad_transcripts)
+            self.json_conf["pick"]["alternative_splicing"]["pad"] = pad_transcripts
+            assert self.perform_padding == pad_transcripts
+
+        if self.perform_padding is True and self.json_conf["pick"]["run_options"]["only_reference_update"] is True:
+            self._add_to_alternative_splicing_codes("=")
+            self._add_to_alternative_splicing_codes("_")
+            self._add_to_alternative_splicing_codes("n")
         # if verified_introns is not None:
         #     self.locus_verified_introns = verified_introns
 
@@ -133,14 +145,14 @@ class Locus(Abstractlocus):
         while True:
             # *Never* lose the primary transcript
             to_keep = {self.primary_transcript_id}
-            order = sorted([(tid, self.transcripts[tid].score) for tid in self.transcripts
+            order = sorted(sorted([(tid, self.transcripts[tid].score, self.transcripts[tid].start) for tid in self.transcripts
                             if tid != self.primary_transcript_id],
-                           key=operator.itemgetter(1), reverse=True)
+                            key=operator.itemgetter(1), reverse=True),
+                            key=operator.itemgetter(2), reverse=False)
             threshold = self.json_conf["pick"]["alternative_splicing"]["min_score_perc"] * self.primary_transcript.score
 
             for obj in order:
-                self.logger.debug("Transcript, score, threshold: %s, %s, %s",
-                                  obj[0], obj[1], threshold)
+                self.logger.debug("Transcript, score, threshold: %s, %s, %s", obj[0], obj[1], threshold)
 
             # Islice will function also when the list is smaller than "max_isoforms"
             score_passing = [_ for _ in order if _[1] >= threshold]
@@ -171,7 +183,7 @@ class Locus(Abstractlocus):
             else:
                 self.logger.debug("No transcripts with retained introns found.")
 
-            if self.perform_padding is True:
+            if self.perform_padding is True and len(self.transcripts) > 1:
                 self.logger.debug("Starting padding procedure for %s", self.id)
                 failed = self.__launch_padding()
                 if failed:
@@ -181,6 +193,8 @@ class Locus(Abstractlocus):
 
             break
 
+        # Now that we have added the padding ... time to remove redundant alternative splicing events.
+        self.__remove_redundant_after_padding()
         self.logger.debug("%s has %d transcripts (%s)", self.id, len(self.transcripts),
                           ", ".join(list(self.transcripts.keys())))
         self._finalized = True
@@ -286,6 +300,42 @@ class Locus(Abstractlocus):
                 break
 
         return removed
+
+    def __remove_redundant_after_padding(self):
+
+        # First thing: calculate the class codes
+        class_codes = dict()
+        for t1, t2 in itertools.combinations(self.transcripts.keys(), 2):
+            class_codes[(t1, t2)] = Assigner.compare(self[t1], self[t2])[0]
+
+        to_remove = set()
+        for couple, comparison in class_codes.items():
+            if self[couple[0]].is_reference and self[couple[1]].is_reference:
+                continue
+
+            if comparison.n_f1[0] == 100:
+                try:
+                    if self[couple[0]].is_reference and not self[couple[1]].is_reference:
+                        removal = couple[1]
+                    elif self[couple[0]].score > self[couple[1]].score:
+                        removal = couple[1]
+                    elif self[couple[1]].is_reference and not self[couple[0]].is_reference:
+                        removal = couple[0]
+                    elif self[couple[1]].score > self[couple[0]].score:
+                        removal = couple[0]
+                    else:
+                        removal = np.random.choice(sorted(couple))
+                except (TypeError, ValueError):
+                    raise ValueError((couple, self[couple[0]].score, self[couple[1]].score))
+                finally:
+                    to_remove.add(removal)
+                    self.logger.info("Removing %s from locus %s because after padding it is redundant with %s",
+                                     removal, self.id, couple[0] if removal == couple[1] else couple[0])
+
+        for tid in to_remove:
+            self.remove_transcript_from_locus(tid)
+            continue
+        return
 
     def remove_transcript_from_locus(self, tid: str):
 
@@ -729,14 +779,17 @@ class Locus(Abstractlocus):
         five_graph = self.define_graph(objects=self.transcripts, inters=self._share_extreme, three_prime=False)
         three_graph = self.define_graph(objects=self.transcripts, inters=self._share_extreme, three_prime=True)
 
+        self.logger.warning("5' graph: %s", five_graph.edges)
+        self.logger.warning("3' graph: %s", three_graph.edges)
         # TODO: Tie breaks!
 
         __to_modify = self._find_communities_boundaries(five_graph, three_graph)
 
+        self.logger.warning("To modify: %s", __to_modify)
         templates = set()
 
         # Now we can do the proper modification
-        for tid in __to_modify:
+        for tid in sorted(__to_modify.keys()):
             if __to_modify[tid][0]:
                 templates.add(__to_modify[tid][0].id)
             if __to_modify[tid][1]:
@@ -767,8 +820,6 @@ class Locus(Abstractlocus):
         self.exons = set()
         for tid in self:
             self.exons.update(self[tid].exons)
-        # self.fai.close()
-        # del self.fai
         return templates
 
     def define_graph(self, objects: dict, inters=None, three_prime=False):
@@ -779,7 +830,7 @@ class Locus(Abstractlocus):
         if inters is None:
             inters = self._share_extreme
 
-        for obj, other_obj in combinations(objects.keys(), 2):
+        for obj, other_obj in combinations(sorted(objects.keys()), 2):
             self.logger.debug("Comparing %s to %s (%s')", obj, other_obj, "5" if not three_prime else "3")
             if obj == other_obj:
                 continue
@@ -916,7 +967,7 @@ class Locus(Abstractlocus):
         matched = second.segmenttree.find(first.exons[-1][0], first.exons[-1][1])
         if matched[-1].value == "intron" or first.exons[-1][1] > matched[-1].end:
             decision = False
-            reason = "{second.id} last exon ends within an intron of {first.id}".format(**locals())
+            reason = "{first.id} last exon ends within an intron of {second.id}".format(**locals())
         else:
             downstream = [_ for _ in second.find_downstream(first.exons[-1][0], first.exons[-1][1])
                           if _.value == "exon" and _ not in matched]
@@ -1080,6 +1131,17 @@ class Locus(Abstractlocus):
     def has_reference_transcript(self):
         return any(self.transcripts[transcript].is_reference is True for transcript in self)
 
+    def _get_alternative_splicing_codes(self):
+        """Method to retrieve the currently valid alternative splicing event codes"""
+        return self.json_conf["pick"]["alternative_splicing"]["valid_ccodes"]
+
+    def _add_to_alternative_splicing_codes(self, code):
+        """Method to retrieve the currently valid alternative splicing event codes"""
+        self.json_conf["pick"]["alternative_splicing"]["valid_ccodes"] = list(set(
+            list(self.json_conf["pick"]["alternative_splicing"]["valid_ccodes"]) + [code]
+        ))
+        self.json_conf = self.json_conf
+
 
 def expand_transcript(transcript: Transcript,
                       start_transcript: [Transcript, bool],
@@ -1215,7 +1277,6 @@ def _enlarge_start(transcript: Transcript,
               a boolean flag indicating whether the first exon of the transcript should be removed.
     """
 
-
     upstream = 0
     up_exons = []
     new_first_exon = None
@@ -1223,9 +1284,8 @@ def _enlarge_start(transcript: Transcript,
     if start_transcript:
         transcript.start = start_transcript.start
         upstream_exons = sorted([_ for _ in
-            start_transcript.find_upstream(transcript.exons[0][0], transcript.exons[0][1])
+                                 start_transcript.find_upstream(transcript.exons[0][0], transcript.exons[0][1])
                                       if _.value == "exon"])
-
         intersecting_upstream = sorted(start_transcript.search(
             transcript.exons[0][0], transcript.exons[0][1]))
 
@@ -1247,6 +1307,9 @@ def _enlarge_start(transcript: Transcript,
             upstream += sum(_[1] - _[0] + 1 for _ in upstream_exons)
             up_exons.extend([(_[0], _[1]) for _ in upstream_exons])
         elif intersecting_upstream[0].value == "intron":
+            # Check whether the first exon of the model *ends* within an *intron* of the template
+            # If that is the case, we have to keep the first exon in place and
+            # just expand it until the end
             # Now we have to expand until the first exon in the upstream_exons
             if intersecting_upstream[0][1] == transcript.exons[0][0] - 1:
                 assert upstream_exons
@@ -1384,8 +1447,8 @@ def check_expanded(transcript, backup, start_transcript, end_transcript, fai, up
     """
 
     assert transcript.exons != backup.exons
-
-    assert transcript.end <= len(fai[transcript.chrom]), (transcript.end, len(fai[transcript.chrom]))
+    assert transcript.end <= fai.get_reference_length(transcript.chrom), (
+        transcript.end, fai.get_reference_length(transcript.chrom))
     genome_seq = fai.fetch(transcript.chrom, transcript.start - 1, transcript.end)
 
     if not (transcript.exons[-1][1] - transcript.start + 1 == len(genome_seq)):

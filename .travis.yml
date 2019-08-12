@@ -5,7 +5,7 @@ python:
   # - "3.4"
   # - "3.5"
   - "3.6"
-  - "3.7"
+  - "3.7.3"
 # Setup anaconda, see https://gist.github.com/dan-blanchard/7045057
 before_install:
   - wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh
@@ -20,15 +20,13 @@ install:
   - sed -i "s/defaults::python.*/defaults::python=$TRAVIS_PYTHON_VERSION/" environment.yml
   - conda env create -n env_name --file environment.yml
   - source activate env_name
-  - pip install pytest-cov codecov;
-  - if [[ "$(python -c "import sys; print(sys.version_info.minor)")" == "7" ]]; then wget https://github.com/pytries/datrie/archive/0.7.1.tar.gz; tar xf 0.7.1.tar.gz; cd datrie-0.7.1; ./update_c.sh; python3.7 setup.py build; python3.7 setup.py install; cd ../; fi;
+  - conda install -y -c conda-forge -- pytest-cov codecov;
   - python setup.py develop;
 script:
-  - touch plant.yaml && python -c "import Mikado; print(Mikado.__version__)" && rm plant.yaml;  # This is to verify we fixed bug #124
   - cd sample_data; snakemake
   - cd ..;
   - python -c "import Mikado; Mikado.test(label='fast')";
-  - python setup.py test --addopts " --cov Mikado -m '(slow or not slow) and not triage'";
+  - python setup.py test --addopts " --cov Mikado --cov-config=.coveragerc -m '(slow or not slow) and not triage'";
   # Check that the seed is set properly
   - mikado pick --procs 2 --seed 20 --fasta Mikado/tests/chr5.fas.gz  --json-conf Mikado/tests/check_seed.yaml -od 20a Mikado/tests/check_seed.gtf
   - mikado pick --procs 2 --seed 20 --fasta Mikado/tests/chr5.fas.gz  --json-conf Mikado/tests/check_seed.yaml -od 20b Mikado/tests/check_seed.gtf  

@@ -402,19 +402,12 @@ class Gene:
 
     @property
     def introns(self):
-        if self.__introns is None:
-            self.__introns = set.union(*[_.introns for _ in self.transcripts.values()])
-
-        return self.__introns
-
-    @property
-    def introns(self):
         """
         It returns the set of all introns in the container.
         :rtype : set
         """
 
-        return set(self.transcripts[tid].introns for tid in self.transcripts)
+        return set.union(*[self.transcripts[tid].introns for tid in self.transcripts])
 
     @property
     def exons(self):

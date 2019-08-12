@@ -196,7 +196,7 @@ class BED12:
                 if sequence:
                     fasta_length = len(sequence)
                 elif fasta_index:
-                    fasta_length = len(fasta_index[self._line.chrom])
+                    fasta_length = fasta_index.get_reference_length(self._line.chrom)
                 else:
                     raise ValueError("Either a sequence or a FAI index are needed")
                 self.__set_values_from_gff(fasta_length)

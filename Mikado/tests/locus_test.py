@@ -12,10 +12,12 @@ from ..configuration import configurator
 from .. import exceptions, scales
 from ..parsers import GFF  # ,GTF, bed12
 from ..parsers.GTF import GtfLine
-from ..loci import Transcript, Superlocus, Abstractlocus, Locus, Monosublocus, MonosublocusHolder, Sublocus
+from ..loci import Transcript, Superlocus, Abstractlocus, Locus, Monosublocus, MonosublocusHolder, Sublocus, Excluded
 from ..loci.locus import expand_transcript
+from ..loci import Gene
 from ..utilities.log_utils import create_null_logger, create_default_logger
 from ..utilities import overlap
+from ..parsers.bed12 import BED12
 import itertools
 from ..utilities.intervaltree import Interval
 from .. import loci
@@ -25,6 +27,7 @@ from ..parsers.bed12 import BED12
 import pysam
 from pytest import mark
 from itertools import combinations_with_replacement
+from ..scales.assigner import Assigner
 logging.getLogger("matplotlib").setLevel(logging.WARNING)
 
 
@@ -40,6 +43,160 @@ class OverlapTester(unittest.TestCase):
                          100)
         self.assertEqual(Abstractlocus.overlap((100, 200), (100, 200)),
                          overlap((100, 200), (100, 200)))
+
+
+class ExcludedTester(unittest.TestCase):
+
+    def test_excluded(self):
+        transcript = Transcript(BED12(
+            "Chr5\t26603002\t26604376\tID=AT5G66650.1;coding=True;phase=0\t0\t-\t26603203\t26604257\t0\t2\t636,650\t0,724"
+        ))
+        transcript.finalize()
+        excluded = Excluded(transcript)
+        transcript2 = Transcript(BED12(
+            "Chr5\t26611257\t26612891\tID=AT5G66670.1;coding=True;phase=0\t0\t-\t26611473\t26612700\t0\t2\t1470,46\t0,1588"
+        ))
+        comparison = Assigner.compare(transcript, transcript2)[0]
+        self.assertEqual(0, comparison.n_f1[0])
+        excluded.add_transcript_to_locus(transcript2)
+        self.assertIn(transcript2.id, excluded)
+        with self.assertRaises(NotImplementedError):
+            str(excluded)
+        with self.assertRaises(NotImplementedError):
+            excluded.calculate_scores()
+        with self.assertRaises(NotImplementedError):
+            excluded.define_monosubloci()
+        with self.assertRaises(NotImplementedError):
+            excluded.is_intersecting()
+
+        excluded.remove_transcript_from_locus(transcript2.id)
+        self.assertNotIn(transcript2.id, excluded)
+        monosub = Monosublocus(transcript2)
+        excluded.add_monosublocus(monosub)
+        self.assertIn(transcript2.id, excluded)
+
+
+class RefGeneTester(unittest.TestCase):
+
+    def setUp(self):
+
+        # Chr5	26608315	26608866	ID=AT5G66658.1;coding=True;phase=0	0	+	26608328	26608553	0	1	551	0
+        # Chr5	26609307	26610504	ID=AT5G66660.1;coding=True;phase=0	0	-	26609307	26610504	0	1	1197	0
+        # Chr5	26611257	26612889	ID=AT5G66670.2;coding=True;phase=0	0	-	26611473	26612700	0	1	1632	0
+        # Chr5	26611257	26612891	ID=AT5G66670.1;coding=True;phase=0	0	-	26611473	26612700	0	2	1470,460,1588
+
+        self.tothers = Transcript(BED12(
+            "Chr5	26608315	26608866	ID=AT5G66658.1;coding=True;phase=0	0	+	26608328	26608553	0	1	551	0"
+        ))
+        self.tothers.parent = "AT5G66658"
+        self.tout = Transcript(BED12(
+            "Chr5	26609307	26610504	ID=AT5G66660.1;coding=True;phase=0	0	-	26609307	26610504	0	1	1197	0"
+        ))
+        self.tout.parent = "AT5G66660"
+
+        self.t1 = Transcript(BED12(
+            "Chr5	26611257	26612889	ID=AT5G66670.2;coding=True;phase=0	0	-	26611473	26612700	0	1	1632	0"
+        ))
+        self.t1.parent = "AT5G66670"
+        self.t2 = Transcript(BED12(
+            "Chr5\t26611257\t26612891\tID=AT5G66670.1;coding=True;phase=0\t0\t-\t26611473\t26612700\t0\t2\t1470,46\t0,1588"
+        ))
+        self.t2.parent = self.t1.parent[:]
+
+    def test_basic(self):
+        gene = Gene(self.t1)
+        self.assertEqual(gene.id, self.t1.parent[0])
+        for attr in ["chrom", "source", "start", "end", "strand"]:
+            self.assertEqual(getattr(gene, attr), getattr(self.t1, attr))
+        gene.add(self.t2)
+        self.assertIn(self.t2.id, gene)
+        gene.finalize()
+        self.assertEqual(gene.start, min(self.t1.start, self.t2.start))
+        self.assertEqual(gene.end, max(self.t1.end, self.t2.end),
+                         (self.t1.end, self.t2.end, max(self.t1.end, self.t2.end)))
+        with self.assertRaises(TypeError):
+            gene.logger = "foo"
+        gene.logger = None
+        self.assertEqual(gene.logger.name, "gene_{0}".format(gene.id))
+        gene.id = None
+        gene.logger = None
+        self.assertEqual(gene.logger.name, "gene_generic")
+        del gene.logger
+        self.assertIs(gene.logger, None)
+
+        new_gene = pickle.loads(pickle.dumps(gene))
+        self.assertEqual(gene, new_gene)
+        self.assertEqual(gene.transcripts, new_gene.transcripts)
+        with self.assertRaises(ValueError):
+            g = gene.format("foo")
+
+    def test_less_than(self):
+
+        g1 = Gene(self.tothers)
+        g2 = Gene(self.tout)
+        g3 = Gene(self.t1)
+        self.assertLess(g1, g2)
+        self.assertGreater(g3, g2)
+        self.assertGreater(g3, g1)
+
+    def test_deletion(self):
+        gene = Gene(self.t1)
+        self.assertEqual(gene.id, self.t1.parent[0])
+        for attr in ["chrom", "source", "start", "end", "strand"]:
+            self.assertEqual(getattr(gene, attr), getattr(self.t1, attr))
+        gene.add(self.t2)
+        self.assertIn(self.t2.id, gene)
+        gene.finalize()
+        gene.remove(self.t2.id)
+        self.assertEqual((gene.start, gene.end), (self.t1.start, self.t1.end))
+        gene.remove(self.t1.id)
+        self.assertEqual((gene.start, gene.end), (None, None))
+
+    def test_different_strand(self):
+        gene = Gene(self.t1)
+        with self.assertRaises(AssertionError):
+            gene.add(self.tothers)
+        self.tout.unfinalize()
+        self.tout.chrom = "Chr2"
+        self.tout.finalize()
+        with self.assertRaises(AssertionError):
+            gene.add(self.tout)
+
+    def test_non_coding(self):
+        gene = Gene(self.t1)
+        self.t2.strip_cds()
+        gene.add(self.t2)
+        self.assertIn(self.t2.id, gene)
+        gene.finalize()
+        self.assertIn(self.t2.id, gene)
+
+        gene = Gene(self.t1, only_coding=True)
+        self.t2.strip_cds()
+        gene.add(self.t2)
+        self.assertIn(self.t2.id, gene)
+        gene.finalize()
+        self.assertNotIn(self.t2.id, gene)
+
+    def test_properties(self):
+        gene = Gene(self.t2)
+        self.assertFalse(gene.has_monoexonic)
+        gene.add(self.t1)
+        self.assertTrue(gene.has_monoexonic)
+
+        gene = Gene(self.t2)
+        self.t1.unfinalize()
+        exon = self.t1.exons[0]
+        self.t1.remove_exon(exon)
+        row = GtfLine("#")
+        row.chrom, row.strand, row.start, row.end, row.feature, row.transcript, row.gene = (
+            self.t1.chrom, self.t1.strand, exon[0], exon[1], "exon", self.t1.id, self.t1.parent[0]
+        )
+        gene.add(self.t1)
+        gene.add_exon(row)
+        gene.finalize()
+        self.assertIn(exon, gene[self.t1.id].exons)
+        self.assertEqual(gene.exons, {exon} | set(self.t2.exons))
+        self.assertEqual(gene.introns, self.t2.introns)
 
 
 class AbstractLocusTester(unittest.TestCase):
@@ -351,7 +508,7 @@ Chr1\tfoo\texon\t801\t1000\t.\t-\t.\tID=tminus0:exon1;Parent=tminus0""".split("\
         sl = Superlocus(t1)
         sl.check_configuration()
         sl.remove_transcript_from_locus(t1.id)
-        _ = sl.cds_segmenttree
+        _ = sl.segmenttree
 
     def test_verified_introns(self):
 
@@ -468,6 +625,192 @@ Chr1\tfoo\texon\t801\t1000\t.\t-\t.\tID=tminus0:exon1;Parent=tminus0""".split("\
                 self.assertEqual(len(loc.transcripts), 3)
                 loc.define_subloci()
                 self.assertEqual(len(loc.transcripts), 3 if not suspicious else 2)
+
+    def test_reducing_methods_one(self):
+
+        t1 = Transcript()
+        t1.chrom, t1.start, t1.end, t1.strand, t1.id, = "Chr5", 1000, 2000, "+", "t1"
+        t1.add_exons([(1000, 1200), (1500, 2000)])
+        t1.finalize()
+
+        t2 = Transcript()
+        t2.chrom, t2.start, t2.end, t2.strand, t2.id, = "Chr5", 999, 2001, "+", "t2"
+        t2.add_exons([(999, 1200), (1500, 2001)])
+        t2.finalize()
+
+        t3 = Transcript()
+        t3.chrom, t3.start, t3.end, t3.strand, t3.id, = "Chr5", 999, 2002, "+", "t3"
+        t3.add_exons([(999, 1200), (1500, 2002)])
+        t3.finalize()
+
+        logger = create_default_logger("test_reducing_methods_one", level="INFO")
+        locus = Superlocus(t1, logger=logger)
+        locus.add_transcript_to_locus(t2)
+        locus.add_transcript_to_locus(t3)
+        self.assertIn("t1", locus)
+        self.assertIn("t2", locus)
+        self.assertIn("t3", locus)
+        locus.logger.setLevel(level="DEBUG")
+        transcript_graph = locus.define_graph()
+        self.assertIn("t1", transcript_graph.neighbors("t2"))
+        locus.reduce_method_one(transcript_graph)
+        self.assertNotIn("t1", locus)
+        self.assertNotIn("t2", locus)
+        self.assertIn("t3", locus)
+
+    def test_reducing_methods_one_2(self):
+
+        t1 = Transcript()
+        t1.chrom, t1.start, t1.end, t1.strand, t1.id, = "Chr5", 1000, 2000, "+", "t1"
+        t1.add_exons([(1000, 1200), (1500, 2000)])
+        t1.finalize()
+
+        t2 = Transcript()
+        t2.chrom, t2.start, t2.end, t2.strand, t2.id, = "Chr5", 999, 2001, "+", "t2"
+        t2.add_exons([(999, 1200), (1500, 2001)])
+        t2.finalize()
+
+        t3 = Transcript()
+        t3.chrom, t3.start, t3.end, t3.strand, t3.id, = "Chr5", 999, 2002, "+", "t3"
+        t3.add_exons([(999, 1200), (1500, 2002)])
+        t3.finalize()
+        logger = create_default_logger("test_reducing_methods_one_2", level="DEBUG")
+        locus = Superlocus(t1, logger=logger)
+        locus.add_transcript_to_locus(t2)
+        locus.add_transcript_to_locus(t3)
+        locus._complex_limit = (3, 10**4)
+        locus.define_subloci()
+        self.assertNotIn("t1", locus)
+        self.assertNotIn("t2", locus)
+        self.assertIn("t3", locus)
+
+    def test_reducing_methods_one_3(self):
+
+        t1 = Transcript()
+        t1.chrom, t1.start, t1.end, t1.strand, t1.id, = "Chr5", 1000, 2000, "+", "t1"
+        t1.add_exons([(1000, 2000)])
+        t1.finalize()
+
+        t2 = Transcript()
+        t2.chrom, t2.start, t2.end, t2.strand, t2.id, = "Chr5", 999, 2001, "+", "t2"
+        t2.add_exons([(999, 2001)])
+        t2.finalize()
+
+        t3 = Transcript()
+        t3.chrom, t3.start, t3.end, t3.strand, t3.id, = "Chr5", 999, 2002, "+", "t3"
+        t3.add_exons([(999, 2002)])
+        t3.finalize()
+        logger = create_default_logger("test_reducing_methods_one_2", level="DEBUG")
+        locus = Superlocus(t1, logger=logger)
+        locus.add_transcript_to_locus(t2)
+        locus.add_transcript_to_locus(t3)
+        locus._complex_limit = (3, 10**4)
+        locus.define_subloci()
+        self.assertNotIn("t1", locus)
+        self.assertNotIn("t2", locus)
+        self.assertIn("t3", locus)
+
+    def test_reducing_methods_one_4(self):
+
+        t1 = Transcript(is_reference=True)
+        t1.chrom, t1.start, t1.end, t1.strand, t1.id, = "Chr5", 1000, 2000, "+", "t1"
+        t1.add_exons([(1000, 2000)])
+        t1.finalize()
+
+        t2 = Transcript()
+        t2.chrom, t2.start, t2.end, t2.strand, t2.id, = "Chr5", 999, 2001, "+", "t2"
+        t2.add_exons([(999, 2001)])
+        t2.finalize()
+
+        t3 = Transcript()
+        t3.chrom, t3.start, t3.end, t3.strand, t3.id, = "Chr5", 999, 2002, "+", "t3"
+        t3.add_exons([(999, 2002)])
+        t3.finalize()
+        logger = create_default_logger("test_reducing_methods_one_2", level="DEBUG")
+        locus = Superlocus(t1, logger=logger)
+        locus.add_transcript_to_locus(t2)
+        locus.add_transcript_to_locus(t3)
+        locus._complex_limit = (3, 10**4)
+        locus.define_subloci()
+        self.assertIn("t1", locus)
+        self.assertNotIn("t2", locus)
+        self.assertIn("t3", locus)
+
+    def test_reducing_methods_one_and_two(self):
+
+        for is_ref in (True, False):
+            with self.subTest(is_reference=is_ref):
+                t1 = Transcript(is_reference=is_ref)
+                t1.chrom, t1.start, t1.end, t1.strand, t1.id, = "Chr5", 1000, 2500, "+", "t1"
+                t1.add_exons([(1000, 1500), (1800, 2000), (2200, 2500)])
+                t1.finalize()
+
+                t2 = Transcript()
+                t2.chrom, t2.start, t2.end, t2.strand, t2.id, = "Chr5", 999, 2501, "+", "t2"
+                t2.add_exons([(999, 1500), (1800, 2000), (2200, 2501)])
+                t2.finalize()
+
+                t3 = Transcript()
+                t3.chrom, t3.start, t3.end, t3.strand, t3.id, = "Chr5", 999, 1999, "+", "t3"
+                t3.add_exons([(999, 1500), (1800, 1999)])
+                t3.finalize()
+
+                logger = create_default_logger("test_reducing_methods_one_2", level="WARNING")
+                locus = Superlocus(t1, logger=logger)
+                locus.add_transcript_to_locus(t2)
+                locus.add_transcript_to_locus(t3)
+                locus._complex_limit = (1, 10**4)
+                locus.logger.setLevel("DEBUG")
+                locus.define_subloci()
+                if is_ref:
+                    self.assertIn("t1", locus)
+                else:
+                    self.assertNotIn("t1", locus)
+                self.assertIn("t2", locus)
+                self.assertNotIn("t3", locus)
+
+    def test_reducing_methods_two(self):
+
+        for is_ref in (True, False):
+            with self.subTest(is_ref=is_ref):
+                t1 = Transcript(is_reference=is_ref)
+                t1.chrom, t1.start, t1.end, t1.strand, t1.id, = "Chr5", 1000, 2500, "+", "t1"
+                t1.add_exons([(1000, 1500), (1800, 2000), (2200, 2500)])
+                t1.finalize()
+
+                t2 = Transcript()
+                t2.chrom, t2.start, t2.end, t2.strand, t2.id, = "Chr5", 999, 2501, "+", "t2"
+                t2.add_exons([(999, 1500), (1800, 2000), (2200, 2501)])
+                t2.finalize()
+
+                t3 = Transcript()
+                t3.chrom, t3.start, t3.end, t3.strand, t3.id, = "Chr5", 999, 1999, "+", "t3"
+                t3.add_exons([(999, 1500), (1800, 1999)])
+                t3.finalize()
+
+                logger = create_default_logger("test_reducing_methods_one_2", level="DEBUG")
+                locus = Superlocus(t1, logger=logger)
+                locus.add_transcript_to_locus(t2)
+                locus.add_transcript_to_locus(t3)
+                graph, edges = locus.reduce_method_one(locus.define_graph())
+                if is_ref:
+                    self.assertIn("t1", graph.nodes)
+                else:
+                    self.assertNotIn("t1", graph.nodes)
+                self.assertIn("t2", locus)
+                self.assertIn("t3", locus)
+                locus = Superlocus(t1, logger=logger)
+                locus.add_transcript_to_locus(t2)
+                locus.add_transcript_to_locus(t3)
+                _ = locus.reduce_method_two(locus.define_graph())
+                if is_ref:
+                    self.assertIn("t1", locus)
+                else:
+                    self.assertNotIn("t1", locus)
+                self.assertIn("t2", locus)
+                self.assertNotIn("t3", locus)
+
+    # def test_reducing_methods_two(self):
 
 
 class ASeventsTester(unittest.TestCase):
@@ -2908,7 +3251,7 @@ class PaddingTester(unittest.TestCase):
 
         transcript = Transcript()
         transcript.chrom, transcript.strand, transcript.id = "Chr5", "+", "test"
-        transcript.add_exons([(100053, 100220), (100657, 101832)])
+        transcript.add_exons([(100053, 100220), (100640, 101832)])
         transcript.finalize()
 
         template = Transcript()
@@ -2922,7 +3265,7 @@ class PaddingTester(unittest.TestCase):
             expand_transcript(transcript, template, template, self.fai, logger=logger)
             self.assertEqual(
                 transcript.exons,
-                [(99726, 100220), (100657, 102000)]
+                [(99726, 100220), (100640, 102000)]
 
             )
 

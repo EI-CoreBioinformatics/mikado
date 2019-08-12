@@ -168,7 +168,7 @@ def perform_check(keys, shelve_stacks, args, logger):
             create_transcript,
             canonical_splices=args.json_conf["prepare"]["canonical"],
             logger=logger,
-            force_keep_cds= not args.json_conf["prepare"]["strip_cds"])
+            force_keep_cds=not args.json_conf["prepare"]["strip_cds"])
 
         for tid, chrom, key in keys:
             tid, shelf_name = tid
@@ -212,6 +212,7 @@ def perform_check(keys, shelve_stacks, args, logger):
             seed=args.json_conf["seed"],
             lenient=args.json_conf["prepare"]["lenient"],
             canonical_splices=args.json_conf["prepare"]["canonical"],
+            force_keep_cds=not args.json_conf["prepare"]["strip_cds"],
             log_level=args.level) for _ in range(args.json_conf["prepare"]["procs"])]
 
         [_.start() for _ in working_processes]
@@ -398,20 +399,25 @@ def prepare(args, logger):
     :type logger: logging.Logger
     """
 
-    if not isinstance(args.json_conf["reference"]["genome"], (pysam.libcfaidx.FastaFile)):
-        if not (isinstance(args.json_conf["reference"]["genome"], str) and
-                os.path.exists(args.json_conf["reference"]["genome"])):
+    if hasattr(args.json_conf["reference"]["genome"], "close"):
+        args.json_conf["reference"]["genome"].close()
+        if hasattr(args.json_conf["reference"]["genome"], "filename"):
+            args.json_conf["reference"]["genome"] = getattr(args.json_conf["reference"]["genome"], "filename")
+        elif hasattr(args.json_conf["reference"]["genome"], "name"):
+            args.json_conf["reference"]["genome"] = getattr(args.json_conf["reference"]["genome"], "name")
+        else:
             logger.critical("Invalid FASTA file: %s",
                             args.json_conf["reference"]["genome"])
-            # sys.exit(1)
-        else:
-            pass
-    else:
-        args.json_conf["reference"]["genome"].close()
-        if isinstance(args.json_conf["reference"]["genome"], pysam.libcfaidx.FastaFile):
-            args.json_conf["reference"]["genome"] = args.json_conf["reference"]["genome"].filename
-        else:
-            args.json_conf["reference"]["genome"] = args.json_conf["reference"]["genome"].name
+            raise AttributeError
+    elif not isinstance(args.json_conf["reference"]["genome"], (str, bytes)):
+        logger.critical("Invalid FASTA file: %s",
+                        args.json_conf["reference"]["genome"])
+        raise AttributeError
+
+    if not os.path.exists(args.json_conf["reference"]["genome"]):
+        logger.critical("Invalid FASTA file: %s",
+                        args.json_conf["reference"]["genome"])
+        raise AttributeError
 
     assert len(args.json_conf["prepare"]["files"]["gff"]) > 0
     assert len(args.json_conf["prepare"]["files"]["gff"]) == len(args.json_conf["prepare"]["files"]["labels"]), (

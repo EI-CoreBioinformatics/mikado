@@ -145,6 +145,7 @@ class CheckingProcess(multiprocessing.Process):
                  tmpdir,
                  lenient=False,
                  seed=None,
+                 force_keep_cds=False,
                  canonical_splices=(("GT", "AG"),
                                     ("GC", "AG"),
                                     ("AT", "AC")),
@@ -183,12 +184,13 @@ class CheckingProcess(multiprocessing.Process):
         self.gtf_out = os.path.join(tmpdir, "{0}-{1}".format(
             gtf_out, self.identifier
         ))
+        self.force_keep_cds = force_keep_cds
 
     def run(self):
 
         checker = functools.partial(create_transcript,
                                     # lenient=self.lenient,
-                                    # strand_specific=self.strand_specific,
+                                    force_keep_cds=self.force_keep_cds,
                                     canonical_splices=self.canonical,
                                     logger=self.logger)
 

@@ -946,6 +946,15 @@ class Transcript:
 
     @is_reference.setter
     def is_reference(self, value):
+        if isinstance(value, str):
+            if value.lower() == "true":
+                value = True
+            elif value.lower() == "none":
+                value = None
+            elif value.lower() == "false":
+                value = False
+            else:
+                pass
         if value not in (False, True, None):
             raise ValueError("Invalid value: {} (type: {})".format(value, type(value)))
         self.__is_reference = value

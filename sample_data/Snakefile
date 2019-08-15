@@ -32,7 +32,7 @@ except:
 configfile: "configuration.yaml"
 
 rule complete:
-    input: "compare.stats", "compare_subloci.stats", "compare_input.stats"  # , "compare_monoloci.stats"
+    input: "compare.stats", "compare_subloci.stats", "compare_input.stats", "check.ok", "check_metrics.ok"
     output: touch("finished.ok")
 
 rule test_json:
@@ -60,8 +60,10 @@ rule daijin:
     output:
         loci=os.path.join("Daijin", "5-mikado", "pick", "permissive", "mikado-permissive.loci.gff3"),
         sub=os.path.join("Daijin", "5-mikado", "pick", "permissive", "mikado.subloci.gff3"),
+	submetrics=os.path.join("Daijin", "5-mikado", "pick", "permissive", "mikado.subloci.metrics.tsv"),
         # mono=os.path.join("Daijin", "5-mikado", "pick", "permissive", "mikado.monoloci.gff3"),
-        prep=os.path.join("Daijin", "5-mikado", "mikado_prepared.gtf")
+        prep=os.path.join("Daijin", "5-mikado", "mikado_prepared.gtf"),
+	prep_fai=os.path.join("Daijin", "5-mikado", "mikado_prepared.fasta.fai")
     message: "daijin mikado --jobs 1 --cores 2 --threads 2 -nd --nolock configuration.yaml"
     shell: "daijin mikado --jobs 1 --cores 2 --threads 2 -nd --nolock configuration.yaml"
 
@@ -93,8 +95,45 @@ rule compare_subloci:
     message: """mikado compare -r {input[reference]} -p {input[prediction]} -o compare_subloci -l {log}"""
     shell: """mikado compare -r {input[reference]} -p {input[prediction]} -o compare_subloci -l {log}"""
 
+rule check_logs:
+    input:
+      pick_out=rules.daijin.output.loci,
+      compare_out=rules.compare.output,
+      compare_input_out=rules.compare_input.output,
+      compare_subloci_out=rules.compare_subloci.output
+    output: touch("check.ok")
+    run:
+      for inp_file in ["Daijin/5-mikado/pick/permissive/mikado-permissive.pick.err",
+                       "Daijin/5-mikado/serialise.log",
+                       "Daijin/5-mikado/prepare.log",
+                       "Daijin/5-mikado/mikado_serialise.err",
+                       "compare.log",
+		       "compare_subloci.log", "compare_input.log"]:
+         inp_handle = open(inp_file, "rt")
+   	 for line in inp_handle:
+      	   if "Error" in inp_handle:
+      	     raise ValueError(inp_file)
+      touch(output[0])
+
+rule check_pick:
+    input:
+      metrics="Daijin/5-mikado/pick/permissive/mikado.subloci.metrics.tsv",
+      fai="Daijin/5-mikado/mikado_prepared.fasta.fai"
+    output: "check_metrics.ok"
+    run:
+      fai = len([_ for _ in open(input["fai"])])
+      import pandas as pd
+      metrics = pd.read_csv(input["metrics"], delimiter="\t")
+      found_split = metrics[metrics.columns[0]].str.contains(".split").any()
+      total = metrics[metrics.columns[0]].str.replace("\.split[0-9]*", "", regex=True).drop_duplicates().shape[0]
+      found_excluded = metrics[metrics.columns[2]].str.contains("excluded").any()
+      if not found_excluded or not found_split or total != fai:
+        raise ValueError("Something went wrong with Mikado pick, please check")
+      open(output[0], "wt")
+
 rule clean:
     run:
+        import shutil
         for filename in itertools.chain(glob.glob("*.ok"), glob.glob("uniprot*.fasta.p*"),
                                     glob.glob("*midx"), glob.glob("*fai"),
 				    "Daijin",
@@ -102,9 +141,10 @@ rule clean:
                                     ["mikado_prepared.gtf", "mikado_prepared.fasta", "mikado.prodigal.gff3"],
                                     glob.glob("compare*"), glob.glob(config["db_settings"]["db"]),
                                     glob.glob("*.log"), glob.glob("*xml"), ["chr5.fas"],
+				    glob.glob("*.ok"),
                                     ["configuration.yaml"]):
             if os.path.exists(filename):
-                os.remove(filename)
+                shutil.rmtree(filename) if os.path.isdir(filename) else os.remove(filename)
 
 rule clean_crumbs:
     run:

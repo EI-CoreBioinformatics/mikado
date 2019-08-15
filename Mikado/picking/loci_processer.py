@@ -184,15 +184,15 @@ def merge_loci_gff(gff_filenames, gff_handle, prefix=""):
                     current_gene["transcripts"][line.id] = dict()
                     current_gene["transcripts"][line.id]["transcript"] = line
                     current_gene["transcripts"][line.id]["exons"] = []
-                    if line.attributes["primary"].lower() in ("true", "false"):
-                        if line.attributes["primary"].lower() == "true":
-                            primary = True
+                    primary = line.attributes["primary"]
+                    if primary not in (True, False):
+                        if isinstance(primary, str) and primary.lower() in ("true", "false"):
+                            primary = eval(primary.capitalize())
                         else:
-                            primary = False
-                        current_gene["transcripts"][line.id]["primary"] = primary
-                    else:
-                        raise ValueError("Invalid value for \"primary\" field: {0}".format(
-                            line.attributes["primary"]))
+                            raise ValueError("Invalid value for \"primary\" field: {0}".format(
+                                line.attributes["primary"]))
+                    current_gene["transcripts"][line.id]["primary"] = primary
+
                 elif line.is_exon:
                     for parent in line.parent:
                         assert parent in current_gene["transcripts"]

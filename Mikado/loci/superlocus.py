@@ -147,7 +147,7 @@ class Superlocus(Abstractlocus):
         # Connection objects
         self.engine = self.sessionmaker = self.session = None
         # Excluded object
-        self.excluded_transcripts = Excluded(json_conf=self.json_conf)
+        self.excluded = Excluded(json_conf=self.json_conf)
         self.__retained_sources = set()
         self.__data_loaded = False
         self.__lost = dict()
@@ -672,23 +672,18 @@ class Superlocus(Abstractlocus):
         assert len(to_remove) < len(to_add) + len(self.transcripts)
 
         if len(to_remove) > 0:
-
-            new = None
             self.logger.debug("Rebuilding the superlocus as %d transcripts have been excluded or split.",
                               len(to_remove))
-            for transcript in itertools.chain(to_add, self.transcripts.values()):
-                if new is None:
-                    new = Superlocus(transcript, stranded=True,
-                                     json_conf=self.json_conf, logger=self.logger,
-                                     source=self.source)
-                else:
-                    new.add_transcript_to_locus(transcript, check_in_locus=False)
-            assert isinstance(new, type(self))
-            self = new
+            for tid in to_remove:
+                self.remove_transcript_from_locus(tid)
+            for transcript in to_add:
+                self.logger.debug("Adding %s to %s", transcript.id, self.id)
+                self.add_transcript_to_locus(transcript, check_in_locus=False)
+
         elif len(to_remove) == len(self.transcripts):
             self.logger.warning("No transcripts left for %s", self.name)
-            self = Excluded(to_remove.pop())
-            [self.add_transcript_to_locus(_) for _ in to_remove]
+            [self.excluded.add_transcript_to_locus(_) for _ in to_remove]
+            self._remove_all()
 
         del data_dict
 
@@ -794,7 +789,7 @@ class Superlocus(Abstractlocus):
         if to_remove:
             if transcript_graph:
                 transcript_graph.remove_nodes_from(to_remove)
-            [self.excluded_transcripts.add_transcript_to_locus(self.transcripts[tid]) for tid in to_remove]
+            [self.excluded.add_transcript_to_locus(self.transcripts[tid]) for tid in to_remove]
             self.logger.debug("Removing the following transcripts from %s: %s",
                               self.id, ", ".join(to_remove))
             for tid in to_remove:
@@ -854,7 +849,7 @@ class Superlocus(Abstractlocus):
 
         if to_remove:
             transcript_graph.remove_nodes_from(to_remove)
-            [self.excluded_transcripts.add_transcript_to_locus(self.transcripts[tid]) for tid in to_remove]
+            [self.excluded.add_transcript_to_locus(self.transcripts[tid]) for tid in to_remove]
             self.logger.debug("Removing the following transcripts from %s: %s",
                               self.id, ", ".join(to_remove))
             for tid in to_remove:
@@ -933,6 +928,8 @@ class Superlocus(Abstractlocus):
 
         # Check whether there is something to remove
         self._check_requirements()
+        while self._excluded_transcripts:
+            self.excluded.add_transcript_to_locus(self._excluded_transcripts.pop(), check_in_locus=False)
 
         if len(self.transcripts) == 0:
             # we have removed all transcripts from the Locus. Set the flag to True and exit.
@@ -1039,9 +1036,9 @@ class Superlocus(Abstractlocus):
         self.monosubloci = dict()
         # Extract the relevant transcripts
         for sublocus_instance in sorted(self.subloci):
-            self.excluded_transcripts = sublocus_instance.define_monosubloci(
+            self.excluded = sublocus_instance.define_monosubloci(
                 purge=self.purge,
-                excluded=self.excluded_transcripts)
+                excluded=self.excluded)
             for tid in sublocus_instance.transcripts:
                 # Update the score
                 self.transcripts[tid].score = sublocus_instance.transcripts[tid].score
@@ -1070,8 +1067,8 @@ class Superlocus(Abstractlocus):
         for slocus in self.subloci:
             for row in slocus.print_metrics():
                 yield row
-        if self.excluded_transcripts is not None:
-            for row in self.excluded_transcripts.print_metrics():
+        if self.excluded is not None:
+            for row in self.excluded.print_metrics():
                 yield row
 
     def print_subloci_scores(self):

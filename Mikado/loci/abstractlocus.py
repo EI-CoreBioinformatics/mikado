@@ -546,6 +546,17 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         self.metrics_calculated = False
         self.scores_calculated = False
 
+    def _remove_all(self):
+        """This method will remove all transcripts from the locus."""
+        self.logger.warning("Removing all transcripts from %s", self.id)
+        self.__internal_graph = networkx.DiGraph()
+        self.transcripts = dict()
+        self.start, self.end, self.strand = float("Inf"), float("-Inf"), None
+        self.stranded = False
+        self.initialized = False
+        self.metrics_calculated = False
+        self.scores_calculated = False
+
     @staticmethod
     def _exon_to_be_considered(exon,
                                transcript,
@@ -1184,8 +1195,8 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                                       self.id)
                     self.transcripts[tid].score = 0
                 else:
-                    self.logger.debug("Excluding %s from %s because of failed requirements",
-                                      tid, self.id)
+                    self.logger.debug("Excluding %s from %s because of failed requirements", tid, self.id)
+                    self._excluded_transcripts.add(self.transcripts[tid])
                     self.remove_transcript_from_locus(tid)
 
             if not self.purge:

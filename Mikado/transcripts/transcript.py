@@ -288,6 +288,7 @@ class Transcript:
         self.__phases = dict()  # will contain (start, phase) for each CDS exon
         self.__blast_score = 0  # Homology score
         self.__derived_children = set()
+        self._original_source = None
         self.__external_scores = Namespace(default=(0, False))
         self.__internal_orf_transcripts = []
 
@@ -946,7 +947,7 @@ class Transcript:
     @is_reference.setter
     def is_reference(self, value):
         if value not in (False, True, None):
-            raise ValueError("Invalid value: {}".format(value))
+            raise ValueError("Invalid value: {} (type: {})".format(value, type(value)))
         self.__is_reference = value
 
     @is_reference.deleter

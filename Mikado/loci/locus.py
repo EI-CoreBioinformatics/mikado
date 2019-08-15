@@ -779,13 +779,13 @@ class Locus(Abstractlocus):
         five_graph = self.define_graph(objects=self.transcripts, inters=self._share_extreme, three_prime=False)
         three_graph = self.define_graph(objects=self.transcripts, inters=self._share_extreme, three_prime=True)
 
-        self.logger.warning("5' graph: %s", five_graph.edges)
-        self.logger.warning("3' graph: %s", three_graph.edges)
+        self.logger.debug("5' graph: %s", five_graph.edges)
+        self.logger.debug("3' graph: %s", three_graph.edges)
         # TODO: Tie breaks!
 
         __to_modify = self._find_communities_boundaries(five_graph, three_graph)
 
-        self.logger.warning("To modify: %s", __to_modify)
+        self.logger.debug("To modify: %s", __to_modify)
         templates = set()
 
         # Now we can do the proper modification

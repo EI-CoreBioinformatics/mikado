@@ -248,7 +248,7 @@ class Sublocus(Abstractlocus):
         self.logger.debug("Defined monosubloci for %s", self.id)
         self.splitted = True
         self.logger.debug("Defined monosubloci for %s", self.id)
-        return
+        return self.excluded
 
     def load_scores(self, scores):
         """

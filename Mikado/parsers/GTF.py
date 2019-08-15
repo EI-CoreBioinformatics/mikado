@@ -74,6 +74,10 @@ class GtfLine(GFAnnotation):
                     val = float(val)
                 except ValueError:
                     val = val.replace('"', '')
+                    if val.lower() == "true":
+                        val = True
+                    elif val.lower() == "false":
+                        val = False
             self.attributes[key] = val
 
     def _format_attributes(self):

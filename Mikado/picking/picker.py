@@ -47,6 +47,15 @@ try:
     import ujson as json
 except ImportError:
     import json
+import msgpack
+
+
+class LightLocus:
+
+    def __init__(self):
+
+        self.chrom, self.start, self.end, self.stranded = None, None, None, False
+        self.transcripts = []
 
 
 # pylint: disable=too-many-instance-attributes
@@ -796,7 +805,7 @@ memory intensive, proceed with caution!")
             [l.strip() for l in error_msg.split("\n")]))
         raise UnsortedInput(error_msg)
 
-    def __test_sortedness(self, row, current_transcript):
+    def __test_sortedness(self, row, coords):
         """
         Private method to test whether a row and the current transcript are actually in the expected
         sorted order.
@@ -805,28 +814,38 @@ memory intensive, proceed with caution!")
         :return:
         """
         test = True
-        if current_transcript.chrom > row.chrom:
+        if coords is None:
+            return test
+
+        if isinstance(coords, tuple):
+            chrom, start, end = coords
+        else:
+            chrom, start, end = coords.chrom, coords.start, coords.end
+
+        if any(_ is None for _ in (chrom, start, end)):
+            return True
+        if chrom > row.chrom:
             test = False
-        elif (current_transcript.chrom == row.chrom and
-              current_transcript.start > row.start):
+        elif (chrom == row.chrom and
+              start > row.start):
             test = False
-        elif (current_transcript.chrom == row.chrom and
-              current_transcript.start == row.start and
-              current_transcript.end > row.end):
+        elif (chrom == row.chrom and
+              start == row.start and
+              end > row.end):
             test = False
 
         if test is False:
-            self.__unsorted_interrupt(row, current_transcript)
+            self.__unsorted_interrupt(row, coords)
 
     @staticmethod
     def add_to_index(conn: sqlite3.Connection,
                      cursor: sqlite3.Cursor,
-                     transcripts: [Transcript],
+                     transcripts: dict,
                      counter: int):
 
         """Method to create the simple indexed database for features."""
 
-        transcripts = json.dumps([_.as_dict() for _ in transcripts])
+        transcripts = msgpack.dumps([_ for _ in transcripts.values()])
         cursor.execute("INSERT INTO transcripts VALUES (?, ?)", (counter, transcripts))
         conn.commit()
         return
@@ -898,95 +917,12 @@ memory intensive, proceed with caution!")
         # No sense in keeping this data available on the main thread now
         del data_dict
 
-        counter = 0
-        invalid = False
-        with self.define_input() as input_annotation:
-            for row in input_annotation:
+        try:
+            self.__parse_multithreaded(locus_queue, conn, cursor)
+        except UnsortedInput:
+            [_.terminate() for _ in working_processes]
+            raise
 
-                if row.is_exon is True and invalid is False:
-                    try:
-                        current_transcript.add_exon(row)
-                    except InvalidTranscript as exc:
-                        self.logger.error("Transcript %s is invalid;\n%s",
-                                          current_transcript.id,
-                                          exc)
-                        invalid = True
-                elif row.is_transcript is True:
-                    if current_transcript is not None and invalid is False:
-                        try:
-                            self.__test_sortedness(row, current_transcript)
-                        except UnsortedInput:
-                            [_.terminate() for _ in working_processes]
-                            raise
-                        if current_locus is not None and Superlocus.in_locus(
-                                current_locus, current_transcript,
-                                flank=self.json_conf["pick"]["clustering"]["flank"]) is True:
-                            current_locus.add_transcript_to_locus(current_transcript,
-                                                                  check_in_locus=False)
-                        else:
-                            if current_locus is not None:
-                                counter += 1
-                                self.logger.debug("Submitting locus # %d (%s), with transcripts:\n%s",
-                                                  counter,
-                                                  None if not current_locus else current_locus.id,
-                                                  ",".join(list(current_locus.transcripts.keys())))
-                                self.add_to_index(conn, cursor, current_locus.transcripts.values(), counter)
-                                locus_queue.put((counter, ))
-                            current_locus = Superlocus(
-                                current_transcript,
-                                stranded=False,
-                                json_conf=self.json_conf,
-                                source=self.json_conf["pick"]["output_format"]["source"])
-
-                    if current_transcript is None or row.chrom != current_transcript.chrom:
-                        if current_transcript is not None:
-                            self.logger.info("Finished chromosome %s",
-                                             current_transcript.chrom)
-                        self.logger.info("Starting chromosome %s", row.chrom)
-
-                    invalid = False
-                    current_transcript = Transcript(
-                        row,
-                        intron_range=intron_range)
-
-        if current_transcript is not None and invalid is False:
-            if current_locus is not None and Superlocus.in_locus(
-                    current_locus, current_transcript,
-                    flank=self.json_conf["pick"]["clustering"]["flank"]) is True:
-                current_locus.add_transcript_to_locus(
-                    current_transcript, check_in_locus=False)
-            else:
-                if current_locus is not None:
-                    counter += 1
-                    self.logger.debug("Submitting locus #%d (%s)", counter,
-                                      None if not current_locus else current_locus.id)
-                    self.add_to_index(conn, cursor, current_locus.transcripts.values(), counter)
-                    locus_queue.put((counter,))
-
-                current_locus = Superlocus(
-                    current_transcript,
-                    stranded=False,
-                    json_conf=self.json_conf,
-                    source=self.json_conf["pick"]["output_format"]["source"])
-                self.logger.debug("Created last locus %s",
-                                  current_locus)
-        elif invalid is True and current_locus is not None:
-            counter += 1
-            self.logger.debug("Submitting locus #%d (%s)", counter,
-                              None if not current_locus else current_locus.id)
-            self.add_to_index(conn, cursor, current_locus.transcripts.values(), counter)
-            locus_queue.put((counter,))
-
-        self.logger.info("Finished chromosome %s", current_locus.chrom)
-
-        counter += 1
-        self.add_to_index(conn, cursor, current_locus.transcripts.values(), counter)
-        locus_queue.put((counter,))
-
-        self.logger.debug("Submitting locus %s, counter %d, with transcripts:\n%s",
-                          current_locus.id, counter,
-                          ", ".join(list(current_locus.transcripts.keys())))
-        locus_queue.put(("EXIT", ))
         self.logger.debug("Joining children processes")
         [_.join() for _ in working_processes]
         conn.close()
@@ -1031,6 +967,105 @@ memory intensive, proceed with caution!")
         finally:
             return
 
+    def __check_max_intron(self, current, invalids, row, max_intron):
+        previous = None
+        for exon in reversed(current["transcripts"][row.transcript]["exon_lines"]):
+            if exon[2] == row.feature:
+                previous = exon
+                break
+
+        current["transcripts"][row.transcript]["exon_lines"].append((row.start, row.end, row.feature, row.phase))
+        if previous:
+            # I have to compare like with like.
+            intron_length = (row.start - 1) - (previous[1] + 1) + 1
+            if intron_length >= max_intron:
+                self.logger.warning(
+                    "%s has an intron (%s) greater than the maximum allowed (%s). Ignoring it.",
+                    row.transcript, intron_length, max_intron
+                )
+                del current["transcripts"][row.transcript]
+                invalids.add(row.transcript)
+                if current["transcripts"]:
+                    current["start"] = min([
+                        min([exon[0] for exon in current["transcripts"][trans]["exon_lines"]])
+                        for trans in current["transcripts"]])
+                    current["end"] = max([
+                        max([exon[1] for exon in current["transcripts"][trans]["exon_lines"]])
+                        for trans in current["transcripts"]])
+                else:
+                    current["start"], current["end"] = None, None
+        return current, invalids
+
+    def __parse_multithreaded(self, locus_queue, conn, cursor):
+        counter = 0
+        invalids = set()
+        flank = self.json_conf["pick"]["clustering"]["flank"]
+        with self.define_input() as input_annotation:
+
+            current = {"chrom": None, "start": None, "end": None, "transcripts": dict()}
+            max_intron = self.json_conf["prepare"]["max_intron_length"]
+            for row in input_annotation:
+                if row.is_exon is True:
+                    if row.transcript in invalids:
+                        continue
+                    elif row.transcript not in current["transcripts"]:
+                        self.logger.error("Transcript %s is invalid", row.transcript)
+                        invalids.add(row.transcript)
+                    else:
+                        # Check max intron length. We presume that exons are sorted correctly.
+                        current, invalids = self.__check_max_intron(current, invalids, row, max_intron=max_intron)
+                elif row.is_transcript is True:
+                    self.__test_sortedness(row, (current["chrom"], current["start"], current["end"]))
+                    if not current["start"]:
+                        current["chrom"], current["start"], current["end"] = row.chrom, row.start, row.end
+                        current["transcripts"][row.transcript] = dict()
+                        current["transcripts"][row.transcript]["definition"] = json.dumps(row)
+                        current["transcripts"][row.transcript]["definition"] = json.dumps(row)
+                        current["transcripts"][row.transcript]["exon_lines"] = []
+                    elif current["chrom"] != row.chrom:
+                        self.logger.info("Finished chromosome %s", current["chrom"])
+                        self.add_to_index(conn, cursor, current["transcripts"], counter)
+                        self.logger.info("Starting chromosome %s", row.chrom)
+                        current["chrom"], current["start"], current["end"] = row.chrom, row.start, row.end
+                        current["transcripts"] = dict()
+                        current["transcripts"][row.transcript] = dict()
+                        current["transcripts"][row.transcript]["definition"] = json.dumps(row)
+                        current["transcripts"][row.transcript]["exon_lines"] = []
+                        self.logger.info("Starting chromosome %s", row.chrom)
+                    else:
+                        if Superlocus.overlap((current["end"], current["start"]),
+                                              (row.start, row.end), flank=flank) > 0:
+                            # Add to the locus!
+                            current["start"] = min(current["start"], row.start)
+                            current["end"] = max(current["end"], row.end)
+                        else:
+                            counter += 1
+                            self.logger.debug("Submitting locus # %d (%s), with transcripts:\n%s",
+                                              counter, "{}:{}-{}".format(current["chrom"],
+                                                                         current["start"], current["end"]),
+                                              ",".join(list(current["transcripts"].keys())))
+                            self.add_to_index(conn, cursor, current["transcripts"], counter)
+                            locus_queue.put((counter,))
+                            current["start"], current["end"] = row.start, row.end
+                            current["transcripts"] = dict()
+
+                        current["transcripts"][row.transcript] = dict()
+                        current["transcripts"][row.transcript]["definition"] = json.dumps(row)
+                        current["transcripts"][row.transcript]["exon_lines"] = []
+
+        if current["start"] is not None:
+            counter += 1
+            self.logger.debug("Submitting locus # %d (%s), with transcripts:\n%s",
+                              counter, "{}:{}-{}".format(current["chrom"],
+                                                         current["start"], current["end"]),
+                              ",".join(list(current["transcripts"].keys())))
+            self.add_to_index(conn, cursor, current["transcripts"], counter)
+            locus_queue.put((counter,))
+
+            self.logger.info("Finished chromosome %s", current["chrom"])
+
+        locus_queue.put(("EXIT", ))
+
     def __submit_single_threaded(self, data_dict):
 
         """
@@ -1074,6 +1109,7 @@ memory intensive, proceed with caution!")
 
         counter = -1
         invalid = False
+        max_intron = self.json_conf["prepare"]["max_intron_length"]
         with self.define_input() as input_annotation:
             for row in input_annotation:
                 if row.is_exon is True and invalid is False:
@@ -1085,86 +1121,24 @@ memory intensive, proceed with caution!")
                                           exc)
                         invalid = True
                 elif row.is_transcript is True:
-                    if current_transcript is not None and invalid is False:
-                        self.__test_sortedness(row, current_transcript)
-                        if current_locus is not None and Superlocus.in_locus(
-                                current_locus, current_transcript,
-                                flank=self.json_conf["pick"]["clustering"]["flank"]) is True:
-                            current_locus.add_transcript_to_locus(current_transcript,
-                                                                  check_in_locus=False)
-                        else:
-                            counter += 1
-                            self.logger.debug("Analysing locus # %d", counter)
-                            try:
-                                for stranded_locus in submit_locus(current_locus, counter):
-                                    if stranded_locus.chrom != curr_chrom:
-                                        curr_chrom = stranded_locus.chrom
-                                        gene_counter = 0
-                                    gene_counter = locus_printer(stranded_locus, gene_counter)
-                            except KeyboardInterrupt:
-                                raise
-                            except Exception as exc:
-                                self.logger.exception(
-                                    "Superlocus %s failed with exception: %s",
-                                    None if current_locus is None else current_locus.id, exc)
-
-                            current_locus = Superlocus(
-                                current_transcript,
-                                stranded=False,
-                                json_conf=self.json_conf,
-                                source=self.json_conf["pick"]["output_format"]["source"])
-                            if self.regressor is not None:
-                                current_locus.regressor = self.regressor
-
+                    self.__test_sortedness(row, current_transcript)
+                    current_locus, counter, gene_counter, curr_chrom = self.__check_transcript(
+                        current_transcript, current_locus, counter, max_intron,
+                        gene_counter, curr_chrom, locus_printer, submit_locus)
+                    invalid = False
+                    current_transcript = Transcript(row, intron_range=intron_range, logger=logger)
                     if current_transcript is None or row.chrom != current_transcript.chrom:
                         if current_transcript is not None:
                             self.logger.info("Finished chromosome %s",
                                              current_transcript.chrom)
                         self.logger.info("Starting chromosome %s", row.chrom)
 
-                    invalid = False
-                    current_transcript = Transcript(
-                        row,
-                        intron_range=intron_range, logger=logger)
-
-        if current_transcript is not None and invalid is False:
-            if current_locus is not None and Superlocus.in_locus(
-                    current_locus, current_transcript,
-                    flank=self.json_conf["pick"]["clustering"]["flank"]) is True:
-                current_locus.add_transcript_to_locus(
-                    current_transcript, check_in_locus=False)
-            else:
-                counter += 1
-                self.logger.debug("Analysing locus # %d", counter)
-                for stranded_locus in submit_locus(current_locus, counter):
-                    if stranded_locus.chrom != curr_chrom:
-                        curr_chrom = stranded_locus.chrom
-                        gene_counter = 0
-                    gene_counter = locus_printer(stranded_locus, gene_counter)
-
-                current_locus = Superlocus(
-                    current_transcript,
-                    stranded=False,
-                    json_conf=self.json_conf,
-                    source=self.json_conf["pick"]["output_format"]["source"])
-                self.logger.debug("Created last locus %s", current_locus.id)
-        elif current_transcript is not None and invalid is True:
-            if current_locus is not None:
-                counter += 1
-                self.logger.debug("Analysing locus # %d", counter)
-                for stranded_locus in submit_locus(current_locus, counter):
-                    if stranded_locus.chrom != curr_chrom:
-                        curr_chrom = stranded_locus.chrom
-                        gene_counter = 0
-                    gene_counter = locus_printer(stranded_locus, gene_counter)
-
         self.logger.info("Finished chromosome %s", current_locus.chrom)
-
+        current_locus, counter, gene_counter, curr_chrom = self.__check_transcript(
+            current_transcript, current_locus, counter, max_intron,
+            gene_counter, curr_chrom, locus_printer, submit_locus)
         counter += 1
         self.logger.debug("Analysing locus # %d", counter)
-        # if current_locus is not None:
-        #     current_locus.load_all_transcript_data(pool=self.connection_pool,
-        #                                            data_dict=data_dict)
         for stranded_locus in submit_locus(current_locus, counter):
             if stranded_locus.chrom != curr_chrom:
                 curr_chrom = stranded_locus.chrom
@@ -1174,6 +1148,42 @@ memory intensive, proceed with caution!")
         for group in handles:
             [_.close() for _ in group if _]
         logger.info("Final number of superloci: %d", counter)
+
+    def __check_transcript(self, current_transcript, current_locus, counter, max_intron,
+                           gene_counter, curr_chrom, locus_printer, submit_locus):
+
+        if current_transcript is not None:
+            current_transcript.finalize()
+            if current_transcript.max_intron_length > max_intron:
+                self.logger.warning(
+                    "%s has an intron (%s) which is greater than the maximum allowed (%s). Removing it.",
+                    current_transcript.id, current_transcript.max_intron_length, max_intron)
+            elif current_locus and Superlocus.in_locus(
+                            current_locus, current_transcript,
+                            flank=self.json_conf["pick"]["clustering"]["flank"]) is True:
+                    current_locus.add_transcript_to_locus(current_transcript, check_in_locus=False)
+            else:
+                counter += 1
+                self.logger.debug("Analysing locus # %d", counter)
+                try:
+                    for stranded_locus in submit_locus(current_locus, counter):
+                        if stranded_locus.chrom != curr_chrom:
+                            curr_chrom = stranded_locus.chrom
+                            gene_counter = 0
+                        gene_counter = locus_printer(stranded_locus, gene_counter)
+                except KeyboardInterrupt:
+                    raise
+                except Exception as exc:
+                    self.logger.exception(
+                        "Superlocus %s failed with exception: %s",
+                        None if current_locus is None else current_locus.id, exc)
+
+                current_locus = Superlocus(current_transcript, stranded=False, json_conf=self.json_conf,
+                        source=self.json_conf["pick"]["output_format"]["source"])
+                if self.regressor is not None:
+                    current_locus.regressor = self.regressor
+
+        return current_locus, counter, gene_counter, curr_chrom
 
     def _parse_and_submit_input(self, data_dict):
 

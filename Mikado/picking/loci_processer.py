@@ -1,7 +1,7 @@
 from multiprocessing import Process
 from multiprocessing.managers import AutoProxy
 import logging
-import numpy
+# import numpy
 from itertools import product
 import logging.handlers as logging_handlers
 import functools
@@ -21,6 +21,8 @@ from sqlalchemy.engine import create_engine  # SQLAlchemy/DB imports
 import sqlalchemy.orm.session
 import sqlite3
 from ..transcripts import Transcript
+from ..exceptions import InvalidTranscript
+import msgpack
 try:
     import ujson as json
 except ImportError:
@@ -911,15 +913,30 @@ class LociProcesser(Process):
                 if transcripts is None:
                     raise KeyError("Nothing found in the database for %s", counter)
 
-                transcripts = json.loads(transcripts[0])
+                transcripts = msgpack.loads(transcripts[0], raw=False)
                 if len(transcripts) == 0:
                     stranded_loci = []
                 else:
                     tobjects = []
                     for tjson in transcripts:
-                        transcript = Transcript(logger=self.logger)
-                        transcript.load_dict(tjson)
-                        tobjects.append(transcript)
+                        definition = json.loads(tjson["definition"])
+                        transcript = Transcript(logger=self.logger,
+                                                source=definition["source"],
+                                                intron_range=self.json_conf["pick"]["run_options"]["intron_range"])
+                        transcript.chrom, transcript.start, transcript.end = (definition["chrom"],
+                                                                              definition["start"], definition["end"])
+                        transcript.id = definition["transcript"]
+                        transcript.strand, transcript.feature = definition["strand"], definition["feature"]
+                        transcript.attributes = definition["attributes"]
+                        try:
+                            for exon in tjson["exon_lines"]:
+                                start, end, feature, phase = exon
+                                transcript.add_exon((start, end), feature=feature, phase=phase)
+                            transcript.finalize()
+                            tobjects.append(transcript)
+                        except InvalidTranscript as exc:
+                            self.logger.exception("Transcript %s is invalid. Ignoring. Error: %s",
+                                                  transcript.id, exc)
 
                     slocus = Superlocus(tobjects.pop(),
                                         stranded=False,

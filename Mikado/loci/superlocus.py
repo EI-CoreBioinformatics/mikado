@@ -36,6 +36,7 @@ else:
     from collections import OrderedDict as SortedDict
 import itertools
 from .excluded import Excluded
+from typing import Union
 
 # The number of attributes is something I need
 # pylint: disable=too-many-instance-attributes
@@ -67,7 +68,7 @@ class Superlocus(Abstractlocus):
         Hit.hit_number <= bindparam("hit_number")
     ))
 
-    _complex_limit = (10000, 10000)
+    _complex_limit = (5000, 5000)
 
     # Junction.strand == bindparam("strand")))
 
@@ -628,6 +629,11 @@ class Superlocus(Abstractlocus):
         if self.__data_loaded is True:
             return
 
+        # Before starting to load: let's reduce the loci.
+        if len(self.transcripts) >= self._complex_limit[0]:
+            self.approximation_level = 1
+            self.reduce_method_one(None)
+
         if data_dict is None and engine is None:
             raise ValueError("Both engine and data_dict are void.")
         elif data_dict is None:
@@ -741,17 +747,7 @@ class Superlocus(Abstractlocus):
         self.logger.warning("Approximation level 2 for %s", self.id)
         return transcript_graph
 
-        # self.logger.warning("Still %d nodes with the most connected with %d edges \
-        # after approximation 2",
-        #                     len(transcript_graph), max_edges)
-        #
-        # self.approximation_level = 3
-        # self.logger.warning("Approximation level 3 for %s; retained sources: %s",
-        #                     self.id, ",".join(self.__retained_sources))
-        # transcript_graph = self.reduce_method_three(transcript_graph)
-        # return transcript_graph
-
-    def reduce_method_one(self, transcript_graph: networkx.Graph) -> [networkx.Graph, int]:
+    def reduce_method_one(self, transcript_graph: Union[None, networkx.Graph]) -> [networkx.Graph, int]:
 
         ichains = collections.defaultdict(list)
         cds_only = self.json_conf["pick"]["clustering"]["cds_only"]
@@ -768,7 +764,7 @@ class Superlocus(Abstractlocus):
             current_id = transcripts[0].id
             for transcript in transcripts[1:]:  # we know that they are sorted left to right
                 self.logger.debug("Comparing %s to %s", current_id, transcript.id)
-                if transcript.id not in transcript_graph.neighbors(current_id):
+                if transcript_graph and transcript.id not in transcript_graph.neighbors(current_id):
                     self.logger.debug("%s and %s are not neighbours.", current_id, transcript.id)
                     continue
                 if transcript.end <= current_coords[1] and transcript.start > current_coords[0]:
@@ -796,14 +792,15 @@ class Superlocus(Abstractlocus):
                     current_coords, current_id = (transcript.start, transcript.end), transcript.id
 
         if to_remove:
-            transcript_graph.remove_nodes_from(to_remove)
+            if transcript_graph:
+                transcript_graph.remove_nodes_from(to_remove)
             [self.excluded_transcripts.add_transcript_to_locus(self.transcripts[tid]) for tid in to_remove]
             self.logger.debug("Removing the following transcripts from %s: %s",
                               self.id, ", ".join(to_remove))
             for tid in to_remove:
                 self.remove_transcript_from_locus(tid)
 
-        max_edges = max([d for n, d in transcript_graph.degree])
+        max_edges = max([d for n, d in transcript_graph.degree]) if transcript_graph else 0
         return transcript_graph, max_edges
 
     def reduce_method_two(self, transcript_graph: networkx.Graph) -> [networkx.Graph, int]:
@@ -818,13 +815,13 @@ class Superlocus(Abstractlocus):
                 if couple in done:
                     continue
                 done.add(couple)
-                self.logger.warning("Comparing %s to %s", tid, neighbour)
+                self.logger.debug("Comparing %s to %s", tid, neighbour)
                 if neighbour in to_remove:
                     continue
                 neighbour = self.transcripts[neighbour]
                 inters = set.intersection(current.introns, neighbour.introns)
                 if inters == current.introns:
-                    self.logger.warning("Evaluating %s (template %s) for removal", current.id, neighbour.id)
+                    self.logger.debug("Evaluating %s (template %s) for removal", current.id, neighbour.id)
                     if current.is_reference:
                         continue
                     if cds_only:
@@ -832,7 +829,7 @@ class Superlocus(Abstractlocus):
                                                   neighbour.copy().remove_utr())[0]
                     else:
                         comparison = Assigner.compare(current, neighbour)[0]
-                    self.logger.warning(
+                    self.logger.debug(
                         "Evaluating %s (template %s) for removal (%s)",
                         current.id, neighbour.id, (comparison.n_prec[0], comparison.n_recall[0]))
                     if comparison.n_prec[0] == 100:
@@ -846,7 +843,7 @@ class Superlocus(Abstractlocus):
                                                       current.copy().remove_utr())[0]
                     else:
                         comparison = Assigner.compare(neighbour, current)[0]
-                    self.logger.warning(
+                    self.logger.debug(
                         "Evaluating %s (template %s) for removal (%s)",
                         current.id, neighbour.id, (comparison.n_prec[0], comparison.n_recall[0]))
                     if comparison.n_prec[0] == 100:

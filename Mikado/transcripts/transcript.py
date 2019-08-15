@@ -331,14 +331,14 @@ class Transcript:
         self._accept_undefined_multi = accept_undefined_multi
 
         if len(args) == 0:
-            return
+            pass
         else:
             self.__initialize_with_line(args[0])
             self._original_source = self.source
+            self.feature = intern(self.feature)
 
         if source is not None:
             self.source = self._original_source = source
-        self.feature = intern(self.feature)
 
     def __initialize_with_line(self, transcript_row):
         """
@@ -698,6 +698,9 @@ class Transcript:
         :type feature: flag to indicate what kind of feature we are adding
         """
 
+        if self.finalized is True:
+            raise ModificationError("You cannot add exons to a finalized transcript!")
+
         _gtype = type(gffline)
 
         if _gtype in (tuple, list):
@@ -738,9 +741,6 @@ class Transcript:
         assert isinstance(start,
                           (int, np.int, np.int32, np.int64)) and isinstance(end,
                                                                             (int, np.int, np.int32, np.int64))
-        if self.finalized is True:
-            raise ModificationError("You cannot add exons to a finalized transcript!")
-
         if feature.upper().endswith("CDS"):
             store = self.combined_cds
             if phase is not None:

@@ -73,7 +73,8 @@ class Locus(Abstractlocus):
             self.json_conf["pick"]["alternative_splicing"]["pad"] = pad_transcripts
             assert self.perform_padding == pad_transcripts
 
-        if self.perform_padding is True and self.json_conf["pick"]["run_options"]["only_reference_update"] is True:
+        if self.perform_padding is True and False and \
+                self.json_conf["pick"]["run_options"]["only_reference_update"] is True:
             self._add_to_alternative_splicing_codes("=")
             self._add_to_alternative_splicing_codes("_")
             self._add_to_alternative_splicing_codes("n")

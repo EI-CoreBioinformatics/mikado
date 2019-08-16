@@ -203,6 +203,10 @@ class TestPadding(unittest.TestCase):
                     json_conf["pick"]["run_options"]["only_reference_update"] = True
                     locus = Locus(self.reference, logger=logger, json_conf=json_conf,
                                   pad_transcripts=pad_transcripts)
+                    if pad_transcripts:
+                        locus._add_to_alternative_splicing_codes("=")
+                        locus._add_to_alternative_splicing_codes("_")
+                        locus._add_to_alternative_splicing_codes("n")
                     self.assertTrue(locus[self.reference.id].is_reference)
                     self.assertEqual(locus.perform_padding, pad_transcripts)
                     logger.setLevel("DEBUG")

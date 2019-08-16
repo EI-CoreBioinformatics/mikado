@@ -1,4 +1,5 @@
 class.gtf	cl	True		False
 cufflinks.gtf	cuff	True		False
-stringtie.gtf	st	True	1	True
+stringtie.gtf	st	True	1	False
 trinity.gff3	tr	False	-0.5	False
+reference.gff3	at	True	5	True

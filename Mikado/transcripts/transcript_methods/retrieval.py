@@ -315,40 +315,43 @@ def load_information_from_db(transcript, json_conf, introns=None, session=None,
         else:
             transcript.session = session
         candidate_orfs = []
-        transcript.logger.debug("Retrieving the ORFs for %s", transcript.id)
-        ext_results = transcript.external_baked(transcript.session).params(query=transcript.id).all()
-        for row in ext_results:
-            if row.rtype == "int":
-                score = int(row.score)
-            elif row.rtype == "bool":
-                score = bool(int(row.score))
-            elif row.rtype == "complex":
-                score = complex(row.score)
-            elif row.rtype == "float":
-                score = float(row.score)
+        if transcript.is_reference is False:
+            transcript.logger.debug("Retrieving the ORFs for %s", transcript.id)
+            ext_results = transcript.external_baked(transcript.session).params(query=transcript.id).all()
+            for row in ext_results:
+                if row.rtype == "int":
+                    score = int(row.score)
+                elif row.rtype == "bool":
+                    score = bool(int(row.score))
+                elif row.rtype == "complex":
+                    score = complex(row.score)
+                elif row.rtype == "float":
+                    score = float(row.score)
+                else:
+                    raise ValueError("Invalid rtype: {}".format(row.rtype))
+
+                transcript.external_scores[row.source] = (score, row.valid_raw)
+
+            for orf in retrieve_orfs(transcript):
+                candidate_orfs.append(orf)
+            transcript.logger.debug("Retrieved the ORFs for %s", transcript.id)
+
+            transcript.logger.debug("Loading the ORFs for %s", transcript.id)
+            old_strand = transcript.strand
+            load_orfs(transcript, candidate_orfs)
+
+            if transcript.monoexonic is False:
+                is_reversed = False
+            elif old_strand != transcript.strand and ((old_strand is None and transcript.strand == "-")
+                or (old_strand is not None)):
+                is_reversed = True
             else:
-                raise ValueError("Invalid rtype: {}".format(row.rtype))
+                is_reversed = False
+            transcript.logger.debug("Loaded the ORFs for %s", transcript.id)
 
-            transcript.external_scores[row.source] = (score, row.valid_raw)
-
-        for orf in retrieve_orfs(transcript):
-            candidate_orfs.append(orf)
-
-        transcript.logger.debug("Retrieved the ORFs for %s", transcript.id)
-
-        transcript.logger.debug("Loading the ORFs for %s", transcript.id)
-        old_strand = transcript.strand
-        load_orfs(transcript, candidate_orfs)
-
-        if transcript.monoexonic is False:
-            is_reversed = False
-        elif old_strand != transcript.strand and ((old_strand is None and transcript.strand == "-")
-            or (old_strand is not None)):
-            is_reversed = True
         else:
+            transcript.logger.debug("Skipping ORF loading for reference %s", transcript.id)
             is_reversed = False
-
-        transcript.logger.debug("Loaded the ORFs for %s", transcript.id)
 
         transcript.logger.debug("Loading the BLAST data for %s", transcript.id)
         __load_blast(transcript, reverse=is_reversed)
@@ -387,28 +390,32 @@ def retrieve_from_dict(transcript, data_dict):
         ext_score = data_dict["external"][transcript.id]
         transcript.external_scores.update(ext_score)
 
-    if transcript.id in data_dict["orfs"]:
-        candidate_orfs = list(orf for orf in data_dict["orfs"][transcript.id] if
-                              orf.cds_len >= min_cds_len)
+    if transcript.is_reference is False:
+        if transcript.id in data_dict["orfs"]:
+            candidate_orfs = list(orf for orf in data_dict["orfs"][transcript.id] if
+                                  orf.cds_len >= min_cds_len)
+        else:
+            candidate_orfs = []
+
+        # They must already be as ORFs
+        if (transcript.monoexonic is False) or (transcript.monoexonic is True and trust_strand is True and
+                                                transcript.strand is not None):
+            # Remove negative strand ORFs for multiexonic transcripts,
+            # or monoexonic strand-specific transcripts
+            candidate_orfs = list(orf for orf in candidate_orfs if orf.strand != "-")
+
+        old_strand = transcript.strand
+        load_orfs(transcript, candidate_orfs)
+
+        if transcript.monoexonic is False:
+            is_reversed = False
+        elif old_strand != transcript.strand and ((old_strand is None and transcript.strand == "-")
+                                                  or (old_strand is not None)):
+            is_reversed = True
+        else:
+            is_reversed = False
     else:
-        candidate_orfs = []
-
-    # They must already be as ORFs
-    if (transcript.monoexonic is False) or (transcript.monoexonic is True and trust_strand is True and
-                                            transcript.strand is not None):
-        # Remove negative strand ORFs for multiexonic transcripts,
-        # or monoexonic strand-specific transcripts
-        candidate_orfs = list(orf for orf in candidate_orfs if orf.strand != "-")
-
-    old_strand = transcript.strand
-    load_orfs(transcript, candidate_orfs)
-
-    if transcript.monoexonic is False:
-        is_reversed = False
-    elif old_strand != transcript.strand and ((old_strand is None and transcript.strand == "-")
-                                              or (old_strand is not None)):
-        is_reversed = True
-    else:
+        transcript.logger.debug("Skipping ORF loading for reference %s", transcript.id)
         is_reversed = False
 
     # if transcript.json_conf["pick"]["chimera_split"]["blast_check"] is True:

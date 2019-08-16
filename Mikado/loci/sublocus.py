@@ -97,7 +97,7 @@ class Sublocus(Abstractlocus):
         self.monosubloci = []
         self.logger.debug("Initialized {0}".format(self.id))
         self.metric_lines_store = []  # This list will contain the lines to be printed in the metrics file
-
+        self.excluded = Excluded(json_conf=json_conf)
         self.scores = dict()
 
     # pylint: disable=arguments-differ
@@ -176,7 +176,7 @@ class Sublocus(Abstractlocus):
         self.logger.debug("Added %s to %s", transcript.id, self.id)
         # Update the id
 
-    def define_monosubloci(self, purge=False, excluded=None):
+    def define_monosubloci(self, purge=False):
         """
         :param purge: a flag which indicates whether loci whose
         best transcript has a score of 0 should be excluded (True) or retained (False)
@@ -195,12 +195,11 @@ class Sublocus(Abstractlocus):
         """
 
         self.monosubloci = []
-        self.excluded = excluded
+        # self.excluded = excluded
         self.logger.debug("Launching calculate scores for {0}".format(self.id))
         self.calculate_scores()
 
         if self._excluded_transcripts and self.purge:
-            self.excluded = Excluded(self._excluded_transcripts.pop())
             while self._excluded_transcripts:
                 self.excluded.add_transcript_to_locus(self._excluded_transcripts.pop(),
                                                       check_in_locus=False)

@@ -1036,9 +1036,10 @@ class Superlocus(Abstractlocus):
         self.monosubloci = dict()
         # Extract the relevant transcripts
         for sublocus_instance in sorted(self.subloci):
-            self.excluded = sublocus_instance.define_monosubloci(
-                purge=self.purge,
-                excluded=self.excluded)
+            sublocus_instance.define_monosubloci(
+                purge=self.purge)
+            for transcript in sublocus_instance.excluded.transcripts.values():
+                self.excluded.add_transcript_to_locus(transcript)
             for tid in sublocus_instance.transcripts:
                 # Update the score
                 self.transcripts[tid].score = sublocus_instance.transcripts[tid].score
@@ -1068,8 +1069,7 @@ class Superlocus(Abstractlocus):
             for row in slocus.print_metrics():
                 yield row
         if self.excluded is not None:
-            for row in self.excluded.print_metrics():
-                yield row
+            yield from self.excluded.print_metrics()
 
     def print_subloci_scores(self):
         """Wrapper method to create a csv.DictWriter instance and call the

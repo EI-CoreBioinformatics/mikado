@@ -125,9 +125,10 @@ rule check_pick:
       import pandas as pd
       metrics = pd.read_csv(input["metrics"], delimiter="\t")
       found_split = metrics[metrics.columns[0]].str.contains(".split").any()
+      no_dups = (metrics[metrics.columns[0]].drop_duplicates().shape[0] == metrics.shape[0])
       total = metrics[metrics.columns[0]].str.replace("\.split[0-9]*", "", regex=True).drop_duplicates().shape[0]
       found_excluded = metrics[metrics.columns[2]].str.contains("excluded").any()
-      if not found_excluded or not found_split or total != fai:
+      if not found_excluded or not found_split or total != fai or not no_dups:
         raise ValueError("Something went wrong with Mikado pick, please check")
       open(output[0], "wt")
 

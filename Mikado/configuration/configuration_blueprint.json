@@ -310,7 +310,6 @@
             "Default: 0% i.e. disabled, we check for the CDS overlap.",
             "- keep_retained_introns: Whether to consider as valid AS events where one intron",
             "is retained compared to the primary or any other valid AS. Default: false.",
-            "- max_isoforms: Maximum number of isoforms per locus. 1 implies no AS reported. Default: 3",
             "- valid_ccodes: Valid class codes for AS events. Valid codes are in categories",
             "'Alternative splicing', 'Extension' (with junction F1 lower than 100%), and Overlap (exluding m). Default: j, J, g, G, C, h",
             "- max_utr_length: Maximum length of the UTR for AS events. Default: 10e6 (i.e. no limit)",
@@ -329,11 +328,11 @@
           "SimpleComment": [
             "Parameters related to alternative splicing reporting.",
             "- report: whether to report at all or not the AS events.",
-            "- max_isoforms: Maximum number of isoforms per locus. 1 implies no AS reported. Default: 3",
             "- only_confirmed_introns: bring back AS events only when their introns are either",
-            " present in the primary transcript or in the set of confirmed introns."
+            " present in the primary transcript or in the set of confirmed introns.",
+            "- pad: boolean switch. If true, Mikado will pad all the transcript in a gene so that their ends are the same"
           ],
-          "required": ["report", "max_isoforms", "only_confirmed_introns"],
+          "required": ["report", "only_confirmed_introns", "pad"],
           "type": "object",
           "properties": {
             "report": {
@@ -355,11 +354,6 @@
             "keep_retained_introns": {
               "type": "boolean",
               "default": false
-            },
-            "max_isoforms": {
-              "type": "integer",
-              "minimum": 1,
-              "default": 5
             },
             "valid_ccodes": {
               "type": "array",

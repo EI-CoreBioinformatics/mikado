@@ -73,8 +73,7 @@ class Locus(Abstractlocus):
             self.json_conf["pick"]["alternative_splicing"]["pad"] = pad_transcripts
             assert self.perform_padding == pad_transcripts
 
-        if self.perform_padding is True and False and \
-                self.json_conf["pick"]["run_options"]["only_reference_update"] is True:
+        if self.perform_padding is True and self.json_conf["pick"]["run_options"]["only_reference_update"] is True:
             self._add_to_alternative_splicing_codes("=")
             self._add_to_alternative_splicing_codes("_")
             self._add_to_alternative_splicing_codes("n")
@@ -141,7 +140,7 @@ class Locus(Abstractlocus):
         self.metrics_calculated = False
         self.scores_calculated = False
         self.calculate_scores()
-        max_isoforms = self.json_conf["pick"]["alternative_splicing"]["max_isoforms"]
+        # max_isoforms = self.json_conf["pick"]["alternative_splicing"]["max_isoforms"]
 
         while True:
             # *Never* lose the primary transcript
@@ -159,9 +158,10 @@ class Locus(Abstractlocus):
             score_passing = [_ for _ in order if _[1] >= threshold]
             self.logger.debug("%d transcripts have a score over the threshold", len(score_passing))
 
-            to_keep.update(set([_[0] for _ in itertools.islice(score_passing, max_isoforms)]))
-            self.logger.debug("%d transcripts retained after the check for score and max. no. of isoforms (%d)",
-                              len(to_keep), max_isoforms)
+            to_keep.update(set([_[0] for _ in score_passing]))  # itertools.islice(score_passing, max_isoforms)]))
+            self.logger.debug("%d transcripts retained after the check for score (minimum %d)",
+                              # and max. no. of isoforms (%d)",
+                              len(to_keep), threshold)
 
             if to_keep == set(self.transcripts.keys()):
                 self.logger.debug("Finished to discard superfluous transcripts from {}".format(self.id))
@@ -306,8 +306,17 @@ class Locus(Abstractlocus):
 
         # First thing: calculate the class codes
         class_codes = dict()
-        for t1, t2 in itertools.combinations(self.transcripts.keys(), 2):
-            class_codes[(t1, t2)] = Assigner.compare(self[t1], self[t2])[0]
+        ichains = collections.defaultdict(list)
+        for tid in self.transcripts:
+            if self.transcripts[tid].introns:
+                key = tuple(self.transcripts[tid].introns)
+            else:
+                key = None
+            ichains[key].append(tid)
+
+        for ichain in ichains:
+            for t1, t2 in itertools.combinations(ichains[ichain], 2):
+                class_codes[(t1, t2)] = Assigner.compare(self[t1], self[t2])[0]
 
         to_remove = set()
         for couple, comparison in class_codes.items():

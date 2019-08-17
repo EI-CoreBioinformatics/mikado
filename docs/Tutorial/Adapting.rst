@@ -229,7 +229,6 @@ Once created, the configuration file should be modified as follows:
     - in the pick/alternative_splicing section:
         - increase the stringency for calling an alternative splicing event:
             - min_score_percentage: from 0.5 to 0.75
-            - max_isoforms: from 5 to 3
     - in the pick/fragments section:
         - add "I" (multi-exonic and within an intron of the reference locus) to the list of valid_class_codes
 
@@ -380,7 +379,6 @@ In the configuration file, we will change the following:
     - under pick/alternative_splicing:
         - switch "keep_retained_introns" to true
         - switch "only_confirmed_introns" to false
-        - potentially, increase the number of isoforms from 5 to 10 or higher.
         - consult the documentation on :ref:`class codes <class-codes>` to verify which additional AS events you would like to keep; by default, Mikado will include cases where the transcript has at least a different splicing site (j), no splicing site in common with the original transcript but introns roughly coincident (h), novel introns in the terminal exons (J) or within the primary mono-exonic transcript (G).
             - For a comprehensive catalogue, we would recommend to include at least "C" (transcript roughly contained, but with "spilling" within the intron(s) of the primary transcript).
         - To include transcripts quite dissimilar from the primary, potentially lower the percentages for:

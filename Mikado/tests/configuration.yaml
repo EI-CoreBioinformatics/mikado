@@ -29,9 +29,10 @@ pick:
     #  - only_confirmed_introns: bring back AS events only when their introns are
     #  either
     #   present in the primary transcript or in the set of confirmed introns.
-    max_isoforms: 3
+    # max_isoforms: 3
     report: true
     only_confirmed_introns: false
+    pad: true
   chimera_split:
     #  Parameters related to the splitting of transcripts in the presence of
     #  two or more ORFs. Parameters:

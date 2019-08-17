@@ -118,7 +118,7 @@ pick:
                 #  and any AS event. Default: 60%.
                 #  - max_isoforms: Maximum number of isoforms per locus. 1 implies no AS reported.
                 #  Default: 3
-                max_isoforms: 3
+                # max_isoforms: 3
                 report: true
                 chimera_split:
                         #  Parameters related to the splitting of transcripts in the presence of

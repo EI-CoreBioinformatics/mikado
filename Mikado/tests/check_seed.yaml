@@ -70,7 +70,7 @@ pick:
     #  - only_confirmed_introns: bring back AS events only when their introns are
     #  either
     #   present in the primary transcript or in the set of confirmed introns.
-    max_isoforms: 5
+    # max_isoforms: 5
     only_confirmed_introns: true
     pad: true
     report: true

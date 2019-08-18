@@ -823,28 +823,6 @@ class Locus(Abstractlocus):
             self.exons.update(self[tid].exons)
         return templates
 
-    def define_graph(self, objects: dict, inters=None, three_prime=False):
-
-        graph = nx.DiGraph()
-        graph.add_nodes_from(objects.keys())
-
-        if inters is None:
-            inters = self._share_extreme
-
-        for obj, other_obj in combinations(sorted(objects.keys()), 2):
-            self.logger.debug("Comparing %s to %s (%s')", obj, other_obj, "5" if not three_prime else "3")
-            if obj == other_obj:
-                continue
-            else:
-                edge = inters(objects[obj], objects[other_obj], three_prime=three_prime)
-                if edge:
-                    assert edge[0].id in self
-                    assert edge[1].id in self
-                    # assert edge[1].id in self.scores
-                    graph.add_edge(edge[0].id, edge[1].id)
-
-        return graph
-
     def _find_communities_boundaries(self, five_graph, three_graph):
 
         five_found = set()
@@ -890,6 +868,42 @@ class Locus(Abstractlocus):
         self.logger.debug("Communities for modifications: %s", __to_modify)
 
         return __to_modify
+
+    def define_graph(self, objects: dict, inters=None, three_prime=False):
+
+        graph = nx.DiGraph()
+        graph.add_nodes_from(objects.keys())
+        if inters is None:
+            inters = self._share_extreme
+
+        if len(objects) >= 2:
+            if (three_prime is True and self.strand != "-") or (three_prime is False and self.strand == "-"):
+                reverse = True
+            else:
+                reverse = False
+            order = sorted([(objects[tid].start, objects[tid].end, tid) for tid in objects], reverse=reverse)
+
+            for pos in range(len(order) - 1):
+                obj = order[pos]
+                self.logger.warning("Checking %s", obj[2])
+                for other_obj in order[pos + 1:]:
+                    if obj == other_obj:
+                        continue
+                    elif self.overlap(obj[:2], obj[:2], positive=False, flank=0) == 0:
+                        break
+                    else:
+                        self.logger.warning("Comparing %s to %s (%s')", obj[2], other_obj[2],
+                                          "5" if not three_prime else "3")
+                        edge = inters(objects[obj[2]], objects[other_obj[2]], three_prime=three_prime)
+                        if edge:
+                            assert edge[0].id in self
+                            assert edge[1].id in self
+                            # assert edge[1].id in self.scores
+                            graph.add_edge(edge[0].id, edge[1].id)
+        else:
+            self.logger.warning("No comparison to be made (objects: %s)", objects)
+
+        return graph
 
     def _share_extreme(self, first: Transcript, second: Transcript, three_prime=False):
 

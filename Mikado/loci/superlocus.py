@@ -29,6 +29,8 @@ from ..serializers.orf import Orf
 from ..utilities import dbutils, grouper
 from ..scales.assigner import Assigner
 import bisect
+import operator
+import functools
 import numpy as np
 if version_info.minor < 5:
     from sortedcontainers import SortedDict
@@ -1270,13 +1272,12 @@ class Superlocus(Abstractlocus):
         cdna_overlap = self.json_conf["pick"]["alternative_splicing"]["min_cdna_overlap"]
 
         self.logger.debug("Defining the transcript graph")
-        t_graph = super().define_graph(self.transcripts,
-                                    inters=MonosublocusHolder.is_intersecting,
-                                    cds_only=cds_only,
-                                    logger=self.logger,
-                                    min_cdna_overlap=cdna_overlap,
-                                    min_cds_overlap=cds_overlap,
-                                    simple_overlap_for_monoexonic=False)
+        t_graph = self.define_as_graph(inters=MonosublocusHolder.is_intersecting,
+                                       cds_only=cds_only,
+                                       min_cdna_overlap=cdna_overlap,
+                                       min_cds_overlap=cds_overlap,
+                                       simple_overlap_for_monoexonic=False)
+
         self.logger.debug("Defined the transcript graph")
 
         loci_cliques = dict()
@@ -1285,8 +1286,8 @@ class Superlocus(Abstractlocus):
                 neighbors = set(t_graph.neighbors(locus_instance.primary_transcript_id))
             except networkx.exception.NetworkXError:
                 raise networkx.exception.NetworkXError(
-                    "{} {} {}".format(
-                    locus_instance.primary_transcript.attributes["Alias"],
+                    "{} {}".format(
+                    # locus_instance.primary_transcript.attributes["Alias"],
                     locus_instance.primary_transcript_id,
                     list(t_graph.nodes)
                 ))
@@ -1423,10 +1424,48 @@ class Superlocus(Abstractlocus):
         for key in intronic:
             graph.add_edges_from(itertools.combinations(intronic[key], 2))
 
-        # This will be quadratic. Hopefully it will not break the program.
-        for one, other in itertools.combinations(monoexonic, 2):
-            if self.overlap((one[0], one[1]), (other[0], other[1]), positive=False) > 0:
-                graph.add_edge(one[2], other[2])
+        if len(monoexonic) > 1:
+            for pos in range(len(monoexonic) - 1):
+                one = monoexonic[pos]
+                for other in monoexonic[pos + 1:]:
+                    if self.overlap((one[0], one[1]), (other[0], other[1]), positive=False) > 0:
+                        graph.add_edge(one[2], other[2])
+                    else:
+                        break
+
+        return graph
+
+    def define_as_graph(self,
+                        inters=MonosublocusHolder.is_intersecting,
+                        cds_only=False,
+                        min_cdna_overlap=0.2,
+                        min_cds_overlap=0.2,
+                        simple_overlap_for_monoexonic=True):
+
+        """This method will try to build the AS graph using a O(nlogn) rather than O(n^2) algorithm."""
+
+        method = functools.partial(inters, cds_only=cds_only, min_cdna_overlap=min_cdna_overlap,
+                                   min_cds_overlap=min_cds_overlap,
+                                   simple_overlap_for_monoexonic=simple_overlap_for_monoexonic,
+                                   logger=self.logger)
+
+        graph = networkx.Graph()
+        graph.add_nodes_from(self.transcripts.keys())
+        if len(self.transcripts) >= 2:
+            if cds_only:
+                order = sorted([(transcript.selected_cds_start, transcript.selected_cds_end, transcript.id)
+                                for transcript in self.transcripts.values()], key=operator.itemgetter(0, 1))
+            else:
+                order = sorted([(transcript.start, transcript.end, transcript.id)
+                                for transcript in self.transcripts.values()], key=operator.itemgetter(0, 1))
+
+            for pos in range(len(order) -1 ):
+                one = order[pos]
+                for other in order[pos + 1:]:
+                    if self.overlap((one[0], one[1]), (other[0], other[1]), positive=True) <= 0:
+                        break
+                    elif method(self[one[2]], self[other[2]]) is True:
+                        graph.add_edge(one[2], other[2])
 
         return graph
 

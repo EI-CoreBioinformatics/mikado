@@ -885,14 +885,13 @@ class Locus(Abstractlocus):
 
             for pos in range(len(order) - 1):
                 obj = order[pos]
-                self.logger.warning("Checking %s", obj[2])
                 for other_obj in order[pos + 1:]:
                     if obj == other_obj:
                         continue
                     elif self.overlap(obj[:2], obj[:2], positive=False, flank=0) == 0:
                         break
                     else:
-                        self.logger.warning("Comparing %s to %s (%s')", obj[2], other_obj[2],
+                        self.logger.debug("Comparing %s to %s (%s')", obj[2], other_obj[2],
                                           "5" if not three_prime else "3")
                         edge = inters(objects[obj[2]], objects[other_obj[2]], three_prime=three_prime)
                         if edge:

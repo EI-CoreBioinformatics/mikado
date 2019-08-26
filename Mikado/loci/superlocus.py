@@ -29,7 +29,7 @@ from ..serializers.orf import Orf
 from ..utilities import dbutils, grouper
 from ..scales.assigner import Assigner
 import bisect
-import operator
+# import operator
 import functools
 import numpy as np
 if version_info.minor < 5:
@@ -39,6 +39,7 @@ else:
 import itertools
 from .excluded import Excluded
 from typing import Union
+from ..utilities.intervaltree import Interval, IntervalTree
 
 # The number of attributes is something I need
 # pylint: disable=too-many-instance-attributes
@@ -1406,14 +1407,24 @@ class Superlocus(Abstractlocus):
         objects = self.transcripts
         graph.add_nodes_from(objects.keys())
 
-        monoexonic = []
+        monoexonic = IntervalTree()
         intronic = collections.defaultdict(set)
 
         for tid, transcript in objects.items():
             if cds_only is True and len(transcript.selected_cds_introns) == 0:
-                bisect.insort(monoexonic, (transcript.selected_cds_start, transcript.selected_cds_end, tid))
+                for found in monoexonic.find(transcript.selected_cds_start, transcript.selected_cds_end,
+                                             strict=False):
+                    graph.add_edge(tid, found.value)
+                monoexonic.add_interval(Interval(transcript.selected_cds_start, transcript.selected_cds_end,
+                                                 transcript.id))
+                # bisect.insort(monoexonic, (transcript.selected_cds_start, transcript.selected_cds_end, tid))
             elif cds_only is False and transcript.monoexonic is True:
-                bisect.insort(monoexonic, (transcript.start, transcript.end, tid))
+                for found in monoexonic.find(transcript.start, transcript.end,
+                                             strict=False):
+                    graph.add_edge(tid, found.value)
+                monoexonic.add_interval(Interval(transcript.start, transcript.end,
+                                                 transcript.id))
+                # bisect.insort(monoexonic, (transcript.start, transcript.end, tid))
             if cds_only is False or not transcript.is_coding:
                 store = transcript.introns
             else:
@@ -1424,14 +1435,14 @@ class Superlocus(Abstractlocus):
         for key in intronic:
             graph.add_edges_from(itertools.combinations(intronic[key], 2))
 
-        if len(monoexonic) > 1:
-            for pos in range(len(monoexonic) - 1):
-                one = monoexonic[pos]
-                for other in monoexonic[pos + 1:]:
-                    if self.overlap((one[0], one[1]), (other[0], other[1]), positive=False) > 0:
-                        graph.add_edge(one[2], other[2])
-                    else:
-                        break
+        # if len(monoexonic) > 1:
+        #     for pos in range(len(monoexonic) - 1):
+        #         one = monoexonic[pos]
+        #         for other in monoexonic[pos + 1:]:
+        #             if self.overlap((one[0], one[1]), (other[0], other[1]), positive=False) > 0:
+        #                 graph.add_edge(one[2], other[2])
+        #             else:
+        #                 break
 
         return graph
 
@@ -1451,21 +1462,47 @@ class Superlocus(Abstractlocus):
 
         graph = networkx.Graph()
         graph.add_nodes_from(self.transcripts.keys())
-        if len(self.transcripts) >= 2:
-            if cds_only:
-                order = sorted([(transcript.selected_cds_start, transcript.selected_cds_end, transcript.id)
-                                for transcript in self.transcripts.values()], key=operator.itemgetter(0, 1))
-            else:
-                order = sorted([(transcript.start, transcript.end, transcript.id)
-                                for transcript in self.transcripts.values()], key=operator.itemgetter(0, 1))
 
-            for pos in range(len(order) -1 ):
-                one = order[pos]
-                for other in order[pos + 1:]:
-                    if self.overlap((one[0], one[1]), (other[0], other[1]), positive=True) <= 0:
-                        break
-                    elif method(self[one[2]], self[other[2]]) is True:
-                        graph.add_edge(one[2], other[2])
+        itree = IntervalTree()
+        primaries = set()
+
+        if cds_only:
+            attrs = ["selected_cds_start", "selected_cds_end"]
+        else:
+            attrs = ["start", "end"]
+
+        for lid in self.loci:
+            transcript = self.loci[lid].primary_transcript
+            primaries.add(transcript.id)
+            itree.add_interval(Interval(getattr(transcript, attrs[0]),
+                                        getattr(transcript, attrs[1]), transcript.id))
+
+        for tid in self.transcripts:
+            if tid in primaries:
+                continue
+            transcript = self[tid]
+            for found in itree.find(getattr(transcript, attrs[0]),
+                                    getattr(transcript, attrs[1]),
+                                    strict=False):
+                locus_transcript = found.value
+                if method(self[locus_transcript], transcript):
+                    graph.add_edge(tid, locus_transcript)
+        #
+        # if len(self.transcripts) >= 2:
+        #     if cds_only:
+        #         order = sorted([(transcript.selected_cds_start, transcript.selected_cds_end, transcript.id)
+        #                         for transcript in self.transcripts.values()], key=operator.itemgetter(0, 1))
+        #     else:
+        #         order = sorted([(transcript.start, transcript.end, transcript.id)
+        #                         for transcript in self.transcripts.values()], key=operator.itemgetter(0, 1))
+        #
+        #     for pos in range(len(order) -1 ):
+        #         one = order[pos]
+        #         for other in order[pos + 1:]:
+        #             if self.overlap((one[0], one[1]), (other[0], other[1]), positive=True) <= 0:
+        #                 break
+        #             elif method(self[one[2]], self[other[2]]) is True:
+        #                 graph.add_edge(one[2], other[2])
 
         return graph
 

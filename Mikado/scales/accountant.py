@@ -903,6 +903,11 @@ class Accountant:
         # num_pred_transcripts = sum(len(self.pred_genes[gid]) for gid in self.pred_genes)
 
         # Dictionary with the necessary data
+        if self.self_analysis is True:
+            self.logger.info("No general statistics file will be printed for a self-analysis run.")
+            self.logger.removeHandler(self.queue_handler)
+            return
+
         bases_exon_result = self.__calculate_exon_stats()
         intron_results = self.__calculate_intron_stats()
         gene_transcript_results = self.__calculate_gene_stats()
@@ -1002,6 +1007,7 @@ class Accountant:
                 ref_genes))
 
         # noinspection PyUnresolvedReferences
+
         with open("{0}.stats".format(self.args.out), 'wt') as out:
 
             # noinspection PyUnresolvedReferences

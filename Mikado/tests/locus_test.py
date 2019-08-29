@@ -820,7 +820,7 @@ class ASeventsTester(unittest.TestCase):
     def setUp(self):
         
         self.conf = configurator.to_json(None)
-        self.conf["pick"]["alternative_splicing"] = dict()
+        # self.conf["pick"]["alternative_splicing"] = dict()
         self.conf["pick"]["alternative_splicing"]["report"] = True
         self.conf["pick"]["alternative_splicing"]["max_utr_length"] = 10000
         self.conf["pick"]["alternative_splicing"]["max_fiveutr_length"] = 10000
@@ -871,6 +871,26 @@ class ASeventsTester(unittest.TestCase):
         t2.finalize()
 
         self.assertEqual(self.locus.is_alternative_splicing(t2)[:2], (False, "c"))
+
+    def test_non_coding_primary(self):
+        
+        t1 = self.t1.copy()
+        t1.strip_cds()
+        locus = Locus(t1, json_conf=self.conf, logger=self.logger)
+        t2 = Transcript()
+        t2.chrom = "Chr1"
+        t2.strand = "+"
+        t2.score = 20
+        t2.id = "G1.1"
+        t2.parent = "G1"
+        t2.start = 101
+        t2.end = 1460
+        t2.add_exons([(101, 500), (601, 700), (1001, 1270), (1401, 1460)],
+                          "exon")
+        t2.add_exons([(401, 500), (601, 700), (1001, 1270), (1401, 1440)],
+                          "CDS")
+        t2.finalize()
+        self.assertEqual(locus.is_alternative_splicing(t2), (False, "NA", None))
 
     def test_valid_as(self):
 
@@ -973,9 +993,9 @@ class ASeventsTester(unittest.TestCase):
         t2.start = 101
         t2.end = 1600
 
-        t2.add_exons([(101, 500), (601, 700), (1001, 1300), (1401, 1460), (1501, 1600)],
+        t2.add_exons([(101, 500), (601, 670), (1001, 1300), (1401, 1460), (1501, 1600)],
                      "exon")
-        t2.add_exons([(401, 500), (601, 700), (1001, 1300), (1401, 1440)],
+        t2.add_exons([(401, 500), (601, 670), (1001, 1300), (1401, 1440)],
                      "CDS")
         t2.finalize()
 
@@ -991,16 +1011,23 @@ class ASeventsTester(unittest.TestCase):
         t3.start = 201
         t3.end = 1630
 
-        t3.add_exons([(201, 500), (601, 670), (1031, 1300), (1401, 1460), (1501, 1630)],
+        t3.add_exons([(201, 500), (601, 670), (1001, 1300), (1401, 1460), (1601, 1630)],
                      "exon")
-        t3.add_exons([(401, 500), (601, 670), (1031, 1300), (1401, 1440)],
+        t3.add_exons([(401, 500), (601, 670), (1001, 1300), (1401, 1440)],
                      "CDS")
         t3.logger = self.logger
         t3.finalize()
 
         self.assertEqual(self.locus.is_alternative_splicing(t3)[:2], (True, "j"))
+        self.locus.json_conf["pick"]["clustering"]["cds_only"] = True
+        self.assertEqual(self.locus.is_alternative_splicing(t3)[:2], (False, "j"))
+        self.locus.json_conf["pick"]["clustering"]["cds_only"] = False
         self.locus.add_transcript_to_locus(t3)
         self.assertEqual(len(self.locus.transcripts), 3, self.locus.transcripts)
+        self.locus.remove_transcript_from_locus(t3.id)
+        self.locus.json_conf["pick"]["clustering"]["cds_only"] = True
+        self.locus.add_transcript_to_locus(t3)
+        self.assertEqual(len(self.locus.transcripts), 2, self.locus.transcripts)
 
     def test_lowscore(self):
 

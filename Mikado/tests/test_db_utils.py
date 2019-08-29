@@ -106,18 +106,17 @@ class TestDbConnect(unittest.TestCase):
     def test_connect_to_shm(self):
         self.json["pick"]["run_options"]['shm'] = True
         shutil.copy(self.json["db_settings"]["db"], "/dev/shm/")
-        self.json["pick"]["run_options"]['shm_db'] = os.path.join(
-            "/dev/shm/",
-            self.json["db_settings"]["db"])
+        self.json["db_settings"]["db"] = os.path.join("/dev/shm/",
+                                                      os.path.basename(self.json["db_settings"]["db"]))
         connector = dbutils.connect(self.json)
         self.assertEqual(str(connector.url), "sqlite://")
         engine = dbutils.connect(self.json)
         sessionmaker = sqlalchemy.orm.sessionmaker(bind=engine)
         session = sessionmaker()
-        first_target = session.query(
-            serializers.blast_serializer.Target).limit(1).one()
+        first_target = session.query(serializers.blast_serializer.Target).limit(1).one()
         astup = first_target.as_tuple()
         self.assertTrue(astup._fields, ("target_id", "target_name", "target_length"))
+        os.remove(os.path.join("/dev/shm/", os.path.basename(self.json["db_settings"]["db"])))
 
     def test_to_memory(self):
         connector = dbutils.connect(None)

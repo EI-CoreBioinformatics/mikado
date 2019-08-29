@@ -12,7 +12,6 @@ from . import metrics
 from . import stats
 from . import trim
 from . import grep
-from . import merge_blast
 from . import convert
 from . import class_codes
 import argparse
@@ -54,14 +53,6 @@ def util_parser():
     utils.choices["grep"] = grep.grep_parser()
     utils.choices["grep"].prog = "mikado util grep"
     utils.choices["grep"].description = "Script to extract specific models from GFF/GTF files."
-
-    utils.add_parser("merge_blast",
-                     description="""Script to merge together multiple BLAST XML files.
-                         It also converts them on the fly if they are in ASN/compressed XML.""")
-    utils.choices["merge_blast"] = merge_blast.merger_parser()
-    utils.choices["merge_blast"].prog = "mikado util merge_blast"
-    utils.choices["merge_blast"].description = "Script to merge together multiple BLAST XML files. \
-        It also converts them on the fly if they are in ASN/compressed XML."
 
     utils.add_parser("metrics",
                      description="Simple script to obtain the documentation on the transcript metrics.")

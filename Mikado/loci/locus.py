@@ -756,9 +756,7 @@ class Locus(Abstractlocus):
                             tid not in (self.primary_transcript_id, other.id)):
                 candidate = self.transcripts[tid]
                 if self.json_conf["pick"]["clustering"]["cds_only"] is True:
-                    result, _ = Assigner.compare(
-                        other._selected_orf_transcript,
-                        candidate._selected_orf_transcript)
+                    result, _ = Assigner.compare(other._selected_orf_transcript, candidate._selected_orf_transcript)
                 else:
                     result, _ = Assigner.compare(other, candidate)
                 if result.ccode[0] in redundant_ccodes:

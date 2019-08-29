@@ -50,14 +50,6 @@ except ImportError:
 import msgpack
 
 
-class LightLocus:
-
-    def __init__(self):
-
-        self.chrom, self.start, self.end, self.stranded = None, None, None, False
-        self.transcripts = []
-
-
 # pylint: disable=too-many-instance-attributes
 class Picker:
 
@@ -83,11 +75,11 @@ class Picker:
         self.formatter = self.main_logger = self.log_writer = self.log_handler = self.logger = None
         self.log_level = "WARN"
 
-        # Things that have to be deleted upon serialisation
-        self.not_pickable = ["queue_logger", "manager", "printer_process",
-                             "log_process", "pool", "main_logger",
-                             "log_handler", "log_writer", "logger", "engine"]
-
+        # # Things that have to be deleted upon serialisation
+        # self.not_pickable = ["queue_logger", "manager", "printer_process",
+        #                      "log_process", "pool", "main_logger",
+        #                      "log_handler", "log_writer", "logger", "engine"]
+        #
         # Now we start the real work
         self.commandline = commandline
         self.json_conf = json_conf
@@ -136,11 +128,11 @@ class Picker:
         elif self.json_conf["pick"]["run_options"]["procs"] == 1:
             self.json_conf["pick"]["run_options"]["single_thread"] = True
 
-        if self.json_conf["pick"]["run_options"]["preload"] is True and self.procs > 1:
-            self.logger.warning(
-                "Preloading using multiple threads can be extremely \
-memory intensive, proceed with caution!")
-
+#         if self.json_conf["pick"]["run_options"]["preload"] is True and self.procs > 1:
+#             self.logger.warning(
+#                 "Preloading using multiple threads can be extremely \
+# memory intensive, proceed with caution!")
+#
         if self.locus_out is None:
             raise InvalidJson(
                 "No output prefix specified for the final loci. Key: \"loci_out\"")
@@ -270,41 +262,26 @@ memory intensive, proceed with caution!")
         This method will copy the SQLite input DB into memory.
         """
 
-        self.main_logger.debug("Copy into a SHM db: %s",
-                              self.json_conf["pick"]["run_options"]["shm"])
         if self.json_conf["pick"]["run_options"]["shm"] is True:
-            self.json_conf["pick"]["run_options"]["shm_shared"] = False
-            self.main_logger.debug("Copying the DB into memory")
+            self.main_logger.info("Copying Mikado database into a SHM db")
             assert self.json_conf["db_settings"]["dbtype"] == "sqlite"
-            self.json_conf["pick"]["run_options"]["preload"] = False
-            if self.json_conf["pick"]["run_options"]["shm_db"] is not None:
-                self.json_conf["pick"]["run_options"]["shm_db"] = os.path.join(
-                    "/dev/shm/",
-                    self.json_conf["pick"]["run_options"]["shm_db"])
-                self.json_conf["pick"]["run_options"]["shm_shared"] = True
-            else:
-                # Create temporary file
-                temp = tempfile.mktemp(suffix=".db",
-                                       prefix="/dev/shm/")
-                if os.path.exists(temp):
-                    os.remove(temp)
-                self.json_conf["pick"]["run_options"]["shm_db"] = temp
-            if self.json_conf["pick"]["run_options"]["shm"]:
-                if not os.path.exists(self.json_conf["pick"]["run_options"]["shm_db"]):
-                    self.main_logger.debug("Copying {0} into {1}".format(
-                        self.json_conf["db_settings"]["db"],
-                        self.json_conf["pick"]["run_options"]["shm_db"]))
-                    try:
-                        shutil.copy2(self.json_conf["db_settings"]["db"],
-                                     self.json_conf["pick"]["run_options"]["shm_db"])
-                    except PermissionError:
-                        self.main_logger.warning(
-                            """Permission to write on /dev/shm denied.
-                            Back to using the DB on disk.""")
-                        self.json_conf["pick"]["run_options"]["shm"] = False
-                else:
-                    self.main_logger.debug("%s exists already. Doing nothing.",
-                                          self.json_conf["pick"]["run_options"]["shm_db"])
+            # Create temporary file
+            temp = tempfile.mktemp(suffix=".db",
+                                   prefix="/dev/shm/")
+            if os.path.exists(temp):
+                os.remove(temp)
+            self.main_logger.debug("Copying {0} into {1}".format(
+                self.json_conf["db_settings"]["db"],
+                temp))
+            try:
+                shutil.copy2(self.json_conf["db_settings"]["db"],
+                             temp)
+                self.json_conf["db_settings"]["db"] = temp
+            except PermissionError:
+                self.main_logger.warning(
+                    """Permission to write on /dev/shm denied.
+                    Back to using the DB on disk.""")
+                self.json_conf["pick"]["run_options"]["shm"] = False
             self.main_logger.info("DB copied into memory")
 
     def setup_logger(self):
@@ -578,165 +555,6 @@ memory intensive, proceed with caution!")
     # This method has many local variables, but most (9!) are
     # actually file handlers. I cannot trim them down for now.
     # pylint: disable=too-many-locals
-
-    def __getstate__(self):
-
-        state = self.__dict__.copy()
-        for not_pickable in self.not_pickable:
-            if not_pickable in state:
-                del state[not_pickable]
-
-        print(state)
-        return state
-
-    # pylint: disable=too-many-locals
-    def __preload_blast(self, engine, queries):
-
-        """Private method to load all the blast information
-        into a specific dictionary.
-
-        :param engine: the connection engine from the preloading thread
-        :param queries: a dictionary containing the name=>ID relationship
-         for queries
-        :returns hits_dict: a dictionary with the loaded BLAST data
-        """
-
-        hits_dict = collections.defaultdict(list)
-        hsps = dict()
-        for hsp in engine.execute("select * from hsp where hsp_evalue <= {0}".format(
-            self.json_conf["pick"]["chimera_split"]["blast_params"]["hsp_evalue"]
-        )):
-            if hsp.query_id not in hsps:
-                hsps[hsp.query_id] = collections.defaultdict(list)
-            hsps[hsp.query_id][hsp.target_id].append(hsp)
-
-        self.main_logger.debug("{0} HSPs prepared".format(len(hsps)))
-
-        targets = dict((x.target_id, x) for x in engine.execute("select * from target"))
-
-        hit_counter = 0
-        hits = engine.execute(
-            " ".join(["select * from hit where evalue <= {0} and hit_number <= {1}",
-                      "order by query_id, evalue asc;"]).format(
-                self.json_conf["pick"]["chimera_split"]["blast_params"]["evalue"],
-                self.json_conf["pick"]["chimera_split"]["blast_params"]["max_target_seqs"]))
-
-        # self.main_logger.info("{0} BLAST hits to analyse".format(hits))
-        current_counter = 0
-        current_hit = None
-        previous_evalue = -1
-
-        max_targets = self.json_conf["pick"]["chimera_split"]["blast_params"]["max_target_seqs"]
-        for hit in hits:
-            if current_hit != hit.query_id:
-                current_hit = hit.query_id
-                current_counter = 0
-                previous_evalue = -1
-
-            if current_counter > max_targets and previous_evalue < hit.evalue:
-                continue
-            elif previous_evalue < hit.evalue:
-                previous_evalue = hit.evalue
-
-            current_counter += 1
-
-            my_query = queries[hit.query_id]
-            my_target = targets[hit.target_id]
-
-            # We HAVE to use the += approach because extend/append
-            # leaves the original list empty
-            hits_dict[my_query.query_name].append(
-                Hit.as_full_dict_static(
-                    hit,
-                    hsps[hit.query_id][hit.target_id],
-                    my_query,
-                    my_target
-                )
-            )
-            hit_counter += 1
-            if hit_counter >= 2*10**4 and hit_counter % (2*10**4) == 0:
-                self.main_logger.debug("Loaded %d BLAST hits in database",
-                                       hit_counter)
-
-        del hsps
-        assert len(hits_dict) <= len(queries)
-        self.main_logger.debug("%d BLAST hits loaded for %d queries",
-                              hit_counter,
-                              len(hits_dict))
-        self.main_logger.debug("%s",
-                               ", ".join(
-                                   [str(x) for x in list(hits_dict.keys())[:10]]))
-        return hits_dict
-    # pylint: enable=too-many-locals
-
-    def preload(self):
-        """
-        This method preloads the data from the DB into a dictionary ("data_dict").
-        The information on what to extract and how to connect to the
-        DB is retrieved from the json_conf dictionary.
-        :return: data_dict
-        :rtype: dict
-        """
-
-        self.main_logger.info("Starting to preload the database into memory")
-
-        # data_dict = self.manager.dict(lock=False)
-        data_dict = dict()
-        engine = create_engine("{0}://".format(self.json_conf["db_settings"]["dbtype"]),
-                               creator=self.db_connection)
-        dbutils.DBBASE.metadata.create_all(self.engine)
-        session = sqlalchemy.orm.sessionmaker(bind=engine)()
-
-        junc_dict = dict()
-        for junc in session.query(Junction):
-            key = (junc.chrom, junc.junction_start, junc.junction_end)
-            assert key not in junc_dict
-            junc_dict[key] = junc.strand
-        data_dict["junctions"] = junc_dict
-
-        # data_dict["junctions"] = self.manager.dict(data_dict["junctions"], lock=False)
-
-        self.main_logger.debug("%d junctions loaded",
-                              len(data_dict["junctions"]))
-        self.main_logger.debug("Example junctions:\n{0}".format(
-            "\n".join(str(junc) for junc in list(
-                data_dict["junctions"])[:min(10, len(data_dict["junctions"]))])))
-
-        queries = dict((que.query_id, que) for que in engine.execute("select * from query"))
-
-        # Then load ORFs
-        orf_dict = collections.defaultdict(list)
-
-        for orf in engine.execute("select * from orf"):
-
-            query_name = queries[orf.query_id].query_name
-            orf_dict[query_name].append(
-                Orf.as_bed12_static(orf, query_name)
-            )
-
-        data_dict["orfs"] = orf_dict
-        assert len(data_dict["orfs"]) == engine.execute(
-            "select count(distinct(query_id)) from orf").fetchone()[0]
-
-        # data_dict['orf'] = self.manager.dict(orfs, lock=False)
-
-        self.main_logger.debug("%d ORFs loaded",
-                              len(data_dict["orfs"]))
-        self.main_logger.debug(",".join(
-            list(data_dict["orfs"].keys())[:10]
-        ))
-
-        # Finally load BLAST
-
-        # if self.json_conf["pick"]["chimera_split"]["execute"] is True and \
-        #         self.json_conf["pick"]["chimera_split"]["blast_check"] is True:
-        data_dict["hits"] = self.__preload_blast(engine, queries)
-        # else:
-        #     data_dict["hits"] = dict()
-        #     self.main_logger.info("Skipping BLAST loading")
-
-        self.main_logger.info("Finished to preload the database into memory")
-        return data_dict
 
     def _submit_locus(self, slocus, counter, data_dict=None, engine=None):
         """
@@ -1099,10 +917,7 @@ memory intensive, proceed with caution!")
         curr_chrom = None
         gene_counter = 0
 
-        if self.json_conf["pick"]["run_options"]["preload"] is False:
-            self.engine = dbutils.connect(json_conf=self.json_conf, logger=self.logger)
-        else:
-            self.engine = None
+        self.engine = dbutils.connect(json_conf=self.json_conf, logger=self.logger)
 
         submit_locus = functools.partial(self._submit_locus, **{"data_dict": data_dict,
                                                                 "engine": self.engine})
@@ -1207,44 +1022,33 @@ memory intensive, proceed with caution!")
         # NOTE: Pool, Process and Manager must NOT become instance attributes!
         # Otherwise it will raise all sorts of mistakes
 
-        data_dict = None
-
-        if self.json_conf["pick"]["run_options"]["preload"] is True:
-            # Use the preload function to create the data dictionary
-            data_dict = self.preload()
-        # pylint: disable=no-member
-        # pylint: enable=no-member
-
         self.logger.debug("Source: %s",
                           self.json_conf["pick"]["output_format"]["source"])
-        if self.json_conf["db_settings"]["dbtype"] == "sqlite" and data_dict is not None:
+        if self.json_conf["db_settings"]["dbtype"] == "sqlite":
             self.queue_pool = sqlalchemy.pool.QueuePool(
                 self.db_connection,
                 pool_size=self.procs,
                 max_overflow=0)
 
         try:
-            self._parse_and_submit_input(data_dict)
+            self._parse_and_submit_input(None)
         except UnsortedInput as _:
             self.logger.error(
                 "The input files were not properly sorted! Please run prepare and retry.")
 
             sys.exit(1)
 
-        # list(map(job.get() for job in jobs if job is not None))
-        # for job in iter(x for x in jobs if x is not None):
-        #     job.get()
-
         self.log_writer.stop()
         if self.queue_pool is not None:
             self.queue_pool.dispose()
 
         # Clean up the DB copied to SHM
-        if (self.json_conf["pick"]["run_options"]["shm"] is True and
-                self.json_conf["pick"]["run_options"]["shm_shared"] is False):
-            self.main_logger.debug("Removing shared memory DB %s",
-                                  self.json_conf["pick"]["run_options"]["shm_db"])
-            os.remove(self.json_conf["pick"]["run_options"]["shm_db"])
+        if self.json_conf["pick"]["run_options"]["shm"] is True:
+            assert os.path.dirname(self.json_conf["db_settings"]["db"]) == os.path.join("/dev", "shm"), (
+                self.json_conf["db_settings"]["db"], os.path.dirname(self.json_conf["db_settings"]["db"]),
+                os.path.join("/dev", "shm"))
+            self.main_logger.debug("Removing shared memory DB %s", self.json_conf["db_settings"]["db"])
+            os.remove(self.json_conf["db_settings"]["db"])
 
         self.main_logger.info("Finished analysis of %s", self.input_file)
 

@@ -53,16 +53,8 @@ def create_connector(json_conf, logger=None):
         if not database_exists("sqlite:///{}".format(db_settings["db"])):
             logger.debug("No database found, creating a mock one")
             create_database("sqlite:///{}".format(db_settings["db"]))
-        if json_conf["pick"]["run_options"]['shm'] is False:
-            logger.debug("Connecting to %s", db_settings["db"])
-            func = sqlite3.connect(database=db_settings["db"], check_same_thread=False)
-        else:
-            logger.debug("Connecting to %s",
-                         json_conf["pick"]["run_options"]["shm_db"])
-
-            func = sqlite3.connect(
-                database=json_conf["pick"]["run_options"]["shm_db"],
-                check_same_thread=False, isolation_level=None)
+        logger.debug("Connecting to %s", db_settings["db"])
+        func = sqlite3.connect(database=db_settings["db"], check_same_thread=False)
     elif db_settings["dbtype"] in ("mysql", "postgresql"):
         if db_settings["dbpasswd"] != '':
             passwd = ":{0}".format(db_settings["dbpasswd"])

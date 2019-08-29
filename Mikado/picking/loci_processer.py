@@ -681,10 +681,7 @@ class LociProcesser(Process):
 
         self.logger.debug("Starting the pool for {0}".format(self.name))
         try:
-            if self.json_conf["pick"]["run_options"]["preload"] is False:
-                self.engine = dbutils.connect(self.json_conf, self.logger)
-            else:
-                self.engine = None
+            self.engine = dbutils.connect(self.json_conf, self.logger)
         except KeyboardInterrupt:
             raise
         except EOFError:
@@ -768,10 +765,7 @@ class LociProcesser(Process):
         self.logger.propagate = False
 
         self._create_handles(self.__output_files)
-        if self.json_conf["pick"]["run_options"]["preload"] is False:
-            self.engine = dbutils.connect(self.json_conf, self.logger)
-        else:
-            self.engine = None
+        self.engine = dbutils.connect(self.json_conf, self.logger)
         self.analyse_locus = functools.partial(analyse_locus,
                                                printer_queue=None,
                                                json_conf=self.json_conf,

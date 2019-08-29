@@ -5,7 +5,6 @@ import operator
 import unittest
 from sys import version_info
 import pysam
-# import Mikado
 from .. import loci, parsers, utilities, configuration
 from ..transcripts.transcript_methods import splitting
 import tempfile
@@ -73,24 +72,14 @@ class TestSplitMonoexonic(unittest.TestCase):
 
         self.transcript.logger = self.logger
 
-        self.transcript.json_conf = dict()
-        self.transcript.json_conf["pick"] = dict()
-        self.transcript.json_conf["pick"]["chimera_split"] = dict()
+        self.transcript.json_conf = configuration.configurator.to_json(None)
         self.transcript.json_conf["pick"]["chimera_split"]["blast_check"] = False
-
-        self.transcript.json_conf["pick"]["chimera_split"]["blast_params"] = dict()
         self.transcript.json_conf["pick"][
             "chimera_split"]["blast_params"]["leniency"] = "LENIENT"
-        self.transcript.json_conf["pick"][
-            "chimera_split"]["blast_params"]["min_overlap_duplication"] = 0.8
-        self.transcript.json_conf["pick"][
-            "chimera_split"]["blast_params"]["minimal_hsp_overlap"] = 0.8  # 80%
-        self.transcript.json_conf["pick"][
-            "chimera_split"]["blast_params"]["hsp_evalue"] = 0.0001
-        self.transcript.json_conf["pick"][
-            "chimera_split"]["blast_params"]["evalue"] = 0.0001
-
-        self.transcript.json_conf["pick"]["orf_loading"] = dict()
+        self.transcript.json_conf["pick"]["chimera_split"]["blast_params"]["min_overlap_duplication"] = 0.8
+        self.transcript.json_conf["pick"]["chimera_split"]["blast_params"]["minimal_hsp_overlap"] = 0.8  # 80%
+        self.transcript.json_conf["pick"]["chimera_split"]["blast_params"]["hsp_evalue"] = 0.0001
+        self.transcript.json_conf["pick"]["chimera_split"]["blast_params"]["evalue"] = 0.0001
         self.transcript.json_conf["pick"]["orf_loading"]["minimal_secondary_orf_length"] = 50
 
         self.transcript.load_orfs([self.bed1, self.bed2])
@@ -148,11 +137,16 @@ class TestSplitMonoexonic(unittest.TestCase):
         # with self.assertLogs("test_mono", level="DEBUG") as log_split:
         new_transcripts = list(splitting.split_by_cds(self.transcript))
 
-        # self.assertIn("DEBUG:test_mono:",
-        #               log_split.output)
         self.assertEqual(len(new_transcripts), 2, "\n".join(str(_) for _ in new_transcripts))
         self.assertEqual(new_transcripts[0].start, self.transcript.start)
         self.assertEqual(new_transcripts[1].end, self.transcript.end)
+
+        sl = loci.Superlocus(self.transcript, json_conf=self.transcript.json_conf)
+        self.assertFalse(sl.json_conf["pick"]["chimera_split"]["blast_check"])
+        self.assertEqual(len(sl.transcripts), 1)
+        sl.logger.setLevel("DEBUG")
+        sl.load_all_transcript_data(data_dict=dict())
+        self.assertEqual(len(sl.transcripts), 2)
 
     def test_lenient_split(self):
 
@@ -168,6 +162,10 @@ class TestSplitMonoexonic(unittest.TestCase):
 
         self.assertEqual(1,
                          len(splitting.check_split_by_blast(self.transcript, cds_boundaries)))
+        sl = loci.Superlocus(self.transcript, json_conf=self.transcript.json_conf)
+        self.assertEqual(len(sl.transcripts), 1)
+        sl.load_all_transcript_data(data_dict=dict())
+        self.assertEqual(len(sl.transcripts), 1)
 
     def test_stringent_split(self):
 
@@ -183,6 +181,10 @@ class TestSplitMonoexonic(unittest.TestCase):
 
         self.assertEqual(1,
                          len(splitting.check_split_by_blast(self.transcript, cds_boundaries)))
+        sl = loci.Superlocus(self.transcript, json_conf=self.transcript.json_conf)
+        self.assertEqual(len(sl.transcripts), 1)
+        sl.load_all_transcript_data(data_dict=dict())
+        self.assertEqual(len(sl.transcripts), 1)
 
     def test_permissive_split(self):
 
@@ -198,8 +200,11 @@ class TestSplitMonoexonic(unittest.TestCase):
                           key=operator.attrgetter("thick_start", "thick_end")):
             cds_boundaries[(orf.thick_start, orf.thick_end)] = [orf]
 
-        self.assertEqual(2,
-                         len(splitting.check_split_by_blast(self.transcript, cds_boundaries)))
+        self.assertEqual(2, len(splitting.check_split_by_blast(self.transcript, cds_boundaries)))
+        sl = loci.Superlocus(self.transcript, json_conf=self.transcript.json_conf)
+        self.assertEqual(len(sl.transcripts), 1)
+        sl.load_all_transcript_data(data_dict=dict())
+        self.assertEqual(len(sl.transcripts), 2)
 
     @staticmethod
     def get_second_hit():
@@ -237,8 +242,11 @@ class TestSplitMonoexonic(unittest.TestCase):
         self.transcript.json_conf["pick"][
             "chimera_split"]["blast_params"]["leniency"] = "PERMISSIVE"
 
-        self.assertEqual(2,
-                         len(list(splitting.split_by_cds(self.transcript))))
+        self.assertEqual(2, len(list(splitting.split_by_cds(self.transcript))))
+        sl = loci.Superlocus(self.transcript, json_conf=self.transcript.json_conf)
+        self.assertEqual(len(sl.transcripts), 1)
+        sl.load_all_transcript_data(data_dict=dict())
+        self.assertEqual(len(sl.transcripts), 2)
 
     def test_stringent_split_twohits(self):
 
@@ -249,8 +257,45 @@ class TestSplitMonoexonic(unittest.TestCase):
         self.transcript.json_conf["pick"][
             "chimera_split"]["blast_params"]["leniency"] = "STRINGENT"
 
-        self.assertEqual(2,
-                         len(list(splitting.split_by_cds(self.transcript))))
+        self.assertEqual(2, len(list(splitting.split_by_cds(self.transcript))))
+        sl = loci.Superlocus(self.transcript, json_conf=self.transcript.json_conf)
+        self.assertEqual(len(sl.transcripts), 1)
+        sl.load_all_transcript_data(data_dict=dict())
+        self.assertEqual(len(sl.transcripts), 2)
+
+    def test_no_splitting_by_source(self):
+        self.transcript.source = "foo"
+        for sources in [[], [self.transcript.source], ["bar"], ["bar", [self.transcript.source]]]:
+            with self.subTest(sources=sources):
+                self.transcript.json_conf["pick"]["chimera_split"]["skip"] = sources
+                if self.transcript.source in sources:
+                    final = 1
+                else:
+                    final = 2
+                self.assertEqual(final, len(list(splitting.split_by_cds(self.transcript))))
+                sl = loci.Superlocus(self.transcript, json_conf=self.transcript.json_conf)
+                sl.load_all_transcript_data(data_dict=dict())
+                self.assertEqual(len(sl.transcripts), final)
+
+    def test_one_orf(self):
+        self.transcript.strip_cds()
+        self.transcript.load_orfs([self.bed1])
+        self.assertEqual(1, len(list(splitting.split_by_cds(self.transcript))))
+
+    def test_no_hsps(self):
+        self.transcript.blast_hits = []
+        self.transcript.json_conf["pick"]["chimera_split"]["blast_check"] = True
+
+        self.transcript.json_conf["pick"]["chimera_split"]["blast_params"]["leniency"] = "LENIENT"
+
+        logger = utilities.log_utils.create_default_logger("test_no_hsps")
+        logger.setLevel("DEBUG")
+        self.transcript.logger = logger
+        self.assertEqual(2, len(list(splitting.split_by_cds(self.transcript))))
+        sl = loci.Superlocus(self.transcript, json_conf=self.transcript.json_conf)
+        self.assertEqual(len(sl.transcripts), 1)
+        sl.load_all_transcript_data(data_dict=dict())
+        self.assertEqual(len(sl.transcripts), 2)
 
     def test_lenient_split_twohits(self):
 
@@ -261,8 +306,11 @@ class TestSplitMonoexonic(unittest.TestCase):
         self.transcript.json_conf["pick"][
             "chimera_split"]["blast_params"]["leniency"] = "LENIENT"
 
-        self.assertEqual(2,
-                         len(list(splitting.split_by_cds(self.transcript))))
+        self.assertEqual(2, len(list(splitting.split_by_cds(self.transcript))))
+        sl = loci.Superlocus(self.transcript, json_conf=self.transcript.json_conf)
+        self.assertEqual(len(sl.transcripts), 1)
+        sl.load_all_transcript_data(data_dict=dict())
+        self.assertEqual(len(sl.transcripts), 2)
 
     @staticmethod
     def get_spanning_hit():
@@ -299,8 +347,11 @@ class TestSplitMonoexonic(unittest.TestCase):
         self.transcript.json_conf["pick"][
             "chimera_split"]["blast_params"]["leniency"] = "LENIENT"
 
-        self.assertEqual(1,
-                         len(list(splitting.split_by_cds(self.transcript))))
+        self.assertEqual(1, len(list(splitting.split_by_cds(self.transcript))))
+        sl = loci.Superlocus(self.transcript, json_conf=self.transcript.json_conf)
+        self.assertEqual(len(sl.transcripts), 1)
+        sl.load_all_transcript_data(data_dict=dict())
+        self.assertEqual(len(sl.transcripts), 1)
 
     def test_spanning_hit_nocheck(self):
         self.transcript.blast_hits = [self.get_spanning_hit()]
@@ -312,8 +363,11 @@ class TestSplitMonoexonic(unittest.TestCase):
 
         self.assertEqual(len(cds_boundaries), 2)
         self.assertEqual(self.transcript.number_internal_orfs, 2)
-        self.assertEqual(2,
-                         len(list(splitting.split_by_cds(self.transcript))))
+        self.assertEqual(2, len(list(splitting.split_by_cds(self.transcript))))
+        sl = loci.Superlocus(self.transcript, json_conf=self.transcript.json_conf)
+        self.assertEqual(len(sl.transcripts), 1)
+        sl.load_all_transcript_data(data_dict=dict())
+        self.assertEqual(len(sl.transcripts), 2)
 
     def test_deleted_hits(self):
 
@@ -323,8 +377,7 @@ class TestSplitMonoexonic(unittest.TestCase):
             "chimera_split"]["blast_params"]["leniency"] = "LENIENT"
         self.transcript.logger = self.logger
         with self.assertLogs(logger=self.logger, level="WARNING") as log_split:
-            self.assertEqual(2,
-                             len(list(splitting.split_by_cds(self.transcript))))
+            self.assertEqual(2, len(list(splitting.split_by_cds(self.transcript))))
 
         self.assertIn("WARNING:test_mono:BLAST hits store lost for transcript1! Creating a mock one to avoid a crash",
                       log_split.output)
@@ -474,6 +527,11 @@ class TestWithPhase(unittest.TestCase):
         self.assertEqual(self.transcript.selected_cds_end, 1001)
         self.assertEqual(self.transcript.selected_cds_start, 4000)
         self.assertEqual(self.transcript.strand, "-")
+
+        sl = loci.Superlocus(self.transcript, json_conf=self.transcript.json_conf)
+        self.assertEqual(len(sl.transcripts), 1)
+        sl.load_all_transcript_data(data_dict=dict())
+        self.assertEqual(len(sl.transcripts), 2)
 
     def test_negative_orf_gtg(self):
 

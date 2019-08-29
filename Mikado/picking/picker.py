@@ -711,14 +711,15 @@ class Picker:
             [_.close() for _ in handles[2]]
             handles[2] = [_.name for _ in handles[2]]
 
+        if self.json_conf["pick"]["run_options"]["shm"] is True:
+            basetempdir = "/dev/shm"
+        else:
+            basetempdir = self.json_conf["pick"]["files"]["output_dir"]
+
         tempdirectory = tempfile.TemporaryDirectory(suffix="",
                                                     prefix="mikado_pick_tmp",
-                                                    dir=self.json_conf["pick"]["files"]["output_dir"])
+                                                    dir=basetempdir)
         tempdir = tempdirectory.name
-
-        # tempdir = os.path.join(self.json_conf["pick"]["files"]["output_dir"], "mikado_pick_tmp")
-        # os.makedirs(tempdir, exist_ok=True)
-
         self.logger.debug("Creating the worker processes")
         conn, cursor = self._create_temporary_store(tempdir)
         working_processes = [LociProcesser(self.json_conf,

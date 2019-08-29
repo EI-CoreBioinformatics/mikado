@@ -601,7 +601,7 @@
             "- intron_range: A range where most of the introns (99%) should fall into. Transcripts with too many",
             " introns larger or smaller than what is defined in this range will be penalised",
             " in the scoring. Default: [60, 900]",
-            "- preload: boolean flag. If set, the whole database will be preloaded into memory for potentially faster access.",
+            "- shm: boolean flag. If set and the DB is sqlite, it will be copied onto the /dev/shm faux partition",
             "- single_thread: boolean flag. If set, multithreading will be disabled - useful for profiling and debugging."
           ],
           "properties": {

@@ -757,17 +757,17 @@ class Picker:
             if handle is not None:
                 with open(handle, "a") as output:
                     partials = [os.path.join(tempdir,
-                                             "{0}-{1}".format(os.path.basename(handle), _))
+                                             "{0}-{1}.gz".format(os.path.basename(handle), _))
                                 for _ in range(1, self.procs + 1)]
-                    merge_partial(partials, output, logger=self.logger)
+                    merge_partial(partials, output, logger=self.logger, gzipped=True)
 
         for handle in handles[2]:
             if handle is not None:
                 with open(handle, "a") as output:
                     partials = [os.path.join(tempdir,
-                                             "{0}-{1}".format(os.path.basename(handle), _))
+                                             "{0}-{1}.gz".format(os.path.basename(handle), _))
                                 for _ in range(1, self.procs + 1)]
-                    merge_partial(partials, output, logger=self.logger)
+                    merge_partial(partials, output, logger=self.logger, gzipped=True)
 
         self.logger.info("Finished merging partial files")
         try:
@@ -1016,6 +1016,19 @@ class Picker:
             self.__submit_single_threaded(data_dict)
         return
 
+    def __cleanup(self):
+        self.log_writer.stop()
+        if self.queue_pool is not None:
+            self.queue_pool.dispose()
+
+        # Clean up the DB copied to SHM
+        if self.json_conf["pick"]["run_options"]["shm"] is True:
+            assert os.path.dirname(self.json_conf["db_settings"]["db"]) == os.path.join("/dev", "shm"), (
+                self.json_conf["db_settings"]["db"], os.path.dirname(self.json_conf["db_settings"]["db"]),
+                os.path.join("/dev", "shm"))
+            self.main_logger.debug("Removing shared memory DB %s", self.json_conf["db_settings"]["db"])
+            os.remove(self.json_conf["db_settings"]["db"])
+
     def __call__(self):
 
         """This method will activate the class and start the analysis of the input file."""
@@ -1036,21 +1049,11 @@ class Picker:
         except UnsortedInput as _:
             self.logger.error(
                 "The input files were not properly sorted! Please run prepare and retry.")
+        except Exception:
+            self.__cleanup()
+            raise
 
-            sys.exit(1)
-
-        self.log_writer.stop()
-        if self.queue_pool is not None:
-            self.queue_pool.dispose()
-
-        # Clean up the DB copied to SHM
-        if self.json_conf["pick"]["run_options"]["shm"] is True:
-            assert os.path.dirname(self.json_conf["db_settings"]["db"]) == os.path.join("/dev", "shm"), (
-                self.json_conf["db_settings"]["db"], os.path.dirname(self.json_conf["db_settings"]["db"]),
-                os.path.join("/dev", "shm"))
-            self.main_logger.debug("Removing shared memory DB %s", self.json_conf["db_settings"]["db"])
-            os.remove(self.json_conf["db_settings"]["db"])
-
+        self.__cleanup()
         self.main_logger.info("Finished analysis of %s", self.input_file)
 
         sys.exit(0)

@@ -130,7 +130,10 @@ def merge_loci_gff(gff_filenames, gff_handle, prefix=""):
             if line is None:
                 continue
             _ = line.split("/")
-            index = int(_[0])
+            try:
+                index = int(_[0])
+            except ValueError:
+                continue
             if index not in current_lines:
                 current_lines[index] = {"filenum": num,
                                         "lines": []}

@@ -757,17 +757,17 @@ class Picker:
             if handle is not None:
                 with open(handle, "a") as output:
                     partials = [os.path.join(tempdir,
-                                             "{0}-{1}.gz".format(os.path.basename(handle), _))
+                                             "{0}-{1}".format(os.path.basename(handle), _))
                                 for _ in range(1, self.procs + 1)]
-                    merge_partial(partials, output, logger=self.logger, gzipped=True)
+                    merge_partial(partials, output, logger=self.logger)
 
         for handle in handles[2]:
             if handle is not None:
                 with open(handle, "a") as output:
                     partials = [os.path.join(tempdir,
-                                             "{0}-{1}.gz".format(os.path.basename(handle), _))
+                                             "{0}-{1}".format(os.path.basename(handle), _))
                                 for _ in range(1, self.procs + 1)]
-                    merge_partial(partials, output, logger=self.logger, gzipped=True)
+                    merge_partial(partials, output, logger=self.logger)
 
         self.logger.info("Finished merging partial files")
         try:

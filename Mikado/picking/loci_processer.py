@@ -23,7 +23,6 @@ import sqlite3
 from ..transcripts import Transcript
 from ..exceptions import InvalidTranscript
 import msgpack
-import gzip
 try:
     import ujson as json
 except ImportError:
@@ -123,7 +122,7 @@ def merge_loci_gff(gff_filenames, gff_handle, prefix=""):
     """
 
     current_lines = dict()
-    gffs = [gzip.open(_, "rt") for _ in gff_filenames]
+    gffs = [open(_, "rt") for _ in gff_filenames]
 
     for lines in zip_longest(*gffs):
         for num, line in enumerate(lines):
@@ -349,20 +348,18 @@ def merge_loci(num_temp, out_handles, prefix="", tempdir="mikado_pick_tmp"):
 
     metrics_handle, scores_handle, gff_handle = out_handles
 
-    gff_filenames = [os.path.join(tempdir,
-                                  "{0}-{1}.gz".format(os.path.basename(gff_handle),
-                                                   _))
+    gff_filenames = [os.path.join(tempdir, "{0}-{1}".format(os.path.basename(gff_handle), _))
                      for _ in range(1, num_temp + 1)]
 
     gid_to_new, tid_to_new = merge_loci_gff(gff_filenames, gff_handle, prefix)
 
     for handle in metrics_handle, scores_handle:
         filenames = [os.path.join(tempdir,
-                                  "{0}-{1}.gz".format(os.path.basename(handle), _))
+                                  "{0}-{1}".format(os.path.basename(handle), _))
                      for _ in range(1, num_temp + 1)]
         handle = open(handle, "a")
         current_lines = collections.defaultdict(list)
-        filenames = [gzip.open(_, "rt") for _ in filenames]
+        filenames = [open(_) for _ in filenames]
         finished = set()
         while len(finished) < len(filenames):
             for num, _ in enumerate(filenames):
@@ -795,10 +792,10 @@ class LociProcesser(Process):
         (locus_metrics_file,
          locus_scores_file,
          locus_out_file) = [os.path.join(self._tempdir,
-                                         "{0}-{1}.gz".format(os.path.basename(_), self.identifier))
+                                         "{0}-{1}".format(os.path.basename(_), self.identifier))
                             for _ in handles]
-        locus_metrics_handle = gzip.open(locus_metrics_file, "wt")
-        locus_scores_handle = gzip.open(locus_scores_file, "wt")
+        locus_metrics_handle = open(locus_metrics_file, "a")
+        locus_scores_handle = open(locus_scores_file, "a")
         locus_metrics = csv.DictWriter(
             locus_metrics_handle,
             metrics,
@@ -814,7 +811,7 @@ class LociProcesser(Process):
         locus_scores.closed = locus_scores.handle.closed
         locus_scores.flush = locus_scores.handle.flush
 
-        locus_out = gzip.open(locus_out_file, 'wt')
+        locus_out = open(locus_out_file, 'w')
 
         return [locus_metrics, locus_scores, locus_out]
 

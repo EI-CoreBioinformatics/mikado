@@ -206,14 +206,20 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             state["sessionmaker"] = None
             state["session"] = None
 
+        state["_Abstractlocus__internal_graph"] = networkx.readwrite.json_graph.node_link_data(
+            state["_Abstractlocus__internal_graph"])
+
         if hasattr(self, "engine"):
             del state["engine"]
 
+        del state["_Abstractlocus__segmenttree"]
         return state
 
     def __setstate__(self, state):
         """Method to recreate the object after serialisation."""
         self.__dict__.update(state)
+        self.__segmenttree = IntervalTree()
+        self.__internal_graph = networkx.readwrite.json_graph.node_link_graph(state["_Abstractlocus__internal_graph"])
 
         if hasattr(self, "json_conf"):
             if "requirements" in self.json_conf and "expression" in self.json_conf["requirements"]:
@@ -221,7 +227,22 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                     self.json_conf["requirements"]["expression"],
                     "<json>", "eval")
         # Set the logger to NullHandler
+        _ = self.__segmenttree
         self.logger = None
+
+    def as_dict(self):
+        state = self.__getstate__()
+        state["transcripts"] = dict((tid, state["transcripts"][tid].as_dict()) for tid in state["transcripts"])
+        return state
+
+    def load_dict(self, state):
+        assert isinstance(state, dict)
+        self.__setstate__(state)
+        self.transcripts = dict((tid, Transcript()) for tid in state["transcripts"])
+        [self[tid].load_dict(state["transcripts"][tid], trust_orf=True) for tid in state["transcripts"]]
+        for attr in ["locus_verified_introns", "introns", "exons",
+                     "selected_cds_introns", "combined_cds_introns"]:
+            setattr(self, attr, set([tuple(_) for _ in getattr(self, attr)]))
 
     def __iter__(self):
         return iter(self.transcripts.keys())
@@ -538,7 +559,9 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             self.end = max(self.transcripts[_].end for _ in self.transcripts)
             self.start = min(self.transcripts[_].start for _ in self.transcripts)
         else:
-            self.start, self.end, self.strand = float("Inf"), float("-Inf"), None
+            # self.start, self.end, self.strand = float("Inf"), float("-Inf"), None
+            import sys
+            self.start, self.end, self.strand = sys.maxsize, -sys.maxsize, None
             self.stranded = False
             self.initialized = False
 

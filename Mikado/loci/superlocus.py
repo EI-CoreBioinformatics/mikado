@@ -36,7 +36,7 @@ if version_info.minor < 5:
     from sortedcontainers import SortedDict
 else:
     from collections import OrderedDict as SortedDict
-import itertools
+from .locus import Locus
 from .excluded import Excluded
 from typing import Union
 from ..utilities.intervaltree import Interval, IntervalTree
@@ -341,6 +341,36 @@ class Superlocus(Abstractlocus):
             lines.append("###")
         return "\n".join([line for line in lines if line is not None and line != ''])
     # pylint: enable=arguments-differ
+
+    def as_dict(self):
+
+        state = super().as_dict()
+        state["subloci"] = [sublocus.as_dict() for sublocus in self.subloci]
+        state["loci"] = dict((lid, locus.as_dict()) for lid, locus in self.loci.items())
+        state["monoholders"] = [mono.as_dict() for mono in self.monoholders]
+        state["excluded"] = self.excluded.as_dict()
+        return state
+
+    def load_dict(self, state):
+        super().load_dict(state)
+
+        self.loci = dict()
+        for lid, stat in state["loci"].items():
+            locus = Locus()
+            locus.load_dict(stat)
+            self.loci[lid] = locus
+        self.excluded = Excluded()
+        self.excluded.load_dict(state["excluded"])
+        self.subloci = []
+        for stat in state["subloci"]:
+            sub = Sublocus(json_conf=self.json_conf)
+            sub.load_dict(stat)
+            self.subloci.append(sub)
+        self.monoholders = []
+        for stat in state["monoholders"]:
+            sub = MonosublocusHolder()
+            sub.load_dict(stat)
+            self.monoholders.append(sub)
 
     # ########### Class instance methods ############
 

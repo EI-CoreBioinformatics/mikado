@@ -624,7 +624,9 @@ class Transcript:
         """
 
         if not hasattr(other, "chrom") or not hasattr(other, "start") or not hasattr(other, "end"):
-            raise TypeError("I cannot compare two different types")
+            raise TypeError("I cannot compare two different types: {} vs {}".format(
+                type(self), type(other)
+            ))
 
         if self.chrom != other.chrom:
             return self.chrom < other.chrom
@@ -1317,7 +1319,7 @@ class Transcript:
                     "start", "end", "strand", "score",
                     "parent", "id"]:
             if key not in state:
-                raise CorruptIndex("Key not found for {}: {}".format(self.id, key))
+                raise CorruptIndex("Key not found for {}: {} ({})".format(self.id, key, type(state)))
             if isinstance(state[key], str):
                 state[key] = intern(state[key])
             setattr(self, key, state[key])

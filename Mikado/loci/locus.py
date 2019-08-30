@@ -17,7 +17,6 @@ from ..parsers.GFF import GffLine
 from ..scales.assigner import Assigner
 from ..exceptions import InvalidTranscript
 import networkx as nx
-from itertools import combinations
 import numpy as np
 
 
@@ -27,7 +26,7 @@ class Locus(Abstractlocus):
     additional transcripts if they are valid splicing isoforms.
     """
 
-    def __init__(self, transcript: Transcript, logger=None, json_conf=None,
+    def __init__(self, transcript=None, logger=None, json_conf=None,
                  pad_transcripts=None, **kwargs):
         """
         Constructor class. Like all loci, also Locus is defined starting from a transcript.
@@ -39,29 +38,30 @@ class Locus(Abstractlocus):
         :type logger: None | logging.Logger
         """
 
-        self.counter = 0
-        transcript.attributes["primary"] = True
-        if transcript.is_coding:
-            transcript.feature = "mRNA"
-        else:
-            transcript.feature = "ncRNA"
-
         self.counter = 0  # simple tag to avoid collisions
         Abstractlocus.__init__(self, logger=logger, json_conf=json_conf, **kwargs)
+        if transcript is not None:
+            transcript.attributes["primary"] = True
+            if transcript.is_coding:
+                transcript.feature = "mRNA"
+            else:
+                transcript.feature = "ncRNA"
+            self.monoexonic = transcript.monoexonic
+            Abstractlocus.add_transcript_to_locus(self, transcript)
+            self.locus_verified_introns = transcript.verified_introns
+            self.tid = transcript.id
+            self.logger.debug("Created Locus object with {0}".format(transcript.id))
+            self.primary_transcript_id = transcript.id
+
         # this must be defined straight away
-        self.monoexonic = transcript.monoexonic
-        Abstractlocus.add_transcript_to_locus(self, transcript)
-        self.locus_verified_introns = transcript.verified_introns
         # A set of the transcript we will ignore during printing
         # because they are duplications of the original instance. Done solely to
         # get the metrics right.
         self.__orf_doubles = collections.defaultdict(set)
         self.excluded = None
         self.parent = None
-        self.tid = transcript.id
+
         self.attributes = dict()
-        self.logger.debug("Created Locus object with {0}".format(transcript.id))
-        self.primary_transcript_id = transcript.id
         self.attributes["is_fragment"] = False
         self.metric_lines_store = []
         self.__id = None
@@ -125,6 +125,10 @@ class Locus(Abstractlocus):
             ).rstrip())
 
         return "\n".join(lines)
+
+    def __setstate__(self, state):
+        super(Locus, self).__setstate__(state)
+        self._not_passing = set(self._not_passing)
 
     def finalize_alternative_splicing(self):
 
@@ -892,14 +896,14 @@ class Locus(Abstractlocus):
 
             for pos in range(len(order) - 1):
                 obj = order[pos]
-                self.logger.warning("Checking %s", obj[2])
+                self.logger.debug("Checking %s", obj[2])
                 for other_obj in order[pos + 1:]:
                     if obj == other_obj:
                         continue
                     elif self.overlap(obj[:2], obj[:2], positive=False, flank=0) == 0:
                         break
                     else:
-                        self.logger.warning("Comparing %s to %s (%s')", obj[2], other_obj[2],
+                        self.logger.debug("Comparing %s to %s (%s')", obj[2], other_obj[2],
                                           "5" if not three_prime else "3")
                         edge = inters(objects[obj[2]], objects[other_obj[2]], three_prime=three_prime)
                         if edge:
@@ -908,7 +912,8 @@ class Locus(Abstractlocus):
                             # assert edge[1].id in self.scores
                             graph.add_edge(edge[0].id, edge[1].id)
         else:
-            self.logger.warning("No comparison to be made (objects: %s)", objects)
+
+            self.logger.debug("No comparison to be made (objects: %s)", objects)
 
         return graph
 

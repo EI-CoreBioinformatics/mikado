@@ -13,7 +13,6 @@ import shutil
 import tempfile
 import logging
 from logging import handlers as logging_handlers
-import collections
 import functools
 import multiprocessing
 from sqlalchemy.engine import create_engine  # SQLAlchemy/DB imports
@@ -25,13 +24,11 @@ from ..utilities import path_join
 from ..utilities.log_utils import formatter
 from ..parsers.GTF import GTF
 from ..parsers.GFF import GFF3
-from ..serializers.blast_serializer import Hit, Query
-from ..serializers.junction import Junction, Chrom
-from ..serializers.orf import Orf
+from ..serializers.junction import Chrom
 from ..serializers.external import ExternalSource
 from ..loci.superlocus import Superlocus, Transcript
 from ..configuration.configurator import to_json, check_json  # Necessary for nosetests
-from ..utilities import dbutils, merge_partial
+from ..utilities import dbutils
 from ..exceptions import UnsortedInput, InvalidJson, InvalidTranscript
 from .loci_processer import analyse_locus, LociProcesser, merge_loci, print_locus
 import multiprocessing.managers
@@ -40,14 +37,14 @@ import pickle
 import warnings
 import pyfaidx
 import numpy
+import sqlite3
+import msgpack
 logging.captureWarnings(True)
 warnings.simplefilter("always")
-import sqlite3
 try:
     import ujson as json
 except ImportError:
     import json
-import msgpack
 
 
 # pylint: disable=too-many-instance-attributes
@@ -104,8 +101,7 @@ class Picker:
             numpy.random.seed((self.json_conf["seed"]) % (2 ** 32 - 1))
         else:
             numpy.random.seed(None)
-        self.logger.debug("Multiprocessing method: %s",
-                         self.json_conf["multiprocessing_method"])
+        self.logger.debug("Multiprocessing method: %s", self.json_conf["multiprocessing_method"])
 
         # pylint: enable=no-member
         self.manager = self.context.Manager()
@@ -128,11 +124,6 @@ class Picker:
         elif self.json_conf["pick"]["run_options"]["procs"] == 1:
             self.json_conf["pick"]["run_options"]["single_thread"] = True
 
-#         if self.json_conf["pick"]["run_options"]["preload"] is True and self.procs > 1:
-#             self.logger.warning(
-#                 "Preloading using multiple threads can be extremely \
-# memory intensive, proceed with caution!")
-#
         if self.locus_out is None:
             raise InvalidJson(
                 "No output prefix specified for the final loci. Key: \"loci_out\"")
@@ -504,8 +495,7 @@ class Picker:
                      "Please check their existence:\n" + "\n".join(
                                 ["    - {metric}".format(metric=metric) for metric in sorted(
                                     __externals - set(external_metrics))]
-                                )
-                    )
+                                ))
                 )
                 sys.exit(1)
                 # __scores = sorted(set(__scores) - (__externals - set(external_metrics)))
@@ -628,7 +618,7 @@ class Picker:
         Private method to test whether a row and the current transcript are actually in the expected
         sorted order.
         :param row:
-        :param current_transcript:
+        :param coords:
         :return:
         """
         test = True
@@ -683,7 +673,7 @@ class Picker:
 
         return conn, cursor
 
-    def __submit_multi_threading(self, data_dict):
+    def __submit_multi_threading(self):
 
         """
         Method to execute Mikado pick in multi threaded mode.
@@ -695,22 +685,9 @@ class Picker:
         intron_range = self.json_conf["pick"]["run_options"]["intron_range"]
         self.logger.debug("Intron range: %s", intron_range)
 
-        current_locus = None
-        current_transcript = None
-
         locus_queue = multiprocessing.JoinableQueue(-1)
 
         handles = list(self.__get_output_files())
-        [_.close() for _ in handles[0]]
-        handles[0] = [_.name for _ in handles[0]]
-
-        if handles[1][0] is not None:
-            [_.close() for _ in handles[1]]
-            handles[1] = [_.name for _ in handles[1]]
-        if handles[2][0] is not None:
-            [_.close() for _ in handles[2]]
-            handles[2] = [_.name for _ in handles[2]]
-
         if self.json_conf["pick"]["run_options"]["shm"] is True:
             basetempdir = "/dev/shm"
         else:
@@ -722,9 +699,8 @@ class Picker:
         tempdir = tempdirectory.name
         self.logger.debug("Creating the worker processes")
         conn, cursor = self._create_temporary_store(tempdir)
-        working_processes = [LociProcesser(self.json_conf,
-                                           data_dict,
-                                           handles,
+
+        working_processes = [LociProcesser(msgpack.dumps(self.json_conf),
                                            locus_queue,
                                            self.logging_queue,
                                            _,
@@ -732,9 +708,9 @@ class Picker:
                              for _ in range(1, self.procs+1)]
         # Start all processes
         [_.start() for _ in working_processes]
+
         self.logger.debug("Started all %d workers", self.procs)
         # No sense in keeping this data available on the main thread now
-        del data_dict
 
         try:
             self.__parse_multithreaded(locus_queue, conn, cursor)
@@ -749,30 +725,16 @@ class Picker:
 
         # Merge loci
         merge_loci(self.procs,
-                   handles[0],
-                   prefix=self.json_conf["pick"]["output_format"]["id_prefix"],
+                   handles,
+                   json_conf=self.json_conf,
+                   logger=self.logger,
                    tempdir=tempdir)
-
-        for handle in handles[1]:
-            if handle is not None:
-                with open(handle, "a") as output:
-                    partials = [os.path.join(tempdir,
-                                             "{0}-{1}".format(os.path.basename(handle), _))
-                                for _ in range(1, self.procs + 1)]
-                    merge_partial(partials, output, logger=self.logger)
-
-        for handle in handles[2]:
-            if handle is not None:
-                with open(handle, "a") as output:
-                    partials = [os.path.join(tempdir,
-                                             "{0}-{1}".format(os.path.basename(handle), _))
-                                for _ in range(1, self.procs + 1)]
-                    merge_partial(partials, output, logger=self.logger)
 
         self.logger.info("Finished merging partial files")
         try:
             # shutil.rmtree(tempdir)
             self.logger.debug("Cleaning up the temporary directory")
+            shutil.copytree(tempdirectory.name, "/tmp/" + os.path.basename(tempdirectory.name))
             tempdirectory.cleanup()
             self.logger.debug("Finished cleaning up")
             pass
@@ -839,7 +801,6 @@ class Picker:
                         current["chrom"], current["start"], current["end"] = row.chrom, row.start, row.end
                         current["transcripts"][row.transcript] = dict()
                         current["transcripts"][row.transcript]["definition"] = json.dumps(row)
-                        current["transcripts"][row.transcript]["definition"] = json.dumps(row)
                         current["transcripts"][row.transcript]["exon_lines"] = []
                     elif current["chrom"] != row.chrom:
                         self.logger.info("Finished chromosome %s", current["chrom"])
@@ -885,7 +846,7 @@ class Picker:
 
         locus_queue.put(("EXIT", ))
 
-    def __submit_single_threaded(self, data_dict):
+    def __submit_single_threaded(self):
 
         """
         Method to execute Mikado pick in single threaded mode.
@@ -911,7 +872,6 @@ class Picker:
         locus_printer = functools.partial(print_locus,
                                           handles=handles,
                                           logger=logger,
-                                          counter=None,
                                           json_conf=self.json_conf)
 
         # last_printed = -1
@@ -920,7 +880,7 @@ class Picker:
 
         self.engine = dbutils.connect(json_conf=self.json_conf, logger=self.logger)
 
-        submit_locus = functools.partial(self._submit_locus, **{"data_dict": data_dict,
+        submit_locus = functools.partial(self._submit_locus, **{"data_dict": None,
                                                                 "engine": self.engine})
 
         counter = -1
@@ -995,13 +955,13 @@ class Picker:
                         None if current_locus is None else current_locus.id, exc)
 
                 current_locus = Superlocus(current_transcript, stranded=False, json_conf=self.json_conf,
-                        source=self.json_conf["pick"]["output_format"]["source"])
+                                           source=self.json_conf["pick"]["output_format"]["source"])
                 if self.regressor is not None:
                     current_locus.regressor = self.regressor
 
         return current_locus, counter, gene_counter, curr_chrom
 
-    def _parse_and_submit_input(self, data_dict):
+    def _parse_and_submit_input(self):
 
         """
         This method does the parsing of the input and submission of the loci to the
@@ -1011,9 +971,9 @@ class Picker:
         """
 
         if self.json_conf["pick"]["run_options"]["single_thread"] is False:
-            self.__submit_multi_threading(data_dict)
+            self.__submit_multi_threading()
         else:
-            self.__submit_single_threaded(data_dict)
+            self.__submit_single_threaded()
         return
 
     def __cleanup(self):
@@ -1045,7 +1005,7 @@ class Picker:
                 max_overflow=0)
 
         try:
-            self._parse_and_submit_input(None)
+            self._parse_and_submit_input()
         except UnsortedInput as _:
             self.logger.error(
                 "The input files were not properly sorted! Please run prepare and retry.")

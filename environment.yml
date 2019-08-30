@@ -1,4 +1,4 @@
-name: mikado1.5
+name: mikado2
 channels:
   - defaults
   - bioconda

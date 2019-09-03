@@ -113,6 +113,10 @@ class Locus(Abstractlocus):
             transcript_instance.source = self.source
             transcript_instance.parent = self_line.id
             self.logger.debug(self.attributes)
+            if self.transcripts[tid].is_coding:
+                self.transcripts[tid].feature = "mRNA"
+            else:
+                self.transcripts[tid].feature = "ncRNA"
             for attribute in self.attributes:
                 if attribute not in transcript_instance.attributes:
                     if attribute == "is_fragment" and self.attributes[attribute] is False:

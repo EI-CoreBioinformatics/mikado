@@ -16,7 +16,7 @@ from ..transcripts.clique_methods import find_communities, define_graph
 from ..transcripts.transcript import Transcript
 from ..configuration.configurator import to_json, check_json
 from ..exceptions import NotInLocusError
-from ..utilities import overlap, merge_ranges
+from ..utilities import overlap, merge_ranges, rhasattr, rgetattr
 import operator
 from ..utilities.intervaltree import Interval, IntervalTree
 from ..utilities.log_utils import create_null_logger
@@ -31,25 +31,6 @@ import functools
 # I do not care that there are too many attributes: this IS a massive class!
 # pylint: disable=too-many-instance-attributes,too-many-public-methods
 json_conf = to_json(None)
-
-
-def rhasattr(obj, attr, *args):
-    """Recursive version of getattr.
-        Source: https://stackoverflow.com/questions/31174295/getattr-and-setattr-on-nested-objects"""
-
-    def _hasattr(obj, attr):
-        return hasattr(obj, attr, *args)
-
-    return functools.reduce(_hasattr, [obj] + attr.split("."))
-
-
-def rgetattr(obj, attr, *args):
-    """Recursive version of getattr.
-    Source: https://stackoverflow.com/questions/31174295/getattr-and-setattr-on-nested-objects"""
-
-    def _getattr(obj, attr):
-        return getattr(obj, attr, *args)
-    return functools.reduce(_getattr, [obj] + attr.split("."))
 
 
 class Abstractlocus(metaclass=abc.ABCMeta):
@@ -231,13 +212,17 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         self.logger = None
 
     def as_dict(self):
+        self.get_metrics()
         state = self.__getstate__()
         state["transcripts"] = dict((tid, state["transcripts"][tid].as_dict()) for tid in state["transcripts"])
+        assert "metrics_calculated" in state
         return state
 
     def load_dict(self, state):
         assert isinstance(state, dict)
         self.__setstate__(state)
+
+        assert self.metrics_calculated is True
         self.transcripts = dict((tid, Transcript()) for tid in state["transcripts"])
         [self[tid].load_dict(state["transcripts"][tid], trust_orf=True) for tid in state["transcripts"]]
         for attr in ["locus_verified_introns", "introns", "exons",
@@ -933,6 +918,8 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         # if self.metrics_calculated is True:
         #     return
 
+        if self.metrics_calculated is True:
+            return
         cds_bases = sum(_[1] - _[0] + 1 for _ in merge_ranges(
             itertools.chain(*[
                 self.transcripts[_].combined_cds for _ in self.transcripts
@@ -971,6 +958,9 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         i.e. that depend on the other transcripts in the sublocus. Examples include the fraction
         of introns or exons in the sublocus, or the number/fraction of retained introns.
         """
+
+        if self.metrics_calculated is True:
+            return
 
         self.logger.debug("Calculating metrics for %s", tid)
         # The transcript must be finalized before we can calculate the score.
@@ -1012,6 +1002,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         if len(self.introns) > 0:
             _ = len(set.intersection(self.transcripts[tid].introns, self.introns))
             fraction = _ / len(self.introns)
+            self.transcripts[tid].intron_fraction = fraction
             self.transcripts[tid].intron_fraction = fraction
         else:
             self.transcripts[tid].intron_fraction = 0

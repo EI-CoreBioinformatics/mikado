@@ -805,7 +805,6 @@ class Picker:
                     elif current["chrom"] != row.chrom:
                         self.logger.info("Finished chromosome %s", current["chrom"])
                         self.add_to_index(conn, cursor, current["transcripts"], counter)
-                        self.logger.info("Starting chromosome %s", row.chrom)
                         current["chrom"], current["start"], current["end"] = row.chrom, row.start, row.end
                         current["transcripts"] = dict()
                         current["transcripts"][row.transcript] = dict()

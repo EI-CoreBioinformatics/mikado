@@ -23,6 +23,25 @@ def comma_split(string):
     return string.split(",")
 
 
+def rhasattr(obj, attr, *args):
+    """Recursive version of getattr.
+        Source: https://stackoverflow.com/questions/31174295/getattr-and-setattr-on-nested-objects"""
+
+    def _hasattr(obj, attr):
+        return hasattr(obj, attr, *args)
+
+    return functools.reduce(_hasattr, [obj] + attr.split("."))
+
+
+def rgetattr(obj, attr, *args):
+    """Recursive version of getattr.
+    Source: https://stackoverflow.com/questions/31174295/getattr-and-setattr-on-nested-objects"""
+
+    def _getattr(obj, attr):
+        return getattr(obj, attr, *args)
+    return functools.reduce(_getattr, [obj] + attr.split("."))
+
+
 def path_join(output_dir, output_file):
 
     """Small utility to join together a directory path and

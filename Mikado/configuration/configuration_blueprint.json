@@ -309,6 +309,7 @@
             "- min_cdna_overlap: minimum overlap between the CDNA of the primary transcript and any AS event.",
             "Default: 0% i.e. disabled, we check for the CDS overlap.",
             "- keep_retained_introns: Whether to consider as valid AS events where one intron",
+            "- max_isoforms: Maximum number of isoforms per locus. 1 implies no AS reported. Default: 5",
             "is retained compared to the primary or any other valid AS. Default: false.",
             "- valid_ccodes: Valid class codes for AS events. Valid codes are in categories",
             "'Alternative splicing', 'Extension' (with junction F1 lower than 100%), and Overlap (exluding m). Default: j, J, g, G, C, h",
@@ -354,6 +355,11 @@
             "keep_retained_introns": {
               "type": "boolean",
               "default": false
+            },
+            "max_isoforms": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 5
             },
             "valid_ccodes": {
               "type": "array",

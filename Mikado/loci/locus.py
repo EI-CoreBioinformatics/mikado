@@ -148,7 +148,7 @@ class Locus(Abstractlocus):
         self.metrics_calculated = False
         self.scores_calculated = False
         self.calculate_scores()
-        # max_isoforms = self.json_conf["pick"]["alternative_splicing"]["max_isoforms"]
+        max_isoforms = self.json_conf["pick"]["alternative_splicing"]["max_isoforms"]
 
         while True:
             # *Never* lose the primary transcript
@@ -166,10 +166,9 @@ class Locus(Abstractlocus):
             score_passing = [_ for _ in order if _[1] >= threshold]
             self.logger.debug("%d transcripts have a score over the threshold", len(score_passing))
 
-            to_keep.update(set([_[0] for _ in score_passing]))  # itertools.islice(score_passing, max_isoforms)]))
-            self.logger.debug("%d transcripts retained after the check for score (minimum %d)",
-                              # and max. no. of isoforms (%d)",
-                              len(to_keep), threshold)
+            to_keep.update(set([_[0] for _ in itertools.islice(score_passing, max_isoforms)]))
+            self.logger.debug("%d transcripts retained after the check for score (minimum %d) \
+and max. no. of isoforms (%d)", len(to_keep), threshold, max_isoforms)
 
             if to_keep == set(self.transcripts.keys()):
                 self.logger.debug("Finished to discard superfluous transcripts from {}".format(self.id))

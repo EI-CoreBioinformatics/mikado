@@ -899,7 +899,6 @@ and max. no. of isoforms (%d)", len(to_keep), threshold, max_isoforms)
 
             for pos in range(len(order) - 1):
                 obj = order[pos]
-                self.logger.debug("Checking %s", obj[2])
                 for other_obj in order[pos + 1:]:
                     if obj == other_obj:
                         continue

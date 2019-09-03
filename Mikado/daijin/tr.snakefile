@@ -386,7 +386,7 @@ def trinityParameters(command, sample, REF, TGG_MAX_MEM):
         cmd = "--full_cleanup {memory} --genome_guided_bam".format(memory=memory)
     return cmd
 
-@functools.lru_cahe(maxsize=4, typed=True)
+@functools.lru_cache(maxsize=4, typed=True)
 def getGmapVersion(command):
     cmd = "{} gmap --version && set -u".format(command)
     output = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE).stdout.read().decode()
@@ -706,7 +706,7 @@ rule asm_trinitygg:
 
 rule gmap_index:
     input: REF
-    output: touch(os.path.join(ALIGN_DIR, "gmap", "index", NAME, "index.done")  #os.path.join(ALIGN_DIR, "gmap", "index", NAME, NAME+".sachildguide1024")
+    output: touch(os.path.join(ALIGN_DIR, "gmap", "index", NAME, "index.done"))
 	params:	load=loadPre(config, "gmap")
 	threads: 1
         log: ALIGN_DIR+"/gmap.index.log"
@@ -728,7 +728,7 @@ rule asm_map_trinitygg:
 	log: ASM_DIR+"/trinitygmap-{run2}-{alrun}.log"
 	threads: THREADS
 	message: "Mapping trinity transcripts to the genome (run {wildcards.run2}): {input.transcripts}"
-	shell: "{params.load} gmap --dir={ALIGN_DIR}/gmap/index {params.strandedness} --db={NAME} --min-intronlength={MIN_INTRON} {params.intron_length}  --format=3 --min-trimmed-coverage={TGG_COVERAGE} --min-identity={TGG_IDENTITY} -n {TGG_NPATHS} -t {THREADS} {input.transcripts} > {params.gff} 2> {log} && ln -sf {params.link_src} {output.gff} && touch -h {output.gff}"
+	shell: "{params.load} gmap --dir={ALIGN_DIR}/gmap/index {params.stranded} --db={NAME} --min-intronlength={MIN_INTRON} {params.intron_length}  --format=3 --min-trimmed-coverage={TGG_COVERAGE} --min-identity={TGG_IDENTITY} -n {TGG_NPATHS} -t {THREADS} {input.transcripts} > {params.gff} 2> {log} && ln -sf {params.link_src} {output.gff} && touch -h {output.gff}"
 
 
 rule lr_gmap:
@@ -956,7 +956,7 @@ rule mikado_cfg:
 		mikado=OUT_DIR + "/mikado.yaml"
 	params: 
 		load=loadPre(config, "mikado"),
-		scoring=config["mikado"]["pick"]["scoring_file"],
+		scoring=config["pick"]["scoring_file"],
 		junctions="--junctions={}".format(rules.portcullis_merge.output.bed)
 	log: OUT_DIR + "/mikado.yaml.log"
 	threads: 1

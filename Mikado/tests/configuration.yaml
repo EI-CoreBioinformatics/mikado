@@ -32,6 +32,7 @@ pick:
     max_isoforms: 3
     report: true
     only_confirmed_introns: false
+    pad: true
   chimera_split:
     #  Parameters related to the splitting of transcripts in the presence of
     #  two or more ORFs. Parameters:

@@ -29,13 +29,17 @@ from ..serializers.orf import Orf
 from ..utilities import dbutils, grouper
 from ..scales.assigner import Assigner
 import bisect
+# import operator
+import functools
 import numpy as np
 if version_info.minor < 5:
     from sortedcontainers import SortedDict
 else:
     from collections import OrderedDict as SortedDict
-import itertools
+from .locus import Locus
 from .excluded import Excluded
+from typing import Union
+from ..utilities.intervaltree import Interval, IntervalTree
 
 # The number of attributes is something I need
 # pylint: disable=too-many-instance-attributes
@@ -67,7 +71,7 @@ class Superlocus(Abstractlocus):
         Hit.hit_number <= bindparam("hit_number")
     ))
 
-    _complex_limit = (10000, 10000)
+    _complex_limit = (5000, 5000)
 
     # Junction.strand == bindparam("strand")))
 
@@ -146,7 +150,7 @@ class Superlocus(Abstractlocus):
         # Connection objects
         self.engine = self.sessionmaker = self.session = None
         # Excluded object
-        self.excluded_transcripts = Excluded(json_conf=self.json_conf)
+        self.excluded = Excluded(json_conf=self.json_conf)
         self.__retained_sources = set()
         self.__data_loaded = False
         self.__lost = dict()
@@ -337,6 +341,36 @@ class Superlocus(Abstractlocus):
             lines.append("###")
         return "\n".join([line for line in lines if line is not None and line != ''])
     # pylint: enable=arguments-differ
+
+    def as_dict(self):
+
+        state = super().as_dict()
+        state["subloci"] = [sublocus.as_dict() for sublocus in self.subloci]
+        state["loci"] = dict((lid, locus.as_dict()) for lid, locus in self.loci.items())
+        state["monoholders"] = [mono.as_dict() for mono in self.monoholders]
+        state["excluded"] = self.excluded.as_dict()
+        return state
+
+    def load_dict(self, state):
+        super().load_dict(state)
+
+        self.loci = dict()
+        for lid, stat in state["loci"].items():
+            locus = Locus()
+            locus.load_dict(stat)
+            self.loci[lid] = locus
+        self.excluded = Excluded()
+        self.excluded.load_dict(state["excluded"])
+        self.subloci = []
+        for stat in state["subloci"]:
+            sub = Sublocus(json_conf=self.json_conf)
+            sub.load_dict(stat)
+            self.subloci.append(sub)
+        self.monoholders = []
+        for stat in state["monoholders"]:
+            sub = MonosublocusHolder()
+            sub.load_dict(stat)
+            self.monoholders.append(sub)
 
     # ########### Class instance methods ############
 
@@ -628,6 +662,11 @@ class Superlocus(Abstractlocus):
         if self.__data_loaded is True:
             return
 
+        # Before starting to load: let's reduce the loci.
+        if len(self.transcripts) >= self._complex_limit[0]:
+            self.approximation_level = 1
+            self.reduce_method_one(None)
+
         if data_dict is None and engine is None:
             raise ValueError("Both engine and data_dict are void.")
         elif data_dict is None:
@@ -666,23 +705,18 @@ class Superlocus(Abstractlocus):
         assert len(to_remove) < len(to_add) + len(self.transcripts)
 
         if len(to_remove) > 0:
-
-            new = None
             self.logger.debug("Rebuilding the superlocus as %d transcripts have been excluded or split.",
                               len(to_remove))
-            for transcript in itertools.chain(to_add, self.transcripts.values()):
-                if new is None:
-                    new = Superlocus(transcript, stranded=True,
-                                     json_conf=self.json_conf, logger=self.logger,
-                                     source=self.source)
-                else:
-                    new.add_transcript_to_locus(transcript, check_in_locus=False)
-            assert isinstance(new, type(self))
-            self = new
+            for tid in to_remove:
+                self.remove_transcript_from_locus(tid)
+            for transcript in to_add:
+                self.logger.debug("Adding %s to %s", transcript.id, self.id)
+                self.add_transcript_to_locus(transcript, check_in_locus=False)
+
         elif len(to_remove) == len(self.transcripts):
             self.logger.warning("No transcripts left for %s", self.name)
-            self = Excluded(to_remove.pop())
-            [self.add_transcript_to_locus(_) for _ in to_remove]
+            [self.excluded.add_transcript_to_locus(_) for _ in to_remove]
+            self._remove_all()
 
         del data_dict
 
@@ -741,17 +775,7 @@ class Superlocus(Abstractlocus):
         self.logger.warning("Approximation level 2 for %s", self.id)
         return transcript_graph
 
-        # self.logger.warning("Still %d nodes with the most connected with %d edges \
-        # after approximation 2",
-        #                     len(transcript_graph), max_edges)
-        #
-        # self.approximation_level = 3
-        # self.logger.warning("Approximation level 3 for %s; retained sources: %s",
-        #                     self.id, ",".join(self.__retained_sources))
-        # transcript_graph = self.reduce_method_three(transcript_graph)
-        # return transcript_graph
-
-    def reduce_method_one(self, transcript_graph: networkx.Graph) -> [networkx.Graph, int]:
+    def reduce_method_one(self, transcript_graph: Union[None, networkx.Graph]) -> [networkx.Graph, int]:
 
         ichains = collections.defaultdict(list)
         cds_only = self.json_conf["pick"]["clustering"]["cds_only"]
@@ -768,7 +792,7 @@ class Superlocus(Abstractlocus):
             current_id = transcripts[0].id
             for transcript in transcripts[1:]:  # we know that they are sorted left to right
                 self.logger.debug("Comparing %s to %s", current_id, transcript.id)
-                if transcript.id not in transcript_graph.neighbors(current_id):
+                if transcript_graph and transcript.id not in transcript_graph.neighbors(current_id):
                     self.logger.debug("%s and %s are not neighbours.", current_id, transcript.id)
                     continue
                 if transcript.end <= current_coords[1] and transcript.start > current_coords[0]:
@@ -796,14 +820,15 @@ class Superlocus(Abstractlocus):
                     current_coords, current_id = (transcript.start, transcript.end), transcript.id
 
         if to_remove:
-            transcript_graph.remove_nodes_from(to_remove)
-            [self.excluded_transcripts.add_transcript_to_locus(self.transcripts[tid]) for tid in to_remove]
+            if transcript_graph:
+                transcript_graph.remove_nodes_from(to_remove)
+            [self.excluded.add_transcript_to_locus(self.transcripts[tid]) for tid in to_remove]
             self.logger.debug("Removing the following transcripts from %s: %s",
                               self.id, ", ".join(to_remove))
             for tid in to_remove:
                 self.remove_transcript_from_locus(tid)
 
-        max_edges = max([d for n, d in transcript_graph.degree])
+        max_edges = max([d for n, d in transcript_graph.degree]) if transcript_graph else 0
         return transcript_graph, max_edges
 
     def reduce_method_two(self, transcript_graph: networkx.Graph) -> [networkx.Graph, int]:
@@ -818,13 +843,13 @@ class Superlocus(Abstractlocus):
                 if couple in done:
                     continue
                 done.add(couple)
-                self.logger.warning("Comparing %s to %s", tid, neighbour)
+                self.logger.debug("Comparing %s to %s", tid, neighbour)
                 if neighbour in to_remove:
                     continue
                 neighbour = self.transcripts[neighbour]
                 inters = set.intersection(current.introns, neighbour.introns)
                 if inters == current.introns:
-                    self.logger.warning("Evaluating %s (template %s) for removal", current.id, neighbour.id)
+                    self.logger.debug("Evaluating %s (template %s) for removal", current.id, neighbour.id)
                     if current.is_reference:
                         continue
                     if cds_only:
@@ -832,7 +857,7 @@ class Superlocus(Abstractlocus):
                                                   neighbour.copy().remove_utr())[0]
                     else:
                         comparison = Assigner.compare(current, neighbour)[0]
-                    self.logger.warning(
+                    self.logger.debug(
                         "Evaluating %s (template %s) for removal (%s)",
                         current.id, neighbour.id, (comparison.n_prec[0], comparison.n_recall[0]))
                     if comparison.n_prec[0] == 100:
@@ -846,7 +871,7 @@ class Superlocus(Abstractlocus):
                                                       current.copy().remove_utr())[0]
                     else:
                         comparison = Assigner.compare(neighbour, current)[0]
-                    self.logger.warning(
+                    self.logger.debug(
                         "Evaluating %s (template %s) for removal (%s)",
                         current.id, neighbour.id, (comparison.n_prec[0], comparison.n_recall[0]))
                     if comparison.n_prec[0] == 100:
@@ -857,7 +882,7 @@ class Superlocus(Abstractlocus):
 
         if to_remove:
             transcript_graph.remove_nodes_from(to_remove)
-            [self.excluded_transcripts.add_transcript_to_locus(self.transcripts[tid]) for tid in to_remove]
+            [self.excluded.add_transcript_to_locus(self.transcripts[tid]) for tid in to_remove]
             self.logger.debug("Removing the following transcripts from %s: %s",
                               self.id, ", ".join(to_remove))
             for tid in to_remove:
@@ -936,6 +961,8 @@ class Superlocus(Abstractlocus):
 
         # Check whether there is something to remove
         self._check_requirements()
+        while self._excluded_transcripts:
+            self.excluded.add_transcript_to_locus(self._excluded_transcripts.pop(), check_in_locus=False)
 
         if len(self.transcripts) == 0:
             # we have removed all transcripts from the Locus. Set the flag to True and exit.
@@ -1042,9 +1069,10 @@ class Superlocus(Abstractlocus):
         self.monosubloci = dict()
         # Extract the relevant transcripts
         for sublocus_instance in sorted(self.subloci):
-            self.excluded_transcripts = sublocus_instance.define_monosubloci(
-                purge=self.purge,
-                excluded=self.excluded_transcripts)
+            sublocus_instance.define_monosubloci(
+                purge=self.purge)
+            for transcript in sublocus_instance.excluded.transcripts.values():
+                self.excluded.add_transcript_to_locus(transcript)
             for tid in sublocus_instance.transcripts:
                 # Update the score
                 self.transcripts[tid].score = sublocus_instance.transcripts[tid].score
@@ -1073,9 +1101,8 @@ class Superlocus(Abstractlocus):
         for slocus in self.subloci:
             for row in slocus.print_metrics():
                 yield row
-        if self.excluded_transcripts is not None:
-            for row in self.excluded_transcripts.print_metrics():
-                yield row
+        if self.excluded is not None:
+            yield from self.excluded.print_metrics()
 
     def print_subloci_scores(self):
         """Wrapper method to create a csv.DictWriter instance and call the
@@ -1276,13 +1303,12 @@ class Superlocus(Abstractlocus):
         cdna_overlap = self.json_conf["pick"]["alternative_splicing"]["min_cdna_overlap"]
 
         self.logger.debug("Defining the transcript graph")
-        t_graph = super().define_graph(self.transcripts,
-                                    inters=MonosublocusHolder.is_intersecting,
-                                    cds_only=cds_only,
-                                    logger=self.logger,
-                                    min_cdna_overlap=cdna_overlap,
-                                    min_cds_overlap=cds_overlap,
-                                    simple_overlap_for_monoexonic=False)
+        t_graph = self.define_as_graph(inters=MonosublocusHolder.is_intersecting,
+                                       cds_only=cds_only,
+                                       min_cdna_overlap=cdna_overlap,
+                                       min_cds_overlap=cds_overlap,
+                                       simple_overlap_for_monoexonic=False)
+
         self.logger.debug("Defined the transcript graph")
 
         loci_cliques = dict()
@@ -1291,8 +1317,8 @@ class Superlocus(Abstractlocus):
                 neighbors = set(t_graph.neighbors(locus_instance.primary_transcript_id))
             except networkx.exception.NetworkXError:
                 raise networkx.exception.NetworkXError(
-                    "{} {} {}".format(
-                    locus_instance.primary_transcript.attributes["Alias"],
+                    "{} {}".format(
+                    # locus_instance.primary_transcript.attributes["Alias"],
                     locus_instance.primary_transcript_id,
                     list(t_graph.nodes)
                 ))
@@ -1411,28 +1437,82 @@ class Superlocus(Abstractlocus):
         objects = self.transcripts
         graph.add_nodes_from(objects.keys())
 
-        monoexonic = []
+        monoexonic = IntervalTree()
         intronic = collections.defaultdict(set)
 
         for tid, transcript in objects.items():
-            if cds_only is True and len(transcript.selected_cds_introns) == 0:
-                bisect.insort(monoexonic, (transcript.selected_cds_start, transcript.selected_cds_end, tid))
-            elif cds_only is False and transcript.monoexonic is True:
-                bisect.insort(monoexonic, (transcript.start, transcript.end, tid))
             if cds_only is False or not transcript.is_coding:
-                store = transcript.introns
+                if transcript.introns:
+                    found = set()
+                    for intron in transcript.introns:
+                        for otid in intronic[intron]:
+                            found.add((tid, otid))
+                        intronic[intron].add(tid)
+                    graph.add_edges_from(found)
+                else:
+                    for found in monoexonic.find(transcript.start, transcript.end,
+                                                 strict=False):
+                        graph.add_edge(tid, found.value)
+                    monoexonic.add_interval(Interval(transcript.start, transcript.end,
+                                                     transcript.id))
             else:
-                store = transcript.selected_cds_introns
-            for intron in store:
-                intronic[intron].add(tid)
+                if transcript.selected_cds_introns:
+                    found = set()
+                    for intron in transcript.selected_cds_introns:
+                        for otid in intronic[intron]:
+                            found.add((tid, otid))
+                        intronic[intron].add(tid)
+                    graph.add_edges_from(found)
+                else:
+                    for found in monoexonic.find(transcript.selected_cds_start, transcript.selected_cds_end,
+                                                 strict=False):
+                        graph.add_edge(tid, found.value)
+                    monoexonic.add_interval(Interval(transcript.selected_cds_start, transcript.selected_cds_end,
+                                                     transcript.id))
 
-        for key in intronic:
-            graph.add_edges_from(itertools.combinations(intronic[key], 2))
+        return graph
 
-        # This will be quadratic. Hopefully it will not break the program.
-        for one, other in itertools.combinations(monoexonic, 2):
-            if self.overlap((one[0], one[1]), (other[0], other[1]), positive=False) > 0:
-                graph.add_edge(one[2], other[2])
+    def define_as_graph(self,
+                        inters=MonosublocusHolder.is_intersecting,
+                        cds_only=False,
+                        min_cdna_overlap=0.2,
+                        min_cds_overlap=0.2,
+                        simple_overlap_for_monoexonic=True):
+
+        """This method will try to build the AS graph using a O(nlogn) rather than O(n^2) algorithm."""
+
+        method = functools.partial(inters, cds_only=cds_only, min_cdna_overlap=min_cdna_overlap,
+                                   min_cds_overlap=min_cds_overlap,
+                                   simple_overlap_for_monoexonic=simple_overlap_for_monoexonic,
+                                   logger=self.logger)
+
+        graph = networkx.Graph()
+        graph.add_nodes_from(self.transcripts.keys())
+
+        itree = IntervalTree()
+        primaries = set()
+
+        if cds_only:
+            attrs = ["selected_cds_start", "selected_cds_end"]
+        else:
+            attrs = ["start", "end"]
+
+        for lid in self.loci:
+            transcript = self.loci[lid].primary_transcript
+            primaries.add(transcript.id)
+            itree.add_interval(Interval(getattr(transcript, attrs[0]),
+                                        getattr(transcript, attrs[1]), transcript.id))
+
+        for tid in self.transcripts:
+            if tid in primaries:
+                continue
+            transcript = self[tid]
+            for found in itree.find(getattr(transcript, attrs[0]),
+                                    getattr(transcript, attrs[1]),
+                                    strict=False):
+                locus_transcript = found.value
+                if method(self[locus_transcript], transcript):
+                    graph.add_edge(tid, locus_transcript)
 
         return graph
 

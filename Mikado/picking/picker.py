@@ -13,7 +13,6 @@ import shutil
 import tempfile
 import logging
 from logging import handlers as logging_handlers
-import collections
 import functools
 import multiprocessing
 from sqlalchemy.engine import create_engine  # SQLAlchemy/DB imports
@@ -25,13 +24,11 @@ from ..utilities import path_join
 from ..utilities.log_utils import formatter
 from ..parsers.GTF import GTF
 from ..parsers.GFF import GFF3
-from ..serializers.blast_serializer import Hit, Query
-from ..serializers.junction import Junction, Chrom
-from ..serializers.orf import Orf
+from ..serializers.junction import Chrom
 from ..serializers.external import ExternalSource
 from ..loci.superlocus import Superlocus, Transcript
 from ..configuration.configurator import to_json, check_json  # Necessary for nosetests
-from ..utilities import dbutils, merge_partial
+from ..utilities import dbutils
 from ..exceptions import UnsortedInput, InvalidJson, InvalidTranscript
 from .loci_processer import analyse_locus, LociProcesser, merge_loci, print_locus
 import multiprocessing.managers
@@ -40,9 +37,10 @@ import pickle
 import warnings
 import pyfaidx
 import numpy
+import sqlite3
+import msgpack
 logging.captureWarnings(True)
 warnings.simplefilter("always")
-import sqlite3
 try:
     import ujson as json
 except ImportError:
@@ -74,11 +72,11 @@ class Picker:
         self.formatter = self.main_logger = self.log_writer = self.log_handler = self.logger = None
         self.log_level = "WARN"
 
-        # Things that have to be deleted upon serialisation
-        self.not_pickable = ["queue_logger", "manager", "printer_process",
-                             "log_process", "pool", "main_logger",
-                             "log_handler", "log_writer", "logger", "engine"]
-
+        # # Things that have to be deleted upon serialisation
+        # self.not_pickable = ["queue_logger", "manager", "printer_process",
+        #                      "log_process", "pool", "main_logger",
+        #                      "log_handler", "log_writer", "logger", "engine"]
+        #
         # Now we start the real work
         self.commandline = commandline
         self.json_conf = json_conf
@@ -103,8 +101,7 @@ class Picker:
             numpy.random.seed((self.json_conf["seed"]) % (2 ** 32 - 1))
         else:
             numpy.random.seed(None)
-        self.logger.debug("Multiprocessing method: %s",
-                         self.json_conf["multiprocessing_method"])
+        self.logger.debug("Multiprocessing method: %s", self.json_conf["multiprocessing_method"])
 
         # pylint: enable=no-member
         self.manager = self.context.Manager()
@@ -126,11 +123,6 @@ class Picker:
                 self.procs = 1
         elif self.json_conf["pick"]["run_options"]["procs"] == 1:
             self.json_conf["pick"]["run_options"]["single_thread"] = True
-
-        if self.json_conf["pick"]["run_options"]["preload"] is True and self.procs > 1:
-            self.logger.warning(
-                "Preloading using multiple threads can be extremely \
-memory intensive, proceed with caution!")
 
         if self.locus_out is None:
             raise InvalidJson(
@@ -261,41 +253,26 @@ memory intensive, proceed with caution!")
         This method will copy the SQLite input DB into memory.
         """
 
-        self.main_logger.debug("Copy into a SHM db: %s",
-                              self.json_conf["pick"]["run_options"]["shm"])
         if self.json_conf["pick"]["run_options"]["shm"] is True:
-            self.json_conf["pick"]["run_options"]["shm_shared"] = False
-            self.main_logger.debug("Copying the DB into memory")
+            self.main_logger.info("Copying Mikado database into a SHM db")
             assert self.json_conf["db_settings"]["dbtype"] == "sqlite"
-            self.json_conf["pick"]["run_options"]["preload"] = False
-            if self.json_conf["pick"]["run_options"]["shm_db"] is not None:
-                self.json_conf["pick"]["run_options"]["shm_db"] = os.path.join(
-                    "/dev/shm/",
-                    self.json_conf["pick"]["run_options"]["shm_db"])
-                self.json_conf["pick"]["run_options"]["shm_shared"] = True
-            else:
-                # Create temporary file
-                temp = tempfile.mktemp(suffix=".db",
-                                       prefix="/dev/shm/")
-                if os.path.exists(temp):
-                    os.remove(temp)
-                self.json_conf["pick"]["run_options"]["shm_db"] = temp
-            if self.json_conf["pick"]["run_options"]["shm"]:
-                if not os.path.exists(self.json_conf["pick"]["run_options"]["shm_db"]):
-                    self.main_logger.debug("Copying {0} into {1}".format(
-                        self.json_conf["db_settings"]["db"],
-                        self.json_conf["pick"]["run_options"]["shm_db"]))
-                    try:
-                        shutil.copy2(self.json_conf["db_settings"]["db"],
-                                     self.json_conf["pick"]["run_options"]["shm_db"])
-                    except PermissionError:
-                        self.main_logger.warning(
-                            """Permission to write on /dev/shm denied.
-                            Back to using the DB on disk.""")
-                        self.json_conf["pick"]["run_options"]["shm"] = False
-                else:
-                    self.main_logger.debug("%s exists already. Doing nothing.",
-                                          self.json_conf["pick"]["run_options"]["shm_db"])
+            # Create temporary file
+            temp = tempfile.mktemp(suffix=".db",
+                                   prefix="/dev/shm/")
+            if os.path.exists(temp):
+                os.remove(temp)
+            self.main_logger.debug("Copying {0} into {1}".format(
+                self.json_conf["db_settings"]["db"],
+                temp))
+            try:
+                shutil.copy2(self.json_conf["db_settings"]["db"],
+                             temp)
+                self.json_conf["db_settings"]["db"] = temp
+            except PermissionError:
+                self.main_logger.warning(
+                    """Permission to write on /dev/shm denied.
+                    Back to using the DB on disk.""")
+                self.json_conf["pick"]["run_options"]["shm"] = False
             self.main_logger.info("DB copied into memory")
 
     def setup_logger(self):
@@ -518,8 +495,7 @@ memory intensive, proceed with caution!")
                      "Please check their existence:\n" + "\n".join(
                                 ["    - {metric}".format(metric=metric) for metric in sorted(
                                     __externals - set(external_metrics))]
-                                )
-                    )
+                                ))
                 )
                 sys.exit(1)
                 # __scores = sorted(set(__scores) - (__externals - set(external_metrics)))
@@ -569,165 +545,6 @@ memory intensive, proceed with caution!")
     # This method has many local variables, but most (9!) are
     # actually file handlers. I cannot trim them down for now.
     # pylint: disable=too-many-locals
-
-    def __getstate__(self):
-
-        state = self.__dict__.copy()
-        for not_pickable in self.not_pickable:
-            if not_pickable in state:
-                del state[not_pickable]
-
-        print(state)
-        return state
-
-    # pylint: disable=too-many-locals
-    def __preload_blast(self, engine, queries):
-
-        """Private method to load all the blast information
-        into a specific dictionary.
-
-        :param engine: the connection engine from the preloading thread
-        :param queries: a dictionary containing the name=>ID relationship
-         for queries
-        :returns hits_dict: a dictionary with the loaded BLAST data
-        """
-
-        hits_dict = collections.defaultdict(list)
-        hsps = dict()
-        for hsp in engine.execute("select * from hsp where hsp_evalue <= {0}".format(
-            self.json_conf["pick"]["chimera_split"]["blast_params"]["hsp_evalue"]
-        )):
-            if hsp.query_id not in hsps:
-                hsps[hsp.query_id] = collections.defaultdict(list)
-            hsps[hsp.query_id][hsp.target_id].append(hsp)
-
-        self.main_logger.debug("{0} HSPs prepared".format(len(hsps)))
-
-        targets = dict((x.target_id, x) for x in engine.execute("select * from target"))
-
-        hit_counter = 0
-        hits = engine.execute(
-            " ".join(["select * from hit where evalue <= {0} and hit_number <= {1}",
-                      "order by query_id, evalue asc;"]).format(
-                self.json_conf["pick"]["chimera_split"]["blast_params"]["evalue"],
-                self.json_conf["pick"]["chimera_split"]["blast_params"]["max_target_seqs"]))
-
-        # self.main_logger.info("{0} BLAST hits to analyse".format(hits))
-        current_counter = 0
-        current_hit = None
-        previous_evalue = -1
-
-        max_targets = self.json_conf["pick"]["chimera_split"]["blast_params"]["max_target_seqs"]
-        for hit in hits:
-            if current_hit != hit.query_id:
-                current_hit = hit.query_id
-                current_counter = 0
-                previous_evalue = -1
-
-            if current_counter > max_targets and previous_evalue < hit.evalue:
-                continue
-            elif previous_evalue < hit.evalue:
-                previous_evalue = hit.evalue
-
-            current_counter += 1
-
-            my_query = queries[hit.query_id]
-            my_target = targets[hit.target_id]
-
-            # We HAVE to use the += approach because extend/append
-            # leaves the original list empty
-            hits_dict[my_query.query_name].append(
-                Hit.as_full_dict_static(
-                    hit,
-                    hsps[hit.query_id][hit.target_id],
-                    my_query,
-                    my_target
-                )
-            )
-            hit_counter += 1
-            if hit_counter >= 2*10**4 and hit_counter % (2*10**4) == 0:
-                self.main_logger.debug("Loaded %d BLAST hits in database",
-                                       hit_counter)
-
-        del hsps
-        assert len(hits_dict) <= len(queries)
-        self.main_logger.debug("%d BLAST hits loaded for %d queries",
-                              hit_counter,
-                              len(hits_dict))
-        self.main_logger.debug("%s",
-                               ", ".join(
-                                   [str(x) for x in list(hits_dict.keys())[:10]]))
-        return hits_dict
-    # pylint: enable=too-many-locals
-
-    def preload(self):
-        """
-        This method preloads the data from the DB into a dictionary ("data_dict").
-        The information on what to extract and how to connect to the
-        DB is retrieved from the json_conf dictionary.
-        :return: data_dict
-        :rtype: dict
-        """
-
-        self.main_logger.info("Starting to preload the database into memory")
-
-        # data_dict = self.manager.dict(lock=False)
-        data_dict = dict()
-        engine = create_engine("{0}://".format(self.json_conf["db_settings"]["dbtype"]),
-                               creator=self.db_connection)
-        dbutils.DBBASE.metadata.create_all(self.engine)
-        session = sqlalchemy.orm.sessionmaker(bind=engine)()
-
-        junc_dict = dict()
-        for junc in session.query(Junction):
-            key = (junc.chrom, junc.junction_start, junc.junction_end)
-            assert key not in junc_dict
-            junc_dict[key] = junc.strand
-        data_dict["junctions"] = junc_dict
-
-        # data_dict["junctions"] = self.manager.dict(data_dict["junctions"], lock=False)
-
-        self.main_logger.debug("%d junctions loaded",
-                              len(data_dict["junctions"]))
-        self.main_logger.debug("Example junctions:\n{0}".format(
-            "\n".join(str(junc) for junc in list(
-                data_dict["junctions"])[:min(10, len(data_dict["junctions"]))])))
-
-        queries = dict((que.query_id, que) for que in engine.execute("select * from query"))
-
-        # Then load ORFs
-        orf_dict = collections.defaultdict(list)
-
-        for orf in engine.execute("select * from orf"):
-
-            query_name = queries[orf.query_id].query_name
-            orf_dict[query_name].append(
-                Orf.as_bed12_static(orf, query_name)
-            )
-
-        data_dict["orfs"] = orf_dict
-        assert len(data_dict["orfs"]) == engine.execute(
-            "select count(distinct(query_id)) from orf").fetchone()[0]
-
-        # data_dict['orf'] = self.manager.dict(orfs, lock=False)
-
-        self.main_logger.debug("%d ORFs loaded",
-                              len(data_dict["orfs"]))
-        self.main_logger.debug(",".join(
-            list(data_dict["orfs"].keys())[:10]
-        ))
-
-        # Finally load BLAST
-
-        # if self.json_conf["pick"]["chimera_split"]["execute"] is True and \
-        #         self.json_conf["pick"]["chimera_split"]["blast_check"] is True:
-        data_dict["hits"] = self.__preload_blast(engine, queries)
-        # else:
-        #     data_dict["hits"] = dict()
-        #     self.main_logger.info("Skipping BLAST loading")
-
-        self.main_logger.info("Finished to preload the database into memory")
-        return data_dict
 
     def _submit_locus(self, slocus, counter, data_dict=None, engine=None):
         """
@@ -796,37 +613,47 @@ memory intensive, proceed with caution!")
             [l.strip() for l in error_msg.split("\n")]))
         raise UnsortedInput(error_msg)
 
-    def __test_sortedness(self, row, current_transcript):
+    def __test_sortedness(self, row, coords):
         """
         Private method to test whether a row and the current transcript are actually in the expected
         sorted order.
         :param row:
-        :param current_transcript:
+        :param coords:
         :return:
         """
         test = True
-        if current_transcript.chrom > row.chrom:
+        if coords is None:
+            return test
+
+        if isinstance(coords, tuple):
+            chrom, start, end = coords
+        else:
+            chrom, start, end = coords.chrom, coords.start, coords.end
+
+        if any(_ is None for _ in (chrom, start, end)):
+            return True
+        if chrom > row.chrom:
             test = False
-        elif (current_transcript.chrom == row.chrom and
-              current_transcript.start > row.start):
+        elif (chrom == row.chrom and
+              start > row.start):
             test = False
-        elif (current_transcript.chrom == row.chrom and
-              current_transcript.start == row.start and
-              current_transcript.end > row.end):
+        elif (chrom == row.chrom and
+              start == row.start and
+              end > row.end):
             test = False
 
         if test is False:
-            self.__unsorted_interrupt(row, current_transcript)
+            self.__unsorted_interrupt(row, coords)
 
     @staticmethod
     def add_to_index(conn: sqlite3.Connection,
                      cursor: sqlite3.Cursor,
-                     transcripts: [Transcript],
+                     transcripts: dict,
                      counter: int):
 
         """Method to create the simple indexed database for features."""
 
-        transcripts = json.dumps([_.as_dict() for _ in transcripts])
+        transcripts = msgpack.dumps([_ for _ in transcripts.values()])
         cursor.execute("INSERT INTO transcripts VALUES (?, ?)", (counter, transcripts))
         conn.commit()
         return
@@ -846,7 +673,7 @@ memory intensive, proceed with caution!")
 
         return conn, cursor
 
-    def __submit_multi_threading(self, data_dict):
+    def __submit_multi_threading(self):
 
         """
         Method to execute Mikado pick in multi threaded mode.
@@ -858,35 +685,22 @@ memory intensive, proceed with caution!")
         intron_range = self.json_conf["pick"]["run_options"]["intron_range"]
         self.logger.debug("Intron range: %s", intron_range)
 
-        current_locus = None
-        current_transcript = None
-
         locus_queue = multiprocessing.JoinableQueue(-1)
 
         handles = list(self.__get_output_files())
-        [_.close() for _ in handles[0]]
-        handles[0] = [_.name for _ in handles[0]]
-
-        if handles[1][0] is not None:
-            [_.close() for _ in handles[1]]
-            handles[1] = [_.name for _ in handles[1]]
-        if handles[2][0] is not None:
-            [_.close() for _ in handles[2]]
-            handles[2] = [_.name for _ in handles[2]]
+        if self.json_conf["pick"]["run_options"]["shm"] is True:
+            basetempdir = "/dev/shm"
+        else:
+            basetempdir = self.json_conf["pick"]["files"]["output_dir"]
 
         tempdirectory = tempfile.TemporaryDirectory(suffix="",
                                                     prefix="mikado_pick_tmp",
-                                                    dir=self.json_conf["pick"]["files"]["output_dir"])
+                                                    dir=basetempdir)
         tempdir = tempdirectory.name
-
-        # tempdir = os.path.join(self.json_conf["pick"]["files"]["output_dir"], "mikado_pick_tmp")
-        # os.makedirs(tempdir, exist_ok=True)
-
         self.logger.debug("Creating the worker processes")
         conn, cursor = self._create_temporary_store(tempdir)
-        working_processes = [LociProcesser(self.json_conf,
-                                           data_dict,
-                                           handles,
+
+        working_processes = [LociProcesser(msgpack.dumps(self.json_conf),
                                            locus_queue,
                                            self.logging_queue,
                                            _,
@@ -894,99 +708,16 @@ memory intensive, proceed with caution!")
                              for _ in range(1, self.procs+1)]
         # Start all processes
         [_.start() for _ in working_processes]
+
         self.logger.debug("Started all %d workers", self.procs)
         # No sense in keeping this data available on the main thread now
-        del data_dict
 
-        counter = 0
-        invalid = False
-        with self.define_input() as input_annotation:
-            for row in input_annotation:
+        try:
+            self.__parse_multithreaded(locus_queue, conn, cursor)
+        except UnsortedInput:
+            [_.terminate() for _ in working_processes]
+            raise
 
-                if row.is_exon is True and invalid is False:
-                    try:
-                        current_transcript.add_exon(row)
-                    except InvalidTranscript as exc:
-                        self.logger.error("Transcript %s is invalid;\n%s",
-                                          current_transcript.id,
-                                          exc)
-                        invalid = True
-                elif row.is_transcript is True:
-                    if current_transcript is not None and invalid is False:
-                        try:
-                            self.__test_sortedness(row, current_transcript)
-                        except UnsortedInput:
-                            [_.terminate() for _ in working_processes]
-                            raise
-                        if current_locus is not None and Superlocus.in_locus(
-                                current_locus, current_transcript,
-                                flank=self.json_conf["pick"]["clustering"]["flank"]) is True:
-                            current_locus.add_transcript_to_locus(current_transcript,
-                                                                  check_in_locus=False)
-                        else:
-                            if current_locus is not None:
-                                counter += 1
-                                self.logger.debug("Submitting locus # %d (%s), with transcripts:\n%s",
-                                                  counter,
-                                                  None if not current_locus else current_locus.id,
-                                                  ",".join(list(current_locus.transcripts.keys())))
-                                self.add_to_index(conn, cursor, current_locus.transcripts.values(), counter)
-                                locus_queue.put((counter, ))
-                            current_locus = Superlocus(
-                                current_transcript,
-                                stranded=False,
-                                json_conf=self.json_conf,
-                                source=self.json_conf["pick"]["output_format"]["source"])
-
-                    if current_transcript is None or row.chrom != current_transcript.chrom:
-                        if current_transcript is not None:
-                            self.logger.info("Finished chromosome %s",
-                                             current_transcript.chrom)
-                        self.logger.info("Starting chromosome %s", row.chrom)
-
-                    invalid = False
-                    current_transcript = Transcript(
-                        row,
-                        intron_range=intron_range)
-
-        if current_transcript is not None and invalid is False:
-            if current_locus is not None and Superlocus.in_locus(
-                    current_locus, current_transcript,
-                    flank=self.json_conf["pick"]["clustering"]["flank"]) is True:
-                current_locus.add_transcript_to_locus(
-                    current_transcript, check_in_locus=False)
-            else:
-                if current_locus is not None:
-                    counter += 1
-                    self.logger.debug("Submitting locus #%d (%s)", counter,
-                                      None if not current_locus else current_locus.id)
-                    self.add_to_index(conn, cursor, current_locus.transcripts.values(), counter)
-                    locus_queue.put((counter,))
-
-                current_locus = Superlocus(
-                    current_transcript,
-                    stranded=False,
-                    json_conf=self.json_conf,
-                    source=self.json_conf["pick"]["output_format"]["source"])
-                self.logger.debug("Created last locus %s",
-                                  current_locus)
-        elif invalid is True and current_locus is not None:
-            counter += 1
-            self.logger.debug("Submitting locus #%d (%s)", counter,
-                              None if not current_locus else current_locus.id)
-            self.add_to_index(conn, cursor, current_locus.transcripts.values(), counter)
-            locus_queue.put((counter,))
-
-        self.logger.info("Finished chromosome %s", current_locus.chrom)
-
-        counter += 1
-        self.add_to_index(conn, cursor, current_locus.transcripts.values(), counter)
-        locus_queue.put((counter,))
-
-        self.logger.debug("Submitting locus %s, counter %d, with transcripts:\n%s",
-                          current_locus.id, counter,
-                          ", ".join(list(current_locus.transcripts.keys())))
-        locus_queue.put(("EXIT", ))
         self.logger.debug("Joining children processes")
         [_.join() for _ in working_processes]
         conn.close()
@@ -994,30 +725,16 @@ memory intensive, proceed with caution!")
 
         # Merge loci
         merge_loci(self.procs,
-                   handles[0],
-                   prefix=self.json_conf["pick"]["output_format"]["id_prefix"],
+                   handles,
+                   json_conf=self.json_conf,
+                   logger=self.logger,
                    tempdir=tempdir)
-
-        for handle in handles[1]:
-            if handle is not None:
-                with open(handle, "a") as output:
-                    partials = [os.path.join(tempdir,
-                                             "{0}-{1}".format(os.path.basename(handle), _))
-                                for _ in range(1, self.procs + 1)]
-                    merge_partial(partials, output, logger=self.logger)
-
-        for handle in handles[2]:
-            if handle is not None:
-                with open(handle, "a") as output:
-                    partials = [os.path.join(tempdir,
-                                             "{0}-{1}".format(os.path.basename(handle), _))
-                                for _ in range(1, self.procs + 1)]
-                    merge_partial(partials, output, logger=self.logger)
 
         self.logger.info("Finished merging partial files")
         try:
             # shutil.rmtree(tempdir)
             self.logger.debug("Cleaning up the temporary directory")
+            shutil.copytree(tempdirectory.name, "/tmp/" + os.path.basename(tempdirectory.name))
             tempdirectory.cleanup()
             self.logger.debug("Finished cleaning up")
             pass
@@ -1031,7 +748,104 @@ memory intensive, proceed with caution!")
         finally:
             return
 
-    def __submit_single_threaded(self, data_dict):
+    def __check_max_intron(self, current, invalids, row, max_intron):
+        previous = None
+        for exon in reversed(current["transcripts"][row.transcript]["exon_lines"]):
+            if exon[2] == row.feature:
+                previous = exon
+                break
+
+        current["transcripts"][row.transcript]["exon_lines"].append((row.start, row.end, row.feature, row.phase))
+        if previous:
+            # I have to compare like with like.
+            intron_length = (row.start - 1) - (previous[1] + 1) + 1
+            if intron_length >= max_intron:
+                self.logger.warning(
+                    "%s has an intron (%s) greater than the maximum allowed (%s). Ignoring it.",
+                    row.transcript, intron_length, max_intron
+                )
+                del current["transcripts"][row.transcript]
+                invalids.add(row.transcript)
+                if current["transcripts"]:
+                    current["start"] = min([
+                        min([exon[0] for exon in current["transcripts"][trans]["exon_lines"]])
+                        for trans in current["transcripts"]])
+                    current["end"] = max([
+                        max([exon[1] for exon in current["transcripts"][trans]["exon_lines"]])
+                        for trans in current["transcripts"]])
+                else:
+                    current["start"], current["end"] = None, None
+        return current, invalids
+
+    def __parse_multithreaded(self, locus_queue, conn, cursor):
+        counter = 0
+        invalids = set()
+        flank = self.json_conf["pick"]["clustering"]["flank"]
+        with self.define_input() as input_annotation:
+
+            current = {"chrom": None, "start": None, "end": None, "transcripts": dict()}
+            max_intron = self.json_conf["prepare"]["max_intron_length"]
+            for row in input_annotation:
+                if row.is_exon is True:
+                    if row.transcript in invalids:
+                        continue
+                    elif row.transcript not in current["transcripts"]:
+                        self.logger.error("Transcript %s is invalid", row.transcript)
+                        invalids.add(row.transcript)
+                    else:
+                        # Check max intron length. We presume that exons are sorted correctly.
+                        current, invalids = self.__check_max_intron(current, invalids, row, max_intron=max_intron)
+                elif row.is_transcript is True:
+                    self.__test_sortedness(row, (current["chrom"], current["start"], current["end"]))
+                    if not current["start"]:
+                        current["chrom"], current["start"], current["end"] = row.chrom, row.start, row.end
+                        current["transcripts"][row.transcript] = dict()
+                        current["transcripts"][row.transcript]["definition"] = json.dumps(row)
+                        current["transcripts"][row.transcript]["exon_lines"] = []
+                    elif current["chrom"] != row.chrom:
+                        self.logger.info("Finished chromosome %s", current["chrom"])
+                        self.add_to_index(conn, cursor, current["transcripts"], counter)
+                        current["chrom"], current["start"], current["end"] = row.chrom, row.start, row.end
+                        current["transcripts"] = dict()
+                        current["transcripts"][row.transcript] = dict()
+                        current["transcripts"][row.transcript]["definition"] = json.dumps(row)
+                        current["transcripts"][row.transcript]["exon_lines"] = []
+                        self.logger.info("Starting chromosome %s", row.chrom)
+                    else:
+                        if Superlocus.overlap((current["end"], current["start"]),
+                                              (row.start, row.end), flank=flank) > 0:
+                            # Add to the locus!
+                            current["start"] = min(current["start"], row.start)
+                            current["end"] = max(current["end"], row.end)
+                        else:
+                            counter += 1
+                            self.logger.debug("Submitting locus # %d (%s), with transcripts:\n%s",
+                                              counter, "{}:{}-{}".format(current["chrom"],
+                                                                         current["start"], current["end"]),
+                                              ",".join(list(current["transcripts"].keys())))
+                            self.add_to_index(conn, cursor, current["transcripts"], counter)
+                            locus_queue.put((counter,))
+                            current["start"], current["end"] = row.start, row.end
+                            current["transcripts"] = dict()
+
+                        current["transcripts"][row.transcript] = dict()
+                        current["transcripts"][row.transcript]["definition"] = json.dumps(row)
+                        current["transcripts"][row.transcript]["exon_lines"] = []
+
+        if current["start"] is not None:
+            counter += 1
+            self.logger.debug("Submitting locus # %d (%s), with transcripts:\n%s",
+                              counter, "{}:{}-{}".format(current["chrom"],
+                                                         current["start"], current["end"]),
+                              ",".join(list(current["transcripts"].keys())))
+            self.add_to_index(conn, cursor, current["transcripts"], counter)
+            locus_queue.put((counter,))
+
+            self.logger.info("Finished chromosome %s", current["chrom"])
+
+        locus_queue.put(("EXIT", ))
+
+    def __submit_single_threaded(self):
 
         """
         Method to execute Mikado pick in single threaded mode.
@@ -1057,23 +871,20 @@ memory intensive, proceed with caution!")
         locus_printer = functools.partial(print_locus,
                                           handles=handles,
                                           logger=logger,
-                                          counter=None,
                                           json_conf=self.json_conf)
 
         # last_printed = -1
         curr_chrom = None
         gene_counter = 0
 
-        if self.json_conf["pick"]["run_options"]["preload"] is False:
-            self.engine = dbutils.connect(json_conf=self.json_conf, logger=self.logger)
-        else:
-            self.engine = None
+        self.engine = dbutils.connect(json_conf=self.json_conf, logger=self.logger)
 
-        submit_locus = functools.partial(self._submit_locus, **{"data_dict": data_dict,
+        submit_locus = functools.partial(self._submit_locus, **{"data_dict": None,
                                                                 "engine": self.engine})
 
         counter = -1
         invalid = False
+        max_intron = self.json_conf["prepare"]["max_intron_length"]
         with self.define_input() as input_annotation:
             for row in input_annotation:
                 if row.is_exon is True and invalid is False:
@@ -1085,86 +896,24 @@ memory intensive, proceed with caution!")
                                           exc)
                         invalid = True
                 elif row.is_transcript is True:
-                    if current_transcript is not None and invalid is False:
-                        self.__test_sortedness(row, current_transcript)
-                        if current_locus is not None and Superlocus.in_locus(
-                                current_locus, current_transcript,
-                                flank=self.json_conf["pick"]["clustering"]["flank"]) is True:
-                            current_locus.add_transcript_to_locus(current_transcript,
-                                                                  check_in_locus=False)
-                        else:
-                            counter += 1
-                            self.logger.debug("Analysing locus # %d", counter)
-                            try:
-                                for stranded_locus in submit_locus(current_locus, counter):
-                                    if stranded_locus.chrom != curr_chrom:
-                                        curr_chrom = stranded_locus.chrom
-                                        gene_counter = 0
-                                    gene_counter = locus_printer(stranded_locus, gene_counter)
-                            except KeyboardInterrupt:
-                                raise
-                            except Exception as exc:
-                                self.logger.exception(
-                                    "Superlocus %s failed with exception: %s",
-                                    None if current_locus is None else current_locus.id, exc)
-
-                            current_locus = Superlocus(
-                                current_transcript,
-                                stranded=False,
-                                json_conf=self.json_conf,
-                                source=self.json_conf["pick"]["output_format"]["source"])
-                            if self.regressor is not None:
-                                current_locus.regressor = self.regressor
-
+                    self.__test_sortedness(row, current_transcript)
+                    current_locus, counter, gene_counter, curr_chrom = self.__check_transcript(
+                        current_transcript, current_locus, counter, max_intron,
+                        gene_counter, curr_chrom, locus_printer, submit_locus)
+                    invalid = False
+                    current_transcript = Transcript(row, intron_range=intron_range, logger=logger)
                     if current_transcript is None or row.chrom != current_transcript.chrom:
                         if current_transcript is not None:
                             self.logger.info("Finished chromosome %s",
                                              current_transcript.chrom)
                         self.logger.info("Starting chromosome %s", row.chrom)
 
-                    invalid = False
-                    current_transcript = Transcript(
-                        row,
-                        intron_range=intron_range, logger=logger)
-
-        if current_transcript is not None and invalid is False:
-            if current_locus is not None and Superlocus.in_locus(
-                    current_locus, current_transcript,
-                    flank=self.json_conf["pick"]["clustering"]["flank"]) is True:
-                current_locus.add_transcript_to_locus(
-                    current_transcript, check_in_locus=False)
-            else:
-                counter += 1
-                self.logger.debug("Analysing locus # %d", counter)
-                for stranded_locus in submit_locus(current_locus, counter):
-                    if stranded_locus.chrom != curr_chrom:
-                        curr_chrom = stranded_locus.chrom
-                        gene_counter = 0
-                    gene_counter = locus_printer(stranded_locus, gene_counter)
-
-                current_locus = Superlocus(
-                    current_transcript,
-                    stranded=False,
-                    json_conf=self.json_conf,
-                    source=self.json_conf["pick"]["output_format"]["source"])
-                self.logger.debug("Created last locus %s", current_locus.id)
-        elif current_transcript is not None and invalid is True:
-            if current_locus is not None:
-                counter += 1
-                self.logger.debug("Analysing locus # %d", counter)
-                for stranded_locus in submit_locus(current_locus, counter):
-                    if stranded_locus.chrom != curr_chrom:
-                        curr_chrom = stranded_locus.chrom
-                        gene_counter = 0
-                    gene_counter = locus_printer(stranded_locus, gene_counter)
-
         self.logger.info("Finished chromosome %s", current_locus.chrom)
-
+        current_locus, counter, gene_counter, curr_chrom = self.__check_transcript(
+            current_transcript, current_locus, counter, max_intron,
+            gene_counter, curr_chrom, locus_printer, submit_locus)
         counter += 1
         self.logger.debug("Analysing locus # %d", counter)
-        # if current_locus is not None:
-        #     current_locus.load_all_transcript_data(pool=self.connection_pool,
-        #                                            data_dict=data_dict)
         for stranded_locus in submit_locus(current_locus, counter):
             if stranded_locus.chrom != curr_chrom:
                 curr_chrom = stranded_locus.chrom
@@ -1175,7 +924,43 @@ memory intensive, proceed with caution!")
             [_.close() for _ in group if _]
         logger.info("Final number of superloci: %d", counter)
 
-    def _parse_and_submit_input(self, data_dict):
+    def __check_transcript(self, current_transcript, current_locus, counter, max_intron,
+                           gene_counter, curr_chrom, locus_printer, submit_locus):
+
+        if current_transcript is not None:
+            current_transcript.finalize()
+            if current_transcript.max_intron_length > max_intron:
+                self.logger.warning(
+                    "%s has an intron (%s) which is greater than the maximum allowed (%s). Removing it.",
+                    current_transcript.id, current_transcript.max_intron_length, max_intron)
+            elif current_locus and Superlocus.in_locus(
+                            current_locus, current_transcript,
+                            flank=self.json_conf["pick"]["clustering"]["flank"]) is True:
+                    current_locus.add_transcript_to_locus(current_transcript, check_in_locus=False)
+            else:
+                counter += 1
+                self.logger.debug("Analysing locus # %d", counter)
+                try:
+                    for stranded_locus in submit_locus(current_locus, counter):
+                        if stranded_locus.chrom != curr_chrom:
+                            curr_chrom = stranded_locus.chrom
+                            gene_counter = 0
+                        gene_counter = locus_printer(stranded_locus, gene_counter)
+                except KeyboardInterrupt:
+                    raise
+                except Exception as exc:
+                    self.logger.exception(
+                        "Superlocus %s failed with exception: %s",
+                        None if current_locus is None else current_locus.id, exc)
+
+                current_locus = Superlocus(current_transcript, stranded=False, json_conf=self.json_conf,
+                                           source=self.json_conf["pick"]["output_format"]["source"])
+                if self.regressor is not None:
+                    current_locus.regressor = self.regressor
+
+        return current_locus, counter, gene_counter, curr_chrom
+
+    def _parse_and_submit_input(self):
 
         """
         This method does the parsing of the input and submission of the loci to the
@@ -1185,10 +970,23 @@ memory intensive, proceed with caution!")
         """
 
         if self.json_conf["pick"]["run_options"]["single_thread"] is False:
-            self.__submit_multi_threading(data_dict)
+            self.__submit_multi_threading()
         else:
-            self.__submit_single_threaded(data_dict)
+            self.__submit_single_threaded()
         return
+
+    def __cleanup(self):
+        self.log_writer.stop()
+        if self.queue_pool is not None:
+            self.queue_pool.dispose()
+
+        # Clean up the DB copied to SHM
+        if self.json_conf["pick"]["run_options"]["shm"] is True:
+            assert os.path.dirname(self.json_conf["db_settings"]["db"]) == os.path.join("/dev", "shm"), (
+                self.json_conf["db_settings"]["db"], os.path.dirname(self.json_conf["db_settings"]["db"]),
+                os.path.join("/dev", "shm"))
+            self.main_logger.debug("Removing shared memory DB %s", self.json_conf["db_settings"]["db"])
+            os.remove(self.json_conf["db_settings"]["db"])
 
     def __call__(self):
 
@@ -1197,45 +995,24 @@ memory intensive, proceed with caution!")
         # NOTE: Pool, Process and Manager must NOT become instance attributes!
         # Otherwise it will raise all sorts of mistakes
 
-        data_dict = None
-
-        if self.json_conf["pick"]["run_options"]["preload"] is True:
-            # Use the preload function to create the data dictionary
-            data_dict = self.preload()
-        # pylint: disable=no-member
-        # pylint: enable=no-member
-
         self.logger.debug("Source: %s",
                           self.json_conf["pick"]["output_format"]["source"])
-        if self.json_conf["db_settings"]["dbtype"] == "sqlite" and data_dict is not None:
+        if self.json_conf["db_settings"]["dbtype"] == "sqlite":
             self.queue_pool = sqlalchemy.pool.QueuePool(
                 self.db_connection,
                 pool_size=self.procs,
                 max_overflow=0)
 
         try:
-            self._parse_and_submit_input(data_dict)
+            self._parse_and_submit_input()
         except UnsortedInput as _:
             self.logger.error(
                 "The input files were not properly sorted! Please run prepare and retry.")
+        except Exception:
+            self.__cleanup()
+            raise
 
-            sys.exit(1)
-
-        # list(map(job.get() for job in jobs if job is not None))
-        # for job in iter(x for x in jobs if x is not None):
-        #     job.get()
-
-        self.log_writer.stop()
-        if self.queue_pool is not None:
-            self.queue_pool.dispose()
-
-        # Clean up the DB copied to SHM
-        if (self.json_conf["pick"]["run_options"]["shm"] is True and
-                self.json_conf["pick"]["run_options"]["shm_shared"] is False):
-            self.main_logger.debug("Removing shared memory DB %s",
-                                  self.json_conf["pick"]["run_options"]["shm_db"])
-            os.remove(self.json_conf["pick"]["run_options"]["shm_db"])
-
+        self.__cleanup()
         self.main_logger.info("Finished analysis of %s", self.input_file)
 
         sys.exit(0)

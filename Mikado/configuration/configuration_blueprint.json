@@ -305,9 +305,11 @@
             "Parameters related to alternative splicing reporting.",
             "- report: whether to report at all or not the AS events.",
             "- min_cds_overlap: minimum overlap between the CDS of the primary transcript and any AS event. Default: 60%.",
-            "- min_cdna_overlap: minimum overlap between the CDNA of the primary transcript and any AS event. Default: 0% i.e. disabled, we check for the CDS overlap.",
-            "- keep_retained_introns: Whether to consider as valid AS events where one intron is retained compared to the primary or any other valid AS. Default: false.",
-            "- max_isoforms: Maximum number of isoforms per locus. 1 implies no AS reported. Default: 3",
+            "- min_cdna_overlap: minimum overlap between the CDNA of the primary transcript and any AS event.",
+            "Default: 0% i.e. disabled, we check for the CDS overlap.",
+            "- keep_retained_introns: Whether to consider as valid AS events where one intron",
+            "- max_isoforms: Maximum number of isoforms per locus. 1 implies no AS reported. Default: 5",
+            "is retained compared to the primary or any other valid AS. Default: false.",
             "- valid_ccodes: Valid class codes for AS events. Valid codes are in categories",
             "'Alternative splicing', 'Extension' (with junction F1 lower than 100%), and Overlap (exluding m). Default: j, J, g, G, C, h",
             "- max_utr_length: Maximum length of the UTR for AS events. Default: 10e6 (i.e. no limit)",
@@ -322,10 +324,11 @@
           "SimpleComment": [
             "Parameters related to alternative splicing reporting.",
             "- report: whether to report at all or not the AS events.",
-            "- max_isoforms: Maximum number of isoforms per locus. 1 implies no AS reported. Default: 3",
-            "- only_confirmed_introns: bring back AS events only when their introns are either present in the primary transcript or in the set of confirmed introns."
+            "- only_confirmed_introns: bring back AS events only when their introns are either",
+            " present in the primary transcript or in the set of confirmed introns.",
+            "- pad: boolean switch. If true, Mikado will pad all the transcript in a gene so that their ends are the same"
           ],
-          "required": ["report", "max_isoforms", "only_confirmed_introns"],
+          "required": ["report", "only_confirmed_introns", "pad"],
           "type": "object",
           "properties": {
             "report": {
@@ -582,31 +585,25 @@
           "Comment": [
             "Generic run options.",
             "- shm: boolean flag. If set and the DB is sqlite, it will be copied onto the /dev/shm faux partition",
-            "- shm_db: String. It indicates a DB that has to be copied onto SHM and left there for concurrent Mikado runs.",
-            "- shm_shared: boolean flag. If set, the database loaded onto SHM will be shared and should not be deleted at the end of the run (see shm_db). Default: false",
             "- exclude_cds: boolean flag. If set, the CDS information will not be printed in Mikado output. Default: false",
             "- procs: number of processes to use. Default: 1",
-            "- intron_range: A range where most of the introns (99%) should fall into. Transcripts with too many introns larger or smaller than what is defined in this range will be penalised in the scoring. Default: [60, 900]",
-            "- preload: boolean flag. If set, the whole database will be preloaded into memory for faster access. Useful when using SQLite databases.",
-            "- only_reference_update: boolean flag. If set, Mikado pick will **only** consider loci that contain reference transcripts, with the purpose of adding potential, compatible ASEs that are present in the other inputs. Any locus which does not contain any reference transcript will be completely ignored.",
             "- single_thread: boolean flag. If set, multithreading will be disabled - useful for profiling and debugging.",
-            "- consider_truncated_for_retained: boolean. Normally, Mikado considers only exons which span a whole intron as possible retained intron events. If this flag is set to true, also terminal exons will be considered."
+            "- consider_truncated_for_retained: boolean. Normally, Mikado considers only exons which span a whole intron",
+            "as possible retained intron events. If this flag is set to true, also terminal exons will be considered."
           ],
           "SimpleComment": [
             "Generic run options.",
             "- procs: number of processes to use. Default: 1",
-            "- intron_range: A range where most of the introns (99%) should fall into. Transcripts with too many introns larger or smaller than what is defined in this range will be penalised in the scoring. Default: [60, 900]",
-            "- preload: boolean flag. If set, the whole database will be preloaded into memory for potentially faster access.",
+            "- intron_range: A range where most of the introns (99%) should fall into. Transcripts with too many",
+            " introns larger or smaller than what is defined in this range will be penalised",
+            " in the scoring. Default: [60, 900]",
+            "- shm: boolean flag. If set and the DB is sqlite, it will be copied onto the /dev/shm faux partition",
             "- single_thread: boolean flag. If set, multithreading will be disabled - useful for profiling and debugging."
           ],
           "properties": {
             "shm": {
               "type": "boolean",
               "default": false
-            },
-            "shm_db": {
-              "type": "string",
-              "default": ""
             },
             "exclude_cds": {
               "type": "boolean",
@@ -637,10 +634,6 @@
               "minimum": 1
             },
             "single_thread": {
-              "type": "boolean",
-              "default": false
-            },
-            "preload": {
               "type": "boolean",
               "default": false
             }

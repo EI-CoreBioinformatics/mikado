@@ -62,6 +62,11 @@ class GffLine(GFAnnotation):
                     except ValueError:
                         pass
                 finally:
+                    if isinstance(val, str) and val.lower() == "true":
+                        val = True
+                    elif isinstance(val, str) and val.lower() == "false":
+                        val = False
+
                     self.attributes[key] = val
                     self.attribute_order.append(key)
 

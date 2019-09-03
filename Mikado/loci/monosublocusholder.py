@@ -39,7 +39,7 @@ class MonosublocusHolder(Sublocus, Abstractlocus):
     __name__ = "monosubloci_holder"
 
     # pylint: disable=super-init-not-called
-    def __init__(self, transcript_instance: Monosublocus,
+    def __init__(self, transcript_instance=None,
                  json_conf=None, logger=None,
                  verified_introns=None, **kwargs):
 
@@ -58,7 +58,8 @@ class MonosublocusHolder(Sublocus, Abstractlocus):
         self.feature = "MonosublocusHolder"
         # Add the transcript to the Locus
         self.locus_verified_introns = set()
-        self.add_monosublocus(transcript_instance, check_in_locus=False)
+        if transcript_instance is not None:
+            self.add_monosublocus(transcript_instance, check_in_locus=False)
         self.loci = SortedDict()
         self.attributes = dict()
 
@@ -444,3 +445,10 @@ class MonosublocusHolder(Sublocus, Abstractlocus):
         """
 
         return Abstractlocus.id.fget(self)  # @UndefinedVariable
+
+    def as_dict(self):
+        state = Abstractlocus.as_dict(self)
+        return state
+
+    def load_dict(self, state):
+        Abstractlocus.load_dict(self, state)

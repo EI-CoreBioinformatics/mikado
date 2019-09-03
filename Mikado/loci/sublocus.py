@@ -30,7 +30,7 @@ class Sublocus(Abstractlocus):
     # ############### Class special methods ##############
 
     def __init__(self,
-                 transcript_instance,
+                 transcript_instance=None,
                  json_conf=None,
                  logger=None,
                  verified_introns=None,
@@ -59,9 +59,7 @@ class Sublocus(Abstractlocus):
                                **kwargs)
         self.feature = self.__name__
         self.logger.debug("Verified introns for %s: %s", self.id, verified_introns)
-        self.fixed_size = True if transcript_instance.feature == "sublocus" else False
-        if transcript_instance.__name__ == "transcript":
-            transcript_instance.finalize()
+        self.fixed_size = False
         self.source = self.json_conf["pick"]["output_format"]["source"]
 
         self.excluded = None
@@ -70,8 +68,13 @@ class Sublocus(Abstractlocus):
         # Flag to indicate that we have not calculated the metrics for the transcripts
         # Flag to indicate that we have not calculated the scores for the transcripts
         setattr(self, "monoexonic", getattr(transcript_instance, "monoexonic", None))
-        if json_conf is None and transcript_instance.json_conf is not None:
-            json_conf = transcript_instance.json_conf
+        if transcript_instance is not None:
+            if transcript_instance.__name__ == "transcript":
+                transcript_instance.finalize()
+            if json_conf is None and transcript_instance.json_conf is not None:
+                json_conf = transcript_instance.json_conf
+            if transcript_instance and transcript_instance.feature == "sublocus":
+                self.fixed_size = True
 
         if json_conf is None or not isinstance(json_conf, dict):
             raise ValueError("I am missing the configuration for prioritizing transcripts!")
@@ -88,16 +91,16 @@ class Sublocus(Abstractlocus):
             self.parent = transcript_instance.parent
         else:
             self.parent = getattr(transcript_instance, "parent", None)
-            self.chrom = getattr(transcript_instance, "chrom")
-            self.start = getattr(transcript_instance, "start")
-            self.end = getattr(transcript_instance, "end")
-            self.strand = getattr(transcript_instance, "strand")
+            self.chrom = getattr(transcript_instance, "chrom", None)
+            self.start = getattr(transcript_instance, "start", None)
+            self.end = getattr(transcript_instance, "end", None)
+            self.strand = getattr(transcript_instance, "strand", None)
             self.attributes = getattr(transcript_instance, "attributes", dict())
 
         self.monosubloci = []
         self.logger.debug("Initialized {0}".format(self.id))
         self.metric_lines_store = []  # This list will contain the lines to be printed in the metrics file
-
+        self.excluded = Excluded(json_conf=json_conf)
         self.scores = dict()
 
     # pylint: disable=arguments-differ
@@ -127,6 +130,22 @@ class Sublocus(Abstractlocus):
     # pylint: enable=arguments-differ
 
     # ########## Class instance methods #####################
+
+    def as_dict(self):
+        state = super().as_dict()
+        state["monosubloci"] = [_.as_dict() for _ in self.monosubloci]
+        state["excluded"] = self.excluded.as_dict()
+        return state
+
+    def load_dict(self, state):
+        super().load_dict(state)
+        self.monosubloci = []
+        for stat in state["monosubloci"]:
+            s = Monosublocus()
+            s.load_dict(stat)
+            self.monosubloci.append(s)
+        self.excluded = Excluded()
+        self.excluded.load_dict(state["excluded"])
 
     def add_transcript_to_locus(self, transcript: Transcript, **kwargs):
 
@@ -176,7 +195,7 @@ class Sublocus(Abstractlocus):
         self.logger.debug("Added %s to %s", transcript.id, self.id)
         # Update the id
 
-    def define_monosubloci(self, purge=False, excluded=None):
+    def define_monosubloci(self, purge=False):
         """
         :param purge: a flag which indicates whether loci whose
         best transcript has a score of 0 should be excluded (True) or retained (False)
@@ -195,12 +214,11 @@ class Sublocus(Abstractlocus):
         """
 
         self.monosubloci = []
-        self.excluded = excluded
+        # self.excluded = excluded
         self.logger.debug("Launching calculate scores for {0}".format(self.id))
         self.calculate_scores()
 
         if self._excluded_transcripts and self.purge:
-            self.excluded = Excluded(self._excluded_transcripts.pop())
             while self._excluded_transcripts:
                 self.excluded.add_transcript_to_locus(self._excluded_transcripts.pop(),
                                                       check_in_locus=False)
@@ -248,7 +266,7 @@ class Sublocus(Abstractlocus):
         self.logger.debug("Defined monosubloci for %s", self.id)
         self.splitted = True
         self.logger.debug("Defined monosubloci for %s", self.id)
-        return
+        return self.excluded
 
     def load_scores(self, scores):
         """

@@ -23,6 +23,25 @@ def comma_split(string):
     return string.split(",")
 
 
+def rhasattr(obj, attr, *args):
+    """Recursive version of getattr.
+        Source: https://stackoverflow.com/questions/31174295/getattr-and-setattr-on-nested-objects"""
+
+    def _hasattr(obj, attr):
+        return hasattr(obj, attr, *args)
+
+    return functools.reduce(_hasattr, [obj] + attr.split("."))
+
+
+def rgetattr(obj, attr, *args):
+    """Recursive version of getattr.
+    Source: https://stackoverflow.com/questions/31174295/getattr-and-setattr-on-nested-objects"""
+
+    def _getattr(obj, attr):
+        return getattr(obj, attr, *args)
+    return functools.reduce(_getattr, [obj] + attr.split("."))
+
+
 def path_join(output_dir, output_file):
 
     """Small utility to join together a directory path and
@@ -91,8 +110,8 @@ def merge_partial(filenames, handle, logger=None, gzipped=False):
             fnames = [open(_) for _ in filenames if os.stat(_).st_size > 0]
         else:
             fnames = [gzip.open(_, "rt") for _ in filenames if os.stat(_).st_size > 0]
-    except FileNotFoundError:
-        raise FileNotFoundError(os.listdir(os.path.dirname(filenames[0])))
+    except FileNotFoundError as exc:
+        raise FileNotFoundError((filenames, os.listdir(os.path.dirname(filenames[0]))))
 
     if len(fnames) == 0:
         logger.warning("All the files to merge (root %s) are empty. Exiting.",

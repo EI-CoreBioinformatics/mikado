@@ -16,7 +16,7 @@ from ..transcripts.clique_methods import find_communities, define_graph
 from ..transcripts.transcript import Transcript
 from ..configuration.configurator import to_json, check_json
 from ..exceptions import NotInLocusError
-from ..utilities import overlap, merge_ranges
+from ..utilities import overlap, merge_ranges, rhasattr, rgetattr
 import operator
 from ..utilities.intervaltree import Interval, IntervalTree
 from ..utilities.log_utils import create_null_logger
@@ -31,25 +31,6 @@ import functools
 # I do not care that there are too many attributes: this IS a massive class!
 # pylint: disable=too-many-instance-attributes,too-many-public-methods
 json_conf = to_json(None)
-
-
-def rhasattr(obj, attr, *args):
-    """Recursive version of getattr.
-        Source: https://stackoverflow.com/questions/31174295/getattr-and-setattr-on-nested-objects"""
-
-    def _hasattr(obj, attr):
-        return hasattr(obj, attr, *args)
-
-    return functools.reduce(_hasattr, [obj] + attr.split("."))
-
-
-def rgetattr(obj, attr, *args):
-    """Recursive version of getattr.
-    Source: https://stackoverflow.com/questions/31174295/getattr-and-setattr-on-nested-objects"""
-
-    def _getattr(obj, attr):
-        return getattr(obj, attr, *args)
-    return functools.reduce(_getattr, [obj] + attr.split("."))
 
 
 class Abstractlocus(metaclass=abc.ABCMeta):
@@ -206,14 +187,20 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             state["sessionmaker"] = None
             state["session"] = None
 
+        state["_Abstractlocus__internal_graph"] = networkx.readwrite.json_graph.node_link_data(
+            state["_Abstractlocus__internal_graph"])
+
         if hasattr(self, "engine"):
             del state["engine"]
 
+        del state["_Abstractlocus__segmenttree"]
         return state
 
     def __setstate__(self, state):
         """Method to recreate the object after serialisation."""
         self.__dict__.update(state)
+        self.__segmenttree = IntervalTree()
+        self.__internal_graph = networkx.readwrite.json_graph.node_link_graph(state["_Abstractlocus__internal_graph"])
 
         if hasattr(self, "json_conf"):
             if "requirements" in self.json_conf and "expression" in self.json_conf["requirements"]:
@@ -221,7 +208,26 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                     self.json_conf["requirements"]["expression"],
                     "<json>", "eval")
         # Set the logger to NullHandler
+        _ = self.__segmenttree
         self.logger = None
+
+    def as_dict(self):
+        self.get_metrics()
+        state = self.__getstate__()
+        state["transcripts"] = dict((tid, state["transcripts"][tid].as_dict()) for tid in state["transcripts"])
+        assert "metrics_calculated" in state
+        return state
+
+    def load_dict(self, state):
+        assert isinstance(state, dict)
+        self.__setstate__(state)
+
+        assert self.metrics_calculated is True
+        self.transcripts = dict((tid, Transcript()) for tid in state["transcripts"])
+        [self[tid].load_dict(state["transcripts"][tid], trust_orf=True) for tid in state["transcripts"]]
+        for attr in ["locus_verified_introns", "introns", "exons",
+                     "selected_cds_introns", "combined_cds_introns"]:
+            setattr(self, attr, set([tuple(_) for _ in getattr(self, attr)]))
 
     def __iter__(self):
         return iter(self.transcripts.keys())
@@ -538,7 +544,9 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             self.end = max(self.transcripts[_].end for _ in self.transcripts)
             self.start = min(self.transcripts[_].start for _ in self.transcripts)
         else:
-            self.start, self.end, self.strand = float("Inf"), float("-Inf"), None
+            # self.start, self.end, self.strand = float("Inf"), float("-Inf"), None
+            import sys
+            self.start, self.end, self.strand = sys.maxsize, -sys.maxsize, None
             self.stranded = False
             self.initialized = False
 
@@ -910,6 +918,8 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         # if self.metrics_calculated is True:
         #     return
 
+        if self.metrics_calculated is True:
+            return
         cds_bases = sum(_[1] - _[0] + 1 for _ in merge_ranges(
             itertools.chain(*[
                 self.transcripts[_].combined_cds for _ in self.transcripts
@@ -948,6 +958,9 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         i.e. that depend on the other transcripts in the sublocus. Examples include the fraction
         of introns or exons in the sublocus, or the number/fraction of retained introns.
         """
+
+        if self.metrics_calculated is True:
+            return
 
         self.logger.debug("Calculating metrics for %s", tid)
         # The transcript must be finalized before we can calculate the score.
@@ -989,6 +1002,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         if len(self.introns) > 0:
             _ = len(set.intersection(self.transcripts[tid].introns, self.introns))
             fraction = _ / len(self.introns)
+            self.transcripts[tid].intron_fraction = fraction
             self.transcripts[tid].intron_fraction = fraction
         else:
             self.transcripts[tid].intron_fraction = 0

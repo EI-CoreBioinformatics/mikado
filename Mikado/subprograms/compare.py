@@ -44,9 +44,9 @@ def compare_parser():
                          help='Prediction annotation file.')
     targets.add_argument("--self", default=False,
                          action="store_true",
-                         help="""Flag. If set, the reference will be compared with itself.
-                         Useful for understanding how the reference transcripts interact
-                         with each other.""")
+                         help="""Flag. If set, the reference will be compared with itself. \
+Useful for understanding how the reference transcripts interact with each other. If this option is selected,
+the stats file will not be produced.""")
     targets.add_argument("--internal", default=False,
                          action="store_true",
                          help="""Flag. If set, for each gene with more than one transcript isoform

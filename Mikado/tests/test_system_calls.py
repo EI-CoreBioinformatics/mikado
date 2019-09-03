@@ -1219,8 +1219,7 @@ class PickTest(unittest.TestCase):
                 self.json_conf["not_fragmentary"].pop("compiled", None)
 
                 with open(json_file, "wt") as json_handle:
-                    sub_configure.print_config(yaml.dump(self.json_conf, default_flow_style=False),
-                                                              json_handle)
+                    sub_configure.print_config(yaml.dump(self.json_conf, default_flow_style=False), json_handle)
 
                 sys.argv = ["mikado", "pick", "--json-conf", json_file, "--seed", "1078"]
                 with self.assertRaises(SystemExit):
@@ -1233,10 +1232,66 @@ class PickTest(unittest.TestCase):
                     self.assertGreater(len([_ for _ in lines if _.is_transcript is True]), 0)
                     self.assertGreater(len([_ for _ in lines if _.feature == "mRNA"]), 0)
                     self.assertGreater(len([_ for _ in lines if _.feature == "CDS"]), 0)
+                [os.remove(_) for _ in glob.glob(os.path.join(dir.name, "mikado.subproc.") + "*")]
+
+        dir.cleanup()
+
+    @mark.slow
+    @unittest.skipUnless(os.path.exists("/dev/shm") and os.access("/dev/shm", os.W_OK),
+                         "/dev/shm not present or not writeable")
+    def test_subprocess_shm(self):
+        self.json_conf["pick"]["files"]["input"] = pkg_resources.resource_filename("Mikado.tests",
+                                                                                   "mikado_prepared.gtf")
+        dir = tempfile.TemporaryDirectory()
+        self.json_conf["pick"]["files"]["output_dir"] = dir.name
+        self.json_conf["pick"]["files"]["loci_out"] = "mikado.subproc.loci.gff3"
+        self.json_conf["pick"]["files"]["subloci_out"] = "mikado.subproc.subloci.gff3"
+        self.json_conf["pick"]["files"]["monoloci_out"] = "mikado.subproc.monoloci.gff3"
+        self.json_conf["pick"]["alternative_splicing"]["pad"] = False
+        self.json_conf["pick"]["files"]["log"] = "mikado.subproc.log"
+        self.json_conf["db_settings"]["db"] = str(pkg_resources.resource_filename("Mikado.tests", "mikado.db"))
+        self.json_conf["log_settings"]["log_level"] = "WARNING"
+
+        for num, shm in itertools.product((1, 2), (True,)):
+            with self.subTest(num=num, shm=shm):
+
+                self.json_conf["pick"]["run_options"]["procs"] = num
+                self.json_conf["pick"]["run_options"]["single_thread"] = (num == 1)
+                json_file = os.path.join(dir.name, "mikado.yaml")
+
+                # Printing out would crash without removing these compiled bits
+                self.json_conf["requirements"].pop("compiled", None)
+                self.json_conf["as_requirements"].pop("compiled", None)
+                self.json_conf["not_fragmentary"].pop("compiled", None)
+
+                with open(json_file, "wt") as json_handle:
+                    sub_configure.print_config(yaml.dump(self.json_conf, default_flow_style=False), json_handle)
+
+                log = "pick.log"
+                if os.path.exists(os.path.join(dir.name, log)):
+                    os.remove(os.path.join(dir.name, log))
+                sys.argv = ["mikado", "pick", "--json-conf", json_file, "--seed", "1078", "--log", log]
+                if shm is True:
+                    sys.argv.append("--shm")
+                with self.assertRaises(SystemExit):
+                    pkg_resources.load_entry_point("Mikado", "console_scripts", "mikado")()
+
+                self.assertTrue(os.path.exists(os.path.join(dir.name, "mikado.subproc.loci.gff3")))
+                with to_gff(os.path.join(dir.name, "mikado.subproc.loci.gff3")) as inp_gff:
+                    lines = [_ for _ in inp_gff if not _.header is True]
+                    self.assertGreater(len(lines), 0)
+                    self.assertGreater(len([_ for _ in lines if _.is_transcript is True]), 0)
+                    self.assertGreater(len([_ for _ in lines if _.feature == "mRNA"]), 0)
+                    self.assertGreater(len([_ for _ in lines if _.feature == "CDS"]), 0)
+                with open(os.path.join(dir.name, log)) as hlog:
+                    log_lines = [_.rstrip() for _ in hlog]
+                if shm is True:
+                    self.assertTrue(any("Copying Mikado database into a SHM db" in _ for _ in log_lines))
 
                 [os.remove(_) for _ in glob.glob(os.path.join(dir.name, "mikado.subproc.") + "*")]
 
         dir.cleanup()
+
 
     @mark.slow
     def test_different_scoring(self):

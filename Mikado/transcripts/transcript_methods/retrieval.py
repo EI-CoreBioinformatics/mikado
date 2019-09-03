@@ -226,7 +226,7 @@ def __load_blast(transcript, data_dict=None, reverse=False):
             query=transcript.id,
             evalue=maximum_evalue)]
     else:
-        blast_hits_query = data_dict["hits"].get(transcript.id, [])
+        blast_hits_query = data_dict.get("hits", dict()).get(transcript.id, [])
 
     transcript.logger.debug("Starting to load BLAST data for %s",
                               transcript.id)
@@ -386,12 +386,12 @@ def retrieve_from_dict(transcript, data_dict):
     transcript.logger.debug("Retrieving ORF information from DB dictionary for %s",
                             transcript.id)
 
-    if transcript.id in data_dict["external"]:
+    if transcript.id in data_dict.get("external", dict()):
         ext_score = data_dict["external"][transcript.id]
         transcript.external_scores.update(ext_score)
 
     if transcript.is_reference is False:
-        if transcript.id in data_dict["orfs"]:
+        if transcript.id in data_dict.get("orfs", dict()):
             candidate_orfs = list(orf for orf in data_dict["orfs"][transcript.id] if
                                   orf.cds_len >= min_cds_len)
         else:

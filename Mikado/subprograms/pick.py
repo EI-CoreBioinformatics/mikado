@@ -145,6 +145,9 @@ def check_run_options(args, logger=create_null_logger()):
 
                 args.json_conf["pick"]["files"][key] = val
 
+    if args.shm is True:
+        args.json_conf["pick"]["run_options"]["shm"] = True
+
     if args.only_reference_update is True:
         args.json_conf["pick"]["run_options"]["only_reference_update"] = True
 
@@ -208,22 +211,24 @@ def pick_parser():
     parser.add_argument("--start-method", dest="start_method",
                         choices=["fork", "spawn", "forkserver"],
                         default=None, help="Multiprocessing start method.")
+    parser.add_argument("--shm", default=False, action="store_true",
+                        help="Flag. If switched, Mikado pick will copy the database to RAM (ie SHM) for faster access \
+during the run.")
     parser.add_argument("-p", "--procs", type=int, default=None,
-                        help="""Number of processors to use.
-                        Default: look in the configuration file (1 if undefined)""")
+                        help="""Number of processors to use. \
+Default: look in the configuration file (1 if undefined)""")
     parser.add_argument("--json-conf", dest="json_conf",
                         type=argparse.FileType("r"), required=True,
                         help="JSON/YAML configuration file for Mikado.")
     parser.add_argument("--scoring-file", dest="scoring_file",
                         type=str, default=None,
                         required=False,
-                        help="Optional scoring file for the run. It will override ")
+                        help="Optional scoring file for the run. It will override the value set in the configuration.")
     parser.add_argument("-i", "--intron-range",
                         dest="intron_range", type=int, nargs=2,
                         default=None,
-                        help="""Range into which intron lengths should fall, as a couple of integers.
-                        Transcripts with intron lengths outside of this range will be penalised.
-                        Default: (60, 900)""")
+                        help="""Range into which intron lengths should fall, as a couple of integers. \
+Transcripts with intron lengths outside of this range will be penalised. Default: (60, 900)""")
     padding = parser.add_mutually_exclusive_group()
     padding.add_argument("--no-pad", dest="pad", default=None, action="store_false", help="Disable transcript padding.")
     padding.add_argument("--pad", default=None,
@@ -246,34 +251,33 @@ def pick_parser():
                         help='Source field to use for the output files.')
 
     parser.add_argument("--no_cds", action="store_true", default=False,
-                        help="""Flag. If set, not CDS information
-                        will be printed out in the GFF output files.""")
+                        help="""Flag. If set, not CDS information will be printed out in the GFF output files.""")
 
     parser.add_argument("--flank", default=None, type=int,
-                        help="""Flanking distance (in bps) to group non-overlapping transcripts
-                        into a single superlocus. Default: determined by the configuration file.""")
+                        help="""Flanking distance (in bps) to group non-overlapping transcripts into a single \
+superlocus. Default: determined by the configuration file.""")
     parser.add_argument('--no-purge', action='store_true', default=False,
-                        help='''Flag. If set, the pipeline will NOT suppress any loci
-                        whose transcripts do not pass the requirements set in the JSON file.''')
+                        help='''Flag. If set, the pipeline will NOT suppress any loci \
+whose transcripts do not pass the requirements set in the JSON file.''')
     parser.add_argument("--cds-only", dest="cds_only",
                         default=False, action="store_true",
-                        help=""""Flag. If set, Mikado will only look for overlap in the coding features
-                        when clustering transcripts (unless one transcript is non-coding, in which case
-                        the whole transcript will be considered). Default: False, Mikado will consider
-                        transcripts in their entirety.""")
+                        help=""""Flag. If set, Mikado will only look for overlap in the coding features \
+when clustering transcripts (unless one transcript is non-coding, in which case  the whole transcript will \
+be considered). Please note that Mikado will only consider the **best** ORF for this. \
+Default: False, Mikado will consider transcripts in their entirety.""")
     parser.add_argument("--only-reference-update", dest="only_reference_update", default=None,
                         action="store_true",
-                        help="""Flag. If switched on, Mikado will only keep loci where at least one of the transcripts
-                        is marked as "reference". CAUTION: new and experimental. If no transcript has been marked as
-                        reference, the output will be completely empty!""")
+                        help="""Flag. If switched on, Mikado will only keep loci where at least one of the transcripts \
+is marked as "reference". CAUTION: new and experimental. If no transcript has been marked as reference, \
+the output will be completely empty!""")
     parser.add_argument("--consider-truncated-for-retained", dest="consider_truncated_for_retained",
                         action="store_true", default=False,
-                        help="""Flag. If set, Mikado will consider as retained intron events also transcripts
-                        which lack UTR but whose CDS ends within a CDS intron of another model.""")
+                        help="""Flag. If set, Mikado will consider as retained intron events also transcripts \
+which lack UTR but whose CDS ends within a CDS intron of another model.""")
     parser.add_argument("-db", "--sqlite-db", dest="sqlite_db",
                         default=None, type=str,
                         help="Location of an SQLite database to overwrite what is specified \
-                             in the configuration file.")
+in the configuration file.")
     parser.add_argument("-od", "--output-dir", dest="output_dir",
                         type=str, default=None,
                         help="Output directory. Default: current working directory")

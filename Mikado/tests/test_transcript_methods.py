@@ -766,6 +766,7 @@ Chr5	TAIR10	exon	5256	5576	.	-	.	Parent=AT5G01015.1"""
             new_t = Transcript(logger=logger)
             d = t.as_dict()
             d["orfs"]["2"] = [("exon", (1, 1200)), ("UTR", (1, 1099)), ("CDS", [1100, 1200], 0)]
+            d["finalized"] = False
             new_t.load_dict(d)
             self.assertTrue(new_t.is_coding)
             self.assertEqual(new_t.number_internal_orfs, 3)
@@ -774,6 +775,7 @@ Chr5	TAIR10	exon	5256	5576	.	-	.	Parent=AT5G01015.1"""
         # Now let us check what happens with the addition of an incompatible ORF
         new_t = Transcript()
         d = t.as_dict()
+        d["finalized"] = False
         d["orfs"]["2"] = [("CDS", (900, 1200), 0)]
         with self.assertLogs(logger=new_t.logger, level="DEBUG") as cmo:
             new_t.load_dict(d)

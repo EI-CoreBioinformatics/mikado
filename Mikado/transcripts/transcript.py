@@ -28,6 +28,7 @@ from ..serializers.external import External
 from ..serializers.orf import Orf
 from ..transcripts.clique_methods import find_communities, define_graph
 from ..utilities.log_utils import create_null_logger
+from ..utilities import rgetattr
 from .transcript_methods import splitting, retrieval
 from .transcript_methods.finalizing import finalize
 from .transcript_methods.printing import create_lines_cds
@@ -155,6 +156,10 @@ class Metric(property):
     rtype = property(fget=rtype_getter,
                      fset=rtype_setter,
                      fdel=None)
+
+    @property
+    def settable(self):
+        return self.fset is not None
 
     pass
 
@@ -624,7 +629,9 @@ class Transcript:
         """
 
         if not hasattr(other, "chrom") or not hasattr(other, "start") or not hasattr(other, "end"):
-            raise TypeError("I cannot compare two different types")
+            raise TypeError("I cannot compare two different types: {} vs {}".format(
+                type(self), type(other)
+            ))
 
         if self.chrom != other.chrom:
             return self.chrom < other.chrom
@@ -1280,6 +1287,7 @@ class Transcript:
         """
 
         state = dict()
+        self.finalize()
 
         for key in ["chrom", "source", "start", "end", "strand", "score", "attributes"]:
 
@@ -1291,6 +1299,7 @@ class Transcript:
         state["exons"] = []
         for exon in self.exons:
             state["exons"].append([exon[0], exon[1]])
+        state["introns"] = list((intron[0], intron[1]) for intron in self.introns)
 
         state["orfs"] = dict()
         state["selected_orf"] = self.selected_internal_orf_index
@@ -1308,16 +1317,21 @@ class Transcript:
                 state["orfs"][str(index)].append(to_store)
         state["parent"] = getattr(self, "parent")
         state["id"] = getattr(self, "id")
+        state["finalized"] = getattr(self, "finalized")
+        state["splices"] = list(self.splices.copy())
+        state["combined_utr"] = list(self.combined_utr)
+        state["combined_cds"] = list(self.combined_cds)
+        for metric in self.get_modifiable_metrics():
+            state[metric] = getattr(self, metric)
         return state
 
     def load_dict(self, state, trust_orf=False):
-        self.finalized = False
 
         for key in ["chrom", "source",
                     "start", "end", "strand", "score",
                     "parent", "id"]:
             if key not in state:
-                raise CorruptIndex("Key not found for {}: {}".format(self.id, key))
+                raise CorruptIndex("Key not found for {}: {} ({})".format(self.id, key, type(state)))
             if isinstance(state[key], str):
                 state[key] = intern(state[key])
             setattr(self, key, state[key])
@@ -1348,6 +1362,11 @@ class Transcript:
             if len(exon) != 2:
                 raise CorruptIndex("Invalid exonic values of {}".format(self.id))
             self.exons.append(tuple(exon))
+        for intron in state["introns"]:
+            if len(intron) != 2:
+                raise CorruptIndex("Invalid intronic values of {}".format(self.id))
+            self.introns.add(tuple(intron))
+        self.splices = set(state["splices"])
 
         self._trust_orf = trust_orf
         self.internal_orfs = []
@@ -1381,6 +1400,15 @@ class Transcript:
             self.selected_internal_orf_index = state["selected_orf"]
         except (ValueError, IndexError):
             raise CorruptIndex("Invalid values for ORFs of {}".format(self.id))
+
+        for metric in self.get_modifiable_metrics():
+            setattr(self, metric, state[metric])
+        self.__calculate_cdna_length()
+        self.finalized = state["finalized"]
+        if self.finalized:
+            self.combined_utr = sorted([tuple(combi) for combi in state["combined_utr"]])
+        else:
+            self.combined_utr = []
 
         self.finalize()
 
@@ -1500,6 +1528,15 @@ class Transcript:
         _metrics = sorted([metric for metric in metrics])
         final_metrics = ["tid", "alias", "parent", "original_source", "score"] + _metrics
         return final_metrics
+
+    @classmethod
+    @functools.lru_cache(maxsize=None, typed=True)
+    def get_modifiable_metrics(cls) -> list:
+
+        metrics = [member[0] for member in inspect.getmembers(cls) if
+                   "__" not in member[0] and isinstance(cls.__dict__[member[0]], Metric)
+                   and getattr(cls.__dict__[member[0]], "fset") is not None]
+        return metrics
 
     # ###################Class properties##################################
 
@@ -2414,14 +2451,18 @@ index {3}, internal ORFs: {4}".format(
     combined_utr_fraction.usable_raw = True
     combined_utr_fraction.rtype = "float"
 
+    def __calculate_cdna_length(self):
+        ar = np.array(list(zip(*self.exons)))
+        self.__cdna_length = int(np.subtract(ar[1], ar[0] - 1).sum())
+
     @Metric
     def cdna_length(self):
         """This property returns the length of the transcript."""
         if self.__cdna_length is None and self.finalized is True:
             raise AssertionError
         if self.finalized is False or self.__cdna_length is None:
-            ar = np.array(list(zip(*self.exons)))
-            self.__cdna_length = int(np.subtract(ar[1], ar[0] - 1).sum())
+            self.__calculate_cdna_length()
+
         return self.__cdna_length
 
     cdna_length.category = "cDNA"
@@ -2722,9 +2763,8 @@ index {3}, internal ORFs: {4}".format(
         if not isinstance(args[0], (float, int)) or (args[0] < 0 or args[0] > 1):
             raise TypeError("Invalid value for the fraction: {0}".format(args[0]))
         if not self.monoexonic and args[0] == 0:
-            raise ValueError(
-                """It is impossible that the intron fraction is null
-                when the transcript has at least one intron!""")
+            raise ValueError("""It is impossible that the intron fraction is null \
+when the transcript has at least one intron!""")
         self.__intron_fraction = args[0]
 
     intron_fraction.category = "Locus"

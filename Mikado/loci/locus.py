@@ -17,7 +17,6 @@ from ..parsers.GFF import GffLine
 from ..scales.assigner import Assigner
 from ..exceptions import InvalidTranscript
 import networkx as nx
-from itertools import combinations
 import numpy as np
 
 
@@ -27,7 +26,7 @@ class Locus(Abstractlocus):
     additional transcripts if they are valid splicing isoforms.
     """
 
-    def __init__(self, transcript: Transcript, logger=None, json_conf=None,
+    def __init__(self, transcript=None, logger=None, json_conf=None,
                  pad_transcripts=None, **kwargs):
         """
         Constructor class. Like all loci, also Locus is defined starting from a transcript.
@@ -39,29 +38,30 @@ class Locus(Abstractlocus):
         :type logger: None | logging.Logger
         """
 
-        self.counter = 0
-        transcript.attributes["primary"] = True
-        if transcript.is_coding:
-            transcript.feature = "mRNA"
-        else:
-            transcript.feature = "ncRNA"
-
         self.counter = 0  # simple tag to avoid collisions
         Abstractlocus.__init__(self, logger=logger, json_conf=json_conf, **kwargs)
+        if transcript is not None:
+            transcript.attributes["primary"] = True
+            if transcript.is_coding:
+                transcript.feature = "mRNA"
+            else:
+                transcript.feature = "ncRNA"
+            self.monoexonic = transcript.monoexonic
+            Abstractlocus.add_transcript_to_locus(self, transcript)
+            self.locus_verified_introns = transcript.verified_introns
+            self.tid = transcript.id
+            self.logger.debug("Created Locus object with {0}".format(transcript.id))
+            self.primary_transcript_id = transcript.id
+
         # this must be defined straight away
-        self.monoexonic = transcript.monoexonic
-        Abstractlocus.add_transcript_to_locus(self, transcript)
-        self.locus_verified_introns = transcript.verified_introns
         # A set of the transcript we will ignore during printing
         # because they are duplications of the original instance. Done solely to
         # get the metrics right.
         self.__orf_doubles = collections.defaultdict(set)
         self.excluded = None
         self.parent = None
-        self.tid = transcript.id
+
         self.attributes = dict()
-        self.logger.debug("Created Locus object with {0}".format(transcript.id))
-        self.primary_transcript_id = transcript.id
         self.attributes["is_fragment"] = False
         self.metric_lines_store = []
         self.__id = None
@@ -73,8 +73,7 @@ class Locus(Abstractlocus):
             self.json_conf["pick"]["alternative_splicing"]["pad"] = pad_transcripts
             assert self.perform_padding == pad_transcripts
 
-        if self.perform_padding is True and False and \
-                self.json_conf["pick"]["run_options"]["only_reference_update"] is True:
+        if self.perform_padding is True and self.json_conf["pick"]["run_options"]["only_reference_update"] is True:
             self._add_to_alternative_splicing_codes("=")
             self._add_to_alternative_splicing_codes("_")
             self._add_to_alternative_splicing_codes("n")
@@ -114,6 +113,10 @@ class Locus(Abstractlocus):
             transcript_instance.source = self.source
             transcript_instance.parent = self_line.id
             self.logger.debug(self.attributes)
+            if self.transcripts[tid].is_coding:
+                self.transcripts[tid].feature = "mRNA"
+            else:
+                self.transcripts[tid].feature = "ncRNA"
             for attribute in self.attributes:
                 if attribute not in transcript_instance.attributes:
                     if attribute == "is_fragment" and self.attributes[attribute] is False:
@@ -126,6 +129,10 @@ class Locus(Abstractlocus):
             ).rstrip())
 
         return "\n".join(lines)
+
+    def __setstate__(self, state):
+        super(Locus, self).__setstate__(state)
+        self._not_passing = set(self._not_passing)
 
     def finalize_alternative_splicing(self):
 
@@ -160,8 +167,8 @@ class Locus(Abstractlocus):
             self.logger.debug("%d transcripts have a score over the threshold", len(score_passing))
 
             to_keep.update(set([_[0] for _ in itertools.islice(score_passing, max_isoforms)]))
-            self.logger.debug("%d transcripts retained after the check for score and max. no. of isoforms (%d)",
-                              len(to_keep), max_isoforms)
+            self.logger.debug("%d transcripts retained after the check for score (minimum %d) \
+and max. no. of isoforms (%d)", len(to_keep), threshold, max_isoforms)
 
             if to_keep == set(self.transcripts.keys()):
                 self.logger.debug("Finished to discard superfluous transcripts from {}".format(self.id))
@@ -306,8 +313,17 @@ class Locus(Abstractlocus):
 
         # First thing: calculate the class codes
         class_codes = dict()
-        for t1, t2 in itertools.combinations(self.transcripts.keys(), 2):
-            class_codes[(t1, t2)] = Assigner.compare(self[t1], self[t2])[0]
+        ichains = collections.defaultdict(list)
+        for tid in self.transcripts:
+            if self.transcripts[tid].introns:
+                key = tuple(self.transcripts[tid].introns)
+            else:
+                key = None
+            ichains[key].append(tid)
+
+        for ichain in ichains:
+            for t1, t2 in itertools.combinations(ichains[ichain], 2):
+                class_codes[(t1, t2)] = Assigner.compare(self[t1], self[t2])[0]
 
         to_remove = set()
         for couple, comparison in class_codes.items():
@@ -747,9 +763,7 @@ class Locus(Abstractlocus):
                             tid not in (self.primary_transcript_id, other.id)):
                 candidate = self.transcripts[tid]
                 if self.json_conf["pick"]["clustering"]["cds_only"] is True:
-                    result, _ = Assigner.compare(
-                        other._selected_orf_transcript,
-                        candidate._selected_orf_transcript)
+                    result, _ = Assigner.compare(other._selected_orf_transcript, candidate._selected_orf_transcript)
                 else:
                     result, _ = Assigner.compare(other, candidate)
                 if result.ccode[0] in redundant_ccodes:
@@ -900,7 +914,8 @@ class Locus(Abstractlocus):
                             # assert edge[1].id in self.scores
                             graph.add_edge(edge[0].id, edge[1].id)
         else:
-            self.logger.warning("No comparison to be made (objects: %s)", objects)
+
+            self.logger.debug("No comparison to be made (objects: %s)", objects)
 
         return graph
 

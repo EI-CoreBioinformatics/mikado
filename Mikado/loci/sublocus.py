@@ -30,7 +30,7 @@ class Sublocus(Abstractlocus):
     # ############### Class special methods ##############
 
     def __init__(self,
-                 transcript_instance,
+                 transcript_instance=None,
                  json_conf=None,
                  logger=None,
                  verified_introns=None,
@@ -59,9 +59,7 @@ class Sublocus(Abstractlocus):
                                **kwargs)
         self.feature = self.__name__
         self.logger.debug("Verified introns for %s: %s", self.id, verified_introns)
-        self.fixed_size = True if transcript_instance.feature == "sublocus" else False
-        if transcript_instance.__name__ == "transcript":
-            transcript_instance.finalize()
+        self.fixed_size = False
         self.source = self.json_conf["pick"]["output_format"]["source"]
 
         self.excluded = None
@@ -70,8 +68,13 @@ class Sublocus(Abstractlocus):
         # Flag to indicate that we have not calculated the metrics for the transcripts
         # Flag to indicate that we have not calculated the scores for the transcripts
         setattr(self, "monoexonic", getattr(transcript_instance, "monoexonic", None))
-        if json_conf is None and transcript_instance.json_conf is not None:
-            json_conf = transcript_instance.json_conf
+        if transcript_instance is not None:
+            if transcript_instance.__name__ == "transcript":
+                transcript_instance.finalize()
+            if json_conf is None and transcript_instance.json_conf is not None:
+                json_conf = transcript_instance.json_conf
+            if transcript_instance and transcript_instance.feature == "sublocus":
+                self.fixed_size = True
 
         if json_conf is None or not isinstance(json_conf, dict):
             raise ValueError("I am missing the configuration for prioritizing transcripts!")
@@ -88,10 +91,10 @@ class Sublocus(Abstractlocus):
             self.parent = transcript_instance.parent
         else:
             self.parent = getattr(transcript_instance, "parent", None)
-            self.chrom = getattr(transcript_instance, "chrom")
-            self.start = getattr(transcript_instance, "start")
-            self.end = getattr(transcript_instance, "end")
-            self.strand = getattr(transcript_instance, "strand")
+            self.chrom = getattr(transcript_instance, "chrom", None)
+            self.start = getattr(transcript_instance, "start", None)
+            self.end = getattr(transcript_instance, "end", None)
+            self.strand = getattr(transcript_instance, "strand", None)
             self.attributes = getattr(transcript_instance, "attributes", dict())
 
         self.monosubloci = []
@@ -127,6 +130,22 @@ class Sublocus(Abstractlocus):
     # pylint: enable=arguments-differ
 
     # ########## Class instance methods #####################
+
+    def as_dict(self):
+        state = super().as_dict()
+        state["monosubloci"] = [_.as_dict() for _ in self.monosubloci]
+        state["excluded"] = self.excluded.as_dict()
+        return state
+
+    def load_dict(self, state):
+        super().load_dict(state)
+        self.monosubloci = []
+        for stat in state["monosubloci"]:
+            s = Monosublocus()
+            s.load_dict(stat)
+            self.monosubloci.append(s)
+        self.excluded = Excluded()
+        self.excluded.load_dict(state["excluded"])
 
     def add_transcript_to_locus(self, transcript: Transcript, **kwargs):
 

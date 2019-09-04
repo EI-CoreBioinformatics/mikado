@@ -38,3 +38,6 @@ dependencies:
   - bioconda::diamond>=0.9.24
   - bioconda::blast>=2.7.1
   - ujson>=1.35
+  - pip
+  - pip:
+    - git+https://github.com/lucventurini/mikado.git@issue-208

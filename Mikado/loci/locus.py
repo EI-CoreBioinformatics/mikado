@@ -332,7 +332,11 @@ and max. no. of isoforms (%d)", len(to_keep), threshold, max_isoforms)
 
             if comparison.n_f1[0] == 100:
                 try:
-                    if self[couple[0]].is_reference and not self[couple[1]].is_reference:
+                    if couple[0] == self.primary_transcript_id:
+                        removal = couple[1]
+                    elif couple[1] == self.primary_transcript_id:
+                        removal = couple[0]
+                    elif self[couple[0]].is_reference and not self[couple[1]].is_reference:
                         removal = couple[1]
                     elif self[couple[0]].score > self[couple[1]].score:
                         removal = couple[1]

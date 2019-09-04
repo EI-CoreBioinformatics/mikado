@@ -160,7 +160,7 @@ def perform_check(keys, shelve_stacks, args, logger):
     # FASTA extraction *has* to be done at the main process level, it's too slow
     # to create an index in each process.
 
-    if args.json_conf["prepare"]["single"] is True or args.json_conf["prepare"]["procs"] == 1:
+    if args.json_conf["prepare"]["single"] is True or args.json_conf["threads"] == 1:
 
         # Use functools to pre-configure the function
         # with all necessary arguments aside for the lines
@@ -213,7 +213,7 @@ def perform_check(keys, shelve_stacks, args, logger):
             lenient=args.json_conf["prepare"]["lenient"],
             canonical_splices=args.json_conf["prepare"]["canonical"],
             force_keep_cds=not args.json_conf["prepare"]["strip_cds"],
-            log_level=args.level) for _ in range(args.json_conf["prepare"]["procs"])]
+            log_level=args.level) for _ in range(args.json_conf["threads"])]
 
         [_.start() for _ in working_processes]
 
@@ -231,13 +231,13 @@ def perform_check(keys, shelve_stacks, args, logger):
         partial_gtf = [os.path.join(args.tempdir.name,
                                     "{0}-{1}".format(
                                         os.path.basename(args.json_conf["prepare"]["files"]["out"].name),
-                                        _ + 1)) for _ in range(args.json_conf["prepare"]["procs"])]
+                                        _ + 1)) for _ in range(args.json_conf["threads"])]
         merge_partial(partial_gtf, args.json_conf["prepare"]["files"]["out"])
 
         partial_fasta = [os.path.join(
             args.tempdir.name,
             "{0}-{1}".format(os.path.basename(args.json_conf["prepare"]["files"]["out_fasta"].name), _ + 1))
-                         for _ in range(args.json_conf["prepare"]["procs"])]
+                         for _ in range(args.json_conf["threads"])]
         merge_partial(partial_fasta, args.json_conf["prepare"]["files"]["out_fasta"])
 
     args.json_conf["prepare"]["files"]["out_fasta"].close()
@@ -377,7 +377,7 @@ f
     """
 
     threads = min([len(args.json_conf["prepare"]["files"]["gff"]),
-                   args.json_conf["prepare"]["procs"]])
+                   args.json_conf["threads"]])
     strip_cds = args.json_conf["prepare"]["strip_cds"]
 
     if args.json_conf["prepare"]["single"] is True or threads == 1:
@@ -445,7 +445,7 @@ def prepare(args, logger):
                     range(len(args.json_conf["prepare"]["files"]["gff"]))]
 
     logger.propagate = False
-    if args.json_conf["prepare"]["single"] is False and args.json_conf["prepare"]["procs"] > 1:
+    if args.json_conf["prepare"]["single"] is False and args.json_conf["threads"] > 1:
         multiprocessing.set_start_method(args.json_conf["multiprocessing_method"],
                                          force=True)
         args.logging_queue = multiprocessing.JoinableQueue(-1)
@@ -513,7 +513,7 @@ def prepare(args, logger):
         logger.error("Mikado has encountered an error, exiting")
         # sys.exit(1)
 
-    if args.json_conf["prepare"]["single"] is False and args.json_conf["prepare"]["procs"] > 1:
+    if args.json_conf["prepare"]["single"] is False and args.json_conf["threads"] > 1:
         args.tempdir.cleanup()
         args.listener.enqueue_sentinel()
 

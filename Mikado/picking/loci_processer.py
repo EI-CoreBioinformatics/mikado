@@ -303,7 +303,7 @@ def analyse_locus(slocus: Superlocus,
     if slocus is None:
         # printer_dict[counter] = []
         if printer_queue:
-            while printer_queue.qsize() >= json_conf["pick"]["run_options"]["procs"] * 10:
+            while printer_queue.qsize() >= json_conf["threads"] * 10:
                 continue
             # printer_queue.put_nowait(([], counter))
             return
@@ -350,7 +350,7 @@ def analyse_locus(slocus: Superlocus,
             slocus.id)
         # printer_dict[counter] = []
         if printer_queue:
-            while printer_queue.qsize >= json_conf["pick"]["run_options"]["procs"] * 10:
+            while printer_queue.qsize >= json_conf["threads"] * 10:
                 continue
             # printer_queue.put_nowait(([], counter))
             return
@@ -391,7 +391,7 @@ def analyse_locus(slocus: Superlocus,
         logger.error(err)
         pass
     if printer_queue:
-        while printer_queue.qsize() >= json_conf["pick"]["run_options"]["procs"] * 10:
+        while printer_queue.qsize() >= json_conf["threads"] * 10:
             continue
         logger.debug("Finished with %s, counter %d", slocus.id, counter)
         logger.removeHandler(handler)

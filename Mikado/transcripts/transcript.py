@@ -277,6 +277,7 @@ class Transcript:
         self.__exons = set()
         self.__parent = []
         self.__combined_cds = []
+        self.__exon_num = None
 
         self.__combined_cds_length = 0
         self.__selected_cds = []
@@ -296,6 +297,7 @@ class Transcript:
         self._original_source = None
         self.__external_scores = Namespace(default=(0, False))
         self.__internal_orf_transcripts = []
+        self.__cds_not_maximal = None
 
         # Starting settings for everything else
         self.__chrom = None
@@ -1321,6 +1323,9 @@ class Transcript:
         state["splices"] = list(self.splices.copy())
         state["combined_utr"] = list(self.combined_utr)
         state["combined_cds"] = list(self.combined_cds)
+        # Now let'add the things that we calculate with the basic lengths
+
+        state["calculated"] = self.__get_calculated_stats()
         for metric in self.get_modifiable_metrics():
             state[metric] = getattr(self, metric)
         return state
@@ -1370,6 +1375,7 @@ class Transcript:
 
         self._trust_orf = trust_orf
         self.internal_orfs = []
+
         self.logger.debug("Starting to load the ORFs for %s", self.id)
         try:
             indices = dict((int(_), _) for _ in state["orfs"])
@@ -1401,16 +1407,91 @@ class Transcript:
         except (ValueError, IndexError):
             raise CorruptIndex("Invalid values for ORFs of {}".format(self.id))
 
+        calculated = state["calculated"]
+        del state["calculated"]
+        self.__load_calculated_stats(calculated)
         for metric in self.get_modifiable_metrics():
             setattr(self, metric, state[metric])
-        self.__calculate_cdna_length()
         self.finalized = state["finalized"]
         if self.finalized:
             self.combined_utr = sorted([tuple(combi) for combi in state["combined_utr"]])
         else:
             self.combined_utr = []
-
         self.finalize()
+
+    def __get_calculated_stats(self):
+        d = dict()
+        self.finalize()
+        d["exon_num"] = self.exon_num
+        d["three_utr"] = self.three_utr
+        d["five_utr"] = self.five_utr
+        d["combined_cds_length"] = self.combined_cds_length
+        d["combined_cds_fraction"] = self.combined_cds_fraction
+        d["selected_cds_num"] = self.selected_cds_num
+        d["selected_cds_number_fraction"] = self.selected_cds_number_fraction
+        d["three_utr_length"] =self.three_utr_length
+        d["five_utr_length"] = self.five_utr_length
+        d["three_utr_length"] = self.three_utr_length
+        d["five_utr_length"] = self.five_utr_length
+        d["utr_length"] = self.utr_length
+        d["utr_fraction"] = self.utr_fraction
+        d["five_utr_num"] = self.five_utr_num
+        d["five_utr_num_complete"] = self.five_utr_num_complete
+        d["three_utr_num"] = self.three_utr_num
+        d["three_utr_num_complete"] = self.three_utr_num_complete
+        d["utr_num_complete"] = self.utr_num_complete
+        d["utr_num"] = self.utr_num
+        d["highest_cds_exons_num"] = self.highest_cds_exons_num
+        d["min_intron_length"] = self.min_intron_length
+        d["max_intron_length"] = self.max_intron_length
+        d["highest_cds_exon_number"] = self.highest_cds_exon_number
+        d["selected_cds_exons_fraction"] = self.selected_cds_exons_fraction
+        d["cdna_length"] = self.cdna_length
+        d["cds_not_maximal"] = self.cds_not_maximal
+        d["cds_not_maximal_fraction"] = self.cds_not_maximal_fraction
+        d["end_distance_from_tes"] = self.end_distance_from_tes
+        d["end_distance_from_junction"] = self.end_distance_from_junction
+        d["selected_end_distance_from_junction"] = self.selected_end_distance_from_junction
+        d["selected_end_distance_from_tes"] = self.selected_end_distance_from_tes
+        d["selected_start_distance_from_tss"] = self.selected_start_distance_from_tss
+        d["start_distance_from_tss"] = self.start_distance_from_tss
+
+        return d
+
+    def __load_calculated_stats(self, state):
+        self.__exon_num = state["exon_num"]
+        self.__three_utr = state["three_utr"]
+        self.__five_utr = state["five_utr"]
+        self.__combined_cds_length = state["combined_cds_length"]
+        self.__combined_cds_fraction = state["combined_cds_fraction"]
+        self.__selected_cds_num = state["selected_cds_num"]
+        self.__selected_cds_number_fraction = state["selected_cds_number_fraction"]
+        self.__three_utr_length = state["three_utr_length"]
+        self.__five_utr_length = state["five_utr_length"]
+        self.__three_utr_length = state["three_utr_length"]
+        self.__five_utr_length = state["five_utr_length"]
+        self.__utr_length = state["utr_length"]
+        self.__utr_fraction = state["utr_fraction"]
+        self.__five_utr_num = state["five_utr_num"]
+        self.__five_utr_num_complete = state["five_utr_num_complete"]
+        self.__three_utr_num = state["three_utr_num"]
+        self.__three_utr_num_complete = state["three_utr_num_complete"]
+        self.__utr_num_complete = state["utr_num_complete"]
+        self.__utr_num = state["utr_num"]
+        self.__highest_cds_exons_num = state["highest_cds_exons_num"]
+        self.__min_intron_length = state["min_intron_length"]
+        self.__max_intron_length = state["max_intron_length"]
+        self.__highest_cds_exon_number = state["highest_cds_exon_number"]
+        self.__selected_cds_exons_fraction = state["selected_cds_exons_fraction"]
+        self.__cdna_length = state["cdna_length"]
+        self.__cds_not_maximal = state["cds_not_maximal"]
+        self.__cds_not_maximal_fraction = state["cds_not_maximal_fraction"]
+        self.__end_distance_from_tes = state["end_distance_from_tes"]
+        self.__end_distance_from_junction = state["end_distance_from_junction"]
+        self.__selected_end_distance_from_junction = state["selected_end_distance_from_junction"]
+        self.__selected_end_distance_from_tes = state["selected_end_distance_from_tes"]
+        self.__selected_start_distance_from_tss = state["selected_start_distance_from_tss"]
+        self.__start_distance_from_tss = state["start_distance_from_tss"]
 
     def add_derived_child(self, name):
 
@@ -1906,44 +1987,13 @@ class Transcript:
     def five_utr(self):
         """Returns the exons in the 5' UTR of the selected ORF.
         If the start codon is absent, no UTR is given."""
-        if len(self.combined_cds) == 0:
-            return []
-        if self.strand == "-":
-            return list(utr_segment[1] for utr_segment in self.selected_internal_orf if
-                        utr_segment[0] == "UTR" and utr_segment[1][0] > self.selected_cds_start)
-            #
-            #
-            # return list(
-            #     filter(lambda exon: exon[0] == "UTR" and exon[1][0] > self.selected_cds_start,
-            #            self.selected_internal_orf))
-        else:
-            return list(utr_segment[1] for utr_segment in self.selected_internal_orf if
-                        utr_segment[0] == "UTR" and utr_segment[1][1] < self.selected_cds_start)
-            #
-            #
-            # return list(
-            #     filter(lambda exon: exon[0] == "UTR" and exon[1][1] < self.selected_cds_start,
-            #            self.selected_internal_orf))
+        return self.__five_utr
 
     @property
     def three_utr(self):
         """Returns the exons in the 3' UTR of the selected ORF.
         If the end codon is absent, no UTR is given."""
-        if len(self.combined_cds) == 0:
-            return []
-        if self.strand == "-":
-            return list(utr_segment[1] for utr_segment in self.selected_internal_orf if
-                        utr_segment[0] == "UTR" and utr_segment[1][1] < self.selected_cds_end)
-            # filter(lambda exon: exon[0] == "UTR" and exon[1][1] < self.selected_cds_end,
-            #        self.selected_internal_orf))
-        else:
-            return list(utr_segment[1] for utr_segment in self.selected_internal_orf if
-                        utr_segment[0] == "UTR" and utr_segment[1][0] > self.selected_cds_end)
-            #
-            #
-            # return list(
-            #     filter(lambda exon: exon[0] == "UTR" and exon[1][0] > self.selected_cds_end,
-            #            self.selected_internal_orf))
+        return self.__three_utr
 
     @property
     def selected_internal_orf_index(self):
@@ -2386,6 +2436,21 @@ index {3}, internal ORFs: {4}".format(
     # pylint: disable=method-hidden,invalid-name
 
     @Metric
+    def source_score(self):
+
+        """This metric returns a score that is assigned to the transcript
+        in virtue of its origin."""
+
+        if self.json_conf is not None:
+            return self.json_conf.get("prepare", {}).get("files", {}).get(
+                "source_score", {}).get(self.original_source, 0)
+        else:
+            return 0
+
+    source_score.category = "External"
+    source_score.rtype = "float"
+
+    @Metric
     def combined_cds_length(self):
         """This property return the length of the CDS part of the transcript."""
 
@@ -2393,12 +2458,7 @@ index {3}, internal ORFs: {4}".format(
         #     ar = np.array(list(*zip(self.combined_cds)))
         #     c_length = int(np.subtract(ar[1], ar[0] - 1).sum())
         #     assert c_length > 0
-
-        @functools.lru_cache(typed=True, maxsize=4)
-        def _wrapped(combined_cds):
-            return sum([e[1] - e[0] + 1 for e in combined_cds])
-
-        return _wrapped(tuple(self.combined_cds))
+        return self.__combined_cds_length
 
     combined_cds_length.category = "CDS"
     combined_cds_length.rtype = "int"
@@ -2427,7 +2487,7 @@ index {3}, internal ORFs: {4}".format(
     def combined_cds_fraction(self):
         """This property return the percentage of the CDS part of the transcript
         vs. the cDNA length"""
-        return self.combined_cds_length / self.cdna_length
+        return self.__combined_cds_fraction
 
     combined_cds_fraction.category = "CDS"
     combined_cds_fraction.rtype = "float"
@@ -2489,7 +2549,7 @@ index {3}, internal ORFs: {4}".format(
     @Metric
     def selected_cds_num(self):
         """This property calculates the number of CDS exons for the selected ORF"""
-        return sum(1 for exon in self.selected_internal_orf if exon[0] == "CDS")
+        return self.__selected_cds_num
 
     selected_cds_num.category = "CDS"
     selected_cds_num.rtype = "int"
@@ -2507,7 +2567,7 @@ index {3}, internal ORFs: {4}".format(
     def highest_cds_exons_num(self):
         """Returns the number of CDS segments in the selected ORF
         (irrespective of the number of exons involved)"""
-        return sum(1 for _ in self.selected_internal_orf if _[0] == "CDS")
+        return self.__highest_cds_exons_num
         # return len(list(filter(lambda x: x[0] == "CDS", self.selected_internal_orf)))
 
     highest_cds_exons_num.category = "CDS"
@@ -2517,38 +2577,40 @@ index {3}, internal ORFs: {4}".format(
     def selected_cds_exons_fraction(self):
         """Returns the fraction of CDS segments in the selected ORF
         (irrespective of the number of exons involved)"""
-        return self.highest_cds_exon_number / len(self.exons)
-
-        # return len(list(filter(lambda x: x[0] == "CDS",
-        #                        self.selected_internal_orf))) / len(self.exons)
+        return self.__selected_cds_exons_fraction
 
     selected_cds_exons_fraction.category = "CDS"
     selected_cds_exons_fraction.usable_raw = True
     selected_cds_exons_fraction.rtype = "float"
+
+    def __calculate_selected_cds_exons_fraction(self):
+        self.__selected_cds_exons_fraction = self.highest_cds_exon_number / self.exon_num
 
     @Metric
     def highest_cds_exon_number(self):
         """This property returns the maximum number of CDS segments
         among the ORFs; this number can refer to an ORF *DIFFERENT*
         from the maximal ORF."""
-        if len(self.internal_orfs) == 0:
-            return 0
-
-        cds_numbers = []
-
-        for cds in self.internal_orfs:
-            cds_numbers.append(sum(1 for segment in cds if segment[0] == "CDS"))
-            # len(list(filter(lambda x: x[0] == "CDS", cds))))
-        return max(cds_numbers)
+        return self.__highest_cds_exon_number
 
     highest_cds_exon_number.category = "CDS"
     highest_cds_exon_number.rtype = "int"
+
+    def __calculate_highest_cds_exon_number(self):
+        if len(self.internal_orfs) == 0:
+            self.__highest_cds_exon_number = 0
+        else:
+            cds_numbers = []
+            for cds in self.internal_orfs:
+                cds_numbers.append(sum(1 for segment in cds if segment[0] == "CDS"))
+                # len(list(filter(lambda x: x[0] == "CDS", cds))))
+            self.__highest_cds_exon_number = max(cds_numbers)
 
     @Metric
     def selected_cds_number_fraction(self):
         """This property returns the proportion of best possible CDS segments
         vs. the number of exons. See selected_cds_number."""
-        return self.selected_cds_num / self.exon_num
+        return self.__selected_cds_number_fraction
 
     selected_cds_number_fraction.category = "CDS"
     selected_cds_number_fraction.rtype = "float"
@@ -2556,9 +2618,13 @@ index {3}, internal ORFs: {4}".format(
     @Metric
     def cds_not_maximal(self):
         """This property returns the length of the CDS excluded from the selected ORF."""
+        return self.__cds_not_maximal
+
+    def _set_cds_not_maximal(self):
         if len(self.internal_orfs) < 2:
-            return 0
-        return self.combined_cds_length - self.selected_cds_length
+            self.__cds_not_maximal = 0
+        else:
+            self.__cds_not_maximal = self.combined_cds_length - self.selected_cds_length
 
     cds_not_maximal.category = "CDS"
     cds_not_maximal.rtype = "int"
@@ -2567,10 +2633,14 @@ index {3}, internal ORFs: {4}".format(
     def cds_not_maximal_fraction(self):
         """This property returns the fraction of bases not in the selected ORF compared to
         the total number of CDS bases in the cDNA."""
+        return self.__cds_not_maximal_fraction
+
+    def _set_cds_not_maximal_fraction(self):
+        self._set_cds_not_maximal()
         if self.combined_cds_length == 0:
-            return 0
+            self.__cds_not_maximal_fraction = 0
         else:
-            return self.cds_not_maximal / self.combined_cds_length
+            self.__cds_not_maximal_fraction = self.cds_not_maximal / self.combined_cds_length
 
     cds_not_maximal_fraction.category = "CDS"
     cds_not_maximal_fraction.usable_raw = True
@@ -2579,16 +2649,14 @@ index {3}, internal ORFs: {4}".format(
     @Metric
     def five_utr_length(self):
         """Returns the length of the 5' UTR of the selected ORF."""
-        if len(self.combined_cds) == 0:
-            return 0
-        return sum(utr[1] - utr[0] + 1 for utr in self.five_utr)
+        return self.__five_utr_length
 
     five_utr_length.category = "UTR"
 
     @Metric
     def five_utr_num(self):
         """This property returns the number of 5' UTR segments for the selected ORF."""
-        return len(self.five_utr)
+        return self.__five_utr_num
 
     five_utr_num.category = "UTR"
     five_utr_num.rtype = "int"
@@ -2597,7 +2665,7 @@ index {3}, internal ORFs: {4}".format(
     def five_utr_num_complete(self):
         """This property returns the number of 5' UTR segments for the selected ORF,
         considering only those which are complete exons."""
-        return sum(1 for utr in self.five_utr if utr in self.exons)
+        return self.__five_utr_num_complete
 
     five_utr_num_complete.category = "UTR"
     five_utr_num_complete.rtype = "int"
@@ -2605,9 +2673,7 @@ index {3}, internal ORFs: {4}".format(
     @Metric
     def three_utr_length(self):
         """Returns the length of the 5' UTR of the selected ORF."""
-        if len(self.combined_cds) == 0:
-            return 0
-        return sum(x[1] - x[0] + 1 for x in self.three_utr)
+        return self.__three_utr_length
 
     three_utr_length.__category = "UTR"
     three_utr_length.rtype = "int"
@@ -2616,7 +2682,7 @@ index {3}, internal ORFs: {4}".format(
     def three_utr_num(self):
         """This property returns the number of 3' UTR segments
         (referred to the selected ORF)."""
-        return len(self.three_utr)
+        return self.__three_utr_num
 
     three_utr_num.category = "UTR"
     three_utr_num.rtype = "int"
@@ -2625,7 +2691,7 @@ index {3}, internal ORFs: {4}".format(
     def three_utr_num_complete(self):
         """This property returns the number of 3' UTR segments for the selected ORF,
         considering only those which are complete exons."""
-        return sum(1 for utr in self.three_utr if utr in self.exons)
+        return self.__three_utr_num_complete
 
     three_utr_num_complete.category = "UTR"
     three_utr_num_complete.rtype = "int"
@@ -2633,7 +2699,7 @@ index {3}, internal ORFs: {4}".format(
     @Metric
     def utr_num(self):
         """Returns the number of UTR segments (referred to the selected ORF)."""
-        return len(self.three_utr + self.five_utr)
+        return self.__utr_num
 
     utr_num.category = "UTR"
     utr_num.rtype = "int"
@@ -2642,7 +2708,7 @@ index {3}, internal ORFs: {4}".format(
     def utr_num_complete(self):
         """Returns the number of UTR segments which are
         complete exons (referred to the selected ORF)."""
-        return self.three_utr_num_complete + self.five_utr_num_complete
+        return self.__utr_num_complete
 
     utr_num_complete.category = "UTR"
     utr_num_complete.rtype = "int"
@@ -2651,7 +2717,7 @@ index {3}, internal ORFs: {4}".format(
     def utr_fraction(self):
         """This property calculates the length of the UTR
         of the selected ORF vs. the cDNA length."""
-        return 1 - self.selected_cds_fraction
+        return self.__utr_fraction
 
     utr_fraction.category = "UTR"
     utr_fraction.usable_raw = True
@@ -2660,10 +2726,49 @@ index {3}, internal ORFs: {4}".format(
     @Metric
     def utr_length(self):
         """Returns the sum of the 5'+3' UTR lengths"""
-        return self.three_utr_length + self.five_utr_length
+        return self.__utr_length
 
     utr_length.category = "UTR"
     utr_length.rtype = "int"
+
+    def _set_basic_lengths(self):
+
+        self.__exon_num = len(self.exons)
+        if len(self.combined_cds) == 0:
+            self.__three_utr = []
+            self.__five_utr = []
+        if self.strand == "-":
+            self.__three_utr = list(utr_segment[1] for utr_segment in self.selected_internal_orf if
+                                    utr_segment[0] == "UTR" and utr_segment[1][1] < self.selected_cds_end)
+            self.__five_utr = list(utr_segment[1] for utr_segment in self.selected_internal_orf if
+                                   utr_segment[0] == "UTR" and utr_segment[1][0] > self.selected_cds_start)
+        else:
+            self.__three_utr = list(utr_segment[1] for utr_segment in self.selected_internal_orf if
+                                    utr_segment[0] == "UTR" and utr_segment[1][0] > self.selected_cds_end)
+            self.__five_utr = list(utr_segment[1] for utr_segment in self.selected_internal_orf if
+                                   utr_segment[0] == "UTR" and utr_segment[1][1] < self.selected_cds_start)
+
+        self.__combined_cds_length = sum([e[1] - e[0] + 1 for e in self.combined_cds])
+        self.__combined_cds_fraction = self.combined_cds_length / self.cdna_length
+        self.__selected_cds_num = sum(1 for exon in self.selected_internal_orf if exon[0] == "CDS")
+        self.__selected_cds_number_fraction = self.selected_cds_num / self.exon_num
+        self.__three_utr_length = sum(x[1] - x[0] + 1 for x in self.three_utr)
+        self.__five_utr_length = sum(x[1] - x[0] + 1 for x in self.five_utr)
+        self.__utr_length = self.__three_utr_length + self.__five_utr_length
+        self.__utr_fraction = 1 - self.selected_cds_fraction
+        self.__five_utr_num = len(self.five_utr)
+        self.__five_utr_num_complete = sum(1 for utr in self.five_utr if utr in self.exons)
+        self.__three_utr_num = len(self.three_utr)
+        self.__three_utr_num_complete = sum(1 for utr in self.three_utr if utr in self.exons)
+        self.__utr_num_complete = self.three_utr_num_complete + self.five_utr_num_complete
+        self.__utr_num = self.three_utr_num + self.five_utr_num
+        self.__highest_cds_exons_num = sum(1 for _ in self.selected_internal_orf if _[0] == "CDS")
+        self.__calculate_min_intron_length()
+        self.__calculate_max_intron_length()
+        self.__calculate_highest_cds_exon_number()
+        self.__calculate_selected_cds_exons_fraction()
+        self._set_cds_not_maximal()
+        self._set_cds_not_maximal_fraction()
 
     @Metric
     def has_start_codon(self):
@@ -2712,11 +2817,7 @@ index {3}, internal ORFs: {4}".format(
     def exon_num(self):
         """This property returns the number of exons of the transcript."""
 
-        @functools.lru_cache(typed=True, maxsize=4)
-        def _wrapped(exons):
-            return len(exons)
-
-        return _wrapped(tuple(self.exons))
+        return self.__exon_num or len(self.exons)
 
     exon_num.category = "cDNA"
     exon_num.rtype = "int"
@@ -2782,7 +2883,7 @@ when the transcript has at least one intron!""")
         if not isinstance(value, (int, float)) and 0 <= value <= 1:
             raise TypeError("The fraction should be a number between 0 and 1")
         elif self.combined_cds_length == 0 and value > 0:
-            raise ValueError("{} has no CDS, its CDS fraction cannot be greater than 0!")
+            raise ValueError("{} has no CDS, its CDS fraction cannot be greater than 0!".format(self.id))
         self.__combined_cds_locus_fraction = value
 
     combined_cds_locus_fraction.category = "Locus"
@@ -2810,19 +2911,28 @@ when the transcript has at least one intron!""")
     @Metric
     def max_intron_length(self):
         """This property returns the greatest intron length for the transcript."""
-        if len(self.introns) == 0:
-            return 0
-        return max(intron[1] + 1 - intron[0] for intron in self.introns)
+        return self.__max_intron_length
 
     max_intron_length.category = "Intron"
     max_intron_length.rtype = "int"
 
+    def __calculate_max_intron_length(self):
+        if len(self.introns) == 0:
+            self.__max_intron_length = 0
+        else:
+            self.__max_intron_length = max(intron[1] + 1 - intron[0] for intron in self.introns)
+
     @Metric
     def min_intron_length(self):
         """This property returns the smallest intron length for the transcript."""
+        return self.__min_intron_length
+
+    def __calculate_min_intron_length(self):
+
         if len(self.introns) == 0:
-            return 0
-        return min(intron[1] + 1 - intron[0] for intron in self.introns)
+            self.__min_intron_length = 0
+        else:
+            self.__min_intron_length = min(intron[1] + 1 - intron[0] for intron in self.introns)
 
     min_intron_length.category = "Intron"
     min_intron_length.rtype = "int"
@@ -2832,24 +2942,30 @@ when the transcript has at least one intron!""")
         """This property returns the distance of the start of the combined CDS
         from the transcript start site.
         If no CDS is defined, it defaults to 0."""
-        if len(self.internal_orfs) < 2:
-            return self.selected_start_distance_from_tss
-        distance = 0
-        if self.strand == "+" or self.strand is None:
-            for exon in self.exons:
-                distance += min(exon[1], self.combined_cds_start - 1) - exon[0] + 1
-                if self.combined_cds_start <= exon[1]:
-                    break
-        elif self.strand == "-":
-            exons = reversed(list(self.exons[:]))
-            for exon in exons:
-                distance += exon[1] + 1 - max(self.combined_cds_start + 1, exon[0])
-                if self.combined_cds_start >= exon[0]:
-                    break
-        return distance
+
+        return self.__start_distance_from_tss
 
     start_distance_from_tss.category = "CDS"
     start_distance_from_tss.rtype = "int"
+
+    def __calculate_start_distance_from_tss(self):
+
+        if len(self.internal_orfs) < 2:
+            self.__start_distance_from_tss = self.selected_start_distance_from_tss
+        else:
+            distance = 0
+            if self.strand == "+" or self.strand is None:
+                for exon in self.exons:
+                    distance += min(exon[1], self.combined_cds_start - 1) - exon[0] + 1
+                    if self.combined_cds_start <= exon[1]:
+                        break
+            elif self.strand == "-":
+                exons = reversed(list(self.exons[:]))
+                for exon in exons:
+                    distance += exon[1] + 1 - max(self.combined_cds_start + 1, exon[0])
+                    if self.combined_cds_start >= exon[0]:
+                        break
+            self.__start_distance_from_tss = distance
 
     # pylint: disable=invalid-name
     @Metric
@@ -2857,68 +2973,61 @@ when the transcript has at least one intron!""")
         """This property returns the distance of the start of the best CDS
         from the transcript start site.
         If no CDS is defined, it defaults to 0."""
-        if len(self.combined_cds) == 0:
-            return 0
-        distance = 0
-        if self.strand == "+" or self.strand is None:
-            for exon in self.exons:
-                distance += min(exon[1], self.selected_cds_start - 1) - exon[0] + 1
-                if self.selected_cds_start <= exon[1]:
-                    break
-        elif self.strand == "-":
-            exons = reversed(list(self.exons[:]))
-            for exon in exons:
-                distance += exon[1] + 1 - max(self.selected_cds_start + 1, exon[0])
-                if self.selected_cds_start >= exon[0]:
-                    break
-        return distance
+        return self.__selected_start_distance_from_tss
 
     selected_start_distance_from_tss.category = "CDS"
     selected_start_distance_from_tss.rtype = "int"
 
-    @Metric
-    def source_score(self):
-
-        """This metric returns a score that is assigned to the transcript
-        in virtue of its origin."""
-
-        if self.json_conf is not None:
-            return self.json_conf.get("prepare", {}).get("files", {}).get(
-                "source_score", {}).get(self.original_source, 0)
+    def __calculate_selected_start_distance_from_tss(self):
+        if len(self.combined_cds) == 0:
+            self.__selected_start_distance_from_tss = 0
+            return
         else:
-            return 0
-
-    source_score.category = "External"
-    source_score.rtype = "float"
+            distance = 0
+            if self.strand == "+" or self.strand is None:
+                for exon in self.exons:
+                    distance += min(exon[1], self.selected_cds_start - 1) - exon[0] + 1
+                    if self.selected_cds_start <= exon[1]:
+                        break
+            elif self.strand == "-":
+                exons = reversed(list(self.exons[:]))
+                for exon in exons:
+                    distance += exon[1] + 1 - max(self.selected_cds_start + 1, exon[0])
+                    if self.selected_cds_start >= exon[0]:
+                        break
+            self.__selected_start_distance_from_tss = distance
 
     @Metric
     def selected_end_distance_from_tes(self):
         """This property returns the distance of the end of the best CDS
         from the transcript end site.
         If no CDS is defined, it defaults to 0."""
-        if self.is_coding is False:
-            return 0
-
-        distance = 0
-        if self.strand == "+":
-            # Case 1: the stop is after the latest junction
-            for exon in sorted([_ for _ in self.exons
-                                if _[1] > self.selected_cds_end]):
-                if exon[0] <= self.selected_cds_end <= exon[1]:
-                    distance += exon[1] - self.selected_cds_end
-                else:
-                    distance += exon[1] - exon[0] + 1
-        elif self.strand == "-":
-            for exon in sorted([_ for _ in self.exons
-                                if _[0] < self.selected_cds_end], reverse=True):
-                if exon[0] <= self.selected_cds_end <= exon[1]:
-                    distance += self.selected_cds_end - exon[0]  # Exclude end
-                else:
-                    distance += exon[1] - exon[0] + 1
-        return distance
+        return self.__selected_end_distance_from_tes
 
     selected_end_distance_from_tes.category = "CDS"
     selected_end_distance_from_tes.rtype = "int"
+
+    def __calculate_selected_end_distance_from_tes(self):
+        if self.is_coding is False:
+            self.__selected_end_distance_from_tes = 0
+        else:
+            distance = 0
+            if self.strand == "+":
+                # Case 1: the stop is after the latest junction
+                for exon in sorted([_ for _ in self.exons
+                                    if _[1] > self.selected_cds_end]):
+                    if exon[0] <= self.selected_cds_end <= exon[1]:
+                        distance += exon[1] - self.selected_cds_end
+                    else:
+                        distance += exon[1] - exon[0] + 1
+            elif self.strand == "-":
+                for exon in sorted([_ for _ in self.exons
+                                    if _[0] < self.selected_cds_end], reverse=True):
+                    if exon[0] <= self.selected_cds_end <= exon[1]:
+                        distance += self.selected_cds_end - exon[0]  # Exclude end
+                    else:
+                        distance += exon[1] - exon[0] + 1
+            self.__selected_end_distance_from_tes = distance
 
     @Metric
     def selected_end_distance_from_junction(self):
@@ -2928,36 +3037,39 @@ when the transcript has at least one intron!""")
         If the transcript is not coding or there is no junction downstream of
         the stop codon, the metric returns 0."""
 
-        if self.monoexonic is True or self.is_coding is False:
-            return 0
-
-        self.finalize()
-        distance = 0
-        if self.strand == "+":
-            # Case 1: the stop is after the latest junction
-            if self.selected_cds_end > max(self.splices):
-                pass
-            else:
-                for exon in sorted([_ for _ in self.exons
-                                    if _[1] > self.selected_cds_end])[:-1]:
-                    if exon[0] <= self.selected_cds_end <= exon[1]:
-                        distance += exon[1] - self.selected_cds_end  # Exclude end
-                    else:
-                        distance += exon[1] - exon[0] + 1
-        elif self.strand == "-":
-            if self.selected_cds_end < min(self.splices):
-                pass
-            else:
-                for exon in sorted([_ for _ in self.exons
-                                    if _[0] < self.selected_cds_end], reverse=True)[:-1]:
-                    if exon[0] <= self.selected_cds_end <= exon[1]:
-                        distance += self.selected_cds_end - exon[0]  # Exclude end
-                    else:
-                        distance += exon[1] - exon[0] + 1
-        return distance
+        return self.__selected_end_distance_from_junction
 
     selected_end_distance_from_junction.category = "CDS"
     selected_end_distance_from_junction.rtype = "int"
+
+    def __calculate_selected_end_distance_from_junction(self):
+
+        if self.monoexonic is True or self.is_coding is False:
+            self.__selected_end_distance_from_junction = 0
+        else:
+            distance = 0
+            if self.strand == "+":
+                # Case 1: the stop is after the latest junction
+                if self.selected_cds_end > max(self.splices):
+                    pass
+                else:
+                    for exon in sorted([_ for _ in self.exons
+                                        if _[1] > self.selected_cds_end])[:-1]:
+                        if exon[0] <= self.selected_cds_end <= exon[1]:
+                            distance += exon[1] - self.selected_cds_end  # Exclude end
+                        else:
+                            distance += exon[1] - exon[0] + 1
+            elif self.strand == "-":
+                if self.selected_cds_end < min(self.splices):
+                    pass
+                else:
+                    for exon in sorted([_ for _ in self.exons
+                                        if _[0] < self.selected_cds_end], reverse=True)[:-1]:
+                        if exon[0] <= self.selected_cds_end <= exon[1]:
+                            distance += self.selected_cds_end - exon[0]  # Exclude end
+                        else:
+                            distance += exon[1] - exon[0] + 1
+            self.__selected_end_distance_from_junction = distance
 
     @Metric
     def end_distance_from_junction(self):
@@ -2969,36 +3081,39 @@ when the transcript has at least one intron!""")
         of the stop codon, the metric returns 0.
         This metric considers the combined CDS end."""
 
-        if self.monoexonic is True or self.is_coding is False:
-            return 0
-
-        distance = 0
-        self.finalize()
-        if self.strand == "+":
-            # Case 1: the stop is after the latest junction
-            if self.combined_cds_end > max(self.splices):
-                pass
-            else:
-                for exon in sorted([_ for _ in self.exons
-                                    if _[1] > self.combined_cds_end])[:-1]:
-                    if exon[0] <= self.combined_cds_end <= exon[1]:
-                        distance += exon[1] - self.combined_cds_end
-                    else:
-                        distance += exon[1] - exon[0] + 1
-        elif self.strand == "-":
-            if self.combined_cds_end < min(self.splices):
-                pass
-            else:
-                for exon in sorted([_ for _ in self.exons
-                                    if _[0] < self.combined_cds_end], reverse=True)[:-1]:
-                    if exon[0] <= self.combined_cds_end <= exon[1]:
-                        distance += self.combined_cds_end - exon[0]  # Exclude end
-                    else:
-                        distance += exon[1] - exon[0] + 1
-        return distance
+        return self.__end_distance_from_junction
 
     end_distance_from_junction.category = "CDS"
     end_distance_from_junction.rtype = "int"
+
+    def __calculate_end_distance_from_junction(self):
+
+        if self.monoexonic is True or self.is_coding is False:
+            self.__end_distance_from_junction = 0
+        else:
+            distance = 0
+            if self.strand == "+":
+                # Case 1: the stop is after the latest junction
+                if self.combined_cds_end > max(self.splices):
+                    pass
+                else:
+                    for exon in sorted([_ for _ in self.exons
+                                        if _[1] > self.combined_cds_end])[:-1]:
+                        if exon[0] <= self.combined_cds_end <= exon[1]:
+                            distance += exon[1] - self.combined_cds_end
+                        else:
+                            distance += exon[1] - exon[0] + 1
+            elif self.strand == "-":
+                if self.combined_cds_end < min(self.splices):
+                    pass
+                else:
+                    for exon in sorted([_ for _ in self.exons
+                                        if _[0] < self.combined_cds_end], reverse=True)[:-1]:
+                        if exon[0] <= self.combined_cds_end <= exon[1]:
+                            distance += self.combined_cds_end - exon[0]  # Exclude end
+                        else:
+                            distance += exon[1] - exon[0] + 1
+            self.__end_distance_from_junction = distance
 
     @Metric
     def end_distance_from_tes(self):
@@ -3006,29 +3121,40 @@ when the transcript has at least one intron!""")
         from the transcript end site.
         If no CDS is defined, it defaults to 0."""
 
-        if self.is_coding is False:
-            return 0
-
-        distance = 0
-        if self.strand == "+":
-            # Case 1: the stop is after the latest junction
-            for exon in sorted([_ for _ in self.exons
-                                if _[1] > self.combined_cds_end]):
-                if exon[0] <= self.combined_cds_end <= exon[1]:
-                    distance += exon[1] - self.combined_cds_end
-                else:
-                    distance += exon[1] - exon[0] + 1
-        elif self.strand == "-":
-            for exon in sorted([_ for _ in self.exons
-                                if _[0] < self.combined_cds_end], reverse=True):
-                if exon[0] <= self.combined_cds_end <= exon[1]:
-                    distance += self.combined_cds_end - exon[0]  # Exclude end
-                else:
-                    distance += exon[1] - exon[0] + 1
-        return distance
+        return self.__end_distance_from_tes
 
     end_distance_from_tes.category = "CDS"
     end_distance_from_tes.rtype = "int"
+
+    def __calculate_end_distance_from_tes(self):
+        if self.is_coding is False:
+            self.__end_distance_from_tes = 0
+        else:
+            distance = 0
+            if self.strand == "+":
+                # Case 1: the stop is after the latest junction
+                for exon in sorted([_ for _ in self.exons
+                                    if _[1] > self.combined_cds_end]):
+                    if exon[0] <= self.combined_cds_end <= exon[1]:
+                        distance += exon[1] - self.combined_cds_end
+                    else:
+                        distance += exon[1] - exon[0] + 1
+            elif self.strand == "-":
+                for exon in sorted([_ for _ in self.exons
+                                    if _[0] < self.combined_cds_end], reverse=True):
+                    if exon[0] <= self.combined_cds_end <= exon[1]:
+                        distance += self.combined_cds_end - exon[0]  # Exclude end
+                    else:
+                        distance += exon[1] - exon[0] + 1
+            self.__end_distance_from_tes = distance
+
+    def _set_distances(self):
+        self.__calculate_end_distance_from_tes()
+        self.__calculate_end_distance_from_junction()
+        self.__calculate_selected_end_distance_from_junction()
+        self.__calculate_selected_end_distance_from_tes()
+        self.__calculate_selected_start_distance_from_tss()
+        self.__calculate_start_distance_from_tss()
 
     @Metric
     def combined_cds_intron_fraction(self):
@@ -3149,8 +3275,7 @@ when the transcript has at least one intron!""")
         within the transcript."""
 
         if set.difference(self.__verified_introns, self.introns):
-            self.logger.debug("Invalid verified junctions found for %s, removing them",
-                                self.id)
+            self.logger.debug("Invalid verified junctions found for %s, removing them", self.id)
             self.__verified_introns = set.intersection(self.introns, self.__verified_introns)
         return self.__verified_introns
 

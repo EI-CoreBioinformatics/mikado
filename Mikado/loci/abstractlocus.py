@@ -891,10 +891,12 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         for tid in sorted(self.transcripts.keys(), key=lambda ttid: self.transcripts[ttid]):
             row = {}
             assert self.available_metrics != []
-            for key in self.available_metrics:
-                if key.lower() in ("id", "tid"):
+            # ["tid", "alias", "parent", "original_source", "score"]
+            for num, key in enumerate(self.available_metrics):
+                if num == 0:
+                # if key.lower() in ("id", "tid"):
                     row[key] = tid
-                elif key.lower() == "parent":
+                elif num == 2:
                     row[key] = self.id
                 else:
                     row[key] = getattr(self.transcripts[tid], key, "NA")

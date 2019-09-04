@@ -143,7 +143,7 @@ class XmlSerializer:
 
         # Runtime arguments
 
-        self.procs = json_conf["serialise"]["procs"]
+        self.procs = json_conf["threads"]
         self.single_thread = json_conf["serialise"]["single_thread"]
         self.json_conf = json_conf
         # pylint: disable=unexpected-argument,E1123

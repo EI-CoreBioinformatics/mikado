@@ -84,7 +84,7 @@ class Picker:
         self.__load_configuration()
         self.regressor = None
 
-        self.procs = self.json_conf["pick"]["run_options"]["procs"]
+        self.procs = self.json_conf["threads"]
 
         # Check the input file
         with self.define_input() as _:
@@ -118,10 +118,10 @@ class Picker:
 
         if self.json_conf["pick"]["run_options"]["single_thread"] is True:
             # Reset threads to 1
-            if self.json_conf["pick"]["run_options"]["procs"] > 1:
+            if self.json_conf["threads"] > 1:
                 self.main_logger.warning("Reset number of threads to 1 as requested")
                 self.procs = 1
-        elif self.json_conf["pick"]["run_options"]["procs"] == 1:
+        elif self.json_conf["threads"] == 1:
             self.json_conf["pick"]["run_options"]["single_thread"] = True
 
         if self.locus_out is None:
@@ -325,7 +325,7 @@ class Picker:
             self.main_logger.setLevel(logging.DEBUG)
             self.main_logger.warning(
                     "Due to a Python design bug, we have to force Mikado to go in single-threaded mode when debugging.")
-            self.procs = self.json_conf["pick"]["run_options"]["procs"] = 1
+            self.procs = self.json_conf["threads"] = 1
         else:
             self.main_logger.setLevel(logging.INFO)
         self.main_logger.addHandler(self.log_handler)

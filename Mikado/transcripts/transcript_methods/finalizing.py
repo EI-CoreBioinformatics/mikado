@@ -772,6 +772,8 @@ def finalize(transcript):
 
     # transcript = __calc_cds_introns(transcript)
     _ = transcript.cdna_length
+    transcript._set_basic_lengths()
+    transcript._set_distances()
 
     transcript.finalized = True
     transcript.logger.debug("Finished finalising %s", transcript.id)

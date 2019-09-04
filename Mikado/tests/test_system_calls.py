@@ -227,7 +227,7 @@ class PrepareCheck(unittest.TestCase):
                     self.conf["prepare"]["files"]["out"] = "mikado_prepared.gtf"
                     args.strip_cds = True
                     args.json_conf = self.conf
-                    args.procs = proc
+                    args.json_conf["threads"] = proc
                     prepare.prepare(args, self.logger)
 
                     # Now that the program has run, let's check the output
@@ -236,9 +236,9 @@ class PrepareCheck(unittest.TestCase):
                     self.assertGreater(os.stat(os.path.join(self.conf["prepare"]["files"]["output_dir"],
                                                             "mikado_prepared.fasta")).st_size, 0)
 
-                    fa = pyfaidx.Fasta(os.path.join(self.conf["prepare"]["files"]["output_dir"],
-                                                    "mikado_prepared.fasta"))
-                    res = dict((_, len(fa[_])) for _ in fa.keys())
+                    fa = pysam.FastaFile(os.path.join(self.conf["prepare"]["files"]["output_dir"],
+                                                      "mikado_prepared.fasta"))
+                    res = dict((name, length) for name, length in zip(fa.references, fa.lengths))
                     fa.close()
                     precal = self.trinity_res.copy()
                     precal.update(self.cuff_results)
@@ -279,7 +279,7 @@ class PrepareCheck(unittest.TestCase):
                     with self.subTest(fname=fname, strip=strip, proc=proc):
                         self.conf["prepare"]["files"]["gff"] = [fname]
                         args.json_conf["prepare"]["strip_cds"] = strip
-                        args.json_conf["prepare"]["procs"] = proc
+                        args.json_conf["threads"] = proc
                         with self.assertLogs(self.logger, "INFO") as cm:
                             prepare.prepare(args, logger=self.logger)
                         fasta = os.path.join(self.conf["prepare"]["files"]["output_dir"], "mikado_prepared.fasta")
@@ -568,6 +568,7 @@ class PrepareCheck(unittest.TestCase):
         self.conf["prepare"]["files"]["out"] = "mikado_prepared.gtf"
         self.conf["prepare"]["strip_cds"] = False
         self.conf["prepare"]["keep_redundant"] = False
+        self.conf["threads"] = 1
 
         self.conf["reference"]["genome"] = self.fai.filename.decode()
 
@@ -680,6 +681,7 @@ class PrepareCheck(unittest.TestCase):
                     with self.subTest(round=round, format=format, iteration=iteration,
                                       msg="Starting round {} ({})".format(round, rounds[round])):
                         t1_score, t2_score, is_ref, res, corr_strand = rounds[round]
+                        self.conf["threads"] = 1
                         self.conf["prepare"]["files"]["source_score"] = {"T1": t1_score,
                                                                          "T2": t2_score}
                         self.conf["prepare"]["files"]["reference"] = []
@@ -774,6 +776,7 @@ class PrepareCheck(unittest.TestCase):
                         self.conf["prepare"]["files"]["source_score"] = {"T1": t1_score,
                                                                          "T2": t2_score}
                         self.conf["prepare"]["files"]["reference"] = []
+                        self.conf["threads"] = 1
                         for label in is_ref:
                             if label == "T1":
                                 self.conf["prepare"]["files"]["reference"].append(t_file.name)
@@ -1136,7 +1139,7 @@ class PickTest(unittest.TestCase):
     @mark.slow
     def test_single_proc(self):
 
-        self.json_conf["pick"]["run_options"]["procs"] = 1
+        self.json_conf["threads"] = 1
         self.json_conf["db_settings"]["db"] = pkg_resources.resource_filename("Mikado.tests", "mikado.db")
 
         self.json_conf["pick"]["files"]["input"] = pkg_resources.resource_filename("Mikado.tests",
@@ -1166,7 +1169,7 @@ class PickTest(unittest.TestCase):
 
     @mark.slow
     def test_multi_proc(self):
-        self.json_conf["pick"]["run_options"]["procs"] = 2
+        self.json_conf["threads"] = 2
         self.json_conf["pick"]["files"]["input"] = pkg_resources.resource_filename("Mikado.tests",
                                                                               "mikado_prepared.gtf")
         dir = tempfile.TemporaryDirectory()
@@ -1209,7 +1212,7 @@ class PickTest(unittest.TestCase):
 
         for num in (1, 2):
             with self.subTest(num=num):
-                self.json_conf["pick"]["run_options"]["procs"] = num
+                self.json_conf["pick"]["threads"] = num
                 self.json_conf["pick"]["run_options"]["single_thread"] = (num == 1)
                 json_file = os.path.join(dir.name, "mikado.yaml")
 
@@ -1255,7 +1258,7 @@ class PickTest(unittest.TestCase):
         for num, shm in itertools.product((1, 2), (True,)):
             with self.subTest(num=num, shm=shm):
 
-                self.json_conf["pick"]["run_options"]["procs"] = num
+                self.json_conf["pick"]["threads"] = num
                 self.json_conf["pick"]["run_options"]["single_thread"] = (num == 1)
                 json_file = os.path.join(dir.name, "mikado.yaml")
 

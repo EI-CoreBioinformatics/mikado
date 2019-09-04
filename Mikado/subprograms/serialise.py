@@ -304,7 +304,7 @@ def setup(args):
     sql_logger.addHandler(logger.handlers[0])
 
     logger.info("Requested %d threads, forcing single thread: %s",
-                args.json_conf["serialise"]["procs"],
+                args.json_conf["threads"],
                 args.json_conf["serialise"]["single_thread"])
 
     return args, logger, sql_logger

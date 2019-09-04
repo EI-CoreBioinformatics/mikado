@@ -23,6 +23,8 @@ from ..exceptions import InvalidSerialization
 
 # This is a serialization class, it must have a ton of attributes ...
 # pylint: disable=too-many-instance-attributes
+
+
 class Orf(DBBASE):
 
     """
@@ -160,7 +162,7 @@ class OrfSerializer:
         fasta_index = json_conf["serialise"]["files"]["transcripts"]
         self._max_regression = json_conf["serialise"]["max_regression"]
         self._table = json_conf["serialise"]["codon_table"]
-        self.procs = json_conf["serialise"]["procs"]
+        # self.procs = json_conf["serialise"]["procs"]
         self.single_thread = json_conf["serialise"]["single_thread"]
 
         if isinstance(fasta_index, str):

@@ -282,12 +282,6 @@ class Sublocus(Abstractlocus):
             else:
                 self.transcripts[tid].score = 0
 
-    def calculate_scores(self):
-
-        self.metric_lines_store = []
-        super().calculate_scores()
-        self.metric_lines_store = [_ for _ in self.prepare_metrics()]
-
     def prepare_metrics(self):
 
         """This method prepares the dictionary "rows"
@@ -308,7 +302,7 @@ class Sublocus(Abstractlocus):
         """
 
         self.calculate_scores()
-
+        self.metric_lines_store = [_ for _ in self.prepare_metrics()]
         for row in self.metric_lines_store:
             yield row
 

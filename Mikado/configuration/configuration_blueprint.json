@@ -781,7 +781,7 @@
             },
             "subloci_out": {
               "type": "string",
-              "default": "mikado.subloci.gff3"
+              "default": ""
             },
             "monoloci_out": {
               "type": "string",

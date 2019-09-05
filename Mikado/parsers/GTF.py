@@ -7,10 +7,13 @@ Generic parser for GTF files.
 from . import Parser
 from .gfannotation import GFAnnotation
 import re
+import fastnumbers
 
 
 # This class has exactly how many attributes I need it to have
 # pylint: disable=too-many-instance-attributes
+
+
 class GtfLine(GFAnnotation):
     """This class defines a typical GTF line, with some added functionality
     to make it useful in e.g. parsing cufflinks GTF files or
@@ -43,7 +46,7 @@ class GtfLine(GFAnnotation):
         self.__frame = None
         self.__phase = None
         GFAnnotation.__init__(self, line, my_line, header=header)
-        # self.frame = self.__phase  # Reset the phase
+        self.__set_parent()
 
     def _parse_attributes(self):
         """
@@ -52,20 +55,25 @@ class GtfLine(GFAnnotation):
         :return:
         """
 
-        infodict = dict(re.findall(self._attribute_pattern, self._attr.rstrip()))
+        infodict = dict(self._attribute_pattern.findall(self._attr.rstrip()))
+        attributes = dict()
         for key, val in infodict.items():
-            try:
-                val = int(val)
-            except ValueError:
-                try:
-                    val = float(val)
-                except ValueError:
-                    val = val.replace('"', '')
-                    if val.lower() == "true":
-                        val = True
-                    elif val.lower() == "false":
-                        val = False
-            self.attributes[key] = val
+            val = val.replace('"', '')
+            lcval = val.lower()
+            if lcval == "true":
+                val = True
+            elif lcval == "false":
+                val = False
+            else:
+                if fastnumbers.isint(val):
+                    val = fastnumbers.fast_int(val)
+                elif fastnumbers.isreal(val):
+                    val = fastnumbers.fast_float(val)
+
+            attributes[key] = val
+
+        self.attributes.update(attributes)
+        assert "gene_id" in self.attributes
 
     def _format_attributes(self):
 
@@ -94,12 +102,7 @@ class GtfLine(GFAnnotation):
 
         for info in iter(key for key in self.attributes if
                          self.attributes[key] not in (None, "", []) and key not in order):
-            if (info == "Parent" and
-                        self.attributes[info] in (self.gene,
-                                                  self.transcript,
-                                                  self.parent)):
-                continue
-            if info == "ID" and self.attributes[info] in (self.gene, self.transcript):
+            if info in ("Parent", "ID"):
                 continue
 
             if isinstance(self.attributes[info], list):
@@ -159,10 +162,14 @@ class GtfLine(GFAnnotation):
 
         """
 
+        return self.__parent
+
+    def __set_parent(self):
+
         if self.is_transcript is True:
-            return [self.gene]
+            self.__parent = [self.gene]
         else:
-            return [self.transcript]
+            self.__parent = [self.transcript]
 
     @parent.setter
     def parent(self, parent):
@@ -174,6 +181,7 @@ class GtfLine(GFAnnotation):
         if isinstance(parent, str):
             parent = parent.split(",")
         self.attributes["Parent"] = parent
+        self.__parent = parent
         if self.is_transcript is True:
             self.gene = parent
 
@@ -223,7 +231,7 @@ class GtfLine(GFAnnotation):
 
         self.attributes["gene_id"] = self.__gene = gene
         if self.is_transcript:
-            self.attributes["Parent"] = gene
+            self.__parent = [gene]
 
     @property
     def transcript(self):
@@ -245,7 +253,7 @@ class GtfLine(GFAnnotation):
         if self.is_transcript is True:
             self.attributes["ID"] = transcript
         else:
-            self.attributes["Parent"] = [transcript]
+            self.parent = [transcript]
 
     @property
     def is_parent(self):
@@ -318,24 +326,16 @@ class GtfLine(GFAnnotation):
 
     @phase.setter
     def phase(self, value):
-        if isinstance(value, str):
-            if value.isdigit() is True:
-                value = int(value)
-                if value not in (0, 1, 2):
-                    raise ValueError(value)
-                self.__phase = value
-                self.__frame = (3 - value) % 3
-            else:
-                if value not in (".", "?"):
-                    raise ValueError(value)
-                self.__phase = self.__frame = None
-        elif value is None:
-            self.__frame = self.__phase = None
-        elif isinstance(value, int):
-            if value not in (0, 1, 2):
+        if value is not None:
+            try:
+                value = fastnumbers.fast_int(value)
+            except (ValueError, TypeError):
                 raise ValueError(value)
+        if value in (0, 1, 2):
             self.__phase = value
             self.__frame = (3 - value) % 3
+        elif value in (".", "?", None):
+            self.__phase = self.__frame = None
         else:
             raise ValueError(value)
 

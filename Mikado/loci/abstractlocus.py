@@ -26,7 +26,7 @@ if version_info.minor < 5:
     from sortedcontainers import SortedDict
 else:
     from collections import OrderedDict as SortedDict
-import functools
+from fastnumbers import isfloat
 
 # I do not care that there are too many attributes: this IS a massive class!
 # pylint: disable=too-many-instance-attributes,too-many-public-methods
@@ -218,13 +218,14 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         assert "metrics_calculated" in state
         return state
 
-    def load_dict(self, state):
+    def load_dict(self, state, load_transcripts=True):
         assert isinstance(state, dict)
         self.__setstate__(state)
 
         assert self.metrics_calculated is True
-        self.transcripts = dict((tid, Transcript()) for tid in state["transcripts"])
-        [self[tid].load_dict(state["transcripts"][tid], trust_orf=True) for tid in state["transcripts"]]
+        if load_transcripts is True:
+            self.transcripts = dict((tid, Transcript()) for tid in state["transcripts"])
+            [self[tid].load_dict(state["transcripts"][tid], trust_orf=True) for tid in state["transcripts"]]
         for attr in ["locus_verified_introns", "introns", "exons",
                      "selected_cds_introns", "combined_cds_introns"]:
             setattr(self, attr, set([tuple(_) for _ in getattr(self, attr)]))
@@ -760,9 +761,6 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                 self.logger.debug("Exon %s of %s is not to be considered", exon, transcript.id)
                 continue
 
-            # self.logger.debug("Number of exons, introns, intervals in segmenttree: %d, %d, %d",
-            #                   len(self.exons), len(self.introns), len(self.segmenttree))
-
             is_retained = self._is_exon_retained(
                 exon,
                 self.segmenttree,
@@ -888,27 +886,33 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         # The rower is an instance of the DictWriter class from the standard CSV module
 
         self.get_metrics()
-        for tid in sorted(self.transcripts.keys(), key=lambda ttid: self.transcripts[ttid]):
+        for tid, transcript in sorted(self.transcripts.items(), key=operator.itemgetter(1)):
             row = {}
-            assert self.available_metrics != []
-            # ["tid", "alias", "parent", "original_source", "score"]
             for num, key in enumerate(self.available_metrics):
-                if num == 0:
-                # if key.lower() in ("id", "tid"):
-                    row[key] = tid
-                elif num == 2:
-                    row[key] = self.id
-                else:
-                    row[key] = getattr(self.transcripts[tid], key, "NA")
-                if isinstance(row[key], float):
-                    row[key] = round(row[key], 2)
-                elif row[key] is None or row[key] == "":
-                    row[key] = "NA"
-            for source in self.transcripts[tid].external_scores:
-                # Each score from external files also contains a multiplier.
-                row["external.{}".format(source)] = self.transcripts[tid].external_scores.get(source)[0]
 
-            assert row != {}
+                if num == 0:  # transcript id
+                    value = tid
+                elif num == 2:  # Parent
+                    value = self.id
+                else:
+                    value = getattr(transcript, key, "NA")
+                if isfloat(value):
+                    value = round(value, 2)
+                elif value is None or value == "":
+                    value = "NA"
+                row[key] = value
+
+            for source in transcript.external_scores:
+                # Each score from external files also contains a multiplier.
+                key = "external.{}".format(source)
+                value = transcript.external_scores.get(source)[0]
+                if isfloat(value):
+                    value = round(value, 2)
+                elif value is None or value == "":
+                    value = "NA"
+                row[key] = value
+
+            # assert row != {}
             yield row
 
         return

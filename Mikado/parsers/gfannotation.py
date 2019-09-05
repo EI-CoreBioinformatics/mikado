@@ -9,6 +9,8 @@ import abc
 import copy
 from sys import intern
 import numbers
+import fastnumbers
+
 
 __author__ = 'Luca Venturini'
 
@@ -69,7 +71,7 @@ class GFAnnotation(metaclass=abc.ABCMeta):
 
         self.chrom, self.source, self.feature = self._fields[0:3]
         [intern(_) for _ in (self.chrom, self.source, self.feature)]
-        self.start, self.end = tuple(int(i) for i in self._fields[3:5])
+        self.start, self.end = tuple(fastnumbers.fast_int(i) for i in self._fields[3:5])
 
         self.score = self._fields[5]
         self.strand = self._fields[6]
@@ -122,17 +124,19 @@ class GFAnnotation(metaclass=abc.ABCMeta):
         :rtype: str, str, str
         """
 
-        if self.score is not None:
-            score = str(int(round(self.score, 0)))
+        score = self.score
+        strand = self.strand
+        phase = self.phase
+
+        if score is not None:
+            score = int(score)
         else:
             score = "."
-        if self.strand is None:
+        if strand is None:
             strand = '.'
         else:
-            strand = self.strand
-        if self.phase is not None:
-            phase = str(self.phase)
-        else:
+            strand = strand
+        if phase is None:
             phase = "."
         return score, strand, phase
 
@@ -185,14 +189,14 @@ class GFAnnotation(metaclass=abc.ABCMeta):
         :type args: list | None | float
         """
 
-        if isinstance(args[0], (float, int)):
-            self.__score = args[0]
-        elif args[0] is None or args[0] == '.':
-            self.__score = None
-        elif isinstance(args[0], str):
-            self.__score = float(args[0])
-        else:
-            raise TypeError(args[0])
+        score = args[0]
+        if score is not None:
+            score = fastnumbers.fast_float(args[0])
+            if score == ".":
+                score = None
+            if score is not None and not isinstance(score, float):
+                raise TypeError(score)
+        self.__score = score
 
     @property
     def phase(self):
@@ -212,17 +216,20 @@ class GFAnnotation(metaclass=abc.ABCMeta):
         :return:
         """
 
-        if value in (None, '.', '?'):
+        if value is None:
             self.__phase = None
-        elif isinstance(value, numbers.Number) or isinstance(value, (str, bytes)):
-            value = int(value)
-            if value == -1:
-                value = 0  # Bug in GMAP
-            if value not in range(3):
-                raise ValueError("Invalid value for phase: {0}".format(value))
-            self.__phase = value
         else:
-            raise ValueError("Invalid phase: {0} (type: {1})".format(value, type(value)))
+            try:
+                phase = fastnumbers.fast_int(value)
+            except (TypeError, ValueError):
+                raise ValueError("Invalid phase: {0} (type: {1})".format(value, type(value)))
+            if phase in (-1, 0, 1, 2):
+                phase = max(phase, 0)
+                self.__phase = phase
+            elif phase in  (None, '.', '?'):
+                self.__phase = None
+            else:
+                raise ValueError("Invalid phase: {0} (type: {1})".format(value, type(value)))
 
     @property
     def is_gene(self):

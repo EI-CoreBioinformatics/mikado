@@ -162,6 +162,9 @@ def merge_loci(num_temp, out_handles,
         for index in cursor.execute("SELECT counter FROM loci").fetchall():
             common_index[index[0]] = dbindex
 
+    print_subloci = (out_handles[1][0] is not None)
+    print_monoloci = (out_handles[2][0] is not None)
+
     for index in range(1, max(common_index.keys()) + 1):
         if index not in common_index:
             raise KeyError("Missing index " + str(index) + "!")
@@ -172,7 +175,10 @@ def merge_loci(num_temp, out_handles,
             raise ValueError((index, type(index)))
         for stranded_locus_json in msgpack.loads(stranded_loci[0], raw=False):
             stranded_locus = Superlocus(None)
-            stranded_locus.load_dict(json.loads(stranded_locus_json))
+            stranded_locus.load_dict(json.loads(stranded_locus_json),
+                                     load_transcripts=False,
+                                     print_monoloci=print_monoloci, print_subloci=print_subloci
+                                     )
             if stranded_locus.chrom != curr_chrom:
                 curr_chrom = stranded_locus.chrom
                 gene_counter = 0

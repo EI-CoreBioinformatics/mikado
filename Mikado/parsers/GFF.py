@@ -10,6 +10,7 @@ from . import Parser
 from .gfannotation import GFAnnotation
 from sys import intern
 import re
+import fastnumbers
 
 
 # This class has exactly how many attributes I need it to have
@@ -34,7 +35,7 @@ class GffLine(GFAnnotation):
         """
 
         GFAnnotation.__init__(self, line, my_line, header=header)
-        _ = self.name  # Set the name
+        self.__set_name()  # Set the name
 
     def _parse_attributes(self):
 
@@ -43,32 +44,32 @@ class GffLine(GFAnnotation):
         :return:
         """
 
-        self.attribute_order = []
+        attribute_order = []
+        attributes = dict()
 
-        infolist = re.findall(self._attribute_pattern, self._attr.rstrip().rstrip(";"))
+        infolist = self._attribute_pattern.findall(self._attr.rstrip().rstrip(";"))
 
         for item in infolist:
             key, val = item
             if key.lower() == "parent":
-                self.parent = val.split(",")
+                self.parent = val
             elif key.upper() == "ID":
                 self.id = val
             else:
-                try:
-                    val = int(val)
-                except ValueError:
-                    try:
-                        val = float(val)
-                    except ValueError:
-                        pass
-                finally:
+                if fastnumbers.isint(val):
+                    val = fastnumbers.fast_int(val)
+                elif fastnumbers.isreal(val):
+                    val = fastnumbers.fast_float(val)
+                else:
                     if isinstance(val, str) and val.lower() == "true":
                         val = True
                     elif isinstance(val, str) and val.lower() == "false":
                         val = False
 
-                    self.attributes[key] = val
-                    self.attribute_order.append(key)
+                attributes[key] = val
+                attribute_order.append(key)
+        self.attributes.update(attributes)
+        self.attribute_order = attribute_order
 
     def _format_attributes(self):
         """
@@ -82,21 +83,15 @@ class GffLine(GFAnnotation):
         parent = self.parent
         mid = self.id
         attribute_order = self.attribute_order
+        name = self.name
         if mid is not None:
             attrs.append("ID={0}".format(mid))
-        if parent is not None and len(parent) > 0:
-            attrs.append("Parent={0}".format(",".join(parent)))
-        if "Name" in attributes and attributes["Name"] is not None:
-            if "name" in attributes:
-                del self.attributes["name"]
-            if "name" in self.attribute_order:
-                self.attribute_order.remove("name")
-            attrs.append("Name={0}".format(self.name))
-        elif "name" in attributes and attributes["name"] is not None:
-            self.name = attributes["name"]
-            del self.attributes["name"]
-            if "name" in self.attribute_order:
-                self.attribute_order.remove("name")
+        if parent is not None:
+            if len(parent) > 1:
+                attrs.append("Parent={0}".format(",".join(parent)))
+            elif len(parent) == 1:
+                attrs.append("Parent={0}".format(parent[0]))
+        if name is not None:
             attrs.append("Name={0}".format(self.name))
 
         if not attribute_order:
@@ -107,13 +102,6 @@ class GffLine(GFAnnotation):
         attrs += ["{0}={1}".format(att.lower(), attributes[att]) for att in attribute_order
                   if (att not in ("ID", "Parent", "Name", "name", "gene_id", "transcript_id") and
                       attributes[att] is not None)]
-
-        # for att in iter(key for key in self.attribute_order if
-        #                 key not in ["ID", "Parent", "Name"]):
-        #     if att in ("gene_id", "transcript_id"):
-        #         continue  # These are carryovers from GTF files
-        #     if self.attributes[att] is not None:
-        #         attrs.append("{0}={1}".format(att.lower(), self.attributes[att]))
 
         attrs = ";".join(attrs)
         return attrs
@@ -149,9 +137,13 @@ class GffLine(GFAnnotation):
         :rtype list
 
         """
+        return self.__parent
+
+    def __set_parent(self):
+
         if "Parent" not in self.attributes:
             self.parent = None
-        return self.attributes["Parent"]
+        self.parent = self.attributes["Parent"]
 
     @parent.setter
     def parent(self, parent):
@@ -166,6 +158,7 @@ class GffLine(GFAnnotation):
         if isinstance(parent, str):
             parent = parent.split(",")
         self.attributes["Parent"] = parent
+        self.__parent = parent
 
     @property
     def name(self):
@@ -175,9 +168,13 @@ class GffLine(GFAnnotation):
         :rtype str
         """
 
+        return self.__name
+
+    def __set_name(self):
+
         if "Name" not in self.attributes:
             self.name = None
-        return self.attributes["Name"]
+        self.__name = self.attributes["Name"]
 
     @name.setter
     def name(self, name):
@@ -190,6 +187,7 @@ class GffLine(GFAnnotation):
         if not isinstance(name, (type(None), str)):
             raise TypeError("Invalid value for name: {0}".format(name))
         self.attributes["Name"] = name
+        self.__name = name
 
     @property
     def is_transcript(self):

@@ -351,26 +351,32 @@ class Superlocus(Abstractlocus):
         state["excluded"] = self.excluded.as_dict()
         return state
 
-    def load_dict(self, state):
-        super().load_dict(state)
-
+    def load_dict(self, state, print_subloci=True, print_monoloci=True, load_transcripts=True):
+        super().load_dict(state, load_transcripts=load_transcripts)
+        # self.json_conf = state["json_conf"]
+        # self.chrom, self.start, self.end, self.strand = (state["chrom"], state["start"], state["end"], state["strand"])
         self.loci = dict()
         for lid, stat in state["loci"].items():
             locus = Locus()
             locus.load_dict(stat)
             self.loci[lid] = locus
-        self.excluded = Excluded()
-        self.excluded.load_dict(state["excluded"])
-        self.subloci = []
-        for stat in state["subloci"]:
-            sub = Sublocus(json_conf=self.json_conf)
-            sub.load_dict(stat)
-            self.subloci.append(sub)
-        self.monoholders = []
-        for stat in state["monoholders"]:
-            sub = MonosublocusHolder()
-            sub.load_dict(stat)
-            self.monoholders.append(sub)
+
+        if print_subloci is True or print_monoloci is True:
+
+            if print_subloci is True:
+                self.excluded = Excluded()
+                self.excluded.load_dict(state["excluded"])
+                self.subloci = []
+                for stat in state["subloci"]:
+                    sub = Sublocus(json_conf=self.json_conf)
+                    sub.load_dict(stat)
+                    self.subloci.append(sub)
+            if print_monoloci is True:
+                self.monoholders = []
+                for stat in state["monoholders"]:
+                    sub = MonosublocusHolder()
+                    sub.load_dict(stat)
+                    self.monoholders.append(sub)
 
     # ########### Class instance methods ############
 

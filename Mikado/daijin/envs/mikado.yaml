@@ -38,5 +38,6 @@ dependencies:
   - bioconda::diamond>=0.9.24
   - bioconda::blast>=2.7.1
   - ujson>=1.35
-  - conda-forge::fastnumbers>=2.1.1
   - pip
+  - pip:
+      - git+https://github.com/EI-CoreBioinformatics/mikado@master

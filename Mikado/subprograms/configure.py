@@ -164,6 +164,9 @@ def create_config(args):
         #             del external_conf["mikado"][key]
         config = configurator.merge_dictionaries(config, external_conf)
 
+    config["pick"]["files"]["subloci_out"] = args.subloci_out
+    config["pick"]["files"]["monoloci_out"] = args.monoloci_out
+
     if args.seed is not None:
         config["seed"] = args.seed
 
@@ -370,6 +373,10 @@ def configure_parser():
     picking.add_argument("--no-pad", default=True, dest="pad",
                          action="store_false",
                          help="Whether to disable padding transcripts.")
+    picking.add_argument("--subloci-out", default="", dest="subloci_out",
+                         help="Name of the optional subloci output. By default, this will not be produced.")
+    picking.add_argument("--monoloci-out", default="", dest="monoloci_out",
+                         help="Name of the optional monoloci output. By default, this will not be produced.")
     parser.add_argument("--strand-specific", default=False,
                         action="store_true",
                         help="""Boolean flag indicating whether all the assemblies are strand-specific.""")

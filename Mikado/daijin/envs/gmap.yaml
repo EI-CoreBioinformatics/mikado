@@ -1,0 +1,5 @@
+channels:
+  - bioconda
+dependencies:
+  - bioconda::gmap>=2019.06.10
+  - bioconda::samtools>=1.9

@@ -1,0 +1,5 @@
+channels:
+  - bioconda
+dependencies:
+  - bioconda::portcullis>=1.2.2
+  - bioconda::samtools>=1.9

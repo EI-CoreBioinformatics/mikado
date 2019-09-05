@@ -164,8 +164,8 @@ def create_config(args):
         #             del external_conf["mikado"][key]
         config = configurator.merge_dictionaries(config, external_conf)
 
-    config["pick"]["files"]["subloci_out"] = args.subloci_out
-    config["pick"]["files"]["monoloci_out"] = args.monoloci_out
+    config["pick"]["files"]["subloci_out"] = args.subloci_out if args.subloci_out else ""
+    config["pick"]["files"]["monoloci_out"] = args.monoloci_out if args.monoloci_out else ""
 
     if args.seed is not None:
         config["seed"] = args.seed

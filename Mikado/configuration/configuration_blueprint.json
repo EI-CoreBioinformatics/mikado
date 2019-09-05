@@ -780,11 +780,11 @@
               "default": "mikado.loci.gff3"
             },
             "subloci_out": {
-              "type": "string",
+              "type": ["string", null],
               "default": ""
             },
             "monoloci_out": {
-              "type": "string",
+              "type": ["string", null],
               "default": ""
             },
             "log": {"type": ["null", "string"], "default": null}

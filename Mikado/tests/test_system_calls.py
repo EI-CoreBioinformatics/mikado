@@ -908,7 +908,6 @@ class CompareCheck(unittest.TestCase):
                 dir.cleanup()
 
 
-@mark.slow
 class ConfigureCheck(unittest.TestCase):
 
     """Test for creating configuration files"""

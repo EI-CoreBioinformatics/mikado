@@ -78,37 +78,43 @@ class GffLine(GFAnnotation):
         """
 
         attrs = []
-        if self.id is not None:
-            attrs.append("ID={0}".format(self.id))
-        if self.parent is not None and len(self.parent) > 0:
-            attrs.append("Parent={0}".format(",".join(self.parent)))
-        if "Name" in self.attributes and self.attributes["Name"] is not None:
-            if "name" in self.attributes:
+        attributes = self.attributes
+        parent = self.parent
+        mid = self.id
+        attribute_order = self.attribute_order
+        if mid is not None:
+            attrs.append("ID={0}".format(mid))
+        if parent is not None and len(parent) > 0:
+            attrs.append("Parent={0}".format(",".join(parent)))
+        if "Name" in attributes and attributes["Name"] is not None:
+            if "name" in attributes:
                 del self.attributes["name"]
             if "name" in self.attribute_order:
                 self.attribute_order.remove("name")
             attrs.append("Name={0}".format(self.name))
-        elif "name" in self.attributes and self.attributes["name"] is not None:
-            self.name = self.attributes["name"]
+        elif "name" in attributes and attributes["name"] is not None:
+            self.name = attributes["name"]
             del self.attributes["name"]
             if "name" in self.attribute_order:
                 self.attribute_order.remove("name")
             attrs.append("Name={0}".format(self.name))
 
-        if not self.attribute_order:
+        if not attribute_order:
             self.attribute_order = sorted(list(key for key in self.attributes if
                                                key not in ["ID", "Parent", "Name"]))
+            attribute_order = self.attribute_order
 
-        for att in iter(key for key in self.attribute_order if
-                        key not in ["ID", "Parent", "Name"]):
-            if att in ("gene_id", "transcript_id"):
-                continue  # These are carryovers from GTF files
-            if self.attributes[att] is not None:
-                # try:
-                attrs.append("{0}={1}".format(att.lower(), self.attributes[att]))
-                # except KeyError:
-                #     # Hack for those times when we modify the attributes at runtime
-                #     continue
+        attrs += ["{0}={1}".format(att.lower(), attributes[att]) for att in attribute_order
+                  if (att not in ("ID", "Parent", "Name", "name", "gene_id", "transcript_id") and
+                      attributes[att] is not None)]
+
+        # for att in iter(key for key in self.attribute_order if
+        #                 key not in ["ID", "Parent", "Name"]):
+        #     if att in ("gene_id", "transcript_id"):
+        #         continue  # These are carryovers from GTF files
+        #     if self.attributes[att] is not None:
+        #         attrs.append("{0}={1}".format(att.lower(), self.attributes[att]))
+
         attrs = ";".join(attrs)
         return attrs
 

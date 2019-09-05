@@ -4,7 +4,6 @@ GFFs/GTFs starting from the transcript class.
 """
 
 
-from collections import Counter
 from itertools import zip_longest
 import functools
 from Mikado.parsers.GTF import GtfLine
@@ -35,7 +34,7 @@ def __create_cds_lines(transcript,
 
     exon_lines = []
     cds_begin = False
-    counter = Counter()
+    counter = dict()
 
     line_creator = functools.partial(__create_exon_line,
                                      transcript,
@@ -57,14 +56,14 @@ def __create_cds_lines(transcript,
                                                          cds_begin)
         except IndexError:
             raise IndexError(cds_run)
-        assert exon_line.start >= transcript.start, (transcript.start, segment, cds_run)
-        assert exon_line.end <= transcript.end, (transcript.end, segment, cds_run)
+        # assert exon_line.start >= transcript.start, (transcript.start, segment, cds_run)
+        # assert exon_line.end <= transcript.end, (transcript.end, segment, cds_run)
         if segment[0] == "CDS":
-            assert len(segment) == 3, (segment, cds_run)
+            # assert len(segment) == 3, (segment, cds_run)
             exon_line.phase = segment[2]
         exon_lines.append(exon_line)
 
-    assert not any(True for x in exon_lines if x.feature == "CDS" and x.phase is None), [str(_) for _ in exon_lines]
+    # assert not any(True for x in exon_lines if x.feature == "CDS" and x.phase is None), [str(_) for _ in exon_lines]
 
     return [str(line) for line in exon_lines]
 
@@ -80,9 +79,9 @@ def __create_exon_line(transcript, segment, counter, cds_begin,
     :param segment: a segment of the form (feature, start, end)
     :type segment: list(str, tuple)
 
-    :param counter: a Counter object that keeps track of how many exons,
+    :param counter: a dict object that keeps track of how many exons,
     CDS, UTR segments we have already seen
-    :type counter: Counter
+    :type counter: dict
 
     :param cds_begin: boolean flag that indicates whether the CDS has already begun
     :type cds_begin: bool
@@ -91,7 +90,7 @@ def __create_exon_line(transcript, segment, counter, cds_begin,
     :param to_gtf: boolean flag
 
     :return: exon_line, counter, cds_begin
-    :rtype: ((GtfLine | GffLine), Counter, bool)
+    :rtype: ((GtfLine | GffLine), dict, bool)
     """
 
     if to_gtf is False:
@@ -110,15 +109,15 @@ def __create_exon_line(transcript, segment, counter, cds_begin,
         if (cds_begin is True and transcript.strand == "-") or \
                 (transcript.strand == "+" and cds_begin is False):
             feature = utr5_feature
-            counter.update(["five"])
+            counter["five"] = counter.get("five", 0) + 1
             index = counter["five"]
         else:
             feature = utr3_feature
-            counter.update(["three"])
+            counter["three"] = counter.get("three", 0) + 1
             index = counter["three"]
     elif segment[0] == "CDS":
         cds_begin = True
-        counter.update(["CDS"])
+        counter["CDS"] = counter.get("CDS", 0) + 1
         index = counter["CDS"]
         feature = "CDS"
         try:
@@ -126,7 +125,7 @@ def __create_exon_line(transcript, segment, counter, cds_begin,
         except IndexError:
             raise IndexError(segment)
     else:
-        counter.update([segment[0]])
+        counter[segment[0]] = counter.get(segment[0], 0) + 1
         index = counter[segment[0]]
         feature = segment[0]
     exon_line = constructor(None)
@@ -387,7 +386,7 @@ def create_lines_no_cds(transcript,
         intron_list = [None] * len(transcript.exons)
     else:
         intron_list = sorted(transcript.introns)
-    counter = Counter()
+    counter = dict()
 
     line_creator = functools.partial(__create_exon_line,
                                      transcript,

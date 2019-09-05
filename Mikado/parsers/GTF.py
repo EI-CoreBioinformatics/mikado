@@ -52,19 +52,6 @@ class GtfLine(GFAnnotation):
         :return:
         """
 
-        # for info in iter(x for x in self._attr.rstrip().split(';') if x != ''):
-        #     info = info.strip().split(' ')
-        #     # info_list.append(info)
-        #     # info = info.lstrip().split(' ')
-        #     try:
-        #         self.attributes[info[0]] = info[1].replace('"', '')
-        #     except IndexError as exc:
-        #         # something wrong has happened, let us just skip
-        #         import sys
-        #         print("Wrong attributes ({}) in line:\n{}".format(info, "\t".join(self._fields)), file=sys.stderr)
-        #     if info[0] == "exon_number":
-        #         self.attributes['exon_number'] = int(self.attributes['exon_number'])
-
         infodict = dict(re.findall(self._attribute_pattern, self._attr.rstrip()))
         for key, val in infodict.items():
             try:

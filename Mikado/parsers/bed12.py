@@ -17,13 +17,164 @@ from ..parsers.GFF import GffLine
 from typing import Union
 import re
 from ..utilities.log_utils import create_null_logger
-from Bio.Data import CodonTable
 import pysam
+import functools
+from Bio import BiopythonWarning
+import warnings
+from Bio.Data.IUPACData import ambiguous_dna_letters as _ambiguous_dna_letters
+from Bio.Data.IUPACData import ambiguous_rna_letters as _ambiguous_rna_letters
+from Bio.Data import CodonTable
+from itertools import zip_longest
 
+
+backup_valid_letters = set(_ambiguous_dna_letters.upper() + _ambiguous_rna_letters.upper())
 standard = CodonTable.ambiguous_dna_by_id[1]
 standard.start_codons = ["ATG"]
 
-# import numpy as np
+
+def _codon_grouper(letters, padvalue=None):
+    return zip_longest(*[iter(letters)] * 3, fillvalue=padvalue)
+
+
+@functools.lru_cache(typed=True, maxsize=None)
+def get_tables(table, to_stop=False):
+    forward_table = table.forward_table.forward_table.copy()
+    stop_codons = set(table.stop_codons)
+    dual_coding = [c for c in stop_codons if c in forward_table]
+    if dual_coding:
+        c = dual_coding[0]
+        if to_stop:
+            raise ValueError("You cannot use 'to_stop=True' with this table "
+                             "as it contains {} codon(s) which can be both "
+                             " STOP and an  amino acid (e.g. '{}' -> '{}' or "
+                             "STOP)."
+                             .format(len(dual_coding), c, forward_table[c]))
+        warnings.warn("This table contains {} codon(s) which code(s) for both "
+                      "STOP and an amino acid (e.g. '{}' -> '{}' or STOP). "
+                      "Such codons will be translated as amino acid."
+                      .format(len(dual_coding), c, forward_table[c]),
+                      BiopythonWarning)
+
+    for stop in stop_codons:
+        forward_table[stop] = "*"
+    if table.nucleotide_alphabet.letters is not None:
+        valid_letters = set(table.nucleotide_alphabet.letters.upper())
+    else:
+        # Assume the worst case, ambiguous DNA or RNA:
+        valid_letters = backup_valid_letters
+
+    return forward_table, valid_letters
+
+
+def _translate_str(sequence, table, stop_symbol="*", to_stop=False,
+                   cds=False, pos_stop="X", gap=None):
+    """Translate nucleotide string into a protein string (PRIVATE).
+
+    Arguments:
+     - sequence - a string
+     - table - a CodonTable object (NOT a table name or id number)
+     - stop_symbol - a single character string, what to use for terminators.
+     - to_stop - boolean, should translation terminate at the first
+       in frame stop codon?  If there is no in-frame stop codon
+       then translation continues to the end.
+     - pos_stop - a single character string for a possible stop codon
+       (e.g. TAN or NNN)
+     - cds - Boolean, indicates this is a complete CDS.  If True, this
+       checks the sequence starts with a valid alternative start
+       codon (which will be translated as methionine, M), that the
+       sequence length is a multiple of three, and that there is a
+       single in frame stop codon at the end (this will be excluded
+       from the protein sequence, regardless of the to_stop option).
+       If these tests fail, an exception is raised.
+     - gap - Single character string to denote symbol used for gaps.
+       Defaults to None.
+
+    Returns a string.
+
+    e.g.
+
+    >>> from Bio.Data import CodonTable
+    >>> table = CodonTable.ambiguous_dna_by_id[1]
+    >>> _translate_str("AAA", table)
+    'K'
+    >>> _translate_str("TAR", table)
+    '*'
+    >>> _translate_str("TAN", table)
+    'X'
+    >>> _translate_str("TAN", table, pos_stop="@")
+    '@'
+    >>> _translate_str("TA?", table)
+    Traceback (most recent call last):
+       ...
+    Bio.Data.CodonTable.TranslationError: Codon 'TA?' is invalid
+
+    In a change to older versions of Biopython, partial codons are now
+    always regarded as an error (previously only checked if cds=True)
+    and will trigger a warning (likely to become an exception in a
+    future release).
+
+    If **cds=True**, the start and stop codons are checked, and the start
+    codon will be translated at methionine. The sequence must be an
+    while number of codons.
+
+    >>> _translate_str("ATGCCCTAG", table, cds=True)
+    'MP'
+    >>> _translate_str("AAACCCTAG", table, cds=True)
+    Traceback (most recent call last):
+       ...
+    Bio.Data.CodonTable.TranslationError: First codon 'AAA' is not a start codon
+    >>> _translate_str("ATGCCCTAGCCCTAG", table, cds=True)
+    Traceback (most recent call last):
+       ...
+    Bio.Data.CodonTable.TranslationError: Extra in frame stop codon found.
+    """
+
+    if cds and len(sequence) % 3 != 0:
+        raise CodonTable.TranslationError("Sequence length {0} is not a multiple of three".format(n))
+    elif gap is not None and (not isinstance(gap, str) or len(gap) > 1):
+        raise TypeError("Gap character should be a single character "
+                        "string.")
+
+    forward_table, valid_letters = get_tables(table, to_stop=to_stop)
+
+    def getter(codon, pos_stop, forward_table, valid_letters, gap):
+
+        try:
+            forw = forward_table[codon]
+            assert forw is not None, (codon, forw)
+            return forw
+        except KeyError:
+            assert pos_stop is not None
+            if gap is not None and codon == gap * 3:
+                return pos_stop
+            elif valid_letters.issuperset(set(codon)):
+                return pos_stop
+            else:
+                raise CodonTable.TranslationError("Codon '{0}' is invalid".format(codon))
+
+    partial_getter = functools.partial(getter,
+                                       pos_stop=pos_stop,
+                                       forward_table=forward_table,
+                                       valid_letters=valid_letters,
+                                       gap=gap)
+
+    amino_acids = [partial_getter("".join(codon)) for codon in
+                   iter(_ for _ in _codon_grouper
+                   (sequence[:len(sequence) - len(sequence) % 3]) if _ is not None and None not in _)]
+    found_stops = amino_acids.count(stop_symbol)
+
+    if cds and amino_acids[0] != "M":
+        raise CodonTable.TranslationError(
+            "First codon '{0}' is not a start codon".format(sequence[:3]))
+
+    if cds and found_stops > 1:
+        raise CodonTable.TranslationError("Extra in frame stop codon found.")
+    elif cds and found_stops and amino_acids.index(stop_symbol) < len(amino_acids) - 1:
+        raise CodonTable.TranslationError("Extra in frame stop codon found.")
+    if to_stop and found_stops > 0:
+        amino_acids = amino_acids[:amino_acids.index(stop_symbol)]
+
+    return "".join(amino_acids)
 
 
 # These classes do contain lots of things, it is correct like it is
@@ -400,8 +551,6 @@ class BED12:
                     sequence = str(sequence.seq)
                 if not isinstance(sequence, str):
                     sequence = str(sequence)
-                # if isinstance(sequence, str):
-                #     sequence = Seq.Seq(sequence)
             else:
                 if self.id not in fasta_index:
                     self.__in_index = False
@@ -440,8 +589,6 @@ class BED12:
 
                 self.has_start_codon = False
                 if self.start_adjustment is True:
-                    # if self.strand == "-":
-                    #     sequence = Seq.reverse_complement(sequence)
                     self._adjust_start(sequence, orf_sequence)
 
             if self.stop_codon in self.table.stop_codons:
@@ -456,7 +603,10 @@ class BED12:
             last_pos = -3 - ((len(orf_sequence)) % 3)
 
             if self.__lenient is False:
-                translated_seq = Seq.translate(orf_sequence[:last_pos], table=self.table, gap='N')
+                translated_seq = _translate_str(orf_sequence[:last_pos],
+                                                table=self.table,
+                                                gap='N')
+
                 self.__internal_stop_codons = str(translated_seq).count("*")
 
             if self.invalid is True:
@@ -834,7 +984,8 @@ class BED12:
                      old_orf[:10], old_orf[-10:])
         assert len(old_orf) > 0, (old_start_pos, old_end_pos)
         assert len(old_orf) % 3 == 0, (old_start_pos, old_end_pos)
-        old_pep = Seq.Seq(old_orf).translate(self.table, gap="N")
+
+        old_pep = _translate_str(old_orf, self.table, gap="N")
         if "*" in old_pep and old_pep.find("*") < len(old_pep) - 1:
             logger.error("Stop codon found within the ORF of %s (pos %s of %s; phase %s). This is invalid!",
                          self.id, old_pep.find("*"), len(old_pep), self.phase)
@@ -874,11 +1025,13 @@ class BED12:
                     self.phase = 0
                     self.__has_start = True
 
-            coding_seq = Seq.Seq(sequence[self.thick_start + self.phase - 1:self.end])
+            coding_seq = sequence[self.thick_start + self.phase - 1:self.end]
             if len(coding_seq) % 3 != 0:
                 # Only get a multiple of three
                 coding_seq = coding_seq[:-((len(coding_seq)) % 3)]
-            prot_seq = Seq.translate(coding_seq, table=self.table, gap="N")
+            prot_seq = _translate_str(coding_seq, table=self.table, gap="N")
+            # print(coding_seq, prot_seq, self.table, sep="\n")
+            # raise ValueError()
             if "*" in prot_seq:
                 self.thick_end = self.thick_start + self.phase - 1 + (1 + prot_seq.find("*")) * 3
                 self.stop_codon = coding_seq[prot_seq.find("*") * 3:(1 + prot_seq.find("*")) * 3].upper()

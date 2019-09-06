@@ -72,12 +72,13 @@ def xml_pickler(json_conf, filename, default_header,
         err = "Invalid BLAST file: %s" % filename
         raise TypeError(err)
     dbname, conn, cursor = _create_xml_db(filename)
+    cache = {"query": dict(), "target": dict()}
     try:
         with BlastOpener(filename) as opened:
             try:
                 for query_counter, record in enumerate(opened, start=1):
-                    hits, hsps = objectify_record(session, record, [], [],
-                                                  max_target_seqs=max_target_seqs)
+                    hits, hsps, cache = objectify_record(session, record, [], [], cache,
+                                                         max_target_seqs=max_target_seqs)
 
                     cursor.execute("INSERT INTO dump VALUES (?, ?, ?)",
                                    (query_counter, json.dumps(hits), json.dumps(hsps))
@@ -280,12 +281,15 @@ class XmlSerializer:
             # pylint: enable=no-member
             self.logger.debug("Loaded %d objects into the \"query\" table", counter)
 
-        _queries = pd.read_sql_table("query", self.engine, index_col="query_name",
-                                    columns=["query_id", "query_length"])
-        _queries_d = _queries.to_dict("list")
-        queries = dict((key, (qid, qlen)) for (key, qid, qlen) in
-                          zip(_queries.index, _queries_d["query_id"], _queries_d["query_length"]))
-        self.logger.info("%d in queries", len(queries))
+        if self.single_thread is True or self.procs == 1:
+            _queries = pd.read_sql_table("query", self.engine, index_col="query_name",
+                                        columns=["query_id", "query_length"])
+            queries = dict((qname, int(qid)) for
+                            qname, qid in zip(_queries.index, _queries["query_id"].values))
+            self.logger.info("%d in queries", len(queries))
+        else:
+            queries = dict()
+
         return queries
 
     def __serialize_targets(self, targets):
@@ -334,12 +338,14 @@ class XmlSerializer:
         self.session.commit()
 
         self.logger.info("Loaded %d objects into the \"target\" table", counter)
-        _targets = pd.read_sql_table("target", self.engine, index_col="target_name",
-                                     columns=["target_id", "target_length"])
-        _targets_d = _targets.to_dict("list")
-        targets = dict((key, (qid, qlen)) for (key, qid, qlen) in
-                       zip(_targets.index, _targets_d["target_id"], _targets_d["target_length"]))
-        self.logger.debug("%d in targets", len(targets))
+        if self.single_thread is True or self.procs == 1:
+            _targets = pd.read_sql_table("target", self.engine, index_col="target_name",
+                                         columns=["target_id", "target_length"])
+            targets = dict((qname, int(qid)) for
+                            qname, qid in zip(_targets.index, _targets["target_id"].values))
+            self.logger.debug("%d in targets", len(targets))
+        else:
+            targets = dict()
         return targets
 
     def __serialise_sequences(self):
@@ -361,10 +367,10 @@ class XmlSerializer:
         self.logger.debug("Started the sequence serialisation")
         if self.target_seqs:
             targets = self.__serialize_targets(targets)
-            assert len(targets) > 0
+            # assert len(targets) > 0
         if self.query_seqs is not None:
             queries = self.__serialize_queries(queries)
-            assert len(queries) > 0
+            # assert len(queries) > 0
 
         return queries, targets
 
@@ -432,6 +438,7 @@ class XmlSerializer:
                 self.xml.remove(filename)
 
         if self.single_thread is True or self.procs == 1:
+            cache = {"query": self.queries, "target": self.targets}
             for filename in self.xml:
                 valid, _, exc = BlastOpener(filename).sniff(default_header=self.header)
                 if not valid:
@@ -444,10 +451,11 @@ class XmlSerializer:
                             record_counter += 1
                             if record_counter > 0 and record_counter % 10000 == 0:
                                 self.logger.info("Parsed %d queries", record_counter)
-                            hits, hsps = objectify_record(self.session,
-                                                          record, hits, hsps,
-                                                          max_target_seqs=self.__max_target_seqs, logger=self.logger)
-
+                            current = len(hits)
+                            hits, hsps, cache = objectify_record(
+                                self.session, record, hits, hsps,
+                                cache=cache, max_target_seqs=self.__max_target_seqs, logger=self.logger)
+                            hit_counter += len(hits) - current
                             hits, hsps = load_into_db(self, hits, hsps, force=False)
                     self.logger.debug("Finished %s", filename)
                 except ExpatError:
@@ -571,7 +579,7 @@ def load_into_db(self, hits, hsps, force=False):
     return hits, hsps
 
 
-def _get_query_for_blast(session: sqlalchemy.orm.session.Session, record):
+def _get_query_for_blast(session: sqlalchemy.orm.session.Session, record, cache):
     """ This private method formats the name of the query
     recovered from the BLAST hit. It will cause an exception if the target is not
     present in the dictionary.
@@ -579,14 +587,20 @@ def _get_query_for_blast(session: sqlalchemy.orm.session.Session, record):
     :return: current_query (ID in the database), name
     """
 
-    got = session.query(Query).filter(sqlalchemy.or_(
-        Query.query_name == record.query,
-        Query.query_name == record.query.split()[0],
-    )).one()
-    return got.query_id, got.query_name
+    if record.query in cache:
+        return cache[record.query], record.query, cache
+    elif record.query.split()[0] in cache:
+        return cache[record.query.split()[0]], record.query.split()[0], cache
+    else:
+        got = session.query(Query).filter(sqlalchemy.or_(
+            Query.query_name == record.query,
+            Query.query_name == record.query.split()[0],
+        )).one()
+        cache[got.query_name] = got.query_id
+        return got.query_id, got.query_name, cache
 
 
-def _get_target_for_blast(session, alignment):
+def _get_target_for_blast(session, alignment, cache):
     """ This private method retrieves the correct target_id
     key for the target of the BLAST. If the entry is not present
     in the database, it will be created on the fly.
@@ -596,15 +610,20 @@ def _get_target_for_blast(session, alignment):
     :return: current_target (ID in the database), targets
     """
 
-    got = session.query(Target).filter(sqlalchemy.or_(
-        Target.target_name == alignment.accession,
-        Target.target_name == alignment.hit_id)).one()
+    if alignment.accession in cache:
+        return cache[alignment.accession], cache
+    elif alignment.hit_id in cache:
+        return cache[alignment.accession], cache
+    else:
+        got = session.query(Target).filter(sqlalchemy.or_(
+            Target.target_name == alignment.accession,
+            Target.target_name == alignment.hit_id)).one()
+        cache[got.target_name] = got.target_id
+        return got.target_id, cache
 
-    # current_target = targets[accession][0]
-    return got.target_id
 
-
-def objectify_record(session, record, hits, hsps, max_target_seqs=10000, logger=create_null_logger()):
+def objectify_record(session, record, hits, hsps, cache,
+                     max_target_seqs=10000, logger=create_null_logger()):
     """
     Private method to serialise a single record into the DB.
 
@@ -621,9 +640,9 @@ def objectify_record(session, record, hits, hsps, max_target_seqs=10000, logger=
     """
 
     if len(record.alignments) == 0:
-        return hits, hsps
+        return hits, hsps, cache
 
-    current_query, name = _get_query_for_blast(session, record)
+    current_query, name, cache["query"] = _get_query_for_blast(session, record, cache["query"])
 
     current_evalue = -1
     current_counter = 0
@@ -634,7 +653,7 @@ def objectify_record(session, record, hits, hsps, max_target_seqs=10000, logger=
             break
 
         logger.debug("Started the hit %s vs. %s", name, record.alignments[ccc].hit_id)
-        current_target = _get_target_for_blast(session, alignment)
+        current_target, cache["target"] = _get_target_for_blast(session, alignment, cache["target"])
 
         hit_dict_params = dict()
         (hit_dict_params["query_multiplier"],
@@ -659,4 +678,4 @@ def objectify_record(session, record, hits, hsps, max_target_seqs=10000, logger=
         hits.append(hit)
         hsps.extend(hit_hsps)
 
-    return hits, hsps
+    return hits, hsps, cache

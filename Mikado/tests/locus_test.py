@@ -2852,8 +2852,15 @@ class PaddingTester(unittest.TestCase):
                                      (pad_distance, max_splice, coding, best))
                     self.assertTrue(locus["AT5G01030.4"].attributes.get("padded", False))
                     if coding:
+                        self.assertTrue(locus["AT5G01030.4"].is_coding,
+                                        locus["AT5G01030.4"])
+                        self.assertTrue(transcripts["AT5G01030.2"].is_coding)
+                        self.assertTrue(locus["AT5G01030.2"].is_coding)
                         self.assertEqual(locus["AT5G01030.4"].combined_cds_end,
-                                         transcripts["AT5G01030.2"].combined_cds_end)
+                                         # transcripts["AT5G01030.2"].combined_cds_end,
+                                         locus["AT5G01030.2"].combined_cds_end,
+                                         "\n".join([locus["AT5G01030.2"].format("bed12"),
+                                                    locus["AT5G01030.4"].format("bed12")]))
 
     @mark.slow
     def test_negative_padding(self):

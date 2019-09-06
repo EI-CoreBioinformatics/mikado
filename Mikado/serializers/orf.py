@@ -19,6 +19,7 @@ from .blast_serializer import Query
 from ..utilities.log_utils import create_null_logger, check_logger
 import pandas as pd
 from ..exceptions import InvalidSerialization
+import multiprocessing as mp
 
 
 # This is a serialization class, it must have a ton of attributes ...
@@ -78,6 +79,40 @@ class Orf(DBBASE):
             start=self.start,
             end=self.end
         )
+
+    def as_dict(self):
+
+        return {
+            "start": self.start,
+            "end": self.end,
+            "orf_name": self.orf_name,
+            "strand": self.strand,
+            "thick_start": self.thick_start,
+            "thick_end": self.thick_end,
+            "score": self.score,
+            "has_start_codon": self.has_start_codon,
+            "has_stop_codon": self.has_stop_codon,
+            "cds_len": self.cds_len,
+            "phase": self.phase
+        }
+
+    @staticmethod
+    def create_dict(bed12_object, query_id):
+        return {
+            "query_id": query_id,
+            "start": bed12_object.start,
+            "end": bed12_object.end,
+            "orf_name": bed12_object.name,
+            "strand": bed12_object.strand,
+            "thick_start": bed12_object.thick_start,
+            "thick_end": bed12_object.thick_end,
+            "score": bed12_object.score,
+            "has_start_codon": bed12_object.has_start_codon,
+            "has_stop_codon": bed12_object.has_stop_codon,
+            "cds_len": bed12_object.cds_len,
+            "phase": bed12_object.phase
+        }
+
 
     @classmethod
     def as_bed12_static(cls, state, query_name):
@@ -162,8 +197,10 @@ class OrfSerializer:
         fasta_index = json_conf["serialise"]["files"]["transcripts"]
         self._max_regression = json_conf["serialise"]["max_regression"]
         self._table = json_conf["serialise"]["codon_table"]
-        # self.procs = json_conf["serialise"]["procs"]
-        self.single_thread = json_conf["serialise"]["single_thread"]
+        # self.procs = json_conf["threads"]
+        # self.single_thread = json_conf["serialise"]["single_thread"]
+        # if self.single_thread:
+        #     self.procs = 1
 
         if isinstance(fasta_index, str):
             assert os.path.exists(fasta_index)
@@ -188,7 +225,7 @@ class OrfSerializer:
                                               max_regression=self._max_regression,
                                               table=self._table)
 
-        self.engine = connect(json_conf, logger)  # , echo=False)
+        self.engine = connect(json_conf, logger)
 
         Session = sessionmaker(bind=self.engine, autocommit=False, autoflush=False, expire_on_commit=False)
         session = Session()
@@ -227,20 +264,29 @@ class OrfSerializer:
             for ref, length in zip(self.fasta_index.references, self.fasta_index.lengths):
                 if ref in cache:
                     continue
-                objects.append(Query(ref, length))
+                objects.append({"query_name": ref, "query_length": length})
+                # objects.append(Query(ref, length))
                 assert ref not in found, ref
                 found.add(ref)
                 if len(objects) >= self.maxobjects:
                     done += len(objects)
-                    self.session.bulk_save_objects(objects)
+                    self.engine.execute(
+                        Query.__table__.insert(),
+                        objects
+                    )
+                    # self.session.bulk_save_objects(objects)
                     self.session.commit()
                     self.logger.debug(
                         "Loaded %d transcripts into query table", done)
                     objects = []
 
             done += len(objects)
+            self.engine.execute(
+                Query.__table__.insert(),
+                objects
+            )
             # self.session.begin(subtransactions=True)
-            self.session.bulk_save_objects(objects)
+            # self.session.bulk_save_objects(objects)
             self.session.commit()
             self.logger.debug("Finished loading %d transcripts into query table", done)
         return
@@ -290,28 +336,34 @@ class OrfSerializer:
 Please check your input files.")
                 raise InvalidSerialization
 
-            current_junction = Orf(row, current_query)
-            objects.append(current_junction)
+            # current_junction = Orf(row, current_query)
+            objects.append(Orf.create_dict(row, current_query))
             if len(objects) >= self.maxobjects:
                 done += len(objects)
                 self.session.begin(subtransactions=True)
-                self.session.bulk_save_objects(objects)
+                # self.session.bulk_save_objects(objects)
+                self.engine.execute(
+                    Orf.__table__.insert(),
+                    objects
+                )
                 self.session.commit()
                 self.logger.debug("Loaded %d ORFs into the database", done)
                 objects = []
 
         done += len(objects)
         # self.session.begin(subtransactions=True)
-        self.session.bulk_save_objects(objects, update_changed_only=False)
+        # self.session.bulk_save_objects(objects, update_changed_only=False)
+        self.engine.execute(
+            Orf.__table__.insert(),
+            objects
+        )
         self.session.commit()
         self.session.close()
         self.logger.info("Finished loading %d ORFs into the database", done)
 
         orfs = pd.read_sql_table("orf", self.engine, index_col="query_id")
         if orfs.shape[0] != done:
-            raise ValueError("I should have serialised {} ORFs, but only {} are present!".format(
-                done, orfs.shape[0]
-            ))
+            raise ValueError("I should have serialised {} ORFs, but {} are present!".format(done, orfs.shape[0]))
 
     def __call__(self):
         """

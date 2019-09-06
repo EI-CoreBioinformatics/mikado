@@ -77,8 +77,8 @@ def xml_pickler(json_conf, filename, default_header,
         with BlastOpener(filename) as opened:
             try:
                 for query_counter, record in enumerate(opened, start=1):
-                    hits, hsps, cache = objectify_record(session, record, [], [], cache,
-                                                         max_target_seqs=max_target_seqs)
+                    hits, hsps, cache = objectify_record(
+                        session, record, [], [], cache, max_target_seqs=max_target_seqs)
 
                     cursor.execute("INSERT INTO dump VALUES (?, ?, ?)",
                                    (query_counter, json.dumps(hits), json.dumps(hsps))
@@ -241,13 +241,17 @@ class XmlSerializer:
         for record, length in zip(self.query_seqs.references, self.query_seqs.lengths):
             if not record:
                 continue
-            if record in queries and queries[record][1] is not None:
+            if record in queries and queries[record][1] == length:
                 continue
             elif record in queries:
-                self.session.query(Query).filter(Query.query_name == record).update(
-                    {"query_length": length})
-                queries[record] = (queries[record][0], length)
-                continue
+                if queries[record][1] == length:
+                    continue
+                else:
+                    raise KeyError("Discrepant length for query {} (original {}, new {})".format(
+                        record, queries[record][1], length))
+                # self.session.query(Query).filter(Query.query_name == record).update(
+                #     {"query_length": length})
+                # queries[record] = (queries[record][0], length)
 
             objects.append({
                 "query_name": record,
@@ -274,12 +278,13 @@ class XmlSerializer:
             # pylint: disable=no-member
             counter += len(objects)
             # pylint: disable=no-member
-            self.session.begin()
+            self.session.begin(subtransactions=True)
             self.engine.execute(Query.__table__.insert(), objects)
             # pylint: enable=no-member
             self.session.commit()
             # pylint: enable=no-member
-            self.logger.debug("Loaded %d objects into the \"query\" table", counter)
+
+        self.logger.info("Loaded %d objects into the \"query\" table", counter)
 
         if self.single_thread is True or self.procs == 1:
             _queries = pd.read_sql_table("query", self.engine, index_col="query_name",
@@ -358,9 +363,9 @@ class XmlSerializer:
         queries = dict()
         self.logger.debug("Loading previous IDs")
         for query in self.session.query(Query):
-            queries[query.query_name] = (query.query_id, (query.query_length is not None))
+            queries[query.query_name] = (query.query_id, query.query_length)
         for target in self.session.query(Target):
-            targets[target.target_name] = (target.target_id, (target.target_length is not None))
+            targets[target.target_name] = (target.target_id, target.target_length)
         self.logger.debug("Loaded previous IDs; %d for queries, %d for targets",
                          len(queries), len(targets))
 
@@ -635,8 +640,8 @@ def objectify_record(session, record, hits, hsps, cache,
     :param hsps: Cache of hsps to load into the DB.
     :type hsps: list
 
-    :returns: hits, hsps
-    :rtype: (list, list)
+    :returns: hits, hsps, cache
+    :rtype: (list, list, dict)
     """
 
     if len(record.alignments) == 0:

@@ -353,10 +353,10 @@ def serialise(args):
             engine.execute("VACUUM")
         dbutils.DBBASE.metadata.create_all(engine)
 
-    load_external(args, logger)
-    load_junctions(args, logger)
     load_orfs(args, logger)
     load_blast(args, logger)
+    load_external(args, logger)
+    load_junctions(args, logger)
     logger.info("Finished")
     try:
         return 0

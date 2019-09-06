@@ -51,9 +51,9 @@ class GffLine(GFAnnotation):
 
         for item in infolist:
             key, val = item
-            if key.lower() == "parent":
+            if key in ("parent", "Parent"):
                 self.parent = val
-            elif key.upper() == "ID":
+            elif key in ("ID", "id", "Id"):
                 self.id = val
             else:
                 if fastnumbers.isint(val):
@@ -61,9 +61,9 @@ class GffLine(GFAnnotation):
                 elif fastnumbers.isreal(val):
                     val = fastnumbers.fast_float(val)
                 else:
-                    if isinstance(val, str) and val.lower() == "true":
+                    if val in ("true", "True", "TRUE"):
                         val = True
-                    elif isinstance(val, str) and val.lower() == "false":
+                    elif val in ("false", "False", "FALSE"):
                         val = False
 
                 attributes[key] = val

@@ -24,16 +24,12 @@ import warnings
 from Bio.Data.IUPACData import ambiguous_dna_letters as _ambiguous_dna_letters
 from Bio.Data.IUPACData import ambiguous_rna_letters as _ambiguous_rna_letters
 from Bio.Data import CodonTable
-from itertools import zip_longest
+import multiprocessing as mp
 
 
 backup_valid_letters = set(_ambiguous_dna_letters.upper() + _ambiguous_rna_letters.upper())
 standard = CodonTable.ambiguous_dna_by_id[1]
 standard.start_codons = ["ATG"]
-
-
-def _codon_grouper(letters, padvalue=None):
-    return zip_longest(*[iter(letters)] * 3, fillvalue=padvalue)
 
 
 @functools.lru_cache(typed=True, maxsize=None)
@@ -66,8 +62,7 @@ def get_tables(table, to_stop=False):
     return forward_table, valid_letters
 
 
-def _translate_str(sequence, table, stop_symbol="*", to_stop=False,
-                   cds=False, pos_stop="X", gap=None):
+def _translate_str(sequence, table, stop_symbol="*", to_stop=False, cds=False, pos_stop="X", gap=None):
     """Translate nucleotide string into a protein string (PRIVATE).
 
     Arguments:
@@ -137,30 +132,21 @@ def _translate_str(sequence, table, stop_symbol="*", to_stop=False,
 
     forward_table, valid_letters = get_tables(table, to_stop=to_stop)
 
-    def getter(codon, pos_stop, forward_table, valid_letters, gap):
-
+    amino_acids = []
+    for start in range(0, len(sequence) - len(sequence) % 3, 3):
+        codon = sequence[start:start + 3]
         try:
-            forw = forward_table[codon]
-            assert forw is not None, (codon, forw)
-            return forw
+            residue = forward_table[codon]
         except KeyError:
             assert pos_stop is not None
             if gap is not None and codon == gap * 3:
-                return pos_stop
+                residue = pos_stop
             elif valid_letters.issuperset(set(codon)):
-                return pos_stop
+                residue = pos_stop
             else:
                 raise CodonTable.TranslationError("Codon '{0}' is invalid".format(codon))
+        amino_acids.append(residue)
 
-    partial_getter = functools.partial(getter,
-                                       pos_stop=pos_stop,
-                                       forward_table=forward_table,
-                                       valid_letters=valid_letters,
-                                       gap=gap)
-
-    amino_acids = [partial_getter("".join(codon)) for codon in
-                   iter(_ for _ in _codon_grouper
-                   (sequence[:len(sequence) - len(sequence) % 3]) if _ is not None and None not in _)]
     found_stops = amino_acids.count(stop_symbol)
 
     if cds and amino_acids[0] != "M":
@@ -300,7 +286,7 @@ class BED12:
         self.block_sizes = [0]
         self.block_starts = [0]
         self.block_count = 1
-        self.invalid_reason = ''
+        self.invalid_reason = None
         self.fasta_length = None
         self.__in_index = True
         self.max_regression = max_regression
@@ -848,11 +834,6 @@ class BED12:
             self.invalid_reason = "{} not found in the index!".format(self.chrom)
             return True
 
-        assert isinstance(self.thick_start, int)
-        assert isinstance(self.thick_end, int)
-        assert isinstance(self.start, int)
-        assert isinstance(self.end, int)
-
         if self.thick_start < self.start or self.thick_end > self.end:
             if self.thick_start == self.thick_end == self.block_sizes[0] == 0:
                 pass
@@ -1044,7 +1025,6 @@ class BED12:
 
         self.block_sizes = [self.thick_end - self.thick_start]
         self.block_starts = [self.thick_start]
-
         return
 
     @property
@@ -1158,6 +1138,7 @@ class Bed12Parser(Parser):
                  max_regression=0,
                  is_gff=False,
                  coding=False,
+                 procs=None,
                  table=0):
         """
         Constructor method.

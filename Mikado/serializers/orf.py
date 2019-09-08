@@ -373,16 +373,19 @@ Please check your input files.")
         not_found = set()
         done = 0
         objects = []
-        [parser.join() for parser in parsers]
-        return_queue.put("EXIT")
+        procs_done = 0
         while True:
+            object = return_queue.get()
+            if object in ("FINISHED", b"FINISHED"):
+                procs_done += 1
+                if procs_done == self.procs:
+                    break
+                else:
+                    continue
             try:
-                object = return_queue.get_nowait()
-            except mp.queues.Empty:
-                break
-            if object in ("EXIT", b"EXIT"):
-                break
-            object = msgpack.loads(object, raw=False)
+                object = msgpack.loads(object, raw=False)
+            except TypeError:
+                raise TypeError(object)
 
             if object["id"] in self.cache:
                 current_query = self.cache[object["id"]]
@@ -413,6 +416,7 @@ Please check your input files.")
                 self.logger.debug("Loaded %d ORFs into the database", done)
                 objects = []
 
+        [proc.join() for proc in parsers]
         done += len(objects)
         # self.session.begin(subtransactions=True)
         # self.session.bulk_save_objects(objects, update_changed_only=False)

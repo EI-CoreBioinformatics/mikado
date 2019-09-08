@@ -1387,6 +1387,7 @@ class Bed12ParseWrapper(mp.Process):
             line = self.rec_queue.get()
             if line in ("EXIT", b"EXIT"):
                 self.rec_queue.put(b"EXIT")
+                self.return_queue.put(b"FINISHED")
                 break
             try:
                 line = line.decode()

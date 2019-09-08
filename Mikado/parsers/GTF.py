@@ -83,35 +83,60 @@ class GtfLine(GFAnnotation):
         :return:
         """
 
-        info_list = []
-        assert 'gene_id', 'transcript_id' in self.attributes
-        if isinstance(self.gene, list):
-            gene = ",".join(self.gene)
+        return self._format_attributes_dict(
+            self.attributes,
+            gene=self.gene,
+            transcript=self.transcript)
+
+    @staticmethod
+    def _format_attributes_dict(attributes, gene=None, transcript=None):
+        """Method to define how to get the attribute string."""
+
+        if not gene:
+            pass
+            # assert attributes["gene_id"], attributes
         else:
-            gene = self.gene
-        self.attributes['gene_id'] = gene
+            attributes['gene_id'] = gene
+        if "gene_id" in attributes and isinstance(attributes["gene_id"], list):
+            attributes["gene_id"] = ",".join(attributes["gene_id"])
+
+        if not transcript:
+            assert attributes["transcript_id"]
+        else:
+            attributes["transcript_id"] = transcript
+
+        assert attributes["transcript_id"]
+
         order = ['gene_id', 'transcript_id', 'exon_number', 'gene_name', 'transcript_name']
 
+        info_list = []
+
         for tag in order:
-            if tag in self.attributes:
-                if isinstance(self.attributes[tag], list):
-                    val = ",".join(self.attributes[tag])
+            if tag in attributes:
+                if isinstance(attributes[tag], list):
+                    val = ",".join(attributes[tag])
                 else:
-                    val = self.attributes[tag]
+                    val = attributes[tag]
                 info_list.append("{0} \"{1}\"".format(tag, val))
 
-        for info in iter(key for key in self.attributes if
-                         self.attributes[key] not in (None, "", []) and key not in order):
-            if info in ("Parent", "ID"):
+        done = set()
+        for info in iter(key for key in attributes if
+                         attributes[key] not in (None, "", []) and key not in order):
+            if info in ("Parent", "ID", "parent", "id"):
                 continue
 
-            if isinstance(self.attributes[info], list):
-                val = ",".join(self.attributes[info])
+            if isinstance(attributes[info], list):
+                val = ",".join(attributes[info])
             else:
-                val = self.attributes[info]
+                val = attributes[info]
+            if info == "name":
+                info = "Name"
+            if info in done:
+                continue
+            done.add(info)
             info_list.append("{0} \"{1}\"".format(info, val))
-        attributes = "; ".join(info_list) + ";"
-        return attributes
+        attrs = "; ".join(info_list) + ";"
+        return attrs
 
     @property
     def name(self):

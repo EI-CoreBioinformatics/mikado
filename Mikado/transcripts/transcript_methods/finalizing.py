@@ -764,9 +764,10 @@ def finalize(transcript):
                                 transcript.id, transcript.attributes)
 
     for prop in list(transcript.attributes.keys()):
+        val = transcript.attributes[prop]
         if hasattr(transcript, prop):
             try:
-                setattr(transcript, prop, transcript.attributes[prop])
+                setattr(transcript, prop, val)
             except AttributeError:  # Some instance attributes CANNOT be set from the attributes of the GTF
                 transcript.attributes.pop(prop)
 

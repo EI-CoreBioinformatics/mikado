@@ -98,6 +98,23 @@ class GFAnnotation(metaclass=abc.ABCMeta):
         else:
             return 0
 
+    @classmethod
+    def string_from_dict(cls, data, **kwargs):
+
+        line = [data["chrom"],
+                data["source"] if data["source"] else "Mikado",
+                data["feature"],
+                data["start"],
+                data["end"],
+                data["score"] if data["score"] is not None else ".",
+                data["strand"] if data["strand"] is not None else ".",
+                data["phase"] if data["phase"] is not None else "."
+                ]
+
+        line = [str(item) for item in line]
+        attrs = cls._format_attributes_dict(data["attributes"], **kwargs)
+        return "\t".join(line + [attrs])
+
     @abc.abstractmethod
     def _parse_attributes(self):
         """
@@ -115,6 +132,11 @@ class GFAnnotation(metaclass=abc.ABCMeta):
         :return:
         """
         raise NotImplementedError("This is only an abstract method!")
+
+    @staticmethod
+    @abc.abstractmethod
+    def _format_attributes_dict(attributes, **kwargs):
+        """Method to define how to get the attribute string."""
 
     def __format_middle(self):
         """

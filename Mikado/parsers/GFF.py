@@ -78,26 +78,54 @@ class GffLine(GFAnnotation):
         :return:
         """
 
+        attrs = self._format_attributes_dict(
+            self.attributes,
+            parent=self.parent,
+            mid=self.id,
+            name=self.name,
+            attribute_order=self.attribute_order)
+
+        return attrs
+
+    @staticmethod
+    def _format_attributes_dict(attributes, parent=None, mid=None, name=None, attribute_order=None):
+
+        if not parent:
+            try:
+                parent = attributes["parent"]
+            except KeyError:
+                try:
+                    parent = attributes["Parent"]
+                except KeyError:
+                    parent = None
+
+        if not mid:
+            try:
+                mid = attributes["id"]
+            except KeyError:
+                try:
+                    mid = attributes["ID"]
+                except KeyError:
+                    mid = None
+        if not name:
+            name = attributes.get("name", None)
         attrs = []
-        attributes = self.attributes
-        parent = self.parent
-        mid = self.id
-        attribute_order = self.attribute_order
-        name = self.name
         if mid is not None:
             attrs.append("ID={0}".format(mid))
         if parent is not None:
+            if isinstance(parent, str):
+                parent = [parent]
             if len(parent) > 1:
                 attrs.append("Parent={0}".format(",".join(parent)))
             elif len(parent) == 1:
                 attrs.append("Parent={0}".format(parent[0]))
         if name is not None:
-            attrs.append("Name={0}".format(self.name))
+            attrs.append("Name={0}".format(name))
 
         if not attribute_order:
-            self.attribute_order = sorted(list(key for key in self.attributes if
-                                               key not in ["ID", "Parent", "Name"]))
-            attribute_order = self.attribute_order
+            attribute_order = sorted(list(key for key in attributes if
+                                               key not in ["ID", "Parent", "Name",
+                                                           "parent", "id", "name"]))
 
         attrs += ["{0}={1}".format(att.lower(), attributes[att]) for att in attribute_order
                   if (att not in ("ID", "Parent", "Name", "name", "gene_id", "transcript_id") and

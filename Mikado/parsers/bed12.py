@@ -25,6 +25,9 @@ from Bio.Data.IUPACData import ambiguous_dna_letters as _ambiguous_dna_letters
 from Bio.Data.IUPACData import ambiguous_rna_letters as _ambiguous_rna_letters
 from Bio.Data import CodonTable
 import multiprocessing as mp
+import msgpack
+import logging
+import logging.handlers as logging_handlers
 
 
 backup_valid_letters = set(_ambiguous_dna_letters.upper() + _ambiguous_rna_letters.upper())
@@ -125,7 +128,9 @@ def _translate_str(sequence, table, stop_symbol="*", to_stop=False, cds=False, p
     """
 
     if cds and len(sequence) % 3 != 0:
-        raise CodonTable.TranslationError("Sequence length {0} is not a multiple of three".format(n))
+        raise CodonTable.TranslationError("Sequence length {0} is not a multiple of three".format(
+            len(sequence)
+        ))
     elif gap is not None and (not isinstance(gap, str) or len(gap) > 1):
         raise TypeError("Gap character should be a single character "
                         "string.")
@@ -719,6 +724,25 @@ class BED12:
 
         return copy.deepcopy(self)
 
+    def as_simple_dict(self):
+
+        return {
+            "chrom": self.chrom,
+            "id": self.id,
+            "start": self.start,
+            "end": self.end,
+            "name": self.name,
+            "strand": self.strand,
+            "thick_start": self.thick_start,
+            "thick_end": self.thick_end,
+            "score": self.score,
+            "has_start_codon": self.has_start_codon,
+            "has_stop_codon": self.has_stop_codon,
+            "cds_len": self.cds_len,
+            "phase": self.phase,
+            "transcriptomic": self.transcriptomic,
+        }
+
     @property
     def strand(self):
         """
@@ -1138,7 +1162,6 @@ class Bed12Parser(Parser):
                  max_regression=0,
                  is_gff=False,
                  coding=False,
-                 procs=None,
                  table=0):
         """
         Constructor method.
@@ -1167,11 +1190,13 @@ class Bed12Parser(Parser):
                 fasta_index[numpy.random.choice(fasta_index.keys(), 1)],
                 Bio.SeqRecord.SeqRecord)
         elif fasta_index is not None:
-            if isinstance(fasta_index, str):
+            if isinstance(fasta_index, (str, bytes)):
+                if isinstance(fasta_index, bytes):
+                    fasta_index = fasta_index.decode()
                 assert os.path.exists(fasta_index)
                 fasta_index = pysam.FastaFile(fasta_index)
             else:
-                assert isinstance(fasta_index, pysam.FastaFile)
+                assert isinstance(fasta_index, pysam.FastaFile), type(fasta_index)
 
         self.fasta_index = fasta_index
         self.__closed = False
@@ -1267,3 +1292,118 @@ class Bed12Parser(Parser):
         if coding not in (False, True):
             raise ValueError(coding)
         self.__coding = coding
+
+
+class Bed12ParseWrapper(mp.Process):
+
+    def __init__(self,
+                 rec_queue=None,
+                 return_queue=None,
+                 log_queue=None, level="DEBUG",
+                 fasta_index=None,
+                 transcriptomic=False,
+                 max_regression=0,
+                 is_gff=False,
+                 coding=False,
+                 table=0):
+
+        """
+        :param send_queue:
+        :type send_queue: mp.Queue
+        :param return_queue:
+        :type send_queue: mp.Queue
+        :param kwargs:
+        """
+
+        super().__init__()
+        self.rec_queue = rec_queue
+        self.return_queue = return_queue
+        self.logging_queue = log_queue
+        self.handler = logging_handlers.QueueHandler(self.logging_queue)
+        self.logger = logging.getLogger(self.name)
+        self.logger.addHandler(self.handler)
+        self.logger.setLevel(level)
+        self.logger.propagate = False
+        self.transcriptomic = transcriptomic
+        self.__max_regression = 0
+        self._max_regression = max_regression
+        self.coding = coding
+
+        if isinstance(fasta_index, dict):
+            # check that this is a bona fide dictionary ...
+            assert isinstance(
+                fasta_index[numpy.random.choice(fasta_index.keys(), 1)],
+                Bio.SeqRecord.SeqRecord)
+        elif fasta_index is not None:
+            if isinstance(fasta_index, (str, bytes)):
+                if isinstance(fasta_index, bytes):
+                    fasta_index = fasta_index.decode()
+                assert os.path.exists(fasta_index)
+                fasta_index = pysam.FastaFile(fasta_index)
+            else:
+                assert isinstance(fasta_index, pysam.FastaFile), type(fasta_index)
+
+        self.fasta_index = fasta_index
+        self.__closed = False
+        self.header = False
+        self.__table = table
+        self._is_bed12 = (not is_gff)
+
+    def bed_next(self, line):
+        """
+
+        :return:
+        """
+
+        bed12 = BED12(line,
+                          fasta_index=self.fasta_index,
+                          transcriptomic=self.transcriptomic,
+                          max_regression=self._max_regression,
+                          coding=self.coding,
+                          table=self.__table)
+        return bed12
+
+    def gff_next(self, line):
+        """
+
+        :return:
+        """
+
+        line = GffLine(line)
+
+        if line.feature != "CDS":
+            return None
+            # Compatibility with BED12
+        bed12 = BED12(line,
+                      fasta_index=self.fasta_index,
+                      transcriptomic=self.transcriptomic,
+                      max_regression=self._max_regression,
+                      table=self.__table)
+        # raise NotImplementedError("Still working on this!")
+        return bed12
+
+    def run(self, *args, **kwargs):
+        while True:
+            line = self.rec_queue.get()
+            if line in ("EXIT", b"EXIT"):
+                self.rec_queue.put(b"EXIT")
+                break
+            try:
+                line = line.decode()
+            except AttributeError:
+                pass
+            if not self._is_bed12:
+                row = self.gff_next(line)
+            else:
+                row = self.bed_next(line)
+
+            if not row or row.header is True:
+                continue
+            if row.invalid is True:
+                self.logger.warn("Invalid entry, reason: %s\n%s",
+                                 row.invalid_reason,
+                                 row)
+                continue
+            self.return_queue.put(msgpack.dumps(row.as_simple_dict()))
+
+        # self.join()

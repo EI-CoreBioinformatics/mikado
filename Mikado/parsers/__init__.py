@@ -11,6 +11,7 @@ import gzip
 import bz2
 from functools import partial
 import magic
+import multiprocessing as mp
 
 
 class HeaderError(Exception):
@@ -27,17 +28,21 @@ class Parser(metaclass=abc.ABCMeta):
 
     def __init__(self, handle):
         self.__closed = False
+        self.__from_queue = False
         if not isinstance(handle, io.IOBase):
-            if handle.endswith(".gz") or self.wizard.from_file(handle) == b"application/gzip":
-                opener = gzip.open
-            elif handle.endswith(".bz2") or self.wizard.from_file(handle) == b"application/x-bzip2":
-                opener = bz2.open
+            if isinstance(handle, mp.queues.Queue):
+                self.__from_queue = True
             else:
-                opener = partial(open, **{"buffering": 1})
-            try:
-                handle = opener(handle, "rt")
-            except FileNotFoundError:
-                raise FileNotFoundError("File not found: {0}".format(handle))
+                if handle.endswith(".gz") or self.wizard.from_file(handle) == b"application/gzip":
+                    opener = gzip.open
+                elif handle.endswith(".bz2") or self.wizard.from_file(handle) == b"application/x-bzip2":
+                    opener = bz2.open
+                else:
+                    opener = partial(open, **{"buffering": 1})
+                try:
+                    handle = opener(handle, "rt")
+                except FileNotFoundError:
+                    raise FileNotFoundError("File not found: {0}".format(handle))
 
         self._handle = handle
         self.closed = False
@@ -46,8 +51,20 @@ class Parser(metaclass=abc.ABCMeta):
         return self
 
     def __next__(self):
-        line = self._handle.readline()
-        return line
+
+        if self.__from_queue:
+            line = self._handle.get_nowait()
+            if isinstance(line, bytes):
+                line = line.decode()
+            if line in ("EXIT", b"EXIT"):
+                self.close()
+        else:
+            try:
+                line = self._handle.readline()
+            except StopIteration:
+                self.close()
+                raise StopIteration
+            return line
 
     def __enter__(self):
         if self.closed is True:
@@ -56,7 +73,10 @@ class Parser(metaclass=abc.ABCMeta):
 
     def __exit__(self, *args):
         _ = args
-        self._handle.close()
+        if self.__from_queue is False:
+            self._handle.close()
+        else:
+            self._handle.join()
         self.closed = True
 
     def close(self):
@@ -70,7 +90,10 @@ class Parser(metaclass=abc.ABCMeta):
         """
         Return the filename.
         """
-        return self._handle.name
+        if self.__from_queue:
+            return ""
+        else:
+            return self._handle.name
 
     @property
     def closed(self):
@@ -102,6 +125,7 @@ from . import bed12
 # noinspection PyPep8
 from . import blast_utils
 from . import bam_parser
+
 
 def to_gff(string, input_format=None):
     """

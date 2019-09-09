@@ -30,7 +30,7 @@ import multiprocessing as mp
 import tempfile
 from .gene_dict import check_index
 from ..exceptions import InvalidTranscript
-import json
+import rapidjson as json
 import gzip
 import itertools
 import functools
@@ -41,7 +41,7 @@ from .gene_dict import GeneDict
 __author__ = 'Luca Venturini'
 
 
-# Hack to give the ujson library this exception class
+# Hack to give the rapidjson library this exception class
 # This becomes necessary when we happen to have a corrupted index
 if not hasattr(json, "decoder"):
 
@@ -299,7 +299,8 @@ class FinalAssigner(mp.Process):
 def transmit_transcript(index, transcript: Transcript, connection: sqlite3.Connection):
     transcript.finalize()
     connection.execute("INSERT INTO dump VALUES (?, ?)",
-                       (index, json.dumps(transcript.as_dict(remove_attributes=True))))
+                       (index, json.dumps(transcript.as_dict(remove_attributes=True),
+                                          number_mode=json.NM_NATIVE)))
 
 
 def get_best_result(_, transcript, assigner_instance: Assigner):

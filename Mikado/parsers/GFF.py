@@ -10,7 +10,6 @@ from . import Parser
 from .gfannotation import GFAnnotation
 from sys import intern
 import re
-import fastnumbers
 
 
 # This class has exactly how many attributes I need it to have
@@ -44,30 +43,21 @@ class GffLine(GFAnnotation):
         :return:
         """
 
-        attribute_order = []
-        attributes = dict()
-
         infolist = self._attribute_pattern.findall(self._attr.rstrip().rstrip(";"))
+        attribute_order = [key for key, val in infolist if key not in ("Parent", "parent", "id", "ID", "Id")]
+        attributes = dict((key, self._attribute_definition(val)) for key, val in infolist)
+        if "Parent" in attributes:
+            self.parent = attributes["Parent"]
+        elif "parent" in attributes:
+            self.parent = attributes["parent"]
 
-        for item in infolist:
-            key, val = item
-            if key in ("parent", "Parent"):
-                self.parent = val
-            elif key in ("ID", "id", "Id"):
-                self.id = val
-            else:
-                if fastnumbers.isint(val):
-                    val = fastnumbers.fast_int(val)
-                elif fastnumbers.isreal(val):
-                    val = fastnumbers.fast_float(val)
-                else:
-                    if val in ("true", "True", "TRUE"):
-                        val = True
-                    elif val in ("false", "False", "FALSE"):
-                        val = False
+        if "ID" in attributes:
+            self.id = attributes["ID"]
+        elif "id" in attributes:
+            self.id = attributes["id"]
+        elif "Id" in attributes:
+            self.id = attributes["Id"]
 
-                attributes[key] = val
-                attribute_order.append(key)
         self.attributes.update(attributes)
         self.attribute_order = attribute_order
 
@@ -142,7 +132,10 @@ class GffLine(GFAnnotation):
         Returns the ID of the feature.
         :rtype str
         """
-        return self.attributes["ID"]
+        if "ID" in self.attributes:
+            return self.attributes["ID"]
+        else:
+            return None
 
     @id.setter
     def id(self, newid):
@@ -153,6 +146,7 @@ class GffLine(GFAnnotation):
         """
 
         self.attributes["ID"] = newid
+        self._is_gene = None
     # pylint: enable=invalid-name
 
     @property

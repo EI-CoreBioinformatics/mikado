@@ -1277,9 +1277,10 @@ def expand_transcript(transcript: Transcript,
         elif backup.strand != "-" and backup.combined_cds_end > transcript.combined_cds_end:
             abort = True
         if abort is True:
-            msg = "Padding {} (strand: {}) would lead to an in-frame stop codon ({} to {}, vs original {} to {}.\
-Aborting.".format(transcript.id, backup.strand, transcript.combined_cds_start, transcript.combined_cds_end,
-                  backup.combined_cds_start, backup.combined_cds_end)
+            msg = "Padding {} (strand: {}) would lead to an in-frame stop codon ({} to {}, \
+vs original {} to {}. Aborting.".format(
+                transcript.id, backup.strand, transcript.combined_cds_start, transcript.combined_cds_end,
+                backup.combined_cds_start, backup.combined_cds_end)
             logger.info(msg)
             return backup
 

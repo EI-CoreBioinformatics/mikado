@@ -16,11 +16,16 @@ from ..transcripts import Transcript
 from ..exceptions import InvalidTranscript
 import msgpack
 try:
-    import ujson as json
+    import rapidjson as json
 except ImportError:
     import json
 
 __author__ = 'Luca Venturini'
+
+
+def default_for_serialisation(obj):
+    if isinstance(obj, set):
+        return tuple(obj)
 
 
 def print_locus(stranded_locus,
@@ -118,12 +123,12 @@ def print_locus(stranded_locus,
 
 
 def serialise_locus(stranded_loci: [Superlocus],
-                    cursor: sqlite3.Cursor,
                     conn: sqlite3.Connection,
-                    counter,
-                    dbname):
+                    counter):
 
-    loci = msgpack.dumps([json.dumps(stranded_locus.as_dict()) for stranded_locus in stranded_loci])
+    loci = msgpack.dumps([json.dumps(stranded_locus.as_dict(), default=default_for_serialisation,
+                                     number_mode=json.NM_NATIVE)
+                          for stranded_locus in stranded_loci])
     conn.execute("INSERT INTO loci VALUES (?, ?)", (counter, loci))
     conn.commit()
     return
@@ -157,6 +162,8 @@ def merge_loci(num_temp, out_handles,
 
     # cursor.execute("CREATE TABLE loci (counter integer, json blob)")
 
+    decoder = json.Decoder(number_mode=json.NM_NATIVE)
+
     gene_counter = 0
     for dbindex, cursor in enumerate(cursors):
         for index in cursor.execute("SELECT counter FROM loci").fetchall():
@@ -175,7 +182,7 @@ def merge_loci(num_temp, out_handles,
             raise ValueError((index, type(index)))
         for stranded_locus_json in msgpack.loads(stranded_loci[0], raw=False):
             stranded_locus = Superlocus(None)
-            stranded_locus.load_dict(json.loads(stranded_locus_json),
+            stranded_locus.load_dict(decoder(stranded_locus_json),
                                      load_transcripts=False,
                                      print_monoloci=print_monoloci, print_subloci=print_subloci
                                      )
@@ -554,6 +561,7 @@ class LociProcesser(Process):
                                )
         cursor = conn.cursor()
 
+        decoder = json.Decoder(number_mode=json.NM_NATIVE)
         while True:
             counter = self.locus_queue.get()[0]
             if counter == "EXIT":
@@ -581,13 +589,16 @@ class LociProcesser(Process):
                 else:
                     tobjects = []
                     for tjson in transcripts:
-                        definition = json.loads(tjson["definition"])
+                        definition = decoder(tjson["definition"])
                         transcript = Transcript(logger=self.logger,
                                                 source=definition["source"],
                                                 intron_range=self.json_conf["pick"]["run_options"]["intron_range"])
                         transcript.chrom, transcript.start, transcript.end = (definition["chrom"],
                                                                               definition["start"], definition["end"])
-                        transcript.id = definition["transcript"]
+                        try:
+                            transcript.id = definition["transcript"]
+                        except KeyError:
+                            raise KeyError(definition)
                         transcript.strand, transcript.feature = definition["strand"], definition["feature"]
                         transcript.attributes = definition["attributes"]
                         try:
@@ -612,7 +623,7 @@ class LociProcesser(Process):
                         slocus.regressor = self.regressor
                     stranded_loci = self.analyse_locus(slocus, counter)
 
-                serialise_locus(stranded_loci, self.dump_cursor, self.dump_conn, counter, self.dump_db)
+                serialise_locus(stranded_loci, self.dump_conn, counter)
 
                 self.locus_queue.task_done()
 

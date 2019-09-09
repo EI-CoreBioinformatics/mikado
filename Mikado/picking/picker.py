@@ -42,7 +42,7 @@ import msgpack
 logging.captureWarnings(True)
 warnings.simplefilter("always")
 try:
-    import ujson as json
+    import rapidjson as json
 except ImportError:
     import json
 
@@ -800,15 +800,18 @@ class Picker:
                     if not current["start"]:
                         current["chrom"], current["start"], current["end"] = row.chrom, row.start, row.end
                         current["transcripts"][row.transcript] = dict()
-                        current["transcripts"][row.transcript]["definition"] = json.dumps(row)
+                        current["transcripts"][row.transcript]["definition"] = json.dumps(row.as_dict(),
+                                                                                          number_mode=json.NM_NATIVE)
                         current["transcripts"][row.transcript]["exon_lines"] = []
+                        self.logger.info("Starting chromosome %s", row.chrom)
                     elif current["chrom"] != row.chrom:
                         self.logger.info("Finished chromosome %s", current["chrom"])
                         self.add_to_index(conn, cursor, current["transcripts"], counter)
                         current["chrom"], current["start"], current["end"] = row.chrom, row.start, row.end
                         current["transcripts"] = dict()
                         current["transcripts"][row.transcript] = dict()
-                        current["transcripts"][row.transcript]["definition"] = json.dumps(row)
+                        current["transcripts"][row.transcript]["definition"] = json.dumps(row.as_dict(),
+                                                                                          number_mode=json.NM_NATIVE)
                         current["transcripts"][row.transcript]["exon_lines"] = []
                         self.logger.info("Starting chromosome %s", row.chrom)
                     else:
@@ -829,7 +832,8 @@ class Picker:
                             current["transcripts"] = dict()
 
                         current["transcripts"][row.transcript] = dict()
-                        current["transcripts"][row.transcript]["definition"] = json.dumps(row)
+                        current["transcripts"][row.transcript]["definition"] = json.dumps(row.as_dict(),
+                                                                                          number_mode=json.NM_NATIVE)
                         current["transcripts"][row.transcript]["exon_lines"] = []
 
         if current["start"] is not None:

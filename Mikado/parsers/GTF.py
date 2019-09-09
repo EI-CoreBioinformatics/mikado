@@ -7,7 +7,6 @@ Generic parser for GTF files.
 from . import Parser
 from .gfannotation import GFAnnotation
 import re
-import fastnumbers
 
 
 # This class has exactly how many attributes I need it to have
@@ -43,9 +42,10 @@ class GtfLine(GFAnnotation):
 
     def __init__(self, line, my_line='', header=False):
 
-        self.__frame = None
-        self.__phase = None
-        GFAnnotation.__init__(self, line, my_line, header=header)
+        self.__is_transcript = False
+        super().__init__(line, my_line, header=header)
+        self.__is_derived, self.__derived_from = None, False  # Placeholders
+        self.__is_transcript = self.__set_is_transcript()
         self.__set_parent()
 
     def _parse_attributes(self):
@@ -55,25 +55,13 @@ class GtfLine(GFAnnotation):
         :return:
         """
 
-        infodict = dict(self._attribute_pattern.findall(self._attr.rstrip()))
-        attributes = dict()
-        for key, val in infodict.items():
-            val = val.replace('"', '')
-            lcval = val.lower()
-            if lcval == "true":
-                val = True
-            elif lcval == "false":
-                val = False
-            else:
-                if fastnumbers.isint(val):
-                    val = fastnumbers.fast_int(val)
-                elif fastnumbers.isreal(val):
-                    val = fastnumbers.fast_float(val)
-
-            attributes[key] = val
-
+        attributes = dict((key, self._attribute_definition(val))
+                          for key, val in self._attribute_pattern.findall(self._attr.rstrip()))
         self.attributes.update(attributes)
+        self.__name = self.__set_name()
+        self.__set_gene()
         assert "gene_id" in self.attributes
+        assert self.gene is not None, self.attributes
 
     def _format_attributes(self):
 
@@ -144,8 +132,12 @@ class GtfLine(GFAnnotation):
         Returns the name of the feature. It defaults to the ID if missing.
         :rtype str
         """
+        return self.__name
+
+    def __set_name(self):
+
         if "Name" not in self.attributes:
-            self.name = self.id
+            return self.id
         return self.attributes["Name"]
 
     @name.setter
@@ -159,6 +151,7 @@ class GtfLine(GFAnnotation):
         if not isinstance(args[0], (type(None), str)):
             raise TypeError("Invalid value for name: {0}".format(args[0]))
         self.attributes["Name"] = args[0]
+        self.__name = args[0]
 
     @property
     def is_transcript(self):
@@ -166,11 +159,28 @@ class GtfLine(GFAnnotation):
         Flag. True if feature is "transcript" or contains "RNA", False in all other cases.
         :rtype : bool
         """
+        try:
+            return self.__is_transcript
+        except AttributeError:
+            self.__is_transcript = self.__set_is_transcript()
+            return self.__is_transcript
+
+    def __set_is_transcript(self):
+
         if self.feature is None:
             return False
         if "transcript" == self.feature or "RNA" in self.feature:
             return True
         return False
+
+    def __set_transcript(self):
+        if self.header is True:
+            self._transcript = None
+        else:
+            try:
+                self._transcript = self.attributes["transcript_id"]
+            except KeyError:
+                raise KeyError(self.attributes)
 
     @property
     def parent(self):
@@ -191,10 +201,12 @@ class GtfLine(GFAnnotation):
 
     def __set_parent(self):
 
-        if self.is_transcript is True:
+        self.__set_transcript()
+        if self.is_transcript is True and self.gene is not None:
             self.__parent = [self.gene]
         else:
-            self.__parent = [self.transcript]
+            if self.transcript is not None:
+                self.__parent = [self.transcript]
 
     @parent.setter
     def parent(self, parent):
@@ -243,7 +255,15 @@ class GtfLine(GFAnnotation):
 
         # if "gene_id" not in self.attributes and self.is_transcript is True:
         #     self.attributes["gene_id"] = self.parent[0]
-        return self.attributes["gene_id"]
+        return self.__gene
+
+    def __set_gene(self):
+        try:
+            self.__gene = self.attributes["gene_id"]
+            if self.is_transcript:
+                self.__parent = [self.__gene]
+        except KeyError:
+            pass
 
     @gene.setter
     def gene(self, gene):
@@ -264,7 +284,7 @@ class GtfLine(GFAnnotation):
         This property returns the "transcript_id" field of the GTF line.
         :rtype : str
         """
-        return self.attributes.get("transcript_id", None)
+        return self._transcript
 
     @transcript.setter
     def transcript(self, transcript):
@@ -279,6 +299,7 @@ class GtfLine(GFAnnotation):
             self.attributes["ID"] = transcript
         else:
             self.parent = [transcript]
+        self._transcript = transcript
 
     @property
     def is_parent(self):
@@ -296,7 +317,15 @@ class GtfLine(GFAnnotation):
         Property. It checks whether there is a "Derives_from" attribute among the line attributes.
         :rtype bool
         """
-        return "derives_from" in iter(x.lower() for x in self.attributes)
+        if self.__is_derived is None:
+            self.__is_derived = self.__set_is_derived()
+
+        return self.__is_derived
+
+    derived_pattern = re.compile("^derives_from$", flags=re.IGNORECASE)
+
+    def __set_is_derived(self):
+        return any(re.search(self.derived_pattern, key) is not None for key in self.attributes)
 
     @property
     def derived_from(self):
@@ -304,12 +333,17 @@ class GtfLine(GFAnnotation):
         Boolean property. True if the GTF line has a "derives_from" tag,
         False otherwise.
         """
+        if self.__derived_from is False:
+            return self.__derived_from
+
+    def __set_derived_from(self):
+
         if self.is_derived is False:
             return None
         else:
-            key = list(key for key in self.attributes if
-                       key.lower == "derives_from")[0]
-            return self.attributes[key].split(",")
+            for key in self.attributes:
+                if re.search(self.derived_pattern, key) is not None:
+                    return self.attributes[key].split(",")
 
     @property
     def is_gene(self):
@@ -317,15 +351,6 @@ class GtfLine(GFAnnotation):
         In a GTF this should always evaluate to False
         """
         return self.feature == "gene"
-
-    @property
-    def frame(self):
-        """
-        Frame of the GTF record line. It can be one of None, 0, 1, 2.
-        :return:
-        """
-
-        return self.__frame
 
     @property
     def _negative_order(self):
@@ -344,25 +369,6 @@ class GtfLine(GFAnnotation):
                 "CDS",
                 "stop_codon",
                 "3UTR"]
-
-    @property
-    def phase(self):
-        return self.__phase
-
-    @phase.setter
-    def phase(self, value):
-        if value is not None:
-            try:
-                value = fastnumbers.fast_int(value)
-            except (ValueError, TypeError):
-                raise ValueError(value)
-        if value in (0, 1, 2):
-            self.__phase = value
-            self.__frame = (3 - value) % 3
-        elif value in (".", "?", None):
-            self.__phase = self.__frame = None
-        else:
-            raise ValueError(value)
 
 
 class GTF(Parser):

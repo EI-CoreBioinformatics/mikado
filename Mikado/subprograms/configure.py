@@ -16,7 +16,7 @@ from ..utilities import comma_split  # , merge_dictionaries
 from ..transcripts.transcript import Namespace
 import functools
 try:
-    import ujson as json
+    import rapidjson as json
 except ImportError:
     import json
 from collections import Counter

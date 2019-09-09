@@ -6,7 +6,7 @@ import os
 import logging.handlers as logging_handlers
 import logging
 import tempfile
-import ujson as json
+import rapidjson as json
 import sqlite3
 import sqlalchemy
 import sqlalchemy.exc
@@ -81,7 +81,9 @@ def xml_pickler(json_conf, filename, default_header,
                         session, record, [], [], cache, max_target_seqs=max_target_seqs)
 
                     cursor.execute("INSERT INTO dump VALUES (?, ?, ?)",
-                                   (query_counter, json.dumps(hits), json.dumps(hsps))
+                                   (query_counter,
+                                    json.dumps(hits, number_mode=json.NM_NATIVE),
+                                    json.dumps(hsps, number_mode=json.NM_NATIVE))
                                    )
             except ExpatError as err:
                 # logger.error("%s is an invalid BLAST file, sending back anything salvageable", filename)

@@ -131,7 +131,7 @@ def check_scoring(json_conf):
 
     with io.TextIOWrapper(resource_stream("Mikado.configuration",
                                           "scoring_blueprint.json")) as schema:
-        scoring_schema = json.load(schema)
+        scoring_schema = json.loads(schema.read())
 
     parameters_found = set()
     parameters_not_found = []
@@ -226,7 +226,7 @@ def check_all_requirements(json_conf):
 
     with io.TextIOWrapper(resource_stream("Mikado.configuration",
                                           "requirements_blueprint.json")) as rs_blueprint:
-        require_schema = json.load(rs_blueprint)
+        require_schema = json.loads(rs_blueprint.read())
 
     if "requirements" not in json_conf:
         raise InvalidJson("No minimal requirements specified!")
@@ -446,7 +446,7 @@ def create_validator(simple=False):
 
     with io.TextIOWrapper(resource_stream("Mikado.configuration",
                                           "configuration_blueprint.json")) as blue:
-        blue_print = json.load(blue)
+        blue_print = json.loads(blue.read())
 
     validator = validator(blue_print, resolver=resolver)
 
@@ -504,7 +504,7 @@ def _check_scoring_file(json_conf: dict, logger):
                 if option.endswith("yaml"):
                     scoring = yaml.load(scoring_file, Loader=yaml.SafeLoader)
                 else:
-                    scoring = json.load(scoring_file)
+                    scoring = json.loads(scoring_file.read())
                 if not isinstance(scoring, dict):
                     continue
                 try:
@@ -651,7 +651,7 @@ def to_json(string, simple=False, logger=None):
                 if string.endswith(".yaml"):
                     json_dict = yaml.load(json_file, Loader=yaml.SafeLoader)
                 else:
-                    json_dict = json.load(json_file)
+                    json_dict = json.loads(json_file.read())
         json_dict["filename"] = string
         json_dict = check_json(json_dict, simple=simple, logger=logger)
     except Exception as exc:

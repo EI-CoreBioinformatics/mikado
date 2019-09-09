@@ -23,7 +23,7 @@ from .contrast import compare as c_compare
 from .resultstorer import ResultStorer
 from ..exceptions import InvalidTranscript, InvalidCDS
 from ..utilities.intervaltree import IntervalTree
-import msgpack as json
+import msgpack
 import sqlite3
 import tempfile
 from .gene_dict import GeneDict
@@ -217,14 +217,14 @@ class Assigner:
 
         if self.printout_tmap is True:
             for tmap_row in cursor.execute("SELECT * from tmap"):
-                tmap_row = ResultStorer(state=json.loads(tmap_row[0],
+                tmap_row = ResultStorer(state=msgpack.loads(tmap_row[0],
                                                          raw=False,
                                                          object_hook=msgpack_convert))
                 done.add(tmap_row.tid)
                 self.print_tmap(tmap_row)
 
         for gid, gene_match in cursor.execute("SELECT * from gene_matches"):
-            gene_match = json.loads(gene_match, raw=False,
+            gene_match = msgpack.loads(gene_match, raw=False,
                                     object_hook=msgpack_convert)
             for tid in gene_match:
                 for match in gene_match[tid]:
@@ -232,7 +232,7 @@ class Assigner:
 
         temp_stats = Namespace()
         for attr, stat in cursor.execute("SELECT * from stats"):
-            setattr(temp_stats, attr, json.loads(stat, raw=False, object_hook=msgpack_convert))
+            setattr(temp_stats, attr, msgpack.loads(stat, raw=False, object_hook=msgpack_convert))
 
         self.stat_calculator.merge_into(temp_stats)
         os.remove(dbname)
@@ -248,14 +248,15 @@ class Assigner:
         self._cursor.execute("CREATE TABLE gene_matches (gid varchar(100), match blob)")
         self._connection.commit()
         self._cursor.executemany("INSERT INTO gene_matches ('gid', 'match') VALUES (?, ?)",
-                                 [(gid, json.dumps(self.gene_matches[gid], default=msgpack_default, strict_types=True)) for gid in self.gene_matches])
+                                 [(gid, msgpack.dumps(self.gene_matches[gid],
+                                                   default=msgpack_default, strict_types=True)) for gid in self.gene_matches])
         self._connection.commit()
         self._cursor.execute("CREATE TABLE stats (level varchar(40), stats blob)")
         self._connection.commit()
         simplified = self.stat_calculator.serialize()
         for attribute in simplified.attributes:
             self._cursor.execute("INSERT INTO stats VALUES (?, ?)", (attribute,
-                                                                     json.dumps(getattr(simplified, attribute), default=msgpack_default, strict_types=True)))
+                                                                     msgpack.dumps(getattr(simplified, attribute), default=msgpack_default, strict_types=True)))
         self._connection.commit()
         self._connection.close()
 
@@ -860,7 +861,7 @@ class Assigner:
             else:
                 if self.printout_tmap is False:
                     self._cursor.execute("INSERT INTO tmap VALUES (?)",
-                                         (json.dumps(res, strict_types=True, default=msgpack_default), ))
+                                         (msgpack.dumps(res, strict_types=True, default=msgpack_default), ))
                     self.__done += 1
                     if self.__done % 10000 == 0 and self.__done > 10000:
                         self._connection.commit()

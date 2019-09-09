@@ -2,6 +2,7 @@ import unittest
 from .. import parsers
 import tempfile
 import os
+import rapidjson as json
 
 __author__ = 'Luca Venturini'
 
@@ -36,6 +37,19 @@ class TestParser(unittest.TestCase):
                 _ = next(gtf_reader)
 
         os.remove(gtf_temp.name)
+
+    def test_serialisation(self):
+
+        gff_line = parsers.GFF.GffLine("Chr1\tmikado\ttranscript\t1000\t2000\t.\t+\t.\tID=foo.1.1; Parent=foo.1;")
+        gtf_line = parsers.GTF.GtfLine(
+            "Chr1\tmikado\ttranscript\t1000\t2000\t.\t+\t.\tgene_id \"foo.1\"; transcript_id \"foo.1.1\";")
+
+        for line in [gff_line, gtf_line]:
+            with self.subTest(line=line):
+                seri = json.dumps(line.__dict__, number_mode=json.NM_NATIVE)
+                self.assertIsInstance(seri, str)
+                unseri = json.loads(seri, number_mode=json.NM_NATIVE)
+                self.assertIsInstance(unseri, dict)
 
     def test_name(self):
         gff_line = "Chr1\tmikado\ttranscript\t1000\t2000\t.\t+\t.\tID=foo.1.1; Parent=foo.1;"
@@ -90,8 +104,8 @@ class TestParser(unittest.TestCase):
 
         gff_line.phase = -1
         self.assertEqual(gff_line.phase, 0)
-        with self.assertRaises(ValueError):
-            gtf_line.phase = -1
+        gtf_line.phase = -1
+        self.assertEqual(gtf_line.phase, 0)
 
         for phase, frame in {0: 0, 1: 2, 2: 1, None: None}.items():
             gtf_line.phase = phase

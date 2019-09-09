@@ -1516,6 +1516,12 @@ class TestLocus(unittest.TestCase):
         """
 
         t1lines = [GtfLine(line) for line in t1.split("\n") if line]
+
+        self.assertEqual(t1lines[0].gene, "Chr1.1", t1lines[0].parent)
+        self.assertEqual(t1lines[0].parent, ["Chr1.1"], t1lines[0].parent)
+        self.assertEqual(t1lines[0].transcript, "Chr1.1.1", t1lines[0].transcript)
+        self.assertEqual(t1lines[0].id, "Chr1.1.1", t1lines[0].id)
+
         self.t1 = loci.Transcript(t1lines[0])
         for exon in t1lines[1:]:
             if exon.header:

@@ -27,6 +27,7 @@ if version_info.minor < 5:
 else:
     from collections import OrderedDict as SortedDict
 from fastnumbers import isfloat
+import rapidjson as json
 
 # I do not care that there are too many attributes: this IS a massive class!
 # pylint: disable=too-many-instance-attributes,too-many-public-methods
@@ -187,9 +188,17 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             state["sessionmaker"] = None
             state["session"] = None
 
-        state["_Abstractlocus__internal_graph"] = networkx.readwrite.json_graph.node_link_data(
-            state["_Abstractlocus__internal_graph"])
+        if self.__internal_graph.nodes():
+            nodes = json.dumps(list(self.__internal_graph.nodes())[0],
+                               number_mode=json.NM_NATIVE)
+        else:
+            nodes = "[]"
+        state["_Abstractlocus__internal_nodes"] = nodes
 
+        edges = [edge for edge in self.__internal_graph.edges()]
+        # Remember that the graph is in form [((start, end), (start, end)), etc.]
+        # So that each edge is composed by a couple of tuples.
+        state["_Abstractlocus__internal_edges"] = json.dumps(edges, number_mode=json.NM_NATIVE)
         if hasattr(self, "engine"):
             del state["engine"]
 
@@ -200,7 +209,22 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         """Method to recreate the object after serialisation."""
         self.__dict__.update(state)
         self.__segmenttree = IntervalTree()
-        self.__internal_graph = networkx.readwrite.json_graph.node_link_graph(state["_Abstractlocus__internal_graph"])
+        self.__internal_graph = networkx.DiGraph()
+        try:
+            nodes = json.loads(state["_Abstractlocus__internal_nodes"])
+        except json.decoder.JSONDecodeError:
+            raise json.decoder.JSONDecodeError(state["_Abstractlocus__internal_nodes"])
+        edges = []
+        for edge in json.loads(state["_Abstractlocus__internal_edges"]):
+            edges.append((tuple(edge[0]), tuple(edge[1])))
+        try:
+            self.__internal_graph.add_nodes_from(nodes)
+        except TypeError:
+            raise TypeError(nodes)
+        try:
+            self.__internal_graph.add_edges_from(edges)
+        except TypeError:
+            raise TypeError(edges)
 
         if hasattr(self, "json_conf"):
             if "requirements" in self.json_conf and "expression" in self.json_conf["requirements"]:

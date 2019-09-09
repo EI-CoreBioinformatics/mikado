@@ -6,7 +6,7 @@ import logging.handlers
 from .. import exceptions
 from sys import intern
 try:
-    import ujson as json
+    import rapidjson as json
 except ImportError:
     import json
 import sqlite3
@@ -290,7 +290,7 @@ def load_into_storage(shelf_name, exon_lines, min_length, logger, strip_cds=True
                              tid, biggest_intron, max_intron)
                 continue
 
-        values = json.dumps(exon_lines[tid])
+        values = json.dumps(exon_lines[tid], number_mode=json.NM_NATIVE)
 
         logger.debug("Inserting %s into shelf %s", tid, shelf_name)
         cursor.execute("INSERT INTO dump VALUES (?, ?, ?, ?, ?, ?)", (exon_lines[tid]["chrom"],

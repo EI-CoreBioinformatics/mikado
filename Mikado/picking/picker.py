@@ -664,13 +664,19 @@ class Picker:
     def add_to_index(conn: sqlite3.Connection,
                      cursor: sqlite3.Cursor,
                      transcripts: dict,
-                     counter: int):
+                     counter: int,
+                     locus_queue,
+                     submit_remaining=False):
 
         """Method to create the simple indexed database for features."""
 
         transcripts = msgpack.dumps([_ for _ in transcripts.values()])
         cursor.execute("INSERT INTO transcripts VALUES (?, ?)", (counter, transcripts))
-        conn.commit()
+        max_submit = 1000
+        if submit_remaining is True or (counter >= max_submit and counter % max_submit == 0):
+            conn.commit()
+            base = max(1, counter - max_submit)
+            [locus_queue.put((num,)) for num in range(base, counter + 1)]
         return
 
     @staticmethod
@@ -739,11 +745,17 @@ class Picker:
         self.logger.info("Joined children processes; starting to merge partial files")
 
         # Merge loci
+        # try:
         merge_loci(self.procs,
                    handles,
                    json_conf=self.json_conf,
                    logger=self.logger,
                    tempdir=tempdir)
+        # except KeyboardInterrupt:
+        #     raise
+        # except Exception as exc:
+        #     self.logger.fatal("Mikado crashed, error: %s", exc)
+        #     raise
 
         self.logger.info("Finished merging partial files")
         try:
@@ -807,8 +819,8 @@ class Picker:
         if len(fields) != 9:
             return None
         try:
-            start, end = (fastnumbers.fast_int(num, raise_on_invalid=True)
-                          for num in fields[3:5])
+            start = int(fields[3])
+            end = int(fields[4])
         except ValueError:
             return None
         chrom = fields[0]
@@ -865,7 +877,7 @@ class Picker:
                         self.logger.info("Starting chromosome %s", chrom)
                     elif current["chrom"] != chrom:
                         self.logger.info("Finished chromosome %s", current["chrom"])
-                        self.add_to_index(conn, cursor, current["transcripts"], counter)
+                        self.add_to_index(conn, cursor, current["transcripts"], counter, locus_queue)
                         current["chrom"], current["start"], current["end"] = chrom, start, end
                         current["transcripts"] = dict()
                         current["transcripts"][tid] = dict()
@@ -884,8 +896,7 @@ class Picker:
                                               counter, "{}:{}-{}".format(current["chrom"],
                                                                          current["start"], current["end"]),
                                               ",".join(list(current["transcripts"].keys())))
-                            self.add_to_index(conn, cursor, current["transcripts"], counter)
-                            locus_queue.put((counter,))
+                            self.add_to_index(conn, cursor, current["transcripts"], counter, locus_queue)
                             current["start"], current["end"] = start, end
                             current["transcripts"] = dict()
 
@@ -893,17 +904,16 @@ class Picker:
                         current["transcripts"][tid]["definition"] = line
                         current["transcripts"][tid]["exon_lines"] = []
 
-        print("Finished parsing")
         if current["start"] is not None:
             counter += 1
             self.logger.debug("Submitting locus # %d (%s), with transcripts:\n%s",
                               counter, "{}:{}-{}".format(current["chrom"],
                                                          current["start"], current["end"]),
                               ",".join(list(current["transcripts"].keys())))
-            self.add_to_index(conn, cursor, current["transcripts"], counter)
-            locus_queue.put((counter,))
-
+            self.add_to_index(conn, cursor, current["transcripts"], counter, locus_queue, submit_remaining=True)
             self.logger.info("Finished chromosome %s", current["chrom"])
+
+        conn.commit()
 
         locus_queue.put(("EXIT", ))
 

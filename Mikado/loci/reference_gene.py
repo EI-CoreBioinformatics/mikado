@@ -143,6 +143,8 @@ class Gene:
 
         transcr.logger = self.logger
 
+    _prot_pattern = re.compile("-Protein$")
+
     def add_exon(self, row):
         """
 
@@ -158,7 +160,7 @@ class Gene:
 
         for parent in (_ for _ in row.parent if _ not in self.transcripts):
             found = False
-            if parent.endswith("-Protein") and re.sub("-Protein", "", parent) in self.transcripts:
+            if self._prot_pattern.search(parent) and self._prot_pattern.sub(r"", parent):
                 continue
             
             for tid in self.transcripts:

@@ -272,6 +272,9 @@ def check_all_requirements(json_conf):
     return json_conf
 
 
+key_pattern = re.compile(r"([^ ()]+)")
+
+
 def check_requirements(json_conf, require_schema, index):
     """
     Function to check the "requirements" section of the configuration.
@@ -357,8 +360,7 @@ def check_requirements(json_conf, require_schema, index):
         expr = " ".join(json_conf[index]["expression"])
         newexpr = expr[:]
 
-        keys = set([key for key in re.findall(
-            "([^ ()]+)", expr) if key not in ("and", "or", "not", "xor")])
+        keys = set([key for key in key_pattern.findall(expr) if key not in ("and", "or", "not", "xor")])
 
         diff_params = set.difference(
             set(keys), set(json_conf[index]["parameters"].keys()))

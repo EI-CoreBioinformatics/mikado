@@ -308,6 +308,9 @@ def get_best_result(_, transcript, assigner_instance: Assigner):
     assigner_instance.get_best(transcript)
 
 
+orf_pattern = re.compile(r"\.orf[0-9]+$", re.IGNORECASE)
+
+
 def parse_prediction(args, index, queue_logger):
 
     """
@@ -388,8 +391,8 @@ def parse_prediction(args, index, queue_logger):
               row.feature == "match"):
             queue_logger.debug("Transcript row:\n%s", str(row))
             if transcript is not None:
-                if re.search(r"\.orf[0-9]+$", transcript.id):
-                    __name = re.sub(r"\.orf[0-9]+$", "", transcript.id)
+                if orf_pattern.search(transcript.id):
+                    __name = orf_pattern.sub("", transcript.id)
                     if __name not in __found_with_orf:
                         __found_with_orf.add(__name)
                         done += 1
@@ -443,7 +446,7 @@ def parse_prediction(args, index, queue_logger):
                     transcript.add_exon(row)
                 elif transcript is None or (transcript is not None and row.id != transcript.id):
                     if transcript is not None:
-                        if re.search(r"\.orf[0-9]+$", transcript.id) and \
+                        if orf_pattern.search(transcript.id) and \
                                 (not transcript.id.endswith("orf1")):
                             pass
                         else:
@@ -462,7 +465,7 @@ def parse_prediction(args, index, queue_logger):
             elif ref_gff is False:
                 if transcript is None or (transcript is not None and transcript.id != row.transcript):
                     if transcript is not None:
-                        if re.search(r"\.orf[0-9]+$", transcript.id) and \
+                        if orf_pattern.search(transcript.id) and \
                                 (not transcript.id.endswith("orf1")):
                             pass
                         else:
@@ -486,7 +489,7 @@ def parse_prediction(args, index, queue_logger):
             queue_logger.debug("Skipped row: {}".format(row))
 
     if transcript is not None:
-        if re.search(r"\.orf[0-9]+$", transcript.id) and not transcript.id.endswith("orf1"):
+        if orf_pattern.search(transcript.id) and not transcript.id.endswith("orf1"):
             pass
         else:
             done += 1

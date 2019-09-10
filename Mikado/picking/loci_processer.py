@@ -20,6 +20,7 @@ try:
     import rapidjson as json
 except ImportError:
     import json
+from copy import deepcopy
 
 __author__ = 'Luca Venturini'
 
@@ -162,27 +163,32 @@ def merge_loci(num_temp, out_handles,
     common_index = dict()
 
     # cursor.execute("CREATE TABLE loci (counter integer, json blob)")
+    temp_conn = sqlite3.connect(os.path.join(tempdir, "temp_store.db"))
+    max_counter = temp_conn.execute("SELECT MAX(counter) FROM transcripts").fetchone()[0]
 
     decoder = json.Decoder(number_mode=json.NM_NATIVE)
 
     gene_counter = 0
     for dbindex, cursor in enumerate(cursors):
-        for index in cursor.execute("SELECT counter FROM loci").fetchall():
-            common_index[index[0]] = dbindex
+        d = dict((index[0], dbindex) for index in cursor.execute("SELECT counter FROM loci").fetchall())
+        common_index.update(d)
 
     print_subloci = (out_handles[1][0] is not None)
     print_monoloci = (out_handles[2][0] is not None)
+    if max_counter != max(common_index.keys()):
+        raise KeyError("I am missing some loci! {} vs {}".format(
+            max_counter, max(common_index.keys())))
+
+    factory = Superlocus(None)
 
     for index in range(1, max(common_index.keys()) + 1):
-        if index not in common_index:
-            raise KeyError("Missing index " + str(index) + "!")
         cursor = cursors[common_index[index]]
         try:
             stranded_loci = cursor.execute("SELECT json FROM loci WHERE counter=?", (str(index),)).fetchone()
         except ValueError:
             raise ValueError((index, type(index)))
         for stranded_locus_json in msgpack.loads(stranded_loci[0], raw=False):
-            stranded_locus = Superlocus(None)
+            stranded_locus = factory
             stranded_locus.load_dict(decoder(stranded_locus_json),
                                      load_transcripts=False,
                                      print_monoloci=print_monoloci, print_subloci=print_subloci

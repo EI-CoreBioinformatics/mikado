@@ -334,7 +334,7 @@ class GtfLine(GFAnnotation):
     derived_pattern = re.compile("^derives_from$", flags=re.IGNORECASE)
 
     def __set_is_derived(self):
-        return any(re.search(self.derived_pattern, key) is not None for key in self.attributes)
+        return any(self.derived_pattern.search(key) is not None for key in self.attributes)
 
     @property
     def derived_from(self):

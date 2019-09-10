@@ -435,7 +435,7 @@ class BED12:
 
         self.attribute_order = []
 
-        infolist = re.findall(self._attribute_pattern, attributes.rstrip().rstrip(";"))
+        infolist = self._attribute_pattern.findall(attributes.rstrip().rstrip(";"))
 
         for item in infolist:
             key, val = item

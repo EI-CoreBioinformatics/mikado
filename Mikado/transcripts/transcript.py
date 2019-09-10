@@ -1120,6 +1120,8 @@ class Transcript:
         for exon in exons:
             self.remove_exon(exon)
 
+    _orf_pattern = re.compile(r"\.orf[0-9]+$", re.IGNORECASE)
+
     def remove_utrs(self):
         """Method to strip a transcript from its UTRs.
         It will not execute anything if the transcript lacks a CDS or
@@ -1137,7 +1139,7 @@ class Transcript:
 
         elif self.number_internal_orfs > 1:
             return
-        elif re.search(r"\.orf[0-9]+$", self.id):
+        elif self._orf_pattern.search(self.id):
             self.logger.debug("Multiple ORFs already")
             return
 

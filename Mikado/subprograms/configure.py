@@ -343,7 +343,7 @@ def configure_parser():
     trailing = re.compile(r"^{}".format(os.path.sep))
     fold_path = re.compile(scoring_folder)
 
-    scoring_files = [re.sub(trailing, r"", re.sub(fold_path, r"", fname))
+    scoring_files = [trailing.sub(r"", re.sub(fold_path, r"", fname))
                      for fname in glob.iglob(os.path.join(scoring_folder, "**", "*yaml"), recursive=True)]
 
     parser = argparse.ArgumentParser(description="Configuration utility for Mikado",

@@ -38,4 +38,6 @@ dependencies:
   - bioconda::blast>=2.7.1
   - conda-forge::fastnumbers>=2.1.1
   - pip
-  - conda-forge::rapidjson>=0.8
+  - conda-forge::rapidjson>=1.1.0
+  - conda-forge::python-rapidjson>=0.8
+  

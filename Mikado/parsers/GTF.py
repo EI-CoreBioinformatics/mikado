@@ -45,7 +45,7 @@ class GtfLine(GFAnnotation):
         self.__is_transcript = False
         super().__init__(line, my_line, header=header)
         self.__is_derived, self.__derived_from = None, False  # Placeholders
-        self.__is_transcript = self.__set_is_transcript()
+        self.__is_transcript = self._set_is_transcript()
         self.__set_parent()
 
     def _parse_attributes(self):
@@ -162,16 +162,21 @@ class GtfLine(GFAnnotation):
         try:
             return self.__is_transcript
         except AttributeError:
-            self.__is_transcript = self.__set_is_transcript()
+            self.__is_transcript = self._set_is_transcript()
             return self.__is_transcript
 
-    def __set_is_transcript(self):
+    transcript_pattern = re.compile("(^transcript$|rna$)", re.IGNORECASE)
 
-        if self.feature is None:
-            return False
-        if "transcript" == self.feature or "RNA" in self.feature:
-            return True
-        return False
+    def _set_is_transcript(self):
+
+        # if self.feature is None:
+        #     return False
+        # if "transcript" == self.feature or "RNA" in self.feature:
+        #     return True
+        # return False
+
+        return (self.feature is not None) and (self.transcript_pattern.search(
+            self.feature) is not None)
 
     def __set_transcript(self):
         if self.header is True:
@@ -204,6 +209,8 @@ class GtfLine(GFAnnotation):
         self.__set_transcript()
         if self.is_transcript is True and self.gene is not None:
             self.__parent = [self.gene]
+        elif self.is_transcript is True:
+            raise ValueError("No gene")
         else:
             if self.transcript is not None:
                 self.__parent = [self.transcript]
@@ -255,6 +262,8 @@ class GtfLine(GFAnnotation):
 
         # if "gene_id" not in self.attributes and self.is_transcript is True:
         #     self.attributes["gene_id"] = self.parent[0]
+        if self.__gene is None:
+            self.__set_gene()
         return self.__gene
 
     def __set_gene(self):

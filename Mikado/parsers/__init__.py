@@ -47,6 +47,8 @@ class Parser(metaclass=abc.ABCMeta):
 
     def __next__(self):
         line = self._handle.readline()
+        if line == "":
+            raise StopIteration
         return line
 
     def __enter__(self):

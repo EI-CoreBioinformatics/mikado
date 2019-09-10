@@ -14,6 +14,7 @@ import pickle
 import sqlite3
 from ..transcripts import Transcript
 from ..exceptions import InvalidTranscript
+from ..parsers.GTF import GtfLine
 import msgpack
 try:
     import rapidjson as json
@@ -561,7 +562,6 @@ class LociProcesser(Process):
                                )
         cursor = conn.cursor()
 
-        decoder = json.Decoder(number_mode=json.NM_NATIVE)
         while True:
             counter = self.locus_queue.get()[0]
             if counter == "EXIT":
@@ -589,7 +589,7 @@ class LociProcesser(Process):
                 else:
                     tobjects = []
                     for tjson in transcripts:
-                        definition = decoder(tjson["definition"])
+                        definition = GtfLine(tjson["definition"]).as_dict()
                         transcript = Transcript(logger=self.logger,
                                                 source=definition["source"],
                                                 intron_range=self.json_conf["pick"]["run_options"]["intron_range"])

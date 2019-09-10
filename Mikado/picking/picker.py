@@ -745,17 +745,10 @@ class Picker:
         self.logger.info("Joined children processes; starting to merge partial files")
 
         # Merge loci
-        # try:
         merge_loci(self.procs,
                    handles,
-                   json_conf=self.json_conf,
                    logger=self.logger,
                    tempdir=tempdir)
-        # except KeyboardInterrupt:
-        #     raise
-        # except Exception as exc:
-        #     self.logger.fatal("Mikado crashed, error: %s", exc)
-        #     raise
 
         self.logger.info("Finished merging partial files")
         try:

@@ -254,7 +254,10 @@ class Superlocus(Abstractlocus):
         self.define_subloci()
         found = dict()
         for sublocus_instance in self.subloci:
-            sublocus_instance.source = source
+            try:
+                sublocus_instance.source = source
+            except AttributeError:
+                raise AttributeError(sublocus_instance)
             sublocus_instance.parent = new_id
             if sublocus_instance.id in found:
                 found[sublocus_instance.id] += 1
@@ -370,6 +373,7 @@ class Superlocus(Abstractlocus):
                 for stat in state["subloci"]:
                     sub = Sublocus(json_conf=self.json_conf)
                     sub.load_dict(stat)
+                    assert isinstance(sub, Sublocus)
                     self.subloci.append(sub)
             if print_monoloci is True:
                 self.monoholders = []
@@ -1243,7 +1247,7 @@ class Superlocus(Abstractlocus):
             lids = list(self.loci.keys())[:]
             for lid in lids:
                 if self.loci[lid].has_reference_transcript is False:
-                    self.logger.debug("Removing %s (primary: %s) as it has no reference transcripts",
+                    self.logger.debug("Removing %s (primary: %s) as it has no reference transcripts.",
                                       lid, self.loci[lid].primary_transcript_id)
                     del self.loci[lid]
             self.logger.debug("Remaining loci in %s: %s", self.id, ",".join(list(self.loci.keys())))

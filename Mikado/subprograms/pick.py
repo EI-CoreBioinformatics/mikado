@@ -239,8 +239,8 @@ Transcripts with intron lengths outside of this range will be penalised. Default
     parser.add_argument("--pad-max-distance", default=None, dest="pad_max_distance",
                         type=int, help="Maximum amount of bps that transcripts can be padded with (per side).")
     output = parser.add_argument_group("Options related to the output files.")
-    output.add_argument("--subloci_out", type=str, default=None)
-    output.add_argument("--monoloci_out", type=str, default=None)
+    output.add_argument("--subloci-out", type=str, default=None, dest="subloci_out")
+    output.add_argument("--monoloci-out", type=str, default=None, dest="monoloci_out")
     output.add_argument("--loci_out", type=str, default=None,
                         help="""This output file is mandatory.
                         If it is not specified in the configuration file,

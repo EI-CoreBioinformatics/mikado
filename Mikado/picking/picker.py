@@ -11,6 +11,7 @@ import csv
 import os
 import shutil
 import tempfile
+from math import floor
 import logging
 from logging import handlers as logging_handlers
 import functools
@@ -413,10 +414,11 @@ class Picker:
             sub_metrics = csv.DictWriter(
                 sub_metrics_file,
                 metrics,
+                extrasaction="ignore",
                 delimiter="\t")
             sub_metrics.writeheader()
             sub_scores = csv.DictWriter(
-                sub_scores_file, score_keys, delimiter="\t")
+                sub_scores_file, score_keys, delimiter="\t", extrasaction="ignore",)
             sub_scores.writeheader()
             # Not a very clean wya to do things ... attaching the handles as properties
             sub_scores.handle = sub_scores_file
@@ -449,10 +451,12 @@ class Picker:
             mono_metrics = csv.DictWriter(
                 mono_metrics_file,
                 metrics,
+                extrasaction="ignore",
                 delimiter="\t")
             mono_metrics.writeheader()
             mono_scores = csv.DictWriter(
-                mono_scores_file, score_keys, delimiter="\t")
+                mono_scores_file, score_keys, delimiter="\t",
+                extrasaction="ignore")
             mono_scores.writeheader()
             # Not a very clean wya to do things ... attaching the handles as properties
             mono_scores.handle = mono_scores_file
@@ -534,9 +538,10 @@ class Picker:
         locus_metrics = csv.DictWriter(
             locus_metrics_file,
             metrics,
+            extrasaction="ignore",
             delimiter="\t")
         locus_metrics.writeheader()
-        locus_scores = csv.DictWriter(locus_scores_file, score_keys, delimiter="\t")
+        locus_scores = csv.DictWriter(locus_scores_file, score_keys, delimiter="\t", extrasaction="ignore",)
         locus_scores.writeheader()
 
         locus_metrics.handle = locus_metrics_file
@@ -675,7 +680,7 @@ class Picker:
         max_submit = 1000
         if submit_remaining is True or (counter >= max_submit and counter % max_submit == 0):
             conn.commit()
-            base = max(1, counter - max_submit)
+            base = floor((counter - 1)/ max_submit) * max_submit + 1
             [locus_queue.put((num,)) for num in range(base, counter + 1)]
         return
 
@@ -752,9 +757,7 @@ class Picker:
 
         self.logger.info("Finished merging partial files")
         try:
-            # shutil.rmtree(tempdir)
             self.logger.debug("Cleaning up the temporary directory")
-            shutil.copytree(tempdirectory.name, "/tmp/" + os.path.basename(tempdirectory.name))
             tempdirectory.cleanup()
             self.logger.debug("Finished cleaning up")
             pass

@@ -21,7 +21,7 @@ try:
 except ImportError:
     import json
 import multiprocessing as mp
-import zlib
+
 
 __author__ = 'Luca Venturini'
 
@@ -63,12 +63,11 @@ def print_locus(stranded_locus,
         sub_scores_rows = [_ for _ in stranded_locus.print_subloci_scores()
                            if _ != {} and "tid" in _]
         for row in sub_metrics_rows:
-            [row.__delitem__(key) for key in list(row.keys()) if key not in sub_metrics.fieldnames]
-            sub_metrics.writerow(row)
+            print(*[row[key] for key in sub_metrics.fieldnames],
+                  sep="\t", file=sub_metrics.handle)
         for row in sub_scores_rows:
-            assert "alias" in sub_scores.fieldnames
-            [row.__delitem__(key) for key in list(row.keys()) if key not in sub_scores.fieldnames]
-            sub_scores.writerow(row)
+            print(*[row[key] for key in sub_scores.fieldnames],
+                  sep="\t", file=sub_scores.handle)
     if mono_out is not None:
         mono_lines = stranded_locus.__str__(
             level="monosubloci",
@@ -80,11 +79,11 @@ def print_locus(stranded_locus,
         mono_scores_rows = [_ for _ in stranded_locus.print_monoholder_scores()
                             if _ != {} and "tid" in _]
         for row in mono_metrics_rows:
-            [row.__delitem__(key) for key in list(row.keys()) if key not in mono_metrics.fieldnames]
-            mono_metrics.writerow(row)
+            print(*[row[key] for key in mono_metrics.fieldnames],
+                  sep="\t", file=mono_metrics.handle)
         for row in mono_scores_rows:
-            [row.__delitem__(key) for key in list(row.keys()) if key not in mono_scores.fieldnames]
-            mono_scores.writerow(row)
+            print(*[row[key] for key in mono_scores.fieldnames],
+                  sep="\t", file=mono_scores.handle)
 
     for locus in stranded_locus.loci:
         gene_counter += 1
@@ -105,14 +104,12 @@ def print_locus(stranded_locus,
         assert len(locus_metrics_rows) > 0
         print(locus_lines, file=locus_out)
 
-    # assert len(locus_metrics_rows) == len(locus_scores_rows)
-
     for row in locus_metrics_rows:
-        [row.__delitem__(key) for key in list(row.keys()) if key not in locus_metrics.fieldnames]
-        locus_metrics.writerow(row)
+        print(*[row[key] for key in locus_metrics.fieldnames],
+              sep="\t", file=locus_metrics.handle)
     for row in locus_scores_rows:
-        [row.__delitem__(key) for key in list(row.keys()) if key not in locus_scores.fieldnames]
-        locus_scores.writerow(row)
+        print(*[row[key] for key in locus_scores.fieldnames],
+              sep="\t", file=locus_scores.handle)
     # Necessary to flush out all the files
     [_.flush() for _ in handles if hasattr(_, "close")]
     return gene_counter
@@ -165,7 +162,8 @@ decoder = json.Decoder(number_mode=json.NM_NATIVE)
 
 
 def manage_index(index, data, dumps, print_monoloci, print_subloci):
-    dump_index, gene_counter = data
+    dump_index, gene_counter, gene_max = data
+    orig_gene_counter = gene_counter
     conn = sqlite3.connect(dumps[dump_index])
     cursor = conn.cursor()
     batch = []
@@ -183,6 +181,7 @@ def manage_index(index, data, dumps, print_monoloci, print_subloci):
                                                       print_subloci=print_subloci, print_monoloci=print_monoloci)
         batch.append(minibatch)
 
+    assert (gene_counter - orig_gene_counter) == gene_max, (orig_gene_counter, gene_counter, gene_max)
     batch = msgpack.dumps(batch)
     return batch
 
@@ -209,13 +208,15 @@ def merge_loci(num_temp, out_handles,
     cursors = [conn.cursor() for conn in conns]
     common_index = dict()
 
-    # cursor.execute("CREATE TABLE loci (counter integer, json blob)")
     temp_conn = sqlite3.connect(os.path.join(tempdir, "temp_store.db"))
     max_counter = temp_conn.execute("SELECT MAX(counter) FROM transcripts").fetchone()[0]
 
     for dbindex, cursor in enumerate(cursors):
         d = dict((index[0], (dbindex, index[1], index[2])) for index in cursor.execute(
             "SELECT counter, chrom, genes FROM loci").fetchall())
+        assert not set.intersection(set(d.keys()), set(common_index.keys())), set.intersection(
+            set(d.keys()), set(common_index.keys()))
+
         common_index.update(d)
 
     print_subloci = (out_handles[1][0] is not None)
@@ -227,66 +228,70 @@ def merge_loci(num_temp, out_handles,
     assert set(common_index.keys()) == set(range(1, max(common_index.keys()) + 1)), (
         set.difference(set(range(1, max(common_index.keys()) + 1)), set(common_index.keys()))
     )
+    assert len(common_index.keys()) == len(set(common_index.keys()))
 
     chroms, nums = list(zip(*[common_index[index][1:3] for index in range(1, max(common_index.keys()) + 1)]))
-    gene_counters = []
+    total_genes = sum(nums)
+    gene_counters = dict()
     for pos in range(len(chroms)):
-        if pos == 0:
-            gene_counters.append(0)
+        key = pos + 1
         chrom, num = chroms[pos], nums[pos]
-        if chrom != chroms[pos - 1]:
-            gene_counters.append(0)
+        if pos == 0:
+            gene_counters[key] = (0, num)
+        elif chrom != chroms[pos - 1]:
+            gene_counters[key] = (0, num)
         else:
-            gene_counters.append(gene_counters[-1] + num)
+            gene_counters[key] = (gene_counters[pos][0] + gene_counters[pos][1], num)
 
     new_common = dict()
+    assert min(common_index) == 1
     for key in common_index:
-        new_common[key] = (common_index[key][0], gene_counters[key])
+        new_common[key] = (common_index[key][0], gene_counters[key][0], gene_counters[key][1])
 
     manager = functools.partial(manage_index,
                                 dumps=dumps,
                                 print_subloci=print_subloci,
-                                print_monoloci=print_monoloci
-                                )
+                                print_monoloci=print_monoloci)
     done = 0
+    logger.info("We have a total of %d genes", total_genes)
     with mp.Pool(processes=num_temp) as pool:
-        for batch in pool.starmap(manager,
-                                  [(key, new_common[key]) for key in sorted(new_common.keys())]):
+        for pos, batch in enumerate(pool.starmap(manager,
+                                                 [(key, new_common[key]) for key in sorted(new_common.keys())])):
             done += 1
             batch = msgpack.loads(batch, raw=False)
+
             for minibatch in batch:
                 locus_lines, locus_metrics_rows, locus_scores_rows = minibatch[0]
                 if locus_lines:
                     assert len(locus_metrics_rows) > 0
                     print(locus_lines, file=locus_out)
                 for row in locus_metrics_rows:
-                    [row.__delitem__(key) for key in list(row.keys()) if key not in locus_metrics.fieldnames]
-                    locus_metrics.writerow(row)
+                    print(*[row[key] for key in locus_metrics.fieldnames],
+                          sep="\t", file=locus_metrics.handle)
                 for row in locus_scores_rows:
-                    [row.__delitem__(key) for key in list(row.keys()) if key not in locus_scores.fieldnames]
-                    locus_scores.writerow(row)
+                    print(*[row[key] for key in locus_scores.fieldnames],
+                          sep="\t", file=locus_scores.handle)
 
                 if minibatch[1]:
                     sub_lines, sub_metrics_rows, sub_scores_rows = minibatch[1]
                     if sub_lines != '':
                         print(sub_lines, file=sub_out)
                     for row in sub_metrics_rows:
-                        [row.__delitem__(key) for key in list(row.keys()) if key not in sub_metrics.fieldnames]
-                        sub_metrics.writerow(row)
+                        print(*[row[key] for key in sub_metrics.fieldnames],
+                              sep="\t", file=sub_metrics.handle)
                     for row in sub_scores_rows:
-                        assert "alias" in sub_scores.fieldnames
-                        [row.__delitem__(key) for key in list(row.keys()) if key not in sub_scores.fieldnames]
-                        sub_scores.writerow(row)
+                        print(*[row[key] for key in sub_scores.fieldnames],
+                              sep="\t", file=sub_scores.handle)
                 if minibatch[2]:
                     mono_lines, mono_metrics_rows, mono_scores_rows = minibatch[2]
                     if mono_lines != '':
                         print(mono_lines, file=mono_out)
                     for row in mono_metrics_rows:
-                        [row.__delitem__(key) for key in list(row.keys()) if key not in mono_metrics.fieldnames]
-                        mono_metrics.writerow(row)
+                        print(*[row[key] for key in mono_metrics.fieldnames],
+                              sep="\t", file=mono_metrics.handle)
                     for row in mono_scores_rows:
-                        [row.__delitem__(key) for key in list(row.keys()) if key not in mono_scores.fieldnames]
-                        mono_scores.writerow(row)
+                        print(*[row[key] for key in mono_scores.fieldnames],
+                              sep="\t", file=mono_scores.handle)
 
     if done != max_counter:
         raise KeyError("Something has been lost")

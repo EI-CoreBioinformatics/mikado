@@ -91,6 +91,12 @@ class Namespace:
         new.update(self.__values)
         return new
 
+    def keys(self):
+        return self.__values.keys()
+
+    def items(self):
+        return self.__values.items()
+
 
 class Metric(property):
     """
@@ -1292,7 +1298,7 @@ class Transcript:
 
         state = dict()
         self.finalize()
-
+        state["external"] = dict((key, value) for key, value in self.external_scores.items())
         for key in ["chrom", "source", "start", "end", "strand", "score", "attributes"]:
 
             state[key] = getattr(self, key)
@@ -1326,10 +1332,10 @@ class Transcript:
         state["combined_utr"] = list(self.combined_utr)
         state["combined_cds"] = list(self.combined_cds)
         # Now let'add the things that we calculate with the basic lengths
-
         state["calculated"] = self.__get_calculated_stats()
         for metric in self.get_modifiable_metrics():
             state[metric] = getattr(self, metric)
+
         return state
 
     def load_dict(self, state, trust_orf=False):
@@ -1343,6 +1349,7 @@ class Transcript:
                 state[key] = intern(state[key])
             setattr(self, key, state[key])
 
+        self.external_scores.update(state.get("external", dict()))
         self._original_source = self.source
         self.attributes = {}
         for key, val in state["attributes"].items():

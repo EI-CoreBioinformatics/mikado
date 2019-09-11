@@ -487,6 +487,7 @@ def __create_splitted_transcripts(transcript, cds_boundaries):
             right = False
         counter += 1  # Otherwise they start from 0
         new_transcript.id = "{0}.split{1}".format(transcript.id, counter)
+        new_transcript.external_scores.update(transcript.external_scores.items())
         new_transcript.logger = transcript.logger
         bed12_strand = set(_.strand for _ in bed12_objects)
         assert len(bed12_strand) == 1

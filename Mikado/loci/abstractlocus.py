@@ -250,6 +250,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         if load_transcripts is True:
             self.transcripts = dict((tid, Transcript()) for tid in state["transcripts"])
             [self[tid].load_dict(state["transcripts"][tid], trust_orf=True) for tid in state["transcripts"]]
+
         for attr in ["locus_verified_introns", "introns", "exons",
                      "selected_cds_introns", "combined_cds_introns"]:
             setattr(self, attr, set([tuple(_) for _ in getattr(self, attr)]))
@@ -910,6 +911,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         # The rower is an instance of the DictWriter class from the standard CSV module
 
         self.get_metrics()
+
         for tid, transcript in sorted(self.transcripts.items(), key=operator.itemgetter(1)):
             row = {}
             for num, key in enumerate(self.available_metrics):
@@ -1174,9 +1176,6 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                     assert self.transcripts[tid].score == sum(self.scores[tid].values()), (
                         tid, self.transcripts[tid].score, sum(self.scores[tid].values())
                     )
-                # if self.json_conf["pick"]["external_scores"]:
-                #     assert any("external" in _ for _ in self.scores[tid].keys()), self.scores[tid].keys()
-
                 self.scores[tid]["score"] = self.transcripts[tid].score
 
         else:

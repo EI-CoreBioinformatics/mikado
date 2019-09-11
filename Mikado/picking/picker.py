@@ -29,7 +29,8 @@ from ..parsers.bed12 import Bed12Parser
 from ..parsers import Parser
 from ..serializers.junction import Chrom
 from ..serializers.external import ExternalSource
-from ..loci.superlocus import Superlocus, Transcript
+from ..transcripts import Transcript
+from ..loci.superlocus import Superlocus
 from ..configuration.configurator import to_json, check_json  # Necessary for nosetests
 from ..utilities import dbutils
 from ..exceptions import UnsortedInput, InvalidJson, InvalidTranscript
@@ -797,9 +798,9 @@ class Picker:
                 del current["transcripts"][tid]
                 invalids.add(tid)
                 if current["transcripts"]:
-                    current["start"] = min([current["transcript"][trans]["start"]
+                    current["start"] = min([current["transcripts"][trans]["start"]
                                             for trans in current["transcripts"]])
-                    current["end"] = max([current["transcript"][trans]["end"]
+                    current["end"] = max([current["transcripts"][trans]["end"]
                                           for trans in current["transcripts"]])
                 else:
                     current["start"], current["end"] = None, None

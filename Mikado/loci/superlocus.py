@@ -16,14 +16,13 @@ from sqlalchemy.ext import baked
 from sqlalchemy.orm.session import sessionmaker
 from sqlalchemy.orm import session as sasession
 from sqlalchemy.sql.expression import and_
-from ..transcripts.transcript import Transcript
 from .abstractlocus import Abstractlocus
 from .monosublocusholder import MonosublocusHolder
 from .sublocus import Sublocus
-from ..exceptions import NoJsonConfigError, NotInLocusError
+from ..exceptions import NotInLocusError
 from ..parsers.GFF import GffLine
 from ..serializers.blast_serializer import Hit, Query, Target
-from ..serializers.external import External
+from ..serializers.external import External, ExternalSource
 from ..serializers.junction import Junction, Chrom
 from ..serializers.orf import Orf
 from ..utilities import dbutils, grouper
@@ -566,11 +565,13 @@ class Superlocus(Abstractlocus):
         data_dict["hits"] = collections.defaultdict(list)
         data_dict["orfs"] = collections.defaultdict(list)
         data_dict["external"] = collections.defaultdict(dict)
+
         for tid_group in grouper(tid_keys, 100):
             query_ids = dict((query.query_id, query) for query in
                              self.session.query(Query).filter(
                                  Query.query_name.in_(tid_group)))
             # Retrieve the external scores
+
             if query_ids:
                 external = self.session.query(External).filter(External.query_id.in_(query_ids.keys()))
             else:
@@ -630,7 +631,6 @@ class Superlocus(Abstractlocus):
                                       Target.target_id.in_(targets)))
             else:
                 target_ids = dict()
-
             current_hit = None
             for hit in engine.execute(hit_command):
                 if current_hit != hit.query_id:
@@ -650,6 +650,7 @@ class Superlocus(Abstractlocus):
                         my_target
                     )
                 )
+
         return data_dict
 
     def load_all_transcript_data(self, engine=None, data_dict=None):
@@ -693,7 +694,6 @@ class Superlocus(Abstractlocus):
         self._load_introns(data_dict)
 
         if data_dict is None:
-
             data_dict = self._create_data_dict(engine, tid_keys)
 
             self.logger.debug("Verified %d introns for %s",

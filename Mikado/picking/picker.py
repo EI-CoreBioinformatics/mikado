@@ -868,7 +868,7 @@ class Picker:
                         current["chrom"], current["start"], current["end"] = chrom, start, end
                         current["transcripts"][tid] = dict()
                         current["transcripts"][tid]["start"] = start
-                        current["transcripts"][tid]["end"] = start
+                        current["transcripts"][tid]["end"] = end
                         current["transcripts"][tid]["definition"] = line
                         current["transcripts"][tid]["exon_lines"] = []
                         self.logger.info("Starting chromosome %s", chrom)
@@ -878,6 +878,8 @@ class Picker:
                         current["chrom"], current["start"], current["end"] = chrom, start, end
                         current["transcripts"] = dict()
                         current["transcripts"][tid] = dict()
+                        current["transcripts"][tid]["start"] = start
+                        current["transcripts"][tid]["end"] = end
                         current["transcripts"][tid]["definition"] = line
                         current["transcripts"][tid]["exon_lines"] = []
                         self.logger.info("Starting chromosome %s", chrom)
@@ -900,6 +902,8 @@ class Picker:
                         current["transcripts"][tid] = dict()
                         current["transcripts"][tid]["definition"] = line
                         current["transcripts"][tid]["exon_lines"] = []
+                        current["transcripts"][tid]["start"] = start
+                        current["transcripts"][tid]["end"] = end
 
         if current["start"] is not None:
             counter += 1

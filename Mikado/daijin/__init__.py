@@ -86,8 +86,8 @@ def create_parser():
                         help="""Maximum number of threads per job.
                         Default: None (set in the configuration file)""")
     parser.add_argument("--exe", default="daijin_exe.yaml",
-                        help="""Configuration file containing the information on the software versions to be used.
-                        Default: None, Daijin presumes that all needed programs are already present in the environment.""")
+                        help="""Configuration file containing the information on the software versions to be used. \
+Default: None, Daijin presumes that all needed programs are already present in the environment.""")
     parser.add_argument("--no_drmaa", "-nd", action='store_true', default=False,
                         help="Use this flag if you wish to run without DRMAA, for example, \
 if running on a HPC and DRMAA is not available, or if running locally on your own machine or server.")
@@ -96,6 +96,7 @@ if running on a HPC and DRMAA is not available, or if running locally on your ow
     parser.add_argument("--rerun-incomplete", "--ri", action='store_true', default=False,
                         dest="rerun_incomplete",
                         help="Re-run all jobs the output of which is recognized as incomplete.")
+    parser.add_argument("--use-conda", action="store_true", default=False, dest="use_conda")
     parser.add_argument("--forcerun", "-R", nargs="+", metavar="TARGET",
                         help="Force the re-execution or creation of the given rules or files. \
                         Use this option if you changed a rule and want to have all its output in your \
@@ -384,6 +385,7 @@ def assemble_transcripts_pipeline(args):
         drmaa=drmaa_var,
         printshellcmds=True,
         snakemakepath=shutil.which("snakemake"),
+        use_conda=args.use_conda,
         stats="daijin_tr_" + NOW + ".stats",
         force_incomplete=args.rerun_incomplete,
         detailed_summary=args.detailed_summary,
@@ -494,6 +496,7 @@ def mikado_pipeline(args):
         cluster=cluster_var,
         drmaa=drmaa_var,
         printshellcmds=True,
+        use_conda=args.use_conda,
         snakemakepath=shutil.which("snakemake"),
         stats="daijin_tr_" + NOW + ".stats",
         force_incomplete=args.rerun_incomplete,

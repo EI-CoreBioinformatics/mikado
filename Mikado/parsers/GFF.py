@@ -34,7 +34,7 @@ class GffLine(GFAnnotation):
         """
 
         GFAnnotation.__init__(self, line, my_line, header=header)
-        _ = self.name  # Set the name
+        self.__set_name()  # Set the name
 
     def _parse_attributes(self):
 
@@ -43,32 +43,23 @@ class GffLine(GFAnnotation):
         :return:
         """
 
-        self.attribute_order = []
+        infolist = self._attribute_pattern.findall(self._attr.rstrip().rstrip(";"))
+        attribute_order = [key for key, val in infolist if key not in ("Parent", "parent", "id", "ID", "Id")]
+        attributes = dict((key, self._attribute_definition(val)) for key, val in infolist)
+        if "Parent" in attributes:
+            self.parent = attributes["Parent"]
+        elif "parent" in attributes:
+            self.parent = attributes["parent"]
 
-        infolist = re.findall(self._attribute_pattern, self._attr.rstrip().rstrip(";"))
+        if "ID" in attributes:
+            self.id = attributes["ID"]
+        elif "id" in attributes:
+            self.id = attributes["id"]
+        elif "Id" in attributes:
+            self.id = attributes["Id"]
 
-        for item in infolist:
-            key, val = item
-            if key.lower() == "parent":
-                self.parent = val.split(",")
-            elif key.upper() == "ID":
-                self.id = val
-            else:
-                try:
-                    val = int(val)
-                except ValueError:
-                    try:
-                        val = float(val)
-                    except ValueError:
-                        pass
-                finally:
-                    if isinstance(val, str) and val.lower() == "true":
-                        val = True
-                    elif isinstance(val, str) and val.lower() == "false":
-                        val = False
-
-                    self.attributes[key] = val
-                    self.attribute_order.append(key)
+        self.attributes.update(attributes)
+        self.attribute_order = attribute_order
 
     def _format_attributes(self):
         """
@@ -77,38 +68,59 @@ class GffLine(GFAnnotation):
         :return:
         """
 
+        attrs = self._format_attributes_dict(
+            self.attributes,
+            parent=self.parent,
+            mid=self.id,
+            name=self.name,
+            attribute_order=self.attribute_order)
+
+        return attrs
+
+    @staticmethod
+    def _format_attributes_dict(attributes, parent=None, mid=None, name=None, attribute_order=None):
+
+        if not parent:
+            try:
+                parent = attributes["parent"]
+            except KeyError:
+                try:
+                    parent = attributes["Parent"]
+                except KeyError:
+                    parent = None
+
+        if not mid:
+            try:
+                mid = attributes["id"]
+            except KeyError:
+                try:
+                    mid = attributes["ID"]
+                except KeyError:
+                    mid = None
+        if not name:
+            name = attributes.get("name", None)
         attrs = []
-        if self.id is not None:
-            attrs.append("ID={0}".format(self.id))
-        if self.parent is not None and len(self.parent) > 0:
-            attrs.append("Parent={0}".format(",".join(self.parent)))
-        if "Name" in self.attributes and self.attributes["Name"] is not None:
-            if "name" in self.attributes:
-                del self.attributes["name"]
-            if "name" in self.attribute_order:
-                self.attribute_order.remove("name")
-            attrs.append("Name={0}".format(self.name))
-        elif "name" in self.attributes and self.attributes["name"] is not None:
-            self.name = self.attributes["name"]
-            del self.attributes["name"]
-            if "name" in self.attribute_order:
-                self.attribute_order.remove("name")
-            attrs.append("Name={0}".format(self.name))
+        if mid is not None:
+            attrs.append("ID={0}".format(mid))
+        if parent is not None:
+            if isinstance(parent, str):
+                parent = [parent]
+            if len(parent) > 1:
+                attrs.append("Parent={0}".format(",".join(parent)))
+            elif len(parent) == 1:
+                attrs.append("Parent={0}".format(parent[0]))
+        if name is not None:
+            attrs.append("Name={0}".format(name))
 
-        if not self.attribute_order:
-            self.attribute_order = sorted(list(key for key in self.attributes if
-                                               key not in ["ID", "Parent", "Name"]))
+        if not attribute_order:
+            attribute_order = sorted(list(key for key in attributes if
+                                               key not in ["ID", "Parent", "Name",
+                                                           "parent", "id", "name"]))
 
-        for att in iter(key for key in self.attribute_order if
-                        key not in ["ID", "Parent", "Name"]):
-            if att in ("gene_id", "transcript_id"):
-                continue  # These are carryovers from GTF files
-            if self.attributes[att] is not None:
-                # try:
-                attrs.append("{0}={1}".format(att.lower(), self.attributes[att]))
-                # except KeyError:
-                #     # Hack for those times when we modify the attributes at runtime
-                #     continue
+        attrs += ["{0}={1}".format(att.lower(), attributes[att]) for att in attribute_order
+                  if (att not in ("ID", "Parent", "Name", "name", "gene_id", "transcript_id") and
+                      attributes[att] is not None)]
+
         attrs = ";".join(attrs)
         return attrs
 
@@ -120,7 +132,10 @@ class GffLine(GFAnnotation):
         Returns the ID of the feature.
         :rtype str
         """
-        return self.attributes["ID"]
+        if "ID" in self.attributes:
+            return self.attributes["ID"]
+        else:
+            return None
 
     @id.setter
     def id(self, newid):
@@ -131,6 +146,7 @@ class GffLine(GFAnnotation):
         """
 
         self.attributes["ID"] = newid
+        self._is_gene = None
     # pylint: enable=invalid-name
 
     @property
@@ -143,9 +159,13 @@ class GffLine(GFAnnotation):
         :rtype list
 
         """
+        return self.__parent
+
+    def __set_parent(self):
+
         if "Parent" not in self.attributes:
             self.parent = None
-        return self.attributes["Parent"]
+        self.parent = self.attributes["Parent"]
 
     @parent.setter
     def parent(self, parent):
@@ -160,6 +180,7 @@ class GffLine(GFAnnotation):
         if isinstance(parent, str):
             parent = parent.split(",")
         self.attributes["Parent"] = parent
+        self.__parent = parent
 
     @property
     def name(self):
@@ -169,9 +190,13 @@ class GffLine(GFAnnotation):
         :rtype str
         """
 
+        return self.__name
+
+    def __set_name(self):
+
         if "Name" not in self.attributes:
             self.name = None
-        return self.attributes["Name"]
+        self.__name = self.attributes["Name"]
 
     @name.setter
     def name(self, name):
@@ -184,6 +209,7 @@ class GffLine(GFAnnotation):
         if not isinstance(name, (type(None), str)):
             raise TypeError("Invalid value for name: {0}".format(name))
         self.attributes["Name"] = name
+        self.__name = name
 
     @property
     def is_transcript(self):

@@ -30,7 +30,7 @@ import multiprocessing as mp
 import tempfile
 from .gene_dict import check_index
 from ..exceptions import InvalidTranscript
-import json
+import rapidjson as json
 import gzip
 import itertools
 import functools
@@ -41,7 +41,7 @@ from .gene_dict import GeneDict
 __author__ = 'Luca Venturini'
 
 
-# Hack to give the ujson library this exception class
+# Hack to give the rapidjson library this exception class
 # This becomes necessary when we happen to have a corrupted index
 if not hasattr(json, "decoder"):
 
@@ -299,12 +299,16 @@ class FinalAssigner(mp.Process):
 def transmit_transcript(index, transcript: Transcript, connection: sqlite3.Connection):
     transcript.finalize()
     connection.execute("INSERT INTO dump VALUES (?, ?)",
-                       (index, json.dumps(transcript.as_dict(remove_attributes=True))))
+                       (index, json.dumps(transcript.as_dict(remove_attributes=True),
+                                          number_mode=json.NM_NATIVE)))
 
 
 def get_best_result(_, transcript, assigner_instance: Assigner):
     transcript.finalize()
     assigner_instance.get_best(transcript)
+
+
+orf_pattern = re.compile(r"\.orf[0-9]+$", re.IGNORECASE)
 
 
 def parse_prediction(args, index, queue_logger):
@@ -387,8 +391,8 @@ def parse_prediction(args, index, queue_logger):
               row.feature == "match"):
             queue_logger.debug("Transcript row:\n%s", str(row))
             if transcript is not None:
-                if re.search(r"\.orf[0-9]+$", transcript.id):
-                    __name = re.sub(r"\.orf[0-9]+$", "", transcript.id)
+                if orf_pattern.search(transcript.id):
+                    __name = orf_pattern.sub("", transcript.id)
                     if __name not in __found_with_orf:
                         __found_with_orf.add(__name)
                         done += 1
@@ -442,7 +446,7 @@ def parse_prediction(args, index, queue_logger):
                     transcript.add_exon(row)
                 elif transcript is None or (transcript is not None and row.id != transcript.id):
                     if transcript is not None:
-                        if re.search(r"\.orf[0-9]+$", transcript.id) and \
+                        if orf_pattern.search(transcript.id) and \
                                 (not transcript.id.endswith("orf1")):
                             pass
                         else:
@@ -461,7 +465,7 @@ def parse_prediction(args, index, queue_logger):
             elif ref_gff is False:
                 if transcript is None or (transcript is not None and transcript.id != row.transcript):
                     if transcript is not None:
-                        if re.search(r"\.orf[0-9]+$", transcript.id) and \
+                        if orf_pattern.search(transcript.id) and \
                                 (not transcript.id.endswith("orf1")):
                             pass
                         else:
@@ -485,7 +489,7 @@ def parse_prediction(args, index, queue_logger):
             queue_logger.debug("Skipped row: {}".format(row))
 
     if transcript is not None:
-        if re.search(r"\.orf[0-9]+$", transcript.id) and not transcript.id.endswith("orf1"):
+        if orf_pattern.search(transcript.id) and not transcript.id.endswith("orf1"):
             pass
         else:
             done += 1

@@ -17,13 +17,155 @@ from ..parsers.GFF import GffLine
 from typing import Union
 import re
 from ..utilities.log_utils import create_null_logger
-from Bio.Data import CodonTable
 import pysam
+import functools
+from Bio import BiopythonWarning
+import warnings
+from Bio.Data.IUPACData import ambiguous_dna_letters as _ambiguous_dna_letters
+from Bio.Data.IUPACData import ambiguous_rna_letters as _ambiguous_rna_letters
+from Bio.Data import CodonTable
+import multiprocessing as mp
+import msgpack
+import logging
+import logging.handlers as logging_handlers
 
+
+backup_valid_letters = set(_ambiguous_dna_letters.upper() + _ambiguous_rna_letters.upper())
 standard = CodonTable.ambiguous_dna_by_id[1]
 standard.start_codons = ["ATG"]
 
-# import numpy as np
+
+@functools.lru_cache(typed=True, maxsize=None)
+def get_tables(table, to_stop=False):
+    forward_table = table.forward_table.forward_table.copy()
+    stop_codons = set(table.stop_codons)
+    dual_coding = [c for c in stop_codons if c in forward_table]
+    if dual_coding:
+        c = dual_coding[0]
+        if to_stop:
+            raise ValueError("You cannot use 'to_stop=True' with this table "
+                             "as it contains {} codon(s) which can be both "
+                             " STOP and an  amino acid (e.g. '{}' -> '{}' or "
+                             "STOP)."
+                             .format(len(dual_coding), c, forward_table[c]))
+        warnings.warn("This table contains {} codon(s) which code(s) for both "
+                      "STOP and an amino acid (e.g. '{}' -> '{}' or STOP). "
+                      "Such codons will be translated as amino acid."
+                      .format(len(dual_coding), c, forward_table[c]),
+                      BiopythonWarning)
+
+    for stop in stop_codons:
+        forward_table[stop] = "*"
+    if table.nucleotide_alphabet.letters is not None:
+        valid_letters = set(table.nucleotide_alphabet.letters.upper())
+    else:
+        # Assume the worst case, ambiguous DNA or RNA:
+        valid_letters = backup_valid_letters
+
+    return forward_table, valid_letters
+
+
+def _translate_str(sequence, table, stop_symbol="*", to_stop=False, cds=False, pos_stop="X", gap=None):
+    """Translate nucleotide string into a protein string (PRIVATE).
+
+    Arguments:
+     - sequence - a string
+     - table - a CodonTable object (NOT a table name or id number)
+     - stop_symbol - a single character string, what to use for terminators.
+     - to_stop - boolean, should translation terminate at the first
+       in frame stop codon?  If there is no in-frame stop codon
+       then translation continues to the end.
+     - pos_stop - a single character string for a possible stop codon
+       (e.g. TAN or NNN)
+     - cds - Boolean, indicates this is a complete CDS.  If True, this
+       checks the sequence starts with a valid alternative start
+       codon (which will be translated as methionine, M), that the
+       sequence length is a multiple of three, and that there is a
+       single in frame stop codon at the end (this will be excluded
+       from the protein sequence, regardless of the to_stop option).
+       If these tests fail, an exception is raised.
+     - gap - Single character string to denote symbol used for gaps.
+       Defaults to None.
+
+    Returns a string.
+
+    e.g.
+
+    >>> from Bio.Data import CodonTable
+    >>> table = CodonTable.ambiguous_dna_by_id[1]
+    >>> _translate_str("AAA", table)
+    'K'
+    >>> _translate_str("TAR", table)
+    '*'
+    >>> _translate_str("TAN", table)
+    'X'
+    >>> _translate_str("TAN", table, pos_stop="@")
+    '@'
+    >>> _translate_str("TA?", table)
+    Traceback (most recent call last):
+       ...
+    Bio.Data.CodonTable.TranslationError: Codon 'TA?' is invalid
+
+    In a change to older versions of Biopython, partial codons are now
+    always regarded as an error (previously only checked if cds=True)
+    and will trigger a warning (likely to become an exception in a
+    future release).
+
+    If **cds=True**, the start and stop codons are checked, and the start
+    codon will be translated at methionine. The sequence must be an
+    while number of codons.
+
+    >>> _translate_str("ATGCCCTAG", table, cds=True)
+    'MP'
+    >>> _translate_str("AAACCCTAG", table, cds=True)
+    Traceback (most recent call last):
+       ...
+    Bio.Data.CodonTable.TranslationError: First codon 'AAA' is not a start codon
+    >>> _translate_str("ATGCCCTAGCCCTAG", table, cds=True)
+    Traceback (most recent call last):
+       ...
+    Bio.Data.CodonTable.TranslationError: Extra in frame stop codon found.
+    """
+
+    if cds and len(sequence) % 3 != 0:
+        raise CodonTable.TranslationError("Sequence length {0} is not a multiple of three".format(
+            len(sequence)
+        ))
+    elif gap is not None and (not isinstance(gap, str) or len(gap) > 1):
+        raise TypeError("Gap character should be a single character "
+                        "string.")
+
+    forward_table, valid_letters = get_tables(table, to_stop=to_stop)
+
+    amino_acids = []
+    for start in range(0, len(sequence) - len(sequence) % 3, 3):
+        codon = sequence[start:start + 3]
+        try:
+            residue = forward_table[codon]
+        except KeyError:
+            assert pos_stop is not None
+            if gap is not None and codon == gap * 3:
+                residue = pos_stop
+            elif valid_letters.issuperset(set(codon)):
+                residue = pos_stop
+            else:
+                raise CodonTable.TranslationError("Codon '{0}' is invalid".format(codon))
+        amino_acids.append(residue)
+
+    found_stops = amino_acids.count(stop_symbol)
+
+    if cds and amino_acids[0] != "M":
+        raise CodonTable.TranslationError(
+            "First codon '{0}' is not a start codon".format(sequence[:3]))
+
+    if cds and found_stops > 1:
+        raise CodonTable.TranslationError("Extra in frame stop codon found.")
+    elif cds and found_stops and amino_acids.index(stop_symbol) < len(amino_acids) - 1:
+        raise CodonTable.TranslationError("Extra in frame stop codon found.")
+    if to_stop and found_stops > 0:
+        amino_acids = amino_acids[:amino_acids.index(stop_symbol)]
+
+    return "".join(amino_acids)
 
 
 # These classes do contain lots of things, it is correct like it is
@@ -149,7 +291,7 @@ class BED12:
         self.block_sizes = [0]
         self.block_starts = [0]
         self.block_count = 1
-        self.invalid_reason = ''
+        self.invalid_reason = None
         self.fasta_length = None
         self.__in_index = True
         self.max_regression = max_regression
@@ -293,7 +435,7 @@ class BED12:
 
         self.attribute_order = []
 
-        infolist = re.findall(self._attribute_pattern, attributes.rstrip().rstrip(";"))
+        infolist = self._attribute_pattern.findall(attributes.rstrip().rstrip(";"))
 
         for item in infolist:
             key, val = item
@@ -400,8 +542,6 @@ class BED12:
                     sequence = str(sequence.seq)
                 if not isinstance(sequence, str):
                     sequence = str(sequence)
-                # if isinstance(sequence, str):
-                #     sequence = Seq.Seq(sequence)
             else:
                 if self.id not in fasta_index:
                     self.__in_index = False
@@ -440,8 +580,6 @@ class BED12:
 
                 self.has_start_codon = False
                 if self.start_adjustment is True:
-                    # if self.strand == "-":
-                    #     sequence = Seq.reverse_complement(sequence)
                     self._adjust_start(sequence, orf_sequence)
 
             if self.stop_codon in self.table.stop_codons:
@@ -456,7 +594,10 @@ class BED12:
             last_pos = -3 - ((len(orf_sequence)) % 3)
 
             if self.__lenient is False:
-                translated_seq = Seq.translate(orf_sequence[:last_pos], table=self.table, gap='N')
+                translated_seq = _translate_str(orf_sequence[:last_pos],
+                                                table=self.table,
+                                                gap='N')
+
                 self.__internal_stop_codons = str(translated_seq).count("*")
 
             if self.invalid is True:
@@ -583,6 +724,25 @@ class BED12:
 
         return copy.deepcopy(self)
 
+    def as_simple_dict(self):
+
+        return {
+            "chrom": self.chrom,
+            "id": self.id,
+            "start": self.start,
+            "end": self.end,
+            "name": self.name,
+            "strand": self.strand,
+            "thick_start": self.thick_start,
+            "thick_end": self.thick_end,
+            "score": self.score,
+            "has_start_codon": self.has_start_codon,
+            "has_stop_codon": self.has_stop_codon,
+            "cds_len": self.cds_len,
+            "phase": self.phase,
+            "transcriptomic": self.transcriptomic,
+        }
+
     @property
     def strand(self):
         """
@@ -697,11 +857,6 @@ class BED12:
         if self.transcriptomic is True and self.__in_index is False:
             self.invalid_reason = "{} not found in the index!".format(self.chrom)
             return True
-
-        assert isinstance(self.thick_start, int)
-        assert isinstance(self.thick_end, int)
-        assert isinstance(self.start, int)
-        assert isinstance(self.end, int)
 
         if self.thick_start < self.start or self.thick_end > self.end:
             if self.thick_start == self.thick_end == self.block_sizes[0] == 0:
@@ -834,7 +989,8 @@ class BED12:
                      old_orf[:10], old_orf[-10:])
         assert len(old_orf) > 0, (old_start_pos, old_end_pos)
         assert len(old_orf) % 3 == 0, (old_start_pos, old_end_pos)
-        old_pep = Seq.Seq(old_orf).translate(self.table, gap="N")
+
+        old_pep = _translate_str(old_orf, self.table, gap="N")
         if "*" in old_pep and old_pep.find("*") < len(old_pep) - 1:
             logger.error("Stop codon found within the ORF of %s (pos %s of %s; phase %s). This is invalid!",
                          self.id, old_pep.find("*"), len(old_pep), self.phase)
@@ -874,11 +1030,13 @@ class BED12:
                     self.phase = 0
                     self.__has_start = True
 
-            coding_seq = Seq.Seq(sequence[self.thick_start + self.phase - 1:self.end])
+            coding_seq = sequence[self.thick_start + self.phase - 1:self.end]
             if len(coding_seq) % 3 != 0:
                 # Only get a multiple of three
                 coding_seq = coding_seq[:-((len(coding_seq)) % 3)]
-            prot_seq = Seq.translate(coding_seq, table=self.table, gap="N")
+            prot_seq = _translate_str(coding_seq, table=self.table, gap="N")
+            # print(coding_seq, prot_seq, self.table, sep="\n")
+            # raise ValueError()
             if "*" in prot_seq:
                 self.thick_end = self.thick_start + self.phase - 1 + (1 + prot_seq.find("*")) * 3
                 self.stop_codon = coding_seq[prot_seq.find("*") * 3:(1 + prot_seq.find("*")) * 3].upper()
@@ -891,7 +1049,6 @@ class BED12:
 
         self.block_sizes = [self.thick_end - self.thick_start]
         self.block_starts = [self.thick_start]
-
         return
 
     @property
@@ -1033,11 +1190,13 @@ class Bed12Parser(Parser):
                 fasta_index[numpy.random.choice(fasta_index.keys(), 1)],
                 Bio.SeqRecord.SeqRecord)
         elif fasta_index is not None:
-            if isinstance(fasta_index, str):
+            if isinstance(fasta_index, (str, bytes)):
+                if isinstance(fasta_index, bytes):
+                    fasta_index = fasta_index.decode()
                 assert os.path.exists(fasta_index)
                 fasta_index = pysam.FastaFile(fasta_index)
             else:
-                assert isinstance(fasta_index, pysam.FastaFile)
+                assert isinstance(fasta_index, pysam.FastaFile), type(fasta_index)
 
         self.fasta_index = fasta_index
         self.__closed = False
@@ -1133,3 +1292,119 @@ class Bed12Parser(Parser):
         if coding not in (False, True):
             raise ValueError(coding)
         self.__coding = coding
+
+
+class Bed12ParseWrapper(mp.Process):
+
+    def __init__(self,
+                 rec_queue=None,
+                 return_queue=None,
+                 log_queue=None, level="DEBUG",
+                 fasta_index=None,
+                 transcriptomic=False,
+                 max_regression=0,
+                 is_gff=False,
+                 coding=False,
+                 table=0):
+
+        """
+        :param send_queue:
+        :type send_queue: mp.Queue
+        :param return_queue:
+        :type send_queue: mp.Queue
+        :param kwargs:
+        """
+
+        super().__init__()
+        self.rec_queue = rec_queue
+        self.return_queue = return_queue
+        self.logging_queue = log_queue
+        self.handler = logging_handlers.QueueHandler(self.logging_queue)
+        self.logger = logging.getLogger(self.name)
+        self.logger.addHandler(self.handler)
+        self.logger.setLevel(level)
+        self.logger.propagate = False
+        self.transcriptomic = transcriptomic
+        self.__max_regression = 0
+        self._max_regression = max_regression
+        self.coding = coding
+
+        if isinstance(fasta_index, dict):
+            # check that this is a bona fide dictionary ...
+            assert isinstance(
+                fasta_index[numpy.random.choice(fasta_index.keys(), 1)],
+                Bio.SeqRecord.SeqRecord)
+        elif fasta_index is not None:
+            if isinstance(fasta_index, (str, bytes)):
+                if isinstance(fasta_index, bytes):
+                    fasta_index = fasta_index.decode()
+                assert os.path.exists(fasta_index)
+                fasta_index = pysam.FastaFile(fasta_index)
+            else:
+                assert isinstance(fasta_index, pysam.FastaFile), type(fasta_index)
+
+        self.fasta_index = fasta_index
+        self.__closed = False
+        self.header = False
+        self.__table = table
+        self._is_bed12 = (not is_gff)
+
+    def bed_next(self, line):
+        """
+
+        :return:
+        """
+
+        bed12 = BED12(line,
+                          fasta_index=self.fasta_index,
+                          transcriptomic=self.transcriptomic,
+                          max_regression=self._max_regression,
+                          coding=self.coding,
+                          table=self.__table)
+        return bed12
+
+    def gff_next(self, line):
+        """
+
+        :return:
+        """
+
+        line = GffLine(line)
+
+        if line.feature != "CDS":
+            return None
+            # Compatibility with BED12
+        bed12 = BED12(line,
+                      fasta_index=self.fasta_index,
+                      transcriptomic=self.transcriptomic,
+                      max_regression=self._max_regression,
+                      table=self.__table)
+        # raise NotImplementedError("Still working on this!")
+        return bed12
+
+    def run(self, *args, **kwargs):
+        while True:
+            line = self.rec_queue.get()
+            if line in ("EXIT", b"EXIT"):
+                self.rec_queue.put(b"EXIT")
+                self.return_queue.put(b"FINISHED")
+                break
+            try:
+                line = line.decode()
+            except AttributeError:
+                pass
+            if not self._is_bed12:
+                row = self.gff_next(line)
+            else:
+                row = self.bed_next(line)
+
+            if not row or row.header is True:
+                continue
+            if row.invalid is True:
+                self.logger.warn("Invalid entry, reason: %s\n%s",
+                                 row.invalid_reason,
+                                 row)
+                continue
+            self.return_queue.put(msgpack.dumps(row.as_simple_dict()))
+
+        # self.join()

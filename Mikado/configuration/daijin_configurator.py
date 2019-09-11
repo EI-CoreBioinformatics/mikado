@@ -1,5 +1,5 @@
 try:
-    import ujson as json
+    import rapidjson as json
 except ImportError:
     import json
 import os
@@ -272,17 +272,17 @@ def create_daijin_config(args, level="ERROR", piped=False):
             # Check it's a valid scoring file
             with open(args.new_scoring) as _:
                 if args.new_scoring.endswith("json"):
-                    new_scoring = json.load(_)
+                    new_scoring = json.loads(_.read())
                 else:
                     new_scoring = yaml.load(_, Loader=yaml.SafeLoader)
 
-                json_conf = check_all_requirements(new_scoring)
-                json_conf = check_scoring(new_scoring)
+                _ = check_all_requirements(new_scoring)
+                _ = check_scoring(new_scoring)
 
         else:
             with io.TextIOWrapper(resource_stream("Mikado.configuration",
                                                   "scoring_blueprint.json")) as schema:
-                scoring_schema = json.load(schema)
+                _ = json.load(schema.read())
 
             ns = dict()
             with open(args.new_scoring, "wt") as out:

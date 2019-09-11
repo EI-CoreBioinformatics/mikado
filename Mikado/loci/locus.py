@@ -332,7 +332,11 @@ and max. no. of isoforms (%d)", len(to_keep), threshold, max_isoforms)
 
             if comparison.n_f1[0] == 100:
                 try:
-                    if self[couple[0]].is_reference and not self[couple[1]].is_reference:
+                    if couple[0] == self.primary_transcript_id:
+                        removal = couple[1]
+                    elif couple[1] == self.primary_transcript_id:
+                        removal = couple[0]
+                    elif self[couple[0]].is_reference and not self[couple[1]].is_reference:
                         removal = couple[1]
                     elif self[couple[0]].score > self[couple[1]].score:
                         removal = couple[1]
@@ -1273,9 +1277,10 @@ def expand_transcript(transcript: Transcript,
         elif backup.strand != "-" and backup.combined_cds_end > transcript.combined_cds_end:
             abort = True
         if abort is True:
-            msg = "Padding {} (strand: {}) would lead to an in-frame stop codon ({} to {}, vs original {} to {}.\
-Aborting.".format(transcript.id, backup.strand, transcript.combined_cds_start, transcript.combined_cds_end,
-                  backup.combined_cds_start, backup.combined_cds_end)
+            msg = "Padding {} (strand: {}) would lead to an in-frame stop codon ({} to {}, \
+vs original {} to {}. Aborting.".format(
+                transcript.id, backup.strand, transcript.combined_cds_start, transcript.combined_cds_end,
+                backup.combined_cds_start, backup.combined_cds_end)
             logger.info(msg)
             return backup
 

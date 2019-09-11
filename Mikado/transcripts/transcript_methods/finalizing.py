@@ -764,14 +764,17 @@ def finalize(transcript):
                                 transcript.id, transcript.attributes)
 
     for prop in list(transcript.attributes.keys()):
+        val = transcript.attributes[prop]
         if hasattr(transcript, prop):
             try:
-                setattr(transcript, prop, transcript.attributes[prop])
+                setattr(transcript, prop, val)
             except AttributeError:  # Some instance attributes CANNOT be set from the attributes of the GTF
                 transcript.attributes.pop(prop)
 
     # transcript = __calc_cds_introns(transcript)
     _ = transcript.cdna_length
+    transcript._set_basic_lengths()
+    transcript._set_distances()
 
     transcript.finalized = True
     transcript.logger.debug("Finished finalising %s", transcript.id)

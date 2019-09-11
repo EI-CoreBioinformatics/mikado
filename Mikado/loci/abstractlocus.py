@@ -26,7 +26,8 @@ if version_info.minor < 5:
     from sortedcontainers import SortedDict
 else:
     from collections import OrderedDict as SortedDict
-import functools
+from fastnumbers import isfloat
+import rapidjson as json
 
 # I do not care that there are too many attributes: this IS a massive class!
 # pylint: disable=too-many-instance-attributes,too-many-public-methods
@@ -187,9 +188,17 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             state["sessionmaker"] = None
             state["session"] = None
 
-        state["_Abstractlocus__internal_graph"] = networkx.readwrite.json_graph.node_link_data(
-            state["_Abstractlocus__internal_graph"])
+        if self.__internal_graph.nodes():
+            nodes = json.dumps(list(self.__internal_graph.nodes())[0],
+                               number_mode=json.NM_NATIVE)
+        else:
+            nodes = "[]"
+        state["_Abstractlocus__internal_nodes"] = nodes
 
+        edges = [edge for edge in self.__internal_graph.edges()]
+        # Remember that the graph is in form [((start, end), (start, end)), etc.]
+        # So that each edge is composed by a couple of tuples.
+        state["_Abstractlocus__internal_edges"] = json.dumps(edges, number_mode=json.NM_NATIVE)
         if hasattr(self, "engine"):
             del state["engine"]
 
@@ -200,7 +209,22 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         """Method to recreate the object after serialisation."""
         self.__dict__.update(state)
         self.__segmenttree = IntervalTree()
-        self.__internal_graph = networkx.readwrite.json_graph.node_link_graph(state["_Abstractlocus__internal_graph"])
+        self.__internal_graph = networkx.DiGraph()
+        try:
+            nodes = json.loads(state["_Abstractlocus__internal_nodes"])
+        except json.decoder.JSONDecodeError:
+            raise json.decoder.JSONDecodeError(state["_Abstractlocus__internal_nodes"])
+        edges = []
+        for edge in json.loads(state["_Abstractlocus__internal_edges"]):
+            edges.append((tuple(edge[0]), tuple(edge[1])))
+        try:
+            self.__internal_graph.add_nodes_from(nodes)
+        except TypeError:
+            raise TypeError(nodes)
+        try:
+            self.__internal_graph.add_edges_from(edges)
+        except TypeError:
+            raise TypeError(edges)
 
         if hasattr(self, "json_conf"):
             if "requirements" in self.json_conf and "expression" in self.json_conf["requirements"]:
@@ -218,13 +242,15 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         assert "metrics_calculated" in state
         return state
 
-    def load_dict(self, state):
+    def load_dict(self, state, load_transcripts=True):
         assert isinstance(state, dict)
         self.__setstate__(state)
 
         assert self.metrics_calculated is True
-        self.transcripts = dict((tid, Transcript()) for tid in state["transcripts"])
-        [self[tid].load_dict(state["transcripts"][tid], trust_orf=True) for tid in state["transcripts"]]
+        if load_transcripts is True:
+            self.transcripts = dict((tid, Transcript()) for tid in state["transcripts"])
+            [self[tid].load_dict(state["transcripts"][tid], trust_orf=True) for tid in state["transcripts"]]
+
         for attr in ["locus_verified_introns", "introns", "exons",
                      "selected_cds_introns", "combined_cds_introns"]:
             setattr(self, attr, set([tuple(_) for _ in getattr(self, attr)]))
@@ -760,9 +786,6 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                 self.logger.debug("Exon %s of %s is not to be considered", exon, transcript.id)
                 continue
 
-            # self.logger.debug("Number of exons, introns, intervals in segmenttree: %d, %d, %d",
-            #                   len(self.exons), len(self.introns), len(self.segmenttree))
-
             is_retained = self._is_exon_retained(
                 exon,
                 self.segmenttree,
@@ -888,25 +911,34 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         # The rower is an instance of the DictWriter class from the standard CSV module
 
         self.get_metrics()
-        for tid in sorted(self.transcripts.keys(), key=lambda ttid: self.transcripts[ttid]):
-            row = {}
-            assert self.available_metrics != []
-            for key in self.available_metrics:
-                if key.lower() in ("id", "tid"):
-                    row[key] = tid
-                elif key.lower() == "parent":
-                    row[key] = self.id
-                else:
-                    row[key] = getattr(self.transcripts[tid], key, "NA")
-                if isinstance(row[key], float):
-                    row[key] = round(row[key], 2)
-                elif row[key] is None or row[key] == "":
-                    row[key] = "NA"
-            for source in self.transcripts[tid].external_scores:
-                # Each score from external files also contains a multiplier.
-                row["external.{}".format(source)] = self.transcripts[tid].external_scores.get(source)[0]
 
-            assert row != {}
+        for tid, transcript in sorted(self.transcripts.items(), key=operator.itemgetter(1)):
+            row = {}
+            for num, key in enumerate(self.available_metrics):
+
+                if num == 0:  # transcript id
+                    value = tid
+                elif num == 2:  # Parent
+                    value = self.id
+                else:
+                    value = getattr(transcript, key, "NA")
+                if isfloat(value):
+                    value = round(value, 2)
+                elif value is None or value == "":
+                    value = "NA"
+                row[key] = value
+
+            for source in transcript.external_scores:
+                # Each score from external files also contains a multiplier.
+                key = "external.{}".format(source)
+                value = transcript.external_scores.get(source)[0]
+                if isfloat(value):
+                    value = round(value, 2)
+                elif value is None or value == "":
+                    value = "NA"
+                row[key] = value
+
+            # assert row != {}
             yield row
 
         return
@@ -1144,9 +1176,6 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                     assert self.transcripts[tid].score == sum(self.scores[tid].values()), (
                         tid, self.transcripts[tid].score, sum(self.scores[tid].values())
                     )
-                # if self.json_conf["pick"]["external_scores"]:
-                #     assert any("external" in _ for _ in self.scores[tid].keys()), self.scores[tid].keys()
-
                 self.scores[tid]["score"] = self.transcripts[tid].score
 
         else:

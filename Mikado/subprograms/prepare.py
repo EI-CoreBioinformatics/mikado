@@ -61,6 +61,9 @@ def setup(args):
     else:
         numpy.random.seed(None)
 
+    if args.procs is not None and args.procs > 0:
+        args.json_conf["threads"] = args.procs
+
     if args.json_conf["prepare"]["files"]["log"]:
         try:
             _ = open(path_join(

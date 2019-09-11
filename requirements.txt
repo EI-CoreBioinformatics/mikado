@@ -18,7 +18,9 @@ snakemake
 docutils!=0.13.1
 tabulate
 msgpack>=0.5
-ujson
+rapidjson
+python-rapidjson
 pandas
 jsonref
 pysam>=0.15.1
+fastnumbers>=2.1.1

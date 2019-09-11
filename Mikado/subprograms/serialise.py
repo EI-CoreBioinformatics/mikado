@@ -192,6 +192,9 @@ def setup(args):
 
     args.json_conf["serialise"]["log_level"] = args.json_conf["log_settings"]["log_level"]
 
+    if args.procs is not None and args.procs > 0:
+        args.json_conf["threads"] = args.procs
+
     # Retrieve data from the argparse and put it into the configuration
     for key in args.json_conf["serialise"]:
         if key == "files":
@@ -303,8 +306,12 @@ def setup(args):
     sql_logger.setLevel(level)
     sql_logger.addHandler(logger.handlers[0])
 
+    logger.info("Using a %s database (location: %s)",
+                args.json_conf["db_settings"]["dbtype"],
+                args.json_conf["db_settings"]["db"])
+
     logger.info("Requested %d threads, forcing single thread: %s",
-                args.json_conf["serialise"]["procs"],
+                args.json_conf["threads"],
                 args.json_conf["serialise"]["single_thread"])
 
     return args, logger, sql_logger
@@ -325,8 +332,10 @@ def serialise(args):
     # logger.info("Command line: %s",  " ".join(sys.argv))
 
     if args.json_conf["serialise"]["force"] is True:
-        if args.json_conf["db_settings"]["dbtype"] == "sqlite" and os.path.exists(args.json_conf["db_settings"]["db"]):
-            logger.warn("Removing old data because force option in place")
+        if (args.json_conf["db_settings"]["dbtype"] == "sqlite" and
+                os.path.exists(args.json_conf["db_settings"]["db"])):
+            logger.warn("Removing old data from %s because force option in place",
+                        args.json_conf["db_settings"]["db"])
             os.remove(args.json_conf["db_settings"]["db"])
 
         engine = dbutils.connect(args.json_conf)
@@ -344,10 +353,10 @@ def serialise(args):
             engine.execute("VACUUM")
         dbutils.DBBASE.metadata.create_all(engine)
 
-    load_external(args, logger)
-    load_junctions(args, logger)
     load_orfs(args, logger)
     load_blast(args, logger)
+    load_external(args, logger)
+    load_junctions(args, logger)
     logger.info("Finished")
     try:
         return 0

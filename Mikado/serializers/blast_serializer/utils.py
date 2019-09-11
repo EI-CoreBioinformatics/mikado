@@ -4,6 +4,7 @@ Generic utilities used for BLAST serialising into a DB.
 
 from ...parsers.blast_utils import merge
 import numpy as np
+import functools
 
 
 __author__ = 'Luca Venturini'
@@ -55,39 +56,54 @@ def _prepare_aln_strings(hsp, qmultiplier=1, tmultiplier=1):
     """This private method calculates the identical positions, the positives, and a re-factored match line
     starting from the HSP."""
 
-    identical_positions, positives = set(), set()
     # for query_aa, middle_aa, target_aa in zip(hsp.query, hsp.match, hsp.sbjct):
     query_pos, target_pos = hsp.query_start - 1, hsp.sbjct_start - 1
 
-    match = ""
-    # zipper = zip(hsp.aln_annotation["similarity"], *list(hsp.aln))
-
-    for middle_aa, query_aa, target_aa in zip(hsp.match, hsp.query, hsp.sbjct):
-        if middle_aa in valid_matches or middle_aa == "+":
-            if middle_aa != "+":
-                identical_positions.update(set(range(query_pos, query_pos + qmultiplier)))
-            positives.update(set(range(query_pos, query_pos + qmultiplier)))
-            query_pos += qmultiplier
-            target_pos += tmultiplier
-            match += middle_aa
-        elif query_aa == target_aa == "-":
-            match += "\\"
+    def categoriser(middle_aa, query_aa, target_aa, qmultiplier, tmultiplier):
+        qpos = 0
+        tpos = 0
+        identical = set()
+        positives = set()
+        matched = ""
+        if query_aa == target_aa == "-":
+            matched = "\\"
         elif query_aa == "-":
-            target_pos += tmultiplier
+            tpos = tmultiplier
             if target_aa == "*":
-                match += "*"
+                matched = "*"
             else:
-                match += "-"
+                matched = "-"
         elif target_aa == "-":
-            query_pos += qmultiplier
+            qpos = qmultiplier
             if query_aa == "*":
-                match += "*"
+                matched = "*"
             else:
-                match += "_"
+                matched = "_"
         elif middle_aa == " ":
-            match += " "
-            query_pos += qmultiplier
-            target_pos += tmultiplier
+            matched = " "
+            qpos = qmultiplier
+            tpos += tmultiplier
+        elif middle_aa == "+" or middle_aa in valid_matches:
+            if middle_aa != "+":
+                identical = set(range(query_pos, query_pos + qmultiplier))
+            positives = set(range(query_pos, query_pos + qmultiplier))
+            qpos = qmultiplier
+            tpos += tmultiplier
+            matched = middle_aa
+        return qpos, tpos, matched, identical, positives
+
+    partial_categorizer = functools.partial(categoriser,
+                                            qmultiplier=qmultiplier, tmultiplier=tmultiplier)
+
+    results = [partial_categorizer(middle_aa, query_aa, target_aa) for
+               middle_aa, query_aa, target_aa in zip(hsp.match, hsp.query, hsp.sbjct)]
+
+    qposes, tposes, matches, identicals, posis = list(zip(*results))
+    query_pos += sum(qposes)
+    target_pos += sum(tposes)
+    match = "".join(matches)
+    identical_positions = set.union(*identicals)
+    positives = set.union(*posis)
 
     assert query_pos <= hsp.query_end and target_pos <= hsp.sbjct_end, ((query_pos, hsp.query_end),
                                                                         (target_pos, hsp.sbjct_end),

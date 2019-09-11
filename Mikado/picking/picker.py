@@ -11,6 +11,7 @@ import csv
 import os
 import shutil
 import tempfile
+from math import floor
 import logging
 from logging import handlers as logging_handlers
 import functools
@@ -22,11 +23,14 @@ import sqlalchemy
 import sqlalchemy.exc
 from ..utilities import path_join
 from ..utilities.log_utils import formatter
-from ..parsers.GTF import GTF
+from ..parsers.GTF import GTF, GtfLine
 from ..parsers.GFF import GFF3
+from ..parsers.bed12 import Bed12Parser
+from ..parsers import Parser
 from ..serializers.junction import Chrom
 from ..serializers.external import ExternalSource
-from ..loci.superlocus import Superlocus, Transcript
+from ..transcripts import Transcript
+from ..loci.superlocus import Superlocus
 from ..configuration.configurator import to_json, check_json  # Necessary for nosetests
 from ..utilities import dbutils
 from ..exceptions import UnsortedInput, InvalidJson, InvalidTranscript
@@ -39,10 +43,11 @@ import pyfaidx
 import numpy
 import sqlite3
 import msgpack
+import fastnumbers
 logging.captureWarnings(True)
 warnings.simplefilter("always")
 try:
-    import ujson as json
+    import rapidjson as json
 except ImportError:
     import json
 
@@ -84,7 +89,7 @@ class Picker:
         self.__load_configuration()
         self.regressor = None
 
-        self.procs = self.json_conf["pick"]["run_options"]["procs"]
+        self.procs = self.json_conf["threads"]
 
         # Check the input file
         with self.define_input() as _:
@@ -118,10 +123,10 @@ class Picker:
 
         if self.json_conf["pick"]["run_options"]["single_thread"] is True:
             # Reset threads to 1
-            if self.json_conf["pick"]["run_options"]["procs"] > 1:
+            if self.json_conf["threads"] > 1:
                 self.main_logger.warning("Reset number of threads to 1 as requested")
                 self.procs = 1
-        elif self.json_conf["pick"]["run_options"]["procs"] == 1:
+        elif self.json_conf["threads"] == 1:
             self.json_conf["pick"]["run_options"]["single_thread"] = True
 
         if self.locus_out is None:
@@ -131,13 +136,20 @@ class Picker:
         # self.printer_process = Process(target=self.printer)
         self.queue_pool = None
 
-    def define_input(self):
+    def define_input(self, multithreading=False):
         """Function to check that the input file exists and is valid. It returns the parser."""
 
-        if self.input_file.endswith(".gtf"):
+        if ".gtf" in self.input_file:
             parser = GTF
-        else:
+            fformat = "gtf"
+        elif ".gff" in self.input_file:
             parser = GFF3
+            fformat = "gff3"
+        elif ".bed" in self.input_file:
+            parser = Bed12Parser
+            fformat = "bed12"
+        else:
+            raise InvalidJson("Invalid input file: {0}".format(self.input_file))
 
         verified = False
         with parser(self.input_file) as testing:
@@ -146,10 +158,14 @@ class Picker:
                     verified = True
                     break
         if verified is False:
-            raise InvalidJson(
-                "Invalid input file: {0}".format(self.input_file))
+            raise InvalidJson("Invalid input file: {0}".format(self.input_file))
 
-        return parser(self.input_file)
+        if multithreading:
+            parser = Parser(self.input_file)
+            parser.format = fformat
+            return parser
+        else:
+            return parser(self.input_file)
 
     def __load_configuration(self):
 
@@ -325,7 +341,7 @@ class Picker:
             self.main_logger.setLevel(logging.DEBUG)
             self.main_logger.warning(
                     "Due to a Python design bug, we have to force Mikado to go in single-threaded mode when debugging.")
-            self.procs = self.json_conf["pick"]["run_options"]["procs"] = 1
+            self.procs = self.json_conf["threads"] = 1
         else:
             self.main_logger.setLevel(logging.INFO)
         self.main_logger.addHandler(self.log_handler)
@@ -399,10 +415,11 @@ class Picker:
             sub_metrics = csv.DictWriter(
                 sub_metrics_file,
                 metrics,
+                extrasaction="ignore",
                 delimiter="\t")
             sub_metrics.writeheader()
             sub_scores = csv.DictWriter(
-                sub_scores_file, score_keys, delimiter="\t")
+                sub_scores_file, score_keys, delimiter="\t", extrasaction="ignore",)
             sub_scores.writeheader()
             # Not a very clean wya to do things ... attaching the handles as properties
             sub_scores.handle = sub_scores_file
@@ -435,10 +452,12 @@ class Picker:
             mono_metrics = csv.DictWriter(
                 mono_metrics_file,
                 metrics,
+                extrasaction="ignore",
                 delimiter="\t")
             mono_metrics.writeheader()
             mono_scores = csv.DictWriter(
-                mono_scores_file, score_keys, delimiter="\t")
+                mono_scores_file, score_keys, delimiter="\t",
+                extrasaction="ignore")
             mono_scores.writeheader()
             # Not a very clean wya to do things ... attaching the handles as properties
             mono_scores.handle = mono_scores_file
@@ -520,9 +539,10 @@ class Picker:
         locus_metrics = csv.DictWriter(
             locus_metrics_file,
             metrics,
+            extrasaction="ignore",
             delimiter="\t")
         locus_metrics.writeheader()
-        locus_scores = csv.DictWriter(locus_scores_file, score_keys, delimiter="\t")
+        locus_scores = csv.DictWriter(locus_scores_file, score_keys, delimiter="\t", extrasaction="ignore",)
         locus_scores.writeheader()
 
         locus_metrics.handle = locus_metrics_file
@@ -594,14 +614,10 @@ class Picker:
         # self.result_dict[counter] = [_]
         self.printer_queue.put_nowait(("EXIT", ))
         # self.printer_queue.put(("EXIT", counter + 1))
-        current = "\t".join([str(x) for x in [row.chrom,
-                                              row.start,
-                                              row.end,
-                                              row.strand]])
+        current = "\t".join([str(x) for x in row])
         previous = "\t".join([str(x) for x in [current_transcript.chrom,
                                                current_transcript.start,
-                                               current_transcript.end,
-                                               current_transcript.strand]])
+                                               current_transcript.end]])
 
         error_msg = """Unsorted input file, the results will not be correct.
             Please provide a properly sorted input. Error:
@@ -613,7 +629,7 @@ class Picker:
             [l.strip() for l in error_msg.split("\n")]))
         raise UnsortedInput(error_msg)
 
-    def __test_sortedness(self, row, coords):
+    def __test_sortedness(self, row_coords, coords):
         """
         Private method to test whether a row and the current transcript are actually in the expected
         sorted order.
@@ -625,37 +641,48 @@ class Picker:
         if coords is None:
             return test
 
-        if isinstance(coords, tuple):
+        if not hasattr(coords, "chrom"):
             chrom, start, end = coords
         else:
             chrom, start, end = coords.chrom, coords.start, coords.end
 
+        if not hasattr(row_coords, "chrom"):
+            row_chrom, row_start, row_end = coords
+        else:
+            row_chrom, row_start, row_end = row_coords.chrom, row_coords.start, row_coords.end
+
         if any(_ is None for _ in (chrom, start, end)):
             return True
-        if chrom > row.chrom:
+        if chrom > row_chrom:
             test = False
-        elif (chrom == row.chrom and
-              start > row.start):
+        elif (chrom == row_chrom and
+              start > row_start):
             test = False
-        elif (chrom == row.chrom and
-              start == row.start and
-              end > row.end):
+        elif (chrom == row_chrom and
+              start == row_start and
+              end > row_end):
             test = False
 
         if test is False:
-            self.__unsorted_interrupt(row, coords)
+            self.__unsorted_interrupt(row_coords, coords)
 
     @staticmethod
     def add_to_index(conn: sqlite3.Connection,
                      cursor: sqlite3.Cursor,
                      transcripts: dict,
-                     counter: int):
+                     counter: int,
+                     locus_queue,
+                     submit_remaining=False):
 
         """Method to create the simple indexed database for features."""
 
         transcripts = msgpack.dumps([_ for _ in transcripts.values()])
         cursor.execute("INSERT INTO transcripts VALUES (?, ?)", (counter, transcripts))
-        conn.commit()
+        max_submit = 1000
+        if submit_remaining is True or (counter >= max_submit and counter % max_submit == 0):
+            conn.commit()
+            base = floor((counter - 1)/ max_submit) * max_submit + 1
+            [locus_queue.put((num,)) for num in range(base, counter + 1)]
         return
 
     @staticmethod
@@ -668,8 +695,8 @@ class Picker:
                                )
         cursor = conn.cursor()
         cursor.execute("PRAGMA journal_mode=wal")
-        cursor.execute("CREATE TABLE transcripts (counter integer, json blob)")
-        cursor.execute("CREATE INDEX tid_idx on transcripts(counter)")
+        cursor.execute("CREATE TABLE transcripts (counter integer UNIQUE PRIMARY KEY, json BLOB)")
+        cursor.execute("CREATE INDEX tid_idx ON transcripts(counter)")
 
         return conn, cursor
 
@@ -726,15 +753,12 @@ class Picker:
         # Merge loci
         merge_loci(self.procs,
                    handles,
-                   json_conf=self.json_conf,
                    logger=self.logger,
                    tempdir=tempdir)
 
         self.logger.info("Finished merging partial files")
         try:
-            # shutil.rmtree(tempdir)
             self.logger.debug("Cleaning up the temporary directory")
-            shutil.copytree(tempdirectory.name, "/tmp/" + os.path.basename(tempdirectory.name))
             tempdirectory.cleanup()
             self.logger.debug("Finished cleaning up")
             pass
@@ -750,87 +774,134 @@ class Picker:
 
     def __check_max_intron(self, current, invalids, row, max_intron):
         previous = None
-        for exon in reversed(current["transcripts"][row.transcript]["exon_lines"]):
-            if exon[2] == row.feature:
+        if hasattr(row, "feature"):
+            chrom, feature, start, end, phase, tid = (row.chrom, row.feature, row.start,
+                                                      row.end, row.phase, row.transcript)
+        else:
+            # return line, chrom, start, end, tid, is_transcript
+            _, chrom, feature, start, end, phase, tid, _ = row
+
+        for exon in reversed(current["transcripts"][tid]["exon_lines"]):
+            if exon[2] == feature:
                 previous = exon
                 break
 
-        current["transcripts"][row.transcript]["exon_lines"].append((row.start, row.end, row.feature, row.phase))
+        current["transcripts"][tid]["exon_lines"].append((start, end, feature, phase))
         if previous:
             # I have to compare like with like.
-            intron_length = (row.start - 1) - (previous[1] + 1) + 1
+            intron_length = (start - 1) - (previous[1] + 1) + 1
             if intron_length >= max_intron:
                 self.logger.warning(
                     "%s has an intron (%s) greater than the maximum allowed (%s). Ignoring it.",
-                    row.transcript, intron_length, max_intron
+                    tid, intron_length, max_intron
                 )
-                del current["transcripts"][row.transcript]
-                invalids.add(row.transcript)
+                del current["transcripts"][tid]
+                invalids.add(tid)
                 if current["transcripts"]:
-                    current["start"] = min([
-                        min([exon[0] for exon in current["transcripts"][trans]["exon_lines"]])
-                        for trans in current["transcripts"]])
-                    current["end"] = max([
-                        max([exon[1] for exon in current["transcripts"][trans]["exon_lines"]])
-                        for trans in current["transcripts"]])
+                    current["start"] = min([current["transcripts"][trans]["start"]
+                                            for trans in current["transcripts"]])
+                    current["end"] = max([current["transcripts"][trans]["end"]
+                                          for trans in current["transcripts"]])
                 else:
                     current["start"], current["end"] = None, None
         return current, invalids
+
+    transcript_gtf_pattern = re.compile(r"""transcript_id "([^"]*)\"""")
+
+    def _parse_gtf_line(self, line):
+
+        if not line or line[0] == "#":
+            return None
+        fields = line.split("\t")
+        if len(fields) != 9:
+            return None
+        try:
+            start = int(fields[3])
+            end = int(fields[4])
+        except ValueError:
+            return None
+        chrom = fields[0]
+        is_exon = (GtfLine.exon_pattern.search(fields[2]) is not None)
+        is_transcript = False
+        if not is_exon:
+            is_transcript = (GtfLine.transcript_pattern.search(fields[2]) is not None)
+
+        if not (is_exon or is_transcript):
+            return None
+
+        tid = self.transcript_gtf_pattern.search(fields[-1])
+        if tid is None:
+            raise InvalidJson("Corrupt input GTF file, offending line:\n{}".format(line))
+        tid = tid.groups()[0]
+        phase = fastnumbers.fast_int(fields[8], default=None)
+        return line, chrom, fields[2], start, end, phase, tid, is_transcript
 
     def __parse_multithreaded(self, locus_queue, conn, cursor):
         counter = 0
         invalids = set()
         flank = self.json_conf["pick"]["clustering"]["flank"]
-        with self.define_input() as input_annotation:
-
+        with self.define_input(multithreading=True) as input_annotation:
             current = {"chrom": None, "start": None, "end": None, "transcripts": dict()}
             max_intron = self.json_conf["prepare"]["max_intron_length"]
             for row in input_annotation:
-                if row.is_exon is True:
-                    if row.transcript in invalids:
+                row = self._parse_gtf_line(row)
+
+                if row is None:  # Header
+                    continue
+
+                line, chrom, feature, start, end, phase, tid, is_transcript = row
+
+                if is_transcript is False:
+                    if tid in invalids:
                         continue
-                    elif row.transcript not in current["transcripts"]:
-                        self.logger.error("Transcript %s is invalid", row.transcript)
-                        invalids.add(row.transcript)
+                    elif tid not in current["transcripts"]:
+                        self.logger.error("Transcript %s is invalid", tid)
+                        invalids.add(tid)
                     else:
                         # Check max intron length. We presume that exons are sorted correctly.
-                        current, invalids = self.__check_max_intron(current, invalids, row, max_intron=max_intron)
-                elif row.is_transcript is True:
-                    self.__test_sortedness(row, (current["chrom"], current["start"], current["end"]))
-                    if not current["start"]:
-                        current["chrom"], current["start"], current["end"] = row.chrom, row.start, row.end
-                        current["transcripts"][row.transcript] = dict()
-                        current["transcripts"][row.transcript]["definition"] = json.dumps(row)
-                        current["transcripts"][row.transcript]["exon_lines"] = []
-                    elif current["chrom"] != row.chrom:
-                        self.logger.info("Finished chromosome %s", current["chrom"])
-                        self.add_to_index(conn, cursor, current["transcripts"], counter)
-                        current["chrom"], current["start"], current["end"] = row.chrom, row.start, row.end
-                        current["transcripts"] = dict()
-                        current["transcripts"][row.transcript] = dict()
-                        current["transcripts"][row.transcript]["definition"] = json.dumps(row)
-                        current["transcripts"][row.transcript]["exon_lines"] = []
-                        self.logger.info("Starting chromosome %s", row.chrom)
+                        current, invalids = self.__check_max_intron(current, invalids,
+                                                                    row, max_intron=max_intron)
+                elif is_transcript is True:
+                    self.__test_sortedness((chrom, start, end),
+                                           (current["chrom"], current["start"], current["end"]))
+                    if current["chrom"] != chrom or not current["start"]:
+                        if current["chrom"] and current["chrom"] != chrom:
+                            self.logger.info("Finished chromosome %s", current["chrom"])
+                            self.logger.debug("Submitting locus # %d (%s), with transcripts:\n%s",
+                                              counter, "{}:{}-{}".format(current["chrom"],
+                                                                         current["start"], current["end"]),
+                                              ",".join(list(current["transcripts"].keys())))
+                            counter += 1
+                            self.add_to_index(conn, cursor, current["transcripts"], counter, locus_queue)
+                        if current["chrom"] != chrom:
+                            self.logger.info("Starting chromosome %s", chrom)
+                        current["chrom"], current["start"], current["end"] = chrom, start, end
+                        current["transcripts"][tid] = dict()
+                        current["transcripts"][tid]["start"] = start
+                        current["transcripts"][tid]["end"] = end
+                        current["transcripts"][tid]["definition"] = line
+                        current["transcripts"][tid]["exon_lines"] = []
                     else:
                         if Superlocus.overlap((current["end"], current["start"]),
-                                              (row.start, row.end), flank=flank) > 0:
+                                              (start, end), flank=flank) > 0:
                             # Add to the locus!
-                            current["start"] = min(current["start"], row.start)
-                            current["end"] = max(current["end"], row.end)
+                            current["start"] = min(current["start"], start)
+                            current["end"] = max(current["end"], end)
                         else:
                             counter += 1
                             self.logger.debug("Submitting locus # %d (%s), with transcripts:\n%s",
                                               counter, "{}:{}-{}".format(current["chrom"],
                                                                          current["start"], current["end"]),
                                               ",".join(list(current["transcripts"].keys())))
-                            self.add_to_index(conn, cursor, current["transcripts"], counter)
-                            locus_queue.put((counter,))
-                            current["start"], current["end"] = row.start, row.end
+                            self.add_to_index(conn, cursor, current["transcripts"], counter, locus_queue)
+                            current["start"], current["end"] = start, end
                             current["transcripts"] = dict()
 
-                        current["transcripts"][row.transcript] = dict()
-                        current["transcripts"][row.transcript]["definition"] = json.dumps(row)
-                        current["transcripts"][row.transcript]["exon_lines"] = []
+                        current["transcripts"][tid] = dict()
+                        current["transcripts"][tid]["definition"] = line
+                        current["transcripts"][tid]["exon_lines"] = []
+                        current["transcripts"][tid]["start"] = start
+                        current["transcripts"][tid]["end"] = end
 
         if current["start"] is not None:
             counter += 1
@@ -838,10 +909,10 @@ class Picker:
                               counter, "{}:{}-{}".format(current["chrom"],
                                                          current["start"], current["end"]),
                               ",".join(list(current["transcripts"].keys())))
-            self.add_to_index(conn, cursor, current["transcripts"], counter)
-            locus_queue.put((counter,))
-
+            self.add_to_index(conn, cursor, current["transcripts"], counter, locus_queue, submit_remaining=True)
             self.logger.info("Finished chromosome %s", current["chrom"])
+
+        conn.commit()
 
         locus_queue.put(("EXIT", ))
 

@@ -46,3 +46,9 @@ class Query(DBBASE):
         """Quick function to convert the SQLalchemy object into
         a named tuple with the same fields"""
         return self.named_tup(self.query_id, self.query_name, self.query_length)
+
+    def as_dict(self):
+        return {
+            "query_name": self.query_name,
+            "query_length": self.query_length
+        }

@@ -389,6 +389,9 @@ def retrieve_from_dict(transcript, data_dict):
     if transcript.id in data_dict.get("external", dict()):
         ext_score = data_dict["external"][transcript.id]
         transcript.external_scores.update(ext_score)
+        assert set(transcript.external_scores.keys()).issubset(set(ext_score.keys()))
+    elif data_dict.get("external", dict()):
+        raise KeyError("{} not found in external scores".format(transcript.id))
 
     if transcript.is_reference is False:
         if transcript.id in data_dict.get("orfs", dict()):

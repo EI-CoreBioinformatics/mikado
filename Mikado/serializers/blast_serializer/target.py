@@ -49,4 +49,11 @@ class Target(DBBASE):
         into a named tuple with the same fields"""
         return self.named_tup(
             self.target_id, self.target_name, self.target_length)
+
+    def as_dict(self):
+        return {
+            "target_name": self.target_name,
+            "target_length": self.target_length
+        }
+
 # pylint: enable=too-few-public-methods

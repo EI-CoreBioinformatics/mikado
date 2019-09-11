@@ -19,10 +19,15 @@ from .blast_serializer import Query
 from ..utilities.log_utils import create_null_logger, check_logger
 import pandas as pd
 from ..exceptions import InvalidSerialization
+from ..parsers import Parser
+import multiprocessing as mp
+import msgpack
 
 
 # This is a serialization class, it must have a ton of attributes ...
 # pylint: disable=too-many-instance-attributes
+
+
 class Orf(DBBASE):
 
     """
@@ -76,6 +81,39 @@ class Orf(DBBASE):
             start=self.start,
             end=self.end
         )
+
+    def as_dict(self):
+
+        return {
+            "start": self.start,
+            "end": self.end,
+            "orf_name": self.orf_name,
+            "strand": self.strand,
+            "thick_start": self.thick_start,
+            "thick_end": self.thick_end,
+            "score": self.score,
+            "has_start_codon": self.has_start_codon,
+            "has_stop_codon": self.has_stop_codon,
+            "cds_len": self.cds_len,
+            "phase": self.phase
+        }
+
+    @staticmethod
+    def create_dict(bed12_object, query_id):
+        return {
+            "query_id": query_id,
+            "start": bed12_object.start,
+            "end": bed12_object.end,
+            "orf_name": bed12_object.name,
+            "strand": bed12_object.strand,
+            "thick_start": bed12_object.thick_start,
+            "thick_end": bed12_object.thick_end,
+            "score": bed12_object.score,
+            "has_start_codon": bed12_object.has_start_codon,
+            "has_stop_codon": bed12_object.has_stop_codon,
+            "cds_len": bed12_object.cds_len,
+            "phase": bed12_object.phase
+        }
 
     @classmethod
     def as_bed12_static(cls, state, query_name):
@@ -160,8 +198,10 @@ class OrfSerializer:
         fasta_index = json_conf["serialise"]["files"]["transcripts"]
         self._max_regression = json_conf["serialise"]["max_regression"]
         self._table = json_conf["serialise"]["codon_table"]
-        self.procs = json_conf["serialise"]["procs"]
+        self.procs = json_conf["threads"]
         self.single_thread = json_conf["serialise"]["single_thread"]
+        if self.single_thread:
+            self.procs = 1
 
         if isinstance(fasta_index, str):
             assert os.path.exists(fasta_index)
@@ -175,19 +215,13 @@ class OrfSerializer:
             self.fasta_index = fasta_index
 
         if isinstance(handle, str):
-            self.is_bed12 = (handle.endswith("bed12") or handle.endswith("bed"))
+            self.is_bed12 = (".bed12" in handle or ".bed" in handle)
         else:
-            self.is_bed12 = (handle.name.endswith("bed12") or handle.name.endswith("bed"))
+            self.is_bed12 = (".bed12" in handle.name or ".bed" in handle.name.endswith)
 
-        self.bed12_parser = bed12.Bed12Parser(handle,
-                                              fasta_index=fasta_index,
-                                              is_gff=(not self.is_bed12),
-                                              transcriptomic=True,
-                                              max_regression=self._max_regression,
-                                              table=self._table)
+        self.engine = connect(json_conf, logger)
 
-        self.engine = connect(json_conf, logger)  # , echo=False)
-
+        self._handle = handle
         Session = sessionmaker(bind=self.engine, autocommit=False, autoflush=False, expire_on_commit=False)
         session = Session()
         # session.configure(bind=self.engine)
@@ -225,43 +259,42 @@ class OrfSerializer:
             for ref, length in zip(self.fasta_index.references, self.fasta_index.lengths):
                 if ref in cache:
                     continue
-                objects.append(Query(ref, length))
+                objects.append({"query_name": ref, "query_length": length})
+                # objects.append(Query(ref, length))
                 assert ref not in found, ref
                 found.add(ref)
                 if len(objects) >= self.maxobjects:
                     done += len(objects)
-                    self.session.bulk_save_objects(objects)
+                    self.engine.execute(
+                        Query.__table__.insert(),
+                        objects
+                    )
+                    # self.session.bulk_save_objects(objects)
                     self.session.commit()
                     self.logger.debug(
                         "Loaded %d transcripts into query table", done)
                     objects = []
 
             done += len(objects)
+            self.engine.execute(
+                Query.__table__.insert(),
+                objects
+            )
             # self.session.begin(subtransactions=True)
-            self.session.bulk_save_objects(objects)
+            # self.session.bulk_save_objects(objects)
             self.session.commit()
             self.logger.debug("Finished loading %d transcripts into query table", done)
         return
 
-    def serialize(self):
-        """
-        This method performs the parsing of the ORF file and the
-        loading into the SQL database.
-        """
+    def __serialize_single_thread(self):
 
+        self.bed12_parser = bed12.Bed12Parser(self._handle,
+                                              fasta_index=self.fasta_index,
+                                              is_gff=(not self.is_bed12),
+                                              transcriptomic=True,
+                                              max_regression=self._max_regression,
+                                              table=self._table)
         objects = []
-        # Dictionary to hold the data before bulk loading into the database
-
-        cache = dict()
-        for record in self.session.query(Query):
-            cache[record.query_name] = record.query_id
-
-        self.load_fasta()
-        # Reload
-
-        cache = pd.read_sql_table("query", self.engine, index_col="query_name", columns=["query_name", "query_id"])
-        cache = cache.to_dict()["query_id"]
-        initial_cache = (len(cache) > 0)
         done = 0
 
         not_found = set()
@@ -273,14 +306,14 @@ class OrfSerializer:
                                  row.invalid_reason,
                                  row)
                 continue
-            if row.id in cache:
-                current_query = cache[row.id]
-            elif not initial_cache:
+            if row.id in self.cache:
+                current_query = self.cache[row.id]
+            elif not self.initial_cache:
                 current_query = Query(row.id, row.end)
                 not_found.add(row.id)
                 self.session.add(current_query)
                 self.session.commit()
-                cache[current_query.query_name] = current_query.query_id
+                self.cache[current_query.query_name] = current_query.query_id
                 current_query = current_query.query_id
             else:
                 self.logger.critical(
@@ -288,28 +321,135 @@ class OrfSerializer:
 Please check your input files.")
                 raise InvalidSerialization
 
-            current_junction = Orf(row, current_query)
-            objects.append(current_junction)
+            # current_junction = Orf(row, current_query)
+            objects.append(Orf.create_dict(row, current_query))
             if len(objects) >= self.maxobjects:
                 done += len(objects)
                 self.session.begin(subtransactions=True)
-                self.session.bulk_save_objects(objects)
+                # self.session.bulk_save_objects(objects)
+                self.engine.execute(
+                    Orf.__table__.insert(),
+                    objects
+                )
                 self.session.commit()
                 self.logger.debug("Loaded %d ORFs into the database", done)
                 objects = []
 
         done += len(objects)
         # self.session.begin(subtransactions=True)
-        self.session.bulk_save_objects(objects, update_changed_only=False)
+        # self.session.bulk_save_objects(objects, update_changed_only=False)
+        self.engine.execute(
+            Orf.__table__.insert(),
+            objects
+        )
         self.session.commit()
         self.session.close()
         self.logger.info("Finished loading %d ORFs into the database", done)
 
         orfs = pd.read_sql_table("orf", self.engine, index_col="query_id")
         if orfs.shape[0] != done:
-            raise ValueError("I should have serialised {} ORFs, but only {} are present!".format(
-                done, orfs.shape[0]
-            ))
+            raise ValueError("I should have serialised {} ORFs, but {} are present!".format(done, orfs.shape[0]))
+
+    def __serialize_multiple_threads(self):
+        """"""
+
+        send_queue = mp.JoinableQueue(-1)
+        return_queue = mp.JoinableQueue(-1)
+
+        parsers = [bed12.Bed12ParseWrapper(
+            rec_queue=send_queue,
+            return_queue=return_queue,
+            fasta_index=self.fasta_index.filename,
+            is_gff=(not self.is_bed12),
+            transcriptomic=True,
+            max_regression=self._max_regression,
+            table=self._table) for _ in range(self.procs)]
+
+        [_.start() for _ in parsers]
+
+        for line in open(self._handle):
+            send_queue.put(line.encode())
+        send_queue.put("EXIT")
+        not_found = set()
+        done = 0
+        objects = []
+        procs_done = 0
+        while True:
+            object = return_queue.get()
+            if object in ("FINISHED", b"FINISHED"):
+                procs_done += 1
+                if procs_done == self.procs:
+                    break
+                else:
+                    continue
+            try:
+                object = msgpack.loads(object, raw=False)
+            except TypeError:
+                raise TypeError(object)
+
+            if object["id"] in self.cache:
+                current_query = self.cache[object["id"]]
+            elif not self.initial_cache:
+                current_query = Query(object["id"], object["end"])
+                not_found.add(object["id"])
+                self.session.add(current_query)
+                self.session.commit()
+                self.cache[current_query.query_name] = current_query.query_id
+                current_query = current_query.query_id
+            else:
+                self.logger.critical(
+                    "The provided ORFs do not match the transcripts provided and already present in the database.\
+Please check your input files.")
+                raise InvalidSerialization
+
+            object["query_id"] = current_query
+            objects.append(object)
+            if len(objects) >= self.maxobjects:
+                done += len(objects)
+                self.session.begin(subtransactions=True)
+                # self.session.bulk_save_objects(objects)
+                self.engine.execute(
+                    Orf.__table__.insert(),
+                    objects
+                )
+                self.session.commit()
+                self.logger.debug("Loaded %d ORFs into the database", done)
+                objects = []
+
+        [proc.join() for proc in parsers]
+        done += len(objects)
+        # self.session.begin(subtransactions=True)
+        # self.session.bulk_save_objects(objects, update_changed_only=False)
+        if objects:
+            self.engine.execute(
+                Orf.__table__.insert(),
+                objects
+            )
+        return_queue.close()
+        send_queue.close()
+        self.session.commit()
+        self.session.close()
+        self.logger.info("Finished loading %d ORFs into the database", done)
+
+        orfs = pd.read_sql_table("orf", self.engine, index_col="query_id")
+        if orfs.shape[0] != done:
+            raise ValueError("I should have serialised {} ORFs, but {} are present!".format(done, orfs.shape[0]))
+
+    def serialize(self):
+        """
+        This method performs the parsing of the ORF file and the
+        loading into the SQL database.
+        """
+
+        self.load_fasta()
+        self.cache = pd.read_sql_table("query", self.engine, index_col="query_name", columns=["query_name", "query_id"])
+        self.cache = self.cache.to_dict()["query_id"]
+        self.initial_cache = (len(self.cache) > 0)
+
+        if self.procs == 1:
+            self.__serialize_single_thread()
+        else:
+            self.__serialize_multiple_threads()
 
     def __call__(self):
         """

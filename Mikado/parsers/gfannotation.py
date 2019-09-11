@@ -8,11 +8,30 @@ GTF/GFF files.
 import abc
 import copy
 from sys import intern
-import numbers
+import functools
+import fastnumbers
+import re
+
 
 __author__ = 'Luca Venturini'
 
 [intern(_) for _ in ["+", "-", "?"]]
+
+
+def _attribute_definition(val):
+    val = val.replace('"', '')
+
+    def last(value):
+        if value in ("true", "True"):
+            value = True
+        elif value in ("False", "false"):
+            value = False
+        return value
+
+    fast_number = functools.partial(fastnumbers.fast_float,
+                                    key=last)
+    val = fastnumbers.fast_int(val, key=fast_number)
+    return val
 
 
 # This class has exactly how many attributes I need it to have
@@ -32,6 +51,7 @@ class GFAnnotation(metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def __init__(self, line, my_line='', header=False):
         self.attributes = dict()
+        self.__strand = None
         self.header = True
         self.chrom, self.source, self.feature = None, None, None
         # pylint: disable=invalid-name
@@ -40,11 +60,12 @@ class GFAnnotation(metaclass=abc.ABCMeta):
         self.parent = []
         self.start, self.end = None, None
         self.__score = None
-        self.__strand = None
         self.__phase = None
+        self.__frame = None
         self._line = "NA"
         self.__gene = None
         self._transcript = None
+        self.__feature = None
 
         self.attribute_order = []
         if line is None:  # Empty constructor
@@ -63,13 +84,12 @@ class GFAnnotation(metaclass=abc.ABCMeta):
         self.header = header
 
         if self.header or len(self._fields) != 9 or self._line == '' or self._line[0] == "#":
-            self.feature = None
+            self.__feature = None
             self.header = True
             return
 
-        self.chrom, self.source, self.feature = self._fields[0:3]
-        [intern(_) for _ in (self.chrom, self.source, self.feature)]
-        self.start, self.end = tuple(int(i) for i in self._fields[3:5])
+        self.chrom, self.source = self._fields[0:2]
+        self.start, self.end = tuple(fastnumbers.fast_int(i) for i in self._fields[3:5])
 
         self.score = self._fields[5]
         self.strand = self._fields[6]
@@ -77,6 +97,9 @@ class GFAnnotation(metaclass=abc.ABCMeta):
 
         self._attr = self._fields[8]
         self._parse_attributes()
+        self.feature = self._fields[2]
+        self.__is_exon, self.__is_gene, self.__is_cds = None, None, None
+        [intern(_) for _ in (self.chrom, self.source, self.feature)]
 
     def __str__(self):
         if not self.feature:
@@ -96,6 +119,59 @@ class GFAnnotation(metaclass=abc.ABCMeta):
         else:
             return 0
 
+    def __getstate__(self):
+        state = {
+            "chrom": self.chrom,
+            "source": self.source,
+            "feature": self.feature,
+            "start": self.start,
+            "end": self.end,
+            "score": self.score,
+            "strand": self.strand,
+            "phase": self.phase,
+            "attributes": self.attributes,
+            "is_exon": self.is_exon,
+            "is_cds": self.is_cds,
+            "is_gene": self.is_gene,
+            "transcript": self._transcript,
+            "gene": self.__gene,
+            "header": self.header,
+            "_line": self._line,
+            "_fields": self._fields
+        }
+        return state
+
+    def __setstate__(self, state):
+        self._transcript = state.pop("transcript")
+        self.__gene = state.pop("gene")
+        self.__is_gene = state.pop("is_gene")
+        self.__is_cds = state.pop("is_cds")
+        self.__is_exon = state.pop("is_exon")
+        self.__dict__.update(state)
+
+    def as_dict(self):
+        return self.__getstate__()
+
+    def load_dict(self, state):
+        self.__setstate__(state)
+
+    @classmethod
+    def string_from_dict(cls, data, **kwargs):
+
+        line = [data["chrom"],
+                data["source"] if data["source"] else "Mikado",
+                data["feature"],
+                data["start"],
+                data["end"],
+                data["score"] if data["score"] is not None else ".",
+                data["strand"] if data["strand"] is not None else ".",
+                data["phase"] if data["phase"] is not None else "."
+                ]
+
+        line = [str(item) for item in line]
+        attrs = cls._format_attributes_dict(data["attributes"], **kwargs)
+        return "\t".join(line + [attrs])
+
     @abc.abstractmethod
     def _parse_attributes(self):
         """
@@ -106,6 +182,10 @@ class GFAnnotation(metaclass=abc.ABCMeta):
         """
         raise NotImplementedError("This is only an abstract method!")
 
+    @staticmethod
+    def _attribute_definition(val):
+        return _attribute_definition(val)
+
     @abc.abstractmethod
     def _format_attributes(self):
         """ Abstract method. Each children class should implement its own version,
@@ -113,6 +193,11 @@ class GFAnnotation(metaclass=abc.ABCMeta):
         :return:
         """
         raise NotImplementedError("This is only an abstract method!")
+
+    @staticmethod
+    @abc.abstractmethod
+    def _format_attributes_dict(attributes, **kwargs):
+        """Method to define how to get the attribute string."""
 
     def __format_middle(self):
         """
@@ -122,17 +207,19 @@ class GFAnnotation(metaclass=abc.ABCMeta):
         :rtype: str, str, str
         """
 
-        if self.score is not None:
-            score = str(int(round(self.score, 0)))
+        score = self.score
+        strand = self.strand
+        phase = self.phase
+
+        if score is not None:
+            score = int(score)
         else:
             score = "."
-        if self.strand is None:
+        if strand is None:
             strand = '.'
         else:
-            strand = self.strand
-        if self.phase is not None:
-            phase = str(self.phase)
-        else:
+            strand = strand
+        if phase is None:
             phase = "."
         return score, strand, phase
 
@@ -141,6 +228,19 @@ class GFAnnotation(metaclass=abc.ABCMeta):
         Wrapper around the copy.copy function.
         """
         return copy.copy(self)
+
+    @property
+    def feature(self):
+        try:
+            return self.__feature
+        except AttributeError:
+            self.__feature = self.__dict__["feature"]
+            return self.__feature
+
+    @feature.setter
+    def feature(self, feature):
+        self.__feature = feature
+        self.__is_exon, self.__is_cds, self._is_gene = None, None, None
 
     # Instance properties
     @property
@@ -174,8 +274,11 @@ class GFAnnotation(metaclass=abc.ABCMeta):
         Score value. Either None or float.
         :rtype float | None
         """
-
-        return self.__score
+        try:
+            return self.__score
+        except AttributeError:
+            self.__score = self.__dict__["score"]
+            return self.__score
 
     @score.setter
     def score(self, *args):
@@ -185,14 +288,14 @@ class GFAnnotation(metaclass=abc.ABCMeta):
         :type args: list | None | float
         """
 
-        if isinstance(args[0], (float, int)):
-            self.__score = args[0]
-        elif args[0] is None or args[0] == '.':
-            self.__score = None
-        elif isinstance(args[0], str):
-            self.__score = float(args[0])
-        else:
-            raise TypeError(args[0])
+        score = args[0]
+        if score == ".":
+            score = None
+        elif score is not None:
+            score = fastnumbers.fast_float(args[0])
+        if score is not None and not isinstance(score, float):
+            raise TypeError(score)
+        self.__score = score
 
     @property
     def phase(self):
@@ -202,7 +305,11 @@ class GFAnnotation(metaclass=abc.ABCMeta):
         :return:
         """
 
-        return self.__phase
+        try:
+            return self.__phase
+        except AttributeError:
+            self.__phase = self.__dict__["phase"]
+            return self.__phase
 
     @phase.setter
     def phase(self, value):
@@ -212,17 +319,31 @@ class GFAnnotation(metaclass=abc.ABCMeta):
         :return:
         """
 
-        if value in (None, '.', '?'):
+        if value is None:
             self.__phase = None
-        elif isinstance(value, numbers.Number) or isinstance(value, (str, bytes)):
-            value = int(value)
-            if value == -1:
-                value = 0  # Bug in GMAP
-            if value not in range(3):
-                raise ValueError("Invalid value for phase: {0}".format(value))
-            self.__phase = value
         else:
-            raise ValueError("Invalid phase: {0} (type: {1})".format(value, type(value)))
+            try:
+                phase = fastnumbers.fast_int(value)
+            except (TypeError, ValueError):
+                raise ValueError("Invalid phase: {0} (type: {1})".format(value, type(value)))
+            if phase in (-1, 0, 1, 2):
+                phase = max(phase, 0)
+                self.__phase = phase
+            elif phase in  (None, '.', '?'):
+                self.__phase = None
+            else:
+                raise ValueError("Invalid phase: {0} (type: {1})".format(value, type(value)))
+        self._set_frame()
+
+    def _set_frame(self):
+        if self.phase is not None:
+            self.__frame = (3 - self.__phase) % 3
+        else:
+            self.__frame = None
+
+    @property
+    def frame(self):
+        return self.__frame
 
     @property
     def is_gene(self):
@@ -230,13 +351,18 @@ class GFAnnotation(metaclass=abc.ABCMeta):
         Property. True if the feature ends with "gene" and has no parents.
         :rtype bool
         """
+        if self._is_gene is None:
+            self._is_gene = self._set_is_gene()
+        return self._is_gene
 
+    def _set_is_gene(self):
         if self.feature is not None:
             if self.feature.endswith("gene") and self.feature != "mRNA_TE_gene":
                 # Hack for EnsEMBL GFFs
-                if "transcript:" in self.id:
+                if self.id is None or "transcript:" not in self.id:
+                    return True
+                else:
                     return False
-                return True
             elif self.id is not None and self.id.startswith("gene:"):
                 # Hack for EnsEMBL
                 return True
@@ -250,29 +376,30 @@ class GFAnnotation(metaclass=abc.ABCMeta):
         Property. True if the feature is CDS/exon/UTR/start or stop codon.
         :rtype bool
         """
+        if self.__is_exon is None:
+            self.__is_exon = self._set_is_exon()
 
-        if self.feature is None:
-            return False
-        _ = self.feature.lower()
-        if ("cds" in _ or _.endswith("exon") or "utr" in _ or "codon" in _
-            or _ in ("cdna_match", "match_part")):
-            return True
-        return False
+        return self.__is_exon
+
+    exon_pattern = re.compile("(cds|exon$|utr|codon|^cdna_match$|^match_part$)", flags=re.IGNORECASE)
+
+    def _set_is_exon(self):
+
+        feature = self.feature
+        return (feature is not None) and (re.search(self.exon_pattern, feature) is not None)
 
     @property
     def is_cds(self):
         """This property evaluates to True if the row describes a CDS/UTR segment,
         False otherwise."""
-        if self.is_exon is False:
-            return False
-        _ = self.feature.lower()
-        if "cds" in _:
-            return True
-        elif "utr" in _:
-            return True
-        elif _.endswith("codon"):
-            return True
-        return False
+        if self.__is_cds is None:
+            self.__is_cds = self._set_is_cds()
+        return self.__is_cds
+
+    cds_pattern = re.compile("(cds|utr|codon)", flags=re.IGNORECASE)
+
+    def _set_is_cds(self):
+        return self.is_exon and (re.search(self.cds_pattern, self.feature) is not None)
 
     @property
     @abc.abstractmethod
@@ -291,7 +418,12 @@ class GFAnnotation(metaclass=abc.ABCMeta):
         :return: numeric sort index
         """
 
-        if self.strand == "-":
+        try:
+            strand = self.strand
+        except AttributeError:
+            strand = self.__dict__["strand"]
+
+        if strand == "-":
             order = self._negative_order
         else:
             order = self._positive_order

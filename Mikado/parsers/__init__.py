@@ -47,6 +47,8 @@ class Parser(metaclass=abc.ABCMeta):
 
     def __next__(self):
         line = self._handle.readline()
+        if line == "":
+            raise StopIteration
         return line
 
     def __enter__(self):
@@ -102,6 +104,7 @@ from . import bed12
 # noinspection PyPep8
 from . import blast_utils
 from . import bam_parser
+
 
 def to_gff(string, input_format=None):
     """

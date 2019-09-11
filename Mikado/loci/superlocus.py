@@ -16,14 +16,13 @@ from sqlalchemy.ext import baked
 from sqlalchemy.orm.session import sessionmaker
 from sqlalchemy.orm import session as sasession
 from sqlalchemy.sql.expression import and_
-from ..transcripts.transcript import Transcript
 from .abstractlocus import Abstractlocus
 from .monosublocusholder import MonosublocusHolder
 from .sublocus import Sublocus
-from ..exceptions import NoJsonConfigError, NotInLocusError
+from ..exceptions import NotInLocusError
 from ..parsers.GFF import GffLine
 from ..serializers.blast_serializer import Hit, Query, Target
-from ..serializers.external import External
+from ..serializers.external import External, ExternalSource
 from ..serializers.junction import Junction, Chrom
 from ..serializers.orf import Orf
 from ..utilities import dbutils, grouper
@@ -254,7 +253,10 @@ class Superlocus(Abstractlocus):
         self.define_subloci()
         found = dict()
         for sublocus_instance in self.subloci:
-            sublocus_instance.source = source
+            try:
+                sublocus_instance.source = source
+            except AttributeError:
+                raise AttributeError(sublocus_instance)
             sublocus_instance.parent = new_id
             if sublocus_instance.id in found:
                 found[sublocus_instance.id] += 1
@@ -351,26 +353,33 @@ class Superlocus(Abstractlocus):
         state["excluded"] = self.excluded.as_dict()
         return state
 
-    def load_dict(self, state):
-        super().load_dict(state)
-
+    def load_dict(self, state, print_subloci=True, print_monoloci=True, load_transcripts=True):
+        super().load_dict(state, load_transcripts=load_transcripts)
+        # self.json_conf = state["json_conf"]
+        # self.chrom, self.start, self.end, self.strand = (state["chrom"], state["start"], state["end"], state["strand"])
         self.loci = dict()
         for lid, stat in state["loci"].items():
             locus = Locus()
             locus.load_dict(stat)
             self.loci[lid] = locus
-        self.excluded = Excluded()
-        self.excluded.load_dict(state["excluded"])
-        self.subloci = []
-        for stat in state["subloci"]:
-            sub = Sublocus(json_conf=self.json_conf)
-            sub.load_dict(stat)
-            self.subloci.append(sub)
-        self.monoholders = []
-        for stat in state["monoholders"]:
-            sub = MonosublocusHolder()
-            sub.load_dict(stat)
-            self.monoholders.append(sub)
+
+        if print_subloci is True or print_monoloci is True:
+
+            if print_subloci is True:
+                self.excluded = Excluded()
+                self.excluded.load_dict(state["excluded"])
+                self.subloci = []
+                for stat in state["subloci"]:
+                    sub = Sublocus(json_conf=self.json_conf)
+                    sub.load_dict(stat)
+                    assert isinstance(sub, Sublocus)
+                    self.subloci.append(sub)
+            if print_monoloci is True:
+                self.monoholders = []
+                for stat in state["monoholders"]:
+                    sub = MonosublocusHolder()
+                    sub.load_dict(stat)
+                    self.monoholders.append(sub)
 
     # ########### Class instance methods ############
 
@@ -556,11 +565,13 @@ class Superlocus(Abstractlocus):
         data_dict["hits"] = collections.defaultdict(list)
         data_dict["orfs"] = collections.defaultdict(list)
         data_dict["external"] = collections.defaultdict(dict)
+
         for tid_group in grouper(tid_keys, 100):
             query_ids = dict((query.query_id, query) for query in
                              self.session.query(Query).filter(
                                  Query.query_name.in_(tid_group)))
             # Retrieve the external scores
+
             if query_ids:
                 external = self.session.query(External).filter(External.query_id.in_(query_ids.keys()))
             else:
@@ -620,7 +631,6 @@ class Superlocus(Abstractlocus):
                                       Target.target_id.in_(targets)))
             else:
                 target_ids = dict()
-
             current_hit = None
             for hit in engine.execute(hit_command):
                 if current_hit != hit.query_id:
@@ -640,6 +650,7 @@ class Superlocus(Abstractlocus):
                         my_target
                     )
                 )
+
         return data_dict
 
     def load_all_transcript_data(self, engine=None, data_dict=None):
@@ -683,7 +694,6 @@ class Superlocus(Abstractlocus):
         self._load_introns(data_dict)
 
         if data_dict is None:
-
             data_dict = self._create_data_dict(engine, tid_keys)
 
             self.logger.debug("Verified %d introns for %s",
@@ -1237,7 +1247,7 @@ class Superlocus(Abstractlocus):
             lids = list(self.loci.keys())[:]
             for lid in lids:
                 if self.loci[lid].has_reference_transcript is False:
-                    self.logger.debug("Removing %s (primary: %s) as it has no reference transcripts",
+                    self.logger.debug("Removing %s (primary: %s) as it has no reference transcripts.",
                                       lid, self.loci[lid].primary_transcript_id)
                     del self.loci[lid]
             self.logger.debug("Remaining loci in %s: %s", self.id, ",".join(list(self.loci.keys())))
@@ -1354,7 +1364,7 @@ class Superlocus(Abstractlocus):
                     is_compatible = MonosublocusHolder.in_locus(self.loci[olid],
                                                                 transcript)
                     if is_compatible is True:
-                        self.logger.info("%s is compatible with more than one locus. Removing it.", tid)
+                        self.logger.debug("%s is compatible with more than one locus. Removing it.", tid)
                         to_remove[lid].append(tid)
 
         for lid in to_remove:

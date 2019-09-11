@@ -4,7 +4,6 @@ GFFs/GTFs starting from the transcript class.
 """
 
 
-from collections import Counter
 from itertools import zip_longest
 import functools
 from Mikado.parsers.GTF import GtfLine
@@ -12,6 +11,10 @@ from Mikado.parsers.GFF import GffLine
 from Mikado.parsers.bed12 import BED12
 
 __author__ = 'Luca Venturini'
+
+
+gff_constructor = GffLine.string_from_dict
+gtf_constructor = GtfLine.string_from_dict
 
 
 def __create_cds_lines(transcript,
@@ -35,7 +38,7 @@ def __create_cds_lines(transcript,
 
     exon_lines = []
     cds_begin = False
-    counter = Counter()
+    counter = dict()
 
     line_creator = functools.partial(__create_exon_line,
                                      transcript,
@@ -57,14 +60,9 @@ def __create_cds_lines(transcript,
                                                          cds_begin)
         except IndexError:
             raise IndexError(cds_run)
-        assert exon_line.start >= transcript.start, (transcript.start, segment, cds_run)
-        assert exon_line.end <= transcript.end, (transcript.end, segment, cds_run)
-        if segment[0] == "CDS":
-            assert len(segment) == 3, (segment, cds_run)
-            exon_line.phase = segment[2]
         exon_lines.append(exon_line)
 
-    assert not any(True for x in exon_lines if x.feature == "CDS" and x.phase is None), [str(_) for _ in exon_lines]
+    # assert not any(True for x in exon_lines if x.feature == "CDS" and x.phase is None), [str(_) for _ in exon_lines]
 
     return [str(line) for line in exon_lines]
 
@@ -80,9 +78,9 @@ def __create_exon_line(transcript, segment, counter, cds_begin,
     :param segment: a segment of the form (feature, start, end)
     :type segment: list(str, tuple)
 
-    :param counter: a Counter object that keeps track of how many exons,
+    :param counter: a dict object that keeps track of how many exons,
     CDS, UTR segments we have already seen
-    :type counter: Counter
+    :type counter: dict
 
     :param cds_begin: boolean flag that indicates whether the CDS has already begun
     :type cds_begin: bool
@@ -91,34 +89,46 @@ def __create_exon_line(transcript, segment, counter, cds_begin,
     :param to_gtf: boolean flag
 
     :return: exon_line, counter, cds_begin
-    :rtype: ((GtfLine | GffLine), Counter, bool)
+    :rtype: str, dict, bool
     """
 
     if to_gtf is False:
-        constructor = GffLine
+        constructor = gff_constructor
         utr3_feature = "three_prime_UTR"
         utr5_feature = "five_prime_UTR"
     else:
-        constructor = GtfLine
+        constructor = gtf_constructor
         utr3_feature = "3UTR"
         utr5_feature = "5UTR"
 
     assert segment[0] in ("UTR", "CDS", "exon", "intron"), segment
 
+    if hasattr(transcript, "chrom"):
+        chrom, source, strand = transcript.chrom, transcript.source, transcript.strand
+        parent = transcript.parent
+    else:
+        chrom, source, strand = transcript["chrom"], transcript["source"], transcript["strand"]
+        parent = transcript["parent"]
+
+    if not source:
+        source = "Mikado"
+    if not strand:
+        strand = "."
+
     phase = None
     if segment[0] == "UTR":
-        if (cds_begin is True and transcript.strand == "-") or \
-                (transcript.strand == "+" and cds_begin is False):
+        if (cds_begin is True and strand == "-") or \
+                (strand == "+" and cds_begin is False):
             feature = utr5_feature
-            counter.update(["five"])
+            counter["five"] = counter.get("five", 0) + 1
             index = counter["five"]
         else:
             feature = utr3_feature
-            counter.update(["three"])
+            counter["three"] = counter.get("three", 0) + 1
             index = counter["three"]
     elif segment[0] == "CDS":
         cds_begin = True
-        counter.update(["CDS"])
+        counter["CDS"] = counter.get("CDS", 0) + 1
         index = counter["CDS"]
         feature = "CDS"
         try:
@@ -126,26 +136,37 @@ def __create_exon_line(transcript, segment, counter, cds_begin,
         except IndexError:
             raise IndexError(segment)
     else:
-        counter.update([segment[0]])
+        counter[segment[0]] = counter.get(segment[0], 0) + 1
         index = counter[segment[0]]
         feature = segment[0]
-    exon_line = constructor(None)
 
-    for attr in ["chrom", "source", "strand"]:
-        setattr(exon_line, attr, getattr(transcript, attr))
+    if phase is None:
+        phase = "."
 
-    exon_line.feature = feature
-    exon_line.start, exon_line.end = segment[1][0], segment[1][1]
-    exon_line.phase = phase
+    data = {
+        "chrom": chrom,
+        "source": source if source else "Mikado",
+        "feature": feature,
+        "start": segment[1][0],
+        "end": segment[1][1],
+        "strand": strand if strand else ".",
+        "phase": phase,
+        "score": ".",
+        "attributes": dict()
+    }
 
-    exon_line.score = None
     if to_gtf is True:
         # noinspection PyPropertyAccess
-        exon_line.gene = transcript.parent
-        exon_line.transcript = tid
+        # assert transcript.parent
+        assert tid
+        exon_line = constructor(data, gene=parent, transcript=tid)
     else:
-        exon_line.id = "{0}.{1}{2}".format(tid, feature, index)
-        exon_line.parent = tid
+        exon_line = constructor(data,
+                                parent=tid,
+                                mid="{0}.{1}{2}".format(tid, feature, index),
+                                name=None,
+                                attribute_order=None)
+
     return exon_line, counter, cds_begin
 # pylint: enable=too-many-arguments
 
@@ -169,14 +190,13 @@ def create_lines_cds(transcript,
     """
 
     if to_gtf is False:
-        constructor = GffLine
+        constructor = gff_constructor
     else:
-        constructor = GtfLine
+        constructor = gtf_constructor
 
     lines = []
     transcript_counter = 0
 
-    parent_line = constructor(None)
     if transcript.is_coding is False:
         lines = create_lines_no_cds(transcript, to_gtf=to_gtf, with_introns=with_introns)
     else:
@@ -200,14 +220,28 @@ def create_lines_cds(transcript,
             cds_run = transcript.internal_orfs[index]
 
             if transcriptomic is False:
-                for attr in ["chrom", "source", "feature", "start", "end",
-                             "score", "strand", "attributes", "parent"]:
-                    setattr(parent_line, attr, getattr(transcript, attr))
+                parent_line = dict(
+                    (attr, getattr(transcript, attr))
+                    for attr in ("chrom", "source", "feature", "start", "end",
+                                 "score", "strand", "attributes")
+                )
+                if parent_line["score"] is None:
+                    parent_line["score"] = "."
 
-                parent_line.phase = '.'
+                parent_line["phase"] = '.'
+                if parent_line["source"] is None:
+                    parent_line["source"] = "Mikado"
+                if parent_line["strand"] is None:
+                    parent_line["strand"] = "."
 
-                parent_line.id = tid
-                parent_line.name = transcript.id
+                if to_gtf is True:
+                    parent_line["attributes"]["gene_id"] = transcript.parent
+                    parent_line["attributes"]["transcript_id"] = tid
+                else:
+                    parent_line["attributes"]["parent"] = transcript.parent
+                    parent_line["attributes"]["ID"] = tid
+
+                parent_line["attributes"]["name"] = transcript.id
 
                 exon_lines = __create_cds_lines(transcript,
                                                 cds_run,
@@ -215,20 +249,35 @@ def create_lines_cds(transcript,
                                                 to_gtf=to_gtf,
                                                 with_introns=with_introns)
 
-                lines.append(str(parent_line))
+                lines.append(constructor(parent_line))
                 lines.extend(exon_lines)
             else:
-                for attr in ["source", "feature", "score", "attributes", "parent"]:
-                    setattr(parent_line, attr, getattr(transcript, attr))
 
-                parent_line.chrom = transcript.id
-                parent_line.start = 1
-                parent_line.end = transcript.cdna_length
-                parent_line.strand = "+"
-                parent_line.phase = "."
-                parent_line.id = tid
-                parent_line.parent = "{}_gene".format(tid)
-                lines.append(str(parent_line))
+                parent_line = dict(
+                    (attr, getattr(transcript, attr))
+                    for attr in ["source", "feature", "score", "attributes"]
+                )
+
+                if parent_line["score"] is None:
+                    parent_line["score"] = "."
+
+                parent_line["chrom"] = transcript.id
+                parent_line["start"] = 1
+                parent_line["end"] = transcript.cdna_length
+                parent_line["strand"] = "+"
+                parent_line["phase"] = "."
+                # data["id = tid
+                # parent_line.parent = "{}_gene".format(tid)
+
+                if to_gtf is True:
+                    lines.append(
+                        constructor(parent_line, gene=transcript.parent, transcript=tid)
+                    )
+                else:
+                    lines.append(
+                        constructor(parent_line, parent=transcript.parent, mid=tid,
+                                    name=transcript.name)
+                    )
 
                 new_cds_run = []
 
@@ -330,8 +379,6 @@ def as_bed12(transcript, transcriptomic=False):
     if transcriptomic:
         bed12 = bed12.to_transcriptomic(alias=transcript.alias, start_adjustment=False,
                                         coding=transcript.is_coding)
-
-
         bed12.chrom = transcript.id
     return bed12
 
@@ -363,39 +410,47 @@ def create_lines_no_cds(transcript,
     """
 
     if to_gtf is True:
-        constructor = GtfLine
+        constructor = gtf_constructor
     else:
-        constructor = GffLine
-
-    parent_line = constructor(None)
-
-    for attr in ["chrom", "source", "feature", "start", "end",
-                 "score", "strand", "attributes", "parent"]:
-        setattr(parent_line, attr, getattr(transcript, attr))
-
-    parent_line.phase = '.'
-    parent_line.id = transcript.id
-    if to_gtf is True:
-        # This prevents a strange bug when converting TAIR10 files
-        parent_line.attributes["transcript_id"] = transcript.id
-    parent_line.name = transcript.name
-
-    lines = [str(parent_line)]
-    exon_lines = []
-
-    if with_introns is False:
-        intron_list = [None] * len(transcript.exons)
-    else:
-        intron_list = sorted(transcript.introns)
-    counter = Counter()
-
-    line_creator = functools.partial(__create_exon_line,
-                                     transcript,
-                                     **{"to_gtf": to_gtf,
-                                        "tid": transcript.id,
-                                        "cds_begin": False})
+        constructor = gff_constructor
 
     if transcriptomic is False:
+        parent_line = {
+            "chrom": transcript.chrom,
+            "source": transcript.source if transcript.source else "Mikado",
+            "feature": transcript.feature,
+            "start": transcript.start,
+            "end": transcript.end,
+            "score": transcript.score if transcript.score is not None else ".",
+            "strand": transcript.strand if transcript.strand else ".",
+            "phase": ".",
+            "attributes": transcript.attributes
+        }
+
+        if to_gtf is True:
+            # This prevents a strange bug when converting TAIR10 files
+            parent_line["attributes"]["transcript_id"] = transcript.id
+            parent_line["attributes"]["gene_id"] = transcript.parent
+        else:
+            parent_line["attributes"]["ID"] = transcript.id
+            parent_line["attributes"]["Parent"] = transcript.parent
+
+        parent_line["attributes"]["name"] = transcript.name
+
+        lines = [constructor(parent_line)]
+        exon_lines = []
+
+        if with_introns is False:
+            intron_list = [None] * len(transcript.exons)
+        else:
+            intron_list = sorted(transcript.introns)
+        counter = dict()
+
+        line_creator = functools.partial(__create_exon_line,
+                                         transcript,
+                                         **{"to_gtf": to_gtf,
+                                            "tid": transcript.id,
+                                            "cds_begin": False})
 
         for exon, intron in zip_longest(sorted(transcript.exons),
                                         intron_list):
@@ -408,21 +463,37 @@ def create_lines_no_cds(transcript,
 
         lines.extend(exon_lines)
     else:
-        for attr in ["source", "feature", "score", "attributes", "parent"]:
-            setattr(parent_line, attr, getattr(transcript, attr))
+        parent_line = {
+            "chrom": transcript.id,
+            "source": transcript.source if transcript.source else "Mikado",
+            "feature": transcript.feature,
+            "start": 1,
+            "end": transcript.cdna_length,
+            "score": transcript.score if transcript.score else ".",
+            "strand": "+",
+            "phase": ".",
+            "attributes": transcript.attributes
+        }
 
-        parent_line.chrom = transcript.id
-        parent_line.start = 1
-        parent_line.end = transcript.cdna_length
-        parent_line.strand = "+"
-        parent_line.phase = "."
-        parent_line.id = transcript.id
-        parent_line.parent = "{}_gene".format(transcript.id)
-        lines.append(str(parent_line))
+
+        if to_gtf is True:
+            parent_line["attributes"]["transcript_id"] = transcript.id
+            parent_line["attributes"]["gene_id"] = transcript.parent
+        else:
+            parent_line["attributes"]["ID"] = transcript.id
+            parent_line["attributes"]["Parent"] = transcript.parent
+
+        parent_line["attributes"]["Name"] = transcript.name
+
+        lines = [constructor(parent_line)]
+
+        line_creator = functools.partial(__create_exon_line,
+                                         transcript,
+                                         **{"to_gtf": to_gtf,
+                                            "tid": transcript.id,
+                                            "cds_begin": False})
 
         exon_line, _, _ = line_creator(("exon", (1, transcript.cdna_length)), 0)
-        exon_lines.append(str(exon_line))
-
-        lines.extend(exon_lines)
+        lines.append(exon_line)
 
     return lines

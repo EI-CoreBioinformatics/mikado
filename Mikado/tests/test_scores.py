@@ -4,14 +4,14 @@ from ..transcripts import Transcript
 from ..parsers.bed12 import BED12
 from ..utilities.log_utils import create_default_logger
 import unittest
-import ujson as json
+import rapidjson as json
 import io
 from pkg_resources import resource_stream
 
 
 with io.TextIOWrapper(resource_stream("Mikado.configuration",
                                       "requirements_blueprint.json")) as rs_blueprint:
-    require_schema = json.load(rs_blueprint)
+    require_schema = json.loads(rs_blueprint.read())
 
 
 class ScoreTester(unittest.TestCase):

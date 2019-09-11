@@ -16,7 +16,7 @@ from ..utilities import comma_split  # , merge_dictionaries
 from ..transcripts.transcript import Namespace
 import functools
 try:
-    import ujson as json
+    import rapidjson as json
 except ImportError:
     import json
 from collections import Counter
@@ -163,6 +163,9 @@ def create_config(args):
         #         for key in __mikado_keys:
         #             del external_conf["mikado"][key]
         config = configurator.merge_dictionaries(config, external_conf)
+
+    config["pick"]["files"]["subloci_out"] = args.subloci_out if args.subloci_out else ""
+    config["pick"]["files"]["monoloci_out"] = args.monoloci_out if args.monoloci_out else ""
 
     if args.seed is not None:
         config["seed"] = args.seed
@@ -340,7 +343,7 @@ def configure_parser():
     trailing = re.compile(r"^{}".format(os.path.sep))
     fold_path = re.compile(scoring_folder)
 
-    scoring_files = [re.sub(trailing, r"", re.sub(fold_path, r"", fname))
+    scoring_files = [trailing.sub(r"", re.sub(fold_path, r"", fname))
                      for fname in glob.iglob(os.path.join(scoring_folder, "**", "*yaml"), recursive=True)]
 
     parser = argparse.ArgumentParser(description="Configuration utility for Mikado",
@@ -370,6 +373,10 @@ def configure_parser():
     picking.add_argument("--no-pad", default=True, dest="pad",
                          action="store_false",
                          help="Whether to disable padding transcripts.")
+    picking.add_argument("--subloci-out", default="", dest="subloci_out",
+                         help="Name of the optional subloci output. By default, this will not be produced.")
+    picking.add_argument("--monoloci-out", default="", dest="monoloci_out",
+                         help="Name of the optional monoloci output. By default, this will not be produced.")
     parser.add_argument("--strand-specific", default=False,
                         action="store_true",
                         help="""Boolean flag indicating whether all the assemblies are strand-specific.""")

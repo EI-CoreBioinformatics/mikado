@@ -23,6 +23,13 @@
       "- pick: settings related to the Mikado pick stage",
     "- multiprocessing_method: which method (fork, spawn, forkserver) Mikado should use for multiprocessing."]
     },
+    "threads": {
+      "type": "integer",
+      "default": 4,
+      "Comment": "Threads to be used per process.",
+      "required": true,
+      "minimum": 1
+    },
     "seed": {
       "type": ["integer", "null"],
       "default": null
@@ -138,17 +145,15 @@
               "- max_target_seqs: equivalently to BLAST, it indicates the maximum number of targets to keep",
               "  per blasted sequence.",
               "- discard_definition: Boolean. **Deprecated**, it was used for specifying how to load BLAST files.",
-              "- procs: Number of processors to use. Default: 1.",
               "- single_thread: if true, Mikado prepare will force the usage of a single thread in this step."],
       "SimpleComment": ["Options related to serialisation",
         "- force: whether to drop and reload everything into the DB",
         "- max_regression: if the ORF lacks a valid start site, this percentage indicates how far",
         "  along the sequence Mikado should look for a good start site. Eg. with a value of 0.1,",
         "  on a 300bp sequence with an open ORF Mikado would look for an alternative in-frame start codon",
-        "  in the first 30 bps (10% of the cDNA).",
-        "- procs: Number of processors to use. Default: 1."
+        "  in the first 30 bps (10% of the cDNA)."
       ],
-      "required": ["max_regression", "procs", "files"],
+      "required": ["max_regression", "files"],
       "properties": {
         "files": {
           "type": "object",
@@ -195,7 +200,6 @@
         "max_target_seqs": {"type": "integer", "default": 100000, "minimum": 1},
         "force": {"type": "boolean", "default": false},
         "single_thread": {"type": "boolean", "default": false},
-        "procs": {"type": "integer", "default": 1, "minimum": 1},
         "codon_table": {
               "enum": [0, 1, 2, 3, 4, 5, 6, 9, 10, 11, 12, 13, 14, 15, 16, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31,
             "Standard", "SGC0", "Vertebrate Mitochondrial", "SGC1", "Yeast Mitochondrial", "SGC2", "Mold Mitochondrial",
@@ -217,7 +221,6 @@
       "type": "object",
       "Comment": ["Options related to the input data preparation.",
         "- files: options relative to the input/output files.",
-        "- procs: Number of processes to use.",
         "- strip_cds: whether to remove the CDS from the predictions during preparation.",
         "- lenient: if set to True, invalid transcripts will be only flagged and not removed. EXPERIMENTAL.",
         "- strand_specific: if set to True, transcripts will be assumed to be in the correct orientation, no strand flipping or removal",
@@ -230,7 +233,7 @@
         "- strand_specific: if set to True, transcripts will be assumed to be in the correct orientation, no strand flipping or removal",
         "- strip_cds: Boolean. It indicates whether to remove the CDS from the predictions during preparation."
       ],
-      "required": ["files", "strand_specific", "procs"],
+      "required": ["files", "strand_specific"],
       "properties":
       {
         "keep_redundant": {
@@ -242,7 +245,6 @@
         "max_intron_length": {
           "type": "integer", "default": 1000000, "minimum": 20
         },
-        "procs": {"type": "integer", "default": 1},
         "files": {
           "Comment": ["Options related to the input and output files.",
             "- out: output GTF file",
@@ -591,19 +593,17 @@
         },
         "run_options": {
           "type": "object",
-          "required": ["procs", "single_thread"],
+          "required": ["single_thread"],
           "Comment": [
             "Generic run options.",
             "- shm: boolean flag. If set and the DB is sqlite, it will be copied onto the /dev/shm faux partition",
             "- exclude_cds: boolean flag. If set, the CDS information will not be printed in Mikado output. Default: false",
-            "- procs: number of processes to use. Default: 1",
             "- single_thread: boolean flag. If set, multithreading will be disabled - useful for profiling and debugging.",
             "- consider_truncated_for_retained: boolean. Normally, Mikado considers only exons which span a whole intron",
             "as possible retained intron events. If this flag is set to true, also terminal exons will be considered."
           ],
           "SimpleComment": [
             "Generic run options.",
-            "- procs: number of processes to use. Default: 1",
             "- intron_range: A range where most of the introns (99%) should fall into. Transcripts with too many",
             " introns larger or smaller than what is defined in this range will be penalised",
             " in the scoring. Default: [60, 900]",
@@ -637,11 +637,6 @@
             "only_reference_update": {
               "type": "boolean",
               "default": false
-            },
-            "procs": {
-              "type": "integer",
-              "default": 1,
-              "minimum": 1
             },
             "single_thread": {
               "type": "boolean",
@@ -785,11 +780,11 @@
               "default": "mikado.loci.gff3"
             },
             "subloci_out": {
-              "type": "string",
-              "default": "mikado.subloci.gff3"
+              "type": ["string", null],
+              "default": ""
             },
             "monoloci_out": {
-              "type": "string",
+              "type": ["string", null],
               "default": ""
             },
             "log": {"type": ["null", "string"], "default": null}

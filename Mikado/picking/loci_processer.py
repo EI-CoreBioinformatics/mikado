@@ -211,6 +211,13 @@ def merge_loci(num_temp, out_handles,
     temp_conn = sqlite3.connect(os.path.join(tempdir, "temp_store.db"))
     max_counter = temp_conn.execute("SELECT MAX(counter) FROM transcripts").fetchone()[0]
 
+    counters = [_[0] for _ in temp_conn.execute("SELECT counter FROM transcripts").fetchall()]
+    if len(set(counters)) != len(counters):
+        from collections import Counter
+        checker = Counter()
+        checker.update(counters)
+        logger.fatal("%d double indices found!", len([_ for _ in checker if checker[_] > 1]))
+
     for dbindex, cursor in enumerate(cursors):
         d = dict((index[0], (dbindex, index[1], index[2])) for index in cursor.execute(
             "SELECT counter, chrom, genes FROM loci").fetchall())
@@ -608,8 +615,9 @@ class LociProcesser(Process):
                                check_same_thread=False)
         cursor = conn.cursor()
 
-        cursor.execute("CREATE TABLE IF NOT EXISTS loci (counter integer, chrom chr, genes int, json blob)")
-        cursor.execute("CREATE INDEX IF NOT EXISTS loci_idx on loci(counter)")
+        cursor.execute(
+            "CREATE TABLE IF NOT EXISTS loci (counter INTEGER UNIQUE PRIMARY KEY, chrom CHR, genes INT, json BLOB)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS loci_idx ON loci(counter)")
 
         return db, conn, cursor
 

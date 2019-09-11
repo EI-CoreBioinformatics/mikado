@@ -695,8 +695,8 @@ class Picker:
                                )
         cursor = conn.cursor()
         cursor.execute("PRAGMA journal_mode=wal")
-        cursor.execute("CREATE TABLE transcripts (counter integer, json blob)")
-        cursor.execute("CREATE INDEX tid_idx on transcripts(counter)")
+        cursor.execute("CREATE TABLE transcripts (counter integer UNIQUE PRIMARY KEY, json BLOB)")
+        cursor.execute("CREATE INDEX tid_idx ON transcripts(counter)")
 
         return conn, cursor
 
@@ -867,6 +867,11 @@ class Picker:
                     if current["chrom"] != chrom or not current["start"]:
                         if current["chrom"] and current["chrom"] != chrom:
                             self.logger.info("Finished chromosome %s", current["chrom"])
+                            self.logger.debug("Submitting locus # %d (%s), with transcripts:\n%s",
+                                              counter, "{}:{}-{}".format(current["chrom"],
+                                                                         current["start"], current["end"]),
+                                              ",".join(list(current["transcripts"].keys())))
+                            counter += 1
                             self.add_to_index(conn, cursor, current["transcripts"], counter, locus_queue)
                         if current["chrom"] != chrom:
                             self.logger.info("Starting chromosome %s", chrom)

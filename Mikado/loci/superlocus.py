@@ -1364,7 +1364,7 @@ class Superlocus(Abstractlocus):
                     is_compatible = MonosublocusHolder.in_locus(self.loci[olid],
                                                                 transcript)
                     if is_compatible is True:
-                        self.logger.info("%s is compatible with more than one locus. Removing it.", tid)
+                        self.logger.debug("%s is compatible with more than one locus. Removing it.", tid)
                         to_remove[lid].append(tid)
 
         for lid in to_remove:

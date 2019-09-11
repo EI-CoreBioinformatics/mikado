@@ -865,7 +865,7 @@ class Picker:
                     self.__test_sortedness((chrom, start, end),
                                            (current["chrom"], current["start"], current["end"]))
                     if current["chrom"] != chrom or not current["start"]:
-                        if current["chrom"] is not None:
+                        if current["chrom"] and current["chrom"] != chrom:
                             self.logger.info("Finished chromosome %s", current["chrom"])
                             self.add_to_index(conn, cursor, current["transcripts"], counter, locus_queue)
                         if current["chrom"] != chrom:

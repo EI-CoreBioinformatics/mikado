@@ -864,19 +864,12 @@ class Picker:
                 elif is_transcript is True:
                     self.__test_sortedness((chrom, start, end),
                                            (current["chrom"], current["start"], current["end"]))
-                    if not current["start"]:
+                    if current["chrom"] != chrom or not current["start"]:
+                        if current["chrom"] is not None:
+                            self.logger.info("Finished chromosome %s", current["chrom"])
+                            self.add_to_index(conn, cursor, current["transcripts"], counter, locus_queue)
+
                         current["chrom"], current["start"], current["end"] = chrom, start, end
-                        current["transcripts"][tid] = dict()
-                        current["transcripts"][tid]["start"] = start
-                        current["transcripts"][tid]["end"] = end
-                        current["transcripts"][tid]["definition"] = line
-                        current["transcripts"][tid]["exon_lines"] = []
-                        self.logger.info("Starting chromosome %s", chrom)
-                    elif current["chrom"] != chrom:
-                        self.logger.info("Finished chromosome %s", current["chrom"])
-                        self.add_to_index(conn, cursor, current["transcripts"], counter, locus_queue)
-                        current["chrom"], current["start"], current["end"] = chrom, start, end
-                        current["transcripts"] = dict()
                         current["transcripts"][tid] = dict()
                         current["transcripts"][tid]["start"] = start
                         current["transcripts"][tid]["end"] = end

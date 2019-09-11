@@ -868,14 +868,14 @@ class Picker:
                         if current["chrom"] is not None:
                             self.logger.info("Finished chromosome %s", current["chrom"])
                             self.add_to_index(conn, cursor, current["transcripts"], counter, locus_queue)
-
+                        if current["chrom"] != chrom:
+                            self.logger.info("Starting chromosome %s", chrom)
                         current["chrom"], current["start"], current["end"] = chrom, start, end
                         current["transcripts"][tid] = dict()
                         current["transcripts"][tid]["start"] = start
                         current["transcripts"][tid]["end"] = end
                         current["transcripts"][tid]["definition"] = line
                         current["transcripts"][tid]["exon_lines"] = []
-                        self.logger.info("Starting chromosome %s", chrom)
                     else:
                         if Superlocus.overlap((current["end"], current["start"]),
                                               (start, end), flank=flank) > 0:

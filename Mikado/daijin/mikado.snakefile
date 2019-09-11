@@ -1,5 +1,5 @@
 import sys
-import os,sys                                                              
+import os
 import glob
 import itertools
 import subprocess
@@ -44,7 +44,10 @@ CWD = os.getcwd()
 BLASTX_TARGET = config["blastx"]["prot_db"]
 BLASTX_MAX_TARGET_SEQS = config["blastx"]["max_target_seqs"]
 BLASTX_EVALUE = config["blastx"]["evalue"]
-BLASTX_CHUNKS = int(config["blastx"]["chunks"])
+BLASTX_CHUNKS = max(int(config["blastx"]["chunks"]), THREADS)
+if BLASTX_CHUNKS > int(config["blastx"]["chunks"]):
+    print("Increasing the number of chunks for DIAMOND/BLASTX, as Mikado serialise relies on chunking.")
+
 ASM_COLLECT = which("asm_collect.py")
 
 CHUNK_ARRAY = []

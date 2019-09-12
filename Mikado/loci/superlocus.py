@@ -22,13 +22,13 @@ from .sublocus import Sublocus
 from ..exceptions import NotInLocusError
 from ..parsers.GFF import GffLine
 from ..serializers.blast_serializer import Hit, Query, Target
-from ..serializers.external import External, ExternalSource
+from ..serializers.external import External
 from ..serializers.junction import Junction, Chrom
 from ..serializers.orf import Orf
 from ..utilities import dbutils, grouper
 from ..scales.assigner import Assigner
 import bisect
-# import operator
+from sys import maxsize
 import functools
 import numpy as np
 if version_info.minor < 5:
@@ -347,6 +347,7 @@ class Superlocus(Abstractlocus):
     def as_dict(self):
 
         state = super().as_dict()
+        state["start"], state["end"] = self.start, self.end
         state["subloci"] = [sublocus.as_dict() for sublocus in self.subloci]
         state["loci"] = dict((lid, locus.as_dict()) for lid, locus in self.loci.items())
         state["monoholders"] = [mono.as_dict() for mono in self.monoholders]
@@ -380,6 +381,10 @@ class Superlocus(Abstractlocus):
                     sub = MonosublocusHolder()
                     sub.load_dict(stat)
                     self.monoholders.append(sub)
+        self.chrom, self.strand, self.start, self.end = state["chrom"], state["strand"], state["start"], state["end"]
+        if len(self.loci) > 0 or len(self.transcripts) > 0:
+            assert self.start != maxsize
+            assert not self.id.endswith(str(maxsize))
 
     # ########### Class instance methods ############
 

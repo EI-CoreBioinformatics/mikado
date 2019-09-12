@@ -67,10 +67,18 @@ This mechanism is similar to the one implemented in [PASA]_. Please see the :ref
 Citing
 ~~~~~~
 
-Please cite the following:
+If you use Mikado in your work, please consider to cite:
 
-Luca Venturini, Shabhonam Caim, Gemy Kaithakottil, Daniel Lee Mapleson, David Swarbreck:
-"Leveraging multiple transcriptome assembly methods for improved gene structure annotation", GigaScience, Volume 7, Issue 8, 1 August 2018, giy093, https://doi.org/10.1093/gigascience/giy093
+    Venturini L., Caim S., Kaithakottil G., Mapleson D.L., Swarbreck D.
+    Leveraging multiple transcriptome assembly methods for improved gene structure annotation.
+    GigaScience, Volume 7, Issue 8, 1 August 2018, giy093, `doi:10.1093/gigascience/giy093 <https://doi.org/10.1093/gigascience/giy093>`_
+
+
+If you also use Portcullis to provide reliable junctions to Mikado, either independently or as part of the Daijin pipeline, please consider to cite:
+
+    Mapleson D.L., Venturini L., Kaithakottil G., Swarbreck D.
+    Efficient and accurate detection of splice junctions from RNAseq with Portcullis.
+    GigaScience, Volume 7, Issue 12, 12 December 2018, giy131, `doi:10.1093/gigascience/giy131 <https://doi.org/10.1093/gigascience/giy131>`_
 
 
 Availability and License

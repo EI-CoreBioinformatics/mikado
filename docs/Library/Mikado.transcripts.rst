@@ -11,30 +11,11 @@ Subpackages
 Submodules
 ----------
 
-Mikado.transcripts.clique\_methods module
------------------------------------------
+.. toctree::
 
-.. automodule:: Mikado.transcripts.clique_methods
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-Mikado.transcripts.transcript module
-------------------------------------
-
-.. automodule:: Mikado.transcripts.transcript
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-Mikado.transcripts.transcriptchecker module
--------------------------------------------
-
-.. automodule:: Mikado.transcripts.transcriptchecker
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
+   Mikado.transcripts.clique_methods
+   Mikado.transcripts.transcript
+   Mikado.transcripts.transcriptchecker
 
 Module contents
 ---------------

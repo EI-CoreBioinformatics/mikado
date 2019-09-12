@@ -127,4 +127,3 @@ Each of these subcommands is explained in detail in the :ref:`Usage <Usage>` sec
                             input assemblies to use, it runs the Mikado pipeline,
                             including prepare, BLAST, transdecoder, serialise and
                             pick.
-

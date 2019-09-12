@@ -62,7 +62,7 @@ If you use Mikado in your work, please consider to cite:
 If you also use Portcullis to provide reliable junctions to Mikado, either independently or as part of the Daijin pipeline, please consider to cite:
 
 
-> Mapleson D.L., Venturini L., Kaithakottil G., Swarbreck D. Efficient and accurate detection of splice junctions from RNAseq with Portcullis [bioRxiv:217620](https://doi.org/10.1101/217620)
+> Mapleson D.L., Venturini L., Kaithakottil G., Swarbreck D. Efficient and accurate detection of splice junctions from RNAseq with Portcullis. GigaScience, Volume 7, Issue 12, 12 December 2018, giy131, [doi:10.1093/gigascience/giy131](https://doi.org/10.1093/gigascience/giy131)
 
 [Portcullis]: https://github.com/maplesond/portcullis
 [Blast+]: https://blast.ncbi.nlm.nih.gov/Blast.cgi?PAGE_TYPE=BlastDocs&DOC_TYPE=Download

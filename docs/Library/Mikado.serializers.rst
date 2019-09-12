@@ -11,30 +11,11 @@ Subpackages
 Submodules
 ----------
 
-Mikado.serializers.external module
-----------------------------------
+.. toctree::
 
-.. automodule:: Mikado.serializers.external
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-Mikado.serializers.junction module
-----------------------------------
-
-.. automodule:: Mikado.serializers.junction
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-Mikado.serializers.orf module
------------------------------
-
-.. automodule:: Mikado.serializers.orf
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
+   Mikado.serializers.external
+   Mikado.serializers.junction
+   Mikado.serializers.orf
 
 Module contents
 ---------------

@@ -21,7 +21,6 @@ try:
 except ImportError:
     import json
 import multiprocessing as mp
-from collections import defaultdict
 
 
 __author__ = 'Luca Venturini'
@@ -274,12 +273,29 @@ def merge_loci(num_temp, out_handles,
     for pos in range(len(chroms)):
         key = pos + 1
         chrom, num = chroms[pos], nums[pos]
-        if pos == 0 or chrom != chroms[pos - 1]:
-            former = 0
+        if chrom == '' and pos > 0:
+            assert num == 0
+            former = gene_counters[pos][0]
+        elif pos == 0 or chrom != chroms[pos - 1]:
+            if chroms[pos - 1] != "":
+                former = 0
+            else:                  # The previous one is wrong ..
+                prev_pos = pos - 1
+                prev_chrom = chroms[prev_pos]
+                while prev_chrom == "":
+                    prev_pos -= 1
+                    if prev_pos < 0:
+                        break
+                    prev_chrom = chroms[prev_pos]
+                if prev_chrom == "" or prev_chrom != chrom:
+                    former = 0
+                else:
+                    former = gene_counters[pos][0] + gene_counters[pos][1]
         else:
             former = gene_counters[pos][0] + gene_counters[pos][1]
         gene_counters[key] = (former, num)
-        chrom_tots[chrom].extend(list(range(former + 1, former + num + 1)))
+        if chrom:
+            chrom_tots[chrom].extend(list(range(former + 1, former + num + 1)))
 
     tot_found = 0
     for chrom in chrom_tots:
@@ -371,8 +387,12 @@ def serialise_locus(stranded_loci: [Superlocus],
     loci = msgpack.dumps([json.dumps(stranded_locus.as_dict(), default=default_for_serialisation,
                                      number_mode=json.NM_NATIVE)
                           for stranded_locus in stranded_loci])
-    chrom = stranded_loci[0].chrom
-    num_genes = sum(len(slid.loci) for slid in stranded_loci)
+    if not loci:
+        chrom = ""
+        num_genes = 0
+    else:
+        chrom = stranded_loci[0].chrom
+        num_genes = sum(len(slid.loci) for slid in stranded_loci)
     conn.execute("INSERT INTO loci VALUES (?, ?, ?, ?)", (counter, chrom, num_genes, loci))
     conn.commit()
     return
@@ -513,9 +533,6 @@ def analyse_locus(slocus: Superlocus,
 
     slocus.logger = logger
     slocus.source = json_conf["pick"]["output_format"]["source"]
-
-    # if engine is None and data_dict is None:
-    #     raise ValueError("Error for locus {id}".format(id=slocus.id))
 
     try:
         slocus.load_all_transcript_data(engine=engine,
@@ -741,6 +758,7 @@ class LociProcesser(Process):
                 transcripts = msgpack.loads(transcripts[0], raw=False)
                 if len(transcripts) == 0:
                     stranded_loci = []
+                    self.logger.warning("No transcript found for index %d", counter)
                 else:
                     tobjects = []
                     chroms = set()

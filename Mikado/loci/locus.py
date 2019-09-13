@@ -149,6 +149,8 @@ class Locus(Abstractlocus):
         self.scores_calculated = False
         self.calculate_scores()
         max_isoforms = self.json_conf["pick"]["alternative_splicing"]["max_isoforms"]
+        original = dict((tid, (self.transcripts[tid].start, self.transcripts[tid].end))
+                         for tid in self.transcripts)
 
         # *Never* lose the primary transcript
         order = sorted(sorted([(tid, self.transcripts[tid].score, self.transcripts[tid].start,
@@ -181,16 +183,21 @@ class Locus(Abstractlocus):
             if self.perform_padding is True and len(self.transcripts) > 1:
                 self.logger.debug("Starting padding procedure for %s", self.id)
                 failed = self.__launch_padding()
+
                 if failed:
                     continue
                 self.__remove_redundant_after_padding()
 
-        # Now that we have added the padding ... time to remove redundant alternative splicing events.
+        for tid in self.transcripts:
+            assert tid in original
+            if (self.transcripts[tid].start, self.transcripts[tid].end) != original[tid]:
+                self.transcripts[tid].attributes["padded"] = True
+                self.logger.warning("%s is now padded", tid)
 
+        # Now that we have added the padding ... time to remove redundant alternative splicing events.
         self.logger.debug("%s has %d transcripts (%s)", self.id, len(self.transcripts),
                           ", ".join(list(self.transcripts.keys())))
         self._finalized = True
-
         return
 
     def __launch_padding(self):

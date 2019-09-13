@@ -860,12 +860,13 @@ class Picker:
                         if current["chrom"] != chrom:
                             if current["chrom"] is not None and current["chrom"] != chrom:
                                 self.logger.info("Finished chromosome %s", current["chrom"])
-                                self.logger.debug("Submitting locus # %d (%s), with transcripts:\n%s",
-                                                  counter, "{}:{}-{}".format(current["chrom"],
-                                                                             current["start"], current["end"]),
-                                                  ",".join(list(current["transcripts"].keys())))
-                                counter += 1
-                                self.add_to_index(conn, cursor, current["transcripts"], counter, locus_queue)
+                                if len(current["transcripts"]) > 0:
+                                    self.logger.debug("Submitting locus # %d (%s), with transcripts:\n%s",
+                                                      counter, "{}:{}-{}".format(current["chrom"],
+                                                                                 current["start"], current["end"]),
+                                                      ",".join(list(current["transcripts"].keys())))
+                                    counter += 1
+                                    self.add_to_index(conn, cursor, current["transcripts"], counter, locus_queue)
                             self.logger.info("Starting chromosome %s", chrom)
 
                         current["chrom"], current["start"], current["end"] = chrom, start, end
@@ -882,7 +883,7 @@ class Picker:
                             # Add to the locus!
                             current["start"] = min(current["start"], start)
                             current["end"] = max(current["end"], end)
-                        else:
+                        elif len(current["transcripts"]) > 0:
                             counter += 1
                             self.logger.debug("Submitting locus # %d (%s), with transcripts:\n%s",
                                               counter, "{}:{}-{}".format(current["chrom"],
@@ -900,12 +901,13 @@ class Picker:
                         current["transcripts"][tid]["end"] = end
 
         if current["start"] is not None:
-            counter += 1
-            self.logger.debug("Submitting locus # %d (%s), with transcripts:\n%s",
-                              counter, "{}:{}-{}".format(current["chrom"],
-                                                         current["start"], current["end"]),
-                              ",".join(list(current["transcripts"].keys())))
-            self.add_to_index(conn, cursor, current["transcripts"], counter, locus_queue, submit_remaining=True)
+            if len(current["transcripts"]) > 0:
+                counter += 1
+                self.logger.debug("Submitting locus # %d (%s), with transcripts:\n%s",
+                                  counter, "{}:{}-{}".format(current["chrom"],
+                                                             current["start"], current["end"]),
+                                  ",".join(list(current["transcripts"].keys())))
+                self.add_to_index(conn, cursor, current["transcripts"], counter, locus_queue, submit_remaining=True)
             self.logger.info("Finished chromosome %s", current["chrom"])
 
         conn.commit()

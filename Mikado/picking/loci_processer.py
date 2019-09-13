@@ -387,7 +387,7 @@ def serialise_locus(stranded_loci: [Superlocus],
     loci = msgpack.dumps([json.dumps(stranded_locus.as_dict(), default=default_for_serialisation,
                                      number_mode=json.NM_NATIVE)
                           for stranded_locus in stranded_loci])
-    if not loci:
+    if not stranded_loci:
         chrom = ""
         num_genes = 0
     else:

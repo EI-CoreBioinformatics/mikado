@@ -41,6 +41,17 @@ def print_locus(stranded_locus,
     It also detects and flags/discard fragmentary loci.
     :param stranded_locus: the stranded locus to analyse
     :return:
+
+    :param gene_counter: integer used to keep track of the gene count.
+    :type gene_counter: int
+
+    :param handles: list of lists of the handles used for printing.
+    :type handles: [list]
+
+    :param logger: logger
+
+    :param json_conf: configuration dictionary
+    :type json_conf: [dict|None]
     """
 
     locus_metrics, locus_scores, locus_out = handles[0]
@@ -116,7 +127,6 @@ def print_locus(stranded_locus,
 
 
 def _create_locus_lines(stranded_locus: Superlocus,
-                        index: int,
                         gene_counter: int,
                         print_subloci=False,
                         print_monoloci=False):
@@ -194,14 +204,13 @@ def manage_index(data, dumps, print_monoloci, print_subloci):
             loci.append(stranded_locus.id)
 
         minibatch, gene_counter = _create_locus_lines(stranded_locus,
-                                                      index,
                                                       gene_counter,
                                                       print_subloci=print_subloci, print_monoloci=print_monoloci)
         batch.append(minibatch)
 
     assert (gene_counter - orig_gene_counter) == gene_max, (orig_gene_counter, gene_counter, gene_max)
     if len(set(loci)) != len(loci):
-        seen = {}
+        seen = set()
         duplicated = []
         for lid in loci:
             if lid in seen:
@@ -212,6 +221,71 @@ def manage_index(data, dumps, print_monoloci, print_subloci):
     batch = [loci, batch]
     batch = msgpack.dumps(batch)
     return batch
+
+
+def __create_gene_counters(common_index: dict) -> (dict, int):
+    """Function to assign to each counter in the database the correct base and maximum number of genes.
+    This allows to parallelise the printing.
+    """
+
+    chroms, nums = list(zip(*[common_index[index][1:3] for index in range(1, max(common_index.keys()) + 1)]))
+    total_genes = sum(nums)
+    gene_counters = dict()
+    chrom_tots = collections.defaultdict(list)
+    assert len(chroms) == len(common_index), (len(chroms), len(common_index))
+    for pos in range(len(chroms)):
+        key = pos + 1
+        chrom, num = chroms[pos], nums[pos]
+        if chrom == '' and pos > 0:
+            assert num == 0
+            former = gene_counters[pos][0]
+        elif pos == 0 or chrom != chroms[pos - 1]:
+            if chroms[pos - 1] != "":
+                former = 0
+            else:  # The previous one is wrong ..
+                prev_pos = pos - 1
+                prev_chrom = chroms[prev_pos]
+                while prev_chrom == "":
+                    prev_pos -= 1
+                    if prev_pos < 0:
+                        break
+                    prev_chrom = chroms[prev_pos]
+                if prev_chrom == "" or prev_chrom != chrom:
+                    former = 0
+                else:
+                    former = gene_counters[pos][0] + gene_counters[pos][1]
+        else:
+            former = gene_counters[pos][0] + gene_counters[pos][1]
+        gene_counters[key] = (former, num)
+        if chrom:
+            chrom_tots[chrom].extend(list(range(former + 1, former + num + 1)))
+
+    tot_found = 0
+    for chrom in chrom_tots:
+        if len(set(chrom_tots[chrom])) != len(chrom_tots[chrom]):
+            seen = set()
+            duplicated = set()
+            for num in chrom_tots[chrom]:
+                if num in seen:
+                    duplicated.add(num)
+                else:
+                    seen.add(num)
+            raise AssertionError((chrom,
+                                  len(set(chrom_tots[chrom])),
+                                  len(chrom_tots[chrom]), max(chrom_tots[chrom]),
+                                  duplicated,
+                                  chrom_tots[chrom]))
+        if len(chrom_tots[chrom]) > 0:
+            assert len(list(range(1, chrom_tots[chrom][-1] + 1))) == len(chrom_tots[chrom])
+            tot_found += chrom_tots[chrom][-1]
+
+    assert tot_found == total_genes, (tot_found, total_genes)
+    new_common = dict()
+    assert min(common_index) == 1
+
+    for key in common_index:
+        new_common[key] = (common_index[key][0], gene_counters[key][0], gene_counters[key][1])
+    return new_common, total_genes
 
 
 def merge_loci(num_temp, out_handles,
@@ -265,63 +339,7 @@ def merge_loci(num_temp, out_handles,
     )
     assert len(common_index.keys()) == len(set(common_index.keys()))
 
-    chroms, nums = list(zip(*[common_index[index][1:3] for index in range(1, max(common_index.keys()) + 1)]))
-    total_genes = sum(nums)
-    gene_counters = dict()
-    chrom_tots = collections.defaultdict(list)
-    assert len(chroms) == len(common_index), (len(chroms), len(common_index))
-    for pos in range(len(chroms)):
-        key = pos + 1
-        chrom, num = chroms[pos], nums[pos]
-        if chrom == '' and pos > 0:
-            assert num == 0
-            former = gene_counters[pos][0]
-        elif pos == 0 or chrom != chroms[pos - 1]:
-            if chroms[pos - 1] != "":
-                former = 0
-            else:                  # The previous one is wrong ..
-                prev_pos = pos - 1
-                prev_chrom = chroms[prev_pos]
-                while prev_chrom == "":
-                    prev_pos -= 1
-                    if prev_pos < 0:
-                        break
-                    prev_chrom = chroms[prev_pos]
-                if prev_chrom == "" or prev_chrom != chrom:
-                    former = 0
-                else:
-                    former = gene_counters[pos][0] + gene_counters[pos][1]
-        else:
-            former = gene_counters[pos][0] + gene_counters[pos][1]
-        gene_counters[key] = (former, num)
-        if chrom:
-            chrom_tots[chrom].extend(list(range(former + 1, former + num + 1)))
-
-    tot_found = 0
-    for chrom in chrom_tots:
-        if len(set(chrom_tots[chrom])) != len(chrom_tots[chrom]):
-            seen = set()
-            duplicated = set()
-            for num in chrom_tots[chrom]:
-                if num in seen:
-                    duplicated.add(num)
-                else:
-                    seen.add(num)
-            raise AssertionError((chrom,
-                                  len(set(chrom_tots[chrom])),
-                                 len(chrom_tots[chrom]), max(chrom_tots[chrom]),
-                                 duplicated,
-                                  chrom_tots[chrom]))
-
-        assert len(list(range(1, chrom_tots[chrom][-1] + 1))) == len(chrom_tots[chrom])
-        tot_found += chrom_tots[chrom][-1]
-
-    assert tot_found == total_genes, (tot_found, total_genes)
-    new_common = dict()
-    assert min(common_index) == 1
-
-    for key in common_index:
-        new_common[key] = (common_index[key][0], gene_counters[key][0], gene_counters[key][1])
+    new_common, total_genes = __create_gene_counters(common_index)
 
     manager = functools.partial(manage_index,
                                 dumps=dumps,
@@ -800,6 +818,8 @@ class LociProcesser(Process):
                     stranded_loci = self.analyse_locus(slocus, counter)
 
                 serialise_locus(stranded_loci, self.dump_conn, counter)
+                if len(stranded_loci) == 0:
+                    self.logger.warning("No loci left for index %d", counter)
 
                 self.locus_queue.task_done()
 

@@ -298,7 +298,7 @@ class Superlocus(Abstractlocus):
         The function will then return the desired location in GFF3-compliant format.
         """
 
-        if abs(self.start) == float("inf"):
+        if abs(self.start) == float("inf") or abs(self.start) == maxsize:
             return ''
 
         superlocus_line = GffLine('')

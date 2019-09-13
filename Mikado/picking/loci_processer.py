@@ -41,6 +41,17 @@ def print_locus(stranded_locus,
     It also detects and flags/discard fragmentary loci.
     :param stranded_locus: the stranded locus to analyse
     :return:
+
+    :param gene_counter: integer used to keep track of the gene count.
+    :type gene_counter: int
+
+    :param handles: list of lists of the handles used for printing.
+    :type handles: [list]
+
+    :param logger: logger
+
+    :param json_conf: configuration dictionary
+    :type json_conf: [dict|None]
     """
 
     locus_metrics, locus_scores, locus_out = handles[0]
@@ -121,7 +132,10 @@ def _create_locus_lines(stranded_locus: Superlocus,
                         print_monoloci=False):
     json_conf = stranded_locus.json_conf
 
-    batch = [[], None, None]
+    batch = [None, None, None]
+    if (not stranded_locus.loci and not stranded_locus.subloci
+            and not stranded_locus.monoholders and not stranded_locus.excluded):
+        return batch, gene_counter
 
     if print_subloci is True:  # Skip this section if no sub_out is defined
         sub_lines = stranded_locus.__str__(
@@ -149,6 +163,13 @@ def _create_locus_lines(stranded_locus: Superlocus,
             stranded_locus.chrom, gene_counter)
         stranded_locus.loci[locus].id = new_id
 
+    if len(stranded_locus.loci) > 0:
+        assert stranded_locus.start != sys.maxsize
+        assert stranded_locus.end != -sys.maxsize
+
+    if stranded_locus.start != sys.maxsize:
+        assert not stranded_locus.id.endswith("{0}--{0}".format(sys.maxsize))
+
     locus_lines = stranded_locus.__str__(
         print_cds=not json_conf["pick"]["run_options"]["exclude_cds"],
         level="loci")
@@ -161,7 +182,8 @@ def _create_locus_lines(stranded_locus: Superlocus,
 decoder = json.Decoder(number_mode=json.NM_NATIVE)
 
 
-def manage_index(index, data, dumps, print_monoloci, print_subloci):
+def manage_index(data, dumps, print_monoloci, print_subloci):
+    index, data = data
     dump_index, gene_counter, gene_max = data
     orig_gene_counter = gene_counter
     conn = sqlite3.connect(dumps[dump_index])
@@ -171,19 +193,99 @@ def manage_index(index, data, dumps, print_monoloci, print_subloci):
         stranded_loci = cursor.execute("SELECT json FROM loci WHERE counter=?", (str(index),)).fetchone()
     except ValueError:
         raise ValueError((index, type(index)))
+    loci = []
     for stranded_locus_json in msgpack.loads(stranded_loci[0], raw=False):
         stranded_locus = Superlocus(None)
         stranded_locus.load_dict(decoder(stranded_locus_json),
                                  load_transcripts=False,
                                  print_monoloci=print_monoloci, print_subloci=print_subloci
                                  )
-        minibatch, gene_counter = _create_locus_lines(stranded_locus, gene_counter,
+        if not stranded_locus.id.endswith(str(sys.maxsize)):
+            loci.append(stranded_locus.id)
+
+        minibatch, gene_counter = _create_locus_lines(stranded_locus,
+                                                      gene_counter,
                                                       print_subloci=print_subloci, print_monoloci=print_monoloci)
         batch.append(minibatch)
 
     assert (gene_counter - orig_gene_counter) == gene_max, (orig_gene_counter, gene_counter, gene_max)
+    if len(set(loci)) != len(loci):
+        seen = set()
+        duplicated = []
+        for lid in loci:
+            if lid in seen:
+                duplicated.append(lid)
+            else:
+                seen.add(lid)
+        raise ValueError("Duplicated loci in counter {}! {}".format(index, duplicated))
+    batch = [loci, batch]
     batch = msgpack.dumps(batch)
     return batch
+
+
+def __create_gene_counters(common_index: dict) -> (dict, int):
+    """Function to assign to each counter in the database the correct base and maximum number of genes.
+    This allows to parallelise the printing.
+    """
+
+    chroms, nums = list(zip(*[common_index[index][1:3] for index in range(1, max(common_index.keys()) + 1)]))
+    total_genes = sum(nums)
+    gene_counters = dict()
+    chrom_tots = collections.defaultdict(list)
+    assert len(chroms) == len(common_index), (len(chroms), len(common_index))
+    for pos in range(len(chroms)):
+        key = pos + 1
+        chrom, num = chroms[pos], nums[pos]
+        if chrom == '' and pos > 0:
+            assert num == 0
+            former = gene_counters[pos][0]
+        elif pos == 0 or chrom != chroms[pos - 1]:
+            if chroms[pos - 1] != "":
+                former = 0
+            else:  # The previous one is wrong ..
+                prev_pos = pos - 1
+                prev_chrom = chroms[prev_pos]
+                while prev_chrom == "":
+                    prev_pos -= 1
+                    if prev_pos < 0:
+                        break
+                    prev_chrom = chroms[prev_pos]
+                if prev_chrom == "" or prev_chrom != chrom:
+                    former = 0
+                else:
+                    former = gene_counters[pos][0] + gene_counters[pos][1]
+        else:
+            former = gene_counters[pos][0] + gene_counters[pos][1]
+        gene_counters[key] = (former, num)
+        if chrom:
+            chrom_tots[chrom].extend(list(range(former + 1, former + num + 1)))
+
+    tot_found = 0
+    for chrom in chrom_tots:
+        if len(set(chrom_tots[chrom])) != len(chrom_tots[chrom]):
+            seen = set()
+            duplicated = set()
+            for num in chrom_tots[chrom]:
+                if num in seen:
+                    duplicated.add(num)
+                else:
+                    seen.add(num)
+            raise AssertionError((chrom,
+                                  len(set(chrom_tots[chrom])),
+                                  len(chrom_tots[chrom]), max(chrom_tots[chrom]),
+                                  duplicated,
+                                  chrom_tots[chrom]))
+        if len(chrom_tots[chrom]) > 0:
+            assert len(list(range(1, chrom_tots[chrom][-1] + 1))) == len(chrom_tots[chrom])
+            tot_found += chrom_tots[chrom][-1]
+
+    assert tot_found == total_genes, (tot_found, total_genes)
+    new_common = dict()
+    assert min(common_index) == 1
+
+    for key in common_index:
+        new_common[key] = (common_index[key][0], gene_counters[key][0], gene_counters[key][1])
+    return new_common, total_genes
 
 
 def merge_loci(num_temp, out_handles,
@@ -237,23 +339,7 @@ def merge_loci(num_temp, out_handles,
     )
     assert len(common_index.keys()) == len(set(common_index.keys()))
 
-    chroms, nums = list(zip(*[common_index[index][1:3] for index in range(1, max(common_index.keys()) + 1)]))
-    total_genes = sum(nums)
-    gene_counters = dict()
-    for pos in range(len(chroms)):
-        key = pos + 1
-        chrom, num = chroms[pos], nums[pos]
-        if pos == 0:
-            gene_counters[key] = (0, num)
-        elif chrom != chroms[pos - 1]:
-            gene_counters[key] = (0, num)
-        else:
-            gene_counters[key] = (gene_counters[pos][0] + gene_counters[pos][1], num)
-
-    new_common = dict()
-    assert min(common_index) == 1
-    for key in common_index:
-        new_common[key] = (common_index[key][0], gene_counters[key][0], gene_counters[key][1])
+    new_common, total_genes = __create_gene_counters(common_index)
 
     manager = functools.partial(manage_index,
                                 dumps=dumps,
@@ -261,23 +347,29 @@ def merge_loci(num_temp, out_handles,
                                 print_monoloci=print_monoloci)
     done = 0
     logger.info("We have a total of %d genes", total_genes)
+    tot_loci = set()
     with mp.Pool(processes=num_temp) as pool:
-        for pos, batch in enumerate(pool.starmap(manager,
-                                                 [(key, new_common[key]) for key in sorted(new_common.keys())])):
+        for pos, batch in enumerate(pool.imap(manager,
+                                              [(key, new_common[key]) for key in sorted(new_common.keys())],
+                                              500)):
             done += 1
-            batch = msgpack.loads(batch, raw=False)
+            loci, batch = msgpack.loads(batch, raw=False)
+            if loci and set(loci).issubset(tot_loci):
+                raise ValueError("Duplicated loci! {}".format(loci))
 
+            tot_loci.update(set(loci))
             for minibatch in batch:
-                locus_lines, locus_metrics_rows, locus_scores_rows = minibatch[0]
-                if locus_lines:
-                    assert len(locus_metrics_rows) > 0
-                    print(locus_lines, file=locus_out)
-                for row in locus_metrics_rows:
-                    print(*[row[key] for key in locus_metrics.fieldnames],
-                          sep="\t", file=locus_metrics.handle)
-                for row in locus_scores_rows:
-                    print(*[row[key] for key in locus_scores.fieldnames],
-                          sep="\t", file=locus_scores.handle)
+                if minibatch[0] is not None:
+                    locus_lines, locus_metrics_rows, locus_scores_rows = minibatch[0]
+                    if locus_lines:
+                        assert len(locus_metrics_rows) > 0
+                        print(locus_lines, file=locus_out)
+                    for row in locus_metrics_rows:
+                        print(*[row[key] for key in locus_metrics.fieldnames],
+                              sep="\t", file=locus_metrics.handle)
+                    for row in locus_scores_rows:
+                        print(*[row[key] for key in locus_scores.fieldnames],
+                              sep="\t", file=locus_scores.handle)
 
                 if minibatch[1]:
                     sub_lines, sub_metrics_rows, sub_scores_rows = minibatch[1]
@@ -313,8 +405,12 @@ def serialise_locus(stranded_loci: [Superlocus],
     loci = msgpack.dumps([json.dumps(stranded_locus.as_dict(), default=default_for_serialisation,
                                      number_mode=json.NM_NATIVE)
                           for stranded_locus in stranded_loci])
-    chrom = stranded_loci[0].chrom
-    num_genes = sum(len(slid.loci) for slid in stranded_loci)
+    if not stranded_loci:
+        chrom = ""
+        num_genes = 0
+    else:
+        chrom = stranded_loci[0].chrom
+        num_genes = sum(len(slid.loci) for slid in stranded_loci)
     conn.execute("INSERT INTO loci VALUES (?, ?, ?, ?)", (counter, chrom, num_genes, loci))
     conn.commit()
     return
@@ -402,7 +498,6 @@ def remove_fragments(stranded_loci, json_conf, logger):
 def analyse_locus(slocus: Superlocus,
                   counter: int,
                   json_conf: dict,
-                  printer_queue: [AutoProxy, None],
                   logging_queue: AutoProxy,
                   engine=None,
                   data_dict=None) -> [Superlocus]:
@@ -419,9 +514,6 @@ def analyse_locus(slocus: Superlocus,
 
     :param logging_queue: the logging queue
     :type logging_queue: multiprocessing.managers.AutoProxy
-
-    :param printer_queue: the printing queue
-    :type printer_queue: multiprocessing.managers.AutoProxy
 
     :param engine: an optional engine to connect to the database.
     :type data_dict: sqlalchemy.engine.engine
@@ -441,13 +533,7 @@ def analyse_locus(slocus: Superlocus,
     # Define the logger
     if slocus is None:
         # printer_dict[counter] = []
-        if printer_queue:
-            while printer_queue.qsize() >= json_conf["threads"] * 10:
-                continue
-            # printer_queue.put_nowait(([], counter))
-            return
-        else:
-            return []
+        return []
 
     handler = logging_handlers.QueueHandler(logging_queue)
     logger = logging.getLogger("{0}:{1}-{2}".format(
@@ -458,17 +544,13 @@ def analyse_locus(slocus: Superlocus,
     # otherwise we overwrite the global configuration
     logger.setLevel(json_conf["log_settings"]["log_level"])
     logger.propagate = False
-    logger.debug("Started with %s, counter %d",
-                 slocus.id, counter)
+    logger.debug("Started with %s, counter %d", slocus.id, counter)
     if slocus.stranded is True:
         logger.warning("%s is stranded already! Resetting", slocus.id)
         slocus.stranded = False
 
     slocus.logger = logger
     slocus.source = json_conf["pick"]["output_format"]["source"]
-
-    # if engine is None and data_dict is None:
-    #     raise ValueError("Error for locus {id}".format(id=slocus.id))
 
     try:
         slocus.load_all_transcript_data(engine=engine,
@@ -488,13 +570,7 @@ def analyse_locus(slocus: Superlocus,
             "%s had all transcripts failing checks, ignoring it",
             slocus.id)
         # printer_dict[counter] = []
-        if printer_queue:
-            while printer_queue.qsize >= json_conf["threads"] * 10:
-                continue
-            # printer_queue.put_nowait(([], counter))
-            return
-        else:
-            return []
+        return []
 
     # Split the superlocus in the stranded components
     logger.debug("Splitting by strand")
@@ -529,18 +605,10 @@ def analyse_locus(slocus: Superlocus,
     except Exception as err:
         logger.error(err)
         pass
-    if printer_queue:
-        while printer_queue.qsize() >= json_conf["threads"] * 10:
-            continue
-        logger.debug("Finished with %s, counter %d", slocus.id, counter)
-        logger.removeHandler(handler)
-        handler.close()
-        return
-    else:
-        logger.debug("Finished with %s, counter %d", slocus.id, counter)
-        logger.removeHandler(handler)
-        handler.close()
-        return stranded_loci
+    logger.debug("Finished with %s, counter %d", slocus.id, counter)
+    logger.removeHandler(handler)
+    handler.close()
+    return stranded_loci
 
 
 class LociProcesser(Process):
@@ -598,7 +666,6 @@ class LociProcesser(Process):
             return
 
         self.analyse_locus = functools.partial(analyse_locus,
-                                               printer_queue=None,
                                                json_conf=self.json_conf,
                                                engine=self.engine,
                                                logging_queue=self.logging_queue)
@@ -662,7 +729,6 @@ class LociProcesser(Process):
         self.logger.propagate = False
         self.engine = dbutils.connect(self.json_conf, self.logger)
         self.analyse_locus = functools.partial(analyse_locus,
-                                               printer_queue=None,
                                                json_conf=self.json_conf,
                                                engine=self.engine,
                                                logging_queue=self.logging_queue)
@@ -694,9 +760,7 @@ class LociProcesser(Process):
                 self.logger.debug("EXIT received for %s", self.name)
                 self.locus_queue.task_done()
                 self.locus_queue.put((counter, ))
-                # self.__close_handles()
                 break
-                # self.join()
             else:
                 try:
                     transcripts = cursor.execute(
@@ -712,8 +776,10 @@ class LociProcesser(Process):
                 transcripts = msgpack.loads(transcripts[0], raw=False)
                 if len(transcripts) == 0:
                     stranded_loci = []
+                    self.logger.warning("No transcript found for index %d", counter)
                 else:
                     tobjects = []
+                    chroms = set()
                     for tjson in transcripts:
                         definition = GtfLine(tjson["definition"]).as_dict()
                         transcript = Transcript(logger=self.logger,
@@ -721,6 +787,8 @@ class LociProcesser(Process):
                                                 intron_range=self.json_conf["pick"]["run_options"]["intron_range"])
                         transcript.chrom, transcript.start, transcript.end = (definition["chrom"],
                                                                               definition["start"], definition["end"])
+                        chroms.add(transcript.chrom)
+                        assert len(chroms) == 1, chroms
                         try:
                             transcript.id = definition["transcript"]
                         except KeyError:
@@ -750,6 +818,8 @@ class LociProcesser(Process):
                     stranded_loci = self.analyse_locus(slocus, counter)
 
                 serialise_locus(stranded_loci, self.dump_conn, counter)
+                if len(stranded_loci) == 0:
+                    self.logger.warning("No loci left for index %d", counter)
 
                 self.locus_queue.task_done()
 

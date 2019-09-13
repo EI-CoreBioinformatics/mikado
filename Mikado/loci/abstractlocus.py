@@ -553,7 +553,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         """
 
         if tid not in self.transcripts:
-            self.logger.warning("Transcript %s is not present in the Locus. Ignoring it.", tid)
+            self.logger.debug("Transcript %s is not present in the Locus. Ignoring it.", tid)
             return
 
         self.remove_path_from_graph(self.transcripts[tid], self._internal_graph)

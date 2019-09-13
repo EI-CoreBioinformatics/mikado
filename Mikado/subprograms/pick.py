@@ -241,7 +241,7 @@ Transcripts with intron lengths outside of this range will be penalised. Default
     output = parser.add_argument_group("Options related to the output files.")
     output.add_argument("--subloci-out", type=str, default=None, dest="subloci_out")
     output.add_argument("--monoloci-out", type=str, default=None, dest="monoloci_out")
-    output.add_argument("--loci_out", type=str, default=None,
+    output.add_argument("--loci-out", type=str, default=None, dest="loci_out",
                         help="""This output file is mandatory.
                         If it is not specified in the configuration file,
                         it must be provided here.""")

@@ -294,7 +294,7 @@ rule mikado_pick:
     threads: THREADS
     conda: os.path.join(envdir, "mikado.yaml")
     message: "Running mikado picking stage"
-    shell: "{params.load} mikado pick --source Mikado_{wildcards.mode} --mode={wildcards.mode} --procs={threads} --start-method=spawn --json-conf={params.cfg} -od {params.outdir} --loci_out mikado-{wildcards.mode}.loci.gff3 -lv INFO -db {input.db} {input.gtf} > {log} 2>&1"
+    shell: "{params.load} mikado pick --source Mikado_{wildcards.mode} --mode={wildcards.mode} --procs={threads} --start-method=spawn --json-conf={params.cfg} -od {params.outdir} --loci-out mikado-{wildcards.mode}.loci.gff3 -lv INFO -db {input.db} {input.gtf} > {log} 2>&1"
 
 rule mikado_stats:
     input:

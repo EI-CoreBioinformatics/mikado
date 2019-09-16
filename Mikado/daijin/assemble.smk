@@ -296,6 +296,15 @@ def starInput(sample):
 def starLongInput(sample):
     return "--readFilesIn " + os.path.abspath(L_INPUT_MAP[sample])
 
+def long_gmap_input(sample):
+    if L_EXT_MAP[sample] == ".gz":
+        return "<(zcat " + os.path.abspath(L_INPUT_MAP[sample]) + ")"
+    elif L_EXT_MAP[sample] == ".bz2":
+        return "<(bzcat " + os.path.abspath(L_INPUT_MAP[sample]) + ")"
+    else:
+        return os.path.abspath(L_INPUT_MAP[sample])
+
+
 def hisatStrandOption(sample):
     if SAMPLE_MAP[sample] == "fr-firststrand":
         return "--rna-strandness=RF"
@@ -742,6 +751,7 @@ rule asm_trinitygg:
     output: os.path.join(ASM_DIR, "trinity", "trinity-{run2,\d+}-{alrun}", "Trinity-GG.fasta")
     params: 
         outdir=os.path.join(ASM_DIR, "trinity", "trinity-{run2}-{alrun}"),
+        tempdir=os.path.join(ASM_DIR, "trinity", "trinity-{run2}-{alrun}", "trinity_build"),
         load=loadPre(config, "trinity"),
         extra=lambda wildcards: config["asm_methods"]["trinity"][int(wildcards.run2)],
         strand=lambda wildcards: trinityStrandOption(extractSample(wildcards.alrun)),
@@ -750,7 +760,10 @@ rule asm_trinitygg:
     threads: THREADS
     conda: os.path.join(envdir, "trinity.yaml")
     message: "Using trinity in genome guided mode to assemble (run {wildcards.run2}): {input.bam}"
-    shell: "{params.load} Trinity --seqType=fq {params.strand} --output={params.outdir} {params.extra} --genome_guided_max_intron={MAX_INTRON}  --CPU={threads}  {params.base_parameters}={input.bam} > {log} 2>&1"
+    shell: "{params.load} Trinity --full_cleanup --seqType=fq {params.strand} --output={params.tempdir} \
+    {params.extra} --genome_guided_max_intron={MAX_INTRON}  --CPU={threads}  \
+    {params.base_parameters}={input.bam} > {log} 2>&1 && mv {params.tempdir}/Trinity-GG.fasta* {params.outdir}/ \
+    && rm -rf {params.tempdir}"
 
 rule asm_map_trinitygg:
     input: 
@@ -823,15 +836,17 @@ rule lr_gmap:
         reads=lambda wildcards: L_INPUT_MAP[wildcards.lsample]
     output: link=ALIGN_DIR+"/lr_output/lr_gmap-{lsample}-{lrun}.gff",
         gff=ALIGN_DIR+"/gmap/{lsample}-{lrun}/lr_gmap-{lsample}-{lrun}.gff"          
-    params: load=loadPre(config, "gmap"),
+    params:
+        load=loadPre(config, "gmap"),
         link_src="../gmap/{lsample}-{lrun}/lr_gmap-{lsample}-{lrun}.gff",
-        intron_length=gmap_intron_lengths(loadPre(config, "gmap"), MAX_INTRON)
+        intron_length=gmap_intron_lengths(loadPre(config, "gmap"), MAX_INTRON),
+        input_reads=lambda wildcards: long_gmap_input(wildcards.lsample)
     log: os.path.join(ALIGN_DIR, "logs", "lr_gmap", "gmap-{lsample}-{lrun}.log")
     threads: THREADS
     conda: os.path.join(envdir, "gmap.yaml")
     message: "Mapping long reads to the genome with gmap (sample: {wildcards.lsample} - run: {wildcards.lrun})"
     shell: "{params.load} gmap --dir={ALIGN_DIR}/gmap/index --db={NAME} --min-intronlength={MIN_INTRON} \
-{params.intron_length} --format=3 {input.reads} > {output.gff} 2> {log} && ln -sf {params.link_src} {output.link} \
+{params.intron_length} --format=3 {params.input_reads} > {output.gff} 2> {log} && ln -sf {params.link_src} {output.link} \
 && touch -h {output.link}"
 
 rule lr_star:

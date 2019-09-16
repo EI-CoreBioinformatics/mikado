@@ -32,11 +32,36 @@ except:
 configfile: "configuration.yaml"
 
 rule complete:
-    input: "compare.stats", "compare_subloci.stats", "compare_input.stats", "check.ok", "check_metrics.ok"
+    input: "compare.stats", "compare_subloci.stats", "compare_input.stats", "check.ok", "check_metrics.ok", "daijin_test/mikado.yaml"
     output: touch("finished.ok")
 
+
+rule uncompress_genome:
+  input: "chr5.fas.gz"
+  output: "chr5.fas"
+  shell: "gunzip -dc {input} > {output}"
+
+rule daijin_configure:
+    input:
+      prots=swissprot,
+      genome=rules.uncompress_genome.output
+    output: "daijin.yaml"
+    shell: "daijin configure -as stringtie cufflinks trinity scallop -lal gmap star -al \
+star hisat gsnap --sample-sheet samples.txt -o daijin.yaml -g {input.genome} -od daijin_test \
+ --prot-db {input.prots} --scoring plant.yaml"
+
+
+rule daijin_assemble:
+    input:
+        conf=rules.daijin_configure.output
+    output:
+        conf="daijin_test/mikado.yaml"
+    threads: 4
+    message: "daijin assemble --nolock --use-conda --threads 2 --cores 4 --jobs 2 daijin.yaml"
+    shell: "daijin assemble --nolock --use-conda --threads 2 --cores 4 --jobs 2 daijin.yaml"
+
 rule test_json:
-    input: db=zipDBs, config=configname
+    input: db=swissprot, config=configname
     output: touch("{}.ok".format(configname))
     message: "Checking the configuration"
     run:
@@ -57,8 +82,8 @@ rule daijin:
         # mono=os.path.join("Daijin", "5-mikado", "pick", "permissive", "mikado.monoloci.gff3"),
         prep=os.path.join("Daijin", "5-mikado", "mikado_prepared.gtf"),
 	prep_fai=os.path.join("Daijin", "5-mikado", "mikado_prepared.fasta.fai")
-    message: "daijin mikado --jobs 1 --cores 2 --threads 2 -nd --nolock configuration.yaml"
-    shell: "daijin mikado --jobs 1 --cores 2 --threads 2 -nd --nolock configuration.yaml"
+    message: "daijin mikado --use-conda --jobs 2 --cores 4 --threads 2 -nd --nolock configuration.yaml"
+    shell: "daijin mikado --use-conda --jobs 2 --cores 4 --threads 2 -nd --nolock configuration.yaml"
 
 rule index_reference:
     input: reference="reference.gff3"

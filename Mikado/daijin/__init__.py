@@ -332,7 +332,7 @@ def assemble_transcripts_pipeline(args):
 
     # Launch using SnakeMake
     assert pkg_resources.resource_exists("Mikado",
-                                         os.path.join("daijin", "tr.snakefile"))
+                                         os.path.join("daijin", "assemble.smk"))
 
     additional_config = {}
     if args.threads is not None:
@@ -377,7 +377,7 @@ def assemble_transcripts_pipeline(args):
 
     snakemake.snakemake(
         pkg_resources.resource_filename("Mikado",
-                                        os.path.join("daijin", "tr.snakefile")),
+                                        os.path.join("daijin", "assemble.smk")),
         dryrun=args.dryrun,
         cores=args.cores,
         nodes=args.jobs,
@@ -446,7 +446,7 @@ def mikado_pipeline(args):
 
     # Launch using SnakeMake
     assert pkg_resources.resource_exists("Mikado",
-                                         os.path.join("daijin", "mikado.snakefile"))
+                                         os.path.join("daijin", "mikado.smk"))
 
     cluster_var = None
     if args.no_drmaa is True and sub_cmd:
@@ -488,7 +488,7 @@ def mikado_pipeline(args):
 
     snakemake.snakemake(
         pkg_resources.resource_filename("Mikado",
-                                        os.path.join("daijin", "mikado.snakefile")),
+                                        os.path.join("daijin", "mikado.smk")),
         ignore_ambiguity=False,
         cores=args.cores,
         dryrun=args.dryrun,

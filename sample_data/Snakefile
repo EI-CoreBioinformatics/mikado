@@ -9,7 +9,7 @@ import subprocess
 import gzip
 from snakemake import logger as snake_logger
 
-swissprot = "uniprot_sprot_plants.fasta"
+swissprot = "uniprot_sprot_plants.fasta.gz"
 swissprot_noat = "uniprot_sprot_plants.not_at.fasta"
 
 DBs=[swissprot]
@@ -48,15 +48,8 @@ rule test_json:
         # subprocess.call("gunzip -c chr5.fas.gz > chr5.fas", shell=True)
         # shell("touch {output}")
 
-rule uncompress_blast:
-    input: "{0}.gz".format(swissprot)
-    output: swissprot
-    message: "gzip -dc {input} > {output}"
-    shell:
-      "gzip -dc {input} > {output}"
-
 rule daijin:
-    input: "class.gtf", "cufflinks.gtf", "stringtie.gtf", "trinity.gff3", "mikado.bed", rules.test_json.output, rules.uncompress_blast.output
+    input: "class.gtf", "cufflinks.gtf", "stringtie.gtf", "trinity.gff3", "mikado.bed", rules.test_json.output, swissprot
     output:
         loci=os.path.join("Daijin", "5-mikado", "pick", "permissive", "mikado-permissive.loci.gff3"),
         sub=os.path.join("Daijin", "5-mikado", "pick", "permissive", "mikado.subloci.gff3"),

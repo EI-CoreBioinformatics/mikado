@@ -6,6 +6,7 @@ import argparse
 from collections import Counter
 from Mikado.utilities.log_utils import create_default_logger
 import re
+import gzip
 
 
 """Simple utility to discard any non-description information out of the FASTA file, so to reduce
@@ -35,6 +36,10 @@ def main():
     starter = 96
 
     for fasta in args.fasta:
+        if fasta.name.endswith(".gz"):
+            fasta.close()
+            fasta = gzip.open(fasta.name, "rt")
+
         if len(args.fasta) > 1:
             starter += 1
             prefix = "{}_".format(chr(starter))

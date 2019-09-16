@@ -111,7 +111,7 @@ for i in range(len(L_SAMPLES)):
         lr = READS_DIR+"/"+L_SAMPLES[i]+".long.fq" + compress
     else:
         exit(1)
-    L_EXT_MAP[L_SAMPLES[i]] = ext + compress
+    L_EXT_MAP[L_SAMPLES[i]] = compress
     L_INPUT_MAP[L_SAMPLES[i]] = lr
 
 
@@ -275,6 +275,14 @@ def starCompressionOption(sample):
     if EXT_MAP[sample] == ".gz":
         return "--readFilesCommand zcat"
     elif EXT_MAP[sample] == ".bz":
+        return "--readFilesCommand bzcat"
+    else:
+        return ""
+
+def long_starCompressionOption(sample):
+    if L_EXT_MAP[sample] == ".gz":
+        return "--readFilesCommand zcat"
+    elif L_EXT_MAP[sample] == ".bz":
         return "--readFilesCommand bzcat"
     else:
         return ""
@@ -558,7 +566,11 @@ rule align_star:
     threads: int(THREADS)
     message: "Aligning input with star (sample {wildcards.sample} - run {wildcards.run})"
     conda: os.path.join(envdir, "star.yaml")
-    shell: "{params.load} cd {params.outdir}; STAR --runThreadN {threads} --runMode alignReads --genomeDir {params.indexdir} {params.rfc} {params.infiles} --outSAMtype BAM Unsorted --outSAMattributes NH HI AS nM XS NM MD --outSAMstrandField intronMotif --alignIntronMin {MIN_INTRON} --alignIntronMax {MAX_INTRON} {params.trans} --alignMatesGapMax {MAX_INTRON} --outFileNamePrefix {params.outdir}/ {params.extra} > {log} 2>&1 && cd {CWD} && ln -sf {params.link_src} {output.link} && touch -h {output.link}"
+    shell: "{params.load} cd {params.outdir}; STAR --runThreadN {threads} --runMode alignReads --genomeDir {params.indexdir} \
+{params.rfc} {params.infiles} --outSAMtype BAM Unsorted --outSAMattributes NH HI AS nM XS NM MD \
+--outSAMstrandField intronMotif --alignIntronMin {MIN_INTRON} --alignIntronMax {MAX_INTRON} {params.trans} \
+--alignMatesGapMax {MAX_INTRON} --outFileNamePrefix {params.outdir}/ {params.extra} > {log} \
+2>&1 && cd {CWD} && ln -sf {params.link_src} {output.link} && touch -h {output.link}"
 
 
 rule star_all:
@@ -632,14 +644,16 @@ rule bam_stats:
     input:
         bam=rules.bam_sort.output,
         idx=rules.bam_index.output
-    output: ALIGN_DIR+"/output/{align_run}.sorted.bam.stats"
+    output:
+        stats=ALIGN_DIR+"/output/{align_run}.sorted.bam.stats",
+        png_flag=os.path.join(ALIGN_DIR, "output", "plots", "{align_run}", "{align_run}-quals.png")
     params: 
         load=loadPre(config, "samtools"),
         plot_out=ALIGN_DIR+"/output/plots/{align_run}/{align_run}"
     threads: 1
     message: "Using samtools to collected stats for: {input}"
-    conda: os.path.join(envdir, "samtools.yaml")
-    shell: "{params.load} samtools stats {input.bam} > {output} && plot-bamstats -p {params.plot_out} {output}"
+    conda: os.path.join(envdir, "gnuplot.yaml")
+    shell: "{params.load} samtools stats {input.bam} > {output.stats} && plot-bamstats -p {params.plot_out} {output.stats}"
 
 
 rule align_all:
@@ -812,11 +826,13 @@ rule lr_gmap:
     params: load=loadPre(config, "gmap"),
         link_src="../gmap/{lsample}-{lrun}/lr_gmap-{lsample}-{lrun}.gff",
         intron_length=gmap_intron_lengths(loadPre(config, "gmap"), MAX_INTRON)
-    log: ALIGN_DIR+"/gmap-{lsample}-{lrun}.log"
+    log: os.path.join(ALIGN_DIR, "logs", "lr_gmap", "gmap-{lsample}-{lrun}.log")
     threads: THREADS
     conda: os.path.join(envdir, "gmap.yaml")
     message: "Mapping long reads to the genome with gmap (sample: {wildcards.lsample} - run: {wildcards.lrun})"
-    shell: "{params.load} gmap --dir={ALIGN_DIR}/gmap/index --db={NAME} --min-intronlength={MIN_INTRON} {params.intron_length} --format=3 {input.reads} > {output.gff} 2> {log} && ln -sf {params.link_src} {output.link} && touch -h {output.link}"
+    shell: "{params.load} gmap --dir={ALIGN_DIR}/gmap/index --db={NAME} --min-intronlength={MIN_INTRON} \
+{params.intron_length} --format=3 {input.reads} > {output.gff} 2> {log} && ln -sf {params.link_src} {output.link} \
+&& touch -h {output.link}"
 
 rule lr_star:
     input:
@@ -825,15 +841,21 @@ rule lr_star:
     output: bam=ALIGN_DIR+"/lr_star/{lsample}-{lrun}/Aligned.out.bam"
     params: load=loadPre(config, "star"),
         outdir=ALIGN_DIR_FULL+"/lr_star/{lsample}-{lrun}",
-                indexdir=ALIGN_DIR_FULL+"/star/index",
-                trans="--sjdbGTFfile " + os.path.abspath(REF_TRANS) if REF_TRANS else "",
-                #rfc=lambda wildcards: starCompressionOption(wildcards.lsample),
-                infiles=lambda wildcards: starLongInput(wildcards.lsample)
-    log: ALIGN_DIR_FULL+"/lr_star-{lsample}-{lrun}.log"
+        indexdir=ALIGN_DIR_FULL+"/star/index",
+        trans="--sjdbGTFfile " + os.path.abspath(REF_TRANS) if REF_TRANS else "",
+        rfc=lambda wildcards: long_starCompressionOption(wildcards.lsample),
+        infiles=lambda wildcards: starLongInput(wildcards.lsample)
+    log: os.path.join(ALIGN_DIR_FULL, "logs", "lr_star", "lr_star-{lsample}-{lrun}.log")
     threads: THREADS
     conda: os.path.join(envdir, "star.yaml")
     message: "Mapping long reads to the genome with star (sample: {wildcards.lsample} - run: {wildcards.lrun})"
-    shell: "{params.load} STARlong --runThreadN {threads} --runMode alignReads --outSAMattributes NH HI NM MD --readNameSeparator space --outFilterMultimapScoreRange 1 --outFilterMismatchNmax 2000 --scoreGapNoncan -20 --scoreGapGCAG -4 --scoreGapATAC -8 --scoreDelOpen -1 --scoreDelBase -1 --scoreInsOpen -1 --scoreInsBase -1 --alignEndsType Local --seedSearchStartLmax 50 --seedPerReadNmax 100000 --seedPerWindowNmax 1000 --alignTranscriptsPerReadNmax 100000 --alignTranscriptsPerWindowNmax 10000 --genomeDir {params.indexdir} {params.infiles} --outSAMtype BAM Unsorted --outSAMstrandField intronMotif --alignIntronMin {MIN_INTRON} --alignIntronMax {MAX_INTRON} {params.trans} --outFileNamePrefix {params.outdir}/ > {log} 2>&1 && cd {CWD}"
+    shell: "{params.load} STARlong --runThreadN {threads} --runMode alignReads --outSAMattributes NH HI NM MD \
+--readNameSeparator space --outFilterMultimapScoreRange 1 --outFilterMismatchNmax 2000 \
+--scoreGapNoncan -20 --scoreGapGCAG -4 --scoreGapATAC -8 --scoreDelOpen -1 --scoreDelBase -1 --scoreInsOpen -1 \
+--scoreInsBase -1 --alignEndsType Local --seedSearchStartLmax 50 --seedPerReadNmax 100000 --seedPerWindowNmax 1000 \
+--alignTranscriptsPerReadNmax 100000 --alignTranscriptsPerWindowNmax 10000 --genomeDir {params.indexdir} {params.rfc} \
+{params.infiles} --outSAMtype BAM Unsorted --outSAMstrandField intronMotif --alignIntronMin {MIN_INTRON} \
+--alignIntronMax {MAX_INTRON} {params.trans} --outFileNamePrefix {params.outdir}/ > {log} 2>&1 && cd {CWD}"
 
 
 rule starbam2gtf:

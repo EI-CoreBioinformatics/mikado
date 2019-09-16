@@ -90,6 +90,23 @@ def create_simple_config(seed=None):
     return new_dict
 
 
+def _remove_comments(d: dict) -> dict:
+
+    nudict = dict()
+
+    if not isinstance(d, dict):
+        return d
+
+    for key, item in d.items():
+        if key == "Comment" or "comment" in key.lower():
+            continue
+        elif isinstance(item, dict):
+            nudict[key] = _remove_comments(item)
+        else:
+            nudict[key] = item
+    return nudict
+
+
 def create_config(args):
     """
     Utility to create a default configuration file.
@@ -142,6 +159,8 @@ def create_config(args):
         daijin_config["blastx"]["chunks"] = args.blast_chunks
         daijin_config["mikado"]["use_diamond"] = (not args.use_blast)
         daijin_config["mikado"]["use_prodigal"] = (not args.use_transdecoder)
+        for key in daijin_config:
+            daijin_config[key] = _remove_comments(daijin_config[key])
         config = configurator.merge_dictionaries(config, daijin_config)
 
     if args.external is not None:
@@ -155,13 +174,6 @@ def create_config(args):
         if "mikado" in external_conf:
             mikado_conf = dict((key, val) for key, val in external_conf["mikado"].items() if key in config)
             config = configurator.merge_dictionaries(config, mikado_conf)
-        # Leave all other values, including those in a "mikado" section that are not also present in the default config
-
-        # for key in config:
-        #     if "mikado" in external_conf and isinstance(external_conf["mikado"], dict):
-        #         __mikado_keys = [key for key in external_conf["mikado"] if key in config]
-        #         for key in __mikado_keys:
-        #             del external_conf["mikado"][key]
         config = configurator.merge_dictionaries(config, external_conf)
 
     config["pick"]["files"]["subloci_out"] = args.subloci_out if args.subloci_out else ""

@@ -149,64 +149,55 @@ class Locus(Abstractlocus):
         self.scores_calculated = False
         self.calculate_scores()
         max_isoforms = self.json_conf["pick"]["alternative_splicing"]["max_isoforms"]
+        original = dict((tid, (self.transcripts[tid].start, self.transcripts[tid].end))
+                         for tid in self.transcripts)
 
-        while True:
-            # *Never* lose the primary transcript
-            to_keep = {self.primary_transcript_id}
-            order = sorted(sorted([(tid, self.transcripts[tid].score, self.transcripts[tid].start) for tid in self.transcripts
-                            if tid != self.primary_transcript_id],
-                            key=operator.itemgetter(1), reverse=True),
-                            key=operator.itemgetter(2), reverse=False)
-            threshold = self.json_conf["pick"]["alternative_splicing"]["min_score_perc"] * self.primary_transcript.score
+        # *Never* lose the primary transcript
+        order = sorted(sorted([(tid, self.transcripts[tid].score, self.transcripts[tid].start,
+                                self.transcripts[tid]) for tid in self.transcripts
+                        if tid != self.primary_transcript_id],
+                        key=operator.itemgetter(1), reverse=True),
+                        key=operator.itemgetter(2), reverse=False)
+        threshold = self.json_conf["pick"]["alternative_splicing"]["min_score_perc"] * self.primary_transcript.score
+        [self.remove_transcript_from_locus(tid) for tid in list(self.transcripts.keys())
+         if tid != self.primary_transcript_id]
 
-            for obj in order:
-                self.logger.debug("Transcript, score, threshold: %s, %s, %s", obj[0], obj[1], threshold)
+        score_passing = [_ for _ in order if _[1] >= threshold]
 
-            # Islice will function also when the list is smaller than "max_isoforms"
-            score_passing = [_ for _ in order if _[1] >= threshold]
-            self.logger.debug("%d transcripts have a score over the threshold", len(score_passing))
-
-            to_keep.update(set([_[0] for _ in itertools.islice(score_passing, max_isoforms)]))
-            self.logger.debug("%d transcripts retained after the check for score (minimum %d) \
-and max. no. of isoforms (%d)", len(to_keep), threshold, max_isoforms)
-
-            if to_keep == set(self.transcripts.keys()):
-                self.logger.debug("Finished to discard superfluous transcripts from {}".format(self.id))
-            else:
-                for tid in set.difference(set(self.transcripts.keys()), to_keep):
-                    self.logger.debug("Removing %s from %s", tid, self.id)
-                    self.remove_transcript_from_locus(tid)
-                assert len(self.transcripts) > 0, to_keep
-                self.metrics_calculated = False
-                self.scores_calculated = False
-                self.calculate_scores()
-                continue
-
-            # Now we have to calculate the padded transcripts.
-
-            # I am already within a "while" loop. If I find something wrong, I can just "continue"
+        for tid, score, start, obj in score_passing:
+            present = len(self.transcripts)
+            if present == max_isoforms:
+                break
+            self.add_transcript_to_locus(obj, check_in_locus=False)
+            self.logger.debug("Transcript, score, threshold: %s, %s, %s", tid, score, threshold)
+            self.metrics_calculated = False
+            self.scores_calculated = False
+            self.calculate_scores()
             with_retained = self._remove_retained_introns()
             if len(with_retained) > 0:
                 self.logger.debug("Transcripts with retained introns: %s", ", ".join(list(with_retained)))
             else:
                 self.logger.debug("No transcripts with retained introns found.")
-
+            if len(self.transcripts) == present:
+                continue
             if self.perform_padding is True and len(self.transcripts) > 1:
                 self.logger.debug("Starting padding procedure for %s", self.id)
                 failed = self.__launch_padding()
+
                 if failed:
                     continue
-            else:
-                self.logger.debug("No padding necessary. Exiting")
+                self.__remove_redundant_after_padding()
 
-            break
+        for tid in self.transcripts:
+            assert tid in original
+            if (self.transcripts[tid].start, self.transcripts[tid].end) != original[tid]:
+                self.transcripts[tid].attributes["padded"] = True
+                self.logger.warning("%s is now padded", tid)
 
         # Now that we have added the padding ... time to remove redundant alternative splicing events.
-        self.__remove_redundant_after_padding()
         self.logger.debug("%s has %d transcripts (%s)", self.id, len(self.transcripts),
                           ", ".join(list(self.transcripts.keys())))
         self._finalized = True
-
         return
 
     def __launch_padding(self):

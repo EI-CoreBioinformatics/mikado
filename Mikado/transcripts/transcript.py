@@ -1289,7 +1289,7 @@ class Transcript:
 
         return retrieval.find_overlapping_cds(self, candidate_orfs)
 
-    def as_dict(self, remove_attributes=True):
+    def as_dict(self, remove_attributes=False):
 
         """
         Method to transform the transcript object into a JSON-friendly representation.
@@ -1351,24 +1351,7 @@ class Transcript:
 
         self.external_scores.update(state.get("external", dict()))
         self._original_source = self.source
-        self.attributes = {}
-        for key, val in state["attributes"].items():
-            if val in ["True", "False"]:
-                val = bool(val)
-            elif val == "None":
-                val = None
-            else:
-                try:
-                    val = int(val)
-                except ValueError:
-                    try:
-                        val = float(val)
-                    except ValueError:
-                        pass
-                except TypeError:
-                    pass
-
-            self.attributes[intern(key)] = val
+        self.attributes = state["attributes"].copy()
 
         self.exons = []
         self.combined_cds = []

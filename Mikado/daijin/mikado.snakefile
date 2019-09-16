@@ -96,7 +96,7 @@ rule create_blast_database:
     message: "Creating the BLASTX database"
     params:
         fastas=" ".join(BLASTX_TARGET)
-    conda: os.path.join(envdir, "mikado.yaml")
+    # conda: os.path.join(envdir, "mikado.yaml")
     shell: """sanitize_blast_db.py --out {output} {params.fastas}"""
 
 rule split_fa:

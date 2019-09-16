@@ -474,7 +474,7 @@ def _check_scoring_file(json_conf: dict, logger):
             "scoring", "requirements", "as_requirements", "not_fragmentary")]
     elif all(_ in json_conf for _ in ["scoring", "requirements", "as_requirements", "not_fragmentary"]):
         try:
-            if not json_conf["__loaded_scoring"].endswith(("model", "pickle")):
+            if not json_conf.get("__loaded_scoring", "").endswith(("model", "pickle")):
                 # Random forest models are not standard scoring files
                 check_scoring(json_conf)
             check_all_requirements(json_conf)

@@ -71,9 +71,8 @@ def create_parser():
     #                     help="Configuration file to use for running daijin.")
     parser.add_argument("-c", "--hpc_conf",
                         default="daijin_hpc.yaml",
-                        help="""Configuration file that allows the user to override
-                        resource requests for each rule when running under a scheduler
-                        in a HPC environment.""")
+                        help="""Configuration file that allows the user to override resource requests for each rule \
+when running under a scheduler in a HPC environment.""")
     parser.add_argument("--latency-wait", default=None, type=int, dest="latency_wait",
                         help="Latency wait for Daijin. Default: 1s if local, 60s for scheduler jobs.")
     parser.add_argument("-d", "--dryrun", action="store_true", default=False,
@@ -83,8 +82,8 @@ def create_parser():
     parser.add_argument("--cores", "-C", action="store", nargs="?", metavar="N", type=int, default="1000",
                         help="Use at most N cores in parallel (default: 1000).")
     parser.add_argument("--threads", "-t", action="store", metavar="N", type=int, default=None,
-                        help="""Maximum number of threads per job.
-                        Default: None (set in the configuration file)""")
+                        help="""Maximum number of threads per job. \
+Default: None (set in the configuration file)""")
     parser.add_argument("--exe", default="daijin_exe.yaml",
                         help="""Configuration file containing the information on the software versions to be used. \
 Default: None, Daijin presumes that all needed programs are already present in the environment.""")
@@ -144,6 +143,9 @@ def create_config_parser():
                         help="Scheduler to use. Default: None - ie, either execute everything on the local machine or use DRMAA to submit and control jobs (recommended).")
     runtime.add_argument("--exe", default="daijin_exe.yaml",
                          help="Configuration file for the executables.")
+    runtime.add_argument("-q", "--queue",
+                         default=None,
+                         help="Name of queue to be used in the HPC. Required if a scheduler has been selected.")
     reference = parser.add_argument_group("Arguments related to the reference species.")
     reference.add_argument("--name", default="Daijin", help="Name of the species under analysis.")
     reference.add_argument("--genome", "-g", required=True,
@@ -311,10 +313,15 @@ def assemble_transcripts_pipeline(args):
     
     for lr_file, label in zip(LR_FILES, LR_LABELS):
         suffix = lr_file.split(".")[-1]
+        compress = ""
+        if suffix in ("gz", "bz2"):
+            compress = "." + suffix[:]
+            suffix = lr_file.split(".")[-2]
+
         if suffix in ("fa", "fna", "fasta"):
-            suffix = ".fa"
+            suffix = ".fa" + compress
         elif suffix in ("fq", "fastq"):
-            suffix = ".fq"
+            suffix = ".fq" + compress
         else:
             suffix = ".{}".format(suffix)
 
@@ -357,8 +364,7 @@ def assemble_transcripts_pipeline(args):
 
     yaml_file = tempfile.NamedTemporaryFile(mode="wt", delete=True,
                                             dir=os.getcwd(), suffix=".yaml",
-                                            prefix="assemble"
-                                            )
+                                            prefix="assemble")
     yaml.dump(doc, yaml_file)
     yaml_file.flush()
 
@@ -493,6 +499,7 @@ def mikado_pipeline(args):
         cluster_config=hpc_conf,
         cluster=cluster_var,
         drmaa=drmaa_var,
+        latency_wait=latency,
         printshellcmds=True,
         use_conda=args.use_conda,
         snakemakepath=shutil.which("snakemake"),
@@ -500,7 +507,6 @@ def mikado_pipeline(args):
         force_incomplete=args.rerun_incomplete,
         detailed_summary=args.detailed_summary,
         list_resources=args.list,
-        latency_wait=60 if not SCHEDULER == "" else 1,
         printdag=args.dag,
         forceall=args.dag,
         forcerun=args.forcerun,

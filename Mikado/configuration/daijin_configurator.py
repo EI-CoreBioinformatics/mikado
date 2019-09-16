@@ -1,13 +1,10 @@
-try:
-    import rapidjson as json
-except ImportError:
-    import json
+import rapidjson as json
 import os
 import io
 import yaml
 import jsonschema
 from pkg_resources import resource_stream, resource_filename
-from .configurator import extend_with_default, merge_dictionaries, check_all_requirements, check_scoring
+from .configurator import extend_with_default, merge_dictionaries, check_all_requirements, check_scoring, to_json
 from . import print_config, check_has_requirements
 from ..exceptions import InvalidJson
 from ..utilities.log_utils import create_default_logger
@@ -78,8 +75,8 @@ def create_daijin_base_config(simple=True):
     validator = create_daijin_validator(simple=simple)
     conf = dict()
     validator.validate(conf)
+    mikado_conf = to_json(None)
 
-    new_dict = dict()
     composite_keys = [(ckey[1:]) for ckey in
                       check_has_requirements(conf,
                                              validator.schema["properties"])]
@@ -104,9 +101,9 @@ def create_daijin_base_config(simple=True):
         for k in reversed(ckey):
             val = {k: val}
 
-        new_dict = merge_dictionaries(new_dict, val)
+        mikado_conf = merge_dictionaries(mikado_conf, val)
 
-    return new_dict
+    return mikado_conf
 
 
 def _parse_sample_sheet(sample_sheet, config, logger):
@@ -203,7 +200,6 @@ def create_daijin_config(args, level="ERROR", piped=False):
 
     config = create_daijin_base_config(simple=(not args.full))
     assert "reference" in config, config.keys()
-    # print(config)
     config["reference"]["genome"] = args.genome
     config["reference"]["transcriptome"] = args.transcriptome
 
@@ -219,14 +215,20 @@ def create_daijin_config(args, level="ERROR", piped=False):
 
     config["scheduler"] = args.scheduler
     if config["scheduler"] or args.cluster_config:
+        if not args.queue:
+            error = "A queue must be specified for the analysis when in HPC mode. Please relaunch."
+            logger.error(error)
+            exit(1)
         if args.cluster_config is not None:
             cluster_config = args.cluster_config
         else:
             cluster_config = "daijin_hpc.yaml"
         with open(cluster_config, "wt") as out, \
                 resource_stream("Mikado", os.path.join("daijin", "hpc.yaml")) as original:
-            for line in original:
+            for pos, line in enumerate(original):
                 print(line.decode(), file=out, end="")
+                if pos == 0:
+                    print("    queue:", args.queue, file=out)
 
     config["threads"] = args.threads
 

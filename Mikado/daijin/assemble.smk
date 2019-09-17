@@ -1,19 +1,12 @@
-import sys
-import os,sys                                                              
-import glob
-import itertools
+import os
 import subprocess
-import yaml
-from os import listdir
-from os.path import isfile, join
 from shutil import which
 import functools
 import pkg_resources
-import Mikado
+import re
 
 
 CFG=workflow.overwrite_configfile
-
 # Get shortcuts from configuration file
     
 
@@ -108,21 +101,28 @@ for i in range(len(L_SAMPLES)):
     L_SAMPLE_MAP[L_SAMPLES[i]] = L_STRANDEDNESS[i].lower()
     ext = L_FILES[i].split(sep=".")[-1]
     lr = ""
+    compress = ""
+    if ext in ("gz", "bz2"):
+        compress = "." + ext
+        ext = L_FILES[i].split(sep=".")[-2]
     if ext in ("fasta", "fa", "fna"):
-        lr = READS_DIR+"/"+L_SAMPLES[i]+".long.fa"
+        lr = READS_DIR+"/"+L_SAMPLES[i]+".long.fa" + compress
     elif ext in ("fastq", "fq"):
-        lr = READS_DIR+"/"+L_SAMPLES[i]+".long.fq"
+        lr = READS_DIR+"/"+L_SAMPLES[i]+".long.fq" + compress
     else:
         exit(1)
-    L_EXT_MAP[L_SAMPLES[i]] = ext
+    L_EXT_MAP[L_SAMPLES[i]] = compress
     L_INPUT_MAP[L_SAMPLES[i]] = lr
 
 
 ALIGN_RUNS = []
+ALIGN_MAP = dict()
 for aln in ALIGNMENT_METHODS:
     for samp in SAMPLES:
         for index, setting in enumerate(ALIGNMENT_METHODS[aln]):
-               ALIGN_RUNS.append(aln+"-"+samp+"-"+str(index))
+               alrun = aln+"-"+samp+"-"+str(index)
+               ALIGN_RUNS.append(alrun)
+               ALIGN_MAP[alrun] = SAMPLE_MAP[samp]
 
 L_ALIGN_RUNS = []
 for aln in L_ALIGNMENT_METHODS:
@@ -279,6 +279,14 @@ def starCompressionOption(sample):
     else:
         return ""
 
+def long_starCompressionOption(sample):
+    if L_EXT_MAP[sample] == ".gz":
+        return "--readFilesCommand zcat"
+    elif L_EXT_MAP[sample] == ".bz":
+        return "--readFilesCommand bzcat"
+    else:
+        return ""
+
 def starInput(sample):
     if not seSample(sample):
         return "--readFilesIn " + os.path.abspath(INPUT_1_MAP[sample]) + " " + os.path.abspath(INPUT_2_MAP[sample])
@@ -287,6 +295,15 @@ def starInput(sample):
 
 def starLongInput(sample):
     return "--readFilesIn " + os.path.abspath(L_INPUT_MAP[sample])
+
+def long_gmap_input(sample):
+    if L_EXT_MAP[sample] == ".gz":
+        return "<(zcat " + os.path.abspath(L_INPUT_MAP[sample]) + ")"
+    elif L_EXT_MAP[sample] == ".bz2":
+        return "<(bzcat " + os.path.abspath(L_INPUT_MAP[sample]) + ")"
+    else:
+        return os.path.abspath(L_INPUT_MAP[sample])
+
 
 def hisatStrandOption(sample):
     if SAMPLE_MAP[sample] == "fr-firststrand":
@@ -374,12 +391,17 @@ def getTrinityVersion(command):
 
 
 def trinityParameters(command, sample, REF, TGG_MAX_MEM):
-    version = getTrinityVersion(command)
+    if workflow.use_conda is False:
+        version = getTrinityVersion(command)
+        check_version = True
+    else:
+        check_version = False
+
     if str(TGG_MAX_MEM).isdigit() is True:
         TGG_MAX_MEM = int(TGG_MAX_MEM)
         if TGG_MAX_MEM >= 1000:
             TGG_MAX_MEM = "{}G".format(int(TGG_MAX_MEM/1000))
-    if version.startswith("201"):   # Old versions
+    if check_version and version.startswith("201"):   # Old versions
         reads = trinityInput(sample)
         memory = "--JM={}".format(TGG_MAX_MEM)
         cmd = "{reads} --genome={ref} {memory} --genome_guided_use_bam".format(reads=reads, ref=REF, memory=memory)
@@ -416,7 +438,7 @@ def gmap_intron_lengths(command, MAX_INTRON):
 #########################
 # Rules
 
-localrules: mikado_cfg, tophat_all, gsnap_all, star_all, hisat_all, cufflinks_all, trinity_all, stringtie_all, class_all, lr_gmap_all, lr_star_all, clean, align_all, lreads_all, asm_all, all
+localrules: mikado_cfg, tophat_all, gsnap_all, gsnap_index, star_all, hisat_all, cufflinks_all, trinity_all, stringtie_all, class_all, lr_gmap_all, lr_star_all, clean, align_all, lreads_all, asm_all, all
 
 rule all:
     input:
@@ -435,11 +457,11 @@ rule align_tophat_index:
     params: 
         idxdir=ALIGN_DIR + "/tophat/index/" + NAME,
         load=loadPre(config, "tophat")
-    log: ALIGN_DIR + "/tophat.index.log"
+    log: os.path.join(ALIGN_DIR_FULL, "logs", "tophat", "tophat.index.log")
     threads: 1
     message: "Indexing genome with tophat"
-    shell: "{params.load} bowtie2-build {input.ref} {params.idxdir} > {log} 2>&1"
     conda: os.path.join(envdir, "tophat2.yaml")
+    shell: "{params.load} bowtie2-build {input.ref} {params.idxdir} > {log} 2>&1"
 
 
 rule align_tophat:
@@ -447,10 +469,10 @@ rule align_tophat:
         r1=lambda wildcards: INPUT_1_MAP[wildcards.sample],
         index=rules.align_tophat_index.output
     output:
-        link=ALIGN_DIR+"/output/tophat-{sample}-{run,\d+}.bam"
+        link=os.path.join(ALIGN_DIR, "output", "tophat-{sample}-{run,\d+}.bam")
     params: 
-        outdir=ALIGN_DIR+"/tophat/{sample}-{run}",
-        bam=ALIGN_DIR+"/tophat/{sample}-{run}/accepted_hits.bam",
+        outdir=os.path.join(ALIGN_DIR, "tophat", "{sample}-{run}"),
+        bam=os.path.join(ALIGN_DIR, "tophat", "{sample}-{run}/accepted_hits.bam"),
         indexdir=ALIGN_DIR+"/tophat/index/"+NAME,
         load=loadPre(config, "tophat"),
         extra=lambda wildcards: config["align_methods"]["tophat"][int(wildcards.run)],
@@ -459,11 +481,12 @@ rule align_tophat:
         infiles=lambda wildcards: tophatInput(wildcards.sample),
         #trans="--GTF=" + REF_TRANS if REF_TRANS else ""
         trans=""
-    log: ALIGN_DIR + "/tophat-{sample}-{run}.log"
+    log: os.path.join(ALIGN_DIR, "logs", "tophat", "tophat-{sample}-{run}.log")
     threads: THREADS
     message: "Aligning RNAseq data with tophat (sample - {wildcards.sample} - run {wildcards.run})"
-    shell: "{params.load} tophat2 --output-dir={params.outdir} --no-sort-bam --num-threads={threads} --min-intron-length={MIN_INTRON} --max-intron-length={MAX_INTRON} {params.strand} {params.trans} {params.extra} {params.indexdir} {params.infiles} > {log} 2>&1 && ln -sf {params.link_src} {output.link} && touch -h {output.link}"
     conda: os.path.join(envdir, "tophat2.yaml")
+    shell: "{params.load} tophat2 --output-dir={params.outdir} --no-sort-bam --num-threads={threads} --min-intron-length={MIN_INTRON} --max-intron-length={MAX_INTRON} {params.strand} {params.trans} {params.extra} {params.indexdir} {params.infiles} > {log} 2>&1 && ln -sf {params.link_src} {output.link} && touch -h {output.link}"
+
 
 rule tophat_all:
     input: expand(ALIGN_DIR+"/output/tophat-{sample}-{run}.bam", sample=SAMPLES, run=TOPHAT_RUNS)
@@ -471,20 +494,30 @@ rule tophat_all:
     shell: "touch {output}"     
 
 
-# rule align_gsnap_index:
-#    input: REF
-#    output: touch(os.path.join(ALIGN_DIR, "gsnap", "index", NAME, "index.done"))  # os.path.join(ALIGN_DIR, "gsnap", "index", NAME, + NAME + ".sachildguide1024")
-#    params: load=loadPre(config, "gmap")
-#    log: ALIGN_DIR +"/gsnap.index.log"
-#    threads: 1
-#    message: "Indexing genome with gsnap"
-#    shell: "{params.load} gmap_build --dir={ALIGN_DIR}/gsnap/index --db={NAME} {input} > {log} 2>&1"
+rule gmap_index:
+    input: REF
+    output: touch(os.path.join(ALIGN_DIR, "gmap", "index", NAME, "index.done"))
+    params:     load=loadPre(config, "gmap")
+    threads: 1
+    log: os.path.join(ALIGN_DIR, "logs", "gmap", "index.log")
+    message: "Indexing genome with gmap"
+    conda: os.path.join(envdir, "gmap.yaml")
+    shell: "{params.load} gmap_build --dir={ALIGN_DIR}/gmap/index --db={NAME} {input} > {log} 2>&1"
 
+
+rule gsnap_index:
+    input:
+        index=rules.gmap_index.output
+    output:
+        touched=os.path.join(ALIGN_DIR_FULL, "gsnap", "gsnap_index.done")
+    threads: 1
+    message: "Linking the gmap index folder"
+    shell: "cd {ALIGN_DIR} && mkdir -p gsnap && ln -rs gmap/index gsnap/ && touch gsnap/gsnap_index.done"
 
 rule align_gsnap:
     input:
         r1=lambda wildcards: INPUT_1_MAP[wildcards.sample],
-        index=rules.gmap_index.output
+        index=rules.gsnap_index.output
     output:
         bam=ALIGN_DIR+"/gsnap/{sample}-{run,\d+}/gsnap.bam",
         link=ALIGN_DIR+"/output/gsnap-{sample}-{run,\d+}.bam"
@@ -494,11 +527,12 @@ rule align_gsnap:
         extra=lambda wildcards: config["align_methods"]["gsnap"][int(wildcards.run)],
         link_src="../gsnap/{sample}-{run}/gsnap.bam",
         infiles=lambda wildcards: tophatInput(wildcards.sample)     # Can use tophat function safely here
-    log: ALIGN_DIR+"/gsnap-{sample}-{run}.log"
+    log: os.path.join(ALIGN_DIR, "logs", "gsnap", "gsnap-{sample}-{run}.log")
     threads: THREADS
     message: "Aligning RNAseq with gsnap (sample {wildcards.sample} - run {wildcards.run})"
-    shell: "{params.load} {params.load_sam} gsnap --dir={ALIGN_DIR}/gsnap/index --db={NAME} {params.extra} --novelsplicing=1 --localsplicedist={MAX_INTRON} --nthreads={threads} --format=sam --npaths=20 {params.infiles} 2> {log} | samtools view -b -@ {threads} - > {output.bam} && ln -sf {params.link_src} {output.link} && touch -h {output.link}"
     conda: os.path.join(envdir, "gmap.yaml")
+    shell: "{params.load} {params.load_sam} gsnap --gunzip --bunzip2 --dir={ALIGN_DIR}/gsnap/index --db={NAME} {params.extra} --novelsplicing=1 --localsplicedist={MAX_INTRON} --nthreads={threads} --format=sam --npaths=20 {params.infiles} 2> {log} | samtools view -b -@ {threads} - > {output.bam} && ln -sf {params.link_src} {output.link} && touch -h {output.link}"
+
 
 rule gsnap_all:
     input: expand(ALIGN_DIR+"/output/gsnap-{sample}-{run}.bam", sample=SAMPLES, run=GSNAP_RUNS)
@@ -514,11 +548,11 @@ rule align_star_index:
         load=loadPre(config, "star"),
         trans="--sjdbGTFfile " + os.path.abspath(REF_TRANS) if REF_TRANS else "",
         extra=config["extra"]["star_index"]
-    log: ALIGN_DIR_FULL+"/star.index.log"
+    log: os.path.join(ALIGN_DIR_FULL, "logs", "star", "star.index.log")
     threads: THREADS
+    conda: os.path.join(envdir, "star.yaml")
     message: "Indexing genome with star"
     shell: "{params.load} cd {ALIGN_DIR_FULL}/star && STAR --runThreadN {threads} --runMode genomeGenerate --genomeDir {params.indexdir} {params.trans} --genomeFastaFiles {input} {params.extra} > {log} 2>&1 && cd {CWD}"
-    conda: os.path.join(envdir, "star.yaml")
 
 
 rule align_star:
@@ -537,11 +571,16 @@ rule align_star:
         trans="--sjdbGTFfile " + os.path.abspath(REF_TRANS) if REF_TRANS else "",
         rfc=lambda wildcards: starCompressionOption(wildcards.sample),
         infiles=lambda wildcards: starInput(wildcards.sample)          
-    log: ALIGN_DIR_FULL+"/star-{sample}-{run}.log"
+    log: os.path.join(ALIGN_DIR_FULL, "logs", "star", "star-{sample}-{run}.log")
     threads: int(THREADS)
     message: "Aligning input with star (sample {wildcards.sample} - run {wildcards.run})"
-    shell: "{params.load} cd {params.outdir}; STAR --runThreadN {threads} --runMode alignReads --genomeDir {params.indexdir} {params.rfc} {params.infiles} --outSAMtype BAM Unsorted --outSAMattributes NH HI AS nM XS NM MD --outSAMstrandField intronMotif --alignIntronMin {MIN_INTRON} --alignIntronMax {MAX_INTRON} {params.trans} --alignMatesGapMax {MAX_INTRON} --outFileNamePrefix {params.outdir}/ {params.extra} > {log} 2>&1 && cd {CWD} && ln -sf {params.link_src} {output.link} && touch -h {output.link}"
     conda: os.path.join(envdir, "star.yaml")
+    shell: "{params.load} cd {params.outdir}; STAR --runThreadN {threads} --runMode alignReads --genomeDir {params.indexdir} \
+{params.rfc} {params.infiles} --outSAMtype BAM Unsorted --outSAMattributes NH HI AS nM XS NM MD \
+--outSAMstrandField intronMotif --alignIntronMin {MIN_INTRON} --alignIntronMax {MAX_INTRON} {params.trans} \
+--alignMatesGapMax {MAX_INTRON} --outFileNamePrefix {params.outdir}/ {params.extra} > {log} \
+2>&1 && cd {CWD} && ln -sf {params.link_src} {output.link} && touch -h {output.link}"
+
 
 rule star_all:
     input: expand(ALIGN_DIR+"/output/star-{sample}-{run}.bam", sample=SAMPLES, run=STAR_RUNS)
@@ -552,11 +591,11 @@ rule align_hisat_index:
     input: REF
     output: ALIGN_DIR+"/hisat/index/"+NAME+".done"
     params: load=loadPre(config, "hisat")
-    log: ALIGN_DIR+"/hisat.index.log"
+    log: os.path.join(ALIGN_DIR, "logs", "hisat", "index.log")
     threads: THREADS
     message: "Indexing genome with hisat"
-    shell: "{params.load} hisat2-build -p {threads} {input} {ALIGN_DIR}/hisat/index/{NAME} > {log} 2>&1 && touch {output}"
     conda: os.path.join(envdir, "hisat2.yaml")
+    shell: "{params.load} hisat2-build -p {threads} {input} {ALIGN_DIR}/hisat/index/{NAME} > {log} 2>&1 && touch {output}"
 
 
 rule align_hisat:
@@ -576,7 +615,7 @@ rule align_hisat:
         trans="--known-splicesite-infile=" + ALIGN_DIR + "/hisat/{sample}-{run}/splice_sites.txt" if REF_TRANS else "",
         strand=lambda wildcards: hisatStrandOption(wildcards.sample),
         infiles=lambda wildcards: hisatInput(wildcards.sample)
-    log: ALIGN_DIR+"/hisat-{sample}-{run}.log"
+    log: os.path.join(ALIGN_DIR_FULL, "logs", "hisat", "hisat-{sample}-{run}.log")
     threads: THREADS
     conda: os.path.join(envdir, "hisat2.yaml")
     message: "Aligning input with hisat (sample {wildcards.sample} - run {wildcards.run})"
@@ -614,14 +653,16 @@ rule bam_stats:
     input:
         bam=rules.bam_sort.output,
         idx=rules.bam_index.output
-    output: ALIGN_DIR+"/output/{align_run}.sorted.bam.stats"
+    output:
+        stats=ALIGN_DIR+"/output/{align_run}.sorted.bam.stats",
+        png_flag=os.path.join(ALIGN_DIR, "output", "plots", "{align_run}", "{align_run}-quals.png")
     params: 
         load=loadPre(config, "samtools"),
         plot_out=ALIGN_DIR+"/output/plots/{align_run}/{align_run}"
     threads: 1
     message: "Using samtools to collected stats for: {input}"
-    conda: os.path.join(envdir, "samtools.yaml")
-    shell: "{params.load} samtools stats {input.bam} > {output} && plot-bamstats -p {params.plot_out} {output}"
+    conda: os.path.join(envdir, "gnuplot.yaml")
+    shell: "{params.load} samtools stats {input.bam} > {output.stats} && plot-bamstats -p {params.plot_out} {output.stats}"
 
 
 rule align_all:
@@ -652,16 +693,16 @@ rule asm_cufflinks:
         align=rules.align_all.output,
         ref=REF
     output: 
-        gtf=ASM_DIR+"/output/cufflinks-{run2,\d+}-{alrun}.gtf"
+        gtf=os.path.join(ASM_DIR, "output", "cufflinks-{run2,\d+}-{alrun}.gtf")
     params: 
-        outdir=ASM_DIR+"/cufflinks-{run2}-{alrun}",
-        gtf=ASM_DIR+"/cufflinks-{run2}-{alrun}/transcripts.gtf",
-        link_src="../cufflinks-{run2}-{alrun}/transcripts.gtf",
+        outdir=os.path.join(ASM_DIR, "cufflinks", "cufflinks-{run2}-{alrun}"),
+        gtf=os.path.join(ASM_DIR, "cufflinks", "cufflinks-{run2}-{alrun}/transcripts.gtf"),
+        link_src="../cufflinks/cufflinks-{run2}-{alrun}/transcripts.gtf",
         load=loadPre(config, "cufflinks"),
         extra=lambda wildcards: config["asm_methods"]["cufflinks"][int(wildcards.run2)],
         trans="--GTF-guide=" + REF_TRANS if REF_TRANS else "",
         strand=lambda wildcards: tophatStrandOption(extractSample(wildcards.alrun))
-    log: ASM_DIR+"/cufflinks-{run2}-{alrun}.log"
+    log: os.path.join(ASM_DIR, "logs", "cufflinks", "cufflinks-{run2}-{alrun}.log")
     threads: THREADS
     message: "Using cufflinks to assemble (run {wildcards.run2}): {input.bam}"
     conda: os.path.join(envdir, "cufflinks.yaml")
@@ -684,13 +725,13 @@ rule asm_scallop:
     output:
         gtf=os.path.join(ASM_DIR, "output", "scallop-{run2,\d+}-{alrun}.gtf")
     params:
-        outdir=os.path.join(ASM_DIR, "scallop-{run2}-{alrun}"),
-        gtf=os.path.join(ASM_DIR, "scallop-{run2}-{alrun}", "transcripts.gtf"),
-        link_src=os.path.join("..", "scallop-{run2}-{alrun}", "transcripts.gtf"),
+        outdir=os.path.join(ASM_DIR, "scallop", "scallop-{run2}-{alrun}"),
+        gtf=os.path.join(ASM_DIR, "scallop", "scallop-{run2}-{alrun}", "transcripts.gtf"),
+        link_src=os.path.join("..", "scallop", "scallop-{run2}-{alrun}", "transcripts.gtf"),
         load=loadPre(config, "scallop"),
         extra=lambda wildcards: config["asm_methods"]["scallop"][int(wildcards.run2)],
         strand=lambda wildcards: scallopStrandOption(extractSample(wildcards.alrun))
-    log: os.path.join(ASM_DIR, "scallop-{run2}-{alrun}.log")
+    log: os.path.join(ASM_DIR, "logs", "scallop", "scallop-{run2}-{alrun}.log")
     threads: 1
     message: "Using Scallop to assemble (run {wildcards.run2}): {input.bam}"
     conda: os.path.join(envdir, "scallop.yaml")
@@ -707,47 +748,87 @@ rule asm_trinitygg:
         bam=ALIGN_DIR+"/output/{alrun}.sorted.bam",
         align=rules.align_all.output,
         ref=REF
-    output: ASM_DIR+"/trinity-{run2,\d+}-{alrun}/Trinity-GG.fasta"
+    output: os.path.join(ASM_DIR, "trinity", "trinity-{run2,\d+}-{alrun}", "Trinity-GG.fasta")
     params: 
-        outdir=ASM_DIR+"/trinity-{run2}-{alrun}",
+        outdir=os.path.join(ASM_DIR, "trinity", "trinity-{run2}-{alrun}"),
+        tempdir=os.path.join(ASM_DIR, "trinity", "trinity-{run2}-{alrun}", "trinity_build"),
         load=loadPre(config, "trinity"),
         extra=lambda wildcards: config["asm_methods"]["trinity"][int(wildcards.run2)],
         strand=lambda wildcards: trinityStrandOption(extractSample(wildcards.alrun)),
         base_parameters=lambda wildcards: trinityParameters(loadPre(config, "trinity"), extractSample(wildcards.alrun), REF, TGG_MAX_MEM)
-    log: ASM_DIR+"/trinity-{run2}-{alrun}.log"
+    log: os.path.join(ASM_DIR, "logs", "trinity", "trinity-{run2}-{alrun}.log")
     threads: THREADS
     conda: os.path.join(envdir, "trinity.yaml")
     message: "Using trinity in genome guided mode to assemble (run {wildcards.run2}): {input.bam}"
-    shell: "{params.load} Trinity --seqType=fq {params.strand} --output={params.outdir} {params.extra} --genome_guided_max_intron={MAX_INTRON}  --CPU={threads}  {params.base_parameters}={input.bam} > {log} 2>&1"
-
-rule gmap_index:
-    input: REF
-    output: touch(os.path.join(ALIGN_DIR, "gmap", "index", NAME, "index.done"))
-    params:     load=loadPre(config, "gmap")
-    threads: 1
-    log: ALIGN_DIR+"/gmap.index.log"
-    message: "Indexing genome with gmap"
-    conda: os.path.join(envdir, "gmap.yaml")
-    shell: "{params.load} gmap_build --dir={ALIGN_DIR}/gmap/index --db={NAME} {input} > {log} 2>&1"
+    shell: "{params.load} Trinity --full_cleanup --seqType=fq {params.strand} --output={params.tempdir} \
+    {params.extra} --genome_guided_max_intron={MAX_INTRON}  --CPU={threads}  \
+    {params.base_parameters}={input.bam} > {log} 2>&1 && mv {params.tempdir}/Trinity-GG.fasta* {params.outdir}/ \
+    && rm -rf {params.tempdir}"
 
 rule asm_map_trinitygg:
     input: 
         transcripts=rules.asm_trinitygg.output,
         index=rules.gmap_index.output
     output: 
-        gff=ASM_DIR+"/output/trinity-{run2,\d+}-{alrun}.gff"
+        gff=os.path.join(ASM_DIR, "output", "trinity-{run2,\d+}-{alrun}.gff")
     params: 
         load=loadPre(config, "gmap"),
-        gff=ASM_DIR+"/trinity-{run2}-{alrun}/trinity-{run2}-{alrun}.gff",
-        link_src="../trinity-{run2}-{alrun}/trinity-{run2}-{alrun}.gff",
+        gff=os.path.join(ASM_DIR, "trinity", "trinity-{run2}-{alrun}", "trinity-{run2}-{alrun}.gff"),
+        link_src="../trinity/trinity-{run2}-{alrun}/trinity-{run2}-{alrun}.gff",
         intron_length=gmap_intron_lengths(loadPre(config, "gmap"), MAX_INTRON),
-        stranded=lambda wildcards: "-z sense_filter" if SAMPLE_MAP[wildcards.sample] != "fr-unstranded" else ""
-    log: ASM_DIR+"/trinitygmap-{run2}-{alrun}.log"
+        stranded=lambda wildcards: "-z sense_filter" if ALIGN_MAP[wildcards.alrun] != "fr-unstranded" else ""
+    log: os.path.join(ASM_DIR, "logs", "trinity", "trinitygmap-{run2}-{alrun}.log")
     threads: THREADS
     conda: os.path.join(envdir, "gmap.yaml")
     message: "Mapping trinity transcripts to the genome (run {wildcards.run2}): {input.transcripts}"
     shell: "{params.load} gmap --dir={ALIGN_DIR}/gmap/index {params.stranded} --db={NAME} --min-intronlength={MIN_INTRON} {params.intron_length}  --format=3 --min-trimmed-coverage={TGG_COVERAGE} --min-identity={TGG_IDENTITY} -n {TGG_NPATHS} -t {THREADS} {input.transcripts} > {params.gff} 2> {log} && ln -sf {params.link_src} {output.gff} && touch -h {output.gff}"
 
+
+rule asm_stringtie:
+    input:
+        bam=os.path.join(ALIGN_DIR, "output", "{alrun}.sorted.bam"),
+        align=rules.align_all.output
+    output:
+        link=os.path.join(ASM_DIR, "output", "stringtie-{run2,\d+}-{alrun}.gtf"),
+        gtf=os.path.join(ASM_DIR, "stringtie", "stringtie-{run2,\d+}-{alrun}", "stringtie-{run2}-{alrun}.gtf")
+    params:
+        load=loadPre(config, "stringtie"),
+        extra=lambda wildcards: config["asm_methods"]["stringtie"][int(wildcards.run2)],
+        trans="-G " + REF_TRANS if REF_TRANS else "",
+        link_src="../stringtie/stringtie-{run2}-{alrun}/stringtie-{run2}-{alrun}.gtf"
+    log: os.path.join(ASM_DIR, "logs", "stringtie", "stringtie-{run2}-{alrun}.log")
+    threads: THREADS
+    message: "Using stringtie to assemble (run {wildcards.run2}): {input.bam}"
+    conda: os.path.join(envdir, "stringtie.yaml")
+    shell: "{params.load} stringtie {input.bam} -l Stringtie_{wildcards.run2}_{wildcards.alrun} -f 0.05 -m 200 {params.extra} {params.trans} -o {output.gtf} -p {threads} > {log} 2>&1 && ln -sf {params.link_src} {output.link} && touch -h {output.link}"
+
+rule stringtie_all:
+    input: expand(ASM_DIR+"/output/stringtie-{run2}-{alrun}.gtf", run2=STRINGTIE_RUNS, alrun=ALIGN_RUNS)
+    output: ASM_DIR+"/stringtie.done"
+    shell: "touch {output}"
+
+rule asm_class:
+    input:
+        bam=os.path.join(ALIGN_DIR, "output", "{alrun}.sorted.bam"),
+        align=rules.align_all.output,
+        ref=REF
+    output:
+        link=os.path.join(ASM_DIR, "output", "class-{run2,\d+}-{alrun}.gtf"),
+        gtf=os.path.join(ASM_DIR, "class", "class-{run2,\d+}-{alrun}", "class-{run2}-{alrun}.gtf")
+    params:
+        outdir=ASM_DIR+"/class/class-{run2}-{alrun}",
+        load=loadPre(config, "class"),
+        extra=lambda wildcards: config["asm_methods"]["class"][int(wildcards.run2)],
+        link_src="../class/class-{run2}-{alrun}/class-{run2}-{alrun}.gtf"
+    log: os.path.join(ASM_DIR, "logs", "class", "class-{run2}-{alrun}.log")
+    threads: THREADS
+    message: "Using class to assemble (run {wildcards.run2}): {input.bam}"
+    shell: "{params.load} {CLASS} --clean --force -c \"{params.extra}\" -p {threads} {input.bam} > {output.gtf} 2> {log} && ln -sf {params.link_src} {output.link} && touch -h {output.link}"
+
+rule class_all:
+    input: expand(ASM_DIR+"/output/class-{run2}-{alrun}.gtf", run2=CLASS_RUNS, alrun=ALIGN_RUNS)
+    output: ASM_DIR+"/class.done"
+    shell: "touch {output}"
 
 rule lr_gmap:
     input:
@@ -755,14 +836,18 @@ rule lr_gmap:
         reads=lambda wildcards: L_INPUT_MAP[wildcards.lsample]
     output: link=ALIGN_DIR+"/lr_output/lr_gmap-{lsample}-{lrun}.gff",
         gff=ALIGN_DIR+"/gmap/{lsample}-{lrun}/lr_gmap-{lsample}-{lrun}.gff"          
-    params: load=loadPre(config, "gmap"),
+    params:
+        load=loadPre(config, "gmap"),
         link_src="../gmap/{lsample}-{lrun}/lr_gmap-{lsample}-{lrun}.gff",
-        intron_length=gmap_intron_lengths(loadPre(config, "gmap"), MAX_INTRON)
-    log: ALIGN_DIR+"/gmap-{lsample}-{lrun}.log"
+        intron_length=gmap_intron_lengths(loadPre(config, "gmap"), MAX_INTRON),
+        input_reads=lambda wildcards: long_gmap_input(wildcards.lsample)
+    log: os.path.join(ALIGN_DIR, "logs", "lr_gmap", "gmap-{lsample}-{lrun}.log")
     threads: THREADS
     conda: os.path.join(envdir, "gmap.yaml")
     message: "Mapping long reads to the genome with gmap (sample: {wildcards.lsample} - run: {wildcards.lrun})"
-    shell: "{params.load} gmap --dir={ALIGN_DIR}/gmap/index --db={NAME} --min-intronlength={MIN_INTRON} {params.intron_length} --format=3 {input.reads} > {output.gff} 2> {log} && ln -sf {params.link_src} {output.link} && touch -h {output.link}"
+    shell: "{params.load} gmap --dir={ALIGN_DIR}/gmap/index --db={NAME} --min-intronlength={MIN_INTRON} \
+{params.intron_length} --format=3 {params.input_reads} > {output.gff} 2> {log} && ln -sf {params.link_src} {output.link} \
+&& touch -h {output.link}"
 
 rule lr_star:
     input:
@@ -771,15 +856,21 @@ rule lr_star:
     output: bam=ALIGN_DIR+"/lr_star/{lsample}-{lrun}/Aligned.out.bam"
     params: load=loadPre(config, "star"),
         outdir=ALIGN_DIR_FULL+"/lr_star/{lsample}-{lrun}",
-                indexdir=ALIGN_DIR_FULL+"/star/index",
-                trans="--sjdbGTFfile " + os.path.abspath(REF_TRANS) if REF_TRANS else "",
-                #rfc=lambda wildcards: starCompressionOption(wildcards.lsample),
-                infiles=lambda wildcards: starLongInput(wildcards.lsample)
-    log: ALIGN_DIR_FULL+"/lr_star-{lsample}-{lrun}.log"
+        indexdir=ALIGN_DIR_FULL+"/star/index",
+        trans="--sjdbGTFfile " + os.path.abspath(REF_TRANS) if REF_TRANS else "",
+        rfc=lambda wildcards: long_starCompressionOption(wildcards.lsample),
+        infiles=lambda wildcards: starLongInput(wildcards.lsample)
+    log: os.path.join(ALIGN_DIR_FULL, "logs", "lr_star", "lr_star-{lsample}-{lrun}.log")
     threads: THREADS
     conda: os.path.join(envdir, "star.yaml")
     message: "Mapping long reads to the genome with star (sample: {wildcards.lsample} - run: {wildcards.lrun})"
-    shell: "{params.load} STARlong --runThreadN {threads} --runMode alignReads --outSAMattributes NH HI NM MD --readNameSeparator space --outFilterMultimapScoreRange 1 --outFilterMismatchNmax 2000 --scoreGapNoncan -20 --scoreGapGCAG -4 --scoreGapATAC -8 --scoreDelOpen -1 --scoreDelBase -1 --scoreInsOpen -1 --scoreInsBase -1 --alignEndsType Local --seedSearchStartLmax 50 --seedPerReadNmax 100000 --seedPerWindowNmax 1000 --alignTranscriptsPerReadNmax 100000 --alignTranscriptsPerWindowNmax 10000 --genomeDir {params.indexdir} {params.infiles} --outSAMtype BAM Unsorted --outSAMstrandField intronMotif --alignIntronMin {MIN_INTRON} --alignIntronMax {MAX_INTRON} {params.trans} --outFileNamePrefix {params.outdir}/ > {log} 2>&1 && cd {CWD}"
+    shell: "{params.load} STARlong --runThreadN {threads} --runMode alignReads --outSAMattributes NH HI NM MD \
+--readNameSeparator space --outFilterMultimapScoreRange 1 --outFilterMismatchNmax 2000 \
+--scoreGapNoncan -20 --scoreGapGCAG -4 --scoreGapATAC -8 --scoreDelOpen -1 --scoreDelBase -1 --scoreInsOpen -1 \
+--scoreInsBase -1 --alignEndsType Local --seedSearchStartLmax 50 --seedPerReadNmax 100000 --seedPerWindowNmax 1000 \
+--alignTranscriptsPerReadNmax 100000 --alignTranscriptsPerWindowNmax 10000 --genomeDir {params.indexdir} {params.rfc} \
+{params.infiles} --outSAMtype BAM Unsorted --outSAMstrandField intronMotif --alignIntronMin {MIN_INTRON} \
+--alignIntronMax {MAX_INTRON} {params.trans} --outFileNamePrefix {params.outdir}/ > {log} 2>&1 && cd {CWD}"
 
 
 rule starbam2gtf:
@@ -800,52 +891,6 @@ rule lr_star_all:
     output: ALIGN_DIR+"/lr_star.done"
     shell: "touch {output}"     
 
-rule asm_stringtie:
-    input: 
-        bam=ALIGN_DIR+"/output/{alrun}.sorted.bam",
-        align=rules.align_all.output
-    output: 
-        link=ASM_DIR+"/output/stringtie-{run2,\d+}-{alrun}.gtf",
-        gtf=ASM_DIR+"/stringtie-{run2,\d+}-{alrun}/stringtie-{run2}-{alrun}.gtf"
-    params:
-        load=loadPre(config, "stringtie"),
-        extra=lambda wildcards: config["asm_methods"]["stringtie"][int(wildcards.run2)],
-        gtf=ASM_DIR+"/stringtie-{run2}-{alrun}/stringtie-{run2}-{alrun}.gtf",
-        trans="-G " + REF_TRANS if REF_TRANS else "",
-        link_src="../stringtie-{run2}-{alrun}/stringtie-{run2}-{alrun}.gtf"
-    log: ASM_DIR+"/stringtie-{run2}-{alrun}.log"
-    threads: THREADS
-    message: "Using stringtie to assemble (run {wildcards.run2}): {input.bam}"
-    conda: os.path.join(envdir, "stringtie.yaml")
-    shell: "{params.load} stringtie {input.bam} -l Stringtie_{wildcards.run2}_{wildcards.alrun} -f 0.05 -m 200 {params.extra} {params.trans} -o {params.gtf} -p {threads} > {log} 2>&1 && ln -sf {params.link_src} {output.link} && touch -h {output.link}"
-
-rule stringtie_all:
-    input: expand(ASM_DIR+"/output/stringtie-{run2}-{alrun}.gtf", run2=STRINGTIE_RUNS, alrun=ALIGN_RUNS)
-    output: ASM_DIR+"/stringtie.done"
-    shell: "touch {output}"     
-
-rule asm_class:
-    input:
-        bam=ALIGN_DIR+"/output/{alrun}.sorted.bam",
-        align=rules.align_all.output,
-        ref=REF
-    output: 
-        link=ASM_DIR+"/output/class-{run2,\d+}-{alrun}.gtf",
-        gtf=ASM_DIR+"/class-{run2,\d+}-{alrun}/class-{run2}-{alrun}.gtf"
-    params: 
-        outdir=ASM_DIR+"/class-{run2}-{alrun}",
-        load=loadPre(config, "class"),
-        extra=lambda wildcards: config["asm_methods"]["class"][int(wildcards.run2)],
-        link_src="../class-{run2}-{alrun}/class-{run2}-{alrun}.gtf"
-    log: ASM_DIR+"/class-{run2}-{alrun}.log"
-    threads: THREADS
-    message: "Using class to assemble (run {wildcards.run2}): {input.bam}"
-    shell: "{params.load} {CLASS} --clean --force -c \"{params.extra}\" -p {threads} {input.bam} > {output.gtf} 2> {log} && ln -sf {params.link_src} {output.link} && touch -h {output.link}"
-
-rule class_all:
-    input: expand(ASM_DIR+"/output/class-{run2}-{alrun}.gtf", run2=CLASS_RUNS, alrun=ALIGN_RUNS)
-    output: ASM_DIR+"/class.done"
-    shell: "touch {output}"     
 
 rule asm_gff_stats:
     input: ASM_DIR + "/output/{asm_run}"
@@ -853,7 +898,6 @@ rule asm_gff_stats:
     params: load=loadPre(config, "mikado")
     threads: 1
     message: "Computing assembly stats for: {input}"
-    conda: os.path.join(envdir, "mikado.yaml")
     shell: "{params.load} mikado util stats {input} > {output}"
 
 
@@ -869,7 +913,6 @@ rule lreads_stats:
     params: load=loadPre(config, "mikado")
     threads: 1
     message: "Computing long read stats for: {input}"
-    conda: os.path.join(envdir, "mikado.yaml")
     shell: "{params.load} mikado util stats {input} > {output}"
 
 
@@ -903,7 +946,7 @@ rule portcullis_prep:
         outdir=PORTCULLIS_DIR+"/portcullis_{aln_method}/1-prep",
         load=loadPre(config, "portcullis"),
         files=lambda wildcards: PORTCULLIS_IN[wildcards.aln_method],
-    log: PORTCULLIS_DIR+"/portcullis_{aln_method}-prep.log"
+    log: os.path.join(PORTCULLIS_DIR, "logs", "{aln_method}", "prep.log")
     threads: THREADS
     message: "Using portcullis to prepare: {wildcards.aln_method}"
     conda: os.path.join(envdir, "portcullis.yaml")
@@ -919,11 +962,12 @@ rule portcullis_junc:
         outdir=PORTCULLIS_DIR+"/portcullis_{aln_method}/2-junc",
         load=loadPre(config, "portcullis"),
         strand=lambda wildcards: portcullisStrandOption(wildcards.aln_method, loadPre(config, "portcullis"), "junc")
-    log: PORTCULLIS_DIR+"/portcullis_{aln_method}-junc.log"
+    log: os.path.join(PORTCULLIS_DIR, "logs", "{aln_method}", "junc.log")
     threads: THREADS
     message: "Using portcullis to analyse potential junctions: {wildcards.aln_method}"
     conda: os.path.join(envdir, "portcullis.yaml")
     shell: "{params.load} portcullis junc -o {params.outdir}/{wildcards.aln_method} {params.strand} -t {threads} {params.prepdir} > {log} 2>&1"
+
 
 rule portcullis_filter:
     input: rules.portcullis_junc.output
@@ -941,7 +985,7 @@ rule portcullis_filter:
         tab_link_src="../portcullis_{aln_method}/3-filt/{aln_method}.pass.junctions.tab",
         link_unfilt="../portcullis_{aln_method}/2-junc/{aln_method}.junctions.bed",
         tab_link_unfilt="../portcullis_{aln_method}/2-junc/{aln_method}.junctions.tab"
-    log: PORTCULLIS_DIR+"/portcullis_{aln_method}-filter.log"
+    log: os.path.join(PORTCULLIS_DIR, "logs", "{aln_method}", "filter.log")
     threads: THREADS
     conda: os.path.join(envdir, "portcullis.yaml")
     message: "Using portcullis to filter invalid junctions: {wildcards.aln_method}"
@@ -989,6 +1033,5 @@ rule mikado_cfg:
         junctions="--junctions={}".format(rules.portcullis_merge.output.bed)
     log: OUT_DIR + "/mikado.yaml.log"
     threads: 1
-    conda: os.path.join(envdir, "mikado.yaml")
     message: "Creating Mikado configuration file"
     shell: "{params.load} mikado configure --gff={MIKADO_IN_STR} --labels={MIKADO_LABEL_STR} --strand-specific-assemblies={MIKADO_SS_STR} {params.junctions} --scoring {params.scoring} --reference={input.ref} --external={input.cfg} {output} 2> {log}"

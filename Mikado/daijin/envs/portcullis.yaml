@@ -1,5 +1,6 @@
 channels:
   - bioconda
+  - anaconda
+  - conda-forge
 dependencies:
-  - bioconda::portcullis>=1.2.2
-  - bioconda::samtools>=1.9
+  - bioconda::portcullis

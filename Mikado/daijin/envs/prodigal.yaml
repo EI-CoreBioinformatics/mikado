@@ -1,4 +1,4 @@
 channels:
   - bioconda
 dependencies:
-  - bioconda::scallop>=0.10.4
+  - bioconda::prodigal>=2.6.3

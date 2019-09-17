@@ -30,14 +30,8 @@ dependencies:
   - conda-forge::pandas>=0.24.2
   - conda-forge::jsonref>=0.2
   - bioconda::pysam>=0.15.2
-  - bioconda::samtools>=1.9
-  - bioconda::transdecoder>=5.5.0
-  - bioconda::portcullis>=1.2.0
-  - bioconda::prodigal>=2.6.3
-  - bioconda::diamond>=0.9.24
-  - bioconda::blast>=2.7.1
   - conda-forge::fastnumbers>=2.1.1
   - pip
   - conda-forge::rapidjson>=1.1.0
   - conda-forge::python-rapidjson>=0.8
-  
+  - conda-forge::hypothesis

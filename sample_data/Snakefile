@@ -9,7 +9,7 @@ import subprocess
 import gzip
 from snakemake import logger as snake_logger
 
-swissprot = "uniprot_sprot_plants.fasta"
+swissprot = "uniprot_sprot_plants.fasta.gz"
 swissprot_noat = "uniprot_sprot_plants.not_at.fasta"
 
 DBs=[swissprot]
@@ -17,7 +17,7 @@ zipDBs=["{0}.gz".format(db) for db in DBs]
 
 configname = "configuration.yaml"
 if not os.path.exists(configname):
-    command = "mikado configure --list list.txt --reference chr5.fas.gz --mode permissive --daijin -t 3 \
+    command = "mikado configure --use-blast --list list.txt --reference chr5.fas.gz --mode permissive --daijin -t 3 \
         --subloci-out mikado.subloci.gff3 --scoring plant.yaml --junctions junctions.bed -bt {swiss} -bc 1 {configname}".format(configname=configname, swiss=swissprot)
     snake_logger.info("Creating the configuration file")
     snake_logger.info(command)
@@ -32,11 +32,36 @@ except:
 configfile: "configuration.yaml"
 
 rule complete:
-    input: "compare.stats", "compare_subloci.stats", "compare_input.stats", "check.ok", "check_metrics.ok"
+    input: "compare.stats", "compare_subloci.stats", "compare_input.stats", "check.ok", "check_metrics.ok", "daijin_test/mikado.yaml"
     output: touch("finished.ok")
 
+
+rule uncompress_genome:
+  input: "chr5.fas.gz"
+  output: "chr5.fas"
+  shell: "gunzip -dc {input} > {output}"
+
+rule daijin_configure:
+    input:
+      prots=swissprot,
+      genome=rules.uncompress_genome.output
+    output: "daijin.yaml"
+    shell: "daijin configure -as stringtie cufflinks trinity scallop -lal gmap -al \
+star hisat gsnap --sample-sheet samples.txt -o daijin.yaml -g {input.genome} -od daijin_test \
+ --prot-db {input.prots} --scoring plant.yaml"
+
+
+rule daijin_assemble:
+    input:
+        conf=rules.daijin_configure.output
+    output:
+        conf="daijin_test/mikado.yaml"
+    threads: 4
+    message: "daijin assemble --nolock --use-conda --threads 2 --cores 4 --jobs 2 daijin.yaml"
+    shell: "daijin assemble --nolock --use-conda --threads 2 --cores 4 --jobs 2 daijin.yaml"
+
 rule test_json:
-    input: db=zipDBs, config=configname
+    input: db=swissprot, config=configname
     output: touch("{}.ok".format(configname))
     message: "Checking the configuration"
     run:
@@ -48,15 +73,8 @@ rule test_json:
         # subprocess.call("gunzip -c chr5.fas.gz > chr5.fas", shell=True)
         # shell("touch {output}")
 
-rule uncompress_blast:
-    input: "{0}.gz".format(swissprot)
-    output: swissprot
-    message: "gzip -dc {input} > {output}"
-    shell:
-      "gzip -dc {input} > {output}"
-
 rule daijin:
-    input: "class.gtf", "cufflinks.gtf", "stringtie.gtf", "trinity.gff3", "mikado.bed", rules.test_json.output, rules.uncompress_blast.output
+    input: "class.gtf", "cufflinks.gtf", "stringtie.gtf", "trinity.gff3", "mikado.bed", rules.test_json.output, swissprot
     output:
         loci=os.path.join("Daijin", "5-mikado", "pick", "permissive", "mikado-permissive.loci.gff3"),
         sub=os.path.join("Daijin", "5-mikado", "pick", "permissive", "mikado.subloci.gff3"),
@@ -64,8 +82,8 @@ rule daijin:
         # mono=os.path.join("Daijin", "5-mikado", "pick", "permissive", "mikado.monoloci.gff3"),
         prep=os.path.join("Daijin", "5-mikado", "mikado_prepared.gtf"),
 	prep_fai=os.path.join("Daijin", "5-mikado", "mikado_prepared.fasta.fai")
-    message: "daijin mikado --jobs 1 --cores 2 --threads 2 -nd --nolock configuration.yaml"
-    shell: "daijin mikado --jobs 1 --cores 2 --threads 2 -nd --nolock configuration.yaml"
+    message: "daijin mikado --use-conda --jobs 2 --cores 4 --threads 2 -nd --nolock configuration.yaml"
+    shell: "daijin mikado --use-conda --jobs 2 --cores 4 --threads 2 -nd --nolock configuration.yaml"
 
 rule index_reference:
     input: reference="reference.gff3"
@@ -137,14 +155,14 @@ rule clean:
         import shutil
         for filename in itertools.chain(glob.glob("*.ok"), glob.glob("uniprot*.fasta.p*"),
                                     glob.glob("*midx"), glob.glob("*fai"),
-				    "Daijin",
                                     glob.glob("uniprot*fasta"), glob.glob("*loci*"),
+				    ["daijin.yaml", "Daijin", "daijin_logs", "daijin_test"],
                                     ["mikado_prepared.gtf", "mikado_prepared.fasta", "mikado.prodigal.gff3"],
                                     glob.glob("compare*"), glob.glob(config["db_settings"]["db"]),
                                     glob.glob("*.log"), glob.glob("*xml"), ["chr5.fas"],
 				    glob.glob("*.ok"),
                                     ["configuration.yaml"]):
-            if os.path.exists(filename):
+            if os.path.exists(filename) and filename not in (".", ".."):
                 shutil.rmtree(filename) if os.path.isdir(filename) else os.remove(filename)
 
 rule clean_crumbs:

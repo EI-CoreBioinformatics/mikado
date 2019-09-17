@@ -1,15 +1,6 @@
-import sys
 import os
-import glob
-import itertools
-import subprocess
-from math import log, ceil
-from os import listdir
-from os.path import isfile, join
-from snakemake import logger as snake_logger
 from shutil import which
 import pkg_resources
-import Mikado
 
 
 CFG=workflow.overwrite_configfile
@@ -45,8 +36,6 @@ BLASTX_TARGET = config["blastx"]["prot_db"]
 BLASTX_MAX_TARGET_SEQS = config["blastx"]["max_target_seqs"]
 BLASTX_EVALUE = config["blastx"]["evalue"]
 BLASTX_CHUNKS = max(int(config["blastx"]["chunks"]), THREADS)
-if BLASTX_CHUNKS > int(config["blastx"]["chunks"]):
-    print("Increasing the number of chunks for DIAMOND/BLASTX, as Mikado serialise relies on chunking.")
 
 ASM_COLLECT = which("asm_collect.py")
 
@@ -87,7 +76,6 @@ rule mikado_prepare:
         cfg=CFG
     threads: THREADS
     message: "Preparing transcripts using mikado"
-    conda: os.path.join(envdir, "mikado.yaml")
     shell: "{params.load} mikado prepare --start-method=spawn --fasta={input.ref} --json-conf={params.cfg} -od {MIKADO_DIR} 2>&1"
 
 rule create_blast_database:
@@ -96,7 +84,6 @@ rule create_blast_database:
     message: "Creating the BLASTX database"
     params:
         fastas=" ".join(BLASTX_TARGET)
-    conda: os.path.join(envdir, "mikado.yaml")
     shell: """sanitize_blast_db.py --out {output} {params.fastas}"""
 
 rule split_fa:
@@ -108,7 +95,6 @@ rule split_fa:
         load=loadPre(config, "mikado")
     threads: 1
     message: "Splitting fasta: {input.tr}"
-    conda: os.path.join(envdir, "mikado.yaml")
     shell: "{params.load} split_fasta.py -m {params.chunks} {input.tr} {params.outdir} && touch {output}"
 
 if config["mikado"]["use_diamond"] is False:
@@ -121,7 +107,7 @@ if config["mikado"]["use_diamond"] is False:
             load=loadPre(config, "blast")
         log: BLAST_DIR+"/blast.index.log"
         message: "Making BLAST protein database for: {input.fa}"
-        conda: os.path.join(envdir, "mikado.yaml")
+        conda: os.path.join(envdir, "blast.yaml")
         shell: "{params.load} makeblastdb -in {input.fa} -out {params.db} -dbtype prot -parse_seqids > {log} 2>&1"
 
     rule blastx:
@@ -136,7 +122,7 @@ if config["mikado"]["use_diamond"] is False:
             uncompressed=BLAST_DIR+"/xmls/chunk-{chunk_id}-proteins.xml",
         log: BLAST_DIR + "/logs/chunk-{chunk_id}.blastx.log"
         threads: THREADS
-        conda: os.path.join(envdir, "mikado.yaml")
+        conda: os.path.join(envdir, "blast.yaml")
         message: "Running BLASTX for mikado transcripts against: {params.tr}"
         shell: "{params.load} if [ -s {params.tr} ]; then blastx -num_threads {threads} -outfmt 5 -query {params.tr} -db {params.db} -evalue {BLASTX_EVALUE} -max_target_seqs {BLASTX_MAX_TARGET_SEQS} > {params.uncompressed} 2> {log}; else touch {params.uncompressed}; fi && gzip {params.uncompressed}"
 
@@ -151,7 +137,7 @@ else:
         log: BLAST_DIR+"/diamond.index.log"
         message: "Making DIAMOND protein database for: {input.fa}"
         threads: THREADS
-        conda: os.path.join(envdir, "mikado.yaml")
+        conda: os.path.join(envdir, "diamond.yaml")
         shell: "{params.load} diamond makedb --threads THREADS --in {input.fa} --db {params.db} 2> {log} > {log}"
 
     rule diamond:
@@ -164,7 +150,7 @@ else:
             tr=BLAST_DIR+"/fastas/chunk_{chunk_id}.fasta"
         threads: THREADS
         log: BLAST_DIR + "/logs/chunk-{chunk_id}.blastx.log"
-        conda: os.path.join(envdir, "mikado.yaml")
+        conda: os.path.join(envdir, "diamond.yaml")
         shell: "{params.load} if [ -s {params.tr} ]; then diamond blastx --threads {threads} --outfmt xml --compress 1 --out {output} --max-target-seqs {BLASTX_MAX_TARGET_SEQS} --evalue {BLASTX_EVALUE} --db {input.db} --salltitles --query {params.tr} --sensitive > {log} 2> {log}; else touch {output}; fi"
 
 rule blast_all:
@@ -186,7 +172,7 @@ if config.get("mikado", dict()).get("use_prodigal", False) is False and config.g
             # ss="-S" if MIKADO_STRAND else ""
         threads: 1
         message: "Running transdecoder longorf on Mikado prepared transcripts: {input}"
-        conda: os.path.join(envdir, "mikado.yaml")
+        conda: os.path.join(envdir, "transdecoder.yaml")
         shell: "{params.load} cd {params.outdir} && ln -sf {params.tr_in} {params.tr} && TransDecoder.LongOrfs -m {params.minprot} -t {params.tr} > {log} 2>&1"
 
     rule transdecoder_pred:
@@ -204,7 +190,7 @@ if config.get("mikado", dict()).get("use_prodigal", False) is False and config.g
         log: TDC_DIR_FULL+"/transdecoder.predict.log"
         threads: THREADS
         message: "Running transdecoder predict on Mikado prepared transcripts: {input}"
-        conda: os.path.join(envdir, "mikado.yaml")
+        conda: os.path.join(envdir, "transdecoder.yaml")
         shell: "{params.load} cd {params.outdir} && TransDecoder.Predict -t {params.tr} --cpu {threads} > {log} 2>&1"
     orf_out = rules.transdecoder_pred.output
 elif config.get("mikado", dict()).get("use_prodigal", False) is True:
@@ -221,7 +207,7 @@ elif config.get("mikado", dict()).get("use_prodigal", False) is True:
         log: PROD_DIR_FULL+"/prodigal.log"
         threads: 1
         message: "Running PRODIGAL on Mikado prepared transcripts: {input}"
-        conda: os.path.join(envdir, "mikado.yaml")
+        conda: os.path.join(envdir, "prodigal.yaml")
         shell: "{params.load} mkdir -p {params.outdir} && cd {params.outdir} && ln -sf {params.tr_in} {params.tr} && prodigal -f gff -g 1 -i {params.tr} -o {params.tr_out} > {log} 2>&1"
     orf_out = rules.prodigal.output
 
@@ -277,7 +263,7 @@ rule mikado_serialise:
         blast_target="--blast_targets=" + BLAST_DIR+"/index/blastdb-proteins.fa" if len(BLASTX_TARGET) > 0 else "",
         orfs=orfs
     threads: THREADS
-    conda: os.path.join(envdir, "mikado.yaml")
+    # conda: os.path.join(envdir, "mikado.yaml")
     shell: "{params.load} mikado serialise {params.blast} {params.blast_target} --start-method=spawn --transcripts={input.transcripts} --genome_fai={input.fai} --json-conf={params.cfg} --force {params.orfs} -od {MIKADO_DIR} --procs={threads} > {log} 2>&1"
 
 rule mikado_pick:
@@ -292,7 +278,7 @@ rule mikado_pick:
         load=loadPre(config, "mikado"),
         outdir=os.path.join(MIKADO_DIR, "pick", "{mode}")
     threads: THREADS
-    conda: os.path.join(envdir, "mikado.yaml")
+    # conda: os.path.join(envdir, "mikado.yaml")
     message: "Running mikado picking stage"
     shell: "{params.load} mikado pick --source Mikado_{wildcards.mode} --mode={wildcards.mode} --procs={threads} --start-method=spawn --json-conf={params.cfg} -od {params.outdir} --loci-out mikado-{wildcards.mode}.loci.gff3 -lv INFO -db {input.db} {input.gtf} > {log} 2>&1"
 
@@ -304,7 +290,7 @@ rule mikado_stats:
                            "pick", "{mode}",
                            "mikado-{mode}.loci.stats")
     params: load=loadPre(config, "mikado")
-    conda: os.path.join(envdir, "mikado.yaml")
+    # conda: os.path.join(envdir, "mikado.yaml")
     shell: "{params.load} mikado util stats {input} > {output}"
 
 rule mikado_collect_stats:
@@ -315,7 +301,7 @@ rule mikado_collect_stats:
         load=loadPre(config, "mikado")
     threads: 1
     message: "Collecting mikado statistics"
-    conda: os.path.join(envdir, "mikado.yaml")
+    # conda: os.path.join(envdir, "mikado.yaml")
     shell: "{params.load} {ASM_COLLECT} {input.mikado} > {output}"
 
 rule complete:

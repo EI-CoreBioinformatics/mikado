@@ -1,4 +1,4 @@
-# Version 1.5
+# Version 2.0
 
 **IMPORTANT**: this release fixes a bug ([#139](https://github.com/EI-CoreBioinformatics/mikado/issues/139)) whereupon cDNAs completely or partially in letters different from ATGCNn (eg. **lowercase**, ie ***soft-masked*** nucleotides) would not have been reversed-complemented correctly. Therefore, any run on soft-masked genomes with prior releases ***would be invalid***.
 
@@ -8,6 +8,8 @@ Users are ***very strongly recommended*** to update Mikado as soon as possible.
 
 **IMPORTANT**: this release has completely overhauled the scoring files. We now provide only two ("plant.yaml" and "mammalian.yaml"). "Plant.yaml" should function also for insect or fungal species, but we have not tested it extensively. Old scoring files can be found under "HISTORIC".
 
+**IMPORTANT**: this release fixes a bug introduced in 1.2 which caused Mikado not to perform the chimera splitting during pick. The behaviour is now properly tested to avoid regressions.
+
 Two of the major highlits of this release are:
   - the completion of the "padding" functionality. Briefly, if instructed to do so, now Mikado will be able to uniform the ends of transcripts within a single locus (similar to what was done for the last _Arabidopsis thaliana_ annotation release). The behaviour is controlled by the "pad" boolean switch, and by the "ts_max_splices" and "ts_distance" parameters under "pick". Please note that now "ts_distance" refers to the **transcriptomic** distance, ie, long introns are not considered for this purpose.
   - general improvements in speed and multiprocessing, as well as flexibility, for the Mikado compare utility.
@@ -16,6 +18,8 @@ With this release, we are also officially dropping support for Python 3.4. Pytho
 
 Bugfixes and improvements:
 
+- Many internal algorithms of `mikado pick` have been rewritten to avoid quadratic bottlenecks. This allows Mikado to analyse datasets that are much denser or richer, without the processing time getting out of hand.
+- `mikado pick` is now much more efficient in using multiple processors.
 - Mikado has now been tested to be compatible with Python 3.7. Please note that if you are using Python 3.7, at the time of release, datrie [has to be installed manually](https://github.com/pytries/datrie/issues/52) **before** installing Snakemake.
 - Mikado now always uses PySam, instead of PyFaidx, to fetch chromosomal regions (e.g. during prepare and pick). This speeds up and lightens the program, as well as making tests more manageable.
 - Fixed a bug which caused some loci to crash at the last part of the picking stage
@@ -47,6 +51,7 @@ Bugfixes and improvements:
   - Please note that this change **does not affect the final picking**, but rather is just a mechanism for allowing Mikado to accept pass-through data.
   - If you desire to prioritise reference transcripts, please directly assign a source score higher than 0 to these sets.
 - [#129](https://github.com/EI-CoreBioinformatics/mikado/issues/129): Mikado is now capable of correctly padding the transcripts so to uniform their ends in a single locus. This will also have the effect of trying to enlarge the ORF of a transcript if it is truncated to begin with.
+  - [#208](https://github.com/EI-CoreBioinformatics/mikado/issues/208): when performing the padding, `mikado` will remove any transcript that happen to be identical after being enlarged. This will prevent redundancy, and ensure that the `max_isoforms` parameter is meaningful.
 - [#142](https://github.com/EI-CoreBioinformatics/mikado/issues/142): padded transcripts will add terminal *exons* rather than just extending their terminal ends. This should prevent the creation of faux retained introns. Moreover, now the padding procedure will explicitly find and discard transcripts that would become invalid after padding (e.g. because they end up with a far too long UTR, or retained introns). If some of the invalid transcripts had been used as template for the expansion, Mikado will remove the offending transcripts and restart the procedure.
   - As a consequence of fixing [#142](https://github.com/EI-CoreBioinformatics/mikado/issues/142), Transcript objects have been modified to expose the following methods related to the internal interval tree:
     - find/search (to find intersecting exonic or intronic intervals)
@@ -62,6 +67,7 @@ Bugfixes and improvements:
 	- faster startup times
 	- possibility of considering "fuzzy matches" for the introns. This means that two transcripts might be considered as a "match" even if their introns are slightly staggered. This helps e.g. when assessing imperfect data such as Nanopore, where the experimenter usually knows that the per-base precision is quite low.
 	- the index has been modified, so that now gene objects are stored as [msgpack](https://github.com/msgpack/msgpack-python) json dumps rather than pure strings. This should make the indices smaller and faster to load.
+ - [#209](https://github.com/EI-CoreBioinformatics/mikado/issues/209): now `daijin` supports conda environments. Moreover, we test the assemble part properly to ensure its correct functioning.
 
 # Version 1.2.4
 

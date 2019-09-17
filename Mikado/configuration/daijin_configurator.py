@@ -308,9 +308,6 @@ def create_daijin_config(args, level="ERROR", piped=False):
     assert "prot_db" in config["blastx"]
 
     config["mikado"]["use_diamond"] = (not args.use_blast)
-    if not args.use_blast:
-        # If we use DIAMOND, it makes sense to reduce the number of chunks by default
-        config["blastx"]["chunks"] = max(round(config["blastx"]["chunks"] / 10), 1)
     config["mikado"]["use_prodigal"] = (not args.use_transdecoder)
 
     final_config = config.copy()

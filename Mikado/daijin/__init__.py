@@ -486,6 +486,11 @@ def mikado_pipeline(args):
     else:
         latency = 1
 
+    BLASTX_CHUNKS = max(int(doc["blastx"]["chunks"]), doc["threads"])
+    if BLASTX_CHUNKS > doc["blastx"]["chunks"]:
+        print("INFO: Increasing the number of chunks for DIAMOND/BLASTX to match the requested threads, \
+as Mikado serialise relies on having a number of chunks equal or greater than the number of requested threads.")
+
     snakemake.snakemake(
         pkg_resources.resource_filename("Mikado",
                                         os.path.join("daijin", "mikado.smk")),

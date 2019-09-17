@@ -1,15 +1,6 @@
-import sys
 import os
-import glob
-import itertools
-import subprocess
-from math import log, ceil
-from os import listdir
-from os.path import isfile, join
-from snakemake import logger as snake_logger
 from shutil import which
 import pkg_resources
-import Mikado
 
 
 CFG=workflow.overwrite_configfile
@@ -45,8 +36,6 @@ BLASTX_TARGET = config["blastx"]["prot_db"]
 BLASTX_MAX_TARGET_SEQS = config["blastx"]["max_target_seqs"]
 BLASTX_EVALUE = config["blastx"]["evalue"]
 BLASTX_CHUNKS = max(int(config["blastx"]["chunks"]), THREADS)
-if BLASTX_CHUNKS > int(config["blastx"]["chunks"]):
-    print("Increasing the number of chunks for DIAMOND/BLASTX, as Mikado serialise relies on chunking.")
 
 ASM_COLLECT = which("asm_collect.py")
 

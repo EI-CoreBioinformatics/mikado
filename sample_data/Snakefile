@@ -17,7 +17,7 @@ zipDBs=["{0}.gz".format(db) for db in DBs]
 
 configname = "configuration.yaml"
 if not os.path.exists(configname):
-    command = "mikado configure --list list.txt --reference chr5.fas.gz --mode permissive --daijin -t 3 \
+    command = "mikado configure --use-blast --list list.txt --reference chr5.fas.gz --mode permissive --daijin -t 3 \
         --subloci-out mikado.subloci.gff3 --scoring plant.yaml --junctions junctions.bed -bt {swiss} -bc 1 {configname}".format(configname=configname, swiss=swissprot)
     snake_logger.info("Creating the configuration file")
     snake_logger.info(command)
@@ -46,7 +46,7 @@ rule daijin_configure:
       prots=swissprot,
       genome=rules.uncompress_genome.output
     output: "daijin.yaml"
-    shell: "daijin configure -as stringtie cufflinks trinity scallop -lal gmap star -al \
+    shell: "daijin configure -as stringtie cufflinks trinity scallop -lal gmap -al \
 star hisat gsnap --sample-sheet samples.txt -o daijin.yaml -g {input.genome} -od daijin_test \
  --prot-db {input.prots} --scoring plant.yaml"
 
@@ -155,14 +155,14 @@ rule clean:
         import shutil
         for filename in itertools.chain(glob.glob("*.ok"), glob.glob("uniprot*.fasta.p*"),
                                     glob.glob("*midx"), glob.glob("*fai"),
-				    "Daijin",
                                     glob.glob("uniprot*fasta"), glob.glob("*loci*"),
+				    ["daijin.yaml", "Daijin", "daijin_logs", "daijin_test"],
                                     ["mikado_prepared.gtf", "mikado_prepared.fasta", "mikado.prodigal.gff3"],
                                     glob.glob("compare*"), glob.glob(config["db_settings"]["db"]),
                                     glob.glob("*.log"), glob.glob("*xml"), ["chr5.fas"],
 				    glob.glob("*.ok"),
                                     ["configuration.yaml"]):
-            if os.path.exists(filename):
+            if os.path.exists(filename) and filename not in (".", ".."):
                 shutil.rmtree(filename) if os.path.isdir(filename) else os.remove(filename)
 
 rule clean_crumbs:

@@ -151,7 +151,7 @@ def create_config(args):
         namespace.genome = args.reference
         namespace.transcriptome = ""
         namespace.name = "Daijin"
-        namespace.out_dir = "Daijin"
+        namespace.out_dir = args.out_dir if args.out_dir else "Daijin"
         namespace.threads = args.threads
         namespace.scoring = args.scoring
         namespace.new_scoring = getattr(args, "new_scoring", None)

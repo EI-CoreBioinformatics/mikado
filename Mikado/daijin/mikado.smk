@@ -91,7 +91,7 @@ rule split_fa:
     output: BLAST_DIR+"/fastas/split.done"
     params: 
         outdir=BLAST_DIR+"/fastas/chunk",
-        chunks=config["blastx"]["chunks"],
+        chunks=BLASTX_CHUNKS,
         load=loadPre(config, "mikado")
     threads: 1
     message: "Splitting fasta: {input.tr}"

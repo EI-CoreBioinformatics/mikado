@@ -40,6 +40,7 @@ def __cleanup(args, shelves):
             args.json_conf["prepare"]["files"][frole] = args.json_conf["prepare"]["files"][frole].name
 
     for fname in shelves:
+        os.remove(fname)
         [os.remove(_) for _ in os.listdir(os.path.dirname(fname))
          if os.path.exists(_) and os.path.basename(_).startswith(fname)]
 

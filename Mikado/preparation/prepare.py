@@ -340,7 +340,12 @@ def _load_exon_lines_multi(args, shelve_names, logger, min_length, strip_cds, th
 
     tid_counter = Counter()
     for shelf in shelve_names:
-        conn = sqlite3.connect(shelf)
+        conn = sqlite3.connect("file:{}?mode=ro".format(shelf),
+                               uri=True,  # Necessary to use the Read-only mode from file string
+                               isolation_level="DEFERRED",
+                               timeout=60,
+                               check_same_thread=False  # Necessary for SQLite3 to function in multiprocessing
+                               )
         cursor = conn.cursor()
         tid_counter.update([_[0] for _ in cursor.execute("SELECT tid FROM dump")])
         if tid_counter.most_common()[0][1] > 1:

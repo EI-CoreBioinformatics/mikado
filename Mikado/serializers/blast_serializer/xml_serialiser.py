@@ -41,15 +41,24 @@ def _create_xml_db(filename):
     directory = os.path.dirname(filename)
     try:
         dbname = tempfile.mktemp(suffix=".db", dir=directory)
-        conn = sqlite3.connect(dbname)
+        conn = sqlite3.connect(dbname,
+                               isolation_level="DEFERRED",
+                               timeout=60,
+                               check_same_thread=False  # Necessary for SQLite3 to function in multiprocessing
+                               )
     except (OSError, PermissionError, sqlite3.OperationalError):
         dbname = tempfile.mktemp(suffix=".db")
-        conn = sqlite3.connect(dbname)
+        conn = sqlite3.connect(dbname,
+                               isolation_level = "DEFERRED",
+                               timeout = 60,
+                               check_same_thread = False  # Necessary for SQLite3 to function in multiprocessing
+        )
+
     cursor = conn.cursor()
     creation_string = "CREATE TABLE dump (query_counter integer, hits blob, hsps blob)"
     try:
-        cursor.execute(  # TODO: change
-            creation_string)
+        cursor.execute("DROP TABLE IF EXISTS dump")
+        cursor.execute(creation_string)
     except sqlite3.OperationalError:
         # Table already exists
         cursor.close()
@@ -483,7 +492,12 @@ class XmlSerializer:
             pool.join()
 
             for dbfile in results:
-                conn = sqlite3.connect(dbfile)
+                conn = sqlite3.connect("file:{}?mode=ro".format(dbfile),
+                                       uri=True,  # Necessary to use the Read-only mode from file string
+                                       isolation_level="DEFERRED",
+                                       timeout=60,
+                                       check_same_thread=False  # Necessary for SQLite3 to function in multiprocessing
+                               )
                 cursor = conn.cursor()
                 for query_counter, __hits, __hsps in cursor.execute("SELECT * FROM dump"):
                     record_counter += 1

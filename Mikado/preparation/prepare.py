@@ -42,7 +42,7 @@ def __cleanup(args, shelves):
     for fname in shelves:
         os.remove(fname)
         [os.remove(_) for _ in os.listdir(os.path.dirname(fname))
-         if os.path.exists(_) and os.path.basename(_).startswith(fname)]
+         if os.path.exists(_) and os.path.basename(_).startswith(os.path.basename(fname))]
 
 
 def store_transcripts(shelf_stacks, logger, keep_redundant=False, seed=None):

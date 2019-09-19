@@ -362,6 +362,7 @@ def portcullisStrandOption(run, command, step):
         else:
             return "--strandedness=unstranded"
 
+
 def loadPre(config, program):
         if workflow.use_conda is True:
             return ""
@@ -970,7 +971,7 @@ rule portcullis_prep:
     threads: THREADS
     message: "Using portcullis to prepare: {wildcards.aln_method}"
     conda: os.path.join(envdir, "portcullis.yaml")
-    shell: "{params.load} portcullis prep -o {params.outdir} -t {threads} {input.ref} {params.files} > {log} 2>&1"
+    shell: "{params.load} portcullis prep -o {params.outdir} -t {threads} {input.ref} {params.files}"  #  > {log} 2>&1"
 
 
 rule portcullis_junc:

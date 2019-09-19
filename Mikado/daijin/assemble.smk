@@ -173,7 +173,7 @@ CANONICAL_JUNCS = config["portcullis"]["canonical_juncs"]
 
 PORTCULLIS_IN = {}
 for a in ALIGN_RUNS :
-    PORTCULLIS_IN[a] = os.path.join(ALIGN_DIR, "output" + a + ".sorted.bam")
+    PORTCULLIS_IN[a] = os.path.join(ALIGN_DIR, "output", a + ".sorted.bam")
 
 aln_abrv = {"tophat":"tph", "star":"sta", "gsnap":"gsp", "hisat":"hst", "gmap":"gmp"}
 asm_abrv = {"cufflinks":"cuf", "stringtie":"stn", "class":"cls", "trinity":"trn", "scallop": "scl"}
@@ -960,7 +960,8 @@ else:
         message: "Collecting assembly statistics"
 
 rule portcullis_prep:
-    input:     ref=REF,
+    input:
+        ref=REF,
         aln_done=rules.align_all.output
     output: os.path.join(PORTCULLIS_DIR, "portcullis_{aln_method}", "1-prep", "portcullis.sorted.alignments.bam.bai")
     params: 

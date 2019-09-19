@@ -453,9 +453,9 @@ rule clean:
 
 rule align_tophat_index:
     input: ref=REF
-    output: os.path.join(ALIGN_DIR, "tophat", "index") + NAME + ".4.bt2"
+    output: os.path.join(ALIGN_DIR, "tophat", "index", "{}.4.bt2".format(NAME))
     params: 
-        idxdir=os.path.join(ALIGN_DIR, "tophat", "index") + NAME,
+        idxdir=os.path.join(ALIGN_DIR, "tophat", "index", NAME),
         load=loadPre(config, "tophat")
     log: os.path.join(ALIGN_DIR_FULL, "logs", "tophat", "tophat.index.log")
     threads: 1
@@ -473,7 +473,7 @@ rule align_tophat:
     params: 
         outdir=os.path.join(ALIGN_DIR, "tophat", "{sample}-{run}"),
         bam=os.path.join(ALIGN_DIR, "tophat", "{sample}-{run}", "accepted_hits.bam"),
-        indexdir=os.path.join(ALIGN_DIR, "tophat", "index") + NAME,
+        indexdir=os.path.join(ALIGN_DIR, "tophat", "index", NAME),
         load=loadPre(config, "tophat"),
         extra=lambda wildcards: config["align_methods"]["tophat"][int(wildcards.run)],
         link_src=os.path.join("..", "tophat", "{sample}-{run}", "accepted_hits.bam"),
@@ -489,8 +489,8 @@ rule align_tophat:
 
 
 rule tophat_all:
-    input: expand(ALIGN_DIR+"output", "tophat-{sample}-{run}.bam", sample=SAMPLES, run=TOPHAT_RUNS)
-    output: ALIGN_DIR+"tophat.done"
+    input: expand(os.path.join(ALIGN_DIR, "output", "tophat-{sample}-{run}.bam"), sample=SAMPLES, run=TOPHAT_RUNS)
+    output: os.path.join(ALIGN_DIR, "tophat.done")
     shell: "touch {output}"     
 
 
@@ -541,8 +541,8 @@ rule align_gsnap:
 
 
 rule gsnap_all:
-    input: expand(ALIGN_DIR+"output", "gsnap-{sample}-{run}.bam", sample=SAMPLES, run=GSNAP_RUNS)
-    output: ALIGN_DIR+"gsnap.done"
+    input: expand(os.path.join(ALIGN_DIR, "output", "gsnap-{sample}-{run}.bam"), sample=SAMPLES, run=GSNAP_RUNS)
+    output: os.path.join(ALIGN_DIR, "gsnap.done")
     shell: "touch {output}"     
 
 
@@ -552,7 +552,7 @@ rule align_star_index:
     params: 
         indexdir=os.path.join(ALIGN_DIR_FULL, "star", "index"),
         load=loadPre(config, "star"),
-        trans="--sjdbGTFfile " + os.path.abspath(REF_TRANS) if REF_TRANS else "",
+        trans="--sjdbGTFfile {}".format(os.path.abspath(REF_TRANS)) if REF_TRANS else "",
         extra=config["extra"]["star_index"],
         dir=os.path.join(ALIGN_DIR, "star")
     log: os.path.join(ALIGN_DIR_FULL, "logs", "star", "star.index.log")
@@ -575,7 +575,7 @@ rule align_star:
         load=loadPre(config, "star"),
         extra=lambda wildcards: config["align_methods"]["star"][int(wildcards.run)],
         link_src=os.path.join("..", "star", "{sample}-{run}", "Aligned.out.bam"),
-        trans="--sjdbGTFfile " + os.path.abspath(REF_TRANS) if REF_TRANS else "",
+        trans="--sjdbGTFfile {}".format(os.path.abspath(REF_TRANS)) if REF_TRANS else "",
         rfc=lambda wildcards: starCompressionOption(wildcards.sample),
         infiles=lambda wildcards: starInput(wildcards.sample)          
     log: os.path.join(ALIGN_DIR_FULL, "logs", "star", "star-{sample}-{run}.log")
@@ -590,13 +590,13 @@ rule align_star:
 
 
 rule star_all:
-    input: expand(ALIGN_DIR+"output", "star-{sample}-{run}.bam", sample=SAMPLES, run=STAR_RUNS)
-    output: ALIGN_DIR+"star.done"
+    input: expand(os.path.join(ALIGN_DIR, "output", "star-{sample}-{run}.bam"), sample=SAMPLES, run=STAR_RUNS)
+    output: os.path.join(ALIGN_DIR, "star.done")
     shell: "touch {output}"     
 
 rule align_hisat_index:
     input: REF
-    output: touch(os.path.join(ALIGN_DIR, "hisat", "index", NAME + ".done"))
+    output: touch(os.path.join(ALIGN_DIR, "hisat", "index", "{}.done".format(NAME)))
     params:
         load=loadPre(config, "hisat"),
         dir=os.path.join(ALIGN_DIR, "hisat", "index", NAME)
@@ -621,7 +621,7 @@ rule align_hisat:
         link_src=os.path.join("..", "hisat", "{sample}-{run}", "hisat.bam"),
         extra=lambda wildcards: config["align_methods"]["hisat"][int(wildcards.run)],
         ss_gen="hisat2_extract_splice_sites.py " + REF_TRANS + " > " + os.path.join(ALIGN_DIR, "hisat", "{sample}-{run}", "splice_sites.txt") + " &&" if REF_TRANS else "",
-        trans="--known-splicesite-infile=" + os.path.join(ALIGN_DIR, "hisat", "{sample}-{run}", "splice_sites.txt") if REF_TRANS else "",
+        trans="--known-splicesite-infile={}".format(os.path.join(ALIGN_DIR, "hisat", "{sample}-{run}", "splice_sites.txt")) if REF_TRANS else "",
         strand=lambda wildcards: hisatStrandOption(wildcards.sample),
         infiles=lambda wildcards: hisatInput(wildcards.sample)
     log: os.path.join(ALIGN_DIR_FULL, "logs", "hisat", "hisat-{sample}-{run}.log")
@@ -631,14 +631,14 @@ rule align_hisat:
     shell: "{params.load} {params.load_samtools} {params.ss_gen} hisat2 -p {threads} --min-intronlen={MIN_INTRON} --max-intronlen={MAX_INTRON} {params.trans} {params.strand} {params.extra} -x {params.indexdir} --dta {params.infiles} 2> {log} | samtools view -b -@ {threads} - > {output.bam} && ln -sf {params.link_src} {output.link} && touch -h {output.link}"
 
 rule hisat_all:
-    input: expand(ALIGN_DIR+"output", "hisat-{sample}-{run}.bam", sample=SAMPLES, run=HISAT_RUNS)
-    output: ALIGN_DIR+"hisat.done"
+    input: expand(os.path.join(ALIGN_DIR, "output", "hisat-{sample}-{run}.bam"), sample=SAMPLES, run=HISAT_RUNS)
+    output: os.path.join(ALIGN_DIR, "hisat.done")
     shell: "touch {output}"     
 
 
 rule bam_sort:
     input: bam=os.path.join(ALIGN_DIR, "output", "{align_run}.bam")
-    output: ALIGN_DIR+"output", "{align_run}.sorted.bam"
+    output: os.path.join(ALIGN_DIR, "output", "{align_run}.sorted.bam")
     params:
         load=loadPre(config, "samtools"),
         temp=os.path.join(ALIGN_DIR, "sort_{align_run}")
@@ -650,7 +650,7 @@ rule bam_sort:
 
 rule bam_index:
     input: rules.bam_sort.output
-    output: ALIGN_DIR+"output", "{align_run}.sorted.bam.bai"
+    output: os.path.join(ALIGN_DIR, "output", "{align_run}.sorted.bam.bai")
     params: load=loadPre(config, "samtools")
     threads: 1
     message: "Using samtools to index: {input}"
@@ -675,24 +675,26 @@ rule bam_stats:
 
 
 rule align_all:
-    input: expand(ALIGN_DIR+"output", "{align_run}.sorted.bam.stats", align_run=ALIGN_RUNS)
-    output: ALIGN_DIR+"output", "all.done"
+    input: expand(os.path.join(ALIGN_DIR, "output", "{align_run}.sorted.bam.stats"), align_run=ALIGN_RUNS)
+    output: os.path.join(ALIGN_DIR, "output", "all.done")
     threads: 1
     shell: "touch {output}"
 
 if len(ALIGN_RUNS) > 0:
     rule align_collect_stats:
         input: rules.align_all.output
-        output: ALIGN_DIR+"alignment.stats"
-        params: stats=os.path.join(ALIGN_DIR, "output", "*.sorted.bam.stats")
+        output: os.path.join(ALIGN_DIR, "alignment.stats")
+        params:
+            stats=os.path.join(ALIGN_DIR, "output", "*.sorted.bam.stats")
         threads: 1
         message: "Collecting alignment stats"
         shell: "{ALIGN_COLLECT} {params.stats} > {output}"
 else:
     rule mock_align_collect_stats:
         input: rules.align_all.output
-        output: touch(ALIGN_DIR+"alignment.stats")
-        params: stats=os.path.join(ALIGN_DIR, "output", "*.sorted.bam.stats")
+        output: touch(os.path.join(ALIGN_DIR, "alignment.stats"))
+        params:
+            stats=os.path.join(ALIGN_DIR, "output", "*.sorted.bam.stats")
         threads: 1
         message: "Collecting alignment stats"
 
@@ -709,7 +711,7 @@ rule asm_cufflinks:
         link_src=os.path.join("..", "cufflinks", "cufflinks-{run2}-{alrun}", "transcripts.gtf"),
         load=loadPre(config, "cufflinks"),
         extra=lambda wildcards: config["asm_methods"]["cufflinks"][int(wildcards.run2)],
-        trans="--GTF-guide=" + REF_TRANS if REF_TRANS else "",
+        trans="--GTF-guide={}".format(REF_TRANS) if REF_TRANS else "",
         strand=lambda wildcards: tophatStrandOption(extractSample(wildcards.alrun))
     log: os.path.join(ASM_DIR, "logs", "cufflinks", "cufflinks-{run2}-{alrun}.log")
     threads: THREADS
@@ -719,8 +721,8 @@ rule asm_cufflinks:
 
 
 rule cufflinks_all:
-    input: expand(ASM_DIR+"output", "cufflinks-{run2}-{alrun}.gtf", run2=CUFFLINKS_RUNS, alrun=ALIGN_RUNS)
-    output: ASM_DIR+"cufflinks.done"
+    input: expand(os.path.join(ASM_DIR, "output", "cufflinks-{run2}-{alrun}.gtf"), run2=CUFFLINKS_RUNS, alrun=ALIGN_RUNS)
+    output: os.path.join(ASM_DIR, "cufflinks.done")
     shell: "touch {output}"     
 
 rule scallop_all:
@@ -748,8 +750,8 @@ rule asm_scallop:
       scallop -i {input.bam} -o {params.gtf} {params.strand} {params.extra} > {log} 2>&1 && ln -sf {params.link_src} {output.gtf} && touch -h {output.gtf}"""
 
 rule trinity_all:
-    input: expand(ASM_DIR+"output", "trinity-{run2}-{alrun}.gff", run2=TRINITY_RUNS, alrun=ALIGN_RUNS)
-    output: ASM_DIR+"trinity.done"
+    input: expand(os.path.join(ASM_DIR, "output", "trinity-{run2}-{alrun}.gff"), run2=TRINITY_RUNS, alrun=ALIGN_RUNS)
+    output: os.path.join(ASM_DIR, "trinity.done")
     shell: "touch {output}"
 
 rule asm_trinitygg:
@@ -808,7 +810,7 @@ rule asm_stringtie:
     params:
         load=loadPre(config, "stringtie"),
         extra=lambda wildcards: config["asm_methods"]["stringtie"][int(wildcards.run2)],
-        trans="-G " + REF_TRANS if REF_TRANS else "",
+        trans="-G {}".format(REF_TRANS) if REF_TRANS else "",
         link_src=os.path.join("..", "stringtie", "stringtie-{run2}-{alrun}", "stringtie-{run2}-{alrun}.gtf")
     log: os.path.join(ASM_DIR, "logs", "stringtie", "stringtie-{run2}-{alrun}.log")
     threads: THREADS
@@ -817,8 +819,8 @@ rule asm_stringtie:
     shell: "{params.load} stringtie {input.bam} -l Stringtie_{wildcards.run2}_{wildcards.alrun} -f 0.05 -m 200 {params.extra} {params.trans} -o {output.gtf} -p {threads} > {log} 2>&1 && ln -sf {params.link_src} {output.link} && touch -h {output.link}"
 
 rule stringtie_all:
-    input: expand(ASM_DIR+"output", "stringtie-{run2}-{alrun}.gtf", run2=STRINGTIE_RUNS, alrun=ALIGN_RUNS)
-    output: ASM_DIR+"stringtie.done"
+    input: expand(os.path.join(ASM_DIR, "output", "stringtie-{run2}-{alrun}.gtf"), run2=STRINGTIE_RUNS, alrun=ALIGN_RUNS)
+    output: os.path.join(ASM_DIR, "stringtie.done")
     shell: "touch {output}"
 
 rule asm_class:
@@ -840,8 +842,8 @@ rule asm_class:
     shell: "{params.load} {CLASS} --clean --force -c \"{params.extra}\" -p {threads} {input.bam} > {output.gtf} 2> {log} && ln -sf {params.link_src} {output.link} && touch -h {output.link}"
 
 rule class_all:
-    input: expand(ASM_DIR+"output", "class-{run2}-{alrun}.gtf", run2=CLASS_RUNS, alrun=ALIGN_RUNS)
-    output: ASM_DIR+"class.done"
+    input: expand(os.path.join(ASM_DIR, "output", "class-{run2}-{alrun}.gtf"), run2=CLASS_RUNS, alrun=ALIGN_RUNS)
+    output: os.path.join(ASM_DIR, "class.done")
     shell: "touch {output}"
 
 rule lr_gmap:
@@ -872,7 +874,7 @@ rule lr_star:
     params: load=loadPre(config, "star"),
         outdir=os.path.join(ALIGN_DIR_FULL, "lr_star", "{lsample}-{lrun}"),
         indexdir=os.path.join(ALIGN_DIR_FULL, "star", "index"),
-        trans="--sjdbGTFfile " + os.path.abspath(REF_TRANS) if REF_TRANS else "",
+        trans="--sjdbGTFfile {}".format(os.path.abspath(REF_TRANS)) if REF_TRANS else "",
         rfc=lambda wildcards: long_starCompressionOption(wildcards.lsample),
         infiles=lambda wildcards: starLongInput(wildcards.lsample)
     log: os.path.join(ALIGN_DIR_FULL, "logs", "lr_star", "lr_star-{lsample}-{lrun}.log")
@@ -897,13 +899,13 @@ rule starbam2gtf:
 
 
 rule lr_gmap_all:
-    input: expand(ALIGN_DIR+"lr_output", "lr_gmap-{lsample}-{lrun}.gff", lsample=L_SAMPLES, lrun=LR_GMAP_RUNS)
-    output: ALIGN_DIR+"lr_gmap.done"
+    input: expand(os.path.join(ALIGN_DIR, "lr_output", "lr_gmap-{lsample}-{lrun}.gff"), lsample=L_SAMPLES, lrun=LR_GMAP_RUNS)
+    output: os.path.join(ALIGN_DIR, "lr_gmap.done")
     shell: "touch {output}"     
 
 rule lr_star_all:
-    input: expand(ALIGN_DIR+"lr_output", "lr_star-{lsample}-{lrun}.gtf", lsample=L_SAMPLES, lrun=LR_STAR_RUNS)
-    output: ALIGN_DIR+"lr_star.done"
+    input: expand(os.path.join(ALIGN_DIR, "lr_output", "lr_star-{lsample}-{lrun}.gtf"), lsample=L_SAMPLES, lrun=LR_STAR_RUNS)
+    output: os.path.join(ALIGN_DIR, "lr_star.done")
     shell: "touch {output}"     
 
 
@@ -918,7 +920,7 @@ rule asm_gff_stats:
 
 rule asm_all:
     input: expand("{asm_run}.stats", asm_run=TRANSCRIPT_ARRAY)
-    output:     ASM_DIR+"output", "all.done"
+    output: os.path.join(ASM_DIR, "output", "all.done")
     threads: 1
     shell: "touch {output}"
 
@@ -933,22 +935,23 @@ rule lreads_stats:
 
 rule lreads_all:
     input: expand("{lr_run}.stats", lr_run=LR_ARRAY)
-    output: ALIGN_DIR+"lr_output", "lreads.all.done"
+    output: os.path.join(ALIGN_DIR, "lr_output", "lreads.all.done")
     threads: 1
     shell: "touch {output}"
 
 if len(TRANSCRIPT_ARRAY) > 0:
     rule asm_collect_stats:
         input: rules.asm_all.output
-        output: ASM_DIR+"assembly.stats"
-        params: asms=os.path.join(ASM_DIR, "output", "*.stats")
+        output: os.path.join(ASM_DIR, "assembly.stats")
+        params:
+            asms=os.path.join(ASM_DIR, "output", "*.stats")
         threads: 1
         message: "Collecting assembly statistics"
         shell: "{ASM_COLLECT} {params.asms} > {output}"
 else:
     rule mock_asm_collect_stats:
         input: rules.asm_all.output
-        output: touch(ASM_DIR+"assembly.stats")
+        output: touch(os.path.join(ASM_DIR, "assembly.stats"))
         params: asms=os.path.join(ASM_DIR, "output", "*.stats")
         threads: 1
         message: "Collecting assembly statistics"
@@ -956,7 +959,7 @@ else:
 rule portcullis_prep:
     input:     ref=REF,
         aln_done=rules.align_all.output
-    output: os.path.join(PORTCULLIS_DIR+"portcullis_{aln_method}", "1-prep", "portcullis.sorted.alignments.bam.bai")
+    output: os.path.join(PORTCULLIS_DIR, "portcullis_{aln_method}", "1-prep", "portcullis.sorted.alignments.bam.bai")
     params: 
         outdir=os.path.join(PORTCULLIS_DIR, "portcullis_{aln_method}", "1-prep"),
         load=loadPre(config, "portcullis"),
@@ -994,8 +997,8 @@ rule portcullis_filter:
         prepdir=os.path.join(PORTCULLIS_DIR, "portcullis_{aln_method}", "1-prep"),
         load=loadPre(config, "portcullis"),
         bed=os.path.join(PORTCULLIS_DIR, "portcullis_{aln_method}", "3-filt", "{aln_method}.pass.junctions.bed"),
-        ss_gen="mkdir -p " + os.path.join(PORTCULLIS_DIR, "portcullis_{aln_method}", "3-filt") + " && gtf2bed.py " + REF_TRANS + " > " + os.path.join(PORTCULLIS_DIR, "portcullis_{aln_method}", "3-filt", "ref_juncs.bed") + " &&" if REF_TRANS else "",
-        trans="--reference=" + os.path.join(PORTCULLIS_DIR, "portcullis_{aln_method}", "3-filt", "ref_juncs.bed") if REF_TRANS else "",
+        ss_gen="mkdir -p {}".format(os.path.join(PORTCULLIS_DIR, "portcullis_{aln_method}", "3-filt")) + " && gtf2bed.py " + REF_TRANS + " > " + os.path.join(PORTCULLIS_DIR, "portcullis_{aln_method}", "3-filt", "ref_juncs.bed") + " &&" if REF_TRANS else "",
+        trans="--reference={}".format(os.path.join(PORTCULLIS_DIR, "portcullis_{aln_method}", "3-filt", "ref_juncs.bed")) if REF_TRANS else "",
         link_src=os.path.join("..", "portcullis_{aln_method}", "3-filt", "{aln_method}.pass.junctions.bed"),
         tab_link_src=os.path.join("..", "portcullis_{aln_method}", "3-filt", "{aln_method}.pass.junctions.tab"),
         link_unfilt=os.path.join("..", "portcullis_{aln_method}", "2-junc", "{aln_method}.junctions.bed"),
@@ -1019,7 +1022,8 @@ if RUN_PORTCULLIS:
         output:
             bed=os.path.join(PORTCULLIS_DIR, "output", "portcullis.merged.bed"),
             tab=os.path.join(PORTCULLIS_DIR, "output", "portcullis.merged.tab"),
-        params: load=loadPre(config, "portcullis")
+        params:
+            load=loadPre(config, "portcullis")
         log: os.path.join(PORTCULLIS_DIR, "output", "portcullis.merged.log")
         conda: os.path.join(envdir, "portcullis.yaml")
         threads: 1

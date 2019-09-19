@@ -233,8 +233,9 @@ else:
 rule genome_index:
     input: os.path.abspath(REF)
     output: os.path.join(MIKADO_DIR, os.path.basename(REF)+".fai")
-    params: load=loadPre(config, "samtools"),
-        fa=os.path.join(MIKADO_DIR, "")+os.path.basename(REF)
+    params:
+        load=loadPre(config, "samtools"),
+        fa=os.path.join(MIKADO_DIR, os.path.basename(REF))
     threads: 1
     message: "Using samtools to index genome"
     conda: os.path.join(envdir, "samtools.yaml")
@@ -242,9 +243,9 @@ rule genome_index:
 
 
 if config.get("mikado", dict()).get("use_prodigal") is True:
-    orfs = "--orfs=" + str(rules.prodigal.output)
+    orfs = "--orfs={}".format(rules.prodigal.output)
 elif config.get("transdecoder", dict()).get("execute", True) is True:
-    orfs = "--orfs=" + str(rules.transdecoder_pred.output)
+    orfs = "--orfs={}".format(rules.transdecoder_pred.output)
 else:
     orfs = ""
 
@@ -258,9 +259,9 @@ rule mikado_serialise:
     log: os.path.join(MIKADO_DIR, "mikado_serialise.err")
     params:
         cfg=CFG,
-        blast="--xml=" + os.path.join(BLAST_DIR, "xmls") if len(BLASTX_TARGET) > 0 else "",
+        blast="--xml={}".format(os.path.join(BLAST_DIR, "xmls")) if len(BLASTX_TARGET) > 0 else "",
         load=loadPre(config, "mikado"),
-        blast_target="--blast_targets=" + os.path.join(BLAST_DIR, "index", "blastdb-proteins.fa") if len(BLASTX_TARGET) > 0 else "",
+        blast_target="--blast_targets={}".format(os.path.join(BLAST_DIR, "index", "blastdb-proteins.fa")) if len(BLASTX_TARGET) > 0 else "",
         orfs=orfs
     threads: THREADS
     # conda: os.path.join(envdir, "mikado.yaml")

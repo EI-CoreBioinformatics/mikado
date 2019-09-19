@@ -40,9 +40,7 @@ def __cleanup(args, shelves):
             args.json_conf["prepare"]["files"][frole] = args.json_conf["prepare"]["files"][frole].name
 
     for fname in shelves:
-        os.remove(fname)
-        [os.remove(_) for _ in os.listdir(os.path.dirname(fname))
-         if os.path.exists(_) and os.path.basename(_).startswith(os.path.basename(fname))]
+        [os.remove(fname + suff) for suff in ("", "-shm", "-wal", "-journal") if os.path.exists(fname + suff)]
 
 
 def store_transcripts(shelf_stacks, logger, keep_redundant=False, seed=None):

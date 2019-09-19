@@ -47,6 +47,8 @@ if len(BLASTX_TARGET) > 0:
 
 
 def loadPre(config, program):
+    if workflow.use_conda is True:
+            return ""
     cc = config.get("load", dict()).get(program, "")
     if not cc:
         return ""

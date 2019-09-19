@@ -363,6 +363,8 @@ def portcullisStrandOption(run, command, step):
             return "--strandedness=unstranded"
 
 def loadPre(config, program):
+        if workflow.use_conda is True:
+            return ""
         cc = config.get("load", dict()).get(program, "").strip()
         # cc = command.strip()
         if not cc:

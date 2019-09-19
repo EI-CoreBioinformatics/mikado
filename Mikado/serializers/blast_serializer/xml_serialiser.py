@@ -89,11 +89,17 @@ def xml_pickler(json_conf, filename, default_header,
                     hits, hsps, cache = objectify_record(
                         session, record, [], [], cache, max_target_seqs=max_target_seqs)
 
+                    try:
+                        jhits = json.dumps(hits, number_mode=json.NM_NATIVE)
+                        jhsps = json.dumps(hsps, number_mode=json.NM_NATIVE)
+                    except ValueError:
+                        jhits = json.dumps(hits)
+                        jhsps = json.dumps(hsps)
+
                     cursor.execute("INSERT INTO dump VALUES (?, ?, ?)",
                                    (query_counter,
-                                    json.dumps(hits, number_mode=json.NM_NATIVE),
-                                    json.dumps(hsps, number_mode=json.NM_NATIVE))
-                                   )
+                                    jhits,
+                                    jhsps))
             except ExpatError as err:
                 # logger.error("%s is an invalid BLAST file, sending back anything salvageable", filename)
                 raise ExpatError("{} is an invalid BLAST file, sending back anything salvageable.\n{}".format(filename,

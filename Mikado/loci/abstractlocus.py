@@ -189,8 +189,10 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             state["session"] = None
 
         if self.__internal_graph.nodes():
-            nodes = json.dumps(list(self.__internal_graph.nodes())[0],
-                               number_mode=json.NM_NATIVE)
+            try:
+                nodes = json.dumps(list(self.__internal_graph.nodes())[0], number_mode=json.NM_NATIVE)
+            except ValueError:
+                nodes = json.dumps(list(self.__internal_graph.nodes())[0])
         else:
             nodes = "[]"
         state["_Abstractlocus__internal_nodes"] = nodes
@@ -198,7 +200,10 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         edges = [edge for edge in self.__internal_graph.edges()]
         # Remember that the graph is in form [((start, end), (start, end)), etc.]
         # So that each edge is composed by a couple of tuples.
-        state["_Abstractlocus__internal_edges"] = json.dumps(edges, number_mode=json.NM_NATIVE)
+        try:
+            state["_Abstractlocus__internal_edges"] = json.dumps(edges, number_mode=json.NM_NATIVE)
+        except ValueError:
+            state["_Abstractlocus__internal_edges"] = json.dumps(edges)
         if hasattr(self, "engine"):
             del state["engine"]
 

@@ -293,7 +293,10 @@ def load_into_storage(shelf_name, exon_lines, min_length, logger, strip_cds=True
                              tid, biggest_intron, max_intron)
                 continue
 
-        values = json.dumps(exon_lines[tid], number_mode=json.NM_NATIVE)
+        try:
+            values = json.dumps(exon_lines[tid], number_mode=json.NM_NATIVE)
+        except ValueError:  # This is a crash that happens when there are infinite values
+            values = json.dumps(exon_lines[tid])
 
         logger.debug("Inserting %s into shelf %s", tid, shelf_name)
         cursor.execute("INSERT INTO dump VALUES (?, ?, ?, ?, ?, ?)", (exon_lines[tid]["chrom"],

@@ -1040,7 +1040,6 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             _ = len(set.intersection(self.transcripts[tid].introns, self.introns))
             fraction = _ / len(self.introns)
             self.transcripts[tid].intron_fraction = fraction
-            self.transcripts[tid].intron_fraction = fraction
         else:
             self.transcripts[tid].intron_fraction = 0
         if len(self.selected_cds_introns) > 0:

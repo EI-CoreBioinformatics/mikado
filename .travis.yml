@@ -21,7 +21,7 @@ install:
   - conda install -y -c conda-forge -- pytest-cov codecov;
   - python setup.py develop;
 script:
-  - cd sample_data; snakemake --jobs 4 --cores 20
+  - cd sample_data; snakemake
   - rm -rf .snakemake/conda/;  # This causes weird bugs
   - cd ..;
   - python -c "import Mikado; Mikado.test(label='fast')";

@@ -96,6 +96,8 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         self.__regressor = None
         self.session = None
         self.metrics_calculated = False
+        self.__metrics = dict()
+        self.__scores = dict()
         self.__internal_graph = networkx.DiGraph()
         self.json_conf = json_conf
         if transcript_instance is not None and isinstance(transcript_instance, Transcript):
@@ -914,6 +916,11 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
         for tid, transcript in sorted(self.transcripts.items(), key=operator.itemgetter(1)):
             row = {}
+            if tid not in self.__metrics and transcript.alias in self.__metrics:
+                metrics = self.__metrics[transcript.alias]
+            else:
+                metrics = self.__metrics[tid]
+
             for num, key in enumerate(self.available_metrics):
 
                 if num == 0:  # transcript id
@@ -921,7 +928,8 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                 elif num == 2:  # Parent
                     value = self.id
                 else:
-                    value = getattr(transcript, key, "NA")
+                    value = metrics.get(key, "NA")
+                    # value = getattr(transcript, key, "NA")
                 if isfloat(value):
                     value = round(value, 2)
                 elif value is None or value == "":
@@ -1066,6 +1074,9 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                              for e in self.transcripts[tid].retained_introns)
         fraction = retained_bases / self.transcripts[tid].cdna_length
         self.transcripts[tid].retained_fraction = fraction
+
+        self.__metrics[tid] = dict((metric, rgetattr(self.transcripts[tid], metric))
+                                    for metric in self.available_metrics)
 
         self.logger.debug("Calculated metrics for {0}".format(tid))
 
@@ -1266,33 +1277,22 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         multiplier = self.json_conf["scoring"][param]["multiplier"]
 
         metrics = dict()
-        if param.startswith("external"):
-            # For external metrics, we have a tuple - first item is score, second item is usable_raw
-            for tid in self.transcripts:
-                try:
-                    metric = rgetattr(self.transcripts[tid], param)
-                    if isinstance(metric, (tuple, list)):
-                        metric = metric[0]
-                    metrics[tid] = metric
-                except TypeError:
-                    raise TypeError(param)
-                except KeyError:
-                    raise KeyError(param)
-                except AttributeError:
-                    raise AttributeError(param)
-        else:
-            for tid in self.transcripts:
-                try:
-                    metric = getattr(self.transcripts[tid], param)
-                    if isinstance(metric, (tuple, list)):
-                        metric = metric[0]
-                    metrics[tid] = metric
-                except TypeError:
-                    raise TypeError(param)
-                except KeyError:
-                    raise KeyError(param)
-                except AttributeError:
-                    raise AttributeError(param)
+        for tid, transcript in self.transcripts.items():
+            try:
+                # metric = rgetattr(self.transcripts[tid], param)
+                if tid not in self.__metrics and transcript.alias in self.__metrics:
+                    metric = self.__metrics[transcript.alias][param]
+                else:
+                    metric = self.__metrics[tid][param]
+                if isinstance(metric, (tuple, list)):
+                    metric = metric[0]
+                metrics[tid] = metric
+            except TypeError:
+                raise TypeError(param)
+            except KeyError:
+                raise KeyError(param)
+            except AttributeError:
+                raise AttributeError(param)
 
         for tid in self.transcripts.keys():
             tid_metric = metrics[tid]
@@ -1305,7 +1305,11 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                     metric_key = self.json_conf["scoring"][param]["filter"]["metric"]
                     if not rhasattr(self.transcripts[tid], metric_key):
                         raise KeyError("Asked for an invalid metric in filter: {}".format(metric_key))
-                    metric_to_evaluate = rgetattr(self.transcripts[tid], metric_key)
+                    if tid not in self.__metrics and self.transcripts[tid].alias in self.__metrics:
+                        metric_to_evaluate = self.__metrics[self.transcripts[tid].alias][metric_key]
+                    else:
+                        metric_to_evaluate = self.__metrics[tid][metric_key]
+                    # metric_to_evaluate = rgetattr(self.transcripts[tid], metric_key)
                     if "external" in metric_key:
                         metric_to_evaluate = metric_to_evaluate[0]
 

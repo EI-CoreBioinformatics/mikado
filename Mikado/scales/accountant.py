@@ -577,12 +577,33 @@ class Accountant:
                     else:
                         self.pred_genes[parent][tid] = accountant.pred_genes[parent][tid]
 
+        def clearBit(int_type, offset):
+            mask = ~(1 << offset)
+            return (int_type & mask)
+
+        def getBit(int_type, offset):
+            mask = 1 << offset
+            if (int_type & mask):
+                return 1
+            else:
+                return 0
+
+        def setBit(int_type, offset):
+            mask = 1 << offset
+            return (int_type | mask)
+
         for ref_gene in accountant.ref_genes:
             for refid in accountant.ref_genes[ref_gene]:
-                self.ref_genes[ref_gene][refid] |= accountant.ref_genes[ref_gene][refid]
                 val = self.ref_genes[ref_gene][refid]
-                if (val >> 0 & 1) | (val >> 2 & 1) | (val >> 1 & 1):
-                    self.ref_genes[ref_gene][refid] &= ~(1 << 3)
+                oval = accountant.ref_genes[ref_gene][refid]
+                for pos in range(3):
+                    bit = getBit(val, pos) | getBit(oval, pos)
+                    if bit:
+                        val = setBit(val, pos)
+                bit = getBit(val, 3) & getBit(oval, 3)
+                if not bit:
+                    val = clearBit(val, 3)
+                self.ref_genes[ref_gene][refid] = val
 
         for chrom in accountant.intron_chains:
             if chrom not in self.intron_chains:

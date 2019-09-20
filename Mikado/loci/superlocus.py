@@ -906,60 +906,6 @@ class Superlocus(Abstractlocus):
         max_edges = max([d for n, d in transcript_graph.degree])
         return transcript_graph, max_edges
 
-    # def reduce_method_three(self, transcript_graph: networkx.Graph) -> networkx.Graph:
-    #
-    #     # Now we are going to collapse by method
-    #     sources = collections.defaultdict(set)
-    #     for tid in transcript_graph:
-    #         found = False
-    #         for tag in self.json_conf["prepare"]["labels"]:
-    #             if tag != '' and tag in tid:
-    #                 sources[tag].add(tid)
-    #                 found = True
-    #                 break
-    #         if found is False:
-    #             # Fallback
-    #             self.logger.debug("Label not found for %s", tid)
-    #             sources[self.transcripts[tid].source].add(tid)
-    #
-    #     new_graph = networkx.Graph()
-    #
-    #     counter = dict()
-    #     for source in sources:
-    #         counter[source] = len(sources[source])
-    #     self.logger.debug("Sources to consider: %s", counter)
-    #     for source in sorted(sources, key=lambda key: len(sources[key])):
-    #         self.logger.debug("Considering source %s, counter: %d",
-    #                           source, counter[source])
-    #         nodes = sources[source]
-    #         acceptable = set.union(nodes, set(new_graph.nodes()))
-    #         edges = set([edge for edge in transcript_graph.edges(
-    #             nbunch=set.union(set(new_graph.nodes()), nodes)) if
-    #                      edge[0] in acceptable and edge[1] in acceptable])
-    #
-    #         counter = collections.Counter()
-    #         for edge in edges:
-    #             counter.update(edge)
-    #
-    #         if len(counter.most_common()) == 0:
-    #             edges_most_connected = 0
-    #         else:
-    #             edges_most_connected = counter.most_common(1)[0][1]
-    #
-    #         if (len(acceptable) > self._complex_limit[0] or
-    #                 edges_most_connected > self._complex_limit[1]):
-    #             self.logger.debug("Reached the limit with source %s, %d nodes, %d max edges",
-    #                               source,
-    #                               len(acceptable),
-    #                               edges_most_connected)
-    #             break
-    #         new_graph.add_nodes_from(nodes)
-    #         new_graph.add_edges_from(edges)
-    #         self.logger.debug("Retained source %s", source)
-    #         self.__retained_sources.add(source)
-    #
-    #     return new_graph
-
     def define_subloci(self):
         """This method will define all subloci inside the superlocus.
         Steps:
@@ -1456,21 +1402,7 @@ class Superlocus(Abstractlocus):
         intronic = collections.defaultdict(set)
 
         for tid, transcript in objects.items():
-            if cds_only is False or not transcript.is_coding:
-                if transcript.introns:
-                    found = set()
-                    for intron in transcript.introns:
-                        for otid in intronic[intron]:
-                            found.add((tid, otid))
-                        intronic[intron].add(tid)
-                    graph.add_edges_from(found)
-                else:
-                    for found in monoexonic.find(transcript.start, transcript.end,
-                                                 strict=False):
-                        graph.add_edge(tid, found.value)
-                    monoexonic.add_interval(Interval(transcript.start, transcript.end,
-                                                     transcript.id))
-            else:
+            if cds_only is True and transcript.is_coding:
                 if transcript.selected_cds_introns:
                     found = set()
                     for intron in transcript.selected_cds_introns:
@@ -1483,6 +1415,20 @@ class Superlocus(Abstractlocus):
                                                  strict=False):
                         graph.add_edge(tid, found.value)
                     monoexonic.add_interval(Interval(transcript.selected_cds_start, transcript.selected_cds_end,
+                                                     transcript.id))
+            else:
+                if transcript.introns:
+                    found = set()
+                    for intron in transcript.introns:
+                        for otid in intronic[intron]:
+                            found.add((tid, otid))
+                        intronic[intron].add(tid)
+                    graph.add_edges_from(found)
+                else:
+                    for found in monoexonic.find(transcript.start, transcript.end,
+                                                 strict=False):
+                        graph.add_edge(tid, found.value)
+                    monoexonic.add_interval(Interval(transcript.start, transcript.end,
                                                      transcript.id))
 
         return graph

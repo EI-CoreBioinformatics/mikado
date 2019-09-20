@@ -1783,6 +1783,7 @@ class TestLocus(unittest.TestCase):
                                        "cdna_length": {"operator": "gt", "value": 0, "name": "cdna_length"}
                                    }}
         conf["pick"]["alternative_splicing"]["pad"] = False
+        conf["pick"]["alternative_splicing"]["min_cds_overlap"] = 0.75
 
         with self.subTest():
             superlocus_one = Superlocus(t1, json_conf=conf)

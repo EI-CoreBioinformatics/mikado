@@ -1213,29 +1213,35 @@ class Superlocus(Abstractlocus):
         cdna_overlap = self.json_conf["pick"]["clustering"]["min_cdna_overlap"]
         cds_overlap = self.json_conf["pick"]["clustering"]["min_cds_overlap"]
 
-        t_graph = super().define_graph(self.transcripts,
-                                       inters=MonosublocusHolder.is_intersecting,
-                                    cds_only=cds_only,
-                                    logger=self.logger,
-                                    min_cdna_overlap=cdna_overlap,
-                                    min_cds_overlap=cds_overlap,
-                                    simple_overlap_for_monoexonic=simple_overlap)
-
         loci_transcripts = set()
         for locus in self.loci.values():
             loci_transcripts.update(set([_ for _ in locus.transcripts.keys()]))
 
         not_loci_transcripts = set.difference({_ for _ in self.transcripts.keys()}, loci_transcripts)
 
-        if not not_loci_transcripts:
-            return
+        for locus in self.loci.values():
+            to_remove = set()
+            for tid in not_loci_transcripts:
+                found = False
+                for ltid in locus.transcripts:
+                    found = found or MonosublocusHolder.is_intersecting(
+                        self.transcripts[tid],
+                        locus[ltid],
+                        cds_only=cds_only,
+                        logger=self.logger,
+                        min_cdna_overlap=cdna_overlap,
+                        min_cds_overlap=cds_overlap,
+                        simple_overlap_for_monoexonic=simple_overlap
+                    )
+                    if found:
+                        self.logger.debug("%s intersects %s in %s, not lost.",
+                                          tid, ltid, locus.id)
+                        break
+                if found:
+                    to_remove.add(tid)
+            not_loci_transcripts = set.difference(not_loci_transcripts, to_remove)
 
-        for tid in not_loci_transcripts:
-            neighbours = set(t_graph.neighbors(tid))
-            if set.intersection(neighbours, loci_transcripts):
-                continue
-            else:
-                self.__lost.update({tid: self.transcripts[tid]})
+        self.__lost.update({tid: self.transcripts[tid] for tid in not_loci_transcripts})
 
         if len(self.__lost):
             self.logger.debug("Lost %s transcripts from %s; starting the recovery process",

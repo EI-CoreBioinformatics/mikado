@@ -337,7 +337,7 @@ class Picker:
         self.logger.setLevel(self.log_level)
         self.logger.addHandler(self.log_handler)
 
-        if self.log_level == "DEBUG":
+        if self.log_level == "DEBUG" and max(self.procs, self.json_conf["threads"]) > 1:
             self.main_logger.setLevel(logging.DEBUG)
             self.main_logger.warning(
                     "Due to a Python design bug, we have to force Mikado to go in single-threaded mode when debugging.")

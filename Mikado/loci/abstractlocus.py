@@ -424,20 +424,6 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
         return find_communities(graph, self.logger)
 
-    # def find_cliques(self, graph: networkx.Graph) -> (networkx.Graph, list):
-    #     """
-    #
-    #     :param graph: graph to which it is necessary to call the cliques for.
-    #
-    #     Wrapper for the BronKerbosch algorithm, which returns the maximal cliques in the graph.
-    #     It is the new interface for the BronKerbosch function, which is not called directly
-    #     from outside this class any longer.
-    #     The "inters" keyword provides the function used to determine
-    #     whether two vertices are connected or not in the graph.
-    #     """
-    #
-    #     return find_cliques(graph, self.logger)
-    #
     def choose_best(self, transcripts: dict) -> str:
         """
         :param transcripts: the dictionary of transcripts of the instance

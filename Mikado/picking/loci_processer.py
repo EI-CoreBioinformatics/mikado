@@ -180,6 +180,7 @@ def _create_locus_lines(stranded_locus: Superlocus,
 
 
 decoder = json.Decoder(number_mode=json.NM_NATIVE)
+backup_decoder = json.Decoder()
 
 
 def manage_index(data, dumps, print_monoloci, print_subloci):
@@ -196,10 +197,17 @@ def manage_index(data, dumps, print_monoloci, print_subloci):
     loci = []
     for stranded_locus_json in msgpack.loads(stranded_loci[0], raw=False):
         stranded_locus = Superlocus(None)
-        stranded_locus.load_dict(decoder(stranded_locus_json),
-                                 load_transcripts=False,
-                                 print_monoloci=print_monoloci, print_subloci=print_subloci
-                                 )
+        try:
+            stranded_locus.load_dict(decoder(stranded_locus_json),
+                                     load_transcripts=False,
+                                     print_monoloci=print_monoloci, print_subloci=print_subloci
+                                     )
+        except (ValueError, json.JSONDecodeError):
+            stranded_locus.load_dict(backup_decoder(stranded_locus_json),
+                                     load_transcripts=False,
+                                     print_monoloci=print_monoloci, print_subloci=print_subloci
+                                     )
+
         if not stranded_locus.id.endswith(str(sys.maxsize)):
             loci.append(stranded_locus.id)
 
@@ -402,9 +410,13 @@ def serialise_locus(stranded_loci: [Superlocus],
                     conn: sqlite3.Connection,
                     counter):
 
-    loci = msgpack.dumps([json.dumps(stranded_locus.as_dict(), default=default_for_serialisation,
-                                     number_mode=json.NM_NATIVE)
+    try:
+        loci = msgpack.dumps([json.dumps(stranded_locus.as_dict(), default=default_for_serialisation,
+                                         number_mode=json.NM_NATIVE)
                           for stranded_locus in stranded_loci])
+    except ValueError:
+        loci = msgpack.dumps([json.dumps(stranded_locus.as_dict(), default=default_for_serialisation)
+                              for stranded_locus in stranded_loci])
     if not stranded_loci:
         chrom = ""
         num_genes = 0

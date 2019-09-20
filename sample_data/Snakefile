@@ -46,7 +46,7 @@ rule daijin_configure:
       prots=swissprot,
       genome=rules.uncompress_genome.output
     output: "daijin.yaml"
-    shell: "daijin configure -as stringtie cufflinks trinity scallop -lal gmap -al \
+    shell: "daijin configure -as stringtie cufflinks scallop trinity -lal gmap -al \
 star hisat gsnap --sample-sheet samples.txt -o daijin.yaml -g {input.genome} -od daijin_test \
  --prot-db {input.prots} --scoring plant.yaml"
 

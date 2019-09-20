@@ -579,14 +579,10 @@ class Accountant:
 
         for ref_gene in accountant.ref_genes:
             for refid in accountant.ref_genes[ref_gene]:
-                
-                val = accountant.ref_genes[ref_gene][refid]
-                # Check whether at least one of the 3 lower bits is set. If it is, clear the fourth ("unmapped")
-                mask = ((val >> 0 & 1) |  (val >> 2 & 1) | (val >> 1 & 1)) ^ (val >> 3)
-                if mask:
-                    # clear
-                    val &= ~(1 << 3)
-                self.ref_genes[ref_gene][refid] = val
+                self.ref_genes[ref_gene][refid] |= accountant.ref_genes[ref_gene][refid]
+                val = self.ref_genes[ref_gene][refid]
+                if (val >> 0 & 1) | (val >> 2 & 1) | (val >> 1 & 1):
+                    self.ref_genes[ref_gene][refid] &= ~(1 << 3)
 
         for chrom in accountant.intron_chains:
             if chrom not in self.intron_chains:

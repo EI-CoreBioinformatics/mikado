@@ -39,6 +39,7 @@ from .locus import Locus
 from .excluded import Excluded
 from typing import Union
 from ..utilities.intervaltree import Interval, IntervalTree
+from itertools import combinations
 
 # The number of attributes is something I need
 # pylint: disable=too-many-instance-attributes
@@ -1217,7 +1218,8 @@ class Superlocus(Abstractlocus):
         for locus in self.loci.values():
             loci_transcripts.update(set([_ for _ in locus.transcripts.keys()]))
 
-        not_loci_transcripts = set.difference({_ for _ in self.transcripts.keys()}, loci_transcripts)
+        not_loci_transcripts = set.difference({_ for _ in self.transcripts.keys()
+                                               if _ not in self._excluded_transcripts}, loci_transcripts)
 
         for locus in self.loci.values():
             to_remove = set()
@@ -1401,41 +1403,44 @@ class Superlocus(Abstractlocus):
 
         # As we are using intern for transcripts, this should prevent
         # memory usage to increase too much
-        objects = self.transcripts
+        objects = dict((tid, item) for tid, item in self.transcripts.items() if tid not in self._excluded_transcripts)
         graph.add_nodes_from(objects.keys())
 
-        monoexonic = IntervalTree()
+        monos = []
         intronic = collections.defaultdict(set)
 
         for tid, transcript in objects.items():
             if cds_only is True and transcript.is_coding:
                 if transcript.selected_cds_introns:
-                    found = set()
                     for intron in transcript.selected_cds_introns:
-                        for otid in intronic[intron]:
-                            found.add((tid, otid))
                         intronic[intron].add(tid)
-                    graph.add_edges_from(found)
                 else:
-                    for found in monoexonic.find(transcript.selected_cds_start, transcript.selected_cds_end,
-                                                 strict=False):
-                        graph.add_edge(tid, found.value)
-                    monoexonic.add_interval(Interval(transcript.selected_cds_start, transcript.selected_cds_end,
-                                                     transcript.id))
+                    interval = Interval(transcript.selected_cds_start,
+                                        transcript.selected_cds_end,
+                                        transcript.id)
+                    monos.append(interval)
+                    monos.append(interval)
             else:
                 if transcript.introns:
-                    found = set()
                     for intron in transcript.introns:
-                        for otid in intronic[intron]:
-                            found.add((tid, otid))
                         intronic[intron].add(tid)
-                    graph.add_edges_from(found)
                 else:
-                    for found in monoexonic.find(transcript.start, transcript.end,
-                                                 strict=False):
-                        graph.add_edge(tid, found.value)
-                    monoexonic.add_interval(Interval(transcript.start, transcript.end,
-                                                     transcript.id))
+                    interval = Interval(transcript.start, transcript.end, transcript.id)
+                    monos.append(interval)
+
+        edges = set()
+        for intron in intronic:
+            edges.update(set(combinations(intronic[intron], 2)))
+
+        # Now the monoexonic
+        monoexonic = IntervalTree()
+        [monoexonic.add_interval(interval) for interval in monos]
+        monos = sorted(monos)
+        for mono in monos:
+            edges.update(set((mono.value, omono.value) for omono in
+                             (other for other in monoexonic.find(mono[0], mono[1], strict=False)
+                              if mono.value != other.value)))
+        graph.add_edges_from(edges)
 
         return graph
 

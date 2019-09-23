@@ -485,6 +485,7 @@ class Superlocus(Abstractlocus):
 
         self.logger.debug("Retrieving data for {0}".format(tid))
         self.transcripts[tid].logger = self.logger
+        self.transcripts[tid].json_conf = self.json_conf
         self.transcripts[tid].load_information_from_db(self.json_conf,
                                                        introns=self.locus_verified_introns,
                                                        session=self.session,

@@ -33,7 +33,7 @@ class TranscriptChecker(Transcript):
     # pylint: disable=too-many-arguments
     def __init__(self, gffline, seq,
                  strand_specific=False, lenient=False,
-                 is_reference=False,
+                 is_reference=None,
                  canonical_splices=(("GT", "AG"), ("GC", "AG"), ("AT", "AC")),
                  force_keep_cds=False,
                  logger=None):

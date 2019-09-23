@@ -798,9 +798,11 @@ class LociProcesser(Process):
                     chroms = set()
                     for tjson in transcripts:
                         definition = GtfLine(tjson["definition"]).as_dict()
+                        is_reference = definition["source"] in self.json_conf["prepare"]["files"]["reference"]
                         transcript = Transcript(logger=self.logger,
                                                 source=definition["source"],
-                                                intron_range=self.json_conf["pick"]["run_options"]["intron_range"])
+                                                intron_range=self.json_conf["pick"]["run_options"]["intron_range"],
+                                                is_reference=is_reference)
                         transcript.chrom, transcript.start, transcript.end = (definition["chrom"],
                                                                               definition["start"], definition["end"])
                         chroms.add(transcript.chrom)

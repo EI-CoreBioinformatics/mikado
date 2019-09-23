@@ -24,11 +24,10 @@ from ..parsers.GFF import GffLine
 from ..parsers.GTF import GtfLine
 from ..parsers.bed12 import BED12
 from ..serializers.blast_serializer import Query, Hit
-from ..serializers.external import External
+from ..serializers.external import External, ExternalSource
 from ..serializers.orf import Orf
 from ..transcripts.clique_methods import find_communities, define_graph
 from ..utilities.log_utils import create_null_logger
-from ..utilities import rgetattr
 from .transcript_methods import splitting, retrieval
 from .transcript_methods.finalizing import finalize
 from .transcript_methods.printing import create_lines_cds
@@ -231,6 +230,8 @@ class Transcript:
     # External scores
     external_baked = bakery(lambda session: session.query(External))
     external_baked += lambda q: q.filter()
+
+    external_sources = bakery(lambda session: session.query(ExternalSource))
 
     # ######## Class special methods ####################
     def __init__(self, *args,

@@ -459,7 +459,7 @@ def serialise_parser():
     parser.add_argument("-od", "--output-dir", dest="output_dir",
                         type=str, default=None,
                         help="Output directory. Default: current working directory")
-    generic.add_argument("-lv", "--log_level", default=None,
+    generic.add_argument("-lv", "--log-level", default=None,
                          choices=["DEBUG", "INFO", "WARN", "ERROR"],
                          help="Log level. Default: derived from the configuration; if absent, INFO")
     generic.add_argument("db", type=str, default=None,

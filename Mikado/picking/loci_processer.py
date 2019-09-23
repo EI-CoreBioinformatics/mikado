@@ -384,8 +384,12 @@ def merge_loci(num_temp, out_handles,
                     if sub_lines != '':
                         print(sub_lines, file=sub_out)
                     for row in sub_metrics_rows:
-                        print(*[row[key] for key in sub_metrics.fieldnames],
-                              sep="\t", file=sub_metrics.handle)
+                        try:
+                            print(*[row[key] for key in sub_metrics.fieldnames],
+                                  sep="\t", file=sub_metrics.handle)
+                        except KeyError:
+                            raise KeyError("\n".join([str((key, str(row.get(key, "MISSING"))))
+                                                      for key in sub_metrics.fieldnames]))
                     for row in sub_scores_rows:
                         print(*[row[key] for key in sub_scores.fieldnames],
                               sep="\t", file=sub_scores.handle)

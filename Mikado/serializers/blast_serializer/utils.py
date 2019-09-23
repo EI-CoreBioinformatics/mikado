@@ -86,7 +86,7 @@ def _prepare_aln_strings(hsp, qmultiplier=1, tmultiplier=1):
         elif middle_aa == "+" or middle_aa in valid_matches:
             if middle_aa != "+":
                 identical = set(range(query_pos, query_pos + qmultiplier))
-            positives = set(range(query_pos, query_pos + qmultiplier))
+            positives = set(range(query_pos, query_pos + + qmultiplier))
             qpos = qmultiplier
             tpos += tmultiplier
             matched = middle_aa

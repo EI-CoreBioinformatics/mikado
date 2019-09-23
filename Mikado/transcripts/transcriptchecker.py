@@ -169,7 +169,7 @@ class TranscriptChecker(Transcript):
             self.logger.warning("%s has mixed splices", self.id)
         if self.is_reference is True:
             self.attributes["is_reference"] = "True"
-            self.logger.warning("%s is a reference transcript", self.id)
+            self.logger.debug("%s is a reference transcript", self.id)
 
     def check_strand(self):
         """

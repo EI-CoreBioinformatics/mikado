@@ -150,6 +150,7 @@ def prepare_hit(hit, query_id, target_id, **kwargs):
 
     qmulti = kwargs["query_multiplier"]
     tmulti = kwargs["target_multiplier"]
+    qlength = kwargs["query_length"]
     assert isinstance(qmulti, (int, float)), type(qmulti)
     assert isinstance(tmulti, (int, float)), type(tmulti)
     hit_dict.update(kwargs)
@@ -175,7 +176,7 @@ def prepare_hit(hit, query_id, target_id, **kwargs):
 
     q_merged_intervals, q_aligned = merge(q_intervals)
     assert isinstance(q_aligned, np.int), (q_merged_intervals, q_aligned, type(q_aligned))
-    hit_dict["query_aligned_length"] = min(q_aligned, hit.query_length)
+    hit_dict["query_aligned_length"] = min(qlength, q_aligned)
     qstart, qend = q_merged_intervals[0][0], q_merged_intervals[-1][1]
     assert isinstance(qstart, np.int), (q_merged_intervals, type(qstart))
     assert isinstance(qend, np.int), (q_merged_intervals, type(qend))

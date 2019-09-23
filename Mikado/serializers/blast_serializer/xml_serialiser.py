@@ -698,11 +698,15 @@ def objectify_record(session, record, hits, hsps, cache,
         # Prepare for bulk load
         try:
             hit, hit_hsps = prepare_hit(alignment, current_query,
-                                        current_target, **hit_dict_params)
+                                        current_target,
+                                        query_length=record.query_length,
+                                        **hit_dict_params)
         except InvalidHit as exc:
             logger.error(exc)
             continue
         hit["query_aligned_length"] = min(record.query_length, hit["query_aligned_length"])
+
+
         hits.append(hit)
         hsps.extend(hit_hsps)
 

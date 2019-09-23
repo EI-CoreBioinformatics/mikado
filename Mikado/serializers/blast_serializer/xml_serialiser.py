@@ -702,6 +702,7 @@ def objectify_record(session, record, hits, hsps, cache,
         except InvalidHit as exc:
             logger.error(exc)
             continue
+        hit["query_aligned_length"] = min(record.query_length, hit["query_aligned_length"])
         hits.append(hit)
         hsps.extend(hit_hsps)
 

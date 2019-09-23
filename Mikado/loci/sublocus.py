@@ -287,9 +287,6 @@ class Sublocus(Abstractlocus):
         """This method prepares the dictionary "rows"
         that will be given to a csv.DictWriter class."""
 
-        if self.metrics_calculated is True:
-            return
-
         for row in Abstractlocus.print_metrics(self):
             yield row
         if self.excluded is not None:
@@ -304,7 +301,6 @@ class Sublocus(Abstractlocus):
         :return:
         """
 
-        self.get_metrics()
         self.calculate_scores()
         self.metric_lines_store = [_ for _ in self.prepare_metrics()]
         for row in self.metric_lines_store:

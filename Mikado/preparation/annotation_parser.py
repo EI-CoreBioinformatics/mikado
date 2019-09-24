@@ -348,7 +348,8 @@ def load_from_gff(shelf_name,
     exon_lines = dict()
 
     strip_cds = strip_cds and (not is_reference)
-    strand_specific = strand_specific or is_reference
+    if strand_specific is not True and is_reference is True:
+        strand_specific = True
 
     transcript2genes = dict()
     new_ids = set()

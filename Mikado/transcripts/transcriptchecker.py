@@ -33,7 +33,7 @@ class TranscriptChecker(Transcript):
     # pylint: disable=too-many-arguments
     def __init__(self, gffline, seq,
                  strand_specific=False, lenient=False,
-                 is_reference=None,
+                 is_reference=False,
                  canonical_splices=(("GT", "AG"), ("GC", "AG"), ("AT", "AC")),
                  force_keep_cds=False,
                  logger=None):
@@ -72,10 +72,20 @@ class TranscriptChecker(Transcript):
         self.mixed_splices = False
         self.reversed = False
         self.canonical_splices = []
+        self.__is_reference = False
         self.is_reference = is_reference
-        self.__force_keep_cds = force_keep_cds or self.is_reference
-        self.lenient = lenient or self.is_reference
-        self.strand_specific = strand_specific or self.is_reference
+        if force_keep_cds is True or self.is_reference is True:
+            self.__force_keep_cds = True
+        else:
+            self.__force_keep_cds = False
+        if lenient is True or self.is_reference is True:
+            self.lenient = True
+        else:
+            self.lenient = False
+        if self.is_reference is True or strand_specific is True:
+            self.strand_specific = True
+        else:
+            self.strand_specific = False
         if not isinstance(canonical_splices, (tuple, list)):
             raise ValueError("Canonical splices should be provided as lists or tuples")
 
@@ -123,7 +133,7 @@ class TranscriptChecker(Transcript):
 
     @is_reference.setter
     def is_reference(self, value):
-        if not isinstance(value, bool):
+        if value is not None and not isinstance(value, bool):
             raise TypeError("This property only accepts boolean values")
         self.__is_reference = value
 
@@ -255,7 +265,7 @@ class TranscriptChecker(Transcript):
                 else:
                     self.logger.debug(
                         "Transcript %s only has negative splice junctions, but as it is a reference \
-                        we will not reverse it")
+we will not reverse it")
 
             if canonical_counter["+"] >= canonical_counter["-"] or (
                             max(canonical_counter["-"], canonical_counter["+"]) > 0 and self.strand_specific is True):

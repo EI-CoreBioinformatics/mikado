@@ -925,7 +925,9 @@ class Superlocus(Abstractlocus):
         # Check whether there is something to remove
         self._check_requirements()
         while self._excluded_transcripts:
-            self.excluded.add_transcript_to_locus(self._excluded_transcripts.pop(), check_in_locus=False)
+            to_remove = self._excluded_transcripts.pop()
+            self.excluded.add_transcript_to_locus(to_remove, check_in_locus=False)
+            self.remove_transcript_from_locus(to_remove.id)
 
         if len(self.transcripts) == 0:
             # we have removed all transcripts from the Locus. Set the flag to True and exit.

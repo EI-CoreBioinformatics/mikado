@@ -667,21 +667,41 @@ class Transcript:
         logger = self.logger
         del self.logger
 
-        state = copy.deepcopy(dict((key, val) for key, val in self.__dict__.items()
-                                   if key not in ("_Transcript__segmenttree",
-                                                  "_Transcript__cds_tree")))
+        state = dict()
+        for key, item in self.__dict__.items():
+            if key.endswith("json_conf") or key in ("_Transcript__segmenttree", "_Transcript__cds_tree"):
+                continue
+            try:
+                state[key] = copy.deepcopy(item)
+            except TypeError:
+                raise TypeError(key, item)
+
         self.logger = logger
 
         if hasattr(self, "json_conf") and self.json_conf is not None:
             if "json_conf" not in state:
-                state["json_conf"] = copy.deepcopy(self.json_conf)
-            for key in state["json_conf"]:
-                if not isinstance(state["json_conf"][key], dict):
-                    continue
-                if "compiled" in state["json_conf"][key]:
-                    del state["json_conf"][key]["compiled"]
-                elif key == "compiled":
-                    del state["json_conf"][key]
+                state["json_conf"] = dict()
+                for key in self.json_conf:
+                    if not isinstance(self.json_conf[key], dict):
+                        if key == "compiled":
+                            continue
+                        if isinstance(self.json_conf[key], pysam.FastaFile):
+                            state["json_conf"][key] = self.json_conf[key].filename
+                        else:
+                            state["json_conf"][key] = copy.deepcopy(self.json_conf[key])
+                    else:
+                        state["json_conf"][key] = dict()
+                        for subkey in self.json_conf[key]:
+                            if subkey == "compiled":
+                                continue
+                            else:
+                                if isinstance(self.json_conf[key][subkey], pysam.FastaFile):
+                                    state["json_conf"][key][subkey] = self.json_conf[key][subkey].filename
+                                else:
+                                    try:
+                                        state["json_conf"][key][subkey] = copy.deepcopy(self.json_conf[key][subkey])
+                                    except TypeError:
+                                        raise TypeError((key, subkey, self.json_conf[key][subkey]))
 
         if hasattr(self, "session"):
             if state["session"] is not None:
@@ -700,6 +720,8 @@ class Transcript:
         return state
 
     def __setstate__(self, state):
+        self.__json_conf = None
+        self.__json_conf = state.pop("json_conf", None)
         self.__dict__.update(state)
         self._calculate_cds_tree()
         self._calculate_segment_tree()
@@ -952,10 +974,12 @@ class Transcript:
     def is_reference(self):
         """Checks whether the transcript has been marked as reference by Mikado prepare"""
 
-        if self.json_conf is not None:
-            return self.original_source in self.json_conf["prepare"]["files"]["reference"]
-        elif self.__is_reference is not None:
+        if self.json_conf is None and self.__is_reference is not None:
             return self.__is_reference
+        elif self.__is_reference is None and self.json_conf is not None:
+            return self.original_source in self.json_conf["prepare"]["files"]["reference"]
+        elif self.__is_reference is not None and self.json_conf is not None:
+            return self.__is_reference or self.original_source in self.json_conf["prepare"]["files"]["reference"]
         else:
             return False
 

@@ -192,14 +192,14 @@ def load_into_storage(shelf_name, exon_lines, min_length, logger, strip_cds=True
                            timeout=60,
                            check_same_thread=False  # Necessary for SQLite3 to function in multiprocessing
                            )
-    cursor = conn.cursor()
-    cursor.execute("PRAGMA journal_mode=wal")
-    cursor.execute("DROP TABLE IF EXISTS dump")
-    cursor.execute(
+    conn.execute("PRAGMA journal_mode=wal")
+    conn.execute("DROP TABLE IF EXISTS dump")
+    conn.execute(
         "CREATE TABLE dump (chrom text, start integer, end integer, strand text, tid text, features blob)")
-    cursor.execute("CREATE INDEX idx ON dump (tid)")
     conn.commit()
     logger.debug("Created tables for shelf %s", shelf_name)
+
+    temp_store = []
 
     for tid in exon_lines:
         if "features" not in exon_lines[tid]:
@@ -299,14 +299,17 @@ def load_into_storage(shelf_name, exon_lines, min_length, logger, strip_cds=True
             values = json.dumps(exon_lines[tid])
 
         logger.debug("Inserting %s into shelf %s", tid, shelf_name)
-        cursor.execute("INSERT INTO dump VALUES (?, ?, ?, ?, ?, ?)", (exon_lines[tid]["chrom"],
-                                                                      start,
-                                                                      end,
-                                                                      exon_lines[tid]["strand"],
-                                                                      tid,
-                                                                      values))
+        temp_store.append((exon_lines[tid]["chrom"], start, end, exon_lines[tid]["strand"], tid, values))
+        if len(temp_store) >= 1000:
+            conn.executemany("INSERT INTO dump VALUES (?, ?, ?, ?, ?, ?)", temp_store)
+            conn.commit()
+            temp_store = []
 
-    cursor.close()
+    if len(temp_store) > 0:
+        conn.executemany("INSERT INTO dump VALUES (?, ?, ?, ?, ?, ?)", temp_store)
+        conn.commit()
+
+    conn.execute("CREATE INDEX idx ON dump (tid)")
     conn.commit()
     conn.close()
     return

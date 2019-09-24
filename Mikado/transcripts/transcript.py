@@ -308,7 +308,7 @@ class Transcript:
 
         # Starting settings for everything else
         self.__chrom = None
-        self.__is_reference = is_reference
+        self.is_reference = is_reference
         self.feature = "transcript"
         self.__start, self.__end = None, None
         self.attributes = dict()

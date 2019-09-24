@@ -927,7 +927,15 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                 if isfloat(value):
                     value = round(value, 2)
                 elif value is None or value == "":
-                    value = "NA"
+                    if key == "score":
+                        value = self.scores.get(tid, dict()).get("score", None)
+                        self.transcripts[tid].score = value
+                        if isfloat(value):
+                            value = round(value, 2)
+                        elif value is None:
+                            value = "NA"
+                    else:
+                        value = "NA"
                 row[key] = value
 
             for source in transcript.external_scores:
@@ -1106,6 +1114,10 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                 # Reference transcripts should be kept in, no matter what.
                 self.logger.debug("Skipping %s from the requirement check as it is a reference transcript")
                 continue
+            elif self.transcripts[tid].original_source in self.json_conf["prepare"]["files"]["reference"]:
+                self.transcripts[tid].is_reference = True  # Bug
+                self.logger.debug("Skipping %s from the requirement check as it is a reference transcript", tid)
+                continue
             else:
                 self.logger.debug("Transcript %s (source %s) is not a reference transcript (references: %s; in it: %s)",
                                   tid, self.transcripts[tid].original_source,
@@ -1141,9 +1153,18 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         """
 
         if self.scores_calculated is True:
-            self.logger.debug("Scores calculation already effectuated for %s",
-                              self.id)
-            return
+            # assert self.transcripts[list(self.transcript.keys())[0]].score is not None
+            test = set.difference(set(self.transcripts.keys()), self._excluded_transcripts)
+            if test and self.transcripts[test.pop()].score is None:
+                for tid in self.transcripts:
+                    if tid in self._excluded_transcripts:
+                        self.transcripts[tid] = 0
+                    else:
+                        self.transcripts[tid] = self.scores[tid]["score"]
+                return
+            else:
+                self.logger.debug("Scores calculation already effectuated for %s", self.id)
+                return
 
         self.get_metrics()
         # not_passing = set()
@@ -1185,6 +1206,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                         self.logger.debug("Excluding %s as it has a score <= 0", tid)
                         self.transcripts[tid].score = 0
                         self._not_passing.add(tid)
+                assert self.transcripts[tid].score is not None
 
                 if tid in self._not_passing:
                     pass

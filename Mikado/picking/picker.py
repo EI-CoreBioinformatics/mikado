@@ -402,9 +402,9 @@ class Picker:
             session = sqlalchemy.orm.sessionmaker(bind=engine)()
             dbutils.DBBASE.metadata.create_all(engine)
 
-        metrics = Superlocus.available_metrics[4:]
+        metrics = Superlocus.available_metrics[5:]
         metrics.extend(["external.{}".format(_.source) for _ in session.query(ExternalSource.source).all()])
-        metrics = Superlocus.available_metrics[:4] + sorted(metrics)
+        metrics = Superlocus.available_metrics[:5] + sorted(metrics)
 
         if self.sub_out != '':
             assert isinstance(self.sub_out, str)
@@ -530,9 +530,9 @@ class Picker:
         locus_scores_file = open(re.sub("$", ".scores.tsv", re.sub(
             ".gff.?$", "", self.locus_out)), "w")
 
-        metrics = Superlocus.available_metrics[4:]
+        metrics = Superlocus.available_metrics[5:]
         metrics.extend(external_metrics)
-        metrics = Superlocus.available_metrics[:4] + sorted(metrics)
+        metrics = Superlocus.available_metrics[:5] + sorted(metrics)
         session.close()
         engine.dispose()
 

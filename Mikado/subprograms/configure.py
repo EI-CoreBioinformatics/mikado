@@ -326,6 +326,10 @@ def create_config(args):
     config.pop("__loaded_scoring", None)
     config.pop("scoring_file", None)
     config.pop("filename", None)
+    config.pop("as_requirements", None)
+    config.pop("scoring", None)
+    config.pop("not_fragmentary", None)
+    config.pop("requirements", None)
 
     # Check that the configuration file is correct
     tempcheck = tempfile.NamedTemporaryFile("wt", suffix=".yaml", delete=False)

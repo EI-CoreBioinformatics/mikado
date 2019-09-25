@@ -43,7 +43,8 @@ def manage_index(data, dumps, source):
                 locus_dict = decoder(locus_string)
                 locus = Locus(None)
                 locus.load_dict(locus_dict)
-                stranded_locus.add_locus(locus)
+                if locus is not None:
+                    stranded_locus.add_locus(locus)
             stranded_locus.source = source
         except (ValueError, json.JSONDecodeError):
             stranded_locus = Superlocus(None)
@@ -51,7 +52,8 @@ def manage_index(data, dumps, source):
                 locus_dict = backup_decoder(locus_string)
                 locus = Locus(None)
                 locus = locus.load_dict(locus_dict)
-                stranded_locus.add_locus(locus)
+                if locus is not None:
+                    stranded_locus.add_locus(locus)
 
         if not stranded_locus.id.endswith(str(sys.maxsize)):
             loci.append(stranded_locus.id)

@@ -34,7 +34,8 @@ from ..loci.superlocus import Superlocus
 from ..configuration.configurator import to_json, check_json  # Necessary for nosetests
 from ..utilities import dbutils
 from ..exceptions import UnsortedInput, InvalidJson, InvalidTranscript
-from .loci_processer import analyse_locus, LociProcesser, merge_loci, print_locus
+from .loci_processer import analyse_locus, LociProcesser, merge_loci
+from ._locus_single_printer import print_locus
 import multiprocessing.managers
 from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
 import pickle

@@ -268,6 +268,8 @@ def setup(args):
         for handler in logger.handlers:
             # if hasattr(handler, "baseFilename"):
             logger.removeHandler(handler)
+
+        os.makedirs(os.path.dirname(args.json_conf["serialise"]["files"]["log"]), exist_ok=True)
         handler = logging.FileHandler(args.json_conf["serialise"]["files"]["log"], "w")
         handler.setFormatter(formatter)
         logger.addHandler(handler)

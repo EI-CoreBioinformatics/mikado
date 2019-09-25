@@ -46,7 +46,7 @@ rule daijin_configure:
       prots=swissprot,
       genome=rules.uncompress_genome.output
     output: "daijin.yaml"
-    shell: "daijin configure -as stringtie cufflinks scallop trinity -lal gmap -al \
+    shell: "daijin configure -as stringtie cufflinks scallop -lal gmap --scheduler local -al \
 star hisat gsnap --sample-sheet samples.txt -o daijin.yaml -g {input.genome} -od daijin_test \
  --prot-db {input.prots} --scoring plant.yaml"
 
@@ -121,10 +121,9 @@ rule check_logs:
       compare_subloci_out=rules.compare_subloci.output
     output: touch("check.ok")
     run:
-      for inp_file in ["Daijin/5-mikado/pick/permissive/mikado-permissive.pick.err",
-                       "Daijin/5-mikado/serialise.log",
-                       "Daijin/5-mikado/prepare.log",
-                       "Daijin/5-mikado/mikado_serialise.err",
+      for inp_file in ["Daijin/5-mikado/pick/permissive/mikado-permissive.pick.log",
+                       "Daijin/5-mikado/mikado_prepare.log",
+                       "Daijin/5-mikado/mikado_serialise.log",
                        "compare.log",
 		       "compare_subloci.log", "compare_input.log"]:
          inp_handle = open(inp_file, "rt")

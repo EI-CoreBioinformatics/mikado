@@ -348,11 +348,11 @@ def portcullisHelp(command, step):
     return cmd
 
 
-def portcullisStrandOption(run, command, step):
+def portcullisStrandOption(run, step):
     parts=run.split("-")
     sample=parts[1]
-    cmd = portcullisHelp(command, step)
-    if not any("strandedness" in _ for _ in cmd.split("\n")):
+    # cmd = portcullisHelp(command, step)
+    if step not in ("junc", "all"):
         return ""
     else:
         if SAMPLE_MAP[sample] == "fr-firststrand":
@@ -972,7 +972,7 @@ rule portcullis_prep:
     threads: THREADS
     message: "Using portcullis to prepare: {wildcards.aln_method}"
     conda: os.path.join(envdir, "portcullis.yaml")
-    shell: "{params.load} portcullis prep -o {params.outdir} -t {threads} {input.ref} {params.files}"  #  > {log} 2>&1"
+    shell: "{params.load} portcullis prep -o {params.outdir} -t {threads} {input.ref} {params.files} > {log} 2>&1"
 
 
 rule portcullis_junc:
@@ -983,7 +983,7 @@ rule portcullis_junc:
         prepdir=os.path.join(PORTCULLIS_DIR, "portcullis_{aln_method}", "1-prep"),
         outdir=os.path.join(PORTCULLIS_DIR, "portcullis_{aln_method}", "2-junc"),
         load=loadPre(config, "portcullis"),
-        strand=lambda wildcards: portcullisStrandOption(wildcards.aln_method, loadPre(config, "portcullis"), "junc")
+        strand=lambda wildcards: portcullisStrandOption(wildcards.aln_method, "junc")
     log: os.path.join(PORTCULLIS_DIR, "logs", "{aln_method}", "junc.log")
     threads: THREADS
     message: "Using portcullis to analyse potential junctions: {wildcards.aln_method}"

@@ -880,7 +880,6 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             # Only consider the selected internal ORF
             t_orfs = [(_[1][0], _[1][1], _[2]) for _ in transcript.selected_internal_orf if _[0] == "CDS"]
             o_orfs = [(_[1][0], _[1][1], _[2]) for _ in other.selected_internal_orf if _[0] == "CDS"]
-            in_frame = False
 
             for start, end, phase in t_orfs:
                 for ostart, oend, ophase in o_orfs:
@@ -892,15 +891,13 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                     if transcript.strand == "-":
                         first, last = sorted([(start, end, phase), (ostart, oend, ophase)],
                                              key=operator.itemgetter(1), reverse=True)
-                        in_frame = in_frame or (0 == ((last[1] - last[2]) - (first[1] - first[2])) % 3)
+                        in_frame = (0 == ((last[1] - last[2]) - (first[1] - first[2])) % 3)
                     else:
                         first, last = sorted([(start, end, phase), (ostart, oend, ophase)],
                                              key=operator.itemgetter(0), reverse=False)
-                        in_frame = in_frame or (0 == ((last[0] + last[2]) - (first[0] + first[2])) % 3)
-                    cds_overlap += seg_overlap
-
-            if in_frame is False:
-                cds_overlap = 0
+                        in_frame = (0 == ((last[0] + last[2]) - (first[0] + first[2])) % 3)
+                    if in_frame:
+                        cds_overlap += seg_overlap
 
             if fixed_perspective:
                 cds_overlap /= transcript.combined_cds_length

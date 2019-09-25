@@ -139,7 +139,7 @@ def create_config_parser():
     runtime.add_argument("-o", "--out", default=sys.stdout, type=argparse.FileType("w"),
                     help="Output file. If the file name ends in \"json\", the file will be in JSON format; \
                         otherwise, Daijin will print out a YAML file. Default: STDOUT.")
-    runtime.add_argument("--scheduler", default="", choices=["", "SLURM", "LSF", "PBS"],
+    runtime.add_argument("--scheduler", default="", choices=["local", "SLURM", "LSF", "PBS"],
                         help="Scheduler to use. Default: None - ie, either execute everything on the local machine or use DRMAA to submit and control jobs (recommended).")
     runtime.add_argument("--exe", default="daijin_exe.yaml",
                          help="Configuration file for the executables.")
@@ -354,7 +354,11 @@ def assemble_transcripts_pipeline(args):
         else:
             drmaa_var = res_cmd
 
-    if drmaa_var or cluster_var:
+    if SCHEDULER == "local":
+        hpc_conf = None
+        drmaa_var = None
+        cluster_var = None
+    elif drmaa_var or cluster_var:
         if os.path.exists(args.hpc_conf):
             hpc_conf = args.hpc_conf
         else:
@@ -370,7 +374,7 @@ def assemble_transcripts_pipeline(args):
 
     if args.latency_wait is not None:
         latency = abs(args.latency_wait)
-    elif SCHEDULER != '':
+    elif SCHEDULER not in ('', "local"):
         latency = 60
     else:
         latency = 1
@@ -479,9 +483,21 @@ def mikado_pipeline(args):
     yaml.dump(doc, yaml_file)
     yaml_file.flush()
 
+    if SCHEDULER == "local":
+        hpc_conf = None
+        drmaa_var = None
+        cluster_var = None
+    elif drmaa_var or cluster_var:
+        if os.path.exists(args.hpc_conf):
+            hpc_conf = args.hpc_conf
+        else:
+            hpc_conf = system_hpc_yaml
+    else:
+        hpc_conf = None
+
     if args.latency_wait:
         latency = abs(args.latency_wait)
-    elif SCHEDULER != '':
+    elif SCHEDULER not in ('', "local"):
         latency = 60
     else:
         latency = 1

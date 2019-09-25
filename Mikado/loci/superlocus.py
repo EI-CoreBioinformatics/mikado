@@ -345,13 +345,29 @@ class Superlocus(Abstractlocus):
         return "\n".join([line for line in lines if line is not None and line != ''])
     # pylint: enable=arguments-differ
 
-    def as_dict(self):
+    def add_locus(self, locus: Locus):
+
+        for transcript in locus.transcripts.values():
+            self.add_transcript_to_locus(transcript, check_in_locus=False)
+
+        # self.source = locus.source
+        self.json_conf = locus.json_conf
+        self.loci[locus.id] = locus
+        self.loci_defined = True
+
+    def as_dict(self, with_subloci=True, with_monoholders=True):
 
         state = super().as_dict()
         state["start"], state["end"] = self.start, self.end
-        state["subloci"] = [sublocus.as_dict() for sublocus in self.subloci]
+        if with_subloci is True:
+            state["subloci"] = [sublocus.as_dict() for sublocus in self.subloci]
+        else:
+            state["subloci"] = []
         state["loci"] = dict((lid, locus.as_dict()) for lid, locus in self.loci.items())
-        state["monoholders"] = [mono.as_dict() for mono in self.monoholders]
+        if with_monoholders is True:
+            state["monoholders"] = [mono.as_dict() for mono in self.monoholders]
+        else:
+            state["monoholders"] = []
         state["excluded"] = self.excluded.as_dict()
         return state
 

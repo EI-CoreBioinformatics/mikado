@@ -745,6 +745,7 @@ class Picker:
         merge_loci(self.procs,
                    handles,
                    logger=self.logger,
+                   source=self.json_conf["pick"]["output_format"]["source"],
                    tempdir=tempdir)
 
         self.logger.info("Finished merging partial files")

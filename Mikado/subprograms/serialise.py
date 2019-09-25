@@ -248,9 +248,6 @@ def setup(args):
             args.json_conf["serialise"]["files"]["output_dir"],
             args.json_conf["db_settings"]["db"])
 
-    if args.log is not None:
-        args.json_conf["serialise"]["files"]["log"] = args.log
-
     args.json_conf["log_settings"]["log"] = args.json_conf["serialise"]["files"]["log"][:]
 
     if args.json_conf["serialise"]["files"]["log"] is not None:
@@ -259,11 +256,18 @@ def setup(args):
         if not isinstance(args.json_conf["serialise"]["files"]["log"], str):
             args.json_conf["serialise"]["files"]["log"].close()
             args.json_conf["serialise"]["files"]["log"] = args.json_conf["serialise"]["files"]["log"].name
+
+        log = args.json_conf["serialise"]["files"]["log"]
+        logdir = os.path.dirname(os.path.abspath(log)).rstrip(os.path.sep)
+        logdir.replace(os.path.abspath(args.json_conf["serialise"]["files"]["output_dir"]).rstrip(os.path.sep),
+                       "")
         args.json_conf["serialise"]["files"]["log"] = \
-            path_join(args.json_conf["serialise"]["files"]["output_dir"], args.json_conf["serialise"]["files"]["log"])
+            os.path.join(args.json_conf["serialise"]["files"]["output_dir"],
+                         logdir,
+                         os.path.basename(log))
         for handler in logger.handlers:
-            if hasattr(handler, "baseFilename"):
-                logger.removeHandler(handler)
+            # if hasattr(handler, "baseFilename"):
+            logger.removeHandler(handler)
         handler = logging.FileHandler(args.json_conf["serialise"]["files"]["log"], "w")
         handler.setFormatter(formatter)
         logger.addHandler(handler)

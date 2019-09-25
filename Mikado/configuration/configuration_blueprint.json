@@ -632,7 +632,7 @@
             },
             "consider_truncated_for_retained": {
               "type": "boolean",
-              "default": false
+              "default": true
             },
             "only_reference_update": {
               "type": "boolean",

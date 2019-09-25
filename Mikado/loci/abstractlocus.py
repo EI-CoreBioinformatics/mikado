@@ -608,6 +608,20 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         terminal = bool(set.intersection(
             set(exon),
             {transcript.start, transcript.end, transcript.combined_cds_end, transcript.combined_cds_start}))
+        before_met = False
+        if transcript.is_coding:
+            # Avoid considering exons that are full 3' UTR exons in a coding transcript.
+            if transcript.strand == "-":
+                if exon[1] < min(transcript.combined_cds_start, transcript.combined_cds_end):
+                    return False, [], terminal
+                if max(transcript.combined_cds_start, transcript.combined_cds_end) < exon[1]:
+                    before_met = True
+            elif transcript.strand != "-":
+                if exon[0] > max(transcript.combined_cds_start, transcript.combined_cds_end):
+                    return False, [], terminal
+                if min(transcript.combined_cds_start, transcript.combined_cds_end) > exon[0]:
+                    before_met = True
+
         if cds_segments == [Interval(*exon)]:
             # It is completely coding
             if terminal is False or (not consider_truncated):
@@ -619,13 +633,22 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         else:
             frags = []
             to_consider = True
+
             if cds_segments:
                 if cds_segments[0].start > exon[0]:
-                    frags.append((exon[0], cds_segments[0].start - 1))
+                    if before_met and transcript.strand == "+":
+                        frags.append((exon[0], cds_segments[0].start - 1))
+                    else:
+                        frags.append((cds_segments[0].start - 1, cds_segments[0].start))
                 for before, after in zip(cds_segments[:-1], cds_segments[1:]):
-                    frags.append((before.end + 1, max(after.start - 1, before.end + 1)))
+                    frags.append((before.end, before.end + 1))
+                    frags.append((after.start - 1, after.start))
+                    # frags.append((before.end + 1, max(after.start - 1, before.end + 1)))
                 if cds_segments[-1].end < exon[1]:
-                    frags.append((cds_segments[-1].end + 1, exon[1]))
+                    if before_met and transcript.strand == "-":
+                        frags.append((cds_segments[-1].end + 1, exon[1]))
+                    else:
+                        frags.append((cds_segments[-1].end, cds_segments[-1].end + 1))
             else:
                 frags = [Interval(*exon)]
 
@@ -754,6 +777,11 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         :rtype : None"""
 
         # self.logger.debug("Starting to calculate retained introns for %s", transcript.id)
+        if self.stranded is False:
+            self.logger.error("Trying to find retained introns in a non-stranded locus (%s) is invalid. Aborting.",
+                              self.id)
+            return
+
         if len(self.introns) == 0:
             transcript.retained_introns = tuple()
             # self.logger.debug("No introns in the locus to check against. Exiting.")

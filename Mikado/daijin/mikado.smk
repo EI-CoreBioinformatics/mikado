@@ -76,9 +76,10 @@ rule mikado_prepare:
     params:
         load=loadPre(config, "mikado"),
         cfg=CFG
+    log: os.path.join(MIKADO_DIR, "mikado_prepare.log")
     threads: THREADS
     message: "Preparing transcripts using mikado"
-    shell: "{params.load} mikado prepare --start-method=spawn --fasta={input.ref} --json-conf={params.cfg} -od {MIKADO_DIR} 2>&1"
+    shell: "{params.load} mikado prepare -l {log} --start-method=spawn --fasta={input.ref} --json-conf={params.cfg} -od {MIKADO_DIR} 2>&1"
 
 rule create_blast_database:
     input: fa=BLASTX_TARGET
@@ -258,7 +259,7 @@ rule mikado_serialise:
         fai=rules.genome_index.output,
         transcripts=rules.mikado_prepare.output.fa
     output: db=os.path.join(MIKADO_DIR, "mikado.db")
-    log: os.path.join(MIKADO_DIR, "mikado_serialise.err")
+    log: os.path.join(MIKADO_DIR, "mikado_serialise.log")
     params:
         cfg=CFG,
         blast="--xml={}".format(os.path.join(BLAST_DIR, "xmls")) if len(BLASTX_TARGET) > 0 else "",
@@ -269,7 +270,7 @@ rule mikado_serialise:
     # conda: os.path.join(envdir, "mikado.yaml")
     shell: "{params.load} mikado serialise {params.blast} {params.blast_target} --start-method=spawn \
 --transcripts={input.transcripts} --genome_fai={input.fai} --json-conf={params.cfg} \
---force {params.orfs} -od {MIKADO_DIR} --procs={threads} > {log} 2>&1"
+--force {params.orfs} -od {MIKADO_DIR} --procs={threads} -l {log}"
 
 rule mikado_pick:
     input:
@@ -277,7 +278,7 @@ rule mikado_pick:
         db=rules.mikado_serialise.output
     output:
         loci=os.path.join(MIKADO_DIR, "pick", "{mode}", "mikado-{mode}.loci.gff3")
-    log: os.path.join(MIKADO_DIR, "pick", "{mode}", "mikado-{mode}.pick.err")
+    log: os.path.join(MIKADO_DIR, "pick", "{mode}", "mikado-{mode}.pick.log")
     params:
         cfg=CFG,
         load=loadPre(config, "mikado"),
@@ -285,8 +286,8 @@ rule mikado_pick:
     threads: THREADS
     message: "Running mikado picking stage"
     shell: "{params.load} mikado pick --source Mikado_{wildcards.mode} --mode={wildcards.mode} \
---procs={threads} --start-method=spawn --json-conf={params.cfg} -od {params.outdir} \
---loci-out mikado-{wildcards.mode}.loci.gff3 -lv INFO -db {input.db} {input.gtf} > {log} 2>&1"
+--procs={threads} --start-method=spawn --json-conf={params.cfg} -od {params.outdir} -l {log} \
+--loci-out mikado-{wildcards.mode}.loci.gff3 -lv INFO -db {input.db} {input.gtf}"
 
 rule mikado_stats:
     input:

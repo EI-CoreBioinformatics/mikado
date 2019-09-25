@@ -1972,6 +1972,26 @@ class RetainedIntronTester(unittest.TestCase):
                 self.assertEqual((len(sup.transcripts[pred.id].retained_introns) > 0),
                                  retained, (pred.id, retained))
 
+    def test_false_positive_retained_introns(self):
+
+        bed1 = """Chr1	33677	37762	ID=mikado.Chr1G2.1;coding=True;phase=0;alias=trinity_c0_g1_i1.mrna1.2	19.0	-	33991	37061	0	9	650,1074,81,234,62,112,181,26,194	0,723,1889,2052,2946,3132,3345,3695,3891"""
+        bed2 = """Chr1	33677	37762	ID=mikado.Chr1G2.2;coding=True;phase=0;alias=stringtie_Stringtie_TH.27.2	19.0	-	33991	37061	0	9	650,1071,81,234,62,112,181,26,194	0,723,1889,2052,2946,3132,3345,3695,3891"""
+        bed3 = """ Chr1	33677	37762	ID=mikado.Chr1G2.3;coding=True;phase=0;alias=stringtie_Stringtie_TH.27.5	11.0	-	34833	37061	0	10	650,455,545,81,234,62,112,181,26,194	0,723,1252,1889,2052,2946,3132,3345,3695,3891"""
+        # bed4 = ""
+        bed4 = """Chr1	33677	37762	ID=mikado.Chr1G1.2;coding=True;phase=0;alias=stringtie_Stringtie_TH.27.6	15.15	-	34833	37061	0	11	181,347,455,545,81,234,62,112,181,26,194	0,303,723,1252,1889,2052,2946,3132,3345,3695,3891"""
+        beds = [BED12(line) for line in [bed1, bed2, bed3, bed4]]
+        transcripts = [Transcript(bed) for bed in beds]
+        [transcript.finalize() for transcript in transcripts]
+        self.assertTrue([transcript.is_coding for transcript in transcripts])
+
+        sup = Superlocus(transcripts[0], stranded=True)
+        for transcript in transcripts[1:]:
+            sup.add_transcript_to_locus(transcript, check_in_locus=False)
+
+        [sup.find_retained_introns(transcript) for transcript in sup.transcripts.values()]
+        for transcript in sup.transcripts.values():
+            self.assertFalse(transcript.retained_intron_num, (transcript.id, transcript.retained_introns))
+
     def test_retained_pos_truncated(self):
         """Here we verify that a real retained intron is called as such,
         even when the transcript is truncated."""
@@ -2322,14 +2342,14 @@ class RetainedIntronTester(unittest.TestCase):
                                             [Interval(401, 830)],
                                             logger=logger))
 
-        for alt, num_retained in zip([t2, t3], [0, 1]):
+        for alt, num_retained in zip([t2, t3], [1, 0]):
             unpickled_t1 = pickle.loads(pickle.dumps(t1))
             unpickled_alt = pickle.loads(pickle.dumps(alt))
             with self.subTest(alt=alt):
                 sup = Superlocus(t1, json_conf=self.my_json)
                 sup.find_retained_introns(alt)
                 self.assertEqual(alt.retained_intron_num, num_retained,
-                                 alt.retained_introns)
+                                 (alt.id, alt.retained_introns))
             with self.subTest(alt=alt):
                 sup = Superlocus(unpickled_t1, json_conf=self.my_json)
                 sup.find_retained_introns(unpickled_alt)
@@ -2361,7 +2381,6 @@ class RetainedIntronTester(unittest.TestCase):
         introns = set.union(*[_.combined_cds_introns for _ in [t1, t3]])
 
         segmenttree = Abstractlocus._calculate_segment_tree(exons, introns)
-
 
         logger = create_default_logger("test_not_real_retained_neg", level="WARNING")
         # logger.setLevel("DEBUG")
@@ -2401,7 +2420,7 @@ class RetainedIntronTester(unittest.TestCase):
                          [Interval(471, 1000)])
 
         self.assertEqual(Abstractlocus._exon_to_be_considered((301, 1000), t2),
-                         (True, [(301, 470)], True),
+                         (True, [(470, 471)], True),
                          Abstractlocus._exon_to_be_considered((301, 1000), t2))
 
         graph = Abstractlocus._calculate_graph([t1, t2])

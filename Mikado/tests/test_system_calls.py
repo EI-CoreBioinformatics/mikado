@@ -1672,7 +1672,7 @@ class SerialiseChecker(unittest.TestCase):
                 dir = tempfile.TemporaryDirectory(prefix="has_to_fail")
                 json_file = os.path.join(dir.name, "mikado.yaml")
                 db = os.path.join(dir.name, "mikado.db")
-                log = os.path.join(dir.name, "failed_serialise.log")
+                log = "failed_serialise.log"
                 uni_out = os.path.join(dir.name, "uniprot_sprot_plants.fasta")
                 self.json_conf["serialise"]["files"]["log"] = os.path.basename(log)
                 with gzip.open(uniprot, "rb") as uni, open(uni_out, "wb") as uni_out_handle:
@@ -1684,7 +1684,7 @@ class SerialiseChecker(unittest.TestCase):
                     sys.argv = [str(_) for _ in ["mikado", "serialise", "--json-conf", json_file,
                                                  "--transcripts", transcripts, "--blast_targets", uni_out,
                                                  "--orfs", tmp_orf.name, "--junctions", junctions, "--xml", xml,
-                                                 "-p", procs, "-mo", mobjects, db, "--log", os.path.basename(log),
+                                                 "-p", procs, "-mo", mobjects, db,
                                                  "--seed", "1078"]]
                     self.assertIn("failed", log)
                     with self.assertRaises(SystemExit):
@@ -1699,8 +1699,9 @@ class SerialiseChecker(unittest.TestCase):
                         "Mikado serialise failed due to problems with the input data. Please check the logs." in line
                         for line in logged))
                     self.assertTrue(any(
-                        "The provided ORFs do not match the transcripts provided and already present in the database.\
-    Please check your input files." in line for line in logged))
+                        "The provided ORFs do not match the transcripts provided and already present in the database."
+                        in line for line in logged),
+                    print("\n".join(logged)))
                 dir.cleanup()
 
 

@@ -1329,6 +1329,12 @@ class Transcript:
             if key == "attributes" and remove_attributes is True:
                 for subkey in [_ for _ in state[key] if _ not in ("ID", "Parent", "Name")]:
                     del state[key][subkey]
+            # elif key == "attributes":
+            #     for subkey in [_ for _ in state[key] if _ not in ("ID", "Parent", "Name")]:
+            #         if state[key][subkey] == float("inf"):
+            #             state[key][subkey] = maxsize
+            #         elif state[key][subkey] == float("-inf"):
+            #             state[key][subkey] = -maxsize
 
         state["exons"] = []
         for exon in self.exons:
@@ -1376,6 +1382,12 @@ class Transcript:
         self.external_scores.update(state.get("external", dict()))
         self._original_source = self.source
         self.attributes = state["attributes"].copy()
+
+        # for subkey in self.attributes:
+        #     if self.attributes[subkey] == maxsize:
+        #         self.attributes[subkey] = float("inf")
+        #     elif self.attributes[subkey] == maxsize:
+        #         self.attributes[subkey] = float("-inf")
 
         self.exons = []
         self.combined_cds = []

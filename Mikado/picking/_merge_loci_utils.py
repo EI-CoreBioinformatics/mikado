@@ -8,8 +8,7 @@ import collections
 from ._locus_line_creator import _create_locus_lines
 
 
-decoder = json.Decoder(number_mode=json.NM_NATIVE)
-backup_decoder = json.Decoder()
+decoder = json.Decoder()
 
 
 def manage_index(data, dumps, source):
@@ -37,23 +36,14 @@ def manage_index(data, dumps, source):
     mono_length = len(monolocus_dump)
 
     for pos, stranded_locus_json in enumerate(msgpack.loads(stranded_loci[0], raw=False)):
-        try:
-            stranded_locus = Superlocus(None)
-            for locus_string in stranded_locus_json:
-                locus_dict = decoder(locus_string)
-                locus = Locus(None)
-                locus.load_dict(locus_dict)
-                if locus is not None:
-                    stranded_locus.add_locus(locus)
-            stranded_locus.source = source
-        except (ValueError, json.JSONDecodeError):
-            stranded_locus = Superlocus(None)
-            for locus_string in stranded_locus_json:
-                locus_dict = backup_decoder(locus_string)
-                locus = Locus(None)
-                locus = locus.load_dict(locus_dict)
-                if locus is not None:
-                    stranded_locus.add_locus(locus)
+        stranded_locus = Superlocus(None)
+        for locus_string in stranded_locus_json:
+            locus_dict = decoder(locus_string)
+            locus = Locus(None)
+            locus.load_dict(locus_dict)
+            if locus is not None:
+                stranded_locus.add_locus(locus)
+        stranded_locus.source = source
 
         if not stranded_locus.id.endswith(str(sys.maxsize)):
             loci.append(stranded_locus.id)

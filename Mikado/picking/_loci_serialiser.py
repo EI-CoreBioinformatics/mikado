@@ -2,11 +2,14 @@ from ..loci import Superlocus
 import sqlite3
 import rapidjson as json
 import msgpack
+import sys
 
 
 def default_for_serialisation(obj):
     if isinstance(obj, set):
         return tuple(obj)
+    elif obj == float("inf"):
+        return sys.maxsize
 
 
 def serialise_locus(stranded_loci: [Superlocus],
@@ -20,13 +23,8 @@ def serialise_locus(stranded_loci: [Superlocus],
     subloci = []
     monoloci = []
     for stranded_locus in sorted(stranded_loci):
-        try:
-            loci.append([json.dumps(locus.as_dict(),
-                                    default=default_for_serialisation,
-                                    number_mode=json.NM_NATIVE) for locus in stranded_locus.loci.values()])
-        except ValueError:
-            loci.append([json.dumps(locus.as_dict(),
-                                    default=default_for_serialisation) for locus in stranded_locus.loci.values()])
+        loci.append([json.dumps(locus.as_dict(),
+                                default=default_for_serialisation) for locus in stranded_locus.loci.values()])
 
         if print_subloci is True:
             batch = []

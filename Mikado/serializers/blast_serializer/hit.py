@@ -77,7 +77,7 @@ class Hit(DBBASE):
     # All arguments are necessary and it is more convenient to have them here
     # rather than in a struct/dict/whatever
     # pylint: disable=too-many-arguments
-    def __init__(self, query_id, target_id, alignment,
+    def __init__(self, query_id, target_id, query_length, alignment,
                  evalue, bits, hit_number=1, query_multiplier=1,
                  target_multiplier=1):
         """This function takes as input the id of a target, the id of the query,
@@ -117,7 +117,13 @@ class Hit(DBBASE):
         self.evalue = evalue
         self.bits = bits
 
-        prepared_hit, _ = prepare_hit(alignment, query_id, target_id)
+        #qmulti = kwargs["query_multiplier"]
+        # tmulti = kwargs["target_multiplier"]
+        # qlength = kwargs["query_length"]
+        prepared_hit, _ = prepare_hit(alignment, query_id, target_id,
+                                      query_multiplier=query_multiplier,
+                                      target_multiplier=target_multiplier,
+                                      query_length=query_length)
         for key in ["global_identity", "global_positives", "query_aligned_length",
                     "query_start", "query_end", "target_aligned_length",
                     "target_start", "target_end"]:
@@ -192,14 +198,14 @@ class Hit(DBBASE):
         state["target"] = target_tuple.target_name
         state["query_length"] = query_tuple.query_length
         state["target_length"] = target_tuple.target_length
-        state["query_hit_ratio"] = (query_tuple.query_length * hit_tuple.query_multiplier) / \
-                                   (target_tuple.target_length * hit_tuple.target_multiplier)
-        state["hit_query_ratio"] = (target_tuple.target_length * hit_tuple.target_multiplier) / \
-                                   (query_tuple.query_length * hit_tuple.query_multiplier)
+        state["query_hit_ratio"] = (query_tuple.query_length / hit_tuple.query_multiplier) / \
+                                   (target_tuple.target_length / hit_tuple.target_multiplier)
+        state["hit_query_ratio"] = (target_tuple.target_length / hit_tuple.target_multiplier) / \
+                                   (query_tuple.query_length / hit_tuple.query_multiplier)
         state["query_cov"] = state["query_aligned_length"] / query_tuple.query_length
-        # assert state["query_cov"] <= 1, (state,)
+        assert state["query_cov"] <= 1, (state,)
         state["target_cov"] = state["target_aligned_length"] / target_tuple.target_length
-        # assert state["target_cov"] <= 1
+        assert state["target_cov"] <= 1, (state,)
 
         state["hsps"] = []
         for hsp in hsps:
@@ -228,11 +234,11 @@ class Hit(DBBASE):
         state["target"] = target_object.target_name
         state["query_length"] = query_object.query_length
         state["target_length"] = target_object.target_length
-        state["query_hit_ratio"] = state["query_length"] * state["query_multiplier"] /\
-            (state["target_length"] * state["target_multiplier"])
+        state["query_hit_ratio"] = state["query_length"] / state["query_multiplier"] /\
+            (state["target_length"] / state["target_multiplier"])
 
-        state["hit_query_ratio"] = state["target_length"] * state["target_multiplier"] /\
-            (state["query_length"] * state["query_multiplier"])
+        state["hit_query_ratio"] = state["target_length"] / state["target_multiplier"] /\
+            (state["query_length"] / state["query_multiplier"])
 
         state["hsps"] = []
         for hsp in self.hsps:
@@ -253,8 +259,8 @@ class Hit(DBBASE):
         This property returns the quotient (Query Length)/(Target Length)
         """
 
-        ratio = self.query_length * self.query_multiplier
-        ratio /= self.target_length * self.target_multiplier
+        ratio = self.query_length / self.query_multiplier
+        ratio /= self.target_length / self.target_multiplier
 
         return ratio
 
@@ -264,7 +270,7 @@ class Hit(DBBASE):
         This property returns the quotient (Target Length)/(Query Length)
         """
 
-        ratio = self.target_length * self.target_multiplier
-        ratio /= (self.query_length * self.query_multiplier)
+        ratio = self.target_length / self.target_multiplier
+        ratio /= (self.query_length / self.query_multiplier)
 
         return ratio

@@ -119,6 +119,11 @@ class TChekerTester(unittest.TestCase):
         
         self.model.strand = "-"
         tcheck = TranscriptChecker(self.model, self.model_fasta, strand_specific=False)
+        logger = create_default_logger("test_check_reverse_strand", "DEBUG")
+        tcheck.logger = logger
+        self.assertFalse(tcheck.strand_specific)
+        self.assertFalse(tcheck.is_reference)
+        self.assertFalse(tcheck.lenient)
         tcheck.check_strand()
         self.assertEqual(tcheck.strand, "+")
 

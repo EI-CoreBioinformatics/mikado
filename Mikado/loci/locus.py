@@ -32,7 +32,7 @@ class Locus(Abstractlocus):
         Constructor class. Like all loci, also Locus is defined starting from a transcript.
 
         :param transcript: the transcript which is used to initialize the Locus
-        :type transcript: Transcript
+        :type transcript: [Transcript|None]
 
         :param logger: the logger instance.
         :type logger: None | logging.Logger

@@ -346,7 +346,7 @@
               "type": "number",
               "minimum": 0,
               "maximum": 1,
-              "default": 0.75
+              "default": 0.5
             },
             "min_cdna_overlap": {
               "type": "number",
@@ -632,7 +632,7 @@
             },
             "consider_truncated_for_retained": {
               "type": "boolean",
-              "default": false
+              "default": true
             },
             "only_reference_update": {
               "type": "boolean",

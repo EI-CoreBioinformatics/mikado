@@ -24,11 +24,10 @@ from ..parsers.GFF import GffLine
 from ..parsers.GTF import GtfLine
 from ..parsers.bed12 import BED12
 from ..serializers.blast_serializer import Query, Hit
-from ..serializers.external import External
+from ..serializers.external import External, ExternalSource
 from ..serializers.orf import Orf
 from ..transcripts.clique_methods import find_communities, define_graph
 from ..utilities.log_utils import create_null_logger
-from ..utilities import rgetattr
 from .transcript_methods import splitting, retrieval
 from .transcript_methods.finalizing import finalize
 from .transcript_methods.printing import create_lines_cds
@@ -232,6 +231,8 @@ class Transcript:
     external_baked = bakery(lambda session: session.query(External))
     external_baked += lambda q: q.filter()
 
+    external_sources = bakery(lambda session: session.query(ExternalSource))
+
     # ######## Class special methods ####################
     def __init__(self, *args,
                  source=None,
@@ -307,7 +308,7 @@ class Transcript:
 
         # Starting settings for everything else
         self.__chrom = None
-        self.__is_reference = is_reference
+        self.is_reference = is_reference
         self.feature = "transcript"
         self.__start, self.__end = None, None
         self.attributes = dict()
@@ -666,21 +667,41 @@ class Transcript:
         logger = self.logger
         del self.logger
 
-        state = copy.deepcopy(dict((key, val) for key, val in self.__dict__.items()
-                                   if key not in ("_Transcript__segmenttree",
-                                                  "_Transcript__cds_tree")))
+        state = dict()
+        for key, item in self.__dict__.items():
+            if key.endswith("json_conf") or key in ("_Transcript__segmenttree", "_Transcript__cds_tree"):
+                continue
+            try:
+                state[key] = copy.deepcopy(item)
+            except TypeError:
+                raise TypeError(key, item)
+
         self.logger = logger
 
         if hasattr(self, "json_conf") and self.json_conf is not None:
             if "json_conf" not in state:
-                state["json_conf"] = copy.deepcopy(self.json_conf)
-            for key in state["json_conf"]:
-                if not isinstance(state["json_conf"][key], dict):
-                    continue
-                if "compiled" in state["json_conf"][key]:
-                    del state["json_conf"][key]["compiled"]
-                elif key == "compiled":
-                    del state["json_conf"][key]
+                state["json_conf"] = dict()
+                for key in self.json_conf:
+                    if not isinstance(self.json_conf[key], dict):
+                        if key == "compiled":
+                            continue
+                        if isinstance(self.json_conf[key], pysam.FastaFile):
+                            state["json_conf"][key] = self.json_conf[key].filename
+                        else:
+                            state["json_conf"][key] = copy.deepcopy(self.json_conf[key])
+                    else:
+                        state["json_conf"][key] = dict()
+                        for subkey in self.json_conf[key]:
+                            if subkey == "compiled":
+                                continue
+                            else:
+                                if isinstance(self.json_conf[key][subkey], pysam.FastaFile):
+                                    state["json_conf"][key][subkey] = self.json_conf[key][subkey].filename
+                                else:
+                                    try:
+                                        state["json_conf"][key][subkey] = copy.deepcopy(self.json_conf[key][subkey])
+                                    except TypeError:
+                                        raise TypeError((key, subkey, self.json_conf[key][subkey]))
 
         if hasattr(self, "session"):
             if state["session"] is not None:
@@ -699,6 +720,8 @@ class Transcript:
         return state
 
     def __setstate__(self, state):
+        self.__json_conf = None
+        self.__json_conf = state.pop("json_conf", None)
         self.__dict__.update(state)
         self._calculate_cds_tree()
         self._calculate_segment_tree()
@@ -951,11 +974,12 @@ class Transcript:
     def is_reference(self):
         """Checks whether the transcript has been marked as reference by Mikado prepare"""
 
-        if self.__is_reference is not None:
+        if self.json_conf is None and self.__is_reference is not None:
             return self.__is_reference
-        elif self.json_conf is not None:
-            return self.original_source in self.json_conf.get("prepare", {}).get("files", {}).get(
-                "reference", {})
+        elif self.__is_reference is None and self.json_conf is not None:
+            return self.original_source in self.json_conf["prepare"]["files"]["reference"]
+        elif self.__is_reference is not None and self.json_conf is not None:
+            return self.__is_reference or self.original_source in self.json_conf["prepare"]["files"]["reference"]
         else:
             return False
 
@@ -1305,6 +1329,12 @@ class Transcript:
             if key == "attributes" and remove_attributes is True:
                 for subkey in [_ for _ in state[key] if _ not in ("ID", "Parent", "Name")]:
                     del state[key][subkey]
+            # elif key == "attributes":
+            #     for subkey in [_ for _ in state[key] if _ not in ("ID", "Parent", "Name")]:
+            #         if state[key][subkey] == float("inf"):
+            #             state[key][subkey] = maxsize
+            #         elif state[key][subkey] == float("-inf"):
+            #             state[key][subkey] = -maxsize
 
         state["exons"] = []
         for exon in self.exons:
@@ -1352,6 +1382,12 @@ class Transcript:
         self.external_scores.update(state.get("external", dict()))
         self._original_source = self.source
         self.attributes = state["attributes"].copy()
+
+        # for subkey in self.attributes:
+        #     if self.attributes[subkey] == maxsize:
+        #         self.attributes[subkey] = float("inf")
+        #     elif self.attributes[subkey] == maxsize:
+        #         self.attributes[subkey] = float("-inf")
 
         self.exons = []
         self.combined_cds = []

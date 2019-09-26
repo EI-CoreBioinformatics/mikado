@@ -96,6 +96,8 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         self.__regressor = None
         self.session = None
         self.metrics_calculated = False
+        self._metrics = dict()
+        self.__scores = dict()
         self.__internal_graph = networkx.DiGraph()
         self.json_conf = json_conf
         if transcript_instance is not None and isinstance(transcript_instance, Transcript):
@@ -189,8 +191,10 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             state["session"] = None
 
         if self.__internal_graph.nodes():
-            nodes = json.dumps(list(self.__internal_graph.nodes())[0],
-                               number_mode=json.NM_NATIVE)
+            try:
+                nodes = json.dumps(list(self.__internal_graph.nodes())[0], number_mode=json.NM_NATIVE)
+            except ValueError:
+                nodes = json.dumps(list(self.__internal_graph.nodes())[0])
         else:
             nodes = "[]"
         state["_Abstractlocus__internal_nodes"] = nodes
@@ -198,7 +202,10 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         edges = [edge for edge in self.__internal_graph.edges()]
         # Remember that the graph is in form [((start, end), (start, end)), etc.]
         # So that each edge is composed by a couple of tuples.
-        state["_Abstractlocus__internal_edges"] = json.dumps(edges, number_mode=json.NM_NATIVE)
+        try:
+            state["_Abstractlocus__internal_edges"] = json.dumps(edges, number_mode=json.NM_NATIVE)
+        except ValueError:
+            state["_Abstractlocus__internal_edges"] = json.dumps(edges)
         if hasattr(self, "engine"):
             del state["engine"]
 
@@ -417,20 +424,6 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
         return find_communities(graph, self.logger)
 
-    # def find_cliques(self, graph: networkx.Graph) -> (networkx.Graph, list):
-    #     """
-    #
-    #     :param graph: graph to which it is necessary to call the cliques for.
-    #
-    #     Wrapper for the BronKerbosch algorithm, which returns the maximal cliques in the graph.
-    #     It is the new interface for the BronKerbosch function, which is not called directly
-    #     from outside this class any longer.
-    #     The "inters" keyword provides the function used to determine
-    #     whether two vertices are connected or not in the graph.
-    #     """
-    #
-    #     return find_cliques(graph, self.logger)
-    #
     def choose_best(self, transcripts: dict) -> str:
         """
         :param transcripts: the dictionary of transcripts of the instance
@@ -615,6 +608,20 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         terminal = bool(set.intersection(
             set(exon),
             {transcript.start, transcript.end, transcript.combined_cds_end, transcript.combined_cds_start}))
+        before_met = False
+        if transcript.is_coding:
+            # Avoid considering exons that are full 3' UTR exons in a coding transcript.
+            if transcript.strand == "-":
+                if exon[1] < min(transcript.combined_cds_start, transcript.combined_cds_end):
+                    return False, [], terminal
+                if max(transcript.combined_cds_start, transcript.combined_cds_end) < exon[1]:
+                    before_met = True
+            elif transcript.strand != "-":
+                if exon[0] > max(transcript.combined_cds_start, transcript.combined_cds_end):
+                    return False, [], terminal
+                if min(transcript.combined_cds_start, transcript.combined_cds_end) > exon[0]:
+                    before_met = True
+
         if cds_segments == [Interval(*exon)]:
             # It is completely coding
             if terminal is False or (not consider_truncated):
@@ -626,13 +633,22 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         else:
             frags = []
             to_consider = True
+
             if cds_segments:
                 if cds_segments[0].start > exon[0]:
-                    frags.append((exon[0], cds_segments[0].start - 1))
+                    if before_met and transcript.strand == "+":
+                        frags.append((exon[0], cds_segments[0].start - 1))
+                    else:
+                        frags.append((cds_segments[0].start - 1, cds_segments[0].start))
                 for before, after in zip(cds_segments[:-1], cds_segments[1:]):
-                    frags.append((before.end + 1, max(after.start - 1, before.end + 1)))
+                    frags.append((before.end, before.end + 1))
+                    frags.append((after.start - 1, after.start))
+                    # frags.append((before.end + 1, max(after.start - 1, before.end + 1)))
                 if cds_segments[-1].end < exon[1]:
-                    frags.append((cds_segments[-1].end + 1, exon[1]))
+                    if before_met and transcript.strand == "-":
+                        frags.append((cds_segments[-1].end + 1, exon[1]))
+                    else:
+                        frags.append((cds_segments[-1].end, cds_segments[-1].end + 1))
             else:
                 frags = [Interval(*exon)]
 
@@ -761,6 +777,11 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         :rtype : None"""
 
         # self.logger.debug("Starting to calculate retained introns for %s", transcript.id)
+        if self.stranded is False:
+            self.logger.error("Trying to find retained introns in a non-stranded locus (%s) is invalid. Aborting.",
+                              self.id)
+            return
+
         if len(self.introns) == 0:
             transcript.retained_introns = tuple()
             # self.logger.debug("No introns in the locus to check against. Exiting.")
@@ -875,7 +896,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                         first, last = sorted([(start, end, phase), (ostart, oend, ophase)],
                                              key=operator.itemgetter(0), reverse=False)
                         in_frame = (0 == ((last[0] + last[2]) - (first[0] + first[2])) % 3)
-                    if in_frame is True:
+                    if in_frame:
                         cds_overlap += seg_overlap
 
             if fixed_perspective:
@@ -914,6 +935,11 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
         for tid, transcript in sorted(self.transcripts.items(), key=operator.itemgetter(1)):
             row = {}
+            if tid not in self._metrics and transcript.alias in self._metrics:
+                metrics = self._metrics[transcript.alias]
+            else:
+                metrics = self._metrics[tid]
+
             for num, key in enumerate(self.available_metrics):
 
                 if num == 0:  # transcript id
@@ -921,11 +947,20 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                 elif num == 2:  # Parent
                     value = self.id
                 else:
-                    value = getattr(transcript, key, "NA")
+                    value = metrics.get(key, "NA")
+                    # value = getattr(transcript, key, "NA")
                 if isfloat(value):
                     value = round(value, 2)
                 elif value is None or value == "":
-                    value = "NA"
+                    if key == "score":
+                        value = self.scores.get(tid, dict()).get("score", None)
+                        self.transcripts[tid].score = value
+                        if isfloat(value):
+                            value = round(value, 2)
+                        elif value is None:
+                            value = "NA"
+                    else:
+                        value = "NA"
                 row[key] = value
 
             for source in transcript.external_scores:
@@ -1035,7 +1070,6 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             _ = len(set.intersection(self.transcripts[tid].introns, self.introns))
             fraction = _ / len(self.introns)
             self.transcripts[tid].intron_fraction = fraction
-            self.transcripts[tid].intron_fraction = fraction
         else:
             self.transcripts[tid].intron_fraction = 0
         if len(self.selected_cds_introns) > 0:
@@ -1067,6 +1101,9 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         fraction = retained_bases / self.transcripts[tid].cdna_length
         self.transcripts[tid].retained_fraction = fraction
 
+        self._metrics[tid] = dict((metric, rgetattr(self.transcripts[tid], metric))
+                                    for metric in self.available_metrics)
+
         self.logger.debug("Calculated metrics for {0}".format(tid))
 
     def _check_not_passing(self, previous_not_passing=set()):
@@ -1092,9 +1129,25 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         not_passing = set()
         for tid in iter(tid for tid in self.transcripts if
                         tid not in previous_not_passing):
+            if self.transcripts[tid].json_conf is None:
+                self.transcripts[tid].json_conf = self.json_conf
+            else:
+                assert self.transcripts[tid].json_conf["prepare"]["files"][\
+                           "reference"] == self.json_conf["prepare"]["files"]["reference"]
+
             if self.transcripts[tid].is_reference is True:
                 # Reference transcripts should be kept in, no matter what.
+                self.logger.debug("Skipping %s from the requirement check as it is a reference transcript")
                 continue
+            elif self.transcripts[tid].original_source in self.json_conf["prepare"]["files"]["reference"]:
+                self.transcripts[tid].is_reference = True  # Bug
+                self.logger.debug("Skipping %s from the requirement check as it is a reference transcript", tid)
+                continue
+            else:
+                self.logger.debug("Transcript %s (source %s) is not a reference transcript (references: %s; in it: %s)",
+                                  tid, self.transcripts[tid].original_source,
+                                  self.json_conf["prepare"]["files"]["reference"],
+                                  self.transcripts[tid].original_source in self.json_conf["prepare"]["files"]["reference"])
 
             evaluated = dict()
             for key in self.json_conf["requirements"]["parameters"]:
@@ -1125,9 +1178,18 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         """
 
         if self.scores_calculated is True:
-            self.logger.debug("Scores calculation already effectuated for %s",
-                              self.id)
-            return
+            # assert self.transcripts[list(self.transcript.keys())[0]].score is not None
+            test = set.difference(set(self.transcripts.keys()), self._excluded_transcripts)
+            if test and self.transcripts[test.pop()].score is None:
+                for tid in self.transcripts:
+                    if tid in self._excluded_transcripts:
+                        self.transcripts[tid] = 0
+                    else:
+                        self.transcripts[tid] = self.scores[tid]["score"]
+                return
+            else:
+                self.logger.debug("Scores calculation already effectuated for %s", self.id)
+                return
 
         self.get_metrics()
         # not_passing = set()
@@ -1169,6 +1231,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                         self.logger.debug("Excluding %s as it has a score <= 0", tid)
                         self.transcripts[tid].score = 0
                         self._not_passing.add(tid)
+                assert self.transcripts[tid].score is not None
 
                 if tid in self._not_passing:
                     pass
@@ -1266,33 +1329,22 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         multiplier = self.json_conf["scoring"][param]["multiplier"]
 
         metrics = dict()
-        if param.startswith("external"):
-            # For external metrics, we have a tuple - first item is score, second item is usable_raw
-            for tid in self.transcripts:
-                try:
-                    metric = rgetattr(self.transcripts[tid], param)
-                    if isinstance(metric, (tuple, list)):
-                        metric = metric[0]
-                    metrics[tid] = metric
-                except TypeError:
-                    raise TypeError(param)
-                except KeyError:
-                    raise KeyError(param)
-                except AttributeError:
-                    raise AttributeError(param)
-        else:
-            for tid in self.transcripts:
-                try:
-                    metric = getattr(self.transcripts[tid], param)
-                    if isinstance(metric, (tuple, list)):
-                        metric = metric[0]
-                    metrics[tid] = metric
-                except TypeError:
-                    raise TypeError(param)
-                except KeyError:
-                    raise KeyError(param)
-                except AttributeError:
-                    raise AttributeError(param)
+        for tid, transcript in self.transcripts.items():
+            try:
+                # metric = rgetattr(self.transcripts[tid], param)
+                if tid not in self._metrics and transcript.alias in self._metrics:
+                    metric = self._metrics[transcript.alias][param]
+                else:
+                    metric = self._metrics[tid][param]
+                if isinstance(metric, (tuple, list)):
+                    metric = metric[0]
+                metrics[tid] = metric
+            except TypeError:
+                raise TypeError(param)
+            except KeyError:
+                raise KeyError(param)
+            except AttributeError:
+                raise AttributeError(param)
 
         for tid in self.transcripts.keys():
             tid_metric = metrics[tid]
@@ -1305,7 +1357,11 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                     metric_key = self.json_conf["scoring"][param]["filter"]["metric"]
                     if not rhasattr(self.transcripts[tid], metric_key):
                         raise KeyError("Asked for an invalid metric in filter: {}".format(metric_key))
-                    metric_to_evaluate = rgetattr(self.transcripts[tid], metric_key)
+                    if tid not in self._metrics and self.transcripts[tid].alias in self._metrics:
+                        metric_to_evaluate = self._metrics[self.transcripts[tid].alias][metric_key]
+                    else:
+                        metric_to_evaluate = self._metrics[tid][metric_key]
+                    # metric_to_evaluate = rgetattr(self.transcripts[tid], metric_key)
                     if "external" in metric_key:
                         metric_to_evaluate = metric_to_evaluate[0]
 

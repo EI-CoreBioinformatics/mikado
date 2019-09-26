@@ -34,7 +34,8 @@ from ..loci.superlocus import Superlocus
 from ..configuration.configurator import to_json, check_json  # Necessary for nosetests
 from ..utilities import dbutils
 from ..exceptions import UnsortedInput, InvalidJson, InvalidTranscript
-from .loci_processer import analyse_locus, LociProcesser, merge_loci, print_locus
+from .loci_processer import analyse_locus, LociProcesser, merge_loci
+from ._locus_single_printer import print_locus
 import multiprocessing.managers
 from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
 import pickle
@@ -337,7 +338,7 @@ class Picker:
         self.logger.setLevel(self.log_level)
         self.logger.addHandler(self.log_handler)
 
-        if self.log_level == "DEBUG":
+        if self.log_level == "DEBUG" and self.json_conf["threads"] > 1:
             self.main_logger.setLevel(logging.DEBUG)
             self.main_logger.warning(
                     "Due to a Python design bug, we have to force Mikado to go in single-threaded mode when debugging.")
@@ -402,9 +403,9 @@ class Picker:
             session = sqlalchemy.orm.sessionmaker(bind=engine)()
             dbutils.DBBASE.metadata.create_all(engine)
 
-        metrics = Superlocus.available_metrics[4:]
+        metrics = Superlocus.available_metrics[5:]
         metrics.extend(["external.{}".format(_.source) for _ in session.query(ExternalSource.source).all()])
-        metrics = Superlocus.available_metrics[:4] + sorted(metrics)
+        metrics = Superlocus.available_metrics[:5] + sorted(metrics)
 
         if self.sub_out != '':
             assert isinstance(self.sub_out, str)
@@ -530,9 +531,9 @@ class Picker:
         locus_scores_file = open(re.sub("$", ".scores.tsv", re.sub(
             ".gff.?$", "", self.locus_out)), "w")
 
-        metrics = Superlocus.available_metrics[4:]
+        metrics = Superlocus.available_metrics[5:]
         metrics.extend(external_metrics)
-        metrics = Superlocus.available_metrics[:4] + sorted(metrics)
+        metrics = Superlocus.available_metrics[:5] + sorted(metrics)
         session.close()
         engine.dispose()
 
@@ -745,6 +746,7 @@ class Picker:
         merge_loci(self.procs,
                    handles,
                    logger=self.logger,
+                   source=self.json_conf["pick"]["output_format"]["source"],
                    tempdir=tempdir)
 
         self.logger.info("Finished merging partial files")

@@ -21,11 +21,12 @@ install:
   - conda install -y -c conda-forge -- pytest-cov codecov;
   - python setup.py develop;
 script:
+  - python setup.py test --addopts "-m slow Mikado/tests/test_system_calls.py::SerialiseChecker::test_subprocess_multi_empty_orfs"
+  - python setup.py test --addopts " --cov Mikado --cov-config=.coveragerc -m '(slow or not slow) and not triage'";
   - cd sample_data; snakemake
   - rm -rf .snakemake/conda/;  # This causes weird bugs
   - cd ..;
   - python -c "import Mikado; Mikado.test(label='fast')";
-  - python setup.py test --addopts " --cov Mikado --cov-config=.coveragerc -m '(slow or not slow) and not triage'";
   # Check that the seed is set properly
   - mikado pick --procs 2 --seed 20 --fasta Mikado/tests/chr5.fas.gz  --json-conf Mikado/tests/check_seed.yaml -od 20a Mikado/tests/check_seed.gtf
   - mikado pick --procs 2 --seed 20 --fasta Mikado/tests/chr5.fas.gz  --json-conf Mikado/tests/check_seed.yaml -od 20b Mikado/tests/check_seed.gtf  

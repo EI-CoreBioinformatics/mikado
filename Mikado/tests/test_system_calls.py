@@ -1683,6 +1683,7 @@ class SerialiseChecker(unittest.TestCase):
                 with self.subTest(proc=procs):
                     sys.argv = [str(_) for _ in ["mikado", "serialise", "--json-conf", json_file,
                                                  "--transcripts", transcripts, "--blast_targets", uni_out,
+                                                 "--log", log,
                                                  "--orfs", tmp_orf.name, "--junctions", junctions, "--xml", xml,
                                                  "-p", procs, "-mo", mobjects, db,
                                                  "--seed", "1078"]]

@@ -248,6 +248,9 @@ def setup(args):
             args.json_conf["serialise"]["files"]["output_dir"],
             args.json_conf["db_settings"]["db"])
 
+    if args.log is not None:
+        args.json_conf["serialise"]["files"]["log"] = args.log
+
     args.json_conf["log_settings"]["log"] = args.json_conf["serialise"]["files"]["log"][:]
 
     if args.json_conf["serialise"]["files"]["log"] is not None:

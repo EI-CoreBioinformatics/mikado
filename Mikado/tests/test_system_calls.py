@@ -1684,7 +1684,8 @@ class SerialiseChecker(unittest.TestCase):
                     sys.argv = [str(_) for _ in ["mikado", "serialise", "--json-conf", json_file,
                                                  "--transcripts", transcripts, "--blast_targets", uni_out,
                                                  "--orfs", tmp_orf.name, "--junctions", junctions, "--xml", xml,
-                                                 "-p", procs, "-mo", mobjects, db, "--log", log, "--seed", "1078"]]
+                                                 "-p", procs, "-mo", mobjects, db, "--log", os.path.basename(log),
+                                                 "--seed", "1078"]]
                     self.assertIn("failed", log)
                     with self.assertRaises(SystemExit):
                         pkg_resources.load_entry_point("Mikado", "console_scripts", "mikado")()

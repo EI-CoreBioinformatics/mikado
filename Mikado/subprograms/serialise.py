@@ -261,25 +261,38 @@ def setup(args):
             args.json_conf["serialise"]["files"]["log"] = args.json_conf["serialise"]["files"]["log"].name
 
         log = args.json_conf["serialise"]["files"]["log"]
-        logdir = os.path.dirname(os.path.abspath(log)).rstrip(os.path.sep)
-        logdir.replace(os.path.abspath(args.json_conf["serialise"]["files"]["output_dir"]).rstrip(os.path.sep),
-                       "")
-        args.json_conf["serialise"]["files"]["log"] = \
-            os.path.join(args.json_conf["serialise"]["files"]["output_dir"],
-                         logdir,
-                         os.path.basename(log))
-        for handler in logger.handlers:
+        if os.path.dirname(log) == "":
+            args.json_conf["serialise"]["files"]["log"] = \
+                os.path.join(args.json_conf["serialise"]["files"]["output_dir"],
+                             os.path.basename(log))
+        else:
+            logdir = os.path.dirname(log).rstrip(os.path.sep)
+            logdir = os.path.relpath(logdir, args.json_conf["serialise"]["files"]["output_dir"])
+            args.json_conf["serialise"]["files"]["log"] = \
+                os.path.join(args.json_conf["serialise"]["files"]["output_dir"],
+                             logdir,
+                             os.path.basename(log))
+        # path_join(args.json_conf["serialise"]["files"]["output_dir"], args.json_conf["serialise"]["files"]["log"])
+        handlers = logger.handlers[:]
+        for handler in handlers:
             # if hasattr(handler, "baseFilename"):
             logger.removeHandler(handler)
 
         os.makedirs(os.path.dirname(args.json_conf["serialise"]["files"]["log"]), exist_ok=True)
+        print(args.json_conf["serialise"]["files"]["log"])
         open(args.json_conf["serialise"]["files"]["log"], "wt").close()
-        handler = logging.FileHandler(args.json_conf["serialise"]["files"]["log"], "w")
+        handler = logging.FileHandler(args.json_conf["serialise"]["files"]["log"], mode="wt", delay=False)
         handler.setFormatter(formatter)
         logger.addHandler(handler)
 
     logger.setLevel("INFO")
-    logger.info("Command line: %s", " ".join(sys.argv))
+    try:
+        logger.info("Command line: %s", " ".join(sys.argv))
+    except FileNotFoundError:
+        for handler in logger.handlers:
+            print("Handler:", handler.baseFilename)
+        raise
+
     logger.info("Random seed: %s", args.json_conf["seed"])
     logger.setLevel(args.log_level)
 

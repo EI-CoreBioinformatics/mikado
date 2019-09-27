@@ -1,0 +1,183 @@
+# Scoring file suitable for any species with intron sizes similar to insects (e.g. Aphids)
+requirements:
+  expression: [(combined_cds_fraction.ncrna or combined_cds_fraction.coding) and ((exon_num.multi and (cdna_length.multi or combined_cds_length.multi) and max_intron_length and min_intron_length), or, (exon_num.mono and (combined_cds_length.mono or cdna_length.mono)))]
+  parameters:
+    combined_cds_fraction.ncrna: {operator: eq, value: 0}
+    combined_cds_fraction.coding: {operator: gt, value: 0.30}
+    cdna_length.mono: {operator: gt, value: 300}
+    cdna_length.multi: {operator: ge, value: 200}
+    combined_cds_length.mono: {operator: gt, value: 225}
+    combined_cds_length.multi: {operator: gt, value: 150}
+    exon_num.mono: {operator: eq, value: 1}
+    exon_num.multi: {operator: gt, value: 1}
+    max_intron_length: {operator: le, value: 50000}
+    min_intron_length: {operator: ge, value: 5}
+    # proportion_verified_introns_inlocus: {operator: gt, value: 0}
+as_requirements:
+  expression: [cdna_length and three_utr_length and five_utr_length and utr_length and suspicious_splicing and max_intron_length and max_exon_length]
+  parameters:
+    cdna_length: {operator: ge, value: 200}
+    utr_length: {operator: le, value: 2500}
+    five_utr_length: {operator: le, value: 2500}
+    three_utr_length: {operator: le, value: 2500}
+    suspicious_splicing: {operator: ne, value: true}
+    max_intron_length: {operator: le, value: 10000}
+    max_exon_length: {operator: le, value: 10000}
+not_fragmentary:
+ expression: [((exon_num.multi and (combined_cds_length.multi or external.illumina_aF1 or external.pacbio_aF1 or external.Agly_protein_aF1 or external.Apis_protein_aF1 or external.BtabMEAM1_protein_aF1 or external.BtabMED_protein_aF1 or external.Dnox_protein_aF1 or external.Mcer_protein_aF1 or external.MperG006_protein_aF1 or external.Nlug_protein_aF1 or external.Pnig_protein_aF1 or external.Rmai_protein_aF1 or external.Rpad_protein_aF1 or external.Sfuc_protein_aF1)), or, (exon_num.mono and (combined_cds_length.mono or external.illumina_aF1 or external.pacbio_aF1 or external.Agly_protein_aF1 or external.Apis_protein_aF1 or external.BtabMEAM1_protein_aF1 or external.BtabMED_protein_aF1 or external.Dnox_protein_aF1 or external.Mcer_protein_aF1 or external.MperG006_protein_aF1 or external.Nlug_protein_aF1 or external.Pnig_protein_aF1 or external.Rmai_protein_aF1 or external.Rpad_protein_aF1 or external.Sfuc_protein_aF1)))]
+ parameters:
+   # is_complete: {operator: eq, value: true}
+   exon_num.multi: {operator: gt, value: 1}
+   # cdna_length.multi: {operator: ge, value: 200}
+   combined_cds_length.multi: {operator: gt, value: 200}
+   exon_num.mono: {operator: eq, value: 1}
+   combined_cds_length.mono: {operator: gt, value: 300}
+   external.illumina_aF1: {operator: gt, value: 0.5}
+   external.pacbio_aF1: {operator: gt, value: 0.5}
+   external.Agly_protein_aF1: {operator: gt, value: 0.5}
+   external.Apis_protein_aF1: {operator: gt, value: 0.5}
+   external.BtabMEAM1_protein_aF1: {operator: gt, value: 0.5}
+   external.BtabMED_protein_aF1: {operator: gt, value: 0.5}
+   external.Dnox_protein_aF1: {operator: gt, value: 0.5}
+   external.Mcer_protein_aF1: {operator: gt, value: 0.5}
+   external.MperG006_protein_aF1: {operator: gt, value: 0.5}
+   external.Nlug_protein_aF1: {operator: gt, value: 0.5}
+   external.Pnig_protein_aF1: {operator: gt, value: 0.5}
+   external.Rmai_protein_aF1: {operator: gt, value: 0.5}
+   external.Rpad_protein_aF1: {operator: gt, value: 0.5}
+   external.Sfuc_protein_aF1: {operator: gt, value: 0.5}
+#   expression: [combined_cds_length]
+#   parameters:
+#     combined_cds_length: {operator: gt, value: 300}
+scoring:
+  # external metrics START
+  # external.mikado_all_nF1: {rescaling: max, use_raw: true, multiplier: 10}
+  # external.mikado_all_jF1: {rescaling: max, use_raw: true, multiplier: 10}
+  # external.mikado_all_eF1: {rescaling: max, use_raw: true, multiplier: 10}
+  external.mikado_all_aF1: {rescaling: max, use_raw: true, multiplier: 2}
+  # external.mikado_pacbio_nF1: {rescaling: max, use_raw: true, multiplier: 10}
+  # external.mikado_pacbio_jF1: {rescaling: max, use_raw: true, multiplier: 10}
+  # external.mikado_pacbio_eF1: {rescaling: max, use_raw: true, multiplier: 10}
+  external.mikado_pacbio_aF1: {rescaling: max, use_raw: true, multiplier: 2}
+  # external.illumina_nF1: {rescaling: max, use_raw: true, multiplier: 10}
+  # external.illumina_jF1: {rescaling: max, use_raw: true, multiplier: 10}
+  # external.illumina_eF1: {rescaling: max, use_raw: true, multiplier: 10}
+  external.illumina_aF1: {rescaling: max, use_raw: true, multiplier: 2}
+  # external.pacbio_nF1: {rescaling: max, use_raw: true, multiplier: 10}
+  # external.pacbio_jF1: {rescaling: max, use_raw: true, multiplier: 10}
+  # external.pacbio_eF1: {rescaling: max, use_raw: true, multiplier: 10}
+  external.pacbio_aF1: {rescaling: max, use_raw: true, multiplier: 2}
+  # external.Agly_protein_nF1: {rescaling: max, use_raw: true, multiplier: 10}
+  # external.Agly_protein_jF1: {rescaling: max, use_raw: true, multiplier: 10}
+  # external.Agly_protein_eF1: {rescaling: max, use_raw: true, multiplier: 10}
+  external.Agly_protein_aF1: {rescaling: max, use_raw: true, multiplier: 5}
+  # external.Apis_protein_nF1: {rescaling: max, use_raw: true, multiplier: 10}
+  # external.Apis_protein_jF1: {rescaling: max, use_raw: true, multiplier: 10}
+  # external.Apis_protein_eF1: {rescaling: max, use_raw: true, multiplier: 10}
+  external.Apis_protein_aF1: {rescaling: max, use_raw: true, multiplier: 5}
+  # external.BtabMEAM1_protein_nF1: {rescaling: max, use_raw: true, multiplier: 10}
+  # external.BtabMEAM1_protein_jF1: {rescaling: max, use_raw: true, multiplier: 10}
+  # external.BtabMEAM1_protein_eF1: {rescaling: max, use_raw: true, multiplier: 10}
+  external.BtabMEAM1_protein_aF1: {rescaling: max, use_raw: true, multiplier: 5}
+  # external.BtabMED_protein_nF1: {rescaling: max, use_raw: true, multiplier: 10}
+  # external.BtabMED_protein_jF1: {rescaling: max, use_raw: true, multiplier: 10}
+  # external.BtabMED_protein_eF1: {rescaling: max, use_raw: true, multiplier: 10}
+  external.BtabMED_protein_aF1: {rescaling: max, use_raw: true, multiplier: 5}
+  # external.Dnox_protein_nF1: {rescaling: max, use_raw: true, multiplier: 10}
+  # external.Dnox_protein_jF1: {rescaling: max, use_raw: true, multiplier: 10}
+  # external.Dnox_protein_eF1: {rescaling: max, use_raw: true, multiplier: 10}
+  external.Dnox_protein_aF1: {rescaling: max, use_raw: true, multiplier: 5}
+  # external.Mcer_protein_nF1: {rescaling: max, use_raw: true, multiplier: 10}
+  # external.Mcer_protein_jF1: {rescaling: max, use_raw: true, multiplier: 10}
+  # external.Mcer_protein_eF1: {rescaling: max, use_raw: true, multiplier: 10}
+  external.Mcer_protein_aF1: {rescaling: max, use_raw: true, multiplier: 5}
+  # external.MperG006_protein_nF1: {rescaling: max, use_raw: true, multiplier: 10}
+  # external.MperG006_protein_jF1: {rescaling: max, use_raw: true, multiplier: 10}
+  # external.MperG006_protein_eF1: {rescaling: max, use_raw: true, multiplier: 10}
+  external.MperG006_protein_aF1: {rescaling: max, use_raw: true, multiplier: 5}
+  # external.Nlug_protein_nF1: {rescaling: max, use_raw: true, multiplier: 10}
+  # external.Nlug_protein_jF1: {rescaling: max, use_raw: true, multiplier: 10}
+  # external.Nlug_protein_eF1: {rescaling: max, use_raw: true, multiplier: 10}
+  external.Nlug_protein_aF1: {rescaling: max, use_raw: true, multiplier: 5}
+  # external.Pnig_protein_nF1: {rescaling: max, use_raw: true, multiplier: 10}
+  # external.Pnig_protein_jF1: {rescaling: max, use_raw: true, multiplier: 10}
+  # external.Pnig_protein_eF1: {rescaling: max, use_raw: true, multiplier: 10}
+  external.Pnig_protein_aF1: {rescaling: max, use_raw: true, multiplier: 5}
+  # external.Rmai_protein_nF1: {rescaling: max, use_raw: true, multiplier: 10}
+  # external.Rmai_protein_jF1: {rescaling: max, use_raw: true, multiplier: 10}
+  # external.Rmai_protein_eF1: {rescaling: max, use_raw: true, multiplier: 10}
+  external.Rmai_protein_aF1: {rescaling: max, use_raw: true, multiplier: 5}
+  # external.Rpad_protein_nF1: {rescaling: max, use_raw: true, multiplier: 10}
+  # external.Rpad_protein_jF1: {rescaling: max, use_raw: true, multiplier: 10}
+  # external.Rpad_protein_eF1: {rescaling: max, use_raw: true, multiplier: 10}
+  external.Rpad_protein_aF1: {rescaling: max, use_raw: true, multiplier: 5}
+  # external.Sfuc_protein_nF1: {rescaling: max, use_raw: true, multiplier: 10}
+  # external.Sfuc_protein_jF1: {rescaling: max, use_raw: true, multiplier: 10}
+  # external.Sfuc_protein_eF1: {rescaling: max, use_raw: true, multiplier: 10}
+  external.Sfuc_protein_aF1: {rescaling: max, use_raw: true, multiplier: 5}
+  external.Agly_protein_qCov: {rescaling: max, use_raw: true, multiplier: 5}
+  external.Agly_protein_tCov: {rescaling: max, use_raw: true, multiplier: 5}
+  external.Apis_protein_qCov: {rescaling: max, use_raw: true, multiplier: 5}
+  external.Apis_protein_tCov: {rescaling: max, use_raw: true, multiplier: 5}
+  external.BtabMEAM1_protein_qCov: {rescaling: max, use_raw: true, multiplier: 5}
+  external.BtabMEAM1_protein_tCov: {rescaling: max, use_raw: true, multiplier: 5}
+  external.BtabMED_protein_qCov: {rescaling: max, use_raw: true, multiplier: 5}
+  external.BtabMED_protein_tCov: {rescaling: max, use_raw: true, multiplier: 5}
+  external.Dnox_protein_qCov: {rescaling: max, use_raw: true, multiplier: 5}
+  external.Dnox_protein_tCov: {rescaling: max, use_raw: true, multiplier: 5}
+  external.Mcer_protein_qCov: {rescaling: max, use_raw: true, multiplier: 5}
+  external.Mcer_protein_tCov: {rescaling: max, use_raw: true, multiplier: 5}
+  external.MperG006_protein_qCov: {rescaling: max, use_raw: true, multiplier: 5}
+  external.MperG006_protein_tCov: {rescaling: max, use_raw: true, multiplier: 5}
+  external.Nlug_protein_qCov: {rescaling: max, use_raw: true, multiplier: 5}
+  external.Nlug_protein_tCov: {rescaling: max, use_raw: true, multiplier: 5}
+  external.Pnig_protein_qCov: {rescaling: max, use_raw: true, multiplier: 5}
+  external.Pnig_protein_tCov: {rescaling: max, use_raw: true, multiplier: 5}
+  external.Rmai_protein_qCov: {rescaling: max, use_raw: true, multiplier: 5}
+  external.Rmai_protein_tCov: {rescaling: max, use_raw: true, multiplier: 5}
+  external.Rpad_protein_qCov: {rescaling: max, use_raw: true, multiplier: 5}
+  external.Rpad_protein_tCov: {rescaling: max, use_raw: true, multiplier: 5}
+  external.Sfuc_protein_qCov: {rescaling: max, use_raw: true, multiplier: 5}
+  external.Sfuc_protein_tCov: {rescaling: max, use_raw: true, multiplier: 5}
+  external.swissprot_protein_qCov: {rescaling: max, use_raw: true, multiplier: 5}
+  external.swissprot_protein_tCov: {rescaling: max, use_raw: true, multiplier: 5}
+  external.trembl_protein_qCov: {rescaling: max, use_raw: true, multiplier: 5}
+  external.trembl_protein_tCov: {rescaling: max, use_raw: true, multiplier: 5}
+  # external.tpsi_cov: {rescaling: max, use_raw: true, multiplier: 10}
+  # external.all_repeats_cov: {rescaling: max, use_raw: true, multiplier: 10}
+  external.cpc: {rescaling: max, use_raw: true, multiplier: 1}
+  # external metrics END
+  # internal metrics START
+  cdna_length: {rescaling: max}
+  five_utr_length:
+    filter: {operator: le, value: 2500}
+    rescaling: target
+    value: 200
+  five_utr_num:
+    filter: {operator: lt, value: 4}
+    rescaling: target
+    value: 2
+  end_distance_from_junction:
+    filter: {operator: lt, value: 55}
+    rescaling: min
+  highest_cds_exon_number: {rescaling: max}
+  is_complete: {rescaling: target, value: true, multiplier: 2}
+  non_verified_introns_num: 
+    rescaling: max
+    multiplier: -5
+    filter: {operator: gt, value: 1, metric: exon_num}
+  proportion_verified_introns_inlocus: {rescaling: max, use_raw: true, multiplier: 5}
+  selected_cds_fraction: {rescaling: target, value: 0.8}
+  selected_cds_intron_fraction: {rescaling: max}
+  selected_cds_length: {rescaling: max, multiplier: 2}
+  selected_cds_num: {rescaling: max}
+  three_utr_length:
+    filter: {operator: le, value: 2500}
+    rescaling: target
+    value: 400
+  three_utr_num:
+    filter: {operator: lt, value: 3}
+    rescaling: target
+    value: 1
+  combined_cds_locus_fraction: {rescaling: max}
+  # internal metrics END

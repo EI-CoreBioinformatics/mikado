@@ -1706,6 +1706,30 @@ class SerialiseChecker(unittest.TestCase):
                     print("\n".join(logged)))
                 dir.cleanup()
 
+    def test_serialise_external(self):
+
+        base = pkg_resources.resource_filename("Mikado.tests", "test_external")
+        external_conf = os.path.join(base, "mikado.configuration.testds.yaml")
+        external_scores = os.path.join(base, "annotation_run1.metrics.testds.txt")
+        fasta = os.path.join(base, "mikado_prepared.testds.fasta")
+
+        for procs in (1, 3):
+            with self.subTest(procs=procs):
+                dir = tempfile.TemporaryDirectory()
+                log = "serialise.log"
+                sys.argv = [str(_) for _ in ["mikado", "serialise", "--json-conf", external_conf,
+                                             "--transcripts", fasta, "-od", dir.name,
+                                             "-l", log,
+                                             "--external-scores", external_scores,
+                                             "--seed", 10, "--procs", procs, "mikado.db"]]
+                log = os.path.join(dir.name, log)
+                pkg_resources.load_entry_point("Mikado", "console_scripts", "mikado")()
+                conn = sqlite3.connect(os.path.join(dir.name, "mikado.db"))
+                total = conn.execute("SELECT count(*) FROM external").fetchone()[0]
+                self.assertEqual(total, 190)
+                tot_sources = conn.execute("SELECT count(*) FROM external_sources").fetchone()[0]
+                self.assertEqual(tot_sources, 95)
+
 
 class StatsTest(unittest.TestCase):
 

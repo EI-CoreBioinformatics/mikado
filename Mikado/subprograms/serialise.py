@@ -24,7 +24,6 @@ from ..exceptions import InvalidJson
 import pyfaidx
 import numpy
 from ..exceptions import InvalidSerialization
-from numpy import random
 
 
 __author__ = 'Luca Venturini'
@@ -279,7 +278,6 @@ def setup(args):
             logger.removeHandler(handler)
 
         os.makedirs(os.path.dirname(args.json_conf["serialise"]["files"]["log"]), exist_ok=True)
-        print(args.json_conf["serialise"]["files"]["log"])
         open(args.json_conf["serialise"]["files"]["log"], "wt").close()
         handler = logging.FileHandler(args.json_conf["serialise"]["files"]["log"], mode="wt", delay=False)
         handler.setFormatter(formatter)

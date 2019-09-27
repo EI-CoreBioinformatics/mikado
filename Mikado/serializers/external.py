@@ -237,7 +237,6 @@ class ExternalSerializer:
                                         source_id=sources[source],
                                         score=self.data[source][idx]))
             if len(objects) >= self.maxobjects:
-                self.session.begin(subtransactions=True)
                 done += len(objects)
                 self.session.bulk_save_objects(objects)
                 self.logger.debug("Serialised %d values", done)
@@ -248,8 +247,7 @@ class ExternalSerializer:
                                      decimal_place * 10)
                     decimal_place += 1
 
-        self.session.begin(subtransactions=True)
-        self.session.bulk_save_objects(objects)
+        self.session.bulk_save_objects(objects, update_changed_only=False)
         done += len(objects)
         self.session.commit()
         self.logger.info("Finished serialising %d values", done)

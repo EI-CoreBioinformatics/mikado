@@ -15,6 +15,10 @@ on this new product, **we are planning to retire Daijin in the near future and i
 
 Aside from numerous bug fixes, this release brings the following highlights:
 
+- Many parts of `mikado`, especially in `serialise` and `pick`, have been rewritten to be much more performant. Specifically:
+  - `mikado pick` underwent a strict code revision to remove quadratic (or worse) bottlenecks. This now allows `mikado pick` to run on much denser, larger inputs without prohibitive computational resources or times.
+  - `mikado serialise` now is fully parallelised both for ORF and BLAST loading.
+  - both steps now use temporary SQLite3 databases for fast inter-process data exchange.
 - Mikado will now function correctly with soft-masked genomes.
 - Mikado pick now will **backtrack** during the picking stage. This prevents loci from being missed due to chaining in the early stages of the algorithm.
 - Mikado is now capable of padding transcripts in a locus so that they will share the same 5' and 3', if appropriate.

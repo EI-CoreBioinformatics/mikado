@@ -41,15 +41,24 @@ def _create_xml_db(filename):
     directory = os.path.dirname(filename)
     try:
         dbname = tempfile.mktemp(suffix=".db", dir=directory)
-        conn = sqlite3.connect(dbname)
+        conn = sqlite3.connect(dbname,
+                               isolation_level="DEFERRED",
+                               timeout=60,
+                               check_same_thread=False  # Necessary for SQLite3 to function in multiprocessing
+                               )
     except (OSError, PermissionError, sqlite3.OperationalError):
         dbname = tempfile.mktemp(suffix=".db")
-        conn = sqlite3.connect(dbname)
+        conn = sqlite3.connect(dbname,
+                               isolation_level = "DEFERRED",
+                               timeout = 60,
+                               check_same_thread = False  # Necessary for SQLite3 to function in multiprocessing
+        )
+
     cursor = conn.cursor()
     creation_string = "CREATE TABLE dump (query_counter integer, hits blob, hsps blob)"
     try:
-        cursor.execute(  # TODO: change
-            creation_string)
+        cursor.execute("DROP TABLE IF EXISTS dump")
+        cursor.execute(creation_string)
     except sqlite3.OperationalError:
         # Table already exists
         cursor.close()
@@ -80,11 +89,17 @@ def xml_pickler(json_conf, filename, default_header,
                     hits, hsps, cache = objectify_record(
                         session, record, [], [], cache, max_target_seqs=max_target_seqs)
 
+                    try:
+                        jhits = json.dumps(hits, number_mode=json.NM_NATIVE)
+                        jhsps = json.dumps(hsps, number_mode=json.NM_NATIVE)
+                    except ValueError:
+                        jhits = json.dumps(hits)
+                        jhsps = json.dumps(hsps)
+
                     cursor.execute("INSERT INTO dump VALUES (?, ?, ?)",
                                    (query_counter,
-                                    json.dumps(hits, number_mode=json.NM_NATIVE),
-                                    json.dumps(hsps, number_mode=json.NM_NATIVE))
-                                   )
+                                    jhits,
+                                    jhsps))
             except ExpatError as err:
                 # logger.error("%s is an invalid BLAST file, sending back anything salvageable", filename)
                 raise ExpatError("{} is an invalid BLAST file, sending back anything salvageable.\n{}".format(filename,
@@ -483,7 +498,12 @@ class XmlSerializer:
             pool.join()
 
             for dbfile in results:
-                conn = sqlite3.connect(dbfile)
+                conn = sqlite3.connect("file:{}?mode=ro".format(dbfile),
+                                       uri=True,  # Necessary to use the Read-only mode from file string
+                                       isolation_level="DEFERRED",
+                                       timeout=60,
+                                       check_same_thread=False  # Necessary for SQLite3 to function in multiprocessing
+                               )
                 cursor = conn.cursor()
                 for query_counter, __hits, __hsps in cursor.execute("SELECT * FROM dump"):
                     record_counter += 1
@@ -678,10 +698,15 @@ def objectify_record(session, record, hits, hsps, cache,
         # Prepare for bulk load
         try:
             hit, hit_hsps = prepare_hit(alignment, current_query,
-                                        current_target, **hit_dict_params)
+                                        current_target,
+                                        query_length=record.query_length,
+                                        **hit_dict_params)
         except InvalidHit as exc:
             logger.error(exc)
             continue
+        hit["query_aligned_length"] = min(record.query_length, hit["query_aligned_length"])
+
+
         hits.append(hit)
         hsps.extend(hit_hsps)
 

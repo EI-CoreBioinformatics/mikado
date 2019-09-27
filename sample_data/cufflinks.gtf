@@ -11,7 +11,7 @@ Chr5	Cufflinks	exon	26577856	26578163	.	-	.	gene_id "cufflinks_star_at.23553";tr
 Chr5	Cufflinks	transcript	26581218	26583874	1000	-	.	gene_id "cufflinks_star_at.23551";transcript_id "cufflinks_star_at.23551.1";exon_number "1";FPKM "0.4343609420";conf_hi "0.577851";frac "0.751684";cov "11.982854";conf_lo "0.293994";
 Chr5	Cufflinks	exon	26581218	26581528	.	-	.	gene_id "cufflinks_star_at.23551";transcript_id "cufflinks_star_at.23551.1";
 Chr5	Cufflinks	exon	26583335	26583874	.	-	.	gene_id "cufflinks_star_at.23551";transcript_id "cufflinks_star_at.23551.1";
-Chr5	Cufflinks	transcript	26583267	26583874	913	-	.	gene_id "cufflinks_star_at.23551";transcript_id "cufflinks_star_at.23551.2";exon_number "1";FPKM "0.3967071252";conf_hi "0.644641";frac "0.248316";cov "10.944086";conf_lo "0.168167";
+Chr5	Cufflinks	transcript	26583267	26583874	913	-	.	gene_id "cufflinks_star_at.23551";transcript_id "cufflinks_star_at.23551.2";exon_number "1";FPKM "inf";conf_hi "0.644641";frac "0.248316";cov "10.944086";conf_lo "0.168167";
 Chr5	Cufflinks	exon	26583267	26583874	.	-	.	gene_id "cufflinks_star_at.23551";transcript_id "cufflinks_star_at.23551.2";
 Chr5	Cufflinks	transcript	26584796	26587773	1000	+	.	gene_id "cufflinks_star_at.23555";transcript_id "cufflinks_star_at.23555.2";exon_number "1";FPKM "1.9035966503";conf_hi "2.115764";frac "0.418208";cov "57.713979";conf_lo "1.696700";
 Chr5	Cufflinks	exon	26584796	26584879	.	+	.	gene_id "cufflinks_star_at.23555";transcript_id "cufflinks_star_at.23555.2";
@@ -62,7 +62,7 @@ Chr5	Cufflinks	exon	26591174	26591236	.	+	.	gene_id "cufflinks_star_at.23563";tr
 Chr5	Cufflinks	exon	26591324	26591442	.	+	.	gene_id "cufflinks_star_at.23563";transcript_id "cufflinks_star_at.23563.2";
 Chr5	Cufflinks	exon	26591514	26591578	.	+	.	gene_id "cufflinks_star_at.23563";transcript_id "cufflinks_star_at.23563.2";
 Chr5	Cufflinks	exon	26591681	26592252	.	+	.	gene_id "cufflinks_star_at.23563";transcript_id "cufflinks_star_at.23563.2";
-Chr5	Cufflinks	transcript	26588405	26592252	533	+	.	gene_id "cufflinks_star_at.23563";transcript_id "cufflinks_star_at.23563.3";exon_number "1";FPKM "1.0805356718";conf_hi "1.208336";frac "0.241964";cov "29.820862";conf_lo "0.952769";
+Chr5	Cufflinks	transcript	26588405	26592252	533	+	.	gene_id "cufflinks_star_at.23563";transcript_id "cufflinks_star_at.23563.3";exon_number "1";FPKM "inf";conf_hi "1.208336";frac "0.241964";cov "29.820862";conf_lo "0.952769";
 Chr5	Cufflinks	exon	26588405	26588625	.	+	.	gene_id "cufflinks_star_at.23563";transcript_id "cufflinks_star_at.23563.3";
 Chr5	Cufflinks	exon	26589196	26589279	.	+	.	gene_id "cufflinks_star_at.23563";transcript_id "cufflinks_star_at.23563.3";
 Chr5	Cufflinks	exon	26589386	26590167	.	+	.	gene_id "cufflinks_star_at.23563";transcript_id "cufflinks_star_at.23563.3";

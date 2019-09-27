@@ -7,6 +7,7 @@ import functools
 from ..utilities import dbutils
 from ..scales.assigner import Assigner
 from ..loci.superlocus import Superlocus
+from ._merge_loci_utils import __create_gene_counters, manage_index
 import os
 import collections
 import sys
@@ -16,6 +17,7 @@ from ..transcripts import Transcript
 from ..exceptions import InvalidTranscript
 from ..parsers.GTF import GtfLine
 import msgpack
+from ._loci_serialiser import serialise_locus
 try:
     import rapidjson as json
 except ImportError:
@@ -26,168 +28,9 @@ import multiprocessing as mp
 __author__ = 'Luca Venturini'
 
 
-def default_for_serialisation(obj):
-    if isinstance(obj, set):
-        return tuple(obj)
-
-
-def print_locus(stranded_locus,
-                gene_counter,
-                handles,
-                logger=None,
-                json_conf=None):
-    """
-    Method that handles a single superlocus for printing.
-    It also detects and flags/discard fragmentary loci.
-    :param stranded_locus: the stranded locus to analyse
-    :return:
-    """
-
-    locus_metrics, locus_scores, locus_out = handles[0]
-    sub_metrics, sub_scores, sub_out = handles[1]
-    mono_metrics, mono_scores, mono_out = handles[2]
-
-    if json_conf is None:
-        from ..configuration.configurator import to_json
-        json_conf = to_json(None)
-
-    stranded_locus.logger = logger
-    if sub_out is not None:  # Skip this section if no sub_out is defined
-        sub_lines = stranded_locus.__str__(
-            level="subloci",
-            print_cds=not json_conf["pick"]["run_options"]["exclude_cds"])
-        if sub_lines != '':
-            print(sub_lines, file=sub_out)
-        sub_metrics_rows = [_ for _ in stranded_locus.print_subloci_metrics()
-                            if _ != {} and "tid" in _]
-        sub_scores_rows = [_ for _ in stranded_locus.print_subloci_scores()
-                           if _ != {} and "tid" in _]
-        for row in sub_metrics_rows:
-            print(*[row[key] for key in sub_metrics.fieldnames],
-                  sep="\t", file=sub_metrics.handle)
-        for row in sub_scores_rows:
-            print(*[row[key] for key in sub_scores.fieldnames],
-                  sep="\t", file=sub_scores.handle)
-    if mono_out is not None:
-        mono_lines = stranded_locus.__str__(
-            level="monosubloci",
-            print_cds=not json_conf["pick"]["run_options"]["exclude_cds"])
-        if mono_lines != '':
-            print(mono_lines, file=mono_out)
-        mono_metrics_rows = [_ for _ in stranded_locus.print_monoholder_metrics()
-                             if _ != {} and "tid" in _]
-        mono_scores_rows = [_ for _ in stranded_locus.print_monoholder_scores()
-                            if _ != {} and "tid" in _]
-        for row in mono_metrics_rows:
-            print(*[row[key] for key in mono_metrics.fieldnames],
-                  sep="\t", file=mono_metrics.handle)
-        for row in mono_scores_rows:
-            print(*[row[key] for key in mono_scores.fieldnames],
-                  sep="\t", file=mono_scores.handle)
-
-    for locus in stranded_locus.loci:
-        gene_counter += 1
-        new_id = "{0}.{1}G{2}".format(
-            json_conf["pick"]["output_format"]["id_prefix"],
-            stranded_locus.chrom, gene_counter)
-        stranded_locus.loci[locus].logger = logger
-        stranded_locus.loci[locus].id = new_id
-
-    locus_lines = stranded_locus.__str__(
-        print_cds=not json_conf["pick"]["run_options"]["exclude_cds"],
-        level="loci")
-
-    locus_metrics_rows = [x for x in stranded_locus.print_loci_metrics()]
-    locus_scores_rows = [x for x in stranded_locus.print_loci_scores()]
-
-    if locus_lines:
-        assert len(locus_metrics_rows) > 0
-        print(locus_lines, file=locus_out)
-
-    for row in locus_metrics_rows:
-        print(*[row[key] for key in locus_metrics.fieldnames],
-              sep="\t", file=locus_metrics.handle)
-    for row in locus_scores_rows:
-        print(*[row[key] for key in locus_scores.fieldnames],
-              sep="\t", file=locus_scores.handle)
-    # Necessary to flush out all the files
-    [_.flush() for _ in handles if hasattr(_, "close")]
-    return gene_counter
-
-
-def _create_locus_lines(stranded_locus: Superlocus,
-                        gene_counter: int,
-                        print_subloci=False,
-                        print_monoloci=False):
-    json_conf = stranded_locus.json_conf
-
-    batch = [[], None, None]
-
-    if print_subloci is True:  # Skip this section if no sub_out is defined
-        sub_lines = stranded_locus.__str__(
-            level="subloci",
-            print_cds=not json_conf["pick"]["run_options"]["exclude_cds"])
-        sub_metrics_rows = [_ for _ in stranded_locus.print_subloci_metrics()
-                            if _ != {} and "tid" in _]
-        sub_scores_rows = [_ for _ in stranded_locus.print_subloci_scores()
-                           if _ != {} and "tid" in _]
-        batch[1] = [sub_lines, sub_metrics_rows, sub_scores_rows]
-    if print_monoloci is True:
-        mono_lines = stranded_locus.__str__(
-            level="monosubloci",
-            print_cds=not json_conf["pick"]["run_options"]["exclude_cds"])
-        mono_metrics_rows = [_ for _ in stranded_locus.print_monoholder_metrics()
-                             if _ != {} and "tid" in _]
-        mono_scores_rows = [_ for _ in stranded_locus.print_monoholder_scores()
-                            if _ != {} and "tid" in _]
-        batch[2] = [mono_lines, mono_metrics_rows, mono_scores_rows]
-
-    for locus in stranded_locus.loci:
-        gene_counter += 1
-        new_id = "{0}.{1}G{2}".format(
-            json_conf["pick"]["output_format"]["id_prefix"],
-            stranded_locus.chrom, gene_counter)
-        stranded_locus.loci[locus].id = new_id
-
-    locus_lines = stranded_locus.__str__(
-        print_cds=not json_conf["pick"]["run_options"]["exclude_cds"],
-        level="loci")
-    locus_metrics_rows = [x for x in stranded_locus.print_loci_metrics()]
-    locus_scores_rows = [x for x in stranded_locus.print_loci_scores()]
-    batch[0] = [locus_lines, locus_metrics_rows, locus_scores_rows]
-    return batch, gene_counter
-
-
-decoder = json.Decoder(number_mode=json.NM_NATIVE)
-
-
-def manage_index(index, data, dumps, print_monoloci, print_subloci):
-    dump_index, gene_counter, gene_max = data
-    orig_gene_counter = gene_counter
-    conn = sqlite3.connect(dumps[dump_index])
-    cursor = conn.cursor()
-    batch = []
-    try:
-        stranded_loci = cursor.execute("SELECT json FROM loci WHERE counter=?", (str(index),)).fetchone()
-    except ValueError:
-        raise ValueError((index, type(index)))
-    for stranded_locus_json in msgpack.loads(stranded_loci[0], raw=False):
-        stranded_locus = Superlocus(None)
-        stranded_locus.load_dict(decoder(stranded_locus_json),
-                                 load_transcripts=False,
-                                 print_monoloci=print_monoloci, print_subloci=print_subloci
-                                 )
-        minibatch, gene_counter = _create_locus_lines(stranded_locus, gene_counter,
-                                                      print_subloci=print_subloci, print_monoloci=print_monoloci)
-        batch.append(minibatch)
-
-    assert (gene_counter - orig_gene_counter) == gene_max, (orig_gene_counter, gene_counter, gene_max)
-    batch = msgpack.dumps(batch)
-    return batch
-
-
 def merge_loci(num_temp, out_handles,
                logger=None,
+               source="Mikado",
                tempdir="mikado_pick_tmp"):
 
     """ Function to merge the temporary loci files into single output files,
@@ -237,59 +80,54 @@ def merge_loci(num_temp, out_handles,
     )
     assert len(common_index.keys()) == len(set(common_index.keys()))
 
-    chroms, nums = list(zip(*[common_index[index][1:3] for index in range(1, max(common_index.keys()) + 1)]))
-    total_genes = sum(nums)
-    gene_counters = dict()
-    for pos in range(len(chroms)):
-        key = pos + 1
-        chrom, num = chroms[pos], nums[pos]
-        if pos == 0:
-            gene_counters[key] = (0, num)
-        elif chrom != chroms[pos - 1]:
-            gene_counters[key] = (0, num)
-        else:
-            gene_counters[key] = (gene_counters[pos][0] + gene_counters[pos][1], num)
-
-    new_common = dict()
-    assert min(common_index) == 1
-    for key in common_index:
-        new_common[key] = (common_index[key][0], gene_counters[key][0], gene_counters[key][1])
+    new_common, total_genes = __create_gene_counters(common_index)
 
     manager = functools.partial(manage_index,
                                 dumps=dumps,
-                                print_subloci=print_subloci,
-                                print_monoloci=print_monoloci)
+                                source=source)
     done = 0
     logger.info("We have a total of %d genes", total_genes)
+    tot_loci = set()
     with mp.Pool(processes=num_temp) as pool:
-        for pos, batch in enumerate(pool.starmap(manager,
-                                                 [(key, new_common[key]) for key in sorted(new_common.keys())])):
+        for pos, batch in enumerate(pool.imap(manager,
+                                              [(key, new_common[key]) for key in sorted(new_common.keys())],
+                                              500)):
             done += 1
-            batch = msgpack.loads(batch, raw=False)
+            loci, batch = msgpack.loads(batch, raw=False)
+            if loci and set(loci).issubset(tot_loci):
+                raise ValueError("Duplicated loci! {}".format(loci))
 
+            tot_loci.update(set(loci))
             for minibatch in batch:
-                locus_lines, locus_metrics_rows, locus_scores_rows = minibatch[0]
-                if locus_lines:
-                    assert len(locus_metrics_rows) > 0
-                    print(locus_lines, file=locus_out)
-                for row in locus_metrics_rows:
-                    print(*[row[key] for key in locus_metrics.fieldnames],
-                          sep="\t", file=locus_metrics.handle)
-                for row in locus_scores_rows:
-                    print(*[row[key] for key in locus_scores.fieldnames],
-                          sep="\t", file=locus_scores.handle)
+                if minibatch[0] is not None:
+                    locus_lines, locus_metrics_rows, locus_scores_rows = minibatch[0]
+                    if locus_lines:
+                        assert len(locus_metrics_rows) > 0
+                        print(locus_lines, file=locus_out)
+                    for row in locus_metrics_rows:
+                        print(*[row[key] for key in locus_metrics.fieldnames],
+                              sep="\t", file=locus_metrics.handle)
+                    for row in locus_scores_rows:
+                        print(*[row[key] for key in locus_scores.fieldnames],
+                              sep="\t", file=locus_scores.handle)
 
-                if minibatch[1]:
+                if print_subloci and minibatch[1]:
                     sub_lines, sub_metrics_rows, sub_scores_rows = minibatch[1]
                     if sub_lines != '':
-                        print(sub_lines, file=sub_out)
+                            print(sub_lines, file=sub_out)
+
                     for row in sub_metrics_rows:
-                        print(*[row[key] for key in sub_metrics.fieldnames],
-                              sep="\t", file=sub_metrics.handle)
+                        try:
+                            print(*[row[key] for key in sub_metrics.fieldnames],
+                                  sep="\t", file=sub_metrics.handle)
+                        except KeyError:
+                            raise KeyError("\n".join([str((key, str(row.get(key, "MISSING"))))
+                                                      for key in sub_metrics.fieldnames]))
                     for row in sub_scores_rows:
                         print(*[row[key] for key in sub_scores.fieldnames],
-                              sep="\t", file=sub_scores.handle)
-                if minibatch[2]:
+                                  sep="\t", file=sub_scores.handle)
+                if print_monoloci and minibatch[2]:
+                    print(minibatch[2])
                     mono_lines, mono_metrics_rows, mono_scores_rows = minibatch[2]
                     if mono_lines != '':
                         print(mono_lines, file=mono_out)
@@ -303,20 +141,6 @@ def merge_loci(num_temp, out_handles,
     if done != max_counter:
         raise KeyError("Something has been lost")
 
-    return
-
-
-def serialise_locus(stranded_loci: [Superlocus],
-                    conn: sqlite3.Connection,
-                    counter):
-
-    loci = msgpack.dumps([json.dumps(stranded_locus.as_dict(), default=default_for_serialisation,
-                                     number_mode=json.NM_NATIVE)
-                          for stranded_locus in stranded_loci])
-    chrom = stranded_loci[0].chrom
-    num_genes = sum(len(slid.loci) for slid in stranded_loci)
-    conn.execute("INSERT INTO loci VALUES (?, ?, ?, ?)", (counter, chrom, num_genes, loci))
-    conn.commit()
     return
 
 
@@ -402,7 +226,6 @@ def remove_fragments(stranded_loci, json_conf, logger):
 def analyse_locus(slocus: Superlocus,
                   counter: int,
                   json_conf: dict,
-                  printer_queue: [AutoProxy, None],
                   logging_queue: AutoProxy,
                   engine=None,
                   data_dict=None) -> [Superlocus]:
@@ -419,9 +242,6 @@ def analyse_locus(slocus: Superlocus,
 
     :param logging_queue: the logging queue
     :type logging_queue: multiprocessing.managers.AutoProxy
-
-    :param printer_queue: the printing queue
-    :type printer_queue: multiprocessing.managers.AutoProxy
 
     :param engine: an optional engine to connect to the database.
     :type data_dict: sqlalchemy.engine.engine
@@ -441,13 +261,7 @@ def analyse_locus(slocus: Superlocus,
     # Define the logger
     if slocus is None:
         # printer_dict[counter] = []
-        if printer_queue:
-            while printer_queue.qsize() >= json_conf["threads"] * 10:
-                continue
-            # printer_queue.put_nowait(([], counter))
-            return
-        else:
-            return []
+        return []
 
     handler = logging_handlers.QueueHandler(logging_queue)
     logger = logging.getLogger("{0}:{1}-{2}".format(
@@ -458,17 +272,13 @@ def analyse_locus(slocus: Superlocus,
     # otherwise we overwrite the global configuration
     logger.setLevel(json_conf["log_settings"]["log_level"])
     logger.propagate = False
-    logger.debug("Started with %s, counter %d",
-                 slocus.id, counter)
+    logger.debug("Started with %s, counter %d", slocus.id, counter)
     if slocus.stranded is True:
         logger.warning("%s is stranded already! Resetting", slocus.id)
         slocus.stranded = False
 
     slocus.logger = logger
     slocus.source = json_conf["pick"]["output_format"]["source"]
-
-    # if engine is None and data_dict is None:
-    #     raise ValueError("Error for locus {id}".format(id=slocus.id))
 
     try:
         slocus.load_all_transcript_data(engine=engine,
@@ -488,13 +298,7 @@ def analyse_locus(slocus: Superlocus,
             "%s had all transcripts failing checks, ignoring it",
             slocus.id)
         # printer_dict[counter] = []
-        if printer_queue:
-            while printer_queue.qsize >= json_conf["threads"] * 10:
-                continue
-            # printer_queue.put_nowait(([], counter))
-            return
-        else:
-            return []
+        return []
 
     # Split the superlocus in the stranded components
     logger.debug("Splitting by strand")
@@ -529,18 +333,10 @@ def analyse_locus(slocus: Superlocus,
     except Exception as err:
         logger.error(err)
         pass
-    if printer_queue:
-        while printer_queue.qsize() >= json_conf["threads"] * 10:
-            continue
-        logger.debug("Finished with %s, counter %d", slocus.id, counter)
-        logger.removeHandler(handler)
-        handler.close()
-        return
-    else:
-        logger.debug("Finished with %s, counter %d", slocus.id, counter)
-        logger.removeHandler(handler)
-        handler.close()
-        return stranded_loci
+    logger.debug("Finished with %s, counter %d", slocus.id, counter)
+    logger.removeHandler(handler)
+    handler.close()
+    return stranded_loci
 
 
 class LociProcesser(Process):
@@ -598,7 +394,6 @@ class LociProcesser(Process):
             return
 
         self.analyse_locus = functools.partial(analyse_locus,
-                                               printer_queue=None,
                                                json_conf=self.json_conf,
                                                engine=self.engine,
                                                logging_queue=self.logging_queue)
@@ -618,6 +413,14 @@ class LociProcesser(Process):
         cursor.execute(
             "CREATE TABLE IF NOT EXISTS loci (counter INTEGER UNIQUE PRIMARY KEY, chrom CHR, genes INT, json BLOB)")
         cursor.execute("CREATE INDEX IF NOT EXISTS loci_idx ON loci(counter)")
+
+        cursor.execute(
+            "CREATE TABLE IF NOT EXISTS subloci (counter INTEGER UNIQUE PRIMARY KEY, chrom CHR, json BLOB)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS subloci_idx ON subloci(counter)")
+
+        cursor.execute(
+            "CREATE TABLE IF NOT EXISTS monoloci (counter INTEGER UNIQUE PRIMARY KEY, chrom CHR, json BLOB)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS monoloci_idx ON monoloci(counter)")
 
         return db, conn, cursor
 
@@ -662,7 +465,6 @@ class LociProcesser(Process):
         self.logger.propagate = False
         self.engine = dbutils.connect(self.json_conf, self.logger)
         self.analyse_locus = functools.partial(analyse_locus,
-                                               printer_queue=None,
                                                json_conf=self.json_conf,
                                                engine=self.engine,
                                                logging_queue=self.logging_queue)
@@ -688,15 +490,17 @@ class LociProcesser(Process):
                                )
         cursor = conn.cursor()
 
+        print_cds = (not self.json_conf["pick"]["run_options"]["exclude_cds"])
+        print_monoloci = (self.json_conf["pick"]["files"]["monoloci_out"] != "")
+        print_subloci = (self.json_conf["pick"]["files"]["subloci_out"] != "")
+
         while True:
             counter = self.locus_queue.get()[0]
             if counter == "EXIT":
                 self.logger.debug("EXIT received for %s", self.name)
                 self.locus_queue.task_done()
                 self.locus_queue.put((counter, ))
-                # self.__close_handles()
                 break
-                # self.join()
             else:
                 try:
                     transcripts = cursor.execute(
@@ -712,15 +516,21 @@ class LociProcesser(Process):
                 transcripts = msgpack.loads(transcripts[0], raw=False)
                 if len(transcripts) == 0:
                     stranded_loci = []
+                    self.logger.warning("No transcript found for index %d", counter)
                 else:
                     tobjects = []
+                    chroms = set()
                     for tjson in transcripts:
                         definition = GtfLine(tjson["definition"]).as_dict()
+                        is_reference = definition["source"] in self.json_conf["prepare"]["files"]["reference"]
                         transcript = Transcript(logger=self.logger,
                                                 source=definition["source"],
-                                                intron_range=self.json_conf["pick"]["run_options"]["intron_range"])
+                                                intron_range=self.json_conf["pick"]["run_options"]["intron_range"],
+                                                is_reference=is_reference)
                         transcript.chrom, transcript.start, transcript.end = (definition["chrom"],
                                                                               definition["start"], definition["end"])
+                        chroms.add(transcript.chrom)
+                        assert len(chroms) == 1, chroms
                         try:
                             transcript.id = definition["transcript"]
                         except KeyError:
@@ -749,7 +559,12 @@ class LociProcesser(Process):
                         slocus.regressor = self.regressor
                     stranded_loci = self.analyse_locus(slocus, counter)
 
-                serialise_locus(stranded_loci, self.dump_conn, counter)
+                serialise_locus(stranded_loci, self.dump_conn, counter,
+                                print_cds=print_cds,
+                                print_monosubloci=print_monoloci,
+                                print_subloci=print_subloci)
+                if len(stranded_loci) == 0:
+                    self.logger.warning("No loci left for index %d", counter)
 
                 self.locus_queue.task_done()
 

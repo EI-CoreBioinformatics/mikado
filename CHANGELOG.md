@@ -41,7 +41,7 @@ Contributors to this release:
 - Christian Schudoma (@cschu)
 - David Swarbreck (@swarbred)
 
-Ackwnoledgement for contributing by bug reports and suggestions:
+Acknowledgements for contributing by bug reports and suggestions:
 
 - Tom Mathers (@tommathers)
 - @AsclepiusDoc
@@ -59,6 +59,8 @@ Detailed list of bugfixes and improvements:
 
 #### General
 
+- Many internal algorithms of `mikado pick` have been rewritten to avoid quadratic bottlenecks. This allows Mikado to analyse datasets that are much denser or richer, without the processing time getting out of hand.
+- `mikado pick` is now much more efficient in using multiple processors.
 - Mikado has now been tested to be compatible with Python 3.7.
 - Mikado can now specify a static random seed, ensuring full reproducibility of the runs ([#183](https://github.com/EI-CoreBioinformatics/mikado/issues/183))
 - Mikado will now correctly terminate all child processes in the event of a crash, and exit without hanging ([#205](https://github.com/EI-CoreBioinformatics/mikado/issues/205))
@@ -121,6 +123,7 @@ Detailed list of bugfixes and improvements:
   If some of the invalid transcripts had been used as template for the expansion, Mikado will remove the offending
   transcripts and restart the procedure ([#129](https://github.com/EI-CoreBioinformatics/mikado/issues/129),
   [#142](https://github.com/EI-CoreBioinformatics/mikado/issues/142)). Moreover:
+  - Mikado will remove fully redundant (ie 100% identical transcripts) after padding ([#208](https://github.com/EI-CoreBioinformatics/mikado/issues/208))
   - As a consequence of this change, Transcript objects have been modified to expose the following methods related to the internal interval tree:
     - find/search (to find intersecting exonic or intronic intervals)
     - find_upstream (to find all intervals upstream of the requested one in the transcript)
@@ -168,6 +171,7 @@ Detailed list of bugfixes and improvements:
 - Mikado compare has been greatly improved ([#166](https://github.com/EI-CoreBioinformatics/mikado/issues/166)), with the addition of:
 	- proper multiprocessing
 	- faster startup times
+<<<<<<< HEAD
 
 #### Other
 
@@ -176,6 +180,7 @@ Detailed list of bugfixes and improvements:
 - Fixed some parsing errors for GTFs created by converting from BAM files ([#157](https://github.com/EI-CoreBioinformatics/mikado/issues/157))
 - Mikado util convert now functions with BAM files ([#197](https://github.com/EI-CoreBioinformatics/mikado/issues/197))
 - Mikado `util grep -v` functions also for GTFs ([#203](https://github.com/EI-CoreBioinformatics/mikado/issues/203))
+- [#209](https://github.com/EI-CoreBioinformatics/mikado/issues/209): now `daijin` supports conda environments. Moreover, we test the assemble part properly to ensure its correct functioning.
 
 # Version 1.2.4
 

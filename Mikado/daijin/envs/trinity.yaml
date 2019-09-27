@@ -1,5 +1,7 @@
 channels:
   - bioconda
+  - anaconda
+  - conda-forge
 dependencies:
   - bioconda::trinity>=2.8.5
-  - bioconda::samtools>=1.9
+  - bioconda::salmon>=0.9

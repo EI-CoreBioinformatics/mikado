@@ -1,0 +1,2 @@
+ERR588038.R1.fq.gz	ERR588038.R2.fq.gz	ERR588038	fr-firststrand	False
+SRR5037293.pacbio.fastq.gz		SRR5037293	fr-firststrand	True

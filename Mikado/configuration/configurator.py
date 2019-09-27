@@ -23,11 +23,28 @@ from ..transcripts.transcript import Transcript
 from ..exceptions import InvalidJson, UnrecognizedRescaler
 from ..utilities import merge_dictionaries
 from ..utilities.log_utils import create_default_logger
-import sys
 import numpy
 
 
 __author__ = "Luca Venturini"
+
+
+def create_cluster_config(config, args, logger):
+    if (config["scheduler"] and config["scheduler"] != "local") or (not config["scheduler"] and args.cluster_config):
+        if not args.queue:
+            error = "A queue must be specified for the analysis when in HPC mode. Please relaunch."
+            logger.error(error)
+            exit(1)
+        if args.cluster_config is not None:
+            cluster_config = args.cluster_config
+        else:
+            cluster_config = "daijin_hpc.yaml"
+        with open(cluster_config, "wt") as out, \
+                resource_stream("Mikado", os.path.join("daijin", "hpc.yaml")) as original:
+            for pos, line in enumerate(original):
+                print(line.decode(), file=out, end="")
+                if pos == 0:
+                    print("    queue:", args.queue, file=out)
 
 
 def extend_with_default(validator_class, resolver=None, simple=False):
@@ -474,7 +491,7 @@ def _check_scoring_file(json_conf: dict, logger):
             "scoring", "requirements", "as_requirements", "not_fragmentary")]
     elif all(_ in json_conf for _ in ["scoring", "requirements", "as_requirements", "not_fragmentary"]):
         try:
-            if not json_conf["__loaded_scoring"].endswith(("model", "pickle")):
+            if not json_conf.get("__loaded_scoring", "").endswith(("model", "pickle")):
                 # Random forest models are not standard scoring files
                 check_scoring(json_conf)
             check_all_requirements(json_conf)

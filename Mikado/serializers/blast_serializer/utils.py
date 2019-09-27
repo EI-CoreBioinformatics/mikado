@@ -86,7 +86,7 @@ def _prepare_aln_strings(hsp, qmultiplier=1, tmultiplier=1):
         elif middle_aa == "+" or middle_aa in valid_matches:
             if middle_aa != "+":
                 identical = set(range(query_pos, query_pos + qmultiplier))
-            positives = set(range(query_pos, query_pos + qmultiplier))
+            positives = set(range(query_pos, query_pos + + qmultiplier))
             qpos = qmultiplier
             tpos += tmultiplier
             matched = middle_aa
@@ -150,6 +150,7 @@ def prepare_hit(hit, query_id, target_id, **kwargs):
 
     qmulti = kwargs["query_multiplier"]
     tmulti = kwargs["target_multiplier"]
+    qlength = kwargs["query_length"]
     assert isinstance(qmulti, (int, float)), type(qmulti)
     assert isinstance(tmulti, (int, float)), type(tmulti)
     hit_dict.update(kwargs)
@@ -175,7 +176,7 @@ def prepare_hit(hit, query_id, target_id, **kwargs):
 
     q_merged_intervals, q_aligned = merge(q_intervals)
     assert isinstance(q_aligned, np.int), (q_merged_intervals, q_aligned, type(q_aligned))
-    hit_dict["query_aligned_length"] = q_aligned
+    hit_dict["query_aligned_length"] = min(qlength, q_aligned)
     qstart, qend = q_merged_intervals[0][0], q_merged_intervals[-1][1]
     assert isinstance(qstart, np.int), (q_merged_intervals, type(qstart))
     assert isinstance(qend, np.int), (q_merged_intervals, type(qend))
@@ -191,7 +192,7 @@ def prepare_hit(hit, query_id, target_id, **kwargs):
             len(positives), q_aligned))
 
     t_merged_intervals, t_aligned = merge(t_intervals)
-    hit_dict["target_aligned_length"] = t_aligned
+    hit_dict["target_aligned_length"] = min(t_aligned, hit.length)
     hit_dict["target_start"] = t_merged_intervals[0][0]
     hit_dict["target_end"] = t_merged_intervals[-1][1]
     hit_dict["global_identity"] = len(identical_positions) * 100 / q_aligned

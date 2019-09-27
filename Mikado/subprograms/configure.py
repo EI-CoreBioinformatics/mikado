@@ -11,16 +11,15 @@ import glob
 import argparse
 import sys
 from ..configuration import configurator, daijin_configurator, print_config, check_has_requirements
+from ..configuration.configurator import create_cluster_config
 from ..exceptions import InvalidJson
 from ..utilities import comma_split  # , merge_dictionaries
 from ..transcripts.transcript import Namespace
 import functools
-try:
-    import rapidjson as json
-except ImportError:
-    import json
+import rapidjson as json
 from collections import Counter
 import tempfile
+from ..utilities.log_utils import create_null_logger
 
 
 __author__ = 'Luca Venturini'
@@ -90,6 +89,23 @@ def create_simple_config(seed=None):
     return new_dict
 
 
+def _remove_comments(d: dict) -> dict:
+
+    nudict = dict()
+
+    if not isinstance(d, dict):
+        return d
+
+    for key, item in d.items():
+        if key == "Comment" or "comment" in key.lower():
+            continue
+        elif isinstance(item, dict):
+            nudict[key] = _remove_comments(item)
+        else:
+            nudict[key] = item
+    return nudict
+
+
 def create_config(args):
     """
     Utility to create a default configuration file.
@@ -134,7 +150,7 @@ def create_config(args):
         namespace.genome = args.reference
         namespace.transcriptome = ""
         namespace.name = "Daijin"
-        namespace.out_dir = "Daijin"
+        namespace.out_dir = args.out_dir if args.out_dir else "Daijin"
         namespace.threads = args.threads
         namespace.scoring = args.scoring
         namespace.new_scoring = getattr(args, "new_scoring", None)
@@ -142,7 +158,12 @@ def create_config(args):
         daijin_config["blastx"]["chunks"] = args.blast_chunks
         daijin_config["mikado"]["use_diamond"] = (not args.use_blast)
         daijin_config["mikado"]["use_prodigal"] = (not args.use_transdecoder)
+        daijin_config["scheduler"] = args.scheduler
+
+        for key in daijin_config:
+            daijin_config[key] = _remove_comments(daijin_config[key])
         config = configurator.merge_dictionaries(config, daijin_config)
+        create_cluster_config(config, args, create_null_logger())
 
     if args.external is not None:
         if args.external.endswith("json"):
@@ -155,13 +176,6 @@ def create_config(args):
         if "mikado" in external_conf:
             mikado_conf = dict((key, val) for key, val in external_conf["mikado"].items() if key in config)
             config = configurator.merge_dictionaries(config, mikado_conf)
-        # Leave all other values, including those in a "mikado" section that are not also present in the default config
-
-        # for key in config:
-        #     if "mikado" in external_conf and isinstance(external_conf["mikado"], dict):
-        #         __mikado_keys = [key for key in external_conf["mikado"] if key in config]
-        #         for key in __mikado_keys:
-        #             del external_conf["mikado"][key]
         config = configurator.merge_dictionaries(config, external_conf)
 
     config["pick"]["files"]["subloci_out"] = args.subloci_out if args.subloci_out else ""
@@ -314,6 +328,10 @@ def create_config(args):
     config.pop("__loaded_scoring", None)
     config.pop("scoring_file", None)
     config.pop("filename", None)
+    config.pop("as_requirements", None)
+    config.pop("scoring", None)
+    config.pop("not_fragmentary", None)
+    config.pop("requirements", None)
 
     # Check that the configuration file is correct
     tempcheck = tempfile.NamedTemporaryFile("wt", suffix=".yaml", delete=False)
@@ -422,9 +440,17 @@ def configure_parser():
 - permissive: like lenient, but also split when both ORFs lack BLAST hits
 - split: split multi-orf transcripts regardless of what BLAST data is available.
 If multiple modes are specified, Mikado will create a Daijin-compatible configuration file.""")
+    daijin.add_argument("--scheduler", default="", choices=["local", "SLURM", "LSF", "PBS"],
+                        help="Scheduler to use. Default: None - ie, either execute everything on the local machine or use DRMAA to submit and control jobs (recommended).")
+    daijin.add_argument("--exe", default="daijin_exe.yaml",
+                         help="Configuration file for the executables.")
+    daijin.add_argument("-c", "--cluster_config",
+                         type=str, default=None,
+                         help="Cluster configuration file to write to.")
     parser.add_argument("-t", "--threads", default=1, type=int)
     parser.add_argument("--skip-split", dest="skip_split", default=[], nargs="+",
                         help="List of labels for which splitting will be disabled (eg long reads such as PacBio)")
+
     parser.add_argument("-j", "--json", action="store_true", default=False,
                         help="Output will be in JSON instead of YAML format.")
     parser.add_argument("-od", "--out-dir", dest="out_dir", default=None,

@@ -24,7 +24,6 @@ from ..exceptions import InvalidJson
 import pyfaidx
 import numpy
 from ..exceptions import InvalidSerialization
-from numpy import random
 
 
 __author__ = 'Luca Venturini'
@@ -259,17 +258,39 @@ def setup(args):
         if not isinstance(args.json_conf["serialise"]["files"]["log"], str):
             args.json_conf["serialise"]["files"]["log"].close()
             args.json_conf["serialise"]["files"]["log"] = args.json_conf["serialise"]["files"]["log"].name
-        args.json_conf["serialise"]["files"]["log"] = \
-            path_join(args.json_conf["serialise"]["files"]["output_dir"], args.json_conf["serialise"]["files"]["log"])
-        for handler in logger.handlers:
-            if hasattr(handler, "baseFilename"):
-                logger.removeHandler(handler)
-        handler = logging.FileHandler(args.json_conf["serialise"]["files"]["log"], "w")
+
+        log = args.json_conf["serialise"]["files"]["log"]
+        if os.path.dirname(log) == "":
+            args.json_conf["serialise"]["files"]["log"] = \
+                os.path.join(args.json_conf["serialise"]["files"]["output_dir"],
+                             os.path.basename(log))
+        else:
+            logdir = os.path.dirname(log).rstrip(os.path.sep)
+            logdir = os.path.relpath(logdir, args.json_conf["serialise"]["files"]["output_dir"])
+            args.json_conf["serialise"]["files"]["log"] = \
+                os.path.join(args.json_conf["serialise"]["files"]["output_dir"],
+                             logdir,
+                             os.path.basename(log))
+        # path_join(args.json_conf["serialise"]["files"]["output_dir"], args.json_conf["serialise"]["files"]["log"])
+        handlers = logger.handlers[:]
+        for handler in handlers:
+            # if hasattr(handler, "baseFilename"):
+            logger.removeHandler(handler)
+
+        os.makedirs(os.path.dirname(args.json_conf["serialise"]["files"]["log"]), exist_ok=True)
+        open(args.json_conf["serialise"]["files"]["log"], "wt").close()
+        handler = logging.FileHandler(args.json_conf["serialise"]["files"]["log"], mode="wt", delay=False)
         handler.setFormatter(formatter)
         logger.addHandler(handler)
 
     logger.setLevel("INFO")
-    logger.info("Command line: %s", " ".join(sys.argv))
+    try:
+        logger.info("Command line: %s", " ".join(sys.argv))
+    except FileNotFoundError:
+        for handler in logger.handlers:
+            print("Handler:", handler.baseFilename)
+        raise
+
     logger.info("Random seed: %s", args.json_conf["seed"])
     logger.setLevel(args.log_level)
 
@@ -459,7 +480,7 @@ def serialise_parser():
     parser.add_argument("-od", "--output-dir", dest="output_dir",
                         type=str, default=None,
                         help="Output directory. Default: current working directory")
-    generic.add_argument("-lv", "--log_level", default=None,
+    generic.add_argument("-lv", "--log-level", default=None,
                          choices=["DEBUG", "INFO", "WARN", "ERROR"],
                          help="Log level. Default: derived from the configuration; if absent, INFO")
     generic.add_argument("db", type=str, default=None,

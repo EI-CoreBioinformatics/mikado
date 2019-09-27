@@ -1,0 +1,7 @@
+channels:
+  - bioconda
+  - conda-forge
+dependencies:
+  - bioconda::samtools>=1.9
+  - bioconda::gnuplot>=5.0
+  - conda-forge::ncurses

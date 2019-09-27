@@ -1,6 +1,7 @@
 __default__:
     threads: 4
     memory: 10000
-    queue: tgac-medium
 asm_trinitygg:
+    memory: 20000
+bam_sort:
     memory: 20000

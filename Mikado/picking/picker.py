@@ -34,7 +34,8 @@ from ..loci.superlocus import Superlocus
 from ..configuration.configurator import to_json, check_json  # Necessary for nosetests
 from ..utilities import dbutils
 from ..exceptions import UnsortedInput, InvalidJson, InvalidTranscript
-from .loci_processer import analyse_locus, LociProcesser, merge_loci, print_locus
+from .loci_processer import analyse_locus, LociProcesser, merge_loci
+from ._locus_single_printer import print_locus
 import multiprocessing.managers
 from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
 import pickle
@@ -337,7 +338,7 @@ class Picker:
         self.logger.setLevel(self.log_level)
         self.logger.addHandler(self.log_handler)
 
-        if self.log_level == "DEBUG":
+        if self.log_level == "DEBUG" and self.json_conf["threads"] > 1:
             self.main_logger.setLevel(logging.DEBUG)
             self.main_logger.warning(
                     "Due to a Python design bug, we have to force Mikado to go in single-threaded mode when debugging.")
@@ -402,9 +403,9 @@ class Picker:
             session = sqlalchemy.orm.sessionmaker(bind=engine)()
             dbutils.DBBASE.metadata.create_all(engine)
 
-        metrics = Superlocus.available_metrics[4:]
+        metrics = Superlocus.available_metrics[5:]
         metrics.extend(["external.{}".format(_.source) for _ in session.query(ExternalSource.source).all()])
-        metrics = Superlocus.available_metrics[:4] + sorted(metrics)
+        metrics = Superlocus.available_metrics[:5] + sorted(metrics)
 
         if self.sub_out != '':
             assert isinstance(self.sub_out, str)
@@ -530,9 +531,9 @@ class Picker:
         locus_scores_file = open(re.sub("$", ".scores.tsv", re.sub(
             ".gff.?$", "", self.locus_out)), "w")
 
-        metrics = Superlocus.available_metrics[4:]
+        metrics = Superlocus.available_metrics[5:]
         metrics.extend(external_metrics)
-        metrics = Superlocus.available_metrics[:4] + sorted(metrics)
+        metrics = Superlocus.available_metrics[:5] + sorted(metrics)
         session.close()
         engine.dispose()
 
@@ -582,22 +583,9 @@ class Picker:
             
         self.logger.debug("Loading data for %s", slocus.id)
         slocus.logger = self.logger
-        # slocus.load_all_transcript_data(engine=engine,
-        #                                 data_dict=data_dict)
-        # slocus_id = slocus.id
-        # if slocus.initialized is False:
-        #     # This happens when we have removed all transcripts from the locus
-        #     # due to errors which should have been caught and logged
-        #     self.logger.warning(
-        #         "%s had all transcripts failing checks, ignoring it",
-        #         slocus.id)
-        #     # Exit
-        #     return []
-
         return analyse_locus(slocus=slocus,
                              counter=counter,
                              json_conf=self.json_conf,
-                             printer_queue=None,
                              logging_queue=self.logging_queue,
                              data_dict=data_dict,
                              engine=engine)
@@ -675,6 +663,10 @@ class Picker:
                      submit_remaining=False):
 
         """Method to create the simple indexed database for features."""
+
+        chroms = set([_["chrom"] for _ in transcripts.values()])
+        if len(chroms) > 1:
+            raise AssertionError(chroms)
 
         transcripts = msgpack.dumps([_ for _ in transcripts.values()])
         cursor.execute("INSERT INTO transcripts VALUES (?, ?)", (counter, transcripts))
@@ -754,6 +746,7 @@ class Picker:
         merge_loci(self.procs,
                    handles,
                    logger=self.logger,
+                   source=self.json_conf["pick"]["output_format"]["source"],
                    tempdir=tempdir)
 
         self.logger.info("Finished merging partial files")
@@ -855,8 +848,9 @@ class Picker:
                     if tid in invalids:
                         continue
                     elif tid not in current["transcripts"]:
-                        self.logger.error("Transcript %s is invalid", tid)
-                        invalids.add(tid)
+                        self.logger.fatal("Transcript %s is invalid", tid)
+                        raise UnsortedInput
+                        # invalids.add(tid)
                     else:
                         # Check max intron length. We presume that exons are sorted correctly.
                         current, invalids = self.__check_max_intron(current, invalids,
@@ -865,18 +859,22 @@ class Picker:
                     self.__test_sortedness((chrom, start, end),
                                            (current["chrom"], current["start"], current["end"]))
                     if current["chrom"] != chrom or not current["start"]:
-                        if current["chrom"] and current["chrom"] != chrom:
-                            self.logger.info("Finished chromosome %s", current["chrom"])
-                            self.logger.debug("Submitting locus # %d (%s), with transcripts:\n%s",
-                                              counter, "{}:{}-{}".format(current["chrom"],
-                                                                         current["start"], current["end"]),
-                                              ",".join(list(current["transcripts"].keys())))
-                            counter += 1
-                            self.add_to_index(conn, cursor, current["transcripts"], counter, locus_queue)
                         if current["chrom"] != chrom:
+                            if current["chrom"] is not None and current["chrom"] != chrom:
+                                self.logger.info("Finished chromosome %s", current["chrom"])
+                                if len(current["transcripts"]) > 0:
+                                    self.logger.debug("Submitting locus # %d (%s), with transcripts:\n%s",
+                                                      counter, "{}:{}-{}".format(current["chrom"],
+                                                                                 current["start"], current["end"]),
+                                                      ",".join(list(current["transcripts"].keys())))
+                                    counter += 1
+                                    self.add_to_index(conn, cursor, current["transcripts"], counter, locus_queue)
                             self.logger.info("Starting chromosome %s", chrom)
+
                         current["chrom"], current["start"], current["end"] = chrom, start, end
+                        current["transcripts"] = dict()
                         current["transcripts"][tid] = dict()
+                        current["transcripts"][tid]["chrom"] = chrom
                         current["transcripts"][tid]["start"] = start
                         current["transcripts"][tid]["end"] = end
                         current["transcripts"][tid]["definition"] = line
@@ -887,7 +885,7 @@ class Picker:
                             # Add to the locus!
                             current["start"] = min(current["start"], start)
                             current["end"] = max(current["end"], end)
-                        else:
+                        elif len(current["transcripts"]) > 0:
                             counter += 1
                             self.logger.debug("Submitting locus # %d (%s), with transcripts:\n%s",
                                               counter, "{}:{}-{}".format(current["chrom"],
@@ -898,18 +896,20 @@ class Picker:
                             current["transcripts"] = dict()
 
                         current["transcripts"][tid] = dict()
+                        current["transcripts"][tid]["chrom"] = chrom
                         current["transcripts"][tid]["definition"] = line
                         current["transcripts"][tid]["exon_lines"] = []
                         current["transcripts"][tid]["start"] = start
                         current["transcripts"][tid]["end"] = end
 
         if current["start"] is not None:
-            counter += 1
-            self.logger.debug("Submitting locus # %d (%s), with transcripts:\n%s",
-                              counter, "{}:{}-{}".format(current["chrom"],
-                                                         current["start"], current["end"]),
-                              ",".join(list(current["transcripts"].keys())))
-            self.add_to_index(conn, cursor, current["transcripts"], counter, locus_queue, submit_remaining=True)
+            if len(current["transcripts"]) > 0:
+                counter += 1
+                self.logger.debug("Submitting locus # %d (%s), with transcripts:\n%s",
+                                  counter, "{}:{}-{}".format(current["chrom"],
+                                                             current["start"], current["end"]),
+                                  ",".join(list(current["transcripts"].keys())))
+                self.add_to_index(conn, cursor, current["transcripts"], counter, locus_queue, submit_remaining=True)
             self.logger.info("Finished chromosome %s", current["chrom"])
 
         conn.commit()

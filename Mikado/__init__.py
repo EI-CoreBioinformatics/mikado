@@ -40,10 +40,7 @@ import sys
 from . import subprograms
 from .utilities.log_utils import create_default_logger
 from multiprocessing import freeze_support
-try:
-    from numpy.testing import PytestTester
-except ImportError:
-    from numpy._pytesttester import PytestTester
+from numpy._pytesttester import PytestTester
 test = PytestTester(__name__)
 
 

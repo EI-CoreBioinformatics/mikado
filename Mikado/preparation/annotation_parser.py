@@ -179,24 +179,27 @@ def load_into_storage(shelf_name, exon_lines, min_length, logger, strip_cds=True
 
     """Function to load the exon_lines dictionary into the temporary storage."""
 
-    conn = sqlite3.connect(shelf_name)
-    cursor = conn.cursor()
-    try:
-        cursor.execute(
-            "CREATE TABLE dump (chrom text, start integer, end integer, strand text, tid text, features blob)")
-    except sqlite3.OperationalError:
-        # Table already exists
+    if os.path.exists(shelf_name) or any(_.startswith(os.path.basename(shelf_name))
+                                         for _ in os.listdir(os.path.dirname(shelf_name))):
         logger.error("Shelf %s already exists (maybe from a previous aborted run?), dropping its contents", shelf_name)
-        cursor.close()
-        conn.close()
-        os.remove(shelf_name)
-        conn = sqlite3.connect(shelf_name)
-        cursor = conn.cursor()
-        cursor.execute(
-            "CREATE TABLE dump (chrom text, start integer, end integer, strand text, tid text, features blob)")
+        for _ in (_ for _ in os.listdir(os.path.dirname(shelf_name))
+                  if _.startswith(os.path.basename(shelf_name))):
+            if os.path.exists(_):
+                os.remove(_)
 
-    cursor.execute("CREATE INDEX idx ON dump (tid)")
+    conn = sqlite3.connect(shelf_name,
+                           isolation_level="DEFERRED",
+                           timeout=60,
+                           check_same_thread=False  # Necessary for SQLite3 to function in multiprocessing
+                           )
+    conn.execute("PRAGMA journal_mode=wal")
+    conn.execute("DROP TABLE IF EXISTS dump")
+    conn.execute(
+        "CREATE TABLE dump (chrom text, start integer, end integer, strand text, tid text, features blob)")
+    conn.commit()
     logger.debug("Created tables for shelf %s", shelf_name)
+
+    temp_store = []
 
     for tid in exon_lines:
         if "features" not in exon_lines[tid]:
@@ -290,17 +293,23 @@ def load_into_storage(shelf_name, exon_lines, min_length, logger, strip_cds=True
                              tid, biggest_intron, max_intron)
                 continue
 
-        values = json.dumps(exon_lines[tid], number_mode=json.NM_NATIVE)
+        try:
+            values = json.dumps(exon_lines[tid], number_mode=json.NM_NATIVE)
+        except ValueError:  # This is a crash that happens when there are infinite values
+            values = json.dumps(exon_lines[tid])
 
         logger.debug("Inserting %s into shelf %s", tid, shelf_name)
-        cursor.execute("INSERT INTO dump VALUES (?, ?, ?, ?, ?, ?)", (exon_lines[tid]["chrom"],
-                                                                      start,
-                                                                      end,
-                                                                      exon_lines[tid]["strand"],
-                                                                      tid,
-                                                                      values))
+        temp_store.append((exon_lines[tid]["chrom"], start, end, exon_lines[tid]["strand"], tid, values))
+        if len(temp_store) >= 1000:
+            conn.executemany("INSERT INTO dump VALUES (?, ?, ?, ?, ?, ?)", temp_store)
+            conn.commit()
+            temp_store = []
 
-    cursor.close()
+    if len(temp_store) > 0:
+        conn.executemany("INSERT INTO dump VALUES (?, ?, ?, ?, ?, ?)", temp_store)
+        conn.commit()
+
+    conn.execute("CREATE INDEX idx ON dump (tid)")
     conn.commit()
     conn.close()
     return
@@ -342,7 +351,8 @@ def load_from_gff(shelf_name,
     exon_lines = dict()
 
     strip_cds = strip_cds and (not is_reference)
-    strand_specific = strand_specific or is_reference
+    if strand_specific is not True and is_reference is True:
+        strand_specific = True
 
     transcript2genes = dict()
     new_ids = set()

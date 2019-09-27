@@ -65,7 +65,6 @@ setup(
     zip_safe=False,
     keywords="rna-seq annotation genomics transcriptomics",
     packages=find_packages(),
-    # scripts=glob.glob("bin/*.py") + glob.glob("util/*.py"),
     scripts=glob.glob("util/*.py"),
     entry_points={"console_scripts": ["mikado = Mikado:main",
                                       "daijin = Mikado.daijin:main",
@@ -83,15 +82,10 @@ setup(
         "Mikado.configuration.scoring_files":
             glob.glob("Mikado/configuration/scoring_files/*"),
         "Mikado":
-            glob.glob(path.join("Mikado", "daijin", "*yaml")) +
-            glob.glob("Mikado/daijin/*json") + \
-            glob.glob("Mikado/daijin/*snakefile"),
+            glob.glob(path.join("Mikado", "daijin", "*smk")) +
+            glob.glob(path.join("Mikado", "daijin", "*yaml")) + glob.glob("Mikado/daijin/*json"),
         "Mikado.utilities.overlap": [path.join("Mikado", "utilities", "overlap.pxd")],
         "Mikado.utilities.intervaltree": [path.join("Mikado", "utilities", "intervaltree.pxd")],
         },
     include_package_data=True
-    # data_files=[
-    #     ("Mikado/configuration",
-    #      glob.glob("Mikado/configuration/*json") + glob.glob("Mikado/configuration/*yaml"))],
-
 )

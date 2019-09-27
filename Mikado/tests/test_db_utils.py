@@ -49,13 +49,13 @@ class TestDbConnect(unittest.TestCase):
         sessionmaker = sqlalchemy.orm.sessionmaker(bind=engine)
         session = sessionmaker()
         # Simple tests based on the static content of the dictionary
-        self.assertEqual(session.query(serializers.junction.Junction).count(), 371,
+        self.assertEqual(session.query(serializers.junction.Junction).count(), 372,
                          self.json["db_settings"])
         self.assertEqual(session.query(serializers.orf.Orf).count(), 169)
         self.assertEqual(session.query(serializers.blast_serializer.Target).count(), 38909)
         self.assertEqual(session.query(serializers.blast_serializer.Query).count(), 93)
-        self.assertEqual(session.query(serializers.blast_serializer.Hit).count(), 562)
-        self.assertEqual(session.query(serializers.blast_serializer.Hsp).count(), 669)
+        self.assertEqual(session.query(serializers.blast_serializer.Hit).count(), 5034)
+        self.assertEqual(session.query(serializers.blast_serializer.Hsp).count(), 13585)
 
         first_query = session.query(serializers.blast_serializer.Query).limit(1).one()
         astup = first_query.as_tuple()

@@ -28,6 +28,7 @@ import multiprocessing as mp
 import msgpack
 import logging
 import logging.handlers as logging_handlers
+from ..utilities.log_utils import create_default_logger, create_null_logger
 
 
 backup_valid_letters = set(_ambiguous_dna_letters.upper() + _ambiguous_rna_letters.upper())
@@ -189,7 +190,8 @@ class BED12:
                  start_adjustment=True,
                  coding=True,
                  lenient=False,
-                 table=0):
+                 table=0,
+                 logger=create_null_logger()):
 
         """
         :param args: the BED12 line.
@@ -281,7 +283,7 @@ class BED12:
         self.__max_regression = 0
         # This value will be set when checking for the internal sequence
         # If >=1, i.e. at least one internal stop codon, the ORF is invalid
-        self.__internal_stop_codons = 0
+        self._internal_stop_codons = 0
         self.chrom = None
         self.start = self.end = self.thick_start = self.thick_end = 0
         self.name = ""
@@ -304,6 +306,8 @@ class BED12:
         self.table = table
         self.__lenient = lenient
         self.alias = None
+        self.logger = logger
+        self.logger.debug("Set the basic properties for %s", self.chrom)
 
         if len(args) == 0:
             self.header = True
@@ -331,8 +335,9 @@ class BED12:
                 self.header = True
                 return
             elif self.transcriptomic is False:
-                raise TypeError(
-                    "GFF lines can be used as BED12-equivalents only in a transcriptomic context.")
+                error = "GFF lines can be used as BED12-equivalents only in a transcriptomic context."
+                self.logger.error(error)
+                raise TypeError(error)
             else:
                 self.header = False
                 if sequence:
@@ -354,6 +359,7 @@ class BED12:
         self.__check_validity(transcriptomic, fasta_index, sequence)
 
         if self.invalid and self.coding:
+            self.logger.debug("%s cannot be coding as it is invalid (reason: %s)", self.chrom, self.invalid_reason)
             self.coding = False
 
         if self.coding and self.phase is None:
@@ -535,6 +541,7 @@ class BED12:
             self.has_stop_codon = False
 
         if transcriptomic is True and self.coding is True and (fasta_index is not None or sequence is not None):
+            self.logger.debug("Starting to check the validity of %s", self.chrom)
             self.validity_checked = True
             if sequence is not None:
                 self.fasta_length = len(sequence)
@@ -544,6 +551,7 @@ class BED12:
                     sequence = str(sequence)
             else:
                 if self.id not in fasta_index:
+                    self.logger.warning("%s not found in the index. Aborting the check, we will trust the ORF as-is.")
                     self.__in_index = False
                     return
 
@@ -557,6 +565,7 @@ class BED12:
             assert isinstance(sequence, str)
             # Just double check that the sequence length is the same as what the BED would suggest
             if self.invalid is True:
+                self.logger.debug("%s is invalid (%s)", self.chrom, self.invalid_reason)
                 self.coding = False
                 return
 
@@ -598,7 +607,7 @@ class BED12:
                                                 table=self.table,
                                                 gap='N')
 
-                self.__internal_stop_codons = str(translated_seq).count("*")
+                self._internal_stop_codons = str(translated_seq).count("*")
 
             if self.invalid is True:
                 return
@@ -608,41 +617,63 @@ class BED12:
         assert len(orf_sequence) == (self.thick_end - self.thick_start + 1)
         # Let's check UPstream first.
         # This means that we DO NOT have a starting Met and yet we are starting far upstream.
+        self.logger.debug("Starting to adjust the start of %s", self.chrom)
         if self.strand == "+" and self.thick_start > 3:
             for pos in range(self.thick_start, 3, -3):
                 self.thick_start -= 3
-                if sequence[pos - 3:pos] in self.table.start_codons:
+                codon = sequence[pos - 4:pos-1]
+                is_start, is_stop = ((codon in self.table.start_codons),
+                                     (codon in self.table.stop_codons))
+                self.logger.debug("Checking pos %s (%s) for %s, start: %s; stop: %s",
+                                  pos, codon, self.chrom, is_start, is_stop)
+                if is_start:
                     # We have found a valid methionine.
                     break
-                elif sequence[pos - 3:pos] in self.table.stop_codons:
-                    self.thick_start += 3
+                elif is_stop:
+                    self._internal_stop_codons = 1
                     break
                 continue
 
         elif self.strand == "-" and self.end - self.thick_end > 3:
             for pos in range(self.thick_end, self.end - 3, 3):
                 self.thick_end += 3
-                if Seq.reverse_complement(sequence[pos - 3:pos]) in self.table.start_codons:
+                codon = Seq.reverse_complement(sequence[pos - 3:pos])
+                is_start, is_stop = ((codon in self.table.start_codons),
+                                     (codon in self.table.stop_codons))
+                self.logger.debug("Checking pos %s (%s) for %s, start: %s; stop: %s",
+                                  pos, codon, self.chrom, is_start, is_stop)
+                if is_start:
                     # We have found a valid methionine.
+                    self.logger.debug("Found correct start codon for %s while expanding, stopping here.",
+                                      self.chrom)
                     break
-                elif Seq.reverse_complement(sequence[pos - 3:pos]) in self.table.stop_codons:
-                    self.thick_end -= 3
+                elif is_stop:
+                    self.logger.debug("Found in-frame stop codon for %s while expanding, stopping here.",
+                                      self.chrom)
+                    self.thick_end -= 6
                     break
         else:
-            for pos in range(3,
-                             int(len(orf_sequence) * self.max_regression),
-                             3):
-                if orf_sequence[pos:pos + 3] in self.table.start_codons:
-                    # Now we have to shift the start accordingly
-                    self.has_start_codon = True
-                    if self.strand == "+":
+            self.logger.debug("Starting the regression algorithm to find an internal start for %s",
+                              self.chrom)
+            # TODO: This is only valid for the plus strand, and we do not account for the phase!
+            if self.strand != "-":
+                for pos in range(2,
+                                 int(len(orf_sequence) * self.max_regression),
+                                 3):
+                    if orf_sequence[pos:pos + 3] in self.table.start_codons:
+                        # Now we have to shift the start accordingly
+                        self.has_start_codon = True
                         self.thick_start += pos
+                        break
                     else:
-                        # TODO: check that this is right and we do not have to do some other thing
-                        self.thick_end -= pos
-                    break
-                else:
-                    continue
+                        continue
+            # else:
+            #     # orf_sequence = str(Seq.Seq(orf_sequence[:]).reverse_complement().seq)
+            #     for pos in range(self.thick_end,
+            #                      self.thick_end - int(len(orf_sequence) * self.max_regression),
+            #                      -3):
+            #         if orf
+
 
         if self.has_start_codon is False:
             # The validity will be automatically checked
@@ -850,8 +881,8 @@ class BED12:
         :rtype bool
         """
 
-        if self.__internal_stop_codons >= 1:
-            self.invalid_reason = "{} internal stop codons found".format(self.__internal_stop_codons)
+        if self._internal_stop_codons >= 1:
+            self.invalid_reason = "{} internal stop codons found".format(self._internal_stop_codons)
             return True
 
         if self.transcriptomic is True and self.__in_index is False:
@@ -1299,7 +1330,8 @@ class Bed12ParseWrapper(mp.Process):
     def __init__(self,
                  rec_queue=None,
                  return_queue=None,
-                 log_queue=None, level="DEBUG",
+                 log_queue=None,
+                 level="DEBUG",
                  fasta_index=None,
                  transcriptomic=False,
                  max_regression=0,
@@ -1356,7 +1388,8 @@ class Bed12ParseWrapper(mp.Process):
         """
 
         bed12 = BED12(line,
-                          fasta_index=self.fasta_index,
+                      logger=self.logger,
+                        fasta_index=self.fasta_index,
                           transcriptomic=self.transcriptomic,
                           max_regression=self._max_regression,
                           coding=self.coding,
@@ -1375,6 +1408,7 @@ class Bed12ParseWrapper(mp.Process):
             return None
             # Compatibility with BED12
         bed12 = BED12(line,
+                      logger=self.logger,
                       fasta_index=self.fasta_index,
                       transcriptomic=self.transcriptomic,
                       max_regression=self._max_regression,

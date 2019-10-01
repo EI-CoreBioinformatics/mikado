@@ -57,41 +57,35 @@ def loadPre(config, program):
     else:
         return "set +u && {} &&".format(cc)
 
-# ['Standard', 'SGC0', 'Vertebrate Mitochondrial', 'SGC1', 'Yeast Mitochondrial',
-# 'SGC2', 'Mold Mitochondrial', 'Protozoan Mitochondrial', 'Coelenterate Mitochondrial',
-# 'Mycoplasma', 'Spiroplasma', 'SGC3', 'Invertebrate Mitochondrial', 'SGC4', 'Ciliate Nuclear',
-# 'Dasycladacean Nuclear', 'Hexamita Nuclear', 'SGC5', 'Echinoderm Mitochondrial', 'Flatworm Mitochondrial',
-# 'SGC8', 'Euplotid Nuclear', 'SGC9', 'Bacterial', 'Archaeal', 'Plant Plastid', 'Alternative Yeast Nuclear', '
-# Ascidian Mitochondrial', 'Alternative Flatworm Mitochondrial', 'Blepharisma Macronuclear',
-# 'Chlorophycean Mitochondrial', 'Trematode Mitochondrial', 'Scenedesmus obliquus Mitochondrial',
-# 'Thraustochytrium Mitochondrial', 'Pterobranchia Mitochondrial', 'Candidate Division SR1', 'Gracilibacteria',
-# 'Pachysolen tannophilus Nuclear', 'Karyorelict Nuclear', 'Condylostoma Nuclear', 'Mesodinium Nuclear',
-# 'Peritrich Nuclear', 'Blastocrithidia Nuclear', 'Balanophoraceae Plastid']
 
-td_codes = {"Acetabularia": [],
-"Candida": [],
-"Ciliate": [],
-"Dasycladacean": [],
-"Euplotid": [],
-"Hexamita": [],
-"Mesodinium": [],
-"Mitochondrial-Ascidian": [],
-"Mitochondrial-Chlorophycean": [],
-"Mitochondrial-Echinoderm": [],
-"Mitochondrial-Flatworm": [],
-"Mitochondrial-Invertebrates": [],
-"Mitochondrial-Protozoan": [],
-"Mitochondrial-Pterobranchia": [],
-"Mitochondrial-Scenedesmus_obliquus": [],
-"Mitochondrial-Thraustochytrium": [],
-"Mitochondrial-Trematode": [],
-"Mitochondrial-Vertebrates": ['Vertebrate Mitochondrial', "SCG1"],
-"Mitochondrial-Yeast": [],
-"Pachysolen_tannophilus": [],
-"Peritrich": [],
-"SR1_Gracilibacteria": [],
-"Tetrahymena": [],
-"Universal": ['Standard', 'SGC0']}
+td_codes = {
+    "Acetabularia": ['Ciliate Nuclear', 'Dasycladacean Nuclear', 'Hexamita Nuclear', 'SGC5'],
+    "Candida": ['Alternative Yeast Nuclear'],
+    "Ciliate": ["Condylostoma Nuclear"],
+    "Dasycladacean": ['Ciliate Nuclear', 'Dasycladacean Nuclear', 'Hexamita Nuclear', 'SGC5'],
+    "Euplotid": ['Euplotid Nuclear', 'SGC9'],
+    "Hexamita": ['Ciliate Nuclear', 'Dasycladacean Nuclear', 'Hexamita Nuclear', 'SGC5'],
+    "Mesodinium": ["Mesodinium Nuclear"],
+    "Mitochondrial-Ascidian": ['Ascidian Mitochondrial'],
+    "Mitochondrial-Chlorophycean": ['Chlorophycean Mitochondrial'],
+    "Mitochondrial-Echinoderm": ['Echinoderm Mitochondrial', 'Flatworm Mitochondrial', 'SGC8'],
+    "Mitochondrial-Flatworm": ['Echinoderm Mitochondrial', 'Flatworm Mitochondrial', 'SGC8'],
+    "Mitochondrial-Invertebrates": ['Invertebrate Mitochondrial', 'SGC4'],
+    "Mitochondrial-Protozoan": ['Mold Mitochondrial', 'Protozoan Mitochondrial',
+                                'Coelenterate Mitochondrial', 'Mycoplasma', 'Spiroplasma', 'SGC3'],
+    "Mitochondrial-Pterobranchia": ['Pterobranchia Mitochondrial'],
+    "Mitochondrial-Scenedesmus_obliquus": ['Scenedesmus obliquus Mitochondrial'],
+    "Mitochondrial-Thraustochytrium": ['Thraustochytrium Mitochondrial'],
+    "Mitochondrial-Trematode": ['Trematode Mitochondrial'],
+    "Mitochondrial-Vertebrates": ['Vertebrate Mitochondrial', "SCG1"],
+    "Mitochondrial-Yeast": ['Yeast Mitochondrial', 'SGC2'],
+    "Pachysolen_tannophilus": ["Pachysolen tannophilus Nuclear"],
+    "Peritrich": ["Peritrich Nuclear"],
+    "SR1_Gracilibacteria": ['Candidate Division SR1', 'Gracilibacteria'],
+    "Tetrahymena": ['Ciliate Nuclear', 'Dasycladacean Nuclear', 'Hexamita Nuclear', 'SGC5'],
+    "Universal": ['Standard', 'SGC0']
+}
+
 
 td_codes_inverted = dict()
 for key, items in td_codes.items():
@@ -102,6 +96,8 @@ for key, items in td_codes.items():
 def get_codon_table(return_id=True):
 
     table = config["serialise"]["codon_table"]
+    if table == 0:
+        table = 1
     if isinstance(table, int):
         table = CodonTable.ambiguous_dna_by_id[table]
     elif isinstance(table, (str, bytes)):

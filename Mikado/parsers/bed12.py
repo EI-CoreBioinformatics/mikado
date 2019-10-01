@@ -425,7 +425,7 @@ class BED12:
 
         state = copy.deepcopy(dict((key, val) for key, val in self.__dict__.items()
                                    if key not in ("_BED12_table") and
-                                   key != "logger" and
+                                   not isinstance(val, logging.Logger) and
                                    not isinstance(val, CodonTable.CodonTable)))
 
         return state
@@ -1223,10 +1223,10 @@ class BED12:
             assert isinstance(logger, logging.Logger), type(logger)
             self.__logger = logger
         self.__logger.propagate = False
-
-    @logger.deleter
-    def logger(self):
-        self.__logger = create_null_logger()
+    #
+    # @logger.deleter
+    # def logger(self):
+    #     self.__logger = create_null_logger()
 
 
 class Bed12Parser(Parser):

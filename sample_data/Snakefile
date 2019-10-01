@@ -22,7 +22,7 @@ zipDBs=["{0}.gz".format(db) for db in DBs]
 
 configname = "configuration.yaml"
 if not os.path.exists(configname):
-    command = "mikado configure --seed 1149199520 --use-blast --list list.txt --reference chr5.fas.gz --mode permissive --daijin -t 3 \
+    command = "mikado configure --use-transdecoder --seed 1149199520 --use-blast --list list.txt --reference chr5.fas.gz --mode permissive --daijin -t 3 \
         --subloci-out mikado.subloci.gff3 --scoring plant.yaml --junctions junctions.bed -bt {swiss} -bc 1 {configname}".format(configname=configname, swiss=swissprot)
     snake_logger.info("Creating the configuration file")
     snake_logger.info(command)

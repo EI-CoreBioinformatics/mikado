@@ -239,7 +239,8 @@ if config.get("mikado", dict()).get("use_prodigal", False) is False and config.g
         threads: 1
         message: "Running transdecoder longorf on Mikado prepared transcripts: {input}"
         conda: os.path.join(envdir, "transdecoder.yaml")
-        shell: "{params.load} cd {params.outdir} && ln -sf {params.tr_in} {params.tr} && TransDecoder.LongOrfs -m {params.minprot} -t {params.tr} --genetic_code {params.table} > {log} 2>&1"
+        shell: "{params.load} cd {params.outdir} && ln -sf {params.tr_in} {params.tr} && \
+TransDecoder.LongOrfs -G {params.table} -m {params.minprot} -t {params.tr} > {log} 2>&1"
 
     rule transdecoder_pred:
         input:
@@ -259,7 +260,7 @@ if config.get("mikado", dict()).get("use_prodigal", False) is False and config.g
         threads: 1
         message: "Running transdecoder predict on Mikado prepared transcripts: {input}"
         conda: os.path.join(envdir, "transdecoder.yaml")
-        shell: "{params.load} cd {params.outdir} && TransDecoder.Predict -t {params.tr} --genetic_code {params.table} > {log} 2>&1"
+        shell: "{params.load} cd {params.outdir} && TransDecoder.Predict -t {params.tr} -G {params.table} > {log} 2>&1"
     orf_out = rules.transdecoder_pred.output
 elif config.get("mikado", dict()).get("use_prodigal", False) is True:
     rule prodigal:

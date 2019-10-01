@@ -3,6 +3,7 @@ from shutil import which
 import pkg_resources
 from Bio.Data import CodonTable
 
+CodonTable.ambiguous_dna_by_id[0] = CodonTable.ambiguous_dna_by_id[1]
 
 CFG=workflow.overwrite_configfile
 envdir = pkg_resources.resource_filename("Mikado.daijin", "envs")

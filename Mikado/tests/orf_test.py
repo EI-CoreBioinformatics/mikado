@@ -9,6 +9,7 @@ from Bio import Seq, SeqRecord
 from ..parsers import bed12, GTF, GFF
 from ..loci import Transcript
 from re import sub
+from ..utilities.log_utils import create_default_logger
 
 
 class OrfTester(unittest.TestCase):
@@ -490,6 +491,49 @@ Chr1	CLASS	exon	3443582	3443785	.	-	.	gene_id "Chr1.1006.gene"; transcript_id "c
         self.assertEqual(transcript.selected_cds_end, transcript.start)
         self.assertEqual(transcript.selected_cds_start, transcript.end - 26)
 
+    def test_negative_regression(self):
+            sequence = """TC
+CTCACAGTTACTATAAGCTCGTCT
+ATGGCCAGAGACGGTGGTGTTTCTTGTTTACGAA
+GGTCGGAGATGATGAGCGTCGGTGGTATCGGAGGAATTGAATCTGCGCCGTTGGATTTAG
+ATGAAGTTCATGTCTTAGCCGTTGATGACAGTCTCGTTGATCGTATTGTCATCGAGAGAT
+TGCTTCGTATTACTTCCTGCAAAGTTACGGCGGTAGATAGTGGATGGCGTGCTCTGGAAT
+TTCTAGGGTTAGATAATGAGAAAGCTTCTGCTGAATTCGATAGATTGAAAGTTGATTTGA
+TCATCACTGATTACTGTATGCCTGGAATGACTGGTTATGAGCTTCTCAAGAAGATTAAGG
+AATCGTCCAATTTCAGAGAAGTTCCGGTTGTAATCATGTCGTCGGAGAATGTATTGACCA
+GAATCGACAGATGCCTTGAGGAAGGTGCTCAAGATTTCTTATTGAAACCGGTGAAACTCG
+CCGACGTGAAACGTCTGAGAAGTCATTTAACTAAAGACGTTAAACTTTCCAACGGAAACA
+AACGGAAGCTTCCGGAAGATTCTAGTTCCGTTAACTCTTCGCTTCCTCCACCGTCACCTC
+CGTTGACTATCTCGCCTGA"""
+
+            record = SeqRecord.SeqRecord(Seq.Seq(sub("\n", "", sequence)).reverse_complement(),
+                                         id="class_Chr1.1006.0")
+            index = {record.id: record}
+
+            line = "\t".join(
+                ['class_Chr1.1006.0',
+                 '0',
+                 '619',
+                 'ID=class_Chr1.1006.0|m.22308;class_Chr1.1006.0|g.22308;ORF_class_Chr1.1006.0|g.22308_class_Chr1.1006.0|m.22308_type:internal_len:206_(+)',
+                 '0',
+                 '-',
+                 '2',
+                 '617',
+                 '0',
+                 '1',
+                 '619',
+                 '0'])
+
+            # Now we are going back to find the start codon
+            logger = create_default_logger("test_negative_regression", "DEBUG")
+            bed_line = bed12.BED12(line, transcriptomic=True,
+                                   fasta_index=index, max_regression=0.2,
+                                   logger=logger)
+            self.assertFalse(bed_line.invalid, bed_line.invalid_reason)
+            self.assertEqual((bed_line.thick_end, bed_line.phase), (617 - 24, 0))
+            self.assertTrue(bed_line.has_start_codon)
+            self.assertFalse(bed_line.has_stop_codon)
+
     def test_partial_gff(self):
         line = 'All-stringtie-1-hisat2-0_Stringtie_hisat2-All-0.sorted.1.1\tProdigal_v2.6.3\tCDS\t2\t100\t1.4\t+\t0\tID=1_1;partial=10;start_type=Edge;rbs_motif=None;rbs_spacer=None;gc_cont=0.455;conf=58.12;score=1.43;cscore=-1.29;sscore=2.72;rscore=0.00;uscore=0.00;tscore=3.22;\n'
         sequence = "ACGATACAGAGTGATGGGGAACCCTCATAAAATGTTGATCTCAAGATACCCGGATCACGCACACAACTACGCGATCGACAG"\
@@ -514,6 +558,35 @@ Chr1	CLASS	exon	3443582	3443785	.	-	.	gene_id "Chr1.1006.gene"; transcript_id "c
         line = GFF.GffLine(line)
         b = bed12.BED12(line, transcriptomic=True, start_adjustment=True, lenient=False, sequence=sequence)
         assert b.thick_start == 1
+        assert b.coding, b.phase
+        assert not b.invalid, b.invalid_reason
+        assert b.phase == 1, b.phase
+
+    def test_partial_gff_negative(self):
+        line = 'All-stringtie-1-hisat2-0_Stringtie_hisat2-All-0.sorted.1.1\tProdigal_v2.6.3\tCDS\t1510\t1608\t1.4\t-\t0\tID=1_1;partial=10;start_type=Edge;rbs_motif=None;rbs_spacer=None;gc_cont=0.455;conf=58.12;score=1.43;cscore=-1.29;sscore=2.72;rscore=0.00;uscore=0.00;tscore=3.22;\n'
+        sequence = "ACGATACAGAGTGATGGGGAACCCTCATAAAATGTTGATCTCAAGATACCCGGATCACGCACACAACTACGCGATCGACAG\
+AGAATACATAAGGAACTGAGAACACCGCCACACTACACCCTACAACACCTACACTCTCACAATAACGTGTACATCCTCTCTGGAGTTGAAAA\
+TTGAAGAGTGCTCCAGGGAGCTATCCTAACATAGGAACAGAGGTTGCTGGTACGTACGAAATAAGCAGTGCCTAGATGGAGTTCC\
+GAGTGCTTATTATTATTATTACTATTTGCTAGTACTCAGATTTACTGCAATATTGACCATTAGATGGCGTGACATCGGCTAACAA\
+AGTGTGCAGCATGAAACCCAGATAACATCTGAATACAACATTTTGGACTACAGACTACAACATTAGCCATTGCATTCATTCAACG\
+GTGTAATGCTAATCAAGTAAAAAAAAACTTGAATCAGGCAACTCATTTTCCATTTGATCAACGGAACAACAGTTCACAGCCAAAC\
+ATAGAGTGCGTGTGTGTAGAAAATGAAGAGCAGAAACCCACTGGTGTAAAGGATAAGTGCAGCTTGAGCTTTGTGTTTCAAACTT\
+GTATATTCCAGCAGTTAGCTGACCTTTGGAACAACTTGTGGCTGTAAATCTGGCTAAATCACTGGCTGTTTGCATCTTTAGCCGG\
+GAGAAATACCTGTACACTACTACCTTAAAATGGAAACCCAGAGTTGGTTCAATCCCATTGAGAAAATTAATATGCTGAACGTTTG\
+AGAGAGTAGTGAATGAAGAGAGCAACTGTAAAGCCAGGTTTCCTAACTGAACCTGACAGAGCAACAGGGACAGACAGTGTCTTCT\
+GACTGAGAGACGTCGTACACAATGAAATTTCCGGCAAAAAAGGAAAATCGTACAAACAAGATACTTACTACTGTAGAAGGAAAGA\
+AAGATATGGGTGAGAAATTGGTAGAGTGCTGCAACACCTGCGGATGGGGTCGTCGTAGTGGATCGCTGCTTGCCTGAGCATGCCG\
+ACGCCGTGACGCGCCCCCCGCGTCATCTCCTCCATGAATTCGGCGTCGATGAGGCGGACTTGAGGAACTGCTTCGAGGTAGTGGA\
+TTTGTGGGTACCGGAAGTACCCGTCGGCGCCGTCGTGGGGCGCCCTGCGACAGAGGAGGATTGGACGGGTGGTCTCTTCCTCTTC\
+GAAGAAGCCGCGGGCGGCTGCCGCGGCGACTGCGACACCGTCCGCGTCCACCAAGGTGTGGGTGCGGGGCGGCTGCTGCTCCG\
+GCAGGCGGAGGCCGTCTCCACCGCCCGCGAACCCCTCCAGAGGCAGAGGCAGAGGCAGAAGCAGGAGGTTCCTCCAGAGCCAC\
+CAGACGACGACGACGGCCACAGGCGCGGCGAGGTGGAGGGCGAGGTAGGCCGCCGCAGAGGCGCACAAAGGGCGCGGCGGCGG\
+GGCCGAGACGCAATCGAGATTCGGAATGCAAGACAGATTGGCGTACACAAGCTCAGGCATGGCCGCCGGCGACGCTGCTGGGG\
+GTCGGAGAAGTTCCGGGGAAAGGGGAACGAACGAGGGCAGAAGCCTTTGGCCGTTTTTGCAAAGGTGTTGGTGGGTACTCTTTA"
+        sequence = str(Seq.Seq(sequence).reverse_complement())
+        line = GFF.GffLine(line)
+        b = bed12.BED12(line, transcriptomic=True, start_adjustment=True, lenient=False, sequence=sequence)
+        assert b.thick_end == 1609
         assert b.coding, b.phase
         assert not b.invalid, b.invalid_reason
         assert b.phase == 1, b.phase

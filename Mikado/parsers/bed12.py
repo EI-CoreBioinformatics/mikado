@@ -424,7 +424,9 @@ class BED12:
 
         state = copy.deepcopy(dict((key, val) for key, val in self.__dict__.items()
                                    if key not in ("_BED12_table") and
+                                   key != "logger" and
                                    not isinstance(val, CodonTable.CodonTable)))
+
         return state
 
     def __setstate__(self, state):
@@ -621,7 +623,7 @@ class BED12:
         if self.strand == "+" and self.thick_start > 3:
             for pos in range(self.thick_start, 3, -3):
                 self.thick_start -= 3
-                codon = sequence[pos - 4:pos-1]
+                codon = sequence[pos - 4:pos - 1]
                 is_start, is_stop = ((codon in self.table.start_codons),
                                      (codon in self.table.stop_codons))
                 self.logger.debug("Checking pos %s (%s) for %s, start: %s; stop: %s",
@@ -657,23 +659,39 @@ class BED12:
                               self.chrom)
             # TODO: This is only valid for the plus strand, and we do not account for the phase!
             if self.strand != "-":
-                for pos in range(2,
+                # self.thick_start = self.phase + 3
+                for pos in range(self.phase + 3,
                                  int(len(orf_sequence) * self.max_regression),
                                  3):
                     if orf_sequence[pos:pos + 3] in self.table.start_codons:
                         # Now we have to shift the start accordingly
                         self.has_start_codon = True
                         self.thick_start += pos
+
                         break
                     else:
                         continue
-            # else:
-            #     # orf_sequence = str(Seq.Seq(orf_sequence[:]).reverse_complement().seq)
-            #     for pos in range(self.thick_end,
-            #                      self.thick_end - int(len(orf_sequence) * self.max_regression),
-            #                      -3):
-            #         if orf
-
+            else:
+                # orf_sequence = str(Seq.Seq(orf_sequence[:]).reverse_complement())
+                self.logger.debug("Starting to analyse %s; positions %s-%s",
+                                  self.chrom,
+                                  self.thick_end - self.phase - int(len(orf_sequence) * self.max_regression),
+                                  self.thick_end - self.phase
+                                  )
+                base = self.thick_end - self.phase
+                for pos in range(base,
+                                 base - int(len(orf_sequence) * self.max_regression),
+                                 -3):
+                    codon = str(Seq.Seq(sequence[pos - 3:pos]).reverse_complement())
+                    self.logger.debug("Testing position %s-%s (%s)", pos - 3, pos, codon)
+                    if codon in self.table.start_codons:
+                        # Now we have to shift the start accordingly
+                        self.logger.debug("Start codon found at %s", pos)
+                        self.has_start_codon = True
+                        self.thick_end = pos
+                        break
+                    else:
+                        continue
 
         if self.has_start_codon is False:
             # The validity will be automatically checked
@@ -695,7 +713,7 @@ class BED12:
             self.phase = 0
 
         if self.invalid:
-            raise ValueError(self.invalid_reason)
+            self.coding = False
 
     def __str__(self):
 

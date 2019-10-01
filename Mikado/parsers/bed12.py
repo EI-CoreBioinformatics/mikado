@@ -584,11 +584,17 @@ class BED12:
             self.stop_codon = str(orf_sequence[-3:]).upper()
 
             if self.start_codon in self.table.start_codons and (self.phase is None or self.phase == 0):
+                self.logger.debug("Found start codon for %s. Setting phase to 0", self.chrom)
                 self.has_start_codon = True
                 self.phase = 0
             else:
                 # We are assuming that if a methionine can be found it has to be
                 # internally, not externally, to the ORF
+                # Bug in Prodigal ... we have to check the phase manually.
+                # if self.strand == "-" and self.end - self.thick_end < 3:
+                #     self.phase = self.end - self.thick_end
+                #     self.thick_end = self.end
+                #     self.logger.debug("Phase for %s: %s", self.chrom, self.phase)
 
                 self.has_start_codon = False
                 if self.start_adjustment is True:
@@ -598,9 +604,10 @@ class BED12:
                 self.has_stop_codon = True
             else:
                 self.has_stop_codon = False
-                # Expand the ORF to include the end of the sequence
-                if self.end - self.thick_end <= 2:
+                if self.strand == "+" and self.end - self.thick_end < 3:
                     self.thick_end = self.end
+                elif self.strand == "-" and self.thick_start - self.start < 3:
+                    self.thick_start = 1
 
             # Get only a proper multiple of three
             last_pos = -3 - ((len(orf_sequence)) % 3)
@@ -617,7 +624,9 @@ class BED12:
 
     def _adjust_start(self, sequence, orf_sequence):
 
-        assert len(orf_sequence) == (self.thick_end - self.thick_start + 1)
+        # assert len(orf_sequence) == (self.thick_end - self.thick_start + 1 - self.phase), (
+        #         len(orf_sequence), (self.thick_end - self.thick_start + 1 - self.phase)
+        # )
         # Let's check UPstream first.
         # This means that we DO NOT have a starting Met and yet we are starting far upstream.
         self.logger.debug("Starting to adjust the start of %s", self.chrom)
@@ -656,23 +665,32 @@ class BED12:
                     self.thick_end -= 6
                     break
         else:
-            self.logger.debug("Starting the regression algorithm to find an internal start for %s",
-                              self.chrom)
+            self.logger.debug(
+                "Starting the regression algorithm to find an internal start for %s (end: %s; thick start/end: %s, %s)",
+                self.chrom, self.end, self.thick_start, self.thick_end)
             # TODO: This is only valid for the plus strand, and we do not account for the phase!
             if self.strand != "-":
                 # self.thick_start = self.phase + 3
+                self.logger.debug("Starting to analyse %s; positions %s-%s",
+                                  self.chrom,
+                                  self.phase + 3,
+                                  self.phase + 3 + int(len(orf_sequence) * self.max_regression),
+                                  )
                 for pos in range(self.phase + 3,
                                  int(len(orf_sequence) * self.max_regression),
                                  3):
-                    if orf_sequence[pos:pos + 3] in self.table.start_codons:
+                    codon = orf_sequence[pos:pos + 3]
+                    self.logger.debug("Testing position %s-%s (%s)", pos, pos + 3, codon)
+                    if codon in self.table.start_codons:
                         # Now we have to shift the start accordingly
                         self.has_start_codon = True
                         self.thick_start += pos
-
+                        self.phase = 0
                         break
                     else:
                         continue
-            else:
+                self.logger.debug("Final internal coords for %s: %s-%s", self.chrom, self.thick_start, self.thick_end)
+            elif self.strand == "-":
                 # orf_sequence = str(Seq.Seq(orf_sequence[:]).reverse_complement())
                 self.logger.debug("Starting to analyse %s; positions %s-%s",
                                   self.chrom,
@@ -693,9 +711,11 @@ class BED12:
                         break
                     else:
                         continue
+                self.logger.debug("Final internal coords for %s: %s-%s", self.chrom, self.thick_start, self.thick_end)
 
         if self.has_start_codon is False:
             # The validity will be automatically checked
+            self.logger.debug("Making adjustments in %s for missing start codon", self.chrom)
             if self.strand == "+":
                 if self.thick_start - self.start <= 2:
                     new_phase = max(self.thick_start - self.start, 0)
@@ -711,6 +731,8 @@ class BED12:
                 else:
                     self.phase = 0
         else:
+            self.logger.debug("Setting phase of %s at 0 (end: %s; thick end: %s; thick start %s)",
+                              self.chrom, self.end, self.thick_end, self.thick_start)
             self.phase = 0
 
         if self.invalid:
@@ -933,12 +955,20 @@ class BED12:
 
         if self.__lenient is True:
             pass
-        elif self.transcriptomic is True and (self.cds_len - self.phase) % 3 != 0 and self.thick_end != self.end:
-            self.invalid_reason = "Invalid CDS length: {0} % 3 = {1}".format(
-                self.cds_len - self.phase,
-                (self.cds_len - self.phase) % 3
-            )
-            return True
+        elif self.transcriptomic is True:
+            if (self.cds_len - self.phase) % 3 != 0:
+                if self.strand == "+" and self.thick_end != self.end:
+                    self.invalid_reason = "Invalid CDS length: {0} % 3 = {1} ({2}-{3}, {4})".format(
+                        self.cds_len - self.phase,
+                        (self.cds_len - self.phase) % 3,
+                        self.thick_start, self.thick_end, self.phase)
+                    return True
+                elif self.strand == "-" and self.thick_start != self.start:
+                    self.invalid_reason = "Invalid CDS length: {0} % 3 = {1} ({2}-{3}, {4})".format(
+                        self.cds_len - self.phase,
+                        (self.cds_len - self.phase) % 3,
+                        self.thick_start, self.thick_end, self.phase)
+                    return True
 
         self.invalid_reason = ''
         return False
@@ -1055,8 +1085,12 @@ class BED12:
         self.end = len(sequence)
         self.thick_start += upstream
         self.thick_end += upstream
-        self.has_start_codon = (str(self.start_codon).upper() in self.table.start_codons)
-        self.has_stop_codon = (str(self.stop_codon).upper() in self.table.stop_codons)
+        start_codon = str(self.start_codon).upper()
+        stop_codon = str(self.stop_codon).upper()
+        self.has_start_codon = (start_codon in self.table.start_codons)
+        self.has_stop_codon = (stop_codon in self.table.stop_codons)
+        self.logger.debug("%s has start codon (%s): %s", self.chrom, start_codon, self.has_start_codon)
+        self.logger.debug("%s has stop codon (%s): %s", self.chrom, stop_codon, self.has_stop_codon)
         if expand_orf is True and not (self.has_start_codon and self.has_stop_codon):
             if not self.has_start_codon:
                 for pos in range(old_start_pos + upstream,
@@ -1240,6 +1274,7 @@ class Bed12Parser(Parser):
                  fasta_index=None,
                  transcriptomic=False,
                  max_regression=0,
+                 start_adjustment=True,
                  is_gff=False,
                  coding=False,
                  table=0):
@@ -1263,6 +1298,7 @@ class Bed12Parser(Parser):
         self.__max_regression = 0
         self._max_regression = max_regression
         self.coding = coding
+        self.start_adjustment = start_adjustment
 
         if isinstance(fasta_index, dict):
             # check that this is a bona fide dictionary ...
@@ -1310,7 +1346,8 @@ class Bed12Parser(Parser):
                           transcriptomic=self.transcriptomic,
                           max_regression=self._max_regression,
                           coding=self.coding,
-                          table=self.__table)
+                          table=self.__table,
+                          start_adjustment=self.start_adjustment)
         return bed12
 
     def gff_next(self):
@@ -1333,7 +1370,8 @@ class Bed12Parser(Parser):
                           fasta_index=self.fasta_index,
                           transcriptomic=self.transcriptomic,
                           max_regression=self._max_regression,
-                          table=self.__table)
+                          table=self.__table,
+                          start_adjustment=self.start_adjustment)
         # raise NotImplementedError("Still working on this!")
         return bed12
 
@@ -1386,6 +1424,7 @@ class Bed12ParseWrapper(mp.Process):
                  max_regression=0,
                  is_gff=False,
                  coding=False,
+                 start_adjustment=True,
                  table=0):
 
         """
@@ -1409,6 +1448,7 @@ class Bed12ParseWrapper(mp.Process):
         self.__max_regression = 0
         self._max_regression = max_regression
         self.coding = coding
+        self.start_adjustment = start_adjustment
 
         if isinstance(fasta_index, dict):
             # check that this is a bona fide dictionary ...
@@ -1438,11 +1478,12 @@ class Bed12ParseWrapper(mp.Process):
 
         bed12 = BED12(line,
                       logger=self.logger,
-                        fasta_index=self.fasta_index,
-                          transcriptomic=self.transcriptomic,
-                          max_regression=self._max_regression,
-                          coding=self.coding,
-                          table=self.__table)
+                      fasta_index=self.fasta_index,
+                      transcriptomic=self.transcriptomic,
+                      max_regression=self._max_regression,
+                      start_adjustment=self.start_adjustment,
+                      coding=self.coding,
+                      table=self.__table)
         return bed12
 
     def gff_next(self, line):
@@ -1461,6 +1502,7 @@ class Bed12ParseWrapper(mp.Process):
                       fasta_index=self.fasta_index,
                       transcriptomic=self.transcriptomic,
                       max_regression=self._max_regression,
+                      start_adjustment=self.start_adjustment,
                       table=self.__table)
         # raise NotImplementedError("Still working on this!")
         return bed12

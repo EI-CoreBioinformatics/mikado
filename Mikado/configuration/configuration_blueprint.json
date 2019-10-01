@@ -197,6 +197,7 @@
           "minimum": 0,
           "maximum": 1,
           "default": 0.1},
+        "start_adjustment": {"type":  "boolean", "default": true},
         "max_target_seqs": {"type": "integer", "default": 100000, "minimum": 1},
         "force": {"type": "boolean", "default": false},
         "single_thread": {"type": "boolean", "default": false},

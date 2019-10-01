@@ -748,20 +748,27 @@ def finalize(transcript):
     # BUG somewhere ... I am not sorting this properly before (why?)
     # transcript.exons = sorted(transcript.exons)
     transcript.logger.debug("Checking various attributes")
-    if "has_start_codon" in transcript.attributes:
-        transcript.logger.debug("%s has start codon attribute (%s)", transcript.id,
-                                transcript.attributes["has_start_codon"])
-        transcript.has_start_codon = transcript.attributes["has_start_codon"]
+    if transcript.has_start_codon is None:
+        if "has_start_codon" in transcript.attributes:
+            transcript.logger.debug("%s has start codon attribute (%s)", transcript.id,
+                                    transcript.attributes["has_start_codon"])
+            transcript.has_start_codon = transcript.attributes["has_start_codon"]
+        else:
+            transcript.logger.debug("No predetermined has_start_codon attribute for %s. Attributes: %s",
+                                    transcript.id, transcript.attributes)
     else:
-        transcript.logger.debug("No predetermined has_start_codon attribute for %s. Attributes: %s",
-                                transcript.id, transcript.attributes)
-    if "has_stop_codon" in transcript.attributes:
-        transcript.logger.debug("%s has stop codon attribute (%s)", transcript.id,
-                                transcript.attributes["has_stop_codon"])
-        transcript.has_stop_codon = transcript.attributes["has_stop_codon"]
+        transcript.logger.debug("%s has start codon attribute (%s)", transcript.id, transcript.has_start_codon)
+
+    if transcript.has_stop_codon is None:
+        if "has_stop_codon" in transcript.attributes:
+            transcript.logger.debug("%s has stop codon attribute (%s)", transcript.id,
+                                    transcript.attributes["has_stop_codon"])
+            transcript.has_stop_codon = transcript.attributes["has_stop_codon"]
+        else:
+            transcript.logger.debug("No predetermined has_stop_codon attribute for %s. Attributes: %s",
+                                    transcript.id, transcript.attributes)
     else:
-        transcript.logger.debug("No predetermined has_stop_codon attribute for %s. Attributes: %s",
-                                transcript.id, transcript.attributes)
+        transcript.logger.debug("%s has stop codon attribute (%s)", transcript.id, transcript.has_stop_codon)
 
     for prop in list(transcript.attributes.keys()):
         val = transcript.attributes[prop]

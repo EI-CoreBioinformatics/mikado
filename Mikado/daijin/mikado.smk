@@ -332,11 +332,12 @@ rule mikado_serialise:
         blast="--xml={}".format(os.path.join(BLAST_DIR, "xmls")) if len(BLASTX_TARGET) > 0 else "",
         load=loadPre(config, "mikado"),
         blast_target="--blast_targets={}".format(os.path.join(BLAST_DIR, "index", "blastdb-proteins.fa")) if len(BLASTX_TARGET) > 0 else "",
-        orfs=orfs
+        orfs=orfs,
+        no_start_adj="-nsa" if config.get("mikado", dict()).get("use_prodigal", False) is False else ""
     threads: THREADS
     # conda: os.path.join(envdir, "mikado.yaml")
     shell: "{params.load} mikado serialise {params.blast} {params.blast_target} --start-method=spawn \
---transcripts={input.transcripts} --genome_fai={input.fai} --json-conf={params.cfg} \
+--transcripts={input.transcripts} --genome_fai={input.fai} --json-conf={params.cfg} {params.no_start_adj} \
 --force {params.orfs} -od {MIKADO_DIR} --procs={threads} -l {log}"
 
 rule mikado_pick:

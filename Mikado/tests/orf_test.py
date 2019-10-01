@@ -464,7 +464,8 @@ CGTTGACTATCTCGCCTGA"""
              '0'])
 
         # Now we are going back to find the start codon
-        bed_line = bed12.BED12(line, transcriptomic=True, fasta_index=index, max_regression=0.2)
+        logger = create_default_logger("test_regression", "DEBUG")
+        bed_line = bed12.BED12(line, transcriptomic=True, fasta_index=index, max_regression=0.2, logger=logger)
         self.assertFalse(bed_line.invalid, bed_line.invalid_reason)
         self.assertEqual(bed_line.phase, 0)
         # Start codon in frame found at location 27
@@ -484,6 +485,7 @@ Chr1	CLASS	exon	3443582	3443785	.	-	.	gene_id "Chr1.1006.gene"; transcript_id "c
         transcript = Transcript(lines[0])
         transcript.add_exons(lines[1:])
         transcript.finalize()
+        transcript.logger = logger
         transcript.load_orfs([bed_line])
         self.assertTrue(transcript.is_coding)
         self.assertTrue(transcript.has_start_codon)
@@ -609,11 +611,13 @@ ID=190633_1;partial=11;start_type=Edge;rbs_motif=None;rbs_spacer=None;gc_cont=0.
 cscore=28.93;sscore=1.61;rscore=0.00;uscore=1.61;tscore=0.00;"
 
         line = GFF.GffLine(line)
-        b = bed12.BED12(line, transcriptomic=True, start_adjustment=True, lenient=False, sequence=sequence)
-        print(Seq.Seq(sequence[:-1]).reverse_complement().translate())
-
-        self.assertEqual(b.thick_end, len(sequence))
-        self.assertEqual(b.phase, 1)
+        logger = create_default_logger("test_partial_gff_negative_2", "DEBUG")
+        b = bed12.BED12(line, transcriptomic=True, start_adjustment=True, lenient=False, sequence=sequence,
+                        logger=logger, max_regression=0.1)
+        self.assertTrue(b.has_start_codon)
+        self.assertFalse(b.has_stop_codon)
+        self.assertEqual(b.phase, 0)
+        self.assertEqual(b.thick_end, len(sequence) - 1)
 
 
 if __name__ == '__main__':

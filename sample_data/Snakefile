@@ -209,7 +209,7 @@ rule test_g11_gffread:
     output:
       subpep=os.path.join("Daijin", "5-mikado", "pick", "g11_permissive", "mikado-permissive.subloci.pep.fasta")
     conda: "gffread.yaml"
-    shell: "gffread -g {input.genome} -y {output.subpep} {input.subloci}"
+    shell: "gffread -S -g {input.genome} -y {output.subpep} {input.subloci}"
 
 
 rule check_g11:

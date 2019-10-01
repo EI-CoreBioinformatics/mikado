@@ -306,6 +306,7 @@ class BED12:
         self.table = table
         self.__lenient = lenient
         self.alias = None
+        self.__logger = create_null_logger()
         self.logger = logger
         self.logger.debug("Set the basic properties for %s", self.chrom)
 
@@ -1196,6 +1197,36 @@ class BED12:
         # assert new.invalid is False
         assert isinstance(new, type(self)), type(new)
         return new
+
+    @property
+    def logger(self):
+        """
+        Property. It returns the logger instance attached to the class.
+        :rtype : logging.Logger | None
+        """
+
+        return self.__logger
+
+    @logger.setter
+    def logger(self, logger):
+        """Set a logger for the instance.
+        :param logger: a Logger instance
+        :type logger: logging.Logger | None
+        """
+        if logger is None:
+            if self.__logger is None:
+                logger = create_null_logger()
+                self.__logger = logger
+            else:
+                pass
+        else:
+            assert isinstance(logger, logging.Logger), type(logger)
+            self.__logger = logger
+        self.__logger.propagate = False
+
+    @logger.deleter
+    def logger(self):
+        self.__logger = create_null_logger()
 
 
 class Bed12Parser(Parser):

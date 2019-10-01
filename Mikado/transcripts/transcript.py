@@ -1675,6 +1675,10 @@ class Transcript:
             self.__logger = logger
         self.__logger.propagate = False
 
+    @logger.deleter
+    def logger(self):
+        self.__logger = create_null_logger()
+
     @property
     def json_conf(self):
         """

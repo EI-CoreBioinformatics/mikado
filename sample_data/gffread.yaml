@@ -1,0 +1,4 @@
+channel:
+  - bioconda
+dependencies:
+  - bioconda::gffread>=0.11.4

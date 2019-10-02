@@ -588,14 +588,6 @@ class BED12:
                 self.has_start_codon = True
                 self.phase = 0
             else:
-                # We are assuming that if a methionine can be found it has to be
-                # internally, not externally, to the ORF
-                # Bug in Prodigal ... we have to check the phase manually.
-                # if self.strand == "-" and self.end - self.thick_end < 3:
-                #     self.phase = self.end - self.thick_end
-                #     self.thick_end = self.end
-                #     self.logger.debug("Phase for %s: %s", self.chrom, self.phase)
-
                 self.has_start_codon = False
                 if self.start_adjustment is True:
                     self._adjust_start(sequence, orf_sequence)
@@ -609,24 +601,48 @@ class BED12:
                 elif self.strand == "-" and self.thick_start - self.start < 3:
                     self.thick_start = 1
 
+            self.logger.debug("%s with start codon (%s) and stop codon (%s). Valid: %s",
+                              self.chrom, self.has_start_codon, self.has_stop_codon, not self.invalid)
+
             # Get only a proper multiple of three
-            last_pos = -3 - ((len(orf_sequence)) % 3)
 
             if self.__lenient is False:
+                if self.strand != "-":
+                    orf_sequence = sequence[
+                                   (self.thick_start - 1 if not self.phase
+                                    else self.start + self.phase - 1):self.thick_end]
+                else:
+                    orf_sequence = Seq.reverse_complement(
+                        sequence[
+                        (self.thick_start - 1):
+                        (self.thick_end if not self.phase else self.end + 1 - (3 - self.phase) % 3)])
+                    self.logger.debug("ORF seq between %s and %s (phase %s)",
+                                      self.thick_start - 1,
+                                      self.thick_end if not self.phase else self.end + 1 - (3 - self.phase) % 3,
+                                      self.phase)
+
+                last_pos = -3 - ((len(orf_sequence)) % 3)
                 translated_seq = _translate_str(orf_sequence[:last_pos],
                                                 table=self.table,
                                                 gap='N')
 
                 self._internal_stop_codons = str(translated_seq).count("*")
-
+            self.logger.debug(
+                "%s with start codon (%s) and stop codon (%s). Thick start/end, phase: %s, %s, %s. Valid: %s (%s)\n\
+%s",
+                self.chrom, self.has_start_codon, self.has_stop_codon,
+                self.thick_start, self.thick_end, self.phase, not self.invalid,
+                self.invalid_reason,
+            translated_seq)
             if self.invalid is True:
                 return
 
     def _adjust_start(self, sequence, orf_sequence):
 
-        # assert len(orf_sequence) == (self.thick_end - self.thick_start + 1 - self.phase), (
-        #         len(orf_sequence), (self.thick_end - self.thick_start + 1 - self.phase)
-        # )
+        self.logger.debug("Checking %s", self.chrom)
+        assert len(orf_sequence) == (self.thick_end - self.thick_start + 1 - self.phase), (
+                len(orf_sequence), (self.thick_end - self.thick_start + 1 - self.phase)
+        )
         # Let's check UPstream first.
         # This means that we DO NOT have a starting Met and yet we are starting far upstream.
         self.logger.debug("Starting to adjust the start of %s", self.chrom)
@@ -642,7 +658,12 @@ class BED12:
                     # We have found a valid methionine.
                     break
                 elif is_stop:
+                    self.stop_codon = codon
                     self._internal_stop_codons = 1
+                    assert self.invalid is True
+                    self.logger.debug(
+                        "Found in-frame stop codon for %s while expanding, stopping here. Invalid: %s (reason %s)",
+                                        self.chrom, self.invalid, self.invalid_reason)
                     break
                 continue
 
@@ -660,58 +681,15 @@ class BED12:
                                       self.chrom)
                     break
                 elif is_stop:
-                    self.logger.debug("Found in-frame stop codon for %s while expanding, stopping here.",
-                                      self.chrom)
-                    self.thick_end -= 6
+                    self.stop_codon = codon
+                    self._internal_stop_codons = 1
+                    assert self.invalid is True
+                    self.logger.debug(
+                        "Found in-frame stop codon for %s while expanding, stopping here. Invalid: %s (reason %s)",
+                        self.chrom, self.invalid, self.invalid_reason)
                     break
         else:
-            self.logger.debug(
-                "Starting the regression algorithm to find an internal start for %s (end: %s; thick start/end: %s, %s)",
-                self.chrom, self.end, self.thick_start, self.thick_end)
-            # TODO: This is only valid for the plus strand, and we do not account for the phase!
-            if self.strand != "-":
-                # self.thick_start = self.phase + 3
-                self.logger.debug("Starting to analyse %s; positions %s-%s",
-                                  self.chrom,
-                                  self.phase + 3,
-                                  self.phase + 3 + int(len(orf_sequence) * self.max_regression),
-                                  )
-                for pos in range(self.phase + 3,
-                                 int(len(orf_sequence) * self.max_regression),
-                                 3):
-                    codon = orf_sequence[pos:pos + 3]
-                    self.logger.debug("Testing position %s-%s (%s)", pos, pos + 3, codon)
-                    if codon in self.table.start_codons:
-                        # Now we have to shift the start accordingly
-                        self.has_start_codon = True
-                        self.thick_start += pos
-                        self.phase = 0
-                        break
-                    else:
-                        continue
-                self.logger.debug("Final internal coords for %s: %s-%s", self.chrom, self.thick_start, self.thick_end)
-            elif self.strand == "-":
-                # orf_sequence = str(Seq.Seq(orf_sequence[:]).reverse_complement())
-                self.logger.debug("Starting to analyse %s; positions %s-%s",
-                                  self.chrom,
-                                  self.thick_end - self.phase - int(len(orf_sequence) * self.max_regression),
-                                  self.thick_end - self.phase
-                                  )
-                base = self.thick_end - self.phase
-                for pos in range(base,
-                                 base - int(len(orf_sequence) * self.max_regression),
-                                 -3):
-                    codon = str(Seq.Seq(sequence[pos - 3:pos]).reverse_complement())
-                    self.logger.debug("Testing position %s-%s (%s)", pos - 3, pos, codon)
-                    if codon in self.table.start_codons:
-                        # Now we have to shift the start accordingly
-                        self.logger.debug("Start codon found at %s", pos)
-                        self.has_start_codon = True
-                        self.thick_end = pos
-                        break
-                    else:
-                        continue
-                self.logger.debug("Final internal coords for %s: %s-%s", self.chrom, self.thick_start, self.thick_end)
+            self.__regression(orf_sequence)
 
         if self.has_start_codon is False:
             # The validity will be automatically checked
@@ -736,7 +714,55 @@ class BED12:
             self.phase = 0
 
         if self.invalid:
+            self.logger.debug("%s is not coding after checking. Reason: %s", self.chrom, self.invalid_reason)
             self.coding = False
+
+    def __regression(self, orf_sequence):
+        self.logger.debug(
+            "Starting the regression algorithm to find an internal start for %s (end: %s; thick start/end: %s, %s; phase %s)",
+            self.chrom, self.end, self.thick_start, self.thick_end, self.phase)
+        if self.strand != "-":
+            # self.thick_start = self.phase + 3
+            self.logger.debug("Starting to analyse %s; positions %s-%s",
+                              self.chrom,
+                              self.phase + 3,
+                              self.phase + 3 + int(len(orf_sequence) * self.max_regression),
+                              )
+            for pos in range(self.phase + 3,
+                             int(len(orf_sequence) * self.max_regression),
+                             3):
+                codon = orf_sequence[pos:pos + 3]
+                self.logger.debug("Testing position %s-%s (%s)", pos, pos + 3, codon)
+                if codon in self.table.start_codons:
+                    # Now we have to shift the start accordingly
+                    self.has_start_codon = True
+                    self.thick_start += pos
+                    self.phase = 0
+                    break
+                else:
+                    continue
+            self.logger.debug("Final internal coords for %s: %s-%s", self.chrom, self.thick_start, self.thick_end)
+        elif self.strand == "-":
+            if self.end - self.thick_end < 3:
+                self.phase = (3 - (self.end - self.thick_end) % 3) % 3
+            self.logger.debug("Starting to analyse %s (phase %s); positions %s-%s",
+                              self.chrom,
+                              self.phase,
+                              self.phase + 3,
+                              self.phase + 3 + int(len(orf_sequence) * self.max_regression),
+                              )
+            for pos in range(self.phase + 3,
+                             int(len(orf_sequence) * self.max_regression),
+                             3):
+                codon = orf_sequence[pos:pos + 3]
+                self.logger.debug("Testing position %s-%s (%s)", pos, pos + 3, codon)
+                if codon in self.table.start_codons:
+                    # Now we have to shift the start accordingly
+                    self.has_start_codon = True
+                    self.thick_end -= pos
+                    self.phase = 0
+                    break
+            self.logger.debug("Final internal coords for %s: %s-%s", self.chrom, self.thick_start, self.thick_end)
 
     def __str__(self):
 
@@ -1277,6 +1303,7 @@ class Bed12Parser(Parser):
                  start_adjustment=True,
                  is_gff=False,
                  coding=False,
+                 logger=create_null_logger(),
                  table=0):
         """
         Constructor method.
@@ -1299,6 +1326,7 @@ class Bed12Parser(Parser):
         self._max_regression = max_regression
         self.coding = coding
         self.start_adjustment = start_adjustment
+        self.logger = logger
 
         if isinstance(fasta_index, dict):
             # check that this is a bona fide dictionary ...
@@ -1347,6 +1375,7 @@ class Bed12Parser(Parser):
                           max_regression=self._max_regression,
                           coding=self.coding,
                           table=self.__table,
+                          logger=self.logger,
                           start_adjustment=self.start_adjustment)
         return bed12
 
@@ -1371,7 +1400,8 @@ class Bed12Parser(Parser):
                           transcriptomic=self.transcriptomic,
                           max_regression=self._max_regression,
                           table=self.__table,
-                          start_adjustment=self.start_adjustment)
+                          start_adjustment=self.start_adjustment,
+                          logger=self.logger)
         # raise NotImplementedError("Still working on this!")
         return bed12
 
@@ -1526,9 +1556,9 @@ class Bed12ParseWrapper(mp.Process):
             if not row or row.header is True:
                 continue
             if row.invalid is True:
-                self.logger.warn("Invalid entry, reason: %s\n%s",
-                                 row.invalid_reason,
-                                 row)
+                self.logger.warning("Invalid entry, reason: %s\n%s",
+                                    row.invalid_reason,
+                                    row)
                 continue
             self.return_queue.put(msgpack.dumps(row.as_simple_dict()))
 

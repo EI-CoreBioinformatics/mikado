@@ -294,7 +294,7 @@ class OrfSerializer:
 
         self.bed12_parser = bed12.Bed12Parser(self._handle,
                                               fasta_index=self.fasta_index,
-
+                                              logger=self.logger,
                                               is_gff=(not self.is_bed12),
                                               transcriptomic=True,
                                               max_regression=self._max_regression,
@@ -307,9 +307,9 @@ class OrfSerializer:
             if row.header is True:
                 continue
             if row.invalid is True:
-                self.logger.warn("Invalid entry, reason: %s\n%s",
-                                 row.invalid_reason,
-                                 row)
+                self.logger.warning("Invalid entry, reason: %s\n%s",
+                                    row.invalid_reason,
+                                    row)
                 continue
             if row.id in self.cache:
                 current_query = self.cache[row.id]

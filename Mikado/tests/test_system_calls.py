@@ -1647,7 +1647,8 @@ class SerialiseChecker(unittest.TestCase):
                 self.assertEqual(cursor.execute("select count(distinct(target_id)) from hit").fetchall()[0][0], 32)
                 self.assertEqual(cursor.execute("select count(*) from junctions").fetchall()[0][0], 372)
                 self.assertEqual(cursor.execute("select count(distinct(chrom_id)) from junctions").fetchall()[0][0], 2)
-                self.assertEqual(cursor.execute("select count(*) from orf").fetchall()[0][0], 169)
+                self.assertEqual(cursor.execute("select count(*) from orf").fetchall()[0][0], 169,
+                                 "\n".join(logged))
                 self.assertEqual(cursor.execute("select count(distinct(query_id)) from orf").fetchall()[0][0], 81)
                 os.remove(db)
         dir.cleanup()

@@ -34,4 +34,4 @@ dependencies:
   - pip
   - conda-forge::rapidjson>=1.1.0
   - conda-forge::python-rapidjson>=0.8
-  - conda-forge::hypothesis
+  - conda-forge::hypothesis!=4.38.2

@@ -272,7 +272,7 @@ class Assigners(mp.Process):
                 dumped = self.__cursor.execute("SELECT json FROM dump WHERE idx=?", (transcr,)).fetchone()
                 dumped = json.loads(dumped[0])
                 transcr = Transcript()
-                transcr.load_dict(dumped, trust_orf=True)
+                transcr.load_dict(dumped, trust_orf=True, accept_undefined_multi=True)
                 self.assigner_instance.get_best(transcr)
 
         self.__connection.close()

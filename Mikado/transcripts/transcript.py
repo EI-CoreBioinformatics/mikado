@@ -1368,7 +1368,7 @@ class Transcript:
 
         return state
 
-    def load_dict(self, state, trust_orf=False):
+    def load_dict(self, state, trust_orf=False, accept_undefined_multi=False):
 
         for key in ["chrom", "source",
                     "start", "end", "strand", "score",
@@ -1402,6 +1402,7 @@ class Transcript:
         self.splices = set(state["splices"])
 
         self._trust_orf = trust_orf
+        self._accept_undefined_multi = accept_undefined_multi
         self.internal_orfs = []
 
         self.logger.debug("Starting to load the ORFs for %s", self.id)

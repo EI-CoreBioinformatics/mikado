@@ -402,7 +402,7 @@ def assemble_transcripts_pipeline(args):
         "forcerun": args.forcerun,
         "lock": (not args.nolock)
     }
-    
+
     if "configfile" in inspect.getfullargspec(snakemake.snakemake):
         kwds["configfile"] = yaml_file.name
     else:
@@ -522,7 +522,6 @@ as Mikado serialise relies on having a number of chunks equal or greater than th
         "cores": args.cores,
         "dryrun": args.dryrun,
         "nodes": args.jobs,
-        "configfile": yaml_file.name,
         "config": additional_config,
         "workdir": CWD,
         "cluster_config": hpc_conf,

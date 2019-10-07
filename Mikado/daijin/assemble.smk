@@ -4,18 +4,12 @@ from shutil import which
 import functools
 import pkg_resources
 import re
-import tempfile
-import yaml
 
 
-yaml_file = tempfile.NamedTemporaryFile(mode="wt", delete=True,
-                                            dir=os.getcwd(), suffix=".yaml",
-                                            prefix="assemble")
-yaml.dump(config, yaml_file)
-yaml_file.flush()
-CFG = yaml_file.name
-
-# CFG=workflow.overwrite_configfile
+try:
+    CFG=workflow.overwrite_configfiles[0]
+except AttributeError:
+    CFG=workflow.overwrite_configfile
 # Get shortcuts from configuration file
     
 

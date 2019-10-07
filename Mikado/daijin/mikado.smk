@@ -2,18 +2,16 @@ import os
 from shutil import which
 import pkg_resources
 from Bio.Data import CodonTable
-import tempfile
-import yaml
 
 
 CodonTable.ambiguous_dna_by_id[0] = CodonTable.ambiguous_dna_by_id[1]
 
-yaml_file = tempfile.NamedTemporaryFile(mode="wt", delete=True,
-                                            dir=os.getcwd(), suffix=".yaml",
-                                            prefix="assemble")
-yaml.dump(config, yaml_file)
-yaml_file.flush()
-CFG = yaml_file.name
+
+try:
+    CFG=workflow.overwrite_configfiles[0]
+except AttributeError:
+    CFG=workflow.overwrite_configfile
+
 envdir = pkg_resources.resource_filename("Mikado.daijin", "envs")
 
 

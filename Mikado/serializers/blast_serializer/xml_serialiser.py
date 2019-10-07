@@ -640,7 +640,7 @@ def _get_target_for_blast(session, alignment, cache):
     if alignment.accession in cache:
         return cache[alignment.accession], cache
     elif alignment.hit_id in cache:
-        return cache[alignment.accession], cache
+        return cache[alignment.hit_id], cache
     else:
         got = session.query(Target).filter(sqlalchemy.or_(
             Target.target_name == alignment.accession,

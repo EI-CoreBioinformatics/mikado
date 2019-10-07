@@ -21,6 +21,7 @@ import shutil
 import pkg_resources
 import tempfile
 import functools
+import inspect
 
 # import logging
 # import logging.handlers
@@ -379,30 +380,39 @@ def assemble_transcripts_pipeline(args):
     else:
         latency = 1
 
+    kwds = {
+        "dryrun": args.dryrun,
+        "cores": args.cores,
+        "nodes": args.jobs,
+        "config": additional_config,
+        "workdir": CWD,
+        "cluster_config": hpc_conf,
+        "cluster": cluster_var,
+        "drmaa": drmaa_var,
+        "printshellcmds": True,
+        "snakemakepath": shutil.which("snakemake"),
+        "use_conda": args.use_conda,
+        "stats": "daijin_tr_" + NOW + ".stats",
+        "force_incomplete": args.rerun_incomplete,
+        "detailed_summary": args.detailed_summary,
+        "list_resources": args.list,
+        "latency_wait": latency,
+        "printdag": args.dag,
+        "forceall": args.dag,
+        "forcerun": args.forcerun,
+        "lock": (not args.nolock)
+    }
+
+    if "configfile" in inspect.getfullargspec(snakemake.snakemake):
+        kwds["configfile"] = yaml_file.name
+    else:
+        kwds["configfiles"] = [yaml_file.name]
+
     snakemake.snakemake(
         pkg_resources.resource_filename("Mikado",
                                         os.path.join("daijin", "assemble.smk")),
-        dryrun=args.dryrun,
-        cores=args.cores,
-        nodes=args.jobs,
-        configfile=yaml_file.name,
-        config=additional_config,
-        workdir=CWD,
-        cluster_config=hpc_conf,
-        cluster=cluster_var,
-        drmaa=drmaa_var,
-        printshellcmds=True,
-        snakemakepath=shutil.which("snakemake"),
-        use_conda=args.use_conda,
-        stats="daijin_tr_" + NOW + ".stats",
-        force_incomplete=args.rerun_incomplete,
-        detailed_summary=args.detailed_summary,
-        list_resources=args.list,
-        latency_wait=latency,
-        printdag=args.dag,
-        forceall=args.dag,
-        forcerun=args.forcerun,
-        lock=(not args.nolock))
+        **kwds
+        )
 # pylint: enable=too-many-locals
 
 
@@ -507,31 +517,40 @@ def mikado_pipeline(args):
         print("INFO: Increasing the number of chunks for DIAMOND/BLASTX to match the requested threads, \
 as Mikado serialise relies on having a number of chunks equal or greater than the number of requested threads.")
 
+    kwds = {
+        "ignore_ambiguity": False,
+        "cores": args.cores,
+        "dryrun": args.dryrun,
+        "nodes": args.jobs,
+        "config": additional_config,
+        "workdir": CWD,
+        "cluster_config": hpc_conf,
+        "cluster": cluster_var,
+        "drmaa": drmaa_var,
+        "latency_wait": latency,
+        "printshellcmds": True,
+        "use_conda": args.use_conda,
+        "snakemakepath": shutil.which("snakemake"),
+        "stats": "daijin_tr_" + NOW + ".stats",
+        "force_incomplete": args.rerun_incomplete,
+        "detailed_summary": args.detailed_summary,
+        "list_resources": args.list,
+        "printdag": args.dag,
+        "forceall": args.dag,
+        "forcerun": args.forcerun,
+        "lock": (not args.nolock),
+    }
+
+    if "configfile" in inspect.getfullargspec(snakemake.snakemake):
+        kwds["configfile"] = yaml_file.name
+    else:
+        kwds["configfiles"] = [yaml_file.name]
+
     snakemake.snakemake(
         pkg_resources.resource_filename("Mikado",
                                         os.path.join("daijin", "mikado.smk")),
-        ignore_ambiguity=False,
-        cores=args.cores,
-        dryrun=args.dryrun,
-        nodes=args.jobs,
-        configfile=yaml_file.name,
-        config=additional_config,
-        workdir=CWD,
-        cluster_config=hpc_conf,
-        cluster=cluster_var,
-        drmaa=drmaa_var,
-        latency_wait=latency,
-        printshellcmds=True,
-        use_conda=args.use_conda,
-        snakemakepath=shutil.which("snakemake"),
-        stats="daijin_tr_" + NOW + ".stats",
-        force_incomplete=args.rerun_incomplete,
-        detailed_summary=args.detailed_summary,
-        list_resources=args.list,
-        printdag=args.dag,
-        forceall=args.dag,
-        forcerun=args.forcerun,
-        lock=(not args.nolock))
+        **kwds
+    )
 
 
 def main(call_args=None):

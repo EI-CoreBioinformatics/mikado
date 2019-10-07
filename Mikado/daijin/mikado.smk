@@ -3,10 +3,17 @@ from shutil import which
 import pkg_resources
 from Bio.Data import CodonTable
 
+
 CodonTable.ambiguous_dna_by_id[0] = CodonTable.ambiguous_dna_by_id[1]
 
-CFG=workflow.overwrite_configfile
+
+try:
+    CFG=workflow.overwrite_configfiles[0]
+except AttributeError:
+    CFG=workflow.overwrite_configfile
+
 envdir = pkg_resources.resource_filename("Mikado.daijin", "envs")
+
 
 REF = config["reference"]["genome"]
 # TODO: this is hack that should be solved more neatly

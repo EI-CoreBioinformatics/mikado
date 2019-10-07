@@ -33,5 +33,5 @@ dependencies:
   - conda-forge::fastnumbers>=2.1.1
   - pip
   - conda-forge::rapidjson>=1.1.0
-  - conda-forge::python-rapidjson>=0.8
-  - conda-forge::hypothesis!=4.38.2
+  - conda-forge::python-rapidjson>=0.8.0
+  - conda-forge::hypothesis!=4.38.2,!=4.38.3

@@ -537,8 +537,6 @@ class Transcript:
         if transcript_row.is_transcript is False:
             if transcript_row.is_exon is False and transcript_row.feature not in ("match", "tss", "tts"):
                 raise TypeError("Invalid GF line")
-            elif transcript_row.is_exon is True and isinstance(transcript_row, GffLine) and transcript_row.feature not in ("cDNA_match", "match"):
-                raise TypeError("GFF files should not provide orphan exons. Line:\n{}".format(transcript_row))
             self.__expandable = True
 
             if "cDNA_match" in transcript_row.feature and isinstance(transcript_row, GffLine):
@@ -562,6 +560,8 @@ class Transcript:
                 #         self.start = transcript_row.end
                 #     else:
                 #         self.start = transcript_row.start
+            elif transcript_row.is_exon is True and isinstance(transcript_row, GffLine) and transcript_row.feature not in ("cDNA_match", "match"):
+                self.id = transcript_row.parent[0]
             else:
                 self.parent = transcript_row.gene
                 self.id = transcript_row.transcript
@@ -1644,7 +1644,8 @@ class Transcript:
     def get_modifiable_metrics(cls) -> list:
 
         metrics = [member[0] for member in inspect.getmembers(cls) if
-                   "__" not in member[0] and isinstance(cls.__dict__[member[0]], Metric)
+                   "__" not in member[0] and member[0] in cls.__dict__ and
+                   isinstance(cls.__dict__[member[0]], Metric)
                    and getattr(cls.__dict__[member[0]], "fset") is not None]
         return metrics
 

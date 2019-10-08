@@ -11,6 +11,7 @@ import logging
 import operator
 from sys import intern
 from ..transcripts.transcript import Transcript
+from ..transcripts.transcriptcomputer import TranscriptComputer
 from ..exceptions import InvalidTranscript, InvalidCDS
 from ..parsers.GFF import GffLine
 from ..parsers.GTF import GtfLine
@@ -49,11 +50,6 @@ class Gene:
             elif isinstance(transcr, GffLine):
                 if transcr.is_gene is True:
                     self.__from_gene = True
-                elif (from_exon is False) and ("match" not in transcr.feature):
-                    raise AssertionError(str(transcr))
-                elif from_exon is True:
-                    self.__from_gene = False
-
                 self.id = transcr.id
                 self.attributes = transcr.attributes.copy()
                 self.feature = transcr.feature
@@ -170,7 +166,15 @@ class Gene:
                         self.transcripts[tid].add_exon(row)
                     break
             if not found:
-                raise AssertionError("{}\n{}".format(parent, self.transcripts, row))
+                self.transcripts[parent] = TranscriptComputer(row,
+                                                              trust_orf=True,
+                                                              logger=self.logger,
+                                                              accept_undefined_multi=True,
+                                                              source=row.source,
+                                                              is_reference=True,
+                                                              )
+                self.transcripts[parent].parent = self.id
+                # raise AssertionError("{}\n{}".format(parent, self.transcripts, row))
 
     def __getitem__(self, tid: str) -> Transcript:
         return self.transcripts[tid]
@@ -260,7 +264,7 @@ class Gene:
             setattr(self, key, state[key])
 
         for tid, tvalues in state["transcripts"].items():
-            transcript = Transcript(logger=self.logger)
+            transcript = TranscriptComputer(logger=self.logger)
             transcript.load_dict(tvalues, trust_orf=trust_orf)
             transcript.finalize()
             if protein_coding is True and transcript.is_coding is False:

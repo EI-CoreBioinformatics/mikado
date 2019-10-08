@@ -403,10 +403,12 @@ def assemble_transcripts_pipeline(args):
         "lock": (not args.nolock)
     }
 
-    if "configfile" in inspect.getfullargspec(snakemake.snakemake):
+    if "configfile" in inspect.getfullargspec(snakemake.snakemake).args:
         kwds["configfile"] = yaml_file.name
-    else:
+    elif "configfiles" in inspect.getfullargspec(snakemake.snakemake).args:
         kwds["configfiles"] = [yaml_file.name]
+    else:
+        raise KeyError("No configfile key found")
 
     snakemake.snakemake(
         pkg_resources.resource_filename("Mikado",
@@ -541,10 +543,12 @@ as Mikado serialise relies on having a number of chunks equal or greater than th
         "lock": (not args.nolock),
     }
 
-    if "configfile" in inspect.getfullargspec(snakemake.snakemake):
+    if "configfile" in inspect.getfullargspec(snakemake.snakemake).args:
         kwds["configfile"] = yaml_file.name
-    else:
+    elif "configfiles" in inspect.getfullargspec(snakemake.snakemake).args:
         kwds["configfiles"] = [yaml_file.name]
+    else:
+        raise KeyError("No configfile key found")
 
     snakemake.snakemake(
         pkg_resources.resource_filename("Mikado",

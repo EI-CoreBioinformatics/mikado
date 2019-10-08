@@ -8,7 +8,10 @@ import Mikado.configuration.configurator
 import subprocess
 import gzip
 from snakemake import logger as snake_logger
+import pkg_resources
+import Mikado
 
+prod_conda = pkg_resources.resource_filename("Mikado.daijin", os.path.join("envs", "prodigal.yaml"))
 swissprot = "uniprot_sprot_plants.fasta.gz"
 swissprot_noat = "uniprot_sprot_plants.not_at.fasta"
 
@@ -17,7 +20,7 @@ zipDBs=["{0}.gz".format(db) for db in DBs]
 
 configname = "configuration.yaml"
 if not os.path.exists(configname):
-    command = "mikado configure --seed 1149199520 --use-blast --list list.txt --reference chr5.fas.gz --mode permissive --daijin -t 3 \
+    command = "mikado configure --use-transdecoder --seed 1149199520 --use-blast --list list.txt --reference chr5.fas.gz --mode permissive --daijin -t 3 \
         --subloci-out mikado.subloci.gff3 --scoring plant.yaml --junctions junctions.bed -bt {swiss} -bc 1 {configname}".format(configname=configname, swiss=swissprot)
     snake_logger.info("Creating the configuration file")
     snake_logger.info(command)
@@ -32,7 +35,8 @@ except:
 configfile: "configuration.yaml"
 
 rule complete:
-    input: "compare.stats", "compare_subloci.stats", "compare_input.stats", "check.ok", "check_metrics.ok", "daijin_test/mikado.yaml"
+    input: "compare.stats", "compare_subloci.stats", "compare_input.stats", "check.ok",
+         "check_metrics.ok", "daijin_test/mikado.yaml", "g11.ok"
     output: touch("finished.ok")
 
 
@@ -79,9 +83,11 @@ rule daijin:
         loci=os.path.join("Daijin", "5-mikado", "pick", "permissive", "mikado-permissive.loci.gff3"),
         sub=os.path.join("Daijin", "5-mikado", "pick", "permissive", "mikado.subloci.gff3"),
 	    submetrics=os.path.join("Daijin", "5-mikado", "pick", "permissive", "mikado.subloci.metrics.tsv"),
+        db=os.path.join("Daijin", "5-mikado", "mikado.db"),
         # mono=os.path.join("Daijin", "5-mikado", "pick", "permissive", "mikado.monoloci.gff3"),
         prep=os.path.join("Daijin", "5-mikado", "mikado_prepared.gtf"),
-	    prep_fai=os.path.join("Daijin", "5-mikado", "mikado_prepared.fasta.fai"),
+        prep_fasta=os.path.join("Daijin", "5-mikado", "mikado_prepared.fasta"),
+	prep_fai=os.path.join("Daijin", "5-mikado", "mikado_prepared.fasta.fai"),
         perm_stats=os.path.join("Daijin", "5-mikado", "pick", "permissive", "mikado-permissive.loci.stats"),
         stats=os.path.join("Daijin", "5-mikado", "pick", "comparison.stats"),
         marker=os.path.join("Daijin", "5-mikado", "all.done")
@@ -152,6 +158,70 @@ rule check_pick:
         raise ValueError("Something went wrong with Mikado pick, please check")
       open(output[0], "wt")
 
+
+rule test_g11_prodigal:
+    input:
+      transcripts=rules.daijin.output.prep_fasta
+    output: os.path.join("Daijin", "5-mikado", "prodigal", "transcripts.g11.gff3")
+    threads: 1
+    log: os.path.join("daijin_logs", "prodigal.g11.log")
+    conda: prod_conda
+    shell: "prodigal -g 11 -i {input.transcripts} -o {output} -f gff 2> {log} > {log}"
+
+
+rule test_g11_serialise:
+    input:
+      db=rules.daijin.output.db,
+      prodi=rules.test_g11_prodigal.output
+    output: os.path.join("Daijin", "5-mikado", "mikado.g11.db")
+    threads: 2
+    log: os.path.join("Daijin", "5-mikado", "mikado_serialise.g11.log")
+    shell: "mikado serialise --xml=Daijin/5-mikado/blast/xmls \
+    --blast_targets=Daijin/5-mikado/blast/index/blastdb-proteins.fa --start-method=spawn \
+    --transcripts=Daijin/5-mikado/mikado_prepared.fasta --genome_fai=Daijin/5-mikado/chr5.fas.gz.fai \
+    --json-conf=configuration.yaml --force --orfs={input.prodi} \
+    -od Daijin/5-mikado --procs=2 -l {log} {output}"
+
+rule test_g11_pick:
+    input:
+      db=rules.test_g11_serialise.output
+    output:
+      loci=os.path.join("Daijin", "5-mikado", "pick", "g11_permissive", "mikado-permissive.loci.gff3"),
+      subloci=os.path.join("Daijin", "5-mikado", "pick", "g11_permissive", "mikado-permissive.subloci.gff3")
+    params:
+      loci="mikado-permissive.loci.gff3",
+      subloci="mikado-permissive.subloci.gff3",
+      outdir=os.path.join("Daijin", "5-mikado", "pick", "g11_permissive")
+    threads: 2
+    log: os.path.join("Daijin", "5-mikado", "pick", "g11_permissive", "mikado-permissive.pick.log")
+    shell: "mikado pick --source Mikado_permissive --mode=permissive --procs=2 \
+    --start-method=spawn --json-conf=configuration.yaml -od {params.outdir} \
+    -l {log} --loci-out {params.loci} --subloci-out {params.subloci} \
+    -lv INFO -db {input.db} Daijin/5-mikado/mikado_prepared.gtf"
+
+
+rule test_g11_gffread:
+    input:
+      subloci=rules.test_g11_pick.output.subloci,
+      genome=rules.uncompress_genome.output
+    output:
+      subpep=os.path.join("Daijin", "5-mikado", "pick", "g11_permissive", "mikado-permissive.subloci.pep.fasta")
+    conda: "gffread.yaml"
+    shell: "gffread -S -g {input.genome} -y {output.subpep} {input.subloci}"
+
+
+rule check_g11:
+    input:
+      subpep=rules.test_g11_gffread.output.subpep
+    output: touch("g11.ok")
+    run:
+        with open(input.subpep) as subpep:
+            for line in subpep:
+                if line[0] != ">" and "*" in line:
+                    print(line)
+                    raise ValueError(line)
+        touch(output)
+
 rule clean:
     run:
         import shutil
@@ -163,7 +233,7 @@ rule clean:
                                     ["mikado_prepared.gtf", "mikado_prepared.fasta", "mikado.prodigal.gff3"],
                                     glob.glob("compare*"), glob.glob(config["db_settings"]["db"]),
                                     glob.glob("*.log"), glob.glob("*xml"), ["chr5.fas"],
-				    glob.glob("*.ok"),
+				                    glob.glob("*.ok"),
                                     ["configuration.yaml"]):
             if os.path.exists(filename) and filename not in (".", ".."):
                 shutil.rmtree(filename) if os.path.isdir(filename) else os.remove(filename)

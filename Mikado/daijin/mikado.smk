@@ -1,10 +1,19 @@
 import os
 from shutil import which
 import pkg_resources
+from Bio.Data import CodonTable
 
 
-CFG=workflow.overwrite_configfile
+CodonTable.ambiguous_dna_by_id[0] = CodonTable.ambiguous_dna_by_id[1]
+
+
+try:
+    CFG=workflow.overwrite_configfiles[0]
+except AttributeError:
+    CFG=workflow.overwrite_configfile
+
 envdir = pkg_resources.resource_filename("Mikado.daijin", "envs")
+
 
 REF = config["reference"]["genome"]
 # TODO: this is hack that should be solved more neatly
@@ -54,6 +63,66 @@ def loadPre(config, program):
         return ""
     else:
         return "set +u && {} &&".format(cc)
+
+
+td_codes = {
+    "Acetabularia": ['Ciliate Nuclear', 'Dasycladacean Nuclear', 'Hexamita Nuclear', 'SGC5'],
+    "Candida": ['Alternative Yeast Nuclear'],
+    "Ciliate": ["Condylostoma Nuclear"],
+    "Dasycladacean": ['Ciliate Nuclear', 'Dasycladacean Nuclear', 'Hexamita Nuclear', 'SGC5'],
+    "Euplotid": ['Euplotid Nuclear', 'SGC9'],
+    "Hexamita": ['Ciliate Nuclear', 'Dasycladacean Nuclear', 'Hexamita Nuclear', 'SGC5'],
+    "Mesodinium": ["Mesodinium Nuclear"],
+    "Mitochondrial-Ascidian": ['Ascidian Mitochondrial'],
+    "Mitochondrial-Chlorophycean": ['Chlorophycean Mitochondrial'],
+    "Mitochondrial-Echinoderm": ['Echinoderm Mitochondrial', 'Flatworm Mitochondrial', 'SGC8'],
+    "Mitochondrial-Flatworm": ['Echinoderm Mitochondrial', 'Flatworm Mitochondrial', 'SGC8'],
+    "Mitochondrial-Invertebrates": ['Invertebrate Mitochondrial', 'SGC4'],
+    "Mitochondrial-Protozoan": ['Mold Mitochondrial', 'Protozoan Mitochondrial',
+                                'Coelenterate Mitochondrial', 'Mycoplasma', 'Spiroplasma', 'SGC3'],
+    "Mitochondrial-Pterobranchia": ['Pterobranchia Mitochondrial'],
+    "Mitochondrial-Scenedesmus_obliquus": ['Scenedesmus obliquus Mitochondrial'],
+    "Mitochondrial-Thraustochytrium": ['Thraustochytrium Mitochondrial'],
+    "Mitochondrial-Trematode": ['Trematode Mitochondrial'],
+    "Mitochondrial-Vertebrates": ['Vertebrate Mitochondrial', "SCG1"],
+    "Mitochondrial-Yeast": ['Yeast Mitochondrial', 'SGC2'],
+    "Pachysolen_tannophilus": ["Pachysolen tannophilus Nuclear"],
+    "Peritrich": ["Peritrich Nuclear"],
+    "SR1_Gracilibacteria": ['Candidate Division SR1', 'Gracilibacteria'],
+    "Tetrahymena": ['Ciliate Nuclear', 'Dasycladacean Nuclear', 'Hexamita Nuclear', 'SGC5'],
+    "Universal": ['Standard', 'SGC0']
+}
+
+
+td_codes_inverted = dict()
+for key, items in td_codes.items():
+    for item in items:
+        td_codes_inverted[item] = key
+
+
+def get_codon_table(return_id=True):
+
+    table = config["serialise"]["codon_table"]
+    if table == 0:
+        table = 1
+    if isinstance(table, int):
+        table = CodonTable.ambiguous_dna_by_id[table]
+    elif isinstance(table, (str, bytes)):
+        if isinstance(table, bytes):
+            table = table.decode()
+        table = CodonTable.ambiguous_dna_by_name[table]
+
+    if return_id is True:
+        return table.id
+    else:
+        found = None
+        for name in table.names:
+            found = td_codes_inverted.get(name, None)
+            if found is not None:
+                break
+        if found is None:
+            found = "Universal"
+        return found
 
 
 #########################
@@ -171,30 +240,34 @@ if config.get("mikado", dict()).get("use_prodigal", False) is False and config.g
             tr="transcripts.fasta",
             tr_in=os.path.join(MIKADO_DIR_FULL, "mikado_prepared.fasta"),
             load=loadPre(config, "transdecoder"),
-            minprot=config["transdecoder"]["min_protein_len"]
+            minprot=config["transdecoder"]["min_protein_len"],
+            table=get_codon_table(return_id=False)
         log: os.path.join(TDC_DIR_FULL, "transdecoder.longorf.log")
         threads: 1
         message: "Running transdecoder longorf on Mikado prepared transcripts: {input}"
         conda: os.path.join(envdir, "transdecoder.yaml")
-        shell: "{params.load} cd {params.outdir} && ln -sf {params.tr_in} {params.tr} && TransDecoder.LongOrfs -m {params.minprot} -t {params.tr} > {log} 2>&1"
+        shell: "{params.load} cd {params.outdir} && ln -sf {params.tr_in} {params.tr} && \
+TransDecoder.LongOrfs -G {params.table} -m {params.minprot} -t {params.tr} > {log} 2>&1"
 
     rule transdecoder_pred:
         input:
             mikado=rules.mikado_prepare.output.fa,
             trans=rules.transdecoder_lo.output
         output: os.path.join(TDC_DIR, "transcripts.fasta.transdecoder.bed")
-        params: outdir=TDC_DIR_FULL,
+        params:
+            outdir=TDC_DIR_FULL,
             tr_in=os.path.join(MIKADO_DIR_FULL, "mikado_prepared.fasta"),
             lolog=os.path.join(TDC_DIR_FULL, "transdecoder.longorf.log"),
             plog=os.path.join(TDC_DIR_FULL, "transdecoder.predict.log"),
             tr="transcripts.fasta",
-            load=loadPre(config, "transdecoder")
+            load=loadPre(config, "transdecoder"),
+            table=get_codon_table(return_id=False)
             # ss="-S" if MIKADO_STRAND else ""
         log: os.path.join(TDC_DIR_FULL, "transdecoder.predict.log")
         threads: 1
         message: "Running transdecoder predict on Mikado prepared transcripts: {input}"
         conda: os.path.join(envdir, "transdecoder.yaml")
-        shell: "{params.load} cd {params.outdir} && TransDecoder.Predict -t {params.tr} > {log} 2>&1"
+        shell: "{params.load} cd {params.outdir} && TransDecoder.Predict -t {params.tr} -G {params.table} > {log} 2>&1"
     orf_out = rules.transdecoder_pred.output
 elif config.get("mikado", dict()).get("use_prodigal", False) is True:
     rule prodigal:
@@ -206,12 +279,13 @@ elif config.get("mikado", dict()).get("use_prodigal", False) is True:
             tr_in=os.path.join(MIKADO_DIR_FULL, "mikado_prepared.fasta"),
             tr_out="transcripts.fasta.prodigal.gff3",
             load=loadPre(config, "prodigal"),
-            minprot=config["transdecoder"]["min_protein_len"]
+            minprot=config["transdecoder"]["min_protein_len"],
+            table=get_codon_table(return_id=True)
         log: os.path.join(PROD_DIR_FULL, "prodigal.log")
         threads: 1
         message: "Running PRODIGAL on Mikado prepared transcripts: {input}"
         conda: os.path.join(envdir, "prodigal.yaml")
-        shell: "{params.load} mkdir -p {params.outdir} && cd {params.outdir} && ln -sf {params.tr_in} {params.tr} && prodigal -f gff -g 1 -i {params.tr} -o {params.tr_out} > {log} 2>&1"
+        shell: "{params.load} mkdir -p {params.outdir} && cd {params.outdir} && ln -sf {params.tr_in} {params.tr} && prodigal -f gff -g {params.table} -i {params.tr} -o {params.tr_out} > {log} 2>&1"
     orf_out = rules.prodigal.output
 
 else:
@@ -265,11 +339,12 @@ rule mikado_serialise:
         blast="--xml={}".format(os.path.join(BLAST_DIR, "xmls")) if len(BLASTX_TARGET) > 0 else "",
         load=loadPre(config, "mikado"),
         blast_target="--blast_targets={}".format(os.path.join(BLAST_DIR, "index", "blastdb-proteins.fa")) if len(BLASTX_TARGET) > 0 else "",
-        orfs=orfs
+        orfs=orfs,
+        no_start_adj="-nsa" if config.get("mikado", dict()).get("use_prodigal", False) is False else ""
     threads: THREADS
     # conda: os.path.join(envdir, "mikado.yaml")
     shell: "{params.load} mikado serialise {params.blast} {params.blast_target} --start-method=spawn \
---transcripts={input.transcripts} --genome_fai={input.fai} --json-conf={params.cfg} \
+--transcripts={input.transcripts} --genome_fai={input.fai} --json-conf={params.cfg} {params.no_start_adj} \
 --force {params.orfs} -od {MIKADO_DIR} --procs={threads} -l {log}"
 
 rule mikado_pick:

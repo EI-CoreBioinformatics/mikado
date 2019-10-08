@@ -175,7 +175,6 @@ Detailed list of bugfixes and improvements:
 - Mikado compare has been greatly improved ([#166](https://github.com/EI-CoreBioinformatics/mikado/issues/166)), with the addition of:
 	- proper multiprocessing
 	- faster startup times
-<<<<<<< HEAD
 
 #### Other
 

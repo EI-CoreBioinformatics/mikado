@@ -9,6 +9,7 @@ from .. import loci, parsers, utilities, configuration
 from ..transcripts.transcript_methods import splitting
 import tempfile
 from ..parsers import bed12
+from ..utilities.log_utils import create_default_logger
 if version_info.minor < 5:
     from sortedcontainers import SortedDict
 else:
@@ -485,7 +486,8 @@ class TestWithPhase(unittest.TestCase):
         self.bed1.has_stop_codon = True
         self.assertFalse(self.bed1.invalid, self.bed1.invalid_reason)
 
-        self.bed2 = parsers.bed12.BED12()
+        logger = create_default_logger("testNegative", "DEBUG")
+        self.bed2 = parsers.bed12.BED12(logger=logger)
         self.header = False
         self.bed2.chrom = "transcript1"
         self.bed2.start = 1
@@ -495,14 +497,14 @@ class TestWithPhase(unittest.TestCase):
         self.bed2.strand = "-"
         self.bed2.thick_start = 4001
         self.bed2.thick_end = 5000
-        self.phase = 1
+        self.bed2.phase = 1
         self.bed2.block_counts = 1
         self.bed2.block_sizes = [1000]
         self.bed2.block_starts = [4001]
         self.bed2.transcriptomic = True
         self.bed2.has_start_codon = False
         self.bed2.has_stop_codon = True
-        self.assertFalse(self.bed2.invalid)
+        self.assertFalse(self.bed2.invalid, (self.bed2.phase, self.bed2.invalid_reason))
 
         self.transcript.load_orfs([self.bed1, self.bed2])
         self.assertTrue(self.transcript.is_coding)

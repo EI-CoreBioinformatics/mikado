@@ -6,7 +6,10 @@ import pkg_resources
 import re
 
 
-CFG=workflow.overwrite_configfile
+try:
+    CFG=workflow.overwrite_configfiles[0]
+except AttributeError:
+    CFG=workflow.overwrite_configfile
 # Get shortcuts from configuration file
     
 

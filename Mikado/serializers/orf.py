@@ -20,6 +20,8 @@ from ..utilities.log_utils import create_null_logger, check_logger
 import pandas as pd
 from ..exceptions import InvalidSerialization
 from ..parsers import Parser
+import logging
+import logging.handlers as logging_handlers
 import multiprocessing as mp
 import msgpack
 
@@ -200,6 +202,7 @@ class OrfSerializer:
         self._table = json_conf["serialise"]["codon_table"]
         self.procs = json_conf["threads"]
         self.single_thread = json_conf["serialise"]["single_thread"]
+        self.adjust_start = json_conf["serialise"]["start_adjustment"]
         if self.single_thread:
             self.procs = 1
 
@@ -231,6 +234,7 @@ class OrfSerializer:
             DBBASE.metadata.create_all(self.engine)
         self.session = session
         self.maxobjects = json_conf["serialise"]["max_objects"]
+        self.log_level = json_conf["log_settings"]["log_level"]
 
     def load_fasta(self):
 
@@ -290,6 +294,7 @@ class OrfSerializer:
 
         self.bed12_parser = bed12.Bed12Parser(self._handle,
                                               fasta_index=self.fasta_index,
+                                              logger=self.logger,
                                               is_gff=(not self.is_bed12),
                                               transcriptomic=True,
                                               max_regression=self._max_regression,
@@ -302,9 +307,9 @@ class OrfSerializer:
             if row.header is True:
                 continue
             if row.invalid is True:
-                self.logger.warn("Invalid entry, reason: %s\n%s",
-                                 row.invalid_reason,
-                                 row)
+                self.logger.warning("Invalid entry, reason: %s\n%s",
+                                    row.invalid_reason,
+                                    row)
                 continue
             if row.id in self.cache:
                 current_query = self.cache[row.id]
@@ -355,9 +360,19 @@ Please check your input files.")
 
         send_queue = mp.JoinableQueue(-1)
         return_queue = mp.JoinableQueue(-1)
+        self.logging_queue = mp.Queue(-1)
+        self.logger_queue_handler = logging_handlers.QueueHandler(self.logging_queue)
+        self.queue_logger = logging.getLogger("parser")
+        self.queue_logger.addHandler(self.logger_queue_handler)
+        self.queue_logger.setLevel(self.log_level)
+        self.queue_logger.propagate = False
+        self.log_writer = logging_handlers.QueueListener(self.logging_queue, self.logger)
+        self.log_writer.start()
 
         parsers = [bed12.Bed12ParseWrapper(
             rec_queue=send_queue,
+            log_queue=self.logging_queue,
+            level=self.log_level,
             return_queue=return_queue,
             fasta_index=self.fasta_index.filename,
             is_gff=(not self.is_bed12),

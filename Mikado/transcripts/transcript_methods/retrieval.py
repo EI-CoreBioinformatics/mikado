@@ -56,6 +56,9 @@ def load_orfs(transcript, candidate_orfs):
     transcript.logger.debug("Finding the candidate ORFS out of %d .. ",
                             len(candidate_orfs))
     # This will also exclude invalid ORFs
+    for orf in candidate_orfs:
+        orf.logger = transcript.logger
+
     candidate_orfs = find_overlapping_cds(transcript, candidate_orfs)
     transcript.logger.debug("Retained %d candidate ORFS",
                             len(candidate_orfs))
@@ -102,6 +105,10 @@ def load_orfs(transcript, candidate_orfs):
         transcript.internal_orfs.append(cds_exons)
 
         if primary_orf is True:
+            transcript.logger.debug("%s has start codon: %s, %s",
+                                    transcript.id,
+                                    orf.has_start_codon,
+                                    orf.has_stop_codon)
             (transcript.has_start_codon, transcript.has_stop_codon) = (orf.has_start_codon,
                                                                        orf.has_stop_codon)
             primary_phase = orf.phase

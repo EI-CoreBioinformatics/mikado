@@ -78,21 +78,21 @@
     "db_settings": {
       "Comment": [
         "Settings related to DB connection. Parameters:",
-        "- db: the DB to connect to. Required. Default: mikado.db",
-        "- dbtype: Type of DB to use. Choices: sqlite, postgresql, mysql. Default: sqlite.",
-        "- dbhost: Host of the database. Unused if dbtype is sqlite. Default: localhost",
-        "- dbuser: DB user. Default: ''",
-        "- dbpasswd: DB password for the user. Default: ''",
-        "- dbport: Integer. It indicates the default port for the DB."
+        "db: the DB to connect to. Required. Default: mikado.db",
+        "dbtype: Type of DB to use. Choices: sqlite, postgresql, mysql. Default: sqlite.",
+        "dbhost: Host of the database. Unused if dbtype is sqlite. Default: localhost",
+        "dbuser: DB user. Default: ''",
+        "dbpasswd: DB password for the user. Default: null",
+        "dbport: Integer. It indicates the default port for the DB."
       ],
       "SimpleComment": [
         "Settings related to DB connection. Parameters:",
-        "- db: the DB to connect to. Required. Default: mikado.db",
-        "- dbtype: Type of DB to use. Choices: sqlite, postgresql, mysql. Default: sqlite.",
-        "- dbhost: Host of the database. Unused if dbtype is sqlite. Default: localhost",
-        "- dbuser: DB user. Default: ''",
-        "- dbpasswd: DB password for the user. Default: ''",
-        "- dbport: Integer. It indicates the default port for the DB."
+        "db: the DB to connect to. Required. Default: mikado.db",
+        "dbtype: Type of DB to use. Choices: sqlite, postgresql, mysql. Default: sqlite.",
+        "dbhost: Host of the database. Unused if dbtype is sqlite. Default: localhost",
+        "dbuser: DB user. Default: ''",
+        "dbpasswd: DB password for the user. Default: null",
+        "dbport: Integer. It indicates the default port for the DB."
       ],
       "type": "object",
       "properties": {
@@ -196,6 +196,7 @@
           "minimum": 0,
           "maximum": 1,
           "default": 0.1},
+        "start_adjustment": {"type":  "boolean", "default": true},
         "max_target_seqs": {"type": "integer", "default": 100000, "minimum": 1},
         "force": {"type": "boolean", "default": false},
         "single_thread": {"type": "boolean", "default": false},

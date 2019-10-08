@@ -228,6 +228,8 @@ def setup(args):
             args.json_conf["db_settings"]["db"] = os.path.basename(
                 args.json_conf["db_settings"]["db"])
 
+    args.json_conf["serialise"]["start_adjustment"] = args.start_adjustment
+
     if not os.path.exists(args.json_conf["serialise"]["files"]["output_dir"]):
         try:
             os.makedirs(args.json_conf["serialise"]["files"]["output_dir"])
@@ -428,6 +430,10 @@ def serialise_parser():
     orfs.add_argument("--codon-table", dest="codon_table", default=None,
                       help="""Codon table to use. Default: 0 (ie Standard, NCBI #1, but only ATG is considered
                       a valid stop codon.""")
+    orfs.add_argument("-nsa", "--no-start-adjustment", default=True,
+                      action="store_false",
+                      dest="start_adjustment",
+                      help="Disable the start adjustment algorithm. Useful when using e.g. TransDecoder vs 5+.")
 
     blast = parser.add_argument_group()
     blast.add_argument("--max_target_seqs", type=int, default=None,

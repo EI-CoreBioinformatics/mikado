@@ -1368,7 +1368,7 @@ class Transcript:
 
         return state
 
-    def load_dict(self, state, trust_orf=False):
+    def load_dict(self, state, trust_orf=False, accept_undefined_multi=False):
 
         for key in ["chrom", "source",
                     "start", "end", "strand", "score",
@@ -1402,6 +1402,7 @@ class Transcript:
         self.splices = set(state["splices"])
 
         self._trust_orf = trust_orf
+        self._accept_undefined_multi = accept_undefined_multi
         self.internal_orfs = []
 
         self.logger.debug("Starting to load the ORFs for %s", self.id)
@@ -1674,6 +1675,10 @@ class Transcript:
             assert isinstance(logger, logging.Logger), type(logger)
             self.__logger = logger
         self.__logger.propagate = False
+
+    @logger.deleter
+    def logger(self):
+        self.__logger = create_null_logger()
 
     @property
     def json_conf(self):

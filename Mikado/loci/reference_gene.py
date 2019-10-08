@@ -28,10 +28,12 @@ class Gene:
 
     __name__ = "gene"
 
-    def __init__(self, transcr: [None, Transcript], gid=None, logger=None, only_coding=False, from_exon=False):
+    def __init__(self, transcr: [None, Transcript], gid=None, logger=create_null_logger(),
+                 only_coding=False, from_exon=False):
 
         self.transcripts = dict()
         self.__logger = None
+        self.logger = logger
         self.__introns = None
         self.exception_message = ''
         self.chrom, self.source, self.start, self.end, self.strand = [None] * 5
@@ -45,7 +47,12 @@ class Gene:
         if transcr is not None:
             if isinstance(transcr, Transcript):
                 self.transcripts[transcr.id] = transcr
-                self.id = transcr.parent[0]
+                if transcr.parent:
+                    self.id = transcr.parent[0]
+                else:
+                    self.logger.warning("No gene ID found for %s, creating a mock one.", transcr.id)
+                    transcr.parent = f"{transcr.id}.gene"
+                    self.id = transcr.parent[0]
                 self.transcripts[transcr.id] = transcr
             elif isinstance(transcr, GffLine):
                 if transcr.is_gene is True:
@@ -61,13 +68,11 @@ class Gene:
                                                                           transcr.start,
                                                                           transcr.end,
                                                                           transcr.strand)
-
         if gid is not None:
             self.id = gid
         # Internalize in memory for less memory usage
         [intern(_) for _ in [self.chrom, self.source, self.id]
          if _ is not None]
-        self.logger = logger
 
     def __contains__(self, item):
 
@@ -133,8 +138,8 @@ class Gene:
             elif transcr.strand is None:
                 transcr.strand = self.strand
             else:
-                raise AssertionError("Discrepant strands for gene {0} and transcript {1}".format(
-                    self.id, transcr.id
+                raise AssertionError("Discrepant strands for gene {0} ({2}) and transcript {1} ({3})".format(
+                    self.id, transcr.id, self.strand, transcr.strand
                 ))
 
         transcr.logger = self.logger

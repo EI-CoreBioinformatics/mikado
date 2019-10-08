@@ -188,7 +188,13 @@ def prepare_reference(reference, queue_logger, ref_gff=False,
             else:
                 gid = row.gene
 
+            if gid is None:
+                queue_logger.warning("No gene ID found for %s, creating a mock one.", row.id)
+                row.parent = f"{row.id}.gene"
+                gid = row.parent[0]
+
             transcript2gene[row.id] = gid
+            assert gid is not None
             if gid not in genes:
                 genes[gid] = Gene(transcript, gid=gid, logger=queue_logger)
             genes[gid].add(transcript)

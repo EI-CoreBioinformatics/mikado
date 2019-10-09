@@ -29,7 +29,7 @@ class Gene:
     __name__ = "gene"
 
     def __init__(self, transcr: [None, Transcript], gid=None, logger=create_null_logger(),
-                 only_coding=False, from_exon=False):
+                 only_coding=False, use_computer=False):
 
         self.transcripts = dict()
         self.__logger = None
@@ -43,9 +43,15 @@ class Gene:
         self.attributes = dict()
         self.feature = "gene"
         self.__from_gene = False
+        self.__use_computer = use_computer
 
         if transcr is not None:
             if isinstance(transcr, Transcript):
+                if isinstance(transcr, TranscriptComputer):
+                    self.__use_computer = True
+                else:
+                    self.__use_computer = False
+
                 self.transcripts[transcr.id] = transcr
                 if transcr.parent:
                     self.id = transcr.parent[0]
@@ -171,15 +177,23 @@ class Gene:
                         self.transcripts[tid].add_exon(row)
                     break
             if not found:
-                self.transcripts[parent] = TranscriptComputer(row,
-                                                              trust_orf=True,
-                                                              logger=self.logger,
-                                                              accept_undefined_multi=True,
-                                                              source=row.source,
-                                                              is_reference=True,
-                                                              )
+                if self._use_computer is True:
+                    self.transcripts[parent] = TranscriptComputer(row,
+                                                                  trust_orf=True,
+                                                                  logger=self.logger,
+                                                                  accept_undefined_multi=True,
+                                                                  source=row.source,
+                                                                  is_reference=True,
+                                                                  )
+                else:
+                    self.transcripts[parent] = Transcript(row,
+                                                          trust_orf=True,
+                                                          logger=self.logger,
+                                                          accept_undefined_multi=True,
+                                                          source=row.source,
+                                                          is_reference=True,
+                                                          )
                 self.transcripts[parent].parent = self.id
-                # raise AssertionError("{}\n{}".format(parent, self.transcripts, row))
 
     def __getitem__(self, tid: str) -> Transcript:
         return self.transcripts[tid]
@@ -209,7 +223,6 @@ class Gene:
                 self.exception_message += "{0}\n".format(err)
                 to_remove.add(tid)
             except Exception as _:
-                # print(err)
                 raise
         for k in to_remove:
             del self.transcripts[k]
@@ -250,6 +263,7 @@ class Gene:
         for key in ["chrom", "source", "start", "end", "strand", "id"]:
             state[key] = getattr(self, key)
 
+        state["use_computer"] = self._use_computer
         state["transcripts"] = dict.fromkeys(self.transcripts.keys())
 
         for tid in state["transcripts"]:
@@ -268,8 +282,12 @@ class Gene:
         for key in ["chrom", "source", "start", "end", "strand", "id"]:
             setattr(self, key, state[key])
 
+        self.__use_computer = state["use_computer"]
         for tid, tvalues in state["transcripts"].items():
-            transcript = TranscriptComputer(logger=self.logger)
+            if self._use_computer is True:
+                transcript = TranscriptComputer(logger=self.logger)
+            else:
+                transcript = Transcript(logger=self.logger)
             transcript.load_dict(tvalues, trust_orf=trust_orf)
             transcript.finalize()
             if protein_coding is True and transcript.is_coding is False:
@@ -463,3 +481,7 @@ class Gene:
         Property. It evaluates to True if at least one transcript is coding, False otherwise.
         """
         return any(self.transcripts[tid].selected_cds_length > 0 for tid in self.transcripts.keys())
+
+    @property
+    def _use_computer(self):
+        return self.__use_computer

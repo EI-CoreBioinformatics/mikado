@@ -161,14 +161,14 @@ class Calculator:
                 if not record.parent:
                     record.parent = "{}.gene".format(record.id)
                 current_gene = Gene(record, gid=record.parent[0], only_coding=self.only_coding,
-                                    logger=self.__logger)
+                                    logger=self.__logger, use_computer=True)
                 transcript2gene[record.id] = record.parent[0]
                 current_gene.transcripts[record.id] = TranscriptComputer(record, logger=self.__logger)
             elif record.is_gene is True:
                 self.__store_gene(current_gene)
                 current_gene = Gene(record,
                                     only_coding=self.only_coding,
-                                    logger=self.__logger)
+                                    logger=self.__logger, use_computer=True)
             elif record.is_transcript is True or (self.atype == GFF3.__annot_type__ and record.feature == "match"):
                 if record.parent is None and record.feature != "match":
                     raise TypeError("No parent found for:\n{0}".format(str(record)))
@@ -189,7 +189,8 @@ class Calculator:
                         record,
                         gid=gid,
                         only_coding=self.only_coding,
-                        logger=self.__logger)
+                        logger=self.__logger,
+                        use_computer=True)
                 transcript2gene[record.id] = gid
                 current_gene.transcripts[record.id] = TranscriptComputer(record,
                                                                          logger=self.__logger)
@@ -211,7 +212,7 @@ class Calculator:
                             record,
                             only_coding=self.only_coding,
                             logger=self.__logger,
-                            from_exon=True)
+                            use_computer=True)
                         record.id = record.transcript
                         transcript2gene[record.transcript] = record.gene
                         current_gene.transcripts[record.transcript] = TranscriptComputer(record,
@@ -233,7 +234,8 @@ class Calculator:
                             record,
                             gid=record.id,
                             only_coding=self.only_coding,
-                            logger=self.__logger)
+                            logger=self.__logger,
+                            use_computer=True)
                         transcript2gene[record.id] = record.id
                         current_gene.transcripts[record.id] = TranscriptComputer(record,
                                                                                  logger=self.__logger,

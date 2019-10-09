@@ -63,9 +63,34 @@ class Gene:
             elif isinstance(transcr, GffLine):
                 if transcr.is_gene is True:
                     self.__from_gene = True
-                self.id = transcr.id
-                self.attributes = transcr.attributes.copy()
-                self.feature = transcr.feature
+                    self.id = transcr.id
+                    self.attributes = transcr.attributes.copy()
+                    self.feature = transcr.feature
+                elif transcr.is_exon is True:
+                    self.__from_gene = False
+                    if transcr.parent:
+                        self.id = transcr.parent[0]
+                    else:
+                        self.id = transcr.id
+                    self.attributes = transcr.attributes.copy()
+                    self.feature = "gene"
+                    if self._use_computer is True:
+                        ntranscr = TranscriptComputer(transcr,
+                                                      trust_orf=True,
+                                                      logger=self.logger,
+                                                      accept_undefined_multi=True,
+                                                      source=transcr.source,
+                                                      is_reference=True)
+                    else:
+                        ntranscr = Transcript(transcr,
+                                              trust_orf=True,
+                                              logger=self.logger,
+                                              accept_undefined_multi=True,
+                                              source=transcr.source,
+                                              is_reference=True)
+                    ntranscr.add_exon(transcr)
+                    self.add(ntranscr)
+                    self.logger.debug("New transcript for %s: %s", self.id, ntranscr.id)
             elif isinstance(transcr, GtfLine):
                 self.id = transcr.gene
 
@@ -194,6 +219,12 @@ class Gene:
                                                           is_reference=True,
                                                           )
                 self.transcripts[parent].parent = self.id
+
+        if row.id in self.transcripts:
+            found_tids.add(row.id)
+            self.transcripts[row.id].add_exon(row)
+
+        self.logger.debug("Found transcripts: %s", found_tids)
 
     def __getitem__(self, tid: str) -> Transcript:
         return self.transcripts[tid]

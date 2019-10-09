@@ -1,0 +1,24 @@
+##gff-version 3
+##sequence-region   NC_023890.1 1 16875
+##sequence-region   NC_024218.1 70523706 70524211
+##sequence-region   NC_024225.1 44152159 44155685
+NC_023890.1	RefSeq	region	1	16875	.	+	.	ID=NC_023890.1:1..16875;Dbxref=taxon:8478;Is_circular=true;Name=MT;gbkey=Src;genome=mitochondrion;mol_type=genomic DNA;sub-species=bellii
+###
+NC_023890.1	RefSeq	rRNA	71	1039	.	+	.	ID=rna-NC_023890.1:71..1039;Note=12S ribosomal RNA;gbkey=rRNA;product=s-rRNA
+NC_023890.1	RefSeq	exon	71	1039	.	+	.	ID=exon-NC_023890.1:71..1039-1;Parent=rna-NC_023890.1:71..1039;Note=12S ribosomal RNA;gbkey=rRNA;product=s-rRNA
+###
+NC_023890.1	RefSeq	tRNA	1040	1107	.	+	.	ID=rna-NC_023890.1:1040..1107;codons=48%2C49%2C50%2C51;gbkey=tRNA;product=tRNA-Val
+NC_023890.1	RefSeq	exon	1040	1107	.	+	.	ID=exon-NC_023890.1:1040..1107-1;Parent=rna-NC_023890.1:1040..1107;codons=48%2C49%2C50%2C51;gbkey=tRNA;product=tRNA-Val
+###
+NC_024218.1	Gnomon	pseudogene	70523706	70524211	.	+	.	ID=gene-LOC112059550;Dbxref=GeneID:112059550;Name=LOC112059550;gbkey=Gene;gene=LOC112059550;gene_biotype=pseudogene;pseudo=true
+NC_024218.1	Gnomon	exon	70523706	70524211	.	+	.	ID=id-LOC112059550;Parent=gene-LOC112059550;Dbxref=GeneID:112059550;gbkey=exon;gene=LOC112059550;model_evidence=Supporting evidence includes similarity to: 3 Proteins
+###
+NC_024225.1	Gnomon	gene	44152159	44155685	.	+	.	ID=gene-LOC112059311;Dbxref=GeneID:112059311;Name=LOC112059311;gbkey=Gene;gene=LOC112059311;gene_biotype=V_segment
+NC_024225.1	Gnomon	V_gene_segment	44152159	44155685	.	+	.	ID=id-LOC112059311;Parent=gene-LOC112059311;Dbxref=GeneID:112059311;gbkey=V_segment;gene=LOC112059311;model_evidence=Supporting evidence includes similarity to: 148 Proteins;standard_name=immunoglobulin kappa variable 3-15-like
+NC_024225.1	Gnomon	exon	44152159	44152207	.	+	.	ID=exon-id-LOC112059311-1;Parent=id-LOC112059311;Dbxref=GeneID:112059311;gbkey=V_segment;gene=LOC112059311;model_evidence=Supporting evidence includes similarity to: 148 Proteins;standard_name=immunoglobulin kappa variable 3-15-like
+NC_024225.1	Gnomon	CDS	44152159	44152207	.	+	0	ID=cds-LOC112059311;Parent=id-LOC112059311;Dbxref=GeneID:112059311;exception=rearrangement required for product;gbkey=CDS;gene=LOC112059311;product=immunoglobulin kappa variable 3-15-like
+NC_024225.1	Gnomon	exon	44152424	44152766	.	+	.	ID=exon-id-LOC112059311-2;Parent=id-LOC112059311;Dbxref=GeneID:112059311;gbkey=V_segment;gene=LOC112059311;model_evidence=Supporting evidence includes similarity to: 148 Proteins;standard_name=immunoglobulin kappa variable 3-15-like
+NC_024225.1	Gnomon	CDS	44152424	44152766	.	+	2	ID=cds-LOC112059311;Parent=id-LOC112059311;Dbxref=GeneID:112059311;exception=rearrangement required for product;gbkey=CDS;gene=LOC112059311;product=immunoglobulin kappa variable 3-15-like
+NC_024225.1	Gnomon	exon	44155385	44155685	.	+	.	ID=exon-id-LOC112059311-3;Parent=id-LOC112059311;Dbxref=GeneID:112059311;gbkey=V_segment;gene=LOC112059311;model_evidence=Supporting evidence includes similarity to: 148 Proteins;standard_name=immunoglobulin kappa variable 3-15-like
+NC_024225.1	Gnomon	CDS	44155385	44155685	.	+	1	ID=cds-LOC112059311;Parent=id-LOC112059311;Dbxref=GeneID:112059311;exception=rearrangement required for product;gbkey=CDS;gene=LOC112059311;product=immunoglobulin kappa variable 3-15-like
+###

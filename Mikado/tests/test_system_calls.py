@@ -865,22 +865,29 @@ class CompareCheck(unittest.TestCase):
                  "trinity.match_matchpart.gff3",
                  "trinity.bed12"]
         files = [pkg_resources.resource_filename("Mikado.tests", filename) for filename in files]
+        bam = pkg_resources.resource_filename("Mikado.tests", "trinity.minimap2.bam")
 
         namespace = Namespace(default=False)
         namespace.distance = 2000
         namespace.no_save_index = True
-        namespace.processes = 1
 
-        for ref, pred in itertools.permutations(files, 2):
+        for ref, pred in itertools.chain(itertools.permutations(files, 2),
+                                         [(ref, bam) for ref in files]):
             with self.subTest(ref=ref, pred=pred):
                 namespace.reference = to_gff(ref)
                 namespace.prediction = to_gff(pred)
                 namespace.processes = 2
                 dir = tempfile.TemporaryDirectory()
-                namespace.log = os.path.join(dir.name, "compare_{}_{}.log".format(
-                    files.index(ref), files.index(pred)))
-                namespace.out = os.path.join(dir.name, "compare_{}_{}".format(
-                    files.index(ref), files.index(pred)))
+                if pred != bam:
+                    namespace.log = os.path.join(dir.name, "compare_{}_{}.log".format(
+                        files.index(ref), files.index(pred)))
+                    namespace.out = os.path.join(dir.name, "compare_{}_{}".format(
+                        files.index(ref), files.index(pred)))
+                else:
+                    namespace.log = os.path.join(dir.name, "compare_{}_{}.log".format(
+                        files.index(ref), len(files) + 1))
+                    namespace.out = os.path.join(dir.name, "compare_{}_{}".format(
+                        files.index(ref), len(files) + 1))
                 compare(namespace)
                 sleep(1)
                 refmap = "{}.refmap".format(namespace.out)
@@ -897,15 +904,63 @@ class CompareCheck(unittest.TestCase):
 
                 with open(refmap) as _:
                     reader = csv.DictReader(_, delimiter="\t")
-                    counter = 0
                     for counter, line in enumerate(reader, start=1):
                         ccode = line["ccode"]
-                        self.assertIn(ccode,
-                                      ("_", "=", "f,_", "f,="),
-                                      (ref, pred, line))
-
+                        if pred != bam:
+                            self.assertIn(ccode,
+                                          ("_", "=", "f,_", "f,="),
+                                          (ref, pred, line))
                     self.assertEqual(counter, 38)
+                if pred == bam:
+                    with open(tmap) as _:
+                        reader = csv.DictReader(_, delimiter="\t")
+                        for counter, line in enumerate(reader, start=1):
+                            pass
+                    self.assertEqual(counter, 38)
+
                 dir.cleanup()
+
+    def test_compare_problematic(self):
+
+        problematic = pkg_resources.resource_filename("Mikado.tests", "Chrysemys_picta_bellii_problematic.gff3")
+        namespace = Namespace(default=False)
+        namespace.distance = 2000
+        namespace.no_save_index = True
+        namespace.protein_coding = False
+        namespace.exclude_utr = False
+
+        for proc in (1, 3):
+            namespace.reference = to_gff(problematic)
+            namespace.prediction = to_gff(problematic)
+            namespace.processes = proc
+            dir = "/tmp/"
+            namespace.log = os.path.join(dir, "compare_problematic_{proc}.log".format(proc=proc))
+            namespace.out = os.path.join(dir, "compare_problematic_{proc}".format(proc=proc))
+            compare(namespace)
+            sleep(1)
+            refmap = "{}.refmap".format(namespace.out)
+            tmap = "{}.tmap".format(namespace.out)
+            stats = "{}.stats".format(namespace.out)
+
+            self.assertTrue(os.path.exists(namespace.log))
+            with open(namespace.log) as log_handle:
+                log = [_.rstrip() for _ in log_handle]
+            for fname in [refmap, stats, tmap]:
+                self.assertTrue(os.path.exists(fname), (glob.glob(namespace.out + "*"), "\n".join(log)))
+                self.assertGreater(os.stat(fname).st_size, 0,
+                                   "\n".join(log))
+            with open(refmap) as _:
+                reader = csv.DictReader(_, delimiter="\t")
+                for counter, line in enumerate(reader, start=1):
+                    ccode = line["ccode"]
+                    self.assertIn(ccode, ("_", "=", "f,_", "f,="), line)
+                self.assertEqual(counter, 4)
+            with open(tmap) as _:
+                reader = csv.DictReader(_, delimiter="\t")
+                for counter, line in enumerate(reader, start=1):
+                    pass
+            self.assertEqual(counter, 4)
+
 
 
 class ConfigureCheck(unittest.TestCase):
@@ -1770,6 +1825,33 @@ class StatsTest(unittest.TestCase):
 
         std_lines = []
         with pkg_resources.resource_stream("Mikado.tests", "trinity_stats.txt") as t_stats:
+            for line in t_stats:
+                std_lines.append(line.decode().rstrip())
+
+        namespace = Namespace(default=False)
+        namespace.tab_stats = None
+        for filename in files:
+            with self.subTest(filename=filename):
+                namespace.gff = to_gff(filename)
+                dir = tempfile.TemporaryDirectory()
+                with open(os.path.join(dir.name,
+                                       "{}.txt".format(os.path.basename(filename))), "w") as out:
+                    namespace.out = out
+                    Calculator(namespace)()
+                self.assertGreater(os.stat(out.name).st_size, 0)
+                with open(out.name) as out_handle:
+                    lines = [_.rstrip() for _ in out_handle]
+                self.assertEqual(std_lines, lines)
+                os.remove(out.name)
+                namespace.gff.close()
+                dir.cleanup()
+
+    def test_problematic(self):
+
+        files = [pkg_resources.resource_filename("Mikado.tests", "Chrysemys_picta_bellii_problematic.gff3")]
+
+        std_lines = []
+        with pkg_resources.resource_stream("Mikado.tests", "Chrysemys_picta_bellii_problematic.txt") as t_stats:
             for line in t_stats:
                 std_lines.append(line.decode().rstrip())
 

@@ -393,7 +393,7 @@ def _parse_prediction_bam(args, queue_logger, transmit_wrapper, constructor):
         done=done,
         lastdone=lastdone,
         __found_with_orf=__found_with_orf)
-    
+
     return done, lastdone
 
 

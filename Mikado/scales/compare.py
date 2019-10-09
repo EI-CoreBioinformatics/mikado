@@ -388,10 +388,12 @@ def _parse_prediction_bam(args, queue_logger, transmit_wrapper, constructor):
                 name = row.query_name
             transcript.id = transcript.name = transcript.alias = name
             transcript.parent = transcript.attributes["gene_id"] = "{0}.gene".format(name)
-    transmit_wrapper(transcript=transcript,
-                     done=done,
-                     lastdone=lastdone,
-                     __found_with_orf=__found_with_orf)
+    done, lastdone, __found_with_orf = transmit_wrapper(
+        transcript=transcript,
+        done=done,
+        lastdone=lastdone,
+        __found_with_orf=__found_with_orf)
+    
     return done, lastdone
 
 
@@ -419,10 +421,10 @@ def _parse_prediction_bed12(args, queue_logger, transmit_wrapper, constructor):
             continue
         transcript.parent = transcript.id
 
-    transmit_wrapper(transcript=transcript,
-                     done=done,
-                     lastdone=lastdone,
-                     __found_with_orf=__found_with_orf)
+    done, lastdone, __found_with_orf = transmit_wrapper(transcript=transcript,
+                                                        done=done,
+                                                        lastdone=lastdone,
+                                                        __found_with_orf=__found_with_orf)
     return done, lastdone
 
 
@@ -548,10 +550,10 @@ def _parse_prediction_gtf(args, queue_logger, transmit_wrapper, constructor):
                 raise TypeError("Unmatched exon: {}".format(row))
         else:
             queue_logger.debug("Skipped row: {}".format(row))
-    transmit_wrapper(transcript=transcript,
-                     done=done,
-                     lastdone=lastdone,
-                     __found_with_orf=__found_with_orf)
+    done, lastdone, __found_with_orf = transmit_wrapper(transcript=transcript,
+                                                        done=done,
+                                                        lastdone=lastdone,
+                                                        __found_with_orf=__found_with_orf)
     return done, lastdone
 
 

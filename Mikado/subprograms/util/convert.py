@@ -65,7 +65,7 @@ def launch(args):
                 continue
             elif line.is_gene is True:
                 current = Gene(line)
-            elif hasattr(line, "feature") and line.feature == "chromosome":
+            elif hasattr(line, "feature") and line.feature in ("chromosome", "region"):
                 continue
             else:
                 if line.parent is None:

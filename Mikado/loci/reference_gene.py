@@ -69,7 +69,7 @@ class Gene:
         if gid is not None:
             self.id = gid
         # Internalize in memory for less memory usage
-        [intern(_) for _ in [self.chrom, self.source, self.id]
+        [intern(str(_)) for _ in [self.chrom, self.source, self.id]
          if _ is not None]
         self.logger = logger
 

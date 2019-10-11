@@ -1830,7 +1830,7 @@ class Transcript:
 
         self.attributes["gene_id"] = self.__parent
         if self.__parent:
-            self.__parent = [intern(_) for _ in self.__parent]
+            self.__parent = [intern(str(_)) for _ in self.__parent]
 
     @property
     def source(self):

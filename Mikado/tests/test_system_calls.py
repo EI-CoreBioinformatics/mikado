@@ -1950,6 +1950,47 @@ class GrepTest(unittest.TestCase):
                 self.assertEqual(len(found), len(others))
                 self.assertEqual(found, set(_[0] for _ in others))
 
+    @mark.slow
+    def test_problem_grep(self):
+        fname = pkg_resources.resource_filename("Mikado.tests", "Chrysemys_picta_bellii_problematic.gff3")
+        flist = pkg_resources.resource_filename("Mikado.tests", "Chrysemys_picta_bellii_problematic.list.txt")
+
+        for flag in ("", "-v"):
+            with self.subTest(flag=flag):
+                form = os.path.splitext(fname)[1]
+                outfile = tempfile.NamedTemporaryFile("wt", suffix=form)
+                outfile.close()
+                self.assertFalse(os.path.exists(outfile.name))
+                if flag:
+                    sys.argv = ["mikado", "util", "grep", flag, flist, fname, outfile.name]
+                else:
+                    sys.argv = ["mikado", "util", "grep", flist, fname, outfile.name]
+                print(*sys.argv)
+                pkg_resources.load_entry_point("Mikado", "console_scripts", "mikado")()
+                self.assertTrue(os.path.exists(outfile.name))
+                found = set()
+
+                others = ["NC_023890.1:1..16875"]
+                if flag != "-v":
+                    for line in pkg_resources.resource_stream("Mikado.tests",
+                                                              "Chrysemys_picta_bellii_problematic.list.txt"):
+                        rec = line.decode().rstrip().split()[0]
+                        print(line, rec)
+                        others.append(rec)
+
+                with to_gff(outfile.name, input_format=form[1:]) as stream:
+                    for record in stream:
+                        if record.feature in ("exon", "CDS"):
+                            continue
+                        if record.is_transcript:
+                            found.add(record.transcript)
+                        elif record.feature in ("pseudogene", "region"):
+                            found.add(record.id)
+
+                self.assertEqual(len(found), len(others))
+                self.assertEqual(found, set(others))
+
+
 
 if __name__ == "__main__":
     unittest.main()

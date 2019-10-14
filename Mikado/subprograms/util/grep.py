@@ -8,6 +8,7 @@ import argparse
 import functools
 from ...parsers import GFF, GTF
 from ...subprograms import to_gff
+import re
 
 
 __author__ = 'Luca Venturini'
@@ -20,6 +21,8 @@ def print_gff_gene(curr_gene, curr_transcripts, args):
     :param args: argparse
     :return: None
     """
+
+    pat = re.compile("gene")
 
     if curr_gene is not None or len(curr_transcripts) > 0:
         starts, ends = [], []
@@ -35,11 +38,17 @@ def print_gff_gene(curr_gene, curr_transcripts, args):
             curr_gene.start = min(starts)
         if ends and curr_gene is not None:
             curr_gene.end = max(ends)
-        if curr_gene:
+
+        if curr_gene and not pat.search(curr_gene.feature) and not lines:
             print(curr_gene, file=args.out)
+            print("###", file=args.out)
+            return
+
         if lines:
+            if curr_gene:
+                print(curr_gene, file=args.out)
             print(*lines, sep="\n", file=args.out)
-        print("###", file=args.out)
+            print("###", file=args.out)
 
 
 def verify_storability(record, mrna_ids, gene_ids, args):

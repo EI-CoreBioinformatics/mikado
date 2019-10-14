@@ -38,7 +38,7 @@ configfile: "configuration.yaml"
 
 rule complete:
     input: "compare.stats", "compare_subloci.stats", "compare_input.stats", "check.ok",
-         "check_metrics.ok", "daijin_test/mikado.yaml", "g11.ok"
+         "check_metrics.ok", "daijin_test/mikado.yaml", "g11.ok", "refmap_check.ok"
     output: touch("finished.ok")
 
 
@@ -113,7 +113,10 @@ rule compare:
     
 rule compare_input:
     input: reference="reference.gff3", prediction=rules.daijin.output.prep, midx=rules.index_reference.output
-    output: "compare_input.stats", "compare_input.tmap", "compare_input.refmap"
+    output:
+        stats="compare_input.stats",
+        tmap="compare_input.tmap",
+        refmap="compare_input.refmap"
     log: "compare_input.log"
     message: """mikado compare -r {input[reference]} -p {input[prediction]} -o compare_input -l {log}"""
     shell: """mikado compare -r {input[reference]} -p {input[prediction]} -o compare_input -l {log}"""
@@ -124,6 +127,18 @@ rule compare_subloci:
     log: "compare_subloci.log"
     message: """mikado compare -r {input[reference]} -p {input[prediction]} -o compare_subloci -l {log}"""
     shell: """mikado compare -r {input[reference]} -p {input[prediction]} -o compare_subloci -l {log}"""
+
+
+rule check_refmap:
+    input:
+        refmap=rules.compare_input.output.refmap
+    output: touch("refmap_check.ok")
+    run:
+        import pandas as pd
+        refmap = pd.read_csv(input["refmap"], delimiter="\t")
+        assert refmap.location.str.contains("^Chr5:", regex=True).all()
+        assert refmap.ccode.str.contains("^(=|_)$", regex=True).all()
+        assert (refmap.tid.str.replace("^at_", "", regex=True) == refmap["ref_id"]).all()
 
 rule check_logs:
     input:
@@ -237,6 +252,7 @@ rule clean:
                                     glob.glob("compare*"), glob.glob(config["db_settings"]["db"]),
                                     glob.glob("*.log"), glob.glob("*xml"), ["chr5.fas"],
 				                    glob.glob("*.ok"),
+                                    "refmap_check.ok",
                                     ["configuration.yaml"]):
             if os.path.exists(filename) and filename not in (".", ".."):
                 shutil.rmtree(filename) if os.path.isdir(filename) else os.remove(filename)

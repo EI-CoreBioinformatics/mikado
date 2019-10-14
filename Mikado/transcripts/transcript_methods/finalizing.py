@@ -5,6 +5,7 @@ e.g. reliability of the CDS/UTR, sanity of borders, etc.
 
 from Mikado.utilities.intervaltree import Interval, IntervalTree
 from Mikado.utilities.overlap import overlap
+from collections import defaultdict
 import operator
 # from sys import intern
 from Mikado.exceptions import InvalidCDS, InvalidTranscript
@@ -137,66 +138,66 @@ def _check_cdna_vs_utr(transcript):
         orfs = [IntervalTree.from_tuples([_[1] for _ in orf if _[0] == "CDS"]) for orf in transcript.internal_orfs]
         assert isinstance(combined_cds, IntervalTree)
 
+        exons = IntervalTree.from_intervals([Interval(*exon) for exon in transcript.exons])
+
+        mapper = defaultdict(list)
+        for cds in transcript.combined_cds:
+            fexon = exons.find(cds[0] - 1, cds[1], strict=False)
+            if len(fexon) > 1:
+                raise InvalidCDS(
+                    "{} has a CDS ({}) which straddles {} different exons ({}).".format(
+                        transcript.id, cds, len(fexon), fexon
+                    )
+                )
+            elif len(fexon) == 0:
+                raise InvalidCDS(
+                    "{} has a CDS ({}) which is not mapped to any exon.".format(
+                        transcript.id, cds, len(fexon), fexon
+                    )
+                )
+            mapper[fexon[0]].append(cds)
+
         for exon in transcript.exons:
-            assert isinstance(exon, tuple), type(exon)
-            found = combined_cds.find(exon[0], exon[1])
-            if len(found) == 0 and exon not in transcript.combined_cds:  # Second condition due to BUG
-                # Exon completely noncoding
+            if exon not in mapper:
                 transcript.combined_utr.append(exon)
-            elif len(found) == 0:
-                # Bug, see above
                 continue
-            elif len(found) == 1:
-                found = found[0]
-                if found.start == exon[0] and found.end == exon[1]:
-                    # The exon is completely coding
+            elif len(mapper[exon]) == 1:
+                cds = mapper[exon][0]
+                if cds[0] == exon[0] and exon[1] == cds[1]:
                     continue
                 else:
-                    # I have to find all the regions of the exon which are not coding
                     before = None
                     after = None
-                    if found.start > exon[0]:
-                        before = (exon[0], max(found.start - 1, exon[0]))
-                        transcript.combined_utr.append(before)
-                    if found.end < exon[1]:
-                        after = (min(found.end + 1, exon[1]), exon[1])
-                        transcript.combined_utr.append(after)
-                    assert before or after, (exon, found)
-            else:
-                # The exon is overlapping *two* different CDS segments! This is valid *only* if there are multiple ORFs
-                if len(found) > len(transcript.internal_orfs):
-                    raise InvalidCDS(
-                        "Found in {} an exon ({}) which is overlapping with more CDS segments than there are ORFs.".format(
-                            transcript.id, exon
-                        ))
-                # Now we have to check for each internal ORF that things are OK
-                for orf in orfs:
-                    orf_found = orf.find(exon[0], exon[1])
-                    if len(orf_found) > 1:
+                    if cds[0] < exon[0] or cds[1] > exon[1]:
                         raise InvalidCDS(
-                            "Found in {} an exon ({}) which is overlapping with more CDS segments in a single ORF.".format(
-                                transcript.id, exon
-                            ))
-                # If we are here, it means that the internal UTR is legit. We should now add the untranslated regions
-                # to the store.
+                            "{} in {} debords its exon {}".format(cds, transcript.id, exon)
+                        )
+                    if cds[0] > exon[0]:
+                        before = (exon[0], max(cds[0] - 1, exon[0]))
+                        transcript.combined_utr.append(before)
+                    if cds[1] < exon[1]:
+                        after = (min(cds[1] + 1, exon[1]), exon[1])
+                        transcript.combined_utr.append(after)
+                    assert before or after, (exon, cds)
+            else:
                 transcript.logger.debug("Starting to find the UTRs for %s", exon)
-                found = sorted(found)
+                found = sorted(mapper[exon])
                 utrs = []
                 for pos, interval in enumerate(found):
                     if pos == len(found) - 1:
-                        if exon[1] > interval.end:
-                            utrs.append((min(exon[1], interval.end + 1), exon[1]))
+                        if exon[1] > interval[1]:
+                            utrs.append((min(exon[1], interval[1] + 1), exon[1]))
                         continue
-                    if pos == 0 and exon[0] < interval.start:
-                        utrs.append((exon[0], max(exon[0], interval.start - 1)))
+                    if pos == 0 and exon[0] < interval[0]:
+                        utrs.append((exon[0], max(exon[0], interval[0] - 1)))
                     next_interval = found[pos + 1]
-                    if not (interval.end + 1 <= next_interval.start - 1):
+                    if not (interval[1] + 1 <= next_interval[0] - 1):
                         raise InvalidCDS(
                             "Error while inferring the UTR for a transcript with multiple ORFs: overlapping CDS found.")
-                    utrs.append((interval.end + 1, next_interval.start - 1))
+                    utrs.append((interval[1] + 1, next_interval[0] - 1))
                 assert utrs, found
                 utr_sum = sum([_[1] - _[0] + 1 for _ in utrs])
-                cds_sum = sum(_.end - _.start + 1 for _ in found)
+                cds_sum = sum(_[1] - _[0] + 1 for _ in found)
                 assert utr_sum + cds_sum == exon[1] - exon[0] + 1, (utr_sum, cds_sum,
                                                                     exon[1] - exon[0] + 1, utrs, found)
                 transcript.combined_utr.extend(utrs)
@@ -259,11 +260,13 @@ def __calculate_introns(transcript):
         # Start calculating the selected CDS introns
         for first, second in zip(transcript.selected_cds[:-1],
                                  transcript.selected_cds[1:]):
-            assert first != second, transcript.selected_cds
+            assert first != second, (transcript.id, transcript.selected_cds)
             # assert first[1] < second[0], (first, second)
             first, second = sorted([first, second])
             intron = tuple([first[1] + 1, second[0] - 1])
-            assert intron in transcript.introns, (intron, first, second)
+            if intron not in transcript.introns:
+                continue
+            # assert intron in transcript.introns, (transcript.id, intron, first, second)
             cds_introns.append(intron)
 
         cintrons = set(cds_introns)

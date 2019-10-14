@@ -63,11 +63,6 @@ Chr1    TAIR10    exon    5928    8737    .    .    .    Parent=AT1G01020.1"""
         self.assertFalse(self.orf.invalid, self.orf.invalid_reason)
         self.assertEqual((self.orf.thick_end - self.orf.thick_start + 1) % 3, 0)
 
-    def test_invalid_inizialization(self):
-
-        with self.assertRaises(TypeError):
-            _ =  loci.Transcript(self.tr_gff_lines[1])
-
     def test_basics(self):
 
         self.assertEqual(self.tr.chrom, "Chr1")

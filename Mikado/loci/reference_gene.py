@@ -11,6 +11,7 @@ import logging
 import operator
 from sys import intern
 from ..transcripts.transcript import Transcript
+from ..transcripts.transcriptcomputer import TranscriptComputer
 from ..exceptions import InvalidTranscript, InvalidCDS
 from ..parsers.GFF import GffLine
 from ..parsers.GTF import GtfLine
@@ -27,10 +28,12 @@ class Gene:
 
     __name__ = "gene"
 
-    def __init__(self, transcr: [None, Transcript], gid=None, logger=None, only_coding=False, from_exon=False):
+    def __init__(self, transcr: [None, Transcript], gid=None, logger=create_null_logger(),
+                 only_coding=False, use_computer=False):
 
         self.transcripts = dict()
         self.__logger = None
+        self.logger = logger
         self.__introns = None
         self.exception_message = ''
         self.chrom, self.source, self.start, self.end, self.strand = [None] * 5
@@ -40,23 +43,54 @@ class Gene:
         self.attributes = dict()
         self.feature = "gene"
         self.__from_gene = False
+        self.__use_computer = use_computer
 
         if transcr is not None:
             if isinstance(transcr, Transcript):
+                if isinstance(transcr, TranscriptComputer):
+                    self.__use_computer = True
+                else:
+                    self.__use_computer = False
+
                 self.transcripts[transcr.id] = transcr
-                self.id = transcr.parent[0]
+                if transcr.parent:
+                    self.id = transcr.parent[0]
+                else:
+                    self.logger.warning("No gene ID found for %s, creating a mock one.", transcr.id)
+                    transcr.parent = f"{transcr.id}.gene"
+                    self.id = transcr.parent[0]
                 self.transcripts[transcr.id] = transcr
             elif isinstance(transcr, GffLine):
                 if transcr.is_gene is True:
                     self.__from_gene = True
-                elif (from_exon is False) and ("match" not in transcr.feature):
-                    raise AssertionError(str(transcr))
-                elif from_exon is True:
+                    self.id = transcr.id
+                    self.attributes = transcr.attributes.copy()
+                    self.feature = transcr.feature
+                elif transcr.is_exon is True:
                     self.__from_gene = False
-
-                self.id = transcr.id
-                self.attributes = transcr.attributes.copy()
-                self.feature = transcr.feature
+                    if transcr.parent:
+                        self.id = transcr.parent[0]
+                    else:
+                        self.id = transcr.id
+                    self.attributes = transcr.attributes.copy()
+                    self.feature = "gene"
+                    if self._use_computer is True:
+                        ntranscr = TranscriptComputer(transcr,
+                                                      trust_orf=True,
+                                                      logger=self.logger,
+                                                      accept_undefined_multi=True,
+                                                      source=transcr.source,
+                                                      is_reference=True)
+                    else:
+                        ntranscr = Transcript(transcr,
+                                              trust_orf=True,
+                                              logger=self.logger,
+                                              accept_undefined_multi=True,
+                                              source=transcr.source,
+                                              is_reference=True)
+                    ntranscr.add_exon(transcr)
+                    self.add(ntranscr)
+                    self.logger.debug("New transcript for %s: %s", self.id, ntranscr.id)
             elif isinstance(transcr, GtfLine):
                 self.id = transcr.gene
 
@@ -65,13 +99,11 @@ class Gene:
                                                                           transcr.start,
                                                                           transcr.end,
                                                                           transcr.strand)
-
         if gid is not None:
             self.id = gid
         # Internalize in memory for less memory usage
         [intern(str(_)) for _ in [self.chrom, self.source, self.id]
          if _ is not None]
-        self.logger = logger
 
     def __contains__(self, item):
 
@@ -137,8 +169,8 @@ class Gene:
             elif transcr.strand is None:
                 transcr.strand = self.strand
             else:
-                raise AssertionError("Discrepant strands for gene {0} and transcript {1}".format(
-                    self.id, transcr.id
+                raise AssertionError("Discrepant strands for gene {0} ({2}) and transcript {1} ({3})".format(
+                    self.id, transcr.id, self.strand, transcr.strand
                 ))
 
         transcr.logger = self.logger
@@ -170,7 +202,29 @@ class Gene:
                         self.transcripts[tid].add_exon(row)
                     break
             if not found:
-                raise AssertionError("{}\n{}".format(parent, self.transcripts, row))
+                if self._use_computer is True:
+                    self.transcripts[parent] = TranscriptComputer(row,
+                                                                  trust_orf=True,
+                                                                  logger=self.logger,
+                                                                  accept_undefined_multi=True,
+                                                                  source=row.source,
+                                                                  is_reference=True,
+                                                                  )
+                else:
+                    self.transcripts[parent] = Transcript(row,
+                                                          trust_orf=True,
+                                                          logger=self.logger,
+                                                          accept_undefined_multi=True,
+                                                          source=row.source,
+                                                          is_reference=True,
+                                                          )
+                self.transcripts[parent].parent = self.id
+
+        if row.id in self.transcripts:
+            found_tids.add(row.id)
+            self.transcripts[row.id].add_exon(row)
+
+        self.logger.debug("Found transcripts: %s", found_tids)
 
     def __getitem__(self, tid: str) -> Transcript:
         return self.transcripts[tid]
@@ -200,7 +254,6 @@ class Gene:
                 self.exception_message += "{0}\n".format(err)
                 to_remove.add(tid)
             except Exception as _:
-                # print(err)
                 raise
         for k in to_remove:
             del self.transcripts[k]
@@ -241,6 +294,7 @@ class Gene:
         for key in ["chrom", "source", "start", "end", "strand", "id"]:
             state[key] = getattr(self, key)
 
+        state["use_computer"] = self._use_computer
         state["transcripts"] = dict.fromkeys(self.transcripts.keys())
 
         for tid in state["transcripts"]:
@@ -259,8 +313,12 @@ class Gene:
         for key in ["chrom", "source", "start", "end", "strand", "id"]:
             setattr(self, key, state[key])
 
+        self.__use_computer = state["use_computer"]
         for tid, tvalues in state["transcripts"].items():
-            transcript = Transcript(logger=self.logger)
+            if self._use_computer is True:
+                transcript = TranscriptComputer(logger=self.logger)
+            else:
+                transcript = Transcript(logger=self.logger)
             transcript.load_dict(tvalues, trust_orf=trust_orf)
             transcript.finalize()
             if protein_coding is True and transcript.is_coding is False:
@@ -454,3 +512,7 @@ class Gene:
         Property. It evaluates to True if at least one transcript is coding, False otherwise.
         """
         return any(self.transcripts[tid].selected_cds_length > 0 for tid in self.transcripts.keys())
+
+    @property
+    def _use_computer(self):
+        return self.__use_computer

@@ -20,6 +20,7 @@ from .resultstorer import ResultStorer
 from ..exceptions import CorruptIndex
 from ..loci.reference_gene import Gene
 from ..parsers.GFF import GFF3
+from ..parsers.GTF import GTF
 from ..parsers.bed12 import Bed12Parser
 from ..parsers.bam_parser import BamParser
 from ..parsers import to_gff
@@ -179,7 +180,9 @@ def prepare_reference(reference, queue_logger, ref_gff=False,
             if gid not in genes:
                 genes[gid] = Gene(transcript, gid=gid, logger=queue_logger)
             genes[gid].add(transcript)
-
+        elif row.is_gene is True:
+            gid = row.id
+            genes[gid] = Gene(row, gid=gid, logger=queue_logger)
         elif row.is_transcript is True or (ref_gff is True and row.feature == "match"):
             queue_logger.debug("Transcript\n%s", str(row))
             transcript = Transcript(row, logger=queue_logger, trust_orf=True, accept_undefined_multi=True)
@@ -188,7 +191,13 @@ def prepare_reference(reference, queue_logger, ref_gff=False,
             else:
                 gid = row.gene
 
+            if gid is None:
+                queue_logger.warning("No gene ID found for %s, creating a mock one.", row.id)
+                row.parent = f"{row.id}.gene"
+                gid = row.parent[0]
+
             transcript2gene[row.id] = gid
+            assert gid is not None
             if gid not in genes:
                 genes[gid] = Gene(transcript, gid=gid, logger=queue_logger)
             genes[gid].add(transcript)
@@ -212,6 +221,11 @@ def prepare_reference(reference, queue_logger, ref_gff=False,
                         found = True
                         gid = transcript2gene[transcript]
                         genes[gid][transcript].add_exon(row)
+                if found is False:
+                    for transcript in row.transcript:
+                        if transcript in genes:  # for pseudogenes and the like
+                            found = True
+                            genes[transcript].add_exon(row)
                 if found is False:
                     queue_logger.warn("This feature has no corresponding transcript! %s",
                                       str(row))
@@ -298,9 +312,9 @@ class FinalAssigner(mp.Process):
 
 def transmit_transcript(index, transcript: Transcript, connection: sqlite3.Connection):
     transcript.finalize()
+    d = transcript.as_dict(remove_attributes=False)
     connection.execute("INSERT INTO dump VALUES (?, ?)",
-                       (index, json.dumps(transcript.as_dict(remove_attributes=True),
-                                          number_mode=json.NM_NATIVE)))
+                       (index, json.dumps(d)))
 
 
 def get_best_result(_, transcript, assigner_instance: Assigner):
@@ -309,6 +323,238 @@ def get_best_result(_, transcript, assigner_instance: Assigner):
 
 
 orf_pattern = re.compile(r"\.orf[0-9]+$", re.IGNORECASE)
+
+
+def _transmit_transcript(transcript, done, lastdone, assigner_instance, transmitter, queue_logger,
+                         queue, dump_db, __found_with_orf):
+
+    if transcript is not None:
+        if orf_pattern.search(transcript.id):
+            __name = orf_pattern.sub("", transcript.id)
+            if __name not in __found_with_orf:
+                __found_with_orf.add(__name)
+                done += 1
+                if done and done % 10000 == 0:
+                    queue_logger.info("Parsed %s transcripts", done)
+                    if assigner_instance is None:
+                        dump_db.commit()
+                        [queue.put(_) for _ in range(lastdone, done)]
+                    lastdone = done
+                transmitter(done, transcript)
+            else:
+                pass
+        else:
+            done += 1
+            if done and done % 10000 == 0:
+                queue_logger.info("Parsed %s transcripts", done)
+                if assigner_instance is None:
+                    dump_db.commit()
+                    [queue.put(_) for _ in range(lastdone, done)]
+                lastdone = done
+            try:
+                transmitter(done, transcript)
+            except AssertionError:
+                raise AssertionError((transcript.id, ))
+
+    return done, lastdone, __found_with_orf
+
+
+def _parse_prediction_bam(args, queue_logger, transmit_wrapper, constructor):
+
+    transcript = None
+    done = 0
+    lastdone = 1
+    __found_with_orf = set()
+    name_counter = collections.Counter()  # This is needed for BAMs
+    invalids = set()
+    if args.prediction.__annot_type__ == BamParser.__annot_type__:
+        for row in args.prediction:
+            if row.is_unmapped is True:
+                continue
+            done, lastdone, __found_with_orf = transmit_wrapper(transcript=transcript,
+                                                                done=done,
+                                                                lastdone=lastdone,
+                                                                __found_with_orf=__found_with_orf)
+            try:
+                transcript = constructor(row, accept_undefined_multi=True, trust_orf=True)
+            except (InvalidTranscript, AssertionError, TypeError, ValueError):
+                queue_logger.warning("Row %s is invalid, skipping.", row)
+                transcript = None
+                invalids.add(row.id)
+                continue
+            if name_counter.get(row.query_name):
+                name = "{}_{}".format(row.query_name, name_counter.get(row.query_name))
+            else:
+                name = row.query_name
+            transcript.id = transcript.name = transcript.alias = name
+            transcript.parent = transcript.attributes["gene_id"] = "{0}.gene".format(name)
+    done, lastdone, __found_with_orf = transmit_wrapper(
+        transcript=transcript,
+        done=done,
+        lastdone=lastdone,
+        __found_with_orf=__found_with_orf)
+
+    return done, lastdone
+
+
+def _parse_prediction_bed12(args, queue_logger, transmit_wrapper, constructor):
+    """"""
+
+    transcript = None
+    done = 0
+    lastdone = 1
+    invalids = set()
+    __found_with_orf = set()
+    for row in args.prediction:
+        if row.header is True:
+            continue
+        done, lastdone, __found_with_orf = transmit_wrapper(transcript=transcript,
+                                                            done=done,
+                                                            lastdone=lastdone,
+                                                            __found_with_orf=__found_with_orf)
+        try:
+            transcript = constructor(row)
+        except (InvalidTranscript, AssertionError, TypeError, ValueError):
+            queue_logger.warning("Row %s is invalid, skipping.", row)
+            transcript = None
+            invalids.add(row.id)
+            continue
+        transcript.parent = transcript.id
+
+    done, lastdone, __found_with_orf = transmit_wrapper(transcript=transcript,
+                                                        done=done,
+                                                        lastdone=lastdone,
+                                                        __found_with_orf=__found_with_orf)
+    return done, lastdone
+
+
+def _parse_prediction_gff3(args, queue_logger, transmit_wrapper, constructor):
+    """Method to parse GFF files. This will use the Gene, rather than Transcript, class."""
+
+    gene = None
+    done = 0
+    lastdone = 1
+    invalids = set()
+    __found_with_orf = set()
+
+    gconstructor = functools.partial(Gene,
+                                     only_coding=args.protein_coding,
+                                     logger=queue_logger,
+                                     use_computer=False)
+    for row in args.prediction:
+        if row.header is True:
+            queue_logger.debug("Skipping row %s", row)
+            continue
+        elif row.is_gene is True:
+            if gene is not None:
+                gene.finalize(exclude_utr=args.exclude_utr)
+                for transcript in gene:
+                    transcript.finalize()
+                    done, lastdone, __found_with_orf = transmit_wrapper(transcript=transcript,
+                        done=done, lastdone=lastdone, __found_with_orf=__found_with_orf)
+            gene = gconstructor(row)
+            queue_logger.debug("Creating gene %s", gene.id)
+        elif row.is_transcript is True or row.feature == "match":
+            queue_logger.debug("Analysing %s", row)
+            transcript = constructor(row)
+            if gene is None or gene.id not in transcript.parent:  # Orphan transcript
+                queue_logger.warning("%s is an orphan transcript (Parent: %s, GeneID: %s)",
+                                     transcript.id, ",".join(transcript.parent), None if gene is None else gene.id)
+                if gene is not None:
+                    gene.finalize(exclude_utr=args.exclude_utr)
+                    queue_logger.debug("Sending transcripts of %s", gene.id)
+                    for gtranscript in gene:
+                        done, lastdone, __found_with_orf = transmit_wrapper(transcript=gtranscript,
+                                                                            done=done, lastdone=lastdone,
+                                                                            __found_with_orf=__found_with_orf)
+                gene = gconstructor(transcript)
+                queue_logger.debug("Creating gene %s", gene.id)
+            else:
+                gene.add(transcript)
+        elif row.is_exon is True:
+            if any(_ in invalids for _ in row.parent):
+                # Skip children of invalid things
+                continue
+            if gene is None:
+                gene = gconstructor(row)
+            elif any(parent in gene.transcripts for parent in row.parent):
+                gene.add_exon(row)
+                assert gene.transcripts
+            elif any(parent == gene.id for parent in row.parent) or gene.id == row.id:
+                gene.add_exon(row)
+                assert gene.transcripts
+            else:
+                queue_logger.debug("Creating gene from %s", row.id)
+                if gene is not None:
+                    gene.finalize(exclude_utr=args.exclude_utr)
+                    assert gene.transcripts, (gene.id, str(row))
+                    for gtranscript in gene:
+                        queue_logger.debug("Sending %s", gtranscript.id)
+                        done, lastdone, __found_with_orf = transmit_wrapper(transcript=gtranscript,
+                                                                            done=done, lastdone=lastdone,
+                                                                            __found_with_orf=__found_with_orf)
+                gene = gconstructor(row)
+        else:
+            queue_logger.warning("Skipped row: {}".format(row))
+
+    if gene is not None:
+        gene.finalize(exclude_utr=args.exclude_utr)
+        for transcript in gene:
+            transcript.finalize()
+            done, lastdone, __found_with_orf = transmit_wrapper(transcript=transcript,
+                                                                done=done, lastdone=lastdone,
+                                                                __found_with_orf=__found_with_orf)
+    return done, lastdone
+
+
+def _parse_prediction_gtf(args, queue_logger, transmit_wrapper, constructor):
+    """Method to parse GTF files."""
+    invalids = set()
+    done = 0
+    lastdone = 1
+    transcript = None
+    __found_with_orf = set()
+
+    for row in args.prediction:
+        if row.header is True:
+            continue
+        if row.is_transcript is True:
+            if transcript is not None:
+                done, lastdone, __found_with_orf = transmit_wrapper(transcript=transcript,
+                                                                    __found_with_orf=__found_with_orf,
+                                                                    done=done,
+                                                                    lastdone=lastdone)
+            try:
+                transcript = constructor(row)
+            except (InvalidTranscript, AssertionError, TypeError, ValueError):
+                queue_logger.warning("Row %s is invalid, skipping.", row)
+                transcript = None
+                invalids.add(row.id)
+                continue
+        elif row.is_exon is True:
+            # Case 1: we are talking about cDNA_match and GFF
+            if any(_ in invalids for _ in row.parent):
+                # Skip children of invalid things
+                continue
+            elif transcript is None or (transcript is not None and transcript.id != row.transcript):
+                done, lastdone, __found_with_orf = transmit_wrapper(transcript=transcript,
+                                                                    __found_with_orf=__found_with_orf,
+                                                                    done=done,
+                                                                    lastdone=lastdone)
+                queue_logger.debug("New transcript: %s", row.transcript)
+                transcript = constructor(row)
+                transcript.add_exon(row)
+            elif transcript.id == row.transcript:
+                transcript.add_exon(row)
+            else:
+                raise TypeError("Unmatched exon: {}".format(row))
+        else:
+            queue_logger.debug("Skipped row: {}".format(row))
+    done, lastdone, __found_with_orf = transmit_wrapper(transcript=transcript,
+                                                        done=done,
+                                                        lastdone=lastdone,
+                                                        __found_with_orf=__found_with_orf)
+    return done, lastdone
 
 
 def parse_prediction(args, index, queue_logger):
@@ -329,9 +575,7 @@ def parse_prediction(args, index, queue_logger):
     transcript = None
     if hasattr(args, "self") and args.self is True:
         args.prediction = to_gff(args.reference.name)
-    ref_gff = isinstance(args.prediction, GFF3)
     __found_with_orf = set()
-    is_bed12 = isinstance(args.prediction, Bed12Parser)
     queue = mp.JoinableQueue(-1)
     returnqueue = mp.JoinableQueue(-1)
     dump_dbhandle = tempfile.NamedTemporaryFile(delete=True, prefix=".compare_dump", suffix=".db", dir=".")
@@ -354,151 +598,28 @@ def parse_prediction(args, index, queue_logger):
         assigner_instance = Assigner(index, args, printout_tmap=True, )
         transmitter = functools.partial(get_best_result, assigner_instance=assigner_instance)
 
+    transmit_wrapper = functools.partial(_transmit_transcript,
+                                         transmitter=transmitter,
+                                         queue_logger=queue_logger,
+                                         queue=queue,
+                                         assigner_instance=assigner_instance,
+                                         dump_db=dump_db)
+
     constructor = functools.partial(Transcript,
                                     logger=queue_logger, trust_orf=True, accept_undefined_multi=True)
 
-    done = 0
-    invalids = set()
-    name_counter = collections.Counter()  # This is needed for BAMs
+    if args.prediction.__annot_type__ == BamParser.__annot_type__:
+        annotator = _parse_prediction_bam
+    elif args.prediction.__annot_type__ == Bed12Parser.__annot_type__:
+        annotator = _parse_prediction_bed12
+    elif args.prediction.__annot_type__ == GFF3.__annot_type__:
+        annotator = _parse_prediction_gff3
+    elif args.prediction.__annot_type__ == GTF.__annot_type__:
+        annotator = _parse_prediction_gtf
+    else:
+        raise ValueError("Unsupported input file format")
 
-    lastdone = 1
-
-    for row in args.prediction:
-        if args.prediction.__annot_type__ == BamParser.__annot_type__:
-            if row.is_unmapped is True:
-                continue
-            if transcript is not None:
-                done += 1
-                if done and done % 10000 == 0:
-                    queue_logger.info("Parsed %s transcripts", done)
-                    if assigner_instance is None:
-                        dump_db.commit()
-                        [queue.put(_) for _ in range(lastdone, done)]
-                    lastdone = done
-
-                transmitter(done, transcript)
-            transcript = Transcript(row, accept_undefined_multi=True)
-            if name_counter.get(row.query_name):
-                name = "{}_{}".format(row.query_name, name_counter.get(row.query_name))
-            else:
-                name = row.query_name
-            transcript.id = transcript.name = transcript.alias = name
-            transcript.parent = transcript.attributes["gene_id"] = "{0}.gene".format(name)
-        elif row.header is True:
-            continue
-        elif (row.is_transcript is True or
-              args.prediction.__annot_type__ == Bed12Parser.__annot_type__ or
-              row.feature == "match"):
-            queue_logger.debug("Transcript row:\n%s", str(row))
-            if transcript is not None:
-                if orf_pattern.search(transcript.id):
-                    __name = orf_pattern.sub("", transcript.id)
-                    if __name not in __found_with_orf:
-                        __found_with_orf.add(__name)
-                        done += 1
-                        if done and done % 10000 == 0:
-                            queue_logger.info("Parsed %s transcripts", done)
-                            if assigner_instance is None:
-                                dump_db.commit()
-                                [queue.put(_) for _ in range(lastdone, done)]
-                            lastdone = done
-                        transmitter(done, transcript)
-                    else:
-                        pass
-                else:
-                    done += 1
-                    if done and done % 10000 == 0:
-                        queue_logger.info("Parsed %s transcripts", done)
-                        if assigner_instance is None:
-                            dump_db.commit()
-                            [queue.put(_) for _ in range(lastdone, done)]
-                        lastdone = done
-                    try:
-                        transmitter(done, transcript)
-                    except AssertionError:
-                        raise AssertionError((transcript.id, str(row)))
-            try:
-                transcript = constructor(row)
-            except (InvalidTranscript, AssertionError, TypeError, ValueError):
-                queue_logger.warning("Row %s is invalid, skipping.", row)
-                transcript = None
-                invalids.add(row.id)
-                continue
-
-            if is_bed12:
-                transcript.parent = transcript.id
-
-        elif row.is_exon is True:
-            # Case 1: we are talking about cDNA_match and GFF
-            if any(_ in invalids for _ in row.parent):
-                # Skip children of invalid things
-                continue
-            if ref_gff is True and "match" not in row.feature:
-                if transcript is None:
-                    raise TypeError("Transcript not defined inside the GFF; line:\n{}".format(row))
-                else:
-                    queue_logger.debug("Adding exon to transcript %s: %s", transcript.id, row)
-                    transcript.add_exon(row)
-            elif ref_gff is True and "match" in row.feature:
-                if transcript is not None and row.id == transcript.id:
-                    transcript.add_exon(row)
-                elif transcript is not None and transcript.id in row.parent:
-                    transcript.add_exon(row)
-                elif transcript is None or (transcript is not None and row.id != transcript.id):
-                    if transcript is not None:
-                        if orf_pattern.search(transcript.id) and \
-                                (not transcript.id.endswith("orf1")):
-                            pass
-                        else:
-                            done += 1
-                            if done and done % 10000 == 0:
-                                queue_logger.info("Done %s transcripts", done)
-                                if assigner_instance is None:
-                                    dump_db.commit()
-                                    [queue.put(_) for _ in range(lastdone, done)]
-                                lastdone = done
-
-                            transmitter(done, transcript)
-                    queue_logger.debug("New transcript: %s", row.transcript)
-                    transcript = constructor(row)
-                assert len(transcript.exons) > 0, (row,)
-            elif ref_gff is False:
-                if transcript is None or (transcript is not None and transcript.id != row.transcript):
-                    if transcript is not None:
-                        if orf_pattern.search(transcript.id) and \
-                                (not transcript.id.endswith("orf1")):
-                            pass
-                        else:
-                            done += 1
-                            if done and done % 10000 == 0:
-                                queue_logger.info("Done %s transcripts", done)
-                                if assigner_instance is None:
-                                    dump_db.commit()
-                                    [queue.put(_) for _ in range(lastdone, done)]
-                                lastdone = done
-                            transmitter(done, transcript)
-                    queue_logger.debug("New transcript: %s", row.transcript)
-                    transcript = constructor(row)
-                transcript.add_exon(row)
-            else:
-                raise TypeError("Unmatched exon: {}".format(row))
-
-        elif row.header:
-            continue
-        else:
-            queue_logger.debug("Skipped row: {}".format(row))
-
-    if transcript is not None:
-        if orf_pattern.search(transcript.id) and not transcript.id.endswith("orf1"):
-            pass
-        else:
-            done += 1
-            if done and done % 10000 == 0:
-                queue_logger.info("Done %s transcripts", done)
-                if assigner_instance is None:
-                    [queue.put(_) for _ in range(lastdone, done)]
-                lastdone = done
-            transmitter(done, transcript)
+    done, lastdone = annotator(args, queue_logger, transmit_wrapper, constructor)
 
     if assigner_instance is None:
         dump_db.commit()

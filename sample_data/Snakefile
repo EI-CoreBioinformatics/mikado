@@ -94,7 +94,8 @@ rule daijin:
         stats=os.path.join("Daijin", "5-mikado", "pick", "comparison.stats"),
         marker=os.path.join("Daijin", "5-mikado", "all.done")
     message: "daijin mikado --use-conda --jobs 2 --cores 4 --threads 2 -nd --nolock configuration.yaml"
-    shell: "daijin mikado --use-conda --jobs 2 --cores 4 --threads 2 -nd --nolock configuration.yaml"
+    # shell: "daijin mikado --use-conda --jobs 2 --cores 4 --threads 2 -nd --nolock configuration.yaml"
+    shell: "daijin mikado --jobs 2 --use-conda --cores 4 --threads 2 -nd --nolock configuration.yaml"
 
 rule index_reference:
     input: reference="reference.gff3"

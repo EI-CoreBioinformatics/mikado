@@ -124,6 +124,9 @@ def check_run_options(args, logger=create_null_logger()):
     if args.intron_range is not None:
         args.json_conf["pick"]["run_options"]["intron_range"] = tuple(sorted(args.intron_range))
 
+    if args.max_intron_length is not None:
+        args.json_conf["prepare"]["max_intron_length"] = args.max_intron_length
+
     if args.cds_only is True:
         args.json_conf["pick"]["clustering"]["cds_only"] = True
 
@@ -256,6 +259,9 @@ Transcripts with intron lengths outside of this range will be penalised. Default
     parser.add_argument("--flank", default=None, type=int,
                         help="""Flanking distance (in bps) to group non-overlapping transcripts into a single \
 superlocus. Default: determined by the configuration file.""")
+    parser.add_argument("--max-intron-length", default=None, type=int,
+                        help="""Maximum intron length for a transcript. Default: inferred from the configuration \
+file (default value there is 1,000,000 bps).""")
     parser.add_argument('--no-purge', action='store_true', default=False,
                         help='''Flag. If set, the pipeline will NOT suppress any loci \
 whose transcripts do not pass the requirements set in the JSON file.''')

@@ -428,8 +428,8 @@ def serialise_parser():
                       help=""""Amount of sequence in the ORF (in %%) to backtrack
                       in order to find a valid START codon, if one is absent. Default: %(default)s""")
     orfs.add_argument("--codon-table", dest="codon_table", default=None,
-                      help="""Codon table to use. Default: 0 (ie Standard, NCBI #1, but only ATG is considered
-                      a valid stop codon.""")
+                      help="""Codon table to use. Default: 0 (ie Standard, NCBI #1, but only ATG is considered \
+a valid start codon.""")
     orfs.add_argument("-nsa", "--no-start-adjustment", default=True,
                       action="store_false",
                       dest="start_adjustment",

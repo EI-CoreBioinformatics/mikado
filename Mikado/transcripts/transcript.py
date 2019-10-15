@@ -537,8 +537,6 @@ class Transcript:
         if transcript_row.is_transcript is False:
             if transcript_row.is_exon is False and transcript_row.feature not in ("match", "tss", "tts"):
                 raise TypeError("Invalid GF line")
-            elif transcript_row.is_exon is True and isinstance(transcript_row, GffLine) and transcript_row.feature not in ("cDNA_match", "match"):
-                raise TypeError("GFF files should not provide orphan exons. Line:\n{}".format(transcript_row))
             self.__expandable = True
 
             if "cDNA_match" in transcript_row.feature and isinstance(transcript_row, GffLine):
@@ -562,6 +560,8 @@ class Transcript:
                 #         self.start = transcript_row.end
                 #     else:
                 #         self.start = transcript_row.start
+            elif transcript_row.is_exon is True and isinstance(transcript_row, GffLine) and transcript_row.feature not in ("cDNA_match", "match"):
+                self.id = transcript_row.parent[0]
             else:
                 self.parent = transcript_row.gene
                 self.id = transcript_row.transcript
@@ -1322,6 +1322,10 @@ class Transcript:
 
         state = dict()
         self.finalize()
+        mmetrics = self.get_modifiable_metrics()
+        if not mmetrics:
+            raise ValueError((self.id, mmetrics))
+
         state["external"] = dict((key, value) for key, value in self.external_scores.items())
         for key in ["chrom", "source", "start", "end", "strand", "score", "attributes"]:
 
@@ -1329,12 +1333,6 @@ class Transcript:
             if key == "attributes" and remove_attributes is True:
                 for subkey in [_ for _ in state[key] if _ not in ("ID", "Parent", "Name")]:
                     del state[key][subkey]
-            # elif key == "attributes":
-            #     for subkey in [_ for _ in state[key] if _ not in ("ID", "Parent", "Name")]:
-            #         if state[key][subkey] == float("inf"):
-            #             state[key][subkey] = maxsize
-            #         elif state[key][subkey] == float("-inf"):
-            #             state[key][subkey] = -maxsize
 
         state["exons"] = []
         for exon in self.exons:
@@ -1363,7 +1361,8 @@ class Transcript:
         state["combined_cds"] = list(self.combined_cds)
         # Now let'add the things that we calculate with the basic lengths
         state["calculated"] = self.__get_calculated_stats()
-        for metric in self.get_modifiable_metrics():
+
+        for metric in mmetrics:
             state[metric] = getattr(self, metric)
 
         return state
@@ -1440,7 +1439,10 @@ class Transcript:
         del state["calculated"]
         self.__load_calculated_stats(calculated)
         for metric in self.get_modifiable_metrics():
-            setattr(self, metric, state[metric])
+            try:
+                setattr(self, metric, state[metric])
+            except KeyError:
+                raise KeyError((self.id, metric))
         self.finalized = state["finalized"]
         if self.finalized:
             self.combined_utr = sorted([tuple(combi) for combi in state["combined_utr"]])
@@ -1643,9 +1645,18 @@ class Transcript:
     @functools.lru_cache(maxsize=None, typed=True)
     def get_modifiable_metrics(cls) -> list:
 
-        metrics = [member[0] for member in inspect.getmembers(cls) if
-                   "__" not in member[0] and isinstance(cls.__dict__[member[0]], Metric)
-                   and getattr(cls.__dict__[member[0]], "fset") is not None]
+        metrics = []
+        for member in inspect.getmembers(cls):
+            not_private = (not member[0].startswith("_" + cls.__name__ + "__") and not member[0].startswith("__"))
+            in_dict = (member[0] in cls.__dict__)
+            if in_dict:
+                is_metric = isinstance(cls.__dict__[member[0]], Metric)
+                has_fset = (getattr(cls.__dict__[member[0]], "fset", None) is not None)
+            else:
+                is_metric = None
+                has_fset = None
+            if all([not_private, in_dict, is_metric, has_fset]):
+                metrics.append(member[0])
         return metrics
 
     # ###################Class properties##################################
@@ -1830,7 +1841,7 @@ class Transcript:
 
         self.attributes["gene_id"] = self.__parent
         if self.__parent:
-            self.__parent = [intern(_) for _ in self.__parent]
+            self.__parent = [intern(str(_)) for _ in self.__parent]
 
     @property
     def source(self):

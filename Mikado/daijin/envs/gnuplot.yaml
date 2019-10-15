@@ -2,6 +2,6 @@ channels:
   - bioconda
   - conda-forge
 dependencies:
-  - bioconda::samtools>=1.9
-  - bioconda::gnuplot>=5.0
+  - bioconda::samtools==1.9
+  - conda-forge::gnuplot>=5,!=5.2.7
   - conda-forge::ncurses

@@ -8,6 +8,8 @@ import argparse
 import functools
 from ...parsers import GFF, GTF
 from ...subprograms import to_gff
+import re
+
 
 __author__ = 'Luca Venturini'
 
@@ -20,21 +22,33 @@ def print_gff_gene(curr_gene, curr_transcripts, args):
     :return: None
     """
 
-    if curr_gene is not None and len(curr_transcripts) > 0:
+    pat = re.compile("gene")
+
+    if curr_gene is not None or len(curr_transcripts) > 0:
         starts, ends = [], []
         lines = []
         for tid in curr_transcripts:
-            lines.append(str(curr_transcripts[tid][0]))
+            lines.append(str(curr_transcripts[tid][0]).rstrip())
             starts.append(curr_transcripts[tid][0].start)
             ends.append(curr_transcripts[tid][0].end)
             for rec in curr_transcripts[tid][1:]:
                 rec.parent = [tid]
-                lines.append(str(rec))
-        curr_gene.start = min(starts)
-        curr_gene.end = max(ends)
-        print(curr_gene, file=args.out)
-        print(*lines, sep="\n", file=args.out)
-        print("###", file=args.out)
+                lines.append(str(rec).rstrip())
+        if starts and curr_gene is not None:
+            curr_gene.start = min(starts)
+        if ends and curr_gene is not None:
+            curr_gene.end = max(ends)
+
+        if curr_gene and not pat.search(curr_gene.feature) and not lines:
+            print(curr_gene, file=args.out)
+            print("###", file=args.out)
+            return
+
+        if lines:
+            if curr_gene:
+                print(curr_gene, file=args.out)
+            print(*lines, sep="\n", file=args.out)
+            print("###", file=args.out)
 
 
 def verify_storability(record, mrna_ids, gene_ids, args):
@@ -102,8 +116,12 @@ def grep_gff(args, gene_ids, mrna_ids):
                 parent_store = record.parent
             for parent in parent_store:
                 if parent in mrna_ids and args.reverse is False:
+                    if parent not in curr_transcripts:
+                        curr_transcripts[parent] = []
                     curr_transcripts[parent].append(record)
                 elif parent not in mrna_ids and args.reverse is True:
+                    if parent not in curr_transcripts:
+                        curr_transcripts[parent] = []
                     curr_transcripts[parent].append(record)
         else:
             print_gff_gene(curr_gene, curr_transcripts, args)

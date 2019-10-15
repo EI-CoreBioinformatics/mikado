@@ -139,6 +139,7 @@ def _translate_str(sequence, table, stop_symbol="*", to_stop=False, cds=False, p
     forward_table, valid_letters = get_tables(table, to_stop=to_stop)
 
     amino_acids = []
+    sequence = sequence.upper()
     for start in range(0, len(sequence) - len(sequence) % 3, 3):
         codon = sequence[start:start + 3]
         try:

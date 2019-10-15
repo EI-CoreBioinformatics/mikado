@@ -45,6 +45,7 @@ import numpy
 import sqlite3
 import msgpack
 import fastnumbers
+from scipy import percentile
 logging.captureWarnings(True)
 warnings.simplefilter("always")
 try:
@@ -209,7 +210,8 @@ class Picker:
                     self.json_conf["pick"]["clustering"][key] = self.json_conf["pick"]["run_options"].pop(key)
                     new_home = "clustering/{}".format(key)
                 warns = PendingDeprecationWarning(
-                    """The \"{}\" property has now been moved to pick/{}. Please update your configuration files in the future.""".format(
+                    """The \"{}\" property has now been moved to pick/{}. \
+Please update your configuration files in the future.""".format(
                         key, new_home))
                 self.logger.warning(warns)
 
@@ -218,7 +220,7 @@ class Picker:
             self.logger.debug("Checking for the presence of the reference genome")
             try:
                 _ = pyfaidx.Fasta(self.json_conf["reference"]["genome"])
-            except:
+            except (pyfaidx.FastaIndexingError, FileNotFoundError, pyfaidx.FastaNotFoundError):
                 self.logger.error("Transcript padding cannot be executed without a valid genome file.\
                  Please, either disable the padding or provide a valid genome sequence.")
                 sys.exit(1)
@@ -621,7 +623,7 @@ class Picker:
         """
         Private method to test whether a row and the current transcript are actually in the expected
         sorted order.
-        :param row:
+        :param row_coords:
         :param coords:
         :return:
         """
@@ -660,6 +662,7 @@ class Picker:
                      transcripts: dict,
                      counter: int,
                      locus_queue,
+                     mapper: dict,
                      submit_remaining=False):
 
         """Method to create the simple indexed database for features."""
@@ -671,11 +674,26 @@ class Picker:
         transcripts = msgpack.dumps([_ for _ in transcripts.values()])
         cursor.execute("INSERT INTO transcripts VALUES (?, ?)", (counter, transcripts))
         max_submit = 1000
+        chrom = chroms.pop()
+        if "done" not in mapper:
+            mapper["done"] = set()
+        if "submit" not in mapper:
+            mapper["submit"] = set()
+
+        if chrom not in mapper:
+            mapper[chrom] = dict()
+            mapper[chrom]["submit"] = set()
+            mapper[chrom]["done"] = set()
+
+        mapper[chrom]["submit"].add(counter)
+        mapper["submit"].add(counter)
+        mapper[counter] = chrom
+
         if submit_remaining is True or (counter >= max_submit and counter % max_submit == 0):
             conn.commit()
-            base = floor((counter - 1)/ max_submit) * max_submit + 1
+            base = floor((counter - 1) / max_submit) * max_submit + 1
             [locus_queue.put((num,)) for num in range(base, counter + 1)]
-        return
+        return mapper
 
     @staticmethod
     def _create_temporary_store(tempdirectory):
@@ -696,8 +714,6 @@ class Picker:
 
         """
         Method to execute Mikado pick in multi threaded mode.
-
-        :param data_dict: The data dictionary
         :return:
         """
 
@@ -705,6 +721,7 @@ class Picker:
         self.logger.debug("Intron range: %s", intron_range)
 
         locus_queue = multiprocessing.JoinableQueue(-1)
+        status_queue = multiprocessing.JoinableQueue(-1)
 
         handles = list(self.__get_output_files())
         if self.json_conf["pick"]["run_options"]["shm"] is True:
@@ -716,12 +733,16 @@ class Picker:
                                                     prefix="mikado_pick_tmp",
                                                     dir=basetempdir)
         tempdir = tempdirectory.name
+        self.logger.info("Starting Mikado with multiple processes, temporary directory:\n\t%s",
+                         tempdir)
+
         self.logger.debug("Creating the worker processes")
         conn, cursor = self._create_temporary_store(tempdir)
 
         working_processes = [LociProcesser(msgpack.dumps(self.json_conf),
                                            locus_queue,
                                            self.logging_queue,
+                                           status_queue,
                                            _,
                                            tempdir)
                              for _ in range(1, self.procs+1)]
@@ -732,12 +753,33 @@ class Picker:
         # No sense in keeping this data available on the main thread now
 
         try:
-            self.__parse_multithreaded(locus_queue, conn, cursor)
+            mapper = self.__parse_multithreaded(locus_queue, conn, cursor)
         except UnsortedInput:
             [_.terminate() for _ in working_processes]
             raise
 
         self.logger.debug("Joining children processes")
+
+        percs = percentile(range(1, max(mapper["submit"]) + 1),
+                           range(10, 101, 10))
+        curr_perc = 0
+        total = len(mapper["submit"])
+
+        while mapper["done"] != mapper["submit"]:
+            counter = status_queue.get()
+            mapper["done"].add(counter)
+            if len(mapper["done"]) > percs[curr_perc]:
+                curr_perc += 1
+                while len(mapper["done"]) > percs[curr_perc]:
+                    curr_perc += 1
+                real_perc = round(len(mapper["done"]) * 100 / total)
+                self.logger.info("Done %s%% of loci (%s out of %s)", real_perc,
+                                 len(mapper["done"]), total)
+            chrom = mapper[counter]
+            mapper[chrom]["done"].add(counter)
+            if mapper[chrom]["done"] == mapper[chrom]["submit"]:
+                self.logger.info("Finished with chromosome %s", chrom)
+
         [_.join() for _ in working_processes]
         conn.close()
         self.logger.info("Joined children processes; starting to merge partial files")
@@ -833,17 +875,16 @@ class Picker:
         counter = 0
         invalids = set()
         flank = self.json_conf["pick"]["clustering"]["flank"]
+        mapper = dict()
+
         with self.define_input(multithreading=True) as input_annotation:
             current = {"chrom": None, "start": None, "end": None, "transcripts": dict()}
             max_intron = self.json_conf["prepare"]["max_intron_length"]
             for row in input_annotation:
                 row = self._parse_gtf_line(row)
-
                 if row is None:  # Header
                     continue
-
                 line, chrom, feature, start, end, phase, tid, is_transcript = row
-
                 if is_transcript is False:
                     if tid in invalids:
                         continue
@@ -861,15 +902,17 @@ class Picker:
                     if current["chrom"] != chrom or not current["start"]:
                         if current["chrom"] != chrom:
                             if current["chrom"] is not None and current["chrom"] != chrom:
-                                self.logger.info("Finished chromosome %s", current["chrom"])
+                                self.logger.debug("Finished chromosome %s", current["chrom"])
                                 if len(current["transcripts"]) > 0:
                                     self.logger.debug("Submitting locus # %d (%s), with transcripts:\n%s",
                                                       counter, "{}:{}-{}".format(current["chrom"],
                                                                                  current["start"], current["end"]),
                                                       ",".join(list(current["transcripts"].keys())))
                                     counter += 1
-                                    self.add_to_index(conn, cursor, current["transcripts"], counter, locus_queue)
-                            self.logger.info("Starting chromosome %s", chrom)
+                                    mapper = self.add_to_index(
+                                        conn, cursor, current["transcripts"], counter, locus_queue,
+                                        mapper)
+                            self.logger.debug("Starting chromosome %s", chrom)
 
                         current["chrom"], current["start"], current["end"] = chrom, start, end
                         current["transcripts"] = dict()
@@ -891,7 +934,9 @@ class Picker:
                                               counter, "{}:{}-{}".format(current["chrom"],
                                                                          current["start"], current["end"]),
                                               ",".join(list(current["transcripts"].keys())))
-                            self.add_to_index(conn, cursor, current["transcripts"], counter, locus_queue)
+                            mapper = self.add_to_index(
+                                conn, cursor, current["transcripts"], counter, locus_queue,
+                                mapper)
                             current["start"], current["end"] = start, end
                             current["transcripts"] = dict()
 
@@ -909,18 +954,20 @@ class Picker:
                                   counter, "{}:{}-{}".format(current["chrom"],
                                                              current["start"], current["end"]),
                                   ",".join(list(current["transcripts"].keys())))
-                self.add_to_index(conn, cursor, current["transcripts"], counter, locus_queue, submit_remaining=True)
-            self.logger.info("Finished chromosome %s", current["chrom"])
+                mapper = self.add_to_index(
+                    conn, cursor, current["transcripts"], counter, locus_queue, mapper, submit_remaining=True)
+            self.logger.debug("Finished chromosome %s", current["chrom"])
 
         conn.commit()
 
         locus_queue.put(("EXIT", ))
 
+        return mapper
+
     def __submit_single_threaded(self):
 
         """
         Method to execute Mikado pick in single threaded mode.
-        :param data_dict:
         :return:
         """
 
@@ -1036,7 +1083,6 @@ class Picker:
         """
         This method does the parsing of the input and submission of the loci to the
         _submit_locus method.
-        :param data_dict: The cached data from the database
         :return: jobs (the list of all jobs already submitted)
         """
 

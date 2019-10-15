@@ -526,8 +526,9 @@ def prepare(args, logger):
     logger.setLevel(logging.INFO)
     __cleanup(args, shelve_names)
 
-    logger.info("Finished")
+    logger.addHandler(logging.StreamHandler())
+    logger.info("""Mikado prepare has finished correctly. The output %s FASTA file can now be used for BLASTX \
+and/or ORF calling before the next step in the pipeline, `mikado serialise`.""",
+                path_join(args.json_conf["prepare"]["files"]["output_dir"],
+                          args.json_conf["prepare"]["files"]["out_fasta"]))
     logging.shutdown()
-    # sys.exit(0)
-    # for handler in logger.handlers:
-    #     handler.close()

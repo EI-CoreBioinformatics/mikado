@@ -956,12 +956,12 @@ class Assigner:
                                          best.n_recall[0], best.n_prec[0], best.n_f1[0],
                                          best.j_recall[0], best.j_prec[0], best.j_f1[0],
                                          best.e_recall[0], best.e_prec[0], best.e_f1[0],
-                                         best.location[0]])
+                                         best.location])
                         else:
                             row = tuple([tid, gid, ",".join(best.ccode),
                                          best.tid, best.gid,
                                          best.n_f1[0], best.j_f1[0], best.e_f1[0],
-                                         best.location[0]])
+                                         best.location])
 
                     rows.append(row)
 

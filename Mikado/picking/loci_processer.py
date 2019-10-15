@@ -348,6 +348,7 @@ class LociProcesser(Process):
                  json_conf,
                  locus_queue,
                  logging_queue,
+                 status_queue,
                  identifier,
                  tempdir="mikado_pick_tmp"
                  ):
@@ -356,6 +357,7 @@ class LociProcesser(Process):
         super(LociProcesser, self).__init__()
         json_conf = msgpack.loads(json_conf, raw=False)
         self.logging_queue = logging_queue
+        self.status_queue = status_queue
         self.__identifier = identifier  # Property directly unsettable
         self.name = "LociProcesser-{0}".format(self.identifier)
         self.json_conf = json_conf
@@ -565,7 +567,7 @@ class LociProcesser(Process):
                                 print_subloci=print_subloci)
                 if len(stranded_loci) == 0:
                     self.logger.warning("No loci left for index %d", counter)
-
+                self.status_queue.put(counter)
                 self.locus_queue.task_done()
 
         return

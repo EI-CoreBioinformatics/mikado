@@ -192,7 +192,7 @@ class Locus(Abstractlocus):
             assert tid in original
             if (self.transcripts[tid].start, self.transcripts[tid].end) != original[tid]:
                 self.transcripts[tid].attributes["padded"] = True
-                self.logger.warning("%s is now padded", tid)
+                self.logger.info("%s is now padded", tid)
 
         # Now that we have added the padding ... time to remove redundant alternative splicing events.
         self.logger.debug("%s has %d transcripts (%s)", self.id, len(self.transcripts),

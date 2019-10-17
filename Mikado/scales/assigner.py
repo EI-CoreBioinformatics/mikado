@@ -434,6 +434,8 @@ class Assigner:
             for gene in genes:
                 if gene not in new_matches:
                     continue
+                elif new_matches[gene] == []:
+                    continue
                 # The best match is the first
                 if new_matches[gene][0].j_f1[0] == 0 and new_matches[gene][0].n_recall[0] < 10:
                     dubious.add(gene)

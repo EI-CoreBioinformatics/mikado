@@ -148,11 +148,9 @@ rule check_refmap:
         refmap = pd.read_csv(input["refmap"], delimiter="\t", index_col=0)
         assert refmap.location.str.contains("^Chr5:", regex=True).all()
         # Account for the non-protein coding
-        assert refmap.loc["nc_AT5G66650.1"].ccode == "f,o"
-        assert refmap.loc["AT5G66650.1"].ccode == "f,="
         assert refmap.loc[~refmap.index.str.contains("AT5G66650")].ccode.str.contains("^(=|_)$", regex=True).all()
-        checker = refmap.loc[~refmap.index.str.contains("AT5G66650")].tid.str.replace("^at_", "", regex=True)
-        assert (checker == checker.index).all()
+        assert refmap.loc[refmap.index.str.contains("AT5G66650")].ccode.str.contains("^(f,=|f,_)$", regex=True).all()
+        assert (refmap.tid.index == refmap.tid.str.replace("^at_", "")).all(), refmap.tid
 
 rule check_refmap_pc:
     input:

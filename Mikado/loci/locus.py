@@ -484,7 +484,7 @@ class Locus(Abstractlocus):
         """This method will use the expression in the "not_fragmentary" section
         of the configuration to determine whether it is itself a putative fragment."""
 
-        if not self.json_conf["pick"]["check_references"] and \
+        if not self.json_conf["pick"]["run_options"]["check_references"] and \
                 any(self.transcripts[tid].is_reference is True for tid in self.transcripts):
             return False
 

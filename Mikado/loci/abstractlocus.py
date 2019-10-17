@@ -1135,7 +1135,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                 assert self.transcripts[tid].json_conf["prepare"]["files"][\
                            "reference"] == self.json_conf["prepare"]["files"]["reference"]
 
-            if self.json_conf["pick"]["check_references"] is False:
+            if self.json_conf["pick"]["run_options"]["check_references"] is False:
                 if self.transcripts[tid].is_reference is True:
                     # Reference transcripts should be kept in, no matter what.
                     self.logger.debug("Skipping %s from the requirement check as it is a reference transcript")

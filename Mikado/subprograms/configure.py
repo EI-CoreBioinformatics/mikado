@@ -401,14 +401,12 @@ def configure_parser():
                          help="""Range into which intron lengths should fall, as a couple of integers.
                              Transcripts with intron lengths outside of this range will be penalised.
                              Default: (60, 900)""")
-    picking.add_argument("--no-pad", default=True, dest="pad",
-                         action="store_false",
-                         help="Whether to disable padding transcripts.")
     picking.add_argument("--subloci-out", default="", dest="subloci_out",
                          help="Name of the optional subloci output. By default, this will not be produced.")
     picking.add_argument("--monoloci-out", default="", dest="monoloci_out",
                          help="Name of the optional monoloci output. By default, this will not be produced.")
-    picking.add_argument("--no-pad", dest="pad", default=None, action="store_false", help="Disable transcript padding.")
+    picking.add_argument("--no-pad", dest="pad", default=None,
+                         action="store_false", help="Disable transcript padding. On by default.")
     picking.add_argument("--only-reference-update", dest="only_reference_update", default=None,
                          action="store_true",
                          help="""Flag. If switched on, Mikado will only keep loci where at least one of the transcripts \

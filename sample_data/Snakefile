@@ -136,8 +136,8 @@ rule compare_subloci_pc:
         tmap="compare_subloci_pc.tmap",
         refmap="compare_subloci_pc.refmap"
     log: "compare_subloci_pc.log"
-    message: """mikado compare -r {input[reference]} -p {input[prediction]} -o compare_subloci -l {log}"""
-    shell: """mikado compare -r {input[reference]} -p {input[prediction]} -o compare_subloci -l {log}"""
+    message: """mikado compare -r {input[reference]} -p {input[prediction]} -o compare_subloci_pc -l {log}"""
+    shell: """mikado compare -r {input[reference]} -p {input[prediction]} -o compare_subloci_pc -l {log}"""
 
 rule check_refmap:
     input:

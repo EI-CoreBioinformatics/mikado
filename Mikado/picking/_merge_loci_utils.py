@@ -5,6 +5,8 @@ from ..loci import Superlocus
 from ..loci import Locus
 import sys
 import collections
+import itertools
+import numpy as np
 from ._locus_line_creator import _create_locus_lines
 
 
@@ -83,39 +85,34 @@ def manage_index(data, dumps, source):
 def __create_gene_counters(common_index: dict) -> (dict, int):
     """Function to assign to each counter in the database the correct base and maximum number of genes.
     This allows to parallelise the printing.
+    The common index has the following structure:
+
+    d[counter] = (database index, chrom, number of genes in locus)
     """
 
-    chroms, nums = list(zip(*[common_index[index][1:3] for index in range(1, max(common_index.keys()) + 1)]))
-    total_genes = sum(nums)
+    chroms = []
+    num_genes = []
+
+    for index in range(1, max(common_index.keys()) + 1):
+        _, chrom, n_genes = common_index[index]
+        chroms.append(chrom)
+        num_genes.append(n_genes)
+
+    chroms = np.array(chroms)
+    num_genes = np.array(num_genes)
+
     gene_counters = dict()
+    total_genes = sum(num_genes)
+
     chrom_tots = collections.defaultdict(list)
-    assert len(chroms) == len(common_index), (len(chroms), len(common_index))
-    for pos in range(len(chroms)):
-        key = pos + 1
-        chrom, num = chroms[pos], nums[pos]
-        if chrom == '' and pos > 0:
-            assert num == 0
-            former = gene_counters[pos][0]
-        elif pos == 0 or chrom != chroms[pos - 1]:
-            if chroms[pos - 1] != "":
-                former = 0
-            else:  # The previous one is wrong ..
-                prev_pos = pos - 1
-                prev_chrom = chroms[prev_pos]
-                while prev_chrom == "":
-                    prev_pos -= 1
-                    if prev_pos < 0:
-                        break
-                    prev_chrom = chroms[prev_pos]
-                if prev_chrom == "" or prev_chrom != chrom:
-                    former = 0
-                else:
-                    former = gene_counters[pos][0] + gene_counters[pos][1]
-        else:
-            former = gene_counters[pos][0] + gene_counters[pos][1]
-        gene_counters[key] = (former, num)
-        if chrom:
-            chrom_tots[chrom].extend(list(range(former + 1, former + num + 1)))
+    for chrom in np.unique(chroms):
+        index = np.where(chroms == chrom)
+        totals = num_genes[index]
+        cumu = totals.cumsum()
+        for counter, former, num in zip(index[0], itertools.chain([0], cumu[:-1]), totals):
+            gene_counters[counter + 1] = (former, num)
+            if chrom:
+                chrom_tots[chrom].extend(list(range(former + 1, former + num + 1)))
 
     tot_found = 0
     for chrom in chrom_tots:
@@ -137,9 +134,11 @@ def __create_gene_counters(common_index: dict) -> (dict, int):
             tot_found += chrom_tots[chrom][-1]
 
     assert tot_found == total_genes, (tot_found, total_genes)
-    new_common = dict()
+
     assert min(common_index) == 1
 
+    new_common = dict()
     for key in common_index:
+        # DbIndex
         new_common[key] = (common_index[key][0], gene_counters[key][0], gene_counters[key][1])
     return new_common, total_genes

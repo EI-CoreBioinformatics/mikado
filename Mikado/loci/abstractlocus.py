@@ -1135,14 +1135,15 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                 assert self.transcripts[tid].json_conf["prepare"]["files"][\
                            "reference"] == self.json_conf["prepare"]["files"]["reference"]
 
-            if self.transcripts[tid].is_reference is True:
-                # Reference transcripts should be kept in, no matter what.
-                self.logger.debug("Skipping %s from the requirement check as it is a reference transcript")
-                continue
-            elif self.transcripts[tid].original_source in self.json_conf["prepare"]["files"]["reference"]:
-                self.transcripts[tid].is_reference = True  # Bug
-                self.logger.debug("Skipping %s from the requirement check as it is a reference transcript", tid)
-                continue
+            if self.json_conf["pick"]["check_references"] is False:
+                if self.transcripts[tid].is_reference is True:
+                    # Reference transcripts should be kept in, no matter what.
+                    self.logger.debug("Skipping %s from the requirement check as it is a reference transcript")
+                    continue
+                elif self.transcripts[tid].original_source in self.json_conf["prepare"]["files"]["reference"]:
+                    self.transcripts[tid].is_reference = True  # Bug
+                    self.logger.debug("Skipping %s from the requirement check as it is a reference transcript", tid)
+                    continue
             else:
                 self.logger.debug("Transcript %s (source %s) is not a reference transcript (references: %s; in it: %s)",
                                   tid, self.transcripts[tid].original_source,

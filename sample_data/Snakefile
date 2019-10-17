@@ -38,7 +38,7 @@ configfile: "configuration.yaml"
 
 rule complete:
     input: "compare.stats", "compare_subloci.stats", "compare_input.stats", "check.ok",
-         "check_metrics.ok", "daijin_test/mikado.yaml", "g11.ok", "refmap_check.ok"
+         "check_metrics.ok", "daijin_test/mikado.yaml", "g11.ok", "refmap_check.ok", "refmap_check_pc.ok"
     output: touch("finished.ok")
 
 
@@ -129,16 +129,44 @@ rule compare_subloci:
     shell: """mikado compare -r {input[reference]} -p {input[prediction]} -o compare_subloci -l {log}"""
 
 
+rule compare_subloci_pc:
+    input: reference="reference.gff3", prediction=rules.daijin.output.sub, midx=rules.index_reference.output
+    output:
+        stats="compare_subloci_pc.stats",
+        tmap="compare_subloci_pc.tmap",
+        refmap="compare_subloci_pc.refmap"
+    log: "compare_subloci_pc.log"
+    message: """mikado compare -r {input[reference]} -p {input[prediction]} -o compare_subloci -l {log}"""
+    shell: """mikado compare -r {input[reference]} -p {input[prediction]} -o compare_subloci -l {log}"""
+
 rule check_refmap:
     input:
         refmap=rules.compare_input.output.refmap
     output: touch("refmap_check.ok")
     run:
         import pandas as pd
-        refmap = pd.read_csv(input["refmap"], delimiter="\t")
+        refmap = pd.read_csv(input["refmap"], delimiter="\t", index_col=0)
         assert refmap.location.str.contains("^Chr5:", regex=True).all()
-        assert refmap.ccode.str.contains("^(=|_)$", regex=True).all()
-        assert (refmap.tid.str.replace("^at_", "", regex=True) == refmap["ref_id"]).all()
+        # Account for the non-protein coding
+        assert refmap.loc["nc_AT5G66650.1"].ccode == "f,o"
+        assert refmap.loc["AT5G66650.1"].ccode == "f,="
+        assert refmap.loc[~refmap.index.str.contains("AT5G66650")].ccode.str.contains("^(=|_)$", regex=True).all()
+        checker = refmap.loc[~refmap.index.str.contains("AT5G66650")].tid.str.replace("^at_", "", regex=True)
+        assert (checker == checker.index).all()
+
+rule check_refmap_pc:
+    input:
+        refmap=rules.compare_subloci_pc.output.refmap
+    output: touch("refmap_check_pc.ok")
+    run:
+        import pandas as pd
+        refmap = pd.read_csv(input["refmap"], delimiter="\t", index_col=0)
+        assert refmap.location.str.contains("^Chr5:", regex=True).all()
+        # Account for the non-protein coding
+        assert refmap.loc[~refmap.index.str.contains("AT5G66650")].ccode.str.contains("^(=|_)$", regex=True).all()
+        checker = refmap.loc[~refmap.index.str.contains("AT5G66650")].tid.str.replace("^at_", "", regex=True)
+        assert (checker == checker.index).all()
+
 
 rule check_logs:
     input:
@@ -253,6 +281,7 @@ rule clean:
                                     glob.glob("*.log"), glob.glob("*xml"), ["chr5.fas"],
 				                    glob.glob("*.ok"),
                                     "refmap_check.ok",
+                                    "refmap_check_pc.ok",
                                     ["configuration.yaml"]):
             if os.path.exists(filename) and filename not in (".", ".."):
                 shutil.rmtree(filename) if os.path.isdir(filename) else os.remove(filename)

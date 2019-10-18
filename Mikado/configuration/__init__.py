@@ -7,9 +7,24 @@ plus the JSON schemas for the configuration and scoring files.
 from . import configurator
 import itertools
 import re
-
+import tomlkit
 
 __author__ = 'Luca Venturini'
+
+
+def print_toml_config(output, out):
+
+    pat = re.compile("(SimpleComment|Comment)\s{0,}=\s{0,}")
+    skip_pat = re.compile("^\[(SimpleComment|Comment)\]")
+
+    for line in output.split("\n"):
+        if skip_pat.match(line):
+            continue
+        elif pat.match(line.lstrip()):
+            for l in eval(pat.sub("", line.lstrip().rstrip())):
+                print(f"# {l}", file=out)
+        else:
+            print(line.rstrip(), file=out)
 
 
 def print_config(output, out):

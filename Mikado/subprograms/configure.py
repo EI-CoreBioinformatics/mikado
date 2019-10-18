@@ -10,7 +10,7 @@ from pkg_resources import resource_filename, resource_stream
 import glob
 import argparse
 import sys
-from ..configuration import configurator, daijin_configurator, print_config, check_has_requirements
+from ..configuration import configurator, daijin_configurator, print_config, print_toml_config, check_has_requirements
 from ..configuration.configurator import create_cluster_config
 from ..exceptions import InvalidJson
 from ..utilities import comma_split  # , merge_dictionaries
@@ -20,6 +20,7 @@ import rapidjson as json
 from collections import Counter
 import tempfile
 from ..utilities.log_utils import create_null_logger
+import tomlkit
 
 
 __author__ = 'Luca Venturini'
@@ -345,9 +346,12 @@ def create_config(args):
 
     if args.json is True or args.out.name.endswith("json"):
         json.dump(config, args.out, sort_keys=True, indent=4)
-    else:
+    elif args.out.name.endswith("yaml"):
         output = yaml.dump(config, default_flow_style=False)
         print_config(output, args.out)
+    else:
+        output = tomlkit.dumps(config)
+        print_toml_config(output, args.out)
 
 
 def configure_parser():

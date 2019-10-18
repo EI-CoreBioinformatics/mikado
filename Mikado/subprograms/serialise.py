@@ -158,7 +158,7 @@ def load_external(args, logger):
 
     """Function to load external data from."""
 
-    if args.json_conf["serialise"]["files"]["external_scores"] is None:
+    if not args.json_conf["serialise"]["files"]["external_scores"]:
         logger.debug("No external scores to load, returning")
         return
     else:

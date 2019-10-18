@@ -1334,16 +1334,27 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             try:
                 # metric = rgetattr(self.transcripts[tid], param)
                 if tid not in self._metrics and transcript.alias in self._metrics:
-                    metric = self._metrics[transcript.alias][param]
+                    if param in self._metrics[transcript.alias]:
+                        metric = self._metrics[transcript.alias][param]
+                    else:
+                        metric = rgetattr(self.transcripts[tid], param)
+                        self._metrics[transcript.alias][param] = metric
                 else:
-                    metric = self._metrics[tid][param]
+                    if tid not in self._metrics:
+                        self._metrics[tid] = dict()
+                    if param in self._metrics[tid]:
+                        metric = self._metrics[tid][param]
+                    else:
+                        metric = rgetattr(self.transcripts[tid], param)
+                        self._metrics[tid][param] = metric
                 if isinstance(metric, (tuple, list)):
                     metric = metric[0]
                 metrics[tid] = metric
             except TypeError:
                 raise TypeError(param)
             except KeyError:
-                raise KeyError(param)
+                metric = rgetattr(self.transcripts[tid], param)
+                raise KeyError((tid, param, metric))
             except AttributeError:
                 raise AttributeError(param)
 

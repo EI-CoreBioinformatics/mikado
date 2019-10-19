@@ -154,6 +154,9 @@ def check_run_options(args, logger=create_null_logger()):
     if args.only_reference_update is True:
         args.json_conf["pick"]["run_options"]["only_reference_update"] = True
 
+    if args.check_references is True:
+        args.json_conf["pick"]["run_options"]["check_references"] = True
+
     if getattr(args, "fasta"):
         args.fasta.close()
         args.json_conf["reference"]["genome"] = args.fasta.name
@@ -276,6 +279,12 @@ Default: False, Mikado will consider transcripts in their entirety.""")
                         help="""Flag. If switched on, Mikado will only keep loci where at least one of the transcripts \
 is marked as "reference". CAUTION: new and experimental. If no transcript has been marked as reference, \
 the output will be completely empty!""")
+    parser.add_argument("--check-references", dest="check_references", default=None,
+                        action="store_true",
+                        help="""Flag. If switched on, Mikado will also check reference models against the general
+transcript requirements, and will also consider them as potential fragments. This is useful in the context of e.g.
+updating an *ab-initio* results with data from RNASeq, protein alignments, etc. 
+""")
     parser.add_argument("--consider-truncated-for-retained", dest="consider_truncated_for_retained",
                         action="store_true", default=False,
                         help="""Flag. If set, Mikado will consider as retained intron events also transcripts \

@@ -22,6 +22,7 @@ import pkg_resources
 import tempfile
 import functools
 import inspect
+import toml
 
 # import logging
 # import logging.handlers
@@ -235,8 +236,10 @@ def assemble_transcripts_pipeline(args):
     """
     if args.config.endswith("json"):
         loader = json.load
-    else:
+    elif args.config.endswith("yaml"):
         loader = functools.partial(yaml.load, Loader=yaml.SafeLoader)
+    else:
+        loader = functools.partial(toml.load)
 
     with open(args.config, 'r') as _:
         doc = loader(_)
@@ -428,9 +431,10 @@ def mikado_pipeline(args):
 
     if args.config.endswith("json"):
         loader = json.load
-    else:
+    elif args.config.endswith("yaml"):
         loader = functools.partial(yaml.load, Loader=yaml.SafeLoader)
-
+    else:
+        loader = functools.partial(toml.load)
     with open(args.config, 'r') as _:
         doc = loader(_)
 

@@ -262,7 +262,7 @@ serialise:
   #  - procs: Number of processors to use. Default: 1.
   files:
     blast_targets: []
-    external_scores: null
+    external_scores: ""
     junctions: []
     log: serialise.testds.log
     orfs: []

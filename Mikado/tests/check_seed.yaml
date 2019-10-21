@@ -181,7 +181,7 @@ serialise:
   files:
     blast_targets:
     - uniprot_sprot_plants.fasta
-    external_scores: null
+    external_scores: ""
     junctions:
     - junctions.bed
     log: serialise.log

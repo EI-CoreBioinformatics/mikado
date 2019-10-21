@@ -19,7 +19,7 @@ import functools
 import rapidjson as json
 from collections import Counter
 import tempfile
-from ..utilities.log_utils import create_null_logger
+from ..utilities.log_utils import create_null_logger, create_default_logger
 import tomlkit
 
 
@@ -289,6 +289,19 @@ def create_config(args):
         del config["reference"]
         del config["db_settings"]
 
+    if args.only_reference_update is True:
+        if len(config["prepare"]["files"]["reference"]) == 0:
+            logger = create_default_logger("configure")
+            logger.error(
+                "No reference dataset provided! Please correct the issue or remove the \"--only-reference-update\" \
+switch.")
+            sys.exit(1)
+        else:
+            args.json_conf["pick"]["run_options"]["only_reference_update"] = True
+
+    if args.check_references is True:
+        args.json_conf["pick"]["run_options"]["check_references"] = True
+
     if args.scoring is not None:
         if args.copy_scoring is not False:
             with open(args.copy_scoring, "wt") as out:
@@ -376,7 +389,7 @@ def configure_parser():
     preparer = parser.add_argument_group("Options related to the prepare stage.")
     preparer.add_argument("--minimum-cdna-length", default=None, type=int, dest="minimum_cdna_length",
                           help="Minimum cDNA length for transcripts.")
-    preparer.add_argument("--max-intron-size", default=None, type=int, dest="max_intron_length",
+    preparer.add_argument("--max-intron-length", default=None, type=int, dest="max_intron_length",
                           help="Maximum intron length for transcripts.")
     scoring = parser.add_argument_group("Options related to the scoring system")
     scoring.add_argument("--scoring", type=str, default=None,
@@ -392,13 +405,24 @@ def configure_parser():
                          help="""Range into which intron lengths should fall, as a couple of integers.
                              Transcripts with intron lengths outside of this range will be penalised.
                              Default: (60, 900)""")
-    picking.add_argument("--no-pad", default=True, dest="pad",
-                         action="store_false",
-                         help="Whether to disable padding transcripts.")
     picking.add_argument("--subloci-out", default="", dest="subloci_out",
                          help="Name of the optional subloci output. By default, this will not be produced.")
     picking.add_argument("--monoloci-out", default="", dest="monoloci_out",
                          help="Name of the optional monoloci output. By default, this will not be produced.")
+    picking.add_argument("--no-pad", dest="pad", default=None,
+                         action="store_false", help="Disable transcript padding. On by default.")
+    picking.add_argument("--only-reference-update", dest="only_reference_update", default=None,
+                         action="store_true",
+                         help="""Flag. If switched on, Mikado will only keep loci where at least one of the transcripts \
+    is marked as "reference". CAUTION: new and experimental. If no transcript has been marked as reference, \
+    the output will be completely empty!""")
+    picking.add_argument("--check-references", dest="check_references", default=None,
+                         action="store_true",
+                         help="""Flag. If switched on, Mikado will also check reference models against the general
+    transcript requirements, and will also consider them as potential fragments. This is useful in the context of e.g.
+    updating an *ab-initio* results with data from RNASeq, protein alignments, etc. 
+    """)
+
     parser.add_argument("--strand-specific", default=False,
                         action="store_true",
                         help="""Boolean flag indicating whether all the assemblies are strand-specific.""")

@@ -1327,6 +1327,7 @@ class Transcript:
             raise ValueError((self.id, mmetrics))
 
         state["external"] = dict((key, value) for key, value in self.external_scores.items())
+
         for key in ["chrom", "source", "start", "end", "strand", "score", "attributes"]:
 
             state[key] = getattr(self, key)

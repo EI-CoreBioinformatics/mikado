@@ -1135,14 +1135,15 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                 assert self.transcripts[tid].json_conf["prepare"]["files"][\
                            "reference"] == self.json_conf["prepare"]["files"]["reference"]
 
-            if self.transcripts[tid].is_reference is True:
-                # Reference transcripts should be kept in, no matter what.
-                self.logger.debug("Skipping %s from the requirement check as it is a reference transcript")
-                continue
-            elif self.transcripts[tid].original_source in self.json_conf["prepare"]["files"]["reference"]:
-                self.transcripts[tid].is_reference = True  # Bug
-                self.logger.debug("Skipping %s from the requirement check as it is a reference transcript", tid)
-                continue
+            if self.json_conf["pick"]["run_options"]["check_references"] is False:
+                if self.transcripts[tid].is_reference is True:
+                    # Reference transcripts should be kept in, no matter what.
+                    self.logger.debug("Skipping %s from the requirement check as it is a reference transcript")
+                    continue
+                elif self.transcripts[tid].original_source in self.json_conf["prepare"]["files"]["reference"]:
+                    self.transcripts[tid].is_reference = True  # Bug
+                    self.logger.debug("Skipping %s from the requirement check as it is a reference transcript", tid)
+                    continue
             else:
                 self.logger.debug("Transcript %s (source %s) is not a reference transcript (references: %s; in it: %s)",
                                   tid, self.transcripts[tid].original_source,
@@ -1333,16 +1334,27 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             try:
                 # metric = rgetattr(self.transcripts[tid], param)
                 if tid not in self._metrics and transcript.alias in self._metrics:
-                    metric = self._metrics[transcript.alias][param]
+                    if param in self._metrics[transcript.alias]:
+                        metric = self._metrics[transcript.alias][param]
+                    else:
+                        metric = rgetattr(self.transcripts[tid], param)
+                        self._metrics[transcript.alias][param] = metric
                 else:
-                    metric = self._metrics[tid][param]
+                    if tid not in self._metrics:
+                        self._metrics[tid] = dict()
+                    if param in self._metrics[tid]:
+                        metric = self._metrics[tid][param]
+                    else:
+                        metric = rgetattr(self.transcripts[tid], param)
+                        self._metrics[tid][param] = metric
                 if isinstance(metric, (tuple, list)):
                     metric = metric[0]
                 metrics[tid] = metric
             except TypeError:
                 raise TypeError(param)
             except KeyError:
-                raise KeyError(param)
+                metric = rgetattr(self.transcripts[tid], param)
+                raise KeyError((tid, param, metric))
             except AttributeError:
                 raise AttributeError(param)
 

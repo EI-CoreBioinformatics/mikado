@@ -293,7 +293,7 @@ rule check_pick_confusing_alias:
     threads: 2
     shell: "mikado pick --only-reference-update  --source Mikado_permissive --mode=permissive \
     --procs={threads} --start-method=spawn \
-    --json-conf=configuration.yaml -od Daijin/5-mikado/pick/permissive \
+    --json-conf=configuration.yaml -od {params.outdir} \
     -l {log} --loci-out mikado-permissive.loci.gff3 -lv INFO \
     -db {input.db} {input.prepare}"
 

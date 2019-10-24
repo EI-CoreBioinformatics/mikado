@@ -1088,6 +1088,7 @@ class Locus(Abstractlocus):
         if self.scores_calculated is True:
             for tid in mapper:
                 self.scores[mapper[tid]] = self.scores.pop(tid)
+                self._metrics[mapper[tid]] = self._metrics.pop(tid)
         if self.metrics_calculated is True:
             for index in range(len(self.metric_lines_store)):
                 self.metric_lines_store[index]["tid"] = mapper[self.metric_lines_store[index]["tid"]]

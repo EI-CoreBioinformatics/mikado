@@ -48,7 +48,7 @@ class ExternalSource(DBBASE):
         elif np.dtype("complex") == rtype:
             rtype = "complex"
         else:
-            raise ValueError("Invalid source rtype: {}".format(rtype))
+            raise ValueError("Invalid source rtype for {}: {}".format(source, rtype))
 
         self.rtype = rtype
         self.valid_raw = valid_raw
@@ -137,8 +137,6 @@ class ExternalSerializer:
             error = "Unkwnown FASTA index: {}. I will presume that the transcripts are in the database".format(
                 type(fasta_index))
             self.logger.warning(error)
-
-
 
         try:
             self.data = pd.read_csv(self.handle, delimiter=delimiter, index_col=["tid"])

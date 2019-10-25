@@ -349,6 +349,10 @@ class Locus(Abstractlocus):
             continue
         return
 
+    def as_dict(self):
+        self.calculate_scores()
+        return super().as_dict()
+
     def remove_transcript_from_locus(self, tid: str):
 
         """Overloading of the AbstractLocus class, in order to ensure that the primary transcript will *not*
@@ -1066,7 +1070,7 @@ class Locus(Abstractlocus):
             return
         primary_id = "{0}.1".format(string)
         old_primary = self.primary_transcript.id
-        self.primary_transcript.attributes["Alias"] = self.primary_transcript.id
+        self.primary_transcript.attributes["alias"] = self.primary_transcript.id
         self.primary_transcript.id = primary_id
         self.transcripts[primary_id] = self.primary_transcript
         self.primary_transcript_id = primary_id
@@ -1079,7 +1083,7 @@ class Locus(Abstractlocus):
 
         for counter, tid in enumerate(order):
             counter += 2
-            self.transcripts[tid].attributes["Alias"] = tid
+            self.transcripts[tid].attributes["alias"] = tid
             new_id = "{0}.{1}".format(string, counter)
             self.transcripts[tid].id = new_id
             self.transcripts[new_id] = self.transcripts.pop(tid)
@@ -1088,6 +1092,7 @@ class Locus(Abstractlocus):
         if self.scores_calculated is True:
             for tid in mapper:
                 self.scores[mapper[tid]] = self.scores.pop(tid)
+                self._metrics[mapper[tid]] = self._metrics.pop(tid)
         if self.metrics_calculated is True:
             for index in range(len(self.metric_lines_store)):
                 self.metric_lines_store[index]["tid"] = mapper[self.metric_lines_store[index]["tid"]]
@@ -1154,7 +1159,7 @@ class Locus(Abstractlocus):
 
     @property
     def has_reference_transcript(self):
-        return any(self.transcripts[transcript].is_reference is True for transcript in self)
+        return any(self.transcripts[transcript].is_reference for transcript in self)
 
     def _get_alternative_splicing_codes(self):
         """Method to retrieve the currently valid alternative splicing event codes"""

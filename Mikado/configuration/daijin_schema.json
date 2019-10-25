@@ -276,7 +276,7 @@
       "- identity: minimum identity for any alignment. Default: 95%",
       "- coverage: minimum coverage for any alignment. Default: 70%"],
       "properties": {
-        "max_mem": {"type": "integer", "default": 6000, "minimum": 1000, "required": true},
+        "max_mem": {"type": "integer", "default": 6000, "minimum": 1000},
         "npaths": {"type": "integer", "default": 0},
         "identity": {"type": "number", "default": 0.95, "minimum": 0, "maximum": 1},
         "coverage": {"type": "number", "default": 0.70, "minimum": 0, "maximum": 1}

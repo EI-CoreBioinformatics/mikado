@@ -39,7 +39,7 @@ configfile: "configuration.yaml"
 rule complete:
     input: "compare.stats", "compare_subloci.stats", "compare_input.stats", "check.ok",
          "check_metrics.ok", "daijin_test/mikado.yaml", "g11.ok", "refmap_check.ok", "refmap_check_pc.ok",
-         "external.ok"
+         "external.ok", "alias_check.ok"
     output: touch("finished.ok")
 
 
@@ -282,6 +282,21 @@ rule check_external_pick:
         assert "external.tpm" in scores.columns
         assert scores["external.tpm"].max() > 0
 
+rule check_pick_confusing_alias:
+    input:
+       db=rules.daijin.output.db,
+       prepare="mikado_prepared.conf_alias.gtf"
+    output: touch("alias_check.ok")
+    log: os.path.join("Daijin", "5-mikado", "pick", "confusing_alias", "pick.log")
+    params:
+       outdir=os.path.join("Daijin", "5-mikado", "pick", "confusing_alias")
+    threads: 2
+    shell: "mikado pick --only-reference-update  --source Mikado_permissive --mode=permissive \
+    --procs={threads} --start-method=spawn \
+    --json-conf=configuration.yaml -od {params.outdir} \
+    -l {log} --loci-out mikado-permissive.loci.gff3 -lv INFO \
+    -db {input.db} {input.prepare}"
+
 rule test_g11_prodigal:
     input:
       transcripts=rules.daijin.output.prep_fasta
@@ -362,6 +377,8 @@ rule clean:
                                     ["configuration.yaml"]):
             if os.path.exists(filename) and filename not in (".", ".."):
                 shutil.rmtree(filename) if os.path.isdir(filename) else os.remove(filename)
+            if os.path.exists("Daijin"):
+                shutil.rmtree("Daijin")
 
 rule clean_crumbs:
     run:

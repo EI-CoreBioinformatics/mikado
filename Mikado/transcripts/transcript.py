@@ -519,6 +519,8 @@ class Transcript:
                 pass
             elif val in booleans:
                 val = booleans[val]
+            elif isinstance(val, bool):
+                pass
             else:
                 try:
                     val = int(val)
@@ -994,7 +996,7 @@ class Transcript:
                 value = False
             else:
                 pass
-        if value not in (False, True, None):
+        if not isinstance(value, bool) and value is not None:
             raise ValueError("Invalid value: {} (type: {})".format(value, type(value)))
         self.__is_reference = value
 
@@ -2824,7 +2826,7 @@ index {3}, internal ORFs: {4}".format(
     def has_start_codon(self, value):
         """Setter. Checks that the argument is boolean."""
 
-        if value not in (None, False, True):
+        if not isinstance(value, bool) and value is not None:
             raise TypeError(
                 "Invalid value for has_start_codon: {0}".format(type(value)))
         self.__has_start_codon = value
@@ -2841,7 +2843,7 @@ index {3}, internal ORFs: {4}".format(
     def has_stop_codon(self, value):
         """Setter. Checks that the argument is boolean."""
 
-        if value not in (None, False, True):
+        if not isinstance(value, bool) and value is not None:
             raise TypeError(
                 "Invalid value for has_stop_codon: {0}".format(type(value)))
 
@@ -3539,7 +3541,7 @@ when the transcript has at least one intron!""")
 
         mixed = bool(self.attributes.get("mixed_splices", False))
         canonical_on_reverse = self.attributes.get("canonical_on_reverse_strand", False)
-        if canonical_on_reverse not in (True, False):
+        if not isinstance(canonical_on_reverse, bool):
             canonical_on_reverse = literal_eval(canonical_on_reverse)
             self.attributes["canonical_on_reverse_strand"] = canonical_on_reverse
 

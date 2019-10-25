@@ -61,12 +61,17 @@ def merge_loci(num_temp, out_handles,
         checker.update(counters)
         logger.fatal("%d double indices found!", len([_ for _ in checker if checker[_] > 1]))
 
+    # Start iterating the output dictionaries ("cursors")
     for dbindex, cursor in enumerate(cursors):
-        d = dict((index[0], (dbindex, index[1], index[2])) for index in cursor.execute(
-            "SELECT counter, chrom, genes FROM loci").fetchall())
-        assert not set.intersection(set(d.keys()), set(common_index.keys())), set.intersection(
-            set(d.keys()), set(common_index.keys()))
-
+        # Get the counter (this is the dictionary key), chromosome, and number of genes
+        d = dict()
+        doubles = set()
+        for counter, chrom, genes in cursor.execute("SELECT counter, chrom, genes FROM loci"):
+            if counter in common_index:
+                doubles.add(counter)
+            d[counter] = (dbindex, chrom, genes)
+        if len(doubles) > 0:
+            raise AssertionError("Double indices found: {}".format(doubles))
         common_index.update(d)
 
     print_subloci = (out_handles[1][0] is not None)
@@ -75,10 +80,10 @@ def merge_loci(num_temp, out_handles,
         raise KeyError("I am missing some loci! {} vs {}".format(
             max_counter, max(common_index.keys())))
 
-    assert set(common_index.keys()) == set(range(1, max(common_index.keys()) + 1)), (
-        set.difference(set(range(1, max(common_index.keys()) + 1)), set(common_index.keys()))
-    )
-    assert len(common_index.keys()) == len(set(common_index.keys()))
+    __valid = set(range(1, max(common_index.keys()) + 1))
+    if set(common_index.keys()) != __valid:
+        missing = set.difference(__valid, set(common_index.keys()))
+        raise AssertionError("Missing the following loci: {}".format(missing))
 
     new_common, total_genes = __create_gene_counters(common_index)
 

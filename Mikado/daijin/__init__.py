@@ -375,6 +375,7 @@ def assemble_transcripts_pipeline(args):
                                             prefix="assemble")
     yaml.dump(doc, yaml_file)
     yaml_file.flush()
+    shutil.copystat(args.config, yaml_file.name)
 
     if args.latency_wait is not None:
         latency = abs(args.latency_wait)
@@ -403,7 +404,8 @@ def assemble_transcripts_pipeline(args):
         "printdag": args.dag,
         "forceall": args.dag,
         "forcerun": args.forcerun,
-        "lock": (not args.nolock)
+        "lock": (not args.nolock),
+        "printreason": True
     }
 
     if "configfile" in inspect.getfullargspec(snakemake.snakemake).args:
@@ -498,6 +500,7 @@ def mikado_pipeline(args):
                                             )
     yaml.dump(doc, yaml_file)
     yaml_file.flush()
+    shutil.copystat(args.config, yaml_file.name)
 
     if SCHEDULER == "local":
         hpc_conf = None
@@ -545,6 +548,7 @@ as Mikado serialise relies on having a number of chunks equal or greater than th
         "forceall": args.dag,
         "forcerun": args.forcerun,
         "lock": (not args.nolock),
+        "printreason": True
     }
 
     if "configfile" in inspect.getfullargspec(snakemake.snakemake).args:

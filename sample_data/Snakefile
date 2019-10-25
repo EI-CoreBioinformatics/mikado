@@ -38,7 +38,8 @@ configfile: "configuration.yaml"
 
 rule complete:
     input: "compare.stats", "compare_subloci.stats", "compare_input.stats", "check.ok",
-         "check_metrics.ok", "daijin_test/mikado.yaml", "g11.ok", "refmap_check.ok", "refmap_check_pc.ok"
+         "check_metrics.ok", "daijin_test/mikado.yaml", "g11.ok", "refmap_check.ok", "refmap_check_pc.ok",
+         "external.ok", "alias_check.ok"
     output: touch("finished.ok")
 
 
@@ -128,7 +129,6 @@ rule compare_subloci:
     message: """mikado compare -r {input[reference]} -p {input[prediction]} -o compare_subloci -l {log}"""
     shell: """mikado compare -r {input[reference]} -p {input[prediction]} -o compare_subloci -l {log}"""
 
-
 rule compare_subloci_pc:
     input: reference="reference.gff3", prediction=rules.daijin.output.sub, midx=rules.index_reference.output
     output:
@@ -202,6 +202,100 @@ rule check_pick:
         raise ValueError("Something went wrong with Mikado pick, please check")
       open(output[0], "wt")
 
+
+rule test_external_kal_index:
+    input:
+      fasta=rules.daijin.output.prep_fasta
+    output:
+      index=os.path.join("Daijin", "5-mikado", "mikado_prepared.idx")
+    conda: "kallisto.yaml"
+    threads: 1
+    shell: "kallisto index -i {output.index} {input.fasta}"
+
+rule test_external_kal_quant:
+    input:
+      index=rules.test_external_kal_index.output.index,
+      r1="ERR588038.R1.fq.gz",
+      r2="ERR588038.R2.fq.gz"
+    output:
+      kal_tsv=os.path.join("Daijin", "5-mikado", "kallisto", "abundance.tsv"),
+      data=os.path.join("Daijin", "5-mikado", "data.txt")
+    params:
+      folder=os.path.join("Daijin", "5-mikado", "kallisto")
+    conda: "kallisto.yaml"
+    threads: 2
+    shell: """kallisto quant -t {threads} -o {params.folder} -i {input.index} {input.r1} {input.r2} && \
+cut -f 1,5 {output.kal_tsv} | sed 's/target_id/tid/' > {output.data}"""
+
+
+rule test_external_kal_serialise:
+    input:
+      db=rules.daijin.output.db,
+      data=rules.test_external_kal_quant.output.data,
+    output:
+      db=os.path.join("Daijin", "5-mikado", "mikado_external.db"),
+      check=touch(os.path.join("Daijin", "5-mikado", "mikado_external.check.ok"))
+    params:
+      db="mikado_external.db"
+    threads: 2
+    log: os.path.join("Daijin", "5-mikado", "mikado_serialise_external.log")
+    shell: """
+    mikado serialise --xml=Daijin/5-mikado/blast/xmls --blast_targets=Daijin/5-mikado/blast/index/blastdb-proteins.fa \
+    --start-method=spawn --transcripts=Daijin/5-mikado/mikado_prepared.fasta \
+    --genome_fai=Daijin/5-mikado/chr5.fas.gz.fai --json-conf=configuration.yaml \
+    --external {input.data} -nsa --force \
+    --orfs=Daijin/5-mikado/transdecoder/transcripts.fasta.transdecoder.bed \
+    -od Daijin/5-mikado --procs={threads} -l {log} {params.db};
+    if [[ $(sqlite3 {output.db} "select count(*) > 0 from external") != 1 ]]; then exit 1; else exit 0; fi"""
+
+
+rule test_external_kal_pick:
+    input:
+      db=rules.test_external_kal_serialise.output.db,
+      gtf=rules.daijin.output.prep,
+      scoring="plant_external.yaml"
+    output:
+      loci=os.path.join("Daijin", "5-mikado", "pick", "external", "mikado-permissive.loci.gff3"),
+      scores=os.path.join("Daijin", "5-mikado", "pick", "external", "mikado-permissive.loci.scores.tsv"),
+      subscores=os.path.join("Daijin", "5-mikado", "pick", "external", "mikado.subloci.scores.tsv")
+    params:
+      outdir=os.path.join("Daijin", "5-mikado", "pick", "external"),
+      loci_out="mikado-permissive.loci.gff3"
+    log: os.path.join("Daijin", "5-mikado", "pick", "external", "mikado-permissive.log")
+    threads: 2
+    shell: """mikado pick --scoring-file {input.scoring} --source Mikado_permissive \
+    --mode=permissive --procs=2 --start-method=spawn \
+    --json-conf=configuration.yaml -od {params.outdir} \
+     -l {log} --loci-out {params.loci_out} -lv INFO -db {input.db} {input.gtf}"""
+
+rule check_external_pick:
+    input:
+      scores=rules.test_external_kal_pick.output.scores,
+      subscores=rules.test_external_kal_pick.output.subscores,
+    output: touch("external.ok")
+    run:
+        import pandas as pd
+        scores = pd.read_csv(input["scores"], delimiter="\t")
+        assert "external.tpm" in scores.columns
+        assert scores["external.tpm"].max() > 0
+        scores = pd.read_csv(input["subscores"], delimiter="\t")
+        assert "external.tpm" in scores.columns
+        assert scores["external.tpm"].max() > 0
+
+rule check_pick_confusing_alias:
+    input:
+       db=rules.daijin.output.db,
+       prepare="mikado_prepared.conf_alias.gtf"
+    output: touch("alias_check.ok")
+    log: os.path.join("Daijin", "5-mikado", "pick", "confusing_alias", "pick.log")
+    params:
+       outdir=os.path.join("Daijin", "5-mikado", "pick", "confusing_alias")
+    threads: 2
+    shell: "mikado pick --only-reference-update  --source Mikado_permissive --mode=permissive \
+    --procs={threads} --start-method=spawn \
+    --json-conf=configuration.yaml -od {params.outdir} \
+    -l {log} --loci-out mikado-permissive.loci.gff3 -lv INFO \
+    -db {input.db} {input.prepare}"
 
 rule test_g11_prodigal:
     input:
@@ -283,6 +377,8 @@ rule clean:
                                     ["configuration.yaml"]):
             if os.path.exists(filename) and filename not in (".", ".."):
                 shutil.rmtree(filename) if os.path.isdir(filename) else os.remove(filename)
+            if os.path.exists("Daijin"):
+                shutil.rmtree("Daijin")
 
 rule clean_crumbs:
     run:

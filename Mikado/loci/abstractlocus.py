@@ -570,6 +570,11 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             self.initialized = False
 
         self.logger.debug("Deleted %s from %s", tid, self.id)
+        if tid in self._metrics:
+            del self._metrics[tid]
+        if tid in self.scores:
+            del self.scores[tid]
+
         self.metrics_calculated = False
         self.scores_calculated = False
 
@@ -987,6 +992,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
         if self.metrics_calculated is True:
             return
+        self._metrics = dict()
         cds_bases = sum(_[1] - _[0] + 1 for _ in merge_ranges(
             itertools.chain(*[
                 self.transcripts[_].combined_cds for _ in self.transcripts
@@ -1135,19 +1141,20 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                 assert self.transcripts[tid].json_conf["prepare"]["files"][\
                            "reference"] == self.json_conf["prepare"]["files"]["reference"]
 
-            if self.transcripts[tid].is_reference is True:
-                # Reference transcripts should be kept in, no matter what.
-                self.logger.debug("Skipping %s from the requirement check as it is a reference transcript")
-                continue
-            elif self.transcripts[tid].original_source in self.json_conf["prepare"]["files"]["reference"]:
-                self.transcripts[tid].is_reference = True  # Bug
-                self.logger.debug("Skipping %s from the requirement check as it is a reference transcript", tid)
-                continue
-            else:
+            is_reference = ((self.transcripts[tid].is_reference is True) or
+                            (self.transcripts[tid].original_source in self.json_conf["prepare"]["files"]["reference"]))
+
+            if is_reference is False:
                 self.logger.debug("Transcript %s (source %s) is not a reference transcript (references: %s; in it: %s)",
                                   tid, self.transcripts[tid].original_source,
                                   self.json_conf["prepare"]["files"]["reference"],
-                                  self.transcripts[tid].original_source in self.json_conf["prepare"]["files"]["reference"])
+                                  self.transcripts[tid].original_source in self.json_conf["prepare"]["files"][
+                                      "reference"])
+            elif is_reference is True and self.json_conf["pick"]["run_options"]["check_references"] is False:
+                self.logger.debug("Skipping %s from the requirement check as it is a reference transcript", tid)
+                continue
+            elif is_reference is True and self.json_conf["pick"]["run_options"]["check_references"] is True:
+                self.logger.debug("Performing the requirement check for %s even if it is a reference transcript", tid)
 
             evaluated = dict()
             for key in self.json_conf["requirements"]["parameters"]:
@@ -1333,16 +1340,27 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             try:
                 # metric = rgetattr(self.transcripts[tid], param)
                 if tid not in self._metrics and transcript.alias in self._metrics:
-                    metric = self._metrics[transcript.alias][param]
+                    if param in self._metrics[transcript.alias]:
+                        metric = self._metrics[transcript.alias][param]
+                    else:
+                        metric = rgetattr(self.transcripts[tid], param)
+                        self._metrics[transcript.alias][param] = metric
                 else:
-                    metric = self._metrics[tid][param]
+                    if tid not in self._metrics:
+                        self._metrics[tid] = dict()
+                    if param in self._metrics[tid]:
+                        metric = self._metrics[tid][param]
+                    else:
+                        metric = rgetattr(self.transcripts[tid], param)
+                        self._metrics[tid][param] = metric
                 if isinstance(metric, (tuple, list)):
                     metric = metric[0]
                 metrics[tid] = metric
             except TypeError:
                 raise TypeError(param)
             except KeyError:
-                raise KeyError(param)
+                metric = rgetattr(self.transcripts[tid], param)
+                raise KeyError((tid, param, metric))
             except AttributeError:
                 raise AttributeError(param)
 

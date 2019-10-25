@@ -639,6 +639,10 @@
               "type": "boolean",
               "default": false
             },
+            "check_references": {
+              "type": "boolean",
+              "default": false
+            },
             "single_thread": {
               "type": "boolean",
               "default": false

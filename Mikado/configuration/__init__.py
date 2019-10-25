@@ -17,14 +17,27 @@ def print_toml_config(output, out):
     pat = re.compile("(SimpleComment|Comment)\s{0,}=\s{0,}")
     skip_pat = re.compile("^\[(SimpleComment|Comment)\]")
 
+    initial_comment = []
+    first_indent_found = False
+    lines = []
+
     for line in output.split("\n"):
         if skip_pat.match(line):
             continue
+        elif line.startswith("["):
+            first_indent_found = True
+            lines.append(line)
         elif pat.match(line.lstrip()):
             for l in eval(pat.sub("", line.lstrip().rstrip())):
-                print(f"# {l}", file=out)
+                if first_indent_found is True:
+                    lines.append(f"# {l}")
+                else:
+                    initial_comment.append(f"# {l}")
         else:
-            print(line.rstrip(), file=out)
+            lines.append(line.rstrip())
+
+    print(*initial_comment, sep="\n", file=out)
+    print(*lines, sep="\n", file=out)
 
 
 def print_config(output, out):

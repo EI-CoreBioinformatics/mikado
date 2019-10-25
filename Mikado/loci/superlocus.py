@@ -935,6 +935,7 @@ class Superlocus(Abstractlocus):
 
         if self.subloci_defined is True:
             return
+
         self.compile_requirements()
         self.subloci = []
 

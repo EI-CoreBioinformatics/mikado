@@ -649,9 +649,11 @@ class Superlocus(Abstractlocus):
                 "({0})".format(", ".join([str(_) for _ in query_ids.keys()])))
 
             if len(targets) > 0:
-                target_ids = dict((target.target_id, target) for target in
-                                  self.session.query(Target).filter(
-                                      Target.target_id.in_(targets)))
+                target_ids = dict()
+                for target_group in grouper(targets, 100):
+                    target_ids.update(dict((target.target_id, target) for target in
+                                      self.session.query(Target).filter(
+                                          Target.target_id.in_(target_group))))
             else:
                 target_ids = dict()
             current_hit = None

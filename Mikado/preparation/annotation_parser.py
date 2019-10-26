@@ -175,6 +175,79 @@ def __raise_invalid(row_id, name, label):
             "(label: {0})".format(label) if label != '' else ""))
 
 
+def __evaluate_tid(tid, tobject, logger, min_length, max_intron):
+    if "exon" in tobject["features"]:
+        segments = tobject["features"]["exon"][:]
+    elif "CDS" in tobject["features"]:
+        segments = tobject["features"]["CDS"][:]
+        for feature in tobject["features"]:
+            if "utr" in feature.lower():
+                segments.extend(tobject["features"][feature])
+            else:
+                continue
+        segments = sorted(segments, key=itemgetter(0))
+        # Now check the exons
+        exons = []
+        if len(segments) == 0:
+            logger.warning("No valid exon feature for %s, continuing", tid)
+            return []
+        elif len(segments) == 1:
+            exons = segments[0]
+        else:
+            current = segments[0]
+            for pos in range(1, len(segments)):
+                segment = segments[pos]
+                if segment[0] > current[1] + 1:
+                    exons.append(current)
+                    current = segment
+                elif segment[0] == current[1] + 1:
+                    current = (current[0], segment[1], None)
+                else:
+                    logger.warning("Overlapping segments found in %s. Discarding it", tid)
+                    return []
+            exons.append(current)
+        tobject["features"]["exon"] = exons[:]
+    else:
+        raise KeyError(tobject["features"])
+
+    segments = sorted(segments, key=itemgetter(0))
+    tlength = 0
+    start, end = segments[0][0], segments[-1][1]
+    over_introns = []
+    num_segments = len(segments)
+    for pos, segment in enumerate(segments):
+        if pos < num_segments - 1:
+            later = segments[pos + 1]
+            intron = later[0] - (segment[1] + 1)
+            if intron > max_intron:
+                over_introns.append((pos, intron))
+        tlength += segment[1] + 1 - segment[0]
+
+    # Discard transcript under a certain size
+    if tlength < min_length:
+        if tobject["is_reference"] is True:
+            logger.info("%s retained even if it is too short (%d) as it is a reference transcript.",
+                        tid, tlength)
+        else:
+            logger.info("Discarding %s because its size (%d) is under the minimum of %d",
+                        tid, tlength, min_length)
+            return []
+
+    # Discard transcripts with introns over the limit
+    if len(over_introns) > 0:
+        if tobject["is_reference"] is True:
+            logger.info(
+                "%s retained even if has %s introns the limit (%d, max: %d) as it is a reference transcript.",
+                tid, len(over_introns), max_intron,  max([_[1] for _ in over_introns]))
+        else:
+            logger.info("Splitting %s into %d transcripts because it has %d introns over the maximum of %d (longest: %d)",
+                        tid, len(over_introns), len(over_introns) + 1, max_intron,
+                        max([_[1] for _ in over_introns]))
+            return []
+
+    return [(tobject, tid, start, end)]
+
+
 def load_into_storage(shelf_name, exon_lines, min_length, logger, strip_cds=True, max_intron=3*10**5):
 
     """Function to load the exon_lines dictionary into the temporary storage."""
@@ -226,80 +299,17 @@ def load_into_storage(shelf_name, exon_lines, min_length, logger, strip_cds=True
         elif "match" in exon_lines[tid]["features"] and "exon" in exon_lines[tid]["features"]:
             del exon_lines[tid]["features"]["match"]
 
-        if "exon" in exon_lines[tid]["features"]:
-            segments = exon_lines[tid]["features"]["exon"][:]
-        elif "CDS" in exon_lines[tid]["features"]:
-            segments = exon_lines[tid]["features"]["CDS"][:]
-            for feature in exon_lines[tid]["features"]:
-                if "utr" in feature.lower():
-                    segments.extend(exon_lines[tid]["features"][feature])
-                else:
-                    continue
-            segments = sorted(segments, key=itemgetter(0))
-            # Now check the exons
-            exons = []
-            if len(segments) == 0:
-                logger.warning("No valid exon feature for %s, continuing", tid)
-                continue
-            elif len(segments) == 1:
-                exons = segments[0]
-            else:
-                current = segments[0]
-                for pos in range(1, len(segments)):
-                    segment = segments[pos]
-                    if segment[0] > current[1] + 1:
-                        exons.append(current)
-                        current = segment
-                    elif segment[0] == current[1] + 1:
-                        current = (current[0], segment[1], None)
-                    else:
-                        logger.warning("Overlapping segments found in %s. Discarding it", tid)
-                        continue
-                exons.append(current)
-            exon_lines[tid]["features"]["exon"] = exons[:]
-        else:
-            raise KeyError(exon_lines[tid]["features"])
+        for values, tid, start, end in __evaluate_tid(tid, exon_lines[tid], logger,
+                                                      max_intron=max_intron,
+                                                      min_length=min_length):
+            try:
+                values = json.dumps(exon_lines[tid], number_mode=json.NM_NATIVE)
+            except ValueError:  # This is a crash that happens when there are infinite values
+                values = json.dumps(exon_lines[tid])
 
-        segments = sorted(segments, key=itemgetter(0))
-        tlength = 0
-        start, end = segments[0][0], segments[-1][1]
-        biggest_intron = -1
-        num_segments = len(segments)
-        for pos, segment in enumerate(segments):
-            if pos < num_segments - 1:
-                later = segments[pos + 1]
-                biggest_intron = max(biggest_intron,
-                                     later[0] - (segment[1] + 1))
-            tlength += segment[1] + 1 - segment[0]
+            logger.debug("Inserting %s into shelf %s", tid, shelf_name)
+            temp_store.append((exon_lines[tid]["chrom"], start, end, exon_lines[tid]["strand"], tid, values))
 
-        # Discard transcript under a certain size
-        if tlength < min_length:
-            if exon_lines[tid]["is_reference"] is True:
-                logger.info("%s retained even if it is too short (%d) as it is a reference transcript.",
-                            tid, tlength)
-            else:
-                logger.info("Discarding %s because its size (%d) is under the minimum of %d",
-                             tid, tlength, min_length)
-                continue
-
-        # Discard transcripts with introns over the limit
-        if biggest_intron > max(-1, max_intron):
-            if exon_lines[tid]["is_reference"] is True:
-                logger.info(
-                    "%s retained even if its longest intron is over the limit (%d) as it is a reference transcript.",
-                    tid, biggest_intron)
-            else:
-                logger.info("Discarding %s because its longest intron (%d) is over the maximum of %d",
-                             tid, biggest_intron, max_intron)
-                continue
-
-        try:
-            values = json.dumps(exon_lines[tid], number_mode=json.NM_NATIVE)
-        except ValueError:  # This is a crash that happens when there are infinite values
-            values = json.dumps(exon_lines[tid])
-
-        logger.debug("Inserting %s into shelf %s", tid, shelf_name)
-        temp_store.append((exon_lines[tid]["chrom"], start, end, exon_lines[tid]["strand"], tid, values))
         if len(temp_store) >= 1000:
             conn.executemany("INSERT INTO dump VALUES (?, ?, ?, ?, ?, ?)", temp_store)
             conn.commit()

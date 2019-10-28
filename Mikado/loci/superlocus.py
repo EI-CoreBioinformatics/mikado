@@ -537,7 +537,7 @@ class Superlocus(Abstractlocus):
 
         self.logger.debug("Querying the DB for introns, %d total", len(self.introns))
         if data_dict is None:
-            if self.json_conf["db_settings"]["db"] is None:
+            if self.json_conf["db_settings"]["db"] is None or self.json_conf["db_settings"]["db"] == "":
                 return  # No data to load
             # dbquery = self.db_baked(self.session).params(chrom_name=self.chrom).all()
 

@@ -110,5 +110,7 @@ dependencies:
   - pip:
     - jsonref==0.2
     - rapidjson==1.0.0
-prefix: /home/osboxes/miniconda3/envs/mikado2
+  - conda-forge::toml==0.10.0
+  - conda-forge::tomlkit==0.5.8
+
 

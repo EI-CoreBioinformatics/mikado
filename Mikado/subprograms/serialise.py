@@ -254,7 +254,7 @@ def setup(args):
 
     args.json_conf["log_settings"]["log"] = args.json_conf["serialise"]["files"]["log"][:]
 
-    if args.json_conf["serialise"]["files"]["log"] is not None:
+    if args.json_conf["serialise"]["files"]["log"] is not None and args.json_conf["serialise"]["files"]["log"] != "":
         if args.log != args.json_conf["serialise"]["files"]["log"] and args.log is not None:
             args.json_conf["serialise"]["files"]["log"] = args.log
         if not isinstance(args.json_conf["serialise"]["files"]["log"], str):
@@ -296,11 +296,11 @@ def setup(args):
     logger.info("Random seed: %s", args.json_conf["seed"])
     logger.setLevel(args.log_level)
 
-    if args.json_conf["serialise"]["files"]["junctions"] is not None:
+    if args.json_conf["serialise"]["files"]["junctions"]:
         if args.genome_fai is not None:
             args.json_conf["reference"]["genome_fai"] = args.genome_fai
-        elif args.json_conf["reference"]["genome_fai"] is None:
-            if args.json_conf["reference"]["genome"] is not None:
+        elif args.json_conf["reference"]["genome_fai"] in (None, ""):
+            if args.json_conf["reference"]["genome"] not in (None, ""):
                 _ = pyfaidx.Fasta(args.json_conf["reference"]["genome"])
                 args.json_conf["reference"]["genome_fai"] = _.faidx.indexname
             else:

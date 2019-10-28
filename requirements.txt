@@ -24,3 +24,5 @@ pandas
 jsonref
 pysam>=0.15.1
 fastnumbers>=2.1.1
+toml
+tomlkit

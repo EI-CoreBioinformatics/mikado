@@ -2,11 +2,12 @@ import rapidjson as json
 import os
 import io
 import yaml
+import tomlkit
 import jsonschema
 from pkg_resources import resource_stream, resource_filename
 from .configurator import extend_with_default, merge_dictionaries, check_all_requirements, check_scoring, to_json
 from .configurator import create_cluster_config
-from . import print_config, check_has_requirements
+from . import print_config, check_has_requirements, print_toml_config
 from ..exceptions import InvalidJson
 from ..utilities.log_utils import create_default_logger
 import sys
@@ -310,12 +311,40 @@ def create_daijin_config(args, level="ERROR", piped=False):
                     print("{}: \"{}\"".format(key, val), file=out)
 
     del final_config["load"]
+    final_config.pop("as_requirements", None)
+    final_config.pop("scoring", None)
+    final_config.pop("requirements", None)
+    final_config.pop("not_fragmentary", None)
+    if any(key.startswith("_") for key in final_config):
+        _to_remove = [_ for _ in final_config if isinstance(_, str) and _.startswith("_")]
+        [final_config.pop(key) for key in _to_remove]
+
+    def _rec_delete(d: dict, keep_comments=True):
+        _to_remove = []
+        if len(d) == 0:
+            return d
+        elif keep_comments is False and all(
+                (isinstance(_, str) and "Comment" in _) for _ in d):
+            d = dict()
+            return d
+        else:
+            for key in d:
+                if isinstance(d[key], dict):
+                    d[key] = _rec_delete(d[key], ("Comment" in key))
+                    if len(d[key]) == 0:
+                        _to_remove.append(key)
+        [d.pop(key) for key in _to_remove]
+        return d
+
+    final_config = _rec_delete(final_config)
 
     if piped is True:
         return final_config
     else:
         if args.out != sys.stdout and args.out.name.endswith("json"):
             json.dump(final_config, args.out)
+        if args.out != sys.stdout and args.out.name.endswith("toml"):
+            print_toml_config(tomlkit.dumps(final_config), args.out)
         else:
             print_config(yaml.dump(final_config, default_flow_style=False), args.out)
 

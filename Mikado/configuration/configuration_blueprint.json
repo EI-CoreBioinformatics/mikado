@@ -31,8 +31,8 @@
       "minimum": 1
     },
     "seed": {
-      "type": ["integer", "null"],
-      "default": null
+      "type": ["integer"],
+      "default": 0
     },
     "multiprocessing_method": {
       "type": "string",
@@ -72,7 +72,7 @@
           "default": "WARNING"
         },
         "log": {
-          "oneOf": [null, {"type": "string", "default": null}]
+          "type": ["null", "string"], "default": ""
         }
       }
     },
@@ -83,7 +83,7 @@
         "dbtype: Type of DB to use. Choices: sqlite, postgresql, mysql. Default: sqlite.",
         "dbhost: Host of the database. Unused if dbtype is sqlite. Default: localhost",
         "dbuser: DB user. Default: ''",
-        "dbpasswd: DB password for the user. Default: null",
+        "dbpasswd: DB password for the user. Default: empty string.",
         "dbport: Integer. It indicates the default port for the DB."
       ],
       "SimpleComment": [
@@ -92,7 +92,7 @@
         "dbtype: Type of DB to use. Choices: sqlite, postgresql, mysql. Default: sqlite.",
         "dbhost: Host of the database. Unused if dbtype is sqlite. Default: localhost",
         "dbuser: DB user. Default: ''",
-        "dbpasswd: DB password for the user. Default: null",
+        "dbpasswd: DB password for the user. Default: empty string",
         "dbport: Integer. It indicates the default port for the DB."
       ],
       "type": "object",
@@ -169,7 +169,7 @@
             },
             "external_scores": {
               "type": ["string", "null"],
-              "default": null
+              "default": ""
             },
             "orfs": {
               "type": "array",
@@ -785,14 +785,14 @@
               "default": "mikado.loci.gff3"
             },
             "subloci_out": {
-              "type": ["string", null],
+              "type": ["string", "null"],
               "default": ""
             },
             "monoloci_out": {
-              "type": ["string", null],
+              "type": ["string", "null"],
               "default": ""
             },
-            "log": {"type": ["null", "string"], "default": null}
+            "log": {"type": ["string", "null"], "default": ""}
           }
         }
       }

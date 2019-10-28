@@ -72,7 +72,7 @@
           "default": "WARNING"
         },
         "log": {
-          "type": "string", "default": ""
+          "type": ["null", "string"], "default": ""
         }
       }
     },
@@ -168,7 +168,7 @@
               "default": []
             },
             "external_scores": {
-              "type": ["string"],
+              "type": ["string", "null"],
               "default": ""
             },
             "orfs": {
@@ -785,14 +785,14 @@
               "default": "mikado.loci.gff3"
             },
             "subloci_out": {
-              "type": ["string"],
+              "type": ["string", "null"],
               "default": ""
             },
             "monoloci_out": {
-              "type": ["string"],
+              "type": ["string", "null"],
               "default": ""
             },
-            "log": {"type": ["string"], "default": ""}
+            "log": {"type": ["string", "null"], "default": ""}
           }
         }
       }

@@ -10,26 +10,31 @@ From: conda/miniconda3
 %files
     environment.yml /
 
+%environment
+    export PYTHONDONTWRITEBYTECODE=true
+
 %post
 
     ### Install your packages ###
 
-    conda env update -n base -f /environment.yml
+    export PYTHONDONTWRITEBYTECODE=true
+    conda env update --prune -n base -f /environment.yml && conda clean -afy
     apt update && apt-get install -qq -y git wget zlib1g-dev g++ && apt clean
     git clone https://github.com/EI-CoreBioinformatics/mikado.git /usr/local/src/mikado
     cd /usr/local/src/mikado
     python3 setup.py bdist_wheel && pip install --prefix /usr/local dist/*whl
 
     echo '#!/bin/bash' >> /usr/local/bin/show_commit_hash
-    echo 'cd /usr/local/src/mikado' >> /usr/local/bin/show_commit_hash
-    echo 'git log | head -n1 | cut -f 2 -d " "' >> /usr/local/bin/show_commit_hash
+    chash=$(git log | head -n1 | cut -f 2 -d " ")
+    echo -e "echo ${chash}" >> /usr/local/bin/show_commit_hash
     chmod 775 /usr/local/bin/show_commit_hash
-    
     chmod -R 775 /usr/local/src/mikado/util/*
     for TOOL in /usr/local/src/mikado/util/*
     	do
-		script=$(basename ${TOOL}) && ln -sf ${TOOL} /usr/local/bin/${script}
+		script=$(basename ${TOOL}) && cp ${TOOL} /usr/local/bin/${script}
         done
+    cd /usr/local/src;
+    rm -rf mikado;
 	
 %apprun snakemake
 	snakemake "@"

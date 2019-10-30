@@ -1268,8 +1268,8 @@ class Superlocus(Abstractlocus):
         self.__lost.update({tid: self.transcripts[tid] for tid in not_loci_transcripts})
 
         if len(self.__lost):
-            self.logger.debug("Lost %s transcripts from %s; starting the recovery process",
-                              len(self.lost_transcripts), self.id)
+            self.logger.debug("Lost %s transcripts from %s; starting the recovery process: TIDs: %s",
+                              len(self.lost_transcripts), self.id, ", ".join(self.__lost))
 
     def define_alternative_splicing(self):
 

@@ -18,6 +18,20 @@ from ..scales.assigner import Assigner
 from ..exceptions import InvalidTranscript
 import networkx as nx
 import numpy as np
+import io
+from pkg_resources import resource_stream
+import rapidjson as json
+import jsonschema
+
+
+with io.TextIOWrapper(resource_stream("Mikado.configuration",
+                                      "configuration_blueprint.json")) as blue:
+        blue_print = json.loads(blue.read())
+
+
+_valid_ccodes = jsonschema.Draft7Validator(
+            blue_print["properties"]["pick"]["properties"]["alternative_splicing"]["properties"]["valid_ccodes"]
+        )
 
 
 class Locus(Abstractlocus):
@@ -164,10 +178,14 @@ class Locus(Abstractlocus):
 
         score_passing = [_ for _ in order if _[1] >= threshold]
 
+        removed = set()
         for tid, score, start, obj in score_passing:
             present = len(self.transcripts)
             if present == max_isoforms:
                 break
+            self.logger.debug("Removed set (present: %s): %s", tid in removed, ", ".join(list(removed)))
+            if tid in removed:
+                continue
             self.add_transcript_to_locus(obj, check_in_locus=False)
             self.logger.debug("Transcript, score, threshold: %s, %s, %s", tid, score, threshold)
             self.metrics_calculated = False
@@ -186,7 +204,9 @@ class Locus(Abstractlocus):
 
                 if failed:
                     continue
-                self.__remove_redundant_after_padding()
+                else:
+                    removed.update(self.__remove_redundant_after_padding())
+                    self.logger.debug("Updated removal set: %s", ", ".join(removed))
 
         for tid in self.transcripts:
             assert tid in original
@@ -205,6 +225,7 @@ class Locus(Abstractlocus):
         self.logger.debug("Launched padding for %s", self.id)
         failed = False
         backup = dict()
+        self._remove_from_alternative_splicing_codes("=", "n", "_")
         for tid in self.transcripts:
             backup[tid] = self.transcripts[tid].deepcopy()
 
@@ -305,21 +326,25 @@ class Locus(Abstractlocus):
         # First thing: calculate the class codes
         class_codes = dict()
         ichains = collections.defaultdict(list)
+        self.logger.debug("Starting to remove redundant transcripts from %s", self.id)
         for tid in self.transcripts:
             if self.transcripts[tid].introns:
-                key = tuple(self.transcripts[tid].introns)
+                key = tuple(sorted(self.transcripts[tid].introns))
             else:
                 key = None
+            self.logger.debug("Intron key for %s: %s", tid, key)
             ichains[key].append(tid)
 
         for ichain in ichains:
             for t1, t2 in itertools.combinations(ichains[ichain], 2):
                 class_codes[(t1, t2)] = Assigner.compare(self[t1], self[t2])[0]
+                self.logger.debug("Comparing ichain %s, %s vs %s: nF1 %s", ichain, t1, t2, class_codes[(t1, t2)].n_f1)
 
         to_remove = set()
         for couple, comparison in class_codes.items():
-            if self[couple[0]].is_reference and self[couple[1]].is_reference:
-                continue
+            # if self[couple[0]].is_reference and self[couple[1]].is_reference:
+            #     self.logger.debug("Both %s and %s are references, continuing", couple[0], couple[1])
+            #     continue
 
             if comparison.n_f1[0] == 100:
                 try:
@@ -329,10 +354,10 @@ class Locus(Abstractlocus):
                         removal = couple[0]
                     elif self[couple[0]].is_reference and not self[couple[1]].is_reference:
                         removal = couple[1]
+                    elif self[couple[1]].is_reference and not self[couple[0]].is_reference:
+                        removal = couple[0]                        
                     elif self[couple[0]].score > self[couple[1]].score:
                         removal = couple[1]
-                    elif self[couple[1]].is_reference and not self[couple[0]].is_reference:
-                        removal = couple[0]
                     elif self[couple[1]].score > self[couple[0]].score:
                         removal = couple[0]
                     else:
@@ -342,12 +367,14 @@ class Locus(Abstractlocus):
                 finally:
                     to_remove.add(removal)
                     self.logger.info("Removing %s from locus %s because after padding it is redundant with %s",
-                                     removal, self.id, couple[0] if removal == couple[1] else couple[0])
+                                     removal, self.id, (set(couple) - {removal}).pop())
 
+        self.logger.debug("Removing from %s: %s", self.id, ", ".join(to_remove))
         for tid in to_remove:
             self.remove_transcript_from_locus(tid)
             continue
-        return
+        self.logger.debug("To remove: %s", ", ".join(to_remove))
+        return to_remove
 
     def as_dict(self):
         self.calculate_scores()
@@ -1170,9 +1197,16 @@ class Locus(Abstractlocus):
         self.json_conf["pick"]["alternative_splicing"]["valid_ccodes"] = list(set(
             list(self.json_conf["pick"]["alternative_splicing"]["valid_ccodes"]) + [code]
         ))
-        self.json_conf = self.json_conf
+        _valid_ccodes.validate(self.json_conf["pick"]["alternative_splicing"]["valid_ccodes"])
 
+    def _remove_from_alternative_splicing_codes(self, *ccodes):
+        sub = self.json_conf["pick"]["alternative_splicing"]["valid_ccodes"]
+        for ccode in ccodes:
+            if ccode in sub:
+                sub.remove(ccode)
+        self.json_conf["pick"]["alternative_splicing"]["valid_ccodes"] = sub
 
+        
 def expand_transcript(transcript: Transcript,
                       start_transcript: [Transcript, bool],
                       end_transcript: [Transcript, bool],

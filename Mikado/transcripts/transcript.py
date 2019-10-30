@@ -997,7 +997,12 @@ class Transcript:
             else:
                 pass
         if not isinstance(value, bool) and value is not None:
-            raise ValueError("Invalid value: {} (type: {})".format(value, type(value)))
+            if value == 1:
+                value = True
+            elif value == 0:
+                value = False
+            else:
+                raise ValueError("Invalid value: {} (type: {})".format(value, type(value)))
         self.__is_reference = value
 
     @is_reference.deleter
@@ -2827,8 +2832,13 @@ index {3}, internal ORFs: {4}".format(
         """Setter. Checks that the argument is boolean."""
 
         if not isinstance(value, bool) and value is not None:
-            raise TypeError(
-                "Invalid value for has_start_codon: {0}".format(type(value)))
+            if value == 1:
+                value = True
+            elif value == 0:
+                value = False
+            else:
+                raise TypeError(
+                    "Invalid value for has_start_codon: {0}".format(type(value)))
         self.__has_start_codon = value
 
     has_start_codon.category = "CDS"
@@ -2844,8 +2854,13 @@ index {3}, internal ORFs: {4}".format(
         """Setter. Checks that the argument is boolean."""
 
         if not isinstance(value, bool) and value is not None:
-            raise TypeError(
-                "Invalid value for has_stop_codon: {0}".format(type(value)))
+            if value == 1:
+                value = True
+            elif value == 0:
+                value = False
+            else:
+                raise TypeError(
+                    "Invalid value for has_stop_codon: {0}".format(type(value)))
 
         self.__has_stop_codon = value
 

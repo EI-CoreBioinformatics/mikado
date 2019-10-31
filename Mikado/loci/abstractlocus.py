@@ -1137,9 +1137,8 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                         tid not in previous_not_passing):
             if self.transcripts[tid].json_conf is None:
                 self.transcripts[tid].json_conf = self.json_conf
-            else:
-                assert self.transcripts[tid].json_conf["prepare"]["files"][\
-                           "reference"] == self.json_conf["prepare"]["files"]["reference"]
+            elif self.transcripts[tid].json_conf["prepare"]["files"]["reference"] != self.json_conf["prepare"]["files"]["reference"]:
+                self.transcripts[tid].json_conf = self.json_conf
 
             is_reference = ((self.transcripts[tid].is_reference is True) or
                             (self.transcripts[tid].original_source in self.json_conf["prepare"]["files"]["reference"]))

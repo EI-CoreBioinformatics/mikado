@@ -290,7 +290,7 @@ class MonosublocusHolder(Sublocus, Abstractlocus):
 
         logger.debug("Comparing %s vs. %s", transcript.id, other.id)
 
-        if transcript == other or transcript.id == other.id or transcript.strand != other.strand:
+        if transcript.id == other.id or transcript.strand != other.strand:
             logger.debug("Cannot intersect with itself (%s vs %s) or a transcript on the other strand (%s and %s)",
                          transcript.id, other.id, transcript.strand, other.strand)
             return False

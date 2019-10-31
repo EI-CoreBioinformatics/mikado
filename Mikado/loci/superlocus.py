@@ -537,7 +537,7 @@ class Superlocus(Abstractlocus):
 
         self.logger.debug("Querying the DB for introns, %d total", len(self.introns))
         if data_dict is None:
-            if self.json_conf["db_settings"]["db"] is None:
+            if self.json_conf["db_settings"]["db"] is None or self.json_conf["db_settings"]["db"] == "":
                 return  # No data to load
             # dbquery = self.db_baked(self.session).params(chrom_name=self.chrom).all()
 
@@ -1268,8 +1268,8 @@ class Superlocus(Abstractlocus):
         self.__lost.update({tid: self.transcripts[tid] for tid in not_loci_transcripts})
 
         if len(self.__lost):
-            self.logger.debug("Lost %s transcripts from %s; starting the recovery process",
-                              len(self.lost_transcripts), self.id)
+            self.logger.debug("Lost %s transcripts from %s; starting the recovery process: TIDs: %s",
+                              len(self.lost_transcripts), self.id, ", ".join(self.__lost))
 
     def define_alternative_splicing(self):
 

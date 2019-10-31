@@ -99,7 +99,7 @@ class GFAnnotation(metaclass=abc.ABCMeta):
         self._parse_attributes()
         self.feature = self._fields[2]
         self.__is_exon, self.__is_gene, self.__is_cds = None, None, None
-        [intern(_) for _ in (self.chrom, self.source, self.feature)]
+        [intern(_) for _ in (str(self.chrom), str(self.source), str(self.feature))]
 
     def __str__(self):
         if not self.feature:

@@ -322,7 +322,7 @@ Please update your configuration files in the future.""".format(
         self.logger = logging.getLogger("listener")
         self.logger.propagate = False
         if (self.json_conf["pick"]["files"]["log"] is None or
-                self.json_conf["pick"]["files"]["log"] == "stream"):
+                self.json_conf["pick"]["files"]["log"] in ("stream", "")):
             self.log_handler = logging.StreamHandler()
         else:
             if os.path.basename(self.json_conf["pick"]["files"]["log"]) == self.json_conf["pick"]["files"]["log"]:

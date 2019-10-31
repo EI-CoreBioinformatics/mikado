@@ -24,6 +24,7 @@ from ..exceptions import InvalidJson, UnrecognizedRescaler
 from ..utilities import merge_dictionaries
 from ..utilities.log_utils import create_default_logger
 import numpy
+import toml
 
 
 __author__ = "Luca Venturini"
@@ -669,6 +670,9 @@ def to_json(string, simple=False, logger=None):
             with open(string) as json_file:
                 if string.endswith(".yaml"):
                     json_dict = yaml.load(json_file, Loader=yaml.SafeLoader)
+                elif string.endswith(".toml"):
+                    json_dict = toml.load(json_file)
+                    assert isinstance(json_dict, dict)
                 else:
                     json_dict = json.loads(json_file.read())
         json_dict["filename"] = string
@@ -676,12 +680,12 @@ def to_json(string, simple=False, logger=None):
     except Exception as exc:
         raise OSError((exc, string))
 
-    seed = json_dict.get("seed", None)
-    if seed is None:
-        seed = numpy.random.randint(0, 2 ** 32 - 1)
+    seed = json_dict.get("seed", 0)
+    if seed == 0:
+        seed = numpy.random.randint(1, 2 ** 32 - 1)
         logger.info("Random seed: {}", seed)
 
-    if seed is not None:
+    if seed != 0:
         numpy.random.seed(seed % (2 ** 32 - 1))
     else:
         numpy.random.seed(None)

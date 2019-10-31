@@ -136,8 +136,16 @@
     },
     "align_methods": {
       "type": "object",
+      "SimpleComment": ["Aligners to use. Each aligner can be invoked multiple times:",
+                        "the per-aligner list includes the extra command line arguments",
+                        "to be passed to the program"],
+      "Comment": ["Aligners to use. Each aligner can be invoked multiple times:",
+                  "the per-aligner list includes the extra command line arguments",
+                  "to be passed to the program"],
       "additionalProperties": false,
       "properties": {
+        "SimpleComment": {"type": "array", "items": {"type": "string"}},
+        "Comment": {"type": "array", "items": {"type": "string"}},
         "tophat": {
           "type": "array",
           "items": {
@@ -171,7 +179,15 @@
     "long_read_align_methods": {
       "type": "object",
       "additionalProperties": false,
+      "SimpleComment": ["Aligners for long reads to use. Each aligner can be invoked multiple times:",
+                        "the per-aligner list includes the extra command line arguments",
+                        "to be passed to the program"],
+      "Comment": ["Aligners for long reads to use. Each aligner can be invoked multiple times:",
+                  "the per-aligner list includes the extra command line arguments",
+                  "to be passed to the program"],
       "properties": {
+        "SimpleComment": {"type": "array", "items": {"type": "string"}},
+        "Comment": {"type": "array", "items": {"type": "string"}},
         "star": {
           "type": "array",
           "items": {
@@ -191,7 +207,15 @@
     "asm_methods": {
       "type": "object",
       "additionalProperties": false,
+      "SimpleComment": ["Short-read assemblers to use. Each assembler can be invoked multiple times:",
+                        "the per-aligner list includes the extra command line arguments",
+                        "to be passed to the program"],
+      "Comment": ["Short-read assemblers to use. Each assembler can be invoked multiple times:",
+                  "the per-aligner list includes the extra command line arguments",
+                  "to be passed to the program"],
       "properties": {
+        "SimpleComment": {"type": "array", "items": {"type": "string"}},
+        "Comment": {"type": "array", "items": {"type": "string"}},
         "stringtie": {
           "type": "array",
           "items": {
@@ -236,7 +260,7 @@
     "reference": {
         "$ref": "configuration_blueprint.json#properties/reference"
       },
-    "transdecoder": {
+    "orf_calling": {
       "type": "object",
       "properties": {
         "min_protein_len": {"type": "integer", "minimum": 1, "default": 30, "required": true},

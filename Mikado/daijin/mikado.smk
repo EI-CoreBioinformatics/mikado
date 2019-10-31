@@ -231,7 +231,7 @@ rule blast_all:
     output: os.path.join(BLAST_DIR, "blastx.all.done")
     shell: "touch {output}"
 
-if config.get("mikado", dict()).get("use_prodigal", False) is False and config.get("transdecoder", dict()).get("execute", True) is True:
+if config.get("mikado", dict()).get("use_prodigal", False) is False and config.get("orf_calling", dict()).get("execute", True) is True:
     rule transdecoder_lo:
         input: rules.mikado_prepare.output.fa
         output: os.path.join(TDC_DIR, "transcripts.fasta.transdecoder_dir", "longest_orfs.gff3")
@@ -240,7 +240,7 @@ if config.get("mikado", dict()).get("use_prodigal", False) is False and config.g
             tr="transcripts.fasta",
             tr_in=os.path.join(MIKADO_DIR_FULL, "mikado_prepared.fasta"),
             load=loadPre(config, "transdecoder"),
-            minprot=config["transdecoder"]["min_protein_len"],
+            minprot=config["orf_calling"]["min_protein_len"],
             table=get_codon_table(return_id=False)
         log: os.path.join(TDC_DIR_FULL, "transdecoder.longorf.log")
         threads: 1
@@ -269,7 +269,7 @@ TransDecoder.LongOrfs -G {params.table} -m {params.minprot} -t {params.tr} > {lo
         conda: os.path.join(envdir, "transdecoder.yaml")
         shell: "{params.load} cd {params.outdir} && TransDecoder.Predict -t {params.tr} -G {params.table} > {log} 2>&1"
     orf_out = rules.transdecoder_pred.output
-elif config.get("mikado", dict()).get("use_prodigal", False) is True:
+elif config.get("mikado", dict()).get("use_prodigal", False) is True and config.get("orf_calling", dict()).get("execute", False) is True:
     rule prodigal:
         input: rules.mikado_prepare.output.fa
         output: os.path.join(PROD_DIR, "transcripts.fasta.prodigal.gff3")
@@ -279,7 +279,7 @@ elif config.get("mikado", dict()).get("use_prodigal", False) is True:
             tr_in=os.path.join(MIKADO_DIR_FULL, "mikado_prepared.fasta"),
             tr_out="transcripts.fasta.prodigal.gff3",
             load=loadPre(config, "prodigal"),
-            minprot=config["transdecoder"]["min_protein_len"],
+            minprot=config["orf_calling"]["min_protein_len"],
             table=get_codon_table(return_id=True)
         log: os.path.join(PROD_DIR_FULL, "prodigal.log")
         threads: 1

@@ -28,7 +28,6 @@
       "type": "integer",
       "default": 4,
       "Comment": "Threads to be used per process.",
-      "required": true,
       "minimum": 1
     },
     "seed": {
@@ -264,7 +263,7 @@
             "  during the preparation step."
           ],
           "type": "object",
-          "required": ["out", "out_fasta", "gff", "reference"],
+          "required": ["out", "out_fasta", "gff"],
           "properties": {
             "output_dir": {"type": "string", "default": "."},
             "out": {"type": "string", "default": "mikado_prepared.gtf"},
@@ -803,8 +802,7 @@
     "properties": {
       "genome": {
         "type": "string",
-        "default": "",
-        "required": true
+        "default": ""
       },
       "genome_fai": {
         "type": ["string"],

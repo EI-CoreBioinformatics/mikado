@@ -63,7 +63,7 @@ def extend_with_default(validator_class, resolver=None, simple=False):
     """
     validate_properties = validator_class.VALIDATORS["properties"]
 
-    def set_default(instance, properties, simple_comment=False, previous=None):
+    def set_default(instance, properties, simple_comment=False):
         """
         Recursive function that sets the default parameters inside "object"
         types for the dictionary instance. It also loads comments, if available.
@@ -111,8 +111,7 @@ def extend_with_default(validator_class, resolver=None, simple=False):
                                                   subschema["SimpleComment"])
                     instance[prop] = set_default(instance[prop],
                                                  subschema,
-                                                 simple_comment=simple_comment,
-                                                 previous=prop)
+                                                 simple_comment=simple_comment)
                 elif simple_comment is True and prop not in required:
                     to_remove.append(prop)
                     continue

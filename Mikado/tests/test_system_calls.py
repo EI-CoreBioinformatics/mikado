@@ -1104,7 +1104,6 @@ class ConfigureCheck(unittest.TestCase):
         conf = configuration.configurator.to_json(out)
         conf = configuration.configurator.check_json(conf)
         conf = configuration.configurator.check_json(conf)
-        self.assertIn("asm_methods", conf)
         dir.cleanup()
 
     def test_mikado_config_daijin_set_from_mode(self):
@@ -1131,7 +1130,6 @@ class ConfigureCheck(unittest.TestCase):
         conf = configuration.configurator.to_json(out)
         conf = configuration.configurator.check_json(conf)
         conf = configuration.configurator.check_json(conf)
-        self.assertIn("asm_methods", conf)
         dir.cleanup()
 
     @unittest.skipUnless((sys.version_info.minor > 4),

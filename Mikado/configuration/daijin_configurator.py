@@ -231,7 +231,7 @@ def create_daijin_config(args, level="ERROR", piped=False):
         logger.critical(
             "No short read assembler selected, but there are short read samples. Please select at least one assembly method.")
         failed = True
-    if config["long_reads"]["files"] and not args.long_aln_methods:
+    if config.get("long_reads", dict()).get("files", []) and not args.long_aln_methods:
         logger.critical(
             "No long read aligner selected, but there are long read samples. Please select at least one assembly method.")
         failed = True

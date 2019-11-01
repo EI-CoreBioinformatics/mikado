@@ -1,15 +1,12 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "type": "object",
-  "properties": {
-    "required": ["name", "pick"],
-    "SimpleComment":
-    {"type": "object",
-    "SimpleComment": ["This is a standard configuration file for Daijin. Fields:",
+  "SimpleComment": ["This is a standard configuration file for Daijin. Fields:",
     "- short_reads: this section deals with RNA-Seq short read input data.",
     "- name: name of the species under analysis.",
     "- reference: reference data to use. A reference genome is required."],
-    "properties": {}},
+  "properties": {
+    "required": ["name", "pick", "threads", "scheduler"],
     "load":{
       "SimpleComment": ["Commands to use to load/select the versions of the programs to use. Leave an empty string if no loading is necessary."],
       "type": "object",
@@ -40,9 +37,10 @@
     "portcullis": {
       "SimpleComment": ["Options related to portcullis"],
       "type": "object",
+      "required": ["do", "canonical_juncs"],
       "properties": {
-       "do": {"type": "boolean", "default": true, "required": true},
-        "canonical_juncs": {"type": "string", "default": "C,S", "required": true}
+       "do": {"type": "boolean", "default": true},
+        "canonical_juncs": {"type": "string", "default": "C,S"}
       }
     },
     "aln_index": {
@@ -91,14 +89,12 @@
       "properties": {
         "r1": {
           "type": "array",
-          "required": true,
           "default": [],
           "uniqueItems": true,
           "items": {"type": "string"}
         },
         "r2": {
           "type": "array",
-          "required": true,
           "items": {"type": ["string", "null"]},
           "default": []
         },
@@ -109,7 +105,6 @@
         },
         "strandedness": {
           "type": "array",
-          "required": true,
           "default": [],
           "items": {"type": "string",
             "enum": ["fr-firststrand",
@@ -123,27 +118,26 @@
       "type": "string",
       "default": "Daijin",
       "SimpleComment": ["Name to be used for the project."],
-      "required": true
+      "Comment": ["Name to be used for the project."]
     },
     "out_dir": {
       "type": "string",
       "default": "daijin",
-      "Comment": "Output directory for the project",
-      "required": true
+      "Comment": ["Output directory for the project"],
+      "SimpleComment": ["Output directory for the project"]
     },
     "threads": {
       "type": "integer",
       "default": 4,
       "Comment": "Threads to be used per process.",
-      "required": true,
       "minimum": 1
     },
     "scheduler": {
       "type": ["string"],
       "default": "",
       "enum": ["LSF", "SLURM", "PBS", "", "local"],
-      "Comment": "Scheduler to be used for the project. Set to null if you plan to use DRMAA or are using a local machine.",
-      "required": true
+      "Comment": ["Scheduler to be used for the project. Set to null if you plan to use DRMAA or are using a local machine."],
+      "SimpleComment": ["Scheduler to be used for the project. Set to null if you plan to use DRMAA or are using a local machine."]
     },
     "align_methods": {
       "type": "object",

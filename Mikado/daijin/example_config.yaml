@@ -62,7 +62,7 @@ load:
         blast: "set +u && source blast-2.2.31 && set -u"
 
 # Extra options for programs
-extra:
+aln_index:
         star_index: "--genomeSAindexNbases 11"
 
 portcullis:

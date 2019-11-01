@@ -559,7 +559,7 @@ rule align_star_index:
         indexdir=os.path.join(ALIGN_DIR_FULL, "star", "index"),
         load=loadPre(config, "star"),
         trans="--sjdbGTFfile {}".format(os.path.abspath(REF_TRANS)) if REF_TRANS else "",
-        extra=config["extra"]["star_index"],
+        extra=config["aln_index"]["star"],
         dir=os.path.join(ALIGN_DIR, "star")
     log: os.path.join(ALIGN_DIR_FULL, "logs", "star", "star.index.log")
     threads: THREADS

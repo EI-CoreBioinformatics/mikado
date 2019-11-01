@@ -45,16 +45,19 @@
         "canonical_juncs": {"type": "string", "default": "C,S", "required": true}
       }
     },
-    "extra": {
+    "aln_index": {
       "SimpleComment": ["Options related to indexing."],
+      "Comment": ["Options related to indexing."],
       "type": "object",
+      "required": [],
       "properties": {
-        "star_index": {"type": "string", "default": "", "required": true}
+        "star": {"type": "string", "default": ""}
       }
     },
     "long_reads": {
       "type": "object",
       "SimpleComment": ["Parameters related to long reads to use for the assemblies."],
+      "Comment": ["Parameters related to long reads to use for the assemblies."],
       "properties": {
         "files": {"type": "array", "default": []},
         "samples": {"type": "array", "default": []},
@@ -68,6 +71,14 @@
     },
     "short_reads": {
       "SimpleComment": ["Parameters related to the reads to use for the assemblies. Voices:",
+          "- r1: array of left read files.",
+          "- r2: array of right read files. It must be of the same length of r1; if one",
+          "  one or more of the samples are single-end reads, add an empty string.",
+          "- samples: array of the sample names. It must be of the same length of r1.",
+          "- strandedness: array of strand-specificity of the samples. It must be of the",
+          "  same length of r1. Valid values: fr-firststrand, fr-secondstrand, fr-unstranded."
+        ],
+      "Comment": ["Parameters related to the reads to use for the assemblies. Voices:",
           "- r1: array of left read files.",
           "- r2: array of right read files. It must be of the same length of r1; if one",
           "  one or more of the samples are single-end reads, add an empty string.",
@@ -250,10 +261,6 @@
             "type": "string"
           },
           "minItems": 1
-        },
-        "trinitydn": {
-          "type": "boolean",
-          "default": false
         }
       }
     },
@@ -261,32 +268,56 @@
         "$ref": "configuration_blueprint.json#properties/reference"
       },
     "orf_calling": {
+      "required": ["min_protein_len"],
+      "SimpleComment": ["Parameters related to the ORF calling:",
+      "- min_protein_len: minimum length of called proteins (in AAs). Default: 30 (90 nts)"],
+      "Comment": ["Parameters related to the ORF calling:",
+      "- min_protein_len: minimum length of called proteins (in AAs). Default: 30 (90 nts)",
+      "- execute: boolean flag. Default: true, ie execute the ORF calling."],
       "type": "object",
       "properties": {
-        "min_protein_len": {"type": "integer", "minimum": 1, "default": 30, "required": true},
-        "execute": {"type": "boolean", "default": true, "required": true}
-      },
-      "required": ["min_protein_len"]
+        "min_protein_len": {"type": "integer", "minimum": 1, "default": 30},
+        "execute": {"type": "boolean", "default": true}
+      }
     },
     "blastx": {
       "type":"object",
+      "required": ["prot_db", "evalue"],
+      "Comment": ["Parameters related to the homology search via DIAMOND or BLASTX:",
+      "- prot_db: FASTA file(s) to be used as database for the homology search. Multiple files can be provided,",
+      " and they will be merged into a single database before running.",
+      "- evalue: maximum e-value. Default 1e-7",
+      "- max_target_seqs: maximum number of targets that the homology will report. Default: 10",
+      "- chunks: number of chunks to divide the search into. Must be equal or greater than the number of processes."],
+      "SimpleComment": ["Parameters related to the homology search via DIAMOND or BLASTX:",
+      "- prot_db: FASTA file(s) to be used as database for the homology search. Multiple files can be provided,",
+      " and they will be merged into a single database before running.",
+      "- evalue: maximum e-value. Default 1e-7"],
       "properties":{
-        "prot_db": {"type": "array", "required": true, "default": []},
+        "prot_db": {"type": "array", "default": []},
         "evalue": {"type": "number", "minimum": 0, "default": 0.0000001},
         "max_target_seqs": {"type": "integer", "minimum": 1, "default": 10},
         "chunks": {"type": "integer", "minimum": 1, "default": 10}
-      },
-      "required": ["prot_db", "evalue", "chunks"]
+      }
     },
     "mikado": {
       "type": "object",
+      "SimpleComment": ["Parameters related to the Mikado execution:",
+        "- modes: which modes to run Mikado into. Default: permissive (split multiple ORF models unless",
+        "there is strong BLAST evidence against the decision)."],
+      "Comment": ["Parameters related to the Mikado execution:",
+        "- modes: which modes to run Mikado into. Default: permissive (split multiple ORF models unless",
+        "there is strong BLAST evidence against the decision).",
+        "- use_diamond: use DIAMOND instead of NCBI BLASTX. Default: true",
+        "- use_transdecoder: use TransDecoder instead of Prodigal for ORF calling. Default: false"
+      ],
+      "required": ["modes"],
       "properties": {
         "modes": {"type": "array", "minItems": 1,
           "items": {"type": "string",
             "enum": ["nosplit", "split", "lenient", "permissive", "stringent"]},
-          "default": ["permissive"],
-        "required": true},
-        "db_settings": {"$ref": "configuration_blueprint.json#properties/db_settings"},
+          "default": ["permissive"]
+        },
         "use_diamond": {"type": "boolean", "default": true},
         "use_prodigal": {"type": "boolean", "default": false}
       }

@@ -63,7 +63,7 @@ def extend_with_default(validator_class, resolver=None, simple=False):
     """
     validate_properties = validator_class.VALIDATORS["properties"]
 
-    def set_default(instance, properties, simple_comment=False):
+    def set_default(instance, properties, simple_comment=False, previous=None):
         """
         Recursive function that sets the default parameters inside "object"
         types for the dictionary instance. It also loads comments, if available.
@@ -83,16 +83,21 @@ def extend_with_default(validator_class, resolver=None, simple=False):
         if not isinstance(instance, dict):
             return
 
+        if simple_comment is True:
+            if "required" in properties:
+                required = properties["required"]
+            else:
+                required = []
+
+        if "properties" in properties:
+            properties = properties["properties"]
+
+        to_remove = []
+
         for prop, subschema in properties.items():
             if instance is None:
                 instance = dict()
-            # if "$ref" in subschema:
-            #     # Automatically resolve and load the reference
-            #     assert resolver is not None
-            #     properties[prop] = resolver.resolve(subschema["$ref"])[1]
-            #     subschema = properties[prop]
-            #
-            if "default" in subschema:
+            if "default" in subschema:  # and ((not simple) or (simple and prop in required)):
                 instance.setdefault(prop, subschema["default"])
             elif prop not in instance:
                 if "type" not in subschema:
@@ -105,8 +110,15 @@ def extend_with_default(validator_class, resolver=None, simple=False):
                         instance[prop].setdefault("SimpleComment",
                                                   subschema["SimpleComment"])
                     instance[prop] = set_default(instance[prop],
-                                                 subschema["properties"],
-                                                 simple_comment=simple_comment)
+                                                 subschema,
+                                                 simple_comment=simple_comment,
+                                                 previous=prop)
+                elif simple_comment is True and prop not in required:
+                    to_remove.append(prop)
+                    continue
+
+        if to_remove:
+            [instance.pop(prop, None) for prop in to_remove]
 
         return instance
 
@@ -600,7 +612,11 @@ def check_json(json_conf, simple=False, external_dict=None, logger=None):
         # This will check for consistency and add the default
         # values if they are missing
         validator.validate(json_conf)
-        assert "files" in json_conf["pick"]
+        if "pick" not in json_conf:
+            print(json_conf)
+            raise AssertionError
+
+        assert "files" in json_conf["pick"], (json_conf if json_conf is not None else dict())
 
         json_conf, overwritten = _check_scoring_file(json_conf, logger)
 

@@ -88,11 +88,7 @@
       "SimpleComment": [
         "Settings related to DB connection. Parameters:",
         "db: the DB to connect to. Required. Default: mikado.db",
-        "dbtype: Type of DB to use. Choices: sqlite, postgresql, mysql. Default: sqlite.",
-        "dbhost: Host of the database. Unused if dbtype is sqlite. Default: localhost",
-        "dbuser: DB user. Default: ''",
-        "dbpasswd: DB password for the user. Default: empty string",
-        "dbport: Integer. It indicates the default port for the DB."
+        "dbtype: Type of DB to use. Choices: sqlite, postgresql, mysql. Default: sqlite."
       ],
       "type": "object",
       "properties": {
@@ -146,16 +142,18 @@
               "- discard_definition: Boolean. **Deprecated**, it was used for specifying how to load BLAST files.",
               "- single_thread: if true, Mikado prepare will force the usage of a single thread in this step."],
       "SimpleComment": ["Options related to serialisation",
-        "- force: whether to drop and reload everything into the DB",
         "- max_regression: if the ORF lacks a valid start site, this percentage indicates how far",
         "  along the sequence Mikado should look for a good start site. Eg. with a value of 0.1,",
         "  on a 300bp sequence with an open ORF Mikado would look for an alternative in-frame start codon",
         "  in the first 30 bps (10% of the cDNA)."
       ],
-      "required": ["max_regression", "files"],
+      "required": ["max_regression"],
       "properties": {
         "files": {
           "type": "object",
+          "Comment": [],
+          "SimpleComment": [],
+          "required": ["transcripts"],
           "properties": {
             "junctions": {
               "type": "array",
@@ -253,10 +251,20 @@
             "- log: output log. Default: prepare.log",
             "- labels: labels to be associated with the input GFFs. Default: None.",
             "- reference: these files are treated as reference-like, ie, these transcripts will never get discarded",
+            "  during the preparation step.",
+            "- source_score: optional scores to be given to each different source files. Default: none,",
+            " ie no source-specific score is applied."
+          ],
+          "SimpleComment": ["Options related to the input and output files.",
+            "- out: output GTF file",
+            "- out_fasta: output transcript FASTA file",
+            "- gff: array of input predictions for this step.",
+            "- labels: labels to be associated with the input GFFs. Default: None.",
+            "- reference: these files are treated as reference-like, ie, these transcripts will never get discarded",
             "  during the preparation step."
           ],
           "type": "object",
-          "required": ["out", "out_fasta", "gff"],
+          "required": ["out", "out_fasta", "gff", "reference"],
           "properties": {
             "output_dir": {"type": "string", "default": "."},
             "out": {"type": "string", "default": "mikado_prepared.gtf"},

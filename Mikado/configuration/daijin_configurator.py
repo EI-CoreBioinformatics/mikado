@@ -77,7 +77,7 @@ def create_daijin_base_config(simple=True):
     validator = create_daijin_validator(simple=simple)
     conf = dict()
     validator.validate(conf)
-    mikado_conf = to_json(None)
+    mikado_conf = to_json(None, simple=True)
 
     composite_keys = [(ckey[1:]) for ckey in
                       check_has_requirements(conf,

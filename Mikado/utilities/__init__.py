@@ -222,6 +222,32 @@ def merge_ranges(ranges):
     yield current_start, current_stop
 
 
+def to_region(string):
+
+    """
+    Snippet to convert from Apollo-style region to a tuple of chrom, start, end
+    :param string:
+    :return:
+    """
+
+    fields = string.split(":")
+    if len(fields) != 2:
+        raise ValueError("Invalid string!")
+    chrom, rest = fields
+    if ".." in rest:
+        separator = ".."
+    elif "-" in rest:
+        separator = "-"
+    else:
+        raise ValueError("Invalid string!")
+
+    start, end = [int(_) for _ in rest.split(separator)]
+    if end < start:
+        raise ValueError("Start greater than end: {0}\t{1}".format(start, end))
+
+    return chrom, start, end
+
+
 class NumpyEncoder(json.JSONEncoder):
     """Necessary to avoid crashes with numpy integers"""
     def default(self, obj):

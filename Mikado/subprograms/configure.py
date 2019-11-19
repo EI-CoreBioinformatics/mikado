@@ -114,16 +114,6 @@ def create_config(args):
     :return:
     """
 
-    if args.full is True:
-        default = configurator.to_json(None)
-        del default["scoring"]
-        del default["requirements"]
-        del default["not_fragmentary"]
-        del default["as_requirements"]
-        config = default
-    else:
-        config = create_simple_config(seed=args.seed)
-
     if len(args.mode) > 1:
         args.daijin = True
 
@@ -155,16 +145,27 @@ def create_config(args):
         namespace.threads = args.threads
         namespace.scoring = args.scoring
         namespace.new_scoring = getattr(args, "new_scoring", None)
-        daijin_config = daijin_configurator.create_daijin_config(namespace, level="ERROR", piped=True)
-        daijin_config["blastx"]["chunks"] = args.blast_chunks
-        daijin_config["mikado"]["use_diamond"] = (not args.use_blast)
-        daijin_config["mikado"]["use_prodigal"] = (not args.use_transdecoder)
-        daijin_config["scheduler"] = args.scheduler
+        namespace.full = args.full
+        config = daijin_configurator.create_daijin_config(namespace, level="ERROR", piped=True)
+        config["blastx"]["chunks"] = args.blast_chunks
+        config["mikado"]["use_diamond"] = (not args.use_blast)
+        config["mikado"]["use_prodigal"] = (not args.use_transdecoder)
+        config["scheduler"] = args.scheduler
 
-        for key in daijin_config:
-            daijin_config[key] = _remove_comments(daijin_config[key])
-        config = configurator.merge_dictionaries(config, daijin_config)
+        # for key in config:
+        #     config[key] = _remove_comments(config[key])
+        # config = configurator.merge_dictionaries(config, daijin_config)
         create_cluster_config(config, args, create_null_logger())
+    else:
+        if args.full is True:
+            default = configurator.to_json(None)
+            del default["scoring"]
+            del default["requirements"]
+            del default["not_fragmentary"]
+            del default["as_requirements"]
+            config = default
+        else:
+            config = create_simple_config(seed=args.seed)
 
     if args.external is not None:
         if args.external.endswith("json"):

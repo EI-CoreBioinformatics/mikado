@@ -45,6 +45,10 @@
         "- sql_level: verbosity for SQL calls. Default: WARNING. In decreasing order: 'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'",
         "- log_level: verbosity. Default: INFO. In decreasing order: 'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'"
       ],
+      "SimpleComment": [
+        "Settings related to the logs. Keys:",
+        "- log_level: verbosity. Default: INFO. In decreasing order: 'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'"
+      ],
       "type": "object",
       "properties": {
         "log_level": {

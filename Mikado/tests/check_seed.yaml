@@ -3,8 +3,6 @@
 #  - name: name of the species under analysis.
 #  - reference: reference data to use. A reference genome is required.
 align_methods: {}
-asm_methods:
-  trinitydn: false
 blastx:
   chunks: 1
   evalue: 1.0e-07

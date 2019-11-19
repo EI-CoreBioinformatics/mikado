@@ -6,7 +6,7 @@ Subpackages
 
 .. toctree::
 
-    Mikado.subprograms.util
+   Mikado.subprograms.util
 
 Submodules
 ----------
@@ -23,6 +23,6 @@ Module contents
 ---------------
 
 .. automodule:: Mikado.subprograms
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:

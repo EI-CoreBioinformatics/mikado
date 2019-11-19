@@ -14,6 +14,8 @@ before_install:
   - export PATH=/home/travis/miniconda3/bin:$PATH
   - conda update --yes conda
 # Install packages
+env:
+  - CODECOV_TOKEN=2aa5e8a7-cab1-4412-be59-a874a5a4b45b
 install:
   - sed -i "s/defaults::python.*/defaults::python=$TRAVIS_PYTHON_VERSION/" environment.yml
   - conda env create -n env_name --file environment.yml

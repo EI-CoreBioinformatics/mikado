@@ -12,12 +12,13 @@ Submodules
    Mikado.scales.compare
    Mikado.scales.contrast
    Mikado.scales.f1
+   Mikado.scales.gene_dict
    Mikado.scales.resultstorer
 
 Module contents
 ---------------
 
 .. automodule:: Mikado.scales
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:

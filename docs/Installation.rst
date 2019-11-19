@@ -40,11 +40,6 @@ Alternatively, Mikado can be installed from source by obtaining it from our `Git
 
 ``git clone https://github.com/EI-CoreBioinformatics/mikado.git; cd mikado``
 
-If you desire, the unstable development version can be obtained with the command
-
-``git checkout development``
-
-in the Git directory.
 
 Install using containers
 ------------------------

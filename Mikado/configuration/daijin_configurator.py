@@ -77,33 +77,8 @@ def create_daijin_base_config(simple=True):
     validator = create_daijin_validator(simple=simple)
     conf = dict()
     validator.validate(conf)
-    mikado_conf = to_json(None)
-
-    composite_keys = [(ckey[1:]) for ckey in
-                      check_has_requirements(conf,
-                                             validator.schema["properties"])]
-
-    # Sort the composite keys by depth
-
-    for ckey in sorted(composite_keys, key=len, reverse=True):
-        assert isinstance(conf, dict), (conf, type(conf))
-        defa = conf
-
-        # Get to the latest position
-        for key in ckey:
-            # if key in ("Comment", "SimpleComment"):
-            #     continue
-            try:
-                defa = defa[key]
-            except KeyError:
-                raise KeyError(key, defa)
-            except TypeError:
-                raise TypeError(key, defa)
-        val = defa
-        for k in reversed(ckey):
-            val = {k: val}
-
-        mikado_conf = merge_dictionaries(mikado_conf, val)
+    mikado_conf = to_json(None, simple=simple)
+    mikado_conf = merge_dictionaries(mikado_conf, conf)
 
     return mikado_conf
 
@@ -231,7 +206,7 @@ def create_daijin_config(args, level="ERROR", piped=False):
         logger.critical(
             "No short read assembler selected, but there are short read samples. Please select at least one assembly method.")
         failed = True
-    if config["long_reads"]["files"] and not args.long_aln_methods:
+    if config.get("long_reads", dict()).get("files", []) and not args.long_aln_methods:
         logger.critical(
             "No long read aligner selected, but there are long read samples. Please select at least one assembly method.")
         failed = True

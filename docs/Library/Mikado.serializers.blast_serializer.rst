@@ -17,6 +17,6 @@ Module contents
 ---------------
 
 .. automodule:: Mikado.serializers.blast_serializer
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:

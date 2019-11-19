@@ -6,7 +6,7 @@ Subpackages
 
 .. toctree::
 
-    Mikado.serializers.blast_serializer
+   Mikado.serializers.blast_serializer
 
 Submodules
 ----------
@@ -21,6 +21,6 @@ Module contents
 ---------------
 
 .. automodule:: Mikado.serializers
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:

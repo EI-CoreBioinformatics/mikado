@@ -12,8 +12,6 @@ import pkg_resources
 import Mikado
 
 prod_conda = pkg_resources.resource_filename("Mikado.daijin", os.path.join("envs", "prodigal.yaml"))
-
-
 swissprot = "uniprot_sprot_plants.fasta.gz"
 swissprot_noat = "uniprot_sprot_plants.not_at.fasta"
 
@@ -99,7 +97,7 @@ rule daijin:
         # mono=os.path.join("Daijin", "5-mikado", "pick", "permissive", "mikado.monoloci.gff3"),
         prep=os.path.join("Daijin", "5-mikado", "mikado_prepared.gtf"),
         prep_fasta=os.path.join("Daijin", "5-mikado", "mikado_prepared.fasta"),
-	    prep_fai=os.path.join("Daijin", "5-mikado", "mikado_prepared.fasta.fai"),
+	prep_fai=os.path.join("Daijin", "5-mikado", "mikado_prepared.fasta.fai"),
         perm_stats=os.path.join("Daijin", "5-mikado", "pick", "permissive", "mikado-permissive.loci.stats"),
         stats=os.path.join("Daijin", "5-mikado", "pick", "comparison.stats"),
         marker=os.path.join("Daijin", "5-mikado", "all.done")

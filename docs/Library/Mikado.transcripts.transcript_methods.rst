@@ -15,6 +15,6 @@ Module contents
 ---------------
 
 .. automodule:: Mikado.transcripts.transcript_methods
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:

@@ -352,13 +352,14 @@ def _load_exon_lines_multi(args, shelve_names, logger, min_length, strip_cds, th
         if tid_counter.most_common()[0][1] > 1:
             if set(args.json_conf["prepare"]["files"]["labels"]) == {""}:
                 exception = exceptions.RedundantNames(
-                    """Found redundant names during multiprocessed file analysis.
-                    Please repeat using distinct labels for your input files. Aborting.""")
+                    """Found redundant names during multiprocessed file analysis.\
+Please repeat using distinct labels for your input files. Aborting. Redundant names:\n\
+{}""".format("\n".join(tid_counter.most_common())))
             else:
                 exception = exceptions.RedundantNames(
-                    """Found redundant names during multiprocessed file analysis, even if
-                    unique labels were provided. Please try to repeat with a different and
-                    more unique set of labels. Aborting.""")
+                    """Found redundant names during multiprocessed file analysis, even if \
+unique labels were provided. Please try to repeat with a different and more unique set of labels. Aborting. Redundant names:\n\
+{}""".format("\n".join([_[0] for _ in tid_counter.most_common() if _[1] > 1])))
             logger.exception(exception)
             raise exception
 
@@ -529,6 +530,5 @@ def prepare(args, logger):
     logger.addHandler(logging.StreamHandler())
     logger.info("""Mikado prepare has finished correctly. The output %s FASTA file can now be used for BLASTX \
 and/or ORF calling before the next step in the pipeline, `mikado serialise`.""",
-                path_join(args.json_conf["prepare"]["files"]["output_dir"],
-                          args.json_conf["prepare"]["files"]["out_fasta"]))
+                args.json_conf["prepare"]["files"]["out_fasta"])
     logging.shutdown()

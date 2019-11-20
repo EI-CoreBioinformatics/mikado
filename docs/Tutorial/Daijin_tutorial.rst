@@ -16,6 +16,11 @@ Tutorial for Daijin
 This tutorial will guide you through the task of configuring and running the whole Daijin pipeline on a *Drosophila melanogaster* dataset comprising two different samples, using one aligner (HISAT) and two assemblers (Stringtie and CLASS2) as chosen methods. A modern desktop computer with a multicore processor and 4GB of RAM or more should suffice to execute the pipeline within two hours.
 
 
+.. warning:: Please note that **development of Daijin Assemble has now been discontinued**.
+	     Daijin will be superseded by a different pipeline manager, which is currently in the works. We will continue actively maintening the
+	     "mikado" part of the pipeline, which is dedicated to run the steps between a set of input transcript assemblies and/or cDNA alignments until
+	     the final Mikado output.
+
 Overview
 ~~~~~~~~
 
@@ -30,9 +35,6 @@ Required software
 ~~~~~~~~~~~~~~~~~
 
 Mikado should be installed and configured properly (see our :ref:`installation instructions <Installation>`). Additionally, you should have the following software tools at disposal (between brackets is indicated the version used at the time of the writing):
-
-.. * BLAST+ (v2.3.0)
-.. * TransDecoder (v3.0.0)
 
 * DIAMOND (v0.8.22 or later)
 * Prodigal (v2.6.3 or later)
@@ -245,8 +247,9 @@ After checking that the configuration file is valid, Daijin will start the align
 
   daijin assemble --dag daijin.yaml | dot -Tsvg > assemble.svg
 
-..
-.. image:: assemble_pipeline.png
+.. figure:: assemble_pipeline.png
+   :scale: 50%
+   :alt: schematic diagram of the assembling pipeline
 
 You can also ask Daijin to display the steps to be executed, inclusive of their command lines, by issuing the following command::
 

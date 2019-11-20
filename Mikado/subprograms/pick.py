@@ -10,6 +10,8 @@ from ..picking import Picker
 from ..configuration.configurator import to_json, check_json
 from ..utilities.log_utils import create_default_logger, create_null_logger
 import numpy
+from ..utilities import to_region
+from ..utilities.intervaltree import IntervalTree, Interval
 
 
 def check_log_settings(args):
@@ -201,7 +203,22 @@ def pick(args):
         logger.error(exc)
         raise exc
 
-    creator = Picker(args.json_conf, commandline=" ".join(sys.argv))
+    if args.regions is not None:
+        regions = dict()
+        if os.path.exists(args.regions):
+            with open(args.regions) as f_regions:
+                for line in f_regions:
+                    chrom, start, end = to_region(line)
+                    if chrom not in regions:
+                        regions[chrom] = IntervalTree()
+                    regions[chrom].add_interval(Interval(start, end))
+        else:
+            chrom, start, end = to_region(args.regions)
+            regions[chrom] = IntervalTree.from_intervals([Interval(start, end)])
+    else:
+        regions = None
+
+    creator = Picker(args.json_conf, commandline=" ".join(sys.argv), regions=regions)
     creator()
     sys.exit(0)
 
@@ -244,6 +261,10 @@ Transcripts with intron lengths outside of this range will be penalised. Default
                         type=int, help="Maximum splice sites that can be crossed during transcript padding.")
     parser.add_argument("--pad-max-distance", default=None, dest="pad_max_distance",
                         type=int, help="Maximum amount of bps that transcripts can be padded with (per side).")
+    parser.add_argument("-r", "--regions",
+                        help="""Either a single region on the CLI or a file listing a series of target regions.
+Mikado pick will only consider regions included in this string/file.
+Regions should be provided in a WebApollo-like format: <chrom>:<start>..<end>""")
     output = parser.add_argument_group("Options related to the output files.")
     output.add_argument("--subloci-out", type=str, default=None, dest="subloci_out")
     output.add_argument("--monoloci-out", type=str, default=None, dest="monoloci_out")

@@ -1,15 +1,12 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "type": "object",
-  "properties": {
-    "required": ["name", "pick"],
-    "SimpleComment":
-    {"type": "object",
-    "SimpleComment": ["This is a standard configuration file for Daijin. Fields:",
+  "SimpleComment": ["This is a standard configuration file for Daijin. Fields:",
     "- short_reads: this section deals with RNA-Seq short read input data.",
     "- name: name of the species under analysis.",
     "- reference: reference data to use. A reference genome is required."],
-    "properties": {}},
+  "properties": {
+    "required": ["name", "pick", "threads", "scheduler"],
     "load":{
       "SimpleComment": ["Commands to use to load/select the versions of the programs to use. Leave an empty string if no loading is necessary."],
       "type": "object",
@@ -40,21 +37,25 @@
     "portcullis": {
       "SimpleComment": ["Options related to portcullis"],
       "type": "object",
+      "required": ["do", "canonical_juncs"],
       "properties": {
-       "do": {"type": "boolean", "default": true, "required": true},
-        "canonical_juncs": {"type": "string", "default": "C,S", "required": true}
+       "do": {"type": "boolean", "default": true},
+        "canonical_juncs": {"type": "string", "default": "C,S"}
       }
     },
-    "extra": {
+    "aln_index": {
       "SimpleComment": ["Options related to indexing."],
+      "Comment": ["Options related to indexing."],
       "type": "object",
+      "required": [],
       "properties": {
-        "star_index": {"type": "string", "default": "", "required": true}
+        "star": {"type": "string", "default": ""}
       }
     },
     "long_reads": {
       "type": "object",
       "SimpleComment": ["Parameters related to long reads to use for the assemblies."],
+      "Comment": ["Parameters related to long reads to use for the assemblies."],
       "properties": {
         "files": {"type": "array", "default": []},
         "samples": {"type": "array", "default": []},
@@ -75,19 +76,25 @@
           "- strandedness: array of strand-specificity of the samples. It must be of the",
           "  same length of r1. Valid values: fr-firststrand, fr-secondstrand, fr-unstranded."
         ],
+      "Comment": ["Parameters related to the reads to use for the assemblies. Voices:",
+          "- r1: array of left read files.",
+          "- r2: array of right read files. It must be of the same length of r1; if one",
+          "  one or more of the samples are single-end reads, add an empty string.",
+          "- samples: array of the sample names. It must be of the same length of r1.",
+          "- strandedness: array of strand-specificity of the samples. It must be of the",
+          "  same length of r1. Valid values: fr-firststrand, fr-secondstrand, fr-unstranded."
+        ],
       "type": "object",
       "required": ["r1", "r2", "samples", "strandedness"],
       "properties": {
         "r1": {
           "type": "array",
-          "required": true,
           "default": [],
           "uniqueItems": true,
           "items": {"type": "string"}
         },
         "r2": {
           "type": "array",
-          "required": true,
           "items": {"type": ["string", "null"]},
           "default": []
         },
@@ -98,7 +105,6 @@
         },
         "strandedness": {
           "type": "array",
-          "required": true,
           "default": [],
           "items": {"type": "string",
             "enum": ["fr-firststrand",
@@ -112,27 +118,26 @@
       "type": "string",
       "default": "Daijin",
       "SimpleComment": ["Name to be used for the project."],
-      "required": true
+      "Comment": ["Name to be used for the project."]
     },
     "out_dir": {
       "type": "string",
       "default": "daijin",
-      "Comment": "Output directory for the project",
-      "required": true
+      "Comment": ["Output directory for the project"],
+      "SimpleComment": ["Output directory for the project"]
     },
     "threads": {
       "type": "integer",
       "default": 4,
       "Comment": "Threads to be used per process.",
-      "required": true,
       "minimum": 1
     },
     "scheduler": {
       "type": ["string"],
       "default": "",
       "enum": ["LSF", "SLURM", "PBS", "", "local"],
-      "Comment": "Scheduler to be used for the project. Set to null if you plan to use DRMAA or are using a local machine.",
-      "required": true
+      "Comment": ["Scheduler to be used for the project. Set to null if you plan to use DRMAA or are using a local machine."],
+      "SimpleComment": ["Scheduler to be used for the project. Set to null if you plan to use DRMAA or are using a local machine."]
     },
     "align_methods": {
       "type": "object",
@@ -250,10 +255,6 @@
             "type": "string"
           },
           "minItems": 1
-        },
-        "trinitydn": {
-          "type": "boolean",
-          "default": false
         }
       }
     },
@@ -261,32 +262,56 @@
         "$ref": "configuration_blueprint.json#properties/reference"
       },
     "orf_calling": {
+      "required": ["min_protein_len"],
+      "SimpleComment": ["Parameters related to the ORF calling:",
+      "- min_protein_len: minimum length of called proteins (in AAs). Default: 30 (90 nts)"],
+      "Comment": ["Parameters related to the ORF calling:",
+      "- min_protein_len: minimum length of called proteins (in AAs). Default: 30 (90 nts)",
+      "- execute: boolean flag. Default: true, ie execute the ORF calling."],
       "type": "object",
       "properties": {
-        "min_protein_len": {"type": "integer", "minimum": 1, "default": 30, "required": true},
-        "execute": {"type": "boolean", "default": true, "required": true}
-      },
-      "required": ["min_protein_len"]
+        "min_protein_len": {"type": "integer", "minimum": 1, "default": 30},
+        "execute": {"type": "boolean", "default": true}
+      }
     },
     "blastx": {
       "type":"object",
+      "required": ["prot_db", "evalue"],
+      "Comment": ["Parameters related to the homology search via DIAMOND or BLASTX:",
+      "- prot_db: FASTA file(s) to be used as database for the homology search. Multiple files can be provided,",
+      " and they will be merged into a single database before running.",
+      "- evalue: maximum e-value. Default 1e-7",
+      "- max_target_seqs: maximum number of targets that the homology will report. Default: 10",
+      "- chunks: number of chunks to divide the search into. Must be equal or greater than the number of processes."],
+      "SimpleComment": ["Parameters related to the homology search via DIAMOND or BLASTX:",
+      "- prot_db: FASTA file(s) to be used as database for the homology search. Multiple files can be provided,",
+      " and they will be merged into a single database before running.",
+      "- evalue: maximum e-value. Default 1e-7"],
       "properties":{
-        "prot_db": {"type": "array", "required": true, "default": []},
+        "prot_db": {"type": "array", "default": []},
         "evalue": {"type": "number", "minimum": 0, "default": 0.0000001},
         "max_target_seqs": {"type": "integer", "minimum": 1, "default": 10},
         "chunks": {"type": "integer", "minimum": 1, "default": 10}
-      },
-      "required": ["prot_db", "evalue", "chunks"]
+      }
     },
     "mikado": {
       "type": "object",
+      "SimpleComment": ["Parameters related to the Mikado execution:",
+        "- modes: which modes to run Mikado into. Default: permissive (split multiple ORF models unless",
+        "there is strong BLAST evidence against the decision)."],
+      "Comment": ["Parameters related to the Mikado execution:",
+        "- modes: which modes to run Mikado into. Default: permissive (split multiple ORF models unless",
+        "there is strong BLAST evidence against the decision).",
+        "- use_diamond: use DIAMOND instead of NCBI BLASTX. Default: true",
+        "- use_transdecoder: use TransDecoder instead of Prodigal for ORF calling. Default: false"
+      ],
+      "required": ["modes"],
       "properties": {
         "modes": {"type": "array", "minItems": 1,
           "items": {"type": "string",
             "enum": ["nosplit", "split", "lenient", "permissive", "stringent"]},
-          "default": ["permissive"],
-        "required": true},
-        "db_settings": {"$ref": "configuration_blueprint.json#properties/db_settings"},
+          "default": ["permissive"]
+        },
         "use_diamond": {"type": "boolean", "default": true},
         "use_prodigal": {"type": "boolean", "default": false}
       }

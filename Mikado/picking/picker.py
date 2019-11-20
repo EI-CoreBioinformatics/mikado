@@ -64,7 +64,7 @@ class Picker:
     """
 
     # @profile
-    def __init__(self, json_conf, commandline=""):
+    def __init__(self, json_conf, commandline="", regions=None):
 
         """Constructor. It takes a single argument as input - the JSON/YAML configuration,
         prepared by the json_utils functions.
@@ -89,6 +89,7 @@ class Picker:
         self.json_conf = json_conf
 
         self.__load_configuration()
+        self.__regions = regions
         self.regressor = None
 
         self.procs = self.json_conf["threads"]
@@ -885,6 +886,9 @@ Please update your configuration files in the future.""".format(
                 if row is None:  # Header
                     continue
                 line, chrom, feature, start, end, phase, tid, is_transcript = row
+                if self.__regions and chrom not in self.__regions:
+                    continue
+
                 if is_transcript is False:
                     if tid in invalids:
                         continue
@@ -899,6 +903,11 @@ Please update your configuration files in the future.""".format(
                 elif is_transcript is True:
                     self.__test_sortedness((chrom, start, end),
                                            (current["chrom"], current["start"], current["end"]))
+                    if self.__regions:
+                        if not [_ for _ in self.__regions[chrom].find(start, end) if _.start <= start and end <= _.end]:
+                            invalids.add(tid)
+                            continue
+
                     if current["chrom"] != chrom or not current["start"]:
                         if current["chrom"] != chrom:
                             if current["chrom"] is not None and current["chrom"] != chrom:
@@ -1003,9 +1012,10 @@ Please update your configuration files in the future.""".format(
         counter = -1
         invalid = False
         max_intron = self.json_conf["prepare"]["max_intron_length"]
+        skip_transcript = False
         with self.define_input() as input_annotation:
             for row in input_annotation:
-                if row.is_exon is True and invalid is False:
+                if row.is_exon is True and invalid is False and skip_transcript is False:
                     try:
                         current_transcript.add_exon(row)
                     except InvalidTranscript as exc:
@@ -1019,7 +1029,20 @@ Please update your configuration files in the future.""".format(
                         current_transcript, current_locus, counter, max_intron,
                         gene_counter, curr_chrom, locus_printer, submit_locus)
                     invalid = False
-                    current_transcript = Transcript(row, intron_range=intron_range, logger=logger)
+                    if self.__regions:
+                        if row.chrom not in self.__regions:
+                            skip_transcript = True
+                            current_transcript = None
+                        elif not [_ for _ in self.__regions[row.chrom].find(row.start, row.end)
+                                  if _.start <= row.start and row.end <= _.end]:
+                            skip_transcript = True
+                            current_transcript = None
+                        else:
+                            current_transcript = Transcript(row, intron_range=intron_range, logger=logger)
+                            skip_transcript = False
+                    else:
+                        current_transcript = Transcript(row, intron_range=intron_range, logger=logger)
+                        skip_transcript = False
                     if current_transcript is None or row.chrom != current_transcript.chrom:
                         if current_transcript is not None:
                             self.logger.info("Finished chromosome %s",

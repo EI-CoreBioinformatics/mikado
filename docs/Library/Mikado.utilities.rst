@@ -15,6 +15,6 @@ Module contents
 ---------------
 
 .. automodule:: Mikado.utilities
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:

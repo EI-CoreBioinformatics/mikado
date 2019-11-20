@@ -7,9 +7,10 @@ Script to extract features from a GTF with certain coordinates.
 
 import argparse
 import sys
-
-from Mikado.transcripts.transcript import Transcript
+from ...transcripts.transcript import Transcript
 from ...parsers.GTF import GTF
+from ...utilities import to_region
+
 
 __author__ = 'Luca Venturini'
 
@@ -50,32 +51,6 @@ def launch(args):
 
     if transcript is not None and transcript.start >= args.start and transcript.end <= args.end:
         print(transcript.format("gtf"), file=args.out)
-
-
-def to_region(string):
-
-    """
-    Snippet to convert from Apollo-style region to a tuple of chrom, start, end
-    :param string:
-    :return:
-    """
-
-    fields = string.split(":")
-    if len(fields) != 2:
-        raise ValueError("Invalid string!")
-    chrom, rest = fields
-    if ".." in rest:
-        separator = ".."
-    elif "-" in rest:
-        separator = "-"
-    else:
-        raise ValueError("Invalid string!")
-
-    start, end = [int(_) for _ in rest.split(separator)]
-    if end < start:
-        raise ValueError("Start greater than end: {0}\t{1}".format(start, end))
-
-    return chrom, start, end
 
 
 def awk_parser():

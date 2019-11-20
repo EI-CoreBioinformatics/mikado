@@ -15,11 +15,18 @@ The Daijin pipeline for driving Mikado
 
 |snake_badge|
 
-No emperor or empress can lead its nation without a trusty chancellor to help him or her in organising the bureaucracy. Daijin, the Japanese minister, has the same role in Mikado - it smooths the path to go from a collection of read inputs (both RNA-Seq or long reads) to a polished transcriptome assembly. The pipeline is based on Snakemake_ [Snake]_; while Snakemake can support any scheduling system, our pipeline manager currently supports only three (SLURM, PBS and LSF), plus any DRMAA-compliant batch submission system. Other schedulers can be added upon request.
+No emperor or empress can lead its nation without a trusty chancellor to help him or her in organising the bureaucracy. Daijin, the Japanese minister, has the same role in Mikado
+- it smooths the path to go from a collection of read inputs (both RNA-Seq or long reads) to a polished transcriptome assembly.
+The pipeline is based on Snakemake_ [Snake]_; while Snakemake can support any scheduling system, our pipeline manager currently supports only three
+(SLURM, PBS and LSF), plus any DRMAA-compliant batch submission system. Other schedulers can be added upon request.
 
-This page contains a detailed explanation on how to use Daijin. We also provide a :ref:`tutorial <Daijin-Tutorial>` that will guide you through using the manager for analysing an RNA-Seq sample for *Sc. pombe*.
+This page contains a detailed explanation on how to use Daijin. We also provide a :ref:`tutorial <Daijin-Tutorial>`
+that will guide you through using the manager for analysing an RNA-Seq sample for *Sc. pombe*.
 
-.. hint:: It is possible to launch the two steps of the pipeline directly with Snakemake, using the snakefiles located in Mikado.daijin: :download:`tr.snakefile <tr.snakefile>` for the first step, and :download:`mikado.snakefile` for the second.
+.. hint:: It is possible to launch the two steps of the pipeline directly with Snakemake, using the snakefiles located in
+Mikado.daijin: :download:`tr.snakefile <tr.snakefile>` for the first step, and :download:`mikado.snakefile` for the second.
+
+.. warning:: Starting from
 
 
 .. _daijin-configure:

@@ -13,6 +13,6 @@ Module contents
 ---------------
 
 .. automodule:: Mikado.configuration
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:

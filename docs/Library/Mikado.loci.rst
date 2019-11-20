@@ -19,6 +19,6 @@ Module contents
 ---------------
 
 .. automodule:: Mikado.loci
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:

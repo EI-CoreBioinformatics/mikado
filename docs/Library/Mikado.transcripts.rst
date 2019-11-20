@@ -6,7 +6,7 @@ Subpackages
 
 .. toctree::
 
-    Mikado.transcripts.transcript_methods
+   Mikado.transcripts.transcript_methods
 
 Submodules
 ----------
@@ -21,6 +21,6 @@ Module contents
 ---------------
 
 .. automodule:: Mikado.transcripts
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:

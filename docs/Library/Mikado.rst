@@ -6,17 +6,17 @@ Subpackages
 
 .. toctree::
 
-    Mikado.configuration
-    Mikado.daijin
-    Mikado.loci
-    Mikado.parsers
-    Mikado.picking
-    Mikado.preparation
-    Mikado.scales
-    Mikado.serializers
-    Mikado.subprograms
-    Mikado.transcripts
-    Mikado.utilities
+   Mikado.configuration
+   Mikado.daijin
+   Mikado.loci
+   Mikado.parsers
+   Mikado.picking
+   Mikado.preparation
+   Mikado.scales
+   Mikado.serializers
+   Mikado.subprograms
+   Mikado.transcripts
+   Mikado.utilities
 
 Submodules
 ----------
@@ -30,6 +30,6 @@ Module contents
 ---------------
 
 .. automodule:: Mikado
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:

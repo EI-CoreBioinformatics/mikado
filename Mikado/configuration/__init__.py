@@ -7,7 +7,9 @@ plus the JSON schemas for the configuration and scoring files.
 from . import configurator
 import itertools
 import re
+import textwrap
 import tomlkit
+
 
 __author__ = 'Luca Venturini'
 
@@ -58,21 +60,23 @@ def print_config(output, out):
         if line.lstrip().startswith(("Comment", "SimpleComment")) or comment:
             level = sum(1 for _ in itertools.takewhile(str.isspace, line))
             line = re.sub("Comment:", "", re.sub("SimpleComment:", "", line))
+            line = re.sub("^- ", "", line)
             if comment:
                 if level > comment_level or line.lstrip().startswith("-"):
                     comment.append(line.strip())
                 else:
-                    for comment_line in iter(_ for _ in comment if _ != ''):
-                        print("{spaces}#  {comment}".format(spaces=" "*comment_level,
-                                                            comment=re.sub(
-                                                                "'", "", re.sub("^- ", "",
-                                                                                comment_line))),
-                              file=out)
+                    comment_line = " ".join([_ for _ in comment if _ != ''])
+                    comment_line = re.sub("'", "", re.sub(" - ", "\n- ", comment_line))
+                    for part in comment_line.split("\n"):
+                        for part_line in textwrap.wrap(part.rstrip(), 80, replace_whitespace=True,
+                                                      initial_indent=" "*comment_level + "# ",
+                                                      subsequent_indent=" "*comment_level + "# "):
+                            part_line = re.sub("# - ", "# ", part_line)
+                            print(part_line, file=out)
                     if level < comment_level:
                         print("{0}{{}}".format(" " * comment_level), file=out)
                     comment = []
                     comment_level = -1
-
                     print(line.rstrip(), file=out)
             else:
                 comment = [re.sub("(Comment|SimpleComment):", "", line.strip())]

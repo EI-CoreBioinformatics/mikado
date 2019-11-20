@@ -1,3 +1,4 @@
+name: mikado2
 channels:
   - bioconda
   - conda-forge
@@ -113,5 +114,3 @@ dependencies:
     - rapidjson==1.0.0
   - conda-forge::toml==0.10.0
   - conda-forge::tomlkit==0.5.8
-
-

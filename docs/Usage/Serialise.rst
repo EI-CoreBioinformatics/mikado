@@ -36,7 +36,7 @@ When Mikado analyses ORFs produced by TransDecoder_ or equivalent program, it pe
 #. Check the congruence between the length of the transcript in the BED12 file and that found in the FASTA file
 #. Check that the ORF does not contain internal stop codons
 #. Check that the CDS length is valid, ie a multiple of 3, if the ORF is complete
-#. Optionally, if the ORF is open on the 5' side, Mikado can try to find an internal start codon. See :`this section <max-regression>` for details.
+#. Optionally, if the ORF is open on the 5' side, Mikado can try to find an internal start codon. See :ref:`this section <max-regression>` for details.
 
 
 Usage
@@ -47,36 +47,45 @@ Usage
 Available parameters:
 
 * Parameters related to performance:
-    * *start-method*: one of fork, spawn, forkserver. It determines the multiprocessing start method. By default, Mikado will use the default for the system (fork on UNIX, spawn on Windows).
-    * *procs*: Number of processors to use.
-    * *single-thread*: flag. If set, Mikado will disable all multithreading.
-    * *max_objects*: Maximum number of objects to keep in memory before committing to the database. See :ref:`this section of the configuration <max-objects>` for details.
+
+    - *start-method*: one of fork, spawn, forkserver. It determines the multiprocessing start method. By default, Mikado will use the default for the system (fork on UNIX, spawn on Windows).
+    - *procs*: Number of processors to use.
+    - *single-thread*: flag. If set, Mikado will disable all multithreading.
+    - *max_objects*: Maximum number of objects to keep in memory before committing to the database. See :ref:`this section of the configuration <max-objects>` for details.
 * Basic input data and settings:
-    * *output-dir*: directory where the SQLite database and the log will be written to.
-    * *transcripts*: these are the input transcripts that are present on the GTF file considered by Mikado. Normally this should be the output of Mikado prepare.
-    * *genome_fai*: FAIDX file of the genome FASTA. If not given, serialise will derive it from the "reference: genome" field of the configuration.
-    * *force*: flag. If set, and the database is already present, it will be truncated rather than updated.
-    * **json-conf**: this is the configuration file created with :ref:`Mikado configure <configure>`.
-    * *db*: if the database is specified on the command line, ``mikado serialise`` will interpret it as a **SQLite** database. This will overwrite any setting present in the configuration file.
+
+    - *output-dir*: directory where the SQLite database and the log will be written to.
+    - *transcripts*: these are the input transcripts that are present on the GTF file considered by Mikado. Normally this should be the output of Mikado prepare.
+    - *genome_fai*: FAIDX file of the genome FASTA. If not given, serialise will derive it from the "reference: genome" field of the configuration.
+    - *force*: flag. If set, and the database is already present, it will be truncated rather than updated.
+    - **json-conf**: this is the configuration file created with :ref:`Mikado configure <configure>`.
+    - *db*: if the database is specified on the command line, ``mikado serialise`` will interpret it as a **SQLite** database. This will overwrite any setting present in the configuration file.
 * Parameters related to logging:
-    * *log*: log file. It defaults to ``serialise.log``.
-    * *log_level*: verbosity of the logging. Please be advised that excessive verbosity can negatively impact the performance of the program - the debug mode is extremely verbose.
+
+    - *log*: log file. It defaults to ``serialise.log``.
+    - *log_level*: verbosity of the logging. Please be advised that excessive verbosity can negatively impact the performance of the program - the debug mode is extremely verbose.
 * Parameters related to reliable junctions:
-    * *junctions*: a BED12_ file of reliable junctions. This can be obtained using Portcullis_. Please see the relative :ref:`sidebar <BED12-sidebar>`.
+
+    - *junctions*: a BED12_ file of reliable junctions. This can be obtained using Portcullis_. Please see the relative :ref:`sidebar <BED12-sidebar>`.
 * Parameters related to the treatment of ORF data:
-    * *orfs*: ORF BED12 files, separated by comma.
-    * *max-regression*: A percentage, expressed as a number between 0 and 1, which indicates how far can Mikado regress along the ORF to find a valid start codon. See the :ref:`relative section in the configuration <max-regression>` for details.
+
+    - *orfs*: ORF BED12 files, separated by comma.
+    - *max-regression*: A percentage, expressed as a number between 0 and 1, which indicates how far can Mikado regress along the ORF to find a valid start codon. See the :ref:`relative section in the configuration <max-regression>` for details.
+    
     .. note:: new in version 1.5
-    * *codon-table*: this parameter specifies the codon table to use for the project. Mikado by default uses the NCBI codon table 1 (standard with eukaryotes) with the modification that only ATG is considered as a valid start codon, as ORF predictions usually inflate the number of non-standard starts.
+
+    - *codon-table*: this parameter specifies the codon table to use for the project. Mikado by default uses the NCBI codon table 1 (standard with eukaryotes) with the modification that only ATG is considered as a valid start codon, as ORF predictions usually inflate the number of non-standard starts.
 * Parameters related to BLAST data:
-    * *blast_targets*: BLAST FASTA database.
-    * *discard-definition*: Flag. Depending on how the database has been created, sometimes BLAST will substitute the ID of the sequence with "lcl|" ids. Mikado circumvents this by looking for the definition field in the XML file. Using this flag will disable this behaviour and force Mikado to use the ID - with the potential of having a mismatch between the sequences in the BLAST DB and the sequences in the BLAST files.
-    * *xml*: BLAST files to parse. This can be one of the following:
-        * A list of XML BLAST files, optionally compressed with GZip or BZip2, comma separated (suffix .xml)
-        * A list of ASN BLAST files, optionally compressed with GZip or BZip2, comma separated (suffix .asn)
-        * A list of folders, comma separated, where it is possible to find files of the former 2 types
-        * A mixture of the three above types.
-    * *max-target-seqs*: maximum number of BLAST targets that can be loaded per sequence, for each BLAST alignment. Please note that if you align against multiple databases, this threshold will be applied once per file.
+
+    - *blast_targets*: BLAST FASTA database.
+    - *discard-definition*: Flag. Depending on how the database has been created, sometimes BLAST will substitute the ID of the sequence with "lcl|" ids. Mikado circumvents this by looking for the definition field in the XML file. Using this flag will disable this behaviour and force Mikado to use the ID - with the potential of having a mismatch between the sequences in the BLAST DB and the sequences in the BLAST files.
+    - *xml*: BLAST files to parse. This can be one of the following:
+
+        + A list of XML BLAST files, optionally compressed with GZip or BZip2, comma separated (suffix .xml)
+        + A list of ASN BLAST files, optionally compressed with GZip or BZip2, comma separated (suffix .asn)
+        + A list of folders, comma separated, where it is possible to find files of the former 2 types
+        + A mixture of the three above types.
+    - *max-target-seqs*: maximum number of BLAST targets that can be loaded per sequence, for each BLAST alignment. Please note that if you align against multiple databases, this threshold will be applied once per file.
 
 .. hint:: Mikado will parallelise only the reading of multiple XML files. As such, this part of the pipeline is less performing than the other steps.
 

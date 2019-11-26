@@ -60,7 +60,7 @@ The parameters we used for the command line instruct Mikado in the following way
 * *--reference chr5.fas*: this part of the command line instructs Mikado on the location of the genome file.
 * *--mode permissive*: the mode in which Mikado will treat cases of chimeras. See the :ref:`documentation <chimera_splitting>` for details.
 * *--junctions junctions.bed*: this part of the command line instructs Mikado to consider this file as the source of reliable splicing junctions.
-* *-bt uniprot_sprot_plants.fasta*: this part of the command line instructs Mikado to consider this file as the BLAST database which will be used for deriving homology inormation.
+* *-bt uniprot_sprot_plants.fasta*: this part of the command line instructs Mikado to consider this file as the BLAST database which will be used for deriving homology information.
 
 .. hint:: The *--copy-scoring* argument is usually not necessary, however, it allows you to easily inspect the :ref:`scoring file <scoring_files>` we are going to use  during this run.
 

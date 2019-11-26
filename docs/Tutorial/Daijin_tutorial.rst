@@ -53,6 +53,7 @@ Throughout this tutorial, we will use data coming from EnsEMBL v89, and from the
  * the `genome FASTA file <ftp://ftp.ensembl.org/pub/release-89/fasta/drosophila_melanogaster/dna/Drosophila_melanogaster.BDGP6.dna.toplevel.fa.gz>`_ of *Drosophila melanogaster*
  * its `relative genome annotation <ftp://ftp.ensembl.org/pub/release-89/gtf/drosophila_melanogaster/Drosophila_melanogaster.BDGP6.89.gtf.gz>`_
  * RNA-Seq from two samples of the PRJEB15540_ study:
+
      * ERX1732854_, left (`ERR1662533_1.fastq.gz`_) and right (`ERR1662533_2.fastq.gz`_) reads
      * ERX1732855_, left (`ERR1662534_1.fastq.gz`_) and right (`ERR1662534_2.fastq.gz`_) reads
  * protein sequences for the related species *Aedes aegypti*, `downloaded from Uniprot <"http://www.uniprot.org/uniprot/?sort=score&desc=&compress=yes&query=taxonomy:diptera%20NOT%20taxonomy:%22Drosophila%20(fruit%20flies)%20[7215]%22%20AND%20taxonomy:%22Aedes%20aegypti%22&fil=&format=fasta&force=yes">`_
@@ -179,6 +180,7 @@ First, we will create a sample sheet, containing the information of the sample t
  * **Read2**: optional, location of the right reads for the sample if it is paired.
  * **Sample**: name of the sample. Required.
  * **Strandedness**: strandedness of the sample. It can be one of:
+ 
     * fr-unstranded (Unstranded data)
     * fr-firststrand (Stranded data, first read forward, second read reverse)
     * fr-secondstrand (Stranded data, second read forward, first read reverse)

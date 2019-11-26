@@ -26,7 +26,7 @@ that will guide you through using the manager for analysing an RNA-Seq sample fo
 .. hint:: It is possible to launch the two steps of the pipeline directly with Snakemake, using the snakefiles located in
 Mikado.daijin: :download:`assemble.smk <assemble.smk>` for the first step, and :download:`mikado.smk` for the second.
 
-.. warning:: Starting from
+.. warning:: Starting from :TODO:
 
 
 .. _daijin-configure:
@@ -46,11 +46,13 @@ Configuring Daijin
 
 * *prot-db*: this parameter specifies a protein database to be used for BLAST. If none is specified, this step will be omitted.
 * *aligners*: aligner(s) to be used during the run. Currently, Daijin supports the following aligners:
+
     * *gsnap*
     * *star*
     * *tophat2*
     * *hisat2*
 * *assemblers*: assembler(s) to be used during the run. Currently, Daijin supports the following RNA-Seq assemblers:
+
     * *cufflinks*
     * *class2*
     * *stringtie*
@@ -219,11 +221,13 @@ Regarding read alignment, it is also possible to specify the minimum and maximum
 Regarding the Mikado stage of Daijin, the configuration file contains all the fields that can be found in a :ref:`normal Mikado configuration file <configure>`. All mikado-specific parameters are stored under the "mikado" field. It is also possible to modify the following:
 
 * *blastx*: these are parameters regarding the running of BLASTX. This field contains the following variables:
+
    * prot-db: this is an **array** of FASTA files to use as protein databases for the BLASTX step.
    * chunks: number of chunks to divide the BLASTX into. When dealing with big input FASTA files and with a cluster at disposal, it is more efficient to chunk the input FASTA in multiple smaller files and execute BLASTX on them independently. The default number of chunks is 10. Increase it as you see fit - it often makes sense, especially on clusters, to launch a multitude of small jobs rather than a low number of big jobs.
    * evalue: maximum e-value for the searches.
    * max_target_seqs: maximum number of hits to report.
 * *transdecoder*: parameters related to transdecoder. At the moment only one is available:
+
     * *min_protein_len*: minimum protein length that TransDecoder should report. The default value set by Mikado, 30, is much lower than the default (100) and this is intentional, as the chimera splitting algorithm relies on the capability of TransDecoder of finding incomplete short ORFs at different ends of a transcript.
 
 Structure of the output directory
@@ -234,35 +238,45 @@ Daijin will organise the output directory in 5 major sections, plus the configur
 
 #. *1-reads*: this folder contains links to the original read files.
 #. *2-alignments*: this folder stores the indices built for each aligner, and the results. The structure is as follows:
+
     * *output*: this folder contains the final BAM files, sorted and indexed.
     * *alignments.stats*: this file contains a table reporting the most salient parameters derived from ``samtools stats`` calls onto the multiple BAM files.
     * One folder per aligner, inside which are present:
+
         * *index* folder, containing the genome indices for the tool
         * One folder per sample, containing the output BAM file.
 #. *3-assemblies*: this folder contains the RNA-Seq assemblies which will be used as input by Mikado. The structure is as follows:
+
     * *output*: this folder contains the final GTF/GFF3 assemblies. For each combination of aligner/assembler that has been requested, Daijin will here provide:
+
         * the GTF file
         * a statistics file derived using ``mikado util stats`` (see the :ref:`section on this utility <stat-command>` for details)
     * *assembly.stats*: a tabular file collecting the most salient data from the statistics files generated for each assembly
     * One folder per assembly, containing tool-specific files and the final assembly.
 #. *4-portcullis*: this folder contains the results of Portcullis_, if its execution has been requested. The folder will contain the following:
+
     * *output*: folder which contains a merged BED file of reliable junctions, creating by merging all junctions from all alignments.
     * One folder per alignment analysed. We redirect you to the `documentation of the tool <http://portcullis.readthedocs.io/en/latest/>`_ for more details.
 #. *mikado.yaml*: final output file of the `assemble` part of the pipeline. This file will act both as the configuration for Daijin and for Mikado; for a description of the Mikado specific fields, we remand to the :ref:`section on the configuration of the tool <configure>`.
 #. *5-mikado*: this folder contains the results for mikado. It is organised as follows:
+
     #. a link to the genome FASTA, and corresponding FAI file (generated with samtools)
     #. Files created by the :ref:`prepare step <prepare>`:
+
         * mikado_prepared.fasta
         * mikado_prepared.gtf
         * prepare.log
     #. *transdecoder*: this folder contains the results of the TransDecoder_ run against the mikado_prepared.fasta file. Mikado will use the file *transcripts.fasta.transdecoder.bed* as source for the ORF location.
     #. *blast*: this folder contains the BLAST data. In particular:
+
         * *index*: this folder contains the FASTA file of the protein database, and the BLAST database files.
         * *fastas*: Daijin will split mikado_prepared.fasta into multiple files, for easier runs onto a cluster. This folder contains the splitted FASTAs.
         * *xmls*: this folder contains the XML files corresponding to the BLASTs of the files present in *fastas*
         * *logs*: this folder contains the log files corresponding to the BLASTs of the files present in *fastas*
     #. *pick*: this folder contains the results of :ref:`Mikado pick <pick>`. It is organissed as follows:
+
         * One folder per requested :ref:`Mikado chimera-splitting mode <chimera_splitting>`. Inside each folder, it is possible to find:
+
             * mikado-{mode}.loci.gff3: Final GFF3 output file.
             * mikado-{mode}.metrics.gff3: Final metrics output file, containing the metrics of the transcripts that have been selected.
             * mikado-{mode}.scores.gff3: Final metrics output file, containing the scores associated to the evaluated metrics, for each of the selected transcripts.
@@ -336,6 +350,7 @@ In the first step of the pipeline, Daijin will perform the following operations 
 
 #. Create the necessary indices for each of the aligner programs requested.
 #. Align the read dataset using all the different tools requested, in all the possible combinations of parameters requested.
+
    * For example, it is possible to ask each dataset to be aligned twice with TopHat2 - once with the "micro-exon" mode activated, the second time without. Both alignments will be run independently.
    * It is possible to specify which datasets are strand-specific and which are not, and moreover, it is possible to specify the kind of strand-specificity (fr-secondstrand, fr-firststrand).
 #. Call all the reliable junctions across the alignments using Portcullis_.

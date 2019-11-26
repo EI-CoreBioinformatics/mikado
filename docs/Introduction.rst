@@ -3,16 +3,11 @@
 .. _Transdecoder: http://transdecoder.github.io/
 .. _Introduction:
 
-.. |python_badge| image:: https://img.shields.io/pypi/pyversions/snakemake.svg?style=flat-square
-   :target: https://www.python.org/
-
 Introduction
 ============
 
-|python_badge| |snake_badge|
-
-
 Numerous algorithms have been proposed to analyse RNA-Seq data, both in terms of aligning the reads to a reference genome ([TopHat2]_, [STAR]_, [Hisat]_) or to assemble them to infer the sequence and structure of the original molecules present in the sample. The latter phase can be performed either by using alignment data against the reference genome ([Cufflinks]_, [StringTie]_, [Class2]_, [Trinity]_) or in the absence of such information ([Trinity]_, [Oases]_, [Bridger]_, ). Each of these methods has to contend with numerous sources of variability in the RNA-Seq data:
+
   * alternative splicing events at the same locus
   * extremely variable expression and therefore sequencing depth at different loci
   * presence of orthologous genes with very similar cDNAs.

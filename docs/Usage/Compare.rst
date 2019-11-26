@@ -11,6 +11,7 @@ Overview
 ~~~~~~~~
 
 This Mikado utility allows the user to compare the transcripts from any two annotations. Its output allows:
+
   - To understand which reference transcript each prediction is most similar to
   - To understand which prediction transcript best represent each reference model
   - To have a summary information about the similarity between the two annotations.
@@ -437,6 +438,6 @@ The interval tree data structure is created using Cython code originally part of
 
 The .midx files storing the annotation for repeated compare runs are SQLite files. In them, Mikado will store for each gene its coordinates, its transcripts, and the location of exons and CDS features. MIDX files make repeated runs quite faster, as the program will not have to re-parse the GFF file.
 
-:note: Before version 1.1, Mikado MIDX files were GZip-compressed files. If you try to use an old index, Mikado will complain about it and recreate it from scratch.
+.. note:: Before version 1.1, Mikado MIDX files were GZip-compressed files. If you try to use an old index, Mikado will complain about it and recreate it from scratch.
 
 The comparison code is written in Cython and is crucial during the :ref:`picking phase of Mikado <pick>`, not just for the functioning of the comparison utility.

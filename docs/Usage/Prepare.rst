@@ -5,17 +5,17 @@ Mikado prepare
 
 This is the first executive step of the Mikado pipeline. It will accomplish the following goals:
 
-#. Collect annotations from disparate annotation files
+#. Collect annotations from disparate annotation files.
 #. Remove redundant assemblies, ie, assemblies that are *identical* across the various input files.
-#. Determine the strand of the transcript junctions
-#. Ensure uniqueness of the transcript names
-#. Order the transcript by locus
+#. Determine the strand of the transcript junctions.
+#. Ensure uniqueness of the transcript names.
+#. Order the transcript by locus.
 #. Extract the transcript sequences.
 
 Usage
 ~~~~~
 
-``Mikado prepare`` allows to override some of the parameters present in the configuration file through command line options, eg the input files. Notwithstanding, in the interest of reproducibility we advise to configure everything through the configuration file and supply it to Mikado prepare without further modifications.
+``Mikado prepare`` allows to override some of the parameters present in the configuration file through command line options, eg. the input files. Notwithstanding, in the interest of reproducibility we advise to configure everything through the configuration file and supply it to Mikado prepare without further modifications.
 
 Available parameters:
 
@@ -28,6 +28,7 @@ Available parameters:
 * *strand-specific*: If set, all assemblies will be treated as strand-specific.
 * *strand-specific-assemblies*: comma-separated list of strand specific assemblies.
 * *list*: in alternative to specifying all the information on the command line, it is possible to give to Mikado a *tab-separated* file with the following contents:
+
    #. Location of the file
    #. label for the file
    #. whether that assembly is strand-specific or not (write True/False)

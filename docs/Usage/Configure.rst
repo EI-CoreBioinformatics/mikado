@@ -9,7 +9,10 @@ Mikado configure
 
 This utility prepares the configuration file that will be used throughout the pipeline stages.
 While the most important options can be set at runtime through the command line, many algorithmic details can be accessed and intervened upon only through the file produced through this command.
-.. important:: Please note that any value absent from the configuration at runtime **will be imputed to the default value for Mikado, as specified internally**.
+
+.. important:: 
+
+  Please note that any value absent from the configuration at runtime **will be imputed to the default value for Mikado, as specified internally**.
 
 Usage
 ~~~~~
@@ -199,18 +202,21 @@ This section of the configuration file deals with the :ref:`prepare stage of Mik
 * strand_specific: boolean. If set to *true*, **all** input assemblies will be treated as strand-specific, therefore keeping the strand of monoexonic fragments as it was. Multiexonic transcripts will not have their strand reversed even if doing that would mean making some or all non-canonical junctions canonical.
 * strip_cds: boolean. If set to *true*, the CDS features will be stripped off the input transcripts. This might be necessary for eg transcripts obtained through alignment with `GMAP <http://research-pub.gene.com/gmap/>`_ [GMAP]_.
 * files: this sub-section is the most important, as it contains among other things the locations and labels for the input files. Voices:
-    * gff: array of the input files, in GFF or GTF format. Please note that only CDS/exon/UTR features will be considered from these files.
-    * labels: optional array of the labels to be assigned to the input files. If non-empty, *it must be of the same order and length of the gff array*, and be composed of unique elements. The labels will be used in two ways:
-      * as a prefix of the transcripts coming from the corresponding GFF
-      * as the *source field* assigned to the transcript. This might be of relevance :ref:`during the picking stage <source_score>`.
-    * log: name of the log file.
-    * out: name of the GTF output file.
-    * out_fasta: name of the corresponding output FASTA file.
-    * output_dir: output directory. It will be created if it does not exist already.
-    * strand_specific_assemblies: array of the names of the GFF/GTF files that are strand specific. **All the file names in this array must also appear in the gff array as well.**.
-    * source_score: dictionary linking the scores of each different assembly to a specific score, _**using the label as key**_, which will be applied in two different points:
-      * during the prepare stage itself, in order to give an order priority for transcripts that come from different assemblies.
-      * during the picking stage,
+
+    - gff: array of the input files, in GFF or GTF format. Please note that only CDS/exon/UTR features will be considered from these files.
+    - labels: optional array of the labels to be assigned to the input files. If non-empty, *it must be of the same order and length of the gff array*, and be composed of unique elements. The labels will be used in two ways:
+
+      + as a prefix of the transcripts coming from the corresponding GFF
+      + as the *source field* assigned to the transcript. This might be of relevance :ref:`during the picking stage <source_score>`.
+    - log: name of the log file.
+    - out: name of the GTF output file.
+    - out_fasta: name of the corresponding output FASTA file.
+    - output_dir: output directory. It will be created if it does not exist already.
+    - strand_specific_assemblies: array of the names of the GFF/GTF files that are strand specific. **All the file names in this array must also appear in the gff array as well**.
+    - source_score: dictionary linking the scores of each different assembly to a specific score, **using the label as key**, which will be applied in two different points:
+      
+      + during the prepare stage itself, in order to give an order priority for transcripts that come from different assemblies.
+      + during the picking stage,
 
 
 .. code-block:: yaml
@@ -269,37 +275,32 @@ Settings for the serialisation stage
 
 This section of the configuration file deals with the :ref:`serialisation stage of Mikado <serialise>`. It specifies the location of the ORF BED12 files from TransDecoder, the location of the XML files from BLAST, the location of portcullis junctions, and other details important at run time. It has the following voices:
 
-* discard_definition: boolean. This is used to specify whether we will use the ID or the definition of the sequences when parsing BLAST results. This is important when BLAST data might have a mock, local identifier for the sequence ("lcl|1") rather than its original ID. :warning: Deprecated since v1 beta 10.
+* discard_definition: boolean. This is used to specify whether we will use the ID or the definition of the sequences when parsing BLAST results. This is important when BLAST data might have a mock, local identifier for the sequence ("lcl|1") rather than its original ID. 
+.. warning:: 
+  Deprecated since v1 beta 10.
 * force: whether the database should be truncated and rebuilt, or just updated.
-
-.. _max-objects:
-
 * max_objects: this parameter is quite important when running with a SQLite database. SQLite does not support caching on the disk before committing the changes, so that every change has to be kept in memory. This can become a problem for RAM quite quickly. On the other hand, committing is an expensive operation, and it makes sense to minimise calls as much as possible. This parameter specifies the maximum number of objects Mikado will keep in memory before committing them to the database. The default number, 100,000, should ensure that Mikado runs with less than 1GB memory. Increase it to potentially increase speed at the price of greater memory usage; for example, increasing it to 1,000,000 will cause Mikado to use ~6GB of RAM at its peak usage.
-
-.. _max-regression:
-
 * max_regression: this parameter is a float comprised between 0 and 1. TransDecoder will sometimes output open ORFs even in the presence of an in-frame start codon. Mikado can try to "regress" along the ORF until it finds one such start codon. This parameter imposes how much Mikado will regress, in percentage of the cDNA length.
+* codon_table: this parameter indicates the codon table to use. We use the `NCBI nomenclature <https://www.ncbi.nlm.nih.gov/Taxonomy/Utils/wprintgc.cgi>`_, with a variation:
 
-.. _codon-table:
-
-* codon_table: this parameter indicates the codon table to use. We use the `NCBI nomenclature <https://www.ncbi.nlm.nih.gov/Taxonomy/Utils/wprintgc.cgi>`, with a variation:
-  * the code "0" is added to indicate a variation on the standard code (identifier "1"), which differs only in that only "ATG" is considered as a valid start codon.
-  This is because *in silico* ORF predictions tend to over-predict the presence of non-standard "ATG" codons, which are rare in nature.
-
+  - the code "0" is added to indicate a variation on the standard code (identifier "1"), which differs only in that only "ATG" is considered as a valid start codon.
+    This is because *in silico* ORF predictions tend to over-predict the presence of non-standard "ATG" codons, which are rare in nature.
 * max_target_seqs: equivalent to the BLAST+ parameter of the same name - it indicates the maximum number of discrete hits that can be assigned to one sequence in the database.
 * procs: number of processors to use. Most important for serialising BLAST+ files.
 * single_thread: boolean, if set to *true* it will forcibly disable multi-threading. Useful mostly for debugging purposes.
 * files: this sub-section codifies the location of the input files for serialise. It contains the following voices:
+
     .. _reliable_junctions:
-    * junctions: array of locations of reliable junction files. These must be in BED12 format.
-    * log: log file.
-    * orfs: array of locations of ORFs location on the cDNA, as created by eg TransDecoder [Trinity]_.
-    * output_dir: output directory where the log file and the SQLite database will be written to (if SQLite has been chosen as the database type)
-    * transcripts: input transcripts. This should be set to be equal to the output of :ref:`Mikado prepare <prepare>`, ie the "out_fasta" field of the :ref:`prepare section of the configuration file <prep-settings>`.
-    * xml: this array indicates the location of the BLAST output file. Elements of the array can be:
-       * BLAST+ XML files (optionally compressed with gzip)
-       * BLAST+ ASN files (optionally compressed with gzip), which will be converted in-memory using ``blast_formatter``
-       * a folder containing files of the above types.
+    - junctions: array of locations of reliable junction files. These must be in BED12 format.
+    - log: log file.
+    - orfs: array of locations of ORFs location on the cDNA, as created by eg TransDecoder [Trinity]_.
+    - output_dir: output directory where the log file and the SQLite database will be written to (if SQLite has been chosen as the database type)
+    - transcripts: input transcripts. This should be set to be equal to the output of :ref:`Mikado prepare <prepare>`, ie the "out_fasta" field of the :ref:`prepare section of the configuration file <prep-settings>`.
+    - xml: this array indicates the location of the BLAST output file. Elements of the array can be:
+
+       + BLAST+ XML files (optionally compressed with gzip)
+       + BLAST+ ASN files (optionally compressed with gzip), which will be converted in-memory using ``blast_formatter``
+       + a folder containing files of the above types.
 
 .. code-block:: yaml
 
@@ -485,13 +486,18 @@ Parameters regarding the clustering of transcripts in loci
 
 This section influences how Mikado clusters transcripts in its multi-stage selection. The available parameters are:
 
-* *flank*: numerical. When constructing :ref:`Superloci <superloci>`, Mikado will use this value as the maximum distance
+*\ *flank*: numerical. When constructing :ref:`Superloci <superloci>`, Mikado will use this value as the maximum distance
 between transcripts for them to be integrated within the same superlocus.
-* *cds_only*: boolean. If set to true, during the :ref:`picking stage <pick-algo>` Mikado will consider only the **primary ORF** to evaluate whether two transcripts intersect. Transcripts which eg. share introns in their UTR but have completely unrelated CDSs will be clustered separately. Disabled by default.
-* *purge*: boolean. If true, any transcript failing the :ref:`specified requirements <requirements-section>` will be purged out. Otherwise, they will be assigned a score of 0 and might potentially appear in the final output, if no other transcript is present in the locus.
-* *simple_overlap_for_monoexonic*: boolean. During the :ref:`second clustering <monosubloci>`, by default monoexonic transcripts are clustered together even if they have a very slight overlap with another transcript. Manually setting this flag to *false* will cause Mikado to cluster monoexonic transcripts only if they have a minimum amount of cDNA and CDS overlap with the other transcripts in the holder.
-* *min_cdna_overlap*: numerical, between 0 and 1. Minimum cDNA overlap between two multiexonic transcripts for them to be considered as intersecting, if all other conditions fail.
-* *min_cdna_overlap*: numerical, between 0 and 1. Minimum CDS overlap between two multiexonic transcripts for them to be considered as intersecting, if all other conditions fail.
+
+*\ *cds_only*: boolean. If set to true, during the :ref:`picking stage <pick-algo>` Mikado will consider only the **primary ORF** to evaluate whether two transcripts intersect. Transcripts which eg. share introns in their UTR but have completely unrelated CDSs will be clustered separately. Disabled by default.
+
+*\ *purge*: boolean. If true, any transcript failing the :ref:`specified requirements <requirements-section>` will be purged out. Otherwise, they will be assigned a score of 0 and might potentially appear in the final output, if no other transcript is present in the locus.
+
+*\ *simple_overlap_for_monoexonic*: boolean. During the :ref:`second clustering <monosubloci>`, by default monoexonic transcripts are clustered together even if they have a very slight overlap with another transcript. Manually setting this flag to *false* will cause Mikado to cluster monoexonic transcripts only if they have a minimum amount of cDNA and CDS overlap with the other transcripts in the holder.
+
+*\ *min_cdna_overlap*: numerical, between 0 and 1. Minimum cDNA overlap between two multiexonic transcripts for them to be considered as intersecting, if all other conditions fail.
+
+*\ *min_cdna_overlap*: numerical, between 0 and 1. Minimum CDS overlap between two multiexonic transcripts for them to be considered as intersecting, if all other conditions fail.
 
 .. code-block:: yaml
 
@@ -527,9 +533,11 @@ Parameters regarding the detection of putative fragments
 
 This section determines how Mikado treats :ref:`potential fragments in the output <fragments>`. Available options:
 
-* *remove*: boolean, default true. If set to true, fragments will be excluded from the final output; otherwise, they will be printed out, but properly tagged.
-* *max_distance*: numerical. For non-overlapping fragments, this value determines the maximum distance from the valid gene. Eg. with the default setting of 2000, a putative fragment at the distance of 1000 will be tagged and dealt with as a fragment; an identical model at a distance of 3000 will be considered as a valid gene and left untouched.
-* *valid_class_codes*: valid :ref:`class codes <ccodes>` for potential fragments. Only Class Codes in the categories Overlap, Intronic, Fragment, with the addition of "_", are considered as valid choices.
+*\ *remove*: boolean, default true. If set to true, fragments will be excluded from the final output; otherwise, they will be printed out, but properly tagged.
+
+*\ *max_distance*: numerical. For non-overlapping fragments, this value determines the maximum distance from the valid gene. Eg. with the default setting of 2000, a putative fragment at the distance of 1000 will be tagged and dealt with as a fragment; an identical model at a distance of 3000 will be considered as a valid gene and left untouched.
+
+*\ *valid_class_codes*: valid :ref:`class codes <ccodes>` for potential fragments. Only Class Codes in the categories Overlap, Intronic, Fragment, with the addition of "_", are considered as valid choices.
 
 .. code-block:: yaml
 
@@ -613,6 +621,7 @@ that are presupposed to be originated from a single RNA molecule and therefore w
 
 * *blast_check*: boolean. Whether to execute the check on the BLAST hits. If set to *false*, Mikado will operate in the *split* mode, unless *execute* is set to *false* (execute takes precedence over the other parameters).
 * *blast_params*: this section contains the settings relative to the *permissive*, *lenient* and *stringent* mode.
+
    * *evalue*: maximum evalue of a hit to be assigned to the transcript and therefore be considered.
    * *hsp_evalue*: maximum evalue of a hsp inside a hit to be considered for the analysis.
    * *leniency*: one of **LENIENT, PERMISSIVE, STRINGENT**. See above for definitions.
@@ -668,6 +677,7 @@ The "files" and "output_format" sections deal respectively with input files for 
 * *monoloci_out*: this optional output file will contain the transcripts that have been passed to the :ref:`monoloci phase <introduction>`. It will also determine the prefix of the *metrics* and *scores* files for this step. See the :ref:`pick manual page for details on the output <pick-output>`.
 * *subloci_out*: this optional output file will contain the transcripts that have been passed to the :ref:`subloci phase <introduction>`. It will also determine the prefix of the *metrics* and *scores* files for this step. See the :ref:`pick manual page for details on the output <pick-output>`.
 * *output_format*: this section specifies some details on the output format.
+
     * *id_prefix*: prefix for all the final Mikado models. The ID will be <prefix>.<chromosome>G<progressive ID>.
     * *report_all_orfs*: some Mikado models will have more than one ORF (unless pick is operating in the *split* mode). If this option is set to ``true``, Mikado will report the transcript multiple times, one for each ORF, using different progressive IDs (<model name>.orf<progressive ID>). By default, this option is set to False, and only the primary ORF is reported.
     * *source*: prefix for the source field in the output files. Loci GFF3 will have "<prefix>_loci", subloci GFF3s will have "<prefix>_subloci", and monoloci will have "<prefix>_monoloci".
@@ -703,6 +713,7 @@ Generic parameters on the pick run
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 This section deals with other parameters necessary for the run, such as the number of processors to use, but also more important algorithmic parameters such as how to recognise fragments.
+
 Parameters:
 
 * *consider_truncated_for_retained*: normally, Mikado considers as retained introns only events in which a partially coding exon on the 3' side becomes non-coding in the middle of a CDS intron of another transcript in the locus. If this option is set to *true*, Mikado will consider as retained intron events also cases when the transcript has its CDS just end within a CDS intron of another model. Useful eg. when dealing with CDS models.

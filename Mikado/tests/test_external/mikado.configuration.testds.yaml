@@ -243,6 +243,8 @@ prepare:
     - Rmai_coding.gff
     - Rpad_coding.gff
     - Sfuc_coding.gff
+  minimum_cdna_length: 200
+  max_intron_length: 1000000
   lenient: false
   procs: 1
   strand_specific: false
@@ -269,6 +271,6 @@ serialise:
     output_dir: Testds
     transcripts: mikado_prepared.testds.fasta
     xml: []
+  codon_table: 0
   max_regression: 0.1
   procs: 1
-

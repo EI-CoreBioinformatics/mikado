@@ -176,7 +176,7 @@ def create_daijin_config(args, level="ERROR", piped=False):
     logger = create_default_logger("daijin_config", level=level)
 
     config = create_daijin_base_config(simple=(not args.full))
-    if args.seed is not None:
+    if args.seed is not None and isinstance(args.seed, int) and args.seed not in (True, False):
         config["seed"] = args.seed
     assert "reference" in config, config.keys()
     config["reference"]["genome"] = args.genome

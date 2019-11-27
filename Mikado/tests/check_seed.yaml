@@ -187,6 +187,7 @@ serialise:
     output_dir: .
     transcripts: mikado_prepared.fasta
     xml: []
+  codon_table: 0
   max_regression: 0.1
   procs: 1
 short_reads:

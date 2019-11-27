@@ -119,6 +119,7 @@ pick:
     #  - flank: DEPRECATED. Now set in the clustering section.
     procs: 1
     single_thread: false
+    intron_range: [60, 900]
   scoring_file: plant.yaml
 portcullis:
   #  Options related to portcullis
@@ -159,6 +160,8 @@ prepare:
     - stringtie.gtf
   procs: 1
   strand_specific: false
+  minimum_cdna_length: 200
+  max_intron_length: 1000000
 reference:
   genome: chr5.fas.gz
   genome_fai: ''

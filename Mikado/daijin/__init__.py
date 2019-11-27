@@ -136,6 +136,8 @@ for the "mikado" part of daijin.""")
                         type=str, default=None,
                         help="Cluster configuration file to write to.")
     parser.add_argument("--full", action="store_true", default=False)
+    parser.add_argument("--seed", type=int, default=None,
+                        help="Random seed number.")
     runtime.add_argument("--threads", "-t", action="store", metavar="N", type=int, default=4,
                         help="""Maximum number of threads per job. Default: %(default)s""")
     runtime.add_argument("-od", "--out-dir", dest="out_dir", default=None, required=False,

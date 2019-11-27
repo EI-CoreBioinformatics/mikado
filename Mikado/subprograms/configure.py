@@ -158,7 +158,7 @@ def create_config(args):
         create_cluster_config(config, args, create_null_logger())
     else:
         if args.full is True:
-            default = configurator.to_json(None)
+            default = configurator.to_json(None, simple=False)
             del default["scoring"]
             del default["requirements"]
             del default["not_fragmentary"]
@@ -354,7 +354,7 @@ switch.")
     print_config(output, tempcheck)
     tempcheck.flush()
     try:
-        configurator.to_json(tempcheck.name)
+        configurator.to_json(tempcheck.name, simple=(not args.full))
     except InvalidJson as exc:
         raise InvalidJson("Created an invalid configuration file! Error:\n{}".format(exc))
 

@@ -1,1 +1,0 @@
-../../Mikado/daijin/tr.snakefile

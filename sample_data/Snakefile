@@ -379,9 +379,8 @@ rule clean:
                                     glob.glob("compare*"), glob.glob(config["db_settings"]["db"]),
                                     glob.glob("*.log"), glob.glob("*xml"), ["chr5.fas"],
 				                    glob.glob("*.ok"),
-                                    "refmap_check.ok",
-                                    "refmap_check_pc.ok",
-                                    ["configuration.yaml"]):
+                                    ["refmap_check.ok", "refmap_check_pc.ok",
+                                    "configuration.yaml", "configuration.toml", "daijin.toml", "daijin.yaml"]):
             if os.path.exists(filename) and filename not in (".", ".."):
                 shutil.rmtree(filename) if os.path.isdir(filename) else os.remove(filename)
             if os.path.exists("Daijin"):

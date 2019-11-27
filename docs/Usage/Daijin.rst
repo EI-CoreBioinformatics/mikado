@@ -24,7 +24,7 @@ This page contains a detailed explanation on how to use Daijin. We also provide 
 that will guide you through using the manager for analysing an RNA-Seq sample for *Sc. pombe*.
 
 .. hint:: It is possible to launch the two steps of the pipeline directly with Snakemake, using the snakefiles located in
-Mikado.daijin: :download:`tr.snakefile <tr.snakefile>` for the first step, and :download:`mikado.snakefile` for the second.
+Mikado.daijin: :download:`assemble.smk <assemble.smk>` for the first step, and :download:`mikado.smk` for the second.
 
 .. warning:: Starting from
 

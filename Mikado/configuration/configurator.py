@@ -97,7 +97,7 @@ def extend_with_default(validator_class, resolver=None, simple=False):
         for prop, subschema in properties.items():
             if instance is None:
                 instance = dict()
-            if "default" in subschema:  # and ((not simple) or (simple and prop in required)):
+            if "default" in subschema and ((not simple) or (simple and prop in required)):
                 instance.setdefault(prop, subschema["default"])
             elif prop not in instance:
                 if "type" not in subschema:

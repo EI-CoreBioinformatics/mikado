@@ -216,49 +216,51 @@ This section of the configuration file deals with the :ref:`prepare stage of Mik
 .. code-block:: yaml
 
     prepare:
-      #  Options related to the input data preparation.
-      #  - files: options relative to the input/output files.
-      #  - procs: Number of processes to use.
-      #  - strip_cds: whether to remove the CDS from the predictions during preparation.
-      #  - lenient: if set to True, invalid transcripts will be only flagged and not removed.
-      #  EXPERIMENTAL.
-      #  - strand_specific: if set to True, transcripts will be assumed to be in the correct
-      #  orientation, no strand flipping or removal
-      #  - strand_specific_assemblies: array of input predictions which are to be considered
-      #  as strand-specific.
-      #    Predictions not in this list will be considered as non-strand-specific.
-      #  - canonical: canonical splice sites, to infer the correct orientation.
-      canonical:
-      - - GT
+        # Options related to the input data preparation.
+        # - procs: Number of processes to use.
+        # - strand_specific: if set to True, transcripts will be assumed to be in
+        # the correct orientation, no strand flipping or removal
+        # - strip_cds: Boolean. It indicates whether to remove the CDS from the
+        # predictions during preparation.
+        canonical:
+        - - GT
         - AG
-      - - GC
+        - - GC
         - AG
-      - - AT
+        - - AT
         - AC
-      files:
-        #  Options related to the input and output files.
-        #  - out: output GTF file
-        #  - out_fasta: output transcript FASTA file
-        #  - gff: array of input predictions for this step.
-        #  - log: output log. Default: prepare.log
-        #  - labels: labels to be associated with the input GFFs. Default: None.
+        files:
+        # Options related to the input and output files.
+        # - out: output GTF file
+        # - out_fasta: output transcript FASTA file
+        # - gff: array of input predictions for this step.
+        # - labels: labels to be associated with the input GFFs. Default: None.
+        # - reference: these files are treated as reference-like, ie, these
+        # transcripts will never get discarded
+        #   during the preparation step.
+        # - strand_specific: if set to True, transcripts will be assumed to be in
+        # the correct
+        #  orientation, no strand flipping or removal
+        # - source_score: optional scores to be given to each different source
+        # files. Default: none,
+        #  ie no source-specific score is applied.
         gff: []
         labels: []
         log: prepare.log
         out: mikado_prepared.gtf
         out_fasta: mikado_prepared.fasta
         output_dir: .
-        strand_specific_assemblies: []
         reference: []
         source_score: {}
-      keep_redundant: false
-      lenient: false
-      max_intron_length: 1000000
-      minimum_cdna_length: 200
-      procs: 1
-      single: false
-      strand_specific: false
-      strip_cds: false
+        strand_specific_assemblies: []
+        keep_redundant: false
+        lenient: false
+        max_intron_length: 1000000
+        minimum_cdna_length: 200
+        single: false
+        strand_specific: false
+        strip_cds: false
+
 
 .. _serialise-settings:
 

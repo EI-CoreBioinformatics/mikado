@@ -985,7 +985,7 @@ class Locus(Abstractlocus):
         if len(matched) > 0 and (matched[0].value == "intron" or second.exons[0][0] < matched[0].start):
             decision = False
             reason = "{second.id} first exon ends within an intron of {first.id}".format(**locals())
-        else:
+        elif len(matched) > 0:
             upstream = [_ for _ in first.find_upstream(second.exons[0][0], second.exons[0][1])
                         if _.value == "exon" and _ not in matched]
             if matched[0][0] < second.start:
@@ -1024,7 +1024,7 @@ class Locus(Abstractlocus):
         if len(matched) > 0 and (matched[-1].value == "intron" or first.exons[-1][1] > matched[-1].end):
             decision = False
             reason = "{first.id} last exon ends within an intron of {second.id}".format(**locals())
-        else:
+        elif len(matched) > 0:
             downstream = [_ for _ in second.find_downstream(first.exons[-1][0], first.exons[-1][1])
                           if _.value == "exon" and _ not in matched]
 

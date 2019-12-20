@@ -132,7 +132,6 @@ def merge_loci(num_temp, out_handles,
                         print(*[row[key] for key in sub_scores.fieldnames],
                                   sep="\t", file=sub_scores.handle)
                 if print_monoloci and minibatch[2]:
-                    print(minibatch[2])
                     mono_lines, mono_metrics_rows, mono_scores_rows = minibatch[2]
                     if mono_lines != '':
                         print(mono_lines, file=mono_out)

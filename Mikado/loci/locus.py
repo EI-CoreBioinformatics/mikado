@@ -978,6 +978,12 @@ class Locus(Abstractlocus):
 
         decision = False
         first, second = sorted([first, second], key=operator.attrgetter("start"))
+        if self.overlap((first.start, first.end), (second.start, second.end)) <= 0:
+            decision = False
+            reason = "{first.id} and {second.id} are not intersecting each other."
+            self.logger.debug(reason)
+            return decision            
+
         # Now let us check whether the second falls within an intron
         matched = first.segmenttree.find(second.exons[0][0], second.exons[0][1])
         self.logger.debug("{second.id} last exon {second.exons[0]} intersects in {first.id}: {matched}".format(
@@ -1020,7 +1026,14 @@ class Locus(Abstractlocus):
         decision = False
         first, second = sorted([first, second], key=operator.attrgetter("end"), reverse=False)
         # Now let us check whether the second falls within an intron
+        if self.overlap((first.start, first.end), (second.start, second.end)) <= 0:
+            decision = False
+            reason = "{first.id} and {second.id} are not intersecting each other."
+            self.logger.debug(reason)
+            return decision            
+        
         matched = second.segmenttree.find(first.exons[-1][0], first.exons[-1][1])
+          
         if len(matched) > 0 and (matched[-1].value == "intron" or first.exons[-1][1] > matched[-1].end):
             decision = False
             reason = "{first.id} last exon ends within an intron of {second.id}".format(**locals())

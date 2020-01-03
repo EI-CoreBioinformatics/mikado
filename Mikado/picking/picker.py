@@ -1043,7 +1043,7 @@ Please update your configuration files in the future.""".format(
                     else:
                         current_transcript = Transcript(row, intron_range=intron_range, logger=logger)
                         skip_transcript = False
-                    if current_transcript is None or row.chrom != current_transcript.chrom:
+                    if skip_transcript is False and (current_transcript is None or row.chrom != current_transcript.chrom):
                         if current_transcript is not None:
                             self.logger.info("Finished chromosome %s",
                                              current_transcript.chrom)

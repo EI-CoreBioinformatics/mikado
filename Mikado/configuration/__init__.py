@@ -16,9 +16,9 @@ __author__ = 'Luca Venturini'
 
 def print_toml_config(output, out):
 
-    pat = re.compile(r"(SimpleComment|Comment)s{0,}=s{0,}")
-    skip_pat = re.compile(r"^[(SimpleComment|Comment)]")
-
+    pat = re.compile(r"(SimpleComment|Comment)\s{0,}=\s{0,}")
+    skip_pat = re.compile(r"^\[(SimpleComment|Comment)\]")
+    
     initial_comment = []
     first_indent_found = False
     lines = []

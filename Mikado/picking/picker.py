@@ -45,7 +45,7 @@ import numpy
 import sqlite3
 import msgpack
 import fastnumbers
-from scipy import percentile
+from numpy import percentile
 logging.captureWarnings(True)
 warnings.simplefilter("always")
 try:

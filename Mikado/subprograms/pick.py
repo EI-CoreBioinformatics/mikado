@@ -318,8 +318,8 @@ in the configuration file.")
                         type=str, default=None,
                         help="Output directory. Default: current working directory")
     parser.add_argument("--single", action="store_true", default=False,
-                        help="""Flag. If set, Creator will be launched with a single process.
-                        Useful for debugging purposes only.""")
+                        help="""Flag. If set, Creator will be launched with a single process, without involving the
+multithreading apparatus. Useful for debugging purposes only.""")
     log_options = parser.add_argument_group("Log options")
     log_options.add_argument("-l", "--log", default=None,
                              help="""File to write the log to.

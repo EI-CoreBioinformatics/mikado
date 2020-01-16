@@ -129,8 +129,8 @@ class Picker:
             if self.json_conf["threads"] > 1:
                 self.main_logger.warning("Reset number of threads to 1 as requested")
                 self.procs = 1
-        elif self.json_conf["threads"] == 1:
-            self.json_conf["pick"]["run_options"]["single_thread"] = True
+        # elif self.json_conf["threads"] == 1:
+        #     self.json_conf["pick"]["run_options"]["single_thread"] = True
 
         if self.locus_out is None:
             raise InvalidJson(
@@ -869,7 +869,7 @@ Please update your configuration files in the future.""".format(
         if tid is None:
             raise InvalidJson("Corrupt input GTF file, offending line:\n{}".format(line))
         tid = tid.groups()[0]
-        phase = fastnumbers.fast_int(fields[8], default=None)
+        phase = fastnumbers.fast_int(fields[7], default=None)
         return line, chrom, fields[2], start, end, phase, tid, is_transcript
 
     def __parse_multithreaded(self, locus_queue, conn, cursor):

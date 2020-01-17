@@ -610,9 +610,12 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         """
 
         cds_segments = sorted(transcript.cds_tree.search(*exon))
-        terminal = bool(set.intersection(
-            set(exon),
-            {transcript.start, transcript.end, transcript.combined_cds_end, transcript.combined_cds_start}))
+
+        internal_splices = set.difference(set(exon), {transcript.start, transcript.end})
+        terminal = len(internal_splices) != 2
+        # terminal = bool(set.intersection(
+        #     set(exon),
+        #     {transcript.start, transcript.end, transcript.combined_cds_end, transcript.combined_cds_start}))
         before_met = False
         if transcript.is_coding:
             # Avoid considering exons that are full 3' UTR exons in a coding transcript.
@@ -657,14 +660,17 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             else:
                 frags = [Interval(*exon)]
 
-        return to_consider, frags, terminal
+        return to_consider, frags, terminal, internal_splices
 
     @staticmethod
     def _is_exon_retained(exon: tuple,
                           segmenttree: IntervalTree,
                           digraph: networkx.DiGraph,
                           frags: list,
-                          consider_truncated=False,
+                          introns: set,
+                          internal_splices: set,
+                          strand=None,
+                          # consider_truncated=False,
                           terminal=False,
                           logger=create_null_logger()):
 
@@ -686,9 +692,8 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         :param frags: a list of intervals that are non-coding within the exon.
         :type frags: list[(tuple|Interval)]
 
-        :param consider_truncated: boolean flag. If set, also terminal exons can be considered for retained intron
-        events.
-        :type consider_truncated: bool
+        :param internal_splices: which of the two boundaries of the exon are actually internal (if any).
+        :type internal_splices: set
 
         :param terminal: whether the exon is at the 3' end.
         :type terminal: bool
@@ -697,13 +702,14 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         """
 
         is_retained = False
+        cds_broken = False
 
         found_introns = set(
-            [_._as_tuple() for _ in segmenttree.find(exon[0], exon[1], strict=not consider_truncated, value="intron")]
+            [_._as_tuple() for _ in segmenttree.find(exon[0], exon[1], strict=False, value="intron")]
         )
 
         if not found_introns:
-            return is_retained
+            return is_retained, cds_broken
 
         logger.debug("Found introns for %s: %s", exon, found_introns)
 
@@ -720,21 +726,32 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             logger.debug("Exon: %s; Frags: %s; Intron: %s; Before: %s; After: %s", exon, frags, intron, before, after)
             if len(before) == 0 and len(after) == 0:
                 # A retained intron must be overlapping some other exons!
-                logger.debug("No intersecting exon before or after, False")
-                is_retained = False
-            elif len(before) == 0 or len(after) == 0:
-                is_retained = (consider_truncated and terminal)
-                logger.debug("Only one exon intersecting, %s", is_retained)
+                continue
             else:
-                # The *only* case where we do *not* consider it a retained intron is
-                # if the CDS spans completely the intron.
-                for frag, intron in itertools.product(frags, [intron]):
-                    is_retained = (overlap(frag, intron, positive=True) > 0)
-                    if is_retained:
-                        logger.debug("Frag %s intersecting intron %s", frag, intron)
-                        break
+                if strand == "-":
+                    before, after = after, before
+                start_found = (exon[0] in set([e[0] for e in before - introns]))
+                end_found = (exon[1] in set([e[1] for e in after - introns]))
+                if terminal is True:
+                    if exon[0] in internal_splices:
+                        end_found = True
+                    elif exon[1] in internal_splices:
+                        start_found = True
 
-        return is_retained
+                is_retained = (start_found and end_found)
+                logger.debug(
+                    "Exon %s vs intron %s: start found %s, end found %s (terminal %s, I.S. %s)",
+                    exon, intron, start_found, end_found, terminal, internal_splices)
+                if is_retained:
+                    logger.debug("Exon %s is retained (for intron %s)", exon, intron)
+                    # Now we have to check whether the CDS breaks within the intron
+                    for frag, intron in itertools.product(frags, [intron]):
+                        cds_broken = (overlap(frag, intron, positive=True) > 0)
+                        if cds_broken:
+                            logger.debug("Frag %s intersecting intron %s: CDS interrupted", frag, intron)
+                            break
+
+        return is_retained, cds_broken
 
     def _load_scores(self, scores: dict):
         """This private method is present *strictly for testing purposes only*.
@@ -806,18 +823,20 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
             # self.logger.debug("Checking exon %s of %s", exon, transcript.id)
             # is_retained = False
-            to_consider, frags, terminal = self._exon_to_be_considered(
+            to_consider, frags, terminal, internal_splices = self._exon_to_be_considered(
                 exon, transcript, consider_truncated=consider_truncated)
             if not to_consider:
                 self.logger.debug("Exon %s of %s is not to be considered", exon, transcript.id)
                 continue
 
-            is_retained = self._is_exon_retained(
+            is_retained, cds_broken = self._is_exon_retained(
                 exon,
                 self.segmenttree,
                 self._internal_graph,
                 frags,
-                consider_truncated=consider_truncated,
+                internal_splices=internal_splices,
+                strand=self.strand,
+                introns=self.introns,
                 terminal=terminal,
                 logger=self.logger)
 
@@ -825,6 +844,8 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                 self.logger.debug("Exon %s of %s is a retained intron",
                                   exon, transcript.id)
                 retained_introns.append(exon)
+
+            transcript.cds_disrupted_by_ri = cds_broken
 
         self.logger.debug("%s has %d retained introns%s",
                           transcript.id,

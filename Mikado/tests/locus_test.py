@@ -2172,7 +2172,7 @@ class RetainedIntronTester(unittest.TestCase):
         sup = Superlocus(t1, json_conf=self.my_json)
         sup.add_transcript_to_locus(t2)
 
-        sup.logger = create_default_logger("test_real_retained_pos_noCDS")
+        sup.logger = create_default_logger("test_real_retained_pos_noCDS", level="DEBUG")
         # sup.logger.setLevel("DEBUG")
         sup.find_retained_introns(t2)
 
@@ -2275,7 +2275,8 @@ class RetainedIntronTester(unittest.TestCase):
         with self.subTest():
             sup = Superlocus(t1, json_conf=self.my_json)
             sup.add_transcript_to_locus(t2)
-
+            sup.logger = create_default_logger("test_real_retained_neg",
+                                               level="DEBUG")
             sup.find_retained_introns(t2)
             self.assertEqual(sup.transcripts["t2"].retained_introns, ((401, 1000),))
 
@@ -2286,16 +2287,6 @@ class RetainedIntronTester(unittest.TestCase):
             sup.add_transcript_to_locus(unpickled_other)
             sup.find_retained_introns(unpickled_other)
             self.assertEqual(sup.transcripts["t2"].retained_introns, ((401, 1000),))
-
-        # t1.strip_cds()
-        # t2.strip_cds()
-        # with self.subTest():
-        #     self.assertEqual(t1.combined_cds_length, 0)
-        #     self.assertEqual(t2.combined_cds_length, 0)
-        #     sup = Superlocus(t1, json_conf=self.my_json)
-        #     sup.add_transcript_to_locus(t2)
-        #     sup.find_retained_introns(t2)
-        #     self.assertEqual(sup.transcripts["t2"].retained_introns, ())
 
     def test_not_real_retained_neg(self):
         """Here we verify that a real retained intron is called as such"""
@@ -2617,6 +2608,9 @@ class RetainedIntronTester(unittest.TestCase):
         sup.find_retained_introns(t2)
 
         self.assertEqual(sup.transcripts["t2"].retained_intron_num, 0)
+
+    def test_extensive_cases(self):
+        pass
 
 
 class PicklingTest(unittest.TestCase):

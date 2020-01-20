@@ -294,7 +294,6 @@ class Locus(Abstractlocus):
         self.logger.debug("Now checking the retained introns for %s", self.id)
         removed = set()
         while True:
-            self.segmenttree = self.__segmenttree = self._calculate_segment_tree(self.exons, self.introns)
             cds_disrupted = set()
             retained_introns = set()
             to_remove = set()
@@ -308,7 +307,7 @@ class Locus(Abstractlocus):
                 if transcript.cds_disrupted_by_ri is True:
                     assert transcript.retained_intron_num > 0
                     cds_disrupted.add(tid)
-            if not max(len(retained_introns), len(cds_disrupted)) == 0:
+            if max(len(retained_introns), len(cds_disrupted)) == 0:
                 break
             if self.json_conf["pick"]["alternative_splicing"]["keep_cds_disrupted_by_ri"] is False:
                 self.logger.debug("Removing {} because their CDS is disrupted by retained introns".format(
@@ -323,9 +322,12 @@ class Locus(Abstractlocus):
                 removed.update(to_remove)
                 for tid in to_remove:
                     self.remove_transcript_from_locus(tid)
+                self.__segmenttree = self._calculate_segment_tree(self.exons, self.introns)
                 self.metrics_calculated = False
                 self.scores_calculated = False
                 self.calculate_scores()
+            else:
+                break
 
         return removed
 

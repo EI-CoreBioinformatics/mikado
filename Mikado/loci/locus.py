@@ -294,30 +294,37 @@ class Locus(Abstractlocus):
         self.logger.debug("Now checking the retained introns for %s", self.id)
         removed = set()
         while True:
+            cds_disrupted = set()
+            retained_introns = set()
             to_remove = set()
             for tid, transcript in self.transcripts.items():
                 if tid == self.primary_transcript_id:
                     continue
                 self.find_retained_introns(transcript)
+                self.transcripts[tid].attributes["retained_intron"] = (transcript.retained_intron_num > 0)
                 if transcript.retained_intron_num > 0:
-                    to_remove.add(tid)
-                else:
-                    continue
-            if not to_remove:
+                    retained_introns.add(tid)
+                if transcript.cds_disrupted_by_ri is True:
+                    assert transcript.retained_intron_num > 0
+                    cds_disrupted.add(tid)
+            if not retained_introns and not cds_disrupted:
                 break
-            elif self.json_conf["pick"]["alternative_splicing"]["keep_retained_introns"] is False:
+            if self.json_conf["pick"]["alternative_splicing"]["keep_cds_disrupted_by_ri"] is False:
+                self.logger.debug("Removing {} because their CDS is disrupted by retained introns".format(
+                    ", ".join(list(cds_disrupted))))
+                to_remove.update(cds_disrupted)
+                retained_introns -= cds_disrupted
+            if self.json_conf["pick"]["alternative_splicing"]["keep_retained_introns"] is False:
                 self.logger.debug("Removing {} because they contain retained introns".format(
-                    ", ".join(list(to_remove))))
+                    ", ".join(list(retained_introns))))
+                to_remove.update(retained_introns)
+            if to_remove:
                 removed.update(to_remove)
                 for tid in to_remove:
                     self.remove_transcript_from_locus(tid)
                 self.metrics_calculated = False
                 self.scores_calculated = False
                 self.calculate_scores()
-            elif self.json_conf["pick"]["alternative_splicing"]["keep_retained_introns"] is True:
-                for tid in to_remove:
-                    self.transcripts[tid].attributes["retained_intron"] = True
-                break
 
         return removed
 

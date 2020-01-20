@@ -1134,6 +1134,7 @@ class ConfigureCheck(unittest.TestCase):
 
     @unittest.skipUnless((sys.version_info.minor > 4),
                          "Due to a bug in JSONSCHEMA, Daijin configure fails with Python versions lower than 3.5.")
+    @mark.slow
     def test_daijin_config(self):
 
         # Check the basic function actually functions

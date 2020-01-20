@@ -132,9 +132,6 @@ def check_run_options(args, logger=create_null_logger()):
     if args.cds_only is True:
         args.json_conf["pick"]["clustering"]["cds_only"] = True
 
-    if args.consider_truncated_for_retained is True:
-        args.json_conf["pick"]["run_options"]["consider_truncated_for_retained"] = True
-
     for key in ["loci_out", "gff", "monoloci_out", "subloci_out", "log"]:
         if getattr(args, key):
             if key == "gff":
@@ -306,10 +303,6 @@ the output will be completely empty!""")
 transcript requirements, and will also consider them as potential fragments. This is useful in the context of e.g.
 updating an *ab-initio* results with data from RNASeq, protein alignments, etc. 
 """)
-    parser.add_argument("--consider-truncated-for-retained", dest="consider_truncated_for_retained",
-                        action="store_true", default=False,
-                        help="""Flag. If set, Mikado will consider as retained intron events also transcripts \
-which lack UTR but whose CDS ends within a CDS intron of another model.""")
     parser.add_argument("-db", "--sqlite-db", dest="sqlite_db",
                         default=None, type=str,
                         help="Location of an SQLite database to overwrite what is specified \

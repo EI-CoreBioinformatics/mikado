@@ -171,6 +171,12 @@ def check_run_options(args, logger=create_null_logger()):
         Please either provide a valid genome file or disable the padding.")
         sys.exit(1)
 
+    if args.keep_disrupted_cds is True:
+        args.json_conf["pick"]["alternative_splicing"]["keep_cds_disrupted_by_ri"] = True
+
+    if args.exclude_retained_introns is True:
+        args.json_conf["pick"]["alternative_splicing"]["keep_retained_introns"] = False
+
     args.json_conf = check_json(args.json_conf, logger=logger)
     return args
 
@@ -297,6 +303,13 @@ Default: False, Mikado will consider transcripts in their entirety.""")
                         help="""Flag. If switched on, Mikado will only keep loci where at least one of the transcripts \
 is marked as "reference". CAUTION: new and experimental. If no transcript has been marked as reference, \
 the output will be completely empty!""")
+    parser.add_argument("-eri", "--exclude-retained-introns", default=None, action="store_true",
+                        help="""Exclude all retained intron alternative splicing events from the final output. \
+Default: False. Retained intron events that do not dirsupt the CDS are kept by Mikado in the final output.""")
+    parser.add_argument("-kdc", "--keep-disrupted-cds", default=None, action="store_true",
+                        help="""Keep in the final output transcripts whose CDS is most probably disrupted by a \
+retained intron event. Default: False. Mikado will try to detect these instances and exclude them from the \
+final output.""")
     parser.add_argument("--check-references", dest="check_references", default=None,
                         action="store_true",
                         help="""Flag. If switched on, Mikado will also check reference models against the general

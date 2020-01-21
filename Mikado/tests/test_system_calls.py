@@ -906,7 +906,7 @@ class CompareCheck(unittest.TestCase):
                     namespace.out = os.path.join(dir.name, "compare_{}_{}".format(
                         files.index(ref), len(files) + 1))
                 compare(namespace)
-                sleep(1)
+                sleep(0.1)
                 refmap = "{}.refmap".format(namespace.out)
                 tmap = "{}.tmap".format(namespace.out)
                 stats = "{}.stats".format(namespace.out)

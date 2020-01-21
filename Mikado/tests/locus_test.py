@@ -1971,6 +1971,36 @@ class RetainedIntronTester(unittest.TestCase):
                 self.assertEqual((len(sup.transcripts[pred.id].retained_introns) > 0),
                                  retained, (pred.id, retained))
 
+    def test_false_ri(self):
+
+        t1 = [[(11, 100), (301, 400), (451, 500)],
+              [(71, 100), (301, 400), (451, 470)]]
+        t2 = [[(11, 150), (301, 400), (451, 500)],
+              [(121, 150), (301, 400), (451, 470)]]
+
+        for strand in ("+", "-"):
+            with self.subTest(strand=strand):
+                tr1 = Transcript()
+                tr1.add_exons(t1[0])
+                tr1.add_exons(t1[0], features="CDS")
+                tr1.strand = strand
+                tr1.id = "t1"
+                tr1.finalize()
+                self.assertTrue(tr1.is_coding)
+                tr2 = Transcript()
+                tr2.add_exons(t2[0])
+                tr2.add_exons(t2[0], features="CDS")
+                tr2.strand = strand
+                tr2.id = "t2"
+                self.assertTrue(tr2.is_coding)
+                sup = Superlocus(tr1)
+                sup.add_transcript_to_locus(tr2)
+                sup.calculate_scores()
+                self.assertFalse(sup["t1"].cds_disrupted_by_ri)
+                self.assertEqual(sup["t1"].retained_intron_num, 0)
+                self.assertFalse(sup["t2"].cds_disrupted_by_ri)
+                self.assertEqual(sup["t2"].retained_intron_num, 0)
+
     def test_false_positive_retained_introns(self):
 
         bed1 = "\t".join(str(_) for _ in

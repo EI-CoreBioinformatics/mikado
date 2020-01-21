@@ -348,6 +348,12 @@ switch.")
     config.pop("not_fragmentary", None)
     config.pop("requirements", None)
 
+    if args.keep_disrupted_cds is True:
+        config["pick"]["alternative_splicing"]["keep_cds_disrupted_by_ri"] = True
+
+    if args.exclude_retained_introns is True:
+        config["pick"]["alternative_splicing"]["keep_retained_introns"] = False
+
     # Check that the configuration file is correct
     tempcheck = tempfile.NamedTemporaryFile("wt", suffix=".yaml", delete=False)
     output = yaml.dump(config, default_flow_style=False)
@@ -417,6 +423,13 @@ def configure_parser():
                          help="""Flag. If switched on, Mikado will only keep loci where at least one of the transcripts \
     is marked as "reference". CAUTION: new and experimental. If no transcript has been marked as reference, \
     the output will be completely empty!""")
+    picking.add_argument("-eri", "--exclude-retained-introns", default=None, action="store_true",
+                         help="""Exclude all retained intron alternative splicing events from the final output. \
+Default: False. Retained intron events that do not dirsupt the CDS are kept by Mikado in the final output.""")
+    picking.add_argument("-kdc", "--keep-disrupted-cds", default=None, action="store_true",
+                         help="""Keep in the final output transcripts whose CDS is most probably disrupted by a \
+retained intron event. Default: False. Mikado will try to detect these instances and exclude them from the \
+final output.""")
     picking.add_argument("--check-references", dest="check_references", default=None,
                          action="store_true",
                          help="""Flag. If switched on, Mikado will also check reference models against the general

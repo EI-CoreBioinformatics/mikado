@@ -171,7 +171,7 @@ def create_config(args):
         if args.external.endswith("json"):
             loader = json.load
         else:
-            loader = functools.partial(yaml.load, Loader=yaml.SafeLoader)
+            loader = functools.partial(yaml.load, Loader=yaml.CSafeLoader)
         with open(args.external) as external:
             external_conf = loader(external)
         # Overwrite values specific to Mikado

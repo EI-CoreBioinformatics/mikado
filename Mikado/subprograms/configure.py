@@ -358,7 +358,15 @@ switch.")
     except InvalidJson as exc:
         raise InvalidJson("Created an invalid configuration file! Error:\n{}".format(exc))
 
-    if args.json is True or args.out.name.endswith("json"):
+    if args.json is True:
+        json.dump(config, args.out, sort_keys=True, indent=4)
+    elif args.yaml is True:
+        output = yaml.dump(config, default_flow_style=False)
+        print_config(output, args.out)
+    elif args.toml is True:
+        output = tomlkit.dumps(config)
+        print_toml_config(output, args.out)
+    elif args.out.name.endswith("json"):
         json.dump(config, args.out, sort_keys=True, indent=4)
     elif args.out.name.endswith("yaml"):
         output = yaml.dump(config, default_flow_style=False)
@@ -479,9 +487,13 @@ If multiple modes are specified, Mikado will create a Daijin-compatible configur
     parser.add_argument("-t", "--threads", default=1, type=int)
     parser.add_argument("--skip-split", dest="skip_split", default=[], nargs="+",
                         help="List of labels for which splitting will be disabled (eg long reads such as PacBio)")
-
-    parser.add_argument("-j", "--json", action="store_true", default=False,
-                        help="Output will be in JSON instead of YAML format.")
+    output_format = parser.add_mutually_exclusive_group()
+    output_format.add_argument("-j", "--json", action="store_true", default=False,
+                               help="Output will be in JSON (default: inferred by filename, with TOML as fallback).")
+    output_format.add_argument("-y", "--yaml", action="store_true", default=False,
+                               help="Output will be in YAML (default: inferred by filename, with TOML as fallback).")
+    output_format.add_argument("--toml", action="store_true", default=False,
+                               help="Output will be in TOML (default: inferred by filename, with TOML as fallback).")
     parser.add_argument("-od", "--out-dir", dest="out_dir", default=None,
                         help="Destination directory for the output.")
     parser.add_argument("out", nargs='?', default=sys.stdout, type=argparse.FileType('w'))

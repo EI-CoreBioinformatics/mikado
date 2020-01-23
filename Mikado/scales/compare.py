@@ -580,7 +580,6 @@ def parse_prediction(args, index, queue_logger):
     dump_dbhandle = tempfile.NamedTemporaryFile(delete=True, prefix=".compare_dump", suffix=".db", dir=".")
     dump_db = sqlite3.connect(dump_dbhandle.name, check_same_thread=False, timeout=60)
     dump_db.execute("CREATE TABLE dump (idx INTEGER, json BLOB)")
-    dump_db.execute("PRAGMA journal_mode=WAL")
     dump_db.execute("CREATE UNIQUE INDEX dump_idx ON dump(idx)")
     dump_db.commit()
 
@@ -750,8 +749,6 @@ def create_index(reference, queue_logger, index_name, ref_gff=False,
 
     conn = sqlite3.connect(temp_db)
     cursor = conn.cursor()
-    conn.execute("PRAGMA synchronous=EXTRA")
-    conn.execute("PRAGMA journal_mode=WAL")
     cursor.execute("CREATE TABLE positions (chrom text, start integer, end integer, gid text)")
     genes, positions = prepare_reference(reference, queue_logger, ref_gff=ref_gff,
                                          exclude_utr=exclude_utr, protein_coding=protein_coding)

@@ -709,7 +709,8 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             before = {_ for _ in networkx.ancestors(digraph, intron) if
                       _ not in introns and overlap(_, exon) > 0}
 
-            after = {_ for _ in networkx.descendants(digraph, intron) if overlap(_, exon) > 0}
+            after = {_ for _ in networkx.descendants(digraph, intron) if
+                     _ not in introns and overlap(_, exon) > 0}
 
             # Now we have to check whether the matched introns contain both coding and non-coding parts
             # Let us exclude any intron which is outside of the exonic span of interest.

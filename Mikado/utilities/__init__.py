@@ -117,8 +117,6 @@ def merge_partial(filenames, handle, logger=None, gzipped=False):
         logger.warning("All the files to merge (root %s) are empty. Exiting.",
                        "-".join(filenames[0].split("-")[:-1]))
         [_.close() for _ in fnames]
-        # [os.remove(_) for _ in filenames]
-
         return 0
 
     for lines in zip_longest(*fnames):

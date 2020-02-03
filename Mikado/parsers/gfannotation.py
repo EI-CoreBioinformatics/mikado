@@ -89,7 +89,13 @@ class GFAnnotation(metaclass=abc.ABCMeta):
             return
 
         self.chrom, self.source = self._fields[0:2]
-        self.start, self.end = tuple(fastnumbers.fast_int(i) for i in self._fields[3:5])
+        try:
+            self.start, self.end = tuple(fastnumbers.fast_int(i) for i in self._fields[3:5])
+        except Exception as exc:
+            if isinstance(KeyboardInterrupt, SystemExit):
+                pass
+            else:
+                raise type(exc)(f"{exc}; line: {' '.join([str(_) for _ in self._fields])}")
 
         self.score = self._fields[5]
         self.strand = self._fields[6]

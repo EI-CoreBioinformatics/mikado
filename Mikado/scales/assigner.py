@@ -456,8 +456,10 @@ class Assigner:
 
         else:
             best = [_[1] for _ in sorted(best, key=lambda res: (res[0][0], res[0][1]))]
-            if not (len(best) > 1 and self.__report_fusions is True):
+            if len(best) == 1:
                 best_result = best.pop()
+            elif len(best) > 1 and self.__report_fusions is False:
+                best_result = sorted(best, key=operator.attrgetter("j_f1", "n_f1")).pop()
             else:  # We have a fusion
                 # Now retrieve the results according to their order on the genome
                 # Keep only the result, not their position
@@ -650,8 +652,7 @@ class Assigner:
                             if result.j_f1[0] > 0 or result.n_recall[0] > 10:
                                 result.ccode = ("f", result.ccode[0])
                     elif len(best_results) > 1 and self.__report_fusions is False:
-                        best_result = [_ for _ in sorted(best_results, key=operator.attrgetter("j_f1", "n_f1"))
-                                       ].pop()
+                        best_result = [_ for _ in sorted(best_results, key=operator.attrgetter("j_f1", "n_f1",))].pop()
 
                 # Check how many
                 if not results:

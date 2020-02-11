@@ -12,7 +12,6 @@ dependencies:
   - decorator
   - docutils
   - drmaa
-  - fastnumbers
   - hypothesis
   - jsonschema
   - msgpack-python>=0.6.1
@@ -38,5 +37,6 @@ dependencies:
   - pip:
     - jsonref>=0.2
     - rapidjson>=1.0.0
+    - fastnumbers>=3.0
   - conda-forge::toml>=0.10.0
   - conda-forge::tomlkit>=0.5.8

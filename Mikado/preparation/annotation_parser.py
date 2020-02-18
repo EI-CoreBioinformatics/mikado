@@ -319,9 +319,11 @@ def load_into_storage(shelf_name, exon_lines, min_length, logger, strip_cds=True
                            timeout=60,
                            check_same_thread=False  # Necessary for SQLite3 to function in multiprocessing
                            )
-    conn.execute("PRAGMA journal_mode=wal")
-    conn.execute("DROP TABLE IF EXISTS dump")
-    conn.execute(
+    cursor = conn.cursor()
+    cursor.execute("PRAGMA journal_mode=wal")
+    cursor.execute("PRAGMA TEMP_STORE=MEMORY")
+    cursor.execute("PRAGMA SYNCHRONOUS=OFF")
+    cursor.execute(
         "CREATE TABLE dump (chrom text, start integer, end integer, strand text, tid text, features blob)")
     conn.commit()
     logger.debug("Created tables for shelf %s", shelf_name)
@@ -368,15 +370,15 @@ def load_into_storage(shelf_name, exon_lines, min_length, logger, strip_cds=True
             temp_store.append((chrom, start, end, strand, tid, values))
 
         if len(temp_store) >= 1000:
-            conn.executemany("INSERT INTO dump VALUES (?, ?, ?, ?, ?, ?)", temp_store)
+            cursor.executemany("INSERT INTO dump VALUES (?, ?, ?, ?, ?, ?)", temp_store)
             conn.commit()
             temp_store = []
 
     if len(temp_store) > 0:
-        conn.executemany("INSERT INTO dump VALUES (?, ?, ?, ?, ?, ?)", temp_store)
+        cursor.executemany("INSERT INTO dump VALUES (?, ?, ?, ?, ?, ?)", temp_store)
         conn.commit()
 
-    conn.execute("CREATE INDEX idx ON dump (tid)")
+    cursor.execute("CREATE INDEX idx ON dump (tid)")
     conn.commit()
     conn.close()
     return

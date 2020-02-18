@@ -13,31 +13,28 @@ from ._locus_line_creator import _create_locus_lines
 decoder = json.Decoder()
 
 
-def manage_index(data, dumps, source):
-    index, data = data
-    dump_index, gene_counter, gene_max = data
+def manage_index(index, data, source):
+    index, (chrom, gene_counter, gene_max) = index[0], index[1]
     orig_gene_counter = gene_counter
-    conn = sqlite3.connect(dumps[dump_index])
-    cursor = conn.cursor()
+    # conn = sqlite3.connect(dumps[dump_index])
+    # cursor = conn.cursor()
     batch = []
-    try:
-        stranded_loci = cursor.execute("SELECT json FROM loci WHERE counter=?", (str(index),)).fetchone()
-    except ValueError:
-        raise ValueError((index, type(index)))
+    # try:
+    #     stranded_loci = cursor.execute("SELECT json FROM loci WHERE counter=?", (str(index),)).fetchone()
+    # except ValueError:
+    #     raise ValueError((index, type(index)))
+    chrom, num_genes, stranded_loci, sublocus_dump, monolocus_dump = data[index]
+
     loci = []
-    sublocus_dump = decoder(msgpack.loads(
-        cursor.execute("SELECT json FROM subloci WHERE counter=?", (str(index),)).fetchone()[0],
-        raw=False))
+    sublocus_dump = decoder(msgpack.loads(sublocus_dump, raw=False))
 
     sub_length = len(sublocus_dump)
 
-    monolocus_dump = decoder(msgpack.loads(
-        cursor.execute("SELECT json FROM subloci WHERE counter=?", (str(index),)).fetchone()[0],
-        raw=False))
+    monolocus_dump = decoder(msgpack.loads(monolocus_dump, raw=False))
 
     mono_length = len(monolocus_dump)
 
-    for pos, stranded_locus_json in enumerate(msgpack.loads(stranded_loci[0], raw=False)):
+    for pos, stranded_locus_json in enumerate(msgpack.loads(stranded_loci, raw=False)):
         stranded_locus = Superlocus(None)
         for locus_string in stranded_locus_json:
             locus_dict = decoder(locus_string)
@@ -78,7 +75,7 @@ def manage_index(data, dumps, source):
                 seen.add(lid)
         raise ValueError("Duplicated loci in counter {}! {}".format(index, duplicated))
     batch = [loci, batch]
-    batch = msgpack.dumps(batch)
+    # batch = msgpack.dumps(batch)
     return batch
 
 
@@ -94,7 +91,7 @@ def __create_gene_counters(common_index: dict) -> (dict, int):
     num_genes = []
 
     for index in range(1, max(common_index.keys()) + 1):
-        _, chrom, n_genes = common_index[index]
+        chrom, n_genes = common_index[index][:2]
         chroms.append(chrom)
         num_genes.append(n_genes)
 
@@ -139,6 +136,6 @@ def __create_gene_counters(common_index: dict) -> (dict, int):
 
     new_common = dict()
     for key in common_index:
-        # DbIndex
+        # chrom, former id, new id
         new_common[key] = (common_index[key][0], gene_counters[key][0], gene_counters[key][1])
     return new_common, total_genes

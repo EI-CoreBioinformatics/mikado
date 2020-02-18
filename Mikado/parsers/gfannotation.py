@@ -90,7 +90,6 @@ class GFAnnotation(metaclass=abc.ABCMeta):
 
         self.chrom, self.source = self._fields[0:2]
         self.start, self.end = tuple(int(i) for i in self._fields[3:5])
-
         self.score = self._fields[5]
         self.strand = self._fields[6]
         self.phase = self._fields[7]

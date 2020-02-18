@@ -1967,21 +1967,77 @@ class RetainedIntronTester(unittest.TestCase):
             with self.subTest(pred=pred, retained=retained):
                 sup = Superlocus(t1, json_conf=self.my_json)
                 sup.add_transcript_to_locus(pred)
-                sup.json_conf["pick"]["run_options"]["consider_truncated_for_retained"] = True
                 sup.find_retained_introns(pred)
                 self.assertEqual((len(sup.transcripts[pred.id].retained_introns) > 0),
                                  retained, (pred.id, retained))
 
+    def test_false_ri(self):
+
+        t1 = [[(11, 100), (301, 400), (451, 500)],
+              [(71, 100), (301, 400), (451, 470)]]
+        t2 = [[(11, 150), (301, 400), (451, 500)],
+              [(121, 150), (301, 400), (451, 470)]]
+
+        for strand in ("+", "-"):
+            with self.subTest(strand=strand):
+                tr1 = Transcript()
+                tr1.add_exons(t1[0])
+                tr1.add_exons(t1[0], features="CDS")
+                tr1.strand = strand
+                tr1.id = "t1"
+                tr1.finalize()
+                self.assertTrue(tr1.is_coding)
+                tr2 = Transcript()
+                tr2.add_exons(t2[0])
+                tr2.add_exons(t2[0], features="CDS")
+                tr2.strand = strand
+                tr2.id = "t2"
+                self.assertTrue(tr2.is_coding)
+                sup = Superlocus(tr1)
+                sup.add_transcript_to_locus(tr2)
+                sup.calculate_scores()
+                self.assertFalse(sup["t1"].cds_disrupted_by_ri)
+                self.assertEqual(sup["t1"].retained_intron_num, 0)
+                self.assertFalse(sup["t2"].cds_disrupted_by_ri)
+                self.assertEqual(sup["t2"].retained_intron_num, 0)
+
     def test_false_positive_retained_introns(self):
 
-        bed1 = """Chr1	33677	37762	ID=mikado.Chr1G2.1;coding=True;phase=0;alias=trinity_c0_g1_i1.mrna1.2	19.0	-	33991	37061	0	9	650,1074,81,234,62,112,181,26,194	0,723,1889,2052,2946,3132,3345,3695,3891"""
-        bed2 = """Chr1	33677	37762	ID=mikado.Chr1G2.2;coding=True;phase=0;alias=stringtie_Stringtie_TH.27.2	19.0	-	33991	37061	0	9	650,1071,81,234,62,112,181,26,194	0,723,1889,2052,2946,3132,3345,3695,3891"""
-        bed3 = """ Chr1	33677	37762	ID=mikado.Chr1G2.3;coding=True;phase=0;alias=stringtie_Stringtie_TH.27.5	11.0	-	34833	37061	0	10	650,455,545,81,234,62,112,181,26,194	0,723,1252,1889,2052,2946,3132,3345,3695,3891"""
-        # bed4 = ""
-        bed4 = """Chr1	33677	37762	ID=mikado.Chr1G1.2;coding=True;phase=0;alias=stringtie_Stringtie_TH.27.6	15.15	-	34833	37061	0	11	181,347,455,545,81,234,62,112,181,26,194	0,303,723,1252,1889,2052,2946,3132,3345,3695,3891"""
+        bed1 = "\t".join(str(_) for _ in
+                         ["Chr1", 33677, 37762,
+                          "ID=mikado.Chr1G2.1;coding=True;phase=0;alias=trinity_c0_g1_i1.mrna1.2",
+                          19.0, "-", 33991, 37061, 0, 9,
+                          "650,1074,81,234,62,112,181,26,194",	"0,723,1889,2052,2946,3132,3345,3695,3891"])
+        bed2 = "\t".join(str(_) for _ in
+                         ["Chr1", 33677, 37762,
+                          "ID=mikado.Chr1G2.2;coding=True;phase=0;alias=stringtie_Stringtie_TH.27.2",
+                          19.0, "-", 33991, 37061, 0, 9,
+                          "650,1071,81,234,62,112,181,26,194", "0,723,1889,2052,2946,3132,3345,3695,3891"])
+        bed3 = "\t".join(str(_) for _ in
+                         ["Chr1", 33677, 37762,
+                          "ID=mikado.Chr1G2.3;coding=True;phase=0;alias=stringtie_Stringtie_TH.27.5",
+                          11.0, "-", 34833, 37061, 0, 10,
+                          "650,455,545,81,234,62,112,181,26,194", "0,723,1252,1889,2052,2946,3132,3345,3695,3891"])
+        bed4 = "\t".join(str(_) for _ in
+                         ["Chr1", 33677, 37762,
+                          "ID=mikado.Chr1G1.2;coding=True;phase=0;alias=stringtie_Stringtie_TH.27.6",
+                          15.15,
+                          "-", 34833, 37061, 0, 11,
+                          "181,347,455,545,81,234,62,112,181,26,194",
+                          "0,303,723,1252,1889,2052,2946,3132,3345,3695,3891"])
+
         beds = [BED12(line) for line in [bed1, bed2, bed3, bed4]]
         transcripts = [Transcript(bed) for bed in beds]
         [transcript.finalize() for transcript in transcripts]
+
+        sstart = 0  # min(_.start for _ in transcripts)
+        for transcript in transcripts:
+            print(transcript.id, end="\t")
+            print(transcript.start - sstart, transcript.end - sstart, transcript.combined_cds_start - sstart,
+                  transcript.combined_cds_end - sstart, end="\t", sep="\t")
+            [print((_[0] - sstart, _[1] - sstart), end="\t") for _ in sorted(transcript.introns)]
+            print("\n")
+
         self.assertTrue([transcript.is_coding for transcript in transcripts])
 
         sup = Superlocus(transcripts[0], stranded=True)
@@ -1990,7 +2046,9 @@ class RetainedIntronTester(unittest.TestCase):
 
         [sup.find_retained_introns(transcript) for transcript in sup.transcripts.values()]
         for transcript in sup.transcripts.values():
-            self.assertFalse(transcript.retained_intron_num, (transcript.id, transcript.retained_introns))
+            self.assertFalse(transcript.cds_disrupted_by_ri, (transcript.id,
+                                                              transcript.retained_introns,
+                                                              transcript.cds_disrupted_by_ri))
 
     def test_retained_pos_truncated(self):
         """Here we verify that a real retained intron is called as such,
@@ -2028,7 +2086,6 @@ class RetainedIntronTester(unittest.TestCase):
                 logger.setLevel("WARNING")
                 sup = Superlocus(t1, json_conf=self.my_json, logger=logger)
                 sup.add_transcript_to_locus(pred)
-                sup.json_conf["pick"]["run_options"]["consider_truncated_for_retained"] = True
                 sup.find_retained_introns(pred)
                 self.assertEqual((len(sup.transcripts[pred.id].retained_introns) > 0),
                                  retained, (pred.id, retained, pred.retained_introns))
@@ -2038,12 +2095,11 @@ class RetainedIntronTester(unittest.TestCase):
                 logger.setLevel("WARNING")
                 sup = Superlocus(unpickled_t1, json_conf=self.my_json, logger=logger)
                 sup.add_transcript_to_locus(unpickled_other)
-                sup.json_conf["pick"]["run_options"]["consider_truncated_for_retained"] = True
                 sup.find_retained_introns(pred)
                 self.assertEqual((len(sup.transcripts[pred.id].retained_introns) > 0),
                                  retained)
 
-    def test_real_retained_pos_truncated_skip(self):
+    def test_real_retained_pos_truncated(self):
         """Here we verify that a real retained intron is *NOT* called as such when
         the transcript is truncated and we elect not to investigate the 3' end."""
 
@@ -2069,11 +2125,10 @@ class RetainedIntronTester(unittest.TestCase):
 
         sup = Superlocus(t1, json_conf=self.my_json)
         sup.add_transcript_to_locus(t2)
-        sup.json_conf["pick"]["run_options"]["consider_truncated_for_retained"] = False
 
         sup.find_retained_introns(t2)
-
-        self.assertEqual(sup.transcripts["t2"].retained_introns, (),)
+        self.assertEqual(sup.transcripts["t2"].retained_introns, ((1201, 1420),))
+        self.assertTrue(sup.transcripts["t2"].cds_disrupted_by_ri)
 
     def test_real_retained_neg_truncated(self):
         """Here we verify that a real retained intron is called as such,
@@ -2114,12 +2169,11 @@ class RetainedIntronTester(unittest.TestCase):
             with self.subTest(pred=pred, retained=retained):
                 sup = Superlocus(t1, json_conf=self.my_json)
                 sup.add_transcript_to_locus(pred)
-                sup.json_conf["pick"]["run_options"]["consider_truncated_for_retained"] = True
                 sup.find_retained_introns(pred)
                 self.assertEqual((len(sup.transcripts[pred.id].retained_introns) > 0),
                                  retained, (pred.id, pred.retained_introns))
 
-    def test_real_retained_neg_truncated_skip(self):
+    def test_real_retained_neg_truncated_2(self):
         """Here we verify that a real retained intron is *NOT* called as such when
         the transcript is truncated and we elect not to investigate the 3' end."""
 
@@ -2145,11 +2199,10 @@ class RetainedIntronTester(unittest.TestCase):
 
         sup = Superlocus(t1, json_conf=self.my_json)
         sup.add_transcript_to_locus(t2)
-        sup.json_conf["pick"]["run_options"]["consider_truncated_for_retained"] = False
-
         sup.find_retained_introns(t2)
 
-        self.assertEqual(sup.transcripts["t2"].retained_introns, ())
+        self.assertEqual(sup.transcripts["t2"].retained_introns, ((601, 1000),))
+        self.assertTrue(sup.transcripts["t2"].cds_disrupted_by_ri)
 
     def test_real_retained_pos_noCDS(self):
         """Here we verify that a real retained intron is called as such, even when the transcript lacks a CDS"""
@@ -2172,7 +2225,7 @@ class RetainedIntronTester(unittest.TestCase):
         sup = Superlocus(t1, json_conf=self.my_json)
         sup.add_transcript_to_locus(t2)
 
-        sup.logger = create_default_logger("test_real_retained_pos_noCDS")
+        sup.logger = create_default_logger("test_real_retained_pos_noCDS", level="DEBUG")
         # sup.logger.setLevel("DEBUG")
         sup.find_retained_introns(t2)
 
@@ -2212,13 +2265,21 @@ class RetainedIntronTester(unittest.TestCase):
                 sup = Superlocus(t1, json_conf=self.my_json)
                 sup.add_transcript_to_locus(pred)
                 sup.find_retained_introns(pred)
-                self.assertEqual(sup.transcripts[pred.id].retained_intron_num, 0)
+                if pred == t2:
+                    self.assertEqual(sup.transcripts[pred.id].retained_intron_num, 1)
+                else:
+                    self.assertEqual(sup.transcripts[pred.id].retained_intron_num, 0)
+                self.assertFalse(sup.transcripts[pred.id].cds_disrupted_by_ri)
                 unpickled_t1 = pickle.loads(pickle.dumps(t1))
                 unpickled_other = pickle.loads(pickle.dumps(pred))
                 sup = Superlocus(unpickled_t1, json_conf=self.my_json)
                 sup.add_transcript_to_locus(unpickled_other)
                 sup.find_retained_introns(unpickled_other)
-                self.assertEqual(sup.transcripts[unpickled_other.id].retained_intron_num, 0)
+                if pred == t2:
+                    self.assertEqual(sup.transcripts[unpickled_other.id].retained_intron_num, 1)
+                else:
+                    self.assertEqual(sup.transcripts[unpickled_other.id].retained_intron_num, 0)
+                self.assertFalse(sup.transcripts[unpickled_other.id].cds_disrupted_by_ri)
 
     def test_neg_retained_example(self):
 
@@ -2275,7 +2336,8 @@ class RetainedIntronTester(unittest.TestCase):
         with self.subTest():
             sup = Superlocus(t1, json_conf=self.my_json)
             sup.add_transcript_to_locus(t2)
-
+            sup.logger = create_default_logger("test_real_retained_neg",
+                                               level="DEBUG")
             sup.find_retained_introns(t2)
             self.assertEqual(sup.transcripts["t2"].retained_introns, ((401, 1000),))
 
@@ -2286,16 +2348,6 @@ class RetainedIntronTester(unittest.TestCase):
             sup.add_transcript_to_locus(unpickled_other)
             sup.find_retained_introns(unpickled_other)
             self.assertEqual(sup.transcripts["t2"].retained_introns, ((401, 1000),))
-
-        # t1.strip_cds()
-        # t2.strip_cds()
-        # with self.subTest():
-        #     self.assertEqual(t1.combined_cds_length, 0)
-        #     self.assertEqual(t2.combined_cds_length, 0)
-        #     sup = Superlocus(t1, json_conf=self.my_json)
-        #     sup.add_transcript_to_locus(t2)
-        #     sup.find_retained_introns(t2)
-        #     self.assertEqual(sup.transcripts["t2"].retained_introns, ())
 
     def test_not_real_retained_neg(self):
         """Here we verify that a real retained intron is called as such"""
@@ -2340,23 +2392,31 @@ class RetainedIntronTester(unittest.TestCase):
                                             segmenttree,
                                             graph,
                                             [Interval(401, 830)],
+                                            introns=set.union(
+                                                t1.introns, t2.introns, t3.introns
+                                            ),
+                                            internal_splices={1000},
                                             logger=logger))
 
-        for alt, num_retained in zip([t2, t3], [1, 0]):
+        for alt, num_retained, cds_disrupted in zip([t2, t3], [1, 1], [True, False]):
             unpickled_t1 = pickle.loads(pickle.dumps(t1))
             unpickled_alt = pickle.loads(pickle.dumps(alt))
             with self.subTest(alt=alt):
-                sup = Superlocus(t1, json_conf=self.my_json)
+                sup = Superlocus(t1, json_conf=self.my_json, logger=logger)
+                logger.setLevel("DEBUG")
                 sup.find_retained_introns(alt)
                 self.assertEqual(alt.retained_intron_num, num_retained,
                                  (alt.id, alt.retained_introns))
+                self.assertEqual(alt.cds_disrupted_by_ri, cds_disrupted,
+                                 (alt.id, alt.retained_introns))
+                logger.setLevel("WARNING")
             with self.subTest(alt=alt):
                 sup = Superlocus(unpickled_t1, json_conf=self.my_json)
                 sup.find_retained_introns(unpickled_alt)
                 self.assertEqual(unpickled_alt.retained_intron_num, num_retained,
                                  unpickled_alt.retained_introns)
 
-    def test_out_cds_not_considered(self):
+    def test_consider_cds_only(self):
 
         t1 = Transcript()
         t1.chrom, t1.strand, t1.id = 1, "-", "t1"
@@ -2380,15 +2440,19 @@ class RetainedIntronTester(unittest.TestCase):
         exons = set.union(*[set(_.combined_cds) for _ in [t1, t3]])
         introns = set.union(*[_.combined_cds_introns for _ in [t1, t3]])
 
-        segmenttree = Abstractlocus._calculate_segment_tree(exons, introns)
+        logger = create_default_logger("test_not_real_retained_neg", level="DEBUG")
+        logger.debug("Exons: %s", exons)
+        logger.debug("Introns: %s", introns)
 
-        logger = create_default_logger("test_not_real_retained_neg", level="WARNING")
-        # logger.setLevel("DEBUG")
-        self.assertFalse(
-            Abstractlocus._is_exon_retained((401, 1000),
+        segmenttree = Abstractlocus._calculate_segment_tree(exons, introns)
+        logger.setLevel("DEBUG")
+        self.assertEqual((False, False),
+                         Abstractlocus._is_exon_retained((401, 1000),
                                             segmenttree,
                                             graph,
                                             [Interval(401, 830)],
+                                            introns=set.union(t1.introns, t3.introns),
+                                            internal_splices={1000},
                                             logger=logger))
 
     def test_not_retained_neg(self):
@@ -2420,7 +2484,7 @@ class RetainedIntronTester(unittest.TestCase):
                          [Interval(471, 1000)])
 
         self.assertEqual(Abstractlocus._exon_to_be_considered((301, 1000), t2),
-                         (True, [(470, 471)], True),
+                         (True, [(470, 471)], {1000}),
                          Abstractlocus._exon_to_be_considered((301, 1000), t2))
 
         graph = Abstractlocus._calculate_graph([t1, t2])
@@ -2428,16 +2492,22 @@ class RetainedIntronTester(unittest.TestCase):
         segmenttree = Abstractlocus._calculate_segment_tree(set.union(set(t1.exons), set(t2.exons)),
                                                             set.union(t1.introns, t2.introns))
 
-        self.assertFalse(Abstractlocus._is_exon_retained((301, 1000),
-                                                         segmenttree,
-                                                         graph,
-                                                         [(301, 470)]
-                                                         ))
+        self.assertEqual(
+            (True, False),
+            Abstractlocus._is_exon_retained((301, 1000),
+                                            segmenttree, graph, [(301, 470)],
+                                            introns=set.intersection(t1.introns, t2.introns),
+                                            internal_splices={1000},
+                                            logger=create_default_logger("test_not_retained_neg",
+                                                                         level="DEBUG")))
 
         sup.find_retained_introns(t2)
 
-        self.assertEqual(sup.transcripts["t2"].retained_intron_num, 0,
+        self.assertEqual(sup.transcripts["t2"].retained_intron_num, 1,
                          sup.transcripts["t2"].retained_introns)
+        self.assertEqual(sup.transcripts["t2"].retained_introns, ((301, 1000),),
+                         sup.transcripts["t2"].retained_introns)
+        self.assertFalse(sup.transcripts["t2"].cds_disrupted_by_ri)
 
     def test_exon_switching_pos(self):
 
@@ -2617,6 +2687,114 @@ class RetainedIntronTester(unittest.TestCase):
         sup.find_retained_introns(t2)
 
         self.assertEqual(sup.transcripts["t2"].retained_intron_num, 0)
+
+    def test_extensive_cases(self):
+        """This method implements the case described by D. Swarbreck in issue #255"""
+
+        basis = {
+            "t1": [[(11, 100), (301, 400), (451, 600), (751, 900), (1041, 1200), (1501, 1600)],
+                   [(551, 600), (751, 900), (1041, 1080)]],
+            # Difference: partially within 5'UTR intron. NOT RI
+            "t2": [[(11, 180), (301, 400), (451, 600), (751, 900), (1041, 1200), (1501, 1600)],
+                   [(551, 600), (751, 900), (1041, 1080)]],
+            # Difference: RI in the UTR. NOT CDS disrupted. Same CDS start and end
+            "t3": [[(11, 400), (451, 600), (751, 900), (1041, 1200), (1501, 1600)],
+                   [(551, 600), (751, 900), (1041, 1080)]],
+            # Difference: RI in the CDS. NOT CDS disrupted. Different CDS start and end
+            "t4": [[(11, 100), (301, 400), (451, 600), (751, 1200), (1501, 1600)],
+                   [(551, 600), (751, 1200), (1540, 1600)]],
+            # Difference: RI in the first CDS exon, leading to premature stop
+            "t5": [[(11, 100), (301, 400), (451, 680)],
+                   [(551, 640)]],
+            # Difference: Start of the transcript within first intron. Same CDS
+            "t6": [[(201, 400), (451, 600), (751, 900), (1041, 1200), (1501, 1600)],
+                   [(551, 600), (751, 900), (1041, 1080)]],
+            # Difference: novel exon within first intron
+            "t7": [[(201, 250), (301, 400), (451, 600), (751, 900), (1041, 1200), (1501, 1600)],
+                   [(551, 600), (751, 900), (1041, 1080)]],
+            # Difference: same UTR, last exon ending within a CDS intron. CDS disrupted
+            "t8": [[(11, 100), (301, 400), (451, 600), (751, 950)],
+                   [(551, 600), (751, 940)]],
+            # Difference: AS in the second-to-last exon
+            "t9": [[(11, 100), (301, 400), (451, 600), (751, 980), (1501, 1600)],
+                   [(551, 600), (751, 970)]],
+            # Difference: AS in the last exon
+            "t10": [[(11, 100), (301, 400), (451, 600), (751, 900), (1041, 1200), (1401, 1600)],
+                    [(551, 600), (751, 900), (1041, 1080)]]
+        }
+
+        res = {"t1": ((), False), "t2": ((), False), "t3": (((11, 400),), False), "t4": ((), False),
+               "t5": (((451, 680),), True), "t6": (((201, 400),), False), "t7": ((), False), "t8": (((751, 950),), True),
+               "t9": ((), False), "t10": ((), False)}
+
+        logger = create_default_logger("test_extensive_cases", "WARNING")
+        for strand in ("+", "-"):
+            transcripts = dict()
+            for tid in basis:
+                transcripts[tid] = Transcript()
+                transcripts[tid].chrom, transcripts[tid].strand = "Chr1", strand
+                transcripts[tid].add_exons(basis[tid][0])
+                transcripts[tid].add_exons(basis[tid][1], features="CDS")
+                transcripts[tid].id = tid
+                transcripts[tid].finalize()
+                self.assertTrue(transcripts[tid].is_coding, tid)
+            sup = Superlocus(transcripts["t1"])
+            sup.logger = logger
+            sup.json_conf["pick"]["clustering"]["purge"] = False
+            self.assertIn("t1", sup.transcripts.keys())
+            for tid in transcripts:
+                if tid == "t1":
+                    continue
+                sup.add_transcript_to_locus(transcripts[tid], check_in_locus=False)
+                self.assertIn(tid, sup.transcripts.keys())
+                if tid not in sup.transcripts.keys():
+                    sup.logger.setLevel("DEBUG")
+                    sup.add_transcript_to_locus(transcripts[tid], check_in_locus=False)
+                    self.assertIn(tid, sup.transcripts.keys())
+
+            sup.calculate_scores()
+            for tid in sorted(res.keys()):
+                self.assertIn(tid, sup.transcripts.keys())
+                self.assertEqual((sup.transcripts[tid].retained_introns, sup.transcripts[tid].cds_disrupted_by_ri),
+                                 res[tid],
+                                 [tid, res[tid],
+                                  (sup.transcripts[tid].retained_introns, sup.transcripts[tid].cds_disrupted_by_ri)])
+
+    def test_mixed_intron(self):
+        """This test verifies that a retained intron with one boundary from one transcript and another from a second
+        is correctly marked."""
+
+        basis = {
+            "t1": [[(101, 300), (701, 900), (1101, 1300), (1801, 2000)],
+                   [(271, 300), (701, 900), (1101, 1300), (1801, 1850)]],  # 30 + 200 + 200 + 60 = 480
+            "t2": [[(401, 500), (661, 900), (1101, 1500), (1800, 2000)],
+                   [(451, 500), (661, 900), (1101, 1410)]],  # 50 + 240 + 320 = 290 + 310 = 600
+            "t3": [[(401, 500), (661, 1300), (1800, 2000)],
+                   [(451, 500), (661, 1030)]]  # 50 + 380 = 420
+        }
+
+        res = {"t1": ((), False), "t2": ((), False), "t3": (((661, 1300),), True)}
+        logger = create_default_logger("test_extensive_cases", "WARNING")
+        for strand in ("+", "-"):
+            transcripts = dict()
+            for tid in basis:
+                transcripts[tid] = Transcript()
+                transcripts[tid].chrom, transcripts[tid].strand = "Chr1", strand
+                transcripts[tid].add_exons(basis[tid][0])
+                transcripts[tid].add_exons(basis[tid][1], features="CDS")
+                transcripts[tid].id = tid
+                transcripts[tid].finalize()
+                self.assertTrue(transcripts[tid].is_coding, tid)
+            sup = Superlocus(transcripts["t1"])
+            self.assertIn("t1", sup.transcripts.keys())
+            [sup.add_transcript_to_locus(transcripts[tid]) for tid in transcripts if tid != "t1"]
+            sup.logger = logger
+            sup.calculate_scores()
+            for tid in sorted(res.keys()):
+                self.assertEqual((sup.transcripts[tid].retained_introns, sup.transcripts[tid].cds_disrupted_by_ri),
+                                 res[tid],
+                                 [tid, res[tid],
+                                  (sup.transcripts[tid].retained_introns, sup.transcripts[tid].cds_disrupted_by_ri)])
 
 
 class PicklingTest(unittest.TestCase):

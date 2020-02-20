@@ -19,11 +19,11 @@ from .blast_serializer import Query
 from ..utilities.log_utils import create_null_logger, check_logger
 import pandas as pd
 from ..exceptions import InvalidSerialization
-from ..parsers import Parser
 import logging
 import logging.handlers as logging_handlers
 import multiprocessing as mp
 import msgpack
+import zlib
 
 
 # This is a serialization class, it must have a ton of attributes ...
@@ -311,14 +311,14 @@ class OrfSerializer:
                                     row.invalid_reason,
                                     row)
                 continue
-            if row.id in self.cache:
-                current_query = self.cache[row.id]
+            if row.id in self.query_cache:
+                current_query = self.query_cache[row.id]
             elif not self.initial_cache:
                 current_query = Query(row.id, row.end)
                 not_found.add(row.id)
                 self.session.add(current_query)
                 self.session.commit()
-                self.cache[current_query.query_name] = current_query.query_id
+                self.query_cache[current_query.query_name] = current_query.query_id
                 current_query = current_query.query_id
             else:
                 self.logger.critical(
@@ -358,8 +358,8 @@ Please check your input files.")
     def __serialize_multiple_threads(self):
         """"""
 
-        send_queue = mp.JoinableQueue(-1)
-        return_queue = mp.JoinableQueue(-1)
+        send_queue = mp.SimpleQueue()
+        return_queue = mp.SimpleQueue()
         self.logging_queue = mp.Queue(-1)
         self.logger_queue_handler = logging_handlers.QueueHandler(self.logging_queue)
         self.queue_logger = logging.getLogger("parser")
@@ -370,46 +370,63 @@ Please check your input files.")
         self.log_writer.start()
 
         parsers = [bed12.Bed12ParseWrapper(
+            identifier=index,
             rec_queue=send_queue,
             log_queue=self.logging_queue,
             level=self.log_level,
             return_queue=return_queue,
-            fasta_index=self.fasta_index.filename,
+            fasta_index=None,
             is_gff=(not self.is_bed12),
             transcriptomic=True,
             max_regression=self._max_regression,
-            table=self._table) for _ in range(self.procs)]
+            table=self._table) for index in range(self.procs)]
 
         [_.start() for _ in parsers]
 
-        for line in open(self._handle):
-            send_queue.put(line.encode())
-        send_queue.put("EXIT")
+        def line_parser_func(handle, fai, send_queue):
+            fai = pysam.FastaFile(fai)
+            for num, line in enumerate(open(handle)):
+                if line[0] == "#":
+                    send_queue.put((num, line, None))                    
+                else:
+                    _f = line.split("\t")
+                    if _f[0] not in fai.references:
+                        seq = None
+                    else:                        
+                        seq = zlib.compress(fai[line.split("\t")[0]].encode(), 1)
+                    send_queue.put((num, line, seq))
+            send_queue.put("EXIT")
+
+        line_parser = mp.Process(target=line_parser_func,
+                                 args=(self._handle, self.fasta_index.filename, send_queue))
+        line_parser.start()
+
         not_found = set()
         done = 0
         objects = []
         procs_done = 0
         while True:
-            object = return_queue.get()
-            if object in ("FINISHED", b"FINISHED"):
+            num = return_queue.get()
+            if num in ("FINISHED", b"FINISHED"):
                 procs_done += 1
                 if procs_done == self.procs:
                     break
                 else:
                     continue
+            num, obj = num
             try:
-                object = msgpack.loads(object, raw=False)
+                object = msgpack.loads(obj, raw=False)
             except TypeError:
-                raise TypeError(object)
+                raise TypeError(obj)
 
-            if object["id"] in self.cache:
-                current_query = self.cache[object["id"]]
+            if object["id"] in self.query_cache:
+                current_query = self.query_cache[object["id"]]
             elif not self.initial_cache:
                 current_query = Query(object["id"], object["end"])
                 not_found.add(object["id"])
                 self.session.add(current_query)
                 self.session.commit()
-                self.cache[current_query.query_name] = current_query.query_id
+                self.query_cache[current_query.query_name] = current_query.query_id
                 current_query = current_query.query_id
             else:
                 self.logger.critical(
@@ -442,8 +459,8 @@ mikado prepare. If this is the case, please use mikado_prepared.fasta to call th
                 Orf.__table__.insert(),
                 objects
             )
-        return_queue.close()
-        send_queue.close()
+        # return_queue.close()
+        # send_queue.close()
         self.session.commit()
         self.session.close()
         self.logger.info("Finished loading %d ORFs into the database", done)
@@ -459,14 +476,17 @@ mikado prepare. If this is the case, please use mikado_prepared.fasta to call th
         """
 
         self.load_fasta()
-        self.cache = pd.read_sql_table("query", self.engine, index_col="query_name", columns=["query_name", "query_id"])
-        self.cache = self.cache.to_dict()["query_id"]
-        self.initial_cache = (len(self.cache) > 0)
+        self.query_cache = pd.read_sql_table("query", self.engine, index_col="query_name", columns=["query_name", "query_id"])
+        self.query_cache = self.query_cache.to_dict()["query_id"]
+        self.initial_cache = (len(self.query_cache) > 0)
 
         if self.procs == 1:
             self.__serialize_single_thread()
         else:
-            self.__serialize_multiple_threads()
+            try:
+                self.__serialize_multiple_threads()
+            finally:
+                pass
 
     def __call__(self):
         """
@@ -481,3 +501,5 @@ mikado prepare. If this is the case, please use mikado_prepared.fasta to call th
             self.session.query(Query).delete()
             self.session.query(Orf).delete()
             self.serialize()
+        except InvalidSerialization:
+            raise

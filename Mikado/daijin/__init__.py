@@ -247,7 +247,7 @@ def assemble_transcripts_pipeline(args):
     if args.config.endswith("json"):
         loader = json.load
     elif args.config.endswith("yaml"):
-        loader = functools.partial(yaml.load, Loader=yaml.SafeLoader)
+        loader = functools.partial(yaml.load, Loader=yaml.CSafeLoader)
     else:
         loader = functools.partial(toml.load)
 
@@ -258,7 +258,7 @@ def assemble_transcripts_pipeline(args):
         if args.exe.endswith("json"):
             loader = json.load
         else:
-            loader = functools.partial(yaml.load, Loader=yaml.SafeLoader)
+            loader = functools.partial(yaml.load, Loader=yaml.CSafeLoader)
         with open(args.exe) as _:
             doc["load"] = loader(_)
 
@@ -444,7 +444,7 @@ def mikado_pipeline(args):
     if args.config.endswith("json"):
         loader = json.load
     elif args.config.endswith("yaml"):
-        loader = functools.partial(yaml.load, Loader=yaml.SafeLoader)
+        loader = functools.partial(yaml.load, Loader=yaml.CSafeLoader)
     else:
         loader = functools.partial(toml.load)
     with open(args.config, 'r') as _:
@@ -458,7 +458,7 @@ def mikado_pipeline(args):
         if args.exe.endswith("json"):
             loader = json.load
         else:
-            loader = functools.partial(yaml.load, Loader=yaml.SafeLoader)
+            loader = functools.partial(yaml.load, Loader=yaml.CSafeLoader)
         with open(args.exe) as _:
             doc["load"] = loader(_)
 

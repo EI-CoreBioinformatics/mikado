@@ -16,7 +16,6 @@ import copy
 from ..parsers.GFF import GffLine
 from typing import Union
 import re
-from ..utilities.log_utils import create_null_logger
 import pysam
 import functools
 from Bio import BiopythonWarning
@@ -28,7 +27,9 @@ import multiprocessing as mp
 import msgpack
 import logging
 import logging.handlers as logging_handlers
-from ..utilities.log_utils import create_default_logger, create_null_logger
+from ..utilities.log_utils import create_null_logger
+import pyfaidx
+import zlib
 
 
 backup_valid_letters = set(_ambiguous_dna_letters.upper() + _ambiguous_rna_letters.upper())
@@ -345,7 +346,13 @@ class BED12:
                 if sequence:
                     fasta_length = len(sequence)
                 elif fasta_index:
-                    fasta_length = fasta_index.get_reference_length(self._line.chrom)
+                    if isinstance(fasta_index, pysam.FastaFile):
+                        fasta_length = fasta_index.get_reference_length(self._line.chrom)
+                    elif isinstance(fasta_index, pyfaidx.Fasta):
+                        sequence = fasta_index[self._line.chrom]
+                        fasta_length = len(fasta_index[self._line.chrom])
+                    else:
+                        raise TypeError("Invalid FASTA index")
                 else:
                     raise ValueError("Either a sequence or a FAI index are needed")
                 self.__set_values_from_gff(fasta_length)
@@ -355,8 +362,6 @@ class BED12:
         else:
             self._fields = self._line
             self.__set_values_from_fields()
-
-        # self._parse_attributes(self.name)
 
         self.__check_validity(transcriptomic, fasta_index, sequence)
 
@@ -544,6 +549,10 @@ class BED12:
             self.has_start_codon = False
             self.has_stop_codon = False
 
+        if transcriptomic is True and self.coding is True:
+            if not (fasta_index is not None or sequence is not None):
+                print("No check on validity")
+
         if transcriptomic is True and self.coding is True and (fasta_index is not None or sequence is not None):
             self.logger.debug("Starting to check the validity of %s", self.chrom)
             self.validity_checked = True
@@ -558,7 +567,10 @@ class BED12:
                     self.logger.warning("%s not found in the index. Aborting the check, we will trust the ORF as-is.")
                     self.__in_index = False
                     return
-
+                if isinstance(fasta_index, pyfaidx.Fasta):
+                    print("I have used pyfaidx")
+                else:
+                    print("I have used pysam")
                 self.fasta_length = len(fasta_index[self.id])
                 sequence = fasta_index[self.id]
                 if hasattr(sequence, "seq"):
@@ -1352,7 +1364,7 @@ class Bed12Parser(Parser):
     def __iter__(self):
         return self
 
-    def __next__(self):
+    def __next__(self, seq=None):
 
         if self._is_bed12 is True:
             return self.bed_next()
@@ -1446,6 +1458,7 @@ class Bed12Parser(Parser):
 class Bed12ParseWrapper(mp.Process):
 
     def __init__(self,
+                 identifier=None,
                  rec_queue=None,
                  return_queue=None,
                  log_queue=None,
@@ -1467,6 +1480,9 @@ class Bed12ParseWrapper(mp.Process):
         """
 
         super().__init__()
+        if identifier is None:
+            raise ValueError
+        self.__identifier = identifier
         self.rec_queue = rec_queue
         self.return_queue = return_queue
         self.logging_queue = log_queue
@@ -1480,6 +1496,7 @@ class Bed12ParseWrapper(mp.Process):
         self._max_regression = max_regression
         self.coding = coding
         self.start_adjustment = start_adjustment
+        # self.cache = cache
 
         if isinstance(fasta_index, dict):
             # check that this is a bona fide dictionary ...
@@ -1491,7 +1508,8 @@ class Bed12ParseWrapper(mp.Process):
                 if isinstance(fasta_index, bytes):
                     fasta_index = fasta_index.decode()
                 assert os.path.exists(fasta_index)
-                fasta_index = pysam.FastaFile(fasta_index)
+                # fasta_index = pysam.FastaFile(fasta_index)
+                fasta_index = pyfaidx.Fasta(fasta_index)
             else:
                 assert isinstance(fasta_index, pysam.FastaFile), type(fasta_index)
 
@@ -1501,7 +1519,7 @@ class Bed12ParseWrapper(mp.Process):
         self.__table = table
         self._is_bed12 = (not is_gff)
 
-    def bed_next(self, line):
+    def bed_next(self, line, sequence=None):
         """
 
         :return:
@@ -1509,7 +1527,7 @@ class Bed12ParseWrapper(mp.Process):
 
         bed12 = BED12(line,
                       logger=self.logger,
-                      fasta_index=self.fasta_index,
+                      sequence=sequence,
                       transcriptomic=self.transcriptomic,
                       max_regression=self._max_regression,
                       start_adjustment=self.start_adjustment,
@@ -1517,7 +1535,7 @@ class Bed12ParseWrapper(mp.Process):
                       table=self.__table)
         return bed12
 
-    def gff_next(self, line):
+    def gff_next(self, line, sequence):
         """
 
         :return:
@@ -1530,7 +1548,7 @@ class Bed12ParseWrapper(mp.Process):
             # Compatibility with BED12
         bed12 = BED12(line,
                       logger=self.logger,
-                      fasta_index=self.fasta_index,
+                      sequence=sequence,
                       transcriptomic=self.transcriptomic,
                       max_regression=self._max_regression,
                       start_adjustment=self.start_adjustment,
@@ -1546,21 +1564,24 @@ class Bed12ParseWrapper(mp.Process):
                 self.return_queue.put(b"FINISHED")
                 break
             try:
-                line = line.decode()
+                num, line, seq = line
+                if seq is not None:
+                    seq = zlib.decompress(seq).decode()
+                if not self._is_bed12:
+                    row = self.gff_next(line, seq)
+                else:
+                    row = self.bed_next(line, seq)
+
+                if not row or row.header is True:
+                    continue
+                if row.invalid is True:
+                    self.logger.warning("Invalid entry, reason: %s\n%s",
+                                        row.invalid_reason,
+                                        row)
+                    continue
+                # self.cache[num] = 
+                self.return_queue.put((num, msgpack.dumps(row.as_simple_dict())))
             except AttributeError:
                 pass
-            if not self._is_bed12:
-                row = self.gff_next(line)
-            else:
-                row = self.bed_next(line)
-
-            if not row or row.header is True:
-                continue
-            if row.invalid is True:
-                self.logger.warning("Invalid entry, reason: %s\n%s",
-                                    row.invalid_reason,
-                                    row)
-                continue
-            self.return_queue.put(msgpack.dumps(row.as_simple_dict()))
-
-        # self.join()
+            except ValueError:
+                raise ValueError(line)

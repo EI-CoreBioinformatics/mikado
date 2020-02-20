@@ -40,3 +40,4 @@ dependencies:
     - fastnumbers>=3.0
   - conda-forge::toml>=0.10.0
   - conda-forge::tomlkit>=0.5.8
+  - bioconda::pyfaidx>=0.5.8

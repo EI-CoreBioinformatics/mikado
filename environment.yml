@@ -14,7 +14,7 @@ dependencies:
   - drmaa
   - hypothesis
   - jsonschema
-  - msgpack-python>=0.6.1
+  - msgpack-python>=1.0.0
   - networkx>=2.3
   - numpy>=1.17.2
   - pandas>=0.25.1

@@ -17,7 +17,7 @@ drmaa
 snakemake
 docutils!=0.13.1
 tabulate
-msgpack>=0.5
+msgpack>=1.0.0
 rapidjson
 python-rapidjson
 pandas

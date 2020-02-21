@@ -747,7 +747,10 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                 logger.debug("No before/after exonic overlap found for exon %s vs intron %s. Skipping", exon, intron)
                 continue
             else:
-                if strand == "-":
+                if len(internal_splices) == 0:
+                    start_found = True
+                    end_found = True
+                elif strand == "-":
                     # Negative strand
                     end_found = (exon[0] in set([e[0] for e in after - introns]))
                     start_found = (exon[1] in set([e[1] for e in before - introns]))
@@ -763,7 +766,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                     end_found = (exon[1] in set([e[1] for e in after - introns]))
                     logger.debug("Exon %s vs intron %s: strand %s, start found %s, end found %s (I.S. %s)",
                                  exon, intron, strand, start_found, end_found, internal_splices)
-                    if len(internal_splices) != 2:
+                    if len(internal_splices) == 1:
                         if exon[0] in internal_splices:  # This means that the end is dangling
                             end_found = True
                         elif exon[1] in internal_splices:  # This means that the start is dangling

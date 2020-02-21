@@ -1962,6 +1962,41 @@ class RetainedIntronTester(unittest.TestCase):
                 self.assertTrue(s["t2"].retained_introns, [(101, 700)])
                 self.assertEqual(s["t2"].cds_disrupted_by_ri, cds_disr)
 
+    def test_ri_in_monoexonic(self):
+
+        for strand in ("+", "-"):
+            with self.subTest(strand=strand):
+                logger = create_default_logger("test_ri_in_monoexonic_{strand}".format(**locals()),
+                                               level="INFO")
+                t = Transcript()
+                t.chrom, t.strand, t.id, t.parent = "Chr1", strand, "t1", "gene"
+                t.add_exons([(101, 200), (301, 600), (901, 1200), (1501, 1800)])
+                t.add_exons([(171, 200), (301, 600), (901, 1200), (1501, 1530)], features="CDS")
+
+                t2 = Transcript()
+                t2.chrom, t2.strand, t2.id, t2.parent = "Chr1", strand, "t2", "gene"
+                t2.add_exons([(101, 650)])
+                t2.add_exons([(251, 580)], features="CDS")
+
+                t3 = Transcript()
+                t3.chrom, t3.strand, t3.id, t3.parent = "Chr1", strand, "t3", "gene"
+                t3.add_exons([(151, 470)])
+                t3.add_exons([(251, 470)], features="CDS")
+
+                t.finalize()
+                t2.finalize()
+                t3.finalize()
+                sl = Superlocus(t, logger=logger)
+                sl.add_transcript_to_locus(t2)
+                sl.add_transcript_to_locus(t3)
+                sl.logger.setLevel("DEBUG")
+                sl.find_retained_introns(t2)
+                sl.find_retained_introns(t3)
+                self.assertEqual(t2.retained_introns, (t2.exons[0],))
+                self.assertEqual(t3.retained_introns, (t3.exons[0],))
+                self.assertTrue(t2.cds_disrupted_by_ri)
+                self.assertTrue(t3.cds_disrupted_by_ri)
+
     def test_cds_disr_five_utr(self):
 
         lines = """Chr1	100	2682	ID=test_0;coding=True;phase=0	0	+	497	2474	0	7	208,201,41,164,106,170,715	0,351,780,1075,1439,1616,1867

@@ -45,8 +45,10 @@ class GtfLine(GFAnnotation):
         self.__is_transcript = False
         super().__init__(line, my_line, header=header)
         self.__is_derived, self.__derived_from = None, False  # Placeholders
-        self.__is_transcript = self._set_is_transcript()
-        self.__set_parent()
+        self.__is_gene = self._set_is_gene()
+        if not self.is_gene:
+            self.__is_transcript = self._set_is_transcript()
+            self.__set_parent()
 
     def _parse_attributes(self):
         """
@@ -89,11 +91,11 @@ class GtfLine(GFAnnotation):
             attributes["gene_id"] = ",".join(attributes["gene_id"])
 
         if not transcript:
-            assert attributes["transcript_id"]
+            attributes["transcript_id"] = attributes.pop("transcript_id", None)
         else:
             attributes["transcript_id"] = transcript
 
-        assert attributes["transcript_id"]
+        # assert attributes["transcript_id"]
 
         order = ['gene_id', 'transcript_id', 'exon_number', 'gene_name', 'transcript_name']
 
@@ -206,6 +208,8 @@ class GtfLine(GFAnnotation):
 
     def __set_parent(self):
 
+        if self.is_gene:
+            self.__parent = None
         self.__set_transcript()
         if self.is_transcript is True and self.gene is not None:
             self.__parent = [self.gene]
@@ -354,12 +358,7 @@ class GtfLine(GFAnnotation):
                 if re.search(self.derived_pattern, key) is not None:
                     return self.attributes[key].split(",")
 
-    @property
-    def is_gene(self):
-        """
-        In a GTF this should always evaluate to False
-        """
-        return self.feature == "gene"
+    gene_pattern = re.compile("gene", re.IGNORECASE)
 
     @property
     def _negative_order(self):

@@ -798,6 +798,8 @@ class Transcript:
             # Here we have to store it, as the stop codon has to be included in the CDS for Mikado.
             self.has_stop_codon = True
             store = self.stop_codon
+            if phase is not None:
+                self.phases[(start, end)] = phase
             # return
         elif feature == "intron":
             store = self.introns

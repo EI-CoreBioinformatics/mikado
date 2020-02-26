@@ -3,6 +3,9 @@ from .. import parsers
 import tempfile
 import os
 import rapidjson as json
+from pkg_resources import resource_filename
+import gzip
+
 
 __author__ = 'Luca Venturini'
 
@@ -328,6 +331,39 @@ class TestParser(unittest.TestCase):
             gff_line.attributes["SA"],
             "GmG20150304_scaffold_7394,26960,-,673S2322M750D143S,60,68;" +
             "GmG20150304_scaffold_5658,14965,+,50S192M723D2896S,37,22;")
+
+    def test_pesky_gtf(self):
+        fname = resource_filename("Mikado.tests", "gtf_check.gtf.gz")
+        with parsers.GTF.GTF(fname) as gtf:
+            for gline in gtf:
+                self.assertFalse(gline.header)
+                self.assertEqual(gline.gene, "ENSG00000142621")
+                if gline.is_gene:
+                    self.assertIs(gline.transcript, None)
+                else:
+                    self.assertIn(gline.transcript, """ENST00000314668
+ENST00000358897
+ENST00000375995
+ENST00000375996
+ENST00000375997
+ENST00000375998
+ENST00000433640
+ENST00000444385
+ENST00000459961
+ENST00000462113
+ENST00000471347
+ENST00000472086
+ENST00000472131
+ENST00000472449
+ENST00000477846
+ENST00000481324
+ENST00000483120
+ENST00000483694
+ENST00000495195
+ENST00000524761
+ENST00000529606
+ENST00000532408
+""".split("\n"))
 
 
 if __name__ == '__main__':

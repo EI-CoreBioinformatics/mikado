@@ -56,7 +56,7 @@ class Gene:
                 if transcr.parent:
                     self.id = transcr.parent[0]
                 else:
-                    self.logger.warning("No gene ID found for %s, creating a mock one.", transcr.id)
+                    self.logger.debug("No gene ID found for %s, creating a mock one.", transcr.id)
                     transcr.parent = f"{transcr.id}.gene"
                     self.id = transcr.parent[0]
                 self.transcripts[transcr.id] = transcr
@@ -253,8 +253,12 @@ class Gene:
             except InvalidTranscript as err:
                 self.exception_message += "{0}\n".format(err)
                 to_remove.add(tid)
-            except Exception as _:
+            except Exception as err:
+                self.exception_message += "Error in gene {} for transcript {}".format(self.id, tid)
+                self.exception_message += "{0}\n".format(err)
+                self.logger.exception(self.exception_message)
                 raise
+
         for k in to_remove:
             del self.transcripts[k]
 
@@ -282,6 +286,9 @@ class Gene:
                     self.logger.debug("Resetting the end for %s from %s to %d",
                                       self.id, self.end, __new_end)
                 self.end = __new_end
+        if self.exception_message:
+            self.logger.exception(self.exception_message)
+            self.exception_message = ""
 
     def as_dict(self, remove_attributes=True):
 

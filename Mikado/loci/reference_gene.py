@@ -56,7 +56,7 @@ class Gene:
                 if transcr.parent:
                     self.id = transcr.parent[0]
                 else:
-                    self.logger.warning("No gene ID found for %s, creating a mock one.", transcr.id)
+                    self.logger.debug("No gene ID found for %s, creating a mock one.", transcr.id)
                     transcr.parent = f"{transcr.id}.gene"
                     self.id = transcr.parent[0]
                 self.transcripts[transcr.id] = transcr

@@ -458,8 +458,9 @@ def _parse_prediction_gff3(args, queue_logger, transmit_wrapper, constructor):
             queue_logger.debug("Analysing %s", row)
             transcript = constructor(row)
             if gene is None or gene.id not in transcript.parent:  # Orphan transcript
-                queue_logger.warning("%s is an orphan transcript (Parent: %s, GeneID: %s)",
-                                     transcript.id, ",".join(transcript.parent), None if gene is None else gene.id)
+                queue_logger.debug(
+                    "%s is an orphan transcript (Parent: %s, GeneID: %s)",
+                    transcript.id, ",".join(transcript.parent), None if gene is None else gene.id)
                 if gene is not None:
                     gene.finalize(exclude_utr=args.exclude_utr)
                     queue_logger.debug("Sending transcripts of %s", gene.id)

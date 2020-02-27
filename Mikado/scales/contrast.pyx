@@ -348,14 +348,18 @@ cpdef tuple compare(prediction, reference, bint lenient=False, bint strict_stran
     if lenient is True:
         if len(__pred_exons) > 1 and len(__ref_exons) > 1:
             # If both are multiexonic, consider only the internal boundary
-            __pred_exons.remove(prediction.exons[0])
-            __pred_exons.add(prediction.exons[0][1])
-            __pred_exons.remove(prediction.exons[-1])
-            __pred_exons.add(prediction.exons[-1][0])
-            __ref_exons.remove(reference.exons[0])
-            __ref_exons.add(reference.exons[0][1])
-            __ref_exons.remove(reference.exons[-1])
-            __ref_exons.add(reference.exons[-1][0])
+            if prediction.exons[0] in __pred_exons:
+                __pred_exons.remove(prediction.exons[0])
+                __pred_exons.add(prediction.exons[0][1])
+            if prediction.exons[-1] in __pred_exons:
+                __pred_exons.remove(prediction.exons[-1])
+                __pred_exons.add(prediction.exons[-1][0])
+            if reference.exons[0] in __ref_exons:
+                __ref_exons.remove(reference.exons[0])
+                __ref_exons.add(reference.exons[0][1])
+            if reference.exons[-1] in __ref_exons:
+                __ref_exons.remove(reference.exons[-1])
+                __ref_exons.add(reference.exons[-1][0])
         elif len(__pred_exons) == len(__ref_exons) == 1 and nucl_f1 > 0.8:
             # If both are monoexonic and nucleotide F1 is >= 0.8
             __ref_exons = __pred_exons.copy()

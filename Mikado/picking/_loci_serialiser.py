@@ -1,5 +1,5 @@
 from ..loci import Superlocus
-import sqlite3
+# import sqlite3
 import rapidjson as json
 import msgpack
 import sys
@@ -13,7 +13,8 @@ def default_for_serialisation(obj):
 
 
 def serialise_locus(stranded_loci: [Superlocus],
-                    conn: sqlite3.Connection,
+                    queue,
+                    # conn: sqlite3.Connection,
                     counter,
                     print_subloci=True,
                     print_cds=True,
@@ -60,8 +61,10 @@ def serialise_locus(stranded_loci: [Superlocus],
     else:
         chrom = stranded_loci[0].chrom
         num_genes = sum(len(slid.loci) for slid in stranded_loci)
-    conn.execute("INSERT INTO loci VALUES (?, ?, ?, ?)", (counter, chrom, num_genes, loci))
-    conn.execute("INSERT INTO subloci VALUES (?, ?, ?)", (counter, chrom, subloci))
-    conn.execute("INSERT INTO monoloci VALUES (?, ?, ?)", (counter, chrom, monoloci))
-    conn.commit()
+    queue.put((counter, chrom, num_genes, loci, subloci, monoloci))
+
+    # conn.execute("INSERT INTO loci VALUES (?, ?, ?, ?)", (counter, chrom, num_genes, loci))
+    # conn.execute("INSERT INTO subloci VALUES (?, ?, ?)", (counter, chrom, subloci))
+    # conn.execute("INSERT INTO monoloci VALUES (?, ?, ?)", (counter, chrom, monoloci))
+    # conn.commit()
     return

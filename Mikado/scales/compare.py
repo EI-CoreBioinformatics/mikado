@@ -313,8 +313,7 @@ class FinalAssigner(mp.Process):
 def transmit_transcript(index, transcript: Transcript, connection: sqlite3.Connection):
     transcript.finalize()
     d = transcript.as_dict(remove_attributes=False)
-    connection.execute("INSERT INTO dump VALUES (?, ?)",
-                       (index, json.dumps(d)))
+    connection.execute("INSERT INTO dump VALUES (?, ?)", (index, json.dumps(d)))
 
 
 def get_best_result(_, transcript, assigner_instance: Assigner):
@@ -458,8 +457,9 @@ def _parse_prediction_gff3(args, queue_logger, transmit_wrapper, constructor):
             queue_logger.debug("Analysing %s", row)
             transcript = constructor(row)
             if gene is None or gene.id not in transcript.parent:  # Orphan transcript
-                queue_logger.warning("%s is an orphan transcript (Parent: %s, GeneID: %s)",
-                                     transcript.id, ",".join(transcript.parent), None if gene is None else gene.id)
+                queue_logger.debug(
+                    "%s is an orphan transcript (Parent: %s, GeneID: %s)",
+                    transcript.id, ",".join(transcript.parent), None if gene is None else gene.id)
                 if gene is not None:
                     gene.finalize(exclude_utr=args.exclude_utr)
                     queue_logger.debug("Sending transcripts of %s", gene.id)
@@ -751,22 +751,25 @@ def create_index(reference, queue_logger, index_name, ref_gff=False,
     conn = sqlite3.connect(temp_db)
     cursor = conn.cursor()
     cursor.execute("CREATE TABLE positions (chrom text, start integer, end integer, gid text)")
-    cursor.execute("CREATE INDEX pos_idx ON positions (chrom, start, end)")
     genes, positions = prepare_reference(reference, queue_logger, ref_gff=ref_gff,
                                          exclude_utr=exclude_utr, protein_coding=protein_coding)
 
+    gid_vals = []
     for chrom in positions:
         for key in positions[chrom]:
             start, end = key
             for gid in positions[chrom][key]:
-                cursor.execute("INSERT INTO positions VALUES (?, ?, ?, ?)", (chrom,
-                                                                             start,
-                                                                             end,
-                                                                             gid))
+                gid_vals.append((chrom, start, end, gid))
+    cursor.executemany("INSERT INTO positions VALUES (?, ?, ?, ?)",
+                       gid_vals)
+    cursor.execute("CREATE INDEX pos_idx ON positions (chrom, start, end)")
     cursor.execute("CREATE TABLE genes (gid text, json blob)")
-    cursor.execute("CREATE INDEX gid_idx on genes(gid)")
+
+    gobjs = []
     for gid, gobj in genes.items():
-        cursor.execute("INSERT INTO genes VALUES (?, ?)", (gid, msgpack.dumps(gobj.as_dict()))) #, cls=NumpyEncoder)))
+        gobjs.append((gid, msgpack.dumps(gobj.as_dict())))
+    cursor.executemany("INSERT INTO genes VALUES (?, ?)", gobjs)
+    cursor.execute("CREATE INDEX gid_idx on genes(gid)")
     cursor.close()
     conn.commit()
     conn.close()

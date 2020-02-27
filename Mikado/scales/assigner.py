@@ -41,7 +41,8 @@ def msgpack_default(o):
         return {'__type__': 'rstor', 'value': o.as_dict()}
     else:
         return o
- 
+
+
 def msgpack_convert(o):
     """Function to re-extract the data from msgpack"""
     if isinstance(o, dict) and o.get('__type__', None):
@@ -218,21 +219,26 @@ class Assigner:
         if self.printout_tmap is True:
             for tmap_row in cursor.execute("SELECT * from tmap"):
                 tmap_row = ResultStorer(state=msgpack.loads(tmap_row[0],
-                                                         raw=False,
-                                                         object_hook=msgpack_convert))
+                                                            raw=False,
+                                                            use_list=False,
+                                                            strict_map_key=False,
+                                                            object_hook=msgpack_convert))
                 done.add(tmap_row.tid)
                 self.print_tmap(tmap_row)
 
         for gid, gene_match in cursor.execute("SELECT * from gene_matches"):
-            gene_match = msgpack.loads(gene_match, raw=False,
-                                    object_hook=msgpack_convert)
+            gene_match = msgpack.loads(gene_match, raw=False, use_list=False,
+                                       strict_map_key=False, object_hook=msgpack_convert)
             for tid in gene_match:
                 for match in gene_match[tid]:
                     self.gene_matches[gid][tid].append(match)
 
         temp_stats = Namespace()
         for attr, stat in cursor.execute("SELECT * from stats"):
-            setattr(temp_stats, attr, msgpack.loads(stat, raw=False, object_hook=msgpack_convert))
+            setattr(temp_stats, attr, msgpack.loads(stat, raw=False,
+                                                    use_list=False,
+                                                    strict_map_key=False,
+                                                    object_hook=msgpack_convert))
 
         self.stat_calculator.merge_into(temp_stats)
         os.remove(dbname)
@@ -255,8 +261,10 @@ class Assigner:
         self._connection.commit()
         simplified = self.stat_calculator.serialize()
         for attribute in simplified.attributes:
-            self._cursor.execute("INSERT INTO stats VALUES (?, ?)", (attribute,
-                                                                     msgpack.dumps(getattr(simplified, attribute), default=msgpack_default, strict_types=True)))
+            self._cursor.execute("INSERT INTO stats VALUES (?, ?)",
+                                 (attribute,
+                                  msgpack.dumps(getattr(simplified, attribute),
+                                                default=msgpack_default, strict_types=True)))
         self._connection.commit()
         self._connection.close()
 
@@ -456,8 +464,10 @@ class Assigner:
 
         else:
             best = [_[1] for _ in sorted(best, key=lambda res: (res[0][0], res[0][1]))]
-            if not (len(best) > 1 and self.__report_fusions is True):
+            if len(best) == 1:
                 best_result = best.pop()
+            elif len(best) > 1 and self.__report_fusions is False:
+                best_result = sorted(best, key=operator.attrgetter("j_f1", "n_f1")).pop()
             else:  # We have a fusion
                 # Now retrieve the results according to their order on the genome
                 # Keep only the result, not their position
@@ -650,8 +660,7 @@ class Assigner:
                             if result.j_f1[0] > 0 or result.n_recall[0] > 10:
                                 result.ccode = ("f", result.ccode[0])
                     elif len(best_results) > 1 and self.__report_fusions is False:
-                        best_result = [_ for _ in sorted(best_results, key=operator.attrgetter("j_f1", "n_f1"))
-                                       ].pop()
+                        best_result = [_ for _ in sorted(best_results, key=operator.attrgetter("j_f1", "n_f1",))].pop()
 
                 # Check how many
                 if not results:

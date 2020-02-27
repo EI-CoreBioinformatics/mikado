@@ -171,7 +171,7 @@ def create_config(args):
         if args.external.endswith("json"):
             loader = json.load
         else:
-            loader = functools.partial(yaml.load, Loader=yaml.SafeLoader)
+            loader = functools.partial(yaml.load, Loader=yaml.CSafeLoader)
         with open(args.external) as external:
             external_conf = loader(external)
         # Overwrite values specific to Mikado
@@ -348,6 +348,12 @@ switch.")
     config.pop("not_fragmentary", None)
     config.pop("requirements", None)
 
+    if args.keep_disrupted_cds is True:
+        config["pick"]["alternative_splicing"]["keep_cds_disrupted_by_ri"] = True
+
+    if args.exclude_retained_introns is True:
+        config["pick"]["alternative_splicing"]["keep_retained_introns"] = False
+
     # Check that the configuration file is correct
     tempcheck = tempfile.NamedTemporaryFile("wt", suffix=".yaml", delete=False)
     output = yaml.dump(config, default_flow_style=False)
@@ -358,7 +364,15 @@ switch.")
     except InvalidJson as exc:
         raise InvalidJson("Created an invalid configuration file! Error:\n{}".format(exc))
 
-    if args.json is True or args.out.name.endswith("json"):
+    if args.json is True:
+        json.dump(config, args.out, sort_keys=True, indent=4)
+    elif args.yaml is True:
+        output = yaml.dump(config, default_flow_style=False)
+        print_config(output, args.out)
+    elif args.toml is True:
+        output = tomlkit.dumps(config)
+        print_toml_config(output, args.out)
+    elif args.out.name.endswith("json"):
         json.dump(config, args.out, sort_keys=True, indent=4)
     elif args.out.name.endswith("yaml"):
         output = yaml.dump(config, default_flow_style=False)
@@ -417,6 +431,13 @@ def configure_parser():
                          help="""Flag. If switched on, Mikado will only keep loci where at least one of the transcripts \
     is marked as "reference". CAUTION: new and experimental. If no transcript has been marked as reference, \
     the output will be completely empty!""")
+    picking.add_argument("-eri", "--exclude-retained-introns", default=None, action="store_true",
+                         help="""Exclude all retained intron alternative splicing events from the final output. \
+Default: False. Retained intron events that do not dirsupt the CDS are kept by Mikado in the final output.""")
+    picking.add_argument("-kdc", "--keep-disrupted-cds", default=None, action="store_true",
+                         help="""Keep in the final output transcripts whose CDS is most probably disrupted by a \
+retained intron event. Default: False. Mikado will try to detect these instances and exclude them from the \
+final output.""")
     picking.add_argument("--check-references", dest="check_references", default=None,
                          action="store_true",
                          help="""Flag. If switched on, Mikado will also check reference models against the general
@@ -479,9 +500,13 @@ If multiple modes are specified, Mikado will create a Daijin-compatible configur
     parser.add_argument("-t", "--threads", default=1, type=int)
     parser.add_argument("--skip-split", dest="skip_split", default=[], nargs="+",
                         help="List of labels for which splitting will be disabled (eg long reads such as PacBio)")
-
-    parser.add_argument("-j", "--json", action="store_true", default=False,
-                        help="Output will be in JSON instead of YAML format.")
+    output_format = parser.add_mutually_exclusive_group()
+    output_format.add_argument("-j", "--json", action="store_true", default=False,
+                               help="Output will be in JSON (default: inferred by filename, with TOML as fallback).")
+    output_format.add_argument("-y", "--yaml", action="store_true", default=False,
+                               help="Output will be in YAML (default: inferred by filename, with TOML as fallback).")
+    output_format.add_argument("--toml", action="store_true", default=False,
+                               help="Output will be in TOML (default: inferred by filename, with TOML as fallback).")
     parser.add_argument("-od", "--out-dir", dest="out_dir", default=None,
                         help="Destination directory for the output.")
     parser.add_argument("out", nargs='?', default=sys.stdout, type=argparse.FileType('w'))

@@ -533,7 +533,7 @@ def _check_scoring_file(json_conf: dict, logger):
         elif option.endswith(("yaml", "json")):
             with open(option) as scoring_file:
                 if option.endswith("yaml"):
-                    scoring = yaml.load(scoring_file, Loader=yaml.SafeLoader)
+                    scoring = yaml.load(scoring_file, Loader=yaml.CSafeLoader)
                 else:
                     scoring = json.loads(scoring_file.read())
                 if not isinstance(scoring, dict):
@@ -684,7 +684,7 @@ def to_json(string, simple=False, logger=None):
                 raise InvalidJson("JSON file {} not found!".format(string))
             with open(string) as json_file:
                 if string.endswith(".yaml"):
-                    json_dict = yaml.load(json_file, Loader=yaml.SafeLoader)
+                    json_dict = yaml.load(json_file, Loader=yaml.CSafeLoader)
                 elif string.endswith(".toml"):
                     json_dict = toml.load(json_file)
                     assert isinstance(json_dict, dict)

@@ -132,9 +132,6 @@ def check_run_options(args, logger=create_null_logger()):
     if args.cds_only is True:
         args.json_conf["pick"]["clustering"]["cds_only"] = True
 
-    if args.consider_truncated_for_retained is True:
-        args.json_conf["pick"]["run_options"]["consider_truncated_for_retained"] = True
-
     for key in ["loci_out", "gff", "monoloci_out", "subloci_out", "log"]:
         if getattr(args, key):
             if key == "gff":
@@ -173,6 +170,12 @@ def check_run_options(args, logger=create_null_logger()):
         logger.critical("Transcript padding cannot function unless the genome file is specified. \
         Please either provide a valid genome file or disable the padding.")
         sys.exit(1)
+
+    if args.keep_disrupted_cds is True:
+        args.json_conf["pick"]["alternative_splicing"]["keep_cds_disrupted_by_ri"] = True
+
+    if args.exclude_retained_introns is True:
+        args.json_conf["pick"]["alternative_splicing"]["keep_retained_introns"] = False
 
     args.json_conf = check_json(args.json_conf, logger=logger)
     return args
@@ -300,16 +303,19 @@ Default: False, Mikado will consider transcripts in their entirety.""")
                         help="""Flag. If switched on, Mikado will only keep loci where at least one of the transcripts \
 is marked as "reference". CAUTION: new and experimental. If no transcript has been marked as reference, \
 the output will be completely empty!""")
+    parser.add_argument("-eri", "--exclude-retained-introns", default=None, action="store_true",
+                        help="""Exclude all retained intron alternative splicing events from the final output. \
+Default: False. Retained intron events that do not dirsupt the CDS are kept by Mikado in the final output.""")
+    parser.add_argument("-kdc", "--keep-disrupted-cds", default=None, action="store_true",
+                        help="""Keep in the final output transcripts whose CDS is most probably disrupted by a \
+retained intron event. Default: False. Mikado will try to detect these instances and exclude them from the \
+final output.""")
     parser.add_argument("--check-references", dest="check_references", default=None,
                         action="store_true",
                         help="""Flag. If switched on, Mikado will also check reference models against the general
 transcript requirements, and will also consider them as potential fragments. This is useful in the context of e.g.
 updating an *ab-initio* results with data from RNASeq, protein alignments, etc. 
 """)
-    parser.add_argument("--consider-truncated-for-retained", dest="consider_truncated_for_retained",
-                        action="store_true", default=False,
-                        help="""Flag. If set, Mikado will consider as retained intron events also transcripts \
-which lack UTR but whose CDS ends within a CDS intron of another model.""")
     parser.add_argument("-db", "--sqlite-db", dest="sqlite_db",
                         default=None, type=str,
                         help="Location of an SQLite database to overwrite what is specified \
@@ -318,8 +324,8 @@ in the configuration file.")
                         type=str, default=None,
                         help="Output directory. Default: current working directory")
     parser.add_argument("--single", action="store_true", default=False,
-                        help="""Flag. If set, Creator will be launched with a single process.
-                        Useful for debugging purposes only.""")
+                        help="""Flag. If set, Creator will be launched with a single process, without involving the
+multithreading apparatus. Useful for debugging purposes only.""")
     log_options = parser.add_argument_group("Log options")
     log_options.add_argument("-l", "--log", default=None,
                              help="""File to write the log to.

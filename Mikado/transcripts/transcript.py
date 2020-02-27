@@ -328,6 +328,7 @@ class Transcript:
         # Relative properties
         self.retained_introns = ()
         self.retained_fraction = 0
+        self.__cds_disrupted_by_ri = False
         self.exon_fraction = self.intron_fraction = 1
         self.cds_intron_fraction = self.selected_cds_intron_fraction = 1
 
@@ -394,6 +395,9 @@ class Transcript:
         :type transcript_row: pysam.AlignedSegment
         :return:
         """
+
+        if transcript_row.header is True:
+            raise InvalidTranscript("I cannot initialise a valid transcript with a header (ie empty) BED line.")
 
         self.chrom = transcript_row.chrom
         self.name = self.id = transcript_row.name
@@ -798,6 +802,8 @@ class Transcript:
             # Here we have to store it, as the stop codon has to be included in the CDS for Mikado.
             self.has_stop_codon = True
             store = self.stop_codon
+            if phase is not None:
+                self.phases[(start, end)] = phase
             # return
         elif feature == "intron":
             store = self.introns
@@ -1693,7 +1699,7 @@ class Transcript:
         else:
             assert isinstance(logger, logging.Logger), type(logger)
             self.__logger = logger
-        self.__logger.propagate = False
+        # self.__logger.propagate = False
 
     @logger.deleter
     def logger(self):
@@ -3297,6 +3303,22 @@ when the transcript has at least one intron!""")
     retained_fraction.category = "Locus"
     retained_fraction.usable_raw = True
     retained_fraction.rtype = "float"
+
+    @Metric
+    def cds_disrupted_by_ri(self):
+        """This property describes whether the CDS is interrupted within a retained intron."""
+
+        return self.__cds_disrupted_by_ri
+
+    @cds_disrupted_by_ri.setter
+    def cds_disrupted_by_ri(self, boolean):
+        if boolean not in (True, False):
+            raise TypeError("Invalid value for cds_disrupted_by_ri, it should be boolean")
+        self.__cds_disrupted_by_ri = boolean
+
+    cds_disrupted_by_ri.category = "Locus"
+    cds_disrupted_by_ri.usable_raw = True
+    cds_disrupted_by_ri.rtype = "bool"
 
     @Metric
     def proportion_verified_introns(self):

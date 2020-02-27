@@ -138,13 +138,21 @@ for the "mikado" part of daijin.""")
     parser.add_argument("--full", action="store_true", default=False)
     parser.add_argument("--seed", type=int, default=None,
                         help="Random seed number.")
+    output_format = parser.add_mutually_exclusive_group()
+    output_format.add_argument("-j", "--json", action="store_true", default=False,
+                               help="Output will be in JSON (default: inferred by filename, with TOML as fallback).")
+    output_format.add_argument("-y", "--yaml", action="store_true", default=False,
+                               help="Output will be in YAML (default: inferred by filename, with TOML as fallback).")
+    output_format.add_argument("--toml", action="store_true", default=False,
+                               help="Output will be in TOML (default: inferred by filename, with TOML as fallback).")
     runtime.add_argument("--threads", "-t", action="store", metavar="N", type=int, default=4,
                         help="""Maximum number of threads per job. Default: %(default)s""")
     runtime.add_argument("-od", "--out-dir", dest="out_dir", default=None, required=False,
                         help="Output directory. Default if unspecified: chosen name.")
     runtime.add_argument("-o", "--out", default=sys.stdout, type=argparse.FileType("w"),
-                    help="Output file. If the file name ends in \"json\", the file will be in JSON format; \
-                        otherwise, Daijin will print out a YAML file. Default: STDOUT.")
+                        help="Output file. If not specified, it will be printed to STDOUT.\
+Daijin will try to infer the type of configuration (TOML, YAML, JSON) from the output file name, with TOML as the\
+default. If one of --json, --yaml, --toml flags is specified, it will override the filename inference.")
     runtime.add_argument("--scheduler", default="", choices=["local", "SLURM", "LSF", "PBS"],
                         help="Scheduler to use. Default: None - ie, either execute everything on the local machine or use DRMAA to submit and control jobs (recommended).")
     runtime.add_argument("--exe", default="daijin_exe.yaml",
@@ -241,7 +249,7 @@ def assemble_transcripts_pipeline(args):
     if args.config.endswith("json"):
         loader = json.load
     elif args.config.endswith("yaml"):
-        loader = functools.partial(yaml.load, Loader=yaml.SafeLoader)
+        loader = functools.partial(yaml.load, Loader=yaml.CSafeLoader)
     else:
         loader = functools.partial(toml.load)
 
@@ -252,7 +260,7 @@ def assemble_transcripts_pipeline(args):
         if args.exe.endswith("json"):
             loader = json.load
         else:
-            loader = functools.partial(yaml.load, Loader=yaml.SafeLoader)
+            loader = functools.partial(yaml.load, Loader=yaml.CSafeLoader)
         with open(args.exe) as _:
             doc["load"] = loader(_)
 
@@ -438,7 +446,7 @@ def mikado_pipeline(args):
     if args.config.endswith("json"):
         loader = json.load
     elif args.config.endswith("yaml"):
-        loader = functools.partial(yaml.load, Loader=yaml.SafeLoader)
+        loader = functools.partial(yaml.load, Loader=yaml.CSafeLoader)
     else:
         loader = functools.partial(toml.load)
     with open(args.config, 'r') as _:
@@ -452,7 +460,7 @@ def mikado_pipeline(args):
         if args.exe.endswith("json"):
             loader = json.load
         else:
-            loader = functools.partial(yaml.load, Loader=yaml.SafeLoader)
+            loader = functools.partial(yaml.load, Loader=yaml.CSafeLoader)
         with open(args.exe) as _:
             doc["load"] = loader(_)
 

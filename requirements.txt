@@ -17,12 +17,12 @@ drmaa
 snakemake
 docutils!=0.13.1
 tabulate
-msgpack>=0.5
+msgpack>=1.0.0
 rapidjson
-python-rapidjson
+python-rapidjson>=0.8
 pandas
 jsonref
-pysam>=0.15.1
-fastnumbers>=2.1.1
+pysam>=0.15.3
+fastnumbers>=3.0
 toml
 tomlkit

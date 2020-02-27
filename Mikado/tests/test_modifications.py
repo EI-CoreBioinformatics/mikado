@@ -9,6 +9,7 @@ import pysam
 import pkg_resources
 from ..utilities.log_utils import create_null_logger, create_default_logger
 from ..configuration.configurator import to_json
+from pytest import mark
 
 
 __author__ = 'Luca Venturini'
@@ -186,7 +187,7 @@ class TestPadding(unittest.TestCase):
             for num2, pad_transcripts in enumerate((False, True)):
                 with self.subTest(exons_to_add=exons_to_add, pad_transcripts=pad_transcripts):
                     logger = create_null_logger("test_locus_padding_equal_or_n_" + str(num + num2 * 2))
-                    logger.setLevel("INFO")
+                    logger.setLevel("DEBUG")
                     template = self.reference.copy()
                     del template.is_reference
                     template.id = "AT5G66600.3_exp"
@@ -209,8 +210,10 @@ class TestPadding(unittest.TestCase):
                     #     locus._add_to_alternative_splicing_codes("n")
                     self.assertTrue(locus[self.reference.id].is_reference)
                     self.assertEqual(locus.perform_padding, pad_transcripts)
-                    logger.setLevel("DEBUG")
+                    # locus.logger.setLevel("DEBUG")
                     locus.add_transcript_to_locus(template)
+                    if pad_transcripts is True:
+                        self.assertIn(template.id, locus)
                     locus.finalize_alternative_splicing()
                     self.assertNotIn(template.id, locus)
                     if pad_transcripts is False:
@@ -218,8 +221,63 @@ class TestPadding(unittest.TestCase):
                         self.assertEqual(locus[self.reference.id].end, self.reference.end)
                     else:
                         self.assertTrue(locus.perform_padding)
-                        self.assertEqual(locus[self.reference.id].start, template.start)
-                        self.assertEqual(locus[self.reference.id].end, template.end)
+                        self.assertEqual(locus[self.reference.id].start, template.start,
+                                         (locus[self.reference.id].exons[0], template.exons[0]))
+                        self.assertEqual(locus[self.reference.id].end, template.end,
+                                         (locus[self.reference.id].end, template.end))
+                        self.assertNotIn(template.id, locus)
+
+    @mark.triage
+    def test_removal_after_padding(self):
+
+        logger = create_default_logger("test_add_two_partials", "INFO")
+        json_conf = to_json(None)
+        json_conf["reference"]["genome"] = self.fai
+        json_conf["pick"]["alternative_splicing"]["only_confirmed_introns"] = False
+        json_conf["pick"]["alternative_splicing"]["keep_retained_introns"] = True
+        json_conf["pick"]["alternative_splicing"]["pad"] = True
+
+        t1 = Transcript(BED12(
+            "Chr5\t26584779\t26587869\tID=AT5G66610.1;coding=True;phase=0\t0\t+\t26585222\t26587755\t0\t11\t\
+100,54,545,121,78,105,213,63,119,59,443\t0,440,565,1202,1437,1640,1858,2154,2304,2507,2647"
+        ))
+
+        t2_1 = Transcript(BED12(
+            "Chr5\t26584773\t26586510\tID=AT5G66610.2_1;coding=True;phase=0\t0\t+\t26585222\t26586510\t0\t\
+6\t177,54,545,121,78,85\t0,446,571,1208,1443,1652"
+        ))
+        t2_2 = Transcript(BED12(
+            "Chr5\t26584873\t26587782\tID=AT5G66610.2_2;coding=True;phase=0\t0\t+\t26585222\t\
+26587755\t0\t10\t77,54,545,121,78,99,213,63,119,496\t0,346,471,1108,1343,1552,1764,2060,2210,2413"
+        ))
+
+        t1.finalize()
+        t2_1.finalize()
+        t2_2.finalize()
+        t1.is_reference = True
+
+        locus = Locus(t1, logger=logger, json_conf=json_conf)
+        locus.add_transcript_to_locus(t2_1, check_in_locus=False)
+        locus.add_transcript_to_locus(t2_2, check_in_locus=False)
+        self.assertTrue(locus.primary_transcript_id == t1.id)
+        # locus.logger.setLevel("DEBUG")
+        locus.finalize_alternative_splicing(_scores={t1.id: 20, t2_1.id: 15, t2_2.id: 10})
+
+        self.assertIn(t1.id, locus.transcripts)
+        if t2_1.id in locus.transcripts:
+            from ..scales import Assigner
+            import itertools
+            for tid1, tid2 in itertools.combinations(locus.transcripts.keys(), 2):
+                res, _ = Assigner.compare(locus[tid1], locus[tid2])
+                print(tid1, tid2, res.ccode)
+            self.assertNotIn(t2_1.id, locus.transcripts)
+
+        self.assertIn(t2_2.id, locus.transcripts, "\n".join(tr.format("bed12") for tr in locus))
+        self.assertTrue(locus[t2_2.id].attributes["padded"])
+        self.assertEqual(locus[t2_2.id].start, t1.start,
+                         ((locus[t2_2.id].start, t1.start, t2_1.start, t2_2.start),
+                          (locus[t2_2.id].end, t1.end, t2_1.end, t2_2.end)),
+                         )
 
     def test_add_two_partials(self):
 
@@ -230,9 +288,12 @@ class TestPadding(unittest.TestCase):
         json_conf["pick"]["alternative_splicing"]["only_confirmed_introns"] = False
         json_conf["pick"]["run_options"]["only_reference_update"] = True
 
-        ref = Transcript(
-            BED12("Chr5	26611257	26612889	ID=AT5G66670.2;coding=True;phase=0	0	-	26611473	26612700	0	1	1632	0"),
-            is_reference=True)
+        ref = Transcript(is_reference=True)
+        ref.chrom, ref.strand, ref.id = "Chr5", "-", "AT5G66670.2"
+        ref.add_exons([(26611258, 26612889)])
+        ref.add_exons([(26611474, 26612700)], features=["CDS"])
+        ref.finalize()
+        self.assertTrue(ref.is_coding)
 
         # Chr5	TAIR10	mRNA	26611258	26612889	.	-	.	ID=AT5G66670.2;Parent=AT5G66670;Name=AT5G66670.2;index=1
         # Chr5	TAIR10	protein	26611474	26612700	.	-	.	ID=AT5G66670.2-Protein;Parent=AT5G66670.2;Name=AT5G66670.2;derives_from=AT5G66670.2
@@ -261,17 +322,17 @@ class TestPadding(unittest.TestCase):
         locus.add_transcript_to_locus(template2)
         self.assertIn(template2.id, locus)
         # self.assertIn(template1.id, locus)
-        locus.logger.setLevel("DEBUG")
-        for tid in locus:
-            locus[tid].logger.setLevel("DEBUG")
+        # locus.logger.setLevel("DEBUG")
+        # for tid in locus:
+        #     locus[tid].logger.setLevel("DEBUG")
         locus.finalize_alternative_splicing()
         self.assertTrue(locus._finalized)
         self.assertNotIn(template1.id, locus, "\n" + str(locus))
-                         # "\n" + "\n".join([_.format("bed12") for _ in locus.transcripts.values()]))
         self.assertNotIn(template2.id, locus, "\n" + str(locus))
-                         # "\n" + "\n".join([_.format("bed12") for _ in locus.transcripts.values()]))
-        # self.assertEqual(locus[ref.id].start, template1.start)
-        self.assertEqual(locus[ref.id].end, template2.end)
+        self.assertEqual(locus[ref.id].end, template2.end,
+                         ((locus[ref.id].end, ref.end, template2.end, template1.end),
+                         (locus[ref.id].start, ref.start, template2.start, template1.start))
+                         )
 
 
 if __name__ == "__main__":

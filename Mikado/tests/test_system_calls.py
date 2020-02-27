@@ -906,7 +906,7 @@ class CompareCheck(unittest.TestCase):
                     namespace.out = os.path.join(dir.name, "compare_{}_{}".format(
                         files.index(ref), len(files) + 1))
                 compare(namespace)
-                sleep(1)
+                sleep(0.1)
                 refmap = "{}.refmap".format(namespace.out)
                 tmap = "{}.tmap".format(namespace.out)
                 stats = "{}.stats".format(namespace.out)
@@ -1134,6 +1134,7 @@ class ConfigureCheck(unittest.TestCase):
 
     @unittest.skipUnless((sys.version_info.minor > 4),
                          "Due to a bug in JSONSCHEMA, Daijin configure fails with Python versions lower than 3.5.")
+    @mark.slow
     def test_daijin_config(self):
 
         # Check the basic function actually functions
@@ -1175,7 +1176,7 @@ class ConfigureCheck(unittest.TestCase):
                 self.assertGreater(os.stat(out).st_size, 0)
 
                 with open(out) as out_handle:
-                    config = yaml.load(out_handle, Loader=yaml.SafeLoader)
+                    config = yaml.load(out_handle, Loader=yaml.CSafeLoader)
 
                 daijin_configurator.check_config(config)
                 dir.cleanup()

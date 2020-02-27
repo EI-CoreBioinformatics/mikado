@@ -28,10 +28,11 @@ import multiprocessing as mp
 __author__ = 'Luca Venturini'
 
 
-def merge_loci(num_temp, out_handles,
+def merge_loci(mapper,
+               out_handles,
+               total,
                logger=None,
-               source="Mikado",
-               tempdir="mikado_pick_tmp"):
+               source="Mikado"):
 
     """ Function to merge the temporary loci files into single output files,
       renaming the genes according to the preferred style.
@@ -42,108 +43,74 @@ def merge_loci(num_temp, out_handles,
     :return:
     """
 
-    dumps = [os.path.join(tempdir, "output-{}.db".format(num)) for num in range(1, num_temp + 1)]
     locus_metrics, locus_scores, locus_out = out_handles[0]
     sub_metrics, sub_scores, sub_out = out_handles[1]
     mono_metrics, mono_scores, mono_out = out_handles[2]
 
-    conns = [sqlite3.connect(dump) for dump in dumps]
-    cursors = [conn.cursor() for conn in conns]
-    common_index = dict()
-
-    temp_conn = sqlite3.connect(os.path.join(tempdir, "temp_store.db"))
-    max_counter = temp_conn.execute("SELECT MAX(counter) FROM transcripts").fetchone()[0]
-
-    counters = [_[0] for _ in temp_conn.execute("SELECT counter FROM transcripts").fetchall()]
-    if len(set(counters)) != len(counters):
-        from collections import Counter
-        checker = Counter()
-        checker.update(counters)
-        logger.fatal("%d double indices found!", len([_ for _ in checker if checker[_] > 1]))
+    if len(mapper["results"]) != total:
+        raise KeyError("I am missing some loci! {} vs {}".format(len(mapper["results"]), total))
 
     # Start iterating the output dictionaries ("cursors")
-    for dbindex, cursor in enumerate(cursors):
-        # Get the counter (this is the dictionary key), chromosome, and number of genes
-        d = dict()
-        doubles = set()
-        for counter, chrom, genes in cursor.execute("SELECT counter, chrom, genes FROM loci"):
-            if counter in common_index:
-                doubles.add(counter)
-            d[counter] = (dbindex, chrom, genes)
-        if len(doubles) > 0:
-            raise AssertionError("Double indices found: {}".format(doubles))
-        common_index.update(d)
-
     print_subloci = (out_handles[1][0] is not None)
     print_monoloci = (out_handles[2][0] is not None)
-    if max_counter != max(common_index.keys()):
-        raise KeyError("I am missing some loci! {} vs {}".format(
-            max_counter, max(common_index.keys())))
+    __valid = set(range(1, total + 1))
 
-    __valid = set(range(1, max(common_index.keys()) + 1))
-    if set(common_index.keys()) != __valid:
-        missing = set.difference(__valid, set(common_index.keys()))
+    if set(mapper["results"].keys()) != __valid:
+        missing = set.difference(__valid, set(mapper["results"].keys()))
         raise AssertionError("Missing the following loci: {}".format(missing))
 
-    new_common, total_genes = __create_gene_counters(common_index)
+    new_common, total_genes = __create_gene_counters(mapper["results"])
 
-    manager = functools.partial(manage_index,
-                                dumps=dumps,
-                                source=source)
     done = 0
     logger.info("We have a total of %d genes", total_genes)
     tot_loci = set()
-    with mp.Pool(processes=num_temp) as pool:
-        for pos, batch in enumerate(pool.imap(manager,
-                                              [(key, new_common[key]) for key in sorted(new_common.keys())],
-                                              500)):
-            done += 1
-            loci, batch = msgpack.loads(batch, raw=False)
-            if loci and set(loci).issubset(tot_loci):
-                raise ValueError("Duplicated loci! {}".format(loci))
+    for index in sorted(mapper["results"]):
+        loci, batch = manage_index((index, new_common[index]), mapper["results"], source=source)
+        done += 1
+        if loci and set(loci).issubset(tot_loci):
+            raise ValueError("Duplicated loci! {}".format(loci))
 
-            tot_loci.update(set(loci))
-            for minibatch in batch:
-                if minibatch[0] is not None:
-                    locus_lines, locus_metrics_rows, locus_scores_rows = minibatch[0]
-                    if locus_lines:
-                        assert len(locus_metrics_rows) > 0
-                        print(locus_lines, file=locus_out)
-                    for row in locus_metrics_rows:
-                        print(*[row[key] for key in locus_metrics.fieldnames],
-                              sep="\t", file=locus_metrics.handle)
-                    for row in locus_scores_rows:
-                        print(*[row[key] for key in locus_scores.fieldnames],
-                              sep="\t", file=locus_scores.handle)
+        tot_loci.update(set(loci))
+        for minibatch in batch:
+            if minibatch[0] is not None:
+                locus_lines, locus_metrics_rows, locus_scores_rows = minibatch[0]
+                if locus_lines:
+                    assert len(locus_metrics_rows) > 0
+                    print(locus_lines, file=locus_out)
+                for row in locus_metrics_rows:
+                    print(*[row[key] for key in locus_metrics.fieldnames],
+                          sep="\t", file=locus_metrics.handle)
+                for row in locus_scores_rows:
+                    print(*[row[key] for key in locus_scores.fieldnames],
+                          sep="\t", file=locus_scores.handle)
 
-                if print_subloci and minibatch[1]:
-                    sub_lines, sub_metrics_rows, sub_scores_rows = minibatch[1]
-                    if sub_lines != '':
-                            print(sub_lines, file=sub_out)
+            if print_subloci and minibatch[1]:
+                sub_lines, sub_metrics_rows, sub_scores_rows = minibatch[1]
+                if sub_lines != '':
+                        print(sub_lines, file=sub_out)
 
-                    for row in sub_metrics_rows:
-                        try:
-                            print(*[row[key] for key in sub_metrics.fieldnames],
-                                  sep="\t", file=sub_metrics.handle)
-                        except KeyError:
-                            raise KeyError("\n".join([str((key, str(row.get(key, "MISSING"))))
-                                                      for key in sub_metrics.fieldnames]))
-                    for row in sub_scores_rows:
-                        print(*[row[key] for key in sub_scores.fieldnames],
-                                  sep="\t", file=sub_scores.handle)
-                if print_monoloci and minibatch[2]:
-                    print(minibatch[2])
-                    mono_lines, mono_metrics_rows, mono_scores_rows = minibatch[2]
-                    if mono_lines != '':
-                        print(mono_lines, file=mono_out)
-                    for row in mono_metrics_rows:
-                        print(*[row[key] for key in mono_metrics.fieldnames],
-                              sep="\t", file=mono_metrics.handle)
-                    for row in mono_scores_rows:
-                        print(*[row[key] for key in mono_scores.fieldnames],
-                              sep="\t", file=mono_scores.handle)
+                for row in sub_metrics_rows:
+                    try:
+                        print(*[row[key] for key in sub_metrics.fieldnames],
+                              sep="\t", file=sub_metrics.handle)
+                    except KeyError:
+                        raise KeyError("\n".join([str((key, str(row.get(key, "MISSING"))))
+                                                  for key in sub_metrics.fieldnames]))
+                for row in sub_scores_rows:
+                    print(*[row[key] for key in sub_scores.fieldnames],
+                              sep="\t", file=sub_scores.handle)
+            if print_monoloci and minibatch[2]:
+                mono_lines, mono_metrics_rows, mono_scores_rows = minibatch[2]
+                if mono_lines != '':
+                    print(mono_lines, file=mono_out)
+                for row in mono_metrics_rows:
+                    print(*[row[key] for key in mono_metrics.fieldnames],
+                          sep="\t", file=mono_metrics.handle)
+                for row in mono_scores_rows:
+                    print(*[row[key] for key in mono_scores.fieldnames],
+                          sep="\t", file=mono_scores.handle)
 
-    if done != max_counter:
+    if done != total:
         raise KeyError("Something has been lost")
 
     return
@@ -376,7 +343,7 @@ class LociProcesser(Process):
         self._tempdir = tempdir
         self.locus_queue = locus_queue
         self.regressor = None
-        self.dump_db, self.dump_conn, self.dump_cursor = self._create_temporary_store(self._tempdir, self.identifier)
+        # self.dump_db, self.dump_conn, self.dump_cursor = self._create_temporary_store(self._tempdir, self.identifier)
 
         if self.json_conf["pick"]["scoring_file"].endswith((".pickle", ".model")):
             with open(self.json_conf["pick"]["scoring_file"], "rb") as forest:
@@ -409,27 +376,27 @@ class LociProcesser(Process):
     def identifier(self):
         return self.__identifier
 
-    @staticmethod
-    def _create_temporary_store(tempdirectory, identifier):
-
-        db = os.path.join(tempdirectory, "output-{}.db".format(identifier))
-        conn = sqlite3.connect(db, isolation_level=None,
-                               check_same_thread=False)
-        cursor = conn.cursor()
-
-        cursor.execute(
-            "CREATE TABLE IF NOT EXISTS loci (counter INTEGER UNIQUE PRIMARY KEY, chrom CHR, genes INT, json BLOB)")
-        cursor.execute("CREATE INDEX IF NOT EXISTS loci_idx ON loci(counter)")
-
-        cursor.execute(
-            "CREATE TABLE IF NOT EXISTS subloci (counter INTEGER UNIQUE PRIMARY KEY, chrom CHR, json BLOB)")
-        cursor.execute("CREATE INDEX IF NOT EXISTS subloci_idx ON subloci(counter)")
-
-        cursor.execute(
-            "CREATE TABLE IF NOT EXISTS monoloci (counter INTEGER UNIQUE PRIMARY KEY, chrom CHR, json BLOB)")
-        cursor.execute("CREATE INDEX IF NOT EXISTS monoloci_idx ON monoloci(counter)")
-
-        return db, conn, cursor
+    # @staticmethod
+    # def _create_temporary_store(tempdirectory, identifier):
+    #
+    #     db = os.path.join(tempdirectory, "output-{}.db".format(identifier))
+    #     conn = sqlite3.connect(db, isolation_level=None,
+    #                            check_same_thread=False)
+    #     cursor = conn.cursor()
+    #
+    #     cursor.execute(
+    #         "CREATE TABLE IF NOT EXISTS loci (counter INTEGER UNIQUE PRIMARY KEY, chrom CHR, genes INT, json BLOB)")
+    #     cursor.execute("CREATE INDEX IF NOT EXISTS loci_idx ON loci(counter)")
+    #
+    #     cursor.execute(
+    #         "CREATE TABLE IF NOT EXISTS subloci (counter INTEGER UNIQUE PRIMARY KEY, chrom CHR, json BLOB)")
+    #     cursor.execute("CREATE INDEX IF NOT EXISTS subloci_idx ON subloci(counter)")
+    #
+    #     cursor.execute(
+    #         "CREATE TABLE IF NOT EXISTS monoloci (counter INTEGER UNIQUE PRIMARY KEY, chrom CHR, json BLOB)")
+    #     cursor.execute("CREATE INDEX IF NOT EXISTS monoloci_idx ON monoloci(counter)")
+    #
+    #     return db, conn, cursor
 
     def __getstate__(self):
 
@@ -475,7 +442,7 @@ class LociProcesser(Process):
                                                json_conf=self.json_conf,
                                                engine=self.engine,
                                                logging_queue=self.logging_queue)
-        self.dump_db, self.dump_conn, self.dump_cursor = self._create_temporary_store(self._tempdir, self.identifier)
+        # self.dump_db, self.dump_conn, self.dump_cursor = self._create_temporary_store(self._tempdir, self.identifier)
         self.handler = logging_handlers.QueueHandler(self.logging_queue)
         self.logger.addHandler(self.handler)
 
@@ -489,38 +456,46 @@ class LociProcesser(Process):
         self.logger.debug("Starting to parse data for {0}".format(self.name))
         # Read-only connection
 
-        conn = sqlite3.connect("file:{}?mode=ro".format(os.path.join(self._tempdir, "temp_store.db")),
-                               uri=True,  # Necessary to use the Read-only mode from file string
-                               isolation_level="DEFERRED",
-                               timeout=60,
-                               check_same_thread=False  # Necessary for SQLite3 to function in multiprocessing
-                               )
-        cursor = conn.cursor()
+        # conn = sqlite3.connect("file:{}?mode=ro".format(os.path.join(self._tempdir, "temp_store.db")),
+        #                        uri=True,  # Necessary to use the Read-only mode from file string
+        #                        isolation_level="DEFERRED",
+        #                        timeout=60,
+        #                        check_same_thread=False  # Necessary for SQLite3 to function in multiprocessing
+        #                        )
+        # cursor = conn.cursor()
 
         print_cds = (not self.json_conf["pick"]["run_options"]["exclude_cds"])
         print_monoloci = (self.json_conf["pick"]["files"]["monoloci_out"] != "")
         print_subloci = (self.json_conf["pick"]["files"]["subloci_out"] != "")
 
         while True:
-            counter = self.locus_queue.get()[0]
+            vals = self.locus_queue.get()
+            try:
+                counter, transcripts = vals
+            except ValueError:
+                raise ValueError(vals)
+
             if counter == "EXIT":
                 self.logger.debug("EXIT received for %s", self.name)
                 self.locus_queue.task_done()
-                self.locus_queue.put((counter, ))
+                self.locus_queue.put((counter, None))
                 break
             else:
-                try:
-                    transcripts = cursor.execute(
-                        "SELECT json FROM transcripts WHERE counter=?", (str(counter),)).fetchone()
-                except sqlite3.ProgrammingError as exc:
-                    self.logger.exception(sqlite3.ProgrammingError((exc, counter, str(counter), (str(counter),))))
-                    # self.__close_handles()
-                    break
-                    
-                if transcripts is None:
-                    raise KeyError("Nothing found in the database for %s", counter)
+                # try:
+                #     transcripts = cursor.execute(
+                #         "SELECT json FROM transcripts WHERE counter=?", (str(counter),)).fetchone()
+                # except sqlite3.ProgrammingError as exc:
+                #     self.logger.exception(sqlite3.ProgrammingError((exc, counter, str(counter), (str(counter),))))
+                #     # self.__close_handles()
+                #     break
+                #
+                # if transcripts is None:
+                #     raise KeyError("Nothing found in the database for %s", counter)
 
-                transcripts = msgpack.loads(transcripts[0], raw=False)
+                try:
+                    transcripts = msgpack.loads(transcripts, raw=False)
+                except TypeError as err:
+                    raise TypeError("{}, {}".format(err, transcripts))
                 if len(transcripts) == 0:
                     stranded_loci = []
                     self.logger.warning("No transcript found for index %d", counter)
@@ -566,13 +541,16 @@ class LociProcesser(Process):
                         slocus.regressor = self.regressor
                     stranded_loci = self.analyse_locus(slocus, counter)
 
-                serialise_locus(stranded_loci, self.dump_conn, counter,
+                serialise_locus(stranded_loci,
+                                self.status_queue,
+                                # self.dump_conn,
+                                counter,
                                 print_cds=print_cds,
                                 print_monosubloci=print_monoloci,
                                 print_subloci=print_subloci)
                 if len(stranded_loci) == 0:
                     self.logger.warning("No loci left for index %d", counter)
-                self.status_queue.put(counter)
+                # self.status_queue.put(counter)
                 self.locus_queue.task_done()
 
         return

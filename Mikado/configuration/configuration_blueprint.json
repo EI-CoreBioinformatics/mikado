@@ -383,6 +383,10 @@
             },
             "keep_retained_introns": {
               "type": "boolean",
+              "default": true
+            },
+            "keep_cds_disrupted_by_ri": {
+              "type": "boolean",
               "default": false
             },
             "max_isoforms": {
@@ -620,9 +624,7 @@
             "Generic run options.",
             "- shm: boolean flag. If set and the DB is sqlite, it will be copied onto the /dev/shm faux partition",
             "- exclude_cds: boolean flag. If set, the CDS information will not be printed in Mikado output. Default: false",
-            "- single_thread: boolean flag. If set, multithreading will be disabled - useful for profiling and debugging.",
-            "- consider_truncated_for_retained: boolean. Normally, Mikado considers only exons which span a whole intron",
-            "as possible retained intron events. If this flag is set to true, also terminal exons will be considered."
+            "- single_thread: boolean flag. If set, multithreading will be disabled - useful for profiling and debugging."
           ],
           "SimpleComment": [
             "Generic run options.",
@@ -651,10 +653,6 @@
               "maxItems": 2,
               "minItems": 2,
               "default": [60, 900]
-            },
-            "consider_truncated_for_retained": {
-              "type": "boolean",
-              "default": true
             },
             "only_reference_update": {
               "type": "boolean",

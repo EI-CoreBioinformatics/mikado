@@ -613,8 +613,12 @@ def _fix_stop_codon(transcript):
     and therefore has, incorrectly, the stop codon outside the CDS."""
 
     if transcript.strand == "-":
-        transcript.combined_cds[0] = (transcript.stop_codon.pop(-1)[0],
+        # We need to check whether the stop codon is actually in the same exon.
+        if transcript.stop_codon[-1][1] == transcript.combined_cds[0][0] - 1:
+            phase = transcript.phases.pop(transcript.combined_cds[0], None)
+            transcript.combined_cds[0] = (transcript.stop_codon.pop(-1)[0],
                                       transcript.combined_cds[0][1])
+            transcript.phases[transcript.combined_cds[0]] = phase
         transcript.combined_cds = [tuple(_) for _ in transcript.stop_codon] + transcript.combined_cds
         for pos, utr in enumerate(transcript.combined_utr):
             if utr[0] > transcript.combined_cds[-1][1]:
@@ -630,8 +634,12 @@ def _fix_stop_codon(transcript):
                 else:
                     transcript.combined_utr[pos] = (utr[0], max(utr[0], transcript.combined_cds[0][0] - 1))
     else:
-        transcript.combined_cds[-1] = (transcript.combined_cds[-1][0],
-                                       transcript.stop_codon.pop(0)[1])
+        # Expand the last CDS
+        if transcript.stop_codon[0][0] == transcript.combined_cds[-1][1] + 1:
+            phase = transcript.phases.pop(transcript.combined_cds[-1], None)
+            transcript.combined_cds[-1] = (transcript.combined_cds[-1][0],
+                                           transcript.stop_codon.pop(0)[1])
+            transcript.phases[transcript.combined_cds[-1]] = phase
         transcript.combined_cds.extend([tuple(_) for _ in transcript.stop_codon])
         for pos, utr in enumerate(transcript.combined_utr):
             if utr[1] < transcript.combined_cds[0][0]:

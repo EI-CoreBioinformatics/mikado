@@ -9,7 +9,7 @@ import abc
 import copy
 from sys import intern
 import functools
-import fastnumbers
+from fastnumbers import fast_float, fast_int
 import re
 
 
@@ -28,9 +28,9 @@ def _attribute_definition(val):
             value = False
         return value
 
-    fast_number = functools.partial(fastnumbers.fast_float,
-                                    key=last)
-    val = fastnumbers.fast_int(val, key=fast_number)
+    fast_number = functools.partial(fast_float,
+                                    on_fail=last)
+    val = fast_int(val, on_fail=fast_number)
     return val
 
 
@@ -89,7 +89,7 @@ class GFAnnotation(metaclass=abc.ABCMeta):
             return
 
         self.chrom, self.source = self._fields[0:2]
-        self.start, self.end = tuple(fastnumbers.fast_int(i) for i in self._fields[3:5])
+        self.start, self.end = tuple(int(i) for i in self._fields[3:5])
 
         self.score = self._fields[5]
         self.strand = self._fields[6]
@@ -292,7 +292,7 @@ class GFAnnotation(metaclass=abc.ABCMeta):
         if score == ".":
             score = None
         elif score is not None:
-            score = fastnumbers.fast_float(args[0])
+            score = fast_float(args[0])
         if score is not None and not isinstance(score, float):
             raise TypeError(score)
         self.__score = score
@@ -323,7 +323,7 @@ class GFAnnotation(metaclass=abc.ABCMeta):
             self.__phase = None
         else:
             try:
-                phase = fastnumbers.fast_int(value)
+                phase = fast_int(value)
             except (TypeError, ValueError):
                 raise ValueError("Invalid phase: {0} (type: {1})".format(value, type(value)))
             if phase in (-1, 0, 1, 2):

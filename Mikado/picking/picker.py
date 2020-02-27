@@ -44,8 +44,8 @@ import pyfaidx
 import numpy
 import sqlite3
 import msgpack
-import fastnumbers
-from scipy import percentile
+from fastnumbers import fast_int
+from numpy import percentile
 logging.captureWarnings(True)
 warnings.simplefilter("always")
 try:
@@ -129,8 +129,8 @@ class Picker:
             if self.json_conf["threads"] > 1:
                 self.main_logger.warning("Reset number of threads to 1 as requested")
                 self.procs = 1
-        elif self.json_conf["threads"] == 1:
-            self.json_conf["pick"]["run_options"]["single_thread"] = True
+        # elif self.json_conf["threads"] == 1:
+        #     self.json_conf["pick"]["run_options"]["single_thread"] = True
 
         if self.locus_out is None:
             raise InvalidJson(
@@ -603,7 +603,7 @@ Please update your configuration files in the future.""".format(
         """
 
         # self.result_dict[counter] = [_]
-        self.printer_queue.put_nowait(("EXIT", ))
+        self.printer_queue.put_nowait(("EXIT", None))
         # self.printer_queue.put(("EXIT", counter + 1))
         current = "\t".join([str(x) for x in row])
         previous = "\t".join([str(x) for x in [current_transcript.chrom,
@@ -673,8 +673,8 @@ Please update your configuration files in the future.""".format(
             raise AssertionError(chroms)
 
         transcripts = msgpack.dumps([_ for _ in transcripts.values()])
-        cursor.execute("INSERT INTO transcripts VALUES (?, ?)", (counter, transcripts))
-        max_submit = 1000
+        # cursor.execute("INSERT INTO transcripts VALUES (?, ?)", (counter, transcripts))
+        # max_submit = 1000
         chrom = chroms.pop()
         if "done" not in mapper:
             mapper["done"] = set()
@@ -689,11 +689,12 @@ Please update your configuration files in the future.""".format(
         mapper[chrom]["submit"].add(counter)
         mapper["submit"].add(counter)
         mapper[counter] = chrom
+        locus_queue.put((counter, transcripts))
 
-        if submit_remaining is True or (counter >= max_submit and counter % max_submit == 0):
-            conn.commit()
-            base = floor((counter - 1) / max_submit) * max_submit + 1
-            [locus_queue.put((num,)) for num in range(base, counter + 1)]
+        # if submit_remaining is True or (counter >= max_submit and counter % max_submit == 0):
+        #     # conn.commit()
+        #     base = floor((counter - 1) / max_submit) * max_submit + 1
+        #     [locus_queue.put((num,)) for num in range(base, counter + 1)]
         return mapper
 
     @staticmethod
@@ -765,10 +766,16 @@ Please update your configuration files in the future.""".format(
                            range(10, 101, 10))
         curr_perc = 0
         total = len(mapper["submit"])
+        mapper["results"] = dict()
 
         while mapper["done"] != mapper["submit"]:
-            counter = status_queue.get()
+            counter, chrom, num_genes, loci, subloci, monoloci = status_queue.get()
             mapper["done"].add(counter)
+            if counter in mapper["results"]:
+                self.logger.fatal("%d double index found!", counter)
+                raise KeyError
+
+            mapper["results"][counter] = (chrom, num_genes, loci, subloci, monoloci)
             if len(mapper["done"]) > percs[curr_perc]:
                 curr_perc += 1
                 while len(mapper["done"]) > percs[curr_perc]:
@@ -786,11 +793,11 @@ Please update your configuration files in the future.""".format(
         self.logger.info("Joined children processes; starting to merge partial files")
 
         # Merge loci
-        merge_loci(self.procs,
+        merge_loci(mapper,
                    handles,
+                   total,
                    logger=self.logger,
-                   source=self.json_conf["pick"]["output_format"]["source"],
-                   tempdir=tempdir)
+                   source=self.json_conf["pick"]["output_format"]["source"])
 
         self.logger.info("Finished merging partial files")
         try:
@@ -869,7 +876,7 @@ Please update your configuration files in the future.""".format(
         if tid is None:
             raise InvalidJson("Corrupt input GTF file, offending line:\n{}".format(line))
         tid = tid.groups()[0]
-        phase = fastnumbers.fast_int(fields[8], default=None)
+        phase = fast_int(fields[7], default=None)
         return line, chrom, fields[2], start, end, phase, tid, is_transcript
 
     def __parse_multithreaded(self, locus_queue, conn, cursor):
@@ -969,7 +976,7 @@ Please update your configuration files in the future.""".format(
 
         conn.commit()
 
-        locus_queue.put(("EXIT", ))
+        locus_queue.put(("EXIT", None))
 
         return mapper
 
@@ -1043,7 +1050,7 @@ Please update your configuration files in the future.""".format(
                     else:
                         current_transcript = Transcript(row, intron_range=intron_range, logger=logger)
                         skip_transcript = False
-                    if current_transcript is None or row.chrom != current_transcript.chrom:
+                    if skip_transcript is False and (current_transcript is None or row.chrom != current_transcript.chrom):
                         if current_transcript is not None:
                             self.logger.info("Finished chromosome %s",
                                              current_transcript.chrom)

@@ -716,7 +716,6 @@ This section deals with other parameters necessary for the run, such as the numb
 
 Parameters:
 
-* *consider_truncated_for_retained*: normally, Mikado considers as retained introns only events in which a partially coding exon on the 3' side becomes non-coding in the middle of a CDS intron of another transcript in the locus. If this option is set to *true*, Mikado will consider as retained intron events also cases when the transcript has its CDS just end within a CDS intron of another model. Useful eg. when dealing with CDS models.
 * *exclude_cds*: whether to remove CDS/UTR information from the Mikado output. Default: *false*.
 * *intron_range*: tuple that indicates the range of lengths in which most introns should fall. Transcripts with introns either shorter or longer than this interval will be potentially penalised, depending on the scoring scheme. For the paper, this parameter was set to a tuple of integers in which *98%* of the introns of the reference annotation were falling (ie cutting out the 1st and 99th percentiles).
 * *preload*: boolean. In certain cases, ie when the database is quite small, it might make sense to preload it in memory rather than relying on SQL queries. Set to *false* by default.
@@ -748,12 +747,8 @@ Parameters:
         #    using SQLite databases.
         #  - single_thread: boolean flag. If set, multithreading will be disabled - useful
         #  for profiling and debugging.
-        #  - consider_truncated_for_retained: boolean. Normally, Mikado considers only
-        #  exons which span a whole intron as possible retained intron events. If this
-        #  flag is set to true, also terminal exons will be considered.
         #  - remove_overlapping_fragments: DEPRECATED, see clustering.
         #  - purge: DEPRECATED, see clustering.
-        consider_truncated_for_retained: false
         exclude_cds: false
         intron_range:
         - 60

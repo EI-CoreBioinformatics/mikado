@@ -8,6 +8,7 @@ but at the same time more pythonic.
 
 import numpy
 import os
+from fastnumbers import fast_int, fast_float
 from Bio import Seq
 import Bio.SeqRecord
 from . import Parser
@@ -457,7 +458,7 @@ class BED12:
             if key.lower() in ("parent", "geneid"):
                 self.parent = val
             elif "phase" in key.lower():
-                self.phase = int(val)
+                self.phase = fast_int(val, raise_on_invalid=True)
                 self.coding = True
             elif key.lower() == "coding":
                 self.coding = self.__valid_coding.get(val, False)
@@ -483,20 +484,20 @@ class BED12:
 
         # Reduce memory usage
         intern(self.chrom)
-        self.start = int(self.start) + 1
-        self.end = int(self.end)
-        self.score = float(self.score)
-        self.thick_start = int(self.thick_start) + 1
-        self.thick_end = int(self.thick_end)
-        self.block_count = int(self.block_count)
+        self.start = fast_int(self.start, raise_on_invalid=True) + 1
+        self.end = fast_int(self.end, raise_on_invalid=True)
+        self.score = fast_float(self.score, default=None)
+        self.thick_start = fast_int(self.thick_start, raise_on_invalid=True) + 1
+        self.thick_end = fast_int(self.thick_end, raise_on_invalid=True)
+        self.block_count = fast_int(self.block_count, raise_on_invalid=True)
         if isinstance(block_sizes, (str, bytes)):
-            self.block_sizes = [int(x) for x in block_sizes.split(",") if x]
+            self.block_sizes = [fast_int(x, raise_on_invalid=True) for x in block_sizes.split(",") if x]
         else:
-            self.block_sizes = [int(x) for x in block_sizes]
+            self.block_sizes = [fast_int(x, raise_on_invalid=True) for x in block_sizes]
         if isinstance(block_starts, (str, bytes)):
-            self.block_starts = [int(x) for x in block_starts.split(",") if x]
+            self.block_starts = [fast_int(x, raise_on_invalid=True) for x in block_starts.split(",") if x]
         else:
-            self.block_starts = [int(x) for x in block_starts]
+            self.block_starts = [fast_int(x, raise_on_invalid=True) for x in block_starts]
         self._parse_attributes(self.name)
         if len(self._fields) == 13:
             self._parse_attributes(self._fields[-1])

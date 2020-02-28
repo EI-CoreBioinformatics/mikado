@@ -9,6 +9,7 @@ Module to serialize GFF files.
 from . import Parser
 from .gfannotation import GFAnnotation
 from sys import intern
+from fastnumbers import fast_int
 import re
 
 

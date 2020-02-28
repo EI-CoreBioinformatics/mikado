@@ -552,7 +552,7 @@ class BED12:
 
         if transcriptomic is True and self.coding is True:
             if not (fasta_index is not None or sequence is not None):
-                print("No check on validity")
+                pass
 
         if transcriptomic is True and self.coding is True and (fasta_index is not None or sequence is not None):
             self.logger.debug("Starting to check the validity of %s", self.chrom)

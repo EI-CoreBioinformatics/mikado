@@ -970,7 +970,7 @@ class BED12:
                                                      self.thick_start < self.start,
                                                      self.end,
                                                      self.thick_end,
-                                                     self.thick_end > self.end
+                                                     self.thick_end > self.end)
                 return True
 
         if self.transcriptomic is True:

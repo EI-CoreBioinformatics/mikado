@@ -369,7 +369,7 @@ Please check your input files.")
     def __serialize_multiple_threads(self):
         """"""
 
-        send_queue = mp.SimpleQueue()
+        send_queue = mp.Queue(-1)
         return_queue = mp.SimpleQueue()
         self.logging_queue = mp.Queue(-1)
         self.logger_queue_handler = logging_handlers.QueueHandler(self.logging_queue)
@@ -401,11 +401,12 @@ Please check your input files.")
                     send_queue.put((num, line, None))                    
                 else:
                     _f = line.split("\t")
-                    if _f[0] not in fai.references:
+                    if _f[0] not in fai:
                         seq = None
                     else:                        
                         seq = zlib.compress(fai[line.split("\t")[0]].encode(), 1)
-                    send_queue.put((num, line, seq))
+                    send_queue.put_nowait((num, line, seq))
+
             send_queue.put("EXIT")
 
         line_parser = mp.Process(target=line_parser_func,

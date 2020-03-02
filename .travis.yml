@@ -30,7 +30,7 @@ script:
   - cd ..;
   - python -c "import Mikado; Mikado.test(label='fast')";
   # Check that the seed is set properly
-  - mikado pick --log $(pwd)/pick.20a.log --procs--procs 2 --seed 20 --fasta Mikado/tests/chr5.fas.gz  --json-conf Mikado/tests/check_seed.yaml -od 20a Mikado/tests/check_seed.gtf
+  - mikado pick --log $(pwd)/pick.20a.log --procs 2 --seed 20 --fasta Mikado/tests/chr5.fas.gz  --json-conf Mikado/tests/check_seed.yaml -od 20a Mikado/tests/check_seed.gtf
   - mikado pick --log $(pwd)/pick.20b.log --procs 2 --seed 20 --fasta Mikado/tests/chr5.fas.gz  --json-conf Mikado/tests/check_seed.yaml -od 20b Mikado/tests/check_seed.gtf  
   - mikado pick --log $(pwd)/pick.20c.log --procs 2 --seed 20 --fasta Mikado/tests/chr5.fas.gz  --json-conf Mikado/tests/check_seed.yaml -od 20c Mikado/tests/check_seed.gtf
   - mikado pick --log $(pwd)/pick.20d.log --procs 2 --seed 20 --fasta Mikado/tests/chr5.fas.gz  --json-conf Mikado/tests/check_seed.yaml -od 20d Mikado/tests/check_seed.gtf     

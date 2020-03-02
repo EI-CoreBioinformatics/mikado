@@ -302,7 +302,6 @@ class BED12:
         self.block_sizes = [0]
         self.block_starts = [0]
         self.block_count = 1
-        self.__invalid = None
         self.invalid_reason = None
         self.fasta_length = None
         self.__in_index = True
@@ -553,8 +552,6 @@ class BED12:
         :return:
         """
 
-        del self.invalid
-
         if transcriptomic is True:
             self.has_start_codon = False
             self.has_stop_codon = False
@@ -636,7 +633,6 @@ class BED12:
                         (self.thick_start - 1):
                         (self.thick_end if not self.phase else self.end + 1 - (3 - self.phase) % 3)])
 
-                del self.invalid
                 last_pos = -3 - ((len(orf_sequence)) % 3)
                 translated_seq = _translate_str(orf_sequence[:last_pos],
                                                 table=self.table,
@@ -957,13 +953,9 @@ class BED12:
         :rtype bool
         """
 
-        if self.__invalid is not None:
-            return self.__invalid
-
         if self._internal_stop_codons >= 1:
             self.invalid_reason = "{} internal stop codons found".format(self._internal_stop_codons)
-            self.__invalid = True
-            return self.__invalid
+            return True
 
         if self.fasta_length is None:
             self.fasta_length = len(self)
@@ -978,23 +970,20 @@ class BED12:
                                                      self.thick_start < self.start,
                                                      self.end,
                                                      self.thick_end,
-                                                     self.thick_end > self.end)
-                self.__invalid = True
-                return self.__invalid
+                                                     self.thick_end > self.end
+                return True
 
         if self.transcriptomic is True:
             if self.__in_index is False:
                 self.invalid_reason = "{} not found in the index!".format(self.chrom)
-                self.__invalid = True
-                return self.__invalid
+                return True
 
             if len(self) != self.fasta_length:
                 self.invalid_reason = "Fasta length != BED length: {0} vs. {1}".format(
                     self.fasta_length,
                     len(self)
                 )
-                self.__invalid = True
-                return self.__invalid
+                return True
 
             if self.__lenient is True:
                 pass
@@ -1005,23 +994,16 @@ class BED12:
                             self.cds_len - self.phase,
                             (self.cds_len - self.phase) % 3,
                             self.thick_start, self.thick_end, self.phase)
-                        self.__invalid = True
                         return True
                     elif self.strand == "-" and self.thick_start != self.start:
                         self.invalid_reason = "Invalid CDS length: {0} % 3 = {1} ({2}-{3}, {4})".format(
                             self.cds_len - self.phase,
                             (self.cds_len - self.phase) % 3,
                             self.thick_start, self.thick_end, self.phase)
-                        self.__invalid = True
-                        return self.__invalid
+                        return True
 
         self.invalid_reason = ''
-        self.__invalid = False
-        return self.__invalid
-
-    @invalid.deleter
-    def invalid(self):
-        self.__invalid = None
+        return False
 
     @property
     def transcriptomic(self):

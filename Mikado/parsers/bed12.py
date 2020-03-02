@@ -31,6 +31,7 @@ import logging.handlers as logging_handlers
 from ..utilities.log_utils import create_null_logger
 import pyfaidx
 import zlib
+import numpy as np
 
 
 backup_valid_letters = set(_ambiguous_dna_letters.upper() + _ambiguous_rna_letters.upper())
@@ -38,8 +39,8 @@ standard = CodonTable.ambiguous_dna_by_id[1]
 standard.start_codons = ["ATG"]
 
 
-@functools.lru_cache(typed=True, maxsize=None)
-def get_tables(table, to_stop=False):
+@functools.lru_cache(typed=True, maxsize=2**10)
+def get_tables(table, to_stop=False, gap=None):
     forward_table = table.forward_table.forward_table.copy()
     stop_codons = set(table.stop_codons)
     dual_coding = [c for c in stop_codons if c in forward_table]
@@ -59,13 +60,18 @@ def get_tables(table, to_stop=False):
 
     for stop in stop_codons:
         forward_table[stop] = "*"
+    if gap is not None:
+        forward_table[gap * 3] = "*"
+
     if table.nucleotide_alphabet.letters is not None:
         valid_letters = set(table.nucleotide_alphabet.letters.upper())
     else:
         # Assume the worst case, ambiguous DNA or RNA:
         valid_letters = backup_valid_letters
 
-    return forward_table, valid_letters
+    getter = np.vectorize(forward_table.get)
+
+    return forward_table, getter, valid_letters
 
 
 def _translate_str(sequence, table, stop_symbol="*", to_stop=False, cds=False, pos_stop="X", gap=None):
@@ -138,36 +144,36 @@ def _translate_str(sequence, table, stop_symbol="*", to_stop=False, cds=False, p
         raise TypeError("Gap character should be a single character "
                         "string.")
 
-    forward_table, valid_letters = get_tables(table, to_stop=to_stop)
+    forward_table, getter, valid_letters = get_tables(table, to_stop=to_stop, gap=gap)
 
-    amino_acids = []
     sequence = sequence.upper()
-    for start in range(0, len(sequence) - len(sequence) % 3, 3):
-        codon = sequence[start:start + 3]
-        try:
-            residue = forward_table[codon]
-        except KeyError:
-            assert pos_stop is not None
-            if gap is not None and codon == gap * 3:
-                residue = pos_stop
-            elif valid_letters.issuperset(set(codon)):
-                residue = pos_stop
-            else:
-                raise CodonTable.TranslationError("Codon '{0}' is invalid".format(codon))
-        amino_acids.append(residue)
+    if not valid_letters.issuperset(set(sequence)):
+        raise CodonTable.TranslationError("Invalid letters in the sequence: {}".format(
+            set.difference(set(*sequence), valid_letters)
+        ))
 
-    found_stops = amino_acids.count(stop_symbol)
+    amino_acids = getter(np.array(
+        [sequence[start:start + 3] for start in range(0, len(sequence) - len(sequence) % 3, 3)]))
 
     if cds and amino_acids[0] != "M":
         raise CodonTable.TranslationError(
             "First codon '{0}' is not a start codon".format(sequence[:3]))
 
+    nones = np.where(amino_acids == None)[0]
+
+    if nones.shape[0] > 0:
+        assert pos_stop is not None
+        amino_acids[nones] = pos_stop
+
+    _stop_locations = np.where(amino_acids == stop_symbol)[0]
+    found_stops = _stop_locations.shape[0]
+
     if cds and found_stops > 1:
         raise CodonTable.TranslationError("Extra in frame stop codon found.")
-    elif cds and found_stops and amino_acids.index(stop_symbol) < len(amino_acids) - 1:
+    elif cds and found_stops and _stop_locations[0] < len(amino_acids) - 1:
         raise CodonTable.TranslationError("Extra in frame stop codon found.")
     if to_stop and found_stops > 0:
-        amino_acids = amino_acids[:amino_acids.index(stop_symbol)]
+        amino_acids = amino_acids[:_stop_locations[0]]
 
     return "".join(amino_acids)
 
@@ -296,6 +302,7 @@ class BED12:
         self.block_sizes = [0]
         self.block_starts = [0]
         self.block_count = 1
+        self.__invalid = None
         self.invalid_reason = None
         self.fasta_length = None
         self.__in_index = True
@@ -546,13 +553,16 @@ class BED12:
         :return:
         """
 
+        del self.invalid
+
         if transcriptomic is True:
             self.has_start_codon = False
             self.has_stop_codon = False
 
         if transcriptomic is True and self.coding is True:
             if not (fasta_index is not None or sequence is not None):
-                print("No check on validity")
+                self.logger.debug("No check on the validity of %s", self.chrom)
+                return
 
         if transcriptomic is True and self.coding is True and (fasta_index is not None or sequence is not None):
             self.logger.debug("Starting to check the validity of %s", self.chrom)
@@ -568,10 +578,6 @@ class BED12:
                     self.logger.warning("%s not found in the index. Aborting the check, we will trust the ORF as-is.")
                     self.__in_index = False
                     return
-                if isinstance(fasta_index, pyfaidx.Fasta):
-                    print("I have used pyfaidx")
-                else:
-                    print("I have used pysam")
                 self.fasta_length = len(fasta_index[self.id])
                 sequence = fasta_index[self.id]
                 if hasattr(sequence, "seq"):
@@ -619,7 +625,6 @@ class BED12:
                               self.chrom, self.has_start_codon, self.has_stop_codon, not self.invalid)
 
             # Get only a proper multiple of three
-
             if self.__lenient is False:
                 if self.strand != "-":
                     orf_sequence = sequence[
@@ -630,36 +635,26 @@ class BED12:
                         sequence[
                         (self.thick_start - 1):
                         (self.thick_end if not self.phase else self.end + 1 - (3 - self.phase) % 3)])
-                    self.logger.debug("ORF seq between %s and %s (phase %s)",
-                                      self.thick_start - 1,
-                                      self.thick_end if not self.phase else self.end + 1 - (3 - self.phase) % 3,
-                                      self.phase)
 
+                del self.invalid
                 last_pos = -3 - ((len(orf_sequence)) % 3)
                 translated_seq = _translate_str(orf_sequence[:last_pos],
                                                 table=self.table,
                                                 gap='N')
 
                 self._internal_stop_codons = str(translated_seq).count("*")
-            self.logger.debug(
-                "%s with start codon (%s) and stop codon (%s). Thick start/end, phase: %s, %s, %s. Valid: %s (%s)\n\
-%s",
-                self.chrom, self.has_start_codon, self.has_stop_codon,
-                self.thick_start, self.thick_end, self.phase, not self.invalid,
-                self.invalid_reason,
-            translated_seq)
             if self.invalid is True:
                 return
 
     def _adjust_start(self, sequence, orf_sequence):
 
-        self.logger.debug("Checking %s", self.chrom)
+        # self.logger.debug("Checking %s", self.chrom)
         assert len(orf_sequence) == (self.thick_end - self.thick_start + 1 - self.phase), (
                 len(orf_sequence), (self.thick_end - self.thick_start + 1 - self.phase)
         )
         # Let's check UPstream first.
         # This means that we DO NOT have a starting Met and yet we are starting far upstream.
-        self.logger.debug("Starting to adjust the start of %s", self.chrom)
+        # self.logger.debug("Starting to adjust the start of %s", self.chrom)
         if self.strand == "+" and self.thick_start > 3:
             for pos in range(self.thick_start, 3, -3):
                 self.thick_start -= 3
@@ -687,8 +682,8 @@ class BED12:
                 codon = Seq.reverse_complement(sequence[pos - 3:pos])
                 is_start, is_stop = ((codon in self.table.start_codons),
                                      (codon in self.table.stop_codons))
-                self.logger.debug("Checking pos %s (%s) for %s, start: %s; stop: %s",
-                                  pos, codon, self.chrom, is_start, is_stop)
+                # self.logger.debug("Checking pos %s (%s) for %s, start: %s; stop: %s",
+                #                   pos, codon, self.chrom, is_start, is_stop)
                 if is_start:
                     # We have found a valid methionine.
                     self.logger.debug("Found correct start codon for %s while expanding, stopping here.",
@@ -707,7 +702,7 @@ class BED12:
 
         if self.has_start_codon is False:
             # The validity will be automatically checked
-            self.logger.debug("Making adjustments in %s for missing start codon", self.chrom)
+            # self.logger.debug("Making adjustments in %s for missing start codon", self.chrom)
             if self.strand == "+":
                 if self.thick_start - self.start <= 2:
                     new_phase = max(self.thick_start - self.start, 0)
@@ -746,7 +741,7 @@ class BED12:
                              int(len(orf_sequence) * self.max_regression),
                              3):
                 codon = orf_sequence[pos:pos + 3]
-                self.logger.debug("Testing position %s-%s (%s)", pos, pos + 3, codon)
+                # self.logger.debug("Testing position %s-%s (%s)", pos, pos + 3, codon)
                 if codon in self.table.start_codons:
                     # Now we have to shift the start accordingly
                     self.has_start_codon = True
@@ -769,7 +764,7 @@ class BED12:
                              int(len(orf_sequence) * self.max_regression),
                              3):
                 codon = orf_sequence[pos:pos + 3]
-                self.logger.debug("Testing position %s-%s (%s)", pos, pos + 3, codon)
+                # self.logger.debug("Testing position %s-%s (%s)", pos, pos + 3, codon)
                 if codon in self.table.start_codons:
                     # Now we have to shift the start accordingly
                     self.has_start_codon = True
@@ -962,13 +957,16 @@ class BED12:
         :rtype bool
         """
 
+        if self.__invalid is not None:
+            return self.__invalid
+
         if self._internal_stop_codons >= 1:
             self.invalid_reason = "{} internal stop codons found".format(self._internal_stop_codons)
-            return True
+            self.__invalid = True
+            return self.__invalid
 
-        if self.transcriptomic is True and self.__in_index is False:
-            self.invalid_reason = "{} not found in the index!".format(self.chrom)
-            return True
+        if self.fasta_length is None:
+            self.fasta_length = len(self)
 
         if self.thick_start < self.start or self.thick_end > self.end:
             if self.thick_start == self.thick_end == self.block_sizes[0] == 0:
@@ -981,37 +979,49 @@ class BED12:
                                                      self.end,
                                                      self.thick_end,
                                                      self.thick_end > self.end)
-                return True
+                self.__invalid = True
+                return self.__invalid
 
-        if self.fasta_length is None:
-            self.fasta_length = len(self)
+        if self.transcriptomic is True:
+            if self.__in_index is False:
+                self.invalid_reason = "{} not found in the index!".format(self.chrom)
+                self.__invalid = True
+                return self.__invalid
 
-        if len(self) != self.fasta_length:
-            self.invalid_reason = "Fasta length != BED length: {0} vs. {1}".format(
-                self.fasta_length,
-                len(self)
-            )
-            return True
+            if len(self) != self.fasta_length:
+                self.invalid_reason = "Fasta length != BED length: {0} vs. {1}".format(
+                    self.fasta_length,
+                    len(self)
+                )
+                self.__invalid = True
+                return self.__invalid
 
-        if self.__lenient is True:
-            pass
-        elif self.transcriptomic is True:
-            if (self.cds_len - self.phase) % 3 != 0:
-                if self.strand == "+" and self.thick_end != self.end:
-                    self.invalid_reason = "Invalid CDS length: {0} % 3 = {1} ({2}-{3}, {4})".format(
-                        self.cds_len - self.phase,
-                        (self.cds_len - self.phase) % 3,
-                        self.thick_start, self.thick_end, self.phase)
-                    return True
-                elif self.strand == "-" and self.thick_start != self.start:
-                    self.invalid_reason = "Invalid CDS length: {0} % 3 = {1} ({2}-{3}, {4})".format(
-                        self.cds_len - self.phase,
-                        (self.cds_len - self.phase) % 3,
-                        self.thick_start, self.thick_end, self.phase)
-                    return True
+            if self.__lenient is True:
+                pass
+            else:
+                if (self.cds_len - self.phase) % 3 != 0:
+                    if self.strand == "+" and self.thick_end != self.end:
+                        self.invalid_reason = "Invalid CDS length: {0} % 3 = {1} ({2}-{3}, {4})".format(
+                            self.cds_len - self.phase,
+                            (self.cds_len - self.phase) % 3,
+                            self.thick_start, self.thick_end, self.phase)
+                        self.__invalid = True
+                        return True
+                    elif self.strand == "-" and self.thick_start != self.start:
+                        self.invalid_reason = "Invalid CDS length: {0} % 3 = {1} ({2}-{3}, {4})".format(
+                            self.cds_len - self.phase,
+                            (self.cds_len - self.phase) % 3,
+                            self.thick_start, self.thick_end, self.phase)
+                        self.__invalid = True
+                        return self.__invalid
 
         self.invalid_reason = ''
-        return False
+        self.__invalid = False
+        return self.__invalid
+
+    @invalid.deleter
+    def invalid(self):
+        self.__invalid = None
 
     @property
     def transcriptomic(self):

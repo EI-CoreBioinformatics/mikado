@@ -438,7 +438,7 @@ a valid start codon.""")
     blast = parser.add_argument_group()
     blast.add_argument("--max_target_seqs", type=int, default=None,
                        help="Maximum number of target sequences.")
-    blast.add_argument("--blast_targets", default=[], type=comma_split,
+    blast.add_argument("-bt", "--blast-targets", "--blast_targets", default=[], type=comma_split,
                        help="Target sequences")
     blast.add_argument("--xml", type=str, help="""XML file(s) to parse.
     They can be provided in three ways:

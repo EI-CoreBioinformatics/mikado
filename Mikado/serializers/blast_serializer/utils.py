@@ -4,13 +4,15 @@ Generic utilities used for BLAST serialising into a DB.
 
 from ...parsers.blast_utils import merge
 import numpy as np
-import functools
+
+valid_letters = 'ACDEFGHIKLMNPQRSTVWYBXZJUO'
+letters = np.array(list(valid_letters))
 
 
 __author__ = 'Luca Venturini'
 
-valid_matches = set([chr(x) for x in range(65, 91)] + [chr(x) for x in range(97, 123)] +
-                    ["|", "*"])
+# valid_matches = set([chr(x) for x in range(65, 91)] + [chr(x) for x in range(97, 123)] +
+#                     ["|", "*"])
 
 
 def prepare_hsp(hsp, counter, qmultiplier=1, tmultiplier=1):
@@ -25,8 +27,7 @@ def prepare_hsp(hsp, counter, qmultiplier=1, tmultiplier=1):
     - If the position is a gap *for both*, insert a \ (backslash)
 
     :param hsp: An HSP object from Bio.Blast.NCBIXML
-    # :type hsp: Bio.Blast.Record.HSP
-    :type hsp: Bio.Blast.Record.HSP
+    :type hsp: Bio.SearchIO.HSP
     :param counter: a digit that indicates the priority of the HSP in the hit
     :return: hsp_dict, identical_positions, positives
     :rtype: (dict, set, set)
@@ -38,78 +39,58 @@ def prepare_hsp(hsp, counter, qmultiplier=1, tmultiplier=1):
     hsp_dict["counter"] = counter + 1
     hsp_dict["query_hsp_start"] = hsp.query_start
     hsp_dict["query_hsp_end"] = hsp.query_end
-    hsp_dict["query_frame"] = hsp.frame[0]
-    hsp_dict["target_hsp_start"] = hsp.sbjct_start
-    hsp_dict["target_hsp_end"] = hsp.sbjct_end
-    hsp_dict["target_frame"] = hsp.frame[1]
-    hsp_dict["hsp_identity"] = hsp.identities / hsp.align_length * 100
-    hsp_dict["hsp_positives"] = hsp.positives / hsp.align_length * 100
+    hsp_dict["query_frame"] = hsp.query_frame
+    hsp_dict["target_hsp_start"] = hsp.hit_start
+    hsp_dict["target_hsp_end"] = hsp.hit_end
+    hsp_dict["target_frame"] = hsp.hit_frame
+    hsp_dict["hsp_identity"] = hsp.ident_num / hsp.aln_span * 100
+    hsp_dict["hsp_positives"] = hsp.pos_num / hsp.aln_span * 100
     hsp_dict["match"] = match
-    hsp_dict["hsp_length"] = hsp.align_length
-    hsp_dict["hsp_bits"] = hsp.score
-    hsp_dict["hsp_evalue"] = hsp.expect
+    hsp_dict["hsp_length"] = hsp.aln_span
+    hsp_dict["hsp_bits"] = hsp.bitscore
+    hsp_dict["hsp_evalue"] = hsp.evalue
     return hsp_dict, identical_positions, positives
+
+
+def _np_grouper(data):
+    return np.array(np.split(data, np.where(np.diff(data) != 1)[0] + 1))
 
 
 def _prepare_aln_strings(hsp, qmultiplier=1, tmultiplier=1):
 
     """This private method calculates the identical positions, the positives, and a re-factored match line
-    starting from the HSP."""
+    starting from the HSP.
+    :type hsp: Bio.SearchIO.HSP
+    """
 
-    # for query_aa, middle_aa, target_aa in zip(hsp.query, hsp.match, hsp.sbjct):
-    query_pos, target_pos = hsp.query_start - 1, hsp.sbjct_start - 1
+    lett_array = np.array([
+        list(str(hsp.query.seq)),
+        list(hsp.aln_annotation["similarity"]),
+        list(str(hsp.hit.seq))])
 
-    def categoriser(middle_aa, query_aa, target_aa, qmultiplier, tmultiplier):
-        qpos = 0
-        tpos = 0
-        identical = set()
-        positives = set()
-        matched = ""
-        if query_aa == target_aa == "-":
-            matched = "\\"
-        elif query_aa == "-":
-            tpos = tmultiplier
-            if target_aa == "*":
-                matched = "*"
-            else:
-                matched = "-"
-        elif target_aa == "-":
-            qpos = qmultiplier
-            if query_aa == "*":
-                matched = "*"
-            else:
-                matched = "_"
-        elif middle_aa == " ":
-            matched = " "
-            qpos = qmultiplier
-            tpos += tmultiplier
-        elif middle_aa == "+" or middle_aa in valid_matches:
-            if middle_aa != "+":
-                identical = set(range(query_pos, query_pos + qmultiplier))
-            positives = set(range(query_pos, query_pos + + qmultiplier))
-            qpos = qmultiplier
-            tpos += tmultiplier
-            matched = middle_aa
-        return qpos, tpos, matched, identical, positives
+    match = lett_array[1]
+    match[np.where(~((lett_array[1] == "+") | (np.isin(lett_array[1], letters))))] = " "
+    match[np.where(
+        (np.isin(lett_array[0], letters)) &
+        (np.isin(lett_array[2], letters)) &
+        (lett_array[0] != lett_array[2]) &
+        (lett_array[1] != "+"))] = "X"
+    match[np.where((lett_array[0] == "-") & (lett_array[2] == "*"))] = "*"
+    match[np.where((lett_array[0] == "-") & ~(lett_array[2] == "*"))] = "-"
+    match[np.where((lett_array[2] == "-") & (lett_array[0] == "*"))] = "*"
+    match[np.where((lett_array[2] == "-") & ~(lett_array[0] == "*"))] = "_"
 
-    partial_categorizer = functools.partial(categoriser,
-                                            qmultiplier=qmultiplier, tmultiplier=tmultiplier)
+    summer = np.array([[_] for _ in range(qmultiplier)])
+    v = np.array([[1]] * qmultiplier)
+    identical_positions = np.where(np.isin(match, valid_letters)) * v
+    identical_positions = set(np.array(
+        [identical_positions[_] * 3 + summer for _ in range(identical_positions.shape[0])]).flatten())
+    positives = np.where(~np.isin(match, np.array(["*", "-", "_", " "]))) * v
+    positives = set(np.array(
+        [positives[_] * 3 + summer for _ in range(positives.shape[0])]).flatten())
+    str_match = "".join(match)
 
-    results = [partial_categorizer(middle_aa, query_aa, target_aa) for
-               middle_aa, query_aa, target_aa in zip(hsp.match, hsp.query, hsp.sbjct)]
-
-    qposes, tposes, matches, identicals, posis = list(zip(*results))
-    query_pos += sum(qposes)
-    target_pos += sum(tposes)
-    match = "".join(matches)
-    identical_positions = set.union(*identicals)
-    positives = set.union(*posis)
-
-    assert query_pos <= hsp.query_end and target_pos <= hsp.sbjct_end, ((query_pos, hsp.query_end),
-                                                                        (target_pos, hsp.sbjct_end),
-                                                                        hsp.match, hsp.query, hsp.sbjct)
-
-    return match, identical_positions, positives
+    return str_match, identical_positions, positives
 
 
 def prepare_hit(hit, query_id, target_id, **kwargs):
@@ -118,7 +99,7 @@ def prepare_hit(hit, query_id, target_id, **kwargs):
     global_identity: the identity rate for the global hit *using the query perspective*
 
     :param hit: the hit to parse.
-    :type hit: Bio.Blast.Record.Alignment
+    :type hit: Bio.SearchIO.Hit
 
     :param query_id: the numeric ID of the query in the database. Necessary for serialisation.
     :type query_id: int
@@ -172,7 +153,7 @@ def prepare_hit(hit, query_id, target_id, **kwargs):
         hsp_dict_list.append(hsp_dict)
         q_intervals.append((hsp.query_start, hsp.query_end))
         # t_intervals.append((hsp.sbjct_start, hsp.sbjct_end))
-        t_intervals.append((hsp.sbjct_start, hsp.sbjct_end))
+        t_intervals.append((hsp.hit_start, hsp.hit_end))
 
     q_merged_intervals, q_aligned = merge(q_intervals)
     assert isinstance(q_aligned, np.int), (q_merged_intervals, q_aligned, type(q_aligned))
@@ -192,7 +173,7 @@ def prepare_hit(hit, query_id, target_id, **kwargs):
             len(positives), q_aligned))
 
     t_merged_intervals, t_aligned = merge(t_intervals)
-    hit_dict["target_aligned_length"] = min(t_aligned, hit.length)
+    hit_dict["target_aligned_length"] = min(t_aligned, hit.seq_len)
     hit_dict["target_start"] = t_merged_intervals[0][0]
     hit_dict["target_end"] = t_merged_intervals[-1][1]
     hit_dict["global_identity"] = len(identical_positions) * 100 / q_aligned

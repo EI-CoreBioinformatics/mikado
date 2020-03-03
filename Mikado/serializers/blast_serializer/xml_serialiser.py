@@ -85,9 +85,14 @@ def xml_pickler(json_conf, filename, default_header,
     try:
         with BlastOpener(filename) as opened:
             try:
+                qmult, tmult = None, None
                 for query_counter, record in enumerate(opened, start=1):
+                    if qmult is None:
+                        qmult, tmult = XmlSerializer._get_multipliers(record)
+
                     hits, hsps, cache = objectify_record(
-                        session, record, [], [], cache, max_target_seqs=max_target_seqs)
+                        session, record, [], [], cache, max_target_seqs=max_target_seqs,
+                        qmult=qmult, tmult=tmult)
 
                     try:
                         jhits = json.dumps(hits, number_mode=json.NM_NATIVE)
@@ -610,18 +615,18 @@ def _get_query_for_blast(session: sqlalchemy.orm.session.Session, record, cache)
     """ This private method formats the name of the query
     recovered from the BLAST hit. It will cause an exception if the target is not
     present in the dictionary.
-    :param record:
+    :param record: Bio.SearchIO.Record
     :return: current_query (ID in the database), name
     """
 
-    if record.query in cache:
-        return cache[record.query], record.query, cache
-    elif record.query.split()[0] in cache:
-        return cache[record.query.split()[0]], record.query.split()[0], cache
+    if record.id in cache:
+        return cache[record.id], record.id, cache
+    elif record.id.split()[0] in cache:
+        return cache[record.id.split()[0]], record.id.split()[0], cache
     else:
         got = session.query(Query).filter(sqlalchemy.or_(
-            Query.query_name == record.query,
-            Query.query_name == record.query.split()[0],
+            Query.query_name == record.id,
+            Query.query_name == record.id.split()[0],
         )).one()
         cache[got.query_name] = got.query_id
         return got.query_id, got.query_name, cache
@@ -634,28 +639,30 @@ def _get_target_for_blast(session, alignment, cache):
     The method returns the index of the current target and
     and an updated target dictionary.
     :param alignment: an alignment child of a BLAST record object
+    :type alignment: Bio.SearchIO.Hit
     :return: current_target (ID in the database), targets
     """
 
     if alignment.accession in cache:
         return cache[alignment.accession], cache
-    elif alignment.hit_id in cache:
-        return cache[alignment.hit_id], cache
+    elif alignment.id in cache:
+        return cache[alignment.id], cache
     else:
         got = session.query(Target).filter(sqlalchemy.or_(
             Target.target_name == alignment.accession,
-            Target.target_name == alignment.hit_id)).one()
+            Target.target_name == alignment.id)).one()
         cache[got.target_name] = got.target_id
         return got.target_id, cache
 
 
 def objectify_record(session, record, hits, hsps, cache,
-                     max_target_seqs=10000, logger=create_null_logger()):
+                     max_target_seqs=10000, logger=create_null_logger(),
+                     qmult=1, tmult=1):
     """
     Private method to serialise a single record into the DB.
 
     :param record: The BLAST record to load into the DB.
-    :type record: Bio.Blast.Record.Blast
+    :type record: Bio.SearchIO.QueryResult
     :param hits: Cache of hits to load into the DB.
     :type hits: list
 
@@ -666,7 +673,7 @@ def objectify_record(session, record, hits, hsps, cache,
     :rtype: (list, list, dict)
     """
 
-    if len(record.alignments) == 0:
+    if len(record.hits) == 0:
         return hits, hsps, cache
 
     current_query, name, cache["query"] = _get_query_for_blast(session, record, cache["query"])
@@ -675,18 +682,18 @@ def objectify_record(session, record, hits, hsps, cache,
     current_counter = 0
 
     # for ccc, alignment in enumerate(record.alignments):
-    for ccc, alignment in enumerate(record.alignments):
+    for ccc, alignment in enumerate(record.hits):
         if ccc + 1 > max_target_seqs:
             break
 
-        logger.debug("Started the hit %s vs. %s", name, record.alignments[ccc].hit_id)
+        logger.debug("Started the hit %s vs. %s", name, record.hits[ccc].id)
         current_target, cache["target"] = _get_target_for_blast(session, alignment, cache["target"])
 
         hit_dict_params = dict()
         (hit_dict_params["query_multiplier"],
-         hit_dict_params["target_multiplier"]) = XmlSerializer.get_multipliers(record)
-        hit_evalue = min(_.expect for _ in record.alignments[ccc].hsps)
-        hit_bs = max(_.score for _ in record.alignments[ccc].hsps)
+         hit_dict_params["target_multiplier"]) = (qmult, tmult)
+        hit_evalue = min(_.evalue for _ in record.hits[ccc].hsps)
+        hit_bs = max(_.bitscore for _ in record.hits[ccc].hsps)
         if current_evalue < hit_evalue:
             current_counter += 1
             current_evalue = hit_evalue
@@ -699,12 +706,12 @@ def objectify_record(session, record, hits, hsps, cache,
         try:
             hit, hit_hsps = prepare_hit(alignment, current_query,
                                         current_target,
-                                        query_length=record.query_length,
+                                        query_length=record.seq_len,
                                         **hit_dict_params)
         except InvalidHit as exc:
             logger.error(exc)
             continue
-        hit["query_aligned_length"] = min(record.query_length, hit["query_aligned_length"])
+        hit["query_aligned_length"] = min(record.seq_len, hit["query_aligned_length"])
 
 
         hits.append(hit)

@@ -88,8 +88,7 @@ def xml_pickler(json_conf, filename, default_header,
                 qmult, tmult = None, None
                 for query_counter, record in enumerate(opened, start=1):
                     if qmult is None:
-                        qmult, tmult = XmlSerializer._get_multipliers(record)
-
+                        qmult, tmult = XmlSerializer.get_multipliers(record)
                     hits, hsps, cache = objectify_record(
                         session, record, [], [], cache, max_target_seqs=max_target_seqs,
                         qmult=qmult, tmult=tmult)
@@ -547,15 +546,13 @@ class XmlSerializer:
         Private quick method to determine the multipliers for a BLAST alignment
         according to the application present in the record.
         :param record:
-        :type record: Bio.Blast.Record.Blast
+        :type record: Bio.SearchIO.Record
         :return:
         """
 
         q_mult, h_mult = 1, 1
 
-        # application = record.application.upper()
-        application = record.application.upper()
-
+        application = record.program.upper()
         if application in ("BLASTN", "TBLASTX", "BLASTP"):
             q_mult = 1
             h_mult = 1

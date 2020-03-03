@@ -6,7 +6,7 @@ from ...parsers.blast_utils import merge
 import numpy as np
 
 valid_letters = 'ACDEFGHIKLMNPQRSTVWYBXZJUO'
-letters = np.array(list(valid_letters))
+letters = np.array(list(valid_letters), dtype=np.str_)
 
 
 __author__ = 'Luca Venturini'
@@ -35,7 +35,7 @@ def prepare_hsp(hsp, counter, qmultiplier=1, tmultiplier=1):
 
     hsp_dict = dict()
     # We must start from 1, otherwise MySQL crashes as its indices start from 1 not 0
-    match, identical_positions, positives = _prepare_aln_strings(hsp, qmultiplier=qmultiplier, tmultiplier=tmultiplier)
+    match, identical_positions, positives = _prepare_aln_strings(hsp, qmultiplier=qmultiplier)
     hsp_dict["counter"] = counter + 1
     hsp_dict["query_hsp_start"] = hsp.query_start
     hsp_dict["query_hsp_end"] = hsp.query_end
@@ -56,7 +56,7 @@ def _np_grouper(data):
     return np.array(np.split(data, np.where(np.diff(data) != 1)[0] + 1))
 
 
-def _prepare_aln_strings(hsp, qmultiplier=1, tmultiplier=1):
+def _prepare_aln_strings(hsp, qmultiplier=1):
 
     """This private method calculates the identical positions, the positives, and a re-factored match line
     starting from the HSP.
@@ -66,7 +66,7 @@ def _prepare_aln_strings(hsp, qmultiplier=1, tmultiplier=1):
     lett_array = np.array([
         list(str(hsp.query.seq)),
         list(hsp.aln_annotation["similarity"]),
-        list(str(hsp.hit.seq))])
+        list(str(hsp.hit.seq))], dtype=np.str_)
 
     match = lett_array[1]
     match[np.where(~((lett_array[1] == "+") | (np.isin(lett_array[1], letters))))] = " "

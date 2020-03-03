@@ -1677,6 +1677,53 @@ class SerialiseChecker(unittest.TestCase):
     def setUpClass(cls):
         cls.fai = pysam.FastaFile(pkg_resources.resource_filename("Mikado.tests", "chr5.fas.gz"))
 
+    def test_subprocess_single(self):
+
+        xml = pkg_resources.resource_filename("Mikado.tests", "chunk-001-proteins.xml.gz")
+        transcripts = pkg_resources.resource_filename("Mikado.tests", "mikado_prepared.fasta")
+        junctions = pkg_resources.resource_filename("Mikado.tests", "junctions.bed")
+        orfs = pkg_resources.resource_filename("Mikado.tests", "transcripts.fasta.prodigal.gff3")
+        uniprot = pkg_resources.resource_filename("Mikado.tests", "uniprot_sprot_plants.fasta.gz")
+        mobjects = 300  # Let's test properly the serialisation for BLAST
+
+        dir = tempfile.TemporaryDirectory()
+        json_file = os.path.join(dir.name, "mikado.yaml")
+        db = os.path.join(dir.name, "mikado.db")
+        log = os.path.join(dir.name, "serialise.log")
+        uni_out = os.path.join(dir.name, "uniprot_sprot_plants.fasta")
+        with gzip.open(uniprot, "rb") as uni, open(uni_out, "wb") as uni_out_handle:
+            uni_out_handle.write(uni.read())
+
+        with open(json_file, "wt") as json_handle:
+            sub_configure.print_config(yaml.dump(self.json_conf, default_flow_style=False),
+                                                      json_handle)
+        # Set up the command arguments
+        for procs in (1,):
+            with self.subTest(proc=procs):
+                sys.argv = [str(_) for _ in ["mikado", "serialise", "--json-conf", json_file,
+                            "--transcripts", transcripts, "--blast_targets", uni_out,
+                            "--orfs", orfs, "--junctions", junctions, "--xml", xml,
+                            "-p", procs, "-mo", mobjects, db, "--log", log, "--seed", "1078"]]
+                pkg_resources.load_entry_point("Mikado", "console_scripts", "mikado")()
+                logged = [_.rstrip() for _ in open(log)]
+
+                self.assertTrue(os.path.exists(db))
+                conn = sqlite3.connect(db)
+                cursor = conn.cursor()
+                self.assertEqual(cursor.execute("select count(*) from hit").fetchall()[0][0], 562, logged)
+                self.assertEqual(cursor.execute("select count(*) from hsp").fetchall()[0][0], 669)
+                self.assertEqual(cursor.execute("select count(distinct(query_id)) from hsp").fetchall()[0][0], 71)
+                self.assertEqual(cursor.execute("select count(distinct(query_id)) from hit").fetchall()[0][0], 71)
+                self.assertEqual(cursor.execute("select count(distinct(target_id)) from hsp").fetchall()[0][0], 32)
+                self.assertEqual(cursor.execute("select count(distinct(target_id)) from hit").fetchall()[0][0], 32)
+                self.assertEqual(cursor.execute("select count(*) from junctions").fetchall()[0][0], 372)
+                self.assertEqual(cursor.execute("select count(distinct(chrom_id)) from junctions").fetchall()[0][0], 2)
+                self.assertEqual(cursor.execute("select count(*) from orf").fetchall()[0][0], 169,
+                                 "\n".join(logged))
+                self.assertEqual(cursor.execute("select count(distinct(query_id)) from orf").fetchall()[0][0], 81)
+                os.remove(db)
+        dir.cleanup()
+
     def test_subprocess_multi(self):
 
         xml = pkg_resources.resource_filename("Mikado.tests", "chunk-001-proteins.xml.gz")
@@ -1698,7 +1745,7 @@ class SerialiseChecker(unittest.TestCase):
             sub_configure.print_config(yaml.dump(self.json_conf, default_flow_style=False),
                                                       json_handle)
         # Set up the command arguments
-        for procs in (1, 3):
+        for procs in (3,):
             with self.subTest(proc=procs):
                 sys.argv = [str(_) for _ in ["mikado", "serialise", "--json-conf", json_file,
                             "--transcripts", transcripts, "--blast_targets", uni_out,

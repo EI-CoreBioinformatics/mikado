@@ -370,7 +370,7 @@ Please check your input files.")
         """"""
 
         send_queue = mp.Queue(-1)
-        return_queue = mp.SimpleQueue()
+        return_queue = mp.Queue(-1)
         self.logging_queue = mp.Queue(-1)
         self.logger_queue_handler = logging_handlers.QueueHandler(self.logging_queue)
         self.queue_logger = logging.getLogger("parser")

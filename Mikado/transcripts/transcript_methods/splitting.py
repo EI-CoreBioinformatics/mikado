@@ -742,7 +742,7 @@ def __relocate_orfs(transcript, bed12_objects, tstart, tend):
             new.thick_start = min(new.thick_start, tend) - tstart + 1
             new.thick_end = min(obj.thick_end, tend) - tstart + 1
             new.block_sizes = [new.end]
-            new.block_starts = [new.block_starts]
+            new.block_starts = new.block_starts[:]
 
         assert new.thick_start > 0, new.thick_start
         assert new.thick_end > 0, new.thick_end

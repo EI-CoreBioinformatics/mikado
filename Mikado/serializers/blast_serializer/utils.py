@@ -69,23 +69,28 @@ def _prepare_aln_strings(hsp, qmultiplier=1):
         list(str(hsp.hit.seq))], dtype=np.str_)
 
     match = lett_array[1]
-    match[np.where(~((lett_array[1] == "+") | (np.isin(lett_array[1], letters))))] = " "
-    match[np.where(
-        (np.isin(lett_array[0], letters)) &
-        (np.isin(lett_array[2], letters)) &
-        (lett_array[0] != lett_array[2]) &
-        (lett_array[1] != "+"))] = "X"
+    # match[np.where(~((lett_array[1] == "+") | (np.isin(lett_array[1], letters))))] = " "
+    # match[np.where(
+    #     (np.isin(lett_array[0], letters)) &
+    #     (np.isin(lett_array[2], letters)) &
+    #     (lett_array[0] != lett_array[2]) &
+    #     (lett_array[1] != "+"))] = "X"
     match[np.where((lett_array[0] == "-") & (lett_array[2] == "*"))] = "*"
     match[np.where((lett_array[0] == "-") & ~(lett_array[2] == "*"))] = "-"
     match[np.where((lett_array[2] == "-") & (lett_array[0] == "*"))] = "*"
     match[np.where((lett_array[2] == "-") & ~(lett_array[0] == "*"))] = "_"
+    match[np.where(
+        (lett_array[0] != lett_array[2]) & (lett_array[1] != "+") &
+        (match != "*") & (match != "_") & (match != "-")
+    )] = "X"
 
     summer = np.array([[_] for _ in range(qmultiplier)])
     v = np.array([[1]] * qmultiplier)
-    identical_positions = np.where(np.isin(match, valid_letters)) * v
+    identical_positions = np.where((lett_array[0] == lett_array[2]) & (lett_array[1] != "X")) * v
     identical_positions = set(np.array(
         [identical_positions[_] * 3 + summer for _ in range(identical_positions.shape[0])]).flatten())
-    positives = np.where(~np.isin(match, np.array(["*", "-", "_", " "]))) * v
+    positives = np.where(((
+                                lett_array[0] == lett_array[2]) | (lett_array[1] == "+")) & (lett_array[1] != "X")) * v
     positives = set(np.array(
         [positives[_] * 3 + summer for _ in range(positives.shape[0])]).flatten())
     str_match = "".join(match)

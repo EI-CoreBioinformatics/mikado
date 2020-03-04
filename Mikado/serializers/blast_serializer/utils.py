@@ -161,17 +161,18 @@ def prepare_hit(hit, query_id, target_id, **kwargs):
         t_intervals.append((hsp.hit_start, hsp.hit_end))
 
     q_merged_intervals, q_aligned = merge(q_intervals)
-    assert isinstance(q_aligned, np.int), (q_merged_intervals, q_aligned, type(q_aligned))
+    # assert isinstance(q_aligned, np.int), (q_merged_intervals, q_aligned, type(q_aligned))
     hit_dict["query_aligned_length"] = min(qlength, q_aligned)
     qstart, qend = q_merged_intervals[0][0], q_merged_intervals[-1][1]
-    assert isinstance(qstart, np.int), (q_merged_intervals, type(qstart))
-    assert isinstance(qend, np.int), (q_merged_intervals, type(qend))
+    # assert isinstance(qstart, np.int), (q_merged_intervals, type(qstart))
+    # assert isinstance(qend, np.int), (q_merged_intervals, type(qend))
 
     hit_dict["query_start"], hit_dict["query_end"] = qstart, qend
 
     if len(identical_positions) > q_aligned:
-        raise ValueError("Number of identical positions ({}) greater than number of aligned positions ({})!".format(
-            len(identical_positions), q_aligned))
+        raise ValueError(
+            "Number of identical positions ({}) greater than number of aligned positions ({})!\n{}\n{}".format(
+            len(identical_positions), q_aligned, q_intervals, q_merged_intervals))
 
     if len(positives) > q_aligned:
         raise ValueError("Number of identical positions ({}) greater than number of aligned positions ({})!".format(

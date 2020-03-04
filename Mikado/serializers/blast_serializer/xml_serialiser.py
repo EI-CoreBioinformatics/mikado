@@ -466,6 +466,7 @@ class XmlSerializer:
         if self.single_thread is True or self.procs == 1:
             cache = {"query": self.queries, "target": self.targets}
             for filename in self.xml:
+                _ = xml_pickler(self.json_conf, filename, self.header, max_target_seqs=self.__max_target_seqs)
                 valid, _, exc = BlastOpener(filename).sniff(default_header=self.header)
                 if not valid:
                     self.logger.error(exc)

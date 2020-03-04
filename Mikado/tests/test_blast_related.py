@@ -135,7 +135,7 @@ class TestMerging(unittest.TestCase):
         tot_length = 51
         corr_merged = [(-10, 10), (20, 40)]
         merged, tot_length = seri_blast_utils.merge(l, query_length=tot_length, offset=1)
-        self.assertEqual(merged, corr_merged)
+        self.assertTrue((merged == corr_merged))
         self.assertEqual(tot_length, 10 - -10 +1 + 40 - 20 + 1)
 
     def test_merging_2(self):
@@ -150,7 +150,7 @@ class TestMerging(unittest.TestCase):
                 else:
                     merged, length = seri_blast_utils.merge(l, offset=offset)
                     self.assertEqual(length, tot_length)
-                    self.assertEqual(merged, l)
+                    self.assertTrue((merged == l), (merged, l))
 
     def test_various_merging(self):
 
@@ -178,7 +178,7 @@ class TestMerging(unittest.TestCase):
             inp, out = valid[val]
             with self.subTest(val=val, msg=valid[val]):
                 _ = seri_blast_utils.merge(inp)
-                self.assertEqual(out, _[0])
+                self.assertTrue((out == _[0]), (out, _[0]))
 
     def test_included(self):
 
@@ -190,7 +190,23 @@ class TestMerging(unittest.TestCase):
         for val, out in cases.items():
             with self.subTest(val=val, msg=cases[val]):
                 _ = seri_blast_utils.merge(list(val))
-                self.assertEqual(out, _[0])
+                self.assertTrue((out == _[0]), (out, _[0]))
+
+    def test_unordered(self):
+        cases = {
+            tuple([(10, 60), (40, 100), (200, 400)]): [(10, 100), (200, 400)],
+            tuple([(54, 1194), (110, 790), (950, 1052)]): [(54, 1194)],
+            tuple([(54, 1194), (110, 790), (950, 1052), (1200, 1400)]): [(54, 1194), (1200, 1400)]
+        }
+
+        from random import shuffle
+        for num in range(30):
+            for val, out in cases.items():
+                cval = list(val[:])
+                shuffle(cval)
+                with self.subTest(val=val, cval=cval, msg=cases[val]):
+                    _ = seri_blast_utils.merge(list(cval))
+                    self.assertTrue((out == _[0]), (out, _[0]))
 
 
 if __name__ == '__main__':

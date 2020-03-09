@@ -1,10 +1,11 @@
 from Bio.SubsMat import MatrixInfo
-from sys import maxsize
+from . import Query, Target, Hsp, Hit, InvalidHit
 from fastnumbers import fast_int, isint
 import re
 import numpy as np
 import pandas as pd
-import pysam
+from ...utilities.log_utils import create_null_logger
+# import pysam
 
 
 blast_keys = "qseqid sseqid pident ppos length mismatch gapopen qstart "\
@@ -50,8 +51,12 @@ def _parse_btop(btop, qpos, array: np.array, matrix, qmult=1):
     return array
 
 
+def prepare_tab_hit():
+    """"""
+
+
 def parse_tab_blast(bname: str, queries: pd.DataFrame, min_evalue: float,
-                    matrix_name="blosum62", qmult=3):
+                    matrix_name="blosum62", qmult=3, tmult=1, logger=create_null_logger()):
 
     """This function will use `pandas` to quickly parse, subset and analyse tabular BLAST files.
     Files should have been generated (whether with NCBI BLASTX or DIAMOND) with the following keys:
@@ -74,15 +79,45 @@ def parse_tab_blast(bname: str, queries: pd.DataFrame, min_evalue: float,
     data.loc[_ix, ["qstart", "qend"]] = data.loc[_ix, ["qend", "qstart"]].values
     # Get the minimum evalue for each group
     data = data.join(queries)
-    data = data.join(groups.agg(min_evalue=pd.NamedAgg("evalue", np.min))["min_evalue"], on=["qseqid", "sseqid"])
+    data = data.join(groups.agg(min_evalue=pd.NamedAgg("evalue", np.min),
+                                max_bitscore=pd.NamedAgg("bitscore", np.max())[["min_evalue",
+                                                                                "max_bitscore"]],
+                                on=["qseqid", "sseqid"]))
     data = data[data.min_evalue <= min_evalue]
+
+    hits, hsps = [], []
 
     for qseqid, group in data.groupby("qseqid"):
         # Sort by minimum evalue
-        group.sort_values(["min_evalue"], ascending=False)
-        for index, (sseqid, hit) in enumerate(group.groupby("sseqid")):
-            print(index, sseqid, hit.min_evalue)
-        break
+        ssorted = group.sort_values(["min_evalue", "sseqid"], ascending=True)[["min_evalue",
+                                                                               "max_bitscore",
+                                                                               "sseqid"]].drop_duplicates()
+        for hitnum, (_, row) in enumerate(ssorted.iterrows()):
+
+            hit_dict_params = dict()
+            (hit_dict_params["query_multiplier"],
+             hit_dict_params["target_multiplier"]) = (qmult, tmult)
+            hit_evalue = row.min_evalue
+            hit_bs = row.max_bitscore
+            hit_dict_params["hit_number"] = hitnum
+            hit_dict_params["evalue"] = hit_evalue
+            hit_dict_params["bits"] = hit_bs
+
+            # Prepare for bulk load
+            rows = group[group.sseqid == row.sseqid]
+            try:
+                hit, hit_hsps = prepare_tab_hit(rows,
+                                                **hit_dict_params)
+            except InvalidHit as exc:
+                logger.error(exc)
+                continue
+            # hit["query_aligned_length"] = min(record.seq_len, hit["query_aligned_length"])
+
+            hits.append(hit)
+            hsps.extend(hit_hsps)
+
+
+            ogroup = group[group.sseqid == row.sseqid]
 
 
     

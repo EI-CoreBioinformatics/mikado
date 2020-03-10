@@ -24,6 +24,7 @@ import logging.handlers as logging_handlers
 import multiprocessing as mp
 import msgpack
 import zlib
+from fastnumbers import isint
 
 
 # This is a serialization class, it must have a ton of attributes ...
@@ -102,20 +103,26 @@ class Orf(DBBASE):
 
     @staticmethod
     def create_dict(bed12_object, query_id):
-        return {
-            "query_id": query_id,
-            "start": bed12_object.start,
-            "end": bed12_object.end,
-            "orf_name": bed12_object.name,
-            "strand": bed12_object.strand,
-            "thick_start": bed12_object.thick_start,
-            "thick_end": bed12_object.thick_end,
-            "score": bed12_object.score,
-            "has_start_codon": bed12_object.has_start_codon,
-            "has_stop_codon": bed12_object.has_stop_codon,
-            "cds_len": bed12_object.cds_len,
-            "phase": bed12_object.phase
-        }
+        if bed12_object.header is False and bed12_object.start is None:
+            raise ValueError("Invalid BED! {}".format(bed12_object))
+
+        obj = bed12_object.as_simple_dict()
+        obj["query_id"] = query_id
+        return obj
+        # return {
+        #     "query_id": query_id,
+        #     "start": bed12_object.start,
+        #     "end": bed12_object.end,
+        #     "orf_name": bed12_object.name,
+        #     "strand": bed12_object.strand,
+        #     "thick_start": bed12_object.thick_start,
+        #     "thick_end": bed12_object.thick_end,
+        #     "score": bed12_object.score,
+        #     "has_start_codon": bed12_object.has_start_codon,
+        #     "has_stop_codon": bed12_object.has_stop_codon,
+        #     "cds_len": bed12_object.cds_len,
+        #     "phase": bed12_object.phase
+        # }
 
     @classmethod
     def as_bed12_static(cls, state, query_name):
@@ -327,6 +334,10 @@ Please check your input files.")
                 raise InvalidSerialization
 
             # current_junction = Orf(row, current_query)
+            obj = Orf.create_dict(row, current_query)
+            if obj["start"] is None or isint(obj["start"]) is False:
+                raise ValueError("Invalid object: {}".format(obj))
+                # continue
             objects.append(Orf.create_dict(row, current_query))
             if len(objects) >= self.maxobjects:
                 done += len(objects)
@@ -358,8 +369,8 @@ Please check your input files.")
     def __serialize_multiple_threads(self):
         """"""
 
-        send_queue = mp.SimpleQueue()
-        return_queue = mp.SimpleQueue()
+        send_queue = mp.Queue(-1)
+        return_queue = mp.Queue(-1)
         self.logging_queue = mp.Queue(-1)
         self.logger_queue_handler = logging_handlers.QueueHandler(self.logging_queue)
         self.queue_logger = logging.getLogger("parser")
@@ -390,11 +401,12 @@ Please check your input files.")
                     send_queue.put((num, line, None))                    
                 else:
                     _f = line.split("\t")
-                    if _f[0] not in fai.references:
+                    if _f[0] not in fai:
                         seq = None
                     else:                        
                         seq = zlib.compress(fai[line.split("\t")[0]].encode(), 1)
-                    send_queue.put((num, line, seq))
+                    send_queue.put_nowait((num, line, seq))
+
             send_queue.put("EXIT")
 
         line_parser = mp.Process(target=line_parser_func,
@@ -441,7 +453,6 @@ mikado prepare. If this is the case, please use mikado_prepared.fasta to call th
             if len(objects) >= self.maxobjects:
                 done += len(objects)
                 self.session.begin(subtransactions=True)
-                # self.session.bulk_save_objects(objects)
                 self.engine.execute(
                     Orf.__table__.insert(),
                     objects
@@ -493,13 +504,13 @@ mikado prepare. If this is the case, please use mikado_prepared.fasta to call th
         Alias for serialize
         """
 
-        try:
-            self.serialize()
-        except (sqlalchemy.exc.IntegrityError, sqlite3.IntegrityError) as exc:
-            self.logger.error("DB corrupted, reloading data. Error: %s",
-                              exc)
-            self.session.query(Query).delete()
-            self.session.query(Orf).delete()
-            self.serialize()
-        except InvalidSerialization:
-            raise
+        # try:
+        self.serialize()
+        # except (sqlalchemy.exc.IntegrityError, sqlite3.IntegrityError) as exc:
+        #     self.logger.error("DB corrupted, reloading data. Error: %s",
+        #                       exc)
+        #     self.session.query(Query).delete()
+        #     self.session.query(Orf).delete()
+        #     self.serialize()
+        # except InvalidSerialization:
+        #     raise

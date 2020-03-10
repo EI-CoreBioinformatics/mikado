@@ -15,23 +15,23 @@ import re
 
 __author__ = 'Luca Venturini'
 
-[intern(_) for _ in ["+", "-", "?"]]
+[intern(_) for _ in ["+", "-", "?", "true", "True", "false", "False"]]
+
+
+def last(value):
+    if value in ("true", "True"):
+        value = True
+    elif value in ("False", "false"):
+        value = False
+    return value
+
+
+fast_number = functools.partial(fast_float,
+                                on_fail=last)
 
 
 def _attribute_definition(val):
-    val = val.replace('"', '')
-
-    def last(value):
-        if value in ("true", "True"):
-            value = True
-        elif value in ("False", "false"):
-            value = False
-        return value
-
-    fast_number = functools.partial(fast_float,
-                                    on_fail=last)
-    val = fast_int(val, on_fail=fast_number)
-    return val
+    return fast_int(val.replace('"', ''), on_fail=fast_number)
 
 
 # This class has exactly how many attributes I need it to have

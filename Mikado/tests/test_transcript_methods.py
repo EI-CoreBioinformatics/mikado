@@ -300,12 +300,10 @@ class TestAsBed12(unittest.TestCase):
         self.assertEqual(b12.thick_start, tr.combined_cds_start)
         self.assertEqual(b12.thick_end, tr.combined_cds_end)
         self.assertEqual(len(b12.block_sizes), tr.exon_num)
-        self.assertEqual(b12.block_sizes,
-                         [200, 200, 400, 500],
+        self.assertTrue((b12.block_sizes == [200, 200, 400, 500]).all(),
                          b12.block_sizes)
         self.assertEqual(b12.strand, "+")
-        self.assertEqual(b12.block_starts,
-                         [0, 300, 700, 2400],
+        self.assertTrue((b12.block_starts == [0, 300, 700, 2400]).all(),
                          b12.block_starts)
         self.assertEqual(str(b12),
                          "\t".join([str(_) for _ in
@@ -340,13 +338,9 @@ class TestAsBed12(unittest.TestCase):
         self.assertEqual(b12.thick_start, tr.combined_cds_end)
         self.assertEqual(b12.thick_end, tr.combined_cds_start)
         self.assertEqual(len(b12.block_sizes), tr.exon_num)
-        self.assertEqual(b12.block_sizes,
-                         [200, 200, 400, 500],
-                         b12.block_sizes)
+        self.assertTrue((b12.block_sizes == [200, 200, 400, 500]).all(), b12.block_sizes)
         self.assertEqual(b12.strand, "-")
-        self.assertEqual(b12.block_starts,
-                         [0, 300, 700, 2400],
-                         b12.block_starts)
+        self.assertTrue((b12.block_starts == [0, 300, 700, 2400]).all(), b12.block_starts)
 
         self.assertEqual(tr.format("bed12"), str(b12))
         self.assertEqual(str(b12),

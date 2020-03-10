@@ -167,6 +167,10 @@
               "type": "array",
               "default": []
             },
+            "blast_loading_debug": {
+              "type": "boolean",
+              "default": false
+            },
             "external_scores": {
               "type": ["string", "null"],
               "default": ""

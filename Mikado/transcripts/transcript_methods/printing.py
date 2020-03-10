@@ -9,6 +9,8 @@ import functools
 from Mikado.parsers.GTF import GtfLine
 from Mikado.parsers.GFF import GffLine
 from Mikado.parsers.bed12 import BED12
+import numpy as np
+
 
 __author__ = 'Luca Venturini'
 
@@ -372,10 +374,12 @@ def as_bed12(transcript, transcriptomic=False):
         bed12.thick_start = bed12.thick_end = bed12.start
     bed12.block_count = transcript.exon_num
     bed12.block_sizes = [exon[1] - exon[0] + 1 for exon in transcript.exons]
-    bed12.block_starts = [0]
-    for pos, intron in enumerate(sorted(transcript.introns)):
-        bed12.block_starts.append(
-            bed12.block_starts[pos] + bed12.block_sizes[pos] + intron[1] - intron[0] + 1)
+    _introns = np.concatenate([np.array([intron[1] - intron[0] + 1 for intron in sorted(transcript.introns)],
+                                        dtype=np.integer),
+                               np.zeros(1, dtype=np.integer)])
+    bed12.block_starts = np.concatenate([np.zeros(1, dtype=np.integer),
+                                         (bed12.block_sizes + _introns).cumsum()[:-1]], axis=0)
+    assert bed12.block_starts[0] == 0, bed12.block_starts
     if transcriptomic:
         bed12 = bed12.to_transcriptomic(alias=transcript.alias, start_adjustment=False,
                                         coding=transcript.is_coding)

@@ -7,7 +7,7 @@ Module to serialize GFF files.
 """
 
 from . import Parser
-from .gfannotation import GFAnnotation
+from .gfannotation import GFAnnotation, _attribute_definition
 from sys import intern
 from fastnumbers import fast_int
 import re
@@ -46,7 +46,7 @@ class GffLine(GFAnnotation):
 
         infolist = self._attribute_pattern.findall(self._attr.rstrip().rstrip(";"))
         attribute_order = [key for key, val in infolist if key not in ("Parent", "parent", "id", "ID", "Id")]
-        attributes = dict((key, self._attribute_definition(val)) for key, val in infolist)
+        attributes = dict((key, _attribute_definition(val)) for key, val in infolist)
         if "Parent" in attributes:
             self.parent = attributes["Parent"]
         elif "parent" in attributes:

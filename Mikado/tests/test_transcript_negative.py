@@ -72,7 +72,7 @@ Chr1    TAIR10    exon    5928    6263    .    -    .    Parent=AT1G01020.1"""
         self.orf.thick_end = self.tr.cdna_length - self.tr.selected_end_distance_from_tes
         self.orf.block_count = 1
         self.orf.blockSize = self.tr.cdna_length
-        self.orf.block_starts = 0
+        self.orf.block_starts = [0]
         self.orf.has_start_codon = True
         self.orf.has_stop_codon = True
         self.orf.transcriptomic = True
@@ -399,7 +399,7 @@ Chr1\tTAIR10\texon\t8571\t8737\t.\t-\t.\tgene_id "AT1G01020"; transcript_id "AT1
         first_orf.thick_end = 501
         first_orf.block_count = 1
         first_orf.blockSize = self.tr.cdna_length
-        first_orf.block_starts = 0
+        first_orf.block_starts = [0]
         first_orf.has_start_codon = True
         first_orf.has_stop_codon = True
         first_orf.transcriptomic = True
@@ -417,7 +417,7 @@ Chr1\tTAIR10\texon\t8571\t8737\t.\t-\t.\tgene_id "AT1G01020"; transcript_id "AT1
         second_orf.thick_end = 401
         second_orf.block_count = 1
         second_orf.blockSize = self.tr.cdna_length
-        second_orf.block_starts = 0
+        second_orf.block_starts = [0]
         second_orf.has_start_codon = True
         second_orf.has_stop_codon = True
         second_orf.transcriptomic = True
@@ -437,7 +437,7 @@ Chr1\tTAIR10\texon\t8571\t8737\t.\t-\t.\tgene_id "AT1G01020"; transcript_id "AT1
         third_orf.thick_end = 1602
         third_orf.block_count = 1
         third_orf.blockSize = self.tr.cdna_length
-        third_orf.block_starts = 0
+        third_orf.block_starts = [0]
         third_orf.has_start_codon = True
         third_orf.has_stop_codon = True
         third_orf.transcriptomic = True

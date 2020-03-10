@@ -9,7 +9,7 @@ import numpy as np
 #                     ["|", "*"])
 
 
-def get_multipliers(record):
+def get_multipliers(record, application=None):
     """
     Private quick method to determine the multipliers for a BLAST alignment
     according to the application present in the record.
@@ -20,7 +20,10 @@ def get_multipliers(record):
 
     q_mult, h_mult = 1, 1
 
-    application = record.program.upper()
+    if record is not None:
+        application = record.program.upper()
+    else:
+        application = application.upper()
     if application in ("BLASTN", "TBLASTX", "BLASTP"):
         q_mult = 1
         h_mult = 1

@@ -15,6 +15,7 @@ from ...utilities.log_utils import create_null_logger, check_logger
 from . import Query, Target, Hsp, Hit
 from .xml_utils import get_multipliers
 from .xml_serialiser import _serialise_xmls
+from .tab_serialiser import _serialise_tabular
 import pandas as pd
 import multiprocessing
 
@@ -369,7 +370,7 @@ class BlastSerializer:
 
     def __serialise_tabular(self):
         """Parser to perform the analysis of tabular BLAST files."""
-        raise NotImplementedError("Still working on this")
+        _serialise_tabular(self)
 
     def __serialise_xmls(self):
         _serialise_xmls(self)
@@ -383,5 +384,5 @@ class BlastSerializer:
 # pylint: enable=too-many-instance-attributes
 
     @staticmethod
-    def get_multipliers(record):
-        get_multipliers(record)
+    def get_multipliers(record, application=None):
+        get_multipliers(record, application=application)

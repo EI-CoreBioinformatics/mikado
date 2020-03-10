@@ -78,7 +78,7 @@ def xml_pickler(json_conf, filename, default_header,
                     if qmult is None:
                         qmult, tmult = get_multipliers(record)
                     hits, hsps, cache = objectify_record(
-                        session, record, [], [], cache, max_target_seqs=max_target_seqs,
+                        record, [], [], cache, max_target_seqs=max_target_seqs,
                         qmult=qmult, tmult=tmult)
 
                     try:
@@ -138,15 +138,21 @@ def _serialise_xmls(self):
                 continue
             try:
                 self.logger.debug("Analysing %s", filename)
+                qmult, tmult = None, None
                 with BlastOpener(filename) as opened:
                     for record in opened:
+                        if qmult is None:
+                            qmult, tmult = get_multipliers(record)
                         record_counter += 1
                         if record_counter > 0 and record_counter % 10000 == 0:
                             self.logger.info("Parsed %d queries", record_counter)
                         current = len(hits)
                         hits, hsps, cache = objectify_record(
-                            self.session, record, hits, hsps,
-                            cache=cache, max_target_seqs=self._max_target_seqs, logger=self.logger)
+                            record, hits, hsps,
+                            qmult=qmult,
+                            tmult=tmult,
+                            cache=cache,
+                            max_target_seqs=self._max_target_seqs, logger=self.logger)
                         hit_counter += len(hits) - current
                         hits, hsps = load_into_db(self, hits, hsps, force=False)
                 self.logger.debug("Finished %s", filename)
@@ -205,7 +211,7 @@ def _serialise_xmls(self):
         self.logging_queue.close()
 
 
-def objectify_record(session, record, hits, hsps, cache,
+def objectify_record(record, hits, hsps, cache,
                      max_target_seqs=10000, logger=create_null_logger(),
                      qmult=1, tmult=1):
     """

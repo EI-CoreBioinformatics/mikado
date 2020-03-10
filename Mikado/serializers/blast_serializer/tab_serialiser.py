@@ -10,9 +10,6 @@ def _serialise_tabular(self):
     else:
         assert isinstance(self.xml, (list, set))
 
-    hits, hsps = [], []
-    hit_counter, record_counter = 0, 0
-
     queries = pd.read_sql_table("query", self.engine, index_col="query_name",
                                 columns=["query_name", "query_id", "query_length"])
     queries.columns = ["qid", "qlength"]

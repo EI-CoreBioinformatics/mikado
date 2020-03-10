@@ -7,7 +7,7 @@ import unittest
 import os
 import gzip
 import subprocess
-from ..serializers.blast_serializer import utils as seri_blast_utils
+from ..serializers.blast_serializer import xml_utils as seri_blast_utils
 import time
 
 

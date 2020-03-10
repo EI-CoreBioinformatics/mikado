@@ -1,34 +1,18 @@
-"""
-XML serialisation class.
-"""
-
-import os
-import logging.handlers as logging_handlers
-import logging
-import tempfile
 import rapidjson as json
-import sqlite3
-import sqlalchemy
-import sqlalchemy.exc
-from sqlalchemy.orm.session import Session
-from ...utilities.dbutils import DBBASE
-import pysam
-from ...utilities.dbutils import connect
-from ...parsers.blast_utils import BlastOpener  # , XMLMerger
-from ...utilities.log_utils import create_null_logger, check_logger
-from . import Query, Target, Hsp, Hit, prepare_hit, InvalidHit
+from ...parsers.blast_utils import BlastOpener
+from .xml_utils import _get_query_for_blast, _get_target_for_blast
 from xml.parsers.expat import ExpatError
 import xml
-import pandas as pd
-# from queue import Empty
-import multiprocessing
-
-
-__author__ = 'Luca Venturini'
-
-
-# A serialisation class must have a ton of attributes ...
-# pylint: disable=too-many-instance-attributes
+from ...utilities.dbutils import connect
+from sqlalchemy.orm.session import Session
+import sqlite3
+import tempfile
+import os
+from . import Query, Target, Hsp, Hit, prepare_hit, InvalidHit
+from .xml_utils import get_multipliers
+from .utils import load_into_db
+import multiprocessing as mp
+from ...utilities.log_utils import create_null_logger
 
 
 def _create_xml_db(filename):
@@ -49,8 +33,8 @@ def _create_xml_db(filename):
     except (OSError, PermissionError, sqlite3.OperationalError):
         dbname = tempfile.mktemp(suffix=".db")
         conn = sqlite3.connect(dbname,
-                               isolation_level = "DEFERRED",
-                               timeout = 60,
+                               isolation_level="DEFERRED",
+                               timeout=60,
                                check_same_thread = False  # Necessary for SQLite3 to function in multiprocessing
         )
 
@@ -72,6 +56,7 @@ def _create_xml_db(filename):
 
 
 def xml_pickler(json_conf, filename, default_header,
+                cache=None,
                 max_target_seqs=10):
     valid, _, exc = BlastOpener(filename).sniff(default_header=default_header)
     engine = connect(json_conf, strategy="threadlocal")
@@ -81,14 +66,17 @@ def xml_pickler(json_conf, filename, default_header,
         err = "Invalid BLAST file: %s" % filename
         raise TypeError(err)
     dbname, conn, cursor = _create_xml_db(filename)
-    cache = {"query": dict(), "target": dict()}
+    if not isinstance(cache, dict) or set(cache.keys()) != {"query", "target"}:
+        cache = dict()
+        cache["query"] = dict((item.query_name, item.query_id) for item in session.query(Query))
+        cache["target"] = dict((item.target_name, item.target_id) for item in session.query(Target))
     try:
         with BlastOpener(filename) as opened:
             try:
                 qmult, tmult = None, None
                 for query_counter, record in enumerate(opened, start=1):
                     if qmult is None:
-                        qmult, tmult = XmlSerializer.get_multipliers(record)
+                        qmult, tmult = get_multipliers(record)
                     hits, hsps, cache = objectify_record(
                         session, record, [], [], cache, max_target_seqs=max_target_seqs,
                         qmult=qmult, tmult=tmult)
@@ -105,7 +93,6 @@ def xml_pickler(json_conf, filename, default_header,
                                     jhits,
                                     jhsps))
             except ExpatError as err:
-                # logger.error("%s is an invalid BLAST file, sending back anything salvageable", filename)
                 raise ExpatError("{} is an invalid BLAST file, sending back anything salvageable.\n{}".format(filename,
                                                                                                               err))
     except xml.etree.ElementTree.ParseError as err:
@@ -123,534 +110,99 @@ def xml_pickler(json_conf, filename, default_header,
     return dbname
 
 
-class XmlSerializer:
-    """This class has the role of taking in input a blast XML file and (partially)
-    serialise it into a database. We are using SQLalchemy, so the database type
-    could be any of SQLite, MySQL, PSQL, etc."""
+def _serialise_xmls(self):
+    # Load sequences in DB, precache IDs
 
-    __name__ = "XMLSerializer"
-    logger = create_null_logger(__name__)
+    if isinstance(self.xml, str):
+        self.xml = [self.xml]
+    else:
+        assert isinstance(self.xml, (list, set))
 
-    # This evaluates to characters A-z and |. Used to detect true matches
-    # in the match line of blast alignments
-    # Put here so it's calculated *once* inside the program
-    __valid_matches = set([chr(x) for x in range(65, 91)] +
-                          [chr(x) for x in range(97, 123)] +
-                          ["|", "*"])
+    hits, hsps = [], []
+    hit_counter, record_counter = 0, 0
 
-    def __init__(self, xml_name,
-                 logger=None,
-                 json_conf=None):
-        """Initializing method. Arguments:
-
-        :param xml_name: The XML(s) to parse.
-
-        Arguments:
-
-        :param json_conf: a configuration dictionary.
-        :type json_conf: dict
-
-
-        """
-
-        if json_conf is None:
-            raise ValueError("No configuration provided!")
-
-        if logger is not None:
-            self.logger = check_logger(logger)
+    for filename in self.xml:
+        valid, header, exc = BlastOpener(filename).sniff()
+        if valid is True:
+            self.header = header
         else:
-            raise ValueError("No logger provided!")
-        self.logger.debug("Started to serialise %s, log level: %s",
-                         xml_name, self.logger.level)
+            self.logger.error(exc)
+            self.xml.remove(filename)
 
-        # Runtime arguments
-
-        self.procs = json_conf["threads"]
-        self.single_thread = json_conf["serialise"]["single_thread"]
-        self.json_conf = json_conf
-        # pylint: disable=unexpected-argument,E1123
-        multiprocessing.set_start_method(self.json_conf["multiprocessing_method"],
-                                         force=True)
-        # pylint: enable=unexpected-argument,E1123
-        self.logging_queue = multiprocessing.Queue(-1)
-        self.logger_queue_handler = logging_handlers.QueueHandler(self.logging_queue)
-        self.queue_logger = logging.getLogger("parser")
-        self.queue_logger.addHandler(self.logger_queue_handler)
-        self.queue_logger.setLevel(self.json_conf["log_settings"]["log_level"])
-        self.queue_logger.propagate = False
-        self.log_writer = logging_handlers.QueueListener(self.logging_queue, self.logger)
-        self.log_writer.start()
-
-        self.__max_target_seqs = json_conf["serialise"]["max_target_seqs"]
-        self.maxobjects = json_conf["serialise"]["max_objects"]
-        target_seqs = json_conf["serialise"]["files"]["blast_targets"]
-        query_seqs = json_conf["serialise"]["files"]["transcripts"]
-
-        self.header = None
-        if xml_name is None:
-            self.logger.warning("No BLAST XML provided. Exiting.")
-            return
-
-        self.engine = connect(json_conf)
-
-        # session = sessionmaker(autocommit=True)
-        DBBASE.metadata.create_all(self.engine)  # @UndefinedVariable
-        session = Session(bind=self.engine, autocommit=False, autoflush=False, expire_on_commit=False)
-        self.session = session  # session()
-        self.logger.debug("Created the session")
-        # Load sequences if necessary
-        self.__determine_sequences(query_seqs, target_seqs)
-        self.xml = xml_name
-        # Just a mock definition
-        # self.get_query = functools.partial(self.__get_query_for_blast)
-        self.not_pickable = ["manager", "printer_process",
-                             "context", "logger_queue_handler", "queue_logger",
-                             "log_writer",
-                             "log_process", "pool", "main_logger",
-                             "log_handler", "log_writer", "logger", "session",
-                             "get_query", "engine", "query_seqs", "target_seqs"]
-
-        self.queries, self.targets = dict(), dict()
-
-        self.logger.debug("Finished __init__")
-
-    def __getstate__(self):
-
-        state = self.__dict__.copy()
-        for not_pickable in self.not_pickable:
-            if not_pickable in state:
-                del state[not_pickable]
-
-        return state
-
-    def __determine_sequences(self, query_seqs, target_seqs):
-
-        """Private method to assign the sequence file variables
-        if necessary.
-        :param query_seqs:
-        :param target_seqs:
-        :return:
-        """
-
-        if isinstance(query_seqs, str):
-            assert os.path.exists(query_seqs)
-            self.query_seqs = pysam.FastaFile(query_seqs)
-        elif query_seqs is None:
-            self.query_seqs = None
-        else:
-            self.logger.warn("Query type: %s", type(query_seqs))
-            # assert "SeqIO.index" in repr(query_seqs)
-            self.query_seqs = query_seqs
-
-        self.target_seqs = []
-        for target in target_seqs:
-            if not os.path.exists(target):
-                raise ValueError("{} not found!".format(target))
-            self.target_seqs.append(pysam.FastaFile(target))
-
-        return
-
-    def __serialize_queries(self, queries):
-
-        """Private method used to serialise the queries.
-        Additional argument: a set containing all queries already present
-        in the database."""
-
-        counter = 0
-        self.logger.info("Started to serialise the queries")
-        objects = []
-        for record, length in zip(self.query_seqs.references, self.query_seqs.lengths):
-            if not record:
-                continue
-            if record in queries and queries[record][1] == length:
-                continue
-            elif record in queries:
-                if queries[record][1] == length:
-                    continue
-                else:
-                    raise KeyError("Discrepant length for query {} (original {}, new {})".format(
-                        record, queries[record][1], length))
-                # self.session.query(Query).filter(Query.query_name == record).update(
-                #     {"query_length": length})
-                # queries[record] = (queries[record][0], length)
-
-            objects.append({
-                "query_name": record,
-                "query_length": length
-            })
-
-            if len(objects) >= self.maxobjects:
-                self.logger.debug("Loading %d objects into the \"query\" table (total %d)",
-                                 self.maxobjects, counter)
-
-                # pylint: disable=no-member
-                self.session.begin(subtransactions=True)
-                # self.session.bulk_insert_mappings(Query, objects)
-                self.engine.execute(Query.__table__.insert(), objects)
-                # pylint: enable=no-member
-
-                self.session.commit()
-                counter += len(objects)
-                objects = []
-
-        if len(objects) > 0:
-            self.logger.debug("Loading %d objects into the \"query\" table (total %d)",
-                             len(objects), counter+len(objects))
-            # pylint: disable=no-member
-            counter += len(objects)
-            # pylint: disable=no-member
-            self.session.begin(subtransactions=True)
-            self.engine.execute(Query.__table__.insert(), objects)
-            # pylint: enable=no-member
-            self.session.commit()
-            # pylint: enable=no-member
-
-        self.logger.info("Loaded %d objects into the \"query\" table", counter)
-
-        if self.single_thread is True or self.procs == 1:
-            _queries = pd.read_sql_table("query", self.engine, index_col="query_name",
-                                        columns=["query_id", "query_length"])
-            queries = dict((qname, int(qid)) for
-                            qname, qid in zip(_queries.index, _queries["query_id"].values))
-            self.logger.info("%d in queries", len(queries))
-        else:
-            queries = dict()
-
-        return queries
-
-    def __serialize_targets(self, targets):
-        """
-        This private method serialises all targets contained inside the target_seqs
-        file into the database.
-        :param targets: a cache dictionary which records whether the sequence
-          is already present in the DB or not.
-        """
-
-        counter = 0
-        objects = []
-        self.logger.info("Started to serialise the targets")
-        for target in self.target_seqs:
-            for record, length in zip(target.references, target.lengths):
-                if record in targets and targets[record][1] is True:
-                    continue
-                elif record in targets:
-                    self.session.query(Target).filter(Target.target_name == record).update(
-                        {"target_length": length})
-                    targets[record] = (targets[record][0], True)
-                    continue
-
-                objects.append({
-                    "target_name": record,
-                    "target_length": length
-                })
-                counter += 1
-                #
-                # objects.append(Target(record, len(self.target_seqs[record])))
-                if len(objects) >= self.maxobjects:
-                    # counter += len(objects)
-                    self.logger.debug("Loading %d objects into the \"target\" table",
-                                     counter)
-                    # self.session.bulk_insert_mappings(Target, objects)
-                    self.session.begin(subtransactions=True)
-                    self.engine.execute(Target.__table__.insert(), objects)
-                    self.session.commit()
-                    objects = []
-        self.logger.debug("Loading %d objects into the \"target\" table, (total %d)",
-                         len(objects), counter)
-        # pylint: disable=no-member
-        self.session.begin(subtransactions=True)
-        self.engine.execute(Target.__table__.insert(), objects)
-        # pylint: enable=no-member
-        self.session.commit()
-
-        self.logger.info("Loaded %d objects into the \"target\" table", counter)
-        if self.single_thread is True or self.procs == 1:
-            _targets = pd.read_sql_table("target", self.engine, index_col="target_name",
-                                         columns=["target_id", "target_length"])
-            targets = dict((qname, int(qid)) for
-                            qname, qid in zip(_targets.index, _targets["target_id"].values))
-            self.logger.debug("%d in targets", len(targets))
-        else:
-            targets = dict()
-        return targets
-
-    def __serialise_sequences(self):
-
-        """ Private method called at the beginning of serialize. It is tasked
-        with loading all necessary FASTA sequences into the DB and precaching the IDs.
-        """
-
-        targets = dict()
-        queries = dict()
-        self.logger.debug("Loading previous IDs")
-        for query in self.session.query(Query):
-            queries[query.query_name] = (query.query_id, query.query_length)
-        for target in self.session.query(Target):
-            targets[target.target_name] = (target.target_id, target.target_length)
-        self.logger.debug("Loaded previous IDs; %d for queries, %d for targets",
-                         len(queries), len(targets))
-
-        self.logger.debug("Started the sequence serialisation")
-        if self.target_seqs:
-            targets = self.__serialize_targets(targets)
-            # assert len(targets) > 0
-        if self.query_seqs is not None:
-            queries = self.__serialize_queries(queries)
-            # assert len(queries) > 0
-
-        return queries, targets
-
-    def __load_into_db(self, hits, hsps, force=False):
-        """
-
-        :param hits:
-        :param hsps:
-
-        :param force: boolean flag. If set, data will be loaded no matter what.
-        To be used at the end of the serialisation to load the final batch of data.
-        :type force: bool
-
-        :return:
-        """
-
-        self.logger.debug("Checking whether to load %d hits and %d hsps",
-                          len(hits), len(hsps))
-
-        tot_objects = len(hits) + len(hsps)
-        if len(hits) == 0:
-            self.logger.debug("No hits to serialise. Exiting")
-            return hits, hsps
-
-        if tot_objects >= self.maxobjects or force:
-            # Bulk load
-            self.logger.debug("Loading %d BLAST objects into database", tot_objects)
-
-            try:
-                # pylint: disable=no-member
-                self.session.begin(subtransactions=True)
-                self.engine.execute(Hit.__table__.insert(), hits)
-                self.engine.execute(Hsp.__table__.insert(), hsps)
-                # pylint: enable=no-member
-                self.session.commit()
-            except sqlalchemy.exc.IntegrityError as err:
-                self.logger.critical("Failed to serialise BLAST!")
-                self.logger.exception(err)
-                raise err
-            self.logger.debug("Loaded %d BLAST objects into database", tot_objects)
-            hits, hsps = [], []
-        return hits, hsps
-
-    def serialize(self):
-
-        """Method to serialize the BLAST XML file into a database
-        provided with the __init__ method """
-
-        # Load sequences in DB, precache IDs
-        self.queries, self.targets = self.__serialise_sequences()
-        if isinstance(self.xml, str):
-            self.xml = [self.xml]
-        else:
-            assert isinstance(self.xml, (list, set))
-
-        hits, hsps = [], []
-        hit_counter, record_counter = 0, 0
-
+    cache = {"query": self.queries, "target": self.targets}
+    if self._xml_debug is False and (self.single_thread is True or self.procs == 1):
         for filename in self.xml:
-            valid, header, exc = BlastOpener(filename).sniff()
-            if valid is True:
-                self.header = header
-            else:
+            valid, _, exc = BlastOpener(filename).sniff(default_header=self.header)
+            if not valid:
                 self.logger.error(exc)
-                self.xml.remove(filename)
-
-        if self.single_thread is True or self.procs == 1:
-            cache = {"query": self.queries, "target": self.targets}
-            for filename in self.xml:
-                _ = xml_pickler(self.json_conf, filename, self.header, max_target_seqs=self.__max_target_seqs)
-                valid, _, exc = BlastOpener(filename).sniff(default_header=self.header)
-                if not valid:
-                    self.logger.error(exc)
-                    continue
-                try:
-                    self.logger.debug("Analysing %s", filename)
-                    with BlastOpener(filename) as opened:
-                        for record in opened:
-                            record_counter += 1
-                            if record_counter > 0 and record_counter % 10000 == 0:
-                                self.logger.info("Parsed %d queries", record_counter)
-                            current = len(hits)
-                            hits, hsps, cache = objectify_record(
-                                self.session, record, hits, hsps,
-                                cache=cache, max_target_seqs=self.__max_target_seqs, logger=self.logger)
-                            hit_counter += len(hits) - current
-                            hits, hsps = load_into_db(self, hits, hsps, force=False)
-                    self.logger.debug("Finished %s", filename)
-                except ExpatError:
-                    self.logger.error("%s is an invalid BLAST file, saving what's available", filename)
-            _, _ = self.__load_into_db(hits, hsps, force=True)
-
+                continue
+            try:
+                self.logger.debug("Analysing %s", filename)
+                with BlastOpener(filename) as opened:
+                    for record in opened:
+                        record_counter += 1
+                        if record_counter > 0 and record_counter % 10000 == 0:
+                            self.logger.info("Parsed %d queries", record_counter)
+                        current = len(hits)
+                        hits, hsps, cache = objectify_record(
+                            self.session, record, hits, hsps,
+                            cache=cache, max_target_seqs=self._max_target_seqs, logger=self.logger)
+                        hit_counter += len(hits) - current
+                        hits, hsps = load_into_db(self, hits, hsps, force=False)
+                self.logger.debug("Finished %s", filename)
+            except ExpatError:
+                self.logger.error("%s is an invalid BLAST file, saving what's available", filename)
+        _, _ = self._load_into_db(hits, hsps, force=True)
+    elif self._xml_debug is True or self.procs > 1:
+        self.logger.debug("Creating a pool with %d processes",
+                          min(self.procs, len(self.xml)))
+        results = []
+        if self._xml_debug is True:
+            for num, filename in enumerate(self.xml):
+                results.append(xml_pickler(self.json_conf,
+                                           filename, self.header,
+                                           cache=None,
+                                           max_target_seqs=self._max_target_seqs))
         else:
-            self.logger.debug("Creating a pool with %d processes",
-                              min(self.procs, len(self.xml)))
-
-            pool = multiprocessing.Pool(self.procs)
-            results = []
+            pool = mp.Pool(self.procs)
             for num, filename in enumerate(self.xml):
                 args = (self.json_conf, filename, self.header)
-                kwds = {"max_target_seqs": self.__max_target_seqs}
+                kwds = {"max_target_seqs": self._max_target_seqs, "cache": None}
                 pool.apply_async(xml_pickler, args=args, kwds=kwds, callback=results.append)
             pool.close()
             pool.join()
 
-            for dbfile in results:
-                conn = sqlite3.connect("file:{}?mode=ro".format(dbfile),
-                                       uri=True,  # Necessary to use the Read-only mode from file string
-                                       isolation_level="DEFERRED",
-                                       timeout=60,
-                                       check_same_thread=False  # Necessary for SQLite3 to function in multiprocessing
-                               )
-                cursor = conn.cursor()
-                for query_counter, __hits, __hsps in cursor.execute("SELECT * FROM dump"):
-                    record_counter += 1
-                    __hits = json.loads(__hits)
-                    __hsps = json.loads(__hsps)
-                    hit_counter += len(__hits)
-                    hits.extend(__hits)
-                    hsps.extend(__hsps)
-                    hits, hsps = load_into_db(self, hits, hsps, force=False)
-                    if record_counter > 0 and record_counter % 10000 == 0:
-                        self.logger.debug("Parsed %d queries", record_counter)
-                cursor.close()
-                conn.close()
-                os.remove(dbfile)
+        for dbfile in results:
+            conn = sqlite3.connect("file:{}?mode=ro".format(dbfile),
+                                   uri=True,  # Necessary to use the Read-only mode from file string
+                                   isolation_level="DEFERRED",
+                                   timeout=60,
+                                   check_same_thread=False  # Necessary for SQLite3 to function in multiprocessing
+                                   )
+            cursor = conn.cursor()
+            for query_counter, __hits, __hsps in cursor.execute("SELECT * FROM dump"):
+                record_counter += 1
+                __hits = json.loads(__hits)
+                __hsps = json.loads(__hsps)
+                hit_counter += len(__hits)
+                hits.extend(__hits)
+                hsps.extend(__hsps)
+                hits, hsps = load_into_db(self, hits, hsps, force=False)
+                if record_counter > 0 and record_counter % 10000 == 0:
+                    self.logger.debug("Parsed %d queries", record_counter)
+            cursor.close()
+            conn.close()
+            os.remove(dbfile)
 
-            self.logger.debug("Finished sending off the data for serialisation")
-            _, _ = self.__load_into_db(hits, hsps, force=True)
+        self.logger.debug("Finished sending off the data for serialisation")
+        _, _ = self._load_into_db(hits, hsps, force=True)
 
-        self.logger.info("Loaded %d alignments for %d queries",
-                         hit_counter, record_counter)
+    self.logger.info("Loaded %d alignments for %d queries",
+                     hit_counter, record_counter)
 
-        self.logger.info("Finished loading blast hits")
-        if hasattr(self, "logging_queue"):
-            self.logging_queue.close()
-
-    def __call__(self):
-        """
-        Alias for serialize
-        """
-        self.serialize()
-
-    @staticmethod
-    def get_multipliers(record):
-
-        """
-        Private quick method to determine the multipliers for a BLAST alignment
-        according to the application present in the record.
-        :param record:
-        :type record: Bio.SearchIO.Record
-        :return:
-        """
-
-        q_mult, h_mult = 1, 1
-
-        application = record.program.upper()
-        if application in ("BLASTN", "TBLASTX", "BLASTP"):
-            q_mult = 1
-            h_mult = 1
-        elif application == "BLASTX":
-            q_mult = 3
-            h_mult = 1
-        elif application == "TBLASTN":
-            q_mult = 1
-            h_mult = 3
-
-        return q_mult, h_mult
-
-# pylint: enable=too-many-instance-attributes
-
-
-def load_into_db(self, hits, hsps, force=False):
-    """
-    :param hits:
-    :param hsps:
-
-    :param force: boolean flag. If set, data will be loaded no matter what.
-    To be used at the end of the serialisation to load the final batch of data.
-    :type force: bool
-
-    :return:
-    """
-
-    self.logger.debug("Checking whether to load %d hits and %d hsps",
-                      len(hits), len(hsps))
-
-    tot_objects = len(hits) + len(hsps)
-    if len(hits) == 0:
-        self.logger.debug("No hits to serialise. Exiting")
-        return hits, hsps
-
-    if tot_objects >= self.maxobjects or force:
-        # Bulk load
-        self.logger.debug("Loading %d BLAST objects into database", tot_objects)
-
-        try:
-            # pylint: disable=no-member
-            self.session.begin(subtransactions=True)
-            self.engine.execute(Hit.__table__.insert(), hits)
-            self.engine.execute(Hsp.__table__.insert(), hsps)
-            # pylint: enable=no-member
-            self.session.commit()
-        except sqlalchemy.exc.IntegrityError as err:
-            self.logger.critical("Failed to serialise BLAST!")
-            self.logger.exception(err)
-            raise err
-        self.logger.debug("Loaded %d BLAST objects into database", tot_objects)
-        hits, hsps = [], []
-    return hits, hsps
-
-
-def _get_query_for_blast(session: sqlalchemy.orm.session.Session, record, cache):
-    """ This private method formats the name of the query
-    recovered from the BLAST hit. It will cause an exception if the target is not
-    present in the dictionary.
-    :param record: Bio.SearchIO.Record
-    :return: current_query (ID in the database), name
-    """
-
-    if record.id in cache:
-        return cache[record.id], record.id, cache
-    elif record.id.split()[0] in cache:
-        return cache[record.id.split()[0]], record.id.split()[0], cache
-    else:
-        got = session.query(Query).filter(sqlalchemy.or_(
-            Query.query_name == record.id,
-            Query.query_name == record.id.split()[0],
-        )).one()
-        cache[got.query_name] = got.query_id
-        return got.query_id, got.query_name, cache
-
-
-def _get_target_for_blast(session, alignment, cache):
-    """ This private method retrieves the correct target_id
-    key for the target of the BLAST. If the entry is not present
-    in the database, it will be created on the fly.
-    The method returns the index of the current target and
-    and an updated target dictionary.
-    :param alignment: an alignment child of a BLAST record object
-    :type alignment: Bio.SearchIO.Hit
-    :return: current_target (ID in the database), targets
-    """
-
-    if alignment.accession in cache:
-        return cache[alignment.accession], cache
-    elif alignment.id in cache:
-        return cache[alignment.id], cache
-    else:
-        got = session.query(Target).filter(sqlalchemy.or_(
-            Target.target_name == alignment.accession,
-            Target.target_name == alignment.id)).one()
-        cache[got.target_name] = got.target_id
-        return got.target_id, cache
+    self.logger.info("Finished loading blast hits")
+    if hasattr(self, "logging_queue"):
+        self.logging_queue.close()
 
 
 def objectify_record(session, record, hits, hsps, cache,
@@ -674,7 +226,7 @@ def objectify_record(session, record, hits, hsps, cache,
     if len(record.hits) == 0:
         return hits, hsps, cache
 
-    current_query, name, cache["query"] = _get_query_for_blast(session, record, cache["query"])
+    current_query, name, cache["query"] = _get_query_for_blast(record, cache["query"])
 
     current_evalue = -1
     current_counter = 0
@@ -685,7 +237,7 @@ def objectify_record(session, record, hits, hsps, cache,
             break
 
         logger.debug("Started the hit %s vs. %s", name, record.hits[ccc].id)
-        current_target, cache["target"] = _get_target_for_blast(session, alignment, cache["target"])
+        current_target, cache["target"] = _get_target_for_blast(alignment, cache["target"])
 
         hit_dict_params = dict()
         (hit_dict_params["query_multiplier"],

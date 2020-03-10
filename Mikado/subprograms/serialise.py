@@ -47,7 +47,7 @@ def xml_launcher(xml_candidate=None, json_conf=None, logger=None):
     :return:
     """
 
-    xml_serializer = blast_serializer.XmlSerializer(
+    xml_serializer = blast_serializer.BlastSerializer(
         xml_candidate,
         json_conf=json_conf,
         logger=logger)
@@ -198,7 +198,7 @@ def setup(args):
     for key in args.json_conf["serialise"]:
         if key == "files":
             for file_key in args.json_conf["serialise"]["files"]:
-                if getattr(args, file_key):
+                if getattr(args, file_key, None):
                     if file_key in ("xml", "junctions", "orfs"):
                         setattr(args, file_key, getattr(args, file_key).split(","))
                     args.json_conf["serialise"]["files"][file_key] = getattr(args, file_key)
@@ -436,7 +436,7 @@ a valid start codon.""")
                       help="Disable the start adjustment algorithm. Useful when using e.g. TransDecoder vs 5+.")
 
     blast = parser.add_argument_group()
-    blast.add_argument("--max_target_seqs", type=int, default=None,
+    blast.add_argument("--max-target-seqs", type=int, default=None,
                        help="Maximum number of target sequences.")
     blast.add_argument("-bt", "--blast-targets", "--blast_targets", default=[], type=comma_split,
                        help="Target sequences")

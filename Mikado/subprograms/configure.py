@@ -298,10 +298,10 @@ def create_config(args):
 switch.")
             sys.exit(1)
         else:
-            args.json_conf["pick"]["run_options"]["only_reference_update"] = True
+            config["pick"]["run_options"]["only_reference_update"] = True
 
     if args.check_references is True:
-        args.json_conf["pick"]["run_options"]["check_references"] = True
+        config["pick"]["run_options"]["check_references"] = True
 
     if args.scoring is not None:
         if args.copy_scoring is not False:

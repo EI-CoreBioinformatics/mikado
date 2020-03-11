@@ -24,6 +24,7 @@ from ..exceptions import InvalidJson
 import pyfaidx
 import numpy
 from ..exceptions import InvalidSerialization
+from ..serializers.blast_serializer.tabular_utils import blast_keys
 
 
 __author__ = 'Luca Venturini'
@@ -114,9 +115,8 @@ def load_blast(args, logger):
             if os.path.isdir(xml):
                 filenames.extend(
                     [os.path.join(xml, _xml) for _xml in
-                     os.listdir(xml) if (_xml.endswith(".xml") or
-                                         _xml.endswith(".xml.gz") or
-                                         _xml.endswith(".asn.gz")) is True])
+                     os.listdir(xml) if _xml.endswith(
+                        (".xml", ".asn", ".tsv", ".txt", ".xml.gz", ".asn.gz", ".tsv.gz", ".txt.gz")) is True])
             else:
                 filenames.extend(glob.glob(xml))
 
@@ -440,7 +440,7 @@ a valid start codon.""")
                        help="Maximum number of target sequences.")
     blast.add_argument("-bt", "--blast-targets", "--blast_targets", default=[], type=comma_split,
                        help="Target sequences")
-    blast.add_argument("--xml", type=str, help="""XML file(s) to parse.
+    blast.add_argument("--xml", "--tsv", type=str, dest="xml", help="""BLAST file(s) to parse.
     They can be provided in three ways:
     - a comma-separated list
     - as a base folder
@@ -448,7 +448,11 @@ a valid start codon.""")
     enclose the filename pattern in double quotes.
 
     Multiple folders/file patterns can be given, separated by a comma.
-    """, default=[])
+    BLAST files must be either of two formats:
+- BLAST XML
+- BLAST tabular format, with the following **custom** fields:
+    {fields}
+    """.format(fields=" ".join(blast_keys)), default=[])
     blast.add_argument("-p", "--procs", type=int,
                        help="""Number of threads to use for
     analysing the BLAST files. This number should not be higher than the total number of XML files.

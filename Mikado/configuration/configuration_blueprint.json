@@ -167,11 +167,6 @@
               "type": "array",
               "default": []
             },
-            "substitution_matrix": {
-              "enum": ["blosum45", "blosum50", "blosum62", null,
-              "blosum80", "blosum90", "pam250", "pam30", "pam70"],
-              "default": "blosum62"
-            },
             "blast_loading_debug": {
               "type": "boolean",
               "default": false
@@ -200,6 +195,15 @@
               "type": "string",
               "default": "."}
           }
+        },
+        "substitution_matrix": {
+            "enum": ["blosum45", "blosum50", "blosum62", null,
+            "blosum80", "blosum90", "pam250", "pam30", "pam70"],
+            "default": "blosum62"
+        },
+        "blast_flavour": {
+          "enum":  ["blastx", "blastp"],
+          "default": "blastx"
         },
         "max_objects": {"type": "integer", "default": 100000, "minimum": 1},
         "max_regression": {"type": "number",

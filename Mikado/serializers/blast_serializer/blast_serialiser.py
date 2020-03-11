@@ -385,4 +385,4 @@ class BlastSerializer:
 
     @staticmethod
     def get_multipliers(record, application=None):
-        get_multipliers(record, application=application)
+        return get_multipliers(record, application=application)

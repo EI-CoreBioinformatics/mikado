@@ -10,12 +10,18 @@ def _serialise_tabular(self):
     else:
         assert isinstance(self.xml, (list, set))
 
-    queries = pd.read_sql_table("query", self.engine, index_col="query_name",
-                                columns=["query_name", "query_id", "query_length"])
+    queries = pd.read_sql_table("query", self.engine, index_col="query_name")
     queries.columns = ["qid", "qlength"]
-    targets = pd.read_sql_table("target", self.engine, index_col="target_name",
-                                columns=["target_name", "target_id", "target_length"])
+    queries["qid"] = queries["qid"].astype(int)
+    assert queries.qid.drop_duplicates().shape[0] == queries.shape[0]
+
+    targets = pd.read_sql_table("target", self.engine, index_col="target_name")
     targets.columns = ["sid", "slength"]
+    targets["sid"] = targets["sid"].astype(int)
+    assert targets.sid.drop_duplicates().shape[0] == targets.shape[0]
+
+    if targets[targets.slength.isna()].shape[0] > 0:
+        raise KeyError("Unbound targets!")
 
     # cache = {"query": self.queries, "target": self.targets}
     matrix_name = self.json_conf["serialise"]["substitution_matrix"]
@@ -30,16 +36,29 @@ def _serialise_tabular(self):
     hits, hsps = [], []
 
     for fname in self.xml:
-        self.logger.debug("Analysing %s", fname)
+        self.logger.warning("Analysing %s", fname)
         hits, hsps = parse_tab_blast(fname,
-                                       queries,
-                                       targets,
-                                       hits=hits,
-                                       hsps=hsps,
-                                       pool=pool,
-                                       matrix_name=matrix_name,
-                                       qmult=qmult, tmult=tmult,
-                                       logger=self.logger)
+                                     queries,
+                                     targets,
+                                     hits=hits,
+                                     hsps=hsps,
+                                     pool=pool,
+                                     matrix_name=matrix_name,
+                                     qmult=qmult, tmult=tmult,
+                                     logger=self.logger)
+        from collections import defaultdict
+        checker = defaultdict(list)
+        bad = set()
+        for hit in hits:
+            key = (hit["query_id"], hit["target_id"])
+            checker[key].append(hit)
+            if len(checker[key]) > 1:
+                bad.add(key)
+
+        if bad:
+            self.logger.error("Duplicated keys:\n{}".format("\n".join([str(_) for _ in bad])))
+            raise KeyError
+
         hits, hsps = load_into_db(self, hits, hsps, force=False)
         self.logger.debug("Finished %s", fname)
     _, _ = load_into_db(self, hits, hsps, force=True)

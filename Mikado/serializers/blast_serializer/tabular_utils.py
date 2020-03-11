@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 from ...utilities.log_utils import create_null_logger
 import multiprocessing as mp
+from collections import defaultdict
 
 
 __author__ = 'Luca Venturini'
@@ -26,6 +27,9 @@ for mname in MatrixInfo.available_matrices:
     matrices[mname] = matrix
 
 
+btop_pattern = re.compile(r"(\d+|[A-Z|-]{2,2})")
+
+
 def _parse_btop(btop, qpos, spos,
                 query_array: np.array,
                 target_array: np.array,
@@ -44,10 +48,17 @@ def _parse_btop(btop, qpos, spos,
     # 1: identical
     # 2: positive
 
-    for pos in re.findall(r"(\d+|[A-Z|-]{2,2})", btop):
+    qpos, spos, qmult, tmult = int(qpos), int(spos), int(qmult), int(tmult)
+
+    for pos in re.findall(btop_pattern, btop):
         if isint(pos):
             pos = fast_int(pos)
-            query_array[:, qpos:qpos + pos * qmult] = 1
+            try:
+                query_array[:, qpos:qpos + pos * qmult] = 1
+            except TypeError:
+                assert isinstance(qpos, (np.int, int)), (qpos, type(qpos))
+                assert isinstance(pos, (np.int, int))
+                assert isinstance(qmult, (np.int, int))
             target_array[:, spos:spos + pos * tmult] = 1
             qpos += pos * qmult
             spos += pos * tmult
@@ -56,8 +67,11 @@ def _parse_btop(btop, qpos, spos,
         elif pos[1] == "-":  # Gap in target
             qpos += qmult
         else:
-            query_array[0, qpos:qpos + qmult] = 1
-            target_array[0, spos:spos + tmult] = 1
+            try:
+                query_array[0, qpos:qpos + qmult] = 1
+                target_array[0, spos:spos + tmult] = 1
+            except TypeError:
+                raise TypeError((qpos, qpos + qmult, spos, spos + tmult))
             if matrix.get(pos, -1) > 0:
                 query_array[2, qpos:qpos + qmult] = 1
                 target_array[2, spos:spos + tmult] = 1
@@ -67,7 +81,7 @@ def _parse_btop(btop, qpos, spos,
     return query_array, target_array
 
 
-def prepare_tab_hsp(hsp, query_array, target_array, counter, qmult=3, tmult=1, matrix_name=None):
+def prepare_tab_hsp(hsp, query_array, target_array, qmult=3, tmult=1, matrix_name=None):
 
     r"""
     Prepare a HSP for loading into the DB.
@@ -96,7 +110,7 @@ def prepare_tab_hsp(hsp, query_array, target_array, counter, qmult=3, tmult=1, m
                                             qmult=qmult,
                                             tmult=tmult,
                                             matrix=matrix)
-    hsp_dict["counter"] = counter + 1
+    hsp_dict["counter"] = hsp.hsp_num
     hsp_dict["query_hsp_start"] = hsp.qstart
     hsp_dict["query_hsp_end"] = hsp.qend
     hsp_dict["query_frame"] = hsp.query_frame
@@ -119,20 +133,23 @@ def prepare_tab_hit(hit: pd.DataFrame, qmult=3, tmult=1, matrix_name=None, **kwa
     hsp_dict_list = []
 
     qlength = hit.qlength.unique()[0]
-    assert isinstance(qmult, (int, float)), type(qmult)
-    assert isinstance(tmult, (int, float)), type(tmult)
+    assert isinstance(qmult, (int, float)), (qmult, type(qmult))
+    assert isinstance(tmult, (int, float)), (tmult, type(tmult))
     hit_dict.update(kwargs)
-    hit_dict["query_id"] = hit.qid.unique()[0]
-    hit_dict["target_id"] = hit.sid.unique()[0]
-
+    hit_dict["query_id"] = int(hit.qid.unique()[0])
+    hit_dict["target_id"] = int(hit.sid.unique()[0])
+    hit_dict["hit_number"] = int(hit.hit_num.unique()[0])
     query_array = np.zeros([3, hit["qlength"].unique()[0]])
     target_array = np.zeros([3, hit["slength"].unique()[0]])
+    hit_dict["evalue"] = hit.min_evalue.unique()[0]
+    hit_dict["bits"] = hit.max_bitscore.unique()[0]
+    hit_dict["query_multiplier"] = int(qmult)
+    hit_dict["target_multiplier"] = int(tmult)
 
-    for counter, (idx, hsp) in enumerate(hit.sort_values(
-            by=["evalue", "bitscore"], ascending=[True, False]).iterrows()):
+    for idx, hsp in hit.sort_values(
+            by=["evalue", "bitscore"], ascending=[True, False]).iterrows():
         hsp_dict, query_array, target_array = prepare_tab_hsp(
-            hsp, query_array, target_array, counter, qmult=qmult, matrix_name=matrix_name
-        )
+            hsp, query_array, target_array, qmult=qmult, matrix_name=matrix_name)
         hsp_dict["query_id"] = hit_dict["query_id"]
         hsp_dict["target_id"] = hit_dict["target_id"]
         hsp_dict_list.append(hsp_dict)
@@ -141,7 +158,7 @@ def prepare_tab_hit(hit: pd.DataFrame, qmult=3, tmult=1, matrix_name=None, **kwa
     q_aligned = np.where(query_array[0] > 0)[0]
     hit_dict["query_aligned_length"] = min(qlength, q_aligned.shape[0])
     qstart, qend = q_aligned.min(), q_aligned.max()
-    hit_dict["query_start"], hit_dict["query_end"] = qstart, qend
+    hit_dict["query_start"], hit_dict["query_end"] = int(qstart), int(qend)
     identical_positions = np.where(query_array[1] > 0)[0].shape[0]
     positives = np.where(query_array[2] > 0)[0].shape[0]
 
@@ -156,46 +173,15 @@ def prepare_tab_hit(hit: pd.DataFrame, qmult=3, tmult=1, matrix_name=None, **kwa
 
     t_aligned = np.where(target_array[0] > 0)[0]
     hit_dict["target_aligned_length"] = min(t_aligned.shape[0], hit.slength.unique()[0])
-    hit_dict["target_start"] = t_aligned.min()
-    hit_dict["target_end"] = t_aligned.max()
+    hit_dict["target_start"] = int(t_aligned.min())
+    hit_dict["target_end"] = int(t_aligned.max())
     hit_dict["global_identity"] = identical_positions * 100 / q_aligned.shape[0]
     hit_dict["global_positives"] = positives * 100 / q_aligned.shape[0]
 
     return hit_dict, hsp_dict_list
 
 
-def parse_tab_blast_group(group, matrix_name="blosum62", qmult=3, tmult=1, logger=create_null_logger()):
-    ssorted = group.sort_values(["min_evalue", "sseqid"], ascending=True)[["min_evalue",
-                                                                           "max_bitscore",
-                                                                           "sseqid"]].drop_duplicates()
-
-    hits, hsps = [], []
-    for hitnum, (_, row) in enumerate(ssorted.iterrows()):
-
-        hit_dict_params = dict()
-        (hit_dict_params["query_multiplier"],
-         hit_dict_params["target_multiplier"]) = (qmult, tmult)
-        hit_evalue = row.min_evalue
-        hit_bs = row.max_bitscore
-        hit_dict_params["hit_number"] = hitnum
-        hit_dict_params["evalue"] = hit_evalue
-        hit_dict_params["bits"] = hit_bs
-
-        # Prepare for bulk load
-        rows = group[group.sseqid == row.sseqid]
-        try:
-            hit, hit_hsps = prepare_tab_hit(rows,
-                                            qmult=qmult,
-                                            tmult=tmult,
-                                            matrix_name=matrix_name,
-                                            **hit_dict_params)
-        except InvalidHit as exc:
-            logger.error(exc)
-            continue
-        # hit["query_aligned_length"] = min(record.seq_len, hit["query_aligned_length"])
-        hits.append(hit)
-        hsps.extend(hit_hsps)
-    return hits, hsps
+id_pattern = re.compile(r"^[^\|]*\|([^\|]*)\|.*")
 
 
 def parse_tab_blast(bname: str,
@@ -219,6 +205,15 @@ def parse_tab_blast(bname: str,
 
     # matrix = matrices[matrix_name]
     data = pd.read_csv(bname, delimiter="\t", names=blast_keys)
+    if data[data.btop.isna()].shape[0] > 0:
+        raise ValueError(data.loc[0])
+
+    #Correct the names of queries and targets
+    data["qseqid"] = data["qseqid"].str.replace(id_pattern, "\\1")
+    data["sseqid"] = data["sseqid"].str.replace(id_pattern, "\\1")
+    for col in ["qstart", "qend", "sstart", "send"]:
+        data[col] = data[col].astype(int)
+
     # Switch start and env when they are not in the correct order
     _ix = (data.qstart > data.qend)
     data.loc[_ix, ["qstart", "qend"]] = data.loc[_ix, ["qend", "qstart"]].values
@@ -232,26 +227,36 @@ def parse_tab_blast(bname: str,
     data["target_frame"] = data.qstart % tmult
     data["aln_span"] = data.qend - data.qstart + 1
 
+    # Set the hsp_num
+    data["hsp_num"] = data.sort_values("evalue").groupby(["qseqid", "sseqid"]).cumcount() + 1
+    temp = data[["qseqid", "sseqid", "min_evalue"]].drop_duplicates().sort_values("min_evalue", ascending=True)
+    temp["hit_num"] = temp.groupby(["qseqid"]).cumcount() + 1
+    temp.set_index(["qseqid", "sseqid"], inplace=True)
+    data = data.join(temp["hit_num"], on=["qseqid", "sseqid"])
+
     if pool is not None:
         assert isinstance(pool, mp.pool.Pool)
         results = []
 
-    for idx, (qseqid, group) in enumerate(data.groupby("qseqid")):
+    previous = len(hits)
+
+    for idx, (qseqid, group) in enumerate(data.groupby(["qseqid", "sseqid"]), 1):
         # Sort by minimum evalue
-        if pool is None:
-            ghits, ghsps = parse_tab_blast_group(group, matrix_name=matrix_name,
-                                                 qmult=qmult,
-                                                 tmult=tmult)
-            hits.extend(ghits)
+        # prepare_tab_hit(hit: pd.DataFrame, qmult=3, tmult=1, matrix_name=None, **kwargs):
+        if True:
+            ghit, ghsps = prepare_tab_hit(group, matrix_name=matrix_name, qmult=qmult, tmult=tmult)
+            hits.append(ghit)
             hsps.extend(ghsps)
         else:
-            results.append(pool.apply_async(parse_tab_blast_group, args=(group,
-                                                                         matrix_name, qmult, tmult)))
+            results.append(pool.apply_async(prepare_tab_hit, args=(group, qmult, tmult, matrix_name)))
 
     if pool is not None:
         for res in results:
-            ghits, ghsps = res.get()
-            hits.extend(ghits)
+            ghit, ghsps = res.get()
+            hits.append(ghit)
             hsps.extend(ghsps)
+
+    assert len(hits) - previous == data.groupby(["qseqid", "sseqid"]).ngroups, (
+        idx, len(hits) - previous, data.groupby(["qseqid", "sseqid"]).ngroups)
 
     return hits, hsps

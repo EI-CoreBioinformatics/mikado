@@ -31,6 +31,8 @@ def _serialise_tabular(self):
     if self._xml_debug is False and (self.single_thread is True or self.procs == 1):
         pool = None
     else:
+        self.logger.info("Creating a pool with %d workers for analysing BLAST results",
+                         self.procs)
         pool = mp.Pool(self.procs)
 
     hits, hsps = [], []

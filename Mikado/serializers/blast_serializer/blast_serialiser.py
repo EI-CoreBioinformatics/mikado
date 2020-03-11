@@ -76,6 +76,7 @@ class BlastSerializer:
         multiprocessing.set_start_method(self.json_conf["multiprocessing_method"],
                                          force=True)
         # pylint: enable=unexpected-argument,E1123
+        self.logger.info("Number of dedicated workers: %d", self.procs)
         self.logging_queue = multiprocessing.Queue(-1)
         self.logger_queue_handler = logging_handlers.QueueHandler(self.logging_queue)
         self.queue_logger = logging.getLogger("parser")

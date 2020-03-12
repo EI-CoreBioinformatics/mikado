@@ -31,8 +31,8 @@ def parse_btop(str btop, long qpos, long spos,
         try:
             ipos = int(pos)
         except ValueError:
-            ipos = None
-        if ipos:
+            ipos = - 1
+        if ipos >= 0:
             query_array[:, qpos:qpos + ipos * qmult] = 1
             target_array[:, spos:spos + ipos * tmult] = 1
             qpos += ipos * qmult

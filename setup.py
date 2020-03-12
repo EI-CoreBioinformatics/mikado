@@ -11,6 +11,7 @@ from os import path
 import glob
 import re
 import sys
+import numpy as np
 
 here = path.abspath(path.dirname("__file__"))
 
@@ -39,6 +40,7 @@ extensions = [Extension("Mikado.utilities.overlap",
               Extension("Mikado.utilities.intervaltree",
                         sources=[path.join("Mikado", "utilities", "intervaltree.pyx")]),
               Extension("Mikado.serializers.blast_serializer.btop_parser",
+                        include_dirs=[np.get_include()],
                         sources=[path.join("Mikado", "serializers", "blast_serializer", "btop_parser.pyx")])]
 
 setup(

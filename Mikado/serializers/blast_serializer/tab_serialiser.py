@@ -39,7 +39,8 @@ def _serialise_tabular(self):
 
     for fname in self.xml:
         self.logger.warning("Analysing %s", fname)
-        hits, hsps = parse_tab_blast(fname,
+        hits, hsps = parse_tab_blast(self,
+                                     fname,
                                      queries,
                                      targets,
                                      hits=hits,
@@ -48,20 +49,6 @@ def _serialise_tabular(self):
                                      matrix_name=matrix_name,
                                      qmult=qmult, tmult=tmult,
                                      logger=self.logger)
-        from collections import defaultdict
-        checker = defaultdict(list)
-        bad = set()
-        for hit in hits:
-            key = (hit["query_id"], hit["target_id"])
-            checker[key].append(hit)
-            if len(checker[key]) > 1:
-                bad.add(key)
-
-        if bad:
-            self.logger.error("Duplicated keys:\n{}".format("\n".join([str(_) for _ in bad])))
-            raise KeyError
-
-        hits, hsps = load_into_db(self, hits, hsps, force=False)
         self.logger.debug("Finished %s", fname)
     _, _ = load_into_db(self, hits, hsps, force=True)
     self.logger.info("Finished loading blast hits")

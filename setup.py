@@ -37,7 +37,9 @@ extensions = [Extension("Mikado.utilities.overlap",
               Extension("Mikado.scales.contrast",
                         sources=[path.join("Mikado", "scales", "contrast.pyx")]),
               Extension("Mikado.utilities.intervaltree",
-                        sources=[path.join("Mikado", "utilities", "intervaltree.pyx")])]
+                        sources=[path.join("Mikado", "utilities", "intervaltree.pyx")]),
+              Extension("Mikado.serializers.blast_serializer.btop_parser",
+                        sources=[path.join("Mikado", "serializers", "blast_serializer", "btop_parser.pyx")])]
 
 setup(
     name="Mikado",

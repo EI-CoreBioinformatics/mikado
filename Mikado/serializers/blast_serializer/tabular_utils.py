@@ -53,12 +53,7 @@ def _parse_btop(btop, qpos, spos,
     for pos in re.findall(btop_pattern, btop):
         if isint(pos):
             pos = fast_int(pos)
-            try:
-                query_array[:, qpos:qpos + pos * qmult] = 1
-            except TypeError:
-                assert isinstance(qpos, (np.int, int)), (qpos, type(qpos))
-                assert isinstance(pos, (np.int, int))
-                assert isinstance(qmult, (np.int, int))
+            query_array[:, qpos:qpos + pos * qmult] = 1
             target_array[:, spos:spos + pos * tmult] = 1
             qpos += pos * qmult
             spos += pos * tmult
@@ -93,7 +88,7 @@ def prepare_tab_hsp(hsp, query_array, target_array, qmult=3, tmult=1, matrix_nam
     - If the position is a gap *for both*, insert a \ (backslash)
 
     :param hsp: A tabular blast row
-    :type hsp: dict
+    :type hsp: pd.Series
     :param counter: a digit that indicates the priority of the HSP in the hit
     :return: hsp_dict, numpy array
     :rtype: (dict, np.array, np.array)
@@ -105,24 +100,24 @@ def prepare_tab_hsp(hsp, query_array, target_array, qmult=3, tmult=1, matrix_nam
     query_array, target_array = _parse_btop(hsp["btop"],
                                             query_array=query_array,
                                             target_array=target_array,
-                                            qpos=hsp["qstart"],
-                                            spos=hsp["sstart"],
+                                            qpos=hsp.get("qstart"),
+                                            spos=hsp.get("sstart"),
                                             qmult=qmult,
                                             tmult=tmult,
                                             matrix=matrix)
-    hsp_dict["counter"] = hsp["hsp_num"]
-    hsp_dict["query_hsp_start"] = hsp["qstart"]
-    hsp_dict["query_hsp_end"] = hsp["qend"]
-    hsp_dict["query_frame"] = hsp["query_frame"]
-    hsp_dict["target_hsp_start"] = hsp["sstart"]
-    hsp_dict["target_hsp_end"] = hsp["send"]
-    hsp_dict["target_frame"] = hsp["target_frame"]
-    hsp_dict["hsp_identity"] = hsp["pident"]
-    hsp_dict["hsp_positives"] = hsp["ppos"]
-    hsp_dict["match"] = hsp["btop"]
-    hsp_dict["hsp_length"] = hsp["aln_span"]
-    hsp_dict["hsp_bits"] = hsp["bitscore"]
-    hsp_dict["hsp_evalue"] = hsp["evalue"]
+    hsp_dict["counter"] = hsp.get("hsp_num")
+    hsp_dict["query_hsp_start"] = hsp.get("qstart")
+    hsp_dict["query_hsp_end"] = hsp.get("qend")
+    hsp_dict["query_frame"] = hsp.get("query_frame")
+    hsp_dict["target_hsp_start"] = hsp.get("sstart")
+    hsp_dict["target_hsp_end"] = hsp.get("send")
+    hsp_dict["target_frame"] = hsp.get("target_frame")
+    hsp_dict["hsp_identity"] = hsp.get("pident")
+    hsp_dict["hsp_positives"] = hsp.get("ppos")
+    hsp_dict["match"] = hsp.get("btop")
+    hsp_dict["hsp_length"] = hsp.get("aln_span")
+    hsp_dict["hsp_bits"] = hsp.get("bitscore")
+    hsp_dict["hsp_evalue"] = hsp.get("evalue")
     return hsp_dict, query_array, target_array
 
 
@@ -132,22 +127,23 @@ def prepare_tab_hit(hit: pd.DataFrame, qmult=3, tmult=1, matrix_name=None, **kwa
     hit_dict = dict()
     hsp_dict_list = []
 
-    first_row = hit.iloc[0]  # Faster if we just select it once
-    qlength = int(first_row.qlength)
+    # first_row = hit.loc[hit.index[0]]
+    sidx = hit.index[0]
+    qlength = int(hit.loc[sidx, "qlength"])
     hit_dict.update(kwargs)
-    hit_dict["query_id"] = int(first_row["qid"])
-    hit_dict["target_id"] = int(first_row["sid"])
-    hit_dict["hit_number"] = int(first_row["hit_num"])
-    query_array = np.zeros([3, first_row["qlength"]])
-    target_array = np.zeros([3, first_row["slength"]])
-    hit_dict["evalue"] = first_row["min_evalue"]
-    hit_dict["bits"] = first_row["max_bitscore"]
+    hit_dict["query_id"] = int(hit.loc[sidx, "qid"])
+    hit_dict["target_id"] = int(hit.loc[sidx, "sid"])
+    hit_dict["hit_number"] = int(hit.loc[sidx, "hit_num"])
+    query_array = np.zeros([3, hit.loc[sidx, "qlength"]])
+    target_array = np.zeros([3, hit.loc[sidx, "slength"]])
+    hit_dict["evalue"] = hit.loc[sidx, "min_evalue"]
+    hit_dict["bits"] = hit.loc[sidx, "max_bitscore"]
     hit_dict["query_multiplier"] = int(qmult)
     hit_dict["target_multiplier"] = int(tmult)
 
-    for idx, hsp in hit.iterrows():
+    for idx in hit.index:
         hsp_dict, query_array, target_array = prepare_tab_hsp(
-            dict(**hsp), query_array, target_array, qmult=qmult, matrix_name=matrix_name)
+            hit.loc[idx], query_array, target_array, qmult=qmult, matrix_name=matrix_name)
         hsp_dict["query_id"] = hit_dict["query_id"]
         hsp_dict["target_id"] = hit_dict["target_id"]
         hsp_dict_list.append(hsp_dict)
@@ -170,7 +166,7 @@ def prepare_tab_hit(hit: pd.DataFrame, qmult=3, tmult=1, matrix_name=None, **kwa
             len(positives), q_aligned))
 
     t_aligned = np.where(target_array[0] > 0)[0]
-    hit_dict["target_aligned_length"] = min(t_aligned.shape[0], first_row["slength"])
+    hit_dict["target_aligned_length"] = min(t_aligned.shape[0], hit.loc[sidx, "slength"])
     hit_dict["target_start"] = int(t_aligned.min())
     hit_dict["target_end"] = int(t_aligned.max())
     hit_dict["global_identity"] = identical_positions * 100 / q_aligned.shape[0]

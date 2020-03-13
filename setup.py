@@ -41,6 +41,7 @@ extensions = [Extension("Mikado.utilities.overlap",
                         sources=[path.join("Mikado", "utilities", "intervaltree.pyx")]),
               Extension("Mikado.serializers.blast_serializer.btop_parser",
                         include_dirs=[np.get_include()],
+                        language="c++",
                         sources=[path.join("Mikado", "serializers", "blast_serializer", "btop_parser.pyx")])]
 
 setup(

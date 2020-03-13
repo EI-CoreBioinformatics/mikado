@@ -27,7 +27,7 @@ for mname in MatrixInfo.available_matrices:
     matrices[mname] = matrix
 
 
-def prepare_tab_hsp(hsp, qmult=3, tmult=1, matrix_name=None):
+def prepare_tab_hsp(hsp, columns, qmult=3, tmult=1, matrix_name=None):
 
     r"""
     Prepare a HSP for loading into the DB.
@@ -39,56 +39,57 @@ def prepare_tab_hsp(hsp, qmult=3, tmult=1, matrix_name=None):
     - If the position is a gap *for both*, insert a \ (backslash)
 
     :param hsp: A tabular blast row
-    :type hsp: pd.Series
-    :param counter: a digit that indicates the priority of the HSP in the hit
+    :type hsp: tuple
+    :param columns: dictionary with the index of the column names
     :return: hsp_dict, numpy array
     :rtype: (tuple, dict, np.array, np.array)
     """
 
     hsp_dict = dict()
     # We must start from 1, otherwise MySQL crashes as its indices start from 1 not 0
-    key = (int(hsp.qid), int(hsp.sid))
+    key = (int(hsp[columns["qid"]]), int(hsp[columns["sid"]]))
     hsp_dict["query_id"], hsp_dict["target_id"] = key
-    query_array = np.zeros([3, hsp.qlength], dtype=np.int)
-    target_array = np.zeros([3, hsp.slength], dtype=np.int)
+    query_array = np.zeros([3, hsp[columns["qlength"]]], dtype=np.int)
+    target_array = np.zeros([3, hsp[columns["slength"]]], dtype=np.int)
     matrix = matrices.get(matrix_name, matrices["blosum62"])
-    query_array, target_array = parse_btop(hsp.btop,
+    query_array, target_array = parse_btop(hsp[columns["btop"]],
                                             query_array=query_array,
                                             target_array=target_array,
-                                            qpos=hsp.qstart,
-                                            spos=hsp.sstart,
+                                            qpos=hsp[columns["qstart"]],
+                                            spos=hsp[columns["sstart"]],
                                             qmult=qmult,
                                             tmult=tmult,
                                             matrix=matrix)
-    hsp_dict["counter"] = hsp.hsp_num
-    hsp_dict["query_hsp_start"] = hsp.qstart
-    hsp_dict["query_hsp_end"] = hsp.qend
-    hsp_dict["query_frame"] = hsp.query_frame
-    hsp_dict["target_hsp_start"] = hsp.sstart
-    hsp_dict["target_hsp_end"] = hsp.send
-    hsp_dict["target_frame"] = hsp.target_frame
-    hsp_dict["hsp_identity"] = hsp.pident
-    hsp_dict["hsp_positives"] = hsp.ppos
-    hsp_dict["match"] = hsp.btop
-    hsp_dict["hsp_length"] = hsp.aln_span
-    hsp_dict["hsp_bits"] = hsp.bitscore
-    hsp_dict["hsp_evalue"] = hsp.evalue
+    hsp_dict["counter"] = hsp[columns["hsp_num"]]
+    hsp_dict["query_hsp_start"] = hsp[columns["qstart"]]
+    hsp_dict["query_hsp_end"] = hsp[columns["qend"]]
+    hsp_dict["query_frame"] = hsp[columns["query_frame"]]
+    hsp_dict["target_hsp_start"] = hsp[columns["sstart"]]
+    hsp_dict["target_hsp_end"] = hsp[columns["send"]]
+    hsp_dict["target_frame"] = hsp[columns["target_frame"]]
+    hsp_dict["hsp_identity"] = hsp[columns["pident"]]
+    hsp_dict["hsp_positives"] = hsp[columns["ppos"]]
+    hsp_dict["match"] = hsp[columns["btop"]]
+    hsp_dict["hsp_length"] = hsp[columns["aln_span"]]
+    hsp_dict["hsp_bits"] = hsp[columns["bitscore"]]
+    hsp_dict["hsp_evalue"] = hsp[columns["evalue"]]
     return key, hsp_dict, query_array, target_array
 
 
-def prepare_tab_hit(hit: pd.Series,
+def prepare_tab_hit(hit: tuple,
+                    columns: dict,
                     query_arrays, target_arrays,
                     qmult=3, tmult=1, **kwargs):
     """"""
 
     hit_dict = dict()
-    qlength = int(hit.qlength)
+    qlength = int(hit[columns["qlength"]])
     hit_dict.update(kwargs)
-    hit_dict["query_id"] = int(hit.qid)
-    hit_dict["target_id"] = int(hit.sid)
-    hit_dict["hit_number"] = int(hit.hit_num)
-    hit_dict["evalue"] = hit.min_evalue
-    hit_dict["bits"] = hit.max_bitscore
+    hit_dict["query_id"] = int(hit[columns["qid"]])
+    hit_dict["target_id"] = int(hit[columns["sid"]])
+    hit_dict["hit_number"] = int(hit[columns["hit_num"]])
+    hit_dict["evalue"] = hit[columns["min_evalue"]]
+    hit_dict["bits"] = hit[columns["max_bitscore"]]
     hit_dict["query_multiplier"] = int(qmult)
     hit_dict["target_multiplier"] = int(tmult)
 
@@ -111,7 +112,7 @@ def prepare_tab_hit(hit: pd.Series,
             len(positives), q_aligned))
 
     t_aligned = np.where(target_array[0] > 0)[0]
-    hit_dict["target_aligned_length"] = min(t_aligned.shape[0], hit.slength)
+    hit_dict["target_aligned_length"] = min(t_aligned.shape[0], hit[columns["slength"]])
     hit_dict["target_start"] = int(t_aligned.min())
     hit_dict["target_end"] = int(t_aligned.max())
     hit_dict["global_identity"] = identical_positions * 100 / max(q_aligned.shape[0], 1)
@@ -181,10 +182,12 @@ def parse_tab_blast(self,
     data = sanitize_blast_data(data, queries, targets, qmult=qmult, tmult=tmult)
 
     _hsps = dict()
+    columns = dict((name, index) for index, name in enumerate(data.columns))
     if pool is not None:
         assert isinstance(pool, mp.pool.Pool)
-        hsp_results = [pool.apply_async(prepare_tab_hsp, args=(hsp[1], qmult, tmult, matrix_name))
-                   for hsp in data.iterrows()]
+        hsp_results = [pool.apply_async(prepare_tab_hsp, args=(hsp[1:], columns,
+                                                               qmult, tmult, matrix_name))
+                       for hsp in data.itertuples(name=None)]
 
         for idx, res in enumerate(hsp_results):
             key, hsp_dict, query_array, target_array = res.get()
@@ -197,8 +200,8 @@ def parse_tab_blast(self,
             _hsps[key]["target"].append(target_array)
             hsps.append(hsp_dict)
     else:
-        for idx, hsp in enumerate(data.iterrows()):
-            key, hsp_dict, query_array, target_array = prepare_tab_hsp(hsp[1], qmult, tmult, matrix_name)
+        for idx, hsp in enumerate(data.itertuples(name=None)):
+            key, hsp_dict, query_array, target_array = prepare_tab_hsp(hsp[1:], columns, qmult, tmult, matrix_name)
             if idx >= self.maxobjects and idx % self.maxobjects == 0:
                 assert len(hits) == 0 or isinstance(hits[0], dict), (hits[0], type(hits[0]))
                 hits, hsps = load_into_db(self, hits, hsps, force=False)
@@ -213,22 +216,23 @@ def parse_tab_blast(self,
 
     done = set()
 
-    for idx, row in data.iterrows():
-        key = (row.qid, row.sid)
+    for row in data.itertuples(name=None):
+        idx, row = row[0], row[1:]
+        key = (row[columns["qid"]], row[columns["sid"]])
         if key in done:
             continue
         done.add(key)
         query_arrays = _hsps[key]["query"]
         target_arrays = _hsps[key]["target"]
         if pool is None:
-            hits.append(prepare_tab_hit(row,
+            hits.append(prepare_tab_hit(row, columns,
                                         query_arrays=query_arrays,
                                         target_arrays=target_arrays,
                                         qmult=qmult, tmult=tmult))
         else:
             results.append(
                 pool.apply_async(prepare_tab_hit,
-                                 args=(row, query_arrays, target_arrays),
+                                 args=(row, columns, query_arrays, target_arrays),
                                  kwds={"qmult": qmult, "tmult": tmult}))
 
     if pool is not None:

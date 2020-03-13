@@ -234,7 +234,7 @@ def objectify_record(record, hits, hsps, cache,
 
     current_query, name, cache["query"] = _get_query_for_blast(record, cache["query"])
 
-    current_evalue = -1
+    # current_evalue = -1
     current_counter = 0
 
     # for ccc, alignment in enumerate(record.alignments):
@@ -250,9 +250,10 @@ def objectify_record(record, hits, hsps, cache,
          hit_dict_params["target_multiplier"]) = (qmult, tmult)
         hit_evalue = min(_.evalue for _ in record.hits[ccc].hsps)
         hit_bs = max(_.bitscore for _ in record.hits[ccc].hsps)
-        if current_evalue < hit_evalue:
-            current_counter += 1
-            current_evalue = hit_evalue
+        current_counter += 1
+        # if current_evalue < hit_evalue:
+        #     current_counter += 1
+        #     current_evalue = hit_evalue
 
         hit_dict_params["hit_number"] = current_counter
         hit_dict_params["evalue"] = hit_evalue
@@ -268,8 +269,6 @@ def objectify_record(record, hits, hsps, cache,
             logger.error(exc)
             continue
         hit["query_aligned_length"] = min(record.seq_len, hit["query_aligned_length"])
-
-
         hits.append(hit)
         hsps.extend(hit_hsps)
 

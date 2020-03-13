@@ -194,6 +194,9 @@ def prepare_hit(hit, query_id, target_id, **kwargs):
     hit_dict["query_id"] = query_id
     hit_dict["target_id"] = target_id
 
+    query_array = np.zeros([3, qlength])
+    target_array = np.zeros([3, sl])
+
     for counter, hsp in enumerate(hit.hsps):
         hsp_dict, ident, posit = prepare_hsp(hsp, counter, qmultiplier=qmulti, tmultiplier=tmulti)
         identical_positions.update(ident)
@@ -234,7 +237,11 @@ def prepare_hit(hit, query_id, target_id, **kwargs):
     hit_dict["target_start"] = t_merged_intervals[0][0]
     hit_dict["target_end"] = t_merged_intervals[-1][1]
     hit_dict["global_identity"] = len(identical_positions) * 100 / q_aligned
+    assert hit_dict["global_identity"] >= max([_["hsp_identity"] for _ in hsp_dict_list]), (
+        hit_dict["global_identity"], [_["hsp_identity"] for _ in hsp_dict_list]
+    )
     hit_dict["global_positives"] = len(positives) * 100 / q_aligned
+    assert hit_dict["global_positives"] >= max([_["hsp_positives"] for _ in hsp_dict_list])
 
     return hit_dict, hsp_dict_list
 # pylint: enable=too-many-locals

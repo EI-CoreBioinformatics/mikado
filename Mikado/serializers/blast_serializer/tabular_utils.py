@@ -70,7 +70,7 @@ def prepare_tab_hsp(hsp, columns, qmult=3, tmult=1, matrix_name=None):
     hsp_dict["hsp_identity"] = hsp[columns["pident"]]
     hsp_dict["hsp_positives"] = hsp[columns["ppos"]]
     hsp_dict["match"] = hsp[columns["btop"]]
-    hsp_dict["hsp_length"] = hsp[columns["aln_span"]]
+    hsp_dict["hsp_length"] = hsp[columns["length"]]
     hsp_dict["hsp_bits"] = hsp[columns["bitscore"]]
     hsp_dict["hsp_evalue"] = hsp[columns["evalue"]]
     return key, hsp_dict, query_array, target_array
@@ -138,16 +138,19 @@ def sanitize_blast_data(data: pd.DataFrame, queries: pd.DataFrame, targets: pd.D
     # Switch start and env when they are not in the correct order
     _ix = (data.qstart > data.qend)
     data.loc[_ix, ["qstart", "qend"]] = data.loc[_ix, ["qend", "qstart"]].values
+    data["qstart"] -=1
+    data["sstart"] -= 1
     # Get the minimum evalue for each group
     data = data.join(queries, on=["qseqid"]).join(targets, on=["sseqid"]).join(
         data.groupby(["qseqid", "sseqid"]).agg(
             min_evalue=pd.NamedAgg("evalue", np.min),
             max_bitscore=pd.NamedAgg("bitscore", np.max)
         )[["min_evalue", "max_bitscore"]], on=["qseqid", "sseqid"])
-    data["query_frame"] = data.qstart % qmult
-    data["target_frame"] = data.qstart % tmult
-    data["aln_span"] = data.qend - data.qstart + 1
 
+    data["query_frame"] = (data.qstart + 1) % qmult + 1
+    data.loc[_ix, "query_frame"] *= -1
+    data["target_frame"] = (data.sstart + 1) % tmult
+    # data["aln_span"] = data.qend - data.qstart
     # Set the hsp_num
     data["hsp_num"] = data.sort_values("evalue").groupby(["qseqid", "sseqid"]).cumcount() + 1
     temp = data[["qseqid", "sseqid", "min_evalue"]].drop_duplicates().sort_values("min_evalue", ascending=True)

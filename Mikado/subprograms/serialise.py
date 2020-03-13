@@ -483,9 +483,9 @@ a valid start codon.""")
                          help="""Flag. If set, an existing databse will be deleted (sqlite)
                          or dropped (MySQL/PostGreSQL) before beginning the serialisation.""")
     # If None, the default configuration will be used (from the blueprint)
-    generic.add_argument("--json-conf", default=None,
+    generic.add_argument("--json-conf", default=configurator.to_json(None),
                          dest="json_conf", type=configurator.to_json,
-                         required=True)
+                         required=False)
     generic.add_argument("-l", "--log", type=str, default=None, nargs='?', help="Optional log file. Default: stderr")
     parser.add_argument("-od", "--output-dir", dest="output_dir",
                         type=str, default=None,

@@ -133,17 +133,44 @@ def _prepare_aln_strings(hsp, qmultiplier=1):
     match[np.where(
         (lett_array[0] != lett_array[2]) & (lett_array[1] != "+") &
         (match != "*") & (match != "_") & (match != "-")
-    )] = "X"
+    )] = "/"
+
+    query_array = np.zeros(hsp.query_end - hsp.query_start)
+    qpos = 0
+    for idx in range(lett_array.shape[1]):
+        pos = lett_array[:, idx]
+        if pos[0] == pos[2]:
+            query_array[qpos] = 2
+            qpos += 1
+        elif pos[1] == "+":
+            query_array[qpos] = 1
+            qpos += 1
+        elif pos[0] == "-":
+            continue
+        elif pos[2] == "-":
+            qpos += 1
+            continue
 
     summer = np.array([[_] for _ in range(qmultiplier)])
-    v = np.array([[1]] * qmultiplier)
-    identical_positions = np.where((lett_array[0] == lett_array[2]) & (lett_array[1] != "X")) * v
-    identical_positions = set(np.array(
-        [identical_positions[_] * 3 + summer for _ in range(identical_positions.shape[0])]).flatten())
-    positives = np.where(((
-                                lett_array[0] == lett_array[2]) | (lett_array[1] == "+")) & (lett_array[1] != "X")) * v
-    positives = set(np.array(
-        [positives[_] * 3 + summer for _ in range(positives.shape[0])]).flatten())
+    _id_catcher = np.where(query_array >= 2)
+    assert hsp.ident_num == _id_catcher[0].shape[0]
+    identical_positions = ((_id_catcher[0] * qmultiplier) + summer).flatten()
+    _pos_catcher = np.where(query_array >= 1)
+    assert hsp.pos_num == _pos_catcher[0].shape[0], (hsp.pos_num, _pos_catcher[0].shape[0])
+    positives = ((_pos_catcher[0] * qmultiplier) + summer).flatten()
+    if hsp.query_frame > 0:
+        identical_positions = identical_positions + hsp.query_start
+        positives = positives + hsp.query_start
+    else:
+        identical_positions = hsp.query_end - identical_positions
+        positives = hsp.query_end - positives
+
+    assert hsp.query_start <= positives.min() <= positives.max() <= hsp.query_end, (
+        hsp.query_frame, hsp.query_start, positives.min(), positives.max(), hsp.query_end
+    )
+    assert hsp.query_start <= identical_positions.min() <= identical_positions.max() <= hsp.query_end
+    identical_positions = set(identical_positions)
+    positives = set(positives)
     str_match = "".join(match)
 
     return str_match, identical_positions, positives
@@ -174,17 +201,6 @@ def prepare_hit(hit, query_id, target_id, **kwargs):
 
     identical_positions, positives = set(), set()
 
-    best_hsp = (float("inf"), float("-inf"))  # E-Value, BitS
-
-    def hsp_sorter(val):
-        """
-        :param val: Evalue, Bit-Score
-        :return:
-        """
-
-        evalue, bits = val
-        return -evalue, bits
-
     qmulti = kwargs["query_multiplier"]
     tmulti = kwargs["target_multiplier"]
     qlength = kwargs["query_length"]
@@ -195,32 +211,21 @@ def prepare_hit(hit, query_id, target_id, **kwargs):
     hit_dict["target_id"] = target_id
 
     query_array = np.zeros([3, qlength])
-    target_array = np.zeros([3, sl])
+    target_array = np.zeros([3, hit.seq_len])
 
     for counter, hsp in enumerate(hit.hsps):
         hsp_dict, ident, posit = prepare_hsp(hsp, counter, qmultiplier=qmulti, tmultiplier=tmulti)
         identical_positions.update(ident)
         positives.update(posit)
-        best_hsp = sorted([best_hsp,
-                           (hsp_dict["hsp_evalue"], hsp_dict["hsp_bits"])],
-                          key=hsp_sorter, reverse=True)[0]
-
-        # if hsp_dict["hsp_evalue"] < best_hsp[0] and hsp_dict["hsp_bits"] > best_hsp[1]:
-        #     best_hsp = (hsp_dict["hsp_evalue"], hsp_dict["hsp_bits"])
         hsp_dict["query_id"] = query_id
         hsp_dict["target_id"] = target_id
         hsp_dict_list.append(hsp_dict)
         q_intervals.append((hsp.query_start, hsp.query_end))
-        # t_intervals.append((hsp.sbjct_start, hsp.sbjct_end))
         t_intervals.append((hsp.hit_start, hsp.hit_end))
 
     q_merged_intervals, q_aligned = merge(q_intervals)
-    # assert isinstance(q_aligned, np.int), (q_merged_intervals, q_aligned, type(q_aligned))
     hit_dict["query_aligned_length"] = min(qlength, q_aligned)
     qstart, qend = q_merged_intervals[0][0], q_merged_intervals[-1][1]
-    # assert isinstance(qstart, np.int), (q_merged_intervals, type(qstart))
-    # assert isinstance(qend, np.int), (q_merged_intervals, type(qend))
-
     hit_dict["query_start"], hit_dict["query_end"] = qstart, qend
 
     if len(identical_positions) > q_aligned:
@@ -236,12 +241,8 @@ def prepare_hit(hit, query_id, target_id, **kwargs):
     hit_dict["target_aligned_length"] = min(t_aligned, hit.seq_len)
     hit_dict["target_start"] = t_merged_intervals[0][0]
     hit_dict["target_end"] = t_merged_intervals[-1][1]
-    hit_dict["global_identity"] = len(identical_positions) * 100 / q_aligned
-    assert hit_dict["global_identity"] >= max([_["hsp_identity"] for _ in hsp_dict_list]), (
-        hit_dict["global_identity"], [_["hsp_identity"] for _ in hsp_dict_list]
-    )
-    hit_dict["global_positives"] = len(positives) * 100 / q_aligned
-    assert hit_dict["global_positives"] >= max([_["hsp_positives"] for _ in hsp_dict_list])
+    hit_dict["global_identity"] = len(identical_positions) * 100 / qlength  # q_aligned
+    hit_dict["global_positives"] = len(positives) * 100 / qlength   # q_aligned
 
     return hit_dict, hsp_dict_list
 # pylint: enable=too-many-locals

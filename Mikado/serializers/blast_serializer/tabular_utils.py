@@ -12,8 +12,8 @@ from .utils import load_into_db
 __author__ = 'Luca Venturini'
 
 
-blast_keys = "qseqid sseqid pident ppos length mismatch gapopen qstart "\
-            "qend sstart send evalue bitscore qseq sseq btop".split()
+blast_keys = "qseqid sseqid pident ppos length mismatch gapopen qstart qend sstart send evalue bitscore qseq sseq btop"\
+    .split()
 
 matrices = dict()
 for mname in MatrixInfo.available_matrices:
@@ -52,7 +52,9 @@ def prepare_tab_hsp(hsp, columns, qmult=3, tmult=1, matrix_name=None):
     query_array = np.zeros([3, hsp[columns["qlength"]]], dtype=np.int)
     target_array = np.zeros([3, hsp[columns["slength"]]], dtype=np.int)
     matrix = matrices.get(matrix_name, matrices["blosum62"])
-    query_array, target_array = parse_btop(hsp[columns["btop"]],
+    if hsp[columns["qstart"]] < 0:
+        raise ValueError(hsp[columns["qstart"]])
+    query_array, target_array, aln_span = parse_btop(hsp[columns["btop"]],
                                             query_array=query_array,
                                             target_array=target_array,
                                             qpos=hsp[columns["qstart"]],
@@ -67,8 +69,19 @@ def prepare_tab_hsp(hsp, columns, qmult=3, tmult=1, matrix_name=None):
     hsp_dict["target_hsp_start"] = hsp[columns["sstart"]]
     hsp_dict["target_hsp_end"] = hsp[columns["send"]]
     hsp_dict["target_frame"] = hsp[columns["target_frame"]]
-    hsp_dict["hsp_identity"] = hsp[columns["pident"]]
-    hsp_dict["hsp_positives"] = hsp[columns["ppos"]]
+    span = np.where(query_array[0] > 0)[0]
+    if span.shape[0] == 0:
+        raise ValueError(hsp[columns["btop"]], type(hsp[columns["btop"]]))
+    if aln_span != hsp[columns["length"]]:
+        raise ValueError((aln_span, hsp[columns["length"]]))
+    pident = np.where(query_array[1] > 0)[0].shape[0] / (aln_span * qmult) * 100
+    if not np.isclose(pident, hsp[columns["pident"]], atol=.1, rtol=.1):
+        raise ValueError((pident, hsp[columns["ppos"]]))
+    hsp_dict["hsp_identity"] = pident
+    ppos = np.where(query_array[2] > 0)[0].shape[0] / (aln_span * qmult) * 100
+    if not np.isclose(ppos, hsp[columns["ppos"]], atol=.1, rtol=.1):
+        raise ValueError((ppos, hsp[columns["ppos"]]))
+    hsp_dict["hsp_positives"] = ppos
     hsp_dict["match"] = hsp[columns["btop"]]
     hsp_dict["hsp_length"] = hsp[columns["length"]]
     hsp_dict["hsp_bits"] = hsp[columns["bitscore"]]
@@ -115,8 +128,8 @@ def prepare_tab_hit(hit: tuple,
     hit_dict["target_aligned_length"] = min(t_aligned.shape[0], hit[columns["slength"]])
     hit_dict["target_start"] = int(t_aligned.min())
     hit_dict["target_end"] = int(t_aligned.max())
-    hit_dict["global_identity"] = identical_positions * 100 / max(q_aligned.shape[0], 1)
-    hit_dict["global_positives"] = positives * 100 / max(q_aligned.shape[0], 1)
+    hit_dict["global_identity"] = identical_positions * 100 / qlength  #  max(q_aligned.shape[0], 1)
+    hit_dict["global_positives"] = positives * 100 / qlength   # max(q_aligned.shape[0], 1)
     return hit_dict
 
 
@@ -129,27 +142,32 @@ def sanitize_blast_data(data: pd.DataFrame, queries: pd.DataFrame, targets: pd.D
     if data[data.btop.isna()].shape[0] > 0:
         raise ValueError(data.loc[0])
 
-    #Correct the names of queries and targets
     data["qseqid"] = data["qseqid"].str.replace(id_pattern, "\\1")
     data["sseqid"] = data["sseqid"].str.replace(id_pattern, "\\1")
     for col in ["qstart", "qend", "sstart", "send"]:
         data[col] = data[col].astype(int)
 
-    # Switch start and env when they are not in the correct order
-    _ix = (data.qstart > data.qend)
-    data.loc[_ix, ["qstart", "qend"]] = data.loc[_ix, ["qend", "qstart"]].values
-    data["qstart"] -=1
-    data["sstart"] -= 1
-    # Get the minimum evalue for each group
     data = data.join(queries, on=["qseqid"]).join(targets, on=["sseqid"]).join(
         data.groupby(["qseqid", "sseqid"]).agg(
             min_evalue=pd.NamedAgg("evalue", np.min),
             max_bitscore=pd.NamedAgg("bitscore", np.max)
         )[["min_evalue", "max_bitscore"]], on=["qseqid", "sseqid"])
 
-    data["query_frame"] = (data.qstart + 1) % qmult + 1
-    data.loc[_ix, "query_frame"] *= -1
-    data["target_frame"] = (data.sstart + 1) % tmult
+    for key, multiplier, (start, end), length in [
+        ("query_frame", qmult, ("qstart", "qend"), "qlength"),
+        ("target_frame", tmult, ("sstart", "send"), "slength")]:
+        # Switch start and end when they are not in the correct order
+        _ix = (data[start] > data[end])
+        if multiplier > 1:
+            data.loc[~_ix, key] = data[start] % multiplier
+            data.loc[_ix, key] = -((data[length] - data[end] - 1) % multiplier)
+            data.loc[(data[key] == 0) & ~_ix, key] = multiplier
+            data.loc[(data[key] == 0) & _ix, key] = -multiplier
+        else:
+            data.loc[:, key] = 0
+        data.loc[_ix, [start, end]] = data.loc[_ix, [end, start]].values
+        data[start] -= 1
+    # Get the minimum evalue for each group
     # data["aln_span"] = data.qend - data.qstart
     # Set the hsp_num
     data["hsp_num"] = data.sort_values("evalue").groupby(["qseqid", "sseqid"]).cumcount() + 1

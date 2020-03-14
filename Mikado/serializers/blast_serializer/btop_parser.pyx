@@ -5,7 +5,7 @@ cimport numpy as np
 cimport cython
 
 
-btop_pattern = re.compile(r"(\d+|[A-Z|-]{2,2})")
+btop_pattern = re.compile(r"(\d+|\D{2,2})")
 
 
 @cython.boundscheck(False) # turn off bounds-checking for entire function
@@ -30,31 +30,49 @@ def parse_btop(str btop, long qpos, long spos,
 
     cdef str pos
     cdef long ipos
+    cdef long qstart = qpos
+    cdef long sstart = spos
 
     cdef long[:,:] query_view = query_array
     cdef long[:,:] target_view = target_array
+    cdef long aln_span = 0
+    cdef long step = min(qmult, tmult)
 
     for pos in btop_pattern.findall(btop):
         try:
             ipos = int(pos)
         except ValueError:
+            if len(pos) != 2:
+                raise ValueError(pos)
             ipos = - 1
         if ipos >= 0:
+            aln_span += step * ipos
             query_view[:, qpos:qpos + ipos * qmult] = 1
             target_view[:, spos:spos + ipos * tmult] = 1
             qpos += ipos * qmult
             spos += ipos * tmult
-        elif pos[0] == "-":  # Gap in query
-            spos += tmult
-        elif pos[1] == "-":  # Gap in target
-            qpos += qmult
         else:
-            query_view[0, qpos:qpos + qmult] = 1
-            target_view[0, spos:spos + tmult] = 1
-            if matrix.get(pos, -1) > 0:
-                query_view[2, qpos:qpos + qmult] = 1
-                target_view[2, spos:spos + tmult] = 1
-            qpos += qmult
-            spos += tmult
+            aln_span += step
+            if pos[0] == "-":  # Gap in query
+                target_view[0, spos:spos + tmult] = 1
+                spos += tmult
+            elif pos[1] == "-":  # Gap in target
+                query_view[0, qpos:qpos + qmult] = 1
+                qpos += qmult
+            else:
+                query_view[0, qpos:qpos + qmult] = 1
+                target_view[0, spos:spos + tmult] = 1
+                if matrix.get(pos, -1) > 0:
+                    query_view[2, qpos:qpos + qmult] = 1
+                    target_view[2, spos:spos + tmult] = 1
+                qpos += qmult
+                spos += tmult
 
-    return query_array, target_array
+    if (qpos - qstart) % 3 > 0:
+        raise ValueError((qpos, qstart, (qpos - qstart) % 3))
+
+    if qpos - qstart > 0:
+        if np.where(query_array[0] > 0)[0].shape[0] == 0:
+            raise ValueError(qstart, qpos, btop)
+
+    return query_array, target_array, aln_span

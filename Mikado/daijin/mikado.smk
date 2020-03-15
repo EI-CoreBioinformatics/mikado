@@ -3,6 +3,35 @@ from shutil import which
 import pkg_resources
 from Bio.Data import CodonTable
 from Mikado.serializers.blast_serializer.tabular_utils import blast_keys
+import functools
+import subprocess
+import re
+from fastnumbers import fast_int
+
+
+diamond_pat = re.compile("^diamond version (\S*)[$|\s]*")
+
+@functools.lru_cache(maxsize=4, typed=True)
+def diamond_to_correct(command):
+    """This will always return False until https://github.com/bbuchfink/diamond/issues/334 is fixed."""
+    if workflow.use_conda is True:
+        return False
+    cmd = "{} diamond --version && set -u".format(command)
+    output = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE).stdout.read().decode()
+    version = None
+    for line in output.split("\n"):
+        m = diamond_pat.search(line)
+        if m:
+            version = m.groups()[0]
+            break
+    if version is None:
+        return False
+    else:
+        major, minor, micro = [fast_int(_) for _ in version.split(".")]
+        if major > 0 or minor > 9 or micro > 100:
+            return True
+        else:
+            return False
 
 
 CodonTable.ambiguous_dna_by_id[0] = CodonTable.ambiguous_dna_by_id[1]
@@ -205,6 +234,7 @@ if config["mikado"]["use_diamond"] is False:
 "> {params.uncompressed} 2> {log}; else touch {params.uncompressed}; fi && gzip {params.uncompressed}"
 
 else:
+    awk_diamond_line = """awk '{OFS="\\t"; if ($9>$8) {$9+=1} else {$8+=1}; print $0}'"""
     rule diamond_index:
         input:
             fa=os.path.join(BLAST_DIR, "index", "blastdb-proteins.fa")
@@ -226,14 +256,17 @@ else:
         params:
             load=loadPre(config, "diamond"),
             tr=os.path.join(BLAST_DIR, "fastas", "chunk_{chunk_id}.fasta"),
-            blast_keys=" ".join(blast_keys)
+            blast_keys=" ".join(blast_keys),
+            matrix=config["serialise"]["substitution_matrix"],
+            corr_awker = "cat" if diamond_to_correct(loadPre(config, "diamond")) else awk_diamond_line
         threads: THREADS
         log: os.path.join(BLAST_DIR, "logs", "chunk-{chunk_id}.blastx.log")
         conda: os.path.join(envdir, "diamond.yaml")
         shell: "{params.load} if [ -s {params.tr} ]; then diamond blastx --threads {threads} "\
 "--outfmt 6 {params.blast_keys} "\
-"--compress 1 --out {output} --max-target-seqs {BLASTX_MAX_TARGET_SEQS} "\
-"--evalue {BLASTX_EVALUE} --db {input.db} --salltitles --query {params.tr} --sensitive > {log} 2> {log}; else touch {output}; fi"
+"--max-target-seqs {BLASTX_MAX_TARGET_SEQS} --matrix {params.matrix} "\
+"--evalue {BLASTX_EVALUE} --db {input.db} --salltitles --query {params.tr} --sensitive "\
+" | {params.corr_awker} | gzip -c > {output} 2> {log}; else touch {output}; fi"
 
 rule blast_all:
     input: expand(os.path.join(BLAST_DIR, "tsv", "chunk-{chunk_id}-proteins.tsv.gz"), chunk_id=CHUNK_ARRAY)

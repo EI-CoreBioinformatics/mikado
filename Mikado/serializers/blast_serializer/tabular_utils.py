@@ -11,9 +11,9 @@ from .utils import load_into_db
 
 __author__ = 'Luca Venturini'
 
-
-blast_keys = "qseqid sseqid pident ppos length mismatch gapopen qstart qend sstart send evalue bitscore qseq sseq btop"\
-    .split()
+# Diamond default: qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore
+# BLASTX default: qaccver saccver pident length mismatch gapopen qstart qend sstart send evalue bitscore
+blast_keys = "qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore ppos btop".split()
 
 matrices = dict()
 for mname in MatrixInfo.available_matrices:

@@ -20,20 +20,46 @@ class BtopTester(unittest.TestCase):
     def test_btop_equals(self):
         matrix=matrices["blosum62"]
         for qmult, tmult in itertools.product([1, 3], [1, 3]):
-            for qsize, ssize in itertools.product(range(10 * qmult, 200 * qmult, 10 * qmult),
-                                                  range(10 * qmult, 200, 10)):
-                for qpos, spos in itertools.product(range(qsize, 2), range(ssize, 2)):
-                    for mlength in range(2, min(qsize / qmult, ssize / tmult)):
-                        with self.subTest(qsize=qsize, ssize=ssize, qpos=qpos, spos=spos, mlength=mlength):
-                            qar = np.zeros([3, qsize], dtype=np.int)
-                            sar = np.zeros([3, ssize], dtype=np.int)
-                            sm = str(mlength)
-                            qar, sar, tot = parse_btop(sm, qpos, spos, qar, sar, matrix, qmult=qmult, tmult=tmult)
-                            qfound = np.where(qar) > 0
-                            sfound = np.where(sar) > 0
-                            self.assertEqual(tot, mlength)
-                            self.assertEqual(qfound[0].min(), qpos)
-                            self.assertEqual(sfound[0].min(), spos)
+            for qsize, ssize in itertools.product(range(10 * qmult, 20 * qmult, 10),
+                                                  range(10 * tmult, 20 * tmult, 10)):
+                for qpos, spos in itertools.product(range(0, qsize, 2), range(0, ssize, 2)):
+                    mqlength = (qsize - qpos) // qmult
+                    mslength = (ssize - spos) // tmult
+                    for mlength in range(1, int(min(mqlength, mslength))):
+                        # with self.subTest(qsize=qsize, ssize=ssize, qpos=qpos, spos=spos, mlength=mlength):
+
+                        qar = np.zeros([3, qsize], dtype=np.int)
+                        sar = np.zeros([3, ssize], dtype=np.int)
+                        self.assertEqual(qar.max(), 0)
+                        self.assertEqual(sar.max(), 0)
+                        sm = str(mlength)
+                        #str btop, long qpos, long spos,
+                        # np.ndarray[dtype=np.int, ndim=2, cast=True] query_array,
+                        # np.ndarray[dtype=np.int, ndim=2, cast=True] target_array,
+                        # dict matrix, long qmult=3, long tmult=1):
+                        qar, sar, tot = parse_btop(sm, qpos, spos, qar, sar, matrix, qmult=qmult, tmult=tmult)
+                        qfound = np.where(qar > 0)
+                        sfound = np.where(sar > 0)
+                        self.assertEqual(tot, mlength * min(qmult, tmult),
+                                         (tot, mlength, qpos, spos, qmult, tmult))
+                        self.assertTrue(
+                            ((qfound[1][qfound[0] == 0] == qfound[1][qfound[0] == 1]) &
+                             (qfound[1][qfound[0] == 0] == qfound[1][qfound[0] == 2])).all()
+                        )
+                        self.assertTrue(
+                            ((sfound[1][sfound[0] == 0] == sfound[1][sfound[0] == 1]) &
+                             (sfound[1][sfound[0] == 0] == sfound[1][sfound[0] == 2])).all()
+                        )
+                        self.assertEqual(qfound[1][qfound[0] == 0].shape[0], mlength * qmult)
+                        self.assertEqual(sfound[1][sfound[0] == 0].shape[0], mlength * tmult,
+                                         (tot, tmult, sar, sfound[1][sfound[0] == 0]))
+                        # self.assertEqual(qfound[0].shape[0], 3)
+                        self.assertEqual(np.where(qar[0] > 0)[0].min(), qpos,
+                                         (qfound[0], qpos, mlength))
+                        self.assertEqual(np.where(qar[0] > 0)[0].max(), qpos + mlength * qmult - 1,
+                                         (qar[0], qpos + tot * qmult, tot))
+                        self.assertEqual(np.where(sar[0] > 0)[0].min(), spos)
+                        self.assertEqual(np.where(sar[0] > 0)[0].max(), spos + mlength * tmult - 1)
 
 
 class BlastBasics(unittest.TestCase):

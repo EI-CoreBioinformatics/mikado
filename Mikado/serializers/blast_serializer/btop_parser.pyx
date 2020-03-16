@@ -1,4 +1,5 @@
 # cython: infer_types=True
+# distutils: language=c++
 import re
 import numpy as np
 cimport numpy as np
@@ -67,12 +68,5 @@ def parse_btop(str btop, long qpos, long spos,
                     target_view[2, spos:spos + tmult] = 1
                 qpos += qmult
                 spos += tmult
-
-    if (qpos - qstart) % 3 > 0:
-        raise ValueError((qpos, qstart, (qpos - qstart) % 3))
-
-    if qpos - qstart > 0:
-        if np.where(query_array[0] > 0)[0].shape[0] == 0:
-            raise ValueError(qstart, qpos, btop)
 
     return query_array, target_array, aln_span

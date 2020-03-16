@@ -8,7 +8,32 @@ import os
 import gzip
 import subprocess
 from ..serializers.blast_serializer import xml_utils as seri_blast_utils
+from ..serializers.blast_serializer.tabular_utils import matrices
+from ..serializers.blast_serializer.btop_parser import parse_btop
+import numpy as np
 import time
+import itertools
+
+
+class BtopTester(unittest.TestCase):
+
+    def test_btop_equals(self):
+        matrix=matrices["blosum62"]
+        for qmult, tmult in itertools.product([1, 3], [1, 3]):
+            for qsize, ssize in itertools.product(range(10 * qmult, 200 * qmult, 10 * qmult),
+                                                  range(10 * qmult, 200, 10)):
+                for qpos, spos in itertools.product(range(qsize, 2), range(ssize, 2)):
+                    for mlength in range(2, min(qsize / qmult, ssize / tmult)):
+                        with self.subTest(qsize=qsize, ssize=ssize, qpos=qpos, spos=spos, mlength=mlength):
+                            qar = np.zeros([3, qsize], dtype=np.int)
+                            sar = np.zeros([3, ssize], dtype=np.int)
+                            sm = str(mlength)
+                            qar, sar, tot = parse_btop(sm, qpos, spos, qar, sar, matrix, qmult=qmult, tmult=tmult)
+                            qfound = np.where(qar) > 0
+                            sfound = np.where(sar) > 0
+                            self.assertEqual(tot, mlength)
+                            self.assertEqual(qfound[0].min(), qpos)
+                            self.assertEqual(sfound[0].min(), spos)
 
 
 class BlastBasics(unittest.TestCase):

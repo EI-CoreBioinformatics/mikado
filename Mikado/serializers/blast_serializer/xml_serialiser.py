@@ -22,21 +22,25 @@ def _create_xml_db(filename):
 
     """
 
-    directory = os.path.dirname(filename)
-    try:
-        dbname = tempfile.mktemp(suffix=".db", dir=directory)
-        conn = sqlite3.connect(dbname,
-                               isolation_level="DEFERRED",
-                               timeout=60,
-                               check_same_thread=False  # Necessary for SQLite3 to function in multiprocessing
-                               )
-    except (OSError, PermissionError, sqlite3.OperationalError):
-        dbname = tempfile.mktemp(suffix=".db")
-        conn = sqlite3.connect(dbname,
-                               isolation_level="DEFERRED",
-                               timeout=60,
-                               check_same_thread = False  # Necessary for SQLite3 to function in multiprocessing
-        )
+    if filename != ":memory:":
+        directory = os.path.dirname(filename)
+        try:
+            dbname = tempfile.mktemp(suffix=".db", dir=directory)
+            conn = sqlite3.connect(dbname,
+                                   isolation_level="DEFERRED",
+                                   timeout=60,
+                                   check_same_thread=False  # Necessary for SQLite3 to function in multiprocessing
+                                   )
+        except (OSError, PermissionError, sqlite3.OperationalError):
+            dbname = tempfile.mktemp(suffix=".db")
+            conn = sqlite3.connect(dbname,
+                                   isolation_level="DEFERRED",
+                                   timeout=60,
+                                   check_same_thread = False  # Necessary for SQLite3 to function in multiprocessing
+            )
+    else:
+        dbname = filename
+        conn = sqlite3.connect(filename)
 
     cursor = conn.cursor()
     creation_string = "CREATE TABLE dump (query_counter integer, hits blob, hsps blob)"

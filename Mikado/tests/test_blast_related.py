@@ -8,6 +8,7 @@ import os
 import gzip
 import subprocess
 from ..serializers.blast_serializer import xml_utils as seri_blast_utils
+from ..serializers.blast_serializer import xml_serialiser as seri_blast_xml
 from ..serializers.blast_serializer.tabular_utils import matrices
 from ..serializers.blast_serializer.btop_parser import parse_btop
 import numpy as np
@@ -126,6 +127,14 @@ class BtopTester(unittest.TestCase):
                                 self.assertEqual(np.where(qar[1] > 0)[0].shape[0], mlength * qmult)
 
 
+class XMLLineTester(unittest.TestCase):
+
+    def test_aln_string(self):
+        # seri_blast_utils._prepare_aln_strings()
+        pass
+
+
+
 class BlastBasics(unittest.TestCase):
 
     def test_sniff_correct(self):
@@ -238,6 +247,15 @@ class BlastBasics(unittest.TestCase):
 
         os.remove(valid_asn)
         os.chdir(master)
+
+    def test_create_db(self):
+
+        dbname, conn, cursor = seri_blast_xml._create_xml_db(":memory:")
+        self.assertTrue(conn.execute(
+            "select name from sqlite_master where type = 'table';").fetchall()[0] == ("dump",))
+        self.assertEqual(conn.execute("PRAGMA table_info('%s')" % "dump").fetchall(),
+            [(0, 'query_counter', 'integer', 0, None, 0),
+             (1, 'hits', 'blob', 0, None, 0), (2, 'hsps', 'blob', 0, None, 0)])
 
 
 class TestMerging(unittest.TestCase):

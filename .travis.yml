@@ -25,7 +25,7 @@ install:
 script:
   - python setup.py test --addopts "-m slow Mikado/tests/test_system_calls.py::SerialiseChecker::test_subprocess_multi_empty_orfs"
   - python setup.py test --addopts " --cov Mikado --cov-config=.coveragerc -m '(slow or not slow) and not triage'";
-  - cd sample_data; snakemake --use-conda
+  - cd sample_data; snakemake --use-conda --jobs 5 --cores 5
   - rm -rf .snakemake/conda/;  # This causes weird bugs
   - cd ..;
   - python -c "import Mikado; Mikado.test(label='fast')";

@@ -12,6 +12,8 @@ import glob
 import re
 import sys
 import numpy as np
+from scipy._build_utils import numpy_nodepr_api
+
 
 here = path.abspath(path.dirname("__file__"))
 
@@ -32,17 +34,22 @@ if sys.version_info.major != 3:
     and is not compatible with Python2. Please upgrade your python before proceeding!""")
 
 extensions = [Extension("Mikado.utilities.overlap",
-                        sources=[path.join("Mikado", "utilities", "overlap.pyx")]),
+                        sources=[path.join("Mikado", "utilities", "overlap.pyx")],
+                        **numpy_nodepr_api),
               Extension("Mikado.scales.f1",
-                        sources=[path.join("Mikado", "scales", "f1.pyx")]),
+                        sources=[path.join("Mikado", "scales", "f1.pyx")],
+                        **numpy_nodepr_api),
               Extension("Mikado.scales.contrast",
-                        sources=[path.join("Mikado", "scales", "contrast.pyx")]),
+                        sources=[path.join("Mikado", "scales", "contrast.pyx")],
+                        **numpy_nodepr_api),
               Extension("Mikado.utilities.intervaltree",
-                        sources=[path.join("Mikado", "utilities", "intervaltree.pyx")]),
+                        sources=[path.join("Mikado", "utilities", "intervaltree.pyx")],
+                        **numpy_nodepr_api),
               Extension("Mikado.serializers.blast_serializer.btop_parser",
                         include_dirs=[np.get_include()],
                         language="c++",
-                        sources=[path.join("Mikado", "serializers", "blast_serializer", "btop_parser.pyx")])]
+                        sources=[path.join("Mikado", "serializers", "blast_serializer", "btop_parser.pyx")],
+                        **numpy_nodepr_api)]
 
 setup(
     name="Mikado",

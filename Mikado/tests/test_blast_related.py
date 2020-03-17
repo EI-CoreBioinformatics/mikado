@@ -13,6 +13,7 @@ from ..serializers.blast_serializer.btop_parser import parse_btop
 import numpy as np
 import time
 import itertools
+from pytest import mark
 
 
 class BtopTester(unittest.TestCase):
@@ -26,40 +27,103 @@ class BtopTester(unittest.TestCase):
                     mqlength = (qsize - qpos) // qmult
                     mslength = (ssize - spos) // tmult
                     for mlength in range(1, int(min(mqlength, mslength))):
-                        # with self.subTest(qsize=qsize, ssize=ssize, qpos=qpos, spos=spos, mlength=mlength):
+                        with self.subTest(qsize=qsize, ssize=ssize, qpos=qpos, spos=spos, mlength=mlength):
+                            qar, sar = np.zeros([3, qsize], dtype=np.int), np.zeros([3, ssize], dtype=np.int)
+                            sm = str(mlength)
+                            qar, sar, tot = parse_btop(sm, qpos, spos, qar, sar, matrix, qmult=qmult, tmult=tmult)
+                            qfound = np.where(qar > 0)
+                            sfound = np.where(sar > 0)
+                            self.assertEqual(tot, mlength * min(qmult, tmult),
+                                             (tot, mlength, qpos, spos, qmult, tmult))
+                            self.assertTrue(((qfound[1][qfound[0] == 0] == qfound[1][qfound[0] == 1]) &
+                                 (qfound[1][qfound[0] == 0] == qfound[1][qfound[0] == 2])).all()
+                            )
+                            self.assertTrue(((sfound[1][sfound[0] == 0] == sfound[1][sfound[0] == 1]) &
+                                 (sfound[1][sfound[0] == 0] == sfound[1][sfound[0] == 2])).all()
+                            )
+                            self.assertEqual(qfound[1][qfound[0] == 0].shape[0], mlength * qmult)
+                            self.assertEqual(sfound[1][sfound[0] == 0].shape[0], mlength * tmult,
+                                             (tot, tmult, sar, sfound[1][sfound[0] == 0]))
+                            # self.assertEqual(qfound[0].shape[0], 3)
+                            self.assertEqual(np.where(qar[0] > 0)[0].min(), qpos,
+                                             (qfound[0], qpos, mlength))
+                            self.assertEqual(np.where(qar[0] > 0)[0].max(), qpos + mlength * qmult - 1,
+                                             (qar[0], qpos + tot * qmult, tot))
+                            self.assertEqual(np.where(sar[0] > 0)[0].min(), spos)
+                            self.assertEqual(np.where(sar[0] > 0)[0].max(), spos + mlength * tmult - 1)
 
-                        qar = np.zeros([3, qsize], dtype=np.int)
-                        sar = np.zeros([3, ssize], dtype=np.int)
-                        self.assertEqual(qar.max(), 0)
-                        self.assertEqual(sar.max(), 0)
-                        sm = str(mlength)
-                        #str btop, long qpos, long spos,
-                        # np.ndarray[dtype=np.int, ndim=2, cast=True] query_array,
-                        # np.ndarray[dtype=np.int, ndim=2, cast=True] target_array,
-                        # dict matrix, long qmult=3, long tmult=1):
-                        qar, sar, tot = parse_btop(sm, qpos, spos, qar, sar, matrix, qmult=qmult, tmult=tmult)
-                        qfound = np.where(qar > 0)
-                        sfound = np.where(sar > 0)
-                        self.assertEqual(tot, mlength * min(qmult, tmult),
-                                         (tot, mlength, qpos, spos, qmult, tmult))
-                        self.assertTrue(
-                            ((qfound[1][qfound[0] == 0] == qfound[1][qfound[0] == 1]) &
-                             (qfound[1][qfound[0] == 0] == qfound[1][qfound[0] == 2])).all()
-                        )
-                        self.assertTrue(
-                            ((sfound[1][sfound[0] == 0] == sfound[1][sfound[0] == 1]) &
-                             (sfound[1][sfound[0] == 0] == sfound[1][sfound[0] == 2])).all()
-                        )
-                        self.assertEqual(qfound[1][qfound[0] == 0].shape[0], mlength * qmult)
-                        self.assertEqual(sfound[1][sfound[0] == 0].shape[0], mlength * tmult,
-                                         (tot, tmult, sar, sfound[1][sfound[0] == 0]))
-                        # self.assertEqual(qfound[0].shape[0], 3)
-                        self.assertEqual(np.where(qar[0] > 0)[0].min(), qpos,
-                                         (qfound[0], qpos, mlength))
-                        self.assertEqual(np.where(qar[0] > 0)[0].max(), qpos + mlength * qmult - 1,
-                                         (qar[0], qpos + tot * qmult, tot))
-                        self.assertEqual(np.where(sar[0] > 0)[0].min(), spos)
-                        self.assertEqual(np.where(sar[0] > 0)[0].max(), spos + mlength * tmult - 1)
+    def test_only_match(self):
+        for qmult, tmult in itertools.product([1, 3], [1, 3]):
+            for qsize, ssize in itertools.product(range(10 * qmult, 20 * qmult, 10),
+                                                  range(10 * tmult, 20 * tmult, 10)):
+                for qpos, spos in itertools.product(range(0, qsize, 2), range(0, ssize, 2)):
+                    mqlength = (qsize - qpos) // qmult
+                    mslength = (ssize - spos) // tmult
+                    for mlength in range(1, int(min(mqlength, mslength))):
+                        for score in (-1, 0, 1):
+                            with self.subTest():
+                                match = "AT" * mlength
+                                qar, sar = np.zeros([3, qsize], dtype=np.int), np.zeros([3, ssize], dtype=np.int)
+                                qar, sar, tot = parse_btop(match, qpos, spos, qar, sar, {"AT": score},
+                                                           qmult=qmult, tmult=tmult)
+                                qfound = np.where(qar > 0)
+                                sfound = np.where(sar > 0)
+                                self.assertEqual(tot, mlength * min(qmult, tmult),
+                                                 (tot, mlength, qpos, spos, qmult, tmult))
+                                self.assertTrue(qfound[1][qfound[0] == 0].shape[0] == mlength * qmult)
+                                self.assertTrue(sfound[1][sfound[0] == 0].shape[0] == mlength * tmult)
+                                self.assertTrue(qfound[1][qfound[0] == 1].shape[0] == 0)
+                                self.assertTrue(sfound[1][sfound[0] == 1].shape[0] == 0)
+                                if score <= 0:
+                                    self.assertTrue(qfound[1][qfound[0] == 2].shape[0] == 0)
+                                    self.assertTrue(sfound[1][sfound[0] == 2].shape[0] == 0)
+                                else:  # Positives found!
+                                    self.assertTrue((qfound[1][qfound[0] == 0] == qfound[1][qfound[0] == 2]).all(),
+                                                    (score, qfound))
+                                    self.assertTrue((sfound[1][sfound[0] == 0] == sfound[1][sfound[0] == 2]).all())
+                                # self.assertEqual(qfound[0].shape[0], 3)
+                                self.assertEqual(np.where(qar[0] > 0)[0].min(), qpos, (qfound[0], qpos, mlength))
+                                self.assertEqual(np.where(qar[0] > 0)[0].max(), qpos + mlength * qmult - 1)
+                                self.assertEqual(np.where(sar[0] > 0)[0].min(), spos)
+                                self.assertEqual(np.where(sar[0] > 0)[0].max(), spos + mlength * tmult - 1)
+
+    @mark.slow
+    def test_gap(self):
+
+        for qmult, tmult in itertools.product([1, 3], [1, 3]):
+            for qsize, ssize in itertools.product(range(10 * qmult, 20 * qmult, 5),
+                                                  range(10 * tmult, 20 * tmult, 5)):
+                for qpos, spos in itertools.product(range(0, qsize, 5), range(0, ssize, 5)):
+                    mqlength = (qsize - qpos) // qmult
+                    mslength = (ssize - spos) // tmult
+                    for mlength in range(3, int(min(mqlength, mslength))):
+                        for gap_pos in range(mlength - 1):
+                            for gap in ("A-", "-A"):
+                                sm = ""
+                                if gap_pos - 1 > -1:
+                                    sm += str(gap_pos)
+                                sm += gap
+                                if mlength - gap_pos - 1:
+                                    sm += str(mlength - gap_pos)
+                                qar, sar = np.zeros([3, qsize], dtype=np.int), np.zeros([3, ssize], dtype=np.int)
+                                qar, sar, tot = parse_btop(sm, qpos, spos, qar, sar, dict(), qmult=qmult, tmult=tmult)
+                                qfound = np.where(qar > 0)
+                                sfound = np.where(sar > 0)
+                                self.assertEqual(tot, mlength * min(qmult, tmult) + min(qmult, tmult),
+                                                 (sm, tot, mlength, gap_pos, qpos, spos, qmult, tmult))
+                                if gap[0] == "-":  # gap in query
+                                    qadd, sadd = 0, tmult
+                                    self.assertIn(spos + gap_pos * tmult, np.where(sar[1] == 0)[0],
+                                                  (sm, mlength, spos, gap_pos, tmult, sar))
+                                else:
+                                    qadd, sadd = qmult, 0
+                                    self.assertIn(qpos + gap_pos * qmult, np.where(qar[1] == 0)[0])
+
+                                self.assertEqual(np.where(qar[0] > 0)[0].shape[0], mlength * qmult + qadd)
+                                self.assertEqual(np.where(sar[0] > 0)[0].shape[0], mlength * tmult + sadd,
+                                                 (sar, sm))
+                                self.assertEqual(np.where(sar[1] > 0)[0].shape[0], mlength * tmult)
+                                self.assertEqual(np.where(qar[1] > 0)[0].shape[0], mlength * qmult)
 
 
 class BlastBasics(unittest.TestCase):

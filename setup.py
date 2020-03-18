@@ -49,7 +49,13 @@ extensions = [Extension("Mikado.utilities.overlap",
                         include_dirs=[np.get_include()],
                         language="c++",
                         sources=[path.join("Mikado", "serializers", "blast_serializer", "btop_parser.pyx")],
-                        **numpy_nodepr_api)]
+                        **numpy_nodepr_api),
+              Extension("Mikado.serializers.blast_serializer.aln_string_parser",
+                        include_dirs=[np.get_include()],
+                        language="c++",
+                        sources=[path.join("Mikado", "serializers", "blast_serializer", "aln_string_parser.pyx")],
+                        **numpy_nodepr_api)
+              ]
 
 setup(
     name="Mikado",

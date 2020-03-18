@@ -4,6 +4,7 @@ Generic utilities used for BLAST serialising into a DB.
 
 from ...parsers.blast_utils import merge
 import numpy as np
+from .aln_string_parser import prepare_aln_strings
 
 # valid_matches = set([chr(x) for x in range(65, 91)] + [chr(x) for x in range(97, 123)] +
 #                     ["|", "*"])
@@ -92,7 +93,7 @@ def prepare_hsp(hsp, counter, qmultiplier=1, tmultiplier=1):
 
     hsp_dict = dict()
     # We must start from 1, otherwise MySQL crashes as its indices start from 1 not 0
-    match, identical_positions, positives = _prepare_aln_strings(hsp, qmultiplier=qmultiplier)
+    match, identical_positions, positives = prepare_aln_strings(hsp, qmultiplier=qmultiplier)
     hsp_dict["counter"] = counter + 1
     hsp_dict["query_hsp_start"] = hsp.query_start
     hsp_dict["query_hsp_end"] = hsp.query_end
@@ -111,69 +112,6 @@ def prepare_hsp(hsp, counter, qmultiplier=1, tmultiplier=1):
 
 def _np_grouper(data):
     return np.array(np.split(data, np.where(np.diff(data) != 1)[0] + 1))
-
-
-def _prepare_aln_strings(hsp, qmultiplier=1):
-
-    """This private method calculates the identical positions, the positives, and a re-factored match line
-    starting from the HSP.
-    :type hsp: Bio.SearchIO.HSP
-    """
-
-    lett_array = np.array([
-        list(str(hsp.query.seq)),
-        list(hsp.aln_annotation["similarity"]),
-        list(str(hsp.hit.seq))], dtype=np.str_)
-
-    match = lett_array[1]
-    match[np.where((lett_array[0] == "-") & (lett_array[2] == "*"))] = "*"
-    match[np.where((lett_array[0] == "-") & ~(lett_array[2] == "*"))] = "-"
-    match[np.where((lett_array[2] == "-") & (lett_array[0] == "*"))] = "*"
-    match[np.where((lett_array[2] == "-") & ~(lett_array[0] == "*"))] = "_"
-    match[np.where(
-        (lett_array[0] != lett_array[2]) & (lett_array[1] != "+") &
-        (match != "*") & (match != "_") & (match != "-")
-    )] = "/"
-
-    query_array = np.zeros(hsp.query_end - hsp.query_start)
-    qpos = 0
-    for idx in range(lett_array.shape[1]):
-        pos = lett_array[:, idx]
-        if pos[0] == pos[2]:
-            query_array[qpos] = 2
-            qpos += 1
-        elif pos[1] == "+":
-            query_array[qpos] = 1
-            qpos += 1
-        elif pos[0] == "-":
-            continue
-        elif pos[2] == "-":
-            qpos += 1
-            continue
-
-    summer = np.array([[_] for _ in range(qmultiplier)])
-    _id_catcher = np.where(query_array >= 2)
-    assert hsp.ident_num == _id_catcher[0].shape[0]
-    identical_positions = ((_id_catcher[0] * qmultiplier) + summer).flatten()
-    _pos_catcher = np.where(query_array >= 1)
-    assert hsp.pos_num == _pos_catcher[0].shape[0], (hsp.pos_num, _pos_catcher[0].shape[0])
-    positives = ((_pos_catcher[0] * qmultiplier) + summer).flatten()
-    if hsp.query_frame > 0:
-        identical_positions = identical_positions + hsp.query_start
-        positives = positives + hsp.query_start
-    else:
-        identical_positions = hsp.query_end - identical_positions
-        positives = hsp.query_end - positives
-
-    assert hsp.query_start <= positives.min() <= positives.max() <= hsp.query_end, (
-        hsp.query_frame, hsp.query_start, positives.min(), positives.max(), hsp.query_end
-    )
-    assert hsp.query_start <= identical_positions.min() <= identical_positions.max() <= hsp.query_end
-    identical_positions = set(identical_positions)
-    positives = set(positives)
-    str_match = "".join(match)
-
-    return str_match, identical_positions, positives
 
 
 def prepare_hit(hit, query_id, target_id, **kwargs):

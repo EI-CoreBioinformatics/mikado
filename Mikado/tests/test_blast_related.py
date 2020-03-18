@@ -15,6 +15,7 @@ import numpy as np
 import time
 import itertools
 from pytest import mark
+from collections import namedtuple
 
 
 class BtopTester(unittest.TestCase):
@@ -31,7 +32,7 @@ class BtopTester(unittest.TestCase):
                         with self.subTest(qsize=qsize, ssize=ssize, qpos=qpos, spos=spos, mlength=mlength):
                             qar, sar = np.zeros([3, qsize], dtype=np.int), np.zeros([3, ssize], dtype=np.int)
                             sm = str(mlength)
-                            qar, sar, tot = parse_btop(sm, qpos, spos, qar, sar, matrix, qmult=qmult, tmult=tmult)
+                            qar, sar, tot, match = parse_btop(sm, qpos, spos, qar, sar, matrix, qmult=qmult, tmult=tmult)
                             qfound = np.where(qar > 0)
                             sfound = np.where(sar > 0)
                             self.assertEqual(tot, mlength * min(qmult, tmult),
@@ -65,7 +66,7 @@ class BtopTester(unittest.TestCase):
                             with self.subTest():
                                 match = "AT" * mlength
                                 qar, sar = np.zeros([3, qsize], dtype=np.int), np.zeros([3, ssize], dtype=np.int)
-                                qar, sar, tot = parse_btop(match, qpos, spos, qar, sar, {"AT": score},
+                                qar, sar, tot, match = parse_btop(match, qpos, spos, qar, sar, {"AT": score},
                                                            qmult=qmult, tmult=tmult)
                                 qfound = np.where(qar > 0)
                                 sfound = np.where(sar > 0)
@@ -107,7 +108,7 @@ class BtopTester(unittest.TestCase):
                                 if mlength - gap_pos - 1:
                                     sm += str(mlength - gap_pos)
                                 qar, sar = np.zeros([3, qsize], dtype=np.int), np.zeros([3, ssize], dtype=np.int)
-                                qar, sar, tot = parse_btop(sm, qpos, spos, qar, sar, dict(), qmult=qmult, tmult=tmult)
+                                qar, sar, tot, match = parse_btop(sm, qpos, spos, qar, sar, dict(), qmult=qmult, tmult=tmult)
                                 qfound = np.where(qar > 0)
                                 sfound = np.where(sar > 0)
                                 self.assertEqual(tot, mlength * min(qmult, tmult) + min(qmult, tmult),
@@ -129,10 +130,39 @@ class BtopTester(unittest.TestCase):
 
 class XMLLineTester(unittest.TestCase):
 
-    def test_aln_string(self):
-        # seri_blast_utils._prepare_aln_strings()
-        pass
+    class HSP(object):
+        seq_t = namedtuple("seq", ["seq"])
 
+        def __init__(self, query=None, target=None, mid=None,
+                     query_start=0, query_end=0, ident_num=0, pos_num=0,
+                     frame=0):
+            self.aln_annotation = dict()
+            self.query_start, self.query_end = query_start, query_end
+            self.ident_num, self.pos_num = ident_num, pos_num
+            self.query_frame = frame
+            self.set_seqs(query, target, mid)
+
+        def set_seqs(self, query, target, mid):
+            self.query = self.seq_t(query)
+            self.hit = self.seq_t(target)
+            self.aln_annotation["similarity"] = mid
+
+    def test_aln_string_basic(self):
+        _qlenght, _slength = 20, 20
+        for qpos, spos in itertools.product(range(1, _qlenght), range(1, _qlenght)):
+            for qmult, tmult in itertools.product((1, 3), (1, 3)):
+                qlength, slength = _qlenght * qmult, _slength * tmult
+                max_length = min((qlength - qpos) // qmult,
+                                 (slength - spos) // tmult)
+                for l in range(1, max_length + 1):
+                    qseq, sseq, mid = "A" * l, "A" * l, "A" * l
+                    hs = self.HSP(query=qseq, target=sseq, mid=mid,
+                                  query_start=qpos, query_end=qpos + l * qmult,
+                                  ident_num=l, pos_num=l,
+                                  frame=0)
+                    match, ident, pos = seri_blast_utils.prepare_aln_strings(hs, qmultiplier=qmult)
+                    self.assertEqual(match, "|" * l)
+                    self.assertEqual(ident, pos)
 
 
 class BlastBasics(unittest.TestCase):

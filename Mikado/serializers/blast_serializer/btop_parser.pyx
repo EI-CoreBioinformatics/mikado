@@ -1,17 +1,17 @@
 # cython: infer_types=True
+# cython: language_level=3
 # distutils: language=c++
 import re
 import numpy as np
 cimport numpy as np
-cimport cython
+from libcpp.vector cimport vector
+from libcpp.string cimport string
 
 
 btop_pattern = re.compile(r"(\d+|\D{2,2})")
 
 
-@cython.boundscheck(False) # turn off bounds-checking for entire function
-@cython.wraparound(False)  # turn off negative index wrapping for entire function
-def parse_btop(str btop, long qpos, long spos,
+cpdef parse_btop(str btop, long qpos, long spos,
                  np.ndarray[dtype=np.int, ndim=2, cast=True] query_array,
                  np.ndarray[dtype=np.int, ndim=2, cast=True] target_array,
                  dict matrix, long qmult=3, long tmult=1):
@@ -38,6 +38,8 @@ def parse_btop(str btop, long qpos, long spos,
     cdef long[:,:] target_view = target_array
     cdef long aln_span = 0
     cdef long step = min(qmult, tmult)
+    cdef string match
+    cdef Py_ssize_t idx
 
     for pos in btop_pattern.findall(btop):
         try:
@@ -48,6 +50,8 @@ def parse_btop(str btop, long qpos, long spos,
             ipos = - 1
         if ipos >= 0:
             aln_span += step * ipos
+            for idx in range(step * ipos):
+                match.push_back(b"|")
             query_view[:, qpos:qpos + ipos * qmult] = 1
             target_view[:, spos:spos + ipos * tmult] = 1
             qpos += ipos * qmult
@@ -57,16 +61,27 @@ def parse_btop(str btop, long qpos, long spos,
             if pos[0] == "-":  # Gap in query
                 target_view[0, spos:spos + tmult] = 1
                 spos += tmult
+                match.push_back(b"-")
             elif pos[1] == "-":  # Gap in target
                 query_view[0, qpos:qpos + qmult] = 1
                 qpos += qmult
+                if pos[0] == "*":
+                    match.push_back(b"*")
+                else:
+                    match.push_back(b"-")
             else:
                 query_view[0, qpos:qpos + qmult] = 1
                 target_view[0, spos:spos + tmult] = 1
                 if matrix.get(pos, -1) > 0:
                     query_view[2, qpos:qpos + qmult] = 1
                     target_view[2, spos:spos + tmult] = 1
+                    match.push_back(b"+")
+                else:
+                    match.push_back(b"/")
+
                 qpos += qmult
                 spos += tmult
 
-    return query_array, target_array, aln_span
+    fmatch = <bytes>match
+
+    return query_array, target_array, aln_span, fmatch

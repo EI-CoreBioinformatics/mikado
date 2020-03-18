@@ -54,14 +54,15 @@ def prepare_tab_hsp(hsp, columns, qmult=3, tmult=1, matrix_name=None):
     matrix = matrices.get(matrix_name, matrices["blosum62"])
     if hsp[columns["qstart"]] < 0:
         raise ValueError(hsp[columns["qstart"]])
-    query_array, target_array, aln_span = parse_btop(hsp[columns["btop"]],
-                                            query_array=query_array,
-                                            target_array=target_array,
-                                            qpos=hsp[columns["qstart"]],
-                                            spos=hsp[columns["sstart"]],
-                                            qmult=qmult,
-                                            tmult=tmult,
-                                            matrix=matrix)
+    query_array, target_array, aln_span, match = parse_btop(
+        hsp[columns["btop"]],
+        query_array=query_array,
+        target_array=target_array,
+        qpos=hsp[columns["qstart"]],
+        spos=hsp[columns["sstart"]],
+        qmult=qmult,
+        tmult=tmult,
+        matrix=matrix)
     hsp_dict["counter"] = hsp[columns["hsp_num"]]
     hsp_dict["query_hsp_start"] = hsp[columns["qstart"]]
     hsp_dict["query_hsp_end"] = hsp[columns["qend"]]
@@ -82,7 +83,7 @@ def prepare_tab_hsp(hsp, columns, qmult=3, tmult=1, matrix_name=None):
     if not np.isclose(ppos, hsp[columns["ppos"]], atol=.1, rtol=.1):
         raise ValueError((ppos, hsp[columns["ppos"]]))
     hsp_dict["hsp_positives"] = ppos
-    hsp_dict["match"] = hsp[columns["btop"]]
+    hsp_dict["match"] = match
     hsp_dict["hsp_length"] = hsp[columns["length"]]
     hsp_dict["hsp_bits"] = hsp[columns["bitscore"]]
     hsp_dict["hsp_evalue"] = hsp[columns["evalue"]]

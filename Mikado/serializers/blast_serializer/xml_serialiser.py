@@ -9,7 +9,7 @@ import sqlite3
 import tempfile
 import os
 from . import Query, Target, Hsp, Hit, prepare_hit, InvalidHit
-from .xml_utils import get_multipliers
+from .xml_utils import get_multipliers, get_off_by_one
 from .utils import load_into_db
 import multiprocessing as mp
 from ...utilities.log_utils import create_null_logger
@@ -81,9 +81,10 @@ def xml_pickler(json_conf, filename, default_header,
                 for query_counter, record in enumerate(opened, start=1):
                     if qmult is None:
                         qmult, tmult = get_multipliers(record)
+                        off_by_one = get_off_by_one(record)
                     hits, hsps, cache = objectify_record(
                         record, [], [], cache, max_target_seqs=max_target_seqs,
-                        qmult=qmult, tmult=tmult)
+                        qmult=qmult, tmult=tmult, off_by_one=off_by_one)
 
                     try:
                         jhits = json.dumps(hits, number_mode=json.NM_NATIVE)
@@ -217,7 +218,7 @@ def _serialise_xmls(self):
 
 def objectify_record(record, hits, hsps, cache,
                      max_target_seqs=10000, logger=create_null_logger(),
-                     qmult=1, tmult=1):
+                     qmult=1, tmult=1, off_by_one=False):
     """
     Private method to serialise a single record into the DB.
 
@@ -228,6 +229,24 @@ def objectify_record(record, hits, hsps, cache,
 
     :param hsps: Cache of hsps to load into the DB.
     :type hsps: list
+
+    :param cache: cache of match query_name/query_id
+    :type cache: dict
+
+    :param logger: logger
+    :type logger: logging.Logger
+
+    :param max_target_seqs: Maximum target sequences per query
+    :type max_target_seqs: int
+
+    :param qmult: query multiplier (3 for BLASTX or TBLASTX, 1 otherwise)
+    :type qmult: int
+
+    :param qmult: query multiplier (1 for TBLASTX or TBLASTN, 1 otherwise)
+    :type qmult: int
+
+    :param off_by_one: DIAMOND before 0.9.31 has a bug which causes the query end to be off by 1.
+    :type off_by_one: bool
 
     :returns: hits, hsps, cache
     :rtype: (list, list, dict)
@@ -255,10 +274,6 @@ def objectify_record(record, hits, hsps, cache,
         hit_evalue = min(_.evalue for _ in record.hits[ccc].hsps)
         hit_bs = max(_.bitscore for _ in record.hits[ccc].hsps)
         current_counter += 1
-        # if current_evalue < hit_evalue:
-        #     current_counter += 1
-        #     current_evalue = hit_evalue
-
         hit_dict_params["hit_number"] = current_counter
         hit_dict_params["evalue"] = hit_evalue
         hit_dict_params["bits"] = hit_bs
@@ -268,6 +283,7 @@ def objectify_record(record, hits, hsps, cache,
             hit, hit_hsps = prepare_hit(alignment, current_query,
                                         current_target,
                                         query_length=record.seq_len,
+                                        off_by_one=off_by_one,
                                         **hit_dict_params)
         except InvalidHit as exc:
             logger.error(exc)

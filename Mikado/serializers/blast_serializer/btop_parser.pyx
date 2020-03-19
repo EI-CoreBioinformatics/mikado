@@ -6,12 +6,15 @@ import numpy as np
 cimport numpy as np
 from libcpp.vector cimport vector
 from libcpp.string cimport string
+cimport cython
 
 
 btop_pattern = re.compile(r"(\d+|\D{2,2})")
 
-
-cpdef parse_btop(str btop, long qpos, long spos,
+@cython.wraparound(False)
+@cython.cdivision(True)
+@cython.boundscheck(False)
+cpdef parse_btop(str btop, Py_ssize_t qpos, Py_ssize_t spos,
                  np.ndarray[dtype=np.int, ndim=2, cast=True] query_array,
                  np.ndarray[dtype=np.int, ndim=2, cast=True] target_array,
                  dict matrix, long qmult=3, long tmult=1):
@@ -72,7 +75,7 @@ cpdef parse_btop(str btop, long qpos, long spos,
             else:
                 query_view[0, qpos:qpos + qmult] = 1
                 target_view[0, spos:spos + tmult] = 1
-                if matrix.get(pos, -1) > 0:
+                if pos in matrix and matrix[pos] > 0:
                     query_view[2, qpos:qpos + qmult] = 1
                     target_view[2, spos:spos + tmult] = 1
                     match.push_back(b"+")

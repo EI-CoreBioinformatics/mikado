@@ -10,6 +10,25 @@ from .aln_string_parser import prepare_aln_strings
 #                     ["|", "*"])
 
 
+def get_off_by_one(record):
+    """"""
+    ref = getattr(record, "reference", None)
+    if ref is None:
+        ref = record.__dict__.get("reference", None)
+    if ref is None:
+        return False
+    elif isinstance(ref, str) and "diamond":
+        version = record.version
+        try:
+            macro, minor, micro = [int(_) for _ in version.split(".")]
+        except (ValueError, TypeError):
+            return False
+        if macro > 0 or minor > 9 or micro > 30:
+            return False
+        else:
+            return True
+
+
 def get_multipliers(record, application=None):
     """
     Private quick method to determine the multipliers for a BLAST alignment
@@ -73,7 +92,7 @@ def _get_target_for_blast(alignment, cache):
         raise ValueError("{} not found (Accession: {})".format(alignment.id, alignment.__dict__))
 
 
-def prepare_hsp(hsp, counter, qmultiplier=1, tmultiplier=1):
+def prepare_hsp(hsp, counter, off_by_one=False, qmultiplier=1, tmultiplier=1):
 
     r"""
     Prepare a HSP for loading into the DB.
@@ -96,7 +115,7 @@ def prepare_hsp(hsp, counter, qmultiplier=1, tmultiplier=1):
     match, identical_positions, positives = prepare_aln_strings(hsp, qmultiplier=qmultiplier)
     hsp_dict["counter"] = counter + 1
     hsp_dict["query_hsp_start"] = hsp.query_start
-    hsp_dict["query_hsp_end"] = hsp.query_end
+    hsp_dict["query_hsp_end"] = hsp.query_end + off_by_one
     hsp_dict["query_frame"] = hsp.query_frame
     hsp_dict["target_hsp_start"] = hsp.hit_start
     hsp_dict["target_hsp_end"] = hsp.hit_end
@@ -114,7 +133,7 @@ def _np_grouper(data):
     return np.array(np.split(data, np.where(np.diff(data) != 1)[0] + 1))
 
 
-def prepare_hit(hit, query_id, target_id, **kwargs):
+def prepare_hit(hit, query_id, target_id, off_by_one=False, **kwargs):
     """Prepare the dictionary for fast loading of Hit and Hsp objects.
     global_positives: the similarity rate for the global hit *using the query perspective*
     global_identity: the identity rate for the global hit *using the query perspective*
@@ -152,14 +171,15 @@ def prepare_hit(hit, query_id, target_id, **kwargs):
     target_array = np.zeros([3, hit.seq_len])
 
     for counter, hsp in enumerate(hit.hsps):
-        hsp_dict, ident, posit = prepare_hsp(hsp, counter, qmultiplier=qmulti, tmultiplier=tmulti)
+        hsp_dict, ident, posit = prepare_hsp(hsp, counter, qmultiplier=qmulti, tmultiplier=tmulti,
+                                             off_by_one=off_by_one)
         identical_positions.update(ident)
         positives.update(posit)
         hsp_dict["query_id"] = query_id
         hsp_dict["target_id"] = target_id
         hsp_dict_list.append(hsp_dict)
-        q_intervals.append((hsp.query_start, hsp.query_end))
-        t_intervals.append((hsp.hit_start, hsp.hit_end))
+        q_intervals.append((hsp.query_start, hsp.query_end + off_by_one))
+        t_intervals.append((hsp.hit_start, hsp.hit_end + off_by_one))
 
     q_merged_intervals, q_aligned = merge(q_intervals)
     hit_dict["query_aligned_length"] = min(qlength, q_aligned)

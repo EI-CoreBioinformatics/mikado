@@ -14,6 +14,6 @@ def filetype(filename):
     with open(filename, "rb") as f:
         file_start = f.read(max_len)
     for magic, ftype in magic_dict.items():
-        if magic == file_start[:len(magic)]:
+        if file_start.startswith(magic):
             return ftype
     return b"application/txt"

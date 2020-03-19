@@ -112,9 +112,10 @@ def prepare_hsp(hsp, counter, off_by_one=False, qmultiplier=1, tmultiplier=1):
 
     hsp_dict = dict()
     # We must start from 1, otherwise MySQL crashes as its indices start from 1 not 0
-    match, identical_positions, positives = prepare_aln_strings(hsp, qmultiplier=qmultiplier)
     hsp_dict["counter"] = counter + 1
     hsp_dict["query_hsp_start"] = hsp.query_start
+    match, identical_positions, positives = prepare_aln_strings(hsp, off_by_one=off_by_one,
+                                                                qmultiplier=qmultiplier)
     hsp_dict["query_hsp_end"] = hsp.query_end + off_by_one
     hsp_dict["query_frame"] = hsp.query_frame
     hsp_dict["target_hsp_start"] = hsp.hit_start
@@ -168,10 +169,28 @@ def prepare_hit(hit, query_id, target_id, off_by_one=False, **kwargs):
     query_array = np.zeros([2, int(qlength)], dtype=np.int)
 
     for counter, hsp in enumerate(hit.hsps):
+        if hsp.query_start + off_by_one - 1 > qlength:
+            raise ValueError("Invalid length: {}, {}", hsp.query_start + off_by_one - 1, qlength)
+
         hsp_dict, ident, posit = prepare_hsp(hsp, counter, qmultiplier=qmulti, tmultiplier=tmulti,
                                              off_by_one=off_by_one)
-        query_array[0, ident] = 1
-        query_array[1, posit] = 1
+        if ident.max() > query_array.shape[1] or ident.min() < 0:
+            raise IndexError("Invalid indexing values (max {}; frame {}; hsp: {})!"\
+"Too low: {}\nToo high: {}".format(
+                query_array.shape[1],
+                hsp.query_frame, hsp.__dict__,
+                list(ident[(ident < 0)]),
+                list(ident[ident > query_array.shape[1]])))
+        try:
+            query_array[0, ident] = 1
+        except IndexError as exc:
+            raise IndexError("{}, off by one: {}; min, max: {}, {}; hsp {}".format(
+                exc, off_by_one, ident.min(), ident.max(), hsp._items[0].__dict__))
+        try:
+            query_array[1, posit] = 1
+        except IndexError as exc:
+            raise IndexError("{}, off by one: {}; min, max: {}, {}; frame: {}".format(
+                exc, off_by_one, posit.min(), posit.max(), hsp.query_frame))
         hsp_dict["query_id"] = query_id
         hsp_dict["target_id"] = target_id
         hsp_dict_list.append(hsp_dict)

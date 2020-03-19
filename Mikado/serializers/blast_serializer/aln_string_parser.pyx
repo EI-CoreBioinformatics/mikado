@@ -62,7 +62,7 @@ cdef unicode tounicode(char* s):
         return s.decode("UTF-8", "replace")
 
 
-cpdef prepare_aln_strings(hsp, long qmultiplier=1):
+cpdef prepare_aln_strings(hsp, bint off_by_one=0, long qmultiplier=1):
 
     """This private method calculates the identical positions, the positives, and a re-factored match line
     starting from the HSP.
@@ -84,7 +84,7 @@ cpdef prepare_aln_strings(hsp, long qmultiplier=1):
 
     cdef np.ndarray[DTYPE_t, ndim=1] query_array
     cdef long query_start = hsp.query_start
-    cdef long query_end = hsp.query_end
+    cdef long query_end = hsp.query_end + off_by_one
     cdef long query_length = len(qseq)
     cdef np.ndarray[DTYPE_t, ndim=2] summer = np.array([[_] for _ in range(qmultiplier)])
     query_array, match = _analyze_string(qseq, sseq, mid, query_start, query_end, query_length, qmultiplier)
@@ -98,8 +98,9 @@ cpdef prepare_aln_strings(hsp, long qmultiplier=1):
         identical_positions = identical_positions + hsp.query_start
         positives = positives + hsp.query_start
     else:
-        identical_positions = hsp.query_end - identical_positions
-        positives = hsp.query_end - positives
+        identical_positions = hsp.query_end - identical_positions - 1
+        positives = hsp.query_end - positives - 1
+
     # identical_positions = set(identical_positions)
     # positives = set(positives)
     identical_positions.sort()

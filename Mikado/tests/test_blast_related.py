@@ -162,7 +162,7 @@ class XMLLineTester(unittest.TestCase):
                                   frame=0)
                     match, ident, pos = seri_blast_utils.prepare_aln_strings(hs, qmultiplier=qmult)
                     self.assertEqual(match, "|" * l)
-                    self.assertEqual(ident, pos)
+                    self.assertTrue((ident == pos).all())
 
 
 class BlastBasics(unittest.TestCase):

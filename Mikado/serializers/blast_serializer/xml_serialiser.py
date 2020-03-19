@@ -148,6 +148,7 @@ def _serialise_xmls(self):
                     for record in opened:
                         if qmult is None:
                             qmult, tmult = get_multipliers(record)
+                            off_by_one = get_off_by_one(record)
                         record_counter += 1
                         if record_counter > 0 and record_counter % 10000 == 0:
                             self.logger.info("Parsed %d queries", record_counter)
@@ -157,7 +158,7 @@ def _serialise_xmls(self):
                             qmult=qmult,
                             tmult=tmult,
                             cache=cache,
-                            max_target_seqs=self._max_target_seqs, logger=self.logger)
+                            max_target_seqs=self._max_target_seqs, logger=self.logger, off_by_one=off_by_one)
                         hit_counter += len(hits) - current
                         hits, hsps = load_into_db(self, hits, hsps, force=False)
                 self.logger.debug("Finished %s", filename)

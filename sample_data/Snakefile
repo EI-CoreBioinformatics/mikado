@@ -39,8 +39,9 @@ except:
 configfile: "configuration.yaml"
 
 rule complete:
+    # "daijin_test/mikado.yaml",
     input: "compare.stats", "compare_subloci.stats", "compare_input.stats", "check.ok",
-         "check_metrics.ok", "daijin_test/mikado.yaml", "g11.ok", "refmap_check.ok", "refmap_check_pc.ok",
+         "check_metrics.ok", "g11.ok", "refmap_check.ok", "refmap_check_pc.ok",
          "external.ok", "alias_check.ok"
     output: touch("finished.ok")
 

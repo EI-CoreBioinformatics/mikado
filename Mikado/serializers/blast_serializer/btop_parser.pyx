@@ -71,20 +71,24 @@ cpdef parse_btop(str btop, Py_ssize_t qpos, Py_ssize_t spos,
                 if pos[0] == "*":
                     match.push_back(b"*")
                 else:
-                    match.push_back(b"-")
+                    match.push_back(b"_")
             else:
                 query_view[0, qpos:qpos + qmult] = 1
                 target_view[0, spos:spos + tmult] = 1
-                if pos in matrix and matrix[pos] > 0:
+                if matrix.get(pos, -1) > 0:
                     query_view[2, qpos:qpos + qmult] = 1
                     target_view[2, spos:spos + tmult] = 1
                     match.push_back(b"+")
                 else:
-                    match.push_back(b"/")
+                    if pos[0] == "*" or pos[1] == "*":
+                        match.push_back(b"*")
+                    else:
+                        match.push_back(b"/")
 
                 qpos += qmult
                 spos += tmult
 
     fmatch = <bytes>match
+    fmatch = fmatch.decode()
 
     return query_array, target_array, aln_span, fmatch

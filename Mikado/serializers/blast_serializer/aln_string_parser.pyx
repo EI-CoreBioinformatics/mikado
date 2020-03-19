@@ -14,7 +14,7 @@ ctypedef np.int_t DTYPE_t
 cdef _analyze_string(char* qseq, char* sseq, char* mid,
                      long query_start, long query_end, long query_length, long qmult):
 
-    cdef long qpos = 0
+    cdef long qpos = -1
     cdef long shape = <long> (query_end - query_start) / qmult
     cdef np.ndarray[DTYPE_t, ndim=1] query_array = np.zeros(shape, dtype=DTYPE)
     cdef DTYPE_t[:] query_view = query_array
@@ -27,29 +27,30 @@ cdef _analyze_string(char* qseq, char* sseq, char* mid,
 
     for idx in range(match_len):
         qchar, schar, midchar = qseq[idx], sseq[idx], mid[idx]
-        if qchar == schar:
-            match[idx] = b"|"
-            query_view[qpos] = 2
-            qpos += 1
-        elif midchar == b"+":
-            match[idx] = b"+"
-            query_view[qpos] = 1
-            qpos += 1
-        elif qchar == b"-":
+        if qchar == b"-":
             if schar == b"*":
                 match[idx] = b"*"
             else:
                 match[idx] = b"-"
             continue
-        elif schar == b"-":
-            qpos += 1
-            if qchar == b"*":
-                match[idx] = b"*"
-            else:
-                match[idx] = b"_"
-            continue
         else:
-            match[idx] = b"/"
+            qpos += 1
+            if qchar == b"*" or schar == b"*":
+                match[idx] == b"*"
+            elif qchar == schar:
+                match[idx] = b"|"
+                query_view[qpos] = 2
+            elif midchar == b"+":
+                match[idx] = b"+"
+                query_view[qpos] = 1
+            elif schar == b"-":
+                if qchar == b"*":
+                    match[idx] = b"*"
+                else:
+                    match[idx] = b"_"
+                continue
+            else:
+                match[idx] = b"/"
 
     return query_array, match
 
@@ -99,13 +100,10 @@ cpdef prepare_aln_strings(hsp, long qmultiplier=1):
     else:
         identical_positions = hsp.query_end - identical_positions
         positives = hsp.query_end - positives
-    #
-    # assert hsp.query_start <= positives.min() <= positives.max() <= hsp.query_end, (
-    #     hsp.query_frame, hsp.query_start, positives.min(), positives.max(), hsp.query_end
-    # )
-    # assert hsp.query_start <= identical_positions.min() <= identical_positions.max() <= hsp.query_end
-    identical_positions = set(identical_positions)
-    positives = set(positives)
+    # identical_positions = set(identical_positions)
+    # positives = set(positives)
+    identical_positions.sort()
+    positives.sort()
     match = tounicode(match[:match_len])
 
     return match, identical_positions, positives

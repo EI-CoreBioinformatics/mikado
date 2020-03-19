@@ -121,7 +121,7 @@ def prepare_hsp(hsp, counter, off_by_one=False, qmultiplier=1, tmultiplier=1):
     hsp_dict["target_hsp_end"] = hsp.hit_end
     hsp_dict["target_frame"] = hsp.hit_frame
     hsp_dict["hsp_identity"] = hsp.ident_num / hsp.aln_span * 100
-    hsp_dict["hsp_positives"] = hsp.pos_num / hsp.aln_span * 100
+    hsp_dict["hsp_positives"] = (match.count("+") + match.count("|")) / hsp.aln_span * 100
     hsp_dict["match"] = match
     hsp_dict["hsp_length"] = hsp.aln_span
     hsp_dict["hsp_bits"] = hsp.bitscore
@@ -156,8 +156,6 @@ def prepare_hit(hit, query_id, target_id, off_by_one=False, **kwargs):
     q_intervals = []
     t_intervals = []
 
-    identical_positions, positives = set(), set()
-
     qmulti = kwargs["query_multiplier"]
     tmulti = kwargs["target_multiplier"]
     qlength = kwargs["query_length"]
@@ -167,40 +165,41 @@ def prepare_hit(hit, query_id, target_id, off_by_one=False, **kwargs):
     hit_dict["query_id"] = query_id
     hit_dict["target_id"] = target_id
 
-    query_array = np.zeros([3, qlength])
-    target_array = np.zeros([3, hit.seq_len])
+    query_array = np.zeros([2, int(qlength)], dtype=np.int)
 
     for counter, hsp in enumerate(hit.hsps):
         hsp_dict, ident, posit = prepare_hsp(hsp, counter, qmultiplier=qmulti, tmultiplier=tmulti,
                                              off_by_one=off_by_one)
-        identical_positions.update(ident)
-        positives.update(posit)
+        query_array[0, ident] = 1
+        query_array[1, posit] = 1
         hsp_dict["query_id"] = query_id
         hsp_dict["target_id"] = target_id
         hsp_dict_list.append(hsp_dict)
-        q_intervals.append((hsp.query_start, hsp.query_end + off_by_one))
-        t_intervals.append((hsp.hit_start, hsp.hit_end + off_by_one))
+        q_intervals.append((hsp.query_start, hsp.query_end - 1))
+        t_intervals.append((hsp.hit_start, hsp.hit_end - 1))
 
     q_merged_intervals, q_aligned = merge(q_intervals)
     hit_dict["query_aligned_length"] = min(qlength, q_aligned)
     qstart, qend = q_merged_intervals[0][0], q_merged_intervals[-1][1]
     hit_dict["query_start"], hit_dict["query_end"] = qstart, qend
+    identical = np.where(query_array[0] == 1)[0]
+    positives = np.where(query_array[1] == 1)[0]
 
-    if len(identical_positions) > q_aligned:
+    if identical.shape[0] > q_aligned:
         raise ValueError(
             "Number of identical positions ({}) greater than number of aligned positions ({})!\n{}\n{}".format(
-            len(identical_positions), q_aligned, q_intervals, q_merged_intervals))
+            identical.shape[0], q_aligned, q_intervals, q_merged_intervals))
 
-    if len(positives) > q_aligned:
+    if positives.shape[0] > q_aligned:
         raise ValueError("Number of identical positions ({}) greater than number of aligned positions ({})!".format(
-            len(positives), q_aligned))
+            positives.shape[0], q_aligned))
 
     t_merged_intervals, t_aligned = merge(t_intervals)
     hit_dict["target_aligned_length"] = min(t_aligned, hit.seq_len)
     hit_dict["target_start"] = t_merged_intervals[0][0]
-    hit_dict["target_end"] = t_merged_intervals[-1][1]
-    hit_dict["global_identity"] = len(identical_positions) * 100 / qlength  # q_aligned
-    hit_dict["global_positives"] = len(positives) * 100 / qlength   # q_aligned
+    hit_dict["target_end"] = t_merged_intervals[-1][1] + 1
+    hit_dict["global_identity"] = identical.shape[0] * 100 / q_aligned
+    hit_dict["global_positives"] = positives.shape[0] * 100 / q_aligned
 
     return hit_dict, hsp_dict_list
 # pylint: enable=too-many-locals

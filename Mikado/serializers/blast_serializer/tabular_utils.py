@@ -50,8 +50,8 @@ def prepare_tab_hsp(key,
     hsp_dict = dict()
     # We must start from 1, otherwise MySQL crashes as its indices start from 1 not 0
     hsp_dict["query_id"], hsp_dict["target_id"] = key
-    query_array = np.zeros([3, hsp.qlength], dtype=np.int)
-    target_array = np.zeros([3, hsp.slength], dtype=np.int)
+    query_array = np.zeros([3, int(hsp.qlength)], dtype=np.int)
+    target_array = np.zeros([3, int(hsp.slength)], dtype=np.int)
     matrix = matrices.get(matrix_name, matrices["blosum62"])
     if hsp.qstart < 0:
         raise ValueError(hsp.qstart)
@@ -81,11 +81,9 @@ def prepare_tab_hsp(key,
         raise ValueError((aln_span, hsp.length))
     pident = np.where(query_array[1] > 0)[0].shape[0] / (aln_span * qmult) * 100
     if not np.isclose(pident, hsp.pident, atol=.1, rtol=.1):
-        raise ValueError((pident, hsp.ppos))
+        raise ValueError((pident, hsp.pident))
     hsp_dict["hsp_identity"] = pident
     ppos = np.where(query_array[2] > 0)[0].shape[0] / (aln_span * qmult) * 100
-    if not np.isclose(ppos, hsp.ppos, atol=.1, rtol=.1):
-        raise ValueError((ppos, hsp.ppos))
     hsp_dict["hsp_positives"] = ppos
     hsp_dict["match"] = match
     hsp_dict["hsp_length"] = hsp.length
@@ -138,11 +136,12 @@ def prepare_tab_hit(key: tuple,
     target_array = sum(target_arrays)
     q_aligned = np.where(query_array[0] > 0)[0]
     hit_dict["query_aligned_length"] = min(qlength, q_aligned.shape[0])
-    qstart, qend = q_aligned.min(), q_aligned.max()
+    qstart, qend = q_aligned.min(), q_aligned.max() + 1
     hit_dict["query_start"], hit_dict["query_end"] = int(qstart), int(qend)
+    if int(qend) not in hit["qend"].astype(int).values:
+        raise ValueError("Invalid end point: {}, {}".format(qend, hit["qend"]))
     identical_positions = np.where(query_array[1] > 0)[0].shape[0]
     positives = np.where(query_array[2] > 0)[0].shape[0]
-
     if identical_positions > q_aligned.shape[0]:
         raise ValueError(
             "Number of identical positions ({}) greater than number of aligned positions ({})!".format(
@@ -155,9 +154,11 @@ def prepare_tab_hit(key: tuple,
     t_aligned = np.where(target_array[0] > 0)[0]
     hit_dict["target_aligned_length"] = min(t_aligned.shape[0], hit_row.slength)
     hit_dict["target_start"] = int(t_aligned.min())
-    hit_dict["target_end"] = int(t_aligned.max())
-    hit_dict["global_identity"] = identical_positions * 100 / qlength  #  max(q_aligned.shape[0], 1)
-    hit_dict["global_positives"] = positives * 100 / qlength   # max(q_aligned.shape[0], 1)
+    hit_dict["target_end"] = int(t_aligned.max() + 1)
+    if hit_dict["target_end"] not in hit["send"].values:
+        raise ValueError("Invalid target end point: {}, {}".format(hit_dict["target_end"], hit["send"]))
+    hit_dict["global_identity"] = identical_positions * 100 / q_aligned.shape[0]
+    hit_dict["global_positives"] = positives * 100 / q_aligned.shape[0]
     return hit_dict, hsps
 
 
@@ -172,14 +173,19 @@ def sanitize_blast_data(data: pd.DataFrame, queries: pd.DataFrame, targets: pd.D
 
     data["qseqid"] = data["qseqid"].str.replace(id_pattern, "\\1")
     data["sseqid"] = data["sseqid"].str.replace(id_pattern, "\\1")
-    for col in ["qstart", "qend", "sstart", "send"]:
-        data[col] = data[col].astype(int)
 
     data = data.join(queries, on=["qseqid"]).join(targets, on=["sseqid"]).join(
         data.groupby(["qseqid", "sseqid"]).agg(
             min_evalue=pd.NamedAgg("evalue", np.min),
             max_bitscore=pd.NamedAgg("bitscore", np.max)
         )[["min_evalue", "max_bitscore"]], on=["qseqid", "sseqid"])
+
+    for col in ["qstart", "qend", "sstart", "send", "qlength", "slength"]:
+        assert ~(data[col].isna().any()), (col, data[data[col].isna()].shape[0], data.shape[0])
+        try:
+            data[col] = data[col].astype(int).values
+        except ValueError as exc:
+            raise ValueError("{}: {}".format(exc, col))
 
     for key, multiplier, (start, end), length in [
         ("query_frame", qmult, ("qstart", "qend"), "qlength"),
@@ -198,8 +204,10 @@ def sanitize_blast_data(data: pd.DataFrame, queries: pd.DataFrame, targets: pd.D
     # Get the minimum evalue for each group
     # data["aln_span"] = data.qend - data.qstart
     # Set the hsp_num
+    data["sstart"] = data["sstart"].astype(int).values
     data["hsp_num"] = data.sort_values("evalue").groupby(["qseqid", "sseqid"]).cumcount() + 1
-    temp = data[["qseqid", "sseqid", "min_evalue"]].drop_duplicates().sort_values("min_evalue", ascending=True)
+    temp = data[["qseqid", "sseqid", "min_evalue"]].drop_duplicates().sort_values(
+        ["min_evalue", "sseqid"], ascending=True)
     temp["hit_num"] = temp.groupby(["qseqid"]).cumcount() + 1
     temp.set_index(["qseqid", "sseqid"], inplace=True)
     data = data.join(temp["hit_num"], on=["qseqid", "sseqid"])
@@ -215,11 +223,6 @@ def parse_tab_blast(self,
                     pool: (mp.Pool, None),
                     matrix_name="blosum62", qmult=3, tmult=1, logger=create_null_logger()):
     """This function will use `pandas` to quickly parse, subset and analyse tabular BLAST files.
-    Files should have been generated (whether with NCBI BLASTX or DIAMOND) with the following keys:
-
-    qseqid sseqid pident ppos length mismatch gapopen qstart qend sstart send evalue bitscore qseq sseq btop
-
-
     """
 
     matrix_name = matrix_name.lower()
@@ -231,9 +234,9 @@ def parse_tab_blast(self,
     groups = data.groupby(["qid", "sid"])
     if pool is not None:
         assert isinstance(pool, mp.pool.Pool)
-        for res in (pool.apply_async(prepare_tab_hit, args=(
-            key, group), kwds={"qmult": qmult, "tmult": tmult,
-                               "matrix_name": matrix_name}) for key, group in groups):
+        for res in (pool.apply_async(
+                prepare_tab_hit, args=(key, group), kwds={"qmult": qmult, "tmult": tmult,
+                                                          "matrix_name": matrix_name}) for key, group in groups):
             curr_hit, curr_hsps = res.get()
             hits.append(curr_hit)
             hsps.extend(curr_hsps)

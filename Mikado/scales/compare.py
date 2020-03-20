@@ -26,7 +26,6 @@ from ..parsers.bam_parser import BamParser
 from ..parsers import to_gff
 from ..utilities.file_type import filetype
 from ..utilities.log_utils import create_default_logger, formatter
-import magic
 import sqlite3
 import multiprocessing as mp
 import tempfile

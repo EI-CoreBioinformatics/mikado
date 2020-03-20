@@ -24,6 +24,7 @@ from ..parsers.GTF import GTF
 from ..parsers.bed12 import Bed12Parser
 from ..parsers.bam_parser import BamParser
 from ..parsers import to_gff
+from ..utilities.file_type import filetype
 from ..utilities.log_utils import create_default_logger, formatter
 import magic
 import sqlite3
@@ -686,9 +687,7 @@ def load_index(args, queue_logger):
     # genes, positions = None, None
 
     # New: now we are going to use SQLite for a faster experience
-    wizard = magic.Magic(mime=True)
-
-    if wizard.from_file("{0}.midx".format(args.reference.name)) == b"application/gzip":
+    if filetype("{0}.midx".format(args.reference.name)) == b"application/gzip":
         queue_logger.warning("Old index format detected. Starting to generate a new one.")
         raise CorruptIndex("Invalid index file")
 

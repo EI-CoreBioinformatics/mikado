@@ -57,6 +57,8 @@ sample_data/1.fasta
 sample_data/2.fasta
 sample_data/configuration2.yaml
 sample_data/reference.gff3.midx
+Mikado/*/*/*html
+Mikado/*/*html
 Mikado/utilities/overlap.cpython-3*.so
 Mikado/scales/contrast.c
 Mikado/scales/contrast.cpython-3*.so

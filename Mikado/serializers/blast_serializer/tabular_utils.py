@@ -205,9 +205,9 @@ def sanitize_blast_data(data: pd.DataFrame, queries: pd.DataFrame, targets: pd.D
     # data["aln_span"] = data.qend - data.qstart
     # Set the hsp_num
     data["sstart"] = data["sstart"].astype(int).values
-    data["hsp_num"] = data.sort_values("evalue").groupby(["qseqid", "sseqid"]).cumcount() + 1
-    temp = data[["qseqid", "sseqid", "min_evalue"]].drop_duplicates().sort_values(
-        ["min_evalue", "sseqid"], ascending=True)
+    data["hsp_num"] = data.sort_values("bitscore", ascending=False).groupby(["qseqid", "sseqid"]).cumcount() + 1
+    temp = data[["qseqid", "sseqid", "max_bitscore"]].drop_duplicates().sort_values(
+        ["max_bitscore", "sseqid"], ascending=[False, True])
     temp["hit_num"] = temp.groupby(["qseqid"]).cumcount() + 1
     temp.set_index(["qseqid", "sseqid"], inplace=True)
     data = data.join(temp["hit_num"], on=["qseqid", "sseqid"])

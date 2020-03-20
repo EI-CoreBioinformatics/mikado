@@ -116,7 +116,7 @@ def prepare_hsp(hsp, counter, off_by_one=False, qmultiplier=1, tmultiplier=1):
     hsp_dict["query_hsp_start"] = hsp.query_start
     match, identical_positions, positives = prepare_aln_strings(hsp, off_by_one=off_by_one,
                                                                 qmultiplier=qmultiplier)
-    hsp_dict["query_hsp_end"] = hsp.query_end + off_by_one
+    hsp_dict["query_hsp_end"] = hsp.query_end - off_by_one
     hsp_dict["query_frame"] = hsp.query_frame
     hsp_dict["target_hsp_start"] = hsp.hit_start
     hsp_dict["target_hsp_end"] = hsp.hit_end

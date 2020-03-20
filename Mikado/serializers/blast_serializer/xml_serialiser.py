@@ -13,6 +13,7 @@ from .xml_utils import get_multipliers, get_off_by_one
 from .utils import load_into_db
 import multiprocessing as mp
 from ...utilities.log_utils import create_null_logger
+import pandas as pd
 
 
 def _create_xml_db(filename):
@@ -257,29 +258,23 @@ def objectify_record(record, hits, hsps, cache,
         return hits, hsps, cache
 
     current_query, name, cache["query"] = _get_query_for_blast(record, cache["query"])
-
-    # current_evalue = -1
-    current_counter = 0
-
-    # for ccc, alignment in enumerate(record.alignments):
-    for ccc, alignment in enumerate(record.hits):
-        if ccc + 1 > max_target_seqs:
-            break
-
-        logger.debug("Started the hit %s vs. %s", name, record.hits[ccc].id)
+    alignments = dict((ccc, (hit.id, max(_.bitscore for _ in hit.hsps))) for ccc, hit in enumerate(record.hits))
+    ids, scores = list(zip(*alignments.values()))
+    phits = pd.DataFrame({"idx": list(alignments.keys()), "target_name": ids, "bitscore": scores})
+    for hit_num, t in enumerate(phits.sort_values(["bitscore", "target_name"],
+                                                  ascending=[False, True]).itertuples(name=None)):
+        idx, target_name, bitscore = t[1:]
+        alignment = record.hits[idx]
+        logger.debug("Started the hit %s vs. %s", name, record.hits[idx].id)
         current_target, cache["target"] = _get_target_for_blast(alignment, cache["target"])
-
         hit_dict_params = dict()
         (hit_dict_params["query_multiplier"],
          hit_dict_params["target_multiplier"]) = (qmult, tmult)
-        hit_evalue = min(_.evalue for _ in record.hits[ccc].hsps)
-        hit_bs = max(_.bitscore for _ in record.hits[ccc].hsps)
-        current_counter += 1
-        hit_dict_params["hit_number"] = current_counter
+        hit_evalue = min(_.evalue for _ in record.hits[idx].hsps)
+        hit_bs = bitscore
+        hit_dict_params["hit_number"] = hit_num + 1
         hit_dict_params["evalue"] = hit_evalue
         hit_dict_params["bits"] = hit_bs
-
-        # Prepare for bulk load
         try:
             hit, hit_hsps = prepare_hit(alignment, current_query,
                                         current_target,

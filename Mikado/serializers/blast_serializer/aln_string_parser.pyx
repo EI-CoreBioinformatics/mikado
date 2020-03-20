@@ -3,7 +3,7 @@
 import numpy as np
 cimport numpy as np
 from libc.stdlib cimport malloc
-# cimport libc.string as cstring
+from libcpp.string cimport string as cstring
 cimport cython
 
 DTYPE = np.int_
@@ -19,7 +19,7 @@ cdef _analyze_string(char* qseq, char* sseq, char* mid,
     cdef np.ndarray[DTYPE_t, ndim=1] query_array = np.zeros(shape, dtype=DTYPE)
     cdef DTYPE_t[:] query_view = query_array
     cdef Py_ssize_t match_len = len(mid)
-    cdef char *match = <char *>malloc(match_len * sizeof(char *))
+    cdef cstring match
     cdef char qchar, schar, midchar
     cdef Py_ssize_t idx
     if shape > query_length:
@@ -29,37 +29,30 @@ cdef _analyze_string(char* qseq, char* sseq, char* mid,
         qchar, schar, midchar = qseq[idx], sseq[idx], mid[idx]
         if qchar == b"-":
             if schar == b"*":
-                match[idx] = b"*"
+                match.push_back(b"*")
             else:
-                match[idx] = b"-"
+                match.push_back(b"-")
             continue
         else:
             qpos += 1
             if qchar == b"*" or schar == b"*":
-                match[idx] == b"*"
+                match.push_back(b"*")
             elif qchar == schar:
-                match[idx] = b"|"
+                match.push_back(b"|")
                 query_view[qpos] = 2
             elif midchar == b"+":
-                match[idx] = b"+"
+                match.push_back(b"+")
                 query_view[qpos] = 1
             elif schar == b"-":
                 if qchar == b"*":
-                    match[idx] = b"*"
+                    match.push_back(b"*")
                 else:
-                    match[idx] = b"_"
+                    match.push_back(b"_")
                 continue
             else:
-                match[idx] = b"/"
+                match.push_back(b"/")
 
     return query_array, match
-
-
-cdef unicode tounicode(char* s):
-    if s == NULL:
-        return None
-    else:
-        return s.decode("UTF-8", "replace")
 
 
 cpdef prepare_aln_strings(hsp, bint off_by_one=0, long qmultiplier=1):
@@ -84,7 +77,7 @@ cpdef prepare_aln_strings(hsp, bint off_by_one=0, long qmultiplier=1):
 
     cdef np.ndarray[DTYPE_t, ndim=1] query_array
     cdef long query_start = hsp.query_start
-    cdef long query_end = hsp.query_end + off_by_one
+    cdef long query_end = hsp.query_end - off_by_one
     cdef long query_length = len(qseq)
     cdef np.ndarray[DTYPE_t, ndim=2] summer = np.array([[_] for _ in range(qmultiplier)])
     query_array, match = _analyze_string(qseq, sseq, mid, query_start, query_end, query_length, qmultiplier)
@@ -105,6 +98,7 @@ cpdef prepare_aln_strings(hsp, bint off_by_one=0, long qmultiplier=1):
     # positives = set(positives)
     identical_positions.sort()
     positives.sort()
-    match = tounicode(match[:match_len])
+    match = <bytes>match
+    match = match.decode()
 
     return match, identical_positions, positives

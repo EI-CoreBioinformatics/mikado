@@ -1,5 +1,4 @@
 from ..loci.reference_gene import Gene
-import magic
 from ..exceptions import CorruptIndex
 from ..utilities.file_type import filetype
 from ..utilities.log_utils import create_null_logger

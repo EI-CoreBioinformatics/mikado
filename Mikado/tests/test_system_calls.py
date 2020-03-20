@@ -4,7 +4,8 @@ import gzip
 import itertools
 import logging
 import os
-import numpy
+import numpy as np
+import pandas as pd
 import sys
 import tempfile
 import unittest
@@ -1167,7 +1168,7 @@ class ConfigureCheck(unittest.TestCase):
                 namespace.out_dir = dir.name
                 scorers = sorted(pkg_resources.resource_listdir("Mikado.configuration", "scoring_files"))
 
-                namespace.scoring = scorers[numpy.random.choice(len(scorers))]
+                namespace.scoring = scorers[np.random.choice(len(scorers))]
 
                 out = os.path.join(dir.name, "configuration.yaml")
                 with open(out, "wt") as out_handle:
@@ -1771,6 +1772,62 @@ class SerialiseChecker(unittest.TestCase):
                 os.remove(db)
         dir.cleanup()
 
+    @mark.slow
+    def test_xml_vs_tsv(self):
+        xml = pkg_resources.resource_filename("Mikado.tests", os.path.join("blast_data", "diamond.0.9.30.xml.gz"))
+        tsv = pkg_resources.resource_filename("Mikado.tests", os.path.join("blast_data", "diamond.0.9.30.tsv.gz"))
+        queries = pkg_resources.resource_filename("Mikado.tests", os.path.join("blast_data", "transcripts.fasta"))
+        prots = pkg_resources.resource_filename("Mikado.tests", "uniprot_sprot_plants.fasta.gz")
+        logs = dict()
+        dbs = dict()
+        base = tempfile.NamedTemporaryFile()
+        base.close()
+        for name, blast in zip(["xml", "tsv"], [xml, tsv]):
+            db = base.name + ".{}.db".format(name)
+            log = base.name + ".{}.log".format(name)
+            sys.argv = [str(_) for _ in ["mikado", "serialise",
+                                         "--transcripts", queries, "--blast_targets", prots,
+                                         "--xml", xml, "-mo", 1000, "--log", log, "--seed", "1078",
+                                         db]]
+            pkg_resources.load_entry_point("Mikado", "console_scripts", "mikado")()
+            dbs[name] = db
+            logged = [_.rstrip() for _ in open(log)]
+            logs[name] = logged
+
+        def prep_dbs(name):
+            hsp, hit, query, target = [pd.read_sql(table, name) for table in ["hsp", "hit", "query", "target"]]
+            hit = hit.join(target.set_index("target_id"), on=["target_id"], how="inner").join(
+                query.set_index("query_id"), on=["query_id"], how="inner")
+            hsp = hsp.join(target.set_index("target_id"), on=["target_id"], how="inner").join(
+                query.set_index("query_id"), on=["query_id"], how="inner")
+            hsp.set_index(["query_name", "target_name", "counter"], inplace=True)
+            hit.set_index(["query_name", "target_name"], inplace=True)
+            return hit, hsp
+
+        xml_hit, xml_hsp = prep_dbs("sqlite:///" + dbs["xml"])
+        tsv_hit, tsv_hsp = prep_dbs("sqlite:///" + dbs["tsv"])
+        hit = pd.merge(xml_hit, tsv_hit, left_index=True, right_index=True, suffixes=("_xml", "_tsv"))
+        hsp = pd.merge(xml_hsp, tsv_hsp, left_index=True, right_index=True, suffixes=("_xml", "_tsv"))
+        self.assertTrue(hit.shape[0] == xml_hit.shape[0] == tsv_hit.shape[0])
+        self.assertTrue(hsp.shape[0] == xml_hsp.shape[0] == tsv_hsp.shape[0])
+        # Get the columns
+        hitcols, hspcols = dict(), dict()
+        for d, df in zip([hitcols, hspcols], [hit, hsp]):
+            for col in df.columns:
+                name = col[:-4]
+                if name not in d:
+                    d[name] = []
+                d[name].append(col)
+            failed = []
+            for col in d:
+                if col in ("query_id", "target_id"):
+                    continue
+                catch = df[d[col]].apply(lambda row: row[0] == row[1] or
+                                                     np.isclose(row[0], row[1], atol=.01, rtol=.01), axis=1)
+                if not (catch).all():
+                    failed.append(col)
+            self.assertEqual(len(failed), 0, failed)
+
     def test_subprocess_multi_empty_orfs(self):
 
         xml = pkg_resources.resource_filename("Mikado.tests", "chunk-001-proteins.xml.gz")
@@ -1946,7 +2003,7 @@ class GrepTest(unittest.TestCase):
             ids = [tuple(line.rstrip().split("\t")) for line in id_file]
 
         id_temp_file = tempfile.NamedTemporaryFile("wt", suffix=".txt")
-        to_write = [ids[_] for _ in numpy.random.choice(len(ids), 10, replace=False)]
+        to_write = [ids[_] for _ in np.random.choice(len(ids), 10, replace=False)]
         [print(*idline, sep="\t", file=id_temp_file) for idline in to_write]
         id_temp_file.flush()
 
@@ -1974,7 +2031,7 @@ class GrepTest(unittest.TestCase):
             ids = [tuple(line.rstrip().split("\t")) for line in id_file]
 
         id_temp_file = tempfile.NamedTemporaryFile("wt", suffix=".txt")
-        to_write = [ids[_] for _ in numpy.random.choice(len(ids), 10, replace=False)]
+        to_write = [ids[_] for _ in np.random.choice(len(ids), 10, replace=False)]
         others = [_ for _ in ids if _ not in to_write]
         [print(*idline, sep="\t", file=id_temp_file) for idline in to_write]
         id_temp_file.flush()

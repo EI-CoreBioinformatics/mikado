@@ -104,6 +104,9 @@ setup(
             glob.glob(path.join("Mikado", "daijin", "*yaml")) + glob.glob("Mikado/daijin/*json"),
         "Mikado.utilities.overlap": [path.join("Mikado", "utilities", "overlap.pxd")],
         "Mikado.utilities.intervaltree": [path.join("Mikado", "utilities", "intervaltree.pxd")],
+        "Mikado.serializers.blast_serializers": glob.glob(path.join("Mikado", "serializers", "blast_serializers",
+                                                                    "*pxd")),
+        "Mikado.tests.blast_data": glob.glob(path.join("Mikado", "tests", "blast_data", "*"))
         },
     include_package_data=True
 )

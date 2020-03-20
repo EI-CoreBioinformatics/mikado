@@ -12,7 +12,6 @@ pytest
 pyfaidx
 scikit-learn>=0.17.0
 scipy>=1.0.0
-python-magic
 drmaa
 snakemake
 docutils!=0.13.1

@@ -10,7 +10,7 @@ import abc
 import gzip
 import bz2
 from functools import partial
-import magic
+from ..utilities.file_type import filetype
 
 
 class HeaderError(Exception):
@@ -23,14 +23,12 @@ class HeaderError(Exception):
 class Parser(metaclass=abc.ABCMeta):
     """Generic parser iterator. Base parser class."""
 
-    wizard = magic.Magic(mime=True)
-
     def __init__(self, handle):
         self.__closed = False
         if not isinstance(handle, io.IOBase):
-            if handle.endswith(".gz") or self.wizard.from_file(handle) == b"application/gzip":
+            if handle.endswith(".gz") or filetype(handle) == b"application/gzip":
                 opener = gzip.open
-            elif handle.endswith(".bz2") or self.wizard.from_file(handle) == b"application/x-bzip2":
+            elif handle.endswith(".bz2") or filetype(handle) == b"application/x-bzip2":
                 opener = bz2.open
             else:
                 opener = partial(open, **{"buffering": 1})

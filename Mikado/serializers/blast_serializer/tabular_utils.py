@@ -32,6 +32,25 @@ for mname in MatrixInfo.available_matrices:
     matrices[mname] = matrix
 
 
+def get_queries(engine):
+    queries = pd.read_sql_table("query", engine, index_col="query_name")
+    queries.columns = ["qid", "qlength"]
+    queries["qid"] = queries["qid"].astype(int)
+    assert queries.qid.drop_duplicates().shape[0] == queries.shape[0]
+    return queries
+
+
+def get_targets(engine):
+    targets = pd.read_sql_table("target", engine, index_col="target_name")
+    targets.columns = ["sid", "slength"]
+    targets["sid"] = targets["sid"].astype(int)
+    assert targets.sid.drop_duplicates().shape[0] == targets.shape[0]
+
+    if targets[targets.slength.isna()].shape[0] > 0:
+        raise KeyError("Unbound targets!")
+    return targets
+
+
 def prepare_tab_hsp(key,
                     hsp: pd.Series,
                     columns: dict,
@@ -294,7 +313,11 @@ def parse_tab_blast(self,
         _self = namedtuple("self", ["logger", "session", "engine", "maxobjects"])
         engine = connect(conf, strategy="threadlocal")
         session = Session(bind=engine)
-        self = _self(logger, session, engine, conf["serialise"]["max_objects"])
+        self = _self(logger, session, engine, int(conf["serialise"]["max_objects"] / conf["threads"]))
+        if queries is None:
+            queries = get_queries(self.engine)
+        if targets is None:
+            targets = get_targets(self.engine)
 
     data = pd.read_csv(bname, delimiter="\t", names=blast_keys)
     data = sanitize_blast_data(data, queries, targets, qmult=qmult, tmult=tmult)

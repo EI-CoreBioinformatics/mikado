@@ -26,7 +26,8 @@ def load_into_db(self, hits, hsps, force=False, lock=None):
         # Bulk load
         self.logger.debug("Loading %d BLAST objects into database", tot_objects)
 
-        lock.acquire()
+        if lock is not None:
+            lock.acquire()
         try:
             # pylint: disable=no-member
             self.session.begin(subtransactions=True)
@@ -39,7 +40,8 @@ def load_into_db(self, hits, hsps, force=False, lock=None):
             self.logger.exception(err)
             raise err
         finally:
-            lock.release()
+            if lock is not None:
+                lock.release()
         self.logger.debug("Loaded %d BLAST objects into database", tot_objects)
         hits, hsps = [], []
     return hits, hsps

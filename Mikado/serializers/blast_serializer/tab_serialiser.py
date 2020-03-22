@@ -1,4 +1,4 @@
-from .tabular_utils import parse_tab_blast
+from .tabular_utils import parse_tab_blast, get_queries, get_targets
 import pandas as pd
 import multiprocessing as mp
 from .utils import load_into_db
@@ -11,26 +11,13 @@ def _serialise_tabular(self):
     else:
         assert isinstance(self.xml, (list, set))
 
-    queries = pd.read_sql_table("query", self.engine, index_col="query_name")
-    queries.columns = ["qid", "qlength"]
-    queries["qid"] = queries["qid"].astype(int)
-    assert queries.qid.drop_duplicates().shape[0] == queries.shape[0]
-
-    targets = pd.read_sql_table("target", self.engine, index_col="target_name")
-    targets.columns = ["sid", "slength"]
-    targets["sid"] = targets["sid"].astype(int)
-    assert targets.sid.drop_duplicates().shape[0] == targets.shape[0]
-
-    if targets[targets.slength.isna()].shape[0] > 0:
-        raise KeyError("Unbound targets!")
-
-    # cache = {"query": self.queries, "target": self.targets}
     matrix_name = self.json_conf["serialise"]["substitution_matrix"]
     program = self.json_conf["serialise"].get("blast_flavour", "blastx")
     qmult, tmult = self.get_multipliers(None, program)
-    hits, hsps = [], []
 
     if self._xml_debug is False and (self.single_thread is True or self.procs == 1):
+        queries = get_queries(self.engine)
+        targets = get_targets(self.engine)
         parser = functools.partial(parse_tab_blast,
                                    self=self,
                                    queries=queries,
@@ -50,8 +37,8 @@ def _serialise_tabular(self):
         lock = mp.RLock()
         parser = functools.partial(parse_tab_blast,
                                    self=None,
-                                   queries=queries,
-                                   targets=targets,
+                                   queries=None,
+                                   targets=None,
                                    conf=self.json_conf,
                                    logger=None,
                                    level=self.logger.level,

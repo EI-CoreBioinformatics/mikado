@@ -105,7 +105,7 @@ class BlastSerializer:
 
         # session = sessionmaker(autocommit=True)
         DBBASE.metadata.create_all(self.engine)  # @UndefinedVariable
-        session = Session(bind=self.engine, autocommit=False, autoflush=False, expire_on_commit=False)
+        session = Session(bind=self.engine)
         self.session = session  # session()
         self.logger.debug("Created the session")
         # Load sequences if necessary

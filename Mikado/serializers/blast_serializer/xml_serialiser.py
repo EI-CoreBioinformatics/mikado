@@ -165,7 +165,7 @@ def _serialise_xmls(self):
                 self.logger.debug("Finished %s", filename)
             except ExpatError:
                 self.logger.error("%s is an invalid BLAST file, saving what's available", filename)
-        _, _ = self._load_into_db(hits, hsps, force=True)
+        _, _ = load_into_db(self, hits, hsps, force=True)
     elif self._xml_debug is True or self.procs > 1:
         self.logger.debug("Creating a pool with %d processes",
                           min(self.procs, len(self.xml)))
@@ -208,7 +208,7 @@ def _serialise_xmls(self):
             os.remove(dbfile)
 
         self.logger.debug("Finished sending off the data for serialisation")
-        _, _ = self._load_into_db(hits, hsps, force=True)
+        _, _ = load_into_db(self, hits, hsps, force=True)
 
     self.logger.info("Loaded %d alignments for %d queries",
                      hit_counter, record_counter)

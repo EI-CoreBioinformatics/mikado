@@ -274,7 +274,7 @@ def parse_tab_blast(self,
             if tot >= self.maxobjects:
                 hits, hsps = load_into_db(self, hits, hsps, force=False)
     else:
-        for row in data.itertuples(name=None):
+        for row in data.itertuples(name=None, index=False):
             qid, sid = row[columns["qid"]], row[columns["sid"]]
             if qid != current_qid or sid != current_sid:
                 if current_rows:

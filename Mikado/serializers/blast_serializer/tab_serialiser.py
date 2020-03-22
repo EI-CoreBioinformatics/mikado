@@ -20,12 +20,10 @@ def _serialise_tabular(self):
                                    self=self,
                                    queries=queries,
                                    targets=targets,
-                                   logger=self.logger,
                                    matrix_name=matrix_name,
                                    qmult=qmult, tmult=tmult)
         for fname in self.xml:
             parser(bname=fname, identifier=None)
-            # _, _ = load_into_db(self, hits, hsps, force=True)
             self.logger.debug("Finished %s", fname)
     else:
         self.logger.info("Creating a pool with %d workers for analysing BLAST results",

@@ -2,7 +2,7 @@ from . import Query, Target, Hsp, Hit, prepare_hit, InvalidHit
 import sqlalchemy.exc
 
 
-def load_into_db(self, hits, hsps, force=False, lock=None):
+def load_into_db(self, hits, hsps, force=False):
     """
     :param hits:
     :param hsps:
@@ -26,8 +26,8 @@ def load_into_db(self, hits, hsps, force=False, lock=None):
         # Bulk load
         self.logger.debug("Loading %d BLAST objects into database", tot_objects)
 
-        if lock is not None:
-            lock.acquire()
+        if hasattr(self, "lock") and self.lock is not None:
+            self.lock.acquire()
         try:
             # pylint: disable=no-member
             self.session.begin(subtransactions=True)
@@ -40,8 +40,8 @@ def load_into_db(self, hits, hsps, force=False, lock=None):
             self.logger.exception(err)
             raise err
         finally:
-            if lock is not None:
-                lock.release()
+            if hasattr(self, "lock") and self.lock is not None:
+                self.lock.release()
         self.logger.debug("Loaded %d BLAST objects into database", tot_objects)
         hits, hsps = [], []
     return hits, hsps

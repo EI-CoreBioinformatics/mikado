@@ -1,7 +1,5 @@
-from .tabular_utils import parse_tab_blast, get_queries, get_targets
-import pandas as pd
+from .tabular_utils import parse_tab_blast, get_queries, get_targets, TabParserWrapper
 import multiprocessing as mp
-from .utils import load_into_db
 import functools
 
 
@@ -22,8 +20,6 @@ def _serialise_tabular(self):
                                    self=self,
                                    queries=queries,
                                    targets=targets,
-                                   conf=None,
-                                   logging_queue=None,
                                    logger=self.logger,
                                    matrix_name=matrix_name,
                                    qmult=qmult, tmult=tmult)
@@ -35,21 +31,22 @@ def _serialise_tabular(self):
         self.logger.info("Creating a pool with %d workers for analysing BLAST results",
                          self.procs)
         lock = mp.RLock()
-        parser = functools.partial(parse_tab_blast,
-                                   self=None,
-                                   queries=None,
-                                   targets=None,
-                                   conf=self.json_conf,
-                                   logger=None,
-                                   level=self.logger.level,
-                                   logging_queue=self.logging_queue,
-                                   matrix_name=matrix_name,
-                                   qmult=qmult, tmult=tmult)
-        pool = mp.Pool(self.procs)
-        for idx, fname in enumerate(self.xml, 1):
-            parser(bname=fname, identifier=idx, lock=lock)
-            # pool.apply_async(parser, args=(fname,), kwds={"identifier": idx})
-        pool.close()
-        pool.join()
+        queue = mp.JoinableQueue(-1)
+        conf = dict()
+        conf["serialise"] = dict()
+        conf["serialise"]["max_objects"] = self.json_conf["serialise"]["max_objects"]
+        conf["threads"] = self.json_conf["threads"]
+        conf["db_settings"] = self.json_conf["db_settings"].copy()
+
+        processes = [TabParserWrapper(
+            conf=conf, idx=idx,
+            queue=queue, lock=lock,
+            logging_queue=self.logging_queue, level=self.logger.level,
+            matrix_name=matrix_name, qmult=qmult, tmult=tmult) for idx in range(1, self.procs + 1)]
+        [proc.start() for proc in processes]
+        for fname in self.xml:
+            queue.put(fname)
+        queue.put("EXIT")
+        [proc.join() for proc in processes]
 
     self.logger.info("Finished loading blast hits")

@@ -287,12 +287,6 @@ def parse_tab_blast(self,
                     bname: str,
                     queries: pd.DataFrame,
                     targets: pd.DataFrame,
-                    identifier=None,
-                    conf=None,
-                    logger=create_null_logger(),
-                    level="DEBUG",
-                    logging_queue=None,
-                    lock=None,
                     matrix_name="blosum62", qmult=3, tmult=1):
     """This function will use `pandas` to quickly parse, subset and analyse tabular BLAST files.
     """
@@ -301,23 +295,6 @@ def parse_tab_blast(self,
 
     if matrix_name not in matrices:
         raise KeyError("Matrix {} is not valid. Please specify a valid name.".format(matrix_name))
-
-    if logging_queue is not None:
-        logger = create_default_logger("parse_tab_blast-{}".format(identifier), level=level)
-        [logger.removeHandler(handler) for handler in logger.handlers]
-        handler = logging.handlers.QueueHandler(logging_queue)
-        logger.addHandler(handler)
-        logger.info("Started process %s", identifier)
-
-    if self is None:
-        _self = namedtuple("self", ["logger", "session", "engine", "maxobjects"])
-        engine = connect(conf, strategy="threadlocal")
-        session = Session(bind=engine)
-        self = _self(logger, session, engine, int(conf["serialise"]["max_objects"] / conf["threads"]))
-        if queries is None:
-            queries = get_queries(self.engine)
-        if targets is None:
-            targets = get_targets(self.engine)
 
     data = pd.read_csv(bname, delimiter="\t", names=blast_keys)
     data = sanitize_blast_data(data, queries, targets, qmult=qmult, tmult=tmult)
@@ -344,8 +321,48 @@ def parse_tab_blast(self,
         curr_hit, curr_hsps = prep_hit((current_qid, current_sid), current_rows)
         hits.append(curr_hit)
         hsps += curr_hsps
-        hits, hsps = load_into_db(self, hits, hsps, force=True, lock=lock)
+        hits, hsps = load_into_db(self, hits, hsps, force=True)
 
     assert len(hits) == 0 or isinstance(hits[0], dict), (hits[0], type(hits[0]))
     assert len(hsps) >= len(hits), (len(hits), len(hsps), hits[0], hsps[0])
-    # return hits, hsps
+
+
+class TabParserWrapper(mp.Process):
+
+    def __init__(self, conf, idx, queue, logging_queue, level,
+                 matrix_name="blosum62", lock=None,
+                 qmult=3, tmult=1):
+        super().__init__()
+        self.identifier = idx
+        self.logging_queue = logging_queue
+        self.level, self.qmult, self.tmult, self.lock = level, qmult, tmult, lock
+        self.matrix_name = matrix_name
+        self.conf = conf
+        self.queue = queue
+
+    def run(self):
+        self.logger = create_default_logger("parse_tab_blast-{}".format(self.identifier),
+                                            level=self.level)
+        [self.logger.removeHandler(handler) for handler in self.logger.handlers]
+        handler = logging.handlers.QueueHandler(self.logging_queue)
+        self.logger.addHandler(handler)
+        self.logger.info("Started process %s", self.identifier)
+        self.engine = connect(self.conf, strategy="threadlocal")
+        self.session = Session(bind=self.engine)
+        self.queries = get_queries(self.engine)
+        self.targets = get_targets(self.engine)
+        self.maxobjects = self.conf["serialise"]["max_objects"]/self.conf["threads"]
+        self.function = partial(parse_tab_blast,
+                                self=self,
+                                queries=self.queries,
+                                targets=self.targets,
+                                matrix_name=self.matrix_name, qmult=self.qmult, tmult=self.tmult)
+
+        while True:
+            fname = self.queue.get()
+            if fname == "EXIT":
+                self.queue.put(fname)
+                break
+            self.function(bname=fname)
+            continue
+        return

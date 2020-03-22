@@ -5,14 +5,13 @@ XML serialisation class.
 import os
 import logging.handlers as logging_handlers
 import logging
-import sqlalchemy
-import sqlalchemy.exc
 from sqlalchemy.orm.session import Session
 from ...utilities.dbutils import DBBASE
 import pysam
 from ...utilities.dbutils import connect
 from ...utilities.log_utils import create_null_logger, check_logger
 from . import Query, Target, Hsp, Hit
+from .utils import load_into_db
 from .xml_utils import get_multipliers
 from .xml_serialiser import _serialise_xmls
 from .tab_serialiser import _serialise_tabular
@@ -323,33 +322,7 @@ class BlastSerializer:
 
         :return:
         """
-
-        self.logger.debug("Checking whether to load %d hits and %d hsps",
-                          len(hits), len(hsps))
-
-        tot_objects = len(hits) + len(hsps)
-        if len(hits) == 0:
-            self.logger.debug("No hits to serialise. Exiting")
-            return hits, hsps
-
-        if tot_objects >= self.maxobjects or force:
-            # Bulk load
-            self.logger.debug("Loading %d BLAST objects into database", tot_objects)
-
-            try:
-                # pylint: disable=no-member
-                self.session.begin(subtransactions=True)
-                self.engine.execute(Hit.__table__.insert(), hits)
-                self.engine.execute(Hsp.__table__.insert(), hsps)
-                # pylint: enable=no-member
-                self.session.commit()
-            except sqlalchemy.exc.IntegrityError as err:
-                self.logger.critical("Failed to serialise BLAST!")
-                self.logger.exception(err)
-                raise err
-            self.logger.debug("Loaded %d BLAST objects into database", tot_objects)
-            hits, hsps = [], []
-        return hits, hsps
+        load_into_db(self, hits, hsps, force=force)
 
     def serialize(self):
 

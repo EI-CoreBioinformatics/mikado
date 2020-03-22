@@ -28,23 +28,33 @@ def _serialise_tabular(self):
     else:
         self.logger.info("Creating a pool with %d workers for analysing BLAST results",
                          self.procs)
-        lock = mp.RLock()
-        queue = mp.JoinableQueue(-1)
-        conf = dict()
-        conf["serialise"] = dict()
-        conf["serialise"]["max_objects"] = self.json_conf["serialise"]["max_objects"]
-        conf["threads"] = self.json_conf["threads"]
-        conf["db_settings"] = self.json_conf["db_settings"].copy()
-
-        processes = [TabParserWrapper(
-            conf=conf, idx=idx,
-            queue=queue, lock=lock,
-            logging_queue=self.logging_queue, level=self.logger.level,
-            matrix_name=matrix_name, qmult=qmult, tmult=tmult) for idx in range(1, self.procs + 1)]
-        [proc.start() for proc in processes]
+        # lock = mp.RLock()
+        # queue = mp.JoinableQueue(-1)
+        # conf = dict()
+        pool = mp.Pool(self.procs)
+        queries = get_queries(self.engine)
+        targets = get_targets(self.engine)
+        parser = functools.partial(parse_tab_blast,
+                                   self=self,
+                                   queries=queries,
+                                   targets=targets,
+                                   pool=pool,
+                                   matrix_name=matrix_name,
+                                   qmult=qmult, tmult=tmult)
+        # conf["serialise"] = dict()
+        # conf["serialise"]["max_objects"] = self.json_conf["serialise"]["max_objects"]
+        # conf["threads"] = self.json_conf["threads"]
+        # conf["db_settings"] = self.json_conf["db_settings"].copy()
+        #
+        # processes = [TabParserWrapper(
+        #     conf=conf, idx=idx,
+        #     queue=queue, lock=lock,
+        #     logging_queue=self.logging_queue, level=self.logger.level,
+        #     matrix_name=matrix_name, qmult=qmult, tmult=tmult) for idx in range(1, self.procs + 1)]
+        # [proc.start() for proc in processes]
         for fname in self.xml:
-            queue.put(fname)
-        queue.put("EXIT")
-        [proc.join() for proc in processes]
+            parser(bname=fname)
+        # queue.put("EXIT")
+        # [proc.join() for proc in processes]
 
     self.logger.info("Finished loading blast hits")

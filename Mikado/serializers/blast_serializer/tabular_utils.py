@@ -288,6 +288,7 @@ def parse_tab_blast(self,
                     bname: str,
                     queries: pd.DataFrame,
                     targets: pd.DataFrame,
+                    pool: None,
                     matrix_name="blosum62", qmult=3, tmult=1):
     """This function will use `pandas` to quickly parse, subset and analyse tabular BLAST files.
     """
@@ -307,12 +308,20 @@ def parse_tab_blast(self,
     hits, hsps = [], []
     groups = defaultdict(list)
     [groups[val].append(idx) for idx, val in enumerate(data.index)]
-
-    for key, group in groups.items():
-        curr_hit, curr_hsps = prep_hit(key, data.values[group, :])
-        hits.append(curr_hit)
-        hsps += curr_hsps
-        hits, hsps = load_into_db(self, hits, hsps, force=False)
+    values = data.values
+    if pool is None:
+        for key, group in groups.items():
+            curr_hit, curr_hsps = prep_hit(key, data.values[group, :])
+            hits.append(curr_hit)
+            hsps += curr_hsps
+            hits, hsps = load_into_db(self, hits, hsps, force=False)
+    else:
+        results = [pool.apply_async(prep_hit, args=(key, values[group, :])) for key, group in groups.items()]
+        for result in results:
+            curr_hit, curr_hsps = result.get()
+            hits.append(curr_hit)
+            hsps += curr_hsps
+            hits, hsps = load_into_db(self, hits, hsps, force=False)
 
     hits, hsps = load_into_db(self, hits, hsps, force=True)
     assert len(hits) == 0 or isinstance(hits[0], dict), (hits[0], type(hits[0]))

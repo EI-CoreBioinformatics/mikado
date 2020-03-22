@@ -2,7 +2,7 @@ from . import Query, Target, Hsp, Hit, prepare_hit, InvalidHit
 import sqlalchemy.exc
 
 
-def load_into_db(self, hits, hsps, force=False):
+def load_into_db(self, hits, hsps, force=False, lock=None):
     """
     :param hits:
     :param hsps:
@@ -26,6 +26,7 @@ def load_into_db(self, hits, hsps, force=False):
         # Bulk load
         self.logger.debug("Loading %d BLAST objects into database", tot_objects)
 
+        lock.acquire()
         try:
             # pylint: disable=no-member
             self.session.begin(subtransactions=True)
@@ -37,6 +38,8 @@ def load_into_db(self, hits, hsps, force=False):
             self.logger.critical("Failed to serialise BLAST!")
             self.logger.exception(err)
             raise err
+        finally:
+            lock.release()
         self.logger.debug("Loaded %d BLAST objects into database", tot_objects)
         hits, hsps = [], []
     return hits, hsps

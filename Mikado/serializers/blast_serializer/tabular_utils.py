@@ -4,9 +4,14 @@ from .btop_parser import parse_btop
 import re
 import numpy as np
 import pandas as pd
-from ...utilities.log_utils import create_null_logger
+from ...utilities.log_utils import create_null_logger, create_default_logger
 import multiprocessing as mp
 from .utils import load_into_db
+from collections import namedtuple
+from ...utilities.dbutils import connect
+from sqlalchemy.orm.session import Session
+import logging
+import logging.handlers
 
 
 __author__ = 'Luca Venturini'
@@ -263,16 +268,33 @@ def parse_tab_blast(self,
                     bname: str,
                     queries: pd.DataFrame,
                     targets: pd.DataFrame,
-                    hits: list,
-                    hsps: list,
-                    procs: int,
-                    matrix_name="blosum62", qmult=3, tmult=1, logger=create_null_logger()):
+                    identifier=None,
+                    conf=None,
+                    logger=create_null_logger(),
+                    level="DEBUG",
+                    logging_queue=None,
+                    lock=None,
+                    matrix_name="blosum62", qmult=3, tmult=1):
     """This function will use `pandas` to quickly parse, subset and analyse tabular BLAST files.
     """
 
     matrix_name = matrix_name.lower()
+
     if matrix_name not in matrices:
         raise KeyError("Matrix {} is not valid. Please specify a valid name.".format(matrix_name))
+
+    if logging_queue is not None:
+        logger = create_default_logger("parse_tab_blast-{}".format(identifier), level=level)
+        [logger.removeHandler(handler) for handler in logger.handlers]
+        handler = logging.handlers.QueueHandler(logging_queue)
+        logger.addHandler(handler)
+        logger.info("Started process %s", identifier)
+
+    if self is None:
+        _self = namedtuple("self", ["logger", "session", "engine", "maxobjects"])
+        engine = connect(conf, strategy="threadlocal")
+        session = Session(bind=engine)
+        self = _self(logger, session, engine, conf["serialise"]["max_objects"])
 
     data = pd.read_csv(bname, delimiter="\t", names=blast_keys)
     data = sanitize_blast_data(data, queries, targets, qmult=qmult, tmult=tmult)
@@ -281,60 +303,26 @@ def parse_tab_blast(self,
     columns = dict((col, idx) for idx, col in enumerate(data.columns))
     prep_hit = partial(prepare_tab_hit, columns=columns, qmult=qmult, tmult=tmult,
                        matrix_name=matrix_name)
+    hits, hsps = [], []
 
-    if procs > 1:
-        queue, returnqueue = mp.JoinableQueue(-1), mp.JoinableQueue(-1)
-        preparers = [Preparer(queue, returnqueue, identifier=idx, columns=columns,
-                              qmult=qmult, tmult=tmult, matrix_name=matrix_name) for idx in range(procs)]
-        [_.start() for _ in preparers]
-
-        for row in data.itertuples(name=None, index=False):
-            qid, sid = row[columns["qid"]], row[columns["sid"]]
-            if qid != current_qid or sid != current_sid:
-                if current_rows:
-                    queue.put(((current_qid, current_sid), current_rows))
-                current_qid, current_sid, current_rows = qid, sid, [row]
-            else:
-                current_rows.append(row)
-        if current_rows:
-            queue.put(((current_qid, current_sid), current_rows))
-        queue.put("EXIT")
-        finished = set()
-        while True:
-            res = returnqueue.get()
-            if res[0] is None:
-                finished.add(res[1])
-                if len(finished) == procs:
-                    break
-                else:
-                    continue
-            curr_hit, curr_hsps = res
-            hits.append(curr_hit)
-            try:
+    for row in data.itertuples(name=None, index=False):
+        qid, sid = row[columns["qid"]], row[columns["sid"]]
+        if qid != current_qid or sid != current_sid:
+            if current_rows:
+                curr_hit, curr_hsps = prep_hit((current_qid, current_sid), current_rows)
+                hits.append(curr_hit)
                 hsps.extend(curr_hsps)
-            except TypeError:
-                raise TypeError(res)
-            tot = len(hits) + len(hsps)
-            if tot >= self.maxobjects:
                 hits, hsps = load_into_db(self, hits, hsps, force=False)
-    else:
-        for row in data.itertuples(name=None, index=False):
-            qid, sid = row[columns["qid"]], row[columns["sid"]]
-            if qid != current_qid or sid != current_sid:
-                if current_rows:
-                    curr_hit, curr_hsps = prep_hit((current_qid, current_sid), current_rows)
-                    hits.append(curr_hit)
-                    hsps += curr_hsps
-                    hits, hsps = load_into_db(self, hits, hsps, force=False)
-                current_qid, current_sid, current_rows = qid, sid, [row]
-            else:
-                current_rows.append(row)
-        if current_rows:
-            curr_hit, curr_hsps = prep_hit((current_qid, current_sid), current_rows)
-            hits.append(curr_hit)
-            hsps += curr_hsps
-            hits, hsps = load_into_db(self, hits, hsps, force=False)
+            current_qid, current_sid, current_rows = qid, sid, [row]
+        else:
+            current_rows.append(row)
+
+    if current_rows:
+        curr_hit, curr_hsps = prep_hit((current_qid, current_sid), current_rows)
+        hits.append(curr_hit)
+        hsps += curr_hsps
+        hits, hsps = load_into_db(self, hits, hsps, force=True, lock=lock)
 
     assert len(hits) == 0 or isinstance(hits[0], dict), (hits[0], type(hits[0]))
     assert len(hsps) >= len(hits), (len(hits), len(hsps), hits[0], hsps[0])
-    return hits, hsps
+    # return hits, hsps

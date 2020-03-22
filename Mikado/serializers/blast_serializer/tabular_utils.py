@@ -7,7 +7,7 @@ import pandas as pd
 from ...utilities.log_utils import create_null_logger, create_default_logger
 import multiprocessing as mp
 from .utils import load_into_db
-from collections import namedtuple
+from collections import defaultdict
 from ...utilities.dbutils import connect
 from sqlalchemy.orm.session import Session
 import logging
@@ -249,6 +249,7 @@ def sanitize_blast_data(data: pd.DataFrame, queries: pd.DataFrame, targets: pd.D
     temp.set_index(["qseqid", "sseqid"], inplace=True)
     data = data.join(temp["hit_num"], on=["qseqid", "sseqid"])
     data = data.sort_values(["qid", "sid"])
+    data.set_index(["qid", "sid"], drop=False, inplace=True)
     return data
 
 
@@ -304,25 +305,16 @@ def parse_tab_blast(self,
     prep_hit = partial(prepare_tab_hit, columns=columns, qmult=qmult, tmult=tmult,
                        matrix_name=matrix_name)
     hits, hsps = [], []
+    groups = defaultdict(list)
+    [groups[val].append(idx) for idx, val in enumerate(data.index)]
 
-    for row in data.itertuples(name=None, index=False):
-        qid, sid = row[columns["qid"]], row[columns["sid"]]
-        if qid != current_qid or sid != current_sid:
-            if current_rows:
-                curr_hit, curr_hsps = prep_hit((current_qid, current_sid), current_rows)
-                hits.append(curr_hit)
-                hsps.extend(curr_hsps)
-                hits, hsps = load_into_db(self, hits, hsps, force=False)
-            current_qid, current_sid, current_rows = qid, sid, [row]
-        else:
-            current_rows.append(row)
-
-    if current_rows:
-        curr_hit, curr_hsps = prep_hit((current_qid, current_sid), current_rows)
+    for key, group in groups.items():
+        curr_hit, curr_hsps = prep_hit(key, data.values[group, :])
         hits.append(curr_hit)
         hsps += curr_hsps
-        hits, hsps = load_into_db(self, hits, hsps, force=True)
+        hits, hsps = load_into_db(self, hits, hsps, force=False)
 
+    hits, hsps = load_into_db(self, hits, hsps, force=True)
     assert len(hits) == 0 or isinstance(hits[0], dict), (hits[0], type(hits[0]))
     assert len(hsps) >= len(hits), (len(hits), len(hsps), hits[0], hsps[0])
 

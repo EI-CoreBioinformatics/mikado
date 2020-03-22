@@ -1808,8 +1808,8 @@ class SerialiseChecker(unittest.TestCase):
         tsv_hit, tsv_hsp = prep_dbs("sqlite:///" + dbs["tsv"])
         hit = pd.merge(xml_hit, tsv_hit, left_index=True, right_index=True, suffixes=("_xml", "_tsv"))
         hsp = pd.merge(xml_hsp, tsv_hsp, left_index=True, right_index=True, suffixes=("_xml", "_tsv"))
-        self.assertTrue(hit.shape[0] == xml_hit.shape[0] == tsv_hit.shape[0])
-        self.assertTrue(hsp.shape[0] == xml_hsp.shape[0] == tsv_hsp.shape[0])
+        self.assertTrue(hit.shape[0] == xml_hit.shape[0] == tsv_hit.shape[0] > 0)
+        self.assertTrue(hsp.shape[0] == xml_hsp.shape[0] == tsv_hsp.shape[0] > 0)
         # Get the columns
         hitcols, hspcols = dict(), dict()
         for d, df in zip([hitcols, hspcols], [hit, hsp]):

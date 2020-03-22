@@ -23,7 +23,7 @@ def _serialise_tabular(self):
                                    matrix_name=matrix_name,
                                    qmult=qmult, tmult=tmult)
         for fname in self.xml:
-            parser(bname=fname, identifier=None)
+            parser(bname=fname)
             self.logger.debug("Finished %s", fname)
     else:
         self.logger.info("Creating a pool with %d workers for analysing BLAST results",

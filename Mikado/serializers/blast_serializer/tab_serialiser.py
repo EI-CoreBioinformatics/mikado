@@ -29,11 +29,11 @@ def _serialise_tabular(self):
     qmult, tmult = self.get_multipliers(None, program)
 
     if self._xml_debug is False and (self.single_thread is True or self.procs == 1):
-        pool = None
+        procs = 1
     else:
         self.logger.info("Creating a pool with %d workers for analysing BLAST results",
                          self.procs)
-        pool = mp.Pool(self.procs)
+        procs = self.procs
 
     hits, hsps = [], []
 
@@ -45,7 +45,7 @@ def _serialise_tabular(self):
                                      targets,
                                      hits=hits,
                                      hsps=hsps,
-                                     pool=pool,
+                                     procs=procs,
                                      matrix_name=matrix_name,
                                      qmult=qmult, tmult=tmult,
                                      logger=self.logger)

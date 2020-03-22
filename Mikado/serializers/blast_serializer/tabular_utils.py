@@ -228,13 +228,44 @@ def sanitize_blast_data(data: pd.DataFrame, queries: pd.DataFrame, targets: pd.D
     return data
 
 
+class Preparer(mp.Process):
+
+    def __init__(self, queue: mp.JoinableQueue,
+                 returnqueue: mp.JoinableQueue,
+                 identifier: int,
+                 matrix_name=None, qmult=3, tmult=1, columns=None, **kwargs):
+
+        super().__init__(**kwargs)
+        self.matrix_name = matrix_name
+        self.qmult, self.tmult, self.columns = qmult, tmult, columns
+        self.queue = queue
+        self.returnqueue = returnqueue
+        self.identifier = identifier
+
+    def run(self):
+        prep_hit = partial(prepare_tab_hit,
+                           columns=self.columns, qmult=self.qmult, tmult=self.tmult,
+                           matrix_name=self.matrix_name)
+
+        while True:
+            data = self.queue.get()
+            if data == "EXIT":
+                self.queue.put("EXIT")
+                self.returnqueue.put((None, self.identifier))
+                break
+            key, rows = data
+            hits, hsps = prep_hit(key, rows)
+            self.returnqueue.put((hits, hsps))
+        return
+
+
 def parse_tab_blast(self,
                     bname: str,
                     queries: pd.DataFrame,
                     targets: pd.DataFrame,
                     hits: list,
                     hsps: list,
-                    pool: (mp.Pool, None),
+                    procs: int,
                     matrix_name="blosum62", qmult=3, tmult=1, logger=create_null_logger()):
     """This function will use `pandas` to quickly parse, subset and analyse tabular BLAST files.
     """
@@ -250,26 +281,39 @@ def parse_tab_blast(self,
     columns = dict((col, idx) for idx, col in enumerate(data.columns))
     prep_hit = partial(prepare_tab_hit, columns=columns, qmult=qmult, tmult=tmult,
                        matrix_name=matrix_name)
-    if pool is not None:
-        assert isinstance(pool, mp.pool.Pool)
-        results = []
+
+    if procs > 1:
+        queue, returnqueue = mp.JoinableQueue(-1), mp.JoinableQueue(-1)
+        preparers = [Preparer(queue, returnqueue, identifier=idx, columns=columns,
+                              qmult=qmult, tmult=tmult, matrix_name=matrix_name) for idx in range(procs)]
+        [_.start() for _ in preparers]
+
         for row in data.itertuples(name=None, index=False):
             qid, sid = row[columns["qid"]], row[columns["sid"]]
             if qid != current_qid or sid != current_sid:
                 if current_rows:
-                    results.append(
-                        pool.apply_async(prep_hit,
-                                         args=((current_qid, current_sid), current_rows)))
+                    queue.put(((current_qid, current_sid), current_rows))
                 current_qid, current_sid, current_rows = qid, sid, [row]
             else:
                 current_rows.append(row)
         if current_rows:
-            results.append(pool.apply_async(prep_hit,
-                                            args=((current_qid, current_sid), current_rows)))
-        for res in results:
-            curr_hit, curr_hsps = res.get()
+            queue.put(((current_qid, current_sid), current_rows))
+        queue.put("EXIT")
+        finished = set()
+        while True:
+            res = returnqueue.get()
+            if res[0] is None:
+                finished.add(res[1])
+                if len(finished) == procs:
+                    break
+                else:
+                    continue
+            curr_hit, curr_hsps = res
             hits.append(curr_hit)
-            hsps.extend(curr_hsps)
+            try:
+                hsps.extend(curr_hsps)
+            except TypeError:
+                raise TypeError(res)
             tot = len(hits) + len(hsps)
             if tot >= self.maxobjects:
                 hits, hsps = load_into_db(self, hits, hsps, force=False)

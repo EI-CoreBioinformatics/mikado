@@ -107,6 +107,7 @@ class BlastSerializer:
         DBBASE.metadata.create_all(self.engine)  # @UndefinedVariable
         session = Session(bind=self.engine)
         self.session = session  # session()
+        # Remove indices
         self.logger.debug("Created the session")
         # Load sequences if necessary
         self.__determine_sequences(query_seqs, target_seqs)
@@ -353,7 +354,12 @@ class BlastSerializer:
         """
         Alias for serialize
         """
+        [idx.drop(bind=self.engine) for idx in Hit.__table__.indexes]
+        [idx.drop(bind=self.engine) for idx in Hsp.__table__.indexes]
         self.serialize()
+        # Recreate the indices
+        [idx.create(bind=self.engine) for idx in Hit.__table__.indexes]
+        [idx.create(bind=self.engine) for idx in Hsp.__table__.indexes]
 
 # pylint: enable=too-many-instance-attributes
 

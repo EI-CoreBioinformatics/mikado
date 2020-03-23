@@ -505,7 +505,9 @@ mikado prepare. If this is the case, please use mikado_prepared.fasta to call th
         """
 
         # try:
+        [idx.drop(bind=self.engine) for idx in Orf.__table__.indexes]
         self.serialize()
+        [idx.create(bind=self.engine) for idx in Orf.__table__.indexes]
         # except (sqlalchemy.exc.IntegrityError, sqlite3.IntegrityError) as exc:
         #     self.logger.error("DB corrupted, reloading data. Error: %s",
         #                       exc)

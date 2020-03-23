@@ -138,8 +138,6 @@ class Hit(DBBASE):
 
         return "\t".join(str(x) for x in line)
 
-    # @profile
-
     @classmethod
     def as_dict_static(cls, state_obj):
         """Method to return a dict representation of the object.

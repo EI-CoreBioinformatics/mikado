@@ -11,6 +11,10 @@ import unittest
 import pkg_resources
 import pyfaidx
 import yaml
+try:
+    from yaml import CSafeLoader as yLoader
+except ImportError:
+    from yaml import SafeLoader as yLoader
 from pytest import mark
 from .. import configuration
 from ..subprograms import configure as sub_configure
@@ -1176,7 +1180,7 @@ class ConfigureCheck(unittest.TestCase):
                 self.assertGreater(os.stat(out).st_size, 0)
 
                 with open(out) as out_handle:
-                    config = yaml.load(out_handle, Loader=yaml.CSafeLoader)
+                    config = yaml.load(out_handle, Loader=yLoader)
 
                 daijin_configurator.check_config(config)
                 dir.cleanup()

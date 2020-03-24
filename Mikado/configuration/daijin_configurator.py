@@ -12,6 +12,10 @@ from ..exceptions import InvalidJson
 from ..utilities.log_utils import create_default_logger
 import sys
 import jsonref
+try:
+    from yaml import CSafeLoader as yLoader
+except ImportError:
+    from yaml import SafeLoader as yLoader
 
 
 def _substitute_conf(schema):
@@ -239,7 +243,7 @@ def create_daijin_config(args, level="ERROR", piped=False):
                 if args.new_scoring.endswith("json"):
                     new_scoring = json.loads(_.read())
                 else:
-                    new_scoring = yaml.load(_, Loader=yaml.CSafeLoader)
+                    new_scoring = yaml.load(_, Loader=yLoader)
 
                 _ = check_all_requirements(new_scoring)
                 _ = check_scoring(new_scoring)

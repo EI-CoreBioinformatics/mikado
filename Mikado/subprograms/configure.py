@@ -21,6 +21,10 @@ from collections import Counter
 import tempfile
 from ..utilities.log_utils import create_null_logger, create_default_logger
 import tomlkit
+try:
+    from yaml import CSafeLoader as yLoader
+except ImportError:
+    from yaml import SafeLoader as yLoader
 
 
 __author__ = 'Luca Venturini'
@@ -171,7 +175,7 @@ def create_config(args):
         if args.external.endswith("json"):
             loader = json.load
         else:
-            loader = functools.partial(yaml.load, Loader=yaml.CSafeLoader)
+            loader = functools.partial(yaml.load, Loader=yLoader)
         with open(args.external) as external:
             external_conf = loader(external)
         # Overwrite values specific to Mikado

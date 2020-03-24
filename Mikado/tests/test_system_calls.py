@@ -1780,18 +1780,17 @@ class SerialiseChecker(unittest.TestCase):
         prots = pkg_resources.resource_filename("Mikado.tests", "uniprot_sprot_plants.fasta.gz")
         logs = dict()
         dbs = dict()
-        base = tempfile.NamedTemporaryFile()
-        base.close()
+        base = tempfile.TemporaryDirectory()
         for name, blast in zip(["xml", "tsv"], [xml, tsv]):
-            db = base.name + ".{}.db".format(name)
-            log = base.name + ".{}.log".format(name)
-            sys.argv = [str(_) for _ in ["mikado", "serialise",
+            db = "{}.db".format(name)
+            log = "{}.log".format(name)
+            sys.argv = [str(_) for _ in ["mikado", "serialise", "-od", base.name,
                                          "--transcripts", queries, "--blast_targets", prots,
                                          "--xml", xml, "-mo", 1000, "--log", log, "--seed", "1078",
                                          db]]
             pkg_resources.load_entry_point("Mikado", "console_scripts", "mikado")()
-            dbs[name] = db
-            logged = [_.rstrip() for _ in open(log)]
+            dbs[name] = os.path.join(base.name, db)
+            logged = [_.rstrip() for _ in open(os.path.join(base.name, log))]
             logs[name] = logged
 
         def prep_dbs(name):

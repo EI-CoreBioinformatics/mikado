@@ -1703,8 +1703,9 @@ class SerialiseChecker(unittest.TestCase):
             with self.subTest(proc=procs):
                 sys.argv = [str(_) for _ in ["mikado", "serialise", "--json-conf", json_file,
                             "--transcripts", transcripts, "--blast_targets", uni_out,
-                            "--orfs", orfs, "--junctions", junctions, "--xml", xml,
-                            "-p", procs, "-mo", mobjects, db, "--log", log, "--seed", "1078"]]
+                            "--orfs", orfs, "--junctions", junctions, "--xml", xml, "-od", dir.name,
+                            "-p", procs, "-mo", mobjects, "--log", os.path.basename(log), "--seed", "1078",
+                                             os.path.basename(db)]]
                 pkg_resources.load_entry_point("Mikado", "console_scripts", "mikado")()
                 logged = [_.rstrip() for _ in open(log)]
 
@@ -1750,8 +1751,9 @@ class SerialiseChecker(unittest.TestCase):
             with self.subTest(proc=procs):
                 sys.argv = [str(_) for _ in ["mikado", "serialise", "--json-conf", json_file,
                             "--transcripts", transcripts, "--blast_targets", uni_out,
-                            "--orfs", orfs, "--junctions", junctions, "--xml", xml,
-                            "-p", procs, "-mo", mobjects, db, "--log", log, "--seed", "1078"]]
+                            "--orfs", orfs, "--junctions", junctions, "--xml", xml, "-od", dir.name,
+                            "-p", procs, "-mo", mobjects, "--log", os.path.basename(log),
+                                             "--seed", "1078", os.path.basename(db)]]
                 pkg_resources.load_entry_point("Mikado", "console_scripts", "mikado")()
                 logged = [_.rstrip() for _ in open(log)]
 

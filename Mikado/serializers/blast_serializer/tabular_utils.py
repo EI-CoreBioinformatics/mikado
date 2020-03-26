@@ -361,7 +361,7 @@ def parse_tab_blast(self,
     [groups[val].append(idx) for idx, val in enumerate(data.index)]
     values = data.values
     if procs == 1:
-        self.logger.info("Finished reading %s data, starting serialisation in single-threaded mode", bname, procs)
+        self.logger.info("Finished reading %s data, starting serialisation in single-threaded mode", bname)
         for key, group in groups.items():
             curr_hit, curr_hsps = prep_hit(key, data.values[group, :])
             hits.append(curr_hit)

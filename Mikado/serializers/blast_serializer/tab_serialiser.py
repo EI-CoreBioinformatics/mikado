@@ -19,6 +19,7 @@ def _serialise_tabular(self):
                                    self=self,
                                    queries=queries,
                                    targets=targets,
+                                   procs=1,
                                    matrix_name=matrix_name,
                                    qmult=qmult, tmult=tmult)
         for fname in self.xml:

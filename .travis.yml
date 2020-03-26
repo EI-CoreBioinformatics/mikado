@@ -20,7 +20,7 @@ install:
   - conda env create -n env_name --file environment.yml
   - source activate env_name
   - conda install -y -c conda-forge -- pytest-cov codecov;
-  - conda install -c bioconda -c conda-forge -y stringtie cufflinks scallop gmap star hisat2 prodigal blast diamond transdecoder gnuplot portcullis
+  - conda install -c bioconda -c conda-forge -y stringtie scallop gmap star hisat2 prodigal blast diamond transdecoder gnuplot kallisto samtools gffread
   - python setup.py develop;
 script:
   - python setup.py test --addopts "-m slow Mikado/tests/test_system_calls.py::SerialiseChecker::test_subprocess_multi_empty_orfs"

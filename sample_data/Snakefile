@@ -38,11 +38,10 @@ except:
 
 configfile: "configuration.yaml"
 
-rule complete:
-    # "daijin_test/mikado.yaml",
+rule complete:    
     input: "compare.stats", "compare_subloci.stats", "compare_input.stats", "check.ok",
-         "check_metrics.ok", "g11.ok", "refmap_check.ok", "refmap_check_pc.ok",
-         "external.ok", "alias_check.ok"
+           "daijin_test/mikado.yaml", "check_metrics.ok", "g11.ok", "refmap_check.ok", "refmap_check_pc.ok",
+           "external.ok", "alias_check.ok"
     output: touch("finished.ok")
 
 
@@ -56,7 +55,7 @@ rule daijin_configure:
       prots=swissprot,
       genome=rules.uncompress_genome.output
     output: "daijin.toml"
-    shell: "daijin configure -as stringtie cufflinks scallop -lal gmap --scheduler local -al \
+    shell: "daijin configure -as stringtie scallop -lal gmap --scheduler local -al \
 star hisat gsnap --sample-sheet samples.txt -o {output} -g {input.genome} -od daijin_test \
  --prot-db {input.prots} --scoring plant.yaml"
 
@@ -67,8 +66,8 @@ rule daijin_assemble:
     output:
         conf="daijin_test/mikado.yaml"
     threads: 4
-    message: "daijin assemble --nolock --use-conda --threads 2 --cores 4 --jobs 2 daijin.toml"
-    shell: "daijin assemble --nolock --use-conda --threads 2 --cores 4 --jobs 2 {input.conf}"
+    message: "daijin assemble --nolock --threads 2 --cores 4 --jobs 2 daijin.toml"
+    shell: "daijin assemble --nolock --threads 2 --cores 4 --jobs 2 {input.conf}"
 
 rule test_json:
     input: db=swissprot, config=configname
@@ -102,9 +101,9 @@ rule daijin:
         perm_stats=os.path.join("Daijin", "5-mikado", "pick", "permissive", "mikado-permissive.loci.stats"),
         stats=os.path.join("Daijin", "5-mikado", "pick", "comparison.stats"),
         marker=os.path.join("Daijin", "5-mikado", "all.done")
-    message: "daijin mikado --use-conda --jobs 2 --cores 4 --threads 2 -nd --nolock configuration.toml"
-    # shell: "daijin mikado --use-conda --jobs 2 --cores 4 --threads 2 -nd --nolock configuration.yaml"
-    shell: "daijin mikado --jobs 2 --use-conda --cores 4 --threads 2 -nd --nolock configuration.toml"
+    message: "daijin mikado --jobs 2 --cores 4 --threads 2 -nd --nolock configuration.toml"
+    # shell: "daijin mikado --jobs 2 --cores 4 --threads 2 -nd --nolock configuration.yaml"
+    shell: "daijin mikado --jobs 2 --cores 4 --threads 2 -nd --nolock configuration.toml"
 
 rule index_reference:
     input: reference="reference.gff3"

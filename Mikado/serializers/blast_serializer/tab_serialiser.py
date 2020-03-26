@@ -1,5 +1,4 @@
 from .tabular_utils import parse_tab_blast, get_queries, get_targets
-import multiprocessing as mp
 import functools
 
 

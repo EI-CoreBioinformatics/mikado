@@ -4,17 +4,17 @@ from .btop_parser import parse_btop
 import re
 import numpy as np
 import pandas as pd
-from ...utilities.log_utils import create_null_logger, create_default_logger
 import multiprocessing as mp
 from .utils import load_into_db
 from collections import defaultdict
-from ...utilities.dbutils import connect
-from sqlalchemy.orm.session import Session
+from threading import Thread
 import logging
 import logging.handlers
+from ...utilities.log_utils import create_null_logger
 
 
 __author__ = 'Luca Venturini'
+
 
 # Diamond default: qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore
 # BLASTX default: qaccver saccver pident length mismatch gapopen qstart qend sstart send evalue bitscore
@@ -256,32 +256,65 @@ def sanitize_blast_data(data: pd.DataFrame, queries: pd.DataFrame, targets: pd.D
 class Preparer(mp.Process):
 
     def __init__(self, queue: mp.JoinableQueue,
-                 returnqueue: mp.JoinableQueue,
                  identifier: int,
+                 lock: mp.RLock,
+                 conf: dict,
+                 maxobjects: int,
+                 logging_queue=None,
+                 log_level="DEBUG",
                  matrix_name=None, qmult=3, tmult=1, columns=None, **kwargs):
 
-        super().__init__(**kwargs)
+        super().__init__()
         self.matrix_name = matrix_name
         self.qmult, self.tmult, self.columns = qmult, tmult, columns
         self.queue = queue
-        self.returnqueue = returnqueue
         self.identifier = identifier
+        self.log_level = log_level
+        self.lock = lock
+        self.maxobjects = maxobjects
+        self.conf = conf
+        if logging_queue is None:
+            self.logger = create_null_logger("preparer-{}".format(self.identifier))  # create_null_logger
+        else:
+            self.logging_queue = logging_queue
+            _log_handler = logging.handlers.QueueHandler(self.logging_queue)
+            self.logger = logging.getLogger("preparer-{}".format(self.identifier))
+            self.logger.addHandler(_log_handler)
+            self.logger.setLevel(self.log_level)
+            self.logger.propagate = False
+        self.logger.debug("Initialised %s", self.identifier)
 
     def run(self):
         prep_hit = partial(prepare_tab_hit,
                            columns=self.columns, qmult=self.qmult, tmult=self.tmult,
                            matrix_name=self.matrix_name)
-
+        # self.logger.info("Started %s", self.identifier)
+        from sqlalchemy.orm.session import Session
+        from ...utilities.dbutils import connect as db_connect
+        self.engine = db_connect(self.conf)
+        session = Session(bind=self.engine)
+        self.session = session
+        hits, hsps = [], []
         while True:
             data = self.queue.get()
             if data == "EXIT":
-                self.queue.put("EXIT")
-                self.returnqueue.put((None, self.identifier))
+                self.queue.put(data)
+                _, _ = load_into_db(self, hits, hsps, force=True)
                 break
             key, rows = data
-            hits, hsps = prep_hit(key, rows)
-            self.returnqueue.put((hits, hsps))
+            curr_hit, curr_hsps = prep_hit(key, rows)
+            hits.append(curr_hit)
+            hsps += curr_hsps
+            hits, hsps = load_into_db(self, hits, hsps, force=False)
         return
+
+
+def submit_res(values, groups, queue, logger=create_null_logger()):
+    logger.info("Starting to load data in the queue")
+    [queue.put((key, values[group, :])) for key, group in groups.items()]
+    logger.info("Finished to load data in the queue")
+    queue.put("EXIT")
+    return
 
 
 def parse_tab_blast(self,
@@ -298,6 +331,7 @@ def parse_tab_blast(self,
     if matrix_name not in matrices:
         raise KeyError("Matrix {} is not valid. Please specify a valid name.".format(matrix_name))
 
+    self.logger.info("Reading %s data", bname)
     data = pd.read_csv(bname, delimiter="\t", names=blast_keys)
     data = sanitize_blast_data(data, queries, targets, qmult=qmult, tmult=tmult)
     columns = dict((col, idx) for idx, col in enumerate(data.columns))
@@ -307,29 +341,34 @@ def parse_tab_blast(self,
     groups = defaultdict(list)
     [groups[val].append(idx) for idx, val in enumerate(data.index)]
     values = data.values
-    if procs > 1:
+    self.logger.info("Finished reading %s data, starting serialisation", bname)
+    if procs == 1:
+        self.logger.info("Finished reading %s data, starting serialisation in single-threaded mode", bname, procs)
         for key, group in groups.items():
             curr_hit, curr_hsps = prep_hit(key, data.values[group, :])
             hits.append(curr_hit)
             hsps += curr_hsps
             hits, hsps = load_into_db(self, hits, hsps, force=False)
     else:
-        queue, retqueue = mp.JoinableQueue(-1), mp.JoinableQueue(-1)
-        procs = [Preparer(queue, retqueue, idx,
-                          matrix_name, qmult=qmult, tmult=tmult, columns=columns) for idx in range(procs)]
-        [queue.put((key, values[group, :])) for key, group in groups.items()]
-        queue.put("EXIT")
-        # results = [pool.apply_async(prep_hit, args=(key, values[group, :])) for key, group in groups.items()]
-        finished = 0
-        while True:
-            curr_hit, curr_hsps = retqueue.get()
-            if curr_hit is None:
-                finished += 1
-                if finished == procs:
-                    break
-            hits.append(curr_hit)
-            hsps += curr_hsps
-            hits, hsps = load_into_db(self, hits, hsps, force=False)
+        self.logger.info("Finished reading %s data, starting serialisation with %d processors", bname, procs)
+        queue = mp.JoinableQueue(-1)
+        lock = mp.Lock()
+        conf = dict()
+        conf["db_settings"] = self.json_conf["db_settings"].copy()
+        kwargs = {"conf": conf,
+                  "maxobjects": self.maxobjects,
+                  "lock": lock,
+                  "matrix_name": matrix_name,
+                  "qmult": qmult,
+                  "tmult": tmult,
+                  "logging_queue": None,  # self.logging_queue,
+                  "columns": columns}
+        procs = [Preparer(queue, idx, **kwargs) for idx in range(procs)]
+        [proc.start() for proc in procs]
+        thread = Thread(target=submit_res, args=(values, groups, queue, self.logger))
+        thread.start()
+        thread.join()
+        [proc.join() for proc in procs]
 
     hits, hsps = load_into_db(self, hits, hsps, force=True)
     assert len(hits) == 0 or isinstance(hits[0], dict), (hits[0], type(hits[0]))

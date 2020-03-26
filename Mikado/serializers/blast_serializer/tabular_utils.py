@@ -10,7 +10,9 @@ from collections import defaultdict
 from threading import Thread
 import logging
 import logging.handlers
-from ...utilities.log_utils import create_null_logger
+from ...utilities.log_utils import create_null_logger, create_queue_logger
+from sqlalchemy.orm.session import Session
+from ...utilities.dbutils import connect as db_connect
 
 
 __author__ = 'Luca Venturini'
@@ -275,23 +277,23 @@ class Preparer(mp.Process):
         self.conf = conf
         if logging_queue is None:
             self.logger = create_null_logger("preparer-{}".format(self.identifier))  # create_null_logger
+            self.logging_queue = None
         else:
             self.logging_queue = logging_queue
-            _log_handler = logging.handlers.QueueHandler(self.logging_queue)
-            self.logger = logging.getLogger("preparer-{}".format(self.identifier))
-            self.logger.addHandler(_log_handler)
-            self.logger.setLevel(self.log_level)
-            self.logger.propagate = False
-        self.logger.debug("Initialised %s", self.identifier)
 
     def run(self):
         prep_hit = partial(prepare_tab_hit,
                            columns=self.columns, qmult=self.qmult, tmult=self.tmult,
                            matrix_name=self.matrix_name)
-        # self.logger.info("Started %s", self.identifier)
-        from sqlalchemy.orm.session import Session
-        from ...utilities.dbutils import connect as db_connect
-        self.engine = db_connect(self.conf)
+        if self.logging_queue is not None:
+            create_queue_logger(self)
+            sql_logger = logging.getLogger("sqlalchemy.engine")
+            sql_logger.setLevel("DEBUG")
+            sql_logger.addHandler(self.logger.handlers[0])
+        else:
+            sql_logger = None
+        self.engine = db_connect(self.conf, logger=sql_logger)
+        self.logger.info("Started %s", self.identifier)
         session = Session(bind=self.engine)
         self.session = session
         hits, hsps = [], []
@@ -352,7 +354,7 @@ def parse_tab_blast(self,
     else:
         self.logger.info("Finished reading %s data, starting serialisation with %d processors", bname, procs)
         queue = mp.JoinableQueue(-1)
-        lock = mp.Lock()
+        lock = mp.RLock()
         conf = dict()
         conf["db_settings"] = self.json_conf["db_settings"].copy()
         kwargs = {"conf": conf,
@@ -361,7 +363,7 @@ def parse_tab_blast(self,
                   "matrix_name": matrix_name,
                   "qmult": qmult,
                   "tmult": tmult,
-                  "logging_queue": None,  # self.logging_queue,
+                  "logging_queue": self.logging_queue,
                   "columns": columns}
         procs = [Preparer(queue, idx, **kwargs) for idx in range(procs)]
         [proc.start() for proc in procs]

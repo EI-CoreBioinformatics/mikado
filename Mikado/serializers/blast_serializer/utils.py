@@ -1,4 +1,4 @@
-from . import Query, Target, Hsp, Hit, prepare_hit, InvalidHit
+from . import Hsp, Hit
 import sqlalchemy.exc
 
 
@@ -14,8 +14,7 @@ def load_into_db(self, hits, hsps, force=False):
     :return:
     """
 
-    self.logger.debug("Checking whether to load %d hits and %d hsps",
-                      len(hits), len(hsps))
+    # self.logger.debug("Checking whether to load %d hits and %d hsps", len(hits), len(hsps))
 
     tot_objects = len(hits) + len(hsps)
     if len(hits) == 0:
@@ -30,9 +29,11 @@ def load_into_db(self, hits, hsps, force=False):
             self.lock.acquire()
         try:
             # pylint: disable=no-member
-            self.session.begin(subtransactions=True)
-            self.engine.execute(Hit.__table__.insert(), hits)
-            self.engine.execute(Hsp.__table__.insert(), hsps)
+            # self.session.begin(subtransactions=True)
+            self.session.bulk_insert_mappings(Hit, hits)
+            self.session.bulk_insert_mappings(Hsp, hsps)
+            # self.engine.execute(Hit.__table__.insert(), hits)
+            # self.engine.execute(Hsp.__table__.insert(), hsps)
             # pylint: enable=no-member
             self.session.commit()
         except sqlalchemy.exc.IntegrityError as err:

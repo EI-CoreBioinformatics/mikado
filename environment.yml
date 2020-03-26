@@ -33,10 +33,12 @@ dependencies:
   - sqlite
   - tabulate>=0.8.5
   - wheel
+  - pytest>=5.4.1
   - pip:
     - jsonref>=0.2
     - rapidjson>=1.0.0
     - fastnumbers>=3.0
+    - intervaltree
   - conda-forge::toml>=0.10.0
   - conda-forge::tomlkit>=0.5.8
   - bioconda::pyfaidx>=0.5.8

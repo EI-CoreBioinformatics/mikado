@@ -356,10 +356,12 @@ class BlastSerializer:
         """
         [idx.drop(bind=self.engine) for idx in Hit.__table__.indexes]
         [idx.drop(bind=self.engine) for idx in Hsp.__table__.indexes]
+        self.engine.execute("PRAGMA foreign_keys=OFF")
         self.serialize()
         # Recreate the indices
         [idx.create(bind=self.engine) for idx in Hit.__table__.indexes]
         [idx.create(bind=self.engine) for idx in Hsp.__table__.indexes]
+        self.engine.execute("PRAGMA foreign_keys=ON")
 
 # pylint: enable=too-many-instance-attributes
 

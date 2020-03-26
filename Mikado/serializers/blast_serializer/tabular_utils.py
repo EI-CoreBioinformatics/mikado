@@ -288,7 +288,7 @@ def parse_tab_blast(self,
                     bname: str,
                     queries: pd.DataFrame,
                     targets: pd.DataFrame,
-                    pool: None,
+                    procs: int,
                     matrix_name="blosum62", qmult=3, tmult=1):
     """This function will use `pandas` to quickly parse, subset and analyse tabular BLAST files.
     """
@@ -300,8 +300,6 @@ def parse_tab_blast(self,
 
     data = pd.read_csv(bname, delimiter="\t", names=blast_keys)
     data = sanitize_blast_data(data, queries, targets, qmult=qmult, tmult=tmult)
-    current_qid, current_sid = None, None
-    current_rows = []
     columns = dict((col, idx) for idx, col in enumerate(data.columns))
     prep_hit = partial(prepare_tab_hit, columns=columns, qmult=qmult, tmult=tmult,
                        matrix_name=matrix_name)
@@ -309,16 +307,26 @@ def parse_tab_blast(self,
     groups = defaultdict(list)
     [groups[val].append(idx) for idx, val in enumerate(data.index)]
     values = data.values
-    if pool is None:
+    if procs > 1:
         for key, group in groups.items():
             curr_hit, curr_hsps = prep_hit(key, data.values[group, :])
             hits.append(curr_hit)
             hsps += curr_hsps
             hits, hsps = load_into_db(self, hits, hsps, force=False)
     else:
-        results = [pool.apply_async(prep_hit, args=(key, values[group, :])) for key, group in groups.items()]
-        for result in results:
-            curr_hit, curr_hsps = result.get()
+        queue, retqueue = mp.JoinableQueue(-1), mp.JoinableQueue(-1)
+        procs = [Preparer(queue, retqueue, idx,
+                          matrix_name, qmult=qmult, tmult=tmult, columns=columns) for idx in range(procs)]
+        [queue.put((key, values[group, :])) for key, group in groups.items()]
+        queue.put("EXIT")
+        # results = [pool.apply_async(prep_hit, args=(key, values[group, :])) for key, group in groups.items()]
+        finished = 0
+        while True:
+            curr_hit, curr_hsps = retqueue.get()
+            if curr_hit is None:
+                finished += 1
+                if finished == procs:
+                    break
             hits.append(curr_hit)
             hsps += curr_hsps
             hits, hsps = load_into_db(self, hits, hsps, force=False)
@@ -326,44 +334,3 @@ def parse_tab_blast(self,
     hits, hsps = load_into_db(self, hits, hsps, force=True)
     assert len(hits) == 0 or isinstance(hits[0], dict), (hits[0], type(hits[0]))
     assert len(hsps) >= len(hits), (len(hits), len(hsps), hits[0], hsps[0])
-
-
-class TabParserWrapper(mp.Process):
-
-    def __init__(self, conf, idx, queue, logging_queue, level,
-                 matrix_name="blosum62", lock=None,
-                 qmult=3, tmult=1):
-        super().__init__()
-        self.identifier = idx
-        self.logging_queue = logging_queue
-        self.level, self.qmult, self.tmult, self.lock = level, qmult, tmult, lock
-        self.matrix_name = matrix_name
-        self.conf = conf
-        self.queue = queue
-
-    def run(self):
-        self.logger = create_default_logger("parse_tab_blast-{}".format(self.identifier),
-                                            level=self.level)
-        [self.logger.removeHandler(handler) for handler in self.logger.handlers]
-        handler = logging.handlers.QueueHandler(self.logging_queue)
-        self.logger.addHandler(handler)
-        self.logger.info("Started process %s", self.identifier)
-        self.engine = connect(self.conf, strategy="threadlocal")
-        self.session = Session(bind=self.engine)
-        self.queries = get_queries(self.engine)
-        self.targets = get_targets(self.engine)
-        self.maxobjects = self.conf["serialise"]["max_objects"]/self.conf["threads"]
-        self.function = partial(parse_tab_blast,
-                                self=self,
-                                queries=self.queries,
-                                targets=self.targets,
-                                matrix_name=self.matrix_name, qmult=self.qmult, tmult=self.tmult)
-
-        while True:
-            fname = self.queue.get()
-            if fname == "EXIT":
-                self.queue.put(fname)
-                break
-            self.function(bname=fname)
-            continue
-        return

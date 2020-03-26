@@ -14,6 +14,7 @@ from ...utilities.log_utils import create_null_logger, create_queue_logger
 from sqlalchemy.orm.session import Session
 from ...utilities.dbutils import connect as db_connect
 from . import Hit, Hsp
+from time import sleep
 
 hit_cols = [col.name for col in Hit.__table__.columns]
 hsp_cols = [col.name for col in Hsp.__table__.columns]
@@ -305,8 +306,12 @@ class Preparer(mp.Process):
         self.session = session
         hits, hsps = [], []
         while True:
+            while self.queue.empty():
+                sleep(.001)
             data = self.queue.get()
             if data == "EXIT":
+                while self.queue.full():
+                    sleep(.01)
                 self.queue.put(data)
                 _, _ = load_into_db(self, hits, hsps, force=True, raw=True)
                 break
@@ -318,11 +323,16 @@ class Preparer(mp.Process):
         return
 
 
-def submit_res(values, groups, queue, logger=create_null_logger()):
+def submit_res(values, groups, queue: mp.JoinableQueue, logger=create_null_logger()):
     logger.debug("Starting to load data in the queue")
-    [queue.put((key, values[group, :])) for key, group in groups.items()]
-    logger.debug("Finished to load data in the queue")
+    for key, group in groups.items():
+        while queue.full() is True:
+            sleep(.01)
+        queue.put((key, values[group, :]))
+    while queue.full() is True:
+        sleep(.1)
     queue.put("EXIT")
+    logger.debug("Finished to load data in the queue")
     return
 
 
@@ -359,7 +369,7 @@ def parse_tab_blast(self,
             hits, hsps = load_into_db(self, hits, hsps, force=False, raw=True)
     else:
         self.logger.info("Finished reading %s data, starting serialisation with %d processors", bname, procs)
-        queue = mp.JoinableQueue(-1)
+        queue = mp.JoinableQueue(maxsize=self.maxobjects)
         lock = mp.RLock()
         conf = dict()
         conf["db_settings"] = self.json_conf["db_settings"].copy()

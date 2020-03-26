@@ -2,13 +2,17 @@
 This module implements the Hit serialisation class.
 """
 
+from ...exceptions import InvalidHit
 from sqlalchemy import Column, Integer, Float, ForeignKey, Index
 from sqlalchemy.sql.schema import PrimaryKeyConstraint
 from sqlalchemy.orm import relationship, column_property, backref
 from sqlalchemy import select
 from sqlalchemy.ext.hybrid import hybrid_property  # hybrid_method
 from ...utilities.dbutils import DBBASE
-from . import Query, Target, prepare_hit, Hsp
+from . import Query, Target, Hsp, prepare_hsp
+import numpy as np
+from ...parsers.blast_utils import merge
+
 
 __author__ = 'Luca Venturini'
 
@@ -272,3 +276,101 @@ class Hit(DBBASE):
         ratio /= (self.query_length / self.query_multiplier)
 
         return ratio
+
+
+hit_cols = [col.name for col in Hit.__table__.columns]
+hsp_cols = [col.name for col in Hsp.__table__.columns]
+
+
+def prepare_hit(hit, query_id, target_id, off_by_one=False, as_list=False, **kwargs):
+    """Prepare the dictionary for fast loading of Hit and Hsp objects.
+    global_positives: the similarity rate for the global hit *using the query perspective*
+    global_identity: the identity rate for the global hit *using the query perspective*
+
+    :param hit: the hit to parse.
+    :type hit: Bio.SearchIO.Hit
+
+    :param query_id: the numeric ID of the query in the database. Necessary for serialisation.
+    :type query_id: int
+
+    :param target_id: the numeric ID of the target in the database. Necessary for serialisation.
+    :type target_id: int
+
+    :param kwargs: additional properties to give to the hit_dict. Retrieved e.g. from descriptions.
+    :type kwargs: dict
+    """
+
+    hit_dict = dict()
+    hsp_dict_list = []
+    q_intervals = []
+    t_intervals = []
+
+    qmulti = kwargs["query_multiplier"]
+    tmulti = kwargs["target_multiplier"]
+    qlength = kwargs["query_length"]
+    assert isinstance(qmulti, (int, float)), type(qmulti)
+    assert isinstance(tmulti, (int, float)), type(tmulti)
+    hit_dict.update(kwargs)
+    hit_dict["query_id"] = query_id
+    hit_dict["target_id"] = target_id
+
+    query_array = np.zeros([2, int(qlength)], dtype=np.int)
+
+    for counter, hsp in enumerate(hit.hsps):
+        if hsp.query_start + off_by_one - 1 > qlength:
+            raise ValueError("Invalid length: {}, {}", hsp.query_start + off_by_one - 1, qlength)
+
+        hsp_dict, ident, posit = prepare_hsp(hsp, counter, qmultiplier=qmulti, tmultiplier=tmulti,
+                                             off_by_one=off_by_one)
+        if ident.max() > query_array.shape[1] or ident.min() < 0:
+            raise IndexError("Invalid indexing values (max {}; frame {}; hsp: {})!"\
+"Too low: {}\nToo high: {}".format(
+                query_array.shape[1],
+                hsp.query_frame, hsp.__dict__,
+                list(ident[(ident < 0)]),
+                list(ident[ident > query_array.shape[1]])))
+        try:
+            query_array[0, ident] = 1
+        except IndexError as exc:
+            raise IndexError("{}, off by one: {}; min, max: {}, {}; hsp {}".format(
+                exc, off_by_one, ident.min(), ident.max(), hsp._items[0].__dict__))
+        try:
+            query_array[1, posit] = 1
+        except IndexError as exc:
+            raise IndexError("{}, off by one: {}; min, max: {}, {}; frame: {}".format(
+                exc, off_by_one, posit.min(), posit.max(), hsp.query_frame))
+        hsp_dict["query_id"] = query_id
+        hsp_dict["target_id"] = target_id
+        hsp_dict_list.append(hsp_dict)
+        q_intervals.append((hsp.query_start, hsp.query_end - 1))
+        t_intervals.append((hsp.hit_start, hsp.hit_end - 1))
+
+    q_merged_intervals, q_aligned = merge(q_intervals)
+    hit_dict["query_aligned_length"] = min(qlength, q_aligned)
+    qstart, qend = q_merged_intervals[0][0], q_merged_intervals[-1][1]
+    hit_dict["query_start"], hit_dict["query_end"] = qstart, qend
+    identical = np.where(query_array[0] == 1)[0]
+    positives = np.where(query_array[1] == 1)[0]
+
+    if identical.shape[0] > q_aligned:
+        raise ValueError(
+            "Number of identical positions ({}) greater than number of aligned positions ({})!\n{}\n{}".format(
+            identical.shape[0], q_aligned, q_intervals, q_merged_intervals))
+
+    if positives.shape[0] > q_aligned:
+        raise ValueError("Number of identical positions ({}) greater than number of aligned positions ({})!".format(
+            positives.shape[0], q_aligned))
+
+    t_merged_intervals, t_aligned = merge(t_intervals)
+    hit_dict["target_aligned_length"] = min(t_aligned, hit.seq_len)
+    hit_dict["target_start"] = t_merged_intervals[0][0]
+    hit_dict["target_end"] = t_merged_intervals[-1][1] + 1
+    hit_dict["global_identity"] = identical.shape[0] * 100 / q_aligned
+    hit_dict["global_positives"] = positives.shape[0] * 100 / q_aligned
+
+    if as_list is True:
+        hit_list = [hit_dict[col] for col in hit_cols]
+        hsp_dict_list = [[hsp[col] for col in hsp_cols] for hsp in hsp_dict_list]
+        return hit_list, hsp_dict_list
+    else:
+        return hit_dict, hsp_dict_list

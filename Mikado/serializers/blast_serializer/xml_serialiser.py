@@ -8,7 +8,7 @@ from sqlalchemy.orm.session import Session
 import sqlite3
 import tempfile
 import os
-from . import Query, Target, Hsp, Hit, prepare_hit, InvalidHit
+from . import Query, Target, prepare_hit, InvalidHit
 from .xml_utils import get_multipliers, get_off_by_one
 from .utils import load_into_db
 import multiprocessing as mp

@@ -2,7 +2,7 @@ from . import Hsp, Hit
 import sqlalchemy.exc
 
 
-def load_into_db(self, hits, hsps, force=False):
+def load_into_db(self, hits, hsps, force=False, raw=False):
     """
     :param hits:
     :param hsps:
@@ -25,15 +25,21 @@ def load_into_db(self, hits, hsps, force=False):
         # Bulk load
         self.logger.debug("Loading %d BLAST objects into database", tot_objects)
 
+        if not hasattr(self, "hit_i_string"):
+            self.hit_i_string = str(Hit.__table__.insert(bind=self.engine).compile())
+            self.hsp_i_string = str(Hsp.__table__.insert(bind=self.engine).compile())
+
         if hasattr(self, "lock") and self.lock is not None:
             self.lock.acquire()
         try:
             # pylint: disable=no-member
             # self.session.begin(subtransactions=True)
-            self.session.bulk_insert_mappings(Hit, hits)
-            self.session.bulk_insert_mappings(Hsp, hsps)
-            # self.engine.execute(Hit.__table__.insert(), hits)
-            # self.engine.execute(Hsp.__table__.insert(), hsps)
+            if raw is True:
+                self.engine.execute(self.hit_i_string, hits)
+                self.engine.execute(self.hsp_i_string, hsps)
+            else:
+                self.engine.execute(Hit.__table__.insert(), hits)
+                self.engine.execute(Hsp.__table__.insert(), hsps)
             # pylint: enable=no-member
             self.session.commit()
         except sqlalchemy.exc.IntegrityError as err:

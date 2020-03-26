@@ -13,7 +13,10 @@ import logging.handlers
 from ...utilities.log_utils import create_null_logger, create_queue_logger
 from sqlalchemy.orm.session import Session
 from ...utilities.dbutils import connect as db_connect
+from . import Hit, Hsp
 
+hit_cols = [col.name for col in Hit.__table__.columns]
+hsp_cols = [col.name for col in Hsp.__table__.columns]
 
 __author__ = 'Luca Venturini'
 
@@ -198,7 +201,10 @@ def prepare_tab_hit(key: tuple,
         raise ValueError("Invalid target end point: {}, {}".format(hit_dict["target_end"], sends))
     hit_dict["global_identity"] = identical_positions * 100 / q_aligned.shape[0]
     hit_dict["global_positives"] = positives * 100 / q_aligned.shape[0]
-    return hit_dict, hsps
+    hit_list = [hit_dict[col] for col in hit_cols]
+    hsps = [[hsp[col] for col in hsp_cols] for hsp in hsps]
+
+    return hit_list, hsps
 
 
 id_pattern = re.compile(r"^[^\|]*\|([^\|]*)\|.*")
@@ -264,6 +270,7 @@ class Preparer(mp.Process):
                  maxobjects: int,
                  logging_queue=None,
                  log_level="DEBUG",
+                 sql_level="DEBUG",
                  matrix_name=None, qmult=3, tmult=1, columns=None, **kwargs):
 
         super().__init__()
@@ -271,7 +278,7 @@ class Preparer(mp.Process):
         self.qmult, self.tmult, self.columns = qmult, tmult, columns
         self.queue = queue
         self.identifier = identifier
-        self.log_level = log_level
+        self.log_level, self.sql_level = log_level, sql_level
         self.lock = lock
         self.maxobjects = maxobjects
         self.conf = conf
@@ -288,12 +295,12 @@ class Preparer(mp.Process):
         if self.logging_queue is not None:
             create_queue_logger(self)
             sql_logger = logging.getLogger("sqlalchemy.engine")
-            sql_logger.setLevel("DEBUG")
+            sql_logger.setLevel(self.sql_level)
             sql_logger.addHandler(self.logger.handlers[0])
         else:
             sql_logger = None
         self.engine = db_connect(self.conf, logger=sql_logger)
-        self.logger.info("Started %s", self.identifier)
+        self.logger.debug("Started %s", self.identifier)
         session = Session(bind=self.engine)
         self.session = session
         hits, hsps = [], []
@@ -301,20 +308,20 @@ class Preparer(mp.Process):
             data = self.queue.get()
             if data == "EXIT":
                 self.queue.put(data)
-                _, _ = load_into_db(self, hits, hsps, force=True)
+                _, _ = load_into_db(self, hits, hsps, force=True, raw=True)
                 break
             key, rows = data
             curr_hit, curr_hsps = prep_hit(key, rows)
             hits.append(curr_hit)
             hsps += curr_hsps
-            hits, hsps = load_into_db(self, hits, hsps, force=False)
+            hits, hsps = load_into_db(self, hits, hsps, force=False, raw=True)
         return
 
 
 def submit_res(values, groups, queue, logger=create_null_logger()):
-    logger.info("Starting to load data in the queue")
+    logger.debug("Starting to load data in the queue")
     [queue.put((key, values[group, :])) for key, group in groups.items()]
-    logger.info("Finished to load data in the queue")
+    logger.debug("Finished to load data in the queue")
     queue.put("EXIT")
     return
 
@@ -343,14 +350,13 @@ def parse_tab_blast(self,
     groups = defaultdict(list)
     [groups[val].append(idx) for idx, val in enumerate(data.index)]
     values = data.values
-    self.logger.info("Finished reading %s data, starting serialisation", bname)
     if procs == 1:
         self.logger.info("Finished reading %s data, starting serialisation in single-threaded mode", bname, procs)
         for key, group in groups.items():
             curr_hit, curr_hsps = prep_hit(key, data.values[group, :])
             hits.append(curr_hit)
             hsps += curr_hsps
-            hits, hsps = load_into_db(self, hits, hsps, force=False)
+            hits, hsps = load_into_db(self, hits, hsps, force=False, raw=True)
     else:
         self.logger.info("Finished reading %s data, starting serialisation with %d processors", bname, procs)
         queue = mp.JoinableQueue(-1)
@@ -363,6 +369,8 @@ def parse_tab_blast(self,
                   "matrix_name": matrix_name,
                   "qmult": qmult,
                   "tmult": tmult,
+                  "sql_level": self.json_conf["log_settings"]["sql_level"],
+                  "log_level": self.json_conf["log_settings"]["log_level"],
                   "logging_queue": self.logging_queue,
                   "columns": columns}
         procs = [Preparer(queue, idx, **kwargs) for idx in range(procs)]
@@ -372,6 +380,6 @@ def parse_tab_blast(self,
         thread.join()
         [proc.join() for proc in procs]
 
-    hits, hsps = load_into_db(self, hits, hsps, force=True)
+    hits, hsps = load_into_db(self, hits, hsps, force=True, raw=True)
     assert len(hits) == 0 or isinstance(hits[0], dict), (hits[0], type(hits[0]))
     assert len(hsps) >= len(hits), (len(hits), len(hsps), hits[0], hsps[0])

@@ -107,6 +107,8 @@ class BlastSerializer:
         DBBASE.metadata.create_all(self.engine)  # @UndefinedVariable
         session = Session(bind=self.engine)
         self.session = session  # session()
+        self.hit_i_string = str(Hit.__table__.insert(bind=self.engine).compile())
+        self.hsp_i_string = str(Hsp.__table__.insert(bind=self.engine).compile())
         # Remove indices
         self.logger.debug("Created the session")
         # Load sequences if necessary

@@ -364,7 +364,7 @@ def parse_tab_blast(self,
         conf = dict()
         conf["db_settings"] = self.json_conf["db_settings"].copy()
         kwargs = {"conf": conf,
-                  "maxobjects": self.maxobjects,
+                  "maxobjects": int(self.maxobjects / procs),
                   "lock": lock,
                   "matrix_name": matrix_name,
                   "qmult": qmult,

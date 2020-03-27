@@ -32,12 +32,16 @@ def load_into_db(self, hits, hsps, force=False, raw=False):
         try:
             # pylint: disable=no-member
             # self.session.begin(subtransactions=True)
+            if hasattr(self, "lock") and self.lock is not None:
+                self.lock.acquire()
             if raw is True:
                 self.engine.execute(self.hit_i_string, hits)
                 self.engine.execute(self.hsp_i_string, hsps)
             else:
                 self.engine.execute(Hit.__table__.insert(), hits)
                 self.engine.execute(Hsp.__table__.insert(), hsps)
+            if hasattr(self, "lock") and self.lock is not None:
+                self.lock.release()
             # pylint: enable=no-member
         except sqlalchemy.exc.IntegrityError as err:
             self.logger.critical("Failed to serialise BLAST!")

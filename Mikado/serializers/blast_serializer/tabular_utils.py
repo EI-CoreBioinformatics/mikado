@@ -119,8 +119,8 @@ def prepare_tab_hsp(key,
     if aln_span != hsp[columns["length"]]:
         raise ValueError((aln_span, hsp[columns["length"]]))
     pident = np.where(query_array[1] > 0)[0].shape[0] / (aln_span * qmult) * 100
-    if not np.isclose(pident, hsp[columns["pident"]], atol=.1, rtol=.1):
-        raise ValueError((pident, hsp[columns["pident"]]))
+    # if not np.isclose(pident, hsp[columns["pident"]], atol=.1, rtol=.1):
+    #     raise ValueError((pident, hsp[columns["pident"]]))
     hsp_dict["hsp_identity"] = pident
     ppos = np.where(query_array[2] > 0)[0].shape[0] / (aln_span * qmult) * 100
     hsp_dict["hsp_positives"] = ppos

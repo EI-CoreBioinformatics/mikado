@@ -7,7 +7,7 @@ import pandas as pd
 import multiprocessing as mp
 from .utils import load_into_db
 from collections import defaultdict
-from threading import Thread
+import gc
 import logging
 import logging.handlers
 from ...utilities.log_utils import create_null_logger, create_queue_logger
@@ -381,6 +381,9 @@ def parse_tab_blast(self,
                   "dtype": values.dtype}
         # Split the indices
         splits = np.array_split(np.array(list(groups.items())), procs)
+        # Delete the loaded data. This will lower the memory for fork.
+        del data, values
+        gc.collect()
         processes = [Preparer(splits[idx], idx, **kwargs) for idx in range(procs)]
         [proc.start() for proc in processes]
         [proc.join() for proc in processes]

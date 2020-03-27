@@ -7,7 +7,6 @@ import pandas as pd
 import multiprocessing as mp
 from .utils import load_into_db
 from collections import defaultdict
-import gc
 import logging
 import logging.handlers
 from ...utilities.log_utils import create_null_logger, create_queue_logger
@@ -17,6 +16,8 @@ from . import Hit, Hsp
 import os
 import tempfile
 import typing
+import msgpack
+
 
 hit_cols = [col.name for col in Hit.__table__.columns]
 hsp_cols = [col.name for col in Hsp.__table__.columns]
@@ -267,10 +268,9 @@ def sanitize_blast_data(data: pd.DataFrame, queries: pd.DataFrame, targets: pd.D
 class Preparer(mp.Process):
 
     def __init__(self,
-                 indexes: typing.List[tuple],
+                 index_file: str,
                  identifier: int,
-                 shape: tuple,
-                 dtype: np.dtype,
+                 params_file: str,
                  mapname: str,
                  lock: mp.RLock,
                  conf: dict,
@@ -278,18 +278,17 @@ class Preparer(mp.Process):
                  logging_queue=None,
                  log_level="DEBUG",
                  sql_level="DEBUG",
-                 matrix_name=None, qmult=3, tmult=1, columns=None, **kwargs):
+                 matrix_name=None, qmult=3, tmult=1, **kwargs):
 
         super().__init__()
         self.matrix_name = matrix_name
-        self.qmult, self.tmult, self.columns = qmult, tmult, columns
+        self.qmult, self.tmult = qmult, tmult
         self.identifier = identifier
         self.log_level, self.sql_level = log_level, sql_level
         self.lock = lock
         self.maxobjects = maxobjects
         self.conf = conf
-        self.values = np.memmap(mapname,dtype=dtype, mode="r", shape=shape)
-        self.indexes = indexes
+        self.params_file, self.mapname, self.index_file = params_file, mapname, index_file
         if logging_queue is None:
             self.logger = create_null_logger("preparer-{}".format(self.identifier))  # create_null_logger
             self.logging_queue = None
@@ -297,6 +296,14 @@ class Preparer(mp.Process):
             self.logging_queue = logging_queue
 
     def run(self):
+        with open(self.params_file, "rb") as pfile:
+            params = msgpack.loads(pfile.read(), raw=False, strict_map_key=False)
+        dtype = np.dtype(params["dtype"])
+        shape = tuple(params["shape"])
+        self.columns = params["columns"]
+        self.values = np.memmap(self.mapname, dtype=dtype, mode="r", shape=shape)
+        with open(self.index_file, "rb") as index_handle:
+            self.indexes = msgpack.loads(index_handle.read(), raw=False, strict_map_key=False)
         prep_hit = partial(prepare_tab_hit,
                            columns=self.columns, qmult=self.qmult, tmult=self.tmult,
                            matrix_name=self.matrix_name)
@@ -340,32 +347,15 @@ def parse_tab_blast(self,
     if matrix_name not in matrices:
         raise KeyError("Matrix {} is not valid. Please specify a valid name.".format(matrix_name))
 
-    self.logger.info("Reading %s data", bname)
-    data = pd.read_csv(bname, delimiter="\t", names=blast_keys)
-    data = sanitize_blast_data(data, queries, targets, qmult=qmult, tmult=tmult)
-    columns = dict((col, idx) for idx, col in enumerate(data.columns))
-    prep_hit = partial(prepare_tab_hit, columns=columns, qmult=qmult, tmult=tmult,
-                       matrix_name=matrix_name)
-    hits, hsps = [], []
-    groups = defaultdict(list)
-    [groups[val].append(idx) for idx, val in enumerate(data.index)]
-    values = data.values
-    if procs == 1:
-        self.logger.info("Finished reading %s data, starting serialisation in single-threaded mode", bname)
-        for key, group in groups.items():
-            curr_hit, curr_hsps = prep_hit(key, values[group, :])
-            hits.append(curr_hit)
-            hsps += curr_hsps
-            hits, hsps = load_into_db(self, hits, hsps, force=False, raw=True)
-    else:
-        self.logger.info("Finished reading %s data, starting serialisation with %d processors", bname, procs)
-        # queue = mp.Queue(maxsize=self.maxobjects, block=False)
+    if procs > 1:
+        # We have to set up the processes before the forking.
         lock = mp.RLock()
         conf = dict()
         conf["db_settings"] = self.json_conf["db_settings"].copy()
         mapped_name = tempfile.mktemp(suffix=".mmap")
-        mapped = np.memmap(mapped_name, shape=values.shape, dtype=values.dtype, mode="w+")
-        mapped[:] = values[:]  # Copy the data in the memory view
+        params_file = tempfile.mktemp(suffix=".mgp")
+        index_files = dict((idx, tempfile.mktemp(suffix=".csv")) for idx in
+                           range(procs))
         kwargs = {"conf": conf,
                   "maxobjects": int(self.maxobjects),
                   "mapname": mapped_name,
@@ -376,19 +366,50 @@ def parse_tab_blast(self,
                   "sql_level": self.json_conf["log_settings"]["sql_level"],
                   "log_level": self.json_conf["log_settings"]["log_level"],
                   "logging_queue": self.logging_queue,
-                  "columns": columns,
-                  "shape": values.shape,
-                  "dtype": values.dtype}
+                  "params_file": params_file}
+        processes = [Preparer(index_files[idx], idx, **kwargs) for idx in range(procs)]
+
+    self.logger.info("Reading %s data", bname)
+    data = pd.read_csv(bname, delimiter="\t", names=blast_keys)
+    data = sanitize_blast_data(data, queries, targets, qmult=qmult, tmult=tmult)
+    columns = dict((col, idx) for idx, col in enumerate(data.columns))
+    groups = defaultdict(list)
+    [groups[val].append(idx) for idx, val in enumerate(data.index)]
+    values = data.values
+
+    if procs == 1:
+        prep_hit = partial(prepare_tab_hit, columns=columns, qmult=qmult, tmult=tmult,
+                           matrix_name=matrix_name)
+        hits, hsps = [], []
+        self.logger.info("Finished reading %s data, starting serialisation in single-threaded mode", bname)
+        for key, group in groups.items():
+            curr_hit, curr_hsps = prep_hit(key, values[group, :])
+            hits.append(curr_hit)
+            hsps += curr_hsps
+            hits, hsps = load_into_db(self, hits, hsps, force=False, raw=True)
+        hits, hsps = load_into_db(self, hits, hsps, force=True, raw=True)
+        assert len(hits) == 0 or isinstance(hits[0], dict), (hits[0], type(hits[0]))
+        assert len(hsps) >= len(hits), (len(hits), len(hsps), hits[0], hsps[0])
+    else:
+        self.logger.info("Finished reading %s data, starting serialisation with %d processors", bname, procs)
+        mapped = np.memmap(mapped_name, shape=values.shape, dtype=values.dtype, mode="w+")
+        mapped[:] = values[:]  # Copy the data in the memory view
+        # Now we have to write down everything inside the temporary files.
+        # Params_name must contain: shape of the array, dtype of the array, columns
+        params = {"shape": values.shape, "dtype": str(values.dtype), "columns": columns}
+        with open(params_file, "wb") as pfile:
+            pfile.write(msgpack.dumps(params))
+        assert os.path.exists(params_file)
         # Split the indices
-        splits = np.array_split(np.array(list(groups.items())), procs)
-        # Delete the loaded data. This will lower the memory for fork.
-        del data, values
-        gc.collect()
-        processes = [Preparer(splits[idx], idx, **kwargs) for idx in range(procs)]
+        for idx, split in enumerate(np.array_split(np.array(list(groups.items())), procs)):
+            with open(index_files[idx], "wb") as index:
+                index.write(msgpack.dumps(split.tolist()))
+            assert os.path.exists(index_files[idx])
+
         [proc.start() for proc in processes]
         [proc.join() for proc in processes]
         os.remove(mapped_name)
+        os.remove(params_file)
+        [os.remove(index_files[idx]) for idx in index_files]
 
-    hits, hsps = load_into_db(self, hits, hsps, force=True, raw=True)
-    assert len(hits) == 0 or isinstance(hits[0], dict), (hits[0], type(hits[0]))
-    assert len(hsps) >= len(hits), (len(hits), len(hsps), hits[0], hsps[0])
+    return

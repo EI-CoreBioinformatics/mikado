@@ -365,10 +365,9 @@ def parse_tab_blast(self,
         conf["db_settings"] = self.json_conf["db_settings"].copy()
         mapped_name = tempfile.mktemp(suffix=".mmap")
         mapped = np.memmap(mapped_name, shape=values.shape, dtype=values.dtype, mode="w+")
-        print(mapped_name)
         mapped[:] = values[:]  # Copy the data in the memory view
         kwargs = {"conf": conf,
-                  "maxobjects": int(self.maxobjects / procs),
+                  "maxobjects": int(self.maxobjects),
                   "mapname": mapped_name,
                   "lock": lock,
                   "matrix_name": matrix_name,

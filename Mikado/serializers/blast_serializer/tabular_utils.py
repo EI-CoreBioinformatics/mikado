@@ -14,7 +14,9 @@ from ...utilities.log_utils import create_null_logger, create_queue_logger
 from sqlalchemy.orm.session import Session
 from ...utilities.dbutils import connect as db_connect
 from . import Hit, Hsp
-from time import sleep
+import os
+import tempfile
+import typing
 
 hit_cols = [col.name for col in Hit.__table__.columns]
 hsp_cols = [col.name for col in Hsp.__table__.columns]
@@ -264,8 +266,12 @@ def sanitize_blast_data(data: pd.DataFrame, queries: pd.DataFrame, targets: pd.D
 
 class Preparer(mp.Process):
 
-    def __init__(self, queue: mp.JoinableQueue,
+    def __init__(self,
+                 indexes: typing.List[tuple],
                  identifier: int,
+                 shape: tuple,
+                 dtype: np.dtype,
+                 mapname: str,
                  lock: mp.RLock,
                  conf: dict,
                  maxobjects: int,
@@ -277,12 +283,13 @@ class Preparer(mp.Process):
         super().__init__()
         self.matrix_name = matrix_name
         self.qmult, self.tmult, self.columns = qmult, tmult, columns
-        self.queue = queue
         self.identifier = identifier
         self.log_level, self.sql_level = log_level, sql_level
         self.lock = lock
         self.maxobjects = maxobjects
         self.conf = conf
+        self.values = np.memmap(mapname,dtype=dtype, mode="r", shape=shape)
+        self.indexes = indexes
         if logging_queue is None:
             self.logger = create_null_logger("preparer-{}".format(self.identifier))  # create_null_logger
             self.logging_queue = None
@@ -305,35 +312,18 @@ class Preparer(mp.Process):
         session = Session(bind=self.engine)
         self.session = session
         hits, hsps = [], []
-        while True:
-            while self.queue.empty():
-                sleep(.001)
-            data = self.queue.get()
-            if data == "EXIT":
-                while self.queue.full():
-                    sleep(.01)
-                self.queue.put(data)
-                _, _ = load_into_db(self, hits, hsps, force=True, raw=True)
-                break
-            key, rows = data
+        for index in self.indexes:
+            try:
+                key, group = index
+            except ValueError:
+                raise ValueError(index)
+            rows = self.values[group, :]
             curr_hit, curr_hsps = prep_hit(key, rows)
             hits.append(curr_hit)
             hsps += curr_hsps
             hits, hsps = load_into_db(self, hits, hsps, force=False, raw=True)
+        _, _ = load_into_db(self, hits, hsps, force=True, raw=True)
         return
-
-
-def submit_res(values, groups, queue: mp.JoinableQueue, logger=create_null_logger()):
-    logger.debug("Starting to load data in the queue")
-    for key, group in groups.items():
-        while queue.full() is True:
-            sleep(.01)
-        queue.put((key, values[group, :]))
-    while queue.full() is True:
-        sleep(.1)
-    queue.put("EXIT")
-    logger.debug("Finished to load data in the queue")
-    return
 
 
 def parse_tab_blast(self,
@@ -369,12 +359,17 @@ def parse_tab_blast(self,
             hits, hsps = load_into_db(self, hits, hsps, force=False, raw=True)
     else:
         self.logger.info("Finished reading %s data, starting serialisation with %d processors", bname, procs)
-        queue = mp.JoinableQueue(maxsize=self.maxobjects)
+        # queue = mp.Queue(maxsize=self.maxobjects, block=False)
         lock = mp.RLock()
         conf = dict()
         conf["db_settings"] = self.json_conf["db_settings"].copy()
+        mapped_name = tempfile.mktemp(suffix=".mmap")
+        mapped = np.memmap(mapped_name, shape=values.shape, dtype=values.dtype, mode="w+")
+        print(mapped_name)
+        mapped[:] = values[:]  # Copy the data in the memory view
         kwargs = {"conf": conf,
                   "maxobjects": int(self.maxobjects / procs),
+                  "mapname": mapped_name,
                   "lock": lock,
                   "matrix_name": matrix_name,
                   "qmult": qmult,
@@ -382,13 +377,15 @@ def parse_tab_blast(self,
                   "sql_level": self.json_conf["log_settings"]["sql_level"],
                   "log_level": self.json_conf["log_settings"]["log_level"],
                   "logging_queue": self.logging_queue,
-                  "columns": columns}
-        procs = [Preparer(queue, idx, **kwargs) for idx in range(procs)]
-        [proc.start() for proc in procs]
-        thread = Thread(target=submit_res, args=(values, groups, queue, self.logger))
-        thread.start()
-        thread.join()
-        [proc.join() for proc in procs]
+                  "columns": columns,
+                  "shape": values.shape,
+                  "dtype": values.dtype}
+        # Split the indices
+        splits = np.array_split(np.array(list(groups.items())), procs)
+        processes = [Preparer(splits[idx], idx, **kwargs) for idx in range(procs)]
+        [proc.start() for proc in processes]
+        [proc.join() for proc in processes]
+        os.remove(mapped_name)
 
     hits, hsps = load_into_db(self, hits, hsps, force=True, raw=True)
     assert len(hits) == 0 or isinstance(hits[0], dict), (hits[0], type(hits[0]))

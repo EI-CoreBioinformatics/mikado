@@ -165,7 +165,7 @@ class PrepareCheck(unittest.TestCase):
     def test_varying_max_intron(self):
 
         self.conf["prepare"]["files"]["labels"].append("tr")
-        dir = tempfile.TemporaryDirectory()
+        dir = tempfile.TemporaryDirectory(prefix="test_varying_max_intron")
         self.conf["prepare"]["files"]["output_dir"] = dir.name
         args = Namespace()
         args.json_conf = self.conf
@@ -195,7 +195,7 @@ class PrepareCheck(unittest.TestCase):
     def test_prepare_trinity_gff(self):
 
         self.conf["prepare"]["files"]["labels"].append("tr")
-        dir = tempfile.TemporaryDirectory()
+        dir = tempfile.TemporaryDirectory(prefix="test_prepare_trinity_gff")
         self.conf["prepare"]["files"]["output_dir"] = dir.name
         args = Namespace()
         args.json_conf = self.conf
@@ -229,7 +229,7 @@ class PrepareCheck(unittest.TestCase):
         self.conf["prepare"]["files"]["labels"] = ["cl", "tr"]
 
         self.conf["prepare"]["files"]["gff"] = [None, None]
-        dir = tempfile.TemporaryDirectory()
+        dir = tempfile.TemporaryDirectory(prefix="test_prepare_trinity_and_cufflinks")
         self.conf["prepare"]["files"]["output_dir"] = dir.name
         self.conf["prepare"]["files"]["out_fasta"] = "mikado_prepared.fasta"
         self.conf["prepare"]["files"]["out"] = "mikado_prepared.gtf"
@@ -275,7 +275,7 @@ class PrepareCheck(unittest.TestCase):
         rev_strand = {"+": "-", "-": "+"}
 
         self.conf["prepare"]["files"]["labels"] = ["ann"]
-        dir = tempfile.TemporaryDirectory()
+        dir = tempfile.TemporaryDirectory(prefix="test_prepare_with_cds")
         ann_gff3 = pkg_resources.resource_filename("Mikado.tests", "annotation.gff3")
         rev_ann_gff3 = tempfile.NamedTemporaryFile(suffix=".gff3", mode="wt", dir=dir.name)
         with open(ann_gff3) as ann:
@@ -441,7 +441,7 @@ class PrepareCheck(unittest.TestCase):
 
         gtf = pkg_resources.resource_filename("Mikado.tests", "cds_test_2.gtf")
         self.conf["prepare"]["files"]["gff"] = [gtf]
-        dir = tempfile.TemporaryDirectory()
+        dir = tempfile.TemporaryDirectory(prefix="test_negative_cdna_redundant_cds_not")
         self.conf["prepare"]["files"]["output_dir"] = dir.name
         self.conf["prepare"]["files"]["labels"] = [""]
         self.conf["prepare"]["files"]["out_fasta"] = "mikado_prepared.fasta"
@@ -551,7 +551,7 @@ class PrepareCheck(unittest.TestCase):
         files = [pkg_resources.resource_filename("Mikado.tests", filename) for filename in files]
         self.conf["prepare"]["files"]["gff"] = files
         self.conf["prepare"]["files"]["labels"] = [""]
-        dir = tempfile.TemporaryDirectory()
+        dir = tempfile.TemporaryDirectory(prefix="test_truncated_cds")
         self.conf["prepare"]["files"]["output_dir"] = dir.name
         self.conf["prepare"]["files"]["out_fasta"] = "mikado_prepared.fasta"
         self.conf["prepare"]["files"]["out"] = "mikado_prepared.gtf"
@@ -584,7 +584,7 @@ class PrepareCheck(unittest.TestCase):
         # Chr5	TAIR10	exon	208937	209593	.	+	.	gene_id "AT5G01530"; transcript_id "AT5G01530.0";
         # Chr5	TAIR10	exon	209881	210445	.	+	.	gene_id "AT5G01530"; transcript_id "AT5G01530.0";
 
-        dir = tempfile.TemporaryDirectory()
+        dir = tempfile.TemporaryDirectory(prefix="test_source_selection")
         self.conf["prepare"]["files"]["output_dir"] = dir.name
         self.conf["prepare"]["files"]["out_fasta"] = "mikado_prepared.fasta"
         self.conf["prepare"]["files"]["out"] = "mikado_prepared.gtf"
@@ -647,7 +647,7 @@ class PrepareCheck(unittest.TestCase):
     @mark.slow
     def test_reference_selection(self):
 
-        dir = tempfile.TemporaryDirectory()
+        dir = tempfile.TemporaryDirectory(prefix="test_reference_selection")
         self.conf["prepare"]["files"]["output_dir"] = outdir = dir.name
         self.conf["prepare"]["files"]["out_fasta"] = "mikado_prepared.fasta"
         self.conf["prepare"]["files"]["out"] = "mikado_prepared.gtf"
@@ -755,7 +755,7 @@ class PrepareCheck(unittest.TestCase):
         t2.id = "file2.1"
         t2.parent = "file2"
 
-        dir = tempfile.TemporaryDirectory()
+        dir = tempfile.TemporaryDirectory(prefix="test_reference_cds_kept")
         self.conf["prepare"]["files"]["output_dir"] = outdir = dir.name
         self.conf["prepare"]["files"]["out_fasta"] = "mikado_prepared.fasta"
         self.conf["prepare"]["files"]["out"] = "mikado_prepared.gtf"
@@ -852,7 +852,7 @@ class CompareCheck(unittest.TestCase):
         namespace.distance = 2000
         namespace.index = True
         namespace.prediction = None
-        dir = tempfile.TemporaryDirectory()
+        dir = tempfile.TemporaryDirectory(prefix="test_index")
         namespace.log = os.path.join(dir.name, "index.log")
         logger = create_null_logger("null")
 
@@ -892,6 +892,7 @@ class CompareCheck(unittest.TestCase):
         namespace = Namespace(default=False)
         namespace.distance = 2000
         namespace.no_save_index = True
+        namespace.gzip = False
 
         for ref, pred in itertools.chain(itertools.permutations(files, 2),
                                          [(ref, bam) for ref in files]):
@@ -899,16 +900,22 @@ class CompareCheck(unittest.TestCase):
                 namespace.reference = to_gff(ref)
                 namespace.prediction = to_gff(pred)
                 namespace.processes = 2
-                dir = tempfile.TemporaryDirectory()
+                dir = tempfile.mkdtemp(prefix="test_compare_trinity_{}_{}".format(
+                    os.path.splitext(ref)[-1], os.path.splitext(pred)[-1]
+                ))
                 if pred != bam:
-                    namespace.log = os.path.join(dir.name, "compare_{}_{}.log".format(
+                    namespace.log = os.path.join(dir,  # .name,
+                                                 "compare_{}_{}.log".format(
                         files.index(ref), files.index(pred)))
-                    namespace.out = os.path.join(dir.name, "compare_{}_{}".format(
+                    namespace.out = os.path.join(dir,  # .name
+                                                 "compare_{}_{}".format(
                         files.index(ref), files.index(pred)))
                 else:
-                    namespace.log = os.path.join(dir.name, "compare_{}_{}.log".format(
+                    namespace.log = os.path.join(dir,  # .name,
+                                                 "compare_{}_{}.log".format(
                         files.index(ref), len(files) + 1))
-                    namespace.out = os.path.join(dir.name, "compare_{}_{}".format(
+                    namespace.out = os.path.join(dir,  # .name,
+                                                 "compare_{}_{}".format(
                         files.index(ref), len(files) + 1))
                 compare(namespace)
                 sleep(0.1)
@@ -940,7 +947,7 @@ class CompareCheck(unittest.TestCase):
                             pass
                     self.assertEqual(counter, 38)
 
-                dir.cleanup()
+                # dir.cleanup()
 
     def test_compare_problematic(self):
 
@@ -950,14 +957,16 @@ class CompareCheck(unittest.TestCase):
         namespace.no_save_index = True
         namespace.protein_coding = False
         namespace.exclude_utr = False
+        namespace.self = False
+        namespace.gzip = False
 
         for proc in (1, 3):
             namespace.reference = to_gff(problematic)
             namespace.prediction = to_gff(problematic)
             namespace.processes = proc
-            dir = "/tmp/"
-            namespace.log = os.path.join(dir, "compare_problematic_{proc}.log".format(proc=proc))
-            namespace.out = os.path.join(dir, "compare_problematic_{proc}".format(proc=proc))
+            dir = tempfile.TemporaryDirectory(prefix="test_compare_problematic_{}".format(proc))
+            namespace.log = os.path.join(dir.name, "compare_problematic_{proc}.log".format(proc=proc))
+            namespace.out = os.path.join(dir.name, "compare_problematic_{proc}".format(proc=proc))
             compare(namespace)
             sleep(1)
             refmap = "{}.refmap".format(namespace.out)
@@ -982,7 +991,6 @@ class CompareCheck(unittest.TestCase):
                 for counter, line in enumerate(reader, start=1):
                     pass
             self.assertEqual(counter, 4)
-
 
 
 class ConfigureCheck(unittest.TestCase):
@@ -1739,20 +1747,20 @@ class SerialiseChecker(unittest.TestCase):
         uniprot = pkg_resources.resource_filename("Mikado.tests", "uniprot_sprot_plants.fasta.gz")
         mobjects = 300  # Let's test properly the serialisation for BLAST
 
-        dir = tempfile.TemporaryDirectory()
-        json_file = os.path.join(dir.name, "mikado.yaml")
-        db = os.path.join(dir.name, "mikado.db")
-        log = os.path.join(dir.name, "serialise.log")
-        uni_out = os.path.join(dir.name, "uniprot_sprot_plants.fasta")
-        with gzip.open(uniprot, "rb") as uni, open(uni_out, "wb") as uni_out_handle:
-            uni_out_handle.write(uni.read())
-
-        with open(json_file, "wt") as json_handle:
-            sub_configure.print_config(yaml.dump(self.json_conf, default_flow_style=False),
-                                                      json_handle)
         # Set up the command arguments
-        for procs in (3,):
+        for procs in (1, 3,):
             with self.subTest(proc=procs):
+                dir = tempfile.TemporaryDirectory(suffix="test_subprocess_multi_{}".format(procs))
+                json_file = os.path.join(dir.name, "mikado.yaml")
+                db = os.path.join(dir.name, "mikado.db")
+                log = os.path.join(dir.name, "serialise.log")
+                uni_out = os.path.join(dir.name, "uniprot_sprot_plants.fasta")
+                with gzip.open(uniprot, "rb") as uni, open(uni_out, "wb") as uni_out_handle:
+                    uni_out_handle.write(uni.read())
+
+                with open(json_file, "wt") as json_handle:
+                    sub_configure.print_config(yaml.dump(self.json_conf, default_flow_style=False),
+                                               json_handle)
                 sys.argv = [str(_) for _ in ["mikado", "serialise", "--json-conf", json_file,
                             "--transcripts", transcripts, "--blast_targets", uni_out,
                             "--orfs", orfs, "--junctions", junctions, "--xml", xml, "-od", dir.name,
@@ -1776,7 +1784,7 @@ class SerialiseChecker(unittest.TestCase):
                                  "\n".join(logged))
                 self.assertEqual(cursor.execute("select count(distinct(query_id)) from orf").fetchall()[0][0], 81)
                 os.remove(db)
-        dir.cleanup()
+                dir.cleanup()
 
     @mark.slow
     def test_xml_vs_tsv(self):
@@ -1848,7 +1856,7 @@ class SerialiseChecker(unittest.TestCase):
         mobjects = 300  # Let's test properly the serialisation for BLAST
 
         # Set up the command arguments
-        for procs in (1, 3):
+        for procs in (3, 1):
             with self.subTest(procs=procs):
                 dir = tempfile.TemporaryDirectory(prefix="has_to_fail")
                 json_file = os.path.join(dir.name, "mikado.yaml")
@@ -1856,6 +1864,7 @@ class SerialiseChecker(unittest.TestCase):
                 log = "failed_serialise.log"
                 uni_out = os.path.join(dir.name, "uniprot_sprot_plants.fasta")
                 self.json_conf["serialise"]["files"]["log"] = os.path.basename(log)
+                self.json_conf["multiprocessing_method"] = "fork"
                 with gzip.open(uniprot, "rb") as uni, open(uni_out, "wb") as uni_out_handle:
                     uni_out_handle.write(uni.read())
 
@@ -1877,7 +1886,7 @@ class SerialiseChecker(unittest.TestCase):
                     self.assertTrue(os.stat(log).st_size > 0, log)
                     logged = [_.rstrip() for _ in open(log)]
                     self.assertGreater(len(logged), 0)
-                    self.assertFalse(os.path.exists(db))
+                    self.assertFalse(os.path.exists(db), logged)
                     self.assertTrue(any(
                         "Mikado serialise failed due to problems with the input data. Please check the logs." in line
                         for line in logged))
@@ -1896,7 +1905,7 @@ class SerialiseChecker(unittest.TestCase):
 
         for procs in (1, 3):
             with self.subTest(procs=procs):
-                dir = tempfile.TemporaryDirectory()
+                dir = tempfile.TemporaryDirectory(suffix="test_serialise_external")
                 log = "serialise.log"
                 sys.argv = [str(_) for _ in ["mikado", "serialise", "--json-conf", external_conf,
                                              "--transcripts", fasta, "-od", dir.name,
@@ -1919,7 +1928,7 @@ class StatsTest(unittest.TestCase):
         annotation_file = pkg_resources.resource_filename("Mikado.tests", "annotation.gff3")
         annotation_check = pkg_resources.resource_filename("Mikado.tests", "annotation.gff3.stats")
 
-        dir = tempfile.TemporaryDirectory()
+        dir = tempfile.TemporaryDirectory(prefix="test_annotation_stats")
         out = os.path.join(dir.name, "annotation.gff3.stats")
         sys.argv = [str(_) for _ in ["mikado", "util", "stats", annotation_file, out]]
         # with self.assertRaises(SystemExit):
@@ -1958,7 +1967,7 @@ class StatsTest(unittest.TestCase):
         for filename in files:
             with self.subTest(filename=filename):
                 namespace.gff = to_gff(filename)
-                dir = tempfile.TemporaryDirectory()
+                dir = tempfile.TemporaryDirectory(prefix="test_stat")
                 with open(os.path.join(dir.name,
                                        "{}.txt".format(os.path.basename(filename))), "w") as out:
                     namespace.out = out
@@ -1985,7 +1994,7 @@ class StatsTest(unittest.TestCase):
         for filename in files:
             with self.subTest(filename=filename):
                 namespace.gff = to_gff(filename)
-                dir = tempfile.TemporaryDirectory()
+                dir = tempfile.TemporaryDirectory(prefix="test_problematic")
                 with open(os.path.join(dir.name,
                                        "{}.txt".format(os.path.basename(filename))), "w") as out:
                     namespace.out = out

@@ -186,6 +186,7 @@ class Assigner:
                                           load_ref=self.printout_tmap)
         self.self_analysis = self.stat_calculator.self_analysis
         self.__merged = False
+
         if results:
             self.load_from_results(results)
             self.__merged = True

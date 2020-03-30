@@ -10,6 +10,7 @@ from .. import exceptions
 import logging.handlers
 import numpy
 import functools
+import msgpack
 import multiprocessing
 import multiprocessing.connection
 import multiprocessing.sharedctypes
@@ -200,32 +201,37 @@ def perform_check(keys, shelve_stacks, args, logger):
     else:
         # pylint: disable=no-member
 
-        submission_queue = multiprocessing.JoinableQueue(-1)
+        # submission_queue = multiprocessing.JoinableQueue(-1)
 
-        working_processes = [CheckingProcess(
-            submission_queue,
-            args.logging_queue,
-            args.json_conf["reference"]["genome"].filename,
-            _ + 1,
-            os.path.basename(args.json_conf["prepare"]["files"]["out_fasta"].name),
-            os.path.basename(args.json_conf["prepare"]["files"]["out"].name),
-            args.tempdir.name,
-            seed=args.json_conf["seed"],
-            lenient=args.json_conf["prepare"]["lenient"],
-            canonical_splices=args.json_conf["prepare"]["canonical"],
-            force_keep_cds=not args.json_conf["prepare"]["strip_cds"],
-            log_level=args.level) for _ in range(args.json_conf["threads"])]
+        batches = list(enumerate(keys, 1))
+        np.random.shuffle(batches)
+        kwargs = {
+            "fasta_out": os.path.basename(args.json_conf["prepare"]["files"]["out_fasta"].name),
+            "gtf_out": os.path.basename(args.json_conf["prepare"]["files"]["out"].name),
+            "tmpdir": args.tempdir.name,
+            "seed": args.json_conf["seed"],
+            "lenient": args.json_conf["prepare"]["lenient"],
+            "canonical_splices": args.json_conf["prepare"]["canonical"],
+            "force_keep_cds": not args.json_conf["prepare"]["strip_cds"],
+            "log_level": args.level
+        }
 
-        [_.start() for _ in working_processes]
+        working_processes = []
+        for idx, batch in enumerate(np.array_split(batches, args.json_conf["threads"]), 1):
+            batch_file = tempfile.NamedTemporaryFile(delete=False, mode="wb")
+            msgpack.dump(batch.tolist(), batch_file)
+            batch_file.flush()
+            batch_file.close()
 
-        for counter, keys in enumerate(keys):
-            tid, chrom, (pos) = keys
-            tid, shelf_name = tid
-            tobj = json.loads(next(shelve_stacks[shelf_name]["cursor"].execute(
-                "SELECT features FROM dump WHERE tid = ?", (tid,)))[0])
-            submission_queue.put((tobj, pos[0], pos[1], counter + 1))
-
-        submission_queue.put(tuple(["EXIT"]*4))
+            proc = CheckingProcess(
+                batch_file.name,
+                args.logging_queue,
+                args.json_conf["reference"]["genome"].filename,
+                idx,
+                shelve_stacks.keys(),
+                **kwargs)
+            proc.start()
+            working_processes.append(proc)
 
         [_.join() for _ in working_processes]
 
@@ -507,8 +513,12 @@ def prepare(args, logger):
             for shelf, score, is_reference in zip(shelve_names, shelve_source_scores,
                                     args.json_conf["prepare"]["files"]["reference"]):
                 assert isinstance(is_reference, bool)
-                conn = sqlite3.connect(shelf)
+                conn_string = "file:{shelf}?mode=ro&immutable=1".format(shelf=shelf)
+                conn = sqlite3.connect(conn_string, uri=True,
+                                       isolation_level="DEFERRED",
+                                       check_same_thread=False)
                 shelf_stacks[shelf] = {"conn": conn, "cursor": conn.cursor(), "score": score,
+                                       "conn_string": conn_string,
                                        "is_reference": is_reference}
             # shelf_stacks = dict((_, shelve.open(_, flag="r")) for _ in shelve_names)
         except Exception as exc:

@@ -25,6 +25,13 @@ class Parser(metaclass=abc.ABCMeta):
 
     def __init__(self, handle):
         self.__closed = False
+        self._handle = self.__get_handle(handle)
+        self.closed = False
+
+    def __iter__(self):
+        return self
+
+    def __get_handle(self, handle, position=None):
         if not isinstance(handle, io.IOBase):
             if handle.endswith(".gz") or filetype(handle) == b"application/gzip":
                 opener = gzip.open
@@ -36,12 +43,9 @@ class Parser(metaclass=abc.ABCMeta):
                 handle = opener(handle, "rt")
             except FileNotFoundError:
                 raise FileNotFoundError("File not found: {0}".format(handle))
-
-        self._handle = handle
-        self.closed = False
-
-    def __iter__(self):
-        return self
+        if position is not None:
+            handle.seek(position)
+        return handle
 
     def __next__(self):
         line = self._handle.readline()
@@ -91,6 +95,28 @@ class Parser(metaclass=abc.ABCMeta):
             raise TypeError("Invalid value: {0}".format(args[0]))
 
         self.__closed = args[0]
+
+    def __getstate__(self):
+        try:
+            position = self._handle.tell()
+        except:
+            position = None
+        state = dict()
+        state.update(self.__dict__)
+        state["position"] = position
+        if hasattr(self._handle, "filename"):
+            state["_handle"] = self._handle.filename
+        elif hasattr(self._handle, "name"):
+            state["_handle"] = self._handle.name
+        else:
+            raise TypeError("Unknown handle: {}".format(self._handle))
+        return state
+
+    def __setstate__(self, state):
+        position = state.get("position")
+        del state["position"]
+        self.__dict__.update(state)
+        self._handle = self.__get_handle(state["_handle"], position=position)
 
 
 # noinspection PyPep8

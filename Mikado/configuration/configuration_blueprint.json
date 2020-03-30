@@ -36,7 +36,7 @@
     },
     "multiprocessing_method": {
       "type": "string",
-      "default": "",
+      "default": "spawn",
       "enum": ["fork", "spawn", "forkserver", ""]
     },
     "log_settings": {

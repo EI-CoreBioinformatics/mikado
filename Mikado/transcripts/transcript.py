@@ -42,9 +42,10 @@ class Namespace:
 
     __name__ = "Namespace"
 
-    def __init__(self, default=0):
+    def __init__(self, default=0, **kwargs):
         self.__default = default
         self.__values = dict()
+        self.update(kwargs)
 
     @property
     def default(self):

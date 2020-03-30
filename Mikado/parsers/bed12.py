@@ -1614,17 +1614,11 @@ class Bed12ParseWrapper(mp.Process):
         self.rec_queue = rec_queue
         self.return_queue = return_queue
         self.logging_queue = log_queue
-        self.handler = logging_handlers.QueueHandler(self.logging_queue)
-        self.logger = logging.getLogger(self.name)
-        self.logger.addHandler(self.handler)
-        self.logger.setLevel(level)
-        self.logger.propagate = False
         self.transcriptomic = transcriptomic
         self.__max_regression = 0
         self._max_regression = max_regression
         self.coding = coding
         self.start_adjustment = start_adjustment
-        # self.cache = cache
 
         if isinstance(fasta_index, dict):
             # check that this is a bona fide dictionary ...
@@ -1640,7 +1634,7 @@ class Bed12ParseWrapper(mp.Process):
                 fasta_index = pyfaidx.Fasta(fasta_index)
             else:
                 assert isinstance(fasta_index, pysam.FastaFile), type(fasta_index)
-
+        self._level = level
         self.fasta_index = fasta_index
         self.__closed = False
         self.header = False
@@ -1685,7 +1679,21 @@ class Bed12ParseWrapper(mp.Process):
         return bed12
 
     def run(self, *args, **kwargs):
-        while True:
+        print("Started", self.__identifier)
+        self.handler = logging_handlers.QueueHandler(self.logging_queue)
+        self.logger = logging.getLogger(self.name)
+        self.logger.addHandler(self.handler)
+        self.logger.setLevel(self._level)
+        self.logger.propagate = False
+
+        self.logger.info("Started %s", self.__identifier)
+        if self.rec_queue is None:
+            self.return_queue.put(b"FINISHED")
+            raise ValueError
+        if self.rec_queue.empty():
+            self.return_queue.put(b"FINISHED")
+            raise ValueError
+        while True:  # not self.rec_queue.empty():
             line = self.rec_queue.get()
             if line in ("EXIT", b"EXIT"):
                 self.rec_queue.put(b"EXIT")

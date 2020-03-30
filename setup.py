@@ -93,7 +93,7 @@ setup(
         "mysql": ["mysqlclient>=1.3.6"],
         "bam": ["pysam>=0.8"]
     },
-    test_suite="nose2.collector.collector",
+    # test_suite="nose2.collector.collector",
     package_data={
         "Mikado.configuration":
             glob.glob("Mikado/configuration/*json") + glob.glob("Mikado/configuration/*yaml"),

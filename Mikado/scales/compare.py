@@ -608,7 +608,6 @@ def parse_prediction(args, index, queue_logger):
 
     queue_logger.info("Starting to parse the prediction")
     if args.processes > 1:
-        # print(mp.get_start_method())
         log_queue = args.log_queue
         dargs = dict()
         doself = False
@@ -624,7 +623,7 @@ def parse_prediction(args, index, queue_logger):
         assert os.path.exists(dump_dbhandle.name), dump_dbhandle.name
         assert os.stat(dump_dbhandle.name).st_size > 0, dump_dbhandle.name
         procs = [Assigners(index, nargs, queue, returnqueue, log_queue, counter, dump_dbhandle.name)
-                            for counter in range(1, args.processes)]
+                 for counter in range(1, args.processes)]
         [proc.start() for proc in procs]
         final_proc = FinalAssigner(index, nargs, returnqueue, log_queue=log_queue)
         final_proc.start()

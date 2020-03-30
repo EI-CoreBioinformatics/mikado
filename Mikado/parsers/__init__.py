@@ -105,9 +105,15 @@ class Parser(metaclass=abc.ABCMeta):
         state.update(self.__dict__)
         state["position"] = position
         if hasattr(self._handle, "filename"):
-            state["_handle"] = self._handle.filename
+            _handle = self._handle.filename
+            if isinstance(_handle, bytes):
+                _handle = _handle.decode()
+            state["_handle"] = _handle
         elif hasattr(self._handle, "name"):
-            state["_handle"] = self._handle.name
+            _handle = self._handle.name
+            if isinstance(_handle, bytes):
+                _handle = _handle.decode()
+            state["_handle"] = _handle
         else:
             raise TypeError("Unknown handle: {}".format(self._handle))
         return state

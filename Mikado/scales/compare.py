@@ -310,13 +310,6 @@ class FinalAssigner(mp.Process):
         failed = set()
         self.args = args
         self.log_queue = log_queue
-        for key, item in self.args.__dict__.items():
-            try:
-                pickle.dumps(item)
-            except (TypeError, RuntimeError):
-                failed.add((key, item))
-        if failed:
-            raise TypeError(failed)
 
     def run(self):
         try:

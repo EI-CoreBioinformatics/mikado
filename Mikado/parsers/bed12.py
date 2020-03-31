@@ -1512,6 +1512,7 @@ class Bed12Parser(Parser):
     def __setstate__(self, state):
         fasta_index = state.pop("fasta_index", None)
         super().__setstate__(state)
+        self.logger = create_null_logger()
         self.__set_fasta_index(fasta_index)
 
     def bed_next(self):

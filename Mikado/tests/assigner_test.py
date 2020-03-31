@@ -1126,6 +1126,23 @@ class AssignerTest(unittest.TestCase):
         args.reference.close()
         args.prediction.close()
 
+    def test_monoexonic_contained(self):
+        t1 = loci.Transcript()
+        t1.chrom, t1.start, t1.end, t1.strand, t1.id = "Chr1", 9192977, 9193471, "+", "t1"
+        t1.add_exons([(t1.start, t1.end)])
+        t1.add_exons([(t1.start, t1.end)], features=["CDS"])
+        t1.finalize()
+        t2 = loci.Transcript()
+        t2.chrom, t2.start, t2.end, t2.strand, t2.id = "Chr1", 9182621, 9194526, "+", "t2"
+        t2.add_exons([(9192977, 9193480)], features=["CDS"])
+        t2.add_exons([(9186643, 9186780), (9182621, 9182770), (9192959, 9194526)])
+        t2.finalize()
+        mono_ref = scales.Assigner.compare(reference=t1, prediction=t2)[0]
+        mono_pred = scales.Assigner.compare(reference=t2, prediction=t1)[0]
+        self.assertEqual(mono_ref.n_recall, mono_pred.n_prec)
+        self.assertEqual(mono_pred.ccode[0], "c")
+        self.assertEqual(mono_ref.ccode[0], "n")
+
     def test_h_case(self):
 
         """

@@ -1468,7 +1468,14 @@ class Bed12Parser(Parser):
         self.coding = coding
         self.start_adjustment = start_adjustment
         self.logger = logger
+        self.fasta_index = self.__set_fasta_index(fasta_index)
+        self.__closed = False
+        self.header = False
+        self.__table = table
+        self._is_bed12 = (not is_gff)
 
+    @staticmethod
+    def __set_fasta_index(fasta_index):
         if isinstance(fasta_index, dict):
             # check that this is a bona fide dictionary ...
             assert isinstance(
@@ -1482,12 +1489,7 @@ class Bed12Parser(Parser):
                 fasta_index = pysam.FastaFile(fasta_index)
             else:
                 assert isinstance(fasta_index, pysam.FastaFile), type(fasta_index)
-
-        self.fasta_index = fasta_index
-        self.__closed = False
-        self.header = False
-        self.__table = table
-        self._is_bed12 = (not is_gff)
+        return fasta_index
 
     def __iter__(self):
         return self
@@ -1498,6 +1500,19 @@ class Bed12Parser(Parser):
             return self.bed_next()
         else:
             return self.gff_next()
+
+    def __getstate__(self):
+        state = super().__getstate__()
+        # Now let's remove the fasta index
+        if state["fasta_index"] is not None:
+            if isinstance(state["fasta_index"], pysam.FastaFile):
+                state["fasta_index"] = state["fasta_index"].filename
+        return state
+
+    def __setstate__(self, state):
+        fasta_index = state.pop("fasta_index", None)
+        super().__setstate__(state)
+        self.__set_fasta_index(fasta_index)
 
     def bed_next(self):
         """

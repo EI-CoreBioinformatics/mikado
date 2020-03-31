@@ -116,6 +116,7 @@ class Parser(metaclass=abc.ABCMeta):
             state["_handle"] = _handle
         else:
             raise TypeError("Unknown handle: {}".format(self._handle))
+        state.pop("logger", None)
         return state
 
     def __setstate__(self, state):

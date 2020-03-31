@@ -817,7 +817,6 @@ def compare(args):
     # Flags for the parsing
 
     ref_gff = isinstance(args.reference, GFF3)
-
     # pylint: disable=no-member
     # multiprocessing.set_start_method(method="spawn", force=True)
     # pylint: enable=no-member

@@ -1,6 +1,5 @@
 language: python
-sudo: required
-dist: xenial
+os: "linux"
 python:
   # - "3.4"
   # - "3.5"
@@ -21,12 +20,12 @@ install:
   - conda env create -n env_name --file environment.yml
   - source activate env_name
   - conda install -y -c conda-forge -- pytest-cov codecov;
+  - conda install -c bioconda -c conda-forge -y stringtie scallop gmap star hisat2 prodigal blast diamond transdecoder gnuplot kallisto samtools gffread
   - python setup.py develop;
 script:
-  - python setup.py test --addopts "-m slow Mikado/tests/test_system_calls.py::SerialiseChecker::test_subprocess_multi_empty_orfs"
-  - python setup.py test --addopts " --cov Mikado --cov-config=.coveragerc -m '(slow or not slow) and not triage'";
-  - cd sample_data; snakemake --use-conda --jobs 5 --cores 5
-  - rm -rf .snakemake/conda/;  # This causes weird bugs
+  - pytest -m slow Mikado/tests/test_system_calls.py::SerialiseChecker::test_subprocess_multi_empty_orfs
+  - pytest --cov Mikado --cov-config=.coveragerc -m '(slow or not slow) and not triage';
+  - cd sample_data; snakemake --jobs 5 --cores 5
   - cd ..;
   - python -c "import Mikado; Mikado.test(label='fast')";
   # Check that the seed is set properly

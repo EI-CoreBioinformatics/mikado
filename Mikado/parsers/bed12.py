@@ -5,7 +5,7 @@ Module to parse BED12 objects. Much more basic than what PyBedtools could offer,
 but at the same time more pythonic.
 """
 
-
+from time import sleep
 import numpy
 import os
 from fastnumbers import fast_int, fast_float, isint
@@ -1706,10 +1706,10 @@ class Bed12ParseWrapper(mp.Process):
         if self.rec_queue is None:
             self.return_queue.put(b"FINISHED")
             raise ValueError
-        if self.rec_queue.empty():
-            self.return_queue.put(b"FINISHED")
-            raise ValueError
-        while True:  # not self.rec_queue.empty():
+        while True:
+            if self.rec_queue.empty():
+                sleep(0.1)
+                continue
             line = self.rec_queue.get()
             if line in ("EXIT", b"EXIT"):
                 self.rec_queue.put(b"EXIT")

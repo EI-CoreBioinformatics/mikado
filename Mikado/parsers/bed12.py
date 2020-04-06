@@ -1695,7 +1695,6 @@ class Bed12ParseWrapper(mp.Process):
         return bed12
 
     def run(self, *args, **kwargs):
-        print("Started", self.__identifier)
         self.handler = logging_handlers.QueueHandler(self.logging_queue)
         self.logger = logging.getLogger(self.name)
         self.logger.addHandler(self.handler)

@@ -290,6 +290,7 @@
             "labels": {"type": "array", "default": []},
             "strand_specific_assemblies": {"type": "array", "default": []},
             "reference": {"type": "array", "default": []},
+            "keep_redundant": {"type": "array", "default": []},
             "source_score":{
               "type": "object",
               "default": {},

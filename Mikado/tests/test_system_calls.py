@@ -199,6 +199,8 @@ class PrepareCheck(unittest.TestCase):
         self.conf["prepare"]["files"]["output_dir"] = dir.name
         args = Namespace()
         args.json_conf = self.conf
+        args.procs = 1
+        args.single_thread = True
 
         for test_file in ("trinity.gff3",
                           "trinity.match_matchpart.gff3",
@@ -209,12 +211,16 @@ class PrepareCheck(unittest.TestCase):
                 self.conf["prepare"]["files"]["gff"] = [pkg_resources.resource_filename("Mikado.tests",
                                                                                         test_file)]
 
-                prepare.prepare(args, self.logger)
+                with self.assertLogs(self.logger) as cm:
+                    try:
+                        prepare.prepare(args, self.logger)
+                    except OSError:
+                        raise OSError(cm.output)
 
                 # Now that the program has run, let's check the output
                 fasta = os.path.join(self.conf["prepare"]["files"]["output_dir"],
                                                 "mikado_prepared.fasta")
-                self.assertGreater(os.stat(fasta).st_size, 0, test_file)
+                self.assertGreater(os.stat(fasta).st_size, 0, (test_file, cm.output))
                 fa = pyfaidx.Fasta(fasta)
                 res = dict((_, len(fa[_])) for _ in fa.keys())
                 fa.close()
@@ -354,7 +360,6 @@ class PrepareCheck(unittest.TestCase):
         for b in (False, True):
             with self.subTest(b=b):
                 folder = tempfile.TemporaryDirectory()
-                # _ = open(os.path.join(folder, args.json_conf["prepare"]["files"]["log"]), "wt")
                 args.output_dir = folder.name
                 args.list = None
                 args.gffs = None
@@ -364,7 +369,7 @@ class PrepareCheck(unittest.TestCase):
                 args.keep_redundant = b
                 args.out, args.out_fasta = None, None
                 args.json_conf["prepare"]["files"]["log"] = "prepare.log"
-                args.log = None
+                args.log = open(os.path.join(args.output_dir, "prepare.log"), "wt")
                 self.logger.setLevel("DEBUG")
                 args, _ = prepare_setup(args)
                 self.assertEqual(args.output_dir, folder.name)
@@ -376,23 +381,24 @@ class PrepareCheck(unittest.TestCase):
 
                 with self.assertRaises(SystemExit) as exi:
                     prepare_launcher(args)
-                self.assertTrue(os.path.exists(folder.name))
-                self.assertTrue(os.path.isdir(folder.name))
+                # self.assertTrue(os.path.exists(folder.name))
+                # self.assertTrue(os.path.isdir(folder.name))
                 self.assertEqual(exi.exception.code, 0)
                 self.assertTrue(os.path.exists(os.path.join(folder.name,
                                                             "mikado_prepared.fasta")),
-                                open(os.path.join(folder.name, "prepare.log")).read())
+                                open(os.path.join(folder.name,
+                                                  "prepare.log")).read())
                 fa = pyfaidx.Fasta(os.path.join(folder.name,
                                                 "mikado_prepared.fasta"))
-
+                logged = [_ for _ in open(args.json_conf["prepare"]["files"]["log"])]
                 if b is True:
                     self.assertEqual(len(fa.keys()), 5)
                     self.assertEqual(sorted(fa.keys()), sorted(["AT5G01530."+str(_) for _ in range(5)]))
                 else:
-                    self.assertEqual(len(fa.keys()), 4)
+                    self.assertEqual(len(fa.keys()), 3, (fa.keys(), logged))
                     self.assertIn("AT5G01530.0", fa.keys())
                     self.assertTrue("AT5G01530.1" in fa.keys() or "AT5G01530.2" in fa.keys())
-                    self.assertIn("AT5G01530.3", fa.keys())
+                    self.assertNotIn("AT5G01530.3", fa.keys())
                     self.assertIn("AT5G01530.4", fa.keys())
                 gtf_file = os.path.join(folder.name, "mikado_prepared.gtf")
                 fa.close()
@@ -423,8 +429,11 @@ class PrepareCheck(unittest.TestCase):
                                              transcript.has_stop_codon))
                             self.assertEqual(transcript.is_complete,
                                              transcript.has_start_codon and transcript.has_stop_codon)
-                    self.assertIn("AT5G01530.3", transcripts)
-                    a5 = transcripts["AT5G01530.3"]
+                    # self.assertIn("AT5G01530.3", transcripts)
+                    if "AT5G01530.1" in transcripts:
+                        a5 = transcripts["AT5G01530.1"]
+                    else:
+                        a5 = transcripts["AT5G01530.2"]
                     self.assertTrue(a5.is_coding)
                     self.assertIn("has_start_codon", a5.attributes)
                     self.assertIn("has_stop_codon", a5.attributes)
@@ -453,10 +462,11 @@ class PrepareCheck(unittest.TestCase):
         args = Namespace()
         args.strip_cds = False
         args.json_conf = self.conf
-        for b in (False, ):
+        for b in (False, True):
             with self.subTest(b=b):
                 folder = tempfile.TemporaryDirectory()
                 args.json_conf = self.conf
+                args.json_conf["seed"] = 10
                 args.keep_redundant = b
                 args.output_dir = folder.name
                 args.log = None
@@ -473,10 +483,10 @@ class PrepareCheck(unittest.TestCase):
                     self.assertEqual(len(fa.keys()), 6)
                     self.assertEqual(sorted(fa.keys()), sorted(["AT5G01015." + str(_) for _ in range(6)]))
                 else:
-                    self.assertEqual(len(fa.keys()), 5)
+                    self.assertEqual(len(fa.keys()), 4, "\n".join(list(fa.keys())))
                     self.assertIn("AT5G01015.0", fa.keys())
-                    self.assertTrue("AT5G01015.1" in fa.keys() or "AT5G01015.2" in fa.keys())
-                    self.assertIn("AT5G01015.3", fa.keys())
+                    self.assertTrue("AT5G01015.1" in fa.keys())
+                    self.assertNotIn("AT5G01015.3", fa.keys())
                     self.assertIn("AT5G01015.4", fa.keys())
 
                 gtf_file = os.path.join(self.conf["prepare"]["files"]["output_dir"], "mikado_prepared.gtf")
@@ -509,10 +519,7 @@ class PrepareCheck(unittest.TestCase):
                             self.assertEqual(transcript.is_complete,
                                              transcript.has_start_codon and transcript.has_stop_codon)
 
-                    if "AT5G01015.1" in transcripts:
-                        a_first = transcripts["AT5G01015.1"]
-                    else:
-                        a_first = transcripts["AT5G01015.2"]
+                    a_first = transcripts["AT5G01015.1"]
                     self.assertTrue(a_first.is_coding)
                     self.assertIn("has_start_codon", a_first.attributes)
                     self.assertIn("has_stop_codon", a_first.attributes)
@@ -761,7 +768,6 @@ class PrepareCheck(unittest.TestCase):
         self.conf["prepare"]["files"]["out"] = "mikado_prepared.gtf"
         self.conf["prepare"]["strip_cds"] = True
         self.conf["prepare"]["keep_redundant"] = False
-
         self.conf["reference"]["genome"] = self.fai.filename.decode()
 
         rounds = {
@@ -816,7 +822,7 @@ class PrepareCheck(unittest.TestCase):
                             self.conf["prepare"]["files"]["out_fasta"])))
                         if res != "rand":
                             key = sorted(list(fa.keys()))
-                            self.assertEqual(key, res, round)
+                            self.assertEqual(key, res, (round, rounds[round], cm.output))
                         else:
                             self.assertEqual(len(fa.keys()), 1, (round, fa.keys(), res))
                         gtf = os.path.join(outdir, os.path.basename(

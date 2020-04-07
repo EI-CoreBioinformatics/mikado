@@ -330,12 +330,12 @@ def prepare_hit(hit, query_id, target_id, off_by_one=False, as_list=False, **kwa
                 list(ident[(ident < 0)]),
                 list(ident[ident > query_array.shape[1]])))
         try:
-            query_array[0, ident] = 1
+            query_array[0, ident - off_by_one] = 1
         except IndexError as exc:
             raise IndexError("{}, off by one: {}; min, max: {}, {}; hsp {}".format(
                 exc, off_by_one, ident.min(), ident.max(), hsp._items[0].__dict__))
         try:
-            query_array[1, posit] = 1
+            query_array[1, posit - off_by_one] = 1
         except IndexError as exc:
             raise IndexError("{}, off by one: {}; min, max: {}, {}; frame: {}".format(
                 exc, off_by_one, posit.min(), posit.max(), hsp.query_frame))

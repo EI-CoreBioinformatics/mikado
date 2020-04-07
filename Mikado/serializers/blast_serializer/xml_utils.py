@@ -20,7 +20,7 @@ def get_off_by_one(record):
             macro, minor, micro = [int(_) for _ in version.split(".")]
         except (ValueError, TypeError):
             return False
-        if macro > 0 or minor > 9 or micro > 30:
+        if macro > 0 or minor > 9 or (micro > 30 or micro < 25):
             return False
         else:
             return True

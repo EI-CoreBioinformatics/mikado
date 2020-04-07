@@ -24,8 +24,8 @@ from ..parsers.GTF import GTF
 from ..parsers.bed12 import Bed12Parser
 from ..parsers.bam_parser import BamParser
 from ..parsers import to_gff
+from ..utilities.file_type import filetype
 from ..utilities.log_utils import create_default_logger, formatter
-import magic
 import sqlite3
 import multiprocessing as mp
 import tempfile
@@ -37,6 +37,7 @@ import itertools
 import functools
 import msgpack
 from .gene_dict import GeneDict
+from ..transcripts.transcript import Namespace
 
 
 __author__ = 'Luca Venturini'
@@ -52,7 +53,7 @@ if not hasattr(json, "decoder"):
     json.decoder = Decoder
 
 
-def setup_logger(args, manager):
+def setup_logger(args):
 
     """
     Function to setup the logger for the compare function.
@@ -61,7 +62,7 @@ def setup_logger(args, manager):
     :return:
     """
 
-    args.log_queue = manager.Queue()
+    args.log_queue = mp.Queue(-1)
     args.queue_handler = log_handlers.QueueHandler(args.log_queue)
 
     if args.log is not None:
@@ -251,38 +252,44 @@ def prepare_reference(reference, queue_logger, ref_gff=False,
 
 class Assigners(mp.Process):
 
-    def __init__(self, index, args, queue, returnqueue, counter, dump_dbname):
+    def __init__(self, index, args: Namespace, queue, returnqueue, log_queue, counter, dump_dbname):
         super().__init__()
-        self.__connection = sqlite3.connect(dump_dbname, timeout=600)
-        self.__cursor = self.__connection.cursor()
-
+        self._dump_dbname = dump_dbname
         # self.accountant_instance = Accountant(genes, args, counter=counter)
         if hasattr(args, "fuzzymatch"):
             self.__fuzzymatch = args.fuzzymatch
         else:
             self.__fuzzymatch = 0
-
-        self.assigner_instance = Assigner(index, args,
-                                          printout_tmap=False,
-                                          counter=counter,
-                                          fuzzymatch=self.__fuzzymatch)
-
+        self.__counter = counter
+        self._index = index
         self.queue = queue
         self.returnqueue = returnqueue
-        self.__args = args
-        self.__counter = counter
+        self._args = args
+        self.log_queue = log_queue
 
     def run(self):
+        try:
+            self.__connection = sqlite3.connect("file:{}?mode=ro&nolock=1".format(self._dump_dbname),
+                                                uri=True,
+                                                timeout=600)
+        except sqlite3.OperationalError:
+            raise sqlite3.OperationalError(self._dump_dbname)
+        self.__cursor = self.__connection.cursor()
+        self._args.__dict__["log_queue"] = self.log_queue
+        self.assigner_instance = Assigner(self._index, self._args,
+                                          printout_tmap=False,
+                                          counter=self.__counter,
+                                          fuzzymatch=self.__fuzzymatch)
         while True:
             transcr = self.queue.get()
-            #
             if transcr == "EXIT":
                 self.queue.put_nowait("EXIT")
-                # out = os.path.join(self.__args.out + str(self.__counter) + ".pickle")
                 self.assigner_instance.dump()
                 self.returnqueue.put(self.assigner_instance.db.name)
                 break
             else:
+                assert os.path.exists(self._dump_dbname), self._dump_dbname
+                assert os.stat(self._dump_dbname).st_size > 0, self._dump_dbname
                 dumped = self.__cursor.execute("SELECT json FROM dump WHERE idx=?", (transcr,)).fetchone()
                 dumped = json.loads(dumped[0])
                 transcr = Transcript()
@@ -294,13 +301,21 @@ class Assigners(mp.Process):
 
 class FinalAssigner(mp.Process):
 
-    def __init__(self, index: str, args, queue):
+    def __init__(self, index: str, args: Namespace, queue, log_queue):
 
         super().__init__()
-        self.index, self.args = index, args
+        self.index = index
         self.queue = queue
+        import pickle
+        failed = set()
+        self.args = args
+        self.log_queue = log_queue
 
     def run(self):
+        try:
+            self.args.__dict__["log_queue"] = self.log_queue
+        except AttributeError:
+            raise AttributeError(self.args)
         self.assigner = Assigner(self.index, self.args, printout_tmap=True)
         while True:
             dbname = self.queue.get()
@@ -586,10 +601,24 @@ def parse_prediction(args, index, queue_logger):
 
     queue_logger.info("Starting to parse the prediction")
     if args.processes > 1:
-        procs = [Assigners(index, args, queue, returnqueue, counter, dump_dbhandle.name)
-                            for counter in range(1, args.processes)]
-        final_proc = FinalAssigner(index, args, returnqueue)
+        log_queue = args.log_queue
+        dargs = dict()
+        doself = False
+        for key, item in args.__dict__.items():
+            if key in ("log_queue", "queue_handler"):
+                continue
+            elif key == "self":
+                doself = item
+            else:
+                dargs[key] = item
+        nargs = Namespace(default=False, **dargs)
+        nargs.self = doself
+        assert os.path.exists(dump_dbhandle.name), dump_dbhandle.name
+        assert os.stat(dump_dbhandle.name).st_size > 0, dump_dbhandle.name
+        procs = [Assigners(index, nargs, queue, returnqueue, log_queue, counter, dump_dbhandle.name)
+                 for counter in range(1, args.processes)]
         [proc.start() for proc in procs]
+        final_proc = FinalAssigner(index, nargs, returnqueue, log_queue=log_queue)
         final_proc.start()
         transmitter = functools.partial(transmit_transcript, connection=dump_db)
         assigner_instance = None
@@ -625,7 +654,6 @@ def parse_prediction(args, index, queue_logger):
         dump_db.commit()
         [queue.put(_) for _ in range(lastdone, done + 1)]
     queue_logger.info("Finished parsing, %s transcripts in total", done)
-    dump_dbhandle.close()
     if assigner_instance is None:
         queue.put("EXIT")
         [proc.join() for proc in procs]
@@ -637,6 +665,7 @@ def parse_prediction(args, index, queue_logger):
         assert isinstance(assigner_instance, Assigner)
         assigner_instance.finish()
     queue.close()
+    dump_dbhandle.close()
 
 
 def parse_self(args, gdict: GeneDict, queue_logger):
@@ -686,9 +715,7 @@ def load_index(args, queue_logger):
     # genes, positions = None, None
 
     # New: now we are going to use SQLite for a faster experience
-    wizard = magic.Magic(mime=True)
-
-    if wizard.from_file("{0}.midx".format(args.reference.name)) == b"application/gzip":
+    if filetype("{0}.midx".format(args.reference.name)) == b"application/gzip":
         queue_logger.warning("Old index format detected. Starting to generate a new one.")
         raise CorruptIndex("Invalid index file")
 
@@ -790,10 +817,8 @@ def compare(args):
     # Flags for the parsing
 
     ref_gff = isinstance(args.reference, GFF3)
-
     # pylint: disable=no-member
-    context = multiprocessing.get_context()
-    manager = context.Manager()
+    # multiprocessing.set_start_method(method="spawn", force=True)
     # pylint: enable=no-member
 
     if isinstance(args.out, str):
@@ -801,8 +826,7 @@ def compare(args):
         if _out_folder and not os.path.exists(_out_folder):
             os.makedirs(_out_folder)
 
-    args, handler, logger, log_queue_listener, queue_logger = setup_logger(
-        args, manager)
+    args, handler, logger, log_queue_listener, queue_logger = setup_logger(args)
 
 #    queue_logger.propagate = False
     queue_logger.info("Start")

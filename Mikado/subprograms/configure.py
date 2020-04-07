@@ -21,6 +21,10 @@ from collections import Counter
 import tempfile
 from ..utilities.log_utils import create_null_logger, create_default_logger
 import tomlkit
+try:
+    from yaml import CSafeLoader as yLoader
+except ImportError:
+    from yaml import SafeLoader as yLoader
 
 
 __author__ = 'Luca Venturini'
@@ -171,7 +175,7 @@ def create_config(args):
         if args.external.endswith("json"):
             loader = json.load
         else:
-            loader = functools.partial(yaml.load, Loader=yaml.CSafeLoader)
+            loader = functools.partial(yaml.load, Loader=yLoader)
         with open(args.external) as external:
             external_conf = loader(external)
         # Overwrite values specific to Mikado
@@ -298,10 +302,10 @@ def create_config(args):
 switch.")
             sys.exit(1)
         else:
-            args.json_conf["pick"]["run_options"]["only_reference_update"] = True
+            config["pick"]["run_options"]["only_reference_update"] = True
 
     if args.check_references is True:
-        args.json_conf["pick"]["run_options"]["check_references"] = True
+        config["pick"]["run_options"]["check_references"] = True
 
     if args.scoring is not None:
         if args.copy_scoring is not False:

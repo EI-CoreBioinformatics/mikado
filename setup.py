@@ -11,6 +11,9 @@ from os import path
 import glob
 import re
 import sys
+import numpy as np
+from scipy._build_utils import numpy_nodepr_api
+
 
 here = path.abspath(path.dirname("__file__"))
 
@@ -31,13 +34,28 @@ if sys.version_info.major != 3:
     and is not compatible with Python2. Please upgrade your python before proceeding!""")
 
 extensions = [Extension("Mikado.utilities.overlap",
-                        sources=[path.join("Mikado", "utilities", "overlap.pyx")]),
+                        sources=[path.join("Mikado", "utilities", "overlap.pyx")],
+                        **numpy_nodepr_api),
               Extension("Mikado.scales.f1",
-                        sources=[path.join("Mikado", "scales", "f1.pyx")]),
+                        sources=[path.join("Mikado", "scales", "f1.pyx")],
+                        **numpy_nodepr_api),
               Extension("Mikado.scales.contrast",
-                        sources=[path.join("Mikado", "scales", "contrast.pyx")]),
+                        sources=[path.join("Mikado", "scales", "contrast.pyx")],
+                        **numpy_nodepr_api),
               Extension("Mikado.utilities.intervaltree",
-                        sources=[path.join("Mikado", "utilities", "intervaltree.pyx")])]
+                        sources=[path.join("Mikado", "utilities", "intervaltree.pyx")],
+                        **numpy_nodepr_api),
+              Extension("Mikado.serializers.blast_serializer.btop_parser",
+                        include_dirs=[np.get_include()],
+                        language="c++",
+                        sources=[path.join("Mikado", "serializers", "blast_serializer", "btop_parser.pyx")],
+                        **numpy_nodepr_api),
+              Extension("Mikado.serializers.blast_serializer.aln_string_parser",
+                        include_dirs=[np.get_include()],
+                        language="c++",
+                        sources=[path.join("Mikado", "serializers", "blast_serializer", "aln_string_parser.pyx")],
+                        **numpy_nodepr_api)
+              ]
 
 setup(
     name="Mikado",
@@ -75,7 +93,7 @@ setup(
         "mysql": ["mysqlclient>=1.3.6"],
         "bam": ["pysam>=0.8"]
     },
-    test_suite="nose2.collector.collector",
+    # test_suite="nose2.collector.collector",
     package_data={
         "Mikado.configuration":
             glob.glob("Mikado/configuration/*json") + glob.glob("Mikado/configuration/*yaml"),
@@ -86,6 +104,9 @@ setup(
             glob.glob(path.join("Mikado", "daijin", "*yaml")) + glob.glob("Mikado/daijin/*json"),
         "Mikado.utilities.overlap": [path.join("Mikado", "utilities", "overlap.pxd")],
         "Mikado.utilities.intervaltree": [path.join("Mikado", "utilities", "intervaltree.pxd")],
+        "Mikado.serializers.blast_serializers": glob.glob(path.join("Mikado", "serializers", "blast_serializers",
+                                                                    "*pxd")),
+        "Mikado.tests.blast_data": glob.glob(path.join("Mikado", "tests", "blast_data", "*"))
         },
     include_package_data=True
 )

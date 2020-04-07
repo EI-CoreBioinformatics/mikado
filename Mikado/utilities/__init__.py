@@ -13,6 +13,8 @@ import numpy
 import json
 from itertools import zip_longest
 from .overlap import overlap
+from . import intervaltree
+from .intervaltree import Interval, IntervalTree
 
 __author__ = 'Luca Venturini'
 

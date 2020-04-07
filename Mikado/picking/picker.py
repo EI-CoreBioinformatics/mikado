@@ -691,10 +691,6 @@ Please update your configuration files in the future.""".format(
         mapper[counter] = chrom
         locus_queue.put((counter, transcripts))
 
-        # if submit_remaining is True or (counter >= max_submit and counter % max_submit == 0):
-        #     # conn.commit()
-        #     base = floor((counter - 1) / max_submit) * max_submit + 1
-        #     [locus_queue.put((num,)) for num in range(base, counter + 1)]
         return mapper
 
     @staticmethod
@@ -858,10 +854,11 @@ Please update your configuration files in the future.""".format(
         fields = line.split("\t")
         if len(fields) != 9:
             return None
+
         try:
-            start = int(fields[3])
-            end = int(fields[4])
-        except ValueError:
+            start = fast_int(fields[3], raise_on_invalid=True)
+            end = fast_int(fields[4], raise_on_invalid=True)
+        except (ValueError, SystemError, TypeError):
             return None
         chrom = fields[0]
         is_exon = (GtfLine.exon_pattern.search(fields[2]) is not None)
@@ -876,7 +873,10 @@ Please update your configuration files in the future.""".format(
         if tid is None:
             raise InvalidJson("Corrupt input GTF file, offending line:\n{}".format(line))
         tid = tid.groups()[0]
-        phase = fast_int(fields[7], default=None)
+        try:
+            phase = fast_int(fields[7], default=None)
+        except (SystemError, TypeError, ValueError):
+            return None
         return line, chrom, fields[2], start, end, phase, tid, is_transcript
 
     def __parse_multithreaded(self, locus_queue, conn, cursor):

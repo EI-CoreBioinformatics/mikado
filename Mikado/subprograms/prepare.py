@@ -105,21 +105,20 @@ def setup(args):
         args.json_conf["prepare"]["files"]["labels"] = []
         args.json_conf["prepare"]["files"]["strand_specific_assemblies"] = []
         args.json_conf["prepare"]["files"]["source_score"] = dict()
+        args.json_conf["prepare"]["files"]["keep_redundant"] = []
 
         for line in args.list:
             fields = line.rstrip().split("\t")
             gff_name, label, stranded = fields[:3]
-            if stranded not in ("True", "False"):
+            if stranded.lower() not in ("true", "false"):
                 raise ValueError("Malformed line for the list: {}".format(line))
             if gff_name in args.json_conf["prepare"]["files"]["gff"]:
                 raise ValueError("Repeated prediction file: {}".format(line))
             elif label != '' and label in args.json_conf["prepare"]["files"]["labels"]:
                 raise ValueError("Repeated label: {}".format(line))
-            elif stranded not in ["False", "True"]:
-                raise ValueError("Invalid strandedness value (must be False or True): {}".format(line))
             args.json_conf["prepare"]["files"]["gff"].append(gff_name)
             args.json_conf["prepare"]["files"]["labels"].append(label)
-            if stranded == "True":
+            if stranded.capitalize() == "True":
                 args.json_conf["prepare"]["strand_specific_assemblies"].append(gff_name)
             if len(fields) > 3:
                 try:
@@ -127,6 +126,15 @@ def setup(args):
                 except ValueError:
                     score = 0
                 args.json_conf["prepare"]["files"]["source_score"][label] = score
+                try:
+                    keep_redundant = fields[4]
+                    if keep_redundant.lower() in ("false", "true"):
+                        keep_redundant = eval(keep_redundant.capitalize())
+                    else:
+                        raise ValueError("Malformed line. The last field should be either True or False.")
+                except IndexError:
+                    keep_redundant = False
+                args.json_conf["prepare"]["files"]["keep_redundant"].append(keep_redundant)
 
     else:
         if args.gff:
@@ -158,6 +166,17 @@ def setup(args):
             if not args.json_conf["prepare"]["files"]["labels"]:
                 args.labels = [""] * len(args.json_conf["prepare"]["files"]["gff"])
                 args.json_conf["prepare"]["files"]["labels"] = args.labels
+        if args.json_conf["prepare"]["files"]["keep_redundant"]:
+            assert len(args.json_conf["prepare"]["files"]["keep_redundant"]) == len(
+                args.json_conf["prepare"]["files"]["gff"])
+        else:
+            args.json_conf["prepare"]["files"]["keep_redundant"] = [False] * len(
+                args.json_conf["prepare"]["files"]["gff"])
+
+    if args.json_conf["prepare"]["files"]["keep_redundant"] == []:
+        args.json_conf["prepare"]["files"]["keep_redundant"] = [False] * len(args.json_conf["prepare"]["files"]["gff"])
+    elif len(args.json_conf["prepare"]["files"]["keep_redundant"]) != len(args.json_conf["prepare"]["files"]["gff"]):
+        raise ValueError("Mismatch between keep_redundant and gff files")
 
     for option in ["minimum_cdna_length", "procs", "single", "max_intron_length"]:
         if getattr(args, option) in (None, False):
@@ -264,8 +283,11 @@ def prepare_parser():
                         dest="strand_specific_assemblies",
                         help="Comma-delimited list of strand specific assemblies.")
     parser.add_argument("--list", type=argparse.FileType("r"),
-                        help="""Tab-delimited file containing rows with the following format
-                        <file>  <label> <strandedness> <score(optional)> <always_keep(optional)>""")
+                        help="""Tab-delimited file containing rows with the following format:
+<file>  <label> <strandedness> <score(optional)> <is_reference(optional)> <always_keep(optional)
+strandedness, is_reference and always_keep must be boolean values (True, False)
+score must be a valid floating number.
+""")
     parser.add_argument("-l", "--log", type=argparse.FileType("w"), default=None,
                         help="Log file. Optional.")
     parser.add_argument("--lenient", action="store_true", default=None,
@@ -283,7 +305,7 @@ def prepare_parser():
     parser.add_argument("--labels", type=str, default="",
                         help="""Labels to attach to the IDs of the transcripts of the input files,
                         separated by comma.""")
-    parser.add_argument("--single", action="store_true", default=False,
+    parser.add_argument("--single", "--single-thread", action="store_true", default=False,
                         help="Disable multi-threading. Useful for debugging.")
     parser.add_argument("-od", "--output-dir", dest="output_dir",
                         type=str, default=None,

@@ -24,6 +24,7 @@ from ..exceptions import InvalidJson
 import pyfaidx
 import numpy
 from ..exceptions import InvalidSerialization
+from ..serializers.blast_serializer.tabular_utils import blast_keys
 
 
 __author__ = 'Luca Venturini'
@@ -47,7 +48,7 @@ def xml_launcher(xml_candidate=None, json_conf=None, logger=None):
     :return:
     """
 
-    xml_serializer = blast_serializer.XmlSerializer(
+    xml_serializer = blast_serializer.BlastSerializer(
         xml_candidate,
         json_conf=json_conf,
         logger=logger)
@@ -114,9 +115,8 @@ def load_blast(args, logger):
             if os.path.isdir(xml):
                 filenames.extend(
                     [os.path.join(xml, _xml) for _xml in
-                     os.listdir(xml) if (_xml.endswith(".xml") or
-                                         _xml.endswith(".xml.gz") or
-                                         _xml.endswith(".asn.gz")) is True])
+                     os.listdir(xml) if _xml.endswith(
+                        (".xml", ".asn", ".tsv", ".txt", ".xml.gz", ".asn.gz", ".tsv.gz", ".txt.gz")) is True])
             else:
                 filenames.extend(glob.glob(xml))
 
@@ -198,7 +198,7 @@ def setup(args):
     for key in args.json_conf["serialise"]:
         if key == "files":
             for file_key in args.json_conf["serialise"]["files"]:
-                if getattr(args, file_key):
+                if getattr(args, file_key, None):
                     if file_key in ("xml", "junctions", "orfs"):
                         setattr(args, file_key, getattr(args, file_key).split(","))
                     args.json_conf["serialise"]["files"][file_key] = getattr(args, file_key)
@@ -436,11 +436,11 @@ a valid start codon.""")
                       help="Disable the start adjustment algorithm. Useful when using e.g. TransDecoder vs 5+.")
 
     blast = parser.add_argument_group()
-    blast.add_argument("--max_target_seqs", type=int, default=None,
+    blast.add_argument("--max-target-seqs", type=int, default=None,
                        help="Maximum number of target sequences.")
-    blast.add_argument("--blast_targets", default=[], type=comma_split,
+    blast.add_argument("-bt", "--blast-targets", "--blast_targets", default=[], type=comma_split,
                        help="Target sequences")
-    blast.add_argument("--xml", type=str, help="""XML file(s) to parse.
+    blast.add_argument("--xml", "--tsv", type=str, dest="xml", help="""BLAST file(s) to parse.
     They can be provided in three ways:
     - a comma-separated list
     - as a base folder
@@ -448,7 +448,11 @@ a valid start codon.""")
     enclose the filename pattern in double quotes.
 
     Multiple folders/file patterns can be given, separated by a comma.
-    """, default=[])
+    BLAST files must be either of two formats:
+- BLAST XML
+- BLAST tabular format, with the following **custom** fields:
+    {fields}
+    """.format(fields=" ".join(blast_keys)), default=[])
     blast.add_argument("-p", "--procs", type=int,
                        help="""Number of threads to use for
     analysing the BLAST files. This number should not be higher than the total number of XML files.
@@ -479,9 +483,9 @@ a valid start codon.""")
                          help="""Flag. If set, an existing databse will be deleted (sqlite)
                          or dropped (MySQL/PostGreSQL) before beginning the serialisation.""")
     # If None, the default configuration will be used (from the blueprint)
-    generic.add_argument("--json-conf", default=None,
+    generic.add_argument("--json-conf", default=configurator.to_json(None),
                          dest="json_conf", type=configurator.to_json,
-                         required=True)
+                         required=False)
     generic.add_argument("-l", "--log", type=str, default=None, nargs='?', help="Optional log file. Default: stderr")
     parser.add_argument("-od", "--output-dir", dest="output_dir",
                         type=str, default=None,

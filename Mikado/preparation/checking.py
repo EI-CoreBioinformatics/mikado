@@ -2,7 +2,9 @@ import functools
 import multiprocessing
 import multiprocessing.queues
 import os
+import sqlalchemy as sqla
 import pysam
+import msgpack
 from Mikado.transcripts.transcriptchecker import TranscriptChecker
 from .. import exceptions
 from ..loci import Transcript
@@ -12,6 +14,8 @@ import queue
 import time
 import sys
 import numpy
+import rapidjson as json
+import operator
 
 
 __author__ = 'Luca Venturini'
@@ -136,10 +140,11 @@ def create_transcript(lines,
 class CheckingProcess(multiprocessing.Process):
 
     def __init__(self,
-                 submission_queue,
+                 batch_file,
                  logging_queue,
                  fasta,
                  identifier,
+                 shelve_stacks,
                  fasta_out,
                  gtf_out,
                  tmpdir,
@@ -172,11 +177,12 @@ class CheckingProcess(multiprocessing.Process):
             create_queue_logger(self)
         except AttributeError as exc:
             raise AttributeError(exc)
+        if batch_file is None:
+            raise ValueError("Invalid Batch file!")
         self.__lenient = False
         self.lenient = lenient
         self.__fasta = fasta
         self.__submission_queue = None
-        self.__set_submission_queue(submission_queue)
         self.fasta = pysam.FastaFile(self.__fasta)
         self.fasta_out = os.path.join(tmpdir, "{0}-{1}".format(
             fasta_out, self.identifier
@@ -185,9 +191,28 @@ class CheckingProcess(multiprocessing.Process):
             gtf_out, self.identifier
         ))
         self.force_keep_cds = force_keep_cds
+        self.shelve_stacks = shelve_stacks
+        self.batch_file = batch_file
+
+    def _get_stacks(self):
+        shelve_stacks = dict()
+        for shelf in self.shelve_stacks:
+            shelve_stacks[shelf] = dict()
+            conn_string = "file:{shelf}?mode=ro&nolock=1".format(shelf=shelf)
+            engine = sqla.engine.create_engine(
+                "sqlite:///{shelf}".format(shelf=shelf),
+                connect_args={"check_same_thread": False, "uri": True}
+            )
+            shelve_stacks[shelf] = {"conn": engine, "conn_string": conn_string}
+
+        return shelve_stacks
+
+    def _get_keys(self):
+        keys = msgpack.loads(open(self.batch_file, "rb").read(), raw=False, strict_map_key=False)
+        keys = sorted(keys, key=operator.itemgetter(0))
+        return keys
 
     def run(self):
-
         checker = functools.partial(create_transcript,
                                     # lenient=self.lenient,
                                     force_keep_cds=self.force_keep_cds,
@@ -202,16 +227,23 @@ class CheckingProcess(multiprocessing.Process):
         self.logger.debug(self.canonical)
 
         __printed = 0
+        shelve_stacks = self._get_stacks()
+        file_keys = self._get_keys()
+
         try:
-            while True:
-                lines, start, end, counter = self.submission_queue.get()
-                if lines == "EXIT":
-                    self.logger.debug("Finished for %s", self.name)
-                    self.submission_queue.put((lines,
-                                               start,
-                                               end,
-                                               counter))
-                    break
+            for key in file_keys:
+                counter, keys = key
+                # lines, start, end, counter = self.submission_queue.get()
+                tid, chrom, (pos) = keys
+                tid, shelf_name = tid
+                start, end = pos
+                item = shelve_stacks[shelf_name]["conn"].execute(
+                    "SELECT features FROM dump WHERE tid = ?", (tid,)).fetchone()
+
+                try:
+                    lines = json.loads(item[0])
+                except TypeError:
+                    raise TypeError(item)
                 self.logger.debug("Checking %s", lines["tid"])
                 if "is_reference" not in lines:
                     raise KeyError(lines)
@@ -238,7 +270,6 @@ class CheckingProcess(multiprocessing.Process):
             raise KeyboardInterrupt
         except Exception as exc:
             self.logger.error(exc)
-            self.submission_queue.close()
             self.logging_queue.close()
             raise
 
@@ -296,20 +327,20 @@ class CheckingProcess(multiprocessing.Process):
             raise ValueError("Invalid lenient value: {}".format(lenient))
         self.__lenient = lenient
 
-    @property
-    def submission_queue(self):
-        return self.__submission_queue
-
-    def __set_submission_queue(self, submission):
-        if isinstance(submission, multiprocessing.queues.SimpleQueue):
-            if sys.version_info.minor < 6:
-                raise TypeError("Invalid queue object for Python 3.5 and earlier!")
-            submission.put_nowait = submission.put
-        elif not isinstance(submission, (multiprocessing.queues.Queue,
-                                       queue.Queue)):
-            raise TypeError("Invalid queue object: {}".format(type(submission)))
-        self.__submission_queue = submission
-
+    # @property
+    # def submission_queue(self):
+    #     return self.__submission_queue
+    #
+    # def __set_submission_queue(self, submission):
+    #     if isinstance(submission, multiprocessing.queues.SimpleQueue):
+    #         if sys.version_info.minor < 6:
+    #             raise TypeError("Invalid queue object for Python 3.5 and earlier!")
+    #         submission.put_nowait = submission.put
+    #     elif not isinstance(submission, (multiprocessing.queues.Queue,
+    #                                    queue.Queue)):
+    #         raise TypeError("Invalid queue object: {}".format(type(submission)))
+    #     self.__submission_queue = submission
+    #
     @property
     def logging_queue(self):
         return self.__logging_queue

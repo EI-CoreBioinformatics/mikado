@@ -1,6 +1,6 @@
 from ..loci.reference_gene import Gene
-import magic
 from ..exceptions import CorruptIndex
+from ..utilities.file_type import filetype
 from ..utilities.log_utils import create_null_logger
 import sqlite3
 import json
@@ -108,14 +108,13 @@ class GeneDict:
 
 
 def check_index(reference, queue_logger):
-    wizard = magic.Magic(mime=True)
 
     if reference.endswith("midx"):
         reference = reference
     else:
         reference = "{}.midx".format(reference)
 
-    if wizard.from_file(reference) == b"application/gzip":
+    if filetype(reference) == b"application/gzip":
         queue_logger.warning("Old index format detected. Starting to generate a new one.")
         raise CorruptIndex("Invalid index file")
 

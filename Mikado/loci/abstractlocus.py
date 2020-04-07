@@ -772,12 +772,10 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                         elif exon[1] in internal_splices:  # This means that the start is dangling
                             start_found = True
 
-                is_retained = is_retained or (start_found and end_found)
-
                 logger.debug(
                     "Exon %s vs intron %s: strand %s, retained %s, start found %s, end found %s (I.S. %s); frags: %s",
-                    exon, intron, strand, is_retained, start_found, end_found, internal_splices, frags)
-                if is_retained:
+                    exon, intron, strand, start_found and end_found, start_found, end_found, internal_splices, frags)
+                if start_found and end_found:
                     logger.debug("Exon %s is retained (for intron %s)", exon, intron)
                     # Now we have to check whether the CDS breaks within the intron
                     if intron in cds_introns:
@@ -789,6 +787,8 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                             else:
                                 logger.debug("Frag %s of exon %s does not intersect intron %s.",
                                              frag, exon, intron)
+
+                is_retained = is_retained or (start_found and end_found)
 
         return is_retained, cds_broken
 

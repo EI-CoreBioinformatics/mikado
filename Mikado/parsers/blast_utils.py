@@ -7,23 +7,14 @@ This module contains generic-purpose utilities to deal with BLAST XML files.
 import os
 import subprocess
 import gzip
-import multiprocessing
 import io
-import collections
-import time
-import threading
-import queue
-import logging
 from . import HeaderError
-from ..utilities.log_utils import create_null_logger
-# from Bio.SearchIO.BlastIO.blast_xml import BlastXmlParser as xparser
-from Bio.Blast.NCBIXML import parse as xparser
-# import Bio.SearchIO
-# import functools
-# xparser = functools.partial(Bio.SearchIO.parse, format="blast-xml")
-from ..utilities import overlap
+from operator import itemgetter
+from Bio.SearchIO import parse as bio_parser
+import functools
 import xml.etree.ElementTree
 import numpy as np
+xparser = functools.partial(bio_parser, format="blast-xml")
 
 
 __author__ = 'Luca Venturini'
@@ -206,42 +197,6 @@ class BlastOpener:
         return valid, default_header, exc
 
 
-def __calculate_merges(intervals: np.array):
-    """
-    Internal function used by merge to perform the proper merging calculation.
-    :param intervals:
-    :return:
-    """
-
-    if intervals.shape[0] == 1:
-        return intervals
-
-    new_intervals = np.ma.array(np.empty(intervals.shape, dtype=intervals.dtype),
-                                dtype=intervals.dtype,
-                                mask=True)
-
-    pos = 0
-    current = None
-
-    for iv in intervals:
-        if current is None:
-            current = iv
-            continue
-        else:
-            if overlap(current, iv, positive=False) >= 0:
-                current = (min(current[0], iv[0]),
-                           max(current[1], iv[1]))
-            else:
-                new_intervals[pos] = current
-                current = iv
-                pos += 1
-
-    new_intervals[pos] = current
-    new_intervals = np.array(new_intervals[~new_intervals[:, 0].mask], dtype=new_intervals.dtype)
-    new_intervals = new_intervals[np.lexsort((new_intervals[:, 1], new_intervals[:, 0]))]
-    return new_intervals
-
-
 def merge(intervals: [(int, int)], query_length=None, offset=1):
     """
     This function is used to merge together intervals, which have to be supplied as a list
@@ -257,6 +212,8 @@ def merge(intervals: [(int, int)], query_length=None, offset=1):
 
     :returns: merged intervals, length covered
 
+
+
     """
 
     # Assume tuple of the form (start,end)
@@ -266,21 +223,21 @@ def merge(intervals: [(int, int)], query_length=None, offset=1):
         raise ValueError("Invalid offset - only 0 and 1 allowed: {}".format(offset))
 
     try:
-        intervals = np.array([sorted(_) for _ in intervals], dtype=np.int)
+        intervals = np.array(sorted([sorted(_) for _ in intervals], key=itemgetter(0)), dtype=np.int)
         if intervals.shape[1] != 2:
             raise ValueError("Invalid shape for intervals: {}".format(intervals.shape))
     except (TypeError, ValueError):
         raise TypeError("Invalid array for intervals: {}".format(intervals))
-
-    intervals = intervals[np.lexsort((intervals[:,1], intervals[:,0]))]
-    intervals = __calculate_merges(intervals)
-    total_length_covered = int(abs(intervals[:,1] - intervals[:,0] + offset).sum())
-
-    if not query_length:
-        query_length = int(abs(intervals[:,1].max() - intervals[:,0].min() + offset))
+    intervals.sort()
+    starts = intervals[:, 0]
+    ends = np.maximum.accumulate(intervals[:, 1])
+    valid = np.zeros(len(intervals) + 1, dtype=np.bool)
+    valid[0], valid[1:-1], valid[-1] = True, starts[1:] >= ends[:-1], True
+    intervals = np.vstack((starts[:][valid[:-1]], ends[:][valid[1:]])).T
+    total_length_covered = int(abs(intervals[:, 1] - intervals[:, 0] + offset).sum())
 
     if query_length and total_length_covered > query_length:
         raise AssertionError("Something went wrong, original length {}, total length {}".format(
             query_length, total_length_covered))
 
-    return [(int(_[0]), int(_[1])) for _ in intervals], total_length_covered
+    return [tuple([int(_[0]), int(_[1])]) for _ in intervals], total_length_covered

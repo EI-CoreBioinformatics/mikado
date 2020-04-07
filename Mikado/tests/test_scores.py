@@ -38,7 +38,7 @@ class ScoreTester(unittest.TestCase):
         self.assertEqual(b3.thick_start, 201)
         self.assertFalse(b3.invalid, b3.invalid_reason)
         self.assertEqual(b3.block_count, 3)
-        self.assertEqual(b3.block_sizes, [300, 300, 300])
+        self.assertTrue((b3.block_sizes == [300, 300, 300]).all())
         self.t3 = Transcript(b3)
         self.t3.finalize()
         self.assertTrue(self.t3.is_coding)

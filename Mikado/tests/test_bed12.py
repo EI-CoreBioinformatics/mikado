@@ -80,7 +80,7 @@ class Bed12GenToTrans(unittest.TestCase):
         seq += "ATG" * 79
         seq += "TAA" * 1
         seq += "A" * 80
-        self.assertEqual(len(seq), sum(bed.block_sizes))
+        self.assertEqual(len(seq), bed.block_sizes.sum())
         tbed = bed.to_transcriptomic(sequence=seq)
         self.assertEqual(tbed.start, 1)
         self.assertEqual(tbed.end, 390)
@@ -107,7 +107,7 @@ class Bed12GenToTrans(unittest.TestCase):
         seq += "ATG" * 79
         seq += "TAA" * 1
         seq += "A" * 70
-        self.assertEqual(len(seq), sum(bed.block_sizes))
+        self.assertEqual(len(seq), bed.block_sizes.sum())
         tbed = bed.to_transcriptomic(sequence=seq)
         self.assertEqual(tbed.start, 1)
         self.assertEqual(tbed.end, 390)
@@ -163,7 +163,7 @@ CTCGGCAGATAG"""
         self.assertEqual(bed.thick_start, 207087616)
         self.assertEqual(bed.thick_end, 207088433)
 
-        self.assertEqual(len(string_seq), sum(bed.block_sizes))
+        self.assertEqual(len(string_seq), bed.block_sizes.sum())
         tbed = bed.to_transcriptomic(sequence=string_seq)
         self.assertEqual(tbed.thick_end - tbed.thick_start + 1, 672)
         self.assertEqual(tbed.thick_start, string_seq.index("ATGGCGCTGATCGATTGGA") + 1)

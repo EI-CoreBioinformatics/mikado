@@ -15,23 +15,23 @@ import re
 
 __author__ = 'Luca Venturini'
 
-[intern(_) for _ in ["+", "-", "?"]]
+[intern(_) for _ in ["+", "-", "?", "true", "True", "false", "False"]]
+
+
+def last(value):
+    if value in ("true", "True"):
+        value = True
+    elif value in ("False", "false"):
+        value = False
+    return value
+
+
+fast_number = functools.partial(fast_float,
+                                on_fail=last)
 
 
 def _attribute_definition(val):
-    val = val.replace('"', '')
-
-    def last(value):
-        if value in ("true", "True"):
-            value = True
-        elif value in ("False", "false"):
-            value = False
-        return value
-
-    fast_number = functools.partial(fast_float,
-                                    on_fail=last)
-    val = fast_int(val, on_fail=fast_number)
-    return val
+    return fast_int(val.replace('"', ''), on_fail=fast_number)
 
 
 # This class has exactly how many attributes I need it to have
@@ -89,7 +89,10 @@ class GFAnnotation(metaclass=abc.ABCMeta):
             return
 
         self.chrom, self.source = self._fields[0:2]
-        self.start, self.end = tuple(int(i) for i in self._fields[3:5])
+        try:
+            self.start, self.end = tuple(fast_int(i, default=None) for i in self._fields[3:5])
+        except SystemError:
+            raise ValueError("Invalid start and end values: {}".format(" ".join(self._fields[3:5])))
 
         self.score = self._fields[5]
         self.strand = self._fields[6]
@@ -212,7 +215,7 @@ class GFAnnotation(metaclass=abc.ABCMeta):
         phase = self.phase
 
         if score is not None:
-            score = int(score)
+            score = fast_int(score, default=".")
         else:
             score = "."
         if strand is None:
@@ -292,7 +295,12 @@ class GFAnnotation(metaclass=abc.ABCMeta):
         if score == ".":
             score = None
         elif score is not None:
-            score = fast_float(args[0])
+            try:
+                score = fast_float(args[0], default=None)
+            except ValueError:
+                score = None
+            except SystemError:
+                raise ValueError("Invalid score value: {}".format(args[0]))
         if score is not None and not isinstance(score, float):
             raise TypeError(score)
         self.__score = score
@@ -324,7 +332,7 @@ class GFAnnotation(metaclass=abc.ABCMeta):
         else:
             try:
                 phase = fast_int(value)
-            except (TypeError, ValueError):
+            except (TypeError, ValueError, SystemError):
                 raise ValueError("Invalid phase: {0} (type: {1})".format(value, type(value)))
             if phase in (-1, 0, 1, 2):
                 phase = max(phase, 0)

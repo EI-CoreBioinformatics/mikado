@@ -1,8 +1,8 @@
-from . import Query, Target, Hsp, Hit, prepare_hit, InvalidHit
+from . import Hsp, Hit
 import sqlalchemy.exc
 
 
-def load_into_db(self, hits, hsps, force=False):
+def load_into_db(self, hits, hsps, force=False, raw=False):
     """
     :param hits:
     :param hsps:
@@ -14,8 +14,7 @@ def load_into_db(self, hits, hsps, force=False):
     :return:
     """
 
-    self.logger.debug("Checking whether to load %d hits and %d hsps",
-                      len(hits), len(hsps))
+    # self.logger.debug("Checking whether to load %d hits and %d hsps", len(hits), len(hsps))
 
     tot_objects = len(hits) + len(hsps)
     if len(hits) == 0:
@@ -26,17 +25,36 @@ def load_into_db(self, hits, hsps, force=False):
         # Bulk load
         self.logger.debug("Loading %d BLAST objects into database", tot_objects)
 
+        if not hasattr(self, "hit_i_string"):
+            self.hit_i_string = str(Hit.__table__.insert(bind=self.engine).compile())
+            self.hsp_i_string = str(Hsp.__table__.insert(bind=self.engine).compile())
+
         try:
             # pylint: disable=no-member
-            self.session.begin(subtransactions=True)
-            self.engine.execute(Hit.__table__.insert(), hits)
-            self.engine.execute(Hsp.__table__.insert(), hsps)
+            # self.session.begin(subtransactions=True)
+            if hasattr(self, "lock") and self.lock is not None:
+                self.lock.acquire()
+            if raw is True:
+                self.engine.execute(self.hit_i_string, hits)
+                self.engine.execute(self.hsp_i_string, hsps)
+            else:
+                self.engine.execute(Hit.__table__.insert(), hits)
+                self.engine.execute(Hsp.__table__.insert(), hsps)
+            if hasattr(self, "lock") and self.lock is not None:
+                self.lock.release()
             # pylint: enable=no-member
-            self.session.commit()
         except sqlalchemy.exc.IntegrityError as err:
             self.logger.critical("Failed to serialise BLAST!")
             self.logger.exception(err)
             raise err
         self.logger.debug("Loaded %d BLAST objects into database", tot_objects)
         hits, hsps = [], []
+
+    if force is True: # Final push
+        if hasattr(self, "lock") and self.lock is not None:
+            self.lock.acquire()
+        self.session.commit()
+        if hasattr(self, "lock") and self.lock is not None:
+            self.lock.release()
+
     return hits, hsps

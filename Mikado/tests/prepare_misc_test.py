@@ -59,9 +59,11 @@ class MiscTest(unittest.TestCase):
             # FASTA out and GTF out are just the file names, without the temporary directory
             # Moreover they will be complemented by the identifier!
 
+            batch_file = tempfile.NamedTemporaryFile(mode="wb", delete=False)
             proc = ProcRunner(checking.CheckingProcess,
-                              self.submission_queue,
+                              batch_file,
                               logging_queue,
+                              shelve_stacks=[],
                               fasta=self.fasta,
                               identifier=0,
                               fasta_out=self.fasta_out,
@@ -69,6 +71,8 @@ class MiscTest(unittest.TestCase):
                               seed=None,
                               tmpdir=tempfile.gettempdir(),
                               log_level="DEBUG")
+            import msgpack
+            msgpack.dump([], batch_file)
             proc.start()
             time.sleep(0.1)  # Necessary otherwise the check might be too fast for the FileSystem
             self.assertEqual(proc.func.fasta_out, os.path.join(tempfile.gettempdir(), self.fasta_out + "-0"))
@@ -80,6 +84,7 @@ class MiscTest(unittest.TestCase):
             proc.stop()
             os.remove(proc.func.fasta_out)
             os.remove(proc.func.gtf_out)
+            batch_file.close()
             assert not proc.is_alive()
 
         self.maxDiff = 10000
@@ -102,9 +107,10 @@ class MiscTest(unittest.TestCase):
         else:
             logger, listener, logging_queue = self.create_logger("test_wrong_initialisation", simple=True)
 
-        kwds = {"submission_queue": self.submission_queue,
+        kwds = {"batch_file": tempfile.mkstemp(),
                 "logging_queue": logging_queue,
                 "identifier": 0,
+                "shelve_stacks": [tempfile.mkstemp()],
                 "fasta_out": self.fasta_out,
                 "gtf_out": self.gtf_out,
                 "tmpdir": tempfile.gettempdir(),
@@ -113,7 +119,7 @@ class MiscTest(unittest.TestCase):
                 "log_level": "WARNING"
                 }
 
-        for key in ["submission_queue", "logging_queue", "identifier", "lenient"]:
+        for key in ["batch_file", "logging_queue", "identifier", "lenient"]:
             with self.subTest(key=key):
                 _kwds = kwds.copy()
                 _kwds[key] = None
@@ -198,17 +204,7 @@ class MiscTest(unittest.TestCase):
         with self.assertLogs(logger=logger, level="DEBUG") as cmo:
             # FASTA out and GTF out are just the file names, without the temporary directory
             # Moreover they will be complemented by the identifier!
-
-            proc = ProcRunner(checking.CheckingProcess,
-                              self.submission_queue,
-                              logging_queue,
-                              fasta=self.fasta,
-                              identifier=logger.name,
-                              fasta_out=self.fasta_out,
-                              gtf_out=self.gtf_out,
-                              seed=None,
-                              tmpdir=tempfile.gettempdir(),
-                              log_level="DEBUG")
+            import msgpack
             lines = dict()
             lines["chrom"] = "Chr5"
             lines["strand"] = "+"
@@ -220,6 +216,33 @@ class MiscTest(unittest.TestCase):
             lines["features"]["exon"] = [(208937, 209593), (209881, 210445)]
             lines["strand_specific"] = True
             lines["is_reference"] = False
+            import rapidjson as json
+            features = json.dumps(lines)
+            dumpdb = tempfile.NamedTemporaryFile(delete=False, suffix=".db")
+            import sqlite3
+            conn = sqlite3.connect(dumpdb.name)
+            conn.execute(
+                "CREATE TABLE dump (chrom text, start integer, end integer, strand text, tid text, features blob)")
+            conn.execute(
+                "INSERT INTO dump VALUES (?, ?, ?, ?, ?, ?)",
+                (lines["chrom"], lines["start"], lines["end"], lines["strand"], lines["tid"], features))
+            conn.commit()
+            keys = [(0, ((lines["tid"], dumpdb.name), lines["chrom"], (lines["start"], lines["end"])))]
+            with tempfile.NamedTemporaryFile(delete=False, mode="wb") as batch:
+                msgpack.dump(keys, batch)
+
+            proc = ProcRunner(checking.CheckingProcess,
+                              batch.name,
+                              logging_queue,
+                              fasta=self.fasta,
+                              shelve_stacks=[dumpdb.name],
+                              identifier=logger.name,
+                              fasta_out=self.fasta_out,
+                              gtf_out=self.gtf_out,
+                              seed=None,
+                              tmpdir=tempfile.gettempdir(),
+                              log_level="DEBUG")
+
             self.submission_queue.put((lines, lines["start"], lines["end"], 0))
             self.submission_queue.put(("EXIT", None, None, None))
             proc.start()

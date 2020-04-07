@@ -5,16 +5,16 @@ XML serialisation class.
 import os
 import logging.handlers as logging_handlers
 import logging
-import sqlalchemy
-import sqlalchemy.exc
 from sqlalchemy.orm.session import Session
 from ...utilities.dbutils import DBBASE
 import pysam
 from ...utilities.dbutils import connect
 from ...utilities.log_utils import create_null_logger, check_logger
 from . import Query, Target, Hsp, Hit
+from .utils import load_into_db
 from .xml_utils import get_multipliers
 from .xml_serialiser import _serialise_xmls
+from .tab_serialiser import _serialise_tabular
 import pandas as pd
 import multiprocessing
 
@@ -75,6 +75,7 @@ class BlastSerializer:
         multiprocessing.set_start_method(self.json_conf["multiprocessing_method"],
                                          force=True)
         # pylint: enable=unexpected-argument,E1123
+        self.logger.info("Number of dedicated workers: %d", self.procs)
         self.logging_queue = multiprocessing.Queue(-1)
         self.logger_queue_handler = logging_handlers.QueueHandler(self.logging_queue)
         self.queue_logger = logging.getLogger("parser")
@@ -104,8 +105,11 @@ class BlastSerializer:
 
         # session = sessionmaker(autocommit=True)
         DBBASE.metadata.create_all(self.engine)  # @UndefinedVariable
-        session = Session(bind=self.engine, autocommit=False, autoflush=False, expire_on_commit=False)
+        session = Session(bind=self.engine)
         self.session = session  # session()
+        self.hit_i_string = str(Hit.__table__.insert(bind=self.engine).compile())
+        self.hsp_i_string = str(Hsp.__table__.insert(bind=self.engine).compile())
+        # Remove indices
         self.logger.debug("Created the session")
         # Load sequences if necessary
         self.__determine_sequences(query_seqs, target_seqs)
@@ -321,33 +325,7 @@ class BlastSerializer:
 
         :return:
         """
-
-        self.logger.debug("Checking whether to load %d hits and %d hsps",
-                          len(hits), len(hsps))
-
-        tot_objects = len(hits) + len(hsps)
-        if len(hits) == 0:
-            self.logger.debug("No hits to serialise. Exiting")
-            return hits, hsps
-
-        if tot_objects >= self.maxobjects or force:
-            # Bulk load
-            self.logger.debug("Loading %d BLAST objects into database", tot_objects)
-
-            try:
-                # pylint: disable=no-member
-                self.session.begin(subtransactions=True)
-                self.engine.execute(Hit.__table__.insert(), hits)
-                self.engine.execute(Hsp.__table__.insert(), hsps)
-                # pylint: enable=no-member
-                self.session.commit()
-            except sqlalchemy.exc.IntegrityError as err:
-                self.logger.critical("Failed to serialise BLAST!")
-                self.logger.exception(err)
-                raise err
-            self.logger.debug("Loaded %d BLAST objects into database", tot_objects)
-            hits, hsps = [], []
-        return hits, hsps
+        load_into_db(self, hits, hsps, force=force)
 
     def serialize(self):
 
@@ -369,7 +347,7 @@ class BlastSerializer:
 
     def __serialise_tabular(self):
         """Parser to perform the analysis of tabular BLAST files."""
-        raise NotImplementedError("Still working on this")
+        _serialise_tabular(self)
 
     def __serialise_xmls(self):
         _serialise_xmls(self)
@@ -378,10 +356,17 @@ class BlastSerializer:
         """
         Alias for serialize
         """
+        [idx.drop(bind=self.engine) for idx in Hit.__table__.indexes]
+        [idx.drop(bind=self.engine) for idx in Hsp.__table__.indexes]
+        self.engine.execute("PRAGMA foreign_keys=OFF")
         self.serialize()
+        # Recreate the indices
+        [idx.create(bind=self.engine) for idx in Hit.__table__.indexes]
+        [idx.create(bind=self.engine) for idx in Hsp.__table__.indexes]
+        self.engine.execute("PRAGMA foreign_keys=ON")
 
 # pylint: enable=too-many-instance-attributes
 
     @staticmethod
-    def get_multipliers(record):
-        get_multipliers(record)
+    def get_multipliers(record, application=None):
+        return get_multipliers(record, application=application)

@@ -36,7 +36,7 @@
     },
     "multiprocessing_method": {
       "type": "string",
-      "default": "",
+      "default": "spawn",
       "enum": ["fork", "spawn", "forkserver", ""]
     },
     "log_settings": {
@@ -196,7 +196,16 @@
               "default": "."}
           }
         },
-        "max_objects": {"type": "integer", "default": 100000, "minimum": 1},
+        "substitution_matrix": {
+            "enum": ["blosum45", "blosum50", "blosum62", null,
+            "blosum80", "blosum90", "pam250", "pam30", "pam70"],
+            "default": "blosum62"
+        },
+        "blast_flavour": {
+          "enum":  ["blastx", "blastp"],
+          "default": "blastx"
+        },
+        "max_objects": {"type": "integer", "default": 10000000, "minimum": 1},
         "max_regression": {"type": "number",
           "minimum": 0,
           "maximum": 1,
@@ -281,6 +290,7 @@
             "labels": {"type": "array", "default": []},
             "strand_specific_assemblies": {"type": "array", "default": []},
             "reference": {"type": "array", "default": []},
+            "keep_redundant": {"type": "array", "default": []},
             "source_score":{
               "type": "object",
               "default": {},

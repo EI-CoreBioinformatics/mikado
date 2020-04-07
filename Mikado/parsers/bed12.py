@@ -5,7 +5,7 @@ Module to parse BED12 objects. Much more basic than what PyBedtools could offer,
 but at the same time more pythonic.
 """
 
-
+from time import sleep
 import numpy
 import os
 from fastnumbers import fast_int, fast_float, isint
@@ -1468,7 +1468,14 @@ class Bed12Parser(Parser):
         self.coding = coding
         self.start_adjustment = start_adjustment
         self.logger = logger
+        self.fasta_index = self.__set_fasta_index(fasta_index)
+        self.__closed = False
+        self.header = False
+        self.__table = table
+        self._is_bed12 = (not is_gff)
 
+    @staticmethod
+    def __set_fasta_index(fasta_index):
         if isinstance(fasta_index, dict):
             # check that this is a bona fide dictionary ...
             assert isinstance(
@@ -1482,12 +1489,7 @@ class Bed12Parser(Parser):
                 fasta_index = pysam.FastaFile(fasta_index)
             else:
                 assert isinstance(fasta_index, pysam.FastaFile), type(fasta_index)
-
-        self.fasta_index = fasta_index
-        self.__closed = False
-        self.header = False
-        self.__table = table
-        self._is_bed12 = (not is_gff)
+        return fasta_index
 
     def __iter__(self):
         return self
@@ -1498,6 +1500,20 @@ class Bed12Parser(Parser):
             return self.bed_next()
         else:
             return self.gff_next()
+
+    def __getstate__(self):
+        state = super().__getstate__()
+        # Now let's remove the fasta index
+        if state["fasta_index"] is not None:
+            if isinstance(state["fasta_index"], pysam.FastaFile):
+                state["fasta_index"] = state["fasta_index"].filename
+        return state
+
+    def __setstate__(self, state):
+        fasta_index = state.pop("fasta_index", None)
+        super().__setstate__(state)
+        self.logger = create_null_logger()
+        self.__set_fasta_index(fasta_index)
 
     def bed_next(self):
         """
@@ -1614,17 +1630,11 @@ class Bed12ParseWrapper(mp.Process):
         self.rec_queue = rec_queue
         self.return_queue = return_queue
         self.logging_queue = log_queue
-        self.handler = logging_handlers.QueueHandler(self.logging_queue)
-        self.logger = logging.getLogger(self.name)
-        self.logger.addHandler(self.handler)
-        self.logger.setLevel(level)
-        self.logger.propagate = False
         self.transcriptomic = transcriptomic
         self.__max_regression = 0
         self._max_regression = max_regression
         self.coding = coding
         self.start_adjustment = start_adjustment
-        # self.cache = cache
 
         if isinstance(fasta_index, dict):
             # check that this is a bona fide dictionary ...
@@ -1640,7 +1650,7 @@ class Bed12ParseWrapper(mp.Process):
                 fasta_index = pyfaidx.Fasta(fasta_index)
             else:
                 assert isinstance(fasta_index, pysam.FastaFile), type(fasta_index)
-
+        self._level = level
         self.fasta_index = fasta_index
         self.__closed = False
         self.header = False
@@ -1685,7 +1695,20 @@ class Bed12ParseWrapper(mp.Process):
         return bed12
 
     def run(self, *args, **kwargs):
+        self.handler = logging_handlers.QueueHandler(self.logging_queue)
+        self.logger = logging.getLogger(self.name)
+        self.logger.addHandler(self.handler)
+        self.logger.setLevel(self._level)
+        self.logger.propagate = False
+
+        self.logger.info("Started %s", self.__identifier)
+        if self.rec_queue is None:
+            self.return_queue.put(b"FINISHED")
+            raise ValueError
         while True:
+            if self.rec_queue.empty():
+                sleep(0.1)
+                continue
             line = self.rec_queue.get()
             if line in ("EXIT", b"EXIT"):
                 self.rec_queue.put(b"EXIT")

@@ -8,7 +8,9 @@ from sqlalchemy.orm import relationship, column_property
 from sqlalchemy import select
 from sqlalchemy.ext.hybrid import hybrid_property  # hybrid_method
 from ...utilities.dbutils import DBBASE
-from . import Query, Target, prepare_hsp
+from . import Query, Target
+from .aln_string_parser import prepare_aln_strings
+
 
 __author__ = 'Luca Venturini'
 
@@ -218,3 +220,41 @@ class Hsp(DBBASE):
         val = (self.target_hsp_end - self.target_hsp_start + 1)
         val /= self.target_length
         return val
+
+
+def prepare_hsp(hsp, counter, off_by_one=False, qmultiplier=1, tmultiplier=1):
+
+    r"""
+    Prepare a HSP for loading into the DB.
+    The match line will be reworked in the following way:
+
+    - If the position is a match/positive, keep the original value
+    - If the position is a gap *for the query*, insert a - (dash)
+    - If the position is a gap *for the target*, insert a _ (underscore)
+    - If the position is a gap *for both*, insert a \ (backslash)
+
+    :param hsp: An HSP object from Bio.Blast.NCBIXML
+    :type hsp: Bio.SearchIO.HSP
+    :param counter: a digit that indicates the priority of the HSP in the hit
+    :return: hsp_dict, identical_positions, positives
+    :rtype: (dict, set, set)
+    """
+
+    hsp_dict = dict()
+    # We must start from 1, otherwise MySQL crashes as its indices start from 1 not 0
+    hsp_dict["counter"] = counter + 1
+    hsp_dict["query_hsp_start"] = hsp.query_start
+    match, identical_positions, positives = prepare_aln_strings(hsp, off_by_one=off_by_one,
+                                                                qmultiplier=qmultiplier)
+    hsp_dict["query_hsp_end"] = hsp.query_end - off_by_one
+    hsp_dict["query_frame"] = hsp.query_frame
+    hsp_dict["target_hsp_start"] = hsp.hit_start
+    hsp_dict["target_hsp_end"] = hsp.hit_end
+    hsp_dict["target_frame"] = hsp.hit_frame
+    hsp_dict["hsp_identity"] = hsp.ident_num / hsp.aln_span * 100
+    hsp_dict["hsp_positives"] = (match.count("+") + match.count("|")) / hsp.aln_span * 100
+    hsp_dict["match"] = match
+    hsp_dict["hsp_length"] = hsp.aln_span
+    hsp_dict["hsp_bits"] = hsp.bitscore
+    hsp_dict["hsp_evalue"] = hsp.evalue
+    return hsp_dict, identical_positions, positives

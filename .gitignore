@@ -57,6 +57,8 @@ sample_data/1.fasta
 sample_data/2.fasta
 sample_data/configuration2.yaml
 sample_data/reference.gff3.midx
+Mikado/*/*/*html
+Mikado/*/*html
 Mikado/utilities/overlap.cpython-3*.so
 Mikado/scales/contrast.c
 Mikado/scales/contrast.cpython-3*.so
@@ -82,6 +84,9 @@ Mikado/tests/sample_data/diamond.xml.gz
 Mikado/tests/fusion_test/fusion_test.log
 sample_data/diamond.xml.gz
 Mikado/*/*.c
+Mikado/*/*.so
+Mikado/*/*/*.c
+Mikado/*/*/*.so
 Mikado/utilities/overlap.c
 sample_data/Daijin
 .eggs/

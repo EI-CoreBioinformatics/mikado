@@ -170,6 +170,22 @@ class Orf(DBBASE):
         return self.as_bed12_static(self, self.query)
 
 
+def line_parser_func(handle, fai, send_queue):
+    fai = pysam.FastaFile(fai)
+    for num, line in enumerate(open(handle)):
+        if line[0] == "#":
+            send_queue.put((num, line, None))
+        else:
+            _f = line.split("\t")
+            if _f[0] not in fai:
+                seq = None
+            else:
+                seq = zlib.compress(fai[line.split("\t")[0]].encode(), 1)
+            send_queue.put_nowait((num, line, seq))
+
+    send_queue.put("EXIT")
+
+
 class OrfSerializer:
     """
     This class has the purpose of automating the loading of ORF information into the SQL database.
@@ -370,7 +386,7 @@ Please check your input files.")
         """"""
 
         send_queue = mp.Queue(-1)
-        return_queue = mp.Queue(-1)
+        return_queue = mp.JoinableQueue(-1)
         self.logging_queue = mp.Queue(-1)
         self.logger_queue_handler = logging_handlers.QueueHandler(self.logging_queue)
         self.queue_logger = logging.getLogger("parser")
@@ -379,6 +395,10 @@ Please check your input files.")
         self.queue_logger.propagate = False
         self.log_writer = logging_handlers.QueueListener(self.logging_queue, self.logger)
         self.log_writer.start()
+
+        line_parser = mp.Process(target=line_parser_func,
+                                 args=(self._handle, self.fasta_index.filename, send_queue))
+        line_parser.start()
 
         parsers = [bed12.Bed12ParseWrapper(
             identifier=index,
@@ -391,27 +411,7 @@ Please check your input files.")
             transcriptomic=True,
             max_regression=self._max_regression,
             table=self._table) for index in range(self.procs)]
-
         [_.start() for _ in parsers]
-
-        def line_parser_func(handle, fai, send_queue):
-            fai = pysam.FastaFile(fai)
-            for num, line in enumerate(open(handle)):
-                if line[0] == "#":
-                    send_queue.put((num, line, None))                    
-                else:
-                    _f = line.split("\t")
-                    if _f[0] not in fai:
-                        seq = None
-                    else:                        
-                        seq = zlib.compress(fai[line.split("\t")[0]].encode(), 1)
-                    send_queue.put_nowait((num, line, seq))
-
-            send_queue.put("EXIT")
-
-        line_parser = mp.Process(target=line_parser_func,
-                                 args=(self._handle, self.fasta_index.filename, send_queue))
-        line_parser.start()
 
         not_found = set()
         done = 0
@@ -505,7 +505,9 @@ mikado prepare. If this is the case, please use mikado_prepared.fasta to call th
         """
 
         # try:
+        [idx.drop(bind=self.engine) for idx in Orf.__table__.indexes]
         self.serialize()
+        [idx.create(bind=self.engine) for idx in Orf.__table__.indexes]
         # except (sqlalchemy.exc.IntegrityError, sqlite3.IntegrityError) as exc:
         #     self.logger.error("DB corrupted, reloading data. Error: %s",
         #                       exc)

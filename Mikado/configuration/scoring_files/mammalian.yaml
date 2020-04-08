@@ -3,7 +3,7 @@ requirements:
   expression: [(combined_cds_fraction.ncrna or combined_cds_fraction.coding) and ((exon_num.multi and (cdna_length.multi or combined_cds_length.multi) and max_intron_length and min_intron_length and proportion_verified_introns_inlocus), or, (exon_num.mono and (combined_cds_length.mono or cdna_length.mono)))]
   parameters:
     combined_cds_fraction.ncrna: {operator: eq, value: 0}
-    combined_cds_fraction.coding: {operator: gt, value: 0.30}
+    combined_cds_fraction.coding: {operator: gt, value: 0.20}
     cdna_length.mono: {operator: gt, value: 400}
     cdna_length.multi: {operator: ge, value: 300}
     combined_cds_length.mono: {operator: gt, value: 225}
@@ -17,9 +17,9 @@ as_requirements:
   expression: [cdna_length and three_utr_length and five_utr_length and utr_length and suspicious_splicing]
   parameters:
     cdna_length: {operator: ge, value: 300}
-    utr_length: {operator: le, value: 2500}
-    five_utr_length: {operator: le, value: 2500}
-    three_utr_length: {operator: le, value: 2500}
+    utr_length: {operator: le, value: 3500}
+    five_utr_length: {operator: le, value: 3500}
+    three_utr_length: {operator: le, value: 3500}
     suspicious_splicing: {operator: ne, value: true}
     max_intron_length: {operator: le, value: 200000}
 not_fragmentary:
@@ -43,9 +43,9 @@ scoring:
     value: 3}
   }
   five_utr_length:
-    filter: {operator: le, value: 2500}
+    filter: {operator: le, value: 3500}
     rescaling: target
-    value: 200
+    value: 400
   five_utr_num:
     filter: {operator: lt, value: 4}
     rescaling: target
@@ -61,14 +61,14 @@ scoring:
   proportion_verified_introns_inlocus: {rescaling: max}
   retained_fraction: {rescaling: min}
   retained_intron_num: {rescaling: min}
-  selected_cds_fraction: {rescaling: target, value: 0.8}
+  selected_cds_fraction: {rescaling: target, value: 0.7}
   selected_cds_intron_fraction: {rescaling: max}
   selected_cds_length: {rescaling: max}
   selected_cds_num: {rescaling: max}
   three_utr_length:
-    filter: {operator: le, value: 2500}
+    filter: {operator: le, value: 3500}
     rescaling: target
-    value: 400
+    value: 800
   three_utr_num:
     filter: {operator: lt, value: 3}
     rescaling: target

@@ -209,7 +209,7 @@
         "max_regression": {"type": "number",
           "minimum": 0,
           "maximum": 1,
-          "default": 0.1},
+          "default": 0.2},
         "start_adjustment": {"type":  "boolean", "default": true},
         "max_target_seqs": {"type": "integer", "default": 100000, "minimum": 1},
         "force": {"type": "boolean", "default": false},
@@ -373,7 +373,7 @@
               "type": "number",
               "minimum": 0,
               "maximum": 1,
-              "default": 0.5
+              "default": 0.6
             },
             "keep_retained_introns": {
               "type": "boolean",
@@ -386,7 +386,7 @@
             "max_isoforms": {
               "type": "integer",
               "minimum": 1,
-              "default": 5
+              "default": 10
             },
             "valid_ccodes": {
               "type": "array",
@@ -459,7 +459,7 @@
             },
             "ts_distance": {
               "type": "integer",
-              "default": 1000,
+              "default": 2000,
               "minimum": 0
             },
             "pad": {
@@ -570,12 +570,12 @@
                 "evalue": {
                   "type": "number",
                   "minimum": 0,
-                  "default": 0.000001
+                  "default": 1e-06
                 },
                 "hsp_evalue": {
                   "type": "number",
                   "minimum": 0,
-                  "default": 0.000001
+                  "default": 1e-06
                 },
                 "leniency": {
                   "type": "string",
@@ -584,7 +584,7 @@
                     "LENIENT",
                     "PERMISSIVE"
                   ],
-                  "default": "LENIENT"
+                  "default": "STRINGENT"
                 },
                 "max_target_seqs": {
                   "type": "integer",
@@ -646,7 +646,7 @@
               "uniqueItems": true,
               "maxItems": 2,
               "minItems": 2,
-              "default": [60, 900]
+              "default": [60, 10000]
             },
             "only_reference_update": {
               "type": "boolean",

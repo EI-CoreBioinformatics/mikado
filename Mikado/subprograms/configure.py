@@ -462,8 +462,10 @@ final output.""")
                        default=False, action="store_true")
     files.add_argument("--gff", help="Input GFF/GTF file(s), separated by comma", type=str)
     files.add_argument("--list",
-                       help="""Tab-delimited file containing rows with the following format
-                        <file>  <label> <strandedness> <score(optional)> <always_keep(optional)>""")
+                       help="""Tab-delimited file containing rows with the following format:
+<file>  <label> <strandedness> <score(optional)> <is_reference(optional)> <always_keep(optional)
+strandedness, is_reference and always_keep must be boolean values (True, False)
+score must be a valid floating number.""")
     parser.add_argument("--reference", help="Fasta genomic reference.", default=None)
     serialisers = parser.add_argument_group(
         "Options related to the serialisation step")

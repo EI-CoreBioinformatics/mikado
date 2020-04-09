@@ -215,7 +215,7 @@ default. If one of --json, --yaml, --toml flags is specified, it will override t
     mikado.add_argument("--copy-scoring", default=False,
                          type=str, dest="copy_scoring",
                          help="File into which to copy the selected scoring file, for modification.")
-    mikado.add_argument("-m", "--modes", default=["permissive"], nargs="+",
+    mikado.add_argument("-m", "--modes", default=["stringent"], nargs="+",
                         choices=["nosplit", "split", "permissive", "stringent", "lenient"],
                         required=False,
                         help="Mikado pick modes to run. Choices: %(choices)s")

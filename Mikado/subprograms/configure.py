@@ -134,7 +134,7 @@ def create_config(args):
         if args.mode is not None:
             namespace.modes = args.mode[:]
         else:
-            namespace.modes = ["permissive"]
+            namespace.modes = ["stringent"]
         if args.blast_targets:
             namespace.prot_db = args.blast_targets[:]
         else:
@@ -488,7 +488,7 @@ score must be a valid floating number.""")
                         help="Flag. If switched on, Mikado will use BLAST instead of DIAMOND.")
     daijin.add_argument("--use-transdecoder", action="store_true", default=False, dest="use_transdecoder",
                         help="Flag. If switched on, Mikado will use TransDecoder instead of Prodigal.")
-    daijin.add_argument("--mode", default=["permissive"], nargs="+",
+    daijin.add_argument("--mode", default=["stringent"], nargs="+",
                         choices=["nosplit", "stringent", "lenient", "permissive", "split"],
                         help="""Mode(s) in which Mikado will treat transcripts with multiple ORFs.
 - nosplit: keep the transcripts whole.

@@ -83,7 +83,7 @@ pick:
     blast_params:
       #  Parameters for the BLAST check prior to splitting.
       #  - evalue: Minimum evalue for the whole hit. Default: 1e-6
-      #  - leniency: One of STRINGENT, LENIENT, PERMISSIVE. Default: LENIENT
+      #  - leniency: One of STRINGENT, LENIENT, PERMISSIVE. Default: STRINGENT
       #  - max_target_seqs: maximum number of hits to consider. Default: 3
       {}
     execute: true

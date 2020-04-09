@@ -555,7 +555,7 @@
                 "Parameters for the BLAST check prior to splitting.",
                 "- evalue: Minimum evalue for the whole hit. Default: 1e-6",
                 "- hsp_evalue: Minimum evalue for any HSP hit (some might be discarded even if the whole hit is valid). Default: 1e-6",
-                "- leniency: One of 'STRINGENT', 'LENIENT', 'PERMISSIVE'. Default: LENIENT",
+                "- leniency: One of 'STRINGENT', 'LENIENT', 'PERMISSIVE'. Default: STRINGENT",
                 "- max_target_seqs: maximum number of hits to consider. Default: 3",
                 "- minimal_hsp_overlap: minimum overlap of the ORF with the HSP (*not* reciprocal). Default: 0.8, i.e. 80%",
                 "- min_overlap_duplication: minimum overlap (in %) for two ORFs to consider them as target duplications. This means that if two ORFs have no HSPs in common, but the coverage of their disjoint HSPs covers more than this % of the length of the *target*, they represent most probably a duplicated gene."
@@ -563,7 +563,7 @@
               "SimpleComment": [
                 "Parameters for the BLAST check prior to splitting.",
                 "- evalue: Minimum evalue for the whole hit. Default: 1e-6",
-                "- leniency: One of 'STRINGENT', 'LENIENT', 'PERMISSIVE'. Default: LENIENT",
+                "- leniency: One of 'STRINGENT', 'LENIENT', 'PERMISSIVE'. Default: STRINGENT",
                 "- max_target_seqs: maximum number of hits to consider. Default: 3"
                 ],
               "properties": {

@@ -66,7 +66,6 @@ setup(
     author="Luca Venturini",
     author_email="lucventurini@gmail.com",
     license="LGPL3",
-    setup_requires=["pytest-runner"],
     tests_require=["pytest"],
     classifiers=[
         "Development Status :: 5 - Production/Stable",

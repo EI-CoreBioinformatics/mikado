@@ -276,8 +276,8 @@ def prepare_parser():
                         help="Comma-delimited list of strand specific assemblies.")
     parser.add_argument("--list", type=argparse.FileType("r"),
                         help="""Tab-delimited file containing rows with the following format:
-<file>  <label> <strandedness> <score(optional)> <is_reference(optional)> <always_keep(optional)
-strandedness, is_reference and always_keep must be boolean values (True, False)
+<file>  <label> <strandedness, def. False> <score(optional, def. 0)> <is_reference(optional, def. False)> <keep_redundant(optional, def. True)>
+strandedness, is_reference and keep_redundant must be boolean values (True, False)
 score must be a valid floating number.
 """)
     parser.add_argument("-l", "--log", type=argparse.FileType("w"), default=None,
@@ -311,7 +311,8 @@ score must be a valid floating number.
                         help="Configuration file.")
     parser.add_argument("-k", "--keep-redundant", default=None,
                         dest="keep_redundant", action="store_true",
-                        help="Boolean flag. If invoked, Mikado prepare will retain redundant models.")
+                        help="Boolean flag. If invoked, Mikado prepare will retain redundant models,\
+ignoring the per-sample instructions.")
     parser.add_argument("--seed", type=int, default=None,
                         help="Random seed number.")
     parser.add_argument("gff", help="Input GFF/GTF file(s).", nargs="*")

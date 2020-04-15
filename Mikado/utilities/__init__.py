@@ -299,7 +299,7 @@ def parse_list_file(json_conf: dict, list_file):
                 score = 0
             json_conf["prepare"]["files"]["source_score"][label] = score
         keep = False
-        for arr, pos, default in [("reference", 4, False), ("keep_redundant", 5, False)]:
+        for arr, pos, default in [("reference", 4, False), ("keep_redundant", 5, True)]:
             try:
                 val = fields[pos]
                 if val.lower() in ("false", "true"):

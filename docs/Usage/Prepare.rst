@@ -67,8 +67,10 @@ Command line usage:
                             strand.
       -sa STRAND_SPECIFIC_ASSEMBLIES, --strand-specific-assemblies STRAND_SPECIFIC_ASSEMBLIES
                             Comma-delimited list of strand specific assemblies.
-      --list LIST           Tab-delimited file containing rows with the following
-                            format <file> <label> <strandedness>
+      --list LIST           Tab-delimited file containing rows with the following format:
+<file>  <label> <strandedness, def. False> <score(optional, def. 0)> <is_reference(optional, def. False)> <keep_redundant(optional, def. True)>
+strandedness, is_reference and keep_redundant must be boolean values (True, False)
+score must be a valid floating number.
       -l LOG, --log LOG     Log file. Optional.
       --lenient             Flag. If set, transcripts with only non-canonical
                             splices will be output as well.

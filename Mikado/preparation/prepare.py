@@ -582,7 +582,7 @@ def prepare(args, logger):
 
     if not args.json_conf["prepare"]["files"]["keep_redundant"]:
         args.json_conf["prepare"]["files"]["keep_redundant"] = (
-            [getattr(args, "keep_redundant", False)] * len(args.json_conf["prepare"]["files"]["gff"]))
+            [getattr(args, "keep_redundant", True)] * len(args.json_conf["prepare"]["files"]["gff"]))
 
     shelve_names = [path_join(args.json_conf["prepare"]["files"]["output_dir"],
                               "mikado_shelf_{}.db".format(str(_).zfill(5))) for _ in

@@ -374,6 +374,18 @@ def _load_exon_lines_single_thread(args, shelve_names, logger, min_length, strip
             args.json_conf["prepare"]["files"]["keep_redundant"],
             args.json_conf["prepare"]["files"]["gff"]
     ))
+    if len(to_do) == 0 and len(shelve_names) > 0:
+        raise OSError(
+            (
+                shelve_names,
+                args.json_conf["prepare"]["files"]["labels"],
+                args.json_conf["prepare"]["files"]["strand_specific_assemblies"],
+                args.json_conf["prepare"]["files"]["reference"],
+                args.json_conf["prepare"]["files"]["keep_redundant"],
+                args.json_conf["prepare"]["files"]["gff"]
+            )
+        )
+
     logger.info("To do: %d combinations", len(to_do))
 
     for new_shelf, label, strand_specific, is_reference, keep_redundant, gff_name in to_do:
@@ -441,8 +453,6 @@ def _load_exon_lines_multi(args, shelve_names, logger, min_length, strip_cds, th
         proc.start()
         working_processes.append(proc)
 
-    if args.json_conf["prepare"]["files"]["keep_redundant"] == []:
-        args.json_conf["prepare"]["files"]["keep_redundant"] = [False] * len(args.json_conf["prepare"]["files"]["gff"])
     for new_shelf, label, strand_specific, is_reference, keep_redundant, gff_name in zip(
             shelve_names,
             args.json_conf["prepare"]["files"]["labels"],
@@ -450,6 +460,9 @@ def _load_exon_lines_multi(args, shelve_names, logger, min_length, strip_cds, th
             args.json_conf["prepare"]["files"]["reference"],
             args.json_conf["prepare"]["files"]["keep_redundant"],
             args.json_conf["prepare"]["files"]["gff"]):
+        # print(gff_name, "Label:{}".format(label),
+        #       "SS:{}".format(strand_specific),
+        #       "Ref:{}".format(is_reference), "KR:{}".format(keep_redundant))
         submission_queue.put((label, gff_name, strand_specific, is_reference, keep_redundant, new_shelf))
 
     submission_queue.put(("EXIT", "EXIT", "EXIT", "EXIT", "EXIT", "EXIT"))
@@ -557,12 +570,19 @@ def prepare(args, logger):
             (member in args.json_conf["prepare"]["files"]["strand_specific_assemblies"])
             for member in args.json_conf["prepare"]["files"]["gff"]]
 
-    args.json_conf["prepare"]["files"]["reference"] = [
-        (member in args.json_conf["prepare"]["files"]["reference"] or
-         label in args.json_conf["prepare"]["files"]["reference"])
-        for member, label in zip(args.json_conf["prepare"]["files"]["gff"],
-                                 args.json_conf["prepare"]["files"]["labels"])
-    ]
+    ref_len = len(args.json_conf["prepare"]["files"]["reference"])
+    file_len = len(args.json_conf["prepare"]["files"]["gff"])
+    if ref_len == 0:
+        args.json_conf["prepare"]["files"]["reference"] = ([False] * file_len)
+    elif (ref_len != file_len) or (args.json_conf["prepare"]["files"]["reference"][0] not in (True, False)):
+        ref_set = set(args.json_conf["prepare"]["files"]["reference"])
+        args.json_conf["prepare"]["files"]["reference"] = [
+            (_ in ref_set) for _ in args.json_conf["prepare"]["files"]["gff"]
+        ]
+
+    if not args.json_conf["prepare"]["files"]["keep_redundant"]:
+        args.json_conf["prepare"]["files"]["keep_redundant"] = (
+            [getattr(args, "keep_redundant", False)] * len(args.json_conf["prepare"]["files"]["gff"]))
 
     shelve_names = [path_join(args.json_conf["prepare"]["files"]["output_dir"],
                               "mikado_shelf_{}.db".format(str(_).zfill(5))) for _ in
@@ -626,7 +646,8 @@ def prepare(args, logger):
                     shelve_names, shelve_source_scores,
                     args.json_conf["prepare"]["files"]["reference"],
                     args.json_conf["prepare"]["files"]["keep_redundant"]):
-                assert isinstance(is_reference, bool)
+                assert isinstance(is_reference, bool),\
+                    (is_reference, args.json_conf["prepare"]["files"]["reference"])
                 conn_string = "file:{shelf}?mode=ro&immutable=1".format(shelf=shelf)
                 conn = sqlite3.connect(conn_string, uri=True,
                                        isolation_level="DEFERRED",

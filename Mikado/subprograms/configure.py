@@ -13,11 +13,10 @@ import sys
 from ..configuration import configurator, daijin_configurator, print_config, print_toml_config, check_has_requirements
 from ..configuration.configurator import create_cluster_config
 from ..exceptions import InvalidJson
-from ..utilities import comma_split  # , merge_dictionaries
+from ..utilities import comma_split
 from ..transcripts.transcript import Namespace
 import functools
 import rapidjson as json
-from collections import Counter
 import tempfile
 from ..utilities.log_utils import create_null_logger, create_default_logger
 import tomlkit
@@ -26,7 +25,7 @@ try:
     from yaml import CSafeLoader as yLoader
 except ImportError:
     from yaml import SafeLoader as yLoader
-
+from .prepare import parse_prepare_options
 
 __author__ = 'Luca Venturini'
 
@@ -190,17 +189,14 @@ def create_config(args):
     config["pick"]["files"]["subloci_out"] = args.subloci_out if args.subloci_out else ""
     config["pick"]["files"]["monoloci_out"] = args.monoloci_out if args.monoloci_out else ""
 
+    if isinstance(args.gff, str):
+        args.gff = args.gff.split(",")
+    elif not args.gff:
+        args.gff = []
+    config = parse_prepare_options(args, config)
+
     if args.seed is not None:
         config["seed"] = args.seed
-
-    if args.minimum_cdna_length not in (None, False):
-        config["prepare"]["minimum_cdna_length"] = args.minimum_cdna_length
-
-    if args.max_intron_length not in (None, False):
-        config["prepare"]["max_intron_length"] = args.max_intron_length
-
-    if args.reference is not None:
-        config["reference"]["genome"] = args.reference
 
     if args.junctions is not None:
         config["serialise"]["files"]["junctions"] = args.junctions
@@ -208,92 +204,10 @@ def create_config(args):
     if args.blast_targets is not None:
         config["serialise"]["files"]["blast_targets"] = args.blast_targets
 
-    if args.gff:
-        args.gff = args.gff.split(",")
-        __gff_counter = Counter()
-        __gff_counter.update(args.gff)
-
-        if __gff_counter.most_common()[0][1] > 1:
-            raise InvalidJson(
-                "Repeated elements among the input GFFs! Duplicated files: {}".format(
-                    ", ".join(_[0] for _ in __gff_counter.most_common() if _[1] > 1)
-                ))
-
-        config["prepare"]["files"]["gff"] = args.gff
-
-        if args.labels != '':
-            args.labels = args.labels.split(",")
-            if not len(args.labels) == len(args.gff):
-                raise ValueError("""Length mismatch between input files and labels!
-                GFFs: {0} (length {1})
-                Labels: {2} (length {3})""".format(
-                    args.gff, len(args.gff),
-                    args.labels, len(args.labels)))
-            config["prepare"]["files"]["labels"] = args.labels
-
-        if args.strand_specific_assemblies != "":
-            args.strand_specific_assemblies = args.strand_specific_assemblies.split(",")
-            if (len(args.strand_specific_assemblies) > len(args.gff) or
-                    any([(_ not in args.gff) for _ in args.strand_specific_assemblies])):
-                raise InvalidJson("Invalid strand-specific assemblies specified")
-            config["prepare"]["files"]["strand_specific_assemblies"] = args.strand_specific_assemblies
-
-    elif args.list:
-        config["prepare"]["files"]["source_score"] = dict()
-        with open(args.list) as list_file:
-            files, labels, strandedness, scores, is_references = [], [], [], [], []
-            files_counter = Counter()
-            for line in list_file:
-                try:
-                    _fields = line.rstrip().split("\t")
-                    filename, label, stranded = _fields[:3]
-
-                    if not os.path.exists(filename):
-                        raise ValueError("Invalid file name: {}".format(filename))
-                    files.append(filename)
-                    if label in labels:
-                        raise ValueError("Non-unique label specified: {}".format(label))
-                    labels.append(label)
-                    strandedness.append(stranded)
-                    if len(_fields) > 3 and _fields[3] != '':
-                        score = float(_fields[3])
-                    else:
-                        score = 0
-                    scores.append(score)
-                    if len(_fields) > 4:
-                        if _fields[4] == "True":
-                            is_reference = True
-                        else:
-                            is_reference = False
-                    else:
-                        is_reference = False
-                    is_references.append(is_reference)
-
-                except ValueError as exc:
-                    raise ValueError("Malformed inputs file. Error:\n{}".format(exc))
-            files_counter.update(files)
-            if files_counter.most_common()[0][1] > 1:
-                raise InvalidJson(
-                    "Repeated elements among the input GFFs! Duplicated files: {}".format(
-                        ", ".join(_[0] for _ in files_counter.most_common() if _[1] > 1)))
-            if any([_ not in ("True", "False") for _ in strandedness]):
-                raise InvalidJson("Invalid values for strandedness in the list file.")
-            config["prepare"]["files"]["labels"] = list(labels)
-            config["prepare"]["files"]["gff"] = list(files)
-            config["prepare"]["files"]["strand_specific_assemblies"] = [files[_[0]] for _ in enumerate(strandedness)
-                                                                        if _[1] == "True"]
-            for source, score in zip(labels, scores):
-                config["prepare"]["files"]["source_score"][source] = score
-
-            config["prepare"]["files"]["reference"] = [list(labels)[_[0]] for _ in enumerate(is_references)
-                                                       if _[1] is True]
-
-    elif args.no_files is True:
+    if args.no_files is True:
         for stage in ["pick", "prepare", "serialise"]:
             if "files" in config[stage]:
                 del config[stage]["files"]
-            # except KeyError:
-            #     raise KeyError(stage)
         del config["reference"]
         del config["db_settings"]
 
@@ -460,7 +374,8 @@ final output.""")
                        help="""Remove all files-specific options from the printed configuration file.
                        Invoking the "--gff" option will disable this flag.""",
                        default=False, action="store_true")
-    files.add_argument("--gff", help="Input GFF/GTF file(s), separated by comma", type=str)
+    files.add_argument("--gff", help="Input GFF/GTF file(s), separated by comma", type=str,
+                       default="")
     files.add_argument("--list",
                        help="""Tab-delimited file containing rows with the following format:
 <file>  <label> <strandedness> <score(optional)> <is_reference(optional)> <always_keep(optional)

@@ -81,30 +81,40 @@ def _retrieve_data(shelf_name, shelve_stacks, tid, chrom, key, score, logger,
         return None, None
 
 
-def _select_transcript(is_reference, score, other, start, end):
+def _select_transcript(is_reference, keep_redundant, score, other, start, end):
     # First off: check they are *actually* redundant
     ovl = overlap((start, end), (other["start"], other["end"]), positive=True)
 
     if is_reference is True and other["is_reference"] is True:
         return True, True
     length, olength = end - start, other["end"] - other["start"]
-    if ovl < length and ovl < olength:
+    if ovl < min(length, olength):
         # Insufficient overlap: the models are staggered!. Continue
         return True, True
+
     to_keep, other_to_keep = False, False
     # (26612190, 26614205), (26612165, 26614294)
-    if other_to_keep is False and (is_reference is False and other["is_reference"] is True) or (score < other["score"]):
-        other_to_keep = True
-    elif to_keep is False and (is_reference is True and other["is_reference"] is False) or (score > other["score"]):
-        to_keep = True
-    elif ovl == length == olength:
-        to_keep, other_to_keep = np.random.permutation([True, False])
-    elif ovl == length:
-        other_to_keep = True
-    elif ovl == olength:
-        to_keep = True
-    if other["keep_redundant"] is True:
-        other_to_keep = True  # Always keep transcripts marked like this
+    # Special case: the two transcripts are identical.
+    if ovl == length == olength:
+        if (is_reference is False and other["is_reference"] is True) or (score < other["score"]):
+            other_to_keep = True
+        elif (is_reference is True and other["is_reference"] is False) or (score > other["score"]):
+            to_keep = True
+        else:
+            to_keep, other_to_keep = np.random.permutation([True, False])
+    else:
+        if (is_reference is False and other["is_reference"] is True) or (score < other["score"]):
+            other_to_keep = True
+        elif (is_reference is True and other["is_reference"] is False) or (score > other["score"]):
+            to_keep = True
+        elif ovl == length:
+            other_to_keep = True
+        elif ovl == olength:
+            to_keep = True
+        if other["keep_redundant"] is True:
+            other_to_keep = True  # Always keep transcripts marked like this
+        if keep_redundant is True:
+            to_keep = True  # Always keep transcripts marked like this
     if not any([other_to_keep, to_keep]):
         raise ValueError((
             (is_reference, other["is_reference"]),
@@ -115,6 +125,7 @@ def _select_transcript(is_reference, score, other, start, end):
 
 
 def _check_correspondence(data: dict, other: dict):
+    """Verify that two transcripts might be redundant. They must have the same CDS for that to happen."""
     if data["monoexonic"] is True and other["monoexonic"] is True:
         # raise ValueError((other["introns"][0], key))
         check = ((other["strand"] == data["strand"]) and
@@ -165,7 +176,10 @@ def _analyse_chrom(chrom: str, keys: dict, shelve_stacks: dict, logger, keep_red
                 if check:
                     # Redundancy!
                     to_keep, other_to_keep = _select_transcript(
-                        is_reference, score, other, start=key[0], end=key[1])
+                        is_reference, data["keep_redundant"],
+                        score, other, start=key[0], end=key[1])
+                    logger.info("Checking %s vs %s; initial check: %s; KR: %s; OKR: %s",
+                                tid, otid, check, data["keep_redundant"], other["keep_redundant"])
                     if to_keep is True and other_to_keep is True:
                         logger.debug("Keeping both %s and %s.", tid, otid)
                     elif to_keep is True and other_to_keep is False:
@@ -386,7 +400,7 @@ def _load_exon_lines_single_thread(args, shelve_names, logger, min_length, strip
             )
         )
 
-    logger.info("To do: %d combinations", len(to_do))
+    logger.debug("To do: %d combinations", len(to_do))
 
     for new_shelf, label, strand_specific, is_reference, keep_redundant, gff_name in to_do:
         logger.info("Starting with %s", gff_name)

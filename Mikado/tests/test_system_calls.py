@@ -351,6 +351,7 @@ class PrepareCheck(unittest.TestCase):
         self.conf["prepare"]["files"]["out"] = "mikado_prepared.gtf"
         self.conf["prepare"]["files"]["log"] = "prepare.log"
         self.conf["prepare"]["strip_cds"] = False
+        self.conf["prepare"]["files"]["keep_redundant"] = [False]
 
         args = Namespace(default=None)
         args.strip_cds = False
@@ -453,6 +454,7 @@ class PrepareCheck(unittest.TestCase):
         dir = tempfile.TemporaryDirectory(prefix="test_negative_cdna_redundant_cds_not")
         self.conf["prepare"]["files"]["output_dir"] = dir.name
         self.conf["prepare"]["files"]["labels"] = [""]
+        self.conf["prepare"]["files"]["keep_redundant"] = [False]
         self.conf["prepare"]["files"]["out_fasta"] = "mikado_prepared.fasta"
         self.conf["prepare"]["files"]["out"] = "mikado_prepared.gtf"
         self.conf["prepare"]["files"]["log"] = "prepare.log"

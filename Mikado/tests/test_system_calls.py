@@ -147,6 +147,8 @@ class PrepareCheck(unittest.TestCase):
                             "cl_cufflinks_star_at.23562.1": 1302,
                             "cl_cufflinks_star_at.23562.2": 1045}
 
+        cls._trinity_redundant = ["c58_g1_i10.mrna2", "c58_g1_i8.mrna2"]
+
         cls.maxDiff = None
 
     def setUp(self):
@@ -201,6 +203,7 @@ class PrepareCheck(unittest.TestCase):
         args.json_conf = self.conf
         args.procs = 1
         args.single_thread = True
+        args.seed = 10
 
         for test_file in ("trinity.gff3",
                           "trinity.match_matchpart.gff3",
@@ -224,7 +227,9 @@ class PrepareCheck(unittest.TestCase):
                 fa = pyfaidx.Fasta(fasta)
                 res = dict((_, len(fa[_])) for _ in fa.keys())
                 fa.close()
-                self.assertEqual(res, self.trinity_res)
+                check = dict(_ for _ in self.trinity_res.items())
+                check.pop(self.conf["prepare"]["files"]["labels"][0] + "_" + self._trinity_redundant[0])
+                self.assertEqual(res, check)
                 os.remove(os.path.join(self.conf["prepare"]["files"]["output_dir"],
                                        "mikado_prepared.fasta.fai"))
         dir.cleanup()
@@ -255,7 +260,9 @@ class PrepareCheck(unittest.TestCase):
                     self.conf["prepare"]["files"]["out"] = "mikado_prepared.gtf"
                     args.strip_cds = True
                     args.json_conf = self.conf
+                    args.seed = 10
                     args.json_conf["threads"] = proc
+                    args.keep_redundant = True
                     prepare.prepare(args, self.logger)
 
                     # Now that the program has run, let's check the output
@@ -270,6 +277,7 @@ class PrepareCheck(unittest.TestCase):
                     fa.close()
                     precal = self.trinity_res.copy()
                     precal.update(self.cuff_results)
+                    precal.pop("tr_" + self._trinity_redundant[0])
                     self.assertEqual(res, precal)
                     os.remove(os.path.join(self.conf["prepare"]["files"]["output_dir"],
                                            "mikado_prepared.fasta.fai"))
@@ -351,7 +359,6 @@ class PrepareCheck(unittest.TestCase):
         self.conf["prepare"]["files"]["out"] = "mikado_prepared.gtf"
         self.conf["prepare"]["files"]["log"] = "prepare.log"
         self.conf["prepare"]["strip_cds"] = False
-        self.conf["prepare"]["files"]["keep_redundant"] = [False]
 
         args = Namespace(default=None)
         args.strip_cds = False
@@ -360,8 +367,10 @@ class PrepareCheck(unittest.TestCase):
         args.log = None
         for b in (False, True):
             with self.subTest(b=b):
+                self.conf["prepare"]["files"]["keep_redundant"] = [b]
                 folder = tempfile.TemporaryDirectory()
                 args.output_dir = folder.name
+                args.seed = 10
                 args.list = None
                 args.gffs = None
                 args.strand_specific_assemblies = None
@@ -392,13 +401,15 @@ class PrepareCheck(unittest.TestCase):
                 fa = pyfaidx.Fasta(os.path.join(folder.name,
                                                 "mikado_prepared.fasta"))
                 logged = [_ for _ in open(args.json_conf["prepare"]["files"]["log"])]
+                self.assertTrue("AT5G01530.1" in fa.keys())
+                self.assertFalse("AT5G01530.2" in fa.keys())
                 if b is True:
-                    self.assertEqual(len(fa.keys()), 5)
-                    self.assertEqual(sorted(fa.keys()), sorted(["AT5G01530."+str(_) for _ in range(5)]))
+                    self.assertEqual(len(fa.keys()), 4)
+                    self.assertEqual(sorted(fa.keys()), sorted(["AT5G01530."+str(_) for _ in [0, 1, 3, 4]]))
                 else:
                     self.assertEqual(len(fa.keys()), 3, (fa.keys(), logged))
                     self.assertIn("AT5G01530.0", fa.keys())
-                    self.assertTrue("AT5G01530.1" in fa.keys() or "AT5G01530.2" in fa.keys())
+
                     self.assertNotIn("AT5G01530.3", fa.keys())
                     self.assertIn("AT5G01530.4", fa.keys())
                 gtf_file = os.path.join(folder.name, "mikado_prepared.gtf")
@@ -454,7 +465,6 @@ class PrepareCheck(unittest.TestCase):
         dir = tempfile.TemporaryDirectory(prefix="test_negative_cdna_redundant_cds_not")
         self.conf["prepare"]["files"]["output_dir"] = dir.name
         self.conf["prepare"]["files"]["labels"] = [""]
-        self.conf["prepare"]["files"]["keep_redundant"] = [False]
         self.conf["prepare"]["files"]["out_fasta"] = "mikado_prepared.fasta"
         self.conf["prepare"]["files"]["out"] = "mikado_prepared.gtf"
         self.conf["prepare"]["files"]["log"] = "prepare.log"
@@ -466,6 +476,7 @@ class PrepareCheck(unittest.TestCase):
         args.json_conf = self.conf
         for b in (False, True):
             with self.subTest(b=b):
+                self.conf["prepare"]["files"]["keep_redundant"] = [b]
                 folder = tempfile.TemporaryDirectory()
                 args.json_conf = self.conf
                 args.json_conf["seed"] = 10
@@ -482,8 +493,9 @@ class PrepareCheck(unittest.TestCase):
                 fa = pyfaidx.Fasta(os.path.join(self.conf["prepare"]["files"]["output_dir"],
                                                 "mikado_prepared.fasta"))
                 if b is True:
-                    self.assertEqual(len(fa.keys()), 6)
-                    self.assertEqual(sorted(fa.keys()), sorted(["AT5G01015." + str(_) for _ in range(6)]))
+                    self.assertEqual(len(fa.keys()), 5)
+                    self.assertEqual(sorted(fa.keys()), sorted(["AT5G01015." + str(_) for _ in
+                                                                [0, 1, 3, 4, 5]]))
                 else:
                     self.assertEqual(len(fa.keys()), 4, "\n".join(list(fa.keys())))
                     self.assertIn("AT5G01015.0", fa.keys())

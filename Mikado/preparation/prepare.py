@@ -139,17 +139,13 @@ def _check_correspondence(data: dict, other: dict):
     return check
 
 
-def _analyse_chrom(chrom: str, keys: dict, shelve_stacks: dict, logger, keep_redundant=True):
+def _analyse_chrom(chrom: str, keys: dict, shelve_stacks: dict, logger):
 
     merged_transcripts, chains, monoexonic = dict(), defaultdict(set), IntervalTree()
     current = None
     for key in sorted(keys.keys(),
                       key=operator.itemgetter(0, 1)):
         tids = keys[key]
-        if keep_redundant is True:
-            for tid in tids:
-                yield tid[:2], chrom, key
-            continue
         if current is not None and overlap(current, key) < 0:
             if not merged_transcripts:
                 logger.debug("No transcript kept for %s:%s-%s", chrom, key[0], key[1])
@@ -208,7 +204,7 @@ def _analyse_chrom(chrom: str, keys: dict, shelve_stacks: dict, logger, keep_red
         yield merged_transcripts[tid]["key"]
 
 
-def store_transcripts(shelf_stacks, logger, keep_redundant=False, seed=None):
+def store_transcripts(shelf_stacks, logger, seed=None):
 
     """
     Function that analyses the exon lines from the original file
@@ -249,7 +245,7 @@ def store_transcripts(shelf_stacks, logger, keep_redundant=False, seed=None):
                      chrom,
                      len(transcripts[chrom]))
         yield from _analyse_chrom(chrom, transcripts[chrom], shelve_stacks=shelf_stacks,
-                                  logger=logger, keep_redundant=keep_redundant)
+                                  logger=logger)
 
 
 def perform_check(keys, shelve_stacks, args, logger):
@@ -646,7 +642,6 @@ def prepare(args, logger):
             store_transcripts,
             logger=logger,
             seed=args.json_conf["seed"],
-            keep_redundant=args.json_conf["prepare"]["keep_redundant"]
         )
 
         shelve_source_scores = []

@@ -202,15 +202,10 @@ class TestPadding(unittest.TestCase):
                     json_conf["reference"]["genome"] = self.fai
                     json_conf["pick"]["alternative_splicing"]["only_confirmed_introns"] = False
                     json_conf["pick"]["run_options"]["only_reference_update"] = True
-                    locus = Locus(self.reference, logger=logger, json_conf=json_conf,
+                    locus = Locus(self.reference.copy(), logger=logger, json_conf=json_conf,
                                   pad_transcripts=pad_transcripts)
-                    # if pad_transcripts:
-                    #     locus._add_to_alternative_splicing_codes("=")
-                    #     locus._add_to_alternative_splicing_codes("_")
-                    #     locus._add_to_alternative_splicing_codes("n")
                     self.assertTrue(locus[self.reference.id].is_reference)
                     self.assertEqual(locus.perform_padding, pad_transcripts)
-                    # locus.logger.setLevel("DEBUG")
                     locus.add_transcript_to_locus(template)
                     if pad_transcripts is True:
                         self.assertIn(template.id, locus)

@@ -46,7 +46,7 @@ def __cleanup(args, shelves):
 
 
 def _retrieve_data(shelf_name, shelve_stacks, tid, chrom, key, score, logger,
-                   merged_transcripts, chains, monoexonic_tree):
+                   merged_transcripts, chains):
     shelf = shelve_stacks[shelf_name]
     strand, dumped = next(shelf["cursor"].execute("select strand, features from dump where tid = ?", (tid,)))
     dumped = json.loads(dumped)
@@ -58,23 +58,20 @@ def _retrieve_data(shelf_name, shelve_stacks, tid, chrom, key, score, logger,
             introns = tuple([(_[0] + 1, _[1] - 1) for _ in zip([_[1] for _ in exon_set][:-1],
                                                          [_[0] for _ in exon_set][1:])])
         else:
-            introns = tuple([tuple([exon_set[0][0], exon_set[0][1]])])
+            introns = None
         cds_set = tuple(sorted([(exon[0], exon[1]) for exon in features.get("CDS", [])],
                                key=operator.itemgetter(0, 1)))
-        monoexonic = not (len(exon_set) > 1)
         data = dict()
         data["introns"], data["strand"], data["score"] = introns, strand, score
-        data["monoexonic"] = monoexonic
+        data["monoexonic"] = (len(exon_set) == 1)
         data["is_reference"], data["keep_redundant"] = dumped["is_reference"], dumped["keep_redundant"]
         data["start"], data["end"], data["cds_set"] = key[0], key[1], cds_set
         data["key"] = (tuple([tid, shelf_name]), chrom, (data["start"], data["end"]))
-        if data["monoexonic"] is True:
-            # Additional check at the end because the intervaltree class does not support item removal yet.
-            caught = dict((i.value, merged_transcripts[i.value])
-                          for i in monoexonic_tree.find(data["start"], data["end"])
-                          if i.value in merged_transcripts)
-        else:
-            caught = dict((i, merged_transcripts[i]) for i in chains.get(data["introns"], []))
+        # Sorted by default
+        caught = [(i.value, merged_transcripts[i.value])
+                  for i in chains.get(data["introns"]).find(data["start"], data["end"], strict=False)
+                  if i.value in merged_transcripts]
+
         return data, caught
     except (TypeError, IndexError, ValueError, KeyError) as exc:
         logger.error("Error in analysing %s. Skipping. Error: %s", tid, exc)
@@ -141,7 +138,7 @@ def _check_correspondence(data: dict, other: dict):
 
 def _analyse_chrom(chrom: str, keys: dict, shelve_stacks: dict, logger):
 
-    merged_transcripts, chains, monoexonic = dict(), defaultdict(set), IntervalTree()
+    merged_transcripts, chains = dict(), defaultdict(IntervalTree)
     current = None
     for key in sorted(keys.keys(),
                       key=operator.itemgetter(0, 1)):
@@ -153,7 +150,7 @@ def _analyse_chrom(chrom: str, keys: dict, shelve_stacks: dict, logger):
                 logger.debug("Keeping %s as not redundant", tid)
                 yield merged_transcripts[tid]["key"]
             current = key
-            merged_transcripts, chains, monoexonic = dict(), defaultdict(set), IntervalTree()
+            merged_transcripts, chains = dict(), defaultdict(IntervalTree)
         elif current is not None:
             current = tuple([min(key[0], current[0]), max(key[1], current[1])])
         else:
@@ -162,7 +159,7 @@ def _analyse_chrom(chrom: str, keys: dict, shelve_stacks: dict, logger):
         for tid, shelf_name, score, is_reference, _ in tids:
             to_keep, others_to_remove = True, set()
             data, caught = _retrieve_data(shelf_name, shelve_stacks, tid, chrom, key, score, logger,
-                                          merged_transcripts, chains, monoexonic)
+                                          merged_transcripts, chains)
             if data is None:
                 continue
             to_keep = True
@@ -187,14 +184,9 @@ def _analyse_chrom(chrom: str, keys: dict, shelve_stacks: dict, logger):
             if others_to_remove:
                 logger.info("Excluding %s as redundant with %s", ",".join(others_to_remove), tid)
                 [merged_transcripts.__delitem__(otid) for otid in others_to_remove]
-                if data["monoexonic"] is False:
-                    [chains[data["introns"]].remove(otid) for otid in others_to_remove]
             if to_keep is True or to_keep is None:
                 merged_transcripts[tid] = data
-                if data["monoexonic"] is False:
-                    chains[data["introns"]].add(tid)
-                else:
-                    monoexonic.add_interval(Interval(data["start"], data["end"], value=tid))
+                chains[data["introns"]].add_interval(Interval(data["start"], data["end"], value=tid))
                 logger.debug("Keeping %s in the dataset", tid)
 
     if not merged_transcripts and current is not None:

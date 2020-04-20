@@ -174,8 +174,8 @@ def _analyse_chrom(chrom: str, keys: dict, shelve_stacks: dict, logger):
                     to_keep, other_to_keep = _select_transcript(
                         is_reference, data["keep_redundant"],
                         score, other, start=key[0], end=key[1])
-                    logger.info("Checking %s vs %s; initial check: %s; KR: %s; OKR: %s",
-                                tid, otid, check, data["keep_redundant"], other["keep_redundant"])
+                    logger.debug("Checking %s vs %s; initial check: %s; KR: %s; OKR: %s",
+                                 tid, otid, check, data["keep_redundant"], other["keep_redundant"])
                     if to_keep is True and other_to_keep is True:
                         logger.debug("Keeping both %s and %s.", tid, otid)
                     elif to_keep is True and other_to_keep is False:

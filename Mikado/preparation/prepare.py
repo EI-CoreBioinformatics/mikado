@@ -68,9 +68,13 @@ def _retrieve_data(shelf_name, shelve_stacks, tid, chrom, key, score, logger,
         data["start"], data["end"], data["cds_set"] = key[0], key[1], cds_set
         data["key"] = (tuple([tid, shelf_name]), chrom, (data["start"], data["end"]))
         # Sorted by default
-        caught = [(i.value, merged_transcripts[i.value])
-                  for i in chains.get(data["introns"]).find(data["start"], data["end"], strict=False)
-                  if i.value in merged_transcripts]
+        try:
+            caught = [(i.value, merged_transcripts[i.value])
+                      for i in chains[data["introns"]].find(data["start"], data["end"], contained_check=True,
+                                                            num_intervals=10**5)
+                      if i.value in merged_transcripts]
+        except AttributeError as exc:
+            raise AttributeError("{}\n{}\n{}".format(exc, type(chains), type(chains[data["introns"]])))
 
         return data, caught
     except (TypeError, IndexError, ValueError, KeyError) as exc:
@@ -164,7 +168,7 @@ def _analyse_chrom(chrom: str, keys: dict, shelve_stacks: dict, logger):
                 continue
             to_keep = True
             logger.debug("Checking %s (introns: %s; monoexonic: %s)", tid, data["introns"], data["monoexonic"])
-            for otid, other in caught.items():
+            for otid, other in caught:
                 check = _check_correspondence(data, other)
                 if check:
                     # Redundancy!

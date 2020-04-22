@@ -45,6 +45,7 @@ def get_queries(engine):
     queries = pd.read_sql_table("query", engine, index_col="query_name")
     queries.columns = ["qid", "qlength"]
     queries["qid"] = queries["qid"].astype(int)
+    queries.index = queries.index.str.replace(id_pattern, "\\1")
     assert queries.qid.drop_duplicates().shape[0] == queries.shape[0]
     return queries
 
@@ -55,6 +56,7 @@ def get_targets(engine):
     targets["sid"] = targets["sid"].astype(int)
     assert targets.sid.drop_duplicates().shape[0] == targets.shape[0]
 
+    targets.index = targets.index.str.replace(id_pattern, "\\1")
     if targets[targets.slength.isna()].shape[0] > 0:
         raise KeyError("Unbound targets!")
     return targets
@@ -230,7 +232,11 @@ def sanitize_blast_data(data: pd.DataFrame, queries: pd.DataFrame, targets: pd.D
         )[["min_evalue", "max_bitscore"]], on=["qseqid", "sseqid"])
 
     for col in ["qstart", "qend", "sstart", "send", "qlength", "slength"]:
-        assert ~(data[col].isna().any()), (col, data[data[col].isna()].shape[0], data.shape[0])
+        if col != "slength":
+            err_val = (col, data[data[col].isna()].shape[0], data.shape[0])
+        else:
+            err_val = (col, data[["sseqid"]].head())
+        assert ~(data[col].isna().any()), err_val
         try:
             data[col] = data[col].astype(int).values
         except ValueError as exc:

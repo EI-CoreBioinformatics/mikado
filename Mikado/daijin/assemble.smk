@@ -510,7 +510,7 @@ rule gmap_index:
     log: os.path.join(ALIGN_DIR, "logs", "gmap", "index.log")
     message: "Indexing genome with gmap"
     conda: os.path.join(envdir, "gmap.yaml")
-    shell: "{params.load} gmap_build --dir={params.dir} --db={NAME} {input} > {log} 2>&1"
+    shell: "{params.load} gmap_build --dir={params.dir} -d {NAME} {input} > {log} 2>&1"
 
 
 rule gsnap_index:

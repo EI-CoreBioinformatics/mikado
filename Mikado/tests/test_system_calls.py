@@ -391,8 +391,8 @@ class PrepareCheck(unittest.TestCase):
 
                 with self.assertRaises(SystemExit) as exi:
                     prepare_launcher(args)
-                # self.assertTrue(os.path.exists(folder.name))
-                # self.assertTrue(os.path.isdir(folder.name))
+                self.assertTrue(os.path.exists(folder.name))
+                self.assertTrue(os.path.isdir(folder.name))
                 self.assertEqual(exi.exception.code, 0)
                 self.assertTrue(os.path.exists(os.path.join(folder.name,
                                                             "mikado_prepared.fasta")),
@@ -401,15 +401,15 @@ class PrepareCheck(unittest.TestCase):
                 fa = pyfaidx.Fasta(os.path.join(folder.name,
                                                 "mikado_prepared.fasta"))
                 logged = [_ for _ in open(args.json_conf["prepare"]["files"]["log"])]
-                self.assertTrue("AT5G01530.1" in fa.keys())
-                self.assertFalse("AT5G01530.2" in fa.keys())
+                self.assertFalse("AT5G01530.1" in fa.keys())
+                self.assertTrue("AT5G01530.2" in fa.keys())
                 if b is True:
                     self.assertEqual(len(fa.keys()), 4)
-                    self.assertEqual(sorted(fa.keys()), sorted(["AT5G01530."+str(_) for _ in [0, 1, 3, 4]]))
+                    self.assertEqual(sorted(fa.keys()), sorted(["AT5G01530."+str(_) for _ in [0, 2, 3, 4]]))
                 else:
                     self.assertEqual(len(fa.keys()), 3, (fa.keys(), logged))
                     self.assertIn("AT5G01530.0", fa.keys())
-
+                    self.assertIn("AT5G01530.2", fa.keys())
                     self.assertNotIn("AT5G01530.3", fa.keys())
                     self.assertIn("AT5G01530.4", fa.keys())
                 gtf_file = os.path.join(folder.name, "mikado_prepared.gtf")
@@ -442,10 +442,7 @@ class PrepareCheck(unittest.TestCase):
                             self.assertEqual(transcript.is_complete,
                                              transcript.has_start_codon and transcript.has_stop_codon)
                     # self.assertIn("AT5G01530.3", transcripts)
-                    if "AT5G01530.1" in transcripts:
-                        a5 = transcripts["AT5G01530.1"]
-                    else:
-                        a5 = transcripts["AT5G01530.2"]
+                    a5 = transcripts["AT5G01530.2"]
                     self.assertTrue(a5.is_coding)
                     self.assertIn("has_start_codon", a5.attributes)
                     self.assertIn("has_stop_codon", a5.attributes)

@@ -16,6 +16,7 @@ import sys
 import numpy
 import rapidjson as json
 import operator
+import random
 
 
 __author__ = 'Luca Venturini'
@@ -161,9 +162,11 @@ class CheckingProcess(multiprocessing.Process):
         self.__identifier = ""
         self.__set_identifier(identifier)
         if seed is not None:
-            numpy.random.seed(seed % (2 ** 32 - 1))
+            # numpy.random.seed(seed % (2 ** 32 - 1))
+            random.seed(seed % (2 ** 32 - 1))
         else:
-            numpy.random.seed(None)
+            # numpy.random.seed(None)
+            random.seed(None)
         # self.strand_specific = strand_specific
         self.__canonical = []
         self.__set_canonical(canonical_splices)

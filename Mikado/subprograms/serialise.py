@@ -22,9 +22,9 @@ from ..serializers import orf, blast_serializer, junction
 from ..serializers import external
 from ..exceptions import InvalidJson
 import pyfaidx
-import numpy
 from ..exceptions import InvalidSerialization
 from ..serializers.blast_serializer.tabular_utils import blast_keys
+import random
 
 
 __author__ = 'Luca Venturini'
@@ -218,9 +218,11 @@ def setup(args):
 
     if args.seed is not None:
         args.json_conf["seed"] = args.seed
-        numpy.random.seed((args.seed) % (2 ** 32 - 1))
+        # numpy.random.seed((args.seed) % (2 ** 32 - 1))
+        random.seed((args.seed) % (2 ** 32 - 1))
     else:
-        numpy.random.seed(None)
+        # numpy.random.seed(None)
+        random.seed(None)
 
     if args.output_dir is not None:
         args.json_conf["serialise"]["files"]["output_dir"] = args.output_dir

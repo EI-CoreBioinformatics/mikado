@@ -9,7 +9,7 @@ import os
 from ..picking import Picker
 from ..configuration.configurator import to_json, check_json
 from ..utilities.log_utils import create_default_logger, create_null_logger
-import numpy
+import random
 from ..utilities import to_region
 from ..utilities.intervaltree import IntervalTree, Interval
 
@@ -57,9 +57,11 @@ def check_run_options(args, logger=create_null_logger()):
 
     if args.seed is not None:
         args.json_conf["seed"] = args.seed
-        numpy.random.seed(args.seed % (2 ** 32 - 1))
+        # numpy.random.seed(args.seed % (2 ** 32 - 1))
+        random.seed(args.seed % (2 ** 32 - 1))
     else:
-        numpy.random.seed(None)
+        # numpy.random.seed(None)
+        random.seed(None)
 
     if args.no_cds is not False:
         args.json_conf["pick"]["run_options"]["exclude_cds"] = True

@@ -299,8 +299,8 @@ class BED12:
         self.score = 0
         self.strand = None
         self.rgb = ''
-        self.__block_sizes = np.zeros(1, dtype=np.integer)
-        self.__block_starts = np.zeros(1, dtype=np.integer)
+        self.__block_sizes = np.zeros(1, dtype=np.int_)
+        self.__block_starts = np.zeros(1, dtype=np.int_)
         self.__block_count = 1
         self.__invalid = None
         self.invalid_reason = None
@@ -1053,7 +1053,7 @@ class BED12:
 
     @start.setter
     def start(self, value):
-        if not isint(value) and not isinstance(value, np.integer):
+        if not isint(value) and not isinstance(value, np.int_):
             raise ValueError("Thick end must be an integer!")
         self.__start = fast_int(value)
         del self.invalid
@@ -1069,7 +1069,7 @@ class BED12:
 
     @end.setter
     def end(self, value):
-        if not isint(value) and not isinstance(value, np.integer):
+        if not isint(value) and not isinstance(value, np.int_):
             raise ValueError("Thick end must be an integer, not {}! Value: {}".format(type(value), value))
         self.__end = fast_int(value)
         del self.invalid
@@ -1085,7 +1085,7 @@ class BED12:
 
     @thick_start.setter
     def thick_start(self, value):
-        if not isint(value) and not isinstance(value, np.integer):
+        if not isint(value) and not isinstance(value, np.int_):
             raise ValueError("Thick end must be an integer!")
         self.__thick_start = fast_int(value)
         del self.invalid
@@ -1101,7 +1101,7 @@ class BED12:
 
     @thick_end.setter
     def thick_end(self, value):
-        if not isint(value) and not isinstance(value, np.integer):
+        if not isint(value) and not isinstance(value, np.int_):
             raise ValueError("Thick end must be an integer!")
         self.__thick_end = fast_int(value)
         del self.invalid
@@ -1146,7 +1146,7 @@ class BED12:
 
     @block_count.setter
     def block_count(self, value):
-        if not isint(value) and not isinstance(value, np.integer):
+        if not isint(value) and not isinstance(value, np.int_):
             raise ValueError("Thick end must be an integer!")
         self.__block_count = fast_int(value)
         del self.invalid
@@ -1158,14 +1158,14 @@ class BED12:
     @block_sizes.setter
     def block_sizes(self, sizes):
         sizes = np.array(sizes)
-        if not issubclass(sizes.dtype.type, np.integer):
+        if not issubclass(sizes.dtype.type, np.int_):
             raise TypeError("Block sizes should be integers!")
         self.__block_sizes = sizes
         del self.invalid
 
     @block_sizes.deleter
     def block_sizes(self):
-        self.__block_sizes = np.zeros(1, dtype=np.integer)
+        self.__block_sizes = np.zeros(1, dtype=np.int_)
         del self.invalid
 
     @property
@@ -1175,7 +1175,7 @@ class BED12:
     @block_starts.setter
     def block_starts(self, starts):
         starts = np.array(starts)
-        if not issubclass(starts.dtype.type, np.integer):
+        if not issubclass(starts.dtype.type, np.int_):
             raise TypeError("Block sizes should be integers! Dtype: {}; array: {}".format(
                 starts.dtype, starts
             ))
@@ -1184,7 +1184,7 @@ class BED12:
 
     @block_starts.deleter
     def block_starts(self):
-        self.__block_starts = np.zeros(1, dtype=np.integer)
+        self.__block_starts = np.zeros(1, dtype=np.int_)
         del self.invalid
 
     @property
@@ -1355,7 +1355,7 @@ class BED12:
             bsizes = np.flip(self.block_sizes)
             tStart, tEnd = self.block_sizes.sum() - tEnd, self.block_sizes.sum() - tStart
 
-        bstarts = np.concatenate([np.zeros(1, dtype=np.integer), bsizes[:-1].cumsum()])
+        bstarts = np.concatenate([np.zeros(1, dtype=np.int_), bsizes[:-1].cumsum()])
         # bstarts = [0]
         # for bs in bsizes[:-1]:
         #     bstarts.append(bs + bstarts[-1])

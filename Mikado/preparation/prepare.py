@@ -22,6 +22,7 @@ import sqlite3
 import pysam
 import numpy as np
 import rapidjson as json
+import random
 
 
 __author__ = 'Luca Venturini'
@@ -101,7 +102,9 @@ def _select_transcript(is_reference, keep_redundant, score, other, start, end):
         elif (is_reference is True and other["is_reference"] is False) or (score > other["score"]):
             to_keep = True
         else:
-            to_keep, other_to_keep = np.random.permutation([True, False])
+            # to_keep, other_to_keep = np.random.permutation([True, False])
+            to_keep = random.choice([True, False])
+            other_to_keep = not to_keep
     else:
         if (is_reference is False and other["is_reference"] is True) or (score < other["score"]):
             other_to_keep = True
@@ -239,7 +242,8 @@ def store_transcripts(shelf_stacks, logger, seed=None):
         except sqlite3.OperationalError as exc:
             raise sqlite3.OperationalError("dump not found in {}; excecption: {}".format(shelf_name, exc))
 
-    np.random.seed(seed)
+    # np.random.seed(seed)
+    random.seed(seed)
     for chrom in sorted(transcripts.keys()):
         logger.debug("Starting with %s (%d positions)",
                      chrom,
@@ -313,7 +317,8 @@ def perform_check(keys, shelve_stacks, args, logger):
         # submission_queue = multiprocessing.JoinableQueue(-1)
 
         batches = list(enumerate(keys, 1))
-        np.random.shuffle(batches)
+        # np.random.shuffle(batches)
+        random.shuffle(batches)
         kwargs = {
             "fasta_out": os.path.basename(args.json_conf["prepare"]["files"]["out_fasta"].name),
             "gtf_out": os.path.basename(args.json_conf["prepare"]["files"]["out"].name),

@@ -27,6 +27,7 @@ if version_info.minor < 5:
 else:
     from collections import OrderedDict as SortedDict
 from fastnumbers import isfloat
+import random
 import rapidjson as json
 
 # I do not care that there are too many attributes: this IS a massive class!
@@ -437,11 +438,13 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         # Choose one transcript randomly between those that have the maximum score
         if len(transcripts) == 1:
             return list(transcripts.keys())[0]
-        np.random.seed(self.json_conf["seed"])
+        # np.random.seed(self.json_conf["seed"])
+        random.seed(self.json_conf["seed"])
         max_score = max(transcripts.values(),
                         key=operator.attrgetter("score")).score
         valid = sorted([transc for transc in transcripts if transcripts[transc].score == max_score])
-        chosen = valid[numpy.random.choice(len(valid))]
+        # chosen = valid[numpy.random.choice(len(valid))]
+        chosen = valid[random.choice(range(len(valid)))]
         self.logger.debug("Chosen {chosen} out of {}".format(", ".join(valid), chosen=chosen))
         return chosen
 

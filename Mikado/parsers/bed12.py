@@ -32,6 +32,7 @@ from ..utilities.log_utils import create_null_logger
 import pyfaidx
 import zlib
 import numpy as np
+import random
 
 
 backup_valid_letters = set(_ambiguous_dna_letters.upper() + _ambiguous_rna_letters.upper())
@@ -1479,7 +1480,8 @@ class Bed12Parser(Parser):
         if isinstance(fasta_index, dict):
             # check that this is a bona fide dictionary ...
             assert isinstance(
-                fasta_index[numpy.random.choice(fasta_index.keys(), 1)],
+                fasta_index[random.choice(fasta_index.keys())],
+                # fasta_index[numpy.random.choice(fasta_index.keys(), 1)],
                 Bio.SeqRecord.SeqRecord)
         elif fasta_index is not None:
             if isinstance(fasta_index, (str, bytes)):
@@ -1639,7 +1641,8 @@ class Bed12ParseWrapper(mp.Process):
         if isinstance(fasta_index, dict):
             # check that this is a bona fide dictionary ...
             assert isinstance(
-                fasta_index[numpy.random.choice(fasta_index.keys(), 1)],
+                # fasta_index[numpy.random.choice(fasta_index.keys(), 1)],
+                fasta_index[random.choice(fasta_index.keys())],
                 Bio.SeqRecord.SeqRecord)
         elif fasta_index is not None:
             if isinstance(fasta_index, (str, bytes)):

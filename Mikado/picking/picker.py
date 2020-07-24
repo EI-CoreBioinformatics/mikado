@@ -11,7 +11,7 @@ import csv
 import os
 import shutil
 import tempfile
-from math import floor
+import random
 import logging
 from logging import handlers as logging_handlers
 import functools
@@ -41,7 +41,6 @@ from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
 import pickle
 import warnings
 import pyfaidx
-import numpy
 import sqlite3
 import msgpack
 from fastnumbers import fast_int
@@ -106,9 +105,11 @@ class Picker:
         # self.setup_logger()
         self.logger.info("Random seed: %s", self.json_conf["seed"])
         if self.json_conf["seed"] is not None:
-            numpy.random.seed((self.json_conf["seed"]) % (2 ** 32 - 1))
+            # numpy.random.seed((self.json_conf["seed"]) % (2 ** 32 - 1))
+            random.seed((self.json_conf["seed"]) % (2 ** 32 - 1))
         else:
-            numpy.random.seed(None)
+            # numpy.random.seed(None)
+            random.seed(None)
         self.logger.debug("Multiprocessing method: %s", self.json_conf["multiprocessing_method"])
 
         # pylint: enable=no-member

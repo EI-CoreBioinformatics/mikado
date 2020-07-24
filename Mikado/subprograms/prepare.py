@@ -15,7 +15,7 @@ from ..utilities.log_utils import formatter
 from ..preparation.prepare import prepare
 from ..configuration.configurator import to_json, check_json
 from Mikado.exceptions import InvalidJson
-import numpy
+import random
 from collections import Counter
 
 
@@ -136,9 +136,11 @@ def setup(args):
 
     if args.seed is not None:
         args.json_conf["seed"] = args.seed
-        numpy.random.seed(args.seed % (2 ** 32 - 1))
+        # numpy.random.seed(args.seed % (2 ** 32 - 1))
+        random.seed(args.seed % (2 ** 32 - 1))
     else:
-        numpy.random.seed(None)
+        # numpy.random.seed(None)
+        random.seed(None)
 
     args.json_conf = parse_prepare_options(args, args.json_conf)
 

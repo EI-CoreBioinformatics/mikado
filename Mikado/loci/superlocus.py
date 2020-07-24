@@ -40,6 +40,7 @@ from .excluded import Excluded
 from typing import Union
 from ..utilities.intervaltree import Interval, IntervalTree
 from itertools import combinations
+import random
 
 # The number of attributes is something I need
 # pylint: disable=too-many-instance-attributes
@@ -843,7 +844,8 @@ class Superlocus(Abstractlocus):
                     elif self.transcripts[current_id].is_reference:
                         to_remove.add(transcript.id)
                     else:
-                        chosen = np.random.choice(sorted([current_id, transcript.id]))
+                        # chosen = np.random.choice(sorted([current_id, transcript.id]))
+                        chosen = random.choice(sorted([current_id, transcript.id]))
                         if current_id == chosen:
                             to_remove.add(transcript.id)
                         else:

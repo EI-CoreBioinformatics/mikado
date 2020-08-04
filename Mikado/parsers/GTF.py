@@ -185,7 +185,7 @@ class GtfLine(GFAnnotation):
             self._transcript = None
         else:
             try:
-                self._transcript = self.attributes["transcript_id"]
+                self._transcript = str(self.attributes["transcript_id"])
             except KeyError:
                 raise KeyError(self.attributes)
 
@@ -228,6 +228,11 @@ class GtfLine(GFAnnotation):
         """
         if isinstance(parent, str):
             parent = parent.split(",")
+        elif isinstance(parent, (int, float)):
+            parent = [str(parent)]
+        elif isinstance(parent, (bytes,)):
+            parent = [parent.decode()]
+
         self.attributes["Parent"] = parent
         self.__parent = parent
         if self.is_transcript is True:
@@ -272,7 +277,7 @@ class GtfLine(GFAnnotation):
 
     def __set_gene(self):
         try:
-            self.__gene = self.attributes["gene_id"]
+            self.__gene = str(self.attributes["gene_id"])
             if self.is_transcript:
                 self.__parent = [self.__gene]
         except KeyError:
@@ -307,7 +312,7 @@ class GtfLine(GFAnnotation):
         :type transcript: str
         """
 
-        self.attributes["transcript_id"] = self._transcript = transcript
+        self.attributes["transcript_id"] = self._transcript = str(transcript)
         if self.is_transcript is True:
             self.attributes["ID"] = transcript
         else:

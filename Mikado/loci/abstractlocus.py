@@ -26,7 +26,6 @@ if version_info.minor < 5:
     from sortedcontainers import SortedDict
 else:
     from collections import OrderedDict as SortedDict
-from fastnumbers import isfloat
 import random
 import rapidjson as json
 
@@ -1024,13 +1023,13 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                 else:
                     value = metrics.get(key, "NA")
                     # value = getattr(transcript, key, "NA")
-                if isfloat(value):
+                if isinstance(value, float):
                     value = round(value, 2)
                 elif value is None or value == "":
                     if key == "score":
                         value = self.scores.get(tid, dict()).get("score", None)
                         self.transcripts[tid].score = value
-                        if isfloat(value):
+                        if isinstance(value, float):
                             value = round(value, 2)
                         elif value is None:
                             value = "NA"
@@ -1042,7 +1041,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                 # Each score from external files also contains a multiplier.
                 key = "external.{}".format(source)
                 value = transcript.external_scores.get(source)[0]
-                if isfloat(value):
+                if isinstance(value, float):
                     value = round(value, 2)
                 elif value is None or value == "":
                     value = "NA"

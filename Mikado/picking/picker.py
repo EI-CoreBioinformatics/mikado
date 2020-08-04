@@ -43,7 +43,6 @@ import warnings
 import pyfaidx
 import sqlite3
 import msgpack
-from fastnumbers import fast_int
 from numpy import percentile
 logging.captureWarnings(True)
 warnings.simplefilter("always")
@@ -857,8 +856,7 @@ Please update your configuration files in the future.""".format(
             return None
 
         try:
-            start = fast_int(fields[3], raise_on_invalid=True)
-            end = fast_int(fields[4], raise_on_invalid=True)
+            start, end = int(fields[3]), int(fields[4])
         except (ValueError, SystemError, TypeError):
             return None
         chrom = fields[0]
@@ -874,10 +872,13 @@ Please update your configuration files in the future.""".format(
         if tid is None:
             raise InvalidJson("Corrupt input GTF file, offending line:\n{}".format(line))
         tid = tid.groups()[0]
-        try:
-            phase = fast_int(fields[7], default=None)
-        except (SystemError, TypeError, ValueError):
-            return None
+        if fields[7] in (None, ".", "?"):
+            phase = None
+        else:
+            try:
+                phase = int(fields[7])
+            except (SystemError, TypeError, ValueError):
+                return None
         return line, chrom, fields[2], start, end, phase, tid, is_transcript
 
     def __parse_multithreaded(self, locus_queue, conn, cursor):

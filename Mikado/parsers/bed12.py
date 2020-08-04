@@ -6,9 +6,7 @@ but at the same time more pythonic.
 """
 
 from time import sleep
-import numpy
 import os
-from fastnumbers import fast_int, fast_float, isint
 from Bio import Seq
 import Bio.SeqRecord
 from . import Parser
@@ -466,7 +464,7 @@ class BED12:
             if key.lower() in ("parent", "geneid"):
                 self.parent = val
             elif "phase" in key.lower():
-                self.phase = fast_int(val, raise_on_invalid=True)
+                self.phase = int(val)
                 self.coding = True
             elif key.lower() == "coding":
                 self.coding = self.__valid_coding.get(val, False)
@@ -492,20 +490,23 @@ class BED12:
 
         # Reduce memory usage
         intern(self.chrom)
-        self.start = fast_int(self.start, raise_on_invalid=True) + 1
-        self.end = fast_int(self.end, raise_on_invalid=True)
-        self.score = fast_float(self.score, default=None)
-        self.thick_start = fast_int(self.thick_start, raise_on_invalid=True) + 1
-        self.thick_end = fast_int(self.thick_end, raise_on_invalid=True)
-        self.block_count = fast_int(self.block_count, raise_on_invalid=True)
+        self.start = int(self.start) + 1
+        self.end = int(self.end)
+        try:
+            self.score = float(self.score)
+        except (ValueError, TypeError):
+            self.score = None
+        self.thick_start = int(self.thick_start) + 1
+        self.thick_end = int(self.thick_end)
+        self.block_count = int(self.block_count)
         if isinstance(block_sizes, (str, bytes)):
-            self.block_sizes = [fast_int(x, raise_on_invalid=True) for x in block_sizes.split(",") if x]
+            self.block_sizes = [int(x) for x in block_sizes.split(",") if x]
         else:
-            self.block_sizes = [fast_int(x, raise_on_invalid=True) for x in block_sizes]
+            self.block_sizes = [int(x) for x in block_sizes]
         if isinstance(block_starts, (str, bytes)):
-            self.block_starts = [fast_int(x, raise_on_invalid=True) for x in block_starts.split(",") if x]
+            self.block_starts = [int(x) for x in block_starts.split(",") if x]
         else:
-            self.block_starts = [fast_int(x, raise_on_invalid=True) for x in block_starts]
+            self.block_starts = [int(x) for x in block_starts]
         self._parse_attributes(self.name)
         if len(self._fields) == 13:
             self._parse_attributes(self._fields[-1])
@@ -1054,9 +1055,11 @@ class BED12:
 
     @start.setter
     def start(self, value):
-        if not isint(value) and not isinstance(value, np.int_):
-            raise ValueError("Thick end must be an integer!")
-        self.__start = fast_int(value)
+        try:
+            value = int(value)
+        except (ValueError, TypeError):
+            raise ValueError("Start must be an integer, not {}! Value: {}".format(type(value), value))
+        self.__start = value
         del self.invalid
 
     @start.deleter
@@ -1070,9 +1073,11 @@ class BED12:
 
     @end.setter
     def end(self, value):
-        if not isint(value) and not isinstance(value, np.int_):
-            raise ValueError("Thick end must be an integer, not {}! Value: {}".format(type(value), value))
-        self.__end = fast_int(value)
+        try:
+            value = int(value)
+        except (ValueError, TypeError):
+            raise ValueError("End must be an integer, not {}! Value: {}".format(type(value), value))
+        self.__end = value
         del self.invalid
 
     @end.deleter
@@ -1086,9 +1091,11 @@ class BED12:
 
     @thick_start.setter
     def thick_start(self, value):
-        if not isint(value) and not isinstance(value, np.int_):
-            raise ValueError("Thick end must be an integer!")
-        self.__thick_start = fast_int(value)
+        try:
+            value = int(value)
+        except (ValueError, TypeError):
+            raise ValueError("Thick start must be an integer, not {}! Value: {}".format(type(value), value))
+        self.__thick_start = value
         del self.invalid
 
     @thick_start.deleter
@@ -1102,9 +1109,11 @@ class BED12:
 
     @thick_end.setter
     def thick_end(self, value):
-        if not isint(value) and not isinstance(value, np.int_):
-            raise ValueError("Thick end must be an integer!")
-        self.__thick_end = fast_int(value)
+        try:
+            value = int(value)
+        except (ValueError, TypeError):
+            raise ValueError("Thick end must be an integer, not {}! Value: {}".format(type(value), value))
+        self.__thick_end = value
         del self.invalid
 
     @thick_end.deleter
@@ -1147,9 +1156,11 @@ class BED12:
 
     @block_count.setter
     def block_count(self, value):
-        if not isint(value) and not isinstance(value, np.int_):
-            raise ValueError("Thick end must be an integer!")
-        self.__block_count = fast_int(value)
+        try:
+            value = int(value)
+        except (ValueError, TypeError):
+            raise ValueError("Block count must be an integer, not {}! Value: {}".format(type(value), value))
+        self.__block_count = value
         del self.invalid
 
     @property

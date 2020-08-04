@@ -367,10 +367,13 @@ class GFAnnotation(metaclass=abc.ABCMeta):
         if self.feature is not None:
             if self.feature.endswith("gene") and self.feature != "mRNA_TE_gene":
                 # Hack for EnsEMBL GFFs
-                if self.id is None or "transcript:" not in self.id:
-                    return True
-                else:
-                    return False
+                try:
+                    if self.id is None or "transcript:" not in self.id:
+                        return True
+                    else:
+                        return False
+                except TypeError:
+                    raise TypeError((self.id, type(self.id)))
             elif self.id is not None and self.id.startswith("gene:"):
                 # Hack for EnsEMBL
                 return True

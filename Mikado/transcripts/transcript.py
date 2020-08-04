@@ -1937,6 +1937,11 @@ class Transcript:
 
     @name.setter
     def name(self, name):
+        if isinstance(name, (int, float)):
+            name = str(name)
+        elif isinstance(name, (bytes,)):
+            name = name.decode()
+
         if not isinstance(name, (type(None), str)):
             raise ValueError("Invalid name: {0}".format(name))
 

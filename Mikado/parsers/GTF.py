@@ -402,7 +402,12 @@ class GTF(Parser):
         line = self._handle.readline()
         if line == '':
             raise StopIteration
-        return GtfLine(line)
+        try:
+            return GtfLine(line)
+        except Exception:
+            error = "Invalid line for file {}, position {}:\n{}".format(
+                self.name, self._handle.tell(), line)
+            raise ValueError(error)
 
     @property
     def file_format(self):

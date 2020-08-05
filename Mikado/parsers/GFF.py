@@ -367,8 +367,13 @@ class GFF3(Parser):
         if line[0] == "#":
             return GffLine(line, header=True)
 
-        line = GffLine(line)
-        return line
+        try:
+            gff_line = GffLine(line)
+        except Exception:
+            error = "Invalid line for file {}, position {}:\n{}".format(
+                self.name, self._handle.tell(), line)
+            raise ValueError(error)
+        return gff_line
 
     @property
     def file_format(self):

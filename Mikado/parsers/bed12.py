@@ -1539,14 +1539,19 @@ class Bed12Parser(Parser):
             line = self._handle.readline()
             if line == '':
                 raise StopIteration
-            bed12 = BED12(line,
-                          fasta_index=self.fasta_index,
-                          transcriptomic=self.transcriptomic,
-                          max_regression=self._max_regression,
-                          coding=self.coding,
-                          table=self.__table,
-                          logger=self.logger,
-                          start_adjustment=self.start_adjustment)
+            try:
+                bed12 = BED12(line,
+                              fasta_index=self.fasta_index,
+                              transcriptomic=self.transcriptomic,
+                              max_regression=self._max_regression,
+                              coding=self.coding,
+                              table=self.__table,
+                              logger=self.logger,
+                              start_adjustment=self.start_adjustment)
+            except Exception:
+                error = "Invalid line for file {}, position {}:\n{}".format(
+                    self.name, self._handle.tell(), line)
+                raise ValueError(error)
         return bed12
 
     def gff_next(self):
@@ -1560,18 +1565,28 @@ class Bed12Parser(Parser):
             line = self._handle.readline()
             if line == "":
                 raise StopIteration
-            line = GffLine(line)
+            try:
+                gff_line = GffLine(line)
+            except Exception:
+                error = "Invalid line for file {}, position {}:\n{}".format(
+                    self.name, self._handle.tell(), line)
+                raise ValueError(error)
 
-            if line.feature != "CDS":
+            if gff_line.feature != "CDS":
                 continue
             # Compatibility with BED12
-            bed12 = BED12(line,
-                          fasta_index=self.fasta_index,
-                          transcriptomic=self.transcriptomic,
-                          max_regression=self._max_regression,
-                          table=self.__table,
-                          start_adjustment=self.start_adjustment,
-                          logger=self.logger)
+            try:
+                bed12 = BED12(gff_line,
+                              fasta_index=self.fasta_index,
+                              transcriptomic=self.transcriptomic,
+                              max_regression=self._max_regression,
+                              table=self.__table,
+                              start_adjustment=self.start_adjustment,
+                              logger=self.logger)
+            except Exception:
+                error = "Invalid line for file {}, position {}:\n{}".format(
+                    self.name, self._handle.tell(), line)
+                raise ValueError(error)
         # raise NotImplementedError("Still working on this!")
         return bed12
 
@@ -1677,14 +1692,17 @@ class Bed12ParseWrapper(mp.Process):
         :return:
         """
 
-        bed12 = BED12(line,
-                      logger=self.logger,
-                      sequence=sequence,
-                      transcriptomic=self.transcriptomic,
-                      max_regression=self._max_regression,
-                      start_adjustment=self.start_adjustment,
-                      coding=self.coding,
-                      table=self.__table)
+        try:
+            bed12 = BED12(line,
+                          logger=self.logger,
+                          sequence=sequence,
+                          transcriptomic=self.transcriptomic,
+                          max_regression=self._max_regression,
+                          start_adjustment=self.start_adjustment,
+                          coding=self.coding,
+                          table=self.__table)
+        except Exception:
+            raise ValueError("Invalid line: {}".format(line))
         return bed12
 
     def gff_next(self, line, sequence):
@@ -1693,7 +1711,11 @@ class Bed12ParseWrapper(mp.Process):
         :return:
         """
 
-        line = GffLine(line)
+        try:
+            line = GffLine(line)
+        except Exception:
+            error = "Invalid line:\n{}".format(line)
+            raise ValueError(error)
 
         if line.feature != "CDS":
             return None

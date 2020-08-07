@@ -14,7 +14,7 @@ from ..configuration import configurator, daijin_configurator, print_config, pri
 from ..configuration.configurator import create_cluster_config
 from ..exceptions import InvalidJson
 from ..utilities import comma_split
-from ..transcripts.transcript import Namespace
+from ..utilities.namespace import Namespace
 import functools
 import rapidjson as json
 import tempfile

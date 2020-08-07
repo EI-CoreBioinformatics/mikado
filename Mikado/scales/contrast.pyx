@@ -1,7 +1,7 @@
 from .resultstorer import ResultStorer
-from ..loci import Transcript
-from ..utilities.overlap cimport c_overlap
-from ..utilities.intervaltree cimport Interval, IntervalTree
+from Mikado.transcripts import Transcript
+from Mikado.utilities.overlap cimport c_overlap
+from Mikado.utilities.intervaltree cimport Interval, IntervalTree
 from .f1 cimport calc_f1
 import cython
 

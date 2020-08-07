@@ -12,9 +12,10 @@ from ..configuration import configurator
 from .. import exceptions, scales
 from ..parsers import GFF  # ,GTF, bed12
 from ..parsers.GTF import GtfLine
-from ..loci import Transcript, Superlocus, Abstractlocus, Locus, Monosublocus, MonosublocusHolder, Sublocus, Excluded
+from ..transcripts.transcript import Transcript
+from ..loci import Superlocus, Abstractlocus, Locus, Monosublocus, MonosublocusHolder, Sublocus, Excluded
 from ..loci.locus import expand_transcript
-from ..loci import Gene
+from ..transcripts.reference_gene import Gene
 from ..utilities.log_utils import create_null_logger, create_default_logger
 from ..utilities import overlap
 from ..parsers.bed12 import BED12

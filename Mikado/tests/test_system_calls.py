@@ -23,7 +23,7 @@ from ..configuration import configurator, daijin_configurator
 from ..picking import picker
 from ..preparation import prepare
 from ..scales.compare import compare, load_index
-from ..subprograms.util.stats import Calculator
+from ..scales.calculator import Calculator
 from ..subprograms.prepare import prepare_launcher
 from ..subprograms.prepare import setup as prepare_setup
 from ..transcripts.transcript import Namespace

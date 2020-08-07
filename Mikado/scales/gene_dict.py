@@ -1,4 +1,4 @@
-from ..loci.reference_gene import Gene
+from Mikado.transcripts.reference_gene import Gene
 from ..exceptions import CorruptIndex
 from ..utilities.file_type import filetype
 from ..utilities.log_utils import create_null_logger

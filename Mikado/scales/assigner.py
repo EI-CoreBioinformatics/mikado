@@ -16,7 +16,7 @@ from collections import namedtuple
 from functools import partial
 from logging import handlers as log_handlers
 # from re import search as re_search
-from ..transcripts.transcript import Transcript, Namespace
+from Mikado.transcripts.transcript import Transcript, Namespace
 from .accountant import Accountant
 import os
 from .contrast import compare as c_compare

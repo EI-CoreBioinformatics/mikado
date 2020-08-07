@@ -6,8 +6,6 @@
 import sys
 import argparse
 import functools
-from ...parsers import GFF, GTF
-from ...subprograms import to_gff
 import re
 
 
@@ -171,7 +169,10 @@ def launch(args):
     :param args:
     :return:
     """
+    from ...parsers import GFF, GTF
+    from ...subprograms import to_gff
 
+    args.gff = to_gff(args.gff)
     gene_ids, mrna_ids = set(), set()
     for line in args.ids:
         if args.genes is False:
@@ -206,7 +207,7 @@ def grep_parser():
                         children of the selected genes.""")
     parser.add_argument('ids', type=argparse.FileType(),
                         help="ID file (format: mrna_id, gene_id - tab separated)")
-    parser.add_argument('gff', type=to_gff, help="The GFF file to parse.")
+    parser.add_argument('gff', type=str, help="The GFF file to parse.")
     parser.add_argument('out', nargs='?',
                         type=argparse.FileType('w'), default=sys.stdout,
                         help="Optional output file")

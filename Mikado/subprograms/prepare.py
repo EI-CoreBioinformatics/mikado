@@ -12,7 +12,6 @@ import logging
 import logging.handlers
 from ..utilities import path_join, parse_list_file
 from ..utilities.log_utils import formatter
-from ..preparation.prepare import prepare
 from ..configuration.configurator import to_json, check_json
 from Mikado.exceptions import InvalidJson
 import random
@@ -216,6 +215,7 @@ def setup(args):
 
 def prepare_launcher(args):
 
+    from ..preparation.prepare import prepare
     args, logger = setup(args)
     try:
         prepare(args, logger)

@@ -5,11 +5,9 @@
 
 import argparse
 import sys
-from .. import to_gff
-from ...exceptions import InvalidTranscript
-from ...loci import Transcript
-from ...loci.reference_gene import Gene
 from ...utilities.log_utils import create_default_logger
+from ...exceptions import InvalidTranscript
+
 
 __author__ = 'Luca Venturini'
 
@@ -202,7 +200,7 @@ def trim_coding(transcript, logger, max_length=0):
     return transcript
 
 
-def strip_terminal(transcript, args) -> Transcript:
+def strip_terminal(transcript, args):
     """This function will take as input a transcript and then:
     - return immediately if the transcript is monoexonic
     - trim the terminal exons to a length of max(args.max_length (if longer), CDS boundary)
@@ -266,6 +264,7 @@ def trim_gene(current_gene, format_name, args):
             print(current_gene.format(format_name), file=args.out)
     return
 
+
 def launch(args):
 
     """
@@ -273,6 +272,11 @@ def launch(args):
     :param args: the argparse Namespace.
     """
 
+    from .. import to_gff
+    from ...loci import Transcript
+    from Mikado.transcripts.reference_gene import Gene
+
+    args.gff = to_gff(args.gff)
     args.logger = create_default_logger("trimmer")
     args.logger.setLevel("WARN")
 
@@ -335,7 +339,7 @@ def trim_parser():
     parser.add_argument("--as-gtf", default=False, action="store_true",
                         dest="as_gtf",
                         help="Flag. If set, the output will be in GTF rather than GFF3 format.")
-    parser.add_argument("ann", type=to_gff, help="Reference GTF/GFF output file.")
+    parser.add_argument("ann", type=str, help="Reference GTF/GFF output file.")
     parser.add_argument("out", nargs="?", default=sys.stdout,
                         type=argparse.FileType('w'))
     parser.set_defaults(func=launch)

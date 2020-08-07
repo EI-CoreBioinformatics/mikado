@@ -9,7 +9,6 @@ Launcher for the Mikado compare utility.
 import collections
 import csv
 import logging
-import multiprocessing
 import os
 import re
 import sys
@@ -18,7 +17,7 @@ from ..transcripts.transcript import Transcript
 from .assigner import Assigner
 from .resultstorer import ResultStorer
 from ..exceptions import CorruptIndex
-from ..loci.reference_gene import Gene
+from Mikado.transcripts.reference_gene import Gene
 from ..parsers.GFF import GFF3
 from ..parsers.GTF import GTF
 from ..parsers.bed12 import Bed12Parser
@@ -306,7 +305,6 @@ class FinalAssigner(mp.Process):
         super().__init__()
         self.index = index
         self.queue = queue
-        import pickle
         failed = set()
         self.args = args
         self.log_queue = log_queue

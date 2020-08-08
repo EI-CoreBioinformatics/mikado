@@ -342,23 +342,6 @@ def setup(args):
                 args.json_conf["threads"],
                 args.json_conf["serialise"]["single_thread"])
 
-    return args, logger, sql_logger
-
-
-def serialise(args):
-
-    """
-    Wrapper around the serializers objects. It uses the configuration
-    supplied through the command line to launch the necessary tools.
-
-    :param args: namespace with the necessary information for the serialisation
-    :return:
-    """
-
-    args, logger, sql_logger = setup(args)
-
-    # logger.info("Command line: %s",  " ".join(sys.argv))
-
     if args.json_conf["serialise"]["force"] is True:
         if (args.json_conf["db_settings"]["dbtype"] == "sqlite" and
                 os.path.exists(args.json_conf["db_settings"]["db"])):
@@ -381,6 +364,22 @@ def serialise(args):
             engine.execute("VACUUM")
         dbutils.DBBASE.metadata.create_all(engine)
 
+    return args, logger, sql_logger
+
+
+def serialise(args):
+
+    """
+    Wrapper around the serializers objects. It uses the configuration
+    supplied through the command line to launch the necessary tools.
+
+    :param args: namespace with the necessary information for the serialisation
+    :return:
+    """
+
+    args, logger, sql_logger = setup(args)
+
+    # logger.info("Command line: %s",  " ".join(sys.argv))
     load_orfs(args, logger)
     load_blast(args, logger)
     load_external(args, logger)

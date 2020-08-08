@@ -342,9 +342,19 @@ def perform_check(keys, shelve_stacks, args, logger):
                 args.logging_queue,
                 args.json_conf["reference"]["genome"].filename,
                 idx,
-                shelve_stacks.keys(),
+                list(shelve_stacks.keys()),
                 **kwargs)
-            proc.start()
+            try:
+                proc.start()
+            except TypeError as exc:
+                logger.critical("Failed arguments: %s", (batch_file.name,
+                args.logging_queue,
+                args.json_conf["reference"]["genome"].filename,
+                idx,
+                shelve_stacks.keys()))
+                logger.critical("Failed kwargs: %s", kwargs)
+                logger.critical(exc)
+                raise
             working_processes.append(proc)
 
         [_.join() for _ in working_processes]

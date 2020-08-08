@@ -119,3 +119,6 @@ if __name__ == '__main__':
     # __spec__ = "Mikado"
     freeze_support()
     main()
+else:
+    from numpy._pytesttester import PytestTester
+    test = PytestTester(__name__)

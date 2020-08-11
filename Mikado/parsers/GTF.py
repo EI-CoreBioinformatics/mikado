@@ -399,9 +399,7 @@ class GTF(Parser):
         super().__init__(handle)
 
     def __next__(self):
-        line = self._handle.readline()
-        if line == '':
-            raise StopIteration
+        line = next(self._handle)
         try:
             return GtfLine(line)
         except Exception:

@@ -9,7 +9,7 @@ import os.path
 import logging
 import pkg_resources
 from ..configuration import configurator
-from .. import exceptions, scales
+from .. import exceptions
 from ..parsers import GFF  # ,GTF, bed12
 from ..parsers.GTF import GtfLine
 from ..transcripts.transcript import Transcript
@@ -18,7 +18,6 @@ from ..loci.locus import expand_transcript
 from ..transcripts.reference_gene import Gene
 from ..utilities.log_utils import create_null_logger, create_default_logger
 from ..utilities import overlap
-from ..parsers.bed12 import BED12
 import itertools
 from ..utilities.intervaltree import Interval
 from .. import loci
@@ -28,7 +27,7 @@ from ..parsers.bed12 import BED12
 import pysam
 from pytest import mark
 from itertools import combinations_with_replacement
-from ..scales.assigner import Assigner
+from ..scales.assignment.assigner import Assigner
 logging.getLogger("matplotlib").setLevel(logging.WARNING)
 
 
@@ -1601,15 +1600,15 @@ class TestLocus(unittest.TestCase):
         """
 
         # The fragment should have a c assigned
-        result, _ = scales.assigner.Assigner.compare(self.t1_contained, self.t1)
+        result, _ = Assigner.compare(self.t1_contained, self.t1)
         self.assertEqual(result.ccode[0], "c")
 
         # The valid AS should have a j assigned
-        result, _ = scales.assigner.Assigner.compare(self.t1_as, self.t1)
+        result, _ = Assigner.compare(self.t1_as, self.t1)
         self.assertEqual(result.ccode[0], "j")
 
         # The retained intron AS should have a j assigned
-        result, _ = scales.assigner.Assigner.compare(self.t1_retained, self.t1)
+        result, _ = Assigner.compare(self.t1_retained, self.t1)
         self.assertEqual(result.ccode[0], "j", result.ccode)
 
     def testCreate(self):

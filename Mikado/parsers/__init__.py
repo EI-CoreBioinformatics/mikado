@@ -48,10 +48,7 @@ class Parser(metaclass=abc.ABCMeta):
         return handle
 
     def __next__(self):
-        line = self._handle.readline()
-        if line == "":
-            raise StopIteration
-        return line
+        return next(self._handle)
 
     def __enter__(self):
         if self.closed is True:

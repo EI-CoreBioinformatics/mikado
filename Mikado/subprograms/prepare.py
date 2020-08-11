@@ -12,8 +12,7 @@ import logging
 import logging.handlers
 from ..utilities import path_join, parse_list_file
 from ..utilities.log_utils import formatter
-from ..configuration.configurator import to_json, check_json
-from Mikado.exceptions import InvalidJson
+from ..exceptions import InvalidJson
 import random
 from collections import Counter
 
@@ -204,8 +203,9 @@ def setup(args):
     if isinstance(args.json_conf["reference"]["genome"], bytes):
         args.json_conf["reference"]["genome"] = args.json_conf["reference"]["genome"].decode()
 
+    from ..configuration.configurator import to_json, check_json
     try:
-        args.json_conf = check_json(args.json_conf)
+        args.json_conf = check_json(to_json(args.json_conf))
     except InvalidJson as exc:
         logger.exception(exc)
         raise exc
@@ -309,7 +309,7 @@ score must be a valid floating number.
     parser.add_argument("-of", "--out_fasta", default=None,
                         help="Output file. Default: mikado_prepared.fasta.")
     parser.add_argument("--json-conf", dest="json_conf",
-                        type=to_json, default="",
+                        type=str, default="",
                         help="Configuration file.")
     parser.add_argument("-k", "--keep-redundant", default=None,
                         dest="keep_redundant", action="store_true",

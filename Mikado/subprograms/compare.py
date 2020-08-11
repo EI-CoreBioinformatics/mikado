@@ -11,7 +11,7 @@ assembling or checking the expression.
 
 import argparse
 from ..scales.compare import compare
-from . import to_gff
+from ..parsers import to_gff
 from multiprocessing import cpu_count
 
 

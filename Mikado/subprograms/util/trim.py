@@ -272,9 +272,9 @@ def launch(args):
     :param args: the argparse Namespace.
     """
 
-    from .. import to_gff
+    from ...parsers import to_gff
     from ...loci import Transcript
-    from Mikado.transcripts.reference_gene import Gene
+    from ...transcripts.reference_gene import Gene
 
     args.gff = to_gff(args.gff)
     args.logger = create_default_logger("trimmer")

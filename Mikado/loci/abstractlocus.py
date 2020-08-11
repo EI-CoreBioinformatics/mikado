@@ -75,7 +75,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         self.logger = logger
         self.__stranded = False
         self._not_passing = set()
-        self._excluded_transcripts = set()
+        self._excluded_transcripts = dict()
         self.transcripts = dict()
         self.start, self.end, self.strand = maxsize, -maxsize, None
         # Consider only the CDS part
@@ -136,11 +136,6 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             if getattr(self, feature) != getattr(other, feature):
                 return False
         return True
-
-    def __hash__(self):
-        """This has to be defined, otherwise abstractloci objects won't be hashable
-        (and therefore operations like adding to sets will be forbidden)"""
-        return super().__hash__()
 
     def __len__(self):
         return self.end - self.start + 1
@@ -528,7 +523,9 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         """This method is needed to exchange transcripts that might have been modified by padding."""
         if original_transcript.tid != transcript.tid:
             raise KeyError("I cannot hot swap two transcripts with two different IDs!")
-        if hash(original_transcript) == hash(transcript):  # Expensive operation, let us try to avoid it if possible
+        # if hash(original_transcript) == hash(transcript):  # Expensive operation, let us try to avoid it if possible
+        #     return
+        if original_transcript == transcript:
             return
 
         self.logger.debug("Swapping %s with a new transcript", original_transcript.id)
@@ -1256,7 +1253,8 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
         if self.scores_calculated is True:
             # assert self.transcripts[list(self.transcript.keys())[0]].score is not None
-            test = set.difference(set(self.transcripts.keys()), self._excluded_transcripts)
+            test = set.difference(set(self.transcripts.keys()),
+                                  set(self._excluded_transcripts.keys()))
             if test and self.transcripts[test.pop()].score is None:
                 for tid in self.transcripts:
                     if tid in self._excluded_transcripts:
@@ -1375,7 +1373,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                     self.transcripts[tid].score = 0
                 else:
                     self.logger.debug("Excluding %s from %s because of failed requirements", tid, self.id)
-                    self._excluded_transcripts.add(self.transcripts[tid])
+                    self._excluded_transcripts[tid] = self.transcripts[tid]
                     self.remove_transcript_from_locus(tid)
 
             if not self.purge:

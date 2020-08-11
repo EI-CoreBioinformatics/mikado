@@ -359,10 +359,7 @@ class GFF3(Parser):
 
         if self.closed:
             raise StopIteration
-
-        line = self._handle.readline()
-        if line == '':
-            raise StopIteration
+        line = next(self._handle)
 
         if line[0] == "#":
             return GffLine(line, header=True)

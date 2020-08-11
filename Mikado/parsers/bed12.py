@@ -825,9 +825,6 @@ class BED12:
                 return False
         return True
 
-    def __hash__(self):
-        return super().__hash__()
-
     def __len__(self):
         return self.end - self.start + 1
 
@@ -1536,9 +1533,7 @@ class Bed12Parser(Parser):
 
         bed12 = None
         while bed12 is None:
-            line = self._handle.readline()
-            if line == '':
-                raise StopIteration
+            line = next(self._handle)
             try:
                 bed12 = BED12(line,
                               fasta_index=self.fasta_index,
@@ -1562,9 +1557,7 @@ class Bed12Parser(Parser):
 
         bed12 = None
         while bed12 is None:
-            line = self._handle.readline()
-            if line == "":
-                raise StopIteration
+            line = next(self._handle)
             try:
                 gff_line = GffLine(line)
             except Exception:

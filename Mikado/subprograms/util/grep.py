@@ -169,8 +169,7 @@ def launch(args):
     :param args:
     :return:
     """
-    from ...parsers import GFF, GTF
-    from ...subprograms import to_gff
+    from ...parsers import GFF, GTF, to_gff
 
     args.gff = to_gff(args.gff)
     gene_ids, mrna_ids = set(), set()

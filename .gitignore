@@ -63,9 +63,9 @@ Mikado/utilities/overlap.cpython-3*.so
 Mikado/scales/contrast.c
 Mikado/scales/contrast.cpython-3*.so
 Mikado/scales/contrast.html
-Mikado/scales/f1.html
-Mikado/scales/f1.c
-Mikado/scales/f1.cpython-3*.so
+Mikado/utilities/f1.html
+Mikado/utilities/f1.c
+Mikado/utilities/f1.cpython-3*.so
 Mikado/utilities/overlap.html
 Mikado/scales/intervaltree.cpython-3*.so
 doc/build/sample_data/configuration.yaml

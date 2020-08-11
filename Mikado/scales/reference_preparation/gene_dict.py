@@ -1,12 +1,22 @@
-from Mikado.transcripts.reference_gene import Gene
-from ..exceptions import CorruptIndex
-from ..utilities.file_type import filetype
-from ..utilities.log_utils import create_null_logger
+from ...transcripts.reference_gene import Gene
+from ...exceptions import CorruptIndex
+from ...utilities.log_utils import create_null_logger
 import sqlite3
 import json
 from time import sleep
 import msgpack
 import logging
+from .indexing import check_index
+
+
+# Hack to give the rapidjson library this exception class
+# This becomes necessary when we happen to have a corrupted index
+if not hasattr(json, "decoder"):
+
+    class Decoder:
+        class JSONDecodeError(TypeError):
+            pass
+    json.decoder = Decoder
 
 
 class GeneDict:
@@ -105,45 +115,3 @@ class GeneDict:
 
         for gid in self:
             yield (gid, self[gid])
-
-
-def check_index(reference, queue_logger):
-
-    if reference.endswith("midx"):
-        reference = reference
-    else:
-        reference = "{}.midx".format(reference)
-
-    if filetype(reference) == b"application/gzip":
-        queue_logger.warning("Old index format detected. Starting to generate a new one.")
-        raise CorruptIndex("Invalid index file")
-
-    try:
-        conn = sqlite3.connect(reference)
-        cursor = conn.cursor()
-        tables = cursor.execute("SELECT name FROM sqlite_master WHERE type='table';").fetchall()
-        if sorted(tables) != sorted([("positions",), ("genes",)]):
-            raise CorruptIndex("Invalid database file")
-        # res = cursor.execute("PRAGMA integrity_check;").fetchone()
-        # if res[0] != "ok":
-        #     raise CorruptIndex("Corrupt database, integrity value: {}".format(res[0]))
-        gid, obj = cursor.execute("SELECT * from genes").fetchone()
-        try:
-            obj = msgpack.loads(obj, raw=False)
-        except TypeError:
-            try:
-                obj = json.loads(obj)
-            except (ValueError, TypeError, json.decoder.JSONDecodeError):
-                raise CorruptIndex("Corrupt index")
-            raise CorruptIndex("Old index, deleting and rebuilding")
-
-        gene = Gene(None)
-        try:
-            gene.load_dict(obj)
-        except:
-            raise CorruptIndex("Invalid value for genes, indicating a corrupt index. Deleting and rebuilding.")
-
-    except sqlite3.DatabaseError:
-        raise CorruptIndex("Invalid database file")
-
-

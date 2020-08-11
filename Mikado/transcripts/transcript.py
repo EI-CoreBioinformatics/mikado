@@ -565,13 +565,6 @@ class Transcript:
             self.internal_orfs == other.internal_orfs
         ])
 
-    def __hash__(self):
-        """Returns the hash of the object (call to super().__hash__()).
-        Necessary to be able to add these objects to hashes like sets.
-        """
-
-        return super().__hash__()
-
     def __len__(self) -> int:
         """Returns the length occupied by the unspliced transcript on the genome."""
         if self.end is not None and self.start is not None:
@@ -1740,7 +1733,7 @@ class Transcript:
         assert isinstance(phases, dict), (phases, type(phases))
         self.__phases = phases
 
-    # This will be id, no changes.
+    #
     # pylint: disable=invalid-name
     @property
     def id(self):
@@ -1751,8 +1744,7 @@ class Transcript:
     def id(self, newid):
 
         if not isinstance(newid, str):
-            raise ValueError("Invalid value for id: {0}, type {1}".format(
-                newid, type(newid)))
+            raise ValueError("Invalid value for id: {0}, type {1}".format(newid, type(newid)))
         self.__id = intern(newid)
     # pylint: enable=invalid-name
 

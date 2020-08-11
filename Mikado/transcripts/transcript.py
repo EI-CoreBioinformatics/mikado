@@ -555,15 +555,12 @@ class Transcript:
         if not isinstance(self, type(other)):
             return False
 
-        return all([
-            self.strand == other.strand,
-            self.chrom == other.chrom,
-            self.start == other.start,
-            self.end == other.end,
-            self.exons == other.exons,
-            self.combined_cds == other.combined_cds,
-            self.internal_orfs == other.internal_orfs
-        ])
+        return \
+            (
+                self.start, self.end, self.combined_cds, self.internal_orfs, self.chrom, self.strand, self.exons
+            ) == (
+                other.start, other.end, other.combined_cds, other.internal_orfs, other.chrom, other.strand, other.exons
+            )
 
     def __len__(self) -> int:
         """Returns the length occupied by the unspliced transcript on the genome."""

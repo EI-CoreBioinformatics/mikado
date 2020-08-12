@@ -381,6 +381,8 @@ class PrepareCheck(unittest.TestCase):
                 args.keep_redundant = b
                 args.out, args.out_fasta = None, None
                 args.json_conf["prepare"]["files"]["log"] = "prepare.log"
+                if isinstance(args.json_conf["reference"]["genome"], bytes):
+                    args.json_conf["reference"]["genome"] = args.json_conf["reference"]["genome"].decode()
                 args.log = open(os.path.join(args.output_dir, "prepare.log"), "wt")
                 self.logger.setLevel("DEBUG")
                 args, _ = prepare_setup(args)
@@ -485,6 +487,8 @@ class PrepareCheck(unittest.TestCase):
                 args.gff = None
                 args.list = None
                 args.strand_specific_assemblies = None
+                if isinstance(args.json_conf["reference"]["genome"], bytes):
+                    args.json_conf["reference"]["genome"] = args.json_conf["reference"]["genome"].decode()
                 args, _ = prepare_setup(args)
                 prepare.prepare(args, self.logger)
                 self.assertTrue(os.path.exists(os.path.join(self.conf["prepare"]["files"]["output_dir"],

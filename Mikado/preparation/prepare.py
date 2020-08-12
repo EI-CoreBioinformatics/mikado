@@ -703,7 +703,9 @@ def prepare(args, logger):
         logger.info("""Mikado prepare has finished correctly. The output %s FASTA file can now be used for BLASTX \
     and/or ORF calling before the next step in the pipeline, `mikado serialise`.""",
                     args.json_conf["prepare"]["files"]["out_fasta"])
+        logging.shutdown()
     else:
         logger.error("Mikado prepared has encountered a fatal error. Please check the logs and, if there is a bug,"\
                      "report it to https://github.com/EI-CoreBioinformatics/mikado/issues")
-    logging.shutdown()
+        logging.shutdown()
+        exit(1)

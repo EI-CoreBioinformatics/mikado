@@ -331,7 +331,8 @@ def perform_check(keys, shelve_stacks, args, logger):
         }
 
         working_processes = []
-        for idx, batch in enumerate(np.array_split(batches, args.json_conf["threads"]), 1):
+        for idx, batch in enumerate(np.array_split(np.array(batches,
+                                                            dtype=object), args.json_conf["threads"]), 1):
             batch_file = tempfile.NamedTemporaryFile(delete=False, mode="wb")
             msgpack.dump(batch.tolist(), batch_file)
             batch_file.flush()

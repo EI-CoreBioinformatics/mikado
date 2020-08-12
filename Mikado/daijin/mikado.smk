@@ -2,7 +2,7 @@ import os
 from shutil import which
 import pkg_resources
 from Bio.Data import CodonTable
-from ..serializers.blast_serializer.tabular_utils import blast_keys
+from Mikado.serializers.blast_serializer.tabular_utils import blast_keys
 import functools
 import subprocess
 import re

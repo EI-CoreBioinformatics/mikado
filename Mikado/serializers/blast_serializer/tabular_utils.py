@@ -390,7 +390,8 @@ def parse_tab_blast(self,
             pfile.write(msgpack.dumps(params))
         assert os.path.exists(params_file)
         # Split the indices
-        for idx, split in enumerate(np.array_split(np.array(list(groups.items())), procs)):
+        for idx, split in enumerate(np.array_split(np.array(list(groups.items()),
+                                                            dtype=object), procs)):
             with open(index_files[idx], "wb") as index:
                 for item in split:
                     vals = (tuple(item[0]), values[item[1], :].tolist())

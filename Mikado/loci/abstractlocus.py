@@ -130,12 +130,12 @@ class Abstractlocus(metaclass=abc.ABCMeta):
     def __eq__(self, other):
         if not isinstance(self, type(other)):
             return False
-        for feature in ["chrom", "strand", "start",
-                        "end", "exons", "introns",
-                        "splices", "stranded"]:
-            if getattr(self, feature) != getattr(other, feature):
-                return False
-        return True
+
+        return (
+            self.chrom, self.strand, self.start, self.end, self.stranded,
+            self.introns, self.splices, self.exons
+        ) == (other.chrom, other.strand, other.start, other.end, other.stranded,
+              other.introns, other.splices, other.exons)
 
     def __len__(self):
         return self.end - self.start + 1

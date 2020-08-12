@@ -108,6 +108,9 @@ def setup(args):
     logger = logging.getLogger("prepare")
     logger.setLevel(logging.INFO)
 
+    from ..configuration.configurator import to_json
+    args.json_conf = to_json(args.json_conf)
+
     if args.start_method:
         args.json_conf["multiprocessing_method"] = args.start_method
 

@@ -309,6 +309,7 @@ cpdef tuple compare(prediction, reference, bint lenient=False, bint strict_stran
         int p_splice_start, p_splice_end
         int best
         long junction_overlap
+        double len_rsplices, len_psplices
         double stats[9]
         str r_strand, p_strand
 

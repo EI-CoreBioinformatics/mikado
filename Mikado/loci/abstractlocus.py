@@ -132,9 +132,9 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             return False
 
         return (
-            self.chrom, self.strand, self.start, self.end, self.stranded,
+            self.start, self.end, self.chrom, self.strand, self.stranded,
             self.introns, self.splices, self.exons
-        ) == (other.chrom, other.strand, other.start, other.end, other.stranded,
+        ) == (other.start, other.end, other.chrom, other.strand, other.stranded,
               other.introns, other.splices, other.exons)
 
     def __len__(self):

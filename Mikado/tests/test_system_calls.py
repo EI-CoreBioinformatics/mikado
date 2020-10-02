@@ -158,7 +158,7 @@ class PrepareCheck(unittest.TestCase):
         self.conf["reference"]["genome"] = self.fai.filename.decode()
         assert isinstance(self.conf["reference"]["genome"], str)
         self.logger = create_null_logger("prepare")
-        self.conf["prepare"]["keep_redundant"] = True
+        self.conf["prepare"]["exclude_redundant"] = False
 
     def tearDown(self):
         logging.shutdown()
@@ -262,7 +262,7 @@ class PrepareCheck(unittest.TestCase):
                     args.json_conf = self.conf
                     args.seed = 10
                     args.json_conf["threads"] = proc
-                    args.keep_redundant = True
+                    args.exclude_redundant = False
                     prepare.prepare(args, self.logger)
 
                     # Now that the program has run, let's check the output
@@ -367,7 +367,7 @@ class PrepareCheck(unittest.TestCase):
         args.log = None
         for b in (False, True):
             with self.subTest(b=b):
-                self.conf["prepare"]["files"]["keep_redundant"] = [b]
+                self.conf["prepare"]["files"]["exclude_redundant"] = [b]
                 folder = tempfile.TemporaryDirectory()
                 args.output_dir = folder.name
                 args.seed = 10
@@ -376,7 +376,7 @@ class PrepareCheck(unittest.TestCase):
                 args.strand_specific_assemblies = None
                 args.labels = None
                 args.json_conf = self.conf
-                args.keep_redundant = b
+                args.exclude_redundant = b
                 args.out, args.out_fasta = None, None
                 args.json_conf["prepare"]["files"]["log"] = "prepare.log"
                 args.log = open(os.path.join(args.output_dir, "prepare.log"), "wt")
@@ -403,7 +403,7 @@ class PrepareCheck(unittest.TestCase):
                 logged = [_ for _ in open(args.json_conf["prepare"]["files"]["log"])]
                 self.assertTrue("AT5G01530.1" in fa.keys())
                 self.assertFalse("AT5G01530.2" in fa.keys())
-                if b is True:
+                if b is False:
                     self.assertEqual(len(fa.keys()), 4)
                     self.assertEqual(sorted(fa.keys()), sorted(["AT5G01530."+str(_) for _ in [0, 1, 3, 4]]))
                 else:
@@ -476,11 +476,11 @@ class PrepareCheck(unittest.TestCase):
         args.json_conf = self.conf
         for b in (False, True):
             with self.subTest(b=b):
-                self.conf["prepare"]["files"]["keep_redundant"] = [b]
+                self.conf["prepare"]["files"]["exclude_redundant"] = [b]
                 folder = tempfile.TemporaryDirectory()
                 args.json_conf = self.conf
                 args.json_conf["seed"] = 10
-                args.keep_redundant = b
+                args.exclude_redundant = b
                 args.output_dir = folder.name
                 args.log = None
                 args.gff = None
@@ -492,7 +492,7 @@ class PrepareCheck(unittest.TestCase):
                                                             "mikado_prepared.fasta")))
                 fa = pyfaidx.Fasta(os.path.join(self.conf["prepare"]["files"]["output_dir"],
                                                 "mikado_prepared.fasta"))
-                if b is True:
+                if b is False:
                     self.assertEqual(len(fa.keys()), 5)
                     self.assertEqual(sorted(fa.keys()), sorted(["AT5G01015." + str(_) for _ in
                                                                 [0, 1, 3, 4, 5]]))
@@ -610,7 +610,7 @@ class PrepareCheck(unittest.TestCase):
         self.conf["prepare"]["files"]["out_fasta"] = "mikado_prepared.fasta"
         self.conf["prepare"]["files"]["out"] = "mikado_prepared.gtf"
         self.conf["prepare"]["strip_cds"] = False
-        self.conf["prepare"]["keep_redundant"] = False
+        self.conf["prepare"]["exclude_redundant"] = True
         self.conf["threads"] = 1
 
         self.conf["reference"]["genome"] = self.fai.filename.decode()
@@ -673,7 +673,7 @@ class PrepareCheck(unittest.TestCase):
         self.conf["prepare"]["files"]["out_fasta"] = "mikado_prepared.fasta"
         self.conf["prepare"]["files"]["out"] = "mikado_prepared.gtf"
         self.conf["prepare"]["strip_cds"] = False
-        self.conf["prepare"]["keep_redundant"] = False
+        self.conf["prepare"]["exclude_redundant"] = True
 
         self.conf["reference"]["genome"] = self.fai.filename.decode()
 
@@ -781,7 +781,7 @@ class PrepareCheck(unittest.TestCase):
         self.conf["prepare"]["files"]["out_fasta"] = "mikado_prepared.fasta"
         self.conf["prepare"]["files"]["out"] = "mikado_prepared.gtf"
         self.conf["prepare"]["strip_cds"] = True
-        self.conf["prepare"]["keep_redundant"] = False
+        self.conf["prepare"]["exclude_redundant"] = True
         self.conf["reference"]["genome"] = self.fai.filename.decode()
 
         rounds = {

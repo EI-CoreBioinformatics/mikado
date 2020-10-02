@@ -378,8 +378,8 @@ final output.""")
                        default="")
     files.add_argument("--list", type=argparse.FileType("r"),
                         help="""Tab-delimited file containing rows with the following format:
-    <file>  <label> <strandedness(def. False)> <score(optional, def. 0)> <is_reference(optional, def. False)> <keep_redundant(optional, def. True)>
-    strandedness, is_reference and keep_redundant must be boolean values (True, False)
+    <file>  <label> <strandedness(def. False)> <score(optional, def. 0)> <is_reference(optional, def. False)> <exclude_redundant(optional, def. True)>
+    strandedness, is_reference and exclude_redundant must be boolean values (True, False)
     score must be a valid floating number.
     """)
     parser.add_argument("--reference", help="Fasta genomic reference.", default=None)

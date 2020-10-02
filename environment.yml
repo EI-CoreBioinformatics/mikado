@@ -6,7 +6,7 @@ channels:
   - defaults
 dependencies:
   - bioconda::portcullis>=1.2
-  - biopython>=1.74
+  - biopython>=1.78
   - cython>=0.29.13
   - datrie>=0.8
   - decorator

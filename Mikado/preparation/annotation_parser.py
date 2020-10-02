@@ -74,7 +74,7 @@ class AnnotationParser(multiprocessing.Process):
         while True:
             results = self.submission_queue.get()
             try:
-                label, handle, strand_specific, is_reference, keep_redundant, shelf_name = results
+                label, handle, strand_specific, is_reference, exclude_redundant, shelf_name = results
             except ValueError as exc:
                 raise ValueError("{}.\tValues: {}".format(exc, ", ".join([str(_) for _ in results])))
             if handle == "EXIT":
@@ -98,7 +98,7 @@ class AnnotationParser(multiprocessing.Process):
                                             max_intron=self.max_intron,
                                             strip_cds=self.__strip_cds,
                                             is_reference=is_reference,
-                                            keep_redundant=keep_redundant,
+                                            exclude_redundant=exclude_redundant,
                                             strand_specific=strand_specific)
                 elif gff_handle.__annot_type__ == "gtf":
                     new_ids = load_from_gtf(shelf_name,
@@ -110,7 +110,7 @@ class AnnotationParser(multiprocessing.Process):
                                             max_intron=self.max_intron,
                                             is_reference=is_reference,
                                             strip_cds=self.__strip_cds,
-                                            keep_redundant=keep_redundant,
+                                            exclude_redundant=exclude_redundant,
                                             strand_specific=strand_specific)
                 elif gff_handle.__annot_type__ == "bed12":
                     new_ids = load_from_bed12(shelf_name,
@@ -122,7 +122,7 @@ class AnnotationParser(multiprocessing.Process):
                                               min_length=self.min_length,
                                               max_intron=self.max_intron,
                                               strip_cds=self.__strip_cds,
-                                              keep_redundant=keep_redundant,
+                                              exclude_redundant=exclude_redundant,
                                               strand_specific=strand_specific)
                 else:
                     raise ValueError("Invalid file type: {}".format(gff_handle.name))
@@ -395,7 +395,7 @@ def load_from_gff(shelf_name,
                   min_length=0,
                   max_intron=3*10**5,
                   is_reference=False,
-                  keep_redundant=False,
+                  exclude_redundant=False,
                   strip_cds=False,
                   strand_specific=False):
     """
@@ -418,6 +418,8 @@ def load_from_gff(shelf_name,
     :type strand_specific: bool
     :param is_reference: boolean. If set to True, the transcript will always be retained.
     :type is_reference: bool
+    :param exclude_redundant: boolean. If set to True, fully redundant transcripts will be removed.
+    :type exclude_redundant: bool
     :return:
     """
 
@@ -473,7 +475,7 @@ def load_from_gff(shelf_name,
 
             exon_lines[row.id]["strand_specific"] = strand_specific
             exon_lines[row.id]["is_reference"] = is_reference
-            exon_lines[row.id]["keep_redundant"] = keep_redundant
+            exon_lines[row.id]["exclude_redundant"] = exclude_redundant
             continue
         elif row.is_exon is True:
             if not row.is_cds or (row.is_cds is True and strip_cds is False):
@@ -518,7 +520,7 @@ def load_from_gff(shelf_name,
                         exon_lines[tid]["parent"] = transcript2genes[tid]
                         exon_lines[tid]["strand_specific"] = strand_specific
                         exon_lines[tid]["is_reference"] = is_reference
-                        exon_lines[tid]["keep_redundant"] = keep_redundant
+                        exon_lines[tid]["exclude_redundant"] = exclude_redundant
                     elif tid not in exon_lines and tid not in transcript2genes:
                         continue
                     else:
@@ -553,7 +555,7 @@ def load_from_gtf(shelf_name,
                   min_length=0,
                   max_intron=3*10**5,
                   is_reference=False,
-                  keep_redundant=False,
+                  exclude_redundant=False,
                   strip_cds=False,
                   strand_specific=False):
     """
@@ -576,6 +578,8 @@ def load_from_gtf(shelf_name,
     :type strand_specific: bool
     :param is_reference: boolean. If set to True, the transcript will always be retained.
     :type is_reference: bool
+    :param exclude_redundant: boolean. If set to True, the transcript will be marked for potential redundancy removal.
+    :type exclude_redundant: bool
     :return:
     """
 
@@ -616,7 +620,7 @@ def load_from_gtf(shelf_name,
             exon_lines[row.transcript]["parent"] = "{}.gene".format(row.id)
             exon_lines[row.transcript]["strand_specific"] = strand_specific
             exon_lines[row.transcript]["is_reference"] = is_reference
-            exon_lines[row.transcript]["keep_redundant"] = keep_redundant
+            exon_lines[row.transcript]["exclude_redundant"] = exclude_redundant
             if "exon_number" in exon_lines[row.transcript]["attributes"]:
                 del exon_lines[row.transcript]["attributes"]["exon_number"]
             continue
@@ -643,7 +647,7 @@ def load_from_gtf(shelf_name,
             exon_lines[row.transcript]["parent"] = "{}.gene".format(row.transcript)
             exon_lines[row.transcript]["strand_specific"] = strand_specific
             exon_lines[row.transcript]["is_reference"] = is_reference
-            exon_lines[row.transcript]["keep_redundant"] = keep_redundant
+            exon_lines[row.transcript]["exclude_redundant"] = exclude_redundant
         else:
             if row.transcript in to_ignore:
                 continue
@@ -675,7 +679,7 @@ def load_from_bed12(shelf_name,
                     min_length=0,
                     max_intron=3*10**5,
                     is_reference=False,
-                    keep_redundant=False,
+                    exclude_redundant=False,
                     strip_cds=False,
                     strand_specific=False):
     """
@@ -698,6 +702,8 @@ def load_from_bed12(shelf_name,
     :type strand_specific: bool
     :param is_reference: boolean. If set to True, the transcript will always be retained.
     :type is_reference: bool
+    :param exclude_redundant: boolean. If set to True, the transcript will be marked for potential redundancy removal.
+    :type exclude_redundant: bool
     :return:
     """
 
@@ -737,7 +743,7 @@ def load_from_bed12(shelf_name,
             exon_lines[transcript.id]["parent"] = "{}.gene".format(transcript.id)
             exon_lines[transcript.id]["strand_specific"] = strand_specific
             exon_lines[transcript.id]["is_reference"] = is_reference
-            exon_lines[transcript.id]["keep_redundant"] = keep_redundant
+            exon_lines[transcript.id]["exclude_redundant"] = exclude_redundant
             exon_lines[transcript.id]["features"]["exon"] = [
                 (exon[0], exon[1]) for exon in transcript.exons
             ]

@@ -1,4 +1,4 @@
-from Bio.SubsMat import MatrixInfo
+from Bio.Align import substitution_matrices
 from functools import partial
 from .btop_parser import parse_btop
 import re
@@ -30,15 +30,16 @@ __author__ = 'Luca Venturini'
 blast_keys = "qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore ppos btop".split()
 
 matrices = dict()
-for mname in MatrixInfo.available_matrices:
+mnames = substitution_matrices.load()
+for mname in mnames:
     matrix = dict()
-    omatrix = getattr(MatrixInfo, mname)
+    omatrix = substitution_matrices.load(mname)
     for key, val in omatrix.items():
         if key[::-1] in omatrix and omatrix[key[::-1]] != val:
             raise KeyError((key, val, key[::-1], omatrix[key[::-1]]))
         matrix["".join(key)] = val
         matrix["".join(key[::-1])] = val
-    matrices[mname] = matrix
+    matrices[mname.lower()] = matrix
 
 
 def get_queries(engine):

@@ -1,4 +1,4 @@
-from Bio.SubsMat import MatrixInfo
+from Bio.Align import substitution_matrices
 from functools import partial
 from .btop_parser import parse_btop
 import re
@@ -30,21 +30,23 @@ __author__ = 'Luca Venturini'
 blast_keys = "qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore ppos btop".split()
 
 matrices = dict()
-for mname in MatrixInfo.available_matrices:
+mnames = substitution_matrices.load()
+for mname in mnames:
     matrix = dict()
-    omatrix = getattr(MatrixInfo, mname)
+    omatrix = substitution_matrices.load(mname)
     for key, val in omatrix.items():
         if key[::-1] in omatrix and omatrix[key[::-1]] != val:
             raise KeyError((key, val, key[::-1], omatrix[key[::-1]]))
         matrix["".join(key)] = val
         matrix["".join(key[::-1])] = val
-    matrices[mname] = matrix
+    matrices[mname.lower()] = matrix
 
 
 def get_queries(engine):
     queries = pd.read_sql_table("query", engine, index_col="query_name")
     queries.columns = ["qid", "qlength"]
     queries["qid"] = queries["qid"].astype(int)
+    queries.index = queries.index.str.replace(id_pattern, "\\1")
     assert queries.qid.drop_duplicates().shape[0] == queries.shape[0]
     return queries
 
@@ -55,6 +57,7 @@ def get_targets(engine):
     targets["sid"] = targets["sid"].astype(int)
     assert targets.sid.drop_duplicates().shape[0] == targets.shape[0]
 
+    targets.index = targets.index.str.replace(id_pattern, "\\1")
     if targets[targets.slength.isna()].shape[0] > 0:
         raise KeyError("Unbound targets!")
     return targets
@@ -230,7 +233,11 @@ def sanitize_blast_data(data: pd.DataFrame, queries: pd.DataFrame, targets: pd.D
         )[["min_evalue", "max_bitscore"]], on=["qseqid", "sseqid"])
 
     for col in ["qstart", "qend", "sstart", "send", "qlength", "slength"]:
-        assert ~(data[col].isna().any()), (col, data[data[col].isna()].shape[0], data.shape[0])
+        if col != "slength":
+            err_val = (col, data[data[col].isna()].shape[0], data.shape[0])
+        else:
+            err_val = (col, data[["sseqid"]].head())
+        assert ~(data[col].isna().any()), err_val
         try:
             data[col] = data[col].astype(int).values
         except ValueError as exc:
@@ -390,7 +397,8 @@ def parse_tab_blast(self,
             pfile.write(msgpack.dumps(params))
         assert os.path.exists(params_file)
         # Split the indices
-        for idx, split in enumerate(np.array_split(np.array(list(groups.items())), procs)):
+        for idx, split in enumerate(np.array_split(np.array(list(groups.items()),
+                                                            dtype=object), procs)):
             with open(index_files[idx], "wb") as index:
                 for item in split:
                     vals = (tuple(item[0]), values[item[1], :].tolist())

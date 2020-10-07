@@ -5,14 +5,12 @@ from itertools import product
 import logging.handlers as logging_handlers
 import functools
 from ..utilities import dbutils
-from ..scales.assigner import Assigner
+from ..scales.assignment.assigner import Assigner
 from ..loci.superlocus import Superlocus
 from ._merge_loci_utils import __create_gene_counters, manage_index
-import os
 import collections
 import sys
 import pickle
-import sqlite3
 from ..transcripts import Transcript
 from ..exceptions import InvalidTranscript
 from ..parsers.GTF import GtfLine
@@ -22,8 +20,6 @@ try:
     import rapidjson as json
 except ImportError:
     import json
-import multiprocessing as mp
-
 
 __author__ = 'Luca Venturini'
 
@@ -133,7 +129,7 @@ def remove_fragments(stranded_loci, json_conf, logger):
 
     """
 
-    loci_to_check = {True: set(), False: set()}
+    loci_to_check = {True: list(), False: list()}
     # mcdl = json_conf["pick"]["run_options"]["fragments_maximal_cds"]
     # mexons = json_conf["pick"]["run_options"]["fragments_maximal_exons"]
     # mcdna = json_conf["pick"]["run_options"]["fragments_maximal_cdna"]
@@ -156,11 +152,11 @@ def remove_fragments(stranded_loci, json_conf, logger):
             total += 1
             is_fragment = locus_instance.is_putative_fragment()
             logger.debug("%s is a putative fragment: %s", _, is_fragment)
-            loci_to_check[is_fragment].add(locus_instance)
+            loci_to_check[is_fragment].append(locus_instance)
 
     if len(loci_to_check[True]) == total:
         loci_to_check[False] = loci_to_check.pop(True)
-        loci_to_check[True] = set()
+        loci_to_check[True] = list()
 
     comparisons = collections.defaultdict(list)
     # Produce a list of duples

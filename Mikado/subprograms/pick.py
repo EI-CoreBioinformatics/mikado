@@ -6,8 +6,6 @@
 import argparse
 import sys
 import os
-from ..picking import Picker
-from ..configuration.configurator import to_json, check_json
 from ..utilities.log_utils import create_default_logger, create_null_logger
 import random
 from ..utilities import to_region
@@ -179,6 +177,7 @@ def check_run_options(args, logger=create_null_logger()):
     if args.exclude_retained_introns is True:
         args.json_conf["pick"]["alternative_splicing"]["keep_retained_introns"] = False
 
+    from ..configuration.configurator import check_json
     args.json_conf = check_json(args.json_conf, logger=logger)
     return args
 
@@ -190,6 +189,8 @@ def pick(args):
     :param args: argparse Namespace with the configuration for the run.
 
     """
+
+    from ..configuration.configurator import to_json
 
     logger = create_default_logger("pick_init")
 
@@ -223,6 +224,7 @@ def pick(args):
     else:
         regions = None
 
+    from ..picking import Picker
     creator = Picker(args.json_conf, commandline=" ".join(sys.argv), regions=regions)
     creator()
     sys.exit(0)

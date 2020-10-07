@@ -19,10 +19,10 @@ DBs=[swissprot]
 zipDBs=["{0}.gz".format(db) for db in DBs]
 
 configname = "configuration.yaml"
-config_command = "mikado configure --use-transdecoder --seed 1149199520 --use-blast --list list.txt --reference chr5.fas.gz --mode permissive --daijin -t 3 \
+config_command = "mikado configure --use-transdecoder --seed 1149199520 --list list.txt --reference chr5.fas.gz --mode permissive --daijin -t 3 \
         --subloci-out mikado.subloci.gff3 --scoring plant.yaml --junctions junctions.bed -bt {swiss} -bc 1 {configname}".format(configname=configname, swiss=swissprot)
 toml_name = "configuration.toml"
-toml_command = "mikado configure --use-transdecoder --seed 1149199520 --use-blast --list list.txt --reference chr5.fas.gz --mode permissive --daijin -t 3 \
+toml_command = "mikado configure --use-transdecoder --seed 1149199520 --list list.txt --reference chr5.fas.gz --mode permissive --daijin -t 3 \
         --subloci-out mikado.subloci.gff3 --scoring plant.yaml --junctions junctions.bed -bt {swiss} -bc 1 {configname}".format(configname=toml_name, swiss=swissprot)
 
 if not os.path.exists(configname):

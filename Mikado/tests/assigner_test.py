@@ -12,8 +12,8 @@ import argparse
 import os
 from .. import parsers
 import csv
-from pytest import mark
 import tempfile
+from ..scales.assignment.assigner import Assigner
 
 
 class AssignerTest(unittest.TestCase):
@@ -98,22 +98,22 @@ class AssignerTest(unittest.TestCase):
 
         self.assertEqual(sorted(
             [result_perfect, result_imperfect, result_perfect_j, result_perfect_n],
-            key=scales.assigner.Assigner.get_f1, reverse=True),
+            key=Assigner.get_f1, reverse=True),
             [result_perfect, result_perfect_j, result_perfect_n, result_imperfect]
         )
 
-        self.assertEqual(sorted([result_perfect, result_far], key=scales.assigner.Assigner.get_f1, reverse=True),
+        self.assertEqual(sorted([result_perfect, result_far], key=Assigner.get_f1, reverse=True),
                          [result_perfect, result_far])
 
         self.assertEqual(sorted(
             [result_far, result_near, result_middle, result_imperfect, result_perfect],
-            key=scales.assigner.Assigner.get_f1, reverse=True),
+            key=Assigner.get_f1, reverse=True),
             [result_perfect, result_imperfect, result_near, result_middle,  result_far]
         )
 
         self.assertEqual(sorted(
             [result_perfect, result_x],
-            key=scales.assigner.Assigner.get_f1, reverse=True),
+            key=Assigner.get_f1, reverse=True),
             [result_perfect, result_x]
         )
 
@@ -128,7 +128,7 @@ class AssignerTest(unittest.TestCase):
         reference.add_exons([(100, 300), (500, 1000), (1500, 2000)])
         reference.finalize()
 
-        result, _ = scales.assigner.Assigner.compare(reference, reference)
+        result, _ = Assigner.compare(reference, reference)
         self.assertEqual(result.ccode, ("=",))
         self.assertEqual(result.n_f1, (100,))
         self.assertEqual(result.n_prec, (100,))
@@ -148,7 +148,7 @@ class AssignerTest(unittest.TestCase):
         reference.exons = [(100, 1000)]
         reference.finalize()
 
-        result, _ = scales.assigner.Assigner.compare(reference, reference)
+        result, _ = Assigner.compare(reference, reference)
         self.assertEqual(result.ccode, ("_",))
         self.assertEqual(result.n_f1, (100,))
         self.assertEqual(result.n_prec, (100,))
@@ -178,7 +178,7 @@ class AssignerTest(unittest.TestCase):
         prediction.exons = [(200, 300), (500, 1000), (1500, 1800)]
         prediction.finalize()
 
-        result, _ = scales.assigner.Assigner.compare(prediction, reference)
+        result, _ = Assigner.compare(prediction, reference)
         self.assertEqual(result.ccode, ("=",))
         self.assertEqual(result.j_f1, (100,))
         self.assertEqual(result.j_prec, (100,))
@@ -189,7 +189,7 @@ class AssignerTest(unittest.TestCase):
                                delta=0.1)
 
         prediction.strand = "-"
-        result, _ = scales.assigner.Assigner.compare(prediction, reference)
+        result, _ = Assigner.compare(prediction, reference)
         self.assertEqual(result.ccode, ("x",))
 
     def test_mono_equal(self):
@@ -213,7 +213,7 @@ class AssignerTest(unittest.TestCase):
         prediction.exons = [(105, 995)]
         prediction.finalize()
 
-        result, _ = scales.assigner.Assigner.compare(prediction, reference)
+        result, _ = Assigner.compare(prediction, reference)
         self.assertEqual(result.ccode, ("_",))
         self.assertEqual(result.j_f1, (100,))
         self.assertEqual(result.j_prec, (100,))
@@ -222,7 +222,7 @@ class AssignerTest(unittest.TestCase):
         self.assertAlmostEqual(result.n_recall[0], 100 * (995 - 105 + 1) / reference.cdna_length, delta=0.1)
 
         prediction.strand = "-"
-        result, _ = scales.assigner.Assigner.compare(prediction, reference)
+        result, _ = Assigner.compare(prediction, reference)
         self.assertEqual(result.ccode, ("x",))
 
     def test_mono_semiequal(self):
@@ -246,7 +246,7 @@ class AssignerTest(unittest.TestCase):
         prediction.exons = [(200, 500)]
         prediction.finalize()
 
-        result, _ = scales.assigner.Assigner.compare(prediction, reference)
+        result, _ = Assigner.compare(prediction, reference)
         self.assertEqual(result.ccode, ("c",))
         self.assertEqual(result.j_f1, (100,))
         self.assertEqual(result.j_prec, (100,))
@@ -256,7 +256,7 @@ class AssignerTest(unittest.TestCase):
                                delta=0.1)
 
         prediction.strand = "-"
-        result, _ = scales.assigner.Assigner.compare(prediction, reference)
+        result, _ = Assigner.compare(prediction, reference)
         self.assertEqual(result.ccode, ("x",))
 
     def test_mono_overlap(self):
@@ -283,7 +283,7 @@ class AssignerTest(unittest.TestCase):
         prediction.exons = [(200, 3000)]
         prediction.finalize()
 
-        result, _ = scales.assigner.Assigner.compare(prediction, reference)
+        result, _ = Assigner.compare(prediction, reference)
         self.assertEqual(result.ccode, ("m",))
         self.assertEqual(result.j_f1, (100,))
         self.assertEqual(result.j_prec, (100,))
@@ -313,7 +313,7 @@ class AssignerTest(unittest.TestCase):
         prediction.exons = [(600, 1000), (1500, 1800)]
         prediction.finalize()
 
-        result, _ = scales.assigner.Assigner.compare(prediction, reference)
+        result, _ = Assigner.compare(prediction, reference)
         self.assertEqual(result.ccode, ("c",))
         self.assertAlmostEqual(result.j_f1[0], (100 * (2 / 3),)[0], delta=0.1)
         self.assertAlmostEqual(result.j_prec, (100,))
@@ -321,7 +321,7 @@ class AssignerTest(unittest.TestCase):
         self.assertAlmostEqual(result.n_prec[0], 100, delta=0.1)
 
         prediction.strand = "-"
-        result, _ = scales.assigner.Assigner.compare(prediction, reference)
+        result, _ = Assigner.compare(prediction, reference)
         self.assertEqual(result.ccode, ("x",))
 
     def test_exon_skipping(self):
@@ -363,9 +363,9 @@ class AssignerTest(unittest.TestCase):
         self.assertEqual(len(reference.introns), 7)
         self.assertEqual(len(prediction.introns), 6)
 
-        ref_vs_pred, _ = scales.assigner.Assigner.compare(prediction, reference)
+        ref_vs_pred, _ = Assigner.compare(prediction, reference)
         self.assertEqual(ref_vs_pred.ccode, ("j", ), prediction.introns - reference.introns)
-        pred_vs_ref, _ = scales.assigner.Assigner.compare(reference, prediction)
+        pred_vs_ref, _ = Assigner.compare(reference, prediction)
         self.assertEqual(pred_vs_ref.ccode, ("j", ), prediction.introns - reference.introns)
 
     def test_alternative(self):
@@ -390,14 +390,14 @@ class AssignerTest(unittest.TestCase):
         prediction.exons = [(100, 300), (600, 1000), (1500, 2000)]
         prediction.finalize()
 
-        result, _ = scales.assigner.Assigner.compare(prediction, reference)
+        result, _ = Assigner.compare(prediction, reference)
         self.assertEqual(result.ccode, ("j",))
         self.assertAlmostEqual(result.j_f1[0], (100 * ((3 / 4) / 1),)[0], delta=0.1)
         self.assertAlmostEqual(result.j_prec, (100 * 3 / 4,), delta=0.1)
         self.assertAlmostEqual(result.j_recall, (100 * 3 / 4,), delta=0.1)
 
         prediction.strand = "-"
-        result, _ = scales.assigner.Assigner.compare(prediction, reference)
+        result, _ = Assigner.compare(prediction, reference)
         self.assertEqual(result.ccode, ("X",))
 
     def test_mono_intronic(self):
@@ -429,7 +429,7 @@ class AssignerTest(unittest.TestCase):
         prediction.exons = [(1100, 1400)]
         prediction.finalize()
 
-        result, _ = scales.assigner.Assigner.compare(prediction, reference)
+        result, _ = Assigner.compare(prediction, reference)
         self.assertEqual(result.ccode, ("i",))
         self.assertEqual(result.j_f1, (0,))
         self.assertEqual(result.j_prec, (0,))
@@ -441,7 +441,7 @@ class AssignerTest(unittest.TestCase):
         self.assertEqual(result.n_recall, (0,))
 
         prediction.strand = "-"
-        result, _ = scales.assigner.Assigner.compare(prediction, reference)
+        result, _ = Assigner.compare(prediction, reference)
         self.assertEqual(result.ccode, ("i",))
 
     def test_multi_intronic(self):
@@ -478,7 +478,7 @@ class AssignerTest(unittest.TestCase):
         prediction.exons = [(1100, 1200), (1300, 1400)]
         prediction.finalize()
 
-        result, _ = scales.assigner.Assigner.compare(prediction, reference)
+        result, _ = Assigner.compare(prediction, reference)
         self.assertEqual(result.ccode, ("I",))
         self.assertEqual(result.j_f1, (0,))
         self.assertEqual(result.j_prec, (0,))
@@ -490,7 +490,7 @@ class AssignerTest(unittest.TestCase):
         self.assertEqual(result.n_recall, (0,))
 
         prediction.strand = "-"
-        result, _ = scales.assigner.Assigner.compare(prediction, reference)
+        result, _ = Assigner.compare(prediction, reference)
         self.assertEqual(result.ccode, ("I",))
 
         # Now the reference spans two introns
@@ -504,7 +504,7 @@ class AssignerTest(unittest.TestCase):
         prediction.exons = [(350, 450), (1300, 1400)]
         prediction.finalize()
 
-        result, _ = scales.assigner.Assigner.compare(prediction, reference)
+        result, _ = Assigner.compare(prediction, reference)
         self.assertEqual(result.ccode, ("I",))
         self.assertEqual(result.j_f1, (0,))
         self.assertEqual(result.j_prec, (0,))
@@ -516,7 +516,7 @@ class AssignerTest(unittest.TestCase):
         self.assertEqual(result.n_recall, (0,))
 
         prediction.strand = "-"
-        result, _ = scales.assigner.Assigner.compare(prediction, reference)
+        result, _ = Assigner.compare(prediction, reference)
         self.assertEqual(result.ccode, ("I",))
 
     def test_overlap(self):
@@ -549,7 +549,7 @@ class AssignerTest(unittest.TestCase):
         prediction.exons = [(200, 700), (900, 1300)]
         prediction.finalize()
 
-        result, _ = scales.assigner.Assigner.compare(prediction, reference)
+        result, _ = Assigner.compare(prediction, reference)
         self.assertEqual(result.ccode, ("o",))
         self.assertEqual(result.j_f1, (0,))
         self.assertEqual(result.j_prec, (0,))
@@ -562,7 +562,7 @@ class AssignerTest(unittest.TestCase):
         self.assertAlmostEqual(result.n_f1[0], 100 * n_f1, delta=0.1)
 
         prediction.strand = "-"
-        result, _ = scales.assigner.Assigner.compare(prediction, reference)
+        result, _ = Assigner.compare(prediction, reference)
         self.assertEqual(result.ccode, ("X",))
 
     def test_ccode_e(self):
@@ -596,7 +596,7 @@ class AssignerTest(unittest.TestCase):
         prediction.exons = [(200, 400)]
         prediction.finalize()
 
-        result, _ = scales.assigner.Assigner.compare(prediction, reference)
+        result, _ = Assigner.compare(prediction, reference)
         self.assertEqual(result.ccode, ("e",), result)
         self.assertEqual(result.j_f1, (0,))
         self.assertEqual(result.j_prec, (0,))
@@ -609,7 +609,7 @@ class AssignerTest(unittest.TestCase):
         self.assertAlmostEqual(result.n_f1[0], 100 * n_f1, delta=0.1)
 
         prediction.strand = "-"
-        result, _ = scales.assigner.Assigner.compare(prediction, reference)
+        result, _ = Assigner.compare(prediction, reference)
         self.assertEqual(result.ccode, ("x",))
 
     def test_not_ccode_e(self):
@@ -642,7 +642,7 @@ class AssignerTest(unittest.TestCase):
         prediction.exons = [(50, 310)]
         prediction.finalize()
 
-        result, _ = scales.assigner.Assigner.compare(prediction, reference)
+        result, _ = Assigner.compare(prediction, reference)
         self.assertEqual(result.ccode, ("g",))
         self.assertEqual(result.j_f1, (0,))
         self.assertEqual(result.j_prec, (0,))
@@ -655,7 +655,7 @@ class AssignerTest(unittest.TestCase):
         self.assertAlmostEqual(result.n_f1[0], 100 * n_f1, delta=0.1)
 
         prediction.strand = "-"
-        result, _ = scales.assigner.Assigner.compare(prediction, reference)
+        result, _ = Assigner.compare(prediction, reference)
         self.assertEqual(result.ccode, ("x",))
 
     def test_left_extension(self):
@@ -688,7 +688,7 @@ class AssignerTest(unittest.TestCase):
         prediction.exons = [(50, 150), (200, 300), (500, 1000), (1500, 1800)]
         prediction.finalize()
 
-        result, _ = scales.assigner.Assigner.compare(prediction, reference)
+        result, _ = Assigner.compare(prediction, reference)
         self.assertEqual(result.ccode, ("J",))
         self.assertEqual(result.j_f1, (4 / 5 * 100,))
         self.assertAlmostEqual(result.j_prec[0], 2 / 3 * 100, delta=0.1)
@@ -724,7 +724,7 @@ class AssignerTest(unittest.TestCase):
         prediction.exons = [(200, 300), (500, 1000), (1500, 2050), (2200, 3000)]
         prediction.finalize()
 
-        result, _ = scales.assigner.Assigner.compare(prediction, reference)
+        result, _ = Assigner.compare(prediction, reference)
         self.assertEqual(result.ccode, ("n",))
         self.assertEqual(result.j_f1, (4 / 5 * 100,))
         self.assertAlmostEqual(result.j_prec[0], 2 / 3 * 100, delta=0.1)
@@ -758,7 +758,7 @@ class AssignerTest(unittest.TestCase):
         prediction.exons = [(200, 300), (500, 1000), (1500, 1800), (2500, 3000)]
         prediction.finalize()
 
-        result, _ = scales.assigner.Assigner.compare(prediction, reference)
+        result, _ = Assigner.compare(prediction, reference)
         self.assertEqual(result.ccode, ("J",))
         self.assertEqual(result.j_f1, (4 / 5 * 100,))
         self.assertAlmostEqual(result.j_prec[0], 2 / 3 * 100, delta=0.1)
@@ -792,7 +792,7 @@ class AssignerTest(unittest.TestCase):
         prediction.exons = [(50, 150), (200, 300), (500, 1000), (1500, 1800), (2500, 3000)]
         prediction.finalize()
 
-        result, _ = scales.assigner.Assigner.compare(prediction, reference)
+        result, _ = Assigner.compare(prediction, reference)
         self.assertEqual(result.ccode, ("J",))
         self.assertAlmostEqual(result.j_f1[0], 2 / 3 * 100, delta=0.1)
         self.assertAlmostEqual(result.j_prec[0], 1 / 2 * 100, delta=0.1)
@@ -826,7 +826,7 @@ class AssignerTest(unittest.TestCase):
         prediction.exons = [(500, 700), (900, 1300), (1500, 2000), (2500, 3100), (3200, 3500)]
         prediction.finalize()
 
-        result, _ = scales.assigner.Assigner.compare(prediction, reference)
+        result, _ = Assigner.compare(prediction, reference)
         self.assertEqual(result.ccode, ("n",))
         self.assertAlmostEqual(result.j_f1[0], 2 / 3 * 100, delta=0.1)
         self.assertAlmostEqual(result.j_prec[0], 1 / 2 * 100, delta=0.1)
@@ -861,7 +861,7 @@ class AssignerTest(unittest.TestCase):
         prediction.exons = [(200, 300), (500, 1000), (1200, 1300), (1500, 2100)]
         prediction.finalize()
 
-        result, _ = scales.assigner.Assigner.compare(prediction, reference)
+        result, _ = Assigner.compare(prediction, reference)
         self.assertEqual(result.ccode, ("j",))
         self.assertAlmostEqual(result.j_f1[0], 4 / 5 * 100, delta=0.1)
         self.assertAlmostEqual(result.j_prec[0], 2 / 3 * 100, delta=0.1)
@@ -896,7 +896,7 @@ class AssignerTest(unittest.TestCase):
         prediction.exons = [(200, 300), (500, 1000), (1200, 1300), (1500, 1800), (2500, 3000)]
         prediction.finalize()
 
-        result, _ = scales.assigner.Assigner.compare(prediction, reference)
+        result, _ = Assigner.compare(prediction, reference)
         self.assertEqual(result.ccode, ("j",))
         self.assertAlmostEqual(result.j_f1[0], 2 / 3 * 100, delta=0.1)
         self.assertAlmostEqual(result.j_prec[0], 1 / 2 * 100, delta=0.1)
@@ -932,7 +932,7 @@ class AssignerTest(unittest.TestCase):
                             (2500, 3100), (3200, 3500)]
         prediction.finalize()
 
-        result, _ = scales.assigner.Assigner.compare(prediction, reference)
+        result, _ = Assigner.compare(prediction, reference)
         self.assertEqual(result.ccode, ("j",))
         self.assertAlmostEqual(result.j_f1[0], 2 * 0.4 / 1.4 * 100, delta=0.1)
         self.assertAlmostEqual(result.j_prec[0], 2 / 5 * 100, delta=0.1)
@@ -967,7 +967,7 @@ class AssignerTest(unittest.TestCase):
         prediction.exons = [(1400, 2000), (2200, 2450)]
         prediction.finalize()
 
-        result, _ = scales.assigner.Assigner.compare(prediction, reference)
+        result, _ = Assigner.compare(prediction, reference)
         self.assertEqual(result.ccode, ("C",), result)
 
     def test_contained_alternative(self):
@@ -999,7 +999,7 @@ class AssignerTest(unittest.TestCase):
         prediction.exons = [(1200, 2000), (2200, 2450)]
         prediction.finalize()
 
-        result, _ = scales.assigner.Assigner.compare(prediction, reference)
+        result, _ = Assigner.compare(prediction, reference)
         self.assertEqual(result.ccode, ("j",))
 
     def test_mono_overlap_nostrand(self):
@@ -1024,10 +1024,10 @@ class AssignerTest(unittest.TestCase):
         prediction.exons = [(300, 3000)]
         prediction.finalize()
 
-        result, _ = scales.assigner.Assigner.compare(prediction, reference)
+        result, _ = Assigner.compare(prediction, reference)
         self.assertEqual(result.ccode, ("m",))
 
-        result, _ = scales.assigner.Assigner.compare(reference, prediction)
+        result, _ = Assigner.compare(reference, prediction)
         self.assertEqual(result.ccode, ("m",))
 
     def test_mono_multi_overlap_nostrand(self):
@@ -1056,10 +1056,10 @@ class AssignerTest(unittest.TestCase):
         prediction.exons = [(50, 600)]
         prediction.finalize()
 
-        result, _ = scales.assigner.Assigner.compare(prediction, reference)
+        result, _ = Assigner.compare(prediction, reference)
         self.assertEqual(result.ccode, ("g",))
 
-        result, _ = scales.assigner.Assigner.compare(reference, prediction)
+        result, _ = Assigner.compare(reference, prediction)
         self.assertEqual(result.ccode, ("G",))
 
     def test_neighbors(self):
@@ -1069,16 +1069,16 @@ class AssignerTest(unittest.TestCase):
         """
         keys = [(10, 200), (350, 500)]
         keys = utilities.intervaltree.IntervalTree.from_tuples(keys)
-        self.assertEqual(scales.assigner.Assigner.find_neighbours(
+        self.assertEqual(Assigner.find_neighbours(
                          keys, (350,500), distance=2000),
                          [((350, 500), 0), ((10, 200), 150)],
                          )
-        self.assertEqual(scales.assigner.Assigner.find_neighbours(
+        self.assertEqual(Assigner.find_neighbours(
                          keys, (5350,5500), distance=1000),
                          []
                          )
 
-        self.assertEqual(scales.assigner.Assigner.find_neighbours(
+        self.assertEqual(Assigner.find_neighbours(
                          keys, (5350,5500), distance=10000),
                          [((350, 500), 4850), ((10, 200), 5150)]
                          )
@@ -1093,7 +1093,8 @@ class AssignerTest(unittest.TestCase):
         """
 
         master = os.path.dirname(os.path.abspath(__file__))
-        out = tempfile.TemporaryDirectory()
+        out = tempfile.mkdtemp()
+        os.makedirs(out, exist_ok=True)
 
         args = argparse.Namespace()
         args.no_save_index = True
@@ -1101,8 +1102,8 @@ class AssignerTest(unittest.TestCase):
             os.path.join(master, "fusion_test", "fusion_test_ref.gff3"))
         args.prediction = parsers.GTF.GTF(
             os.path.join(master, "fusion_test", "fusion_test_pred.gtf"))
-        args.log = os.path.join(out.name, "fusion_test", "fusion_test.log")
-        args.out = os.path.join(out.name, "fusion_test", "fusion_test")
+        args.log = os.path.join(out, "fusion_test", "fusion_test.log")
+        args.out = os.path.join(out, "fusion_test", "fusion_test")
         args.distance = 2000
         args.verbose = True
         args.exclude_utr = False
@@ -1115,7 +1116,7 @@ class AssignerTest(unittest.TestCase):
 
         scales.compare.compare(args)
 
-        out_refmap = os.path.join(out.name, "fusion_test", "fusion_test.refmap")
+        out_refmap = os.path.join(out, "fusion_test", "fusion_test.refmap")
         self.assertTrue(os.path.exists(out_refmap))
         self.assertGreater(os.stat(out_refmap).st_size, 0)
         with open(out_refmap) as refmap:
@@ -1125,6 +1126,11 @@ class AssignerTest(unittest.TestCase):
                 self.assertEqual(line["ccode"], "=", line)
         args.reference.close()
         args.prediction.close()
+        import shutil
+        try:
+            shutil.rmtree(out)
+        except PermissionError:
+            raise PermissionError(out)
 
     def test_monoexonic_contained(self):
         t1 = loci.Transcript()
@@ -1137,8 +1143,8 @@ class AssignerTest(unittest.TestCase):
         t2.add_exons([(9192977, 9193480)], features=["CDS"])
         t2.add_exons([(9186643, 9186780), (9182621, 9182770), (9192959, 9194526)])
         t2.finalize()
-        mono_ref = scales.Assigner.compare(reference=t1, prediction=t2)[0]
-        mono_pred = scales.Assigner.compare(reference=t2, prediction=t1)[0]
+        mono_ref = Assigner.compare(reference=t1, prediction=t2)[0]
+        mono_pred = Assigner.compare(reference=t2, prediction=t1)[0]
         self.assertEqual(mono_ref.n_recall, mono_pred.n_prec)
         self.assertEqual(mono_pred.ccode[0], "c")
         self.assertEqual(mono_ref.ccode[0], "n")
@@ -1171,7 +1177,7 @@ class AssignerTest(unittest.TestCase):
         prediction.exons = [(1200, 2000), (2200, 2450)]
         prediction.finalize()
 
-        result, _ = scales.assigner.Assigner.compare(prediction, reference)
+        result, _ = Assigner.compare(prediction, reference)
         self.assertEqual(result.ccode, ("h",))
 
     def test_double_h_case(self):
@@ -1230,7 +1236,7 @@ class AssignerTest(unittest.TestCase):
         prediction.exons = [(1200, 1600), (1700, 2050)]
         prediction.finalize()
 
-        result, _ = scales.assigner.Assigner.compare(prediction, reference)
+        result, _ = Assigner.compare(prediction, reference)
         self.assertEqual(result.ccode, ("o",))
 
     def test_J_and_C_case(self):
@@ -1270,10 +1276,10 @@ class AssignerTest(unittest.TestCase):
         t2.add_exons([(1300,2000), (2301, 4300)])
         t2.finalize()
 
-        result, _ = scales.assigner.Assigner.compare(t2, t1)
+        result, _ = Assigner.compare(t2, t1)
         self.assertEqual(result.ccode, ("C",))
 
-        result, _ = scales.assigner.Assigner.compare(t1, t2)
+        result, _ = Assigner.compare(t1, t2)
         self.assertEqual(result.ccode, ("J",))
 
     def test_J_and_C_case_in_exon(self):
@@ -1316,10 +1322,10 @@ class AssignerTest(unittest.TestCase):
         t2.add_exons([(900,2000), (2301, 4300)])
         t2.finalize()
 
-        result, _ = scales.assigner.Assigner.compare(t2, t1)
+        result, _ = Assigner.compare(t2, t1)
         self.assertEqual(result.ccode, ("j",))
 
-        result, _ = scales.assigner.Assigner.compare(t1, t2)
+        result, _ = Assigner.compare(t1, t2)
         self.assertEqual(result.ccode, ("J",))
 
     def test_fuzzy_match(self):
@@ -1350,7 +1356,7 @@ class AssignerTest(unittest.TestCase):
 
         for fuzzymatch in (0, 1, 5, 10, 20, 30):
             with self.subTest(fuzzymatch=fuzzymatch):
-                result, _ = scales.assigner.Assigner.compare(t2, t1, fuzzy_match=fuzzymatch)
+                result, _ = Assigner.compare(t2, t1, fuzzy_match=fuzzymatch)
                 if fuzzymatch < 5:
                     self.assertEqual(result.ccode, ("h",))
                 elif fuzzymatch >= 10:

@@ -100,8 +100,8 @@ def main():
             # Find all genes which are near
             if args.no_neighbours is False:
 
-                neighbours = Mikado.scales.assigner.Assigner.find_neighbours(indexer.get(chrom, IntervalTree()),
-                                                                             key, distance=0)
+                neighbours = Mikado.scales.assignment.assigner.Assigner.find_neighbours(indexer.get(chrom, IntervalTree()),
+                                                                                        key, distance=0)
                 # This is a list of the form [((start, end), distance), ...] where "(start, end)" is a key for the
                 # "positions" dictionary, above
 

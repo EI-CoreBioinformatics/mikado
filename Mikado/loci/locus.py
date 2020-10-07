@@ -8,16 +8,15 @@ i.e. the locus.
 import collections
 import itertools
 import operator
-from collections import deque, defaultdict
+from collections import defaultdict
 import pysam
 from ..transcripts.transcript import Transcript
 from ..transcripts.transcriptchecker import TranscriptChecker
 from .abstractlocus import Abstractlocus, rgetattr
 from ..parsers.GFF import GffLine
-from ..scales.assigner import Assigner
+from ..scales.assignment.assigner import Assigner
 from ..exceptions import InvalidTranscript
 import networkx as nx
-import numpy as np
 import io
 from pkg_resources import resource_stream
 import rapidjson as json
@@ -267,7 +266,8 @@ class Locus(Abstractlocus):
         # The "templates" are the transcripts that we used to expand the others.
         templates = self.pad_transcripts()
         # First off, let us update the transcripts.
-        for tid in self.transcripts:
+        tid_keys = list(self.transcripts.keys())
+        for tid in tid_keys:
             self.logger.debug("Swapping %s", tid)
             self._swap_transcript(backup[tid], self.transcripts[tid])
 

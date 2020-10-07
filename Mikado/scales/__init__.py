@@ -13,10 +13,9 @@ This module defines the classes needed for the "compare" script, namely:
 - accountant:       This class calculates the final summary statistics for the comparison.
 """
 
-from . import resultstorer
-from ..utilities import intervaltree
-from .f1 import calc_f1
+from ..utilities import f1
 
+from . import resultstorer
 
 # def calc_f1(recall, precision):
 #     """
@@ -37,9 +36,9 @@ from .f1 import calc_f1
 
 
 # noinspection PyPep8
-from . import accountant
+# from . import accountant
 # noinspection PyPep8
-from . import assigner
+# from .assignment import assigner
 from . import compare
-from .assigner import Assigner
-from .accountant import Accountant
+# from .assignment.assigner import Assigner
+# from .accountant import Accountant

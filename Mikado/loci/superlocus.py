@@ -26,11 +26,11 @@ from ..serializers.external import External
 from ..serializers.junction import Junction, Chrom
 from ..serializers.orf import Orf
 from ..utilities import dbutils, grouper
-from ..scales.assigner import Assigner
+from ..scales.assignment.assigner import Assigner
 import bisect
 from sys import maxsize
 import functools
-import numpy as np
+
 if version_info.minor < 5:
     from sortedcontainers import SortedDict
 else:
@@ -507,13 +507,15 @@ class Superlocus(Abstractlocus):
                                                        introns=self.locus_verified_introns,
                                                        session=self.session,
                                                        data_dict=data_dict)
-        to_remove, to_add = False, set()
+        to_remove, to_add = False, dict()
 
         if self.json_conf["pick"]["chimera_split"]["execute"] is True:
             if self.transcripts[tid].number_internal_orfs > 1:
                 new_tr = list(self.transcripts[tid].split_by_cds())
                 if len(new_tr) > 1:
-                    to_add.update(new_tr)
+                    for new in new_tr:
+                        assert new.id not in to_add
+                        to_add[new.id] = new
                     to_remove = True
                     self.logger.info("%s has been split into %d different transcripts.",
                                      tid, len(new_tr))
@@ -715,7 +717,7 @@ class Superlocus(Abstractlocus):
             self.logger.debug("Length of data dict: %s", len(data_dict))
 
         tid_keys = list(self.transcripts.keys())
-        to_remove, to_add = set(), set()
+        to_remove, to_add = set(), dict()
         # This will function even if data_dict is None
         self._load_introns(data_dict)
 
@@ -730,7 +732,6 @@ class Superlocus(Abstractlocus):
                               len(tid_keys))
             self.session.close()
             sasession.close_all_sessions()
-            # self.sessionmaker.close_all_sessions()
 
         for tid in tid_keys:
             remove_flag, new_transcripts = self.load_transcript_data(tid, data_dict)
@@ -745,8 +746,8 @@ class Superlocus(Abstractlocus):
                               len(to_remove))
             for tid in to_remove:
                 self.remove_transcript_from_locus(tid)
-            for transcript in to_add:
-                self.logger.debug("Adding %s to %s", transcript.id, self.id)
+            for tid, transcript in to_add.items():
+                self.logger.debug("Adding %s to %s", tid, self.id)
                 self.add_transcript_to_locus(transcript, check_in_locus=False)
 
         elif len(to_remove) == len(self.transcripts):
@@ -945,10 +946,13 @@ class Superlocus(Abstractlocus):
 
         # Check whether there is something to remove
         self._check_requirements()
-        while self._excluded_transcripts:
-            to_remove = self._excluded_transcripts.pop()
+        excluded_tids = list(self._excluded_transcripts.keys())
+        for excluded_tid in excluded_tids:
+            to_remove = self._excluded_transcripts[excluded_tid]
             self.excluded.add_transcript_to_locus(to_remove, check_in_locus=False)
             self.remove_transcript_from_locus(to_remove.id)
+            if excluded_tid in self._excluded_transcripts:
+                del self._excluded_transcripts[excluded_tid]
 
         if len(self.transcripts) == 0:
             # we have removed all transcripts from the Locus. Set the flag to True and exit.
@@ -1243,7 +1247,8 @@ class Superlocus(Abstractlocus):
             loci_transcripts.update(set([_ for _ in locus.transcripts.keys()]))
 
         not_loci_transcripts = set.difference({_ for _ in self.transcripts.keys()
-                                               if _ not in self._excluded_transcripts}, loci_transcripts)
+                                               if _ not in self._excluded_transcripts},
+                                              loci_transcripts)
 
         for locus in self.loci.values():
             to_remove = set()
@@ -1427,7 +1432,8 @@ class Superlocus(Abstractlocus):
 
         # As we are using intern for transcripts, this should prevent
         # memory usage to increase too much
-        objects = dict((tid, item) for tid, item in self.transcripts.items() if tid not in self._excluded_transcripts)
+        objects = dict((tid, item) for tid, item in self.transcripts.items() if tid not in
+                       self._excluded_transcripts)
         graph.add_nodes_from(objects.keys())
 
         monos = []

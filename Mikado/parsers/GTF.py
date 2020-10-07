@@ -399,10 +399,13 @@ class GTF(Parser):
         super().__init__(handle)
 
     def __next__(self):
-        line = self._handle.readline()
-        if line == '':
-            raise StopIteration
-        return GtfLine(line)
+        line = next(self._handle)
+        try:
+            return GtfLine(line)
+        except Exception:
+            error = "Invalid line for file {}, position {}:\n{}".format(
+                self.name, self._handle.tell(), line)
+            raise ValueError(error)
 
     @property
     def file_format(self):

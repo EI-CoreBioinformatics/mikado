@@ -12,9 +12,7 @@ import logging
 import logging.handlers
 from ..utilities import path_join, parse_list_file
 from ..utilities.log_utils import formatter
-from ..preparation.prepare import prepare
-from ..configuration.configurator import to_json, check_json
-from Mikado.exceptions import InvalidJson
+from ..exceptions import InvalidJson
 import random
 from collections import Counter
 
@@ -33,8 +31,8 @@ def parse_prepare_options(args, config):
     if getattr(args, "reference", None) not in (None, False):
         config["reference"]["genome"] = args.reference
 
-    if getattr(args, "keep_redundant", None) is not None:
-        config["prepare"]["keep_redundant"] = args.keep_redundant
+    if getattr(args, "exclude_redundant", None) is not None:
+        config["prepare"]["exclude_redundant"] = args.exclude_redundant
 
     if getattr(args, "lenient", None) is not None:
         config["prepare"]["lenient"] = True
@@ -75,17 +73,17 @@ def parse_prepare_options(args, config):
             if not config["prepare"]["files"]["labels"]:
                 args.labels = [""] * len(config["prepare"]["files"]["gff"])
                 config["prepare"]["files"]["labels"] = args.labels
-        if config["prepare"]["files"]["keep_redundant"]:
-            assert len(config["prepare"]["files"]["keep_redundant"]) == len(
+        if config["prepare"]["files"]["exclude_redundant"]:
+            assert len(config["prepare"]["files"]["exclude_redundant"]) == len(
                 config["prepare"]["files"]["gff"])
         else:
-            config["prepare"]["files"]["keep_redundant"] = [True] * len(
+            config["prepare"]["files"]["exclude_redundant"] = [True] * len(
                 config["prepare"]["files"]["gff"])
 
-    if not config["prepare"]["files"]["keep_redundant"]:
-        config["prepare"]["files"]["keep_redundant"] = [True] * len(config["prepare"]["files"]["gff"])
-    elif len(config["prepare"]["files"]["keep_redundant"]) != len(config["prepare"]["files"]["gff"]):
-        raise ValueError("Mismatch between keep_redundant and gff files")
+    if not config["prepare"]["files"]["exclude_redundant"]:
+        config["prepare"]["files"]["exclude_redundant"] = [False] * len(config["prepare"]["files"]["gff"])
+    elif len(config["prepare"]["files"]["exclude_redundant"]) != len(config["prepare"]["files"]["gff"]):
+        raise ValueError("Mismatch between exclude_redundant and gff files")
     if not config["prepare"]["files"]["reference"]:
         config["prepare"]["files"]["reference"] = [False] * len(config["prepare"]["files"]["gff"])
     elif len(config["prepare"]["files"]["reference"]) != len(config["prepare"]["files"]["gff"]):
@@ -109,6 +107,9 @@ def setup(args):
 
     logger = logging.getLogger("prepare")
     logger.setLevel(logging.INFO)
+
+    from ..configuration.configurator import to_json
+    args.json_conf = to_json(args.json_conf)
 
     if args.start_method:
         args.json_conf["multiprocessing_method"] = args.start_method
@@ -205,8 +206,9 @@ def setup(args):
     if isinstance(args.json_conf["reference"]["genome"], bytes):
         args.json_conf["reference"]["genome"] = args.json_conf["reference"]["genome"].decode()
 
+    from ..configuration.configurator import to_json, check_json
     try:
-        args.json_conf = check_json(args.json_conf)
+        args.json_conf = check_json(to_json(args.json_conf))
     except InvalidJson as exc:
         logger.exception(exc)
         raise exc
@@ -216,6 +218,7 @@ def setup(args):
 
 def prepare_launcher(args):
 
+    from ..preparation.prepare import prepare
     args, logger = setup(args)
     try:
         prepare(args, logger)
@@ -278,8 +281,8 @@ def prepare_parser():
                         help="Comma-delimited list of strand specific assemblies.")
     parser.add_argument("--list", type=argparse.FileType("r"),
                         help="""Tab-delimited file containing rows with the following format:
-<file>  <label> <strandedness, def. False> <score(optional, def. 0)> <is_reference(optional, def. False)> <keep_redundant(optional, def. True)>
-strandedness, is_reference and keep_redundant must be boolean values (True, False)
+<file>  <label> <strandedness, def. False> <score(optional, def. 0)> <is_reference(optional, def. False)> <exclude_redundant(optional, def. False)>
+strandedness, is_reference and exclude_redundant must be boolean values (True, False)
 score must be a valid floating number.
 """)
     parser.add_argument("-l", "--log", type=argparse.FileType("w"), default=None,
@@ -309,11 +312,11 @@ score must be a valid floating number.
     parser.add_argument("-of", "--out_fasta", default=None,
                         help="Output file. Default: mikado_prepared.fasta.")
     parser.add_argument("--json-conf", dest="json_conf",
-                        type=to_json, default="",
+                        type=str, default="",
                         help="Configuration file.")
-    parser.add_argument("-k", "--keep-redundant", default=None,
-                        dest="keep_redundant", action="store_true",
-                        help="Boolean flag. If invoked, Mikado prepare will retain redundant models,\
+    parser.add_argument("-er", "--exclude-redundant", default=None,
+                        dest="exclude_redundant", action="store_true",
+                        help="Boolean flag. If invoked, Mikado prepare will exclude redundant models,\
 ignoring the per-sample instructions.")
     parser.add_argument("--seed", type=int, default=None,
                         help="Random seed number.")

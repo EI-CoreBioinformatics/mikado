@@ -682,7 +682,9 @@ def to_json(string, simple=False, logger=None):
         logger = create_default_logger("to_json")
 
     try:
-        if string is None or string == '' or string == dict():
+        if isinstance(string, dict):
+            json_dict = string
+        elif string is None or string == '' or string == dict():
             json_dict = dict()
             string = os.path.join(os.path.abspath(os.getcwd()), "mikado.json")
         else:
@@ -699,6 +701,7 @@ def to_json(string, simple=False, logger=None):
                     json_dict = json.loads(json_file.read())
         json_dict["filename"] = string
         json_dict = check_json(json_dict, simple=simple, logger=logger)
+
     except Exception as exc:
         raise OSError((exc, string))
 

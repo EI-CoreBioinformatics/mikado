@@ -9,7 +9,6 @@ Module to serialize GFF files.
 from . import Parser
 from .gfannotation import GFAnnotation, _attribute_definition
 from sys import intern
-from fastnumbers import fast_int
 import re
 
 
@@ -360,16 +359,18 @@ class GFF3(Parser):
 
         if self.closed:
             raise StopIteration
-
-        line = self._handle.readline()
-        if line == '':
-            raise StopIteration
+        line = next(self._handle)
 
         if line[0] == "#":
             return GffLine(line, header=True)
 
-        line = GffLine(line)
-        return line
+        try:
+            gff_line = GffLine(line)
+        except Exception:
+            error = "Invalid line for file {}, position {}:\n{}".format(
+                self.name, self._handle.tell(), line)
+            raise ValueError(error)
+        return gff_line
 
     @property
     def file_format(self):

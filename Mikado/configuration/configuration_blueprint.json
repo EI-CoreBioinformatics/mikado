@@ -250,7 +250,7 @@
       "required": ["files", "strand_specific"],
       "properties":
       {
-        "keep_redundant": {
+        "exclude_redundant": {
           "type": "boolean", "default": false
         },
         "minimum_cdna_length": {
@@ -290,7 +290,7 @@
             "labels": {"type": "array", "default": []},
             "strand_specific_assemblies": {"type": "array", "default": []},
             "reference": {"type": "array", "default": []},
-            "keep_redundant": {"type": "array", "default": []},
+            "exclude_redundant": {"type": "array", "default": []},
             "source_score":{
               "type": "object",
               "default": {},

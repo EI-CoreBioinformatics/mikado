@@ -375,9 +375,9 @@ def as_bed12(transcript, transcriptomic=False):
     bed12.block_count = transcript.exon_num
     bed12.block_sizes = [exon[1] - exon[0] + 1 for exon in transcript.exons]
     _introns = np.concatenate([np.array([intron[1] - intron[0] + 1 for intron in sorted(transcript.introns)],
-                                        dtype=np.int_),
-                               np.zeros(1, dtype=np.int_)])
-    bed12.block_starts = np.concatenate([np.zeros(1, dtype=np.int_),
+                                        dtype=np.int64),
+                               np.zeros(1, dtype=np.int64)])
+    bed12.block_starts = np.concatenate([np.zeros(1, dtype=np.int64),
                                          (bed12.block_sizes + _introns).cumsum()[:-1]], axis=0)
     assert bed12.block_starts[0] == 0, bed12.block_starts
     if transcriptomic:

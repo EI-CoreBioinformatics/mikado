@@ -266,7 +266,8 @@ class Locus(Abstractlocus):
         # The "templates" are the transcripts that we used to expand the others.
         templates = self.pad_transcripts()
         # First off, let us update the transcripts.
-        for tid in self.transcripts:
+        tid_keys = list(self.transcripts.keys())
+        for tid in tid_keys:
             self.logger.debug("Swapping %s", tid)
             self._swap_transcript(backup[tid], self.transcripts[tid])
 

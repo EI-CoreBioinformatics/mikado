@@ -337,7 +337,9 @@ cpdef tuple compare(prediction, reference, bint lenient=False, bint strict_stran
     for exon in prediction.exons:
         exon_a, exon_b = exon[0], exon[1] + 1
         __pred_exons.add(exon)
-        for other_exon in r_tree.find(exon[0], exon[1] + 1, 0, fuzzymatch, 1000, "exon"):
+                    # self, int start, int end, bint strict=0, bint contained_check=0, int max_distance=0,
+            #              int num_intervals=1000, object value=None
+        for other_exon in r_tree.find(exon[0], exon[1] + 1, 0, 0, fuzzymatch, 1000, "exon"):
             other_exon_a, other_exon_b = other_exon[0], other_exon[1] + 1
             __ref_exons.add((other_exon[0], other_exon[1]))
             nucl_overlap += c_overlap(exon_a, exon_b,
@@ -383,7 +385,7 @@ cpdef tuple compare(prediction, reference, bint lenient=False, bint strict_stran
         r_splices, p_splices = reference.splices, prediction.splices
         for p_intron in prediction.introns:
             p_splice_start, p_splice_end = p_intron
-            found = r_tree.find(p_splice_start - 1, p_splice_start + 1, 0, fuzzymatch, 1000, "intron")
+            found = r_tree.find(p_splice_start - 1, p_splice_start + 1, 0, 0, fuzzymatch, 1000, "intron")
             curr_distance = 10000000
             best = -1
             for r_intron in found:
@@ -396,7 +398,7 @@ cpdef tuple compare(prediction, reference, bint lenient=False, bint strict_stran
                 c_splices.add(best)
             best = -1
             curr_distance = 10000000
-            found = r_tree.find(p_splice_end - 1, p_splice_end, 0, fuzzymatch, 1000, "intron")
+            found = r_tree.find(p_splice_end - 1, p_splice_end, 0, 0, fuzzymatch, 1000, "intron")
             for r_intron in found:
                 r_splice_end = r_intron.end
                 distance = abs(r_splice_end - p_splice_end)

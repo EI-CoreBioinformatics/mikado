@@ -62,8 +62,8 @@ def get_tables(table, to_stop=False, gap=None):
     if gap is not None:
         forward_table[gap * 3] = "*"
 
-    if table.nucleotide_alphabet.letters is not None:
-        valid_letters = set(table.nucleotide_alphabet.letters.upper())
+    if table.nucleotide_alphabet is not None:
+        valid_letters = set(table.nucleotide_alphabet.upper())
     else:
         # Assume the worst case, ambiguous DNA or RNA:
         valid_letters = backup_valid_letters
@@ -298,8 +298,8 @@ class BED12:
         self.score = 0
         self.strand = None
         self.rgb = ''
-        self.__block_sizes = np.zeros(1, dtype=np.int_)
-        self.__block_starts = np.zeros(1, dtype=np.int_)
+        self.__block_sizes = np.zeros(1, dtype=np.int64)
+        self.__block_starts = np.zeros(1, dtype=np.int64)
         self.__block_count = 1
         self.__invalid = None
         self.invalid_reason = None
@@ -1167,14 +1167,14 @@ class BED12:
     @block_sizes.setter
     def block_sizes(self, sizes):
         sizes = np.array(sizes)
-        if not issubclass(sizes.dtype.type, np.int_):
+        if not issubclass(sizes.dtype.type, np.int64):
             raise TypeError("Block sizes should be integers!")
         self.__block_sizes = sizes
         del self.invalid
 
     @block_sizes.deleter
     def block_sizes(self):
-        self.__block_sizes = np.zeros(1, dtype=np.int_)
+        self.__block_sizes = np.zeros(1, dtype=np.int64)
         del self.invalid
 
     @property
@@ -1184,7 +1184,7 @@ class BED12:
     @block_starts.setter
     def block_starts(self, starts):
         starts = np.array(starts)
-        if not issubclass(starts.dtype.type, np.int_):
+        if not issubclass(starts.dtype.type, np.int64):
             raise TypeError("Block sizes should be integers! Dtype: {}; array: {}".format(
                 starts.dtype, starts
             ))
@@ -1193,7 +1193,7 @@ class BED12:
 
     @block_starts.deleter
     def block_starts(self):
-        self.__block_starts = np.zeros(1, dtype=np.int_)
+        self.__block_starts = np.zeros(1, dtype=np.int64)
         del self.invalid
 
     @property
@@ -1364,7 +1364,7 @@ class BED12:
             bsizes = np.flip(self.block_sizes)
             tStart, tEnd = self.block_sizes.sum() - tEnd, self.block_sizes.sum() - tStart
 
-        bstarts = np.concatenate([np.zeros(1, dtype=np.int_), bsizes[:-1].cumsum()])
+        bstarts = np.concatenate([np.zeros(1, dtype=np.int64), bsizes[:-1].cumsum()])
         # bstarts = [0]
         # for bs in bsizes[:-1]:
         #     bstarts.append(bs + bstarts[-1])

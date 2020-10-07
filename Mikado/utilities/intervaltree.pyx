@@ -502,13 +502,13 @@ cdef class IntervalTree:
 
     add = insert
 
-    def find(self, int start, int end, bint strict=0, int max_distance=0, int num_intervals=100, object value=None):
+    def find(self, int start, int end, bint strict=0, bint contained_check=0, int max_distance=0,
+             int num_intervals=1000, object value=None):
         """
         Return a sorted list of all intervals overlapping [start,end).
         If strict is set to True, only matches which are completely contained will
         be counted as full matches. If set to False, also partial matches will count.
         """
-
 
         if self.root is None:
             return []
@@ -521,20 +521,25 @@ cdef class IntervalTree:
             found.extend(self.after( end, num_intervals=num_intervals, max_dist=max_distance))
             # Emulate the behaviour of the intervaltree library
 
-        if strict is True:
+        if contained_check is True:
+            new_found = []
+            for _ in found:
+                if (_.start >= start and _.end <= end) or (start >= _.start and end <= _.end ):
+                    if value is None or (value is not None and _.value == value):
+                        new_found.append(_)
+            found = new_found
+
+        elif strict is True:
             # cdef list new_found
             new_found = []
             for _ in found:
                 if _.start >= start and _.end <= end:
-                    new_found.append(_)
+                    if value is None or (value is not None and _.value == value):
+                        new_found.append(_)
             found = new_found
 
-        if value is not None:
-            new_found = []
-            for _ in found:
-               if _.value == value:
-                   new_found.append(_)
-            found = new_found
+        elif value is not None:
+            found = [_ for _ in found if _.value == value]
 
         return found
 

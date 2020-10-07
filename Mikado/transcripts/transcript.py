@@ -33,69 +33,10 @@ from .transcript_methods.finalizing import finalize
 from .transcript_methods.printing import create_lines_cds
 from .transcript_methods.printing import create_lines_no_cds, create_lines_bed, as_bed12
 from ..utilities.intervaltree import Interval, IntervalTree
+from ..utilities.namespace import Namespace
 from collections.abc import Hashable
 import numpy as np
 import pysam
-
-
-class Namespace:
-
-    __name__ = "Namespace"
-
-    def __init__(self, default=0, **kwargs):
-        self.__default = default
-        self.__values = dict()
-        self.update(kwargs)
-
-    @property
-    def default(self):
-        return self.__default
-
-    def __getitem__(self, item):
-        self.__dict__.setdefault(item, self.default)
-        self.__values[item] = self.__dict__[item]
-        return self.__values[item]
-
-    def __getstate__(self):
-
-        default = self.default
-        del self.__default
-        state = dict()
-        state.update(self.__dict__)
-        state["default"] = default
-        self.__default = default
-        return state
-
-    def __setstate__(self, state):
-        self.__default = state["default"]
-        del state["default"]
-        self.__dict__.update(state)
-
-    def __getattr__(self, item):
-        self.__dict__.setdefault(item, self.default)
-        self.__values[item] = self.__dict__[item]
-        return self.__values[item]
-
-    def update(self, dictionary):
-        self.__dict__.update(dictionary)
-        self.__values.update(dictionary)
-
-    def get(self, item):
-        return self.__getitem__(item)
-
-    def __iter__(self):
-        return iter(_ for _ in self.__values)
-
-    def __deepcopy__(self, memodict={}):
-        new = Namespace(default=self.default)
-        new.update(self.__values)
-        return new
-
-    def keys(self):
-        return self.__values.keys()
-
-    def items(self):
-        return self.__values.items()
 
 
 class Metric(property):
@@ -614,22 +555,12 @@ class Transcript:
         if not isinstance(self, type(other)):
             return False
 
-        return all([
-            self.strand == other.strand,
-            self.chrom == other.chrom,
-            self.start == other.start,
-            self.end == other.end,
-            self.exons == other.exons,
-            self.combined_cds == other.combined_cds,
-            self.internal_orfs == other.internal_orfs
-        ])
-
-    def __hash__(self):
-        """Returns the hash of the object (call to super().__hash__()).
-        Necessary to be able to add these objects to hashes like sets.
-        """
-
-        return super().__hash__()
+        return \
+            (
+                self.start, self.end, self.combined_cds, self.internal_orfs, self.chrom, self.strand, self.exons
+            ) == (
+                other.start, other.end, other.combined_cds, other.internal_orfs, other.chrom, other.strand, other.exons
+            )
 
     def __len__(self) -> int:
         """Returns the length occupied by the unspliced transcript on the genome."""
@@ -1799,7 +1730,7 @@ class Transcript:
         assert isinstance(phases, dict), (phases, type(phases))
         self.__phases = phases
 
-    # This will be id, no changes.
+    #
     # pylint: disable=invalid-name
     @property
     def id(self):
@@ -1810,8 +1741,7 @@ class Transcript:
     def id(self, newid):
 
         if not isinstance(newid, str):
-            raise ValueError("Invalid value for id: {0}, type {1}".format(
-                newid, type(newid)))
+            raise ValueError("Invalid value for id: {0}, type {1}".format(newid, type(newid)))
         self.__id = intern(newid)
     # pylint: enable=invalid-name
 
@@ -1937,6 +1867,11 @@ class Transcript:
 
     @name.setter
     def name(self, name):
+        if isinstance(name, (int, float)):
+            name = str(name)
+        elif isinstance(name, (bytes,)):
+            name = name.decode()
+
         if not isinstance(name, (type(None), str)):
             raise ValueError("Invalid name: {0}".format(name))
 

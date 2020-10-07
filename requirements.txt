@@ -20,6 +20,5 @@ python-rapidjson>=0.8
 pandas
 jsonref
 pysam>=0.15.3
-fastnumbers>=3.0
 toml
 tomlkit

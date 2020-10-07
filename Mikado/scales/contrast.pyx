@@ -1,8 +1,8 @@
 from .resultstorer import ResultStorer
-from ..loci import Transcript
+from ..transcripts import Transcript
 from ..utilities.overlap cimport c_overlap
 from ..utilities.intervaltree cimport Interval, IntervalTree
-from .f1 cimport calc_f1
+from ..utilities.f1 cimport calc_f1
 import cython
 
 
@@ -309,6 +309,7 @@ cpdef tuple compare(prediction, reference, bint lenient=False, bint strict_stran
         int p_splice_start, p_splice_end
         int best
         long junction_overlap
+        double len_rsplices, len_psplices
         double stats[9]
         str r_strand, p_strand
 

@@ -6,9 +6,7 @@ but at the same time more pythonic.
 """
 
 from time import sleep
-import numpy
 import os
-from fastnumbers import fast_int, fast_float, isint
 from Bio import Seq
 import Bio.SeqRecord
 from . import Parser
@@ -32,6 +30,7 @@ from ..utilities.log_utils import create_null_logger
 import pyfaidx
 import zlib
 import numpy as np
+import random
 
 
 backup_valid_letters = set(_ambiguous_dna_letters.upper() + _ambiguous_rna_letters.upper())
@@ -299,6 +298,7 @@ class BED12:
         self.score = 0
         self.strand = None
         self.rgb = ''
+
         self.__block_sizes = np.zeros(1, dtype=np.int64)
         self.__block_starts = np.zeros(1, dtype=np.int64)
         self.__block_count = 1
@@ -465,7 +465,7 @@ class BED12:
             if key.lower() in ("parent", "geneid"):
                 self.parent = val
             elif "phase" in key.lower():
-                self.phase = fast_int(val, raise_on_invalid=True)
+                self.phase = int(val)
                 self.coding = True
             elif key.lower() == "coding":
                 self.coding = self.__valid_coding.get(val, False)
@@ -491,20 +491,23 @@ class BED12:
 
         # Reduce memory usage
         intern(self.chrom)
-        self.start = fast_int(self.start, raise_on_invalid=True) + 1
-        self.end = fast_int(self.end, raise_on_invalid=True)
-        self.score = fast_float(self.score, default=None)
-        self.thick_start = fast_int(self.thick_start, raise_on_invalid=True) + 1
-        self.thick_end = fast_int(self.thick_end, raise_on_invalid=True)
-        self.block_count = fast_int(self.block_count, raise_on_invalid=True)
+        self.start = int(self.start) + 1
+        self.end = int(self.end)
+        try:
+            self.score = float(self.score)
+        except (ValueError, TypeError):
+            self.score = None
+        self.thick_start = int(self.thick_start) + 1
+        self.thick_end = int(self.thick_end)
+        self.block_count = int(self.block_count)
         if isinstance(block_sizes, (str, bytes)):
-            self.block_sizes = [fast_int(x, raise_on_invalid=True) for x in block_sizes.split(",") if x]
+            self.block_sizes = [int(x) for x in block_sizes.split(",") if x]
         else:
-            self.block_sizes = [fast_int(x, raise_on_invalid=True) for x in block_sizes]
+            self.block_sizes = [int(x) for x in block_sizes]
         if isinstance(block_starts, (str, bytes)):
-            self.block_starts = [fast_int(x, raise_on_invalid=True) for x in block_starts.split(",") if x]
+            self.block_starts = [int(x) for x in block_starts.split(",") if x]
         else:
-            self.block_starts = [fast_int(x, raise_on_invalid=True) for x in block_starts]
+            self.block_starts = [int(x) for x in block_starts]
         self._parse_attributes(self.name)
         if len(self._fields) == 13:
             self._parse_attributes(self._fields[-1])
@@ -823,9 +826,6 @@ class BED12:
                 return False
         return True
 
-    def __hash__(self):
-        return super().__hash__()
-
     def __len__(self):
         return self.end - self.start + 1
 
@@ -1053,9 +1053,11 @@ class BED12:
 
     @start.setter
     def start(self, value):
-        if not isint(value) and not isinstance(value, np.int64):
-            raise ValueError("Thick end must be an integer!")
-        self.__start = fast_int(value)
+        try:
+            value = int(value)
+        except (ValueError, TypeError):
+            raise ValueError("Start must be an integer, not {}! Value: {}".format(type(value), value))
+        self.__start = value
         del self.invalid
 
     @start.deleter
@@ -1069,9 +1071,11 @@ class BED12:
 
     @end.setter
     def end(self, value):
-        if not isint(value) and not isinstance(value, np.int64):
-            raise ValueError("Thick end must be an integer, not {}! Value: {}".format(type(value), value))
-        self.__end = fast_int(value)
+        try:
+            value = int(value)
+        except (ValueError, TypeError):
+            raise ValueError("End must be an integer, not {}! Value: {}".format(type(value), value))
+        self.__end = value
         del self.invalid
 
     @end.deleter
@@ -1085,9 +1089,11 @@ class BED12:
 
     @thick_start.setter
     def thick_start(self, value):
-        if not isint(value) and not isinstance(value, np.int64):
-            raise ValueError("Thick end must be an integer!")
-        self.__thick_start = fast_int(value)
+        try:
+            value = int(value)
+        except (ValueError, TypeError):
+            raise ValueError("Thick start must be an integer, not {}! Value: {}".format(type(value), value))
+        self.__thick_start = value
         del self.invalid
 
     @thick_start.deleter
@@ -1101,9 +1107,11 @@ class BED12:
 
     @thick_end.setter
     def thick_end(self, value):
-        if not isint(value) and not isinstance(value, np.int64):
-            raise ValueError("Thick end must be an integer!")
-        self.__thick_end = fast_int(value)
+        try:
+            value = int(value)
+        except (ValueError, TypeError):
+            raise ValueError("Thick end must be an integer, not {}! Value: {}".format(type(value), value))
+        self.__thick_end = value
         del self.invalid
 
     @thick_end.deleter
@@ -1146,9 +1154,11 @@ class BED12:
 
     @block_count.setter
     def block_count(self, value):
-        if not isint(value) and not isinstance(value, np.int64):
-            raise ValueError("Thick end must be an integer!")
-        self.__block_count = fast_int(value)
+        try:
+            value = int(value)
+        except (ValueError, TypeError):
+            raise ValueError("Block count must be an integer, not {}! Value: {}".format(type(value), value))
+        self.__block_count = value
         del self.invalid
 
     @property
@@ -1479,7 +1489,8 @@ class Bed12Parser(Parser):
         if isinstance(fasta_index, dict):
             # check that this is a bona fide dictionary ...
             assert isinstance(
-                fasta_index[numpy.random.choice(fasta_index.keys(), 1)],
+                fasta_index[random.choice(fasta_index.keys())],
+                # fasta_index[numpy.random.choice(fasta_index.keys(), 1)],
                 Bio.SeqRecord.SeqRecord)
         elif fasta_index is not None:
             if isinstance(fasta_index, (str, bytes)):
@@ -1523,17 +1534,20 @@ class Bed12Parser(Parser):
 
         bed12 = None
         while bed12 is None:
-            line = self._handle.readline()
-            if line == '':
-                raise StopIteration
-            bed12 = BED12(line,
-                          fasta_index=self.fasta_index,
-                          transcriptomic=self.transcriptomic,
-                          max_regression=self._max_regression,
-                          coding=self.coding,
-                          table=self.__table,
-                          logger=self.logger,
-                          start_adjustment=self.start_adjustment)
+            line = next(self._handle)
+            try:
+                bed12 = BED12(line,
+                              fasta_index=self.fasta_index,
+                              transcriptomic=self.transcriptomic,
+                              max_regression=self._max_regression,
+                              coding=self.coding,
+                              table=self.__table,
+                              logger=self.logger,
+                              start_adjustment=self.start_adjustment)
+            except Exception:
+                error = "Invalid line for file {}, position {}:\n{}".format(
+                    self.name, self._handle.tell(), line)
+                raise ValueError(error)
         return bed12
 
     def gff_next(self):
@@ -1544,21 +1558,29 @@ class Bed12Parser(Parser):
 
         bed12 = None
         while bed12 is None:
-            line = self._handle.readline()
-            if line == "":
-                raise StopIteration
-            line = GffLine(line)
+            line = next(self._handle)
+            try:
+                gff_line = GffLine(line)
+            except Exception:
+                error = "Invalid line for file {}, position {}:\n{}".format(
+                    self.name, self._handle.tell(), line)
+                raise ValueError(error)
 
-            if line.feature != "CDS":
+            if gff_line.feature != "CDS":
                 continue
             # Compatibility with BED12
-            bed12 = BED12(line,
-                          fasta_index=self.fasta_index,
-                          transcriptomic=self.transcriptomic,
-                          max_regression=self._max_regression,
-                          table=self.__table,
-                          start_adjustment=self.start_adjustment,
-                          logger=self.logger)
+            try:
+                bed12 = BED12(gff_line,
+                              fasta_index=self.fasta_index,
+                              transcriptomic=self.transcriptomic,
+                              max_regression=self._max_regression,
+                              table=self.__table,
+                              start_adjustment=self.start_adjustment,
+                              logger=self.logger)
+            except Exception:
+                error = "Invalid line for file {}, position {}:\n{}".format(
+                    self.name, self._handle.tell(), line)
+                raise ValueError(error)
         # raise NotImplementedError("Still working on this!")
         return bed12
 
@@ -1639,7 +1661,8 @@ class Bed12ParseWrapper(mp.Process):
         if isinstance(fasta_index, dict):
             # check that this is a bona fide dictionary ...
             assert isinstance(
-                fasta_index[numpy.random.choice(fasta_index.keys(), 1)],
+                # fasta_index[numpy.random.choice(fasta_index.keys(), 1)],
+                fasta_index[random.choice(fasta_index.keys())],
                 Bio.SeqRecord.SeqRecord)
         elif fasta_index is not None:
             if isinstance(fasta_index, (str, bytes)):
@@ -1663,14 +1686,17 @@ class Bed12ParseWrapper(mp.Process):
         :return:
         """
 
-        bed12 = BED12(line,
-                      logger=self.logger,
-                      sequence=sequence,
-                      transcriptomic=self.transcriptomic,
-                      max_regression=self._max_regression,
-                      start_adjustment=self.start_adjustment,
-                      coding=self.coding,
-                      table=self.__table)
+        try:
+            bed12 = BED12(line,
+                          logger=self.logger,
+                          sequence=sequence,
+                          transcriptomic=self.transcriptomic,
+                          max_regression=self._max_regression,
+                          start_adjustment=self.start_adjustment,
+                          coding=self.coding,
+                          table=self.__table)
+        except Exception:
+            raise ValueError("Invalid line: {}".format(line))
         return bed12
 
     def gff_next(self, line, sequence):
@@ -1679,7 +1705,11 @@ class Bed12ParseWrapper(mp.Process):
         :return:
         """
 
-        line = GffLine(line)
+        try:
+            line = GffLine(line)
+        except Exception:
+            error = "Invalid line:\n{}".format(line)
+            raise ValueError(error)
 
         if line.feature != "CDS":
             return None

@@ -10,8 +10,8 @@ import copy
 import logging
 import operator
 from sys import intern
-from ..transcripts.transcript import Transcript
-from ..transcripts.transcriptcomputer import TranscriptComputer
+from .transcript import Transcript
+from .transcriptcomputer import TranscriptComputer
 from ..exceptions import InvalidTranscript, InvalidCDS
 from ..parsers.GFF import GffLine
 from ..parsers.GTF import GtfLine

@@ -12,10 +12,8 @@ import logging
 import logging.handlers
 from ..utilities import path_join, parse_list_file
 from ..utilities.log_utils import formatter
-from ..preparation.prepare import prepare
-from ..configuration.configurator import to_json, check_json
-from Mikado.exceptions import InvalidJson
-import numpy
+from ..exceptions import InvalidJson
+import random
 from collections import Counter
 
 
@@ -110,6 +108,9 @@ def setup(args):
     logger = logging.getLogger("prepare")
     logger.setLevel(logging.INFO)
 
+    from ..configuration.configurator import to_json
+    args.json_conf = to_json(args.json_conf)
+
     if args.start_method:
         args.json_conf["multiprocessing_method"] = args.start_method
 
@@ -136,9 +137,11 @@ def setup(args):
 
     if args.seed is not None:
         args.json_conf["seed"] = args.seed
-        numpy.random.seed(args.seed % (2 ** 32 - 1))
+        # numpy.random.seed(args.seed % (2 ** 32 - 1))
+        random.seed(args.seed % (2 ** 32 - 1))
     else:
-        numpy.random.seed(None)
+        # numpy.random.seed(None)
+        random.seed(None)
 
     args.json_conf = parse_prepare_options(args, args.json_conf)
 
@@ -203,8 +206,9 @@ def setup(args):
     if isinstance(args.json_conf["reference"]["genome"], bytes):
         args.json_conf["reference"]["genome"] = args.json_conf["reference"]["genome"].decode()
 
+    from ..configuration.configurator import to_json, check_json
     try:
-        args.json_conf = check_json(args.json_conf)
+        args.json_conf = check_json(to_json(args.json_conf))
     except InvalidJson as exc:
         logger.exception(exc)
         raise exc
@@ -214,6 +218,7 @@ def setup(args):
 
 def prepare_launcher(args):
 
+    from ..preparation.prepare import prepare
     args, logger = setup(args)
     try:
         prepare(args, logger)
@@ -307,7 +312,7 @@ score must be a valid floating number.
     parser.add_argument("-of", "--out_fasta", default=None,
                         help="Output file. Default: mikado_prepared.fasta.")
     parser.add_argument("--json-conf", dest="json_conf",
-                        type=to_json, default="",
+                        type=str, default="",
                         help="Configuration file.")
     parser.add_argument("-er", "--exclude-redundant", default=None,
                         dest="exclude_redundant", action="store_true",

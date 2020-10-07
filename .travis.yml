@@ -21,7 +21,7 @@ install:
   - conda env create -n env_name --file environment.yml
   - source activate env_name
   - conda install -y -c conda-forge -- pytest-cov codecov;
-  - conda install -c bioconda -c conda-forge -y stringtie scallop gmap star hisat2 prodigal blast diamond transdecoder gnuplot kallisto samtools gffread
+  - conda install -c bioconda -c conda-forge -y stringtie scallop gmap star hisat2 prodigal blast diamond transdecoder conda-forge::gnuplot kallisto samtools gffread
   - python setup.py develop;
 script:
   - pytest -m slow Mikado/tests/test_system_calls.py::SerialiseChecker::test_subprocess_multi_empty_orfs
@@ -34,9 +34,9 @@ script:
   - mikado pick --log $(pwd)/pick.20b.log --procs 2 --seed 20 --fasta Mikado/tests/chr5.fas.gz  --json-conf Mikado/tests/check_seed.yaml -od 20b Mikado/tests/check_seed.gtf  
   - mikado pick --log $(pwd)/pick.20c.log --procs 2 --seed 20 --fasta Mikado/tests/chr5.fas.gz  --json-conf Mikado/tests/check_seed.yaml -od 20c Mikado/tests/check_seed.gtf
   - mikado pick --log $(pwd)/pick.20d.log --procs 2 --seed 20 --fasta Mikado/tests/chr5.fas.gz  --json-conf Mikado/tests/check_seed.yaml -od 20d Mikado/tests/check_seed.gtf     
-  - mikado pick --log $(pwd)/pick.10.log --procs 2 --seed 10 --fasta Mikado/tests/chr5.fas.gz  --json-conf Mikado/tests/check_seed.yaml -od 10 Mikado/tests/check_seed.gtf
+  - mikado pick --log $(pwd)/pick.10.log --procs 2 --seed 1000 --fasta Mikado/tests/chr5.fas.gz  --json-conf Mikado/tests/check_seed.yaml -od 1000 Mikado/tests/check_seed.gtf
   - if [[ $(diff -q 20a 20b) || $(diff -q 20a 20c) || $(diff -q 20a 20d) ]]; then exit 1; fi
-  - if [[ ! $(diff -q 20a 10) ]]; then exit 1; fi
+  - if [[ ! $(diff -q 20a 1000) ]]; then exit 1; fi
 
 after_success:
   - codecov 

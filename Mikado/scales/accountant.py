@@ -11,7 +11,7 @@ import logging
 import operator
 from logging import handlers as log_handlers
 from ..transcripts import Transcript, Namespace
-from . import calc_f1
+from ..utilities.f1 import calc_f1
 from .resultstorer import ResultStorer
 from ..utilities.intervaltree import Interval, IntervalTree
 import networkx as nx

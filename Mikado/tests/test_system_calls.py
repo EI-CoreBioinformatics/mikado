@@ -12,6 +12,7 @@ import unittest
 import pkg_resources
 import pyfaidx
 import yaml
+from ..configuration import print_config
 try:
     from yaml import CSafeLoader as yLoader
 except ImportError:
@@ -22,8 +23,9 @@ from ..subprograms import configure as sub_configure
 from ..configuration import configurator, daijin_configurator
 from ..picking import picker
 from ..preparation import prepare
-from ..scales.compare import compare, load_index
-from ..subprograms.util.stats import Calculator
+from ..scales.compare import compare
+from ..scales.reference_preparation.indexing import load_index
+from ..scales.calculator import Calculator
 from ..subprograms.prepare import prepare_launcher
 from ..subprograms.prepare import setup as prepare_setup
 from ..transcripts.transcript import Namespace
@@ -379,6 +381,8 @@ class PrepareCheck(unittest.TestCase):
                 args.exclude_redundant = b
                 args.out, args.out_fasta = None, None
                 args.json_conf["prepare"]["files"]["log"] = "prepare.log"
+                if isinstance(args.json_conf["reference"]["genome"], bytes):
+                    args.json_conf["reference"]["genome"] = args.json_conf["reference"]["genome"].decode()
                 args.log = open(os.path.join(args.output_dir, "prepare.log"), "wt")
                 self.logger.setLevel("DEBUG")
                 args, _ = prepare_setup(args)
@@ -391,8 +395,8 @@ class PrepareCheck(unittest.TestCase):
 
                 with self.assertRaises(SystemExit) as exi:
                     prepare_launcher(args)
-                # self.assertTrue(os.path.exists(folder.name))
-                # self.assertTrue(os.path.isdir(folder.name))
+                self.assertTrue(os.path.exists(folder.name))
+                self.assertTrue(os.path.isdir(folder.name))
                 self.assertEqual(exi.exception.code, 0)
                 self.assertTrue(os.path.exists(os.path.join(folder.name,
                                                             "mikado_prepared.fasta")),
@@ -405,11 +409,11 @@ class PrepareCheck(unittest.TestCase):
                 self.assertFalse("AT5G01530.2" in fa.keys())
                 if b is False:
                     self.assertEqual(len(fa.keys()), 4)
-                    self.assertEqual(sorted(fa.keys()), sorted(["AT5G01530."+str(_) for _ in [0, 1, 3, 4]]))
+                    self.assertEqual(sorted(fa.keys()), sorted(["AT5G01530."+str(_) for _ in [0, 2, 3, 4]]))
                 else:
                     self.assertEqual(len(fa.keys()), 3, (fa.keys(), logged))
                     self.assertIn("AT5G01530.0", fa.keys())
-
+                    self.assertIn("AT5G01530.2", fa.keys())
                     self.assertNotIn("AT5G01530.3", fa.keys())
                     self.assertIn("AT5G01530.4", fa.keys())
                 gtf_file = os.path.join(folder.name, "mikado_prepared.gtf")
@@ -442,10 +446,7 @@ class PrepareCheck(unittest.TestCase):
                             self.assertEqual(transcript.is_complete,
                                              transcript.has_start_codon and transcript.has_stop_codon)
                     # self.assertIn("AT5G01530.3", transcripts)
-                    if "AT5G01530.1" in transcripts:
-                        a5 = transcripts["AT5G01530.1"]
-                    else:
-                        a5 = transcripts["AT5G01530.2"]
+                    a5 = transcripts["AT5G01530.2"]
                     self.assertTrue(a5.is_coding)
                     self.assertIn("has_start_codon", a5.attributes)
                     self.assertIn("has_stop_codon", a5.attributes)
@@ -486,6 +487,8 @@ class PrepareCheck(unittest.TestCase):
                 args.gff = None
                 args.list = None
                 args.strand_specific_assemblies = None
+                if isinstance(args.json_conf["reference"]["genome"], bytes):
+                    args.json_conf["reference"]["genome"] = args.json_conf["reference"]["genome"].decode()
                 args, _ = prepare_setup(args)
                 prepare.prepare(args, self.logger)
                 self.assertTrue(os.path.exists(os.path.join(self.conf["prepare"]["files"]["output_dir"],
@@ -872,13 +875,13 @@ class CompareCheck(unittest.TestCase):
         namespace.distance = 2000
         namespace.index = True
         namespace.prediction = None
-        dir = tempfile.TemporaryDirectory(prefix="test_index")
-        namespace.log = os.path.join(dir.name, "index.log")
+        dir = tempfile.mkdtemp(prefix="test_index")
+        namespace.log = os.path.join(dir, "index.log")
         logger = create_null_logger("null")
 
         for ref in files:
             with self.subTest(ref=ref):
-                temp_ref = os.path.join(dir.name, ref)
+                temp_ref = os.path.join(dir, ref)
                 with pkg_resources.resource_stream("Mikado.tests", ref) as ref_handle,\
                         open(temp_ref, "wb") as out_handle:
                     out_handle.write(ref_handle.read())
@@ -896,6 +899,7 @@ class CompareCheck(unittest.TestCase):
                 os.remove(namespace.log)
                 os.remove("{}.midx".format(namespace.reference.name))
                 namespace.reference.close()
+        shutil.rmtree(dir)
 
     @mark.slow
     def test_compare_trinity(self):
@@ -987,9 +991,9 @@ class CompareCheck(unittest.TestCase):
             namespace.reference = to_gff(problematic)
             namespace.prediction = to_gff(problematic)
             namespace.processes = proc
-            dir = tempfile.TemporaryDirectory(prefix="test_compare_problematic_{}".format(proc))
-            namespace.log = os.path.join(dir.name, "compare_problematic_{proc}.log".format(proc=proc))
-            namespace.out = os.path.join(dir.name, "compare_problematic_{proc}".format(proc=proc))
+            dir = tempfile.mkdtemp(prefix="test_compare_problematic_{}".format(proc))
+            namespace.log = os.path.join(dir, "compare_problematic_{proc}.log".format(proc=proc))
+            namespace.out = os.path.join(dir, "compare_problematic_{proc}".format(proc=proc))
             compare(namespace)
             sleep(1)
             refmap = "{}.refmap".format(namespace.out)
@@ -1014,6 +1018,7 @@ class CompareCheck(unittest.TestCase):
                 for counter, line in enumerate(reader, start=1):
                     pass
             self.assertEqual(counter, 4)
+            shutil.rmtree(dir)
 
 
 class ConfigureCheck(unittest.TestCase):
@@ -1328,7 +1333,7 @@ class PickTest(unittest.TestCase):
                 self.json_conf["not_fragmentary"].pop("compiled", None)
 
                 with open(json_file, "wt") as json_handle:
-                    sub_configure.print_config(yaml.dump(self.json_conf, default_flow_style=False), json_handle)
+                    print_config(yaml.dump(self.json_conf, default_flow_style=False), json_handle)
 
                 sys.argv = ["mikado", "pick", "--json-conf", json_file, "--seed", "1078"]
                 with self.assertRaises(SystemExit):
@@ -1374,7 +1379,7 @@ class PickTest(unittest.TestCase):
                 self.json_conf["not_fragmentary"].pop("compiled", None)
 
                 with open(json_file, "wt") as json_handle:
-                    sub_configure.print_config(yaml.dump(self.json_conf, default_flow_style=False), json_handle)
+                    print_config(yaml.dump(self.json_conf, default_flow_style=False), json_handle)
 
                 log = "pick.log"
                 if os.path.exists(os.path.join(dir.name, log)):
@@ -1425,7 +1430,7 @@ class PickTest(unittest.TestCase):
                                                            "mikado.db")
         json_file = os.path.join(self.json_conf["pick"]["files"]["output_dir"], "mikado.yaml")
         with open(json_file, "wt") as json_handle:
-            sub_configure.print_config(yaml.dump(self.json_conf, default_flow_style=False), json_handle)
+            print_config(yaml.dump(self.json_conf, default_flow_style=False), json_handle)
         sys.argv = ["mikado", "pick", "--json-conf", json_file, "--single", "--seed", "1078"]
         with self.assertRaises(SystemExit):
             pkg_resources.load_entry_point("Mikado", "console_scripts", "mikado")()
@@ -1462,7 +1467,7 @@ class PickTest(unittest.TestCase):
         self.json_conf["pick"]["files"]["output_dir"] = os.path.join(outdir.name)
         json_file = os.path.join(outdir.name, "mikado.yaml")
         with open(json_file, "wt") as json_handle:
-            sub_configure.print_config(yaml.dump(self.json_conf, default_flow_style=False),
+            print_config(yaml.dump(self.json_conf, default_flow_style=False),
                                                       json_handle)
         self.json_conf["pick"]["files"]["output_dir"] = os.path.join(outdir.name)
         scoring_file = pkg_resources.resource_filename("Mikado.tests", "scoring_only_cds.yaml")
@@ -1731,7 +1736,7 @@ class SerialiseChecker(unittest.TestCase):
             uni_out_handle.write(uni.read())
 
         with open(json_file, "wt") as json_handle:
-            sub_configure.print_config(yaml.dump(self.json_conf, default_flow_style=False),
+            print_config(yaml.dump(self.json_conf, default_flow_style=False),
                                                       json_handle)
         # Set up the command arguments
         for procs in (1,):
@@ -1782,7 +1787,7 @@ class SerialiseChecker(unittest.TestCase):
                     uni_out_handle.write(uni.read())
 
                 with open(json_file, "wt") as json_handle:
-                    sub_configure.print_config(yaml.dump(self.json_conf, default_flow_style=False),
+                    print_config(yaml.dump(self.json_conf, default_flow_style=False),
                                                json_handle)
                 sys.argv = [str(_) for _ in ["mikado", "serialise", "--json-conf", json_file,
                             "--transcripts", transcripts, "--blast_targets", uni_out,
@@ -1892,7 +1897,7 @@ class SerialiseChecker(unittest.TestCase):
                     uni_out_handle.write(uni.read())
 
                 with open(json_file, "wt") as json_handle:
-                    sub_configure.print_config(yaml.dump(self.json_conf, default_flow_style=False), json_handle)
+                    print_config(yaml.dump(self.json_conf, default_flow_style=False), json_handle)
                 with self.subTest(proc=procs):
                     sys.argv = [str(_) for _ in ["mikado", "serialise", "--json-conf", json_file,
                                                  "--transcripts", transcripts, "--blast_targets", uni_out,

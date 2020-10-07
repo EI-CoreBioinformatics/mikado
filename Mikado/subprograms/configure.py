@@ -10,11 +10,11 @@ from pkg_resources import resource_filename, resource_stream
 import glob
 import argparse
 import sys
-from ..configuration import configurator, daijin_configurator, print_config, print_toml_config, check_has_requirements
-from ..configuration.configurator import create_cluster_config
+# from ..configuration import configurator, daijin_configurator, print_config, print_toml_config, check_has_requirements
+# from ..configuration.configurator import create_cluster_config
 from ..exceptions import InvalidJson
 from ..utilities import comma_split
-from ..transcripts.transcript import Namespace
+from ..utilities.namespace import Namespace
 import functools
 import rapidjson as json
 import tempfile
@@ -60,8 +60,11 @@ def create_simple_config(seed=None):
     :return:
     """
 
-    default = configurator.to_json("", simple=True)
-    validator = configurator.create_validator(simple=True)
+    from ..configuration.configurator import to_json, create_validator, merge_dictionaries
+    from ..configuration import check_has_requirements
+
+    default = to_json("", simple=True)
+    validator = create_validator(simple=True)
 
     del default["scoring"]
     del default["requirements"]
@@ -86,7 +89,7 @@ def create_simple_config(seed=None):
         for k in reversed(ckey):
             val = {k: val}
 
-        new_dict = configurator.merge_dictionaries(new_dict, val)
+        new_dict = merge_dictionaries(new_dict, val)
 
     if seed is not None:
         new_dict["seed"] = seed
@@ -111,6 +114,45 @@ def _remove_comments(d: dict) -> dict:
     return nudict
 
 
+def __add_daijin_specs(args):
+    from ..configuration.daijin_configurator import create_cluster_config, create_daijin_config
+    namespace = Namespace(default=False)
+    namespace.r1 = []
+    namespace.r2 = []
+    namespace.samples = []
+    namespace.strandedness = []
+    namespace.asm_methods = []
+    namespace.long_aln_methods = []
+    namespace.aligners = []
+    if args.mode is not None:
+        namespace.modes = args.mode[:]
+    else:
+        namespace.modes = ["stringent"]
+    if args.blast_targets:
+        namespace.prot_db = args.blast_targets[:]
+    else:
+        namespace.prot_db = []
+    namespace.cluster_config = None
+    namespace.scheduler = ""
+    namespace.flank = None
+    namespace.intron_range = None
+    namespace.genome = args.reference
+    namespace.transcriptome = ""
+    namespace.name = "Daijin"
+    namespace.out_dir = args.out_dir if args.out_dir else "Daijin"
+    namespace.threads = args.threads
+    namespace.scoring = args.scoring
+    namespace.new_scoring = getattr(args, "new_scoring", None)
+    namespace.full = args.full
+    config = create_daijin_config(namespace, level="ERROR", piped=True)
+    config["blastx"]["chunks"] = args.blast_chunks
+    config["mikado"]["use_diamond"] = (not args.use_blast)
+    config["mikado"]["use_prodigal"] = (not args.use_transdecoder)
+    config["scheduler"] = args.scheduler
+    create_cluster_config(config, args, create_null_logger())
+    return config
+
+
 def create_config(args):
     """
     Utility to create a default configuration file.
@@ -118,51 +160,17 @@ def create_config(args):
     :return:
     """
 
+    from ..configuration.configurator import to_json, merge_dictionaries
+    from ..configuration import print_config, print_toml_config
+
     if len(args.mode) > 1:
         args.daijin = True
 
     if args.daijin is not False:
-        namespace = Namespace(default=False)
-        namespace.r1 = []
-        namespace.r2 = []
-        namespace.samples = []
-        namespace.strandedness = []
-        namespace.asm_methods = []
-        namespace.long_aln_methods = []
-        namespace.aligners = []
-        if args.mode is not None:
-            namespace.modes = args.mode[:]
-        else:
-            namespace.modes = ["stringent"]
-        if args.blast_targets:
-            namespace.prot_db = args.blast_targets[:]
-        else:
-            namespace.prot_db = []
-        namespace.cluster_config = None
-        namespace.scheduler = ""
-        namespace.flank = None
-        namespace.intron_range = None
-        namespace.genome = args.reference
-        namespace.transcriptome = ""
-        namespace.name = "Daijin"
-        namespace.out_dir = args.out_dir if args.out_dir else "Daijin"
-        namespace.threads = args.threads
-        namespace.scoring = args.scoring
-        namespace.new_scoring = getattr(args, "new_scoring", None)
-        namespace.full = args.full
-        config = daijin_configurator.create_daijin_config(namespace, level="ERROR", piped=True)
-        config["blastx"]["chunks"] = args.blast_chunks
-        config["mikado"]["use_diamond"] = (not args.use_blast)
-        config["mikado"]["use_prodigal"] = (not args.use_transdecoder)
-        config["scheduler"] = args.scheduler
-
-        # for key in config:
-        #     config[key] = _remove_comments(config[key])
-        # config = configurator.merge_dictionaries(config, daijin_config)
-        create_cluster_config(config, args, create_null_logger())
+        config = __add_daijin_specs(args)
     else:
         if args.full is True:
-            default = configurator.to_json(None)
+            default = to_json(None)
             del default["scoring"]
             del default["requirements"]
             del default["not_fragmentary"]
@@ -183,8 +191,8 @@ def create_config(args):
         # Overwrite values specific to Mikado
         if "mikado" in external_conf:
             mikado_conf = dict((key, val) for key, val in external_conf["mikado"].items() if key in config)
-            config = configurator.merge_dictionaries(config, mikado_conf)
-        config = configurator.merge_dictionaries(config, external_conf)
+            config = merge_dictionaries(config, mikado_conf)
+        config = merge_dictionaries(config, external_conf)
 
     config["pick"]["files"]["subloci_out"] = args.subloci_out if args.subloci_out else ""
     config["pick"]["files"]["monoloci_out"] = args.monoloci_out if args.monoloci_out else ""
@@ -281,7 +289,7 @@ switch.")
     print_config(output, tempcheck)
     tempcheck.flush()
     try:
-        configurator.to_json(tempcheck.name)
+        to_json(tempcheck.name)
     except InvalidJson as exc:
         raise InvalidJson("Created an invalid configuration file! Error:\n{}".format(exc))
 

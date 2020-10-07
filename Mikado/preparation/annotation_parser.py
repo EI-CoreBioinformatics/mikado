@@ -12,9 +12,9 @@ except ImportError:
     import json
 import sqlite3
 import os
-import numpy
 from ..transcripts import Transcript
 from operator import itemgetter
+import random
 
 
 __author__ = 'Luca Venturini'
@@ -34,9 +34,11 @@ class AnnotationParser(multiprocessing.Process):
 
         super().__init__()
         if seed is not None:
-            numpy.random.seed(seed % (2 ** 32 - 1))
+            # numpy.random.seed(seed % (2 ** 32 - 1))
+            random.seed(seed % (2 ** 32 - 1))
         else:
-            numpy.random.seed(None)
+            # numpy.random.seed(None)
+            random.seed(None)
 
         self.submission_queue = submission_queue
         self.min_length = min_length

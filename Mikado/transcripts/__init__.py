@@ -5,4 +5,5 @@
 """
 
 from .transcript import Transcript, Namespace
+from .reference_gene import Gene
 from .transcriptchecker import TranscriptChecker

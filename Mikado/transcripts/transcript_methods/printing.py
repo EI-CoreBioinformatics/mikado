@@ -6,9 +6,9 @@ GFFs/GTFs starting from the transcript class.
 
 from itertools import zip_longest
 import functools
-from Mikado.parsers.GTF import GtfLine
-from Mikado.parsers.GFF import GffLine
-from Mikado.parsers.bed12 import BED12
+from ...parsers.GTF import GtfLine
+from ...parsers.GFF import GffLine
+from ...parsers.bed12 import BED12
 import numpy as np
 
 

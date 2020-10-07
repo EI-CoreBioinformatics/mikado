@@ -7,8 +7,6 @@ Script to extract features from a GTF with certain coordinates.
 
 import argparse
 import sys
-from ...transcripts.transcript import Transcript
-from ...parsers.GTF import GTF
 from ...utilities import to_region
 
 
@@ -22,6 +20,8 @@ def launch(args):
 
     :param args: the argparse Namespace
     """
+    from ...transcripts.transcript import Transcript
+    from ...parsers.GTF import GTF
 
     if hasattr(args, "region") and args.region is not None:
         try:

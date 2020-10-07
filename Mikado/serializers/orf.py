@@ -24,7 +24,6 @@ import logging.handlers as logging_handlers
 import multiprocessing as mp
 import msgpack
 import zlib
-from fastnumbers import isint
 
 
 # This is a serialization class, it must have a ton of attributes ...
@@ -351,7 +350,7 @@ Please check your input files.")
 
             # current_junction = Orf(row, current_query)
             obj = Orf.create_dict(row, current_query)
-            if obj["start"] is None or isint(obj["start"]) is False:
+            if obj["start"] is None or not isinstance(obj["start"], int):
                 raise ValueError("Invalid object: {}".format(obj))
                 # continue
             objects.append(Orf.create_dict(row, current_query))

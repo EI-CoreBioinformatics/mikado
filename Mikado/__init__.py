@@ -25,23 +25,11 @@ __all__ = ["configuration",
            "utilities",
            "__version__"]
 
-from . import configuration
-from . import exceptions
-from . import loci
-from . import parsers
-from . import picking
-from . import preparation
-from . import scales
-from . import serializers
-from . import subprograms
-from . import utilities
+
 import argparse
 import sys
-from . import subprograms
 from .utilities.log_utils import create_default_logger
 from multiprocessing import freeze_support
-from numpy._pytesttester import PytestTester
-test = PytestTester(__name__)
 
 
 def main(call_args=None):
@@ -54,6 +42,7 @@ def main(call_args=None):
 
     if call_args is None:
         call_args = sys.argv[1:]
+    from . import subprograms
 
     parser = argparse.ArgumentParser(prog="Mikado",
                                      description="""Mikado is a program to analyse RNA-Seq data
@@ -125,7 +114,11 @@ by Cufflinks's cuffcompare and ParsEval.")
 
         sys.exit(1)
 
+
 if __name__ == '__main__':
     # __spec__ = "Mikado"
     freeze_support()
     main()
+else:
+    from numpy._pytesttester import PytestTester
+    test = PytestTester(__name__)

@@ -8,20 +8,20 @@ i.e. the locus.
 import collections
 import itertools
 import operator
-from collections import deque, defaultdict
+from collections import defaultdict
 import pysam
 from ..transcripts.transcript import Transcript
 from ..transcripts.transcriptchecker import TranscriptChecker
 from .abstractlocus import Abstractlocus, rgetattr
 from ..parsers.GFF import GffLine
-from ..scales.assigner import Assigner
+from ..scales.assignment.assigner import Assigner
 from ..exceptions import InvalidTranscript
 import networkx as nx
-import numpy as np
 import io
 from pkg_resources import resource_stream
 import rapidjson as json
 import jsonschema
+import random
 
 
 with io.TextIOWrapper(resource_stream("Mikado.configuration",
@@ -427,7 +427,8 @@ class Locus(Abstractlocus):
                     elif self[couple[1]].score > self[couple[0]].score:
                         removal = couple[0]
                     else:
-                        removal = np.random.choice(sorted(couple))
+                        # removal = np.random.choice(sorted(couple))
+                        removal = random.choice(sorted(couple))
                 except (TypeError, ValueError):
                     raise ValueError((couple, self[couple[0]].score, self[couple[1]].score))
                 finally:

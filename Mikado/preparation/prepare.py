@@ -22,6 +22,7 @@ import sqlite3
 import pysam
 import numpy as np
 import rapidjson as json
+import random
 
 
 __author__ = 'Luca Venturini'
@@ -102,7 +103,9 @@ def _select_transcript(is_reference, exclude_redundant, score, other, start, end
         elif (is_reference is True and other["is_reference"] is False) or (score > other["score"]):
             to_keep = True
         else:
-            to_keep, other_to_keep = np.random.permutation([True, False])
+            # to_keep, other_to_keep = np.random.permutation([True, False])
+            to_keep = random.choice([True, False])
+            other_to_keep = not to_keep
     else:
         if (is_reference is False and other["is_reference"] is True) or (score < other["score"]):
             other_to_keep = True
@@ -234,7 +237,8 @@ def store_transcripts(shelf_stacks, logger, seed=None):
         except sqlite3.OperationalError as exc:
             raise sqlite3.OperationalError("dump not found in {}; excecption: {}".format(shelf_name, exc))
 
-    np.random.seed(seed)
+    # np.random.seed(seed)
+    random.seed(seed)
     for chrom in sorted(transcripts.keys()):
         logger.debug("Starting with %s (%d positions)",
                      chrom,
@@ -308,7 +312,8 @@ def perform_check(keys, shelve_stacks, args, logger):
         # submission_queue = multiprocessing.JoinableQueue(-1)
 
         batches = list(enumerate(keys, 1))
-        np.random.shuffle(batches)
+        # np.random.shuffle(batches)
+        random.shuffle(batches)
         kwargs = {
             "fasta_out": os.path.basename(args.json_conf["prepare"]["files"]["out_fasta"].name),
             "gtf_out": os.path.basename(args.json_conf["prepare"]["files"]["out"].name),
@@ -321,7 +326,8 @@ def perform_check(keys, shelve_stacks, args, logger):
         }
 
         working_processes = []
-        for idx, batch in enumerate(np.array_split(batches, args.json_conf["threads"]), 1):
+        for idx, batch in enumerate(np.array_split(np.array(batches,
+                                                            dtype=object), args.json_conf["threads"]), 1):
             batch_file = tempfile.NamedTemporaryFile(delete=False, mode="wb")
             msgpack.dump(batch.tolist(), batch_file)
             batch_file.flush()
@@ -332,9 +338,19 @@ def perform_check(keys, shelve_stacks, args, logger):
                 args.logging_queue,
                 args.json_conf["reference"]["genome"].filename,
                 idx,
-                shelve_stacks.keys(),
+                list(shelve_stacks.keys()),
                 **kwargs)
-            proc.start()
+            try:
+                proc.start()
+            except TypeError as exc:
+                logger.critical("Failed arguments: %s", (batch_file.name,
+                args.logging_queue,
+                args.json_conf["reference"]["genome"].filename,
+                idx,
+                shelve_stacks.keys()))
+                logger.critical("Failed kwargs: %s", kwargs)
+                logger.critical(exc)
+                raise
             working_processes.append(proc)
 
         [_.join() for _ in working_processes]
@@ -679,7 +695,9 @@ def prepare(args, logger):
         logger.info("""Mikado prepare has finished correctly. The output %s FASTA file can now be used for BLASTX \
     and/or ORF calling before the next step in the pipeline, `mikado serialise`.""",
                     args.json_conf["prepare"]["files"]["out_fasta"])
+        logging.shutdown()
     else:
         logger.error("Mikado prepared has encountered a fatal error. Please check the logs and, if there is a bug,"\
                      "report it to https://github.com/EI-CoreBioinformatics/mikado/issues")
-    logging.shutdown()
+        logging.shutdown()
+        exit(1)

@@ -24,6 +24,7 @@ from ..exceptions import InvalidJson, UnrecognizedRescaler
 from ..utilities import merge_dictionaries
 from ..utilities.log_utils import create_default_logger
 import numpy
+import random
 import toml
 try:
     from yaml import CSafeLoader as yLoader
@@ -645,14 +646,17 @@ def check_json(json_conf, simple=False, external_dict=None, logger=None):
 
     seed = json_conf.get("seed", None)
     if seed is None:
-        seed = numpy.random.randint(0, 2**32 - 1)
+        # seed = numpy.random.randint(0, 2**32 - 1)
+        seed = random.randint(0, 2**32 - 1)
         logger.info("Random seed: {}", seed)
         json_conf["seed"] = seed
 
     if seed is not None:
-        numpy.random.seed(seed % (2 ** 32 - 1))
+        # numpy.random.seed(seed % (2 ** 32 - 1))
+        random.seed(seed % (2 ** 32 - 1))
     else:
-        numpy.random.seed(None)
+        # numpy.random.seed(None)
+        random.seed(None)
 
     return json_conf
 
@@ -678,7 +682,9 @@ def to_json(string, simple=False, logger=None):
         logger = create_default_logger("to_json")
 
     try:
-        if string is None or string == '' or string == dict():
+        if isinstance(string, dict):
+            json_dict = string
+        elif string is None or string == '' or string == dict():
             json_dict = dict()
             string = os.path.join(os.path.abspath(os.getcwd()), "mikado.json")
         else:
@@ -695,17 +701,21 @@ def to_json(string, simple=False, logger=None):
                     json_dict = json.loads(json_file.read())
         json_dict["filename"] = string
         json_dict = check_json(json_dict, simple=simple, logger=logger)
+
     except Exception as exc:
         raise OSError((exc, string))
 
     seed = json_dict.get("seed", 0)
     if seed == 0:
-        seed = numpy.random.randint(1, 2 ** 32 - 1)
+        # seed = numpy.random.randint(1, 2 ** 32 - 1)
+        seed = random.randint(1, 2 ** 32 - 1)
         logger.info("Random seed: {}", seed)
 
     if seed != 0:
-        numpy.random.seed(seed % (2 ** 32 - 1))
+        # numpy.random.seed(seed % (2 ** 32 - 1))
+        random.seed(seed % (2 ** 32 - 1))
     else:
-        numpy.random.seed(None)
+        # numpy.random.seed(None)
+        random.seed(None)
 
     return json_dict

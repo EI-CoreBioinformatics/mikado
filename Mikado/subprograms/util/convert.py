@@ -1,15 +1,14 @@
 #!/usr/bin/env python3
 import argparse
 import sys
-from ...parsers import to_gff
-from ...parsers.bed12 import BED12
-from ...loci import Transcript, Gene
 
 
 def launch(args):
 
-    # args.gf.close()
-    # args.gf = args.gf.name
+    from ...parsers import to_gff
+    from ...parsers.bed12 import BED12
+    from ...loci import Transcript, Gene
+
     if args.gf == "-":
         if args.in_format is None:
             raise ValueError("I need a format if it cannot be inferred from the string")

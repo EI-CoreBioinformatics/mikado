@@ -10,147 +10,15 @@ try:
     import rapidjson as json
 except ImportError:
     import json
-import sqlite3
+import zlib
 import os
 from ..transcripts import Transcript
 from operator import itemgetter
 import random
+import struct
 
 
 __author__ = 'Luca Venturini'
-
-
-class AnnotationParser(multiprocessing.Process):
-
-    def __init__(self,
-                 submission_queue,
-                 logging_queue,
-                 identifier,
-                 min_length=0,
-                 max_intron=3*10**5,
-                 log_level="WARNING",
-                 seed=None,
-                 strip_cds=False):
-
-        super().__init__()
-        if seed is not None:
-            # numpy.random.seed(seed % (2 ** 32 - 1))
-            random.seed(seed % (2 ** 32 - 1))
-        else:
-            # numpy.random.seed(None)
-            random.seed(None)
-
-        self.submission_queue = submission_queue
-        self.min_length = min_length
-        self.max_intron = max_intron
-        self.__strip_cds = strip_cds
-        self.logging_queue = logging_queue
-        self.log_level = log_level
-        self.__identifier = identifier
-        self.name = "AnnotationParser-{0}".format(self.identifier)
-        self.logger = None
-        self.handler = None
-        self.logger = logging.getLogger(self.name)
-        create_queue_logger(self, prefix="prepare")
-        # self.logger.warning("Started process %s", self.name)
-
-    def __getstate__(self):
-
-        state = self.__dict__.copy()
-        for key in ("logger", "handler", "_log_handler"):
-            if key in state:
-                del state[key]
-
-        return state
-
-    def __setstate__(self, state):
-
-        self.__dict__.update(state)
-        create_queue_logger(self)
-
-    def run(self):
-
-        found_ids = set()
-        self.logger.debug("Starting to listen to the queue")
-        counter = 0
-        while True:
-            results = self.submission_queue.get()
-            try:
-                label, handle, strand_specific, is_reference, exclude_redundant, shelf_name = results
-            except ValueError as exc:
-                raise ValueError("{}.\tValues: {}".format(exc, ", ".join([str(_) for _ in results])))
-            if handle == "EXIT":
-                self.submission_queue.put(("EXIT", "EXIT", "EXIT", "EXIT", "EXIT", "EXIT"))
-                break
-            counter += 1
-            self.logger.debug("Received %s (label: %s; SS: %s, shelf_name: %s)",
-                              handle,
-                              label,
-                              strand_specific,
-                              shelf_name)
-            try:
-                gff_handle = to_gff(handle)
-                if gff_handle.__annot_type__ == "gff3":
-                    new_ids = load_from_gff(shelf_name,
-                                            gff_handle,
-                                            label,
-                                            found_ids,
-                                            self.logger,
-                                            min_length=self.min_length,
-                                            max_intron=self.max_intron,
-                                            strip_cds=self.__strip_cds,
-                                            is_reference=is_reference,
-                                            exclude_redundant=exclude_redundant,
-                                            strand_specific=strand_specific)
-                elif gff_handle.__annot_type__ == "gtf":
-                    new_ids = load_from_gtf(shelf_name,
-                                            gff_handle,
-                                            label,
-                                            found_ids,
-                                            self.logger,
-                                            min_length=self.min_length,
-                                            max_intron=self.max_intron,
-                                            is_reference=is_reference,
-                                            strip_cds=self.__strip_cds,
-                                            exclude_redundant=exclude_redundant,
-                                            strand_specific=strand_specific)
-                elif gff_handle.__annot_type__ == "bed12":
-                    new_ids = load_from_bed12(shelf_name,
-                                              gff_handle,
-                                              label,
-                                              found_ids,
-                                              self.logger,
-                                              is_reference=is_reference,
-                                              min_length=self.min_length,
-                                              max_intron=self.max_intron,
-                                              strip_cds=self.__strip_cds,
-                                              exclude_redundant=exclude_redundant,
-                                              strand_specific=strand_specific)
-                else:
-                    raise ValueError("Invalid file type: {}".format(gff_handle.name))
-
-                if len(new_ids) == 0:
-                    raise exceptions.InvalidAssembly(
-                        "No valid transcripts found in {0}{1}!".format(
-                            handle, " (label: {0})".format(label) if label != "" else ""
-                        ))
-
-            except exceptions.InvalidAssembly as exc:
-                self.logger.exception(exc)
-                continue
-            except Exception as exc:
-                self.logger.exception(exc)
-                raise
-
-        self.logger.debug("Sending %s back, exiting.", counter)
-
-    @property
-    def identifier(self):
-        """
-        A numeric value that identifies the process uniquely.
-        :return:
-        """
-        return self.__identifier
 
 
 def __raise_redundant(row_id, name, label):
@@ -319,22 +187,9 @@ def load_into_storage(shelf_name, exon_lines, min_length, logger, strip_cds=True
             if os.path.exists(_):
                 os.remove(_)
 
-    conn = sqlite3.connect(shelf_name,
-                           isolation_level="DEFERRED",
-                           timeout=60,
-                           check_same_thread=False  # Necessary for SQLite3 to function in multiprocessing
-                           )
-    cursor = conn.cursor()
-    cursor.execute("PRAGMA journal_mode=wal")
-    cursor.execute("PRAGMA TEMP_STORE=MEMORY")
-    cursor.execute("PRAGMA SYNCHRONOUS=OFF")
-    cursor.execute(
-        "CREATE TABLE dump (chrom text, start integer, end integer, strand text, tid text, features blob)")
-    conn.commit()
-    logger.debug("Created tables for shelf %s", shelf_name)
+    shelf = open(shelf_name, "wb")
 
-    temp_store = []
-
+    rows = []
     logger.warning("Max intron: %s", max_intron)
     for tid in exon_lines:
         if "features" not in exon_lines[tid]:
@@ -365,28 +220,24 @@ def load_into_storage(shelf_name, exon_lines, min_length, logger, strip_cds=True
                                                      max_intron=max_intron,
                                                      min_length=min_length):
             chrom = values["chrom"]
+            assert chrom is not None
             strand = values["strand"]
+            if strand is None:
+                strand = "."
             try:
-                values = json.dumps(values, number_mode=json.NM_NATIVE)
+                values = json.dumps(values, number_mode=json.NM_NATIVE).encode()
             except ValueError:  # This is a crash that happens when there are infinite values
-                values = json.dumps(values)
+                values = json.dumps(values).encode()
 
             logger.debug("Inserting %s into shelf %s", tid, shelf_name)
-            temp_store.append((chrom, start, end, strand, tid, values))
+            # temp_store.append((chrom, start, end, strand, tid, values))
+            values = zlib.compress(values)
+            write_start = shelf.tell()
+            write_length = shelf.write(values)
+            row = (chrom.encode(), start, end, strand.encode(), tid.encode(), write_start, write_length)
+            rows.append(row)
 
-        if len(temp_store) >= 1000:
-            cursor.executemany("INSERT INTO dump VALUES (?, ?, ?, ?, ?, ?)", temp_store)
-            conn.commit()
-            temp_store = []
-
-    if len(temp_store) > 0:
-        cursor.executemany("INSERT INTO dump VALUES (?, ?, ?, ?, ?, ?)", temp_store)
-        conn.commit()
-
-    cursor.execute("CREATE INDEX idx ON dump (tid)")
-    conn.commit()
-    conn.close()
-    return
+    return rows
 
 
 def load_from_gff(shelf_name,
@@ -543,10 +394,10 @@ def load_from_gff(shelf_name,
     gff_handle.close()
 
     logger.info("Starting to load %s", shelf_name)
-    load_into_storage(shelf_name, exon_lines,
+    rows = load_into_storage(shelf_name, exon_lines,
                       logger=logger, min_length=min_length, strip_cds=strip_cds, max_intron=max_intron)
 
-    return new_ids
+    return new_ids, rows
 
 
 def load_from_gtf(shelf_name,
@@ -666,11 +517,11 @@ def load_from_gtf(shelf_name,
         new_ids.add(row.transcript)
     gff_handle.close()
     logger.info("Starting to load %s", shelf_name)
-    load_into_storage(shelf_name,
+    rows = load_into_storage(shelf_name,
                       exon_lines,
                       logger=logger, min_length=min_length, strip_cds=strip_cds, max_intron=max_intron)
 
-    return new_ids
+    return new_ids, rows
 
 
 def load_from_bed12(shelf_name,
@@ -758,7 +609,141 @@ def load_from_bed12(shelf_name,
                 ]
         new_ids.add(transcript.id)
     gff_handle.close()
-    load_into_storage(shelf_name, exon_lines,
+    rows = load_into_storage(shelf_name, exon_lines,
                       logger=logger, min_length=min_length, strip_cds=strip_cds, max_intron=max_intron)
 
-    return new_ids
+    return new_ids, rows
+
+
+def load_from_bam(shelf_name,
+                  gff_handle,
+                  label,
+                  found_ids,
+                  logger,
+                  min_length=0,
+                  max_intron=3*10**5,
+                  is_reference=False,
+                  exclude_redundant=False,
+                  strip_cds=False,
+                  strand_specific=False):
+    raise NotImplementedError()
+
+
+loaders = {"gtf": load_from_gtf, "gff": load_from_gff, "gff3": load_from_gff,
+           "bed12": load_from_bed12, "bed": load_from_bed12, "bam": load_from_bam}
+
+# Chrom, start, end, strand, Tid, write start, write length
+# 100 chars, unsigned Long, unsigned Long, one char, 100 chars, unsigned Long, unsigned Long
+row_struct = struct.Struct("100sLLc100sLLH")
+
+
+class AnnotationParser(multiprocessing.Process):
+
+    def __init__(self,
+                 submission_queue: multiprocessing.JoinableQueue,
+                 return_queue: multiprocessing.JoinableQueue,
+                 logging_queue: multiprocessing.JoinableQueue,
+                 identifier: int,
+                 min_length=0,
+                 max_intron=3*10**5,
+                 log_level="WARNING",
+                 seed=None,
+                 strip_cds=False):
+
+        super().__init__()
+        if seed is not None:
+            # numpy.random.seed(seed % (2 ** 32 - 1))
+            random.seed(seed % (2 ** 32 - 1))
+        else:
+            # numpy.random.seed(None)
+            random.seed(None)
+
+        self.submission_queue = submission_queue
+        self.return_queue = return_queue
+        self.min_length = min_length
+        self.max_intron = max_intron
+        self.__strip_cds = strip_cds
+        self.logging_queue = logging_queue
+        self.log_level = log_level
+        self.__identifier = identifier
+        self.name = "AnnotationParser-{0}".format(self.identifier)
+        self.logger = None
+        self.handler = None
+        self.logger = logging.getLogger(self.name)
+        create_queue_logger(self, prefix="prepare")
+        # self.logger.warning("Started process %s", self.name)
+
+    def __getstate__(self):
+
+        state = self.__dict__.copy()
+        for key in ("logger", "handler", "_log_handler"):
+            if key in state:
+                del state[key]
+
+        return state
+
+    def __setstate__(self, state):
+
+        self.__dict__.update(state)
+        create_queue_logger(self)
+
+    def run(self):
+
+        found_ids = set()
+        self.logger.debug("Starting to listen to the queue")
+        counter = 0
+        rows = b""
+        while True:
+            results = self.submission_queue.get()
+            try:
+                label, handle, strand_specific, is_reference, exclude_redundant, shelf_name, shelf_index = results
+            except ValueError as exc:
+                raise ValueError("{}.\tValues: {}".format(exc, ", ".join([str(_) for _ in results])))
+            if handle == "EXIT":
+                self.submission_queue.put(results)
+                break
+            counter += 1
+            self.logger.debug("Received %s (label: %s; SS: %s, shelf_name: %s)",
+                              handle,
+                              label,
+                              strand_specific,
+                              shelf_name)
+            try:
+                gff_handle = to_gff(handle)
+                loader = loaders.get(gff_handle.__annot_type__, None)
+                if loader is None:
+                    raise ValueError("Invalid file type: {}".format(gff_handle.name))
+                new_ids, new_rows = loader(shelf_name, gff_handle, label, found_ids, self.logger,
+                                       min_length=self.min_length, max_intron=self.max_intron,
+                                       strip_cds=self.__strip_cds and not is_reference,
+                                       is_reference=is_reference, exclude_redundant=exclude_redundant,
+                                       strand_specific=strand_specific)
+
+                if len(new_ids) == 0:
+                    raise exceptions.InvalidAssembly(
+                        "No valid transcripts found in {0}{1}!".format(
+                            handle, " (label: {0})".format(label) if label != "" else ""
+                        ))
+                # Now convert the rows into structs.
+                for row in new_rows:
+                    rows += row_struct.pack(*row, shelf_index)
+
+            except exceptions.InvalidAssembly as exc:
+                self.logger.exception(exc)
+                continue
+            except Exception as exc:
+                self.logger.exception(exc)
+                raise
+
+        self.logger.debug("Sending %s back", counter)
+        rows = zlib.compress(rows)
+        self.return_queue.put(rows)
+        self.logger.debug("Sent %s back, exiting.", counter)
+
+    @property
+    def identifier(self):
+        """
+        A numeric value that identifies the process uniquely.
+        :return:
+        """
+        return self.__identifier

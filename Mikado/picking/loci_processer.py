@@ -372,28 +372,6 @@ class LociProcesser(Process):
     def identifier(self):
         return self.__identifier
 
-    # @staticmethod
-    # def _create_temporary_store(tempdirectory, identifier):
-    #
-    #     db = os.path.join(tempdirectory, "output-{}.db".format(identifier))
-    #     conn = sqlite3.connect(db, isolation_level=None,
-    #                            check_same_thread=False)
-    #     cursor = conn.cursor()
-    #
-    #     cursor.execute(
-    #         "CREATE TABLE IF NOT EXISTS loci (counter INTEGER UNIQUE PRIMARY KEY, chrom CHR, genes INT, json BLOB)")
-    #     cursor.execute("CREATE INDEX IF NOT EXISTS loci_idx ON loci(counter)")
-    #
-    #     cursor.execute(
-    #         "CREATE TABLE IF NOT EXISTS subloci (counter INTEGER UNIQUE PRIMARY KEY, chrom CHR, json BLOB)")
-    #     cursor.execute("CREATE INDEX IF NOT EXISTS subloci_idx ON subloci(counter)")
-    #
-    #     cursor.execute(
-    #         "CREATE TABLE IF NOT EXISTS monoloci (counter INTEGER UNIQUE PRIMARY KEY, chrom CHR, json BLOB)")
-    #     cursor.execute("CREATE INDEX IF NOT EXISTS monoloci_idx ON monoloci(counter)")
-    #
-    #     return db, conn, cursor
-
     def __getstate__(self):
 
         state = self.__dict__.copy()
@@ -450,15 +428,6 @@ class LociProcesser(Process):
     def run(self):
         """Start polling the queue, analyse the loci, and send them to the printer process."""
         self.logger.debug("Starting to parse data for {0}".format(self.name))
-        # Read-only connection
-
-        # conn = sqlite3.connect("file:{}?mode=ro".format(os.path.join(self._tempdir, "temp_store.db")),
-        #                        uri=True,  # Necessary to use the Read-only mode from file string
-        #                        isolation_level="DEFERRED",
-        #                        timeout=60,
-        #                        check_same_thread=False  # Necessary for SQLite3 to function in multiprocessing
-        #                        )
-        # cursor = conn.cursor()
 
         print_cds = (not self.json_conf["pick"]["run_options"]["exclude_cds"])
         print_monoloci = (self.json_conf["pick"]["files"]["monoloci_out"] != "")
@@ -477,17 +446,6 @@ class LociProcesser(Process):
                 self.locus_queue.put((counter, None))
                 break
             else:
-                # try:
-                #     transcripts = cursor.execute(
-                #         "SELECT json FROM transcripts WHERE counter=?", (str(counter),)).fetchone()
-                # except sqlite3.ProgrammingError as exc:
-                #     self.logger.exception(sqlite3.ProgrammingError((exc, counter, str(counter), (str(counter),))))
-                #     # self.__close_handles()
-                #     break
-                #
-                # if transcripts is None:
-                #     raise KeyError("Nothing found in the database for %s", counter)
-
                 try:
                     transcripts = msgpack.loads(transcripts, raw=False)
                 except TypeError as err:
@@ -539,14 +497,12 @@ class LociProcesser(Process):
 
                 serialise_locus(stranded_loci,
                                 self.status_queue,
-                                # self.dump_conn,
                                 counter,
                                 print_cds=print_cds,
                                 print_monosubloci=print_monoloci,
                                 print_subloci=print_subloci)
                 if len(stranded_loci) == 0:
                     self.logger.warning("No loci left for index %d", counter)
-                # self.status_queue.put(counter)
                 self.locus_queue.task_done()
 
         return

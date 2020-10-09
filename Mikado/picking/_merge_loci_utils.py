@@ -1,5 +1,4 @@
 import rapidjson as json
-import sqlite3
 import msgpack
 from ..loci import Superlocus
 from ..loci import Locus
@@ -16,13 +15,7 @@ decoder = json.Decoder()
 def manage_index(index, data, source):
     index, (chrom, gene_counter, gene_max) = index[0], index[1]
     orig_gene_counter = gene_counter
-    # conn = sqlite3.connect(dumps[dump_index])
-    # cursor = conn.cursor()
     batch = []
-    # try:
-    #     stranded_loci = cursor.execute("SELECT json FROM loci WHERE counter=?", (str(index),)).fetchone()
-    # except ValueError:
-    #     raise ValueError((index, type(index)))
     chrom, num_genes, stranded_loci, sublocus_dump, monolocus_dump = data[index]
 
     loci = []

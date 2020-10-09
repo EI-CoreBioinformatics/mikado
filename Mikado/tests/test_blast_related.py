@@ -278,15 +278,6 @@ class BlastBasics(unittest.TestCase):
         os.remove(valid_asn)
         os.chdir(master)
 
-    def test_create_db(self):
-
-        dbname, conn, cursor = seri_blast_xml._create_xml_db(":memory:")
-        self.assertTrue(conn.execute(
-            "select name from sqlite_master where type = 'table';").fetchall()[0] == ("dump",))
-        self.assertEqual(conn.execute("PRAGMA table_info('%s')" % "dump").fetchall(),
-            [(0, 'query_counter', 'integer', 0, None, 0),
-             (1, 'hits', 'blob', 0, None, 0), (2, 'hsps', 'blob', 0, None, 0)])
-
 
 class TestMerging(unittest.TestCase):
 

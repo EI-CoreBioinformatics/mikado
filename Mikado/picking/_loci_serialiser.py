@@ -14,7 +14,6 @@ def default_for_serialisation(obj):
 
 def serialise_locus(stranded_loci: [Superlocus],
                     queue,
-                    # conn: sqlite3.Connection,
                     counter,
                     print_subloci=True,
                     print_cds=True,
@@ -63,8 +62,4 @@ def serialise_locus(stranded_loci: [Superlocus],
         num_genes = sum(len(slid.loci) for slid in stranded_loci)
     queue.put((counter, chrom, num_genes, loci, subloci, monoloci))
 
-    # conn.execute("INSERT INTO loci VALUES (?, ?, ?, ?)", (counter, chrom, num_genes, loci))
-    # conn.execute("INSERT INTO subloci VALUES (?, ?, ?)", (counter, chrom, subloci))
-    # conn.execute("INSERT INTO monoloci VALUES (?, ?, ?)", (counter, chrom, monoloci))
-    # conn.commit()
     return

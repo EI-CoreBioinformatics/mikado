@@ -634,7 +634,7 @@ loaders = {"gtf": load_from_gtf, "gff": load_from_gff, "gff3": load_from_gff,
 
 # Chrom, start, end, strand, Tid, write start, write length
 # 100 chars, unsigned Long, unsigned Long, one char, 100 chars, unsigned Long, unsigned Long
-row_struct = struct.Struct("100sLLc100sLLH")
+row_struct = struct.Struct(">1000sLLc1000sLLH")
 
 
 class AnnotationParser(multiprocessing.Process):

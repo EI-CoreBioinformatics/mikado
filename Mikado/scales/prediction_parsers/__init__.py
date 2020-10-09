@@ -45,11 +45,6 @@ def parse_prediction(args, index, queue_logger):
     returnqueue = mp.JoinableQueue(-1)
     dump_dbhandle = tempfile.NamedTemporaryFile(delete=True, prefix=".compare_dump", suffix=".db", dir=".",
                                                 mode="wb")
-    # dump_dbhandle = tempfile.NamedTemporaryFile(delete=True, prefix=".compare_dump", suffix=".db", dir=".")
-    # dump_db = sqlite3.connect(dump_dbhandle.name, check_same_thread=False, timeout=60)
-    # dump_db.execute("CREATE TABLE dump (idx INTEGER, json BLOB)")
-    # dump_db.execute("CREATE UNIQUE INDEX dump_idx ON dump(idx)")
-    # dump_db.commit()
 
     queue_logger.info("Starting to parse the prediction")
     if args.processes > 1:
@@ -66,7 +61,6 @@ def parse_prediction(args, index, queue_logger):
         nargs = Namespace(default=False, **dargs)
         nargs.self = doself
         assert os.path.exists(dump_dbhandle.name), dump_dbhandle.name
-        # assert os.stat(dump_dbhandle.name).st_size > 0, dump_dbhandle.name
         procs = [Assigners(index, nargs, queue, returnqueue, log_queue, counter, dump_dbhandle.name)
                  for counter in range(1, args.processes)]
         [proc.start() for proc in procs]

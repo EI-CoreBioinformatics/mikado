@@ -45,6 +45,11 @@ class Matrices:
     def keys(self):
         return self.mnames.keys()
 
+    def get(self, key, default=None):
+        if key not in self and default is not None:
+            return default
+        return self.__getitem__(key)
+
     def __getitem__(self, mname):
 
         if mname not in self:
@@ -356,7 +361,7 @@ class Preparer(mp.Process):
         _, _ = load_into_db(self, hits, hsps, force=True, raw=True)
         self.logger.debug("Finished %s", self.identifier)
         os.remove(self.index_file)  # Clean it up
-        return
+        return True
 
 
 def parse_tab_blast(self,
@@ -433,7 +438,13 @@ def parse_tab_blast(self,
             assert os.path.exists(index_files[idx])
             processes[idx].start()
 
-        [proc.join() for proc in processes]
-        os.remove(params_file)
+        try:
+            res = [proc.join() for proc in processes]
+        except KeyboardInterrupt:
+            raise KeyboardInterrupt
+        except Exception:
+            raise
+        finally:
+            os.remove(params_file)
 
     return

@@ -14,50 +14,11 @@ from .utils import load_into_db
 import multiprocessing as mp
 from ...utilities.log_utils import create_null_logger
 import pandas as pd
+import zlib
+import struct
 
 
-def _create_xml_db(filename):
-    """Private method to create a DB for serialisation.
-    :param filename: the name of the file to serialise
-    :returns dbname, cursor: the name of the database and the SQLite cursor
-
-    """
-
-    if filename != ":memory:":
-        directory = os.path.dirname(filename)
-        try:
-            dbname = tempfile.mktemp(suffix=".db", dir=directory)
-            conn = sqlite3.connect(dbname,
-                                   isolation_level="DEFERRED",
-                                   timeout=60,
-                                   check_same_thread=False  # Necessary for SQLite3 to function in multiprocessing
-                                   )
-        except (OSError, PermissionError, sqlite3.OperationalError):
-            dbname = tempfile.mktemp(suffix=".db")
-            conn = sqlite3.connect(dbname,
-                                   isolation_level="DEFERRED",
-                                   timeout=60,
-                                   check_same_thread = False  # Necessary for SQLite3 to function in multiprocessing
-            )
-    else:
-        dbname = filename
-        conn = sqlite3.connect(filename)
-
-    cursor = conn.cursor()
-    creation_string = "CREATE TABLE dump (query_counter integer, hits blob, hsps blob)"
-    try:
-        cursor.execute("DROP TABLE IF EXISTS dump")
-        cursor.execute(creation_string)
-    except sqlite3.OperationalError:
-        # Table already exists
-        cursor.close()
-        conn.close()
-        os.remove(dbname)
-        conn = sqlite3.connect(dbname)
-        cursor = conn.cursor()
-        cursor.execute(creation_string)
-    cursor.execute("CREATE INDEX idx ON dump (query_counter)")
-    return dbname, conn, cursor
+struct_row = struct.Struct(">LLL")
 
 
 def xml_pickler(json_conf, filename, default_header,
@@ -70,11 +31,20 @@ def xml_pickler(json_conf, filename, default_header,
     if not valid:
         err = "Invalid BLAST file: %s" % filename
         raise TypeError(err)
-    dbname, conn, cursor = _create_xml_db(filename)
+    directory = os.path.dirname(filename)
+    try:
+        dbname = tempfile.mktemp(suffix=".db", dir=directory)
+        dbhandle = open(dbname, "wb")
+    except (OSError, PermissionError):
+        dbname = tempfile.mktemp(suffix=".db")
+        dbhandle = open(dbname, "wb")
+
     if not isinstance(cache, dict) or set(cache.keys()) != {"query", "target"}:
         cache = dict()
         cache["query"] = dict((item.query_name, item.query_id) for item in session.query(Query))
         cache["target"] = dict((item.target_name, item.target_id) for item in session.query(Target))
+
+    rows = b""
     try:
         with BlastOpener(filename) as opened:
             try:
@@ -87,17 +57,15 @@ def xml_pickler(json_conf, filename, default_header,
                         record, [], [], cache, max_target_seqs=max_target_seqs,
                         qmult=qmult, tmult=tmult, off_by_one=off_by_one)
 
+                    record = {"hits": hits, "hsps": hsps}
                     try:
-                        jhits = json.dumps(hits, number_mode=json.NM_NATIVE)
-                        jhsps = json.dumps(hsps, number_mode=json.NM_NATIVE)
+                        jrecord = json.dumps(record, number_mode=json.NM_NATIVE)
                     except ValueError:
-                        jhits = json.dumps(hits)
-                        jhsps = json.dumps(hsps)
+                        jrecord = json.dumps(record)
+                    write_start = dbhandle.tell()
+                    write_length = dbhandle.write(zlib.compress(jrecord.encode()))
+                    rows += struct_row.pack(query_counter, write_start, write_length)
 
-                    cursor.execute("INSERT INTO dump VALUES (?, ?, ?)",
-                                   (query_counter,
-                                    jhits,
-                                    jhsps))
             except ExpatError as err:
                 raise ExpatError("{} is an invalid BLAST file, sending back anything salvageable.\n{}".format(filename,
                                                                                                               err))
@@ -110,10 +78,7 @@ def xml_pickler(json_conf, filename, default_header,
         raise ValueError(
             "{} is an invalid BLAST file, sending back anything salvageable.\n{}".format(filename, err))
 
-    cursor.close()
-    conn.commit()
-    conn.close()
-    return dbname
+    return dbname, zlib.compress(rows)
 
 
 def _serialise_xmls(self):
@@ -185,26 +150,20 @@ def _serialise_xmls(self):
             pool.close()
             pool.join()
 
-        for dbfile in results:
-            conn = sqlite3.connect("file:{}?mode=ro".format(dbfile),
-                                   uri=True,  # Necessary to use the Read-only mode from file string
-                                   isolation_level="DEFERRED",
-                                   timeout=60,
-                                   check_same_thread=False  # Necessary for SQLite3 to function in multiprocessing
-                                   )
-            cursor = conn.cursor()
-            for query_counter, __hits, __hsps in cursor.execute("SELECT * FROM dump"):
-                record_counter += 1
-                __hits = json.loads(__hits)
-                __hsps = json.loads(__hsps)
-                hit_counter += len(__hits)
-                hits.extend(__hits)
-                hsps.extend(__hsps)
-                hits, hsps = load_into_db(self, hits, hsps, force=False)
-                if record_counter > 0 and record_counter % 10000 == 0:
-                    self.logger.debug("Parsed %d queries", record_counter)
-            cursor.close()
-            conn.close()
+        for dbfile, rows in results:
+            with open(dbfile, "rb") as dbhandle:
+                for query_counter, write_start, write_length in struct_row.iter_unpack(zlib.decompress(rows)):
+                    dbhandle.seek(write_start)
+                    result = json.loads(zlib.decompress(dbhandle.read(write_length)).decode())
+                    __hits = result["hits"]
+                    __hsps = result["hsps"]
+                    assert (not __hsps and not __hits) or __hsps != __hits, (__hits, __hsps)
+                    hit_counter += len(__hits)
+                    hits.extend(__hits)
+                    hsps.extend(__hsps)
+                    hits, hsps = load_into_db(self, hits, hsps, force=False)
+                    if record_counter > 0 and record_counter % 10000 == 0:
+                        self.logger.debug("Parsed %d queries", record_counter)
             os.remove(dbfile)
 
         self.logger.debug("Finished sending off the data for serialisation")

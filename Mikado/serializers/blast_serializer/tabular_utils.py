@@ -15,8 +15,8 @@ from ...utilities.dbutils import connect as db_connect
 from . import Hit, Hsp
 import os
 import tempfile
-import typing
 import msgpack
+from ...utilities import blast_keys
 
 
 hit_cols = [col.name for col in Hit.__table__.columns]
@@ -25,21 +25,53 @@ hsp_cols = [col.name for col in Hsp.__table__.columns]
 __author__ = 'Luca Venturini'
 
 
-# Diamond default: qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore
-# BLASTX default: qaccver saccver pident length mismatch gapopen qstart qend sstart send evalue bitscore
-blast_keys = "qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore ppos btop".split()
+class Matrices:
 
-matrices = dict()
-mnames = substitution_matrices.load()
-for mname in mnames:
-    matrix = dict()
-    omatrix = substitution_matrices.load(mname)
-    for key, val in omatrix.items():
-        if key[::-1] in omatrix and omatrix[key[::-1]] != val:
-            raise KeyError((key, val, key[::-1], omatrix[key[::-1]]))
-        matrix["".join(key)] = val
-        matrix["".join(key[::-1])] = val
-    matrices[mname.lower()] = matrix
+    def __init__(self):
+
+        mnames = substitution_matrices.load()
+        self.mnames = dict()
+
+        for mname in mnames:
+            self.mnames[mname] = mname
+            self.mnames[mname.upper()] = mname
+            self.mnames[mname.lower()] = mname
+
+        self.__matrices = dict()
+
+    def __contains__(self, mname):
+        return mname in self.mnames
+
+    def keys(self):
+        return self.mnames.keys()
+
+    def get(self, key, default=None):
+        if key not in self and default is not None:
+            return default
+        return self.__getitem__(key)
+
+    def __getitem__(self, mname):
+
+        if mname not in self:
+            raise KeyError(f"{mname} is not a valid matrix name. Valid names: {self.keys()}")
+        if mname not in self.__matrices:
+            self.__load_matrix(mname)
+        return self.__matrices[mname.lower()]
+
+    def __load_matrix(self, mname):
+        matrix = dict()
+        orig_mname = self.mnames[mname]
+        omatrix = substitution_matrices.load(orig_mname)
+        for key, val in omatrix.items():
+            if key[::-1] in omatrix and omatrix[key[::-1]] != val:
+                raise KeyError((key, val, key[::-1], omatrix[key[::-1]]))
+            matrix["".join(key)] = val
+            matrix["".join(key[::-1])] = val
+        for key in orig_mname, orig_mname.lower(), orig_mname.upper():
+            self.__matrices[key] = matrix
+
+
+matrices = Matrices()
 
 
 def get_queries(engine):
@@ -329,7 +361,7 @@ class Preparer(mp.Process):
         _, _ = load_into_db(self, hits, hsps, force=True, raw=True)
         self.logger.debug("Finished %s", self.identifier)
         os.remove(self.index_file)  # Clean it up
-        return
+        return True
 
 
 def parse_tab_blast(self,
@@ -406,7 +438,13 @@ def parse_tab_blast(self,
             assert os.path.exists(index_files[idx])
             processes[idx].start()
 
-        [proc.join() for proc in processes]
-        os.remove(params_file)
+        try:
+            res = [proc.join() for proc in processes]
+        except KeyboardInterrupt:
+            raise KeyboardInterrupt
+        except Exception:
+            raise
+        finally:
+            os.remove(params_file)
 
     return

@@ -101,9 +101,6 @@ def check_index(reference, queue_logger):
         tables = cursor.execute("SELECT name FROM sqlite_master WHERE type='table';").fetchall()
         if sorted(tables) != sorted([("positions",), ("genes",)]):
             raise CorruptIndex("Invalid database file")
-        # res = cursor.execute("PRAGMA integrity_check;").fetchone()
-        # if res[0] != "ok":
-        #     raise CorruptIndex("Corrupt database, integrity value: {}".format(res[0]))
         gid, obj = cursor.execute("SELECT * from genes").fetchone()
         try:
             obj = msgpack.loads(obj, raw=False)

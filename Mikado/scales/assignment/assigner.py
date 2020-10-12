@@ -27,6 +27,7 @@ import msgpack
 import sqlite3
 import tempfile
 from ..reference_preparation.gene_dict import GeneDict
+import zlib
 
 
 # noinspection PyPropertyAccess,PyPropertyAccess
@@ -167,11 +168,8 @@ class Assigner:
             self.tmap_rower.writeheader()
             self.db, self._connection, self._cursor = [None] * 3
         else:
-            self.db = tempfile.NamedTemporaryFile(prefix=".compare", suffix=".db", dir="..", delete=False)
-            self.db.close()
-            self._connection = sqlite3.connect(self.db.name)
-            self._cursor = self._connection.cursor()
-            self._cursor.execute("CREATE TABLE tmap (row blob)")
+            self.db = tempfile.NamedTemporaryFile(prefix=".compare", suffix=".db", dir="..", delete=False,
+                                                  mode="wb")
 
         self.gene_matches = collections.defaultdict(dict)
         self.done = 0
@@ -204,71 +202,40 @@ class Assigner:
         for chrom in self.positions:
             self.indexer[chrom] = IntervalTree.from_tuples(self.positions[chrom].keys())
 
-    def load_from_results(self, dbnames):
+    def load_result(self, refmap, stats):
 
-        """Private method to load together all the results from a previous run."""
+        gene_matches = msgpack.loads(zlib.decompress(refmap),
+                                     raw=False, use_list=False,
+                                     strict_map_key=False, object_hook=msgpack_convert)
 
-        for dbname in dbnames:
-            self.load_result(dbname)
-
-    def load_result(self, dbname):
-
-        connection = sqlite3.connect(dbname)
-        cursor = connection.cursor()
-        done = set()
-
-        if self.printout_tmap is True:
-            for tmap_row in cursor.execute("SELECT * from tmap"):
-                tmap_row = ResultStorer(state=msgpack.loads(tmap_row[0],
-                                                            raw=False,
-                                                            use_list=False,
-                                                            strict_map_key=False,
-                                                            object_hook=msgpack_convert))
-                done.add(tmap_row.tid)
-                self.print_tmap(tmap_row)
-
-        for gid, gene_match in cursor.execute("SELECT * from gene_matches"):
-            gene_match = msgpack.loads(gene_match, raw=False, use_list=False,
-                                       strict_map_key=False, object_hook=msgpack_convert)
+        for gid, gene_match in gene_matches.items():
             for tid in gene_match:
                 for match in gene_match[tid]:
-                    self.gene_matches[gid][tid].append(match)
+                    self.gene_matches[gid][tid].append(ResultStorer(state=match))
 
         temp_stats = Namespace()
-        for attr, stat in cursor.execute("SELECT * from stats"):
-            setattr(temp_stats, attr, msgpack.loads(stat, raw=False,
-                                                    use_list=False,
-                                                    strict_map_key=False,
-                                                    object_hook=msgpack_convert))
-
+        for attribute, stat in stats:
+            stat = msgpack.loads(zlib.decompress(stat),
+                                 raw=False,
+                                 use_list=False,
+                                 strict_map_key=False,
+                                 object_hook=msgpack_convert)
+            setattr(temp_stats, attribute, stat)
         self.stat_calculator.merge_into(temp_stats)
-        os.remove(dbname)
-        self.done += len(done)
 
     def dump(self):
 
         """Method to dump all results into the database"""
 
-        assert self._cursor is not None
-        self._connection.commit()
-
-        self._cursor.execute("CREATE TABLE gene_matches (gid varchar(100), match blob)")
-        self._connection.commit()
-        self._cursor.executemany("INSERT INTO gene_matches ('gid', 'match') VALUES (?, ?)",
-                                 [(gid,
-                                   msgpack.dumps(self.gene_matches[gid],
-                                                 default=msgpack_default, strict_types=True)) for gid in self.gene_matches])
-        self._connection.commit()
-        self._cursor.execute("CREATE TABLE stats (level varchar(40), stats blob)")
-        self._connection.commit()
+        refmap = zlib.compress(msgpack.dumps(self.gene_matches, default=msgpack_default, strict_types=False))
         simplified = self.stat_calculator.serialize()
+        stats = []
         for attribute in simplified.attributes:
-            self._cursor.execute("INSERT INTO stats VALUES (?, ?)",
-                                 (attribute,
-                                  msgpack.dumps(getattr(simplified, attribute),
-                                                default=msgpack_default, strict_types=True)))
-        self._connection.commit()
-        self._connection.close()
+            stat = msgpack.dumps(getattr(simplified, attribute),
+                          default=msgpack_default, strict_types=True)
+            stats.append((attribute, zlib.compress(stat)))
+
+        return refmap, stats
 
     def add_to_refmap(self, result: ResultStorer) -> None:
         """
@@ -770,7 +737,6 @@ class Assigner:
                 try:
                     results, best_result = self.__prepare_result(prediction, distances, fuzzymatch=fuzzymatch)
                 except (InvalidTranscript, ZeroDivisionError, AssertionError) as exc:
-                    raise exc
                     self.logger.error("Something went wrong with %s. Ignoring it. Error: %s",
                                       prediction.id, exc)
                     self.logger.debug(exc)
@@ -882,13 +848,9 @@ class Assigner:
                 raise ValueError
             else:
                 if self.printout_tmap is False:
-                    self._cursor.execute("INSERT INTO tmap VALUES (?)",
-                                         (msgpack.dumps(res, strict_types=True, default=msgpack_default), ))
-                    self.__done += 1
-                    if self.__done % 10000 == 0 and self.__done > 10000:
-                        self._connection.commit()
-
+                    pass
                 else:
+                    self.__done += 1
                     self.tmap_rower.writerow(res.as_dict())
 
     @staticmethod

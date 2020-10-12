@@ -21,6 +21,11 @@ from ..exceptions import InvalidJson
 __author__ = 'Luca Venturini'
 
 
+# Diamond default: qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore
+# BLASTX default: qaccver saccver pident length mismatch gapopen qstart qend sstart send evalue bitscore
+blast_keys = "qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore ppos btop".split()
+
+
 def comma_split(string):
     """Small utility to split a string based on comma. Useful for parsers."""
 

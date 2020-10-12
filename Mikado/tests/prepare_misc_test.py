@@ -218,16 +218,15 @@ class MiscTest(unittest.TestCase):
             lines["is_reference"] = False
             import rapidjson as json
             features = json.dumps(lines)
-            dumpdb = tempfile.NamedTemporaryFile(delete=False, suffix=".db")
-            import sqlite3
-            conn = sqlite3.connect(dumpdb.name)
-            conn.execute(
-                "CREATE TABLE dump (chrom text, start integer, end integer, strand text, tid text, features blob)")
-            conn.execute(
-                "INSERT INTO dump VALUES (?, ?, ?, ?, ?, ?)",
-                (lines["chrom"], lines["start"], lines["end"], lines["strand"], lines["tid"], features))
-            conn.commit()
-            keys = [(0, ((lines["tid"], dumpdb.name), lines["chrom"], (lines["start"], lines["end"])))]
+            dumpdb = tempfile.NamedTemporaryFile(delete=False, suffix=".db", mode="wb")
+            import zlib
+            write_start = dumpdb.tell()
+            dumpdb.write(zlib.compress(features.encode()))
+            write_length = dumpdb.tell() - write_start
+            dumpdb.flush()
+
+            keys = [(0, ((lines["tid"], dumpdb.name, write_start, write_length),
+                         lines["chrom"], (lines["start"], lines["end"])))]
             with tempfile.NamedTemporaryFile(delete=False, mode="wb") as batch:
                 msgpack.dump(keys, batch)
 

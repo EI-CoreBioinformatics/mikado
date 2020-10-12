@@ -8,17 +8,16 @@ def parse_prediction_gtf(args, queue_logger, transmit_wrapper, constructor):
     lastdone = 1
     transcript = None
     __found_with_orf = set()
-    coord_list = None
 
     for row in args.prediction:
         if row.header is True:
             continue
         if row.is_transcript is True:
             if transcript is not None:
-                done, lastdone, coord_list, __found_with_orf = transmit_wrapper(
+                done, lastdone, __found_with_orf = transmit_wrapper(
                     transcript=transcript,
                     __found_with_orf=__found_with_orf,
-                    done=done, coord_list=coord_list, lastdone=lastdone)
+                    done=done, lastdone=lastdone)
             try:
                 transcript = constructor(row)
             except (InvalidTranscript, AssertionError, TypeError, ValueError):
@@ -35,7 +34,7 @@ def parse_prediction_gtf(args, queue_logger, transmit_wrapper, constructor):
                 done, lastdone, __found_with_orf = transmit_wrapper(
                     transcript=transcript,
                     __found_with_orf=__found_with_orf,
-                    done=done, coord_list=coord_list,
+                    done=done,
                     lastdone=lastdone)
                 queue_logger.debug("New transcript: %s", row.transcript)
                 transcript = constructor(row)
@@ -46,9 +45,9 @@ def parse_prediction_gtf(args, queue_logger, transmit_wrapper, constructor):
                 raise TypeError("Unmatched exon: {}".format(row))
         else:
             queue_logger.debug("Skipped row: {}".format(row))
-    done, lastdone, coord_list, __found_with_orf = transmit_wrapper(
+    done, lastdone, __found_with_orf = transmit_wrapper(
         transcript=transcript,
-        done=done, coord_list=coord_list,
+        done=done,
         lastdone=lastdone,
         __found_with_orf=__found_with_orf)
-    return done, lastdone, coord_list
+    return done, lastdone

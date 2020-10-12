@@ -11,14 +11,12 @@ def parse_prediction_bam(args, queue_logger, transmit_wrapper, constructor):
     __found_with_orf = set()
     name_counter = collections.Counter()  # This is needed for BAMs
     invalids = set()
-    coord_list = None
     if args.prediction.__annot_type__ == BamParser.__annot_type__:
         for row in args.prediction:
             if row.is_unmapped is True:
                 continue
-            done, lastdone, coord_list, __found_with_orf = transmit_wrapper(transcript=transcript,
+            done, lastdone, __found_with_orf = transmit_wrapper(transcript=transcript,
                                                                 done=done,
-                                                                            coord_list=coord_list,
                                                                 lastdone=lastdone,
                                                                 __found_with_orf=__found_with_orf)
             try:
@@ -34,13 +32,10 @@ def parse_prediction_bam(args, queue_logger, transmit_wrapper, constructor):
                 name = row.query_name
             transcript.id = transcript.name = transcript.alias = name
             transcript.parent = transcript.attributes["gene_id"] = "{0}.gene".format(name)
-    done, lastdone, coord_list, __found_with_orf = transmit_wrapper(
+    done, lastdone, __found_with_orf = transmit_wrapper(
         transcript=transcript,
         done=done,
-        coord_list=coord_list,
         lastdone=lastdone,
         __found_with_orf=__found_with_orf)
 
-    return done, lastdone, coord_list
-
-
+    return done, lastdone

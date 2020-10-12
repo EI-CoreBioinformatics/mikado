@@ -104,7 +104,7 @@ when the reference transcripts have not been clustered properly into genes (e.g.
                         action="store_true",
                         default=False,
                         help="Flag. If set, TMAP and REFMAP files will be GZipped.")
-    parser.add_argument("--processes", default=1,
+    parser.add_argument("-x", "--processes", default=1,
                         type=get_procs)
     parser.set_defaults(func=compare)
 

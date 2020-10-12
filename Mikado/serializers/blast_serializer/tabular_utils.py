@@ -29,34 +29,41 @@ class Matrices:
 
     def __init__(self):
 
-        self.mnames = substitution_matrices.load()
+        mnames = substitution_matrices.load()
+        self.mnames = dict()
+
+        for mname in mnames:
+            self.mnames[mname] = mname
+            self.mnames[mname.upper()] = mname
+            self.mnames[mname.lower()] = mname
+
         self.__matrices = dict()
 
     def __contains__(self, mname):
         return mname in self.mnames
 
     def keys(self):
-        return self.mnames
+        return self.mnames.keys()
 
     def __getitem__(self, mname):
 
         if mname not in self:
             raise KeyError(f"{mname} is not a valid matrix name. Valid names: {self.keys()}")
-
-        mname = mname.lower()
         if mname not in self.__matrices:
             self.__load_matrix(mname)
-        return self.__matrices[mname]
+        return self.__matrices[mname.lower()]
 
     def __load_matrix(self, mname):
         matrix = dict()
-        omatrix = substitution_matrices.load(mname)
+        orig_mname = self.mnames[mname]
+        omatrix = substitution_matrices.load(orig_mname)
         for key, val in omatrix.items():
             if key[::-1] in omatrix and omatrix[key[::-1]] != val:
                 raise KeyError((key, val, key[::-1], omatrix[key[::-1]]))
             matrix["".join(key)] = val
             matrix["".join(key[::-1])] = val
-        self.__matrices[mname] = matrix
+        for key in orig_mname, orig_mname.lower(), orig_mname.upper():
+            self.__matrices[key] = matrix
 
 
 matrices = Matrices()

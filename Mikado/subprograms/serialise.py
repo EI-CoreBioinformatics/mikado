@@ -13,15 +13,13 @@ import os
 import sys
 import logging
 import logging.handlers
-import sqlalchemy
 from ..utilities import path_join, comma_split
 from ..utilities.log_utils import create_default_logger, formatter
 from ..utilities import dbutils
 from ..exceptions import InvalidJson
-import pyfaidx
 from ..exceptions import InvalidSerialization
-from ..serializers.blast_serializer.tabular_utils import blast_keys
 import random
+from ..utilities import blast_keys
 
 
 __author__ = 'Luca Venturini'
@@ -180,6 +178,8 @@ def setup(args):
     :return:
     """
 
+    import pyfaidx
+    import sqlalchemy
     from ..configuration import configurator
     args.json_conf = configurator.to_json(args.json_conf)
     logger = create_default_logger("serialiser")

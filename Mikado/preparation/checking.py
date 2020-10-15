@@ -244,12 +244,12 @@ class CheckingProcess(multiprocessing.Process):
                     raise KeyError(exception)
 
                 shelf.seek(write_start)
-                item = zlib.decompress(shelf.read(write_length)).decode()
+                lines = msgpack.loads(shelf.read(write_length))
 
-                try:
-                    lines = json.loads(item)
-                except TypeError:
-                    raise TypeError(item)
+                # try:
+                #     lines = json.loads(item)
+                # except TypeError:
+                #     raise TypeError(item)
                 self.logger.debug("Checking %s", lines["tid"])
                 if "is_reference" not in lines:
                     raise KeyError(lines)

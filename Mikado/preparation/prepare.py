@@ -54,7 +54,8 @@ def _retrieve_data(shelf_name, tid, chrom, key, strand, score, write_start, writ
     shelf = open(shelf_name, "rb")
     shelf.seek(write_start)
     dumped = shelf.read(write_length)
-    dumped = json.loads(zlib.decompress(dumped).decode())
+    dumped = msgpack.loads(dumped, raw=False)
+    assert isinstance(dumped, dict), dumped
     try:
         features = dumped["features"]
         exon_set = tuple(sorted([(exon[0], exon[1], strand) for exon in features["exon"]],
@@ -247,7 +248,7 @@ def perform_check(keys, shelve_names, args, logger):
             try:
                 shelf = shelve_stacks[shelf_name]
                 shelf.seek(write_start)
-                tobj = json.loads(zlib.decompress(shelf.read(write_length)).decode())
+                tobj = msgpack.loads(shelf.read(write_length), raw=False)
             except sqlite3.ProgrammingError as exc:
                 raise sqlite3.ProgrammingError("{}. Tids: {}".format(exc, tid))
 

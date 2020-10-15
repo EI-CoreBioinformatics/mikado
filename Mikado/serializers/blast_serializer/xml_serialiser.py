@@ -5,7 +5,7 @@ from xml.parsers.expat import ExpatError
 import xml
 from ...utilities.dbutils import connect
 from sqlalchemy.orm.session import Session
-import sqlite3
+import msgpack
 import tempfile
 import os
 from . import Query, Target, prepare_hit, InvalidHit
@@ -63,7 +63,7 @@ def xml_pickler(json_conf, filename, default_header,
                     except ValueError:
                         jrecord = json.dumps(record)
                     write_start = dbhandle.tell()
-                    write_length = dbhandle.write(zlib.compress(jrecord.encode()))
+                    write_length = dbhandle.write(msgpack.dumps(jrecord))
                     rows += struct_row.pack(query_counter, write_start, write_length)
 
             except ExpatError as err:
@@ -154,7 +154,7 @@ def _serialise_xmls(self):
             with open(dbfile, "rb") as dbhandle:
                 for query_counter, write_start, write_length in struct_row.iter_unpack(zlib.decompress(rows)):
                     dbhandle.seek(write_start)
-                    result = json.loads(zlib.decompress(dbhandle.read(write_length)).decode())
+                    result = json.loads(msgpack.loads(dbhandle.read(write_length), raw=False, use_list=True))
                     __hits = result["hits"]
                     __hsps = result["hsps"]
                     assert (not __hsps and not __hits) or __hsps != __hits, (__hits, __hsps)

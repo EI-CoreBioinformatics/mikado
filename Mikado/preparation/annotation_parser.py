@@ -10,6 +10,7 @@ try:
     import rapidjson as json
 except ImportError:
     import json
+import msgpack
 import zlib
 import os
 from ..transcripts import Transcript
@@ -224,14 +225,14 @@ def load_into_storage(shelf_name, exon_lines, min_length, logger, strip_cds=True
             strand = values["strand"]
             if strand is None:
                 strand = "."
-            try:
-                values = json.dumps(values, number_mode=json.NM_NATIVE).encode()
-            except ValueError:  # This is a crash that happens when there are infinite values
-                values = json.dumps(values).encode()
+            # try:
+            #     values = json.dumps(values, number_mode=json.NM_NATIVE).encode()
+            # except ValueError:  # This is a crash that happens when there are infinite values
+            #     values = json.dumps(values).encode()
 
             logger.debug("Inserting %s into shelf %s", tid, shelf_name)
             # temp_store.append((chrom, start, end, strand, tid, values))
-            values = zlib.compress(values)
+            values = msgpack.dumps(values)
             write_start = shelf.tell()
             write_length = shelf.write(values)
             row = (chrom.encode(), start, end, strand.encode(), tid.encode(), write_start, write_length)

@@ -4,7 +4,6 @@ from .assigner import Assigner
 from ...transcripts import Transcript
 from ..resultstorer import ResultStorer
 import msgpack
-import zlib
 
 
 def encode_result(obj):
@@ -45,16 +44,13 @@ class Assigners(mp.Process):
                 self.returnqueue.put("EXIT")
                 break
             else:
-                try:
-                    dumped = msgpack.loads(zlib.decompress(transcr))
-                except zlib.error:
-                    raise zlib.error(transcr)
+                dumped = msgpack.loads(transcr)
                 transcr = Transcript()
                 transcr.load_dict(dumped, trust_orf=True, accept_undefined_multi=True)
                 result = self.assigner_instance.get_best(transcr)
                 if isinstance(result, ResultStorer):
                     result = [result]
-                result = zlib.compress(msgpack.dumps([res.as_dict() for res in result], strict_types=True))
+                result = msgpack.dumps([res.as_dict() for res in result], strict_types=True)
                 self.returnqueue.put(("tmap", result))
 
 
@@ -83,7 +79,7 @@ class FinalAssigner(mp.Process):
                 finished_children += 1
                 continue
             elif tmap_row[0] == "tmap":
-                rows = [ResultStorer(state=row) for row in msgpack.loads(zlib.decompress(tmap_row[1]))]
+                rows = [ResultStorer(state=row) for row in msgpack.loads(tmap_row[1])]
                 for row in rows:
                     self.assigner.print_tmap(row)
             elif tmap_row[0] == "refmap":

@@ -216,12 +216,9 @@ class MiscTest(unittest.TestCase):
             lines["features"]["exon"] = [(208937, 209593), (209881, 210445)]
             lines["strand_specific"] = True
             lines["is_reference"] = False
-            import rapidjson as json
-            features = json.dumps(lines)
             dumpdb = tempfile.NamedTemporaryFile(delete=False, suffix=".db", mode="wb")
-            import zlib
             write_start = dumpdb.tell()
-            dumpdb.write(zlib.compress(features.encode()))
+            dumpdb.write(msgpack.dumps(lines))
             write_length = dumpdb.tell() - write_start
             dumpdb.flush()
 

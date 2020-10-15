@@ -15,19 +15,15 @@ import sys
 from collections import namedtuple
 from functools import partial
 from logging import handlers as log_handlers
-# from re import search as re_search
 from ...transcripts.transcript import Transcript, Namespace
 from ..accountant import Accountant
-import os
 from ..contrast import compare as c_compare
 from ..resultstorer import ResultStorer
 from ...exceptions import InvalidTranscript, InvalidCDS
 from ...utilities.intervaltree import IntervalTree
 import msgpack
-import sqlite3
 import tempfile
 from ..reference_preparation.gene_dict import GeneDict
-import zlib
 
 
 # noinspection PyPropertyAccess,PyPropertyAccess
@@ -204,7 +200,7 @@ class Assigner:
 
     def load_result(self, refmap, stats):
 
-        gene_matches = msgpack.loads(zlib.decompress(refmap),
+        gene_matches = msgpack.loads(refmap,
                                      raw=False, use_list=False,
                                      strict_map_key=False, object_hook=msgpack_convert)
 
@@ -215,7 +211,7 @@ class Assigner:
 
         temp_stats = Namespace()
         for attribute, stat in stats:
-            stat = msgpack.loads(zlib.decompress(stat),
+            stat = msgpack.loads(stat,
                                  raw=False,
                                  use_list=False,
                                  strict_map_key=False,
@@ -227,13 +223,13 @@ class Assigner:
 
         """Method to dump all results into the database"""
 
-        refmap = zlib.compress(msgpack.dumps(self.gene_matches, default=msgpack_default, strict_types=False))
+        refmap = msgpack.dumps(self.gene_matches, default=msgpack_default, strict_types=False)
         simplified = self.stat_calculator.serialize()
         stats = []
         for attribute in simplified.attributes:
             stat = msgpack.dumps(getattr(simplified, attribute),
                           default=msgpack_default, strict_types=True)
-            stats.append((attribute, zlib.compress(stat)))
+            stats.append((attribute, stat))
 
         return refmap, stats
 

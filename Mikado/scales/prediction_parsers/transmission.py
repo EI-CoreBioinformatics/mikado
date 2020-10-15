@@ -8,7 +8,7 @@ import re
 def transmit_transcript(transcript: Transcript, queue):
     transcript.finalize()
     d = transcript.as_dict(remove_attributes=False)
-    to_write = zlib.compress(msgpack.dumps(d))
+    to_write = msgpack.dumps(d)
     queue.put(to_write)
 
 

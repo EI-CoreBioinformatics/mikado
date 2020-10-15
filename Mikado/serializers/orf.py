@@ -503,15 +503,21 @@ mikado prepare. If this is the case, please use mikado_prepared.fasta to call th
         Alias for serialize
         """
 
-        # try:
-        [idx.drop(bind=self.engine) for idx in Orf.__table__.indexes]
-        self.serialize()
-        [idx.create(bind=self.engine) for idx in Orf.__table__.indexes]
-        # except (sqlalchemy.exc.IntegrityError, sqlite3.IntegrityError) as exc:
-        #     self.logger.error("DB corrupted, reloading data. Error: %s",
-        #                       exc)
-        #     self.session.query(Query).delete()
-        #     self.session.query(Orf).delete()
-        #     self.serialize()
-        # except InvalidSerialization:
-        #     raise
+        try:
+            [idx.drop(bind=self.engine) for idx in Orf.__table__.indexes]
+        except (sqlalchemy.exc.IntegrityError, sqlite3.IntegrityError) as exc:
+            self.logger.debug("Corrupt table found, deleting and restarting")
+            self.session.query(Orf).delete()
+        try:
+            self.serialize()
+        except (sqlalchemy.exc.IntegrityError, sqlite3.IntegrityError) as exc:
+            self.logger.error("DB corrupted, reloading data. Error: %s",
+                              exc)
+            self.session.query(Query).delete()
+            self.session.query(Orf).delete()
+            try:
+                self.serialize()
+            except InvalidSerialization:
+                raise
+        finally:
+            [idx.create(bind=self.engine) for idx in Orf.__table__.indexes]

@@ -20,11 +20,8 @@ from ..utilities import path_join, merge_partial, overlap
 import sqlite3
 import pysam
 import numpy as np
-import queue
 import random
 import pandas as pd
-import zlib
-import struct
 
 
 __author__ = 'Luca Venturini'
@@ -448,28 +445,22 @@ def _load_exon_lines_multi(args, shelve_names, logger, min_length, strip_cds, th
     rows = []
 
     retrieved = 0
+    import sys
     while retrieved < len(working_processes):
         if return_queue.empty():
             continue
-        _curr_length = len(rows)
-        # new_rows = open(return_queue.get(), "rb").read()
-        new_rows = return_queue.get(block=False)
-        return_queue.task_done()
-        try:
-            new_rows = row_struct.iter_unpack(zlib.decompress(new_rows))
-        except struct.error:
-            with open("dump.db", "wb") as out:
-                out.write(new_rows)
-            raise
-        rows.extend(new_rows)
-        new_size = len(rows) - _curr_length
-        logger.info("Retrieved %d rows", new_size)
-        retrieved += 1
+        row = return_queue.get(block=False)
+        print(row, file=sys.stderr)
+        if row == "FINISHED":
+            retrieved += 1
+        else:
+            rows.append(row)
+        continue
 
     rows = pd.DataFrame(rows, columns=row_columns[:-1] + ["shelf_index"])
     rows = rows.merge(shelve_df, on="shelf_index", how="left").drop(["shelf_index"], axis=1)
     for key in ["chrom", "tid", "strand"]:
-        rows[key] = rows[key].str.decode("utf-8").str.strip("\\x00").str.strip("\x00")
+         rows[key] = rows[key].str.decode("utf-8")
 
     del working_processes
     gc.collect()
@@ -512,6 +503,9 @@ f
                 """Found redundant names during multiprocessed file analysis.\
 Please repeat using distinct labels for your input files. Aborting.""")
         else:
+            with open("rows.tsv", "wt") as out:
+                rows.to_csv(out, sep="\t", header=True, index=False)
+
             exception = exceptions.RedundantNames(
                 """Found redundant names during multiprocessed file analysis, even if \
 unique labels were provided. Please try to repeat with a different and more unique set of labels. Aborting.""")

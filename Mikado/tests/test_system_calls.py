@@ -319,7 +319,10 @@ class PrepareCheck(unittest.TestCase):
                         args.json_conf["prepare"]["strip_cds"] = strip
                         args.json_conf["threads"] = proc
                         with self.assertLogs(self.logger, "INFO") as cm:
-                            prepare.prepare(args, logger=self.logger)
+                            try:
+                                prepare.prepare(args, logger=self.logger)
+                            except SystemExit:
+                                raise SystemExit("\n".join(cm.output))
                         fasta = os.path.join(self.conf["prepare"]["files"]["output_dir"], "mikado_prepared.fasta")
                         self.assertTrue(os.path.exists(fasta), "\n".join(cm.output))
                         if strip is True or (strip is False and fname == ann_gff3):

@@ -18,6 +18,7 @@ from operator import itemgetter
 import random
 import struct
 import ctypes
+import zlib
 
 
 __author__ = 'Luca Venturini'
@@ -233,7 +234,7 @@ def load_into_storage(shelf_name, exon_lines, min_length, logger, strip_cds=True
 
             logger.debug("Inserting %s into shelf %s", tid, shelf_name)
             # temp_store.append((chrom, start, end, strand, tid, values))
-            values = msgpack.dumps(values)
+            values = zlib.compress(msgpack.dumps(values))
             write_start = shelf.tell()
             write_length = shelf.write(values)
             row = (chrom.encode(), start, end, strand.encode(), tid.encode(), write_start, write_length)
@@ -700,7 +701,6 @@ class AnnotationParser(multiprocessing.Process):
         found_ids = set()
         self.logger.debug("Starting to listen to the queue")
         counter = 0
-        rows = b""
         while True:
             results = self.submission_queue.get()
             try:
@@ -734,11 +734,7 @@ class AnnotationParser(multiprocessing.Process):
                         ))
                 # Now convert the rows into structs.
                 self.logger.debug("Packing %d rows of %s", len(new_rows), label)
-                row_buffer = ctypes.create_string_buffer(row_struct_size * len(new_rows))
-                [row_struct.pack_into(row_buffer, index * row_struct_size, *row, shelf_index) for index, row in enumerate(new_rows)]
-                # for row in new_rows:
-                #    rows += row_struct.pack(*row, shelf_index)
-                rows += row_buffer.raw
+                [self.return_queue.put_nowait((*row, shelf_index)) for row in new_rows]
                 self.logger.debug("Packed %d rows of %s", len(new_rows), label)
 
             except exceptions.InvalidAssembly as exc:
@@ -748,15 +744,7 @@ class AnnotationParser(multiprocessing.Process):
                 self.logger.exception(exc)
                 raise
 
-        self.logger.debug("Sending %s back", counter)
-        rows = zlib.compress(rows)
-        size = getsizeof(rows)
-        # buff = open("dump-{}.db".format(self.__identifier), "wb")
-        # buff.write(rows)
-        # buff.close()
-        self.return_queue.put_nowait(rows)
-        self.logger.info("Process %d sent %s back (size %s), exiting.", self.__identifier,
-                         counter, size)
+        self.return_queue.put_nowait("FINISHED")
 
     @property
     def identifier(self):

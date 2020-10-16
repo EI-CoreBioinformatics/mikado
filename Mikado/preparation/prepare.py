@@ -20,11 +20,9 @@ from ..utilities import path_join, merge_partial, overlap
 import sqlite3
 import pysam
 import numpy as np
-import queue
 import random
 import pandas as pd
 import zlib
-import struct
 
 
 __author__ = 'Luca Venturini'
@@ -48,13 +46,11 @@ def __cleanup(args, shelves):
     return
 
 
-def _retrieve_data(shelf_name, tid, chrom, key, strand, score, write_start, write_length, logger,
+def _retrieve_data(shelf, shelf_name, tid, chrom, key, strand, score, write_start, write_length, logger,
                    merged_transcripts, chains):
-    # TODO: we probably should have an open handle at all times
-    shelf = open(shelf_name, "rb")
     shelf.seek(write_start)
     dumped = shelf.read(write_length)
-    dumped = msgpack.loads(dumped, raw=False)
+    dumped = msgpack.loads(zlib.decompress(dumped), raw=False)
     assert isinstance(dumped, dict), dumped
     try:
         features = dumped["features"]
@@ -149,7 +145,7 @@ def _check_correspondence(data: dict, other: dict):
     return check
 
 
-def _analyse_chrom(chrom: str, keys: pd.DataFrame, logger):
+def _analyse_chrom(chrom: str, keys: pd.DataFrame, shelves, logger):
 
     merged_transcripts, chains = dict(), defaultdict(IntervalTree)
     current = None
@@ -169,11 +165,15 @@ def _analyse_chrom(chrom: str, keys: pd.DataFrame, logger):
         else:
             current = (start, end)
 
-        for index, row in tids.iterrows():
-            tid, shelf_name, score, is_reference = row["tid"], row["shelf"], float(row["score"]), row["is_reference"]
-            strand, write_start, write_length = row["strand"], int(row["write_start"]), int(row["write_length"])
+        assert (tids.columns == ["start", "end", "strand", "tid", "write_start", "write_length", "shelf"] + [
+            "score", "is_reference", "exclude_redundant"]).all(), tids.columns
+        for row in tids.values:
+            strand, tid, write_start, write_length, shelf_name, score, is_reference = row[2:-1]
+            write_start, write_length = int(write_start), int(write_length)
+            is_reference = bool(is_reference)
+            shelf = shelves[shelf_name]
             to_keep, others_to_remove = True, set()
-            data, caught = _retrieve_data(shelf_name, tid, chrom, (start, end), strand, score,
+            data, caught = _retrieve_data(shelf, shelf_name, tid, chrom, (start, end), strand, score,
                                           write_start, write_length, logger,
                                           merged_transcripts, chains)
             if data is None:
@@ -248,7 +248,7 @@ def perform_check(keys, shelve_names, args, logger):
             try:
                 shelf = shelve_stacks[shelf_name]
                 shelf.seek(write_start)
-                tobj = msgpack.loads(shelf.read(write_length), raw=False)
+                tobj = msgpack.loads(zlib.decompress((shelf.read(write_length))), raw=False)
             except sqlite3.ProgrammingError as exc:
                 raise sqlite3.ProgrammingError("{}. Tids: {}".format(exc, tid))
 
@@ -440,36 +440,27 @@ def _load_exon_lines_multi(args, shelve_names, logger, min_length, strip_cds, th
 
     shelve_df = pd.DataFrame(shelve_df, columns=["shelf_index", "shelf"])
     submission_queue.put(tuple(["EXIT"] * 7))
-
-    logger.debug("Starting to join the processes")
-    [_.join() for _ in working_processes]
-    logger.debug("Finished joining the processes")
     
     rows = []
 
     retrieved = 0
+    import sys
     while retrieved < len(working_processes):
         if return_queue.empty():
             continue
-        _curr_length = len(rows)
-        # new_rows = open(return_queue.get(), "rb").read()
-        new_rows = return_queue.get(block=False)
-        return_queue.task_done()
-        try:
-            new_rows = row_struct.iter_unpack(zlib.decompress(new_rows))
-        except struct.error:
-            with open("dump.db", "wb") as out:
-                out.write(new_rows)
-            raise
-        rows.extend(new_rows)
-        new_size = len(rows) - _curr_length
-        logger.info("Retrieved %d rows", new_size)
-        retrieved += 1
+        row = return_queue.get(block=False)
+        if row == "FINISHED":
+            retrieved += 1
+        else:
+            rows.append(row)
+        continue
 
+    [_.join() for _ in working_processes]
+    
     rows = pd.DataFrame(rows, columns=row_columns[:-1] + ["shelf_index"])
     rows = rows.merge(shelve_df, on="shelf_index", how="left").drop(["shelf_index"], axis=1)
     for key in ["chrom", "tid", "strand"]:
-        rows[key] = rows[key].str.decode("utf-8").str.strip("\\x00").str.strip("\x00")
+         rows[key] = rows[key].str.decode("utf-8")
 
     del working_processes
     gc.collect()
@@ -512,6 +503,9 @@ f
                 """Found redundant names during multiprocessed file analysis.\
 Please repeat using distinct labels for your input files. Aborting.""")
         else:
+            with open("rows.tsv", "wt") as out:
+                rows.to_csv(out, sep="\t", header=True, index=False)
+
             exception = exceptions.RedundantNames(
                 """Found redundant names during multiprocessed file analysis, even if \
 unique labels were provided. Please try to repeat with a different and more unique set of labels. Aborting.""")
@@ -641,6 +635,8 @@ def prepare(args, logger):
         rows = rows.merge(shelve_table, on="shelf", how="left")
         random.seed(args.json_conf["seed"])
 
+        shelves = dict((shelf_name, open(shelf_name, "rb")) for shelf_name in shelve_table["shelf"].unique())
+
         def divide_by_chrom():
             # chrom, start, end, strand, tid, write_start, write_length, shelf
             transcripts = rows.groupby(["chrom"])
@@ -650,7 +646,7 @@ def prepare(args, logger):
                              chrom, transcripts.size()[chrom])
 
                 yield from _analyse_chrom(chrom, rows.loc[transcripts.groups[chrom], columns],
-                                          logger=logger)
+                                          shelves, logger=logger)
 
         perform_check(divide_by_chrom(), shelve_names, args, logger)
     except Exception as exc:

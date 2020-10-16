@@ -205,6 +205,7 @@ class MiscTest(unittest.TestCase):
             # FASTA out and GTF out are just the file names, without the temporary directory
             # Moreover they will be complemented by the identifier!
             import msgpack
+            import zlib
             lines = dict()
             lines["chrom"] = "Chr5"
             lines["strand"] = "+"
@@ -218,7 +219,7 @@ class MiscTest(unittest.TestCase):
             lines["is_reference"] = False
             dumpdb = tempfile.NamedTemporaryFile(delete=False, suffix=".db", mode="wb")
             write_start = dumpdb.tell()
-            dumpdb.write(msgpack.dumps(lines))
+            dumpdb.write(zlib.compress(msgpack.dumps(lines)))
             write_length = dumpdb.tell() - write_start
             dumpdb.flush()
 

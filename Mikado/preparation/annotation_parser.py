@@ -5,7 +5,7 @@ from ..utilities import overlap
 import logging
 import logging.handlers
 from .. import exceptions
-from sys import intern
+from sys import intern, getsizeof
 try:
     import rapidjson as json
 except ImportError:
@@ -17,6 +17,7 @@ from ..transcripts import Transcript
 from operator import itemgetter
 import random
 import struct
+import ctypes
 
 
 __author__ = 'Luca Venturini'
@@ -238,6 +239,7 @@ def load_into_storage(shelf_name, exon_lines, min_length, logger, strip_cds=True
             row = (chrom.encode(), start, end, strand.encode(), tid.encode(), write_start, write_length)
             rows.append(row)
 
+    logger.warning("Finished packing rows for %s", shelf_name)
     return rows
 
 
@@ -398,6 +400,7 @@ def load_from_gff(shelf_name,
     rows = load_into_storage(shelf_name, exon_lines,
                       logger=logger, min_length=min_length, strip_cds=strip_cds, max_intron=max_intron)
 
+    logger.info("Finished parsing %s", gff_handle.name)
     return new_ids, rows
 
 
@@ -522,6 +525,7 @@ def load_from_gtf(shelf_name,
                       exon_lines,
                       logger=logger, min_length=min_length, strip_cds=strip_cds, max_intron=max_intron)
 
+    logger.info("Finished parsing %s", gff_handle.name)
     return new_ids, rows
 
 
@@ -613,6 +617,7 @@ def load_from_bed12(shelf_name,
     rows = load_into_storage(shelf_name, exon_lines,
                       logger=logger, min_length=min_length, strip_cds=strip_cds, max_intron=max_intron)
 
+    logger.info("Finished parsing %s", gff_handle.name)
     return new_ids, rows
 
 
@@ -635,7 +640,9 @@ loaders = {"gtf": load_from_gtf, "gff": load_from_gff, "gff3": load_from_gff,
 
 # Chrom, start, end, strand, Tid, write start, write length
 # 100 chars, unsigned Long, unsigned Long, one char, 100 chars, unsigned Long, unsigned Long
-row_struct = struct.Struct(">1000sLLc1000sLLH")
+_row_struct_str = ">1000sLLc1000sLLH"
+row_struct = struct.Struct(_row_struct_str)
+row_struct_size = struct.calcsize(_row_struct_str)
 
 
 class AnnotationParser(multiprocessing.Process):
@@ -726,8 +733,13 @@ class AnnotationParser(multiprocessing.Process):
                             handle, " (label: {0})".format(label) if label != "" else ""
                         ))
                 # Now convert the rows into structs.
-                for row in new_rows:
-                    rows += row_struct.pack(*row, shelf_index)
+                self.logger.debug("Packing %d rows of %s", len(new_rows), label)
+                row_buffer = ctypes.create_string_buffer(row_struct_size * len(new_rows))
+                [row_struct.pack_into(row_buffer, index * row_struct_size, *row, shelf_index) for index, row in enumerate(new_rows)]
+                # for row in new_rows:
+                #    rows += row_struct.pack(*row, shelf_index)
+                rows += row_buffer.raw
+                self.logger.debug("Packed %d rows of %s", len(new_rows), label)
 
             except exceptions.InvalidAssembly as exc:
                 self.logger.exception(exc)
@@ -738,8 +750,13 @@ class AnnotationParser(multiprocessing.Process):
 
         self.logger.debug("Sending %s back", counter)
         rows = zlib.compress(rows)
-        self.return_queue.put(rows)
-        self.logger.debug("Sent %s back, exiting.", counter)
+        size = getsizeof(rows)
+        # buff = open("dump-{}.db".format(self.__identifier), "wb")
+        # buff.write(rows)
+        # buff.close()
+        self.return_queue.put_nowait(rows)
+        self.logger.info("Process %d sent %s back (size %s), exiting.", self.__identifier,
+                         counter, size)
 
     @property
     def identifier(self):

@@ -407,8 +407,9 @@ def _load_exon_lines_single_thread(args, shelve_names, logger, min_length, strip
 def _load_exon_lines_multi(args, shelve_names, logger, min_length, strip_cds, threads, max_intron=3*10**5):
     logger.info("Starting to load lines from %d files (using %d processes)",
                 len(args.json_conf["prepare"]["files"]["gff"]), threads)
-    submission_queue = multiprocessing.JoinableQueue(-1)
-    return_queue = multiprocessing.JoinableQueue(-1)
+    manager = multiprocessing.Manager()
+    submission_queue = manager.JoinableQueue(-1)
+    return_queue = manager.JoinableQueue(-1)
     working_processes = []
     # working_processes = [ for _ in range(threads)]
 
@@ -440,15 +441,28 @@ def _load_exon_lines_multi(args, shelve_names, logger, min_length, strip_cds, th
     shelve_df = pd.DataFrame(shelve_df, columns=["shelf_index", "shelf"])
     submission_queue.put(tuple(["EXIT"] * 7))
 
+    logger.debug("Starting to join the processes")
     [_.join() for _ in working_processes]
-
+    logger.debug("Finished joining the processes")
+    
     rows = []
 
     retrieved = 0
-    while return_queue.empty() is False:
-        new_rows = return_queue.get()
-        new_rows = row_struct.iter_unpack(zlib.decompress(new_rows))
+    while retrieved < len(shelve_names):
+        _curr_length = len(rows)
+        # new_rows = open(return_queue.get(), "rb").read()
+        new_rows = return_queue.get(block=False)
+        # return_queue.task_done()
+        import struct
+        try:
+            new_rows = row_struct.iter_unpack(zlib.decompress(new_rows))
+        except struct.error:
+            with open("dump.db", "wb") as out:
+                out.write(new_rows)
+            raise
         rows.extend(new_rows)
+        new_size = len(rows) - _curr_length
+        logger.debug("Retrieved %d rows", new_size)
         retrieved += 1
 
     rows = pd.DataFrame(rows, columns=row_columns[:-1] + ["shelf_index"])
@@ -458,6 +472,7 @@ def _load_exon_lines_multi(args, shelve_names, logger, min_length, strip_cds, th
 
     del working_processes
     gc.collect()
+    logger.info("Finished parsing all input files")
     return rows
 
 

@@ -41,8 +41,9 @@ def parse_prediction(args, index, queue_logger):
     if hasattr(args, "self") and args.self is True:
         args.prediction = to_gff(args.reference.name)
     __found_with_orf = set()
-    queue = mp.JoinableQueue(-1)
-    returnqueue = mp.JoinableQueue(-1)
+    manager = mp.Manager()
+    queue = manager.JoinableQueue(-1)
+    returnqueue = manager.JoinableQueue(-1)
 
     queue_logger.info("Starting to parse the prediction")
     if args.processes > 1:
@@ -97,11 +98,10 @@ def parse_prediction(args, index, queue_logger):
         returnqueue.put("EXIT")
         final_proc.join()
     else:
-        returnqueue.close()
         assert not procs, procs
         assert isinstance(assigner_instance, Assigner)
         assigner_instance.finish()
-    queue.close()
+    manager.shutdown()
 
 
 def parse_self(args, gdict: GeneDict, queue_logger):

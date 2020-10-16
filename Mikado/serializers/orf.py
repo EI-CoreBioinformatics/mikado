@@ -384,8 +384,9 @@ Please check your input files.")
     def __serialize_multiple_threads(self):
         """"""
 
-        send_queue = mp.Queue(-1)
-        return_queue = mp.JoinableQueue(-1)
+        manager = mp.Manager()
+        send_queue = manager.Queue(-1)
+        return_queue = manager.JoinableQueue(-1)
         self.logging_queue = mp.Queue(-1)
         self.logger_queue_handler = logging_handlers.QueueHandler(self.logging_queue)
         self.queue_logger = logging.getLogger("parser")
@@ -469,12 +470,11 @@ mikado prepare. If this is the case, please use mikado_prepared.fasta to call th
                 Orf.__table__.insert(),
                 objects
             )
-        # return_queue.close()
-        # send_queue.close()
         self.session.commit()
         self.session.close()
         self.logger.info("Finished loading %d ORFs into the database", done)
 
+        manager.shutdown()
         orfs = pd.read_sql_table("orf", self.engine, index_col="query_id")
         if orfs.shape[0] != done:
             raise ValueError("I should have serialised {} ORFs, but {} are present!".format(done, orfs.shape[0]))

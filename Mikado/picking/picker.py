@@ -700,8 +700,8 @@ Please update your configuration files in the future.""".format(
         intron_range = self.json_conf["pick"]["run_options"]["intron_range"]
         self.logger.debug("Intron range: %s", intron_range)
 
-        locus_queue = multiprocessing.JoinableQueue(-1)
-        status_queue = multiprocessing.JoinableQueue(-1)
+        locus_queue = self.manager.JoinableQueue(-1)
+        status_queue = self.manager.JoinableQueue(-1)
 
         handles = list(self.__get_output_files())
         if self.json_conf["pick"]["run_options"]["shm"] is True:
@@ -1109,6 +1109,7 @@ Please update your configuration files in the future.""".format(
                 os.path.join("/dev", "shm"))
             self.main_logger.debug("Removing shared memory DB %s", self.json_conf["db_settings"]["db"])
             os.remove(self.json_conf["db_settings"]["db"])
+        self.manager.shutdown()
 
     def __call__(self):
 

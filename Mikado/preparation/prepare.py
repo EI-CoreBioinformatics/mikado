@@ -17,14 +17,14 @@ import multiprocessing.sharedctypes
 from collections import defaultdict
 import logging
 from ..utilities import path_join, merge_partial, overlap
-from collections import Counter
 import sqlite3
 import pysam
 import numpy as np
-import rapidjson as json
+import queue
 import random
 import pandas as pd
 import zlib
+import struct
 
 
 __author__ = 'Luca Venturini'
@@ -448,12 +448,13 @@ def _load_exon_lines_multi(args, shelve_names, logger, min_length, strip_cds, th
     rows = []
 
     retrieved = 0
-    while retrieved < len(shelve_names):
+    while retrieved < len(working_processes):
+        if return_queue.empty():
+            continue
         _curr_length = len(rows)
         # new_rows = open(return_queue.get(), "rb").read()
         new_rows = return_queue.get(block=False)
-        # return_queue.task_done()
-        import struct
+        return_queue.task_done()
         try:
             new_rows = row_struct.iter_unpack(zlib.decompress(new_rows))
         except struct.error:
@@ -462,7 +463,7 @@ def _load_exon_lines_multi(args, shelve_names, logger, min_length, strip_cds, th
             raise
         rows.extend(new_rows)
         new_size = len(rows) - _curr_length
-        logger.debug("Retrieved %d rows", new_size)
+        logger.info("Retrieved %d rows", new_size)
         retrieved += 1
 
     rows = pd.DataFrame(rows, columns=row_columns[:-1] + ["shelf_index"])
@@ -473,6 +474,7 @@ def _load_exon_lines_multi(args, shelve_names, logger, min_length, strip_cds, th
     del working_processes
     gc.collect()
     logger.info("Finished parsing all input files")
+    manager.shutdown()
     return rows
 
 

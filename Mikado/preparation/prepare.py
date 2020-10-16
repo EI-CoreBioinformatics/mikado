@@ -248,7 +248,7 @@ def perform_check(keys, shelve_names, args, logger):
             try:
                 shelf = shelve_stacks[shelf_name]
                 shelf.seek(write_start)
-                tobj = msgpack.loads(zlib.decompress((shelf.read(write_length)), raw=False))
+                tobj = msgpack.loads(zlib.decompress((shelf.read(write_length))), raw=False)
             except sqlite3.ProgrammingError as exc:
                 raise sqlite3.ProgrammingError("{}. Tids: {}".format(exc, tid))
 

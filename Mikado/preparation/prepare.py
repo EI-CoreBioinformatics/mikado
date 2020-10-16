@@ -46,10 +46,8 @@ def __cleanup(args, shelves):
     return
 
 
-def _retrieve_data(shelf_name, tid, chrom, key, strand, score, write_start, write_length, logger,
+def _retrieve_data(shelf, shelf_name, tid, chrom, key, strand, score, write_start, write_length, logger,
                    merged_transcripts, chains):
-    # TODO: we probably should have an open handle at all times
-    shelf = open(shelf_name, "rb")
     shelf.seek(write_start)
     dumped = shelf.read(write_length)
     dumped = msgpack.loads(zlib.decompress(dumped), raw=False)
@@ -147,7 +145,7 @@ def _check_correspondence(data: dict, other: dict):
     return check
 
 
-def _analyse_chrom(chrom: str, keys: pd.DataFrame, logger):
+def _analyse_chrom(chrom: str, keys: pd.DataFrame, shelves, logger):
 
     merged_transcripts, chains = dict(), defaultdict(IntervalTree)
     current = None
@@ -167,11 +165,15 @@ def _analyse_chrom(chrom: str, keys: pd.DataFrame, logger):
         else:
             current = (start, end)
 
-        for index, row in tids.iterrows():
-            tid, shelf_name, score, is_reference = row["tid"], row["shelf"], float(row["score"]), row["is_reference"]
-            strand, write_start, write_length = row["strand"], int(row["write_start"]), int(row["write_length"])
+        assert (tids.columns == ["start", "end", "strand", "tid", "write_start", "write_length", "shelf"] + [
+            "score", "is_reference", "exclude_redundant"]).all(), tids.columns
+        for row in tids.values:
+            strand, tid, write_start, write_length, shelf_name, score, is_reference = row[2:-1]
+            write_start, write_length = int(write_start), int(write_length)
+            is_reference = bool(is_reference)
+            shelf = shelves[shelf_name]
             to_keep, others_to_remove = True, set()
-            data, caught = _retrieve_data(shelf_name, tid, chrom, (start, end), strand, score,
+            data, caught = _retrieve_data(shelf, shelf_name, tid, chrom, (start, end), strand, score,
                                           write_start, write_length, logger,
                                           merged_transcripts, chains)
             if data is None:
@@ -633,6 +635,8 @@ def prepare(args, logger):
         rows = rows.merge(shelve_table, on="shelf", how="left")
         random.seed(args.json_conf["seed"])
 
+        shelves = dict((shelf_name, open(shelf_name, "rb")) for shelf_name in shelve_table["shelf"].unique())
+
         def divide_by_chrom():
             # chrom, start, end, strand, tid, write_start, write_length, shelf
             transcripts = rows.groupby(["chrom"])
@@ -642,7 +646,7 @@ def prepare(args, logger):
                              chrom, transcripts.size()[chrom])
 
                 yield from _analyse_chrom(chrom, rows.loc[transcripts.groups[chrom], columns],
-                                          logger=logger)
+                                          shelves, logger=logger)
 
         perform_check(divide_by_chrom(), shelve_names, args, logger)
     except Exception as exc:

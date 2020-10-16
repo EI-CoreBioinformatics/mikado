@@ -22,6 +22,7 @@ import pysam
 import numpy as np
 import random
 import pandas as pd
+import zlib
 
 
 __author__ = 'Luca Venturini'
@@ -51,7 +52,7 @@ def _retrieve_data(shelf_name, tid, chrom, key, strand, score, write_start, writ
     shelf = open(shelf_name, "rb")
     shelf.seek(write_start)
     dumped = shelf.read(write_length)
-    dumped = msgpack.loads(dumped, raw=False)
+    dumped = msgpack.loads(zlib.decompress(dumped), raw=False)
     assert isinstance(dumped, dict), dumped
     try:
         features = dumped["features"]
@@ -245,7 +246,7 @@ def perform_check(keys, shelve_names, args, logger):
             try:
                 shelf = shelve_stacks[shelf_name]
                 shelf.seek(write_start)
-                tobj = msgpack.loads(shelf.read(write_length), raw=False)
+                tobj = msgpack.loads(zlib.decompress((shelf.read(write_length)), raw=False))
             except sqlite3.ProgrammingError as exc:
                 raise sqlite3.ProgrammingError("{}. Tids: {}".format(exc, tid))
 
@@ -437,10 +438,6 @@ def _load_exon_lines_multi(args, shelve_names, logger, min_length, strip_cds, th
 
     shelve_df = pd.DataFrame(shelve_df, columns=["shelf_index", "shelf"])
     submission_queue.put(tuple(["EXIT"] * 7))
-
-    logger.debug("Starting to join the processes")
-    [_.join() for _ in working_processes]
-    logger.debug("Finished joining the processes")
     
     rows = []
 
@@ -450,13 +447,14 @@ def _load_exon_lines_multi(args, shelve_names, logger, min_length, strip_cds, th
         if return_queue.empty():
             continue
         row = return_queue.get(block=False)
-        print(row, file=sys.stderr)
         if row == "FINISHED":
             retrieved += 1
         else:
             rows.append(row)
         continue
 
+    [_.join() for _ in working_processes]
+    
     rows = pd.DataFrame(rows, columns=row_columns[:-1] + ["shelf_index"])
     rows = rows.merge(shelve_df, on="shelf_index", how="left").drop(["shelf_index"], axis=1)
     for key in ["chrom", "tid", "strand"]:

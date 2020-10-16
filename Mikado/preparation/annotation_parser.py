@@ -18,6 +18,7 @@ from operator import itemgetter
 import random
 import struct
 import ctypes
+import zlib
 
 
 __author__ = 'Luca Venturini'
@@ -233,7 +234,7 @@ def load_into_storage(shelf_name, exon_lines, min_length, logger, strip_cds=True
 
             logger.debug("Inserting %s into shelf %s", tid, shelf_name)
             # temp_store.append((chrom, start, end, strand, tid, values))
-            values = msgpack.dumps(values)
+            values = zlib.compress(msgpack.dumps(values))
             write_start = shelf.tell()
             write_length = shelf.write(values)
             row = (chrom.encode(), start, end, strand.encode(), tid.encode(), write_start, write_length)

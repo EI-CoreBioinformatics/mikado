@@ -177,6 +177,15 @@ def check_run_options(args, logger=create_null_logger()):
     if args.exclude_retained_introns is True:
         args.json_conf["pick"]["alternative_splicing"]["keep_retained_introns"] = False
 
+    if args.codon_table is not None:
+        try:
+            args.codon_table = int(args.codon_table)
+        except ValueError:
+            pass
+        args.json_conf["serialise"]["codon_table"] = args.codon_table
+    else:
+        assert "codon_table" in args.json_conf["serialise"]
+
     from ..configuration.configurator import check_json
     args.json_conf = check_json(args.json_conf, logger=logger)
     return args
@@ -264,6 +273,9 @@ Transcripts with intron lengths outside of this range will be penalised. Default
     padding.add_argument("--pad", default=None,
                          action="store_true",
                          help="Whether to pad transcripts in loci.")
+    padding.add_argument("--codon-table", dest="codon_table", default=None,
+                         help="""Codon table to use. Default: 0 (ie Standard, NCBI #1, but only ATG is considered \
+        a valid start codon.""")
     parser.add_argument("--pad-max-splices", default=None, dest="pad_max_splices",
                         type=int, help="Maximum splice sites that can be crossed during transcript padding.")
     parser.add_argument("--pad-max-distance", default=None, dest="pad_max_distance",

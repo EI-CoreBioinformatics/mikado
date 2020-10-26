@@ -131,6 +131,15 @@ def setup(args):
         raise OSError("The specified output directory %s exists and is not a folder; aborting" %
                       args.json_conf["prepare"]["output_dir"])
 
+    if args.codon_table is not None:
+        try:
+            args.codon_table = int(args.codon_table)
+        except ValueError:
+            pass
+        args.json_conf["serialise"]["codon_table"] = args.codon_table
+    else:
+        assert "codon_table" in args.json_conf["serialise"]
+
     if args.log is not None:
         args.log.close()
         args.json_conf["prepare"]["files"]["log"] = args.log.name
@@ -302,6 +311,9 @@ score must be a valid floating number.
     parser.add_argument("--labels", type=str, default="",
                         help="""Labels to attach to the IDs of the transcripts of the input files,
                         separated by comma.""")
+    parser.add_argument("--codon-table", dest="codon_table", default=None,
+                        help="""Codon table to use. Default: 0 (ie Standard, NCBI #1, but only ATG is considered \
+    a valid start codon.""")
     parser.add_argument("--single", "--single-thread", action="store_true", default=False,
                         help="Disable multi-threading. Useful for debugging.")
     parser.add_argument("-od", "--output-dir", dest="output_dir",

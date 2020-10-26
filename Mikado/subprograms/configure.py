@@ -269,6 +269,15 @@ switch.")
     if args.intron_range is not None:
         config["pick"]["run_options"]["intron_range"] = sorted(args.intron_range)
 
+    if args.codon_table is not None:
+        try:
+            args.codon_table = int(args.codon_table)
+        except ValueError:
+            pass
+        config["serialise"]["codon_table"] = args.codon_table
+    else:
+        assert "codon_table" in config["serialise"]
+
     config.pop("__loaded_scoring", None)
     config.pop("scoring_file", None)
     config.pop("filename", None)
@@ -401,6 +410,9 @@ final output.""")
     parser.add_argument("--labels", type=str, default="",
                         help="""Labels to attach to the IDs of the transcripts of the input files,
         separated by comma.""")
+    parser.add_argument("--codon-table", dest="codon_table", default=None,
+                        help="""Codon table to use. Default: 0 (ie Standard, NCBI #1, but only ATG is considered \
+    a valid start codon.""")
     parser.add_argument("--external", help="""External configuration file to overwrite/add values from.
     Parameters specified on the command line will take precedence over those present in the configuration file.""")
     daijin = parser.add_argument_group("Options related to configuring a Daijin run.")

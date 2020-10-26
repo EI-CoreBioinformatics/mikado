@@ -391,7 +391,10 @@ def __check_internal_orf(transcript, index):
     transcript.logger.debug("ORF for %s: %s", transcript.id, coding)
 
     if not coding:
-        raise InvalidCDS("No ORF for {}, index {}!".format(transcript.id, index))
+        err = "No ORF for {}, index {}!".format(transcript.id, index)
+        transcript.logger.debug(err)
+        raise InvalidCDS(err)
+
     before = sorted([_ for _ in orf
                      if _[0] == "UTR" and _[1][1] < coding[0][1][0]], key=operator.itemgetter(1))
     after = sorted([_ for _ in orf
@@ -401,7 +404,8 @@ def __check_internal_orf(transcript, index):
     last = max(coding[-1][1][1], float("-inf") if not after else after[-1][1][1])
 
     if first != transcript.start or last != transcript.end:
-        raise InvalidCDS("""Invalid start and stop of the ORF for {}
+        # Let's try to salvage this.
+        err = """Invalid start and stop of the ORF for {}
 First: {} Start: {}
 Last: {} End {}
 Coding: {}
@@ -413,7 +417,11 @@ dict: {}""".format(transcript.id,
                    coding,
                    before,
                    after,
-                   transcript.__dict__))
+                   {},
+                   # transcript.__dict__
+                   )
+        transcript.logger.debug(err)
+        raise InvalidCDS(err)
 
     # Check that the number of exons with a coding section is correct and that they are in the correct order.
     coding_exons = [_ for _ in enumerate(exons) if
@@ -582,11 +590,12 @@ def __check_phase_correctness(transcript):
     for orf_index in range(len(internal_orfs)):
         # transcript.logger.debug("ORF #%d for %s: %s",
         #                         orf_index, transcript.id, transcript.internal_orfs[orf_index])
+        # transcript = __check_internal_orf(transcript, orf_index)
         try:
             transcript = __check_internal_orf(transcript, orf_index)
         except (InvalidTranscript, InvalidCDS) as exc:
-            transcript.logger.warning("ORF %s of %s is invalid, removing. Reason: %s",
-                                      orf_index, transcript.id, exc)
+            transcript.logger.warning("ORF %s of %s is invalid, removing.",
+                                      orf_index, transcript.id)
             __orfs_to_remove.append(orf_index)
 
     __num_orfs = len(internal_orfs)

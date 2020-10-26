@@ -320,6 +320,10 @@ def setup(args):
         args.json_conf["serialise"]["max_regression"] = args.max_regression
 
     if args.codon_table is not None:
+        try:
+            args.codon_table = int(args.codon_table)
+        except ValueError:
+            pass
         args.json_conf["serialise"]["codon_table"] = args.codon_table
     else:
         assert "codon_table" in args.json_conf["serialise"]

@@ -68,7 +68,7 @@ def get_tables(table, to_stop=False, gap=None):
         # Assume the worst case, ambiguous DNA or RNA:
         valid_letters = backup_valid_letters
 
-    getter = np.vectorize(forward_table.get)
+    getter = np.vectorize(forward_table.get, otypes=["<U"])
 
     return forward_table, getter, valid_letters
 
@@ -152,7 +152,7 @@ def _translate_str(sequence, table, stop_symbol="*", to_stop=False, cds=False, p
         ))
 
     amino_acids = getter(np.array(
-        [sequence[start:start + 3] for start in range(0, len(sequence) - len(sequence) % 3, 3)]))
+        [sequence[start:start + 3] for start in range(0, len(sequence) - len(sequence) % 3, 3)], dtype="<U"))
 
     if cds and amino_acids[0] != "M":
         raise CodonTable.TranslationError(

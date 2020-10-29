@@ -276,7 +276,7 @@ switch.")
             pass
         config["serialise"]["codon_table"] = args.codon_table
     else:
-        assert "codon_table" in config["serialise"]
+        assert args.full is False or "codon_table" in config["serialise"]
 
     config.pop("__loaded_scoring", None)
     config.pop("scoring_file", None)

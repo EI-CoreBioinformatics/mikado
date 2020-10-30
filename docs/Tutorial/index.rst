@@ -56,6 +56,13 @@ Finally, we will create the configuration file itself using ``mikado configure``
 This will create a configuration.yaml file with the parameters that were specified on the command line. This is :ref:`simplified configuration file <conf_anatomy>`, containing all the necessary parameters for the Mikado run. It will also copy the ``plants.yaml`` file from the Mikado installation to your current working directory.
 The parameters we used for the command line instruct Mikado in the following ways:
 
+Alternatively, we could use a BGZIP-compressed file as input for ``mikado configure``:
+
+.. code-block:: bash
+    bgzip chr5.fas
+    samtools faidx chr5.fas.gz
+    mikado configure --list list.txt --reference chr5.fas.gz --mode permissive --scoring plants.yaml  --copy-scoring plants.yaml --junctions junctions.bed -bt uniprot_sprot_plants.fasta configuration.yaml
+
 * *--list list.txt*: this part of the command line instructs Mikado to read the file we just created to understand where the input files are and how to treat them.
 * *--reference chr5.fas*: this part of the command line instructs Mikado on the location of the genome file.
 * *--mode permissive*: the mode in which Mikado will treat cases of chimeras. See the :ref:`documentation <chimera_splitting>` for details.

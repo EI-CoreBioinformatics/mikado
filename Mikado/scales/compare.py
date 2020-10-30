@@ -66,6 +66,22 @@ def setup_logger(args):
     return args, handler, logger, log_queue_listener, queue_logger
 
 
+def _shutdown(args, index_name, logger, handler, queue_logger, log_queue_listener):
+    queue_logger.info("Finished")
+    log_queue_listener.enqueue_sentinel()
+    log_queue_listener.stop()
+    args.queue_handler.close()
+    [_.close() for _ in logger.handlers]
+    handler.flush()
+    handler.close()
+    args.reference.close()
+    if hasattr(args.prediction, "close"):
+        args.prediction.close()
+    if args.no_save_index is True:
+        os.remove(index_name)
+    return
+
+
 def compare(args):
     """
     This function performs the comparison between two different files.
@@ -94,6 +110,7 @@ def compare(args):
     assert os.path.exists(index_name)
 
     if args.index is True:
+        _shutdown(args, index_name, logger, handler, queue_logger, log_queue_listener)
         return
 
     # Create the output folder if it does not exist.
@@ -121,17 +138,6 @@ def compare(args):
         args.queue_handler.close()
         raise
 
-    queue_logger.info("Finished")
-    log_queue_listener.enqueue_sentinel()
-    log_queue_listener.stop()
-    args.queue_handler.close()
-    [_.close() for _ in logger.handlers]
-    handler.flush()
-    handler.close()
-    args.reference.close()
-    if hasattr(args.prediction, "close"):
-        args.prediction.close()
-    if args.no_save_index is True:
-        os.remove(index_name)
+    _shutdown(args, index_name, logger, handler, queue_logger, log_queue_listener)
 
     return

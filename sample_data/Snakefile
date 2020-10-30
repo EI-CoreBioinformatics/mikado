@@ -45,15 +45,10 @@ rule complete:
     output: touch("finished.ok")
 
 
-rule uncompress_genome:
-  input: "chr5.fas.gz"
-  output: "chr5.fas"
-  shell: "gunzip -dc {input} > {output}"
-
 rule daijin_configure:
     input:
       prots=swissprot,
-      genome=rules.uncompress_genome.output
+      genome="chr5.fas.gz"
     output: "daijin.toml"
     shell: "daijin configure -as stringtie scallop -lal gmap --scheduler local -al \
 star hisat gsnap --sample-sheet samples.txt -o {output} -g {input.genome} -od daijin_test \
@@ -348,11 +343,12 @@ rule test_g11_pick:
 rule test_g11_gffread:
     input:
       subloci=rules.test_g11_pick.output.subloci,
-      genome=rules.uncompress_genome.output
+      genome="chr5.fas.gz"
     output:
-      subpep=os.path.join("Daijin", "5-mikado", "pick", "g11_permissive", "mikado-permissive.subloci.pep.fasta")
+      subpep=os.path.join("Daijin", "5-mikado", "pick", "g11_permissive", "mikado-permissive.subloci.pep.fasta"),
+      fasta=temp("chr5.fas")
     conda: "gffread.yaml"
-    shell: "gffread -S -g {input.genome} -y {output.subpep} {input.subloci}"
+    shell: "gunzip -c {input.genome} > {output.fasta} && gffread -S -g {output.fasta} -y {output.subpep} {input.subloci}"
 
 
 rule check_g11:

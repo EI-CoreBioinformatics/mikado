@@ -540,9 +540,9 @@ def prepare(args, logger):
         raise AttributeError
 
     if not os.path.exists(args.json_conf["reference"]["genome"]):
-        logger.critical("Invalid FASTA file: %s",
-                        args.json_conf["reference"]["genome"])
-        raise AttributeError
+        error = "Invalid FASTA file: {}".format(args.json_conf["reference"]["genome"])
+        logger.critical(error)
+        raise AttributeError(error)
 
     assert len(args.json_conf["prepare"]["files"]["gff"]) > 0
     assert len(args.json_conf["prepare"]["files"]["gff"]) == len(args.json_conf["prepare"]["files"]["labels"]), (

@@ -1046,6 +1046,8 @@ class ConfigureCheck(unittest.TestCase):
         namespace.junctions = []
         namespace.new_scoring = None
         namespace.seed = None
+        namespace.min_clustering_cds_overlap = 0.2
+        namespace.min_clustering_cdna_overlap = 0.2
         dir = tempfile.TemporaryDirectory()
         out = os.path.join(dir.name, "configuration.yaml")
         with open(out, "w") as out_handle:
@@ -1068,6 +1070,8 @@ class ConfigureCheck(unittest.TestCase):
         namespace.blast_targets = []
         namespace.junctions = []
         namespace.new_scoring = None
+        namespace.min_clustering_cds_overlap = 0.2
+        namespace.min_clustering_cdna_overlap = 0.2
         dir = tempfile.TemporaryDirectory()
         out = os.path.join(dir.name, "configuration.yaml")
         for trial in (None, 1066, 175108):
@@ -1113,6 +1117,8 @@ class ConfigureCheck(unittest.TestCase):
         namespace.full = True
         namespace.daijin = False
         namespace.seed = None
+        namespace.min_clustering_cds_overlap = 0.2
+        namespace.min_clustering_cdna_overlap = 0.2
         dir = tempfile.TemporaryDirectory()
         out = os.path.join(dir.name, "configuration.yaml")
         with open(out, "w") as out_handle:
@@ -1139,6 +1145,8 @@ class ConfigureCheck(unittest.TestCase):
         namespace.full = True
         namespace.daijin = True
         namespace.seed = None
+        namespace.min_clustering_cds_overlap = 0.2
+        namespace.min_clustering_cdna_overlap = 0.2
         dir = tempfile.TemporaryDirectory()
         out = os.path.join(dir.name, "configuration.yaml")
         with open(out, "w") as out_handle:
@@ -1165,6 +1173,8 @@ class ConfigureCheck(unittest.TestCase):
         namespace.full = True
         namespace.daijin = False
         namespace.seed = None
+        namespace.min_clustering_cds_overlap = 0.2
+        namespace.min_clustering_cdna_overlap = 0.2
         dir = tempfile.TemporaryDirectory()
         out = os.path.join(dir.name, "configuration.yaml")
         with open(out, "w") as out_handle:

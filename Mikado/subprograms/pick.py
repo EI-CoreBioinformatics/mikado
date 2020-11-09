@@ -336,14 +336,14 @@ retained intron event. Default: False. Mikado will try to detect these instances
 final output.""")
     parser.add_argument("-mco", "--min-clustering-cdna-overlap", default=None, type=percentage,
                          help="Minimum cDNA overlap between two transcripts for them to be considered part of the same \
-    locus during the late picking stages. \
-    NOTE: if --min-cds-overlap is not specified, it will be set to this value! \
-    Default: 20%.")
+locus during the late picking stages. \
+NOTE: if --min-cds-overlap is not specified, it will be set to this value! \
+Default: 20%%.")
     parser.add_argument("-mcso", "--min-clustering-cds-overlap", default=None, type=percentage,
                          help="Minimum CDS overlap between two transcripts for them to be considered part of the same \
-    locus during the late picking stages. \
-    NOTE: if not specified, and --min-cdna-overlap is specified on the command line, min-cds-overlap will be set to this value! \
-    Default: 20%.")
+locus during the late picking stages. \
+NOTE: if not specified, and --min-cdna-overlap is specified on the command line, min-cds-overlap will be set to this value! \
+Default: 20%%.")
     parser.add_argument("--check-references", dest="check_references", default=None,
                         action="store_true",
                         help="""Flag. If switched on, Mikado will also check reference models against the general

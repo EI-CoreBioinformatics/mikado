@@ -340,8 +340,8 @@ def configure_parser():
     scoring_files = [trailing.sub(r"", re.sub(fold_path, r"", fname))
                      for fname in glob.iglob(os.path.join(scoring_folder, "**", "*yaml"), recursive=True)]
 
-    parser = argparse.ArgumentParser(description="Configuration utility for Mikado",
-                                     formatter_class=argparse.RawTextHelpFormatter)
+    parser = argparse.ArgumentParser(description="Configuration utility for Mikado")
+                                     #formatter_class=argparse.RawTextHelpFormatter)
     parser.add_argument("--full", action="store_true", default=False)
     parser.add_argument("--seed", type=int, default=None,
                         help="Random seed number.")
@@ -392,12 +392,12 @@ final output.""")
                          help="Minimum cDNA overlap between two transcripts for them to be considered part of the same \
 locus during the late picking stages. \
 NOTE: if --min-cds-overlap is not specified, it will be set to this value! \
-Default: 20%.")
+Default: 20%%.")
     picking.add_argument("-mcso", "--min-clustering-cds-overlap", default=None, type=percentage,
                          help="Minimum CDS overlap between two transcripts for them to be considered part of the same \
 locus during the late picking stages. \
 NOTE: if not specified, and --min-cdna-overlap is specified on the command line, min-cds-overlap will be set to this value! \
-Default: 20%.")
+Default: 20%%.")
     parser.add_argument("--strand-specific", default=False,
                         action="store_true",
                         help="""Boolean flag indicating whether all the assemblies are strand-specific.""")

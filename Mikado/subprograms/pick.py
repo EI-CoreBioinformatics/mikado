@@ -8,7 +8,7 @@ import sys
 import os
 from ..utilities.log_utils import create_default_logger, create_null_logger
 import random
-from ..utilities import to_region
+from ..utilities import to_region, percentage
 from ..utilities.intervaltree import IntervalTree, Interval
 
 
@@ -116,6 +116,14 @@ def check_run_options(args, logger=create_null_logger()):
 
     if args.pad is not None:
         args.json_conf["pick"]["alternative_splicing"]["pad"] = args.pad
+
+    if args.min_clustering_cds_overlap is not None:
+        args.json_conf["pick"]["clustering"]["min_cds_overlap"] = args.min_clustering_cds_overlap
+
+    if args.min_clustering_cdna_overlap is not None:
+        args.json_conf["pick"]["clustering"]["min_cdna_overlap"] = args.min_clustering_cdna_overlap
+        if args.min_clustering_cds_overlap is None:
+            args.json_conf["pick"]["clustering"]["min_cds_overlap"] = args.min_clustering_cdna_overlap
 
     if args.pad_max_splices is not None:
         args.json_conf["pick"]["alternative_splicing"]["ts_max_splices"] = True
@@ -326,6 +334,16 @@ Default: False. Retained intron events that do not dirsupt the CDS are kept by M
                         help="""Keep in the final output transcripts whose CDS is most probably disrupted by a \
 retained intron event. Default: False. Mikado will try to detect these instances and exclude them from the \
 final output.""")
+    parser.add_argument("-mco", "--min-clustering-cdna-overlap", default=None, type=percentage,
+                         help="Minimum cDNA overlap between two transcripts for them to be considered part of the same \
+    locus during the late picking stages. \
+    NOTE: if --min-cds-overlap is not specified, it will be set to this value! \
+    Default: 20%.")
+    parser.add_argument("-mcso", "--min-clustering-cds-overlap", default=None, type=percentage,
+                         help="Minimum CDS overlap between two transcripts for them to be considered part of the same \
+    locus during the late picking stages. \
+    NOTE: if not specified, and --min-cdna-overlap is specified on the command line, min-cds-overlap will be set to this value! \
+    Default: 20%.")
     parser.add_argument("--check-references", dest="check_references", default=None,
                         action="store_true",
                         help="""Flag. If switched on, Mikado will also check reference models against the general

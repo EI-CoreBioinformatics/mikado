@@ -1129,7 +1129,7 @@ class ConfigureCheck(unittest.TestCase):
         namespace = Namespace(default=False)
         namespace.scoring = None
         namespace.intron_range = None
-        namespace.reference = ""
+        namespace.reference = pkg_resources.resource_filename("Mikado.tests", "chr5.fas.gz")
         namespace.external = None
         namespace.mode = ["permissive"]
         namespace.threads = 1
@@ -1154,7 +1154,7 @@ class ConfigureCheck(unittest.TestCase):
         namespace = Namespace(default=False)
         namespace.scoring = None
         namespace.intron_range = None
-        namespace.reference = ""
+        namespace.reference = pkg_resources.resource_filename("Mikado.tests", "chr5.fas.gz")
         namespace.external = None
         namespace.mode = ["permissive", "split"]
         # namespace.mode = ["permissive"]

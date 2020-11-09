@@ -324,3 +324,10 @@ def parse_list_file(json_conf: dict, list_file):
                 ", ".join(_[0] for _ in files_counter.most_common() if _[1] > 1)))
 
     return json_conf
+
+
+def percentage(value):
+    value = float(value)
+    while 1 < value < 100:
+        value /= 100
+    return value

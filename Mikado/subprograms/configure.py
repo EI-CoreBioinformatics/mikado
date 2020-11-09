@@ -10,10 +10,8 @@ from pkg_resources import resource_filename, resource_stream
 import glob
 import argparse
 import sys
-# from ..configuration import configurator, daijin_configurator, print_config, print_toml_config, check_has_requirements
-# from ..configuration.configurator import create_cluster_config
 from ..exceptions import InvalidJson
-from ..utilities import comma_split
+from ..utilities import comma_split, percentage
 from ..utilities.namespace import Namespace
 import functools
 import rapidjson as json
@@ -266,6 +264,14 @@ switch.")
     if args.pad is True:
         config["pick"]["alternative_splicing"]["pad"] = True
 
+    if args.min_clustering_cds_overlap is not None:
+        config["pick"]["clustering"]["min_cds_overlap"] = args.min_clustering_cds_overlap
+
+    if args.min_clustering_cdna_overlap is not None:
+        config["pick"]["clustering"]["min_cdna_overlap"] = args.min_clustering_cdna_overlap
+        if args.min_clustering_cds_overlap is None:
+            config["pick"]["clustering"]["min_cds_overlap"] = args.min_clustering_cdna_overlap
+
     if args.intron_range is not None:
         config["pick"]["run_options"]["intron_range"] = sorted(args.intron_range)
 
@@ -382,7 +388,16 @@ final output.""")
     transcript requirements, and will also consider them as potential fragments. This is useful in the context of e.g.
     updating an *ab-initio* results with data from RNASeq, protein alignments, etc. 
     """)
-
+    picking.add_argument("-mco", "--min-clustering-cdna-overlap", default=None, type=percentage,
+                         help="Minimum cDNA overlap between two transcripts for them to be considered part of the same \
+locus during the late picking stages. \
+NOTE: if --min-cds-overlap is not specified, it will be set to this value! \
+Default: 20%.")
+    picking.add_argument("-mcso", "--min-clustering-cds-overlap", default=None, type=percentage,
+                         help="Minimum CDS overlap between two transcripts for them to be considered part of the same \
+locus during the late picking stages. \
+NOTE: if not specified, and --min-cdna-overlap is specified on the command line, min-cds-overlap will be set to this value! \
+Default: 20%.")
     parser.add_argument("--strand-specific", default=False,
                         action="store_true",
                         help="""Boolean flag indicating whether all the assemblies are strand-specific.""")
@@ -399,7 +414,7 @@ final output.""")
     strandedness, is_reference and exclude_redundant must be boolean values (True, False)
     score must be a valid floating number.
     """)
-    parser.add_argument("--reference", help="Fasta genomic reference.", default=None)
+    parser.add_argument("--reference", "--genome", help="Fasta genomic reference.", default=None, dest="reference")
     serialisers = parser.add_argument_group(
         "Options related to the serialisation step")
     serialisers.add_argument("--junctions", type=comma_split, default=[])

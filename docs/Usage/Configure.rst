@@ -1,7 +1,11 @@
 .. _SQLAlchemy: http://www.sqlalchemy.org/
 .. _Portcullis: https://github.com/maplesond/portcullis
 .. _BED12: https://genome.ucsc.edu/FAQ/FAQformat.html#format1
-
+.. _GffRead: https://github.com/gpertea/gffread
+.. _JSON: https://www.json.org/
+.. _TOML: https://toml.io/
+.. _YAML: https://yaml.org/
+.. _configparser: https://docs.python.org/3/library/configparser.html
 .. _configure:
 
 Mikado configure
@@ -10,40 +14,60 @@ Mikado configure
 This utility prepares the configuration file that will be used throughout the pipeline stages.
 While the most important options can be set at runtime through the command line, many algorithmic details can be accessed and intervened upon only through the file produced through this command.
 
-.. important:: 
+.. important::
 
   Please note that any value absent from the configuration at runtime **will be imputed to the default value for Mikado, as specified internally**.
+
+
+Input annotation files
+~~~~~~~~~~~~~~~~~~~~~~
+
+The preferred method for providing Mikado configure with the input annotation files is a **<TAB>** delimited file, where each line specifies a different file name.
+The fields in this file are as follows, for each row:
+
+.. <file> <label> <strandedness(def. False)> <score(optional, def. 0)> <is_reference(optional, def. False)>
+                        <exclude_redundant(optional, def. True)> strandedness, is_reference and exclude_redundant must be boolean values (True, False) score must be a valid floating number.
+
+- File name of the input file. **Mandatory**
+    - The file name must specify a valid path (either absolute or relative) from the folder where Mikado configure is launched to the file itself.
+- Label for the input file. **Mandatory**
+    - Each label must be **unique** within the run.
+- Stradedness of the annotation file. Boolean (either True or False, capitalization is ignored). **Mandatory**.
+    - Reference files will be considered as stranded even if this value is set to False.
+- Score associated to the input file. Default 0. *Optional*. Floating numbers only.
+    - The score will be used to determine tie winners during Mikado prepare in case of redundancy. It will also be applied to transcripts during the pick stage.
+- *is_reference*: boolean flag (either True or False, capitalization is ignored), default False.. "Reference" transcripts are treated slightly differently from the others in Mikado. Specifically:
+    - During the prepare stage, reference transcripts are never discarded on account of redundancy, short size, etc.; moreover, their strand will never be reversed on account of the internal Mikado checks.
+    - During the pick stage, reference transcripts can be given an additional boost in their scoring. Moreover, it is possible to instruct Mikado to only look for alternative splicing events of the reference transcripts.
+- *exclude_redundant*: boolean flag (either True or False, capitalization is ignored), default False. If set to True, Mikado prepare will remove any transcript in this annotation that is considered redundant (ie identical or contained within another transcript).
+    - By default, Mikado will remove only ***identical*** copies of transcripts across annotations. Datasets with this flag set will be treated as if they were going through GffRead_.
+- *skip_split*: boolean flag, default False. If set, Mikado will *not* break suspected chimeras, ie transcripts with more than one internal ORF, during the pick stage.
+
 
 Usage
 ~~~~~
 
 This command will generate a configuration file (in either JSON or YAML format), with the correct configuration for the parameters set on the command line. See :ref:`the in-depth section on the structure of the configuration file <conf_anatomy>` for details.
 
-Command line parameters:
+Selected command line parameters:
 
-* *full*: By default, Mikado configure will output a stripped-down configuration file, with only some of the fields explicitly present. Use this flag to show all the available fields.
+* *--full*: By default, Mikado configure will output a stripped-down configuration file, with only some of the fields explicitly present. Use this flag to show all the available fields.
+* *--seed*: random seed for full reproducibility of Mikado runs.
+* *--list*: the argument to this option specifies the input annotation files for Mikado. See above.
 
-Usage:
+
+
+Command line help:
 
 .. code-block::
 
     $ mikado configure --help
-    usage: Mikado configure [-h] [--full] [--seed SEED]
-                            [--minimum-cdna-length MINIMUM_CDNA_LENGTH]
-                            [--max-intron-size MAX_INTRON_LENGTH]
-                            [--scoring SCORING] [--copy-scoring COPY_SCORING]
-                            [-i INTRON_RANGE INTRON_RANGE] [--no-pad]
-                            [--strand-specific]
-                            [--no-files | --gff GFF | --list LIST]
-                            [--reference REFERENCE] [--junctions JUNCTIONS]
-                            [-bt BLAST_TARGETS]
-                            [--strand-specific-assemblies STRAND_SPECIFIC_ASSEMBLIES]
-                            [--labels LABELS] [--external EXTERNAL] [--daijin]
-                            [-bc BLAST_CHUNKS] [--use-blast] [--use-transdecoder]
-                            [--mode {nosplit,stringent,lenient,permissive,split} [{nosplit,stringent,lenient,permissive,split} ...]]
-                            [-t THREADS]
-                            [--skip-split SKIP_SPLIT [SKIP_SPLIT ...]] [-j]
-                            [-od OUT_DIR]
+    usage: Mikado configure [-h] [--full] [--seed SEED] [--minimum-cdna-length MINIMUM_CDNA_LENGTH] [--max-intron-length MAX_INTRON_LENGTH] [--scoring SCORING] [--copy-scoring COPY_SCORING]
+                            [-i INTRON_RANGE INTRON_RANGE] [--subloci-out SUBLOCI_OUT] [--monoloci-out MONOLOCI_OUT] [--no-pad] [--only-reference-update] [-eri] [-kdc] [--check-references]
+                            [-mco MIN_CLUSTERING_CDNA_OVERLAP] [-mcso MIN_CLUSTERING_CDS_OVERLAP] [--strand-specific] [--no-files | --gff GFF | --list LIST] [--reference REFERENCE] [--junctions JUNCTIONS]
+                            [-bt BLAST_TARGETS] [--strand-specific-assemblies STRAND_SPECIFIC_ASSEMBLIES] [--labels LABELS] [--codon-table CODON_TABLE] [--external EXTERNAL] [--daijin] [-bc BLAST_CHUNKS]
+                            [--use-blast] [--use-transdecoder] [--mode {nosplit,stringent,lenient,permissive,split} [{nosplit,stringent,lenient,permissive,split} ...]] [--scheduler {local,SLURM,LSF,PBS}]
+                            [--exe EXE] [-c CLUSTER_CONFIG] [-t THREADS] [--skip-split SKIP_SPLIT [SKIP_SPLIT ...]] [-j | -y | --toml] [-od OUT_DIR]
                             [out]
 
     Configuration utility for Mikado
@@ -56,56 +80,64 @@ Usage:
       --full
       --seed SEED           Random seed number.
       --strand-specific     Boolean flag indicating whether all the assemblies are strand-specific.
-      --no-files            Remove all files-specific options from the printed configuration file.
-                                                   Invoking the "--gff" option will disable this flag.
+      --no-files            Remove all files-specific options from the printed configuration file. Invoking the "--gff" option will disable this flag.
       --gff GFF             Input GFF/GTF file(s), separated by comma
-      --list LIST           Tab-delimited file containing rows with the following format:
-<file>  <label> <strandedness, def. False> <score(optional, def. 0)> <is_reference(optional, def. False)> <keep_redundant(optional, def. True)>
-strandedness, is_reference and keep_redundant must be boolean values (True, False)
-score must be a valid floating number.
-      --reference REFERENCE
+      --list LIST           Tab-delimited file containing rows with the following format: <file> <label> <strandedness(def. False)> <score(optional, def. 0)> <is_reference(optional, def. False)>
+                            <exclude_redundant(optional, def. True)>  <skip_split(optional, def. False)> strandedness, is_reference, exclude_redundant and skip_split must be boolean values (True, False) score must be a valid floating number.
+      --reference REFERENCE, --genome REFERENCE
                             Fasta genomic reference.
       --strand-specific-assemblies STRAND_SPECIFIC_ASSEMBLIES
                             List of strand-specific assemblies among the inputs.
-      --labels LABELS       Labels to attach to the IDs of the transcripts of the input files,
-                                    separated by comma.
-      --external EXTERNAL   External configuration file to overwrite/add values from.
-                                Parameters specified on the command line will take precedence over those present in the configuration file.
+      --labels LABELS       Labels to attach to the IDs of the transcripts of the input files, separated by comma.
+      --codon-table CODON_TABLE
+                            Codon table to use. Default: 0 (ie Standard, NCBI #1, but only ATG is considered a valid start codon.
+      --external EXTERNAL   External configuration file to overwrite/add values from. Parameters specified on the command line will take precedence over those present in the configuration file.
       -t THREADS, --threads THREADS
       --skip-split SKIP_SPLIT [SKIP_SPLIT ...]
                             List of labels for which splitting will be disabled (eg long reads such as PacBio)
-      -j, --json            Output will be in JSON instead of YAML format.
+      -j, --json            Output will be in JSON (default: inferred by filename, with TOML as fallback).
+      -y, --yaml            Output will be in YAML (default: inferred by filename, with TOML as fallback).
+      --toml                Output will be in TOML (default: inferred by filename, with TOML as fallback).
       -od OUT_DIR, --out-dir OUT_DIR
                             Destination directory for the output.
 
     Options related to the prepare stage.:
       --minimum-cdna-length MINIMUM_CDNA_LENGTH
                             Minimum cDNA length for transcripts.
-      --max-intron-size MAX_INTRON_LENGTH
+      --max-intron-length MAX_INTRON_LENGTH
                             Maximum intron length for transcripts.
 
     Options related to the scoring system:
-      --scoring SCORING     Scoring file to use. Mikado provides the following:
-                            mammalian.yaml,
-                            plant.yaml,
-                            HISTORIC/human.yaml,
-                            HISTORIC/scerevisiae.yaml,
-                            HISTORIC/insects.yaml,
-                            HISTORIC/plants.yaml,
-                            HISTORIC/worm.yaml,
-                            HISTORIC/dmelanogaster_scoring.yaml,
-                            HISTORIC/athaliana_scoring.yaml,
-                            HISTORIC/hsapiens_scoring.yaml,
-                            HISTORIC/celegans_scoring.yaml
+      --scoring SCORING     Scoring file to use. Mikado provides the following: mammalian.yaml, plant.yaml, HISTORIC/athaliana_scoring.yaml, HISTORIC/celegans_scoring.yaml, HISTORIC/dmelanogaster_scoring.yaml,
+                            HISTORIC/hsapiens_scoring.yaml, HISTORIC/human.yaml, HISTORIC/insects.yaml, HISTORIC/plants.yaml, HISTORIC/scerevisiae.yaml, HISTORIC/worm.yaml
       --copy-scoring COPY_SCORING
                             File into which to copy the selected scoring file, for modification.
 
     Options related to the picking:
       -i INTRON_RANGE INTRON_RANGE, --intron-range INTRON_RANGE INTRON_RANGE
-                            Range into which intron lengths should fall, as a couple of integers.
-                                                         Transcripts with intron lengths outside of this range will be penalised.
-                                                         Default: (60, 900)
-      --no-pad              Whether to disable padding transcripts.
+                            Range into which intron lengths should fall, as a couple of integers. Transcripts with intron lengths outside of this range will be penalised. Default: (60, 900)
+      --subloci-out SUBLOCI_OUT
+                            Name of the optional subloci output. By default, this will not be produced.
+      --monoloci-out MONOLOCI_OUT
+                            Name of the optional monoloci output. By default, this will not be produced.
+      --no-pad              Disable transcript padding. On by default.
+      --only-reference-update
+                            Flag. If switched on, Mikado will only keep loci where at least one of the transcripts is marked as "reference". CAUTION: new and experimental. If no transcript has been marked as
+                            reference, the output will be completely empty!
+      -eri, --exclude-retained-introns
+                            Exclude all retained intron alternative splicing events from the final output. Default: False. Retained intron events that do not dirsupt the CDS are kept by Mikado in the final
+                            output.
+      -kdc, --keep-disrupted-cds
+                            Keep in the final output transcripts whose CDS is most probably disrupted by a retained intron event. Default: False. Mikado will try to detect these instances and exclude them from
+                            the final output.
+      --check-references    Flag. If switched on, Mikado will also check reference models against the general transcript requirements, and will also consider them as potential fragments. This is useful in the
+                            context of e.g. updating an *ab-initio* results with data from RNASeq, protein alignments, etc.
+      -mco MIN_CLUSTERING_CDNA_OVERLAP, --min-clustering-cdna-overlap MIN_CLUSTERING_CDNA_OVERLAP
+                            Minimum cDNA overlap between two transcripts for them to be considered part of the same locus during the late picking stages. NOTE: if --min-cds-overlap is not specified, it will be
+                            set to this value! Default: 20%.
+      -mcso MIN_CLUSTERING_CDS_OVERLAP, --min-clustering-cds-overlap MIN_CLUSTERING_CDS_OVERLAP
+                            Minimum CDS overlap between two transcripts for them to be considered part of the same locus during the late picking stages. NOTE: if not specified, and --min-cdna-overlap is
+                            specified on the command line, min-cds-overlap will be set to this value! Default: 20%.
 
     Options related to the serialisation step:
       --junctions JUNCTIONS
@@ -118,20 +150,31 @@ score must be a valid floating number.
       --use-blast           Flag. If switched on, Mikado will use BLAST instead of DIAMOND.
       --use-transdecoder    Flag. If switched on, Mikado will use TransDecoder instead of Prodigal.
       --mode {nosplit,stringent,lenient,permissive,split} [{nosplit,stringent,lenient,permissive,split} ...]
-                            Mode(s) in which Mikado will treat transcripts with multiple ORFs.
-                            - nosplit: keep the transcripts whole.
-                            - stringent: split multi-orf transcripts if two consecutive ORFs have both BLAST hits
-                                         and none of those hits is against the same target.
-                            - lenient: split multi-orf transcripts as in stringent, and additionally, also when
-                                       either of the ORFs lacks a BLAST hit (but not both).
-                            - permissive: like lenient, but also split when both ORFs lack BLAST hits
-                            - split: split multi-orf transcripts regardless of what BLAST data is available.
-                            If multiple modes are specified, Mikado will create a Daijin-compatible configuration file.
+                            Mode(s) in which Mikado will treat transcripts with multiple ORFs. - nosplit: keep the transcripts whole. - stringent: split multi-orf transcripts if two consecutive ORFs have both
+                            BLAST hits and none of those hits is against the same target. - lenient: split multi-orf transcripts as in stringent, and additionally, also when either of the ORFs lacks a BLAST hit
+                            (but not both). - permissive: like lenient, but also split when both ORFs lack BLAST hits - split: split multi-orf transcripts regardless of what BLAST data is available. If multiple
+                            modes are specified, Mikado will create a Daijin-compatible configuration file.
+      --scheduler {local,SLURM,LSF,PBS}
+                            Scheduler to use. Default: None - ie, either execute everything on the local machine or use DRMAA to submit and control jobs (recommended).
+      --exe EXE             Configuration file for the executables.
+      -c CLUSTER_CONFIG, --cluster_config CLUSTER_CONFIG
+                            Cluster configuration file to write to.
 
 .. _conf_anatomy:
 
 Anatomy of the configuration file
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Format of the configuration file
+--------------------------------
+
+The configuration files accepted by Mikado can be in any of three dialects:
+
+- TOML_, the default choice. TOML is an intuitive configuration file format, similar to the INI files :ref:`preferred by Python <configparser>`.
+- YAML_, a human-readable configuration file format based on indentation. Less preferred because of the unreadability of deeply-nested values.
+- JSON_, a less human-readable file format that is commonly used to pass data across processes / programs.
+
+We leave freedom to the user to select their preferred file format. In this section, we will use TOML_ to explain the different sections of the file.
 
 .. _db-settings:
 
@@ -150,22 +193,18 @@ This section deals with the database settings that will be necessary for the :re
 * dbpasswd: Database password. **Required with MySQL and PostgreSQL**.
 * dbport: Port to access to the database. It defaults to the normal ports for the selected database.
 
-.. code-block:: yaml
+.. code-block:: toml
 
-    db_settings:
-      #  Settings related to DB connection. Parameters:
-      #  db: the DB to connect to. Required. Default: mikado.db
-      #  dbtype: Type of DB to use. Choices: sqlite, postgresql, mysql. Default: sqlite.
-      #  dbhost: Host of the database. Unused if dbtype is sqlite. Default: localhost
-      #  dbuser: DB user. Default:
-      #  dbpasswd: DB password for the user. Default:
-      #  dbport: Integer. It indicates the default port for the DB.
-      db: /usr/users/ga002/venturil/workspace/mikado/docs/mikado.db
-      dbhost: localhost
-      dbpasswd: ''
-      dbport: 0
-      dbtype: sqlite
-      dbuser: ''
+    [db_settings]
+    # Settings related to DB connection. Parameters:
+    # db: the DB to connect to. Required. Default: mikado.db
+    # dbtype: Type of DB to use. Choices: sqlite, postgresql, mysql. Default: sqlite.
+    db = "/c/Users/lucve/PycharmProjects/EICore/mikado/sample_data/mikado.db"
+    dbtype = "sqlite"
+    dbhost = "localhost"
+    dbuser = ""
+    dbpasswd = ""
+    dbport = 0
 
 .. _ref-settings:
 
@@ -180,11 +219,10 @@ This section of the configuration file deals with the reference genome. It speci
 
 .. code-block:: yaml
 
-    reference:
-      #  Options related to the reference genome.
-      genome: ''
-      genome_fai: ''
-      transcriptome: ''
+    [reference]
+    genome = "chr5.fas.gz"
+    genome_fai = ""
+    transcriptome = ""
 
 .. _prep-settings:
 
@@ -195,15 +233,79 @@ This section of the configuration file deals with the :ref:`prepare stage of Mik
 
 .. _canonical-configuration:
 
+- excluded_redundant: if set to true, Mikado will only keep one copy of transcripts that are identical or contained into a different transcripts.
+  - please note that this *global* values, if set to true, overrides the label-specific
+
 * canonical: this voice specifies the splice site donors and acceptors that are considered canonical for the species. By default, Mikado uses the canonical splice site (GT/AG) and the two semi-canonical pairs (GC/AG and AT/AC). Type: Array of two-element arrays, composed by two-letter strings.
-* keep_redundant: if set to false (default), Mikado will only keep one copy of transcripts that are completely identical.
 * lenient: boolean value. If set to *false*, transcripts that either only have non-canonical splice sites or have a mixture of canonical junctions on *both* strands will be **removed** from the output. Otherwise, they will left in, be properly tagged.
 * minimum_cdna_length: minimum length of the transcripts to be kept.
 * max_intron_length: Transcripts with introns greater than this will be **discarded**. The default is one million base pairs (effectively disabling the option).
-* procs: number of processors to be used.
 * strand_specific: boolean. If set to *true*, **all** input assemblies will be treated as strand-specific, therefore keeping the strand of monoexonic fragments as it was. Multiexonic transcripts will not have their strand reversed even if doing that would mean making some or all non-canonical junctions canonical.
 * strip_cds: boolean. If set to *true*, the CDS features will be stripped off the input transcripts. This might be necessary for eg transcripts obtained through alignment with `GMAP <http://research-pub.gene.com/gmap/>`_ [GMAP]_.
-* files: this sub-section is the most important, as it contains among other things the locations and labels for the input files. Voices:
+* single: boolean. For debug purposes only. If set to *true*, Mikado will disable multiprocessing.
+
+.. code-block:: toml
+    [prepare]
+    # Options related to the input data preparation.
+    # - procs: Number of processes to use.
+    # - strand_specific: if set to True, transcripts will be assumed to be in the correct orientation, no strand flipping or removal
+    # - strip_cds: Boolean. It indicates whether to remove the CDS from the predictions during preparation.
+    exclude_redundant = false
+    minimum_cdna_length = 200
+    max_intron_length = 1000000
+    strip_cds = false
+    single = false
+    lenient = false
+    strand_specific = false
+    canonical = [["GT", "AG"], ["GC", "AG"], ["AT", "AC"]]
+
+
+Settings for the prepare stage: files settings
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+This sub-section is the most important for `prepare`, as it contains among other things the locations and labels for the input files.
+
+.. important:: As this section contains multiple linked lists, it is recommended to not edit this part of the configuration file directly, but rather, to rely on the mikado configure utility / mikado prepare interface to set it up.
+
+* output_dir: destination folder for the output files and the log. It will be created automatically, if it does not already exist on disk.
+* out: name of the output GTF file. Default: *mikado_prepared.gtf*.
+* out_fasta: name of the output GTF file. Default: *mikado_prepared.fasta*.
+* log: name of the log file. Default: *prepare.log*.
+* gff: list of filenames of the input files.
+* labels: list of labels associated with the input files.
+* reference: list of boolean values indicating whether each 
+
+.. important:: the
+
+.. code-block:: toml
+
+    [prepare.files]
+    # Options related to the input and output files.
+    # - out: output GTF file
+    # - out_fasta: output transcript FASTA file
+    # - gff: array of input predictions for this step.
+    # - labels: labels to be associated with the input GFFs. Default: None.
+    # - reference: these files are treated as reference-like, ie, these transcripts will never get discarded
+    #   during the preparation step.
+    output_dir = "."
+    out = "mikado_prepared.gtf"
+    out_fasta = "mikado_prepared.fasta"
+    log = "prepare.log"
+    gff = ["class.gtf", "cufflinks.gtf", "stringtie.gtf", "trinity.gff3", "reference.gff3"]
+    labels = ["cl", "cuff", "st", "tr", "at"]
+    strand_specific_assemblies = ["class.gtf", "cufflinks.gtf", "stringtie.gtf", "reference.gff3"]
+    reference = [false, false, false, false, true]
+    exclude_redundant = [false, false, true, false, true]
+
+    [prepare.files.source_score]
+    cl = 0
+    cuff = 0
+    st = 1.0
+    tr = -0.5
+    at = 5.0
+
+
+* files: this sub-section is the most important, as it contains among  Voices:
 
     - gff: array of the input files, in GFF or GTF format. Please note that only CDS/exon/UTR features will be considered from these files.
     - labels: optional array of the labels to be assigned to the input files. If non-empty, *it must be of the same order and length of the gff array*, and be composed of unique elements. The labels will be used in two ways:
@@ -221,53 +323,7 @@ This section of the configuration file deals with the :ref:`prepare stage of Mik
       + during the picking stage,
 
 
-.. code-block:: yaml
 
-    prepare:
-        # Options related to the input data preparation.
-        # - procs: Number of processes to use.
-        # - strand_specific: if set to True, transcripts will be assumed to be in
-        # the correct orientation, no strand flipping or removal
-        # - strip_cds: Boolean. It indicates whether to remove the CDS from the
-        # predictions during preparation.
-        canonical:
-        - - GT
-        - AG
-        - - GC
-        - AG
-        - - AT
-        - AC
-        files:
-        # Options related to the input and output files.
-        # - out: output GTF file
-        # - out_fasta: output transcript FASTA file
-        # - gff: array of input predictions for this step.
-        # - labels: labels to be associated with the input GFFs. Default: None.
-        # - reference: these files are treated as reference-like, ie, these
-        # transcripts will never get discarded
-        #   during the preparation step.
-        # - strand_specific: if set to True, transcripts will be assumed to be in
-        # the correct
-        #  orientation, no strand flipping or removal
-        # - source_score: optional scores to be given to each different source
-        # files. Default: none,
-        #  ie no source-specific score is applied.
-        gff: []
-        labels: []
-        log: prepare.log
-        out: mikado_prepared.gtf
-        out_fasta: mikado_prepared.fasta
-        output_dir: .
-        reference: []
-        source_score: {}
-        strand_specific_assemblies: []
-        keep_redundant: false
-        lenient: false
-        max_intron_length: 1000000
-        minimum_cdna_length: 200
-        single: false
-        strand_specific: false
-        strip_cds: false
 
 
 .. _serialise-settings:

@@ -259,7 +259,8 @@ switch.")
             raise InvalidJson("Some of the labels to skip for splitting are invalid: {}".format(
                 [_ for _ in args.skip_split if _ not in config["prepare"]["files"]["labels"]]
             ))
-        config["pick"]["chimera_split"]["skip"] = args.skip_split
+        config["pick"]["chimera_split"]["skip"] = list(set(config["pick"]["chimera_split"]["skip"].extend(
+            args.skip_split)))
 
     if args.pad is True:
         config["pick"]["alternative_splicing"]["pad"] = True
@@ -410,8 +411,8 @@ Default: 20%%.")
                        default="")
     files.add_argument("--list", type=argparse.FileType("r"),
                         help="""Tab-delimited file containing rows with the following format:
-    <file>  <label> <strandedness(def. False)> <score(optional, def. 0)> <is_reference(optional, def. False)> <exclude_redundant(optional, def. True)>
-    strandedness, is_reference and exclude_redundant must be boolean values (True, False)
+    <file>  <label> <strandedness(def. False)> <score(optional, def. 0)> <is_reference(optional, def. False)> <exclude_redundant(optional, def. True)> <skip_split(optional, def. False)>
+    strandedness, is_reference, exclude_redundant and skip_split must be boolean values (True, False)
     score must be a valid floating number.
     """)
     parser.add_argument("--reference", "--genome", help="Fasta genomic reference.", default=None, dest="reference")

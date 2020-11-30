@@ -275,6 +275,7 @@ def parse_list_file(json_conf: dict, list_file):
     json_conf["prepare"]["files"]["source_score"] = dict()
     json_conf["prepare"]["files"]["reference"] = []
     json_conf["prepare"]["files"]["exclude_redundant"] = []
+    json_conf["pick"]["chimera_split"]["skip"] = []
     files_counter = Counter()
 
     if isinstance(list_file, str):
@@ -304,7 +305,7 @@ def parse_list_file(json_conf: dict, list_file):
                 score = 0
             json_conf["prepare"]["files"]["source_score"][label] = score
         keep = False
-        for arr, pos, default in [("reference", 4, False), ("exclude_redundant", 5, False)]:
+        for arr, pos, default in [("reference", 4, False), ("exclude_redundant", 5, False), ("skip_split", 6, False)]:
             try:
                 val = fields[pos]
                 if val.lower() in ("false", "true"):
@@ -315,7 +316,10 @@ def parse_list_file(json_conf: dict, list_file):
                 keep = val
             except IndexError:
                 val = default
-            json_conf["prepare"]["files"][arr].append(val)
+            if arr == "skip_split":
+                json_conf["pick"]["chimera_split"]["skip"].append(val)
+            else:
+                json_conf["prepare"]["files"][arr].append(val)
 
     files_counter.update(json_conf["prepare"]["files"]["gff"])
     if files_counter.most_common()[0][1] > 1:

@@ -2,10 +2,10 @@ import functools
 import multiprocessing
 import multiprocessing.queues
 import os
-import sqlalchemy as sqla
+import zlib
 import pysam
 import msgpack
-from Mikado.transcripts.transcriptchecker import TranscriptChecker
+from ..transcripts.transcriptchecker import TranscriptChecker
 from .. import exceptions
 from ..loci import Transcript
 from ..utilities.log_utils import create_null_logger, create_queue_logger
@@ -13,9 +13,10 @@ import logging
 import queue
 import time
 import sys
-import numpy
 import rapidjson as json
 import operator
+import random
+import zlib
 
 
 __author__ = 'Luca Venturini'
@@ -161,9 +162,11 @@ class CheckingProcess(multiprocessing.Process):
         self.__identifier = ""
         self.__set_identifier(identifier)
         if seed is not None:
-            numpy.random.seed(seed % (2 ** 32 - 1))
+            # numpy.random.seed(seed % (2 ** 32 - 1))
+            random.seed(seed % (2 ** 32 - 1))
         else:
-            numpy.random.seed(None)
+            # numpy.random.seed(None)
+            random.seed(None)
         # self.strand_specific = strand_specific
         self.__canonical = []
         self.__set_canonical(canonical_splices)
@@ -197,13 +200,7 @@ class CheckingProcess(multiprocessing.Process):
     def _get_stacks(self):
         shelve_stacks = dict()
         for shelf in self.shelve_stacks:
-            shelve_stacks[shelf] = dict()
-            conn_string = "file:{shelf}?mode=ro&nolock=1".format(shelf=shelf)
-            engine = sqla.engine.create_engine(
-                "sqlite:///{shelf}".format(shelf=shelf),
-                connect_args={"check_same_thread": False, "uri": True}
-            )
-            shelve_stacks[shelf] = {"conn": engine, "conn_string": conn_string}
+            shelve_stacks[shelf] = open(shelf, "rb")
 
         return shelve_stacks
 
@@ -235,15 +232,21 @@ class CheckingProcess(multiprocessing.Process):
                 counter, keys = key
                 # lines, start, end, counter = self.submission_queue.get()
                 tid, chrom, (pos) = keys
-                tid, shelf_name = tid
-                start, end = pos
-                item = shelve_stacks[shelf_name]["conn"].execute(
-                    "SELECT features FROM dump WHERE tid = ?", (tid,)).fetchone()
-
                 try:
-                    lines = json.loads(item[0])
-                except TypeError:
-                    raise TypeError(item)
+                    tid, shelf_name, write_start, write_length = tid
+                except ValueError as exc:
+                    raise ValueError(f"{exc}\t{tid}")
+                start, end = pos
+                try:
+                    shelf = shelve_stacks[shelf_name]
+                except KeyError:
+                    exception = f"{shelf_name} not found in shelves, available: {shelve_stacks.keys()}"
+                    self.logger.error(exception)
+                    raise KeyError(exception)
+
+                shelf.seek(write_start)
+                lines = msgpack.loads(zlib.decompress(shelf.read(write_length)))
+
                 self.logger.debug("Checking %s", lines["tid"])
                 if "is_reference" not in lines:
                     raise KeyError(lines)
@@ -270,7 +273,7 @@ class CheckingProcess(multiprocessing.Process):
             raise KeyboardInterrupt
         except Exception as exc:
             self.logger.error(exc)
-            self.logging_queue.close()
+            # self.logging_queue.close()
             raise
 
         time.sleep(0.1)

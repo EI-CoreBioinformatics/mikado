@@ -12,6 +12,7 @@ from ..exceptions import InvalidJson
 from ..utilities.log_utils import create_default_logger
 import sys
 import jsonref
+import pysam
 try:
     from yaml import CSafeLoader as yLoader
 except ImportError:
@@ -183,7 +184,17 @@ def create_daijin_config(args, level="ERROR", piped=False):
     if args.seed is not None and isinstance(args.seed, int) and args.seed not in (True, False):
         config["seed"] = args.seed
     assert "reference" in config, config.keys()
+    if not os.path.exists(args.genome):
+        error = "The genome FASTA file {} does not exist!".format(args.genome)
+        logger.critical(error)
+        raise ValueError(error)
+
     config["reference"]["genome"] = args.genome
+    logger.setLevel("INFO")
+    logger.info("Indexing the genome")
+    pysam.FastaFile(config["reference"]["genome"])
+    logger.info("Indexed the genome")
+    logger.setLevel(level)
     config["reference"]["transcriptome"] = args.transcriptome
 
     config["name"] = args.name

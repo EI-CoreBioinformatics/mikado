@@ -6,11 +6,9 @@
 import argparse
 import sys
 import os
-from ..picking import Picker
-from ..configuration.configurator import to_json, check_json
 from ..utilities.log_utils import create_default_logger, create_null_logger
-import numpy
-from ..utilities import to_region
+import random
+from ..utilities import to_region, percentage
 from ..utilities.intervaltree import IntervalTree, Interval
 
 
@@ -57,9 +55,11 @@ def check_run_options(args, logger=create_null_logger()):
 
     if args.seed is not None:
         args.json_conf["seed"] = args.seed
-        numpy.random.seed(args.seed % (2 ** 32 - 1))
+        # numpy.random.seed(args.seed % (2 ** 32 - 1))
+        random.seed(args.seed % (2 ** 32 - 1))
     else:
-        numpy.random.seed(None)
+        # numpy.random.seed(None)
+        random.seed(None)
 
     if args.no_cds is not False:
         args.json_conf["pick"]["run_options"]["exclude_cds"] = True
@@ -116,6 +116,14 @@ def check_run_options(args, logger=create_null_logger()):
 
     if args.pad is not None:
         args.json_conf["pick"]["alternative_splicing"]["pad"] = args.pad
+
+    if args.min_clustering_cds_overlap is not None:
+        args.json_conf["pick"]["clustering"]["min_cds_overlap"] = args.min_clustering_cds_overlap
+
+    if args.min_clustering_cdna_overlap is not None:
+        args.json_conf["pick"]["clustering"]["min_cdna_overlap"] = args.min_clustering_cdna_overlap
+        if args.min_clustering_cds_overlap is None:
+            args.json_conf["pick"]["clustering"]["min_cds_overlap"] = args.min_clustering_cdna_overlap
 
     if args.pad_max_splices is not None:
         args.json_conf["pick"]["alternative_splicing"]["ts_max_splices"] = True
@@ -177,6 +185,16 @@ def check_run_options(args, logger=create_null_logger()):
     if args.exclude_retained_introns is True:
         args.json_conf["pick"]["alternative_splicing"]["keep_retained_introns"] = False
 
+    if args.codon_table is not None:
+        try:
+            args.codon_table = int(args.codon_table)
+        except ValueError:
+            pass
+        args.json_conf["serialise"]["codon_table"] = args.codon_table
+    else:
+        assert "codon_table" in args.json_conf["serialise"]
+
+    from ..configuration.configurator import check_json
     args.json_conf = check_json(args.json_conf, logger=logger)
     return args
 
@@ -188,6 +206,8 @@ def pick(args):
     :param args: argparse Namespace with the configuration for the run.
 
     """
+
+    from ..configuration.configurator import to_json
 
     logger = create_default_logger("pick_init")
 
@@ -221,6 +241,7 @@ def pick(args):
     else:
         regions = None
 
+    from ..picking import Picker
     creator = Picker(args.json_conf, commandline=" ".join(sys.argv), regions=regions)
     creator()
     sys.exit(0)
@@ -260,6 +281,9 @@ Transcripts with intron lengths outside of this range will be penalised. Default
     padding.add_argument("--pad", default=None,
                          action="store_true",
                          help="Whether to pad transcripts in loci.")
+    padding.add_argument("--codon-table", dest="codon_table", default=None,
+                         help="""Codon table to use. Default: 0 (ie Standard, NCBI #1, but only ATG is considered \
+        a valid start codon.""")
     parser.add_argument("--pad-max-splices", default=None, dest="pad_max_splices",
                         type=int, help="Maximum splice sites that can be crossed during transcript padding.")
     parser.add_argument("--pad-max-distance", default=None, dest="pad_max_distance",
@@ -310,6 +334,16 @@ Default: False. Retained intron events that do not dirsupt the CDS are kept by M
                         help="""Keep in the final output transcripts whose CDS is most probably disrupted by a \
 retained intron event. Default: False. Mikado will try to detect these instances and exclude them from the \
 final output.""")
+    parser.add_argument("-mco", "--min-clustering-cdna-overlap", default=None, type=percentage,
+                         help="Minimum cDNA overlap between two transcripts for them to be considered part of the same \
+locus during the late picking stages. \
+NOTE: if --min-cds-overlap is not specified, it will be set to this value! \
+Default: 20%%.")
+    parser.add_argument("-mcso", "--min-clustering-cds-overlap", default=None, type=percentage,
+                         help="Minimum CDS overlap between two transcripts for them to be considered part of the same \
+locus during the late picking stages. \
+NOTE: if not specified, and --min-cdna-overlap is specified on the command line, min-cds-overlap will be set to this value! \
+Default: 20%%.")
     parser.add_argument("--check-references", dest="check_references", default=None,
                         action="store_true",
                         help="""Flag. If switched on, Mikado will also check reference models against the general

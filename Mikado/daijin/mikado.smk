@@ -6,7 +6,6 @@ from Mikado.serializers.blast_serializer.tabular_utils import blast_keys
 import functools
 import subprocess
 import re
-from fastnumbers import fast_int
 
 
 diamond_pat = re.compile("^diamond version (\S*)[$|\s]*")
@@ -27,7 +26,7 @@ def diamond_to_correct(command):
     if version is None:
         return False
     else:
-        major, minor, micro = [fast_int(_) for _ in version.split(".")]
+        major, minor, micro = [int(_) for _ in version.split(".")]
         if major > 0 or minor > 9 or micro > 100:
             return True
         else:

@@ -8,8 +8,6 @@ GTF/GFF files.
 import abc
 import copy
 from sys import intern
-import functools
-from fastnumbers import fast_float, fast_int
 import re
 
 
@@ -26,12 +24,15 @@ def last(value):
     return value
 
 
-fast_number = functools.partial(fast_float,
-                                on_fail=last)
-
-
 def _attribute_definition(val):
-    return fast_int(val.replace('"', ''), on_fail=fast_number)
+    try:
+        val = int(val)
+    except (ValueError, TypeError):
+        try:
+            val = float(val)
+        except (ValueError, TypeError):
+            val = last(val)
+    return val
 
 
 # This class has exactly how many attributes I need it to have
@@ -40,7 +41,6 @@ class GFAnnotation(metaclass=abc.ABCMeta):
 
     __negative_order = []
     __positive_order = []
-
 
     """
     This abstract class describes a generic GTF/GFF annotation line.
@@ -90,9 +90,11 @@ class GFAnnotation(metaclass=abc.ABCMeta):
 
         self.chrom, self.source = self._fields[0:2]
         try:
-            self.start, self.end = tuple(fast_int(i, default=None) for i in self._fields[3:5])
-        except SystemError:
-            raise ValueError("Invalid start and end values: {}".format(" ".join(self._fields[3:5])))
+            self.start, self.end = tuple(int(i) for i in self._fields[3:5])
+        except (ValueError, TypeError):
+            error = "Invalid start and end values: {}\n".format(" ".join(self._fields[3:5]))
+            error += "Line: {}".format(self._line)
+            raise ValueError(error)
 
         self.score = self._fields[5]
         self.strand = self._fields[6]
@@ -214,10 +216,10 @@ class GFAnnotation(metaclass=abc.ABCMeta):
         strand = self.strand
         phase = self.phase
 
-        if score is not None:
-            score = fast_int(score, default=".")
-        else:
+        if score is None:
             score = "."
+        else:
+            score = int(score)
         if strand is None:
             strand = '.'
         else:
@@ -296,7 +298,7 @@ class GFAnnotation(metaclass=abc.ABCMeta):
             score = None
         elif score is not None:
             try:
-                score = fast_float(args[0], default=None)
+                score = float(args[0])
             except ValueError:
                 score = None
             except SystemError:
@@ -330,17 +332,20 @@ class GFAnnotation(metaclass=abc.ABCMeta):
         if value is None:
             self.__phase = None
         else:
-            try:
-                phase = fast_int(value)
-            except (TypeError, ValueError, SystemError):
-                raise ValueError("Invalid phase: {0} (type: {1})".format(value, type(value)))
-            if phase in (-1, 0, 1, 2):
-                phase = max(phase, 0)
-                self.__phase = phase
-            elif phase in  (None, '.', '?'):
+            if value in (None, '.', '?'):
                 self.__phase = None
             else:
-                raise ValueError("Invalid phase: {0} (type: {1})".format(value, type(value)))
+                try:
+                    phase = int(value)
+                except (TypeError, ValueError):
+                    raise ValueError("Invalid phase {0} (type: {1})\nLine:{2}".format(value, type(value),
+                                                                                      self._line))
+                if phase in (-1, 0, 1, 2):
+                    phase = max(phase, 0)
+                    self.__phase = phase
+                else:
+                    raise ValueError("Invalid phase {0} (type: {1})\nLine:{2}".format(value, type(value),
+                                                                                      self._line))
         self._set_frame()
 
     def _set_frame(self):
@@ -367,10 +372,13 @@ class GFAnnotation(metaclass=abc.ABCMeta):
         if self.feature is not None:
             if self.feature.endswith("gene") and self.feature != "mRNA_TE_gene":
                 # Hack for EnsEMBL GFFs
-                if self.id is None or "transcript:" not in self.id:
-                    return True
-                else:
-                    return False
+                try:
+                    if self.id is None or "transcript:" not in self.id:
+                        return True
+                    else:
+                        return False
+                except TypeError:
+                    raise TypeError((self.id, type(self.id)))
             elif self.id is not None and self.id.startswith("gene:"):
                 # Hack for EnsEMBL
                 return True

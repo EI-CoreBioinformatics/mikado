@@ -10,15 +10,92 @@ import os
 import argparse
 import logging
 import logging.handlers
-from ..utilities import path_join
+from ..utilities import path_join, parse_list_file
 from ..utilities.log_utils import formatter
-from ..preparation.prepare import prepare
-from ..configuration.configurator import to_json, check_json
-from Mikado.exceptions import InvalidJson
-import numpy
+from ..exceptions import InvalidJson
+import random
+from collections import Counter
 
 
 __author__ = 'Luca Venturini'
+
+
+def parse_prepare_options(args, config):
+    
+    if getattr(args, "minimum_cdna_length", None) not in (None, False):
+        config["prepare"]["minimum_cdna_length"] = args.minimum_cdna_length
+
+    if getattr(args, "max_intron_length", None) not in (None, False):
+        config["prepare"]["max_intron_length"] = args.max_intron_length
+
+    if getattr(args, "reference", None) not in (None, False):
+        config["reference"]["genome"] = args.reference
+
+    if getattr(args, "exclude_redundant", None) is not None:
+        config["prepare"]["exclude_redundant"] = args.exclude_redundant
+
+    if getattr(args, "lenient", None) is not None:
+        config["prepare"]["lenient"] = True
+
+    if getattr(args, "strip_cds", False) is True:
+        config["prepare"]["strip_cds"] = True
+
+    if args.list:
+        config = parse_list_file(config, args.list)
+    elif args.gff and args.gff != [""] and args.gff != []:
+        config["prepare"]["files"]["gff"] = args.gff
+        __gff_counter = Counter()
+        __gff_counter.update(args.gff)
+        if __gff_counter.most_common()[0][1] > 1:
+            raise InvalidJson(
+                "Repeated elements among the input GFFs! Duplicated files: {}".format(
+                    ", ".join(_[0] for _ in __gff_counter.most_common() if _[1] > 1)
+                ))
+        if args.strand_specific is True:
+            config["prepare"]["strand_specific"] = True
+        elif args.strand_specific_assemblies is not None:
+            args.strand_specific_assemblies = args.strand_specific_assemblies.split(",")
+            if len(args.strand_specific_assemblies) > len(config["prepare"]["files"]["gff"]):
+                raise ValueError("Incorrect number of strand-specific assemblies specified!")
+            for member in args.strand_specific_assemblies:
+                if member not in config["prepare"]["files"]["gff"]:
+                    raise ValueError("Incorrect assembly file specified as strand-specific")
+            config["prepare"]["strand_specific_assemblies"] = args.strand_specific_assemblies
+        if args.labels:
+            args.labels = args.labels.split(",")
+            # Checks labels are unique
+            assert len(set(args.labels)) == len(args.labels)
+            assert not any([True for _ in args.labels if _.strip() == ''])
+            if len(args.labels) != len(config["prepare"]["files"]["gff"]):
+                raise ValueError("Incorrect number of labels specified")
+            config["prepare"]["files"]["labels"] = args.labels
+        else:
+            if not config["prepare"]["files"]["labels"]:
+                args.labels = [""] * len(config["prepare"]["files"]["gff"])
+                config["prepare"]["files"]["labels"] = args.labels
+        if config["prepare"]["files"]["exclude_redundant"]:
+            assert len(config["prepare"]["files"]["exclude_redundant"]) == len(
+                config["prepare"]["files"]["gff"])
+        else:
+            config["prepare"]["files"]["exclude_redundant"] = [True] * len(
+                config["prepare"]["files"]["gff"])
+
+    if not config["prepare"]["files"]["exclude_redundant"]:
+        config["prepare"]["files"]["exclude_redundant"] = [False] * len(config["prepare"]["files"]["gff"])
+    elif len(config["prepare"]["files"]["exclude_redundant"]) != len(config["prepare"]["files"]["gff"]):
+        raise ValueError("Mismatch between exclude_redundant and gff files")
+    if not config["prepare"]["files"]["reference"]:
+        config["prepare"]["files"]["reference"] = [False] * len(config["prepare"]["files"]["gff"])
+    elif len(config["prepare"]["files"]["reference"]) != len(config["prepare"]["files"]["gff"]):
+        raise ValueError("Mismatch between is_reference and gff files")
+
+    for option in ["minimum_cdna_length", "procs", "single", "max_intron_length"]:
+        if getattr(args, option, None) in (None, False):
+            continue
+        else:
+            config["prepare"][option] = getattr(args, option)
+    
+    return config
 
 
 def setup(args):
@@ -30,6 +107,9 @@ def setup(args):
 
     logger = logging.getLogger("prepare")
     logger.setLevel(logging.INFO)
+
+    from ..configuration.configurator import to_json
+    args.json_conf = to_json(args.json_conf)
 
     if args.start_method:
         args.json_conf["multiprocessing_method"] = args.start_method
@@ -51,15 +131,33 @@ def setup(args):
         raise OSError("The specified output directory %s exists and is not a folder; aborting" %
                       args.json_conf["prepare"]["output_dir"])
 
+    if args.codon_table is not None:
+        try:
+            args.codon_table = int(args.codon_table)
+        except ValueError:
+            pass
+        args.json_conf["serialise"]["codon_table"] = args.codon_table
+    else:
+        assert "codon_table" in args.json_conf["serialise"]
+
     if args.log is not None:
         args.log.close()
         args.json_conf["prepare"]["files"]["log"] = args.log.name
 
     if args.seed is not None:
         args.json_conf["seed"] = args.seed
-        numpy.random.seed(args.seed % (2 ** 32 - 1))
+        # numpy.random.seed(args.seed % (2 ** 32 - 1))
+        random.seed(args.seed % (2 ** 32 - 1))
     else:
-        numpy.random.seed(None)
+        # numpy.random.seed(None)
+        random.seed(None)
+
+    args.json_conf = parse_prepare_options(args, args.json_conf)
+
+    if not args.json_conf["prepare"]["files"]["gff"]:
+        parser = prepare_parser()
+        print(parser.format_help())
+        sys.exit(0)
 
     if args.procs is not None and args.procs > 0:
         args.json_conf["threads"] = args.procs
@@ -99,91 +197,6 @@ def setup(args):
     args.level = args.json_conf["log_settings"]["log_level"]
     logger.setLevel(args.level)
 
-    if args.list:
-
-        args.json_conf["prepare"]["files"]["gff"] = []
-        args.json_conf["prepare"]["files"]["labels"] = []
-        args.json_conf["prepare"]["files"]["strand_specific_assemblies"] = []
-        args.json_conf["prepare"]["files"]["source_score"] = dict()
-        args.json_conf["prepare"]["files"]["keep_redundant"] = []
-
-        for line in args.list:
-            fields = line.rstrip().split("\t")
-            gff_name, label, stranded = fields[:3]
-            if stranded.lower() not in ("true", "false"):
-                raise ValueError("Malformed line for the list: {}".format(line))
-            if gff_name in args.json_conf["prepare"]["files"]["gff"]:
-                raise ValueError("Repeated prediction file: {}".format(line))
-            elif label != '' and label in args.json_conf["prepare"]["files"]["labels"]:
-                raise ValueError("Repeated label: {}".format(line))
-            args.json_conf["prepare"]["files"]["gff"].append(gff_name)
-            args.json_conf["prepare"]["files"]["labels"].append(label)
-            if stranded.capitalize() == "True":
-                args.json_conf["prepare"]["strand_specific_assemblies"].append(gff_name)
-            if len(fields) > 3:
-                try:
-                    score = float(fields[3])
-                except ValueError:
-                    score = 0
-                args.json_conf["prepare"]["files"]["source_score"][label] = score
-                try:
-                    keep_redundant = fields[4]
-                    if keep_redundant.lower() in ("false", "true"):
-                        keep_redundant = eval(keep_redundant.capitalize())
-                    else:
-                        raise ValueError("Malformed line. The last field should be either True or False.")
-                except IndexError:
-                    keep_redundant = False
-                args.json_conf["prepare"]["files"]["keep_redundant"].append(keep_redundant)
-
-    else:
-        if args.gff:
-            args.json_conf["prepare"]["files"]["gff"] = args.gff
-        else:
-            if not args.json_conf["prepare"]["files"]["gff"]:
-                parser = prepare_parser()
-                print(parser.format_help())
-                sys.exit(0)
-        if args.strand_specific is True:
-            args.json_conf["prepare"]["strand_specific"] = True
-        elif args.strand_specific_assemblies is not None:
-            args.strand_specific_assemblies = args.strand_specific_assemblies.split(",")
-            if len(args.strand_specific_assemblies) > len(args.json_conf["prepare"]["files"]["gff"]):
-                raise ValueError("Incorrect number of strand-specific assemblies specified!")
-            for member in args.strand_specific_assemblies:
-                if member not in args.json_conf["prepare"]["files"]["gff"]:
-                    raise ValueError("Incorrect assembly file specified as strand-specific")
-            args.json_conf["prepare"]["strand_specific_assemblies"] = args.strand_specific_assemblies
-        if args.labels:
-            args.labels = args.labels.split(",")
-            # Checks labels are unique
-            assert len(set(args.labels)) == len(args.labels)
-            assert not any([True for _ in args.labels if _.strip() == ''])
-            if len(args.labels) != len(args.json_conf["prepare"]["files"]["gff"]):
-                raise ValueError("Incorrect number of labels specified")
-            args.json_conf["prepare"]["files"]["labels"] = args.labels
-        else:
-            if not args.json_conf["prepare"]["files"]["labels"]:
-                args.labels = [""] * len(args.json_conf["prepare"]["files"]["gff"])
-                args.json_conf["prepare"]["files"]["labels"] = args.labels
-        if args.json_conf["prepare"]["files"]["keep_redundant"]:
-            assert len(args.json_conf["prepare"]["files"]["keep_redundant"]) == len(
-                args.json_conf["prepare"]["files"]["gff"])
-        else:
-            args.json_conf["prepare"]["files"]["keep_redundant"] = [False] * len(
-                args.json_conf["prepare"]["files"]["gff"])
-
-    if args.json_conf["prepare"]["files"]["keep_redundant"] == []:
-        args.json_conf["prepare"]["files"]["keep_redundant"] = [False] * len(args.json_conf["prepare"]["files"]["gff"])
-    elif len(args.json_conf["prepare"]["files"]["keep_redundant"]) != len(args.json_conf["prepare"]["files"]["gff"]):
-        raise ValueError("Mismatch between keep_redundant and gff files")
-
-    for option in ["minimum_cdna_length", "procs", "single", "max_intron_length"]:
-        if getattr(args, option) in (None, False):
-            continue
-        else:
-            args.json_conf["prepare"][option] = getattr(args, option)
-
     for option in ["out", "out_fasta"]:
         if getattr(args, option) in (None, False):
             args.json_conf["prepare"]["files"][option] = os.path.basename(
@@ -202,17 +215,9 @@ def setup(args):
     if isinstance(args.json_conf["reference"]["genome"], bytes):
         args.json_conf["reference"]["genome"] = args.json_conf["reference"]["genome"].decode()
 
-    if args.keep_redundant is not None:
-        args.json_conf["prepare"]["keep_redundant"] = args.keep_redundant
-
-    if args.lenient is not None:
-        args.json_conf["prepare"]["lenient"] = True
-
-    if args.strip_cds is True:
-        args.json_conf["prepare"]["strip_cds"] = True
-
+    from ..configuration.configurator import to_json, check_json
     try:
-        args.json_conf = check_json(args.json_conf)
+        args.json_conf = check_json(to_json(args.json_conf))
     except InvalidJson as exc:
         logger.exception(exc)
         raise exc
@@ -222,6 +227,7 @@ def setup(args):
 
 def prepare_launcher(args):
 
+    from ..preparation.prepare import prepare
     args, logger = setup(args)
     try:
         prepare(args, logger)
@@ -284,8 +290,8 @@ def prepare_parser():
                         help="Comma-delimited list of strand specific assemblies.")
     parser.add_argument("--list", type=argparse.FileType("r"),
                         help="""Tab-delimited file containing rows with the following format:
-<file>  <label> <strandedness> <score(optional)> <is_reference(optional)> <always_keep(optional)
-strandedness, is_reference and always_keep must be boolean values (True, False)
+<file>  <label> <strandedness, def. False> <score(optional, def. 0)> <is_reference(optional, def. False)> <exclude_redundant(optional, def. False)>
+strandedness, is_reference and exclude_redundant must be boolean values (True, False)
 score must be a valid floating number.
 """)
     parser.add_argument("-l", "--log", type=argparse.FileType("w"), default=None,
@@ -305,6 +311,9 @@ score must be a valid floating number.
     parser.add_argument("--labels", type=str, default="",
                         help="""Labels to attach to the IDs of the transcripts of the input files,
                         separated by comma.""")
+    parser.add_argument("--codon-table", dest="codon_table", default=None,
+                        help="""Codon table to use. Default: 0 (ie Standard, NCBI #1, but only ATG is considered \
+    a valid start codon.""")
     parser.add_argument("--single", "--single-thread", action="store_true", default=False,
                         help="Disable multi-threading. Useful for debugging.")
     parser.add_argument("-od", "--output-dir", dest="output_dir",
@@ -315,11 +324,12 @@ score must be a valid floating number.
     parser.add_argument("-of", "--out_fasta", default=None,
                         help="Output file. Default: mikado_prepared.fasta.")
     parser.add_argument("--json-conf", dest="json_conf",
-                        type=to_json, default="",
+                        type=str, default="",
                         help="Configuration file.")
-    parser.add_argument("-k", "--keep-redundant", default=None,
-                        dest="keep_redundant", action="store_true",
-                        help="Boolean flag. If invoked, Mikado prepare will retain redundant models.")
+    parser.add_argument("-er", "--exclude-redundant", default=None,
+                        dest="exclude_redundant", action="store_true",
+                        help="Boolean flag. If invoked, Mikado prepare will exclude redundant models,\
+ignoring the per-sample instructions.")
     parser.add_argument("--seed", type=int, default=None,
                         help="Random seed number.")
     parser.add_argument("gff", help="Input GFF/GTF file(s).", nargs="*")

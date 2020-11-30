@@ -5,14 +5,12 @@ from itertools import product
 import logging.handlers as logging_handlers
 import functools
 from ..utilities import dbutils
-from ..scales.assigner import Assigner
+from ..scales.assignment.assigner import Assigner
 from ..loci.superlocus import Superlocus
 from ._merge_loci_utils import __create_gene_counters, manage_index
-import os
 import collections
 import sys
 import pickle
-import sqlite3
 from ..transcripts import Transcript
 from ..exceptions import InvalidTranscript
 from ..parsers.GTF import GtfLine
@@ -22,8 +20,6 @@ try:
     import rapidjson as json
 except ImportError:
     import json
-import multiprocessing as mp
-
 
 __author__ = 'Luca Venturini'
 
@@ -133,7 +129,7 @@ def remove_fragments(stranded_loci, json_conf, logger):
 
     """
 
-    loci_to_check = {True: set(), False: set()}
+    loci_to_check = {True: list(), False: list()}
     # mcdl = json_conf["pick"]["run_options"]["fragments_maximal_cds"]
     # mexons = json_conf["pick"]["run_options"]["fragments_maximal_exons"]
     # mcdna = json_conf["pick"]["run_options"]["fragments_maximal_cdna"]
@@ -156,11 +152,11 @@ def remove_fragments(stranded_loci, json_conf, logger):
             total += 1
             is_fragment = locus_instance.is_putative_fragment()
             logger.debug("%s is a putative fragment: %s", _, is_fragment)
-            loci_to_check[is_fragment].add(locus_instance)
+            loci_to_check[is_fragment].append(locus_instance)
 
     if len(loci_to_check[True]) == total:
         loci_to_check[False] = loci_to_check.pop(True)
-        loci_to_check[True] = set()
+        loci_to_check[True] = list()
 
     comparisons = collections.defaultdict(list)
     # Produce a list of duples
@@ -376,28 +372,6 @@ class LociProcesser(Process):
     def identifier(self):
         return self.__identifier
 
-    # @staticmethod
-    # def _create_temporary_store(tempdirectory, identifier):
-    #
-    #     db = os.path.join(tempdirectory, "output-{}.db".format(identifier))
-    #     conn = sqlite3.connect(db, isolation_level=None,
-    #                            check_same_thread=False)
-    #     cursor = conn.cursor()
-    #
-    #     cursor.execute(
-    #         "CREATE TABLE IF NOT EXISTS loci (counter INTEGER UNIQUE PRIMARY KEY, chrom CHR, genes INT, json BLOB)")
-    #     cursor.execute("CREATE INDEX IF NOT EXISTS loci_idx ON loci(counter)")
-    #
-    #     cursor.execute(
-    #         "CREATE TABLE IF NOT EXISTS subloci (counter INTEGER UNIQUE PRIMARY KEY, chrom CHR, json BLOB)")
-    #     cursor.execute("CREATE INDEX IF NOT EXISTS subloci_idx ON subloci(counter)")
-    #
-    #     cursor.execute(
-    #         "CREATE TABLE IF NOT EXISTS monoloci (counter INTEGER UNIQUE PRIMARY KEY, chrom CHR, json BLOB)")
-    #     cursor.execute("CREATE INDEX IF NOT EXISTS monoloci_idx ON monoloci(counter)")
-    #
-    #     return db, conn, cursor
-
     def __getstate__(self):
 
         state = self.__dict__.copy()
@@ -454,15 +428,6 @@ class LociProcesser(Process):
     def run(self):
         """Start polling the queue, analyse the loci, and send them to the printer process."""
         self.logger.debug("Starting to parse data for {0}".format(self.name))
-        # Read-only connection
-
-        # conn = sqlite3.connect("file:{}?mode=ro".format(os.path.join(self._tempdir, "temp_store.db")),
-        #                        uri=True,  # Necessary to use the Read-only mode from file string
-        #                        isolation_level="DEFERRED",
-        #                        timeout=60,
-        #                        check_same_thread=False  # Necessary for SQLite3 to function in multiprocessing
-        #                        )
-        # cursor = conn.cursor()
 
         print_cds = (not self.json_conf["pick"]["run_options"]["exclude_cds"])
         print_monoloci = (self.json_conf["pick"]["files"]["monoloci_out"] != "")
@@ -481,17 +446,6 @@ class LociProcesser(Process):
                 self.locus_queue.put((counter, None))
                 break
             else:
-                # try:
-                #     transcripts = cursor.execute(
-                #         "SELECT json FROM transcripts WHERE counter=?", (str(counter),)).fetchone()
-                # except sqlite3.ProgrammingError as exc:
-                #     self.logger.exception(sqlite3.ProgrammingError((exc, counter, str(counter), (str(counter),))))
-                #     # self.__close_handles()
-                #     break
-                #
-                # if transcripts is None:
-                #     raise KeyError("Nothing found in the database for %s", counter)
-
                 try:
                     transcripts = msgpack.loads(transcripts, raw=False)
                 except TypeError as err:
@@ -543,14 +497,12 @@ class LociProcesser(Process):
 
                 serialise_locus(stranded_loci,
                                 self.status_queue,
-                                # self.dump_conn,
                                 counter,
                                 print_cds=print_cds,
                                 print_monosubloci=print_monoloci,
                                 print_subloci=print_subloci)
                 if len(stranded_loci) == 0:
                     self.logger.warning("No loci left for index %d", counter)
-                # self.status_queue.put(counter)
                 self.locus_queue.task_done()
 
         return

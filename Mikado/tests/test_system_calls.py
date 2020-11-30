@@ -12,6 +12,7 @@ import unittest
 import pkg_resources
 import pyfaidx
 import yaml
+from ..configuration import print_config
 try:
     from yaml import CSafeLoader as yLoader
 except ImportError:
@@ -22,8 +23,9 @@ from ..subprograms import configure as sub_configure
 from ..configuration import configurator, daijin_configurator
 from ..picking import picker
 from ..preparation import prepare
-from ..scales.compare import compare, load_index
-from ..subprograms.util.stats import Calculator
+from ..scales.compare import compare
+from ..scales.reference_preparation.indexing import load_index
+from ..scales.calculator import Calculator
 from ..subprograms.prepare import prepare_launcher
 from ..subprograms.prepare import setup as prepare_setup
 from ..transcripts.transcript import Namespace
@@ -147,6 +149,8 @@ class PrepareCheck(unittest.TestCase):
                             "cl_cufflinks_star_at.23562.1": 1302,
                             "cl_cufflinks_star_at.23562.2": 1045}
 
+        cls._trinity_redundant = ["c58_g1_i10.mrna2", "c58_g1_i8.mrna2"]
+
         cls.maxDiff = None
 
     def setUp(self):
@@ -156,7 +160,7 @@ class PrepareCheck(unittest.TestCase):
         self.conf["reference"]["genome"] = self.fai.filename.decode()
         assert isinstance(self.conf["reference"]["genome"], str)
         self.logger = create_null_logger("prepare")
-        self.conf["prepare"]["keep_redundant"] = True
+        self.conf["prepare"]["exclude_redundant"] = False
 
     def tearDown(self):
         logging.shutdown()
@@ -201,6 +205,7 @@ class PrepareCheck(unittest.TestCase):
         args.json_conf = self.conf
         args.procs = 1
         args.single_thread = True
+        args.seed = 10
 
         for test_file in ("trinity.gff3",
                           "trinity.match_matchpart.gff3",
@@ -224,7 +229,9 @@ class PrepareCheck(unittest.TestCase):
                 fa = pyfaidx.Fasta(fasta)
                 res = dict((_, len(fa[_])) for _ in fa.keys())
                 fa.close()
-                self.assertEqual(res, self.trinity_res)
+                check = dict(_ for _ in self.trinity_res.items())
+                check.pop(self.conf["prepare"]["files"]["labels"][0] + "_" + self._trinity_redundant[0])
+                self.assertEqual(res, check)
                 os.remove(os.path.join(self.conf["prepare"]["files"]["output_dir"],
                                        "mikado_prepared.fasta.fai"))
         dir.cleanup()
@@ -255,7 +262,9 @@ class PrepareCheck(unittest.TestCase):
                     self.conf["prepare"]["files"]["out"] = "mikado_prepared.gtf"
                     args.strip_cds = True
                     args.json_conf = self.conf
+                    args.seed = 10
                     args.json_conf["threads"] = proc
+                    args.exclude_redundant = False
                     prepare.prepare(args, self.logger)
 
                     # Now that the program has run, let's check the output
@@ -270,6 +279,7 @@ class PrepareCheck(unittest.TestCase):
                     fa.close()
                     precal = self.trinity_res.copy()
                     precal.update(self.cuff_results)
+                    precal.pop("tr_" + self._trinity_redundant[0])
                     self.assertEqual(res, precal)
                     os.remove(os.path.join(self.conf["prepare"]["files"]["output_dir"],
                                            "mikado_prepared.fasta.fai"))
@@ -309,7 +319,10 @@ class PrepareCheck(unittest.TestCase):
                         args.json_conf["prepare"]["strip_cds"] = strip
                         args.json_conf["threads"] = proc
                         with self.assertLogs(self.logger, "INFO") as cm:
-                            prepare.prepare(args, logger=self.logger)
+                            try:
+                                prepare.prepare(args, logger=self.logger)
+                            except SystemExit:
+                                raise SystemExit("\n".join(cm.output))
                         fasta = os.path.join(self.conf["prepare"]["files"]["output_dir"], "mikado_prepared.fasta")
                         self.assertTrue(os.path.exists(fasta), "\n".join(cm.output))
                         if strip is True or (strip is False and fname == ann_gff3):
@@ -359,16 +372,20 @@ class PrepareCheck(unittest.TestCase):
         args.log = None
         for b in (False, True):
             with self.subTest(b=b):
+                self.conf["prepare"]["files"]["exclude_redundant"] = [b]
                 folder = tempfile.TemporaryDirectory()
                 args.output_dir = folder.name
+                args.seed = 10
                 args.list = None
                 args.gffs = None
                 args.strand_specific_assemblies = None
                 args.labels = None
                 args.json_conf = self.conf
-                args.keep_redundant = b
+                args.exclude_redundant = b
                 args.out, args.out_fasta = None, None
                 args.json_conf["prepare"]["files"]["log"] = "prepare.log"
+                if isinstance(args.json_conf["reference"]["genome"], bytes):
+                    args.json_conf["reference"]["genome"] = args.json_conf["reference"]["genome"].decode()
                 args.log = open(os.path.join(args.output_dir, "prepare.log"), "wt")
                 self.logger.setLevel("DEBUG")
                 args, _ = prepare_setup(args)
@@ -381,8 +398,8 @@ class PrepareCheck(unittest.TestCase):
 
                 with self.assertRaises(SystemExit) as exi:
                     prepare_launcher(args)
-                # self.assertTrue(os.path.exists(folder.name))
-                # self.assertTrue(os.path.isdir(folder.name))
+                self.assertTrue(os.path.exists(folder.name))
+                self.assertTrue(os.path.isdir(folder.name))
                 self.assertEqual(exi.exception.code, 0)
                 self.assertTrue(os.path.exists(os.path.join(folder.name,
                                                             "mikado_prepared.fasta")),
@@ -391,13 +408,15 @@ class PrepareCheck(unittest.TestCase):
                 fa = pyfaidx.Fasta(os.path.join(folder.name,
                                                 "mikado_prepared.fasta"))
                 logged = [_ for _ in open(args.json_conf["prepare"]["files"]["log"])]
-                if b is True:
-                    self.assertEqual(len(fa.keys()), 5)
-                    self.assertEqual(sorted(fa.keys()), sorted(["AT5G01530."+str(_) for _ in range(5)]))
+                self.assertFalse("AT5G01530.1" in fa.keys(), (b, sorted(list(fa.keys()))))
+                self.assertTrue("AT5G01530.2" in fa.keys())
+                if b is False:
+                    self.assertEqual(len(fa.keys()), 4)
+                    self.assertEqual(sorted(fa.keys()), sorted(["AT5G01530."+str(_) for _ in [0, 2, 3, 4]]))
                 else:
                     self.assertEqual(len(fa.keys()), 3, (fa.keys(), logged))
                     self.assertIn("AT5G01530.0", fa.keys())
-                    self.assertTrue("AT5G01530.1" in fa.keys() or "AT5G01530.2" in fa.keys())
+                    self.assertIn("AT5G01530.2", fa.keys())
                     self.assertNotIn("AT5G01530.3", fa.keys())
                     self.assertIn("AT5G01530.4", fa.keys())
                 gtf_file = os.path.join(folder.name, "mikado_prepared.gtf")
@@ -430,10 +449,7 @@ class PrepareCheck(unittest.TestCase):
                             self.assertEqual(transcript.is_complete,
                                              transcript.has_start_codon and transcript.has_stop_codon)
                     # self.assertIn("AT5G01530.3", transcripts)
-                    if "AT5G01530.1" in transcripts:
-                        a5 = transcripts["AT5G01530.1"]
-                    else:
-                        a5 = transcripts["AT5G01530.2"]
+                    a5 = transcripts["AT5G01530.2"]
                     self.assertTrue(a5.is_coding)
                     self.assertIn("has_start_codon", a5.attributes)
                     self.assertIn("has_stop_codon", a5.attributes)
@@ -464,24 +480,28 @@ class PrepareCheck(unittest.TestCase):
         args.json_conf = self.conf
         for b in (False, True):
             with self.subTest(b=b):
+                self.conf["prepare"]["files"]["exclude_redundant"] = [b]
                 folder = tempfile.TemporaryDirectory()
                 args.json_conf = self.conf
                 args.json_conf["seed"] = 10
-                args.keep_redundant = b
+                args.exclude_redundant = b
                 args.output_dir = folder.name
                 args.log = None
                 args.gff = None
                 args.list = None
                 args.strand_specific_assemblies = None
+                if isinstance(args.json_conf["reference"]["genome"], bytes):
+                    args.json_conf["reference"]["genome"] = args.json_conf["reference"]["genome"].decode()
                 args, _ = prepare_setup(args)
                 prepare.prepare(args, self.logger)
                 self.assertTrue(os.path.exists(os.path.join(self.conf["prepare"]["files"]["output_dir"],
                                                             "mikado_prepared.fasta")))
                 fa = pyfaidx.Fasta(os.path.join(self.conf["prepare"]["files"]["output_dir"],
                                                 "mikado_prepared.fasta"))
-                if b is True:
-                    self.assertEqual(len(fa.keys()), 6)
-                    self.assertEqual(sorted(fa.keys()), sorted(["AT5G01015." + str(_) for _ in range(6)]))
+                if b is False:
+                    self.assertEqual(len(fa.keys()), 5)
+                    self.assertEqual(sorted(fa.keys()), sorted(["AT5G01015." + str(_) for _ in
+                                                                [0, 1, 3, 4, 5]]))
                 else:
                     self.assertEqual(len(fa.keys()), 4, "\n".join(list(fa.keys())))
                     self.assertIn("AT5G01015.0", fa.keys())
@@ -596,7 +616,7 @@ class PrepareCheck(unittest.TestCase):
         self.conf["prepare"]["files"]["out_fasta"] = "mikado_prepared.fasta"
         self.conf["prepare"]["files"]["out"] = "mikado_prepared.gtf"
         self.conf["prepare"]["strip_cds"] = False
-        self.conf["prepare"]["keep_redundant"] = False
+        self.conf["prepare"]["exclude_redundant"] = True
         self.conf["threads"] = 1
 
         self.conf["reference"]["genome"] = self.fai.filename.decode()
@@ -659,7 +679,7 @@ class PrepareCheck(unittest.TestCase):
         self.conf["prepare"]["files"]["out_fasta"] = "mikado_prepared.fasta"
         self.conf["prepare"]["files"]["out"] = "mikado_prepared.gtf"
         self.conf["prepare"]["strip_cds"] = False
-        self.conf["prepare"]["keep_redundant"] = False
+        self.conf["prepare"]["exclude_redundant"] = True
 
         self.conf["reference"]["genome"] = self.fai.filename.decode()
 
@@ -767,7 +787,7 @@ class PrepareCheck(unittest.TestCase):
         self.conf["prepare"]["files"]["out_fasta"] = "mikado_prepared.fasta"
         self.conf["prepare"]["files"]["out"] = "mikado_prepared.gtf"
         self.conf["prepare"]["strip_cds"] = True
-        self.conf["prepare"]["keep_redundant"] = False
+        self.conf["prepare"]["exclude_redundant"] = True
         self.conf["reference"]["genome"] = self.fai.filename.decode()
 
         rounds = {
@@ -858,13 +878,13 @@ class CompareCheck(unittest.TestCase):
         namespace.distance = 2000
         namespace.index = True
         namespace.prediction = None
-        dir = tempfile.TemporaryDirectory(prefix="test_index")
-        namespace.log = os.path.join(dir.name, "index.log")
+        dir = tempfile.mkdtemp(prefix="test_index")
+        namespace.log = os.path.join(dir, "index.log")
         logger = create_null_logger("null")
 
         for ref in files:
             with self.subTest(ref=ref):
-                temp_ref = os.path.join(dir.name, ref)
+                temp_ref = os.path.join(dir, ref)
                 with pkg_resources.resource_stream("Mikado.tests", ref) as ref_handle,\
                         open(temp_ref, "wb") as out_handle:
                     out_handle.write(ref_handle.read())
@@ -882,6 +902,7 @@ class CompareCheck(unittest.TestCase):
                 os.remove(namespace.log)
                 os.remove("{}.midx".format(namespace.reference.name))
                 namespace.reference.close()
+        shutil.rmtree(dir)
 
     @mark.slow
     def test_compare_trinity(self):
@@ -973,9 +994,9 @@ class CompareCheck(unittest.TestCase):
             namespace.reference = to_gff(problematic)
             namespace.prediction = to_gff(problematic)
             namespace.processes = proc
-            dir = tempfile.TemporaryDirectory(prefix="test_compare_problematic_{}".format(proc))
-            namespace.log = os.path.join(dir.name, "compare_problematic_{proc}.log".format(proc=proc))
-            namespace.out = os.path.join(dir.name, "compare_problematic_{proc}".format(proc=proc))
+            dir = tempfile.mkdtemp(prefix="test_compare_problematic_{}".format(proc))
+            namespace.log = os.path.join(dir, "compare_problematic_{proc}.log".format(proc=proc))
+            namespace.out = os.path.join(dir, "compare_problematic_{proc}".format(proc=proc))
             compare(namespace)
             sleep(1)
             refmap = "{}.refmap".format(namespace.out)
@@ -1000,6 +1021,7 @@ class CompareCheck(unittest.TestCase):
                 for counter, line in enumerate(reader, start=1):
                     pass
             self.assertEqual(counter, 4)
+            shutil.rmtree(dir)
 
 
 class ConfigureCheck(unittest.TestCase):
@@ -1024,6 +1046,8 @@ class ConfigureCheck(unittest.TestCase):
         namespace.junctions = []
         namespace.new_scoring = None
         namespace.seed = None
+        namespace.min_clustering_cds_overlap = 0.2
+        namespace.min_clustering_cdna_overlap = 0.2
         dir = tempfile.TemporaryDirectory()
         out = os.path.join(dir.name, "configuration.yaml")
         with open(out, "w") as out_handle:
@@ -1046,6 +1070,8 @@ class ConfigureCheck(unittest.TestCase):
         namespace.blast_targets = []
         namespace.junctions = []
         namespace.new_scoring = None
+        namespace.min_clustering_cds_overlap = 0.2
+        namespace.min_clustering_cdna_overlap = 0.2
         dir = tempfile.TemporaryDirectory()
         out = os.path.join(dir.name, "configuration.yaml")
         for trial in (None, 1066, 175108):
@@ -1091,6 +1117,8 @@ class ConfigureCheck(unittest.TestCase):
         namespace.full = True
         namespace.daijin = False
         namespace.seed = None
+        namespace.min_clustering_cds_overlap = 0.2
+        namespace.min_clustering_cdna_overlap = 0.2
         dir = tempfile.TemporaryDirectory()
         out = os.path.join(dir.name, "configuration.yaml")
         with open(out, "w") as out_handle:
@@ -1107,7 +1135,7 @@ class ConfigureCheck(unittest.TestCase):
         namespace = Namespace(default=False)
         namespace.scoring = None
         namespace.intron_range = None
-        namespace.reference = ""
+        namespace.reference = pkg_resources.resource_filename("Mikado.tests", "chr5.fas.gz")
         namespace.external = None
         namespace.mode = ["permissive"]
         namespace.threads = 1
@@ -1117,6 +1145,8 @@ class ConfigureCheck(unittest.TestCase):
         namespace.full = True
         namespace.daijin = True
         namespace.seed = None
+        namespace.min_clustering_cds_overlap = 0.2
+        namespace.min_clustering_cdna_overlap = 0.2
         dir = tempfile.TemporaryDirectory()
         out = os.path.join(dir.name, "configuration.yaml")
         with open(out, "w") as out_handle:
@@ -1132,7 +1162,7 @@ class ConfigureCheck(unittest.TestCase):
         namespace = Namespace(default=False)
         namespace.scoring = None
         namespace.intron_range = None
-        namespace.reference = ""
+        namespace.reference = pkg_resources.resource_filename("Mikado.tests", "chr5.fas.gz")
         namespace.external = None
         namespace.mode = ["permissive", "split"]
         # namespace.mode = ["permissive"]
@@ -1143,6 +1173,8 @@ class ConfigureCheck(unittest.TestCase):
         namespace.full = True
         namespace.daijin = False
         namespace.seed = None
+        namespace.min_clustering_cds_overlap = 0.2
+        namespace.min_clustering_cdna_overlap = 0.2
         dir = tempfile.TemporaryDirectory()
         out = os.path.join(dir.name, "configuration.yaml")
         with open(out, "w") as out_handle:
@@ -1314,7 +1346,7 @@ class PickTest(unittest.TestCase):
                 self.json_conf["not_fragmentary"].pop("compiled", None)
 
                 with open(json_file, "wt") as json_handle:
-                    sub_configure.print_config(yaml.dump(self.json_conf, default_flow_style=False), json_handle)
+                    print_config(yaml.dump(self.json_conf, default_flow_style=False), json_handle)
 
                 sys.argv = ["mikado", "pick", "--json-conf", json_file, "--seed", "1078"]
                 with self.assertRaises(SystemExit):
@@ -1360,7 +1392,7 @@ class PickTest(unittest.TestCase):
                 self.json_conf["not_fragmentary"].pop("compiled", None)
 
                 with open(json_file, "wt") as json_handle:
-                    sub_configure.print_config(yaml.dump(self.json_conf, default_flow_style=False), json_handle)
+                    print_config(yaml.dump(self.json_conf, default_flow_style=False), json_handle)
 
                 log = "pick.log"
                 if os.path.exists(os.path.join(dir.name, log)):
@@ -1411,7 +1443,7 @@ class PickTest(unittest.TestCase):
                                                            "mikado.db")
         json_file = os.path.join(self.json_conf["pick"]["files"]["output_dir"], "mikado.yaml")
         with open(json_file, "wt") as json_handle:
-            sub_configure.print_config(yaml.dump(self.json_conf, default_flow_style=False), json_handle)
+            print_config(yaml.dump(self.json_conf, default_flow_style=False), json_handle)
         sys.argv = ["mikado", "pick", "--json-conf", json_file, "--single", "--seed", "1078"]
         with self.assertRaises(SystemExit):
             pkg_resources.load_entry_point("Mikado", "console_scripts", "mikado")()
@@ -1448,7 +1480,7 @@ class PickTest(unittest.TestCase):
         self.json_conf["pick"]["files"]["output_dir"] = os.path.join(outdir.name)
         json_file = os.path.join(outdir.name, "mikado.yaml")
         with open(json_file, "wt") as json_handle:
-            sub_configure.print_config(yaml.dump(self.json_conf, default_flow_style=False),
+            print_config(yaml.dump(self.json_conf, default_flow_style=False),
                                                       json_handle)
         self.json_conf["pick"]["files"]["output_dir"] = os.path.join(outdir.name)
         scoring_file = pkg_resources.resource_filename("Mikado.tests", "scoring_only_cds.yaml")
@@ -1717,7 +1749,7 @@ class SerialiseChecker(unittest.TestCase):
             uni_out_handle.write(uni.read())
 
         with open(json_file, "wt") as json_handle:
-            sub_configure.print_config(yaml.dump(self.json_conf, default_flow_style=False),
+            print_config(yaml.dump(self.json_conf, default_flow_style=False),
                                                       json_handle)
         # Set up the command arguments
         for procs in (1,):
@@ -1741,7 +1773,7 @@ class SerialiseChecker(unittest.TestCase):
                 self.assertEqual(cursor.execute("select count(distinct(target_id)) from hit").fetchall()[0][0], 32)
                 self.assertEqual(cursor.execute("select count(*) from junctions").fetchall()[0][0], 372)
                 self.assertEqual(cursor.execute("select count(distinct(chrom_id)) from junctions").fetchall()[0][0], 2)
-                self.assertEqual(cursor.execute("select count(*) from orf").fetchall()[0][0], 169,
+                self.assertEqual(cursor.execute("select count(*) from orf").fetchall()[0][0], 168,
                                  "\n".join(logged))
                 self.assertEqual(cursor.execute("select count(distinct(query_id)) from orf").fetchall()[0][0], 81)
                 os.remove(db)
@@ -1768,7 +1800,7 @@ class SerialiseChecker(unittest.TestCase):
                     uni_out_handle.write(uni.read())
 
                 with open(json_file, "wt") as json_handle:
-                    sub_configure.print_config(yaml.dump(self.json_conf, default_flow_style=False),
+                    print_config(yaml.dump(self.json_conf, default_flow_style=False),
                                                json_handle)
                 sys.argv = [str(_) for _ in ["mikado", "serialise", "--json-conf", json_file,
                             "--transcripts", transcripts, "--blast_targets", uni_out,
@@ -1789,7 +1821,7 @@ class SerialiseChecker(unittest.TestCase):
                 self.assertEqual(cursor.execute("select count(distinct(target_id)) from hit").fetchall()[0][0], 32)
                 self.assertEqual(cursor.execute("select count(*) from junctions").fetchall()[0][0], 372)
                 self.assertEqual(cursor.execute("select count(distinct(chrom_id)) from junctions").fetchall()[0][0], 2)
-                self.assertEqual(cursor.execute("select count(*) from orf").fetchall()[0][0], 169,
+                self.assertEqual(cursor.execute("select count(*) from orf").fetchall()[0][0], 168,
                                  "\n".join(logged))
                 self.assertEqual(cursor.execute("select count(distinct(query_id)) from orf").fetchall()[0][0], 81)
                 os.remove(db)
@@ -1878,7 +1910,7 @@ class SerialiseChecker(unittest.TestCase):
                     uni_out_handle.write(uni.read())
 
                 with open(json_file, "wt") as json_handle:
-                    sub_configure.print_config(yaml.dump(self.json_conf, default_flow_style=False), json_handle)
+                    print_config(yaml.dump(self.json_conf, default_flow_style=False), json_handle)
                 with self.subTest(proc=procs):
                     sys.argv = [str(_) for _ in ["mikado", "serialise", "--json-conf", json_file,
                                                  "--transcripts", transcripts, "--blast_targets", uni_out,

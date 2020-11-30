@@ -9,7 +9,6 @@ Module to serialize GFF files.
 from . import Parser
 from .gfannotation import GFAnnotation, _attribute_definition
 from sys import intern
-from fastnumbers import fast_int
 import re
 
 
@@ -48,15 +47,18 @@ class GffLine(GFAnnotation):
         attribute_order = [key for key, val in infolist if key not in ("Parent", "parent", "id", "ID", "Id")]
         attributes = dict((key, _attribute_definition(val)) for key, val in infolist)
         if "Parent" in attributes:
-            self.parent = attributes["Parent"]
+            self.parent = str(attributes["Parent"])
         elif "parent" in attributes:
-            self.parent = attributes["parent"]
+            self.parent = str(attributes["parent"])
 
         if "ID" in attributes:
+            attributes["ID"] = str(attributes["ID"])
             self.id = attributes["ID"]
         elif "id" in attributes:
+            attributes["id"] = str(attributes["id"])
             self.id = attributes["id"]
         elif "Id" in attributes:
+            attributes["Id"] = str(attributes["Id"])
             self.id = attributes["Id"]
 
         self.attributes.update(attributes)
@@ -134,7 +136,7 @@ class GffLine(GFAnnotation):
         :rtype str
         """
         if "ID" in self.attributes:
-            return self.attributes["ID"]
+            return str(self.attributes["ID"])
         else:
             return None
 
@@ -357,16 +359,18 @@ class GFF3(Parser):
 
         if self.closed:
             raise StopIteration
-
-        line = self._handle.readline()
-        if line == '':
-            raise StopIteration
+        line = next(self._handle)
 
         if line[0] == "#":
             return GffLine(line, header=True)
 
-        line = GffLine(line)
-        return line
+        try:
+            gff_line = GffLine(line)
+        except Exception:
+            error = "Invalid line for file {}, position {}:\n{}".format(
+                self.name, self._handle.tell(), line)
+            raise ValueError(error)
+        return gff_line
 
     @property
     def file_format(self):

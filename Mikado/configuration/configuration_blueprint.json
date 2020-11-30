@@ -218,7 +218,7 @@
         "max_regression": {"type": "number",
           "minimum": 0,
           "maximum": 1,
-          "default": 0.1},
+          "default": 0.2},
         "start_adjustment": {"type":  "boolean", "default": true},
         "max_target_seqs": {"type": "integer", "default": 100000, "minimum": 1},
         "force": {"type": "boolean", "default": false},
@@ -264,7 +264,7 @@
       "required": ["files", "strand_specific", "minimum_cdna_length", "max_intron_length"],
       "properties":
       {
-        "keep_redundant": {
+        "exclude_redundant": {
           "type": "boolean", "default": false
         },
         "minimum_cdna_length": {
@@ -310,7 +310,7 @@
             "labels": {"type": "array", "default": []},
             "strand_specific_assemblies": {"type": "array", "default": []},
             "reference": {"type": "array", "default": []},
-            "keep_redundant": {"type": "array", "default": []},
+            "exclude_redundant": {"type": "array", "default": []},
             "source_score":{
               "type": "object",
               "default": {},
@@ -393,7 +393,7 @@
               "type": "number",
               "minimum": 0,
               "maximum": 1,
-              "default": 0.5
+              "default": 0.6
             },
             "keep_retained_introns": {
               "type": "boolean",
@@ -406,7 +406,7 @@
             "max_isoforms": {
               "type": "integer",
               "minimum": 1,
-              "default": 5
+              "default": 10
             },
             "valid_ccodes": {
               "type": "array",
@@ -479,7 +479,7 @@
             },
             "ts_distance": {
               "type": "integer",
-              "default": 1000,
+              "default": 2000,
               "minimum": 0
             },
             "pad": {
@@ -575,7 +575,7 @@
                 "Parameters for the BLAST check prior to splitting.",
                 "- evalue: Minimum evalue for the whole hit. Default: 1e-6",
                 "- hsp_evalue: Minimum evalue for any HSP hit (some might be discarded even if the whole hit is valid). Default: 1e-6",
-                "- leniency: One of 'STRINGENT', 'LENIENT', 'PERMISSIVE'. Default: LENIENT",
+                "- leniency: One of 'STRINGENT', 'LENIENT', 'PERMISSIVE'. Default: STRINGENT",
                 "- max_target_seqs: maximum number of hits to consider. Default: 3",
                 "- minimal_hsp_overlap: minimum overlap of the ORF with the HSP (*not* reciprocal). Default: 0.8, i.e. 80%",
                 "- min_overlap_duplication: minimum overlap (in %) for two ORFs to consider them as target duplications. This means that if two ORFs have no HSPs in common, but the coverage of their disjoint HSPs covers more than this % of the length of the *target*, they represent most probably a duplicated gene."
@@ -583,19 +583,19 @@
               "SimpleComment": [
                 "Parameters for the BLAST check prior to splitting.",
                 "- evalue: Minimum evalue for the whole hit. Default: 1e-6",
-                "- leniency: One of 'STRINGENT', 'LENIENT', 'PERMISSIVE'. Default: LENIENT",
+                "- leniency: One of 'STRINGENT', 'LENIENT', 'PERMISSIVE'. Default: STRINGENT",
                 "- max_target_seqs: maximum number of hits to consider. Default: 3"
                 ],
               "properties": {
                 "evalue": {
                   "type": "number",
                   "minimum": 0,
-                  "default": 0.000001
+                  "default": 1e-06
                 },
                 "hsp_evalue": {
                   "type": "number",
                   "minimum": 0,
-                  "default": 0.000001
+                  "default": 1e-06
                 },
                 "leniency": {
                   "type": "string",
@@ -604,7 +604,7 @@
                     "LENIENT",
                     "PERMISSIVE"
                   ],
-                  "default": "LENIENT"
+                  "default": "STRINGENT"
                 },
                 "max_target_seqs": {
                   "type": "integer",
@@ -666,7 +666,7 @@
               "uniqueItems": true,
               "maxItems": 2,
               "minItems": 2,
-              "default": [60, 900]
+              "default": [60, 10000]
             },
             "only_reference_update": {
               "type": "boolean",

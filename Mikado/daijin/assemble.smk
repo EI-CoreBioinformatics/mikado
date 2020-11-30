@@ -4,6 +4,7 @@ from shutil import which
 import functools
 import pkg_resources
 import re
+from Mikado.utilities.file_type import filetype
 
 
 try:
@@ -67,6 +68,7 @@ ASSEMBLY_METHODS = config["asm_methods"]
 
 # Directory shortcuts
 OUT_DIR_FULL = os.path.abspath(OUT_DIR)
+REF_DIR = os.path.join(OUT_DIR, "0-reference")
 READS_DIR = os.path.join(OUT_DIR, "1-reads")
 READS_DIR_FULL = os.path.abspath(READS_DIR)
 ALIGN_DIR = os.path.join(OUT_DIR, "2-alignments")
@@ -457,8 +459,23 @@ rule clean:
     shell: "rm -rf {OUT_DIR}"
 
 
-rule align_tophat_index:
+rule uncompress_genome:
     input: ref=REF
+    output:
+        genome=os.path.join(REF_DIR, "genome.fa")
+    run:
+        os.makedirs(REF_DIR, exist_ok=True)
+        if filetype(REF) == b"application/txt":
+            os.symlink(REF, output)
+        elif filetype(REF) == b"application/gzip":
+            subprocess.call("gzip -dc {} > {}".format(REF, output), shell=True)
+        elif filetype(REF) == b"application/x-bzip2":
+            subprocess.call("bgzip -dc {} > {}".format(REF, output), shell=True)
+        else:
+            raise ValueError("Unknown file type")
+
+rule align_tophat_index:
+    input: rules.uncompress_genome.output.genome
     output: os.path.join(ALIGN_DIR, "tophat", "index", "{}.4.bt2".format(NAME))
     params: 
         idxdir=os.path.join(ALIGN_DIR, "tophat", "index", NAME),
@@ -501,7 +518,7 @@ rule tophat_all:
 
 
 rule gmap_index:
-    input: REF
+    input: rules.uncompress_genome.output.genome
     output: touch(os.path.join(ALIGN_DIR, "gmap", "index", NAME, "index.done"))
     params:
         load=loadPre(config, "gmap"),
@@ -510,7 +527,7 @@ rule gmap_index:
     log: os.path.join(ALIGN_DIR, "logs", "gmap", "index.log")
     message: "Indexing genome with gmap"
     conda: os.path.join(envdir, "gmap.yaml")
-    shell: "{params.load} gmap_build --dir={params.dir} --db={NAME} {input} > {log} 2>&1"
+    shell: "{params.load} gmap_build --dir={params.dir} -d {NAME} {input} > {log} 2>&1"
 
 
 rule gsnap_index:
@@ -553,19 +570,20 @@ rule gsnap_all:
 
 
 rule align_star_index:
-    input: os.path.abspath(REF)
+    input: rules.uncompress_genome.output.genome
     output: os.path.join(ALIGN_DIR, "star", "index", "SAindex")
     params: 
         indexdir=os.path.join(ALIGN_DIR_FULL, "star", "index"),
         load=loadPre(config, "star"),
         trans="--sjdbGTFfile {}".format(os.path.abspath(REF_TRANS)) if REF_TRANS else "",
-        extra=config.get("aln_index", dict()).get("star", ""),
-        dir=os.path.join(ALIGN_DIR, "star")
+        extra=config["aln_index"]["star"],
+        dir=os.path.join(ALIGN_DIR, "star"),
+        genome=os.path.abspath(os.path.join(REF_DIR, "genome.fa"))
     log: os.path.join(ALIGN_DIR_FULL, "logs", "star", "star.index.log")
     threads: THREADS
     conda: os.path.join(envdir, "star.yaml")
     message: "Indexing genome with star"
-    shell: "{params.load} cd {params.dir} && STAR --runThreadN {threads} --runMode genomeGenerate --genomeDir {params.indexdir} {params.trans} --genomeFastaFiles {input} {params.extra} > {log} 2>&1 && cd {CWD}"
+    shell: "{params.load} cd {params.dir} && STAR --runThreadN {threads} --runMode genomeGenerate --genomeDir {params.indexdir} {params.trans} --genomeFastaFiles {params.genome} {params.extra} > {log} 2>&1 && cd {CWD}"
 
 
 rule align_star:
@@ -601,7 +619,7 @@ rule star_all:
     shell: "touch {output}"     
 
 rule align_hisat_index:
-    input: REF
+    input: rules.uncompress_genome.output.genome
     output: touch(os.path.join(ALIGN_DIR, "hisat", "index", "{}.done".format(NAME)))
     params:
         load=loadPre(config, "hisat"),
@@ -708,7 +726,7 @@ rule asm_cufflinks:
     input: 
         bam=os.path.join(ALIGN_DIR, "output", "{alrun}.sorted.bam"),
         align=rules.align_all.output,
-        ref=REF
+        ref=rules.uncompress_genome.output.genome
     output: 
         gtf=os.path.join(ASM_DIR, "output", "cufflinks-{run2,\d+}-{alrun}.gtf")
     params: 
@@ -764,7 +782,7 @@ rule asm_trinitygg:
     input:
         bam=os.path.join(ALIGN_DIR, "output", "{alrun}.sorted.bam"),
         align=rules.align_all.output,
-        ref=REF
+        ref=rules.uncompress_genome.output.genome
     output: os.path.join(ASM_DIR, "trinity", "trinity-{run2,\d+}-{alrun}", "Trinity-GG.fasta")
     params: 
         outdir=os.path.join(ASM_DIR, "trinity", "trinity-{run2}-{alrun}"),
@@ -773,7 +791,7 @@ rule asm_trinitygg:
         load=loadPre(config, "trinity"),
         extra=lambda wildcards: config["asm_methods"]["trinity"][int(wildcards.run2)],
         strand=lambda wildcards: trinityStrandOption(extractSample(wildcards.alrun)),
-        base_parameters=lambda wildcards: trinityParameters(loadPre(config, "trinity"), extractSample(wildcards.alrun), REF, TGG_MAX_MEM)
+        base_parameters=lambda wildcards: trinityParameters(loadPre(config, "trinity"), extractSample(wildcards.alrun), rules.uncompress_genome.output.genome, TGG_MAX_MEM)
     log: os.path.join(ASM_DIR, "logs", "trinity", "trinity-{run2}-{alrun}.log")
     threads: THREADS
     conda: os.path.join(envdir, "trinity.yaml")
@@ -833,7 +851,7 @@ rule asm_class:
     input:
         bam=os.path.join(ALIGN_DIR, "output", "{alrun}.sorted.bam"),
         align=rules.align_all.output,
-        ref=REF
+        ref=rules.uncompress_genome.output.genome
     output:
         link=os.path.join(ASM_DIR, "output", "class-{run2,\d+}-{alrun}.gtf"),
         gtf=os.path.join(ASM_DIR, "class", "class-{run2,\d+}-{alrun}", "class-{run2}-{alrun}.gtf")
@@ -964,7 +982,7 @@ else:
 
 rule portcullis_prep:
     input:
-        ref=REF,
+        ref=rules.uncompress_genome.output.genome,
         aln_done=rules.align_all.output
     output: os.path.join(PORTCULLIS_DIR, "portcullis_{aln_method}", "1-prep", "portcullis.sorted.alignments.bam.bai")
     params: 
@@ -1048,13 +1066,24 @@ else:
         message: "Taking intersection of portcullis results"
 
 #### Now run mikado
+rule compress_genome:
+    input: rules.uncompress_genome.output.genome
+    output:
+        genome=rules.uncompress_genome.output.genome + ".gz",
+        index=rules.uncompress_genome.output.genome + ".gz.fai",
+    conda: os.path.join(envdir, "samtools.yaml")
+    params:
+        load=loadPre(config, "samtools")
+    shell: "{params.load} bgzip -c {input} > {output.genome} && samtools faidx {output.genome}"
+
+
 rule mikado_cfg:
     input:
         asm=rules.asm_all.output,
         lr=rules.lreads_all.output,
         portcullis=rules.portcullis_merge.output,
         cfg=CFG,
-        ref=REF
+        ref=rules.compress_genome.output.genome
     output:
         mikado=os.path.join(OUT_DIR, "mikado.yaml")
     params: 

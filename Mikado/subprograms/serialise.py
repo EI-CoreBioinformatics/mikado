@@ -13,18 +13,13 @@ import os
 import sys
 import logging
 import logging.handlers
-import sqlalchemy
-from ..configuration import configurator
 from ..utilities import path_join, comma_split
 from ..utilities.log_utils import create_default_logger, formatter
 from ..utilities import dbutils
-from ..serializers import orf, blast_serializer, junction
-from ..serializers import external
 from ..exceptions import InvalidJson
-import pyfaidx
-import numpy
 from ..exceptions import InvalidSerialization
-from ..serializers.blast_serializer.tabular_utils import blast_keys
+import random
+from ..utilities import blast_keys
 
 
 __author__ = 'Luca Venturini'
@@ -48,6 +43,7 @@ def xml_launcher(xml_candidate=None, json_conf=None, logger=None):
     :return:
     """
 
+    from ..serializers import blast_serializer
     xml_serializer = blast_serializer.BlastSerializer(
         xml_candidate,
         json_conf=json_conf,
@@ -84,6 +80,7 @@ I cannot proceed with this step!")
             j_file for j_file in args.json_conf["serialise"]["files"]["junctions"]
             if j_file != ''):
         logger.debug("Loading junctions: %s", junction_file)
+        from ..serializers import junction
         serializer = junction.JunctionSerializer(
             junction_file,
             json_conf=args.json_conf,
@@ -140,6 +137,7 @@ def load_orfs(args, logger):
         logger.info("Starting to load ORF data")
         for orf_file in args.json_conf["serialise"]["files"]["orfs"]:
             logger.debug("Starting to load ORFs from %s", orf_file)
+            from ..serializers import orf
             try:
                 serializer = orf.OrfSerializer(orf_file,
                                                json_conf=args.json_conf,
@@ -163,6 +161,7 @@ def load_external(args, logger):
         return
     else:
         logger.info("Starting to load external data")
+        from ..serializers import external
         with external.ExternalSerializer(
                 args.json_conf["serialise"]["files"]["external_scores"],
                 json_conf=args.json_conf,
@@ -179,6 +178,10 @@ def setup(args):
     :return:
     """
 
+    import pyfaidx
+    import sqlalchemy
+    from ..configuration import configurator
+    args.json_conf = configurator.to_json(args.json_conf)
     logger = create_default_logger("serialiser")
     # Get the log level from general settings
     if args.start_method is not None:
@@ -218,9 +221,11 @@ def setup(args):
 
     if args.seed is not None:
         args.json_conf["seed"] = args.seed
-        numpy.random.seed((args.seed) % (2 ** 32 - 1))
+        # numpy.random.seed((args.seed) % (2 ** 32 - 1))
+        random.seed((args.seed) % (2 ** 32 - 1))
     else:
-        numpy.random.seed(None)
+        # numpy.random.seed(None)
+        random.seed(None)
 
     if args.output_dir is not None:
         args.json_conf["serialise"]["files"]["output_dir"] = args.output_dir
@@ -315,6 +320,10 @@ def setup(args):
         args.json_conf["serialise"]["max_regression"] = args.max_regression
 
     if args.codon_table is not None:
+        try:
+            args.codon_table = int(args.codon_table)
+        except ValueError:
+            pass
         args.json_conf["serialise"]["codon_table"] = args.codon_table
     else:
         assert "codon_table" in args.json_conf["serialise"]
@@ -336,23 +345,6 @@ def setup(args):
     logger.info("Requested %d threads, forcing single thread: %s",
                 args.json_conf["threads"],
                 args.json_conf["serialise"]["single_thread"])
-
-    return args, logger, sql_logger
-
-
-def serialise(args):
-
-    """
-    Wrapper around the serializers objects. It uses the configuration
-    supplied through the command line to launch the necessary tools.
-
-    :param args: namespace with the necessary information for the serialisation
-    :return:
-    """
-
-    args, logger, sql_logger = setup(args)
-
-    # logger.info("Command line: %s",  " ".join(sys.argv))
 
     if args.json_conf["serialise"]["force"] is True:
         if (args.json_conf["db_settings"]["dbtype"] == "sqlite" and
@@ -376,6 +368,22 @@ def serialise(args):
             engine.execute("VACUUM")
         dbutils.DBBASE.metadata.create_all(engine)
 
+    return args, logger, sql_logger
+
+
+def serialise(args):
+
+    """
+    Wrapper around the serializers objects. It uses the configuration
+    supplied through the command line to launch the necessary tools.
+
+    :param args: namespace with the necessary information for the serialisation
+    :return:
+    """
+
+    args, logger, sql_logger = setup(args)
+
+    # logger.info("Command line: %s",  " ".join(sys.argv))
     load_orfs(args, logger)
     load_blast(args, logger)
     load_external(args, logger)
@@ -483,8 +491,8 @@ a valid start codon.""")
                          help="""Flag. If set, an existing databse will be deleted (sqlite)
                          or dropped (MySQL/PostGreSQL) before beginning the serialisation.""")
     # If None, the default configuration will be used (from the blueprint)
-    generic.add_argument("--json-conf", default=configurator.to_json(None),
-                         dest="json_conf", type=configurator.to_json,
+    generic.add_argument("--json-conf", default=None,
+                         dest="json_conf", type=str,
                          required=False)
     generic.add_argument("-l", "--log", type=str, default=None, nargs='?', help="Optional log file. Default: stderr")
     parser.add_argument("-od", "--output-dir", dest="output_dir",

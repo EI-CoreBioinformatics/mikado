@@ -26,7 +26,7 @@ if version_info.minor < 5:
     from sortedcontainers import SortedDict
 else:
     from collections import OrderedDict as SortedDict
-from fastnumbers import isfloat
+import random
 import rapidjson as json
 
 # I do not care that there are too many attributes: this IS a massive class!
@@ -75,7 +75,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         self.logger = logger
         self.__stranded = False
         self._not_passing = set()
-        self._excluded_transcripts = set()
+        self._excluded_transcripts = dict()
         self.transcripts = dict()
         self.start, self.end, self.strand = maxsize, -maxsize, None
         # Consider only the CDS part
@@ -130,17 +130,12 @@ class Abstractlocus(metaclass=abc.ABCMeta):
     def __eq__(self, other):
         if not isinstance(self, type(other)):
             return False
-        for feature in ["chrom", "strand", "start",
-                        "end", "exons", "introns",
-                        "splices", "stranded"]:
-            if getattr(self, feature) != getattr(other, feature):
-                return False
-        return True
 
-    def __hash__(self):
-        """This has to be defined, otherwise abstractloci objects won't be hashable
-        (and therefore operations like adding to sets will be forbidden)"""
-        return super().__hash__()
+        return (
+            self.start, self.end, self.chrom, self.strand, self.stranded,
+            self.introns, self.splices, self.exons
+        ) == (other.start, other.end, other.chrom, other.strand, other.stranded,
+              other.introns, other.splices, other.exons)
 
     def __len__(self):
         return self.end - self.start + 1
@@ -437,11 +432,13 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         # Choose one transcript randomly between those that have the maximum score
         if len(transcripts) == 1:
             return list(transcripts.keys())[0]
-        np.random.seed(self.json_conf["seed"])
+        # np.random.seed(self.json_conf["seed"])
+        random.seed(self.json_conf["seed"])
         max_score = max(transcripts.values(),
                         key=operator.attrgetter("score")).score
         valid = sorted([transc for transc in transcripts if transcripts[transc].score == max_score])
-        chosen = valid[numpy.random.choice(len(valid))]
+        # chosen = valid[numpy.random.choice(len(valid))]
+        chosen = valid[random.choice(range(len(valid)))]
         self.logger.debug("Chosen {chosen} out of {}".format(", ".join(valid), chosen=chosen))
         return chosen
 
@@ -526,7 +523,9 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         """This method is needed to exchange transcripts that might have been modified by padding."""
         if original_transcript.tid != transcript.tid:
             raise KeyError("I cannot hot swap two transcripts with two different IDs!")
-        if hash(original_transcript) == hash(transcript):  # Expensive operation, let us try to avoid it if possible
+        # if hash(original_transcript) == hash(transcript):  # Expensive operation, let us try to avoid it if possible
+        #     return
+        if original_transcript == transcript:
             return
 
         self.logger.debug("Swapping %s with a new transcript", original_transcript.id)
@@ -1021,13 +1020,13 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                 else:
                     value = metrics.get(key, "NA")
                     # value = getattr(transcript, key, "NA")
-                if isfloat(value):
+                if isinstance(value, float):
                     value = round(value, 2)
                 elif value is None or value == "":
                     if key == "score":
                         value = self.scores.get(tid, dict()).get("score", None)
                         self.transcripts[tid].score = value
-                        if isfloat(value):
+                        if isinstance(value, float):
                             value = round(value, 2)
                         elif value is None:
                             value = "NA"
@@ -1039,7 +1038,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                 # Each score from external files also contains a multiplier.
                 key = "external.{}".format(source)
                 value = transcript.external_scores.get(source)[0]
-                if isfloat(value):
+                if isinstance(value, float):
                     value = round(value, 2)
                 elif value is None or value == "":
                     value = "NA"
@@ -1254,7 +1253,8 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
         if self.scores_calculated is True:
             # assert self.transcripts[list(self.transcript.keys())[0]].score is not None
-            test = set.difference(set(self.transcripts.keys()), self._excluded_transcripts)
+            test = set.difference(set(self.transcripts.keys()),
+                                  set(self._excluded_transcripts.keys()))
             if test and self.transcripts[test.pop()].score is None:
                 for tid in self.transcripts:
                     if tid in self._excluded_transcripts:
@@ -1373,7 +1373,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                     self.transcripts[tid].score = 0
                 else:
                     self.logger.debug("Excluding %s from %s because of failed requirements", tid, self.id)
-                    self._excluded_transcripts.add(self.transcripts[tid])
+                    self._excluded_transcripts[tid] = self.transcripts[tid]
                     self.remove_transcript_from_locus(tid)
 
             if not self.purge:

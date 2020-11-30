@@ -15,18 +15,15 @@ import sys
 from collections import namedtuple
 from functools import partial
 from logging import handlers as log_handlers
-# from re import search as re_search
-from ..transcripts.transcript import Transcript, Namespace
-from .accountant import Accountant
-import os
-from .contrast import compare as c_compare
-from .resultstorer import ResultStorer
-from ..exceptions import InvalidTranscript, InvalidCDS
-from ..utilities.intervaltree import IntervalTree
+from ...transcripts.transcript import Transcript, Namespace
+from ..accountant import Accountant
+from ..contrast import compare as c_compare
+from ..resultstorer import ResultStorer
+from ...exceptions import InvalidTranscript, InvalidCDS
+from ...utilities.intervaltree import IntervalTree
 import msgpack
-import sqlite3
 import tempfile
-from .gene_dict import GeneDict
+from ..reference_preparation.gene_dict import GeneDict
 
 
 # noinspection PyPropertyAccess,PyPropertyAccess
@@ -167,11 +164,8 @@ class Assigner:
             self.tmap_rower.writeheader()
             self.db, self._connection, self._cursor = [None] * 3
         else:
-            self.db = tempfile.NamedTemporaryFile(prefix=".compare", suffix=".db", dir=".", delete=False)
-            self.db.close()
-            self._connection = sqlite3.connect(self.db.name)
-            self._cursor = self._connection.cursor()
-            self._cursor.execute("CREATE TABLE tmap (row blob)")
+            self.db = tempfile.NamedTemporaryFile(prefix=".compare", suffix=".db", dir="..", delete=False,
+                                                  mode="wb")
 
         self.gene_matches = collections.defaultdict(dict)
         self.done = 0
@@ -204,70 +198,40 @@ class Assigner:
         for chrom in self.positions:
             self.indexer[chrom] = IntervalTree.from_tuples(self.positions[chrom].keys())
 
-    def load_from_results(self, dbnames):
+    def load_result(self, refmap, stats):
 
-        """Private method to load together all the results from a previous run."""
+        gene_matches = msgpack.loads(refmap,
+                                     raw=False, use_list=False,
+                                     strict_map_key=False, object_hook=msgpack_convert)
 
-        for dbname in dbnames:
-            self.load_result(dbname)
-
-    def load_result(self, dbname):
-
-        connection = sqlite3.connect(dbname)
-        cursor = connection.cursor()
-        done = set()
-
-        if self.printout_tmap is True:
-            for tmap_row in cursor.execute("SELECT * from tmap"):
-                tmap_row = ResultStorer(state=msgpack.loads(tmap_row[0],
-                                                            raw=False,
-                                                            use_list=False,
-                                                            strict_map_key=False,
-                                                            object_hook=msgpack_convert))
-                done.add(tmap_row.tid)
-                self.print_tmap(tmap_row)
-
-        for gid, gene_match in cursor.execute("SELECT * from gene_matches"):
-            gene_match = msgpack.loads(gene_match, raw=False, use_list=False,
-                                       strict_map_key=False, object_hook=msgpack_convert)
+        for gid, gene_match in gene_matches.items():
             for tid in gene_match:
                 for match in gene_match[tid]:
-                    self.gene_matches[gid][tid].append(match)
+                    self.gene_matches[gid][tid].append(ResultStorer(state=match))
 
         temp_stats = Namespace()
-        for attr, stat in cursor.execute("SELECT * from stats"):
-            setattr(temp_stats, attr, msgpack.loads(stat, raw=False,
-                                                    use_list=False,
-                                                    strict_map_key=False,
-                                                    object_hook=msgpack_convert))
-
+        for attribute, stat in stats:
+            stat = msgpack.loads(stat,
+                                 raw=False,
+                                 use_list=False,
+                                 strict_map_key=False,
+                                 object_hook=msgpack_convert)
+            setattr(temp_stats, attribute, stat)
         self.stat_calculator.merge_into(temp_stats)
-        os.remove(dbname)
-        self.done += len(done)
 
     def dump(self):
 
         """Method to dump all results into the database"""
 
-        assert self._cursor is not None
-        self._connection.commit()
-
-        self._cursor.execute("CREATE TABLE gene_matches (gid varchar(100), match blob)")
-        self._connection.commit()
-        self._cursor.executemany("INSERT INTO gene_matches ('gid', 'match') VALUES (?, ?)",
-                                 [(gid, msgpack.dumps(self.gene_matches[gid],
-                                                   default=msgpack_default, strict_types=True)) for gid in self.gene_matches])
-        self._connection.commit()
-        self._cursor.execute("CREATE TABLE stats (level varchar(40), stats blob)")
-        self._connection.commit()
+        refmap = msgpack.dumps(self.gene_matches, default=msgpack_default, strict_types=False)
         simplified = self.stat_calculator.serialize()
+        stats = []
         for attribute in simplified.attributes:
-            self._cursor.execute("INSERT INTO stats VALUES (?, ?)",
-                                 (attribute,
-                                  msgpack.dumps(getattr(simplified, attribute),
-                                                default=msgpack_default, strict_types=True)))
-        self._connection.commit()
-        self._connection.close()
+            stat = msgpack.dumps(getattr(simplified, attribute),
+                          default=msgpack_default, strict_types=True)
+            stats.append((attribute, stat))
+
+        return refmap, stats
 
     def add_to_refmap(self, result: ResultStorer) -> None:
         """
@@ -546,7 +510,16 @@ class Assigner:
             results = []
             for match in matches:
                 self.logger.debug("%s: type %s", repr(match), type(match))
-                results.extend([self.calc_and_store_compare(prediction, tra, fuzzymatch=fuzzymatch) for tra in match])
+                for tra in match:
+                    try:
+                        results.append(self.calc_and_store_compare(prediction, tra, fuzzymatch=fuzzymatch))
+                    except TypeError:
+                        failed = []
+                        for intron in prediction.introns:
+                            if not (isinstance(intron[0], int) and isinstance(intron[1], int)):
+                                failed.append(intron)
+
+                        raise TypeError((failed, type(prediction), prediction.introns))
 
             results = sorted(results, reverse=True,
                              key=self.get_f1)
@@ -760,7 +733,6 @@ class Assigner:
                 try:
                     results, best_result = self.__prepare_result(prediction, distances, fuzzymatch=fuzzymatch)
                 except (InvalidTranscript, ZeroDivisionError, AssertionError) as exc:
-                    raise exc
                     self.logger.error("Something went wrong with %s. Ignoring it. Error: %s",
                                       prediction.id, exc)
                     self.logger.debug(exc)
@@ -872,13 +844,9 @@ class Assigner:
                 raise ValueError
             else:
                 if self.printout_tmap is False:
-                    self._cursor.execute("INSERT INTO tmap VALUES (?)",
-                                         (msgpack.dumps(res, strict_types=True, default=msgpack_default), ))
-                    self.__done += 1
-                    if self.__done % 10000 == 0 and self.__done > 10000:
-                        self._connection.commit()
-
+                    pass
                 else:
+                    self.__done += 1
                     self.tmap_rower.writerow(res.as_dict())
 
     @staticmethod
@@ -1006,19 +974,31 @@ class Assigner:
                                             row[14]  #Location
                                             )
                         else:
-                            row = out_tuple(row[0],  # Ref TID
-                                            row[2],  # class code
-                                            row[3],  # Pred TID
-                                            row[4],  # Pred GID
-                                            row[5], row[6], row[7],  # Pred F1
-                                            row[1],
-                                            ",".join(best_pick.ccode),
-                                            best_pick.tid,
-                                            best_pick.gid,
-                                            best_pick.n_f1[0], best_pick.j_f1[0],
-                                            best_pick.e_f1[0],
-                                            row[8]  # Location
-                                            )
+                            # fields = ["ref_id", "ccode", "tid", "gid",
+                            #                           "nF1", "jF1", "eF1",
+                            #                           "ref_gene",
+                            #                           "best_ccode", "best_tid", "best_gid",
+                            #                           "best_nF1", "best_jF1", "best_eF1",
+                            #                           "location"]
+                            try:
+                                row = out_tuple(ref_id=row[0],  # Ref TID
+                                                ccode=row[2],  # class code
+                                                tid=row[3],  # Pred TID
+                                                gid=row[4],  # Pred GID
+                                                nF1=row[5], jF1=row[6], eF1=row[7],  # Pred F1
+                                                ref_gene=row[1],
+                                                best_ccode=",".join(best_pick.ccode),
+                                                best_tid=best_pick.tid,
+                                                best_gid=best_pick.gid,
+                                                best_nF1=best_pick.n_f1[0],
+                                                best_jF1=best_pick.j_f1[0],
+                                                best_eF1=best_pick.e_f1[0],
+                                                location=row[8]  # Location
+                                                )
+                            except IndexError:
+                                self.logger.critical("Error in creating the refmap output")
+                                self.logger.critical(row)
+                                raise
                     else:
                         if self.args.extended_refmap is True:
                             row = out_tuple(*[row[0]] + ["NA"] * 12 + [row[1]] + ["NA"] * 12 + [

@@ -9,9 +9,9 @@ from itertools import groupby
 from sqlalchemy import and_
 from sqlalchemy.orm.session import sessionmaker
 
-from Mikado.serializers.junction import Junction
-from Mikado.transcripts.clique_methods import define_graph, find_cliques, find_communities
-from Mikado.utilities import dbutils
+from ...serializers.junction import Junction
+from ..clique_methods import define_graph, find_cliques, find_communities
+from ...utilities import dbutils
 
 __author__ = 'Luca Venturini'
 

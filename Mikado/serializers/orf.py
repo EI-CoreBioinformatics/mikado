@@ -24,7 +24,6 @@ import logging.handlers as logging_handlers
 import multiprocessing as mp
 import msgpack
 import zlib
-from fastnumbers import isint
 
 
 # This is a serialization class, it must have a ton of attributes ...
@@ -351,7 +350,7 @@ Please check your input files.")
 
             # current_junction = Orf(row, current_query)
             obj = Orf.create_dict(row, current_query)
-            if obj["start"] is None or isint(obj["start"]) is False:
+            if obj["start"] is None or not isinstance(obj["start"], int):
                 raise ValueError("Invalid object: {}".format(obj))
                 # continue
             objects.append(Orf.create_dict(row, current_query))
@@ -385,8 +384,9 @@ Please check your input files.")
     def __serialize_multiple_threads(self):
         """"""
 
-        send_queue = mp.Queue(-1)
-        return_queue = mp.JoinableQueue(-1)
+        manager = mp.Manager()
+        send_queue = manager.Queue(-1)
+        return_queue = manager.JoinableQueue(-1)
         self.logging_queue = mp.Queue(-1)
         self.logger_queue_handler = logging_handlers.QueueHandler(self.logging_queue)
         self.queue_logger = logging.getLogger("parser")
@@ -470,12 +470,11 @@ mikado prepare. If this is the case, please use mikado_prepared.fasta to call th
                 Orf.__table__.insert(),
                 objects
             )
-        # return_queue.close()
-        # send_queue.close()
         self.session.commit()
         self.session.close()
         self.logger.info("Finished loading %d ORFs into the database", done)
 
+        manager.shutdown()
         orfs = pd.read_sql_table("orf", self.engine, index_col="query_id")
         if orfs.shape[0] != done:
             raise ValueError("I should have serialised {} ORFs, but {} are present!".format(done, orfs.shape[0]))
@@ -504,15 +503,21 @@ mikado prepare. If this is the case, please use mikado_prepared.fasta to call th
         Alias for serialize
         """
 
-        # try:
-        [idx.drop(bind=self.engine) for idx in Orf.__table__.indexes]
-        self.serialize()
-        [idx.create(bind=self.engine) for idx in Orf.__table__.indexes]
-        # except (sqlalchemy.exc.IntegrityError, sqlite3.IntegrityError) as exc:
-        #     self.logger.error("DB corrupted, reloading data. Error: %s",
-        #                       exc)
-        #     self.session.query(Query).delete()
-        #     self.session.query(Orf).delete()
-        #     self.serialize()
-        # except InvalidSerialization:
-        #     raise
+        try:
+            [idx.drop(bind=self.engine) for idx in Orf.__table__.indexes]
+        except (sqlalchemy.exc.IntegrityError, sqlite3.IntegrityError) as exc:
+            self.logger.debug("Corrupt table found, deleting and restarting")
+            self.session.query(Orf).delete()
+        try:
+            self.serialize()
+        except (sqlalchemy.exc.IntegrityError, sqlite3.IntegrityError) as exc:
+            self.logger.error("DB corrupted, reloading data. Error: %s",
+                              exc)
+            self.session.query(Query).delete()
+            self.session.query(Orf).delete()
+            try:
+                self.serialize()
+            except InvalidSerialization:
+                raise
+        finally:
+            [idx.create(bind=self.engine) for idx in Orf.__table__.indexes]

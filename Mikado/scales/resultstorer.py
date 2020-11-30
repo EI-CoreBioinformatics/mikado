@@ -34,9 +34,10 @@ def _tupling(obj, final_type):
         raise TypeError(type(obj))
 
 
-
 class ResultStorer:
     """This class stores the results in pre-defined slots, to reduce memory usage."""
+
+    __name__ = "resultstorer"
 
     __slots__ = ["ref_id", "ref_gene", "ccode",
                  "tid", "gid",

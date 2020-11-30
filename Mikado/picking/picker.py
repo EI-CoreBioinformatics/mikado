@@ -11,7 +11,7 @@ import csv
 import os
 import shutil
 import tempfile
-from math import floor
+import random
 import logging
 from logging import handlers as logging_handlers
 import functools
@@ -41,10 +41,8 @@ from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
 import pickle
 import warnings
 import pyfaidx
-import numpy
 import sqlite3
 import msgpack
-from fastnumbers import fast_int
 from numpy import percentile
 logging.captureWarnings(True)
 warnings.simplefilter("always")
@@ -106,9 +104,11 @@ class Picker:
         # self.setup_logger()
         self.logger.info("Random seed: %s", self.json_conf["seed"])
         if self.json_conf["seed"] is not None:
-            numpy.random.seed((self.json_conf["seed"]) % (2 ** 32 - 1))
+            # numpy.random.seed((self.json_conf["seed"]) % (2 ** 32 - 1))
+            random.seed((self.json_conf["seed"]) % (2 ** 32 - 1))
         else:
-            numpy.random.seed(None)
+            # numpy.random.seed(None)
+            random.seed(None)
         self.logger.debug("Multiprocessing method: %s", self.json_conf["multiprocessing_method"])
 
         # pylint: enable=no-member
@@ -658,13 +658,10 @@ Please update your configuration files in the future.""".format(
             self.__unsorted_interrupt(row_coords, coords)
 
     @staticmethod
-    def add_to_index(conn: sqlite3.Connection,
-                     cursor: sqlite3.Cursor,
-                     transcripts: dict,
+    def add_to_index(transcripts: dict,
                      counter: int,
                      locus_queue,
-                     mapper: dict,
-                     submit_remaining=False):
+                     mapper: dict,):
 
         """Method to create the simple indexed database for features."""
 
@@ -693,21 +690,6 @@ Please update your configuration files in the future.""".format(
 
         return mapper
 
-    @staticmethod
-    def _create_temporary_store(tempdirectory):
-
-        conn = sqlite3.connect(os.path.join(tempdirectory, "temp_store.db"),
-                               isolation_level="DEFERRED",
-                               timeout=60,
-                               check_same_thread=False  # Necessary for SQLite3 to function in multiprocessing
-                               )
-        cursor = conn.cursor()
-        cursor.execute("PRAGMA journal_mode=wal")
-        cursor.execute("CREATE TABLE transcripts (counter integer UNIQUE PRIMARY KEY, json BLOB)")
-        cursor.execute("CREATE INDEX tid_idx ON transcripts(counter)")
-
-        return conn, cursor
-
     def __submit_multi_threading(self):
 
         """
@@ -718,8 +700,8 @@ Please update your configuration files in the future.""".format(
         intron_range = self.json_conf["pick"]["run_options"]["intron_range"]
         self.logger.debug("Intron range: %s", intron_range)
 
-        locus_queue = multiprocessing.JoinableQueue(-1)
-        status_queue = multiprocessing.JoinableQueue(-1)
+        locus_queue = self.manager.JoinableQueue(-1)
+        status_queue = self.manager.JoinableQueue(-1)
 
         handles = list(self.__get_output_files())
         if self.json_conf["pick"]["run_options"]["shm"] is True:
@@ -735,7 +717,6 @@ Please update your configuration files in the future.""".format(
                          tempdir)
 
         self.logger.debug("Creating the worker processes")
-        conn, cursor = self._create_temporary_store(tempdir)
 
         working_processes = [LociProcesser(msgpack.dumps(self.json_conf),
                                            locus_queue,
@@ -751,7 +732,7 @@ Please update your configuration files in the future.""".format(
         # No sense in keeping this data available on the main thread now
 
         try:
-            mapper = self.__parse_multithreaded(locus_queue, conn, cursor)
+            mapper = self.__parse_multithreaded(locus_queue)
         except UnsortedInput:
             [_.terminate() for _ in working_processes]
             raise
@@ -785,7 +766,6 @@ Please update your configuration files in the future.""".format(
                 self.logger.info("Finished with chromosome %s", chrom)
 
         [_.join() for _ in working_processes]
-        conn.close()
         self.logger.info("Joined children processes; starting to merge partial files")
 
         # Merge loci
@@ -856,8 +836,7 @@ Please update your configuration files in the future.""".format(
             return None
 
         try:
-            start = fast_int(fields[3], raise_on_invalid=True)
-            end = fast_int(fields[4], raise_on_invalid=True)
+            start, end = int(fields[3]), int(fields[4])
         except (ValueError, SystemError, TypeError):
             return None
         chrom = fields[0]
@@ -873,13 +852,16 @@ Please update your configuration files in the future.""".format(
         if tid is None:
             raise InvalidJson("Corrupt input GTF file, offending line:\n{}".format(line))
         tid = tid.groups()[0]
-        try:
-            phase = fast_int(fields[7], default=None)
-        except (SystemError, TypeError, ValueError):
-            return None
+        if fields[7] in (None, ".", "?"):
+            phase = None
+        else:
+            try:
+                phase = int(fields[7])
+            except (SystemError, TypeError, ValueError):
+                return None
         return line, chrom, fields[2], start, end, phase, tid, is_transcript
 
-    def __parse_multithreaded(self, locus_queue, conn, cursor):
+    def __parse_multithreaded(self, locus_queue):
         counter = 0
         invalids = set()
         flank = self.json_conf["pick"]["clustering"]["flank"]
@@ -925,9 +907,7 @@ Please update your configuration files in the future.""".format(
                                                                                  current["start"], current["end"]),
                                                       ",".join(list(current["transcripts"].keys())))
                                     counter += 1
-                                    mapper = self.add_to_index(
-                                        conn, cursor, current["transcripts"], counter, locus_queue,
-                                        mapper)
+                                    mapper = self.add_to_index(current["transcripts"], counter, locus_queue, mapper)
                             self.logger.debug("Starting chromosome %s", chrom)
 
                         current["chrom"], current["start"], current["end"] = chrom, start, end
@@ -950,9 +930,7 @@ Please update your configuration files in the future.""".format(
                                               counter, "{}:{}-{}".format(current["chrom"],
                                                                          current["start"], current["end"]),
                                               ",".join(list(current["transcripts"].keys())))
-                            mapper = self.add_to_index(
-                                conn, cursor, current["transcripts"], counter, locus_queue,
-                                mapper)
+                            mapper = self.add_to_index(current["transcripts"], counter, locus_queue, mapper)
                             current["start"], current["end"] = start, end
                             current["transcripts"] = dict()
 
@@ -970,11 +948,8 @@ Please update your configuration files in the future.""".format(
                                   counter, "{}:{}-{}".format(current["chrom"],
                                                              current["start"], current["end"]),
                                   ",".join(list(current["transcripts"].keys())))
-                mapper = self.add_to_index(
-                    conn, cursor, current["transcripts"], counter, locus_queue, mapper, submit_remaining=True)
+                mapper = self.add_to_index(current["transcripts"], counter, locus_queue, mapper)
             self.logger.debug("Finished chromosome %s", current["chrom"])
-
-        conn.commit()
 
         locus_queue.put(("EXIT", None))
 
@@ -1134,6 +1109,7 @@ Please update your configuration files in the future.""".format(
                 os.path.join("/dev", "shm"))
             self.main_logger.debug("Removing shared memory DB %s", self.json_conf["db_settings"]["db"])
             os.remove(self.json_conf["db_settings"]["db"])
+        self.manager.shutdown()
 
     def __call__(self):
 

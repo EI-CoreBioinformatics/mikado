@@ -1,4 +1,4 @@
-# Version 2.0
+# Version 2.0 - public release candidate 1 (prc1)
 
 This is the second major release of Mikado. It contains **backwards-incompatible changes** to the data structures used in the program;
 as such, all users are **warmly invited to update the program as soon as possible**. Due to these changes, old runs might need to be redone
@@ -15,9 +15,11 @@ on this new product, **we are planning to retire Daijin in the near future and i
 
 Aside from numerous bug fixes, this release brings the following highlights:
 
+- Now Mikado will use [TOML](https://github.com/toml-lang/toml) as default configuration language.
 - Many parts of `mikado`, especially in `serialise` and `pick`, have been rewritten to be much more performant. Specifically:
   - `mikado pick` underwent a strict code revision to remove quadratic (or worse) bottlenecks. This now allows `mikado pick` to run on much denser, larger inputs without prohibitive computational resources or times.
-  - `mikado serialise` now is fully parallelised both for ORF and BLAST loading.
+  - `mikado serialise` now is fully parallelised both for ORF and BLAST loading (#280).
+  - `mikado serialise` can now load data from custom-field tabular BLAST data, rather than only from XML files (#280).
   - both steps now use temporary SQLite3 databases for fast inter-process data exchange.
 - Mikado will now function correctly with soft-masked genomes.
 - Mikado pick now will **backtrack** during the picking stage. This prevents loci from being missed due to chaining in the early stages of the algorithm.
@@ -57,6 +59,7 @@ Acknowledgements for contributing by bug reports and suggestions:
 - Ferdinand Marlétaz (@fmarletaz)
 - Luohao Xu (@lurebgi)
 - Sagnik Banerjee (@sagnikbanerjee15)
+- @lijing28101
 - Lawrence Percival Alwyn (for the suggestion on random seeds)
 
 Detailed list of bugfixes and improvements:
@@ -102,6 +105,9 @@ Detailed list of bugfixes and improvements:
 - Mikado will now always strip the CDS when a transcript is reversed ([#126](https://github.com/EI-CoreBioinformatics/mikado/issues/126)).
 - Mikado prepare now will *not* consider redundant transcripts that have the same cDNA but *different* CDS
   ([#127](https://github.com/EI-CoreBioinformatics/mikado/issues/127)).
+- Mikado prepare will consider for redundancy whether a transcript is *contained* within another and *shares its intron chain in its entirety*.
+  This will allow to drastically reduce the number of inputs to the other steps ([#270](https://github.com/EI-CoreBioinformatics/mikado/issues/270)).
+- Mikado prepare will now allow to decide *per-source* whether redundant transcripts should be kept or discarded ([#270](https://github.com/EI-CoreBioinformatics/mikado/issues/270)). 
 - Mikado prepare will now ascertain whether a CDS has a valid start and/or stop codon ([#132](https://github.com/EI-CoreBioinformatics/mikado/issues/132)) and will retain the original phase values ([#133](https://github.com/EI-CoreBioinformatics/mikado/issues/133)).
 - Mikado prepare now will preferentially keep "reference" transcripts and transcripts with a higher source score, in this order.
   Reference transcripts will be never discarded for failing a requirements check ([#141](https://github.com/EI-CoreBioinformatics/mikado/issues/141)).
@@ -112,6 +118,12 @@ Detailed list of bugfixes and improvements:
 - Use of temporary SQLite databases for inter-process communication in Mikado serialise, with consequent speedup ([#97](https://github.com/EI-CoreBioinformatics/mikado/issues/97))
 - Fixed bugs related to Prodigal ORFs on the negative strand ([#181](https://github.com/EI-CoreBioinformatics/mikado/issues/181))
 - Now BLAST HSPs will have stored as well whether there is an in-frame stop codon.
+- Mikado serialise is now much faster when serialising the ORFs or BLAST data.
+  This is due to better multiprocessing and to having moved to Cython the most expensive steps ([#280](https://github.com/EI-CoreBioinformatics/mikado/issues/280))
+- Mikado serialise is now able to use *tabular* BLAST data as input, not just XML.
+  The tabular output should contain the standard columns plus, *at the end*, the following two:
+  - ppos
+  - btop
 
 #### Mikado pick
 
@@ -175,6 +187,9 @@ Detailed list of bugfixes and improvements:
 - Mikado compare has been greatly improved ([#166](https://github.com/EI-CoreBioinformatics/mikado/issues/166)), with the addition of:
 	- proper multiprocessing
 	- faster startup times
+
+#### Daijin
+- Daijin now supports the `--use-conda` command line switch, to download and install seamlessly the necessary packages.
 
 #### Other
 

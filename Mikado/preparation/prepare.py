@@ -2,7 +2,7 @@ import os
 import tempfile
 import gc
 from .checking import create_transcript, CheckingProcess
-from .annotation_parser import AnnotationParser, load_from_gtf, load_from_gff, load_from_bed12
+from .annotation_parser import AnnotationParser, loaders, row_struct
 from ..utilities import Interval, IntervalTree
 from ..parsers import to_gff
 import operator
@@ -17,11 +17,12 @@ import multiprocessing.sharedctypes
 from collections import defaultdict
 import logging
 from ..utilities import path_join, merge_partial, overlap
-from collections import Counter
 import sqlite3
 import pysam
 import numpy as np
-import rapidjson as json
+import random
+import pandas as pd
+import zlib
 
 
 __author__ = 'Luca Venturini'
@@ -45,11 +46,12 @@ def __cleanup(args, shelves):
     return
 
 
-def _retrieve_data(shelf_name, shelve_stacks, tid, chrom, key, score, logger,
-                   merged_transcripts, chains, monoexonic_tree):
-    shelf = shelve_stacks[shelf_name]
-    strand, dumped = next(shelf["cursor"].execute("select strand, features from dump where tid = ?", (tid,)))
-    dumped = json.loads(dumped)
+def _retrieve_data(shelf, shelf_name, tid, chrom, key, strand, score, write_start, write_length, logger,
+                   merged_transcripts, chains):
+    shelf.seek(write_start)
+    dumped = shelf.read(write_length)
+    dumped = msgpack.loads(zlib.decompress(dumped), raw=False)
+    assert isinstance(dumped, dict), dumped
     try:
         features = dumped["features"]
         exon_set = tuple(sorted([(exon[0], exon[1], strand) for exon in features["exon"]],
@@ -58,53 +60,67 @@ def _retrieve_data(shelf_name, shelve_stacks, tid, chrom, key, score, logger,
             introns = tuple([(_[0] + 1, _[1] - 1) for _ in zip([_[1] for _ in exon_set][:-1],
                                                          [_[0] for _ in exon_set][1:])])
         else:
-            introns = tuple([tuple([exon_set[0][0], exon_set[0][1]])])
+            introns = None
         cds_set = tuple(sorted([(exon[0], exon[1]) for exon in features.get("CDS", [])],
                                key=operator.itemgetter(0, 1)))
-        monoexonic = not (len(exon_set) > 1)
         data = dict()
         data["introns"], data["strand"], data["score"] = introns, strand, score
-        data["monoexonic"] = monoexonic
-        data["is_reference"], data["keep_redundant"] = dumped["is_reference"], dumped["keep_redundant"]
+        data["monoexonic"] = (len(exon_set) == 1)
+        data["is_reference"], data["exclude_redundant"] = dumped["is_reference"], dumped["exclude_redundant"]
         data["start"], data["end"], data["cds_set"] = key[0], key[1], cds_set
-        data["key"] = (tuple([tid, shelf_name]), chrom, (data["start"], data["end"]))
-        if data["monoexonic"] is True:
-            # Additional check at the end because the intervaltree class does not support item removal yet.
-            caught = dict((i.value, merged_transcripts[i.value])
-                          for i in monoexonic_tree.find(data["start"], data["end"])
-                          if i.value in merged_transcripts)
-        else:
-            caught = dict((i, merged_transcripts[i]) for i in chains.get(data["introns"], []))
+        data["key"] = (tuple([tid, shelf_name, write_start, write_length]),
+                       chrom, (int(data["start"]), int(data["end"])))
+        # Sorted by default
+        try:
+            caught = [(i.value, merged_transcripts[i.value])
+                      for i in chains[data["introns"]].find(data["start"], data["end"], contained_check=True,
+                                                            num_intervals=10**5)
+                      if i.value in merged_transcripts]
+        except AttributeError as exc:
+            raise AttributeError("{}\n{}\n{}".format(exc, type(chains), type(chains[data["introns"]])))
+
         return data, caught
     except (TypeError, IndexError, ValueError, KeyError) as exc:
         logger.error("Error in analysing %s. Skipping. Error: %s", tid, exc)
         return None, None
 
 
-def _select_transcript(is_reference, score, other, start, end):
+def _select_transcript(is_reference, exclude_redundant, score, other, start, end):
     # First off: check they are *actually* redundant
     ovl = overlap((start, end), (other["start"], other["end"]), positive=True)
 
     if is_reference is True and other["is_reference"] is True:
         return True, True
     length, olength = end - start, other["end"] - other["start"]
-    if ovl < length and ovl < olength:
+    if ovl < min(length, olength):
         # Insufficient overlap: the models are staggered!. Continue
         return True, True
+
     to_keep, other_to_keep = False, False
     # (26612190, 26614205), (26612165, 26614294)
-    if other_to_keep is False and (is_reference is False and other["is_reference"] is True) or (score < other["score"]):
-        other_to_keep = True
-    elif to_keep is False and (is_reference is True and other["is_reference"] is False) or (score > other["score"]):
-        to_keep = True
-    elif ovl == length == olength:
-        to_keep, other_to_keep = np.random.permutation([True, False])
-    elif ovl == length:
-        other_to_keep = True
-    elif ovl == olength:
-        to_keep = True
-    if other["keep_redundant"] is True:
-        other_to_keep = True  # Always keep transcripts marked like this
+    # Special case: the two transcripts are identical.
+    if ovl == length == olength:
+        if (is_reference is False and other["is_reference"] is True) or (score < other["score"]):
+            other_to_keep = True
+        elif (is_reference is True and other["is_reference"] is False) or (score > other["score"]):
+            to_keep = True
+        else:
+            # to_keep, other_to_keep = np.random.permutation([True, False])
+            to_keep = random.choice([True, False])
+            other_to_keep = not to_keep
+    else:
+        if (is_reference is False and other["is_reference"] is True) or (score < other["score"]):
+            other_to_keep = True
+        elif (is_reference is True and other["is_reference"] is False) or (score > other["score"]):
+            to_keep = True
+        elif ovl == length:
+            other_to_keep = True
+        elif ovl == olength:
+            to_keep = True
+        if other["exclude_redundant"] is False:
+            other_to_keep = True  # Always keep transcripts marked like this
+        if exclude_redundant is False:
+            to_keep = True  # Always keep transcripts marked like this
     if not any([other_to_keep, to_keep]):
         raise ValueError((
             (is_reference, other["is_reference"]),
@@ -115,6 +131,7 @@ def _select_transcript(is_reference, score, other, start, end):
 
 
 def _check_correspondence(data: dict, other: dict):
+    """Verify that two transcripts might be redundant. They must have the same CDS for that to happen."""
     if data["monoexonic"] is True and other["monoexonic"] is True:
         # raise ValueError((other["introns"][0], key))
         check = ((other["strand"] == data["strand"]) and
@@ -128,44 +145,50 @@ def _check_correspondence(data: dict, other: dict):
     return check
 
 
-def _analyse_chrom(chrom: str, keys: dict, shelve_stacks: dict, logger, keep_redundant=True):
+def _analyse_chrom(chrom: str, keys: pd.DataFrame, shelves, logger):
 
-    merged_transcripts, chains, monoexonic = dict(), defaultdict(set), IntervalTree()
+    merged_transcripts, chains = dict(), defaultdict(IntervalTree)
     current = None
-    for key in sorted(keys.keys(),
-                      key=operator.itemgetter(0, 1)):
-        tids = keys[key]
-        if keep_redundant is True:
-            for tid in tids:
-                yield tid[:2], chrom, key
-            continue
-        if current is not None and overlap(current, key) < 0:
+    keys = keys.sort_values(["start", "end"])
+
+    for (start, end), tids in keys.groupby(["start", "end"]):
+        if current is not None and overlap(current, (start, end)) < 0:
             if not merged_transcripts:
-                logger.debug("No transcript kept for %s:%s-%s", chrom, key[0], key[1])
+                logger.debug("No transcript kept for %s:%s-%s", chrom, start, end)
             for tid in merged_transcripts:
                 logger.debug("Keeping %s as not redundant", tid)
                 yield merged_transcripts[tid]["key"]
-            current = key
-            merged_transcripts, chains, monoexonic = dict(), defaultdict(set), IntervalTree()
+            current = (start, end)
+            merged_transcripts, chains = dict(), defaultdict(IntervalTree)
         elif current is not None:
-            current = tuple([min(key[0], current[0]), max(key[1], current[1])])
+            current = tuple([min(start, current[0]), max(end, current[1])])
         else:
-            current = key
+            current = (start, end)
 
-        for tid, shelf_name, score, is_reference, _ in tids:
+        assert (tids.columns == ["start", "end", "strand", "tid", "write_start", "write_length", "shelf"] + [
+            "score", "is_reference", "exclude_redundant"]).all(), tids.columns
+        for row in tids.values:
+            strand, tid, write_start, write_length, shelf_name, score, is_reference = row[2:-1]
+            write_start, write_length = int(write_start), int(write_length)
+            is_reference = bool(is_reference)
+            shelf = shelves[shelf_name]
             to_keep, others_to_remove = True, set()
-            data, caught = _retrieve_data(shelf_name, shelve_stacks, tid, chrom, key, score, logger,
-                                          merged_transcripts, chains, monoexonic)
+            data, caught = _retrieve_data(shelf, shelf_name, tid, chrom, (start, end), strand, score,
+                                          write_start, write_length, logger,
+                                          merged_transcripts, chains)
             if data is None:
                 continue
             to_keep = True
             logger.debug("Checking %s (introns: %s; monoexonic: %s)", tid, data["introns"], data["monoexonic"])
-            for otid, other in caught.items():
+            for otid, other in caught:
                 check = _check_correspondence(data, other)
                 if check:
                     # Redundancy!
                     to_keep, other_to_keep = _select_transcript(
-                        is_reference, score, other, start=key[0], end=key[1])
+                        is_reference, data["exclude_redundant"],
+                        score, other, start=start, end=end)
+                    logger.debug("Checking %s vs %s; initial check: %s; KR: %s; OKR: %s",
+                                 tid, otid, check, data["exclude_redundant"], other["exclude_redundant"])
                     if to_keep is True and other_to_keep is True:
                         logger.debug("Keeping both %s and %s.", tid, otid)
                     elif to_keep is True and other_to_keep is False:
@@ -177,14 +200,9 @@ def _analyse_chrom(chrom: str, keys: dict, shelve_stacks: dict, logger, keep_red
             if others_to_remove:
                 logger.info("Excluding %s as redundant with %s", ",".join(others_to_remove), tid)
                 [merged_transcripts.__delitem__(otid) for otid in others_to_remove]
-                if data["monoexonic"] is False:
-                    [chains[data["introns"]].remove(otid) for otid in others_to_remove]
             if to_keep is True or to_keep is None:
                 merged_transcripts[tid] = data
-                if data["monoexonic"] is False:
-                    chains[data["introns"]].add(tid)
-                else:
-                    monoexonic.add_interval(Interval(data["start"], data["end"], value=tid))
+                chains[data["introns"]].add_interval(Interval(data["start"], data["end"], value=tid))
                 logger.debug("Keeping %s in the dataset", tid)
 
     if not merged_transcripts and current is not None:
@@ -194,51 +212,7 @@ def _analyse_chrom(chrom: str, keys: dict, shelve_stacks: dict, logger, keep_red
         yield merged_transcripts[tid]["key"]
 
 
-def store_transcripts(shelf_stacks, logger, keep_redundant=False, seed=None):
-
-    """
-    Function that analyses the exon lines from the original file
-    and organises the data into a proper dictionary.
-    :param shelf_stacks: dictionary containing the name and the handles of the shelf DBs
-    :type shelf_stacks: dict
-    :param logger: logger instance.
-    :type logger: logging.Logger
-
-    :param keep_redundant: boolean flag. If set to True, redundant transcripts will be kept in the output.
-    :type keep_redundant: bool
-
-    :return: transcripts: dictionary which will be the final output
-    :rtype: transcripts
-    """
-
-    transcripts = collections.defaultdict(dict)
-    # Read from the temporary databases the indices (chrom, start, end, strand and transcript ID).
-    # Then store
-    for shelf_name in shelf_stacks:
-        shelf_score = shelf_stacks[shelf_name]["score"]
-        is_reference = shelf_stacks[shelf_name]["is_reference"]
-        redundants_to_keep = shelf_stacks[shelf_name]["keep_redundant"]
-        # redundants_to_keep = shelf_stacks[shelf_name]["keep_redundant"]
-        try:
-            for values in shelf_stacks[shelf_name]["cursor"].execute("SELECT chrom, start, end, strand, tid FROM dump"):
-                chrom, start, end, strand, tid = values
-                if (start, end) not in transcripts[chrom]:
-                    transcripts[chrom][(start, end)] = list()
-                transcripts[chrom][(start, end)].append((tid, shelf_name, shelf_score, is_reference,
-                                                         redundants_to_keep))
-        except sqlite3.OperationalError as exc:
-            raise sqlite3.OperationalError("dump not found in {}; excecption: {}".format(shelf_name, exc))
-
-    np.random.seed(seed)
-    for chrom in sorted(transcripts.keys()):
-        logger.debug("Starting with %s (%d positions)",
-                     chrom,
-                     len(transcripts[chrom]))
-        yield from _analyse_chrom(chrom, transcripts[chrom], shelve_stacks=shelf_stacks,
-                                  logger=logger, keep_redundant=keep_redundant)
-
-
-def perform_check(keys, shelve_stacks, args, logger):
+def perform_check(keys, shelve_names, args, logger):
 
     """
     This is the most important method. After preparing the data structure,
@@ -247,7 +221,7 @@ def perform_check(keys, shelve_stacks, args, logger):
     This is also the point at which we start using multithreading, if
     so requested.
     :param keys: sorted list of [tid, sequence]
-    :param shelve_stacks: dictionary containing the name and the handles of the shelf DBs
+    :param shelve_names: list of the temporary files.
     :param args: the namespace
     :param logger: logger
     :return:
@@ -260,6 +234,7 @@ def perform_check(keys, shelve_stacks, args, logger):
 
     if args.json_conf["prepare"]["single"] is True or args.json_conf["threads"] == 1:
 
+        shelve_stacks = dict((shelf, open(shelf, "rb")) for shelf in shelve_names)
         # Use functools to pre-configure the function
         # with all necessary arguments aside for the lines
         partial_checker = functools.partial(
@@ -269,10 +244,11 @@ def perform_check(keys, shelve_stacks, args, logger):
             force_keep_cds=not args.json_conf["prepare"]["strip_cds"])
 
         for tid, chrom, key in keys:
-            tid, shelf_name = tid
+            tid, shelf_name, write_start, write_length = tid
             try:
-                tobj = json.loads(next(shelve_stacks[shelf_name]["cursor"].execute(
-                    "SELECT features FROM dump WHERE tid = ?", (tid,)))[0])
+                shelf = shelve_stacks[shelf_name]
+                shelf.seek(write_start)
+                tobj = msgpack.loads(zlib.decompress((shelf.read(write_length))), raw=False)
             except sqlite3.ProgrammingError as exc:
                 raise sqlite3.ProgrammingError("{}. Tids: {}".format(exc, tid))
 
@@ -303,7 +279,8 @@ def perform_check(keys, shelve_stacks, args, logger):
         # submission_queue = multiprocessing.JoinableQueue(-1)
 
         batches = list(enumerate(keys, 1))
-        np.random.shuffle(batches)
+        # np.random.shuffle(batches)
+        random.shuffle(batches)
         kwargs = {
             "fasta_out": os.path.basename(args.json_conf["prepare"]["files"]["out_fasta"].name),
             "gtf_out": os.path.basename(args.json_conf["prepare"]["files"]["out"].name),
@@ -316,7 +293,8 @@ def perform_check(keys, shelve_stacks, args, logger):
         }
 
         working_processes = []
-        for idx, batch in enumerate(np.array_split(batches, args.json_conf["threads"]), 1):
+        for idx, batch in enumerate(np.array_split(np.array(batches,
+                                                            dtype=object), args.json_conf["threads"]), 1):
             batch_file = tempfile.NamedTemporaryFile(delete=False, mode="wb")
             msgpack.dump(batch.tolist(), batch_file)
             batch_file.flush()
@@ -327,9 +305,19 @@ def perform_check(keys, shelve_stacks, args, logger):
                 args.logging_queue,
                 args.json_conf["reference"]["genome"].filename,
                 idx,
-                shelve_stacks.keys(),
+                shelve_names,
                 **kwargs)
-            proc.start()
+            try:
+                proc.start()
+            except TypeError as exc:
+                logger.critical("Failed arguments: %s", (batch_file.name,
+                args.logging_queue,
+                args.json_conf["reference"]["genome"].filename,
+                idx,
+                shelve_names))
+                logger.critical("Failed kwargs: %s", kwargs)
+                logger.critical(exc)
+                raise
             working_processes.append(proc)
 
         [_.join() for _ in working_processes]
@@ -356,14 +344,17 @@ def perform_check(keys, shelve_stacks, args, logger):
     return
 
 
+row_columns = ["chrom", "start", "end", "strand", "tid", "write_start", "write_length", "shelf"]
+
+
 def _load_exon_lines_single_thread(args, shelve_names, logger, min_length, strip_cds, max_intron):
 
     logger.info("Starting to load lines from %d files (single-threaded)",
                 len(args.json_conf["prepare"]["files"]["gff"]))
     previous_file_ids = collections.defaultdict(set)
-    if args.json_conf["prepare"]["files"]["keep_redundant"] == []:
-        args.json_conf["prepare"]["files"]["keep_redundant"] = [False] * len(args.json_conf["prepare"]["files"]["gff"])
-    if not len(args.json_conf["prepare"]["files"]["keep_redundant"]) == len(args.json_conf["prepare"]["files"]["gff"]):
+    if args.json_conf["prepare"]["files"]["exclude_redundant"] == []:
+        args.json_conf["prepare"]["files"]["exclude_redundant"] = [False] * len(args.json_conf["prepare"]["files"]["gff"])
+    if not len(args.json_conf["prepare"]["files"]["exclude_redundant"]) == len(args.json_conf["prepare"]["files"]["gff"]):
         raise AssertionError
 
     to_do = list(zip(
@@ -371,66 +362,60 @@ def _load_exon_lines_single_thread(args, shelve_names, logger, min_length, strip
             args.json_conf["prepare"]["files"]["labels"],
             args.json_conf["prepare"]["files"]["strand_specific_assemblies"],
             args.json_conf["prepare"]["files"]["reference"],
-            args.json_conf["prepare"]["files"]["keep_redundant"],
+            args.json_conf["prepare"]["files"]["exclude_redundant"],
             args.json_conf["prepare"]["files"]["gff"]
     ))
-    logger.info("To do: %d combinations", len(to_do))
+    if len(to_do) == 0 and len(shelve_names) > 0:
+        raise OSError(
+            (
+                shelve_names,
+                args.json_conf["prepare"]["files"]["labels"],
+                args.json_conf["prepare"]["files"]["strand_specific_assemblies"],
+                args.json_conf["prepare"]["files"]["reference"],
+                args.json_conf["prepare"]["files"]["exclude_redundant"],
+                args.json_conf["prepare"]["files"]["gff"]
+            )
+        )
 
-    for new_shelf, label, strand_specific, is_reference, keep_redundant, gff_name in to_do:
+    logger.debug("To do: %d combinations", len(to_do))
+
+    rows = pd.DataFrame([], columns=row_columns)
+
+    for new_shelf, label, strand_specific, is_reference, exclude_redundant, gff_name in to_do:
         logger.info("Starting with %s", gff_name)
         gff_handle = to_gff(gff_name)
         found_ids = set.union(set(), *previous_file_ids.values())
-        if gff_handle.__annot_type__ == "gff3":
-            new_ids = load_from_gff(new_shelf,
-                                    gff_handle,
-                                    label,
-                                    found_ids,
-                                    logger,
-                                    min_length=min_length,
-                                    max_intron=max_intron,
-                                    strip_cds=strip_cds and not is_reference,
-                                    keep_redundant=keep_redundant,
-                                    is_reference=is_reference,
-                                    strand_specific=strand_specific or is_reference)
-        elif gff_handle.__annot_type__ == "bed12":
-            new_ids = load_from_bed12(new_shelf,
-                                      gff_handle,
-                                      label,
-                                      found_ids,
-                                      logger,
-                                      min_length=min_length,
-                                      max_intron=max_intron,
-                                      strip_cds=strip_cds and not is_reference,
-                                      keep_redundant=keep_redundant,
-                                      is_reference=is_reference,
-                                      strand_specific=strand_specific or is_reference)
-        else:
-            new_ids = load_from_gtf(new_shelf,
-                                    gff_handle,
-                                    label,
-                                    found_ids,
-                                    logger,
-                                    min_length=min_length,
-                                    max_intron=max_intron,
-                                    strip_cds=strip_cds and not is_reference,
-                                    keep_redundant=keep_redundant,
-                                    is_reference=is_reference,
-                                    strand_specific=strand_specific or is_reference)
-
+        loader = loaders.get(gff_handle.__annot_type__, None)
+        if loader is None:
+            raise ValueError("Invalid file type: {}".format(gff_handle.name))
+        new_ids, new_rows = loader(new_shelf, gff_handle, label, found_ids, logger,
+                                   min_length=min_length, max_intron=max_intron,
+                                   strip_cds=strip_cds and not is_reference,
+                                   exclude_redundant=exclude_redundant, is_reference=is_reference,
+                                   strand_specific=strand_specific or is_reference)
         previous_file_ids[gff_handle.name] = new_ids
-    return
+        new_rows = pd.DataFrame(new_rows, columns=row_columns[:-1])
+        new_rows[row_columns[-1]] = new_shelf
+        rows = pd.concat([rows, new_rows])
+
+    for column in ["chrom", "strand", "tid"]:
+        rows[column] = rows[column].str.decode("utf-8")
+
+    return rows
 
 
 def _load_exon_lines_multi(args, shelve_names, logger, min_length, strip_cds, threads, max_intron=3*10**5):
     logger.info("Starting to load lines from %d files (using %d processes)",
                 len(args.json_conf["prepare"]["files"]["gff"]), threads)
-    submission_queue = multiprocessing.JoinableQueue(-1)
-
+    manager = multiprocessing.Manager()
+    submission_queue = manager.JoinableQueue(-1)
+    return_queue = manager.JoinableQueue(-1)
     working_processes = []
     # working_processes = [ for _ in range(threads)]
 
     for num in range(threads):
         proc = AnnotationParser(submission_queue,
+                                return_queue,
                                 args.logging_queue,
                                 num + 1,
                                 log_level=args.level,
@@ -441,50 +426,50 @@ def _load_exon_lines_multi(args, shelve_names, logger, min_length, strip_cds, th
         proc.start()
         working_processes.append(proc)
 
-    if args.json_conf["prepare"]["files"]["keep_redundant"] == []:
-        args.json_conf["prepare"]["files"]["keep_redundant"] = [False] * len(args.json_conf["prepare"]["files"]["gff"])
-    for new_shelf, label, strand_specific, is_reference, keep_redundant, gff_name in zip(
+    shelve_df = []
+    for shelf_index, (new_shelf, label, strand_specific, is_reference, exclude_redundant, gff_name) in enumerate(zip(
             shelve_names,
             args.json_conf["prepare"]["files"]["labels"],
             args.json_conf["prepare"]["files"]["strand_specific_assemblies"],
             args.json_conf["prepare"]["files"]["reference"],
-            args.json_conf["prepare"]["files"]["keep_redundant"],
-            args.json_conf["prepare"]["files"]["gff"]):
-        submission_queue.put((label, gff_name, strand_specific, is_reference, keep_redundant, new_shelf))
+            args.json_conf["prepare"]["files"]["exclude_redundant"],
+            args.json_conf["prepare"]["files"]["gff"])):
+        submission_queue.put((label, gff_name, strand_specific, is_reference, exclude_redundant, new_shelf,
+                              shelf_index))
+        shelve_df.append((shelf_index, new_shelf))
 
-    submission_queue.put(("EXIT", "EXIT", "EXIT", "EXIT", "EXIT", "EXIT"))
+    shelve_df = pd.DataFrame(shelve_df, columns=["shelf_index", "shelf"])
+    submission_queue.put(tuple(["EXIT"] * 7))
+    
+    rows = []
+
+    retrieved = 0
+    import sys
+    while retrieved < len(working_processes):
+        if return_queue.empty():
+            continue
+        row = return_queue.get(block=False)
+        if row == "FINISHED":
+            retrieved += 1
+        else:
+            rows.append(row)
+        continue
 
     [_.join() for _ in working_processes]
-
-    tid_counter = Counter()
-    for shelf in shelve_names:
-        conn = sqlite3.connect("file:{}?mode=ro".format(shelf),
-                               uri=True,  # Necessary to use the Read-only mode from file string
-                               isolation_level="DEFERRED",
-                               timeout=60,
-                               check_same_thread=False  # Necessary for SQLite3 to function in multiprocessing
-                               )
-        cursor = conn.cursor()
-        tid_counter.update([_[0] for _ in cursor.execute("SELECT tid FROM dump")])
-        if tid_counter.most_common()[0][1] > 1:
-            if set(args.json_conf["prepare"]["files"]["labels"]) == {""}:
-                exception = exceptions.RedundantNames(
-                    """Found redundant names during multiprocessed file analysis.\
-Please repeat using distinct labels for your input files. Aborting. Redundant names:\n\
-{}""".format("\n".join(tid_counter.most_common())))
-            else:
-                exception = exceptions.RedundantNames(
-                    """Found redundant names during multiprocessed file analysis, even if \
-unique labels were provided. Please try to repeat with a different and more unique set of labels. Aborting. Redundant names:\n\
-{}""".format("\n".join([_[0] for _ in tid_counter.most_common() if _[1] > 1])))
-            logger.exception(exception)
-            raise exception
+    
+    rows = pd.DataFrame(rows, columns=row_columns[:-1] + ["shelf_index"])
+    rows = rows.merge(shelve_df, on="shelf_index", how="left").drop(["shelf_index"], axis=1)
+    for key in ["chrom", "tid", "strand"]:
+         rows[key] = rows[key].str.decode("utf-8")
 
     del working_processes
     gc.collect()
+    logger.info("Finished parsing all input files")
+    manager.shutdown()
+    return rows
 
 
-def load_exon_lines(args, shelve_names, logger, min_length=0, max_intron=3*10**5):
+def load_exon_lines(args, shelve_names, logger, min_length=0, max_intron=3*10**5) -> pd.DataFrame:
 
     """This function loads all exon lines from the GFF inputs into a
      defaultdict instance.
@@ -505,14 +490,30 @@ f
     strip_cds = args.json_conf["prepare"]["strip_cds"]
 
     if args.json_conf["prepare"]["single"] is True or threads == 1:
-        _load_exon_lines_single_thread(args, shelve_names, logger, min_length, strip_cds, max_intron)
+        rows = _load_exon_lines_single_thread(args, shelve_names, logger, min_length, strip_cds, max_intron)
     else:
-        _load_exon_lines_multi(args, shelve_names, logger, min_length, strip_cds, threads, max_intron)
+        rows = _load_exon_lines_multi(args, shelve_names, logger, min_length, strip_cds, threads, max_intron)
 
     logger.info("Finished loading lines from %d files",
                 len(args.json_conf["prepare"]["files"]["gff"]))
 
-    return
+    if rows["tid"].duplicated().any():
+        if set(args.json_conf["prepare"]["files"]["labels"]) == {""}:
+            exception = exceptions.RedundantNames(
+                """Found redundant names during multiprocessed file analysis.\
+Please repeat using distinct labels for your input files. Aborting.""")
+        else:
+            with open("rows.tsv", "wt") as out:
+                rows.to_csv(out, sep="\t", header=True, index=False)
+
+            exception = exceptions.RedundantNames(
+                """Found redundant names during multiprocessed file analysis, even if \
+unique labels were provided. Please try to repeat with a different and more unique set of labels. Aborting.""")
+        logger.exception(exception)
+        raise exception
+
+    rows["strand"] = rows["strand"].mask(rows["strand"] == ".", None)
+    return rows
 
 
 def prepare(args, logger):
@@ -539,9 +540,9 @@ def prepare(args, logger):
         raise AttributeError
 
     if not os.path.exists(args.json_conf["reference"]["genome"]):
-        logger.critical("Invalid FASTA file: %s",
-                        args.json_conf["reference"]["genome"])
-        raise AttributeError
+        error = "Invalid FASTA file: {}".format(args.json_conf["reference"]["genome"])
+        logger.critical(error)
+        raise AttributeError(error)
 
     assert len(args.json_conf["prepare"]["files"]["gff"]) > 0
     assert len(args.json_conf["prepare"]["files"]["gff"]) == len(args.json_conf["prepare"]["files"]["labels"]), (
@@ -557,12 +558,19 @@ def prepare(args, logger):
             (member in args.json_conf["prepare"]["files"]["strand_specific_assemblies"])
             for member in args.json_conf["prepare"]["files"]["gff"]]
 
-    args.json_conf["prepare"]["files"]["reference"] = [
-        (member in args.json_conf["prepare"]["files"]["reference"] or
-         label in args.json_conf["prepare"]["files"]["reference"])
-        for member, label in zip(args.json_conf["prepare"]["files"]["gff"],
-                                 args.json_conf["prepare"]["files"]["labels"])
-    ]
+    ref_len = len(args.json_conf["prepare"]["files"]["reference"])
+    file_len = len(args.json_conf["prepare"]["files"]["gff"])
+    if ref_len == 0:
+        args.json_conf["prepare"]["files"]["reference"] = ([False] * file_len)
+    elif (ref_len != file_len) or (args.json_conf["prepare"]["files"]["reference"][0] not in (True, False)):
+        ref_set = set(args.json_conf["prepare"]["files"]["reference"])
+        args.json_conf["prepare"]["files"]["reference"] = [
+            (_ in ref_set) for _ in args.json_conf["prepare"]["files"]["gff"]
+        ]
+
+    if not args.json_conf["prepare"]["files"]["exclude_redundant"]:
+        args.json_conf["prepare"]["files"]["exclude_redundant"] = (
+            [getattr(args, "exclude_redundant", False)] * len(args.json_conf["prepare"]["files"]["gff"]))
 
     shelve_names = [path_join(args.json_conf["prepare"]["files"]["output_dir"],
                               "mikado_shelf_{}.db".format(str(_).zfill(5))) for _ in
@@ -596,24 +604,15 @@ def prepare(args, logger):
     args.json_conf["reference"]["genome"] = pysam.FastaFile(args.json_conf["reference"]["genome"])
     logger.info("Finished loading genome file")
     logger.info("Started loading exon lines")
-    shelf_stacks = dict()
     errored = False
     try:
-        load_exon_lines(args,
-                        shelve_names,
-                        logger,
-                        min_length=args.json_conf["prepare"]["minimum_cdna_length"],
-                        max_intron=args.json_conf["prepare"]["max_intron_length"],)
+        # chrom, start, end, strand, tid, write_start, write_length, shelf
+        rows = load_exon_lines(
+            args, shelve_names, logger,
+            min_length=args.json_conf["prepare"]["minimum_cdna_length"],
+            max_intron=args.json_conf["prepare"]["max_intron_length"],)
 
         logger.info("Finished loading exon lines")
-
-        # Prepare the sorted data structure
-        sorter = functools.partial(
-            store_transcripts,
-            logger=logger,
-            seed=args.json_conf["seed"],
-            keep_redundant=args.json_conf["prepare"]["keep_redundant"]
-        )
 
         shelve_source_scores = []
         for label in args.json_conf["prepare"]["files"]["labels"]:
@@ -621,23 +620,35 @@ def prepare(args, logger):
                 args.json_conf["prepare"]["files"]["source_score"].get(label, 0)
             )
 
-        try:
-            for shelf, score, is_reference, keep_redundant in zip(
-                    shelve_names, shelve_source_scores,
-                    args.json_conf["prepare"]["files"]["reference"],
-                    args.json_conf["prepare"]["files"]["keep_redundant"]):
-                assert isinstance(is_reference, bool)
-                conn_string = "file:{shelf}?mode=ro&immutable=1".format(shelf=shelf)
-                conn = sqlite3.connect(conn_string, uri=True,
-                                       isolation_level="DEFERRED",
-                                       check_same_thread=False)
-                shelf_stacks[shelf] = {"conn": conn, "cursor": conn.cursor(), "score": score,
-                                       "is_reference": is_reference, "keep_redundant": keep_redundant,
-                                       "conn_string": conn_string}
-            # shelf_stacks = dict((_, shelve.open(_, flag="r")) for _ in shelve_names)
-        except Exception as exc:
-            raise TypeError((shelve_names, exc))
-        perform_check(sorter(shelf_stacks), shelf_stacks, args, logger)
+        shelve_table = []
+
+        for shelf, score, is_reference, exclude_redundant in zip(
+                shelve_names, shelve_source_scores,
+                args.json_conf["prepare"]["files"]["reference"],
+                args.json_conf["prepare"]["files"]["exclude_redundant"]):
+            assert isinstance(is_reference, bool), \
+                (is_reference, args.json_conf["prepare"]["files"]["reference"])
+            shelve_table.append((shelf, score, is_reference, exclude_redundant))
+
+        shelve_table = pd.DataFrame(shelve_table, columns=["shelf", "score", "is_reference", "exclude_redundant"])
+
+        rows = rows.merge(shelve_table, on="shelf", how="left")
+        random.seed(args.json_conf["seed"])
+
+        shelves = dict((shelf_name, open(shelf_name, "rb")) for shelf_name in shelve_table["shelf"].unique())
+
+        def divide_by_chrom():
+            # chrom, start, end, strand, tid, write_start, write_length, shelf
+            transcripts = rows.groupby(["chrom"])
+            columns = rows.columns[1:]
+            for chrom in sorted(transcripts.groups.keys()):
+                logger.debug("Starting with %s (%d positions)",
+                             chrom, transcripts.size()[chrom])
+
+                yield from _analyse_chrom(chrom, rows.loc[transcripts.groups[chrom], columns],
+                                          shelves, logger=logger)
+
+        perform_check(divide_by_chrom(), shelve_names, args, logger)
     except Exception as exc:
         logger.exception(exc)
         __cleanup(args, shelve_names)
@@ -657,7 +668,9 @@ def prepare(args, logger):
         logger.info("""Mikado prepare has finished correctly. The output %s FASTA file can now be used for BLASTX \
     and/or ORF calling before the next step in the pipeline, `mikado serialise`.""",
                     args.json_conf["prepare"]["files"]["out_fasta"])
+        logging.shutdown()
     else:
-        logger.error("Mikado prepared has encountered a fatal error. Please check the logs and, if there is a bug,"\
+        logger.error("Mikado prepare has encountered a fatal error. Please check the logs and, if there is a bug,"\
                      "report it to https://github.com/EI-CoreBioinformatics/mikado/issues")
-    logging.shutdown()
+        logging.shutdown()
+        exit(1)

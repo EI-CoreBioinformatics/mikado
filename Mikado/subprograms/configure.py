@@ -10,22 +10,20 @@ from pkg_resources import resource_filename, resource_stream
 import glob
 import argparse
 import sys
-from ..configuration import configurator, daijin_configurator, print_config, print_toml_config, check_has_requirements
-from ..configuration.configurator import create_cluster_config
 from ..exceptions import InvalidJson
-from ..utilities import comma_split  # , merge_dictionaries
-from ..transcripts.transcript import Namespace
+from ..utilities import comma_split, percentage
+from ..utilities.namespace import Namespace
 import functools
 import rapidjson as json
-from collections import Counter
 import tempfile
 from ..utilities.log_utils import create_null_logger, create_default_logger
 import tomlkit
+import toml
 try:
     from yaml import CSafeLoader as yLoader
 except ImportError:
     from yaml import SafeLoader as yLoader
-
+from .prepare import parse_prepare_options
 
 __author__ = 'Luca Venturini'
 
@@ -60,8 +58,11 @@ def create_simple_config(seed=None):
     :return:
     """
 
-    default = configurator.to_json("", simple=True)
-    validator = configurator.create_validator(simple=True)
+    from ..configuration.configurator import to_json, create_validator, merge_dictionaries
+    from ..configuration import check_has_requirements
+
+    default = to_json("", simple=True)
+    validator = create_validator(simple=True)
 
     del default["scoring"]
     del default["requirements"]
@@ -86,7 +87,7 @@ def create_simple_config(seed=None):
         for k in reversed(ckey):
             val = {k: val}
 
-        new_dict = configurator.merge_dictionaries(new_dict, val)
+        new_dict = merge_dictionaries(new_dict, val)
 
     if seed is not None:
         new_dict["seed"] = seed
@@ -111,6 +112,45 @@ def _remove_comments(d: dict) -> dict:
     return nudict
 
 
+def __add_daijin_specs(args):
+    from ..configuration.daijin_configurator import create_cluster_config, create_daijin_config
+    namespace = Namespace(default=False)
+    namespace.r1 = []
+    namespace.r2 = []
+    namespace.samples = []
+    namespace.strandedness = []
+    namespace.asm_methods = []
+    namespace.long_aln_methods = []
+    namespace.aligners = []
+    if args.mode is not None:
+        namespace.modes = args.mode[:]
+    else:
+        namespace.modes = ["stringent"]
+    if args.blast_targets:
+        namespace.prot_db = args.blast_targets[:]
+    else:
+        namespace.prot_db = []
+    namespace.cluster_config = None
+    namespace.scheduler = ""
+    namespace.flank = None
+    namespace.intron_range = None
+    namespace.genome = args.reference
+    namespace.transcriptome = ""
+    namespace.name = "Daijin"
+    namespace.out_dir = args.out_dir if args.out_dir else "Daijin"
+    namespace.threads = args.threads
+    namespace.scoring = args.scoring
+    namespace.new_scoring = getattr(args, "new_scoring", None)
+    namespace.full = args.full
+    config = create_daijin_config(namespace, level="ERROR", piped=True)
+    config["blastx"]["chunks"] = args.blast_chunks
+    config["mikado"]["use_diamond"] = (not args.use_blast)
+    config["mikado"]["use_prodigal"] = (not args.use_transdecoder)
+    config["scheduler"] = args.scheduler
+    create_cluster_config(config, args, create_null_logger())
+    return config
+
+
 def create_config(args):
     """
     Utility to create a default configuration file.
@@ -118,51 +158,17 @@ def create_config(args):
     :return:
     """
 
+    from ..configuration.configurator import to_json, merge_dictionaries
+    from ..configuration import print_config, print_toml_config
+
     if len(args.mode) > 1:
         args.daijin = True
 
     if args.daijin is not False:
-        namespace = Namespace(default=False)
-        namespace.r1 = []
-        namespace.r2 = []
-        namespace.samples = []
-        namespace.strandedness = []
-        namespace.asm_methods = []
-        namespace.long_aln_methods = []
-        namespace.aligners = []
-        if args.mode is not None:
-            namespace.modes = args.mode[:]
-        else:
-            namespace.modes = ["permissive"]
-        if args.blast_targets:
-            namespace.prot_db = args.blast_targets[:]
-        else:
-            namespace.prot_db = []
-        namespace.cluster_config = None
-        namespace.scheduler = ""
-        namespace.flank = None
-        namespace.intron_range = None
-        namespace.genome = args.reference
-        namespace.transcriptome = ""
-        namespace.name = "Daijin"
-        namespace.out_dir = args.out_dir if args.out_dir else "Daijin"
-        namespace.threads = args.threads
-        namespace.scoring = args.scoring
-        namespace.new_scoring = getattr(args, "new_scoring", None)
-        namespace.full = args.full
-        config = daijin_configurator.create_daijin_config(namespace, level="ERROR", piped=True)
-        config["blastx"]["chunks"] = args.blast_chunks
-        config["mikado"]["use_diamond"] = (not args.use_blast)
-        config["mikado"]["use_prodigal"] = (not args.use_transdecoder)
-        config["scheduler"] = args.scheduler
-
-        # for key in config:
-        #     config[key] = _remove_comments(config[key])
-        # config = configurator.merge_dictionaries(config, daijin_config)
-        create_cluster_config(config, args, create_null_logger())
+        config = __add_daijin_specs(args)
     else:
         if args.full is True:
-            default = configurator.to_json(None, simple=False)
+            default = to_json(None)
             del default["scoring"]
             del default["requirements"]
             del default["not_fragmentary"]
@@ -174,30 +180,29 @@ def create_config(args):
     if args.external is not None:
         if args.external.endswith("json"):
             loader = json.load
-        else:
+        elif args.external.endswith("yaml"):
             loader = functools.partial(yaml.load, Loader=yLoader)
+        else:
+            loader = toml.load
         with open(args.external) as external:
             external_conf = loader(external)
         # Overwrite values specific to Mikado
         if "mikado" in external_conf:
             mikado_conf = dict((key, val) for key, val in external_conf["mikado"].items() if key in config)
-            config = configurator.merge_dictionaries(config, mikado_conf)
-        config = configurator.merge_dictionaries(config, external_conf)
+            config = merge_dictionaries(config, mikado_conf)
+        config = merge_dictionaries(config, external_conf)
 
     config["pick"]["files"]["subloci_out"] = args.subloci_out if args.subloci_out else ""
     config["pick"]["files"]["monoloci_out"] = args.monoloci_out if args.monoloci_out else ""
 
+    if isinstance(args.gff, str):
+        args.gff = args.gff.split(",")
+    elif not args.gff:
+        args.gff = []
+    config = parse_prepare_options(args, config)
+
     if args.seed is not None:
         config["seed"] = args.seed
-
-    if args.minimum_cdna_length not in (None, False):
-        config["prepare"]["minimum_cdna_length"] = args.minimum_cdna_length
-
-    if args.max_intron_length not in (None, False):
-        config["prepare"]["max_intron_length"] = args.max_intron_length
-
-    if args.reference is not None:
-        config["reference"]["genome"] = args.reference
 
     if args.junctions is not None:
         config["serialise"]["files"]["junctions"] = args.junctions
@@ -205,92 +210,10 @@ def create_config(args):
     if args.blast_targets is not None:
         config["serialise"]["files"]["blast_targets"] = args.blast_targets
 
-    if args.gff:
-        args.gff = args.gff.split(",")
-        __gff_counter = Counter()
-        __gff_counter.update(args.gff)
-
-        if __gff_counter.most_common()[0][1] > 1:
-            raise InvalidJson(
-                "Repeated elements among the input GFFs! Duplicated files: {}".format(
-                    ", ".join(_[0] for _ in __gff_counter.most_common() if _[1] > 1)
-                ))
-
-        config["prepare"]["files"]["gff"] = args.gff
-
-        if args.labels != '':
-            args.labels = args.labels.split(",")
-            if not len(args.labels) == len(args.gff):
-                raise ValueError("""Length mismatch between input files and labels!
-                GFFs: {0} (length {1})
-                Labels: {2} (length {3})""".format(
-                    args.gff, len(args.gff),
-                    args.labels, len(args.labels)))
-            config["prepare"]["files"]["labels"] = args.labels
-
-        if args.strand_specific_assemblies != "":
-            args.strand_specific_assemblies = args.strand_specific_assemblies.split(",")
-            if (len(args.strand_specific_assemblies) > len(args.gff) or
-                    any([(_ not in args.gff) for _ in args.strand_specific_assemblies])):
-                raise InvalidJson("Invalid strand-specific assemblies specified")
-            config["prepare"]["files"]["strand_specific_assemblies"] = args.strand_specific_assemblies
-
-    elif args.list:
-        config["prepare"]["files"]["source_score"] = dict()
-        with open(args.list) as list_file:
-            files, labels, strandedness, scores, is_references = [], [], [], [], []
-            files_counter = Counter()
-            for line in list_file:
-                try:
-                    _fields = line.rstrip().split("\t")
-                    filename, label, stranded = _fields[:3]
-
-                    if not os.path.exists(filename):
-                        raise ValueError("Invalid file name: {}".format(filename))
-                    files.append(filename)
-                    if label in labels:
-                        raise ValueError("Non-unique label specified: {}".format(label))
-                    labels.append(label)
-                    strandedness.append(stranded)
-                    if len(_fields) > 3 and _fields[3] != '':
-                        score = float(_fields[3])
-                    else:
-                        score = 0
-                    scores.append(score)
-                    if len(_fields) > 4:
-                        if _fields[4] == "True":
-                            is_reference = True
-                        else:
-                            is_reference = False
-                    else:
-                        is_reference = False
-                    is_references.append(is_reference)
-
-                except ValueError as exc:
-                    raise ValueError("Malformed inputs file. Error:\n{}".format(exc))
-            files_counter.update(files)
-            if files_counter.most_common()[0][1] > 1:
-                raise InvalidJson(
-                    "Repeated elements among the input GFFs! Duplicated files: {}".format(
-                        ", ".join(_[0] for _ in files_counter.most_common() if _[1] > 1)))
-            if any([_ not in ("True", "False") for _ in strandedness]):
-                raise InvalidJson("Invalid values for strandedness in the list file.")
-            config["prepare"]["files"]["labels"] = list(labels)
-            config["prepare"]["files"]["gff"] = list(files)
-            config["prepare"]["files"]["strand_specific_assemblies"] = [files[_[0]] for _ in enumerate(strandedness)
-                                                                        if _[1] == "True"]
-            for source, score in zip(labels, scores):
-                config["prepare"]["files"]["source_score"][source] = score
-
-            config["prepare"]["files"]["reference"] = [list(labels)[_[0]] for _ in enumerate(is_references)
-                                                       if _[1] is True]
-
-    elif args.no_files is True:
+    if args.no_files is True:
         for stage in ["pick", "prepare", "serialise"]:
             if "files" in config[stage]:
                 del config[stage]["files"]
-            # except KeyError:
-            #     raise KeyError(stage)
         del config["reference"]
         del config["db_settings"]
 
@@ -341,8 +264,25 @@ switch.")
     if args.pad is True:
         config["pick"]["alternative_splicing"]["pad"] = True
 
+    if args.min_clustering_cds_overlap is not None:
+        config["pick"]["clustering"]["min_cds_overlap"] = args.min_clustering_cds_overlap
+
+    if args.min_clustering_cdna_overlap is not None:
+        config["pick"]["clustering"]["min_cdna_overlap"] = args.min_clustering_cdna_overlap
+        if args.min_clustering_cds_overlap is None:
+            config["pick"]["clustering"]["min_cds_overlap"] = args.min_clustering_cdna_overlap
+
     if args.intron_range is not None:
         config["pick"]["run_options"]["intron_range"] = sorted(args.intron_range)
+
+    if args.codon_table is not None:
+        try:
+            args.codon_table = int(args.codon_table)
+        except ValueError:
+            pass
+        config["serialise"]["codon_table"] = args.codon_table
+    else:
+        assert args.full is False or "codon_table" in config["serialise"]
 
     config.pop("__loaded_scoring", None)
     config.pop("scoring_file", None)
@@ -364,7 +304,7 @@ switch.")
     print_config(output, tempcheck)
     tempcheck.flush()
     try:
-        configurator.to_json(tempcheck.name, simple=(not args.full))
+        to_json(tempcheck.name)
     except InvalidJson as exc:
         raise InvalidJson("Created an invalid configuration file! Error:\n{}".format(exc))
 
@@ -400,8 +340,8 @@ def configure_parser():
     scoring_files = [trailing.sub(r"", re.sub(fold_path, r"", fname))
                      for fname in glob.iglob(os.path.join(scoring_folder, "**", "*yaml"), recursive=True)]
 
-    parser = argparse.ArgumentParser(description="Configuration utility for Mikado",
-                                     formatter_class=argparse.RawTextHelpFormatter)
+    parser = argparse.ArgumentParser(description="Configuration utility for Mikado")
+                                     #formatter_class=argparse.RawTextHelpFormatter)
     parser.add_argument("--full", action="store_true", default=False)
     parser.add_argument("--seed", type=int, default=None,
                         help="Random seed number.")
@@ -448,7 +388,16 @@ final output.""")
     transcript requirements, and will also consider them as potential fragments. This is useful in the context of e.g.
     updating an *ab-initio* results with data from RNASeq, protein alignments, etc. 
     """)
-
+    picking.add_argument("-mco", "--min-clustering-cdna-overlap", default=None, type=percentage,
+                         help="Minimum cDNA overlap between two transcripts for them to be considered part of the same \
+locus during the late picking stages. \
+NOTE: if --min-cds-overlap is not specified, it will be set to this value! \
+Default: 20%%.")
+    picking.add_argument("-mcso", "--min-clustering-cds-overlap", default=None, type=percentage,
+                         help="Minimum CDS overlap between two transcripts for them to be considered part of the same \
+locus during the late picking stages. \
+NOTE: if not specified, and --min-cdna-overlap is specified on the command line, min-cds-overlap will be set to this value! \
+Default: 20%%.")
     parser.add_argument("--strand-specific", default=False,
                         action="store_true",
                         help="""Boolean flag indicating whether all the assemblies are strand-specific.""")
@@ -457,11 +406,15 @@ final output.""")
                        help="""Remove all files-specific options from the printed configuration file.
                        Invoking the "--gff" option will disable this flag.""",
                        default=False, action="store_true")
-    files.add_argument("--gff", help="Input GFF/GTF file(s), separated by comma", type=str)
-    files.add_argument("--list",
-                       help="""Tab-delimited file containing rows with the following format
-                        <file>  <label> <strandedness> <score(optional)> <always_keep(optional)>""")
-    parser.add_argument("--reference", help="Fasta genomic reference.", default=None)
+    files.add_argument("--gff", help="Input GFF/GTF file(s), separated by comma", type=str,
+                       default="")
+    files.add_argument("--list", type=argparse.FileType("r"),
+                        help="""Tab-delimited file containing rows with the following format:
+    <file>  <label> <strandedness(def. False)> <score(optional, def. 0)> <is_reference(optional, def. False)> <exclude_redundant(optional, def. True)>
+    strandedness, is_reference and exclude_redundant must be boolean values (True, False)
+    score must be a valid floating number.
+    """)
+    parser.add_argument("--reference", "--genome", help="Fasta genomic reference.", default=None, dest="reference")
     serialisers = parser.add_argument_group(
         "Options related to the serialisation step")
     serialisers.add_argument("--junctions", type=comma_split, default=[])
@@ -472,6 +425,9 @@ final output.""")
     parser.add_argument("--labels", type=str, default="",
                         help="""Labels to attach to the IDs of the transcripts of the input files,
         separated by comma.""")
+    parser.add_argument("--codon-table", dest="codon_table", default=None,
+                        help="""Codon table to use. Default: 0 (ie Standard, NCBI #1, but only ATG is considered \
+    a valid start codon.""")
     parser.add_argument("--external", help="""External configuration file to overwrite/add values from.
     Parameters specified on the command line will take precedence over those present in the configuration file.""")
     daijin = parser.add_argument_group("Options related to configuring a Daijin run.")
@@ -483,7 +439,7 @@ final output.""")
                         help="Flag. If switched on, Mikado will use BLAST instead of DIAMOND.")
     daijin.add_argument("--use-transdecoder", action="store_true", default=False, dest="use_transdecoder",
                         help="Flag. If switched on, Mikado will use TransDecoder instead of Prodigal.")
-    daijin.add_argument("--mode", default=["permissive"], nargs="+",
+    daijin.add_argument("--mode", default=["stringent"], nargs="+",
                         choices=["nosplit", "stringent", "lenient", "permissive", "split"],
                         help="""Mode(s) in which Mikado will treat transcripts with multiple ORFs.
 - nosplit: keep the transcripts whole.

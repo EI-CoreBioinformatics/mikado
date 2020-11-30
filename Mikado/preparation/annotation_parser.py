@@ -5,150 +5,23 @@ from ..utilities import overlap
 import logging
 import logging.handlers
 from .. import exceptions
-from sys import intern
+from sys import intern, getsizeof
 try:
     import rapidjson as json
 except ImportError:
     import json
-import sqlite3
+import msgpack
+import zlib
 import os
-import numpy
 from ..transcripts import Transcript
 from operator import itemgetter
+import random
+import struct
+import ctypes
+import zlib
 
 
 __author__ = 'Luca Venturini'
-
-
-class AnnotationParser(multiprocessing.Process):
-
-    def __init__(self,
-                 submission_queue,
-                 logging_queue,
-                 identifier,
-                 min_length=0,
-                 max_intron=3*10**5,
-                 log_level="WARNING",
-                 seed=None,
-                 strip_cds=False):
-
-        super().__init__()
-        if seed is not None:
-            numpy.random.seed(seed % (2 ** 32 - 1))
-        else:
-            numpy.random.seed(None)
-
-        self.submission_queue = submission_queue
-        self.min_length = min_length
-        self.max_intron = max_intron
-        self.__strip_cds = strip_cds
-        self.logging_queue = logging_queue
-        self.log_level = log_level
-        self.__identifier = identifier
-        self.name = "AnnotationParser-{0}".format(self.identifier)
-        self.logger = None
-        self.handler = None
-        self.logger = logging.getLogger(self.name)
-        create_queue_logger(self, prefix="prepare")
-        # self.logger.warning("Started process %s", self.name)
-
-    def __getstate__(self):
-
-        state = self.__dict__.copy()
-        for key in ("logger", "handler", "_log_handler"):
-            if key in state:
-                del state[key]
-
-        return state
-
-    def __setstate__(self, state):
-
-        self.__dict__.update(state)
-        create_queue_logger(self)
-
-    def run(self):
-
-        found_ids = set()
-        self.logger.debug("Starting to listen to the queue")
-        counter = 0
-        while True:
-            results = self.submission_queue.get()
-            try:
-                label, handle, strand_specific, is_reference, keep_redundant, shelf_name = results
-            except ValueError as exc:
-                raise ValueError("{}.\tValues: {}".format(exc, ", ".join([str(_) for _ in results])))
-            if handle == "EXIT":
-                self.submission_queue.put(("EXIT", "EXIT", "EXIT", "EXIT", "EXIT", "EXIT"))
-                break
-            counter += 1
-            self.logger.debug("Received %s (label: %s; SS: %s, shelf_name: %s)",
-                              handle,
-                              label,
-                              strand_specific,
-                              shelf_name)
-            try:
-                gff_handle = to_gff(handle)
-                if gff_handle.__annot_type__ == "gff3":
-                    new_ids = load_from_gff(shelf_name,
-                                            gff_handle,
-                                            label,
-                                            found_ids,
-                                            self.logger,
-                                            min_length=self.min_length,
-                                            max_intron=self.max_intron,
-                                            strip_cds=self.__strip_cds,
-                                            is_reference=is_reference,
-                                            keep_redundant=keep_redundant,
-                                            strand_specific=strand_specific)
-                elif gff_handle.__annot_type__ == "gtf":
-                    new_ids = load_from_gtf(shelf_name,
-                                            gff_handle,
-                                            label,
-                                            found_ids,
-                                            self.logger,
-                                            min_length=self.min_length,
-                                            max_intron=self.max_intron,
-                                            is_reference=is_reference,
-                                            strip_cds=self.__strip_cds,
-                                            keep_redundant=keep_redundant,
-                                            strand_specific=strand_specific)
-                elif gff_handle.__annot_type__ == "bed12":
-                    new_ids = load_from_bed12(shelf_name,
-                                              gff_handle,
-                                              label,
-                                              found_ids,
-                                              self.logger,
-                                              is_reference=is_reference,
-                                              min_length=self.min_length,
-                                              max_intron=self.max_intron,
-                                              strip_cds=self.__strip_cds,
-                                              keep_redundant=keep_redundant,
-                                              strand_specific=strand_specific)
-                else:
-                    raise ValueError("Invalid file type: {}".format(gff_handle.name))
-
-                if len(new_ids) == 0:
-                    raise exceptions.InvalidAssembly(
-                        "No valid transcripts found in {0}{1}!".format(
-                            handle, " (label: {0})".format(label) if label != "" else ""
-                        ))
-
-            except exceptions.InvalidAssembly as exc:
-                self.logger.exception(exc)
-                continue
-            except Exception as exc:
-                self.logger.exception(exc)
-                raise
-
-        self.logger.debug("Sending %s back, exiting.", counter)
-
-    @property
-    def identifier(self):
-        """
-        A numeric value that identifies the process uniquely.
-        :return:
-        """
-        return self.__identifier
 
 
 def __raise_redundant(row_id, name, label):
@@ -317,22 +190,9 @@ def load_into_storage(shelf_name, exon_lines, min_length, logger, strip_cds=True
             if os.path.exists(_):
                 os.remove(_)
 
-    conn = sqlite3.connect(shelf_name,
-                           isolation_level="DEFERRED",
-                           timeout=60,
-                           check_same_thread=False  # Necessary for SQLite3 to function in multiprocessing
-                           )
-    cursor = conn.cursor()
-    cursor.execute("PRAGMA journal_mode=wal")
-    cursor.execute("PRAGMA TEMP_STORE=MEMORY")
-    cursor.execute("PRAGMA SYNCHRONOUS=OFF")
-    cursor.execute(
-        "CREATE TABLE dump (chrom text, start integer, end integer, strand text, tid text, features blob)")
-    conn.commit()
-    logger.debug("Created tables for shelf %s", shelf_name)
+    shelf = open(shelf_name, "wb")
 
-    temp_store = []
-
+    rows = []
     logger.warning("Max intron: %s", max_intron)
     for tid in exon_lines:
         if "features" not in exon_lines[tid]:
@@ -363,28 +223,25 @@ def load_into_storage(shelf_name, exon_lines, min_length, logger, strip_cds=True
                                                      max_intron=max_intron,
                                                      min_length=min_length):
             chrom = values["chrom"]
+            assert chrom is not None
             strand = values["strand"]
-            try:
-                values = json.dumps(values, number_mode=json.NM_NATIVE)
-            except ValueError:  # This is a crash that happens when there are infinite values
-                values = json.dumps(values)
+            if strand is None:
+                strand = "."
+            # try:
+            #     values = json.dumps(values, number_mode=json.NM_NATIVE).encode()
+            # except ValueError:  # This is a crash that happens when there are infinite values
+            #     values = json.dumps(values).encode()
 
             logger.debug("Inserting %s into shelf %s", tid, shelf_name)
-            temp_store.append((chrom, start, end, strand, tid, values))
+            # temp_store.append((chrom, start, end, strand, tid, values))
+            values = zlib.compress(msgpack.dumps(values))
+            write_start = shelf.tell()
+            write_length = shelf.write(values)
+            row = (chrom.encode(), start, end, strand.encode(), tid.encode(), write_start, write_length)
+            rows.append(row)
 
-        if len(temp_store) >= 1000:
-            cursor.executemany("INSERT INTO dump VALUES (?, ?, ?, ?, ?, ?)", temp_store)
-            conn.commit()
-            temp_store = []
-
-    if len(temp_store) > 0:
-        cursor.executemany("INSERT INTO dump VALUES (?, ?, ?, ?, ?, ?)", temp_store)
-        conn.commit()
-
-    cursor.execute("CREATE INDEX idx ON dump (tid)")
-    conn.commit()
-    conn.close()
-    return
+    logger.warning("Finished packing rows for %s", shelf_name)
+    return rows
 
 
 def load_from_gff(shelf_name,
@@ -395,7 +252,7 @@ def load_from_gff(shelf_name,
                   min_length=0,
                   max_intron=3*10**5,
                   is_reference=False,
-                  keep_redundant=False,
+                  exclude_redundant=False,
                   strip_cds=False,
                   strand_specific=False):
     """
@@ -418,6 +275,8 @@ def load_from_gff(shelf_name,
     :type strand_specific: bool
     :param is_reference: boolean. If set to True, the transcript will always be retained.
     :type is_reference: bool
+    :param exclude_redundant: boolean. If set to True, fully redundant transcripts will be removed.
+    :type exclude_redundant: bool
     :return:
     """
 
@@ -473,7 +332,7 @@ def load_from_gff(shelf_name,
 
             exon_lines[row.id]["strand_specific"] = strand_specific
             exon_lines[row.id]["is_reference"] = is_reference
-            exon_lines[row.id]["keep_redundant"] = keep_redundant
+            exon_lines[row.id]["exclude_redundant"] = exclude_redundant
             continue
         elif row.is_exon is True:
             if not row.is_cds or (row.is_cds is True and strip_cds is False):
@@ -518,7 +377,7 @@ def load_from_gff(shelf_name,
                         exon_lines[tid]["parent"] = transcript2genes[tid]
                         exon_lines[tid]["strand_specific"] = strand_specific
                         exon_lines[tid]["is_reference"] = is_reference
-                        exon_lines[tid]["keep_redundant"] = keep_redundant
+                        exon_lines[tid]["exclude_redundant"] = exclude_redundant
                     elif tid not in exon_lines and tid not in transcript2genes:
                         continue
                     else:
@@ -539,10 +398,11 @@ def load_from_gff(shelf_name,
     gff_handle.close()
 
     logger.info("Starting to load %s", shelf_name)
-    load_into_storage(shelf_name, exon_lines,
+    rows = load_into_storage(shelf_name, exon_lines,
                       logger=logger, min_length=min_length, strip_cds=strip_cds, max_intron=max_intron)
 
-    return new_ids
+    logger.info("Finished parsing %s", gff_handle.name)
+    return new_ids, rows
 
 
 def load_from_gtf(shelf_name,
@@ -553,7 +413,7 @@ def load_from_gtf(shelf_name,
                   min_length=0,
                   max_intron=3*10**5,
                   is_reference=False,
-                  keep_redundant=False,
+                  exclude_redundant=False,
                   strip_cds=False,
                   strand_specific=False):
     """
@@ -576,6 +436,8 @@ def load_from_gtf(shelf_name,
     :type strand_specific: bool
     :param is_reference: boolean. If set to True, the transcript will always be retained.
     :type is_reference: bool
+    :param exclude_redundant: boolean. If set to True, the transcript will be marked for potential redundancy removal.
+    :type exclude_redundant: bool
     :return:
     """
 
@@ -616,7 +478,7 @@ def load_from_gtf(shelf_name,
             exon_lines[row.transcript]["parent"] = "{}.gene".format(row.id)
             exon_lines[row.transcript]["strand_specific"] = strand_specific
             exon_lines[row.transcript]["is_reference"] = is_reference
-            exon_lines[row.transcript]["keep_redundant"] = keep_redundant
+            exon_lines[row.transcript]["exclude_redundant"] = exclude_redundant
             if "exon_number" in exon_lines[row.transcript]["attributes"]:
                 del exon_lines[row.transcript]["attributes"]["exon_number"]
             continue
@@ -643,7 +505,7 @@ def load_from_gtf(shelf_name,
             exon_lines[row.transcript]["parent"] = "{}.gene".format(row.transcript)
             exon_lines[row.transcript]["strand_specific"] = strand_specific
             exon_lines[row.transcript]["is_reference"] = is_reference
-            exon_lines[row.transcript]["keep_redundant"] = keep_redundant
+            exon_lines[row.transcript]["exclude_redundant"] = exclude_redundant
         else:
             if row.transcript in to_ignore:
                 continue
@@ -660,11 +522,12 @@ def load_from_gtf(shelf_name,
         new_ids.add(row.transcript)
     gff_handle.close()
     logger.info("Starting to load %s", shelf_name)
-    load_into_storage(shelf_name,
+    rows = load_into_storage(shelf_name,
                       exon_lines,
                       logger=logger, min_length=min_length, strip_cds=strip_cds, max_intron=max_intron)
 
-    return new_ids
+    logger.info("Finished parsing %s", gff_handle.name)
+    return new_ids, rows
 
 
 def load_from_bed12(shelf_name,
@@ -675,7 +538,7 @@ def load_from_bed12(shelf_name,
                     min_length=0,
                     max_intron=3*10**5,
                     is_reference=False,
-                    keep_redundant=False,
+                    exclude_redundant=False,
                     strip_cds=False,
                     strand_specific=False):
     """
@@ -698,6 +561,8 @@ def load_from_bed12(shelf_name,
     :type strand_specific: bool
     :param is_reference: boolean. If set to True, the transcript will always be retained.
     :type is_reference: bool
+    :param exclude_redundant: boolean. If set to True, the transcript will be marked for potential redundancy removal.
+    :type exclude_redundant: bool
     :return:
     """
 
@@ -737,7 +602,7 @@ def load_from_bed12(shelf_name,
             exon_lines[transcript.id]["parent"] = "{}.gene".format(transcript.id)
             exon_lines[transcript.id]["strand_specific"] = strand_specific
             exon_lines[transcript.id]["is_reference"] = is_reference
-            exon_lines[transcript.id]["keep_redundant"] = keep_redundant
+            exon_lines[transcript.id]["exclude_redundant"] = exclude_redundant
             exon_lines[transcript.id]["features"]["exon"] = [
                 (exon[0], exon[1]) for exon in transcript.exons
             ]
@@ -750,7 +615,141 @@ def load_from_bed12(shelf_name,
                 ]
         new_ids.add(transcript.id)
     gff_handle.close()
-    load_into_storage(shelf_name, exon_lines,
+    rows = load_into_storage(shelf_name, exon_lines,
                       logger=logger, min_length=min_length, strip_cds=strip_cds, max_intron=max_intron)
 
-    return new_ids
+    logger.info("Finished parsing %s", gff_handle.name)
+    return new_ids, rows
+
+
+def load_from_bam(shelf_name,
+                  gff_handle,
+                  label,
+                  found_ids,
+                  logger,
+                  min_length=0,
+                  max_intron=3*10**5,
+                  is_reference=False,
+                  exclude_redundant=False,
+                  strip_cds=False,
+                  strand_specific=False):
+    raise NotImplementedError()
+
+
+loaders = {"gtf": load_from_gtf, "gff": load_from_gff, "gff3": load_from_gff,
+           "bed12": load_from_bed12, "bed": load_from_bed12, "bam": load_from_bam}
+
+# Chrom, start, end, strand, Tid, write start, write length
+# 100 chars, unsigned Long, unsigned Long, one char, 100 chars, unsigned Long, unsigned Long
+_row_struct_str = ">1000sLLc1000sLLH"
+row_struct = struct.Struct(_row_struct_str)
+row_struct_size = struct.calcsize(_row_struct_str)
+
+
+class AnnotationParser(multiprocessing.Process):
+
+    def __init__(self,
+                 submission_queue: multiprocessing.JoinableQueue,
+                 return_queue: multiprocessing.JoinableQueue,
+                 logging_queue: multiprocessing.JoinableQueue,
+                 identifier: int,
+                 min_length=0,
+                 max_intron=3*10**5,
+                 log_level="WARNING",
+                 seed=None,
+                 strip_cds=False):
+
+        super().__init__()
+        if seed is not None:
+            # numpy.random.seed(seed % (2 ** 32 - 1))
+            random.seed(seed % (2 ** 32 - 1))
+        else:
+            # numpy.random.seed(None)
+            random.seed(None)
+
+        self.submission_queue = submission_queue
+        self.return_queue = return_queue
+        self.min_length = min_length
+        self.max_intron = max_intron
+        self.__strip_cds = strip_cds
+        self.logging_queue = logging_queue
+        self.log_level = log_level
+        self.__identifier = identifier
+        self.name = "AnnotationParser-{0}".format(self.identifier)
+        self.logger = None
+        self.handler = None
+        self.logger = logging.getLogger(self.name)
+        create_queue_logger(self, prefix="prepare")
+        # self.logger.warning("Started process %s", self.name)
+
+    def __getstate__(self):
+
+        state = self.__dict__.copy()
+        for key in ("logger", "handler", "_log_handler"):
+            if key in state:
+                del state[key]
+
+        return state
+
+    def __setstate__(self, state):
+
+        self.__dict__.update(state)
+        create_queue_logger(self)
+
+    def run(self):
+
+        found_ids = set()
+        self.logger.debug("Starting to listen to the queue")
+        counter = 0
+        while True:
+            results = self.submission_queue.get()
+            try:
+                label, handle, strand_specific, is_reference, exclude_redundant, shelf_name, shelf_index = results
+            except ValueError as exc:
+                raise ValueError("{}.\tValues: {}".format(exc, ", ".join([str(_) for _ in results])))
+            if handle == "EXIT":
+                self.submission_queue.put(results)
+                break
+            counter += 1
+            self.logger.debug("Received %s (label: %s; SS: %s, shelf_name: %s)",
+                              handle,
+                              label,
+                              strand_specific,
+                              shelf_name)
+            try:
+                gff_handle = to_gff(handle)
+                loader = loaders.get(gff_handle.__annot_type__, None)
+                if loader is None:
+                    raise ValueError("Invalid file type: {}".format(gff_handle.name))
+                new_ids, new_rows = loader(shelf_name, gff_handle, label, found_ids, self.logger,
+                                       min_length=self.min_length, max_intron=self.max_intron,
+                                       strip_cds=self.__strip_cds and not is_reference,
+                                       is_reference=is_reference, exclude_redundant=exclude_redundant,
+                                       strand_specific=strand_specific)
+
+                if len(new_ids) == 0:
+                    raise exceptions.InvalidAssembly(
+                        "No valid transcripts found in {0}{1}!".format(
+                            handle, " (label: {0})".format(label) if label != "" else ""
+                        ))
+                # Now convert the rows into structs.
+                self.logger.debug("Packing %d rows of %s", len(new_rows), label)
+                [self.return_queue.put_nowait((*row, shelf_index)) for row in new_rows]
+                self.logger.debug("Packed %d rows of %s", len(new_rows), label)
+
+            except exceptions.InvalidAssembly as exc:
+                self.logger.exception(exc)
+                continue
+            except Exception as exc:
+                self.logger.exception(exc)
+                raise
+
+        self.return_queue.put_nowait("FINISHED")
+
+    @property
+    def identifier(self):
+        """
+        A numeric value that identifies the process uniquely.
+        :return:
+        """
+        return self.__identifier

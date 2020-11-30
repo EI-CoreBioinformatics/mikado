@@ -1,4 +1,4 @@
-from Bio.SubsMat import MatrixInfo
+from Bio.Align import substitution_matrices
 from functools import partial
 from .btop_parser import parse_btop
 import re
@@ -15,8 +15,8 @@ from ...utilities.dbutils import connect as db_connect
 from . import Hit, Hsp
 import os
 import tempfile
-import typing
 import msgpack
+from ...utilities import blast_keys
 
 
 hit_cols = [col.name for col in Hit.__table__.columns]
@@ -25,26 +25,60 @@ hsp_cols = [col.name for col in Hsp.__table__.columns]
 __author__ = 'Luca Venturini'
 
 
-# Diamond default: qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore
-# BLASTX default: qaccver saccver pident length mismatch gapopen qstart qend sstart send evalue bitscore
-blast_keys = "qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore ppos btop".split()
+class Matrices:
 
-matrices = dict()
-for mname in MatrixInfo.available_matrices:
-    matrix = dict()
-    omatrix = getattr(MatrixInfo, mname)
-    for key, val in omatrix.items():
-        if key[::-1] in omatrix and omatrix[key[::-1]] != val:
-            raise KeyError((key, val, key[::-1], omatrix[key[::-1]]))
-        matrix["".join(key)] = val
-        matrix["".join(key[::-1])] = val
-    matrices[mname] = matrix
+    def __init__(self):
+
+        mnames = substitution_matrices.load()
+        self.mnames = dict()
+
+        for mname in mnames:
+            self.mnames[mname] = mname
+            self.mnames[mname.upper()] = mname
+            self.mnames[mname.lower()] = mname
+
+        self.__matrices = dict()
+
+    def __contains__(self, mname):
+        return mname in self.mnames
+
+    def keys(self):
+        return self.mnames.keys()
+
+    def get(self, key, default=None):
+        if key not in self and default is not None:
+            return default
+        return self.__getitem__(key)
+
+    def __getitem__(self, mname):
+
+        if mname not in self:
+            raise KeyError(f"{mname} is not a valid matrix name. Valid names: {self.keys()}")
+        if mname not in self.__matrices:
+            self.__load_matrix(mname)
+        return self.__matrices[mname.lower()]
+
+    def __load_matrix(self, mname):
+        matrix = dict()
+        orig_mname = self.mnames[mname]
+        omatrix = substitution_matrices.load(orig_mname)
+        for key, val in omatrix.items():
+            if key[::-1] in omatrix and omatrix[key[::-1]] != val:
+                raise KeyError((key, val, key[::-1], omatrix[key[::-1]]))
+            matrix["".join(key)] = val
+            matrix["".join(key[::-1])] = val
+        for key in orig_mname, orig_mname.lower(), orig_mname.upper():
+            self.__matrices[key] = matrix
+
+
+matrices = Matrices()
 
 
 def get_queries(engine):
     queries = pd.read_sql_table("query", engine, index_col="query_name")
     queries.columns = ["qid", "qlength"]
     queries["qid"] = queries["qid"].astype(int)
+    queries.index = queries.index.str.replace(id_pattern, "\\1")
     assert queries.qid.drop_duplicates().shape[0] == queries.shape[0]
     return queries
 
@@ -55,6 +89,7 @@ def get_targets(engine):
     targets["sid"] = targets["sid"].astype(int)
     assert targets.sid.drop_duplicates().shape[0] == targets.shape[0]
 
+    targets.index = targets.index.str.replace(id_pattern, "\\1")
     if targets[targets.slength.isna()].shape[0] > 0:
         raise KeyError("Unbound targets!")
     return targets
@@ -230,7 +265,11 @@ def sanitize_blast_data(data: pd.DataFrame, queries: pd.DataFrame, targets: pd.D
         )[["min_evalue", "max_bitscore"]], on=["qseqid", "sseqid"])
 
     for col in ["qstart", "qend", "sstart", "send", "qlength", "slength"]:
-        assert ~(data[col].isna().any()), (col, data[data[col].isna()].shape[0], data.shape[0])
+        if col != "slength":
+            err_val = (col, data[data[col].isna()].shape[0], data.shape[0])
+        else:
+            err_val = (col, data[["sseqid"]].head())
+        assert ~(data[col].isna().any()), err_val
         try:
             data[col] = data[col].astype(int).values
         except ValueError as exc:
@@ -322,7 +361,7 @@ class Preparer(mp.Process):
         _, _ = load_into_db(self, hits, hsps, force=True, raw=True)
         self.logger.debug("Finished %s", self.identifier)
         os.remove(self.index_file)  # Clean it up
-        return
+        return True
 
 
 def parse_tab_blast(self,
@@ -390,7 +429,8 @@ def parse_tab_blast(self,
             pfile.write(msgpack.dumps(params))
         assert os.path.exists(params_file)
         # Split the indices
-        for idx, split in enumerate(np.array_split(np.array(list(groups.items())), procs)):
+        for idx, split in enumerate(np.array_split(np.array(list(groups.items()),
+                                                            dtype=object), procs)):
             with open(index_files[idx], "wb") as index:
                 for item in split:
                     vals = (tuple(item[0]), values[item[1], :].tolist())
@@ -398,7 +438,13 @@ def parse_tab_blast(self,
             assert os.path.exists(index_files[idx])
             processes[idx].start()
 
-        [proc.join() for proc in processes]
-        os.remove(params_file)
+        try:
+            res = [proc.join() for proc in processes]
+        except KeyboardInterrupt:
+            raise KeyboardInterrupt
+        except Exception:
+            raise
+        finally:
+            os.remove(params_file)
 
     return

@@ -8,7 +8,7 @@ import unittest
 import re
 import copy
 from .. import parsers, exceptions, loci
-from Mikado.utilities.log_utils import create_null_logger, create_default_logger
+from ..utilities.log_utils import create_null_logger, create_default_logger
 
 
 class MonoBaseTester(unittest.TestCase):

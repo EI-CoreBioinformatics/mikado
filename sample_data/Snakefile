@@ -30,9 +30,11 @@ if not os.path.exists(configname):
     snake_logger.info(config_command)
     subprocess.call(config_command, shell=True)
 
+snake_logger.info("Reading the configuration file")
 try:
     config = Mikado.configuration.configurator.to_json(configname)
-except:
+except Exception as exc:
+    snake_logger.error("Error in reading the configuration file: {}".format(exc))
     os.remove(configname)
     raise
 

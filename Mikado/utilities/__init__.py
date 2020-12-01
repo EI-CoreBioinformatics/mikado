@@ -275,6 +275,7 @@ def parse_list_file(json_conf: dict, list_file):
     json_conf["prepare"]["files"]["source_score"] = dict()
     json_conf["prepare"]["files"]["reference"] = []
     json_conf["prepare"]["files"]["exclude_redundant"] = []
+    json_conf["prepare"]["files"]["strip_cds"] = []
     json_conf["pick"]["chimera_split"]["skip"] = []
     files_counter = Counter()
 
@@ -305,7 +306,8 @@ def parse_list_file(json_conf: dict, list_file):
                 score = 0
             json_conf["prepare"]["files"]["source_score"][label] = score
         keep = False
-        for arr, pos, default in [("reference", 4, False), ("exclude_redundant", 5, False), ("skip_split", 6, False)]:
+        for arr, pos, default in [("reference", 4, False), ("exclude_redundant", 5, False),
+                                  ("strip_cds", 6, False), ("skip_split", 7, False)]:
             try:
                 val = fields[pos]
                 if val.lower() in ("false", "true"):
@@ -327,6 +329,7 @@ def parse_list_file(json_conf: dict, list_file):
             "Repeated elements among the input GFFs! Duplicated files: {}".format(
                 ", ".join(_[0] for _ in files_counter.most_common() if _[1] > 1)))
 
+    assert "exclude_redundant" in json_conf["prepare"]["files"]
     return json_conf
 
 

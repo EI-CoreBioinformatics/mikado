@@ -44,6 +44,10 @@ def parse_prepare_options(args, config):
         config = parse_list_file(config, args.list)
     elif args.gff and args.gff != [""] and args.gff != []:
         config["prepare"]["files"]["gff"] = args.gff
+        for key in ["exclude_redundant", "strip_cds", "labels", "reference"]:
+            if key not in config["prepare"]["files"]:
+                config["prepare"]["files"][key] = []
+
         __gff_counter = Counter()
         __gff_counter.update(args.gff)
         if __gff_counter.most_common()[0][1] > 1:
@@ -79,6 +83,8 @@ def parse_prepare_options(args, config):
         else:
             config["prepare"]["files"]["exclude_redundant"] = [True] * len(
                 config["prepare"]["files"]["gff"])
+
+    assert "exclude_redundant" in config["prepare"]["files"], config["prepare"]["files"]
 
     if not config["prepare"]["files"]["exclude_redundant"]:
         config["prepare"]["files"]["exclude_redundant"] = [False] * len(config["prepare"]["files"]["gff"])

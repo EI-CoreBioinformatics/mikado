@@ -363,7 +363,8 @@ def _load_exon_lines_single_thread(args, shelve_names, logger, min_length, strip
             args.json_conf["prepare"]["files"]["strand_specific_assemblies"],
             args.json_conf["prepare"]["files"]["reference"],
             args.json_conf["prepare"]["files"]["exclude_redundant"],
-            args.json_conf["prepare"]["files"]["gff"]
+            args.json_conf["prepare"]["files"]["strip_cds"],
+            args.json_conf["prepare"]["files"]["gff"],
     ))
     if len(to_do) == 0 and len(shelve_names) > 0:
         raise OSError(
@@ -373,6 +374,7 @@ def _load_exon_lines_single_thread(args, shelve_names, logger, min_length, strip
                 args.json_conf["prepare"]["files"]["strand_specific_assemblies"],
                 args.json_conf["prepare"]["files"]["reference"],
                 args.json_conf["prepare"]["files"]["exclude_redundant"],
+                args.json_conf["prepare"]["files"]["strip_cds"],
                 args.json_conf["prepare"]["files"]["gff"]
             )
         )
@@ -381,7 +383,12 @@ def _load_exon_lines_single_thread(args, shelve_names, logger, min_length, strip
 
     rows = pd.DataFrame([], columns=row_columns)
 
-    for new_shelf, label, strand_specific, is_reference, exclude_redundant, gff_name in to_do:
+    for new_shelf, label, strand_specific, is_reference, exclude_redundant, file_strip_cds, gff_name in to_do:
+        if file_strip_cds is True:
+            file_strip_cds = True
+        else:
+            file_strip_cds = strip_cds
+
         logger.info("Starting with %s", gff_name)
         gff_handle = to_gff(gff_name)
         found_ids = set.union(set(), *previous_file_ids.values())
@@ -390,7 +397,7 @@ def _load_exon_lines_single_thread(args, shelve_names, logger, min_length, strip
             raise ValueError("Invalid file type: {}".format(gff_handle.name))
         new_ids, new_rows = loader(new_shelf, gff_handle, label, found_ids, logger,
                                    min_length=min_length, max_intron=max_intron,
-                                   strip_cds=strip_cds and not is_reference,
+                                   strip_cds=file_strip_cds and not is_reference,
                                    exclude_redundant=exclude_redundant, is_reference=is_reference,
                                    strand_specific=strand_specific or is_reference)
         previous_file_ids[gff_handle.name] = new_ids
@@ -427,19 +434,21 @@ def _load_exon_lines_multi(args, shelve_names, logger, min_length, strip_cds, th
         working_processes.append(proc)
 
     shelve_df = []
-    for shelf_index, (new_shelf, label, strand_specific, is_reference, exclude_redundant, gff_name) in enumerate(zip(
+    for shelf_index, (new_shelf, label, strand_specific, is_reference,
+                      exclude_redundant, file_strip_cds, gff_name) in enumerate(zip(
             shelve_names,
             args.json_conf["prepare"]["files"]["labels"],
             args.json_conf["prepare"]["files"]["strand_specific_assemblies"],
             args.json_conf["prepare"]["files"]["reference"],
             args.json_conf["prepare"]["files"]["exclude_redundant"],
+            args.json_conf["prepare"]["files"]["strip_cds"],
             args.json_conf["prepare"]["files"]["gff"])):
-        submission_queue.put((label, gff_name, strand_specific, is_reference, exclude_redundant, new_shelf,
-                              shelf_index))
+        submission_queue.put((label, gff_name, strand_specific, is_reference, exclude_redundant, file_strip_cds,
+                              new_shelf, shelf_index))
         shelve_df.append((shelf_index, new_shelf))
 
     shelve_df = pd.DataFrame(shelve_df, columns=["shelf_index", "shelf"])
-    submission_queue.put(tuple(["EXIT"] * 7))
+    submission_queue.put(tuple(["EXIT"] * 8))
     
     rows = []
 

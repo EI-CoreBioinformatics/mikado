@@ -32,7 +32,7 @@ The fields in this file are as follows, for each row:
     - The file name must specify a valid path (either absolute or relative) from the folder where Mikado configure is launched to the file itself.
 - Label for the input file. **Mandatory**
     - Each label must be **unique** within the run.
-- Stradedness of the annotation file. Boolean (either True or False, capitalization is ignored). **Mandatory**.
+- Strandedness of the annotation file. Boolean (either True or False, capitalization is ignored). **Mandatory**.
     - Reference files will be considered as stranded even if this value is set to False.
 - Score associated to the input file. Default 0. *Optional*. Floating numbers only.
     - The score will be used to determine tie winners during Mikado prepare in case of redundancy. It will also be applied to transcripts during the pick stage.
@@ -273,7 +273,7 @@ This sub-section is the most important for `prepare`, as it contains among other
 * log: name of the log file. Default: *prepare.log*.
 * gff: list of filenames of the input files.
 * labels: list of labels associated with the input files.
-* reference: list of boolean values indicating whether each 
+* reference: list of boolean values indicating whether each
 
 .. important:: the
 

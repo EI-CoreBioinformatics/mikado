@@ -704,7 +704,8 @@ class AnnotationParser(multiprocessing.Process):
         while True:
             results = self.submission_queue.get()
             try:
-                label, handle, strand_specific, is_reference, exclude_redundant, shelf_name, shelf_index = results
+                label, handle, strand_specific, is_reference,\
+                exclude_redundant, file_strip_cds, shelf_name, shelf_index = results
             except ValueError as exc:
                 raise ValueError("{}.\tValues: {}".format(exc, ", ".join([str(_) for _ in results])))
             if handle == "EXIT":
@@ -721,11 +722,16 @@ class AnnotationParser(multiprocessing.Process):
                 loader = loaders.get(gff_handle.__annot_type__, None)
                 if loader is None:
                     raise ValueError("Invalid file type: {}".format(gff_handle.name))
+                if file_strip_cds is True:
+                    file_strip_cds = True
+                else:
+                    file_strip_cds = self.__strip_cds
+
                 new_ids, new_rows = loader(shelf_name, gff_handle, label, found_ids, self.logger,
-                                       min_length=self.min_length, max_intron=self.max_intron,
-                                       strip_cds=self.__strip_cds and not is_reference,
-                                       is_reference=is_reference, exclude_redundant=exclude_redundant,
-                                       strand_specific=strand_specific)
+                                           min_length=self.min_length, max_intron=self.max_intron,
+                                           strip_cds=file_strip_cds and not is_reference,
+                                           is_reference=is_reference, exclude_redundant=exclude_redundant,
+                                           strand_specific=strand_specific)
 
                 if len(new_ids) == 0:
                     raise exceptions.InvalidAssembly(

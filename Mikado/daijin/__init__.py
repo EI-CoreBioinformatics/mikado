@@ -19,7 +19,6 @@ from ..utilities.log_utils import create_default_logger
 from ..configuration.daijin_configurator import create_daijin_config, check_config
 import shutil
 import pkg_resources
-import tempfile
 import functools
 import inspect
 import toml
@@ -385,9 +384,7 @@ def assemble_transcripts_pipeline(args):
     else:
         hpc_conf = None
 
-    yaml_file = tempfile.NamedTemporaryFile(mode="wt", delete=True,
-                                            dir=os.getcwd(), suffix=".yaml",
-                                            prefix="assemble")
+    yaml_file = open("daijin.{}.yaml".format(NOW), "wt")
     yaml.dump(doc, yaml_file)
     yaml_file.flush()
     shutil.copystat(args.config, yaml_file.name)
@@ -509,10 +506,7 @@ def mikado_pipeline(args):
     else:
         hpc_conf = None
 
-    yaml_file = tempfile.NamedTemporaryFile(mode="wt", delete=True,
-                                            dir=os.getcwd(), suffix=".yaml",
-                                            prefix="mikado"
-                                            )
+    yaml_file = open("daijin.{}.yaml".format(NOW), "wt")
     yaml.dump(doc, yaml_file)
     yaml_file.flush()
     shutil.copystat(args.config, yaml_file.name)

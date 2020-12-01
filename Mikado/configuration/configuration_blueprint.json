@@ -159,7 +159,7 @@
         "- codon_table: codon table to use for verifying/modifying the ORFs. Default: 0, ie",
         " the universal codon table but enforcing as only valid start codon ATG."
       ],
-      "required": ["max_regression", "codon_table"],
+      "required": ["max_regression", "codon_table", "substitution_matrix"],
       "properties": {
         "files": {
           "type": "object",
@@ -311,6 +311,7 @@
             "strand_specific_assemblies": {"type": "array", "default": []},
             "reference": {"type": "array", "default": []},
             "exclude_redundant": {"type": "array", "default": []},
+            "strip_cds": {"type": "array", "default": []},
             "source_score":{
               "type": "object",
               "default": {},

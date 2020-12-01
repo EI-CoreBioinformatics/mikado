@@ -139,6 +139,7 @@ serialise:
     xml:
     - ''
   max_regression: 0
+  substitution_matrix: blosum62
   procs: 1
   codon_table: 0
 

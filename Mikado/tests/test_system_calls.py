@@ -176,6 +176,7 @@ class PrepareCheck(unittest.TestCase):
         test_file = "trinity.gtf"
         self.conf["prepare"]["files"]["gff"] = [pkg_resources.resource_filename("Mikado.tests",
                                                                                 test_file)]
+        self.conf["prepare"]["files"]["strip_cds"] = [False]
 
         for max_intron in (20, 200, 1000, 5000):
             with self.subTest(max_intron=max_intron):
@@ -213,6 +214,7 @@ class PrepareCheck(unittest.TestCase):
                           "trinity.gtf",
                           "trinity.no_transcript_feature.gtf"):
             with self.subTest(test_file=test_file):
+                self.conf["prepare"]["files"]["strip_cds"] = [False]
                 self.conf["prepare"]["files"]["gff"] = [pkg_resources.resource_filename("Mikado.tests",
                                                                                         test_file)]
 
@@ -242,6 +244,7 @@ class PrepareCheck(unittest.TestCase):
         self.conf["prepare"]["files"]["labels"] = ["cl", "tr"]
 
         self.conf["prepare"]["files"]["gff"] = [None, None]
+        self.conf["prepare"]["files"]["strip_cds"] = [False, True]
         dir = tempfile.TemporaryDirectory(prefix="test_prepare_trinity_and_cufflinks")
         self.conf["prepare"]["files"]["output_dir"] = dir.name
         self.conf["prepare"]["files"]["out_fasta"] = "mikado_prepared.fasta"
@@ -304,7 +307,6 @@ class PrepareCheck(unittest.TestCase):
         rev_ann_gff3.flush()
 
         self.conf["prepare"]["files"]["gff"] = []
-
         self.conf["prepare"]["files"]["output_dir"] = dir.name
         self.conf["prepare"]["files"]["out_fasta"] = "mikado_prepared.fasta"
         self.conf["prepare"]["files"]["out"] = "mikado_prepared.gtf"
@@ -316,7 +318,8 @@ class PrepareCheck(unittest.TestCase):
                 for proc in (1, 3):
                     with self.subTest(fname=fname, strip=strip, proc=proc):
                         self.conf["prepare"]["files"]["gff"] = [fname]
-                        args.json_conf["prepare"]["strip_cds"] = strip
+                        args.json_conf["prepare"]["strip_cds"] = False
+                        self.conf["prepare"]["files"]["strip_cds"] = [strip]
                         args.json_conf["threads"] = proc
                         with self.assertLogs(self.logger, "INFO") as cm:
                             try:
@@ -360,6 +363,7 @@ class PrepareCheck(unittest.TestCase):
         gtf = pkg_resources.resource_filename("Mikado.tests", "cds_test_1.gtf")
         self.conf["prepare"]["files"]["gff"] = [gtf]
         self.conf["prepare"]["files"]["labels"] = [""]
+        self.conf["prepare"]["files"]["strip_cds"] = [False]
         self.conf["prepare"]["files"]["out_fasta"] = "mikado_prepared.fasta"
         self.conf["prepare"]["files"]["out"] = "mikado_prepared.gtf"
         self.conf["prepare"]["files"]["log"] = "prepare.log"
@@ -470,6 +474,7 @@ class PrepareCheck(unittest.TestCase):
         self.conf["prepare"]["files"]["output_dir"] = dir.name
         self.conf["prepare"]["files"]["labels"] = [""]
         self.conf["prepare"]["files"]["out_fasta"] = "mikado_prepared.fasta"
+        self.conf["prepare"]["files"]["strip_cds"] = [False]
         self.conf["prepare"]["files"]["out"] = "mikado_prepared.gtf"
         self.conf["prepare"]["files"]["log"] = "prepare.log"
         self.conf["prepare"]["strip_cds"] = False
@@ -577,6 +582,7 @@ class PrepareCheck(unittest.TestCase):
         files = ["test_truncated_cds.gff3"]
         files = [pkg_resources.resource_filename("Mikado.tests", filename) for filename in files]
         self.conf["prepare"]["files"]["gff"] = files
+        self.conf["prepare"]["files"]["strip_cds"] = [False] * len(files)
         self.conf["prepare"]["files"]["labels"] = [""]
         dir = tempfile.TemporaryDirectory(prefix="test_truncated_cds")
         self.conf["prepare"]["files"]["output_dir"] = dir.name
@@ -641,6 +647,7 @@ class PrepareCheck(unittest.TestCase):
 
         self.conf["prepare"]["files"]["gff"] = [t_file.name, t2_file.name]
         self.conf["prepare"]["files"]["labels"] = ["T1", "T2"]
+        self.conf["prepare"]["files"]["strip_cds"] = [True, True]
 
         rounds = {
             0: [0, 0, "rand"],
@@ -678,6 +685,8 @@ class PrepareCheck(unittest.TestCase):
         self.conf["prepare"]["files"]["output_dir"] = outdir = dir.name
         self.conf["prepare"]["files"]["out_fasta"] = "mikado_prepared.fasta"
         self.conf["prepare"]["files"]["out"] = "mikado_prepared.gtf"
+        self.conf["prepare"]["files"]["strip_cds"] = [False, False]
+        self.conf["prepare"]["files"]["exclude_redundant"] = [False, False]
         self.conf["prepare"]["strip_cds"] = False
         self.conf["prepare"]["exclude_redundant"] = True
 
@@ -815,6 +824,8 @@ class PrepareCheck(unittest.TestCase):
             self.conf["prepare"]["files"]["gff"] = [t_file.name, t2_file.name]
             self.conf["prepare"]["files"]["strand_specific_assemblies"] = [t_file.name, t2_file.name]
             self.conf["prepare"]["files"]["labels"] = ["T1", "T2"]
+            self.conf["prepare"]["files"]["exclude_redundant"] = [True, True]
+            self.conf["prepare"]["files"]["strip_cds"] = [True, True]
 
             for round in rounds:
                 for iteration in range(2):  # Repeat each test 2 times for time length reasons

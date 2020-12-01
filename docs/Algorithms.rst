@@ -77,6 +77,51 @@ The detection and analysis of a locus proceeds as follows:
 These steps help Mikado identify and solve fusions, detect correctly the gene loci, and define valid alternative splicing events.
 
 
+.. _retained_intron_definition:
+
+Definition of retained introns
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+When gathering transcripts into loci, Mikado will try to identify and tag transcripts that contain retained intron events. For our purposes, a retained intron event is an exon which:
+
+- is part of a **coding** transcript but is *not* completely coding itself.
+- if it is an *internal* exon, it **completely spans** the putative retained intron.
+- if it is a *terminal* exon, it must start within the exon of the putative retained intron, and terminate within the intron.
+- if it constitutes a monoexonic transcript, at least one of the two ends must reside within the bordering exons.
+
+.. _retained_intron_disrupted_cds:
+
+In addition to this, a transcript might be tagged as having its CDS disrupted by the retained intron event if:
+
+- the non-coding part of the exon is in the 3'UTR and it begins within the intron
+- the exon is 3' terminal, coding and it ends within the intron.
+
+.. warning:: The definition of a retained intron is **stricty context dependent**, i.e. the same exon will be regarded as a "retained intron" if the transcript is gathered together with other transcripts, but as non-retained if it were in isolation. It is therefore **normal and expected** that the associated metrics and scores will change, for a given transcript, across the various clustering stages.
+
+
+.. _chimera_splitting_algorithm:
+Identification and breaking of chimeric transcripts
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+When a transcript contains more than one ORF, Mikado will try to determine whether this is due to a retained intron event or a frameshift (in which case the two ORFs are presumed to be mangled forms of an original, correct ORF for a single protein) or whether instead this is due to the fragment being polycystronic (in a prokaryote) or chimeric (in a eukaryote). The latter case is relatively common due to technical artefacts during sequencing and assembling of RNASeq reads.
+
+A chimeric transcript is defined by Mikado as a model with multiple ORFs, where:
+
+ * all the ORFs share the same strand
+ * all the ORFs are non-overlapping.
+
+In these situations, Mikado can try to deal with the chimeras in five different ways, in decreasingly conservative fashion:
+
+- *nosplit*: leave the transcript unchanged. The presence of multiple ORFs will affect the scoring.
+- *stringent*: leave the transcript unchanged, unless the two ORFs both have hits in the protein database and none of the hits is in common.
+- *lenient*: leave the transcript unchanged, unless *either* the two ORFs both have hits in the protein database, none of which is in common, *or* both have no hits in the protein database.
+- *permissive*: presume the transcript is a chimera, and split it, *unless* two ORFs share a hit in the protein database.
+- *split*: presume that every transcript with more than one ORF is incorrect, and split them.
+
+If any BLAST hit *spans* the two ORFs, then the model will be considered as a non-chimera because there is evidence that the transcript constitutes a single unit. The only case when this information will be disregarded is during the execution of the *split* mode.
+
+These modes can be controlled directly from the :ref:`pick command line <pick>`, or during the :ref:`initial configuration stage <configure>`.
+
 .. _scoring_files:
 
 Transcript measurements and scoring
@@ -103,10 +148,9 @@ Finally, the scores for each metric will be summed up to produce a final score f
     :math:`s_{t} = \sum_{m \forall m \in M} s_{mt}`.
 
 Not all the available metrics will be necessarily used for scoring; the choice of which to employ and how to score and weight each of them is left to the experimenter, although Mikado provides some pre-configured scoring files.
+Values that are guaranteed to be between 0 and 1 (e.g. a percentage value) can be used directly as scores, by setting the *use_raw* parameter as true for them (see below).
 
 .. important:: The scoring algorithm is dependent on the other transcripts in the locus, so each score should not be taken as an *absolute* measure of the reliability of a transcript, but rather as a measure of its **relative goodness compared with the alternatives**. Shifting a transcript from one locus to another can have dramatic effects on the scoring of a transcript, even while the underlying metric values remain unchanged. This is why the score assigned to each transcript changes throughout the Mikado run, as transcripts are moved to subloci, monoloci and finally loci.
-
-.. note:: Starting from beta8, Mikado allows for metrics whose value range is between 0 and 1 to be used directly as scores.
 
 Scoring files
 ~~~~~~~~~~~~~
@@ -628,8 +672,6 @@ As external metrics allow Mikado to accept any arbitrary metric for each transcr
 
 Padding transcripts
 ~~~~~~~~~~~~~~~~~~~
-
-.. note:: The behaviour of this operation changed dramatically during the development of version 2.0.
 
 Mikado has the ability of padding transcripts in a locus, so to uniform their starts and stops, and to infer the presence
 of missing exons from neighbouring data. The procedure is similar to the one employed by PASA and functions as follows:

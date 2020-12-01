@@ -300,7 +300,7 @@ Usage
     * *intron_range*: this option expects a couple of positive integers, in ascending order, indicating the 98% CI where most intron lengths should fall into. Gene models with introns whose lengths fall outside of this range might be penalized, depending on the scoring system used. If uncertain, it is possible to use the :ref:`included stats utility <stat-command>` on the gene annotation of a closely related species.
     * *no-purge*: flag. If set, Mikado will not not exclude putative fragments from the output, but will report them (appropriately flagged).
     * *flank*: for the purposes of identifying fragments, it is useful to consider together loci which are not necessarily overlapping but which are lying relatively near on the genome sequence. This parameter (a positive integer) specifies the maximum distance for Mikado for gathering data together for this purpose.
-    * *mode*: how Mikado will treat BLAST and ORF data in the presence of putative chimeras. See the :ref:`relevant section in the configuration page <chimera_splitting>` for details.
+    * *mode*: how Mikado will treat BLAST and ORF data in the presence of putative chimeras. Please refer to the :ref:`algorithms section <chimera_splitting_algorithm>` for details.
 * Options regarding the output files:
 
     * *output-dir*: Output directory. By default, Mikado will write all files and the log on the current directory.

@@ -65,7 +65,7 @@ Alternatively, we could use a BGZIP-compressed file as input for ``mikado config
 
 * *--list list.txt*: this part of the command line instructs Mikado to read the file we just created to understand where the input files are and how to treat them.
 * *--reference chr5.fas*: this part of the command line instructs Mikado on the location of the genome file.
-* *--mode permissive*: the mode in which Mikado will treat cases of chimeras. See the :ref:`documentation <chimera_splitting>` for details.
+* *--mode permissive*: the mode in which Mikado will treat cases of chimeras. See the :ref:`documentation <chimera_splitting_algorithm>` for details.
 * *--junctions junctions.bed*: this part of the command line instructs Mikado to consider this file as the source of reliable splicing junctions.
 * *-bt uniprot_sprot_plants.fasta*: this part of the command line instructs Mikado to consider this file as the BLAST database which will be used for deriving homology information.
 

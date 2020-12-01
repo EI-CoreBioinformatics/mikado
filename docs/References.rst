@@ -1,6 +1,7 @@
 References
 ==========
 
+.. [Mikado] **Leveraging multiple transcriptome assembly methods for improved gene structure annotation** Luca Venturini, Shabhonam Caim, Gemy George Kaithakottil, Daniel Lee Mapleson, David Swabreck. *GigaScience*, 2018. doi: 10.1093/gigascience/giy093
 .. [Cufflinks]  **Transcript assembly and quantification by RNA-Seq reveals unannotated transcripts and isoform switching during cell differentiation** Cole Trapnell, Brian Williams, Geo Pertea, Ali Mortazavi, Gordon Kwan, Jeltje van Baren, Steven Salzberg, Barbara Wold, Lior Pachter. *Nature Biotechnology*, 2010, doi:10.1038/nbt.1621
 .. [ParsEval]  **ParsEval: parallel comparison and analysis of gene structure annotations** Daniel S Standage and Volker P Brendel. *BMC Bioinformatics*, 2012, doi:10.1186/1471-2105-13-187
 .. [RGASP]  **Assessment of transcript reconstruction methods for RNA-seq**  Tamara Steijger, Josep F Abril, Pär G Engström, Felix Kokocinski, The RGASP Consortium, Tim J Hubbard, Roderic Guigó, Jennifer Harrow & Paul Bertone. *Nature Methods*, 2013, doi:10.1038/nmeth.2714
@@ -28,7 +29,7 @@ References
 .. [Apollo]  **Web Apollo: a web-based genomic annotation editing platform** Eduardo Lee, Gregg A Helt, Justin T Reese, Monica C Munoz-Torres, Chris P Childers, Robert M Buels, Lincoln Stein, Ian H Holmes, Christine G Elsik and Suzanna E Lewis. *Genome Biology*, 2013, doi:10.1186/gb-2013-14-8-r93
 .. [Rampart]  **RAMPART: a workflow management system for de novo genome assembly**, Daniel Mapleson, Nizar Drou and David Swarbreck. *Bioinformatics*, 2015. doi:10.1093/bioinformatics/btv056
 .. [Uniprot]  **UniProt: a hub for protein information** The UniProt Consortium. *Nucleic Acid Research*, 2014. doi:10.1093/nar/gku989
-.. [Portcullis]  http://www.github.com/maplesod/portcullis/
+.. [Portcullis]  **Efficient and accurate detection of splice junctions from RNA-seq with Portcullis** Daniel Lee Mapleson, Luca Venturini, Gemy George Kaithakottil, David Swarbreck. *GigaScience*, 2018. doi: 10.1093/gigascience/giy131
 .. [Oases]  **Oases: robust de novo RNA-seq assembly across the dynamic range of expression levels** Marcel H Schulz, Daniel R Zerbino, Martin Vingron and Ewan Birney. *Bioinformatics*, 2012. doi: 10.1093/bioinformatics/bts094
 .. [Bridger]  **Bridger: a new framework for de novo transcriptome assembly using RNA-seq data** Zheng Chang, Guojun Li, Juntao Liu, Cody Ashby, Deli Liu, Carole L Cramer and Xiuzhen Huang. *Genome Biology*, 2015. doi:10.1186/s13059-015-0596-2
 .. [EviGeneTobacco]  **Combining Transcriptome Assemblies from Multiple De Novo Assemblers in the Allo-Tetraploid Plant Nicotiana benthamiana** Kenlee Nakasugi, Ross Crowhurst, Julia Bally, Peter Waterhouse. *PLoS ONE*, 2014. doi:10.1371/journal.pone.0091776

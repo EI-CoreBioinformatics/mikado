@@ -58,7 +58,7 @@ Configuring Daijin
     * *stringtie*
     * *trinity*
 * *threads*: Number of threads to be requested for parallelisable steps.
-* *modes*: Daijin can run Mikado in multiple modes regarding the :ref:`handling of putative chimeras <chimera_splitting>`. Specify those you desire to execute here.
+* *modes*: Daijin can run Mikado in multiple modes regarding the :ref:`handling of putative chimeras <chimera_splitting_algorithm>`. Specify those you desire to execute here.
 * *flank*: Amount of flanking that Mikado will allow while looking for fragments around good gene loci. Default 1000 bps. It is advisable to reduce it in species with compact genomes.
 * *scheduler*: if Daijin has to execute the pipeline on a cluster (potentially using DRMAA), it is necessary to specify the scheduler here. At the moment we support the following widely used schedulers: PBS, LSF, SLURM.
 * *r1*, *r2*, *samples*: RNA-Seq reads 1, RNA-Seq reads 2, and sample name. At least one of each is required.
@@ -275,7 +275,7 @@ Daijin will organise the output directory in 5 major sections, plus the configur
         * *logs*: this folder contains the log files corresponding to the BLASTs of the files present in *fastas*
     #. *pick*: this folder contains the results of :ref:`Mikado pick <pick>`. It is organissed as follows:
 
-        * One folder per requested :ref:`Mikado chimera-splitting mode <chimera_splitting>`. Inside each folder, it is possible to find:
+        * One folder per requested :ref:`Mikado chimera-splitting mode <chimera_splitting_algorithm>`. Inside each folder, it is possible to find:
 
             * mikado-{mode}.loci.gff3: Final GFF3 output file.
             * mikado-{mode}.metrics.gff3: Final metrics output file, containing the metrics of the transcripts that have been selected.

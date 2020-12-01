@@ -4,24 +4,26 @@
 .. _BED12: https://genome.ucsc.edu/FAQ/FAQformat.html#format1
 .. _STAR: https://github.com/alexdobin/STAR
 .. _SQLalchemy: http://www.sqlalchemy.org/
+.. _Prodigal: https://github.com/hyattpd/Prodigal
 
 .. _serialise:
 
 Mikado serialise
 ================
 
-Mikado integrates data from multiple sources to select the best transcripts. During this step, these sources are brought together inside a common database, simplifying the process of retrieving them at runtime. Currently, Mikado integrates three different types of data:
+Mikado integrates data from multiple sources to select the best transcripts. During this step, these sources are brought together inside a common database, simplifying the process of retrieving them at runtime. Currently, Mikado integrates three or more different types of data:
 
 .. _BED12-sidebar:
 .. sidebar:: BED12_ files
 
     During serialisation, Mikado interprets BED12 files as having the relevant information in the **thick-start**, **thick-end** fields, ie columns 7 and 8. For ORF files, this means that the CDS should start at the 7th column and end at the 8th (stop-codon exclusive, like in TransDecoder_) - or viceversa for ORFs on the negative strand. For junction files, it means that the reliable junction, ie the reliable *intron*, starts at the thick-start position and ends at the thick-end position. This format requirement is the opposite of what happens for example in the junctions produced by `TopHat <http://ccb.jhu.edu/software/tophat/index.shtml>`_, where the BED12 file lists the two *exonic* fragments, rather than the intron. STAR_ instead provides a tabular non-standard file indicating the most reliable junctions in the alignment. Portcullis_ provides utilities to convert such files into the format used by Mikado, and to merge together multiple junction files. However, we recommend running Portcullis directly on the alignments, rather than using the junctions indicated by the programs themselves.
 
-#. reliable junctions, as detected by Portcullis_, in BED12_ format (
+#. reliable junctions, as detected by Portcullis_, in BED12_ format
 #. ORF data, currently identified using TransDecoder_, but any program capable of generating it in BED12_ format is suitable.
 #. BLASTX [Blastplus]_ data in XML format
+#. Miscellaneous numeric scores can also be given as input to Mikado as tabular file, with one row per transcript.
 
-After serialisation in the database, these sources will be available to use for any subsequent Mikado pick run. Having the data present in the database allows to run Mikado with multiple configurations and little overhead in terms of pre-loading data; this feature is taken directly advtange of in :ref:`Daijin`, where it is possible to run Mikado using multiple modes.
+After serialisation in the database, these sources will be available to use for any subsequent Mikado pick run. Having the data present in the database allows to run Mikado with multiple configurations and little overhead in terms of pre-loading data; this feature is taken directly advantage of in :ref:`Daijin`, where it is possible to run Mikado using multiple modes.
 
 Mikado serialise can use three different SQL databases as backends - SQLite, MySQL and PostgreSQL - thanks to SQLAlchemy_.
 This step, together with the creation of the TransDecoder and BLAST data, is the most time consuming of the pipeline. In particular, although Mikado serialise will try to analyse the XML data in a parallelised fashion if so instructed, the insertion of the data in the database will still happen in a single thread and will therefore be of limited speed. If using SQLite as database (the default option), it is possible to decrease the runtime by modifying the "max_objects" parameters, at the cost however of increased RAM usage.
@@ -31,7 +33,7 @@ This step, together with the creation of the TransDecoder and BLAST data, is the
 Transdecoder ORFs
 ~~~~~~~~~~~~~~~~~
 
-When Mikado analyses ORFs produced by TransDecoder_ or equivalent program, it performs additionally the following checks:
+When Mikado analyses ORFs produced by TransDecoder_, Prodigal_ or equivalent program, it performs additionally the following checks:
 
 #. Check the congruence between the length of the transcript in the BED12 file and that found in the FASTA file
 #. Check that the ORF does not contain internal stop codons
@@ -71,8 +73,6 @@ Available parameters:
 
     - *orfs*: ORF BED12 files, separated by comma.
     - *max-regression*: A percentage, expressed as a number between 0 and 1, which indicates how far can Mikado regress along the ORF to find a valid start codon. See the :ref:`relative section in the configuration <max-regression>` for details.
-    
-    .. note:: new in version 1.5
 
     - *codon-table*: this parameter specifies the codon table to use for the project. Mikado by default uses the NCBI codon table 1 (standard with eukaryotes) with the modification that only ATG is considered as a valid start codon, as ORF predictions usually inflate the number of non-standard starts.
 * Parameters related to BLAST data:
@@ -183,8 +183,8 @@ Technical details
 The schema of the database is quite simple, as it is composed only of 9 discrete tables in two groups. The first group, *chrom* and *junctions*, serialises the information pertaining to the reliable junctions - ie information which is not relative to the transcripts but rather to their genomic locations.
 The second group serialises the data regarding ORFs, BLAST files and external arbitrary data. The need of using a database is mainly driven by the latter, as querying a relational database is faster than retrieving the information from the XML files themselves at runtime.
 
-.. database figure generated with `SchemaCrawler <http://sualeh.github.io/SchemaCrawler/>`_, using the following command line:
-    schemacrawler -c graph -url=jdbc:sqlite:sample_data/mikado.db -o docs/Usage/database_schema.png --outputformat=png -infolevel=maximum
+.. database figure generated with `SchemaCrawler <https://github.com/schemacrawler/SchemaCrawler>`_, using the following command line:
+    schemacrawler --command=schema --url=jdbc:sqlite:sample_data/daijin/5-mikado/mikado.db -o docs/Usage/database_schema.png --outputformat=png --info-level=maximum
 
 .. topic:: Database schema used by Mikado.
 

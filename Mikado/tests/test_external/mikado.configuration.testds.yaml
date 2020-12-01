@@ -274,3 +274,4 @@ serialise:
   codon_table: 0
   max_regression: 0.1
   procs: 1
+  substitution_matrix: blosum62

@@ -419,15 +419,12 @@ the following voices:
 - transcripts: input transcripts. This should be set to be equal to the output of :ref:`Mikado prepare <prepare>`,
   ie the "out_fasta" field of the :ref:`prepare section of the configuration file <prep-settings>`.
 - external_scores: this field indicates the location of a tabular file containing additional numeric values to be added to Mikado.
-- xml: this array indicates the location of the BLAST output file(s). Elements of the array can be:
+- xml: this array indicates the location of the BLAST output file(s). Please see the :ref:`section on serialisation <serialise_input_blast>` for details. Elements of the array can be:
 .. _input_xml:
-  + A **custom-formatted** BLAST tabular output file, with fields as follows:
-    - "qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore ppos btop"
+  + A **custom-formatted** BLAST tabular output file
   + BLAST+ XML files (optionally compressed with gzip)
   + BLAST+ ASN files (optionally compressed with gzip), which will be converted in-memory using ``blast_formatter``
   + a folder containing files of the above types.
-
-.. important:: From version 2, Mikado supports also tabular BLAST file. Like other practitioners have noted, tabular files are much faster to parse than the XML files, so this is the recommended format. However, please note that it must obey the specified custom format.
 
 .. code-block:: toml
 
@@ -441,10 +438,6 @@ the following voices:
     log = "serialise.log"
     blast_targets = ["uniprot_sprot_plants.fasta"]
     output_dir = "."
-
-.. hint:: The most expensive operation in a "Mikado serialise" run is by far the serialisation of BLAST XML files.
-Using tabular files significantly speeds up the process, as they are much smaller and faster to read and parse.
-In case XML files are used, splitting the input files in multiple chunks, and analysing them separately, allows for better parallelisation. If a single monolythic XML/ASN file is produced, by contrast, Mikado will be quite slow.
 
 .. _misc-settings:
 

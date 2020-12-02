@@ -87,17 +87,19 @@ class Locus(Abstractlocus):
         self.fai = None
         self.__finalized = False
 
+        self._reference_sources = set(source for source, is_reference in
+                                      zip(self.json_conf["prepare"]["files"]["labels"],
+                                          self.json_conf["prepare"]["files"]["reference"]) if is_reference is True)
+
         if pad_transcripts in (False, True):
             # self._set_padding(pad_transcripts)
             self.json_conf["pick"]["alternative_splicing"]["pad"] = pad_transcripts
             assert self.perform_padding == pad_transcripts
 
-        if self.perform_padding is True and self.json_conf["pick"]["run_options"]["only_reference_update"] is True:
+        if self.perform_padding is True and self.only_reference_update is True:
             self._add_to_alternative_splicing_codes("=")
             self._add_to_alternative_splicing_codes("_")
             self._add_to_alternative_splicing_codes("n")
-        # if verified_introns is not None:
-        #     self.locus_verified_introns = verified_introns
 
     def __str__(self, print_cds=True) -> str:
 
@@ -530,9 +532,14 @@ class Locus(Abstractlocus):
                               transcript.id, self.id, transcript.strand, self.strand)
             to_be_added = False
 
+        reference_pass = False
+        if self.only_reference_update is True and \
+                (transcript.is_reference is True or transcript.original_source in self._reference_sources):
+            reference_pass = True
+
         if self.json_conf["pick"]["alternative_splicing"]["only_confirmed_introns"] is True:
             to_check = (transcript.introns - transcript.verified_introns) - self.primary_transcript.introns
-            if len(to_check) > 0:
+            if len(to_check) > 0 and reference_pass is False:
                 self.logger.debug(
                     "%s not added because it has %d non-confirmed intron%s",
                     transcript.id,
@@ -573,6 +580,8 @@ class Locus(Abstractlocus):
     def __check_as_requirements(self, transcript: Transcript) -> bool:
 
         to_be_added = True
+        if transcript.is_reference is True or transcript.original_source in self._reference_sources:
+            return True
         if ("compiled" not in self.json_conf["as_requirements"] or
                 self.json_conf["as_requirements"]["compiled"] is None):
             self.json_conf["as_requirements"]["compiled"] = compile(

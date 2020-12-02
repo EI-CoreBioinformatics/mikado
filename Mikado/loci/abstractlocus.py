@@ -434,6 +434,19 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             return list(transcripts.keys())[0]
         # np.random.seed(self.json_conf["seed"])
         random.seed(self.json_conf["seed"])
+        if self.only_reference_update is True:
+            # We need to select only amongst the reference transcripts
+            reference_sources = {source for source, is_reference in
+                                 zip(self.json_conf["prepare"]["files"]["labels"],
+                                     self.json_conf["prepare"]["files"]["reference"]) if is_reference is True}
+            reference_tids = set()
+            for tid, transcript in transcripts.items():
+                is_reference = transcript.original_source in reference_sources or transcript.is_reference is True
+                if is_reference:
+                    reference_tids.add(tid)
+            if len(reference_tids) > 0:
+                transcripts = dict((tid, transcripts[tid]) for tid in reference_tids)
+
         max_score = max(transcripts.values(),
                         key=operator.attrgetter("score")).score
         valid = sorted([transc for transc in transcripts if transcripts[transc].score == max_score])
@@ -1201,6 +1214,9 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                 "eval")
 
         not_passing = set()
+        reference_sources = {source for source, is_reference in zip(self.json_conf["prepare"]["files"]["labels"],
+                                        self.json_conf["prepare"]["files"]["reference"]) if is_reference}
+
         for tid in iter(tid for tid in self.transcripts if
                         tid not in previous_not_passing):
             if self.transcripts[tid].json_conf is None:
@@ -1209,7 +1225,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                 self.transcripts[tid].json_conf = self.json_conf
 
             is_reference = ((self.transcripts[tid].is_reference is True) or
-                            (self.transcripts[tid].original_source in self.json_conf["prepare"]["files"]["reference"]))
+                             self.transcripts[tid].original_source in reference_sources)
 
             if is_reference is False:
                 self.logger.debug("Transcript %s (source %s) is not a reference transcript (references: %s; in it: %s)",
@@ -1812,3 +1828,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         if value not in (False, True):
             raise ValueError
         self.json_conf["pick"]["alternative_splicing"]["pad"] = value
+
+    @property
+    def only_reference_update(self):
+        return self.json_conf.get("pick", dict()).get("run_options", dict()).get("only_reference_update", False)

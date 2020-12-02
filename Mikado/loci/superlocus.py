@@ -959,12 +959,12 @@ class Superlocus(Abstractlocus):
             self.subloci_defined = True
             return
 
-        cds_only = self.json_conf["pick"]["clustering"]["cds_only"]
+        # cds_only = self.json_conf["pick"]["clustering"]["cds_only"]
         self.logger.debug("Calculating the transcript graph for %d transcripts", len(self.transcripts))
-        transcript_graph = self.define_graph(cds_only=cds_only)
+        transcript_graph = self.define_graph()
 
         transcript_graph = self.reduce_complex_loci(transcript_graph)
-        if len(self.transcripts) > len(transcript_graph):
+        if len(self.transcripts) > len(transcript_graph) and self.only_reference_update is False:
             self.logger.warning("Discarded %d transcripts from %s due to approximation level %d",
                                 len(self.transcripts) - len(transcript_graph),
                                 self.id,
@@ -1033,16 +1033,7 @@ class Superlocus(Abstractlocus):
             self.subloci.append(new_sublocus)
 
         self.subloci = sorted(self.subloci)
-        # self.get_sublocus_metrics()
-
         self.subloci_defined = True
-
-    # def get_sublocus_metrics(self):
-    #     """Wrapper function to calculate the metrics inside each sublocus."""
-    #
-    #     self.define_subloci()
-    #     for sublocus_instance in self.subloci:
-    #         sublocus_instance.get_metrics()
 
     def define_monosubloci(self):
 
@@ -1059,8 +1050,7 @@ class Superlocus(Abstractlocus):
         self.monosubloci = dict()
         # Extract the relevant transcripts
         for sublocus_instance in sorted(self.subloci):
-            sublocus_instance.define_monosubloci(
-                purge=self.purge)
+            sublocus_instance.define_monosubloci(purge=self.purge)
             for transcript in sublocus_instance.excluded.transcripts.values():
                 self.excluded.add_transcript_to_locus(transcript)
             for tid in sublocus_instance.transcripts:
@@ -1424,22 +1414,25 @@ class Superlocus(Abstractlocus):
     # The discrepancy is by design
     # pylint: disable=arguments-differ
 
-    def define_graph(self, cds_only=False) -> networkx.Graph:
+    def define_graph(self) -> networkx.Graph:
 
-        """Overloading of the original method to avoind being a O(n**2) algorithm"""
+        """Overloading of the original method to avoid being a O(n**2) algorithm."""
 
+        cds_only = self.json_conf["pick"]["clustering"]["cds_only"]
         graph = networkx.Graph()
 
         # As we are using intern for transcripts, this should prevent
         # memory usage to increase too much
-        objects = dict((tid, item) for tid, item in self.transcripts.items() if tid not in
-                       self._excluded_transcripts)
-        graph.add_nodes_from(objects.keys())
+        keys = set.difference(set(self.transcripts.keys()), set(self._excluded_transcripts))
+
+        # objects = dict((tid, self.transcripts[tid]) for tid in keys)
+        graph.add_nodes_from(keys)
 
         monos = []
         intronic = collections.defaultdict(set)
 
-        for tid, transcript in objects.items():
+        for tid in keys:
+            transcript = self.transcripts[tid]
             if cds_only is True and transcript.is_coding:
                 if transcript.selected_cds_introns:
                     for intron in transcript.selected_cds_introns:

@@ -15,7 +15,10 @@ sample_data/uniprot*fasta*
 sample_data/chr5.fas
 sample_data/mikado_prepared.fasta
 sample_data/mikado_prepared.gtf
+sample_data/configuration.toml
 sample_data/slurm*
+sample_data/daijin.*.yaml
+sample_data/daijin.*.toml
 sample_data/Daijin
 sample_data/daijin_test
 sample_data/chr5.fas.gz.fai
@@ -95,3 +98,5 @@ Untitled*ipynb
 cover/
 coverage.xml
 Mikado*img
+.vscode/
+docs/Library

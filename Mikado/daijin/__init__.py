@@ -19,7 +19,6 @@ from ..utilities.log_utils import create_default_logger
 from ..configuration.daijin_configurator import create_daijin_config, check_config
 import shutil
 import pkg_resources
-import tempfile
 import functools
 import inspect
 import toml
@@ -139,6 +138,8 @@ for the "mikado" part of daijin.""")
                         type=str, default=None,
                         help="Cluster configuration file to write to.")
     parser.add_argument("--full", action="store_true", default=False)
+    parser.add_argument("--seed", type=int, default=None,
+                        help="Random seed number.")
     output_format = parser.add_mutually_exclusive_group()
     output_format.add_argument("-j", "--json", action="store_true", default=False,
                                help="Output will be in JSON (default: inferred by filename, with TOML as fallback).")
@@ -383,9 +384,7 @@ def assemble_transcripts_pipeline(args):
     else:
         hpc_conf = None
 
-    yaml_file = tempfile.NamedTemporaryFile(mode="wt", delete=True,
-                                            dir=os.getcwd(), suffix=".yaml",
-                                            prefix="assemble")
+    yaml_file = open("daijin.{}.yaml".format(NOW), "wt")
     yaml.dump(doc, yaml_file)
     yaml_file.flush()
     shutil.copystat(args.config, yaml_file.name)
@@ -507,10 +506,7 @@ def mikado_pipeline(args):
     else:
         hpc_conf = None
 
-    yaml_file = tempfile.NamedTemporaryFile(mode="wt", delete=True,
-                                            dir=os.getcwd(), suffix=".yaml",
-                                            prefix="mikado"
-                                            )
+    yaml_file = open("daijin.{}.yaml".format(NOW), "wt")
     yaml.dump(doc, yaml_file)
     yaml_file.flush()
     shutil.copystat(args.config, yaml_file.name)

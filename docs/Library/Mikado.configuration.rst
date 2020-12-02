@@ -5,6 +5,7 @@ Submodules
 ----------
 
 .. toctree::
+   :maxdepth: 4
 
    Mikado.configuration.configurator
    Mikado.configuration.daijin_configurator

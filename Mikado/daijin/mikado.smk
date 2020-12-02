@@ -71,7 +71,7 @@ PROD_DIR_FULL = os.path.abspath(PROD_DIR)
 CWD = os.getcwd()
 
 BLASTX_TARGET = config["blastx"]["prot_db"]
-BLASTX_MAX_TARGET_SEQS = config["blastx"]["max_target_seqs"]
+BLASTX_MAX_TARGET_SEQS = config["blastx"].get("max_target_seqs", 10)
 BLASTX_EVALUE = config["blastx"]["evalue"]
 BLASTX_CHUNKS = max(int(config["blastx"]["chunks"]), THREADS)
 

@@ -5,6 +5,7 @@ Submodules
 ----------
 
 .. toctree::
+   :maxdepth: 4
 
    Mikado.subprograms.util.awk_gtf
    Mikado.subprograms.util.class_codes

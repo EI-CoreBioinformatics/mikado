@@ -5,7 +5,7 @@ Usage
 =====
 
 
-Mikado is composed of four different programs (*configure, prepare, serialise, pick*) which have to be executed serially to go from an ensemble of different assemblies to the final dataset. In addition to these core programs, Mikado provides a utility to compare annotations, similarly to CuffCompare and ParsEval (*compare*), and various other minor utilities to perform operations such as extracting regions from a GFF, convert between different gene annotation formats, etc.
+Mikado is composed of four different programs (``configure``, ``prepare``, ``serialise``, ``pick``) which have to be executed serially to go from an ensemble of different assemblies to the final dataset. In addition to these core programs, Mikado provides a utility to compare annotations, similarly to CuffCompare and ParsEval (*compare*), and various other minor utilities to perform operations such as extracting regions from a GFF, convert between different gene annotation formats, etc.
 
 
 Mikado pipeline stages

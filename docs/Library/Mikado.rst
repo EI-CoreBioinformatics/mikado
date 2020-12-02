@@ -5,6 +5,7 @@ Subpackages
 -----------
 
 .. toctree::
+   :maxdepth: 4
 
    Mikado.configuration
    Mikado.daijin
@@ -22,6 +23,7 @@ Submodules
 ----------
 
 .. toctree::
+   :maxdepth: 4
 
    Mikado.exceptions
    Mikado.version

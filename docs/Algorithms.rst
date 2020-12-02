@@ -28,26 +28,32 @@ The detection and analysis of a locus proceeds as follows:
 #. When the first transcript is detected, Mikado will create a *superlocus* - a container of transcripts sharing the same genomic location - and assign the transcript to it.
 #. While traversing the genome, as long as any new transcript is within the maximum allowed flanking distance, it will be added to the superlocus.
 #. When the last transcript is added, Mikado performs the following preliminary operations:
+
     #. Integrate all the data from the database (including ORFs, reliable junctions in the region, and BLAST homology).
     #. If a transcript is monoexonic, assign or reverse its strand if the ORF data supports the decision
     #. If requested and the ORF data supports the operation, split chimeric transcripts - ie those that contain two or more non-overlapping ORFs on the same strand.
     #. Split the superlocus into groups of transcripts that:
+
         * share the same strand
         * have at least 1bp overlap
     #. Analyse each of these novel "stranded" superloci separately.
 #. Create *subloci*, ie group transcripts so to minimize the probability of mistakenly merging multiple gene loci due to chimeras. These groups are defined as follows:
+
     * if the transcripts are multiexonic, they must share at least one intron, inclusive of the borders
     * if the transcripts are monoexonic, they must overlap by at least 1bp.
     * Monoexonic and multiexonic transcripts *cannot* be part of the same sublocus.
 #. Select the best transcript inside each sublocus:
+
     #. Score the transcripts (see the :ref:`section on scoring <scoring_files>`)
     #. Select as winner the transcript with the highest score and assign it to a *monosublocus*
     #. Discard any transcript which is overlapping with it, according to the definitions in the point above
     #. Repeat the procedure from point 2 until no transcript remains in the sublocus
 #. *Monosubloci* are gathered together into *monosubloci holders*, ie the seeds for the gene loci. Monosubloci holders have more lenient parameters to group transcripts, as the first phase should have already discarded most chimeras. Once a holder is created by a single *monosublocus*, any subsequent candidate *monosublocus* will be integrated only if the following conditions are satisfied:
+
     * if the candidate is monoexonic, its exon must overlap at least one exon of a transcript already present in the holder
     * if the candidate is multiexonic and the holder contains only monoexonic transcripts, apply the same criterion, ie check whether its exons overlap the exons of at least one of the transcripts already present
     * if the candidate is multiexonic and the holder contains multiexonic transcripts, check whether one of the following conditions is satisfied:
+
         * at least one intron of the candidate overlaps with an intron of a transcript in the holder
         * at least one intron of the candidate is completely contained within an exon of a transcript in the holder
         * at least one intron of a transcript in the holder is completely contained within an exon of a transcript in the holder.
@@ -55,18 +61,66 @@ The detection and analysis of a locus proceeds as follows:
    Optionally, it is possible to tell Mikado to use a simpler algorithm, and integrate together all transcripts that share exon space. Such a simpler algorithm risks, however, chaining together multiple loci - especially in small, compact genomes.
 #. Once the holders are created, apply the same scoring and selection procedure of the sublocus selection step. The winning transcripts are assigned to the final *loci*. These are called the *primary transcripts of the loci*.
 #. Once the loci are created, track back to the original transcripts of the superlocus:
+
     #. discard any transcript overlapping more than one locus, as these are probably chimeras.
     #. For those transcripts that are overlapping to a single locus, verify that they are valid alternative splicing events using the :ref:`class code <ccodes>` of the comparison against the primary transcript. Transcripts are re-scored dynamically when they are re-added in this fashion, to ensure their quality when compared with the primary transcript.
+
         * For coding loci, transcripts will be added as alternative splicing events **only if they are in the same frame as the primary transcript**. New in version 1.5.
     #. If there are transcripts that do not overlap any of the final loci, create a new superlocus with the missed transcripts and perform the scoring and selection again on them, until no transcript is unaccounted for.
 #. After the alternative splicing events have been defined, Mikado can optionally "pad" them. See the :ref:`padding section<padding>` for details.
 #. Finally detect and either tag or discard fragments inside the initial *superlocus* (irrespective of strand):
+
     #. Check whether the primary transcript of any locus meets the criteria to be defined as a fragment (by default, maximum ORF of 30AA and maximum 2 exons - any transcript exceeding either criterion will be considered as non-fragment by default)
     #. If so, verify whether they are near enough any valid locus to be considered as a fragment (in general, class codes which constitute the "Intronic", "Fragmentary" and "No overlap" categories).
     #. If these conditions are met, tag the locus as a fragment. If requested, Mikado will just discard these transcripts (advised).
 
 These steps help Mikado identify and solve fusions, detect correctly the gene loci, and define valid alternative splicing events.
 
+
+.. _retained_intron_definition:
+
+Definition of retained introns
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+When gathering transcripts into loci, Mikado will try to identify and tag transcripts that contain retained intron events. For our purposes, a retained intron event is an exon which:
+
+- is part of a **coding** transcript but is *not* completely coding itself.
+- if it is an *internal* exon, it **completely spans** the putative retained intron.
+- if it is a *terminal* exon, it must start within the exon of the putative retained intron, and terminate within the intron.
+- if it constitutes a monoexonic transcript, at least one of the two ends must reside within the bordering exons.
+
+.. _retained_intron_disrupted_cds:
+
+In addition to this, a transcript might be tagged as having its CDS disrupted by the retained intron event if:
+
+- the non-coding part of the exon is in the 3'UTR and it begins within the intron
+- the exon is 3' terminal, coding and it ends within the intron.
+
+.. warning:: The definition of a retained intron is **stricty context dependent**, i.e. the same exon will be regarded as a "retained intron" if the transcript is gathered together with other transcripts, but as non-retained if it were in isolation. It is therefore **normal and expected** that the associated metrics and scores will change, for a given transcript, across the various clustering stages.
+
+
+.. _chimera_splitting_algorithm:
+Identification and breaking of chimeric transcripts
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+When a transcript contains more than one ORF, Mikado will try to determine whether this is due to a retained intron event or a frameshift (in which case the two ORFs are presumed to be mangled forms of an original, correct ORF for a single protein) or whether instead this is due to the fragment being polycystronic (in a prokaryote) or chimeric (in a eukaryote). The latter case is relatively common due to technical artefacts during sequencing and assembling of RNASeq reads.
+
+A chimeric transcript is defined by Mikado as a model with multiple ORFs, where:
+
+ * all the ORFs share the same strand
+ * all the ORFs are non-overlapping.
+
+In these situations, Mikado can try to deal with the chimeras in five different ways, in decreasingly conservative fashion:
+
+- *nosplit*: leave the transcript unchanged. The presence of multiple ORFs will affect the scoring.
+- *stringent*: leave the transcript unchanged, unless the two ORFs both have hits in the protein database and none of the hits is in common.
+- *lenient*: leave the transcript unchanged, unless *either* the two ORFs both have hits in the protein database, none of which is in common, *or* both have no hits in the protein database.
+- *permissive*: presume the transcript is a chimera, and split it, *unless* two ORFs share a hit in the protein database.
+- *split*: presume that every transcript with more than one ORF is incorrect, and split them.
+
+If any BLAST hit *spans* the two ORFs, then the model will be considered as a non-chimera because there is evidence that the transcript constitutes a single unit. The only case when this information will be disregarded is during the execution of the *split* mode.
+
+These modes can be controlled directly from the :ref:`pick command line <pick>`, or during the :ref:`initial configuration stage <configure>`.
 
 .. _scoring_files:
 
@@ -94,10 +148,9 @@ Finally, the scores for each metric will be summed up to produce a final score f
     :math:`s_{t} = \sum_{m \forall m \in M} s_{mt}`.
 
 Not all the available metrics will be necessarily used for scoring; the choice of which to employ and how to score and weight each of them is left to the experimenter, although Mikado provides some pre-configured scoring files.
+Values that are guaranteed to be between 0 and 1 (e.g. a percentage value) can be used directly as scores, by setting the *use_raw* parameter as true for them (see below).
 
 .. important:: The scoring algorithm is dependent on the other transcripts in the locus, so each score should not be taken as an *absolute* measure of the reliability of a transcript, but rather as a measure of its **relative goodness compared with the alternatives**. Shifting a transcript from one locus to another can have dramatic effects on the scoring of a transcript, even while the underlying metric values remain unchanged. This is why the score assigned to each transcript changes throughout the Mikado run, as transcripts are moved to subloci, monoloci and finally loci.
-
-.. note:: Starting from beta8, Mikado allows for metrics whose value range is between 0 and 1 to be used directly as scores.
 
 Scoring files
 ~~~~~~~~~~~~~
@@ -141,6 +194,7 @@ The "requirements", "as_requirements" and "not_fragmentary" sections
 --------------------------------------------------------------------
 
 These sections specifies the minimum requirements for a transcript at various stages.
+
 * A transcript failing to pass the *requirements* check will be discarded outright (if "purge" is selected) or given a score of 0 otherwise.
 * If a transcript has not been selected as the primary transcript of a locus, it has to pass the *as_requirements* check to be considered as a valid alternative splicing event.
 * Finally, after loci have been defined, the primary transcripts of loci that do not pass the *not_fragmentary* section mark their loci to be compared against neighbouring loci which have passed this same check.
@@ -149,10 +203,12 @@ These sections specifies the minimum requirements for a transcript at various st
 This section is composed by two parts:
 
 * *parameters*: a list of the metrics to be considered. Each metric can be considered multiple times, by suffixing it with a ".<id>" construct (eg cdna_length.*mono* vs. cdna_length.*multi* to distinguish two uses of the cdna_length metric - once for monoexonic and once for multiexonic transcripts). Any parameter which is not a :ref:`valid metric name <Metrics>`, after removal of the suffix, **will cause an error**. Parameters have to specify the following:
+
     * a *value* that the metric has to be compared against
     * an *operator* that specifies the target operation. See :ref:`the operators section <operators>`.
 
 * *expression*: a string array that will be compiled into a valid boolean expression. All the metrics present in the expression string **must be present in the parameters section**. If an unrecognized metric is present, Mikado will crash immediately, complaining that the scoring file is invalid. Apart from brackets, Mikado accepts only the following boolean operators to chain the metrics:
+
     * *and*
     * *or*
     * *not*
@@ -175,8 +231,8 @@ As an example, the following snippet replicates a typical requirements section f
         max_intron_length: {operator: le, value: 20000}
         min_intron_length: {operator: ge, value: 5}
 
-In order:
-    * In the parameters section, we ask for the following:
+In the parameters section, we ask for the following:
+
         * *exon_num.mono*: monoexonic transcripts must have one exon ("eq")
         * *exon_num.multi*: multiexonic transcripts must have more than one exon ("gt")
         * *cdna_length.mono*: monoexonic transcripts must have a length greater than 50 bps (the ".mono" suffix is arbitrary, as long as it is unique for all calls of *cdna_length*)
@@ -184,12 +240,12 @@ In order:
         * *max_intron_length*: multiexonic transcripts should not have any intron longer than 200,000 bps.
         * *min_intron_length*: multiexonic transcripts should not have any intron smaller than 5 bps.
 
-    * the *expression* field will be compiled into the following expression::
+The *expression* field will be compiled into the following expression::
 
         (exon_num > 1 and cdna_length >= 100 and max_intron_length <= 200000 and min_intron_length >= 5) or (exon_num == 1 and cdna_length > 50)
 
 
-Any transcript for which the expression evaluates to :math:`False` will be assigned a score of 0 outright and discarded, unless the user has chosen to disable the purging of such transcripts.
+Any transcript for which the expression evaluates to ``false`` will be assigned a score of 0 outright and discarded, unless the user has chosen to disable the purging of such transcripts.
 
 .. _scoring-section:
 
@@ -202,6 +258,7 @@ This section specifies which metrics will be used by Mikado to score the transcr
 * *value*: compulsory if the chosen rescaling algorithm is "target". This should be either a number or a boolean value.
 * *multiplier*: the weight assigned to the metric in terms of scoring. This parameter is optional; if absent, as it is in the majority of cases, Mikado will consider the multiplier to equal to 1. This is the :math:`w_{m}` element in the :ref:`equations above <scoring_algorithm>`.
 * *filter*: It is possible to specify a filter which the metric has to fulfill to be considered for scoring, eg, "cdna_length >= 200". If the transcript fails to pass this filter, the score *for this metric only* will be set to 0. A "filter" subsection has to specify the following:
+
     * *operator*: the operator to apply for the boolean expression. See the :ref:`relative section <operators>`.
     * *value*: value that will be used to assess the metric.
 
@@ -239,6 +296,7 @@ Using this snippet as a guide, Mikado will score transcripts in each locus as fo
 * Assign a full score (one point, as no multiplier is specified) to transcripts that have a 5' UTR whose length is nearest to 100 bps (*five_utr_length*); if the 5' UTR is longer than 2,500 bps, this score will be 0 (see the filter section)
 * Assign a full score (one point, as no multiplier is specified) to transcripts which have the lowest distance between the CDS end and the most downstream exon-exon junction (*end_distance_from_junction*). If such a distance is greater than 55 bps, assign a score of 0, as it is a probable target for NMD (see the filter section).
 * Assign a maximum penalty (**minus 10 points**, as a **negative** multiplier is specified) to the transcript with the highest number of non-verified introns in the locus.
+
   * Again, we are using a "filter" section to define which transcripts will be exempted from this scoring (in this case, a penalty)
   * However, please note that we are using the keyword **metric** in this section. This tells Mikado to check a *different* metric for evaluating the filter. Nominally, in this case we are excluding from the penalty any *monoexonic* transcript. This makes sense as a monoexonic transcript will never have an intron to be confirmed to start with.
 
@@ -563,6 +621,7 @@ A proper way of generating and using external scores would, therefore, be the fo
 * Run Mikado prepare on the input dataset.
 * Run all necessary supplementary analyses (ORF calling and/or homology analysis through DIAMOND or BLAST).
 * Run supplementary analyses to assess the transcripts, e.g. expression analysis. Normalise results so that they can be expressed with values between 0 and 1.
+
   * Please note that boolean results (e.g. presence or absence) can be expressed with 0 and 1 intead of "False" and "True". Customarily, in Python 0 stands for False and 1 for True, but you can choose to switch the order if you so desire.
 * Aggregate all results in a text table, like the one above, tab separated.
 * Call mikado serialise, specifying the location of this table either through the configuration file or on the command line invocation.
@@ -614,12 +673,11 @@ As external metrics allow Mikado to accept any arbitrary metric for each transcr
 Padding transcripts
 ~~~~~~~~~~~~~~~~~~~
 
-.. note:: The behaviour of this operation changed dramatically during the development of version 2.0.
-
 Mikado has the ability of padding transcripts in a locus, so to uniform their starts and stops, and to infer the presence
 of missing exons from neighbouring data. The procedure is similar to the one employed by PASA and functions as follows:
 
 1. A transcript can function as **template** for a candidate if:
+
   - the candidate's terminal exon falls within an **exon** of the template
   - the extension would enlarge the candidate by at most *"ts_distance"* basepairs (not including introns), default **1000** bps
   - the extension would add at most *"ts_max_splices"* splice sites to the candidate, default **2**.
@@ -628,21 +686,26 @@ of missing exons from neighbouring data. The procedure is similar to the one emp
    (e.g. A can act as template for B and B can act as template for C, but A *cannot* act as template for C) are broken.
 2. Create a copy of the transcripts in the locus, for backtracking.
 3. Start expanding each transcript:
+
   a. Create a copy of the transcript for backtracking
   b. Calculate whether the 5' terminal exon should be enlarged:
+
     - if the transcript exon terminally overlaps a template exon, enlarge it until the end of the template
     - If the template transcript has multiple exons upstream of the expanded exon, add those to the transcript.
     - Calculate the number of bases that have been added upstream to the cDNA of the transcript
   c. Calculate whether the 3' terminal exon should be enlarged:
+
     - if the transcript exon terminally overlaps a template exon, enlarge it until the end of the template
     - If the template transcript has multiple exons downstream of the expanded exon, add those to the transcript.
     - Calculate the number of bases that have been added downstream to the cDNA of the transcript
   d. If the transcript is coding:
+
     I. Calculate the new putative CDS positions in the transcript, using the memoized amount of added basepairs downstream and upstream
     II. Calculate the new CDS, **keeping the same frame as the original transcript**. If the transcript is incomplete, this might lead to find the proper start and stop codons
     III. If we find an in-frame stop codon, the expansion would lead to an invalid transcript. Backtrack.
 4. Recalculate metrics and scores.
 5. Check whether we have made any transcript an invalid alternative splicing event; possible common causes include:
+
   - Having created a retained intron
   - Having expanded the number or size of the UTR so that the transcripts are no longer viable
 6. If any of the non-viable transcripts is either the primary transcript or one of the templates, remove the current templates from the locus and restart the analysis.
@@ -658,7 +721,9 @@ This option is normally activated, with the parameters:
 .. note:: please consider that the parameters above refer to the expansion **on both sides of the transcript**. So the parameters above allow transcripts to be expanded by up to 2000 bps, ie 1000 in both directions.
 
 This option has been written for using Mikado in conjunction with *ab initio* predictions, but it can be used fruitfully also with transcript assemblies.
-.. warning:: Please note that some of the metrics might become invalid after the padding. In particular, BLASTX results will be invalid as the query sequence will have changed.
+
+.. warning:: 
+    Please note that some of the metrics might become invalid after the padding. In particular, BLASTX results will be invalid as the query sequence will have changed.
 
 The options related to padding can be found under the pick section :ref:`in the configuration file <pad-configuration>`.
 

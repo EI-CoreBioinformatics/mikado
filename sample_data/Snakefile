@@ -30,9 +30,11 @@ if not os.path.exists(configname):
     snake_logger.info(config_command)
     subprocess.call(config_command, shell=True)
 
+snake_logger.info("Reading the configuration file")
 try:
     config = Mikado.configuration.configurator.to_json(configname)
-except:
+except Exception as exc:
+    snake_logger.error("Error in reading the configuration file: {}".format(exc))
     os.remove(configname)
     raise
 
@@ -375,9 +377,8 @@ rule clean:
                                     glob.glob("compare*"), glob.glob(config["db_settings"]["db"]),
                                     glob.glob("*.log"), glob.glob("*xml"), ["chr5.fas"],
 				                    glob.glob("*.ok"),
-                                    "refmap_check.ok",
-                                    "refmap_check_pc.ok",
-                                    ["configuration.yaml"]):
+                                    ["refmap_check.ok", "refmap_check_pc.ok",
+                                    "configuration.yaml", "configuration.toml", "daijin.toml", "daijin.yaml"]):
             if os.path.exists(filename) and filename not in (".", ".."):
                 shutil.rmtree(filename) if os.path.isdir(filename) else os.remove(filename)
             if os.path.exists("Daijin"):

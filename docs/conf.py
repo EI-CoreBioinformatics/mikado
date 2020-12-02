@@ -60,8 +60,8 @@ master_doc = 'index'
 
 # General information about the project.
 project = 'Mikado'
-copyright = '2015-2020, Venturini Luca, Caim Shabhonam, Mapleson Daniel, Kaithakottil Gemy George, Swarbreck David'
-author = 'Venturini Luca, Caim Shabhonam, Mapleson Daniel, Kaithakottil Gemy George, Swarbreck David'
+copyright = '2015-2021, Venturini Luca, Caim Shabhonam, Mapleson Daniel, Luis Yanes, Kaithakottil Gemy George, Swarbreck David'
+author = 'Venturini Luca, Caim Shabhonam, Mapleson Daniel, Luis Yanes, Kaithakottil Gemy George, Swarbreck David'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the

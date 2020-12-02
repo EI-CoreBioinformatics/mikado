@@ -3,10 +3,13 @@
   "id": "configuration_blueprint",
   "type": "object",
   "properties": {
+    "required": ["multiprocessing_method"],
     "SimpleComment": {"type": "object", "properties": {},
       "SimpleComment": [
         "Configuration file for Mikado. Please note that absent values, e.g. if a field is deleted, will be imputed by the default values for the program.",
       "Sections:",
+      "- seed: static integer to ensure reproducibility of Mikado runs.",
+      "- threads: number of processors to use (overridden by command line commands)",
       "- log_settings: settings related to the verbosity of logs.",
       "- db_settings: Database settings, for Mikado serialise and pick.",
       "- reference: Settings related to the genome reference.",
@@ -16,6 +19,8 @@
       "- multiprocessing_method: which method (fork, spawn, forkserver) Mikado should use for multiprocessing."],
     "Comment": ["Configuration file for Mikado.  Please note that absent values, e.g. if a field is deleted, will be imputed by the default values for the program.",
       "Sections:",
+      "- seed: static integer to ensure reproducibility of Mikado runs.",
+      "- threads: number of processors to use (overridden by command line commands)",
       "- log_settings: settings related to the verbosity of logs.",
       "- db_settings: Database settings, for Mikado serialise and pick.",
       "- reference: Settings related to the genome reference.",
@@ -143,14 +148,18 @@
               "- max_target_seqs: equivalently to BLAST, it indicates the maximum number of targets to keep",
               "  per blasted sequence.",
               "- discard_definition: Boolean. **Deprecated**, it was used for specifying how to load BLAST files.",
-              "- single_thread: if true, Mikado prepare will force the usage of a single thread in this step."],
+              "- single_thread: if true, Mikado prepare will force the usage of a single thread in this step.",
+              "- codon_table: codon table to use for verifying/modifying the ORFs. Default: 0, ie",
+              " the universal codon table but enforcing as only valid start codon ATG."],
       "SimpleComment": ["Options related to serialisation",
         "- max_regression: if the ORF lacks a valid start site, this percentage indicates how far",
         "  along the sequence Mikado should look for a good start site. Eg. with a value of 0.1,",
         "  on a 300bp sequence with an open ORF Mikado would look for an alternative in-frame start codon",
-        "  in the first 30 bps (10% of the cDNA)."
+        "  in the first 30 bps (10% of the cDNA).",
+        "- codon_table: codon table to use for verifying/modifying the ORFs. Default: 0, ie",
+        " the universal codon table but enforcing as only valid start codon ATG."
       ],
-      "required": ["max_regression"],
+      "required": ["max_regression", "codon_table", "substitution_matrix"],
       "properties": {
         "files": {
           "type": "object",
@@ -238,16 +247,21 @@
         "- strip_cds: whether to remove the CDS from the predictions during preparation.",
         "- lenient: if set to True, invalid transcripts will be only flagged and not removed. EXPERIMENTAL.",
         "- strand_specific: if set to True, transcripts will be assumed to be in the correct orientation, no strand flipping or removal",
+        "- minimum_cdna_length: minimum length of a transcript to be retained. Default: 200 bps",
+        "- max_intron_length: maximum length of an intron. Transcripts with introns bigger than this value",
+        " will be split in various sub-transcripts. Default: 1,000,000 bps.",
         "- strand_specific_assemblies: array of input predictions which are to be considered as strand-specific.",
         "  Predictions not in this list will be considered as non-strand-specific.",
         "- canonical: canonical splice sites, to infer the correct orientation."
       ],
       "SimpleComment": ["Options related to the input data preparation.",
-        "- procs: Number of processes to use.",
         "- strand_specific: if set to True, transcripts will be assumed to be in the correct orientation, no strand flipping or removal",
-        "- strip_cds: Boolean. It indicates whether to remove the CDS from the predictions during preparation."
+        "- strip_cds: Boolean. It indicates whether to remove the CDS from the predictions during preparation.",
+        "- minimum_cdna_length: minimum length of a transcript to be retained. Default: 200 bps",
+        "- max_intron_length: maximum length of an intron. Transcripts with introns bigger than this value",
+        " will be split in various sub-transcripts. Default: 1,000,000 bps."
       ],
-      "required": ["files", "strand_specific"],
+      "required": ["files", "strand_specific", "minimum_cdna_length", "max_intron_length"],
       "properties":
       {
         "exclude_redundant": {
@@ -268,6 +282,8 @@
             "- labels: labels to be associated with the input GFFs. Default: None.",
             "- reference: these files are treated as reference-like, ie, these transcripts will never get discarded",
             "  during the preparation step.",
+            "- strand_specific: if set to True, transcripts will be assumed to be in the correct",
+            " orientation, no strand flipping or removal",
             "- source_score: optional scores to be given to each different source files. Default: none,",
             " ie no source-specific score is applied."
           ],
@@ -277,7 +293,11 @@
             "- gff: array of input predictions for this step.",
             "- labels: labels to be associated with the input GFFs. Default: None.",
             "- reference: these files are treated as reference-like, ie, these transcripts will never get discarded",
-            "  during the preparation step."
+            "  during the preparation step.",
+            "- strand_specific: if set to True, transcripts will be assumed to be in the correct",
+            " orientation, no strand flipping or removal",
+            "- source_score: optional scores to be given to each different source files. Default: none,",
+            " ie no source-specific score is applied."
           ],
           "type": "object",
           "required": ["out", "out_fasta", "gff"],
@@ -291,6 +311,7 @@
             "strand_specific_assemblies": {"type": "array", "default": []},
             "reference": {"type": "array", "default": []},
             "exclude_redundant": {"type": "array", "default": []},
+            "strip_cds": {"type": "array", "default": []},
             "source_score":{
               "type": "object",
               "default": {},
@@ -613,7 +634,7 @@
         },
         "run_options": {
           "type": "object",
-          "required": ["single_thread"],
+          "required": ["single_thread", "intron_range"],
           "Comment": [
             "Generic run options.",
             "- shm: boolean flag. If set and the DB is sqlite, it will be copied onto the /dev/shm faux partition",

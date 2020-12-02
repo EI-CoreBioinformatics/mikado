@@ -10,7 +10,7 @@ In general, this tailoring can be performed in these sections of the workflow:
 
 .. add links to these bullet points
 
-- when launching `mikado configure`, to set up influential parameters such as the flank clustering distance or the expected intron size range.
+- when launching ``mikado configure``, to set up influential parameters such as the flank clustering distance or the expected intron size range.
 - by modifying directly the resulting configuration file.
 - by modifying the :ref:`scoring file <configure-scoring-tutorial>`.
 
@@ -24,7 +24,7 @@ When adapting Mikado to a new species, some of the most important factors to be 
 - how compact is the species' genome - ie, what is the expected genomic distance between two neighbouring genes?
 - what is the expected intron size range?
 - what is the expected UTR/CDS ratio, ie, will transcripts generally have short UTR sections (e.g. *Arabidopsis thaliana*, with its average ~80% coding section) or will they instead have long, multiexonic UTRs (as is the case in e.g. *Homo sapiens*)?
-- will the organism mostly possess multi-exonic, long genes with many splicing variants (as is the case for mammals, e.g. our own species) or does it instead harbour mostly short transcripts with a low number of exons - potentially, even, mostly monoexonic (as is the case for many fungi, e.g., the year *Saccharomyces cerevisiae*)?
+- will the organism mostly possess multi-exonic, long genes with many splicing variants (as is the case for mammals, e.g. our own species) or does it instead harbour mostly short transcripts with a low number of exons - potentially, even, mostly monoexonic (as is the case for many fungi, e.g., *Saccharomyces cerevisiae*)?
 
 .. we are using pombe rather than cerevisiae because the annotation for cerevisiae is very simplistic: only monoexonic genes without UTR or splicing events.
 
@@ -84,7 +84,7 @@ On the basis of this information, we can now start to customize the behaviour of
 Creating the scoring file
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The first step in the process is for us to create a scoring file, following the :ref:`tutorial on the subject <configure-scoring-tutorial>`. We will call it "spombe.yaml"; as detailed in the link before, we will write it in the textual :ref:`YAML format <http://yaml.org/spec/1.2/spec.html>`_.
+The first step in the process is for us to create a scoring file, following the :ref:`tutorial on the subject <configure-scoring-tutorial>`. We will call it "spombe.yaml"; as detailed in the link before, we will write it in the textual `YAML format <http://yaml.org/spec/1.2/spec.html>`_.
 
 Following the indications above and those in the tutorial, we should make the following changes in terms of priority for transcripts:
 
@@ -167,7 +167,7 @@ The second step in the customization process is to personalize the general confi
 - given the very compact size of the genome and the general lack of splicing, it is also advised to set Mikado to split any chimeric transcripts - the chances are very, very high that any such occurrence is artifactual.
 - make alternative splicing calling a very rare occurrence
 
-First of all, we will download :ref:`our genome <ftp://ftp.ensemblgenomes.org/pub/fungi/release-38/fasta/schizosaccharomyces_pombe/dna/Schizosaccharomyces_pombe.ASM294v2.dna_sm.toplevel.fa.gz`_ in a single file (genome.fasta). We will use the pretty boilerplate *A. thaliana* scoring configuration as our starting block, and we will ask Daijin to copy it to the current location.
+First of all, we will download `our genome <ftp://ftp.ensemblgenomes.org/pub/fungi/release-38/fasta/schizosaccharomyces_pombe/dna/Schizosaccharomyces_pombe.ASM294v2.dna_sm.toplevel.fa.gz>`_ in a single file (genome.fasta). We will use the pretty boilerplate *A. thaliana* scoring configuration as our starting block, and we will ask Daijin to copy it to the current location.
 
 .. code-block:: bash
 
@@ -178,10 +178,11 @@ First of all, we will download :ref:`our genome <ftp://ftp.ensemblgenomes.org/pu
         -o configuration.yaml \
         --genome genome.fasta
 
-Once the configuration file has been created, we have to perform another couple of modifications, to make Mikado more stringent in terms of alternative splicing events. Look for the section mikado/pick. Here we can do the following:
+Once the configuration file has been created, we have to perform another couple of modifications, to make Mikado more stringent in terms of alternative splicing events. Look for the section :ref:`mikado/pick <pick>`. Here we can do the following:
 
 1. If you are completely uninterested in alternative splicing events, you can just set the "report" flag to false. This will disable AS calling completely.
 2. If you want to still report AS events but at a far lower rate, you can:
+
     - reduce the number of maximum isoforms reported: from 5 to 2, for example. **Note**: reducing this number to 1 will have the same effect as disabling AS calling completely.
     - restrict the types of AS events we call (see :ref:`the class code section <class-codes>` for more details). We can for example restrict the calling to "j" and "G", and potentially add "g" (i.e. consider as a valid alternative splicing event for a multiexonic transcript a monoexonic one).
     - increase the minimum score percentage of an AS event for it to be reported, to extremely high values (such as 0.9 to 0.99). This will ensure that only a small amount of isoforms will be called.
@@ -203,7 +204,7 @@ In such instances, it might make sense to make Mikado more stringent than usual.
 - Making Mikado more aggressive in splitting chimeric transcripts
 - Making Mikado more aggressive in filtering out incorrect alternative splicing events such as retained introns
 
-For ease of discussion, we will presume that we are working in a species similar in features to *D. melanogaster*. We will, therefore, be using a copy of the dmelanogaster_scoring.yaml file included in the distribution of Mikado.
+For ease of discussion, we will suppose that we are working in a species similar in features to *D. melanogaster*. We will, therefore, be using a copy of the dmelanogaster_scoring.yaml file included in the distribution of Mikado.
 
 .. _adapting-case-two-general:
 
@@ -211,7 +212,7 @@ Modifying the general configuration file and obtaining a copy of the original te
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Before touching the scoring file, this time we will call the Daijin configurator in order to obtain a copy of the original *D. melanogaster* scoring file.
-We will presume to have relevant proteins in "proteins.fasta" (e.g. a dataset assembled from SwissProt), and that - like for *D. melanogaster* - the acceptable intron size range is between 50 and 26,000 bps. As the data is quite noisy, we have to presume that there will be fragments derived from mis-alignments or genomic contamination; we will, therefore, enlarge the normal flanking area to 2000 bps. This will allow to catch more of these events, when we check for potential fragments in the neighbourhood of good loci. Regarding probable chimeric events, we will be quite aggressive - we will split any chimeric event which is not supported by a good blast hit against the database ("-m permissive").
+We will suppose to have relevant proteins in "proteins.fasta" (e.g. a dataset assembled from SwissProt), and that - like for *D. melanogaster* - the acceptable intron size range is between 50 and 26000 bps. As the data is quite noisy, we have to expect that there will be fragments derived from mis-alignments or genomic contamination; we will, therefore, enlarge the normal flanking area to 2000 bps. This will allow to catch more of these events, when we check for potential fragments in the neighbourhood of good loci. Regarding probable chimeric events, we will be quite aggressive - we will split any chimeric event which is not supported by a good blast hit against the database ("-m permissive").
 
 .. code-block:: bash
 
@@ -227,10 +228,14 @@ We will presume to have relevant proteins in "proteins.fasta" (e.g. a dataset as
 Once created, the configuration file should be modified as follows:
 
     - in the pick/alternative_splicing section:
+
         - increase the stringency for calling an alternative splicing event:
+
             - min_score_percentage: from 0.5 to 0.75
             - max_isoforms: from 5 to 3
+    
     - in the pick/fragments section:
+
         - add "I" (multi-exonic and within an intron of the reference locus) to the list of valid_class_codes
 
 Please note that by default Mikado will look for alternative splicing events that have all introns not shared with the primary transcript to be confirmed externally. Also, it will exclude any transcript with retained introns. We should keep these options on their default value, as they will already contribute a significantly to reducing the number of spurious splicing events.
@@ -297,14 +302,19 @@ We can and should, however, modify the minimum requirements for transcripts in g
 First off, for the minimum requirements, we will tweak the requirements in this way:
 
     - discard any multiexonic transcript without verified introns. Normally we would discard such transcripts only if there are verified introns in the region. In this case, we would like to get rid of these transcripts altogether:
+
         - verified_introns_num: {operator: gt, value: 0}
         - If we would like to be really stringent, we could instead exclude any transcript with any amount of non-verified introns:
+
             - non_verified_introns_num: {operator: eq, value: 0}
     - discard any transcript with suspicious splicing events (ie splicing events that would be canonical if transferred on the opposite strand):
+
         - suspicious_splicing: {operator: eq, value: false}
     - let us also be more stringent on the maximum intron length, and decrease it from the permissive 150,000 to a much more stringent 30,000 (slightly higher than the 26,000 used for the "acceptable" intron range, above).
+
         - max_intron_length: {operator: le, value: 30000}
     - discard any monoexonic transcript without a CDS. This is more stringent than the default setting (where we keep non-coding monoexonic transcripts that have a some homology to a protein in the supplied database).
+
         - selected_cds_length.mono: {operator: gt, value: 0}
 
 Altogether, this becomes:
@@ -378,17 +388,21 @@ Notice that compared to the previous example we reduced the flanking distance to
 In the configuration file, we will change the following:
 
     - under pick/alternative_splicing:
+
         - switch "keep_retained_introns" to true
         - switch "only_confirmed_introns" to false
         - potentially, increase the number of isoforms from 5 to 10 or higher
         - consult the documentation on :ref:`class codes <class-codes>` to verify which additional AS events you would like to keep; by default, Mikado will include cases where the transcript has at least a different splicing site (j), no splicing site in common with the original transcript but introns roughly coincident (h), novel introns in the terminal exons (J) or within the primary mono-exonic transcript (G).
+
             - For a comprehensive catalogue, we would recommend to include at least "C" (transcript roughly contained, but with "spilling" within the intron(s) of the primary transcript).
         - To include transcripts quite dissimilar from the primary, potentially lower the percentages for:
+
             - min_cds_overlap
             - min_cdna_overlap
             - min_score_perc
 
-:warning: The heuristics we are touching in this section are core to the precision of Mikado. For example, allowing Mikado to bring back retained intron events will, by definition, bring into the annotation transcripts that are normally ignored. Please consider this when configuring the run and later, when reviewing the results.
+.. warning::
+  The heuristics we are touching in this section are core to the precision of Mikado. For example, allowing Mikado to bring back retained intron events will, by definition, bring into the annotation transcripts that are normally ignored. Please consider this when configuring the run and later, when reviewing the results.
 
 Customising the scoring file
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^

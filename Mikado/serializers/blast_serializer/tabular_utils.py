@@ -17,6 +17,8 @@ import os
 import tempfile
 import msgpack
 from ...utilities import blast_keys
+import shutil
+import subprocess as sp
 
 
 hit_cols = [col.name for col in Hit.__table__.columns]
@@ -400,7 +402,34 @@ def parse_tab_blast(self,
         processes = [Preparer(index_files[idx], idx, **kwargs) for idx in range(procs)]
 
     self.logger.info("Reading %s data", bname)
-    data = pd.read_csv(bname, delimiter="\t", names=blast_keys)
+    # Compatibility with ASN files
+    if isinstance(bname, str) and bname.endswith(("asn", "asn.gz", "asn.bz2")):
+        bash = shutil.which("bash")
+        if bname.endswith("asn"):
+            catter = "cat"
+        elif bname.endswith(".gz"):
+            catter = "gunzip -c"
+        else:
+            catter = "bunzip2 -c"
+
+        if bash is not None:
+            formatter = sp.Popen('blast_formatter -outfmt "6 {blast_keys}" -archive <({catter} {bname})"'.format(
+                blast_keys=blast_keys, catter=catter, bname=bname), shell=True, executable=bash, stdout=sp.STDOUT)
+        else:
+            if catter != "cat":
+                temp = tempfile.NamedTemporaryFile(mode="wt", suffix=".asn")
+                sp.call("{catter} {bname}".format(bname=bname, catter=catter), shell=True, stdout=temp)
+                temp.flush()
+            formatter = sp.Popen('blast_formatter -outfmt "6 {blast_keys}" -archive {temp}'.format(
+                blast_keys=blast_keys, catter=catter, bname=bname), shell=True, stdout=sp.STDOUT)
+        data = pd.read_csv(formatter.stdout, delimiter="\t", names=blast_keys)
+    elif isinstance(bname, str) and bname.endswith("daa"):
+        formatter = sp.Popen("diamond view -a {bname} --outfmt 6 {blast_keys}".format(
+            bname=bname, blast_keys=blast_keys), shell=True, stdout=sp.STDOUT)
+        data = pd.read_csv(formatter.stdout, delimiter="\t", names=blast_keys)
+    else:
+        data = pd.read_csv(bname, delimiter="\t", names=blast_keys)
+
     data = sanitize_blast_data(data, queries, targets, qmult=qmult, tmult=tmult)
     columns = dict((col, idx) for idx, col in enumerate(data.columns))
     groups = defaultdict(list)

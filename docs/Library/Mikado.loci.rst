@@ -5,13 +5,13 @@ Submodules
 ----------
 
 .. toctree::
+   :maxdepth: 4
 
    Mikado.loci.abstractlocus
    Mikado.loci.excluded
    Mikado.loci.locus
    Mikado.loci.monosublocus
    Mikado.loci.monosublocusholder
-   Mikado.loci.reference_gene
    Mikado.loci.sublocus
    Mikado.loci.superlocus
 

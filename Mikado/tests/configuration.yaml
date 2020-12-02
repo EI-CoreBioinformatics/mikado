@@ -110,6 +110,8 @@ prepare:
     - stringtie.gtf
   procs: 1
   strand_specific: false
+  minimum_cdna_length: 200
+  max_intron_length: 1000000
 reference:
   #  Options related to the reference genome.
   genome: chr5.fas
@@ -137,7 +139,9 @@ serialise:
     xml:
     - ''
   max_regression: 0
+  substitution_matrix: blosum62
   procs: 1
+  codon_table: 0
 
 load: {blast: echo, class: echo, cufflinks: echo, gmap: echo, hisat: echo, mikado: echo,
   portcullis: echo, samtools: echo, star: echo, stringtie: echo, tophat: echo, transdecoder: echo,

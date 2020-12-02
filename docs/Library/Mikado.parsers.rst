@@ -5,6 +5,7 @@ Submodules
 ----------
 
 .. toctree::
+   :maxdepth: 4
 
    Mikado.parsers.GFF
    Mikado.parsers.GTF

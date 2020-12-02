@@ -18,11 +18,11 @@ Mikado is at its core a data integrator. The :ref:`Daijin pipeline <Daijin>` has
 Download
 --------
 
-Mikado is available through `BioConda <https://bioconda.github.com>`; to install it, select or configure a python3 Conda environment, `add the bioconda channel to your environment <https://bioconda.github.io/#set-up-channels>`, and then install it with:
+Mikado is available through `BioConda <https://bioconda.github.com>`_; to install it, select or configure a python3 Conda environment, `add the bioconda channel to your environment <https://bioconda.github.io/#set-up-channels>`_, and then install it with:
 
 ``conda install -c bioconda mikado``. 
 
-This will also take care of installing companion tools such as `PortCullis <https://portcullis.readthedocs.io/>`. Even with conda, BLAST+, Prodigal, Diamond and TransDecoder have to be installed separately. This can be achieved with:
+This will also take care of installing companion tools such as `PortCullis <https://portcullis.readthedocs.io/>`_. Even with conda, BLAST+, Prodigal, Diamond and TransDecoder have to be installed separately. This can be achieved with:
 
 ``conda install -c bioconda prodigal blast transdecoder diamond``
 
@@ -46,10 +46,10 @@ Install using containers
 
 We support both Docker and Singularity as container technologies. On GitHub, we currently provide:
 
-* A `Docker file <https://github.com/EI-CoreBioinformatics/mikado/blob/master/Dockerfile.ubuntu>` tracking the "master" github branch, with a Ubuntu 18.04 guest
-* A `Docker file <https://github.com/EI-CoreBioinformatics/mikado/blob/master/Dockerfile.centos>` tracking the "master" github branch, with a Centos 7 guest
-* A `Singularity recipe <https://github.com/EI-CoreBioinformatics/mikado/blob/master/Singularity.ubuntu>` tracking the "master" github branch, with a Ubuntu 18.04 guest
-* A `Singularity recipe <https://github.com/EI-CoreBioinformatics/mikado/blob/master/Singularity.centos>` tracking the "master" github branch, with a Centos 7 guest
+* A `Docker file <https://github.com/EI-CoreBioinformatics/mikado/blob/master/Dockerfile.ubuntu>`_ tracking the "master" github branch, with a Ubuntu 18.04 guest
+* A `Docker file <https://github.com/EI-CoreBioinformatics/mikado/blob/master/Dockerfile.centos>`_ tracking the "master" github branch, with a Centos 7 guest
+* A `Singularity recipe <https://github.com/EI-CoreBioinformatics/mikado/blob/master/Singularity.ubuntu>`_ tracking the "master" github branch, with a Ubuntu 18.04 guest
+* A `Singularity recipe <https://github.com/EI-CoreBioinformatics/mikado/blob/master/Singularity.centos>`_ tracking the "master" github branch, with a Centos 7 guest
 
 We plan to release them in the Docker and Singularity hubs.
 

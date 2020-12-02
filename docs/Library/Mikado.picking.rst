@@ -5,6 +5,7 @@ Submodules
 ----------
 
 .. toctree::
+   :maxdepth: 4
 
    Mikado.picking.loci_processer
    Mikado.picking.picker

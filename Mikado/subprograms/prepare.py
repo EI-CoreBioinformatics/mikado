@@ -40,6 +40,10 @@ def parse_prepare_options(args, config):
     if getattr(args, "strip_cds", False) is True:
         config["prepare"]["strip_cds"] = True
 
+    for key in ["exclude_redundant", "strip_cds", "labels", "reference"]:
+        if key not in config["prepare"]["files"]:
+            config["prepare"]["files"][key] = []
+
     if args.list:
         config = parse_list_file(config, args.list)
     elif args.gff and args.gff != [""] and args.gff != []:
@@ -79,6 +83,8 @@ def parse_prepare_options(args, config):
         else:
             config["prepare"]["files"]["exclude_redundant"] = [True] * len(
                 config["prepare"]["files"]["gff"])
+
+    assert "exclude_redundant" in config["prepare"]["files"], config["prepare"]["files"]
 
     if not config["prepare"]["files"]["exclude_redundant"]:
         config["prepare"]["files"]["exclude_redundant"] = [False] * len(config["prepare"]["files"]["gff"])

@@ -298,14 +298,17 @@
       "type": "object",
       "SimpleComment": ["Parameters related to the Mikado execution:",
         "- modes: which modes to run Mikado into. Default: permissive (split multiple ORF models unless",
-        "there is strong BLAST evidence against the decision)."],
+        "there is strong BLAST evidence against the decision).",
+        "- use_diamond: use DIAMOND instead of NCBI BLASTX. Default: true",
+        "- use_prodigal: use Prodigal instead of TransDecoder for ORF calling. Default: true"
+      ],
       "Comment": ["Parameters related to the Mikado execution:",
         "- modes: which modes to run Mikado into. Default: permissive (split multiple ORF models unless",
         "there is strong BLAST evidence against the decision).",
         "- use_diamond: use DIAMOND instead of NCBI BLASTX. Default: true",
-        "- use_transdecoder: use TransDecoder instead of Prodigal for ORF calling. Default: false"
+        "- use_prodigal: use Prodigal instead of TransDecoder for ORF calling. Default: true"
       ],
-      "required": ["modes"],
+      "required": ["modes", "use_diamond", "use_prodigal"],
       "properties": {
         "modes": {"type": "array", "minItems": 1,
           "items": {"type": "string",
@@ -313,7 +316,7 @@
           "default": ["stringent"]
         },
         "use_diamond": {"type": "boolean", "default": true},
-        "use_prodigal": {"type": "boolean", "default": false}
+        "use_prodigal": {"type": "boolean", "default": true}
       }
     },
     "tgg": {

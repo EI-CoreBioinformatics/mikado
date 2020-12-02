@@ -434,7 +434,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             return list(transcripts.keys())[0]
         # np.random.seed(self.json_conf["seed"])
         random.seed(self.json_conf["seed"])
-        if self.only_reference_update is True:
+        if self.reference_update is True:
             # We need to select only amongst the reference transcripts
             reference_sources = {source for source, is_reference in
                                  zip(self.json_conf["prepare"]["files"]["labels"],
@@ -1832,3 +1832,8 @@ class Abstractlocus(metaclass=abc.ABCMeta):
     @property
     def only_reference_update(self):
         return self.json_conf.get("pick", dict()).get("run_options", dict()).get("only_reference_update", False)
+
+    @property
+    def reference_update(self):
+        ref_update = self.json_conf.get("pick", dict()).get("run_options", dict()).get("reference_update", False)
+        return ref_update or self.only_reference_update

@@ -964,7 +964,7 @@ class Superlocus(Abstractlocus):
         transcript_graph = self.define_graph()
 
         transcript_graph = self.reduce_complex_loci(transcript_graph)
-        if len(self.transcripts) > len(transcript_graph) and self.only_reference_update is False:
+        if len(self.transcripts) > len(transcript_graph) and self.reference_update is False:
             self.logger.warning("Discarded %d transcripts from %s due to approximation level %d",
                                 len(self.transcripts) - len(transcript_graph),
                                 self.id,

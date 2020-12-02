@@ -96,7 +96,7 @@ class Locus(Abstractlocus):
             self.json_conf["pick"]["alternative_splicing"]["pad"] = pad_transcripts
             assert self.perform_padding == pad_transcripts
 
-        if self.perform_padding is True and self.only_reference_update is True:
+        if self.perform_padding is True and self.reference_update is True:
             self._add_to_alternative_splicing_codes("=")
             self._add_to_alternative_splicing_codes("_")
             self._add_to_alternative_splicing_codes("n")
@@ -533,7 +533,7 @@ class Locus(Abstractlocus):
             to_be_added = False
 
         reference_pass = False
-        if self.only_reference_update is True and \
+        if self.reference_update is True and \
                 (transcript.is_reference is True or transcript.original_source in self._reference_sources):
             reference_pass = True
 

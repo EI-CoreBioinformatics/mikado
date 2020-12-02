@@ -217,7 +217,7 @@ def create_config(args):
         del config["reference"]
         del config["db_settings"]
 
-    if args.only_reference_update is True:
+    if args.only_reference_update is True or args.reference_update is True:
         if len(config["prepare"]["files"]["reference"]) == 0:
             logger = create_default_logger("configure")
             logger.error(
@@ -371,10 +371,14 @@ def configure_parser():
                          help="Name of the optional monoloci output. By default, this will not be produced.")
     picking.add_argument("--no-pad", dest="pad", default=None,
                          action="store_false", help="Disable transcript padding. On by default.")
+    picking.add_argument("--reference-update", dest="reference_update", default=None,
+                         action="store_true",
+                         help="""Flag. If switched on, Mikado will prioritise transcripts marked as reference and will \
+consider any other transcipt within loci only in reference to these reference transcripts. Novel loci will still be reported.""")
     picking.add_argument("--only-reference-update", dest="only_reference_update", default=None,
                          action="store_true",
                          help="""Flag. If switched on, Mikado will only keep loci where at least one of the transcripts \
-    is marked as "reference". CAUTION: new and experimental. If no transcript has been marked as reference, \
+    is marked as "reference". CAUTION: if no transcript has been marked as reference, \
     the output will be completely empty!""")
     picking.add_argument("-eri", "--exclude-retained-introns", default=None, action="store_true",
                          help="""Exclude all retained intron alternative splicing events from the final output. \

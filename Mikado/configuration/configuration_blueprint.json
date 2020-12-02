@@ -669,6 +669,10 @@
               "minItems": 2,
               "default": [60, 10000]
             },
+            "reference_update": {
+              "type": "boolean",
+              "default": false
+            },
             "only_reference_update": {
               "type": "boolean",
               "default": false

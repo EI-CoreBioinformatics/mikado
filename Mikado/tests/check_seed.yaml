@@ -192,6 +192,7 @@ serialise:
     xml: []
   codon_table: 0
   max_regression: 0.1
+  substitution_matrix: blosum62
   procs: 1
 short_reads:
   #  Parameters related to the reads to use for the assemblies. Voices:

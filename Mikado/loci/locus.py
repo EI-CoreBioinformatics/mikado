@@ -163,8 +163,8 @@ class Locus(Abstractlocus):
         that might have scored relatively well on its own will score pretty badly when
         brought inside the locus.
 
-        Please note that reference transcripts that have passed the previous checks will *always* be retained
-        and will not count for the purposes of determining the maximum number of isoforms.
+        Please note that, **when doing a reference update**, reference transcripts that have passed the previous checks
+        will *always* be retained and will not count for the purposes of determining the maximum number of isoforms.
 
         :param _scores:only for testing. Load directly a score mock-up.
         """
@@ -197,7 +197,9 @@ class Locus(Abstractlocus):
             for tid in self.transcripts)
 
         order = sorted([[tid, self.transcripts[tid].score] for tid in self.transcripts
-                       if tid != self.primary_transcript_id and reference_transcripts[tid] is False],
+                       if tid != self.primary_transcript_id and
+                        (reference_transcripts[tid] is False or
+                         self.json_conf["pick"]["run_options"]["reference_update"] is False)],
                        key=operator.itemgetter(1), reverse=True)
         threshold = self.json_conf["pick"]["alternative_splicing"]["min_score_perc"] * self.primary_transcript.score
 

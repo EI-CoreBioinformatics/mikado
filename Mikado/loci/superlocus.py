@@ -814,6 +814,10 @@ class Superlocus(Abstractlocus):
 
     def reduce_method_one(self, transcript_graph: Union[None, networkx.Graph]) -> [networkx.Graph, int]:
 
+        """Approximation level one: we are going to group together all transcripts that have identical intron chains,
+        and remove any that is completely contained within the longest ones. Reference transcripts get an automatic
+        pass."""
+
         ichains = collections.defaultdict(list)
         cds_only = self.json_conf["pick"]["clustering"]["cds_only"]
         for transcript in self.transcripts.values():
@@ -836,13 +840,16 @@ class Superlocus(Abstractlocus):
                     if transcript.is_reference:
                         continue
                     else:
+                        self.logger.debug("Removing %s as it is contained", transcript.id)
                         to_remove.add(transcript.id)
                 elif transcript.end == current_coords[1] and transcript.start == current_coords[0]:
                     if transcript.is_reference:
                         current_id = transcript.id
                         if not self.transcripts[current_id].is_reference:
+                            self.logger.debug("Removing %s as it is identical to a reference", current_id)
                             to_remove.add(current_id)
                     elif self.transcripts[current_id].is_reference:
+                        self.logger.debug("Removing %s as it is identical to a reference", transcript.id)
                         to_remove.add(transcript.id)
                     else:
                         # chosen = np.random.choice(sorted([current_id, transcript.id]))
@@ -853,6 +860,7 @@ class Superlocus(Abstractlocus):
                             to_remove.add(chosen)
                             current_id = transcript.id
                 elif transcript.end > current_coords[1]:
+                    self.logger.debug("Removing %s as it is contained in %s", current_id, transcript.id)
                     if transcript.start == current_coords[0] and not self.transcripts[current_id].is_reference:
                         to_remove.add(current_id)
                     current_coords, current_id = (transcript.start, transcript.end), transcript.id
@@ -871,10 +879,19 @@ class Superlocus(Abstractlocus):
 
     def reduce_method_two(self, transcript_graph: networkx.Graph) -> [networkx.Graph, int]:
 
+        """Approximation level two: we are going to remove transcripts that are contained within others. So e.g.
+        a transcript with two exons might be seen as redundant with, and therefore removed, with a transcript with
+        three or more exons."""
+
         to_remove = set()
         done = set()
         cds_only = self.json_conf["pick"]["clustering"]["cds_only"]
-        for tid in transcript_graph:
+        if cds_only:
+            order = sorted(list(transcript_graph.nodes), key=lambda node: self.transcripts[node].selected_cds_start)
+        else:
+            order = sorted(list(transcript_graph.nodes), key=lambda node: self.transcripts[node].start)
+
+        for tid in order:
             current = self.transcripts[tid]
             for neighbour in transcript_graph.neighbors(tid):
                 couple = tuple(sorted((neighbour, tid)))
@@ -889,41 +906,49 @@ class Superlocus(Abstractlocus):
                 if inters == current.introns:
                     self.logger.debug("Evaluating %s (template %s) for removal", current.id, neighbour.id)
                     if current.is_reference:
+                        self.logger.debug("Ignoring %s for removal as it is a reference transcript", current.id)
                         continue
                     if cds_only:
-                        comparison = Assigner.compare(current.copy().remove_utr(),
-                                                  neighbour.copy().remove_utr())[0]
+                        comparison = Assigner.compare(current.copy().remove_utrs(),
+                                                      neighbour.copy().remove_utrs())[0]
                     else:
                         comparison = Assigner.compare(current, neighbour)[0]
                     self.logger.debug(
                         "Evaluating %s (template %s) for removal (%s)",
                         current.id, neighbour.id, (comparison.n_prec[0], comparison.n_recall[0]))
                     if comparison.n_prec[0] == 100:
+                        self.logger.debug("Removing %s as it is contained in %s", current.id, neighbour.id)
                         to_remove.add(current.id)
                         break
-                elif inters == neighbour.introns:
+                    self.logger.debug("%s is not perfectly contained in %s", current.id, neighbour.id)
+                if inters == neighbour.introns:
                     if neighbour.is_reference:
+                        self.logger.debug("Ignoring %s for removal as it is a reference transcript", neighbour.id)
                         continue
                     if cds_only:
-                        comparison = Assigner.compare(neighbour.copy().remove_utr(),
-                                                      current.copy().remove_utr())[0]
+                        comparison = Assigner.compare(neighbour.copy().remove_utrs(),
+                                                      current.copy().remove_utrs())[0]
                     else:
                         comparison = Assigner.compare(neighbour, current)[0]
                     self.logger.debug(
                         "Evaluating %s (template %s) for removal (%s)",
                         current.id, neighbour.id, (comparison.n_prec[0], comparison.n_recall[0]))
                     if comparison.n_prec[0] == 100:
+                        self.logger.debug("Removing %s as it is contained in %s", neighbour.id, current.id)
                         to_remove.add(neighbour.id)
                         break
+                    self.logger.debug("%s is not perfectly contained in %s", neighbour.id, current.id)
                 else:
+                    self.logger.debug("%s and %s have differing introns, ignoring the comparison",
+                                      neighbour.id, current.id)
                     continue
 
         if to_remove:
             transcript_graph.remove_nodes_from(to_remove)
             [self.excluded.add_transcript_to_locus(self.transcripts[tid]) for tid in to_remove]
-            self.logger.debug("Removing the following transcripts from %s: %s",
-                              self.id, ", ".join(to_remove))
+            self.logger.debug("Removing the following transcripts from %s: %s", self.id, ", ".join(to_remove))
             for tid in to_remove:
+                self.logger.debug("Removing %s", tid)
                 self.remove_transcript_from_locus(tid)
 
         max_edges = max([d for n, d in transcript_graph.degree])

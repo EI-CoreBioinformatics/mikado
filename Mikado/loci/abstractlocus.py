@@ -561,6 +561,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             self.logger.debug("Transcript %s is not present in the Locus. Ignoring it.", tid)
             return
 
+        self.logger.debug("Deleting %s from %s", tid, self.id)
         self.remove_path_from_graph(self.transcripts[tid], self._internal_graph)
         del self.transcripts[tid]
         for locattr, tranattr in self.__locus_to_transcript_attrs.items():

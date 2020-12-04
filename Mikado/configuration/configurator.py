@@ -277,21 +277,21 @@ def check_all_requirements(json_conf):
         print(type(json_conf["not_fragmentary"]["expression"]))
         raise exc
 
-    if "as_requirements" not in json_conf:
-        json_conf["as_requirements"] = dict()
-        json_conf["as_requirements"].update(json_conf["requirements"])
+    for section in ["as_requirements", "cds_requirements"]:
+        if section not in json_conf:
+            json_conf[section] = dict()
+            json_conf[section].update(json_conf["requirements"])
 
-    # Check requirements will MODIFY IN PLACE the expression, so the copying
-    # must happend before, not after.
-
-    try:
-        json_conf = check_requirements(json_conf,
-                                       require_schema,
-                                       "as_requirements")
-    except (InvalidJson, SyntaxError) as exc:
-        print(json_conf["as_requirements"]["expression"])
-        print(type(json_conf["as_requirements"]["expression"]))
-        raise exc
+        # Check requirements will MODIFY IN PLACE the expression, so the copying
+        # must happen before, not after.
+        try:
+            json_conf = check_requirements(json_conf,
+                                           require_schema,
+                                           section)
+        except (InvalidJson, SyntaxError) as exc:
+            print(json_conf[section]["expression"])
+            print(type(json_conf[section]["expression"]))
+            raise exc
 
     try:
         json_conf = check_requirements(json_conf,

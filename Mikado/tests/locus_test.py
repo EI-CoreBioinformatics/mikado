@@ -1459,8 +1459,8 @@ class MonoHolderTester(unittest.TestCase):
         for simple in (True, False):
             with self.subTest(simple=simple):
                 jconf["pick"]["clustering"]["simple_overlap_for_monoexonic"] = simple
-
-                slocus = Superlocus(t1, json_conf=jconf)
+                self.logger.setLevel("DEBUG")
+                slocus = Superlocus(t1, json_conf=jconf, logger=self.logger)
                 slocus.add_transcript_to_locus(t2)
                 locus = Locus(t1, json_conf=jconf)
                 slocus.loci[locus.id] = locus

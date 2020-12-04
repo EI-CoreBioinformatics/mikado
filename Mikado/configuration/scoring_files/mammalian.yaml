@@ -13,6 +13,10 @@ requirements:
     max_intron_length: {operator: le, value: 1000000}
     min_intron_length: {operator: ge, value: 5}
     proportion_verified_introns_inlocus: {operator: gt, value: 0}
+cds_requirements:
+  expression: [selected_cds_length]
+  parameters:
+    selected_cds_length: {operator: gt, value: 0}
 as_requirements:
   expression: [cdna_length and three_utr_length and five_utr_length and utr_length and suspicious_splicing]
   parameters:

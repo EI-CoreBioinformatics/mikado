@@ -68,6 +68,7 @@ def create_simple_config(seed=None):
     del default["requirements"]
     del default["not_fragmentary"]
     del default["as_requirements"]
+    del default["cds_requirements"]
 
     new_dict = dict()
     composite_keys = [(ckey[1:]) for ckey in

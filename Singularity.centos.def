@@ -7,9 +7,6 @@ From: conda/miniconda3-centos7
     python -c "import numpy"
     mikado --help
 
-%files
-    environment.yml /
-
 %environment
     export PYTHONDONTWRITEBYTECODE=true
 
@@ -18,10 +15,10 @@ From: conda/miniconda3-centos7
     ### Install your packages ###
 
     export PYTHONDONTWRITEBYTECODE=true
-    conda env update --prune -n base -f /environment.yml && conda clean -afy
     yum -y install git wget zlib1g-dev gcc gcc-c++ && yum clean all
     git clone https://github.com/EI-CoreBioinformatics/mikado.git /usr/local/src/mikado
     cd /usr/local/src/mikado
+    conda env update --prune -n base -f environment.yml && conda clean -afy
     python3 setup.py bdist_wheel && pip install --prefix /usr/local dist/*whl
 
     echo '#!/bin/bash' >> /usr/local/bin/show_commit_hash

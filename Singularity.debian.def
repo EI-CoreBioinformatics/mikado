@@ -18,10 +18,10 @@ From: conda/miniconda3
     ### Install your packages ###
 
     export PYTHONDONTWRITEBYTECODE=true
-    conda env update --prune -n base -f /environment.yml && conda clean -afy
     apt update && apt-get install -qq -y git wget zlib1g-dev g++ && apt clean
     git clone https://github.com/EI-CoreBioinformatics/mikado.git /usr/local/src/mikado
     cd /usr/local/src/mikado
+    conda env update --prune -n base -f environment.yml && conda clean -afy
     python3 setup.py bdist_wheel && pip install --prefix /usr/local dist/*whl
 
     echo '#!/bin/bash' >> /usr/local/bin/show_commit_hash

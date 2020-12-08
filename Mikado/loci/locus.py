@@ -96,8 +96,6 @@ class Locus(Abstractlocus):
             self._add_to_alternative_splicing_codes("=")
             self._add_to_alternative_splicing_codes("_")
             self._add_to_alternative_splicing_codes("n")
-        # if verified_introns is not None:
-        #     self.locus_verified_introns = verified_introns
 
     def __str__(self, print_cds=True) -> str:
 
@@ -307,7 +305,6 @@ class Locus(Abstractlocus):
         # Now that we are sure that we have not ruined the primary transcript, let us see whether
         # we should discard any other transcript.
         [self._add_to_alternative_splicing_codes(ccode) for ccode in ("=", "_")]
-        self._remove_from_redundant_splicing_codes("=", "_")
         removed = set()
         added = set()
 
@@ -1313,7 +1310,7 @@ class Locus(Abstractlocus):
             list(self.json_conf["pick"]["alternative_splicing"]["valid_ccodes"]) + [code]
         ))
         _valid_ccodes.validate(self.json_conf["pick"]["alternative_splicing"]["valid_ccodes"])
-        self._remove_from_redundant_splicing_codes([code])
+        self._remove_from_redundant_splicing_codes(code)
 
     def _add_to_redundant_splicing_codes(self, code):
         """Method to retrieve the currently valid alternative splicing event codes"""
@@ -1321,7 +1318,7 @@ class Locus(Abstractlocus):
             list(self.json_conf["pick"]["alternative_splicing"]["redundant_ccodes"]) + [code]
         ))
         _valid_redundant.validate(self.json_conf["pick"]["alternative_splicing"]["redundant_ccodes"])
-        self._remove_from_alternative_splicing_codes([code])
+        self._remove_from_alternative_splicing_codes(code)
 
     def _remove_from_alternative_splicing_codes(self, *ccodes):
         sub = self.json_conf["pick"]["alternative_splicing"]["valid_ccodes"]
@@ -1331,10 +1328,11 @@ class Locus(Abstractlocus):
         self.json_conf["pick"]["alternative_splicing"]["valid_ccodes"] = sub
 
     def _remove_from_redundant_splicing_codes(self, *ccodes):
+        self.logger.debug("Removing from redundant ccodes: %s. Current: %s", ccodes,
+                          self.json_conf["pick"]["alternative_splicing"]["redundant_ccodes"])
         sub = self.json_conf["pick"]["alternative_splicing"]["redundant_ccodes"]
-        for ccode in ccodes:
-            if ccode in sub:
-                sub.remove(ccode)
+        sub = [_ for _ in sub if _ not in ccodes]
+        self.logger.debug("New redundant ccodes: %s", sub)
         self.json_conf["pick"]["alternative_splicing"]["redundant_ccodes"] = sub
 
         

@@ -601,6 +601,45 @@ cscore=28.93;sscore=1.61;rscore=0.00;uscore=1.61;tscore=0.00;"
         self.assertEqual(b.phase, 0)
         self.assertEqual(b.thick_end, len(sequence) - 1)
 
+    def test_partial_gff_negative_3(self):
+        sequence = "".join("""AATAAATTCATATCAACTAGCAAATTAGCATATTACAGGTTTTGGTTATAACAATTACTC
+GAGCTAGACGTATGATGAAATTCAGCAAACTAGTAGATTTGCTATTATATCTTCCCTTGT
+GATGATTGTAGTTTTGTCTCTTAATAAAACTAGTAATTAACGTTTCAGAAAACAATGCCC
+ATTTTGGTAATTTCACAGAGATTTATCCAAAGTTTTTAAAGAGATAAGACGATAGAGTTG
+GACGACCGTCTTCCACCGTTGAATTCTTCTGGAACTGGAGTCCACTGTTTAAGCTTCACT
+GTCTCTGAATCGGCAAAGAAGAAAATGGCATCAGGAGGTAAAGCCAAGTACATAATCGGT
+GCTCTCATCGGTTCTTTCGGAATCTCATACATCTTCGACAAAGTTATCTCTGATAATAAG
+ATCTTTGGAGGGACTACTCCAGGAACTGTCTCTAACAAAGAATGGTGGGCAGCAACGGAT
+GAGAAATTCCAAGCATGGCCAAGAACCGCTGGTCCTCCCGTTGTTATGAATCCCATTAGC
+CGTCAGAATTTCATCGTCAAGACTCGTCCGGAATGAGAAAATAATAAGTTCAATGCTTTG
+ATTTTCAGAATAAGATGAACGATGACGATGTTTTCTAAATCCGAGCTTGTACTAAATAAC
+AATACATTACAACACGGTTTGCGGAACTACTCCACAGTCTATCTTCTGTTAAAAAACTCA
+AACAAGCTATTGCAAAAAGCCCTTACGAGACTCACAAGTCCTAAATATCAACAAAACAAA
+GCTTCTTTGGATCCTTTTCACTTGCCATCATCTTTTCCTTGTCCATCTGCTCCATCTTGC
+TTTCCTCCTCTAAGCCCCACTGTTAGCAAAGAAAGAAGTAATGGATACAAGTTACAATTT
+ATGAGATTGAGTATTGTCTTAATAATGTAAAGAGAGTTACCGTTTCCTCCAAGACCGGTT
+TCTGGTTGTTGCATCGCATGCTGCATCCCGTTGTTGGTCATACCCATTGGTCTAATCCCC
+ATGTGTCCTTGCATAGCTTGCTGATGTATCTGCTGCTGCTGTTGCGGATCCTGAAACTGG
+AGTGGGC""")
+
+        lines = """scallop_SRR5956444_SRR5956444_SCLP.17.0.1\tProdigal_v2.6.3\tCDS\t216\t536\t16.0\t-\t0\tID=270_1;partial=00;start_type=ATG;rbs_motif=None;rbs_spacer=None;gc_cont=0.445;conf=97.55;score=16.03;cscore=16.53;sscore=-0.50;rscore=0.08;uscore=0.07;tscore=0.00;
+scallop_SRR5956444_SRR5956444_SCLP.17.0.1\tProdigal_v2.6.3\tCDS\t622\t930\t2.5\t+\t0\tID=270_2;partial=00;start_type=ATG;rbs_motif=None;rbs_spacer=None;gc_cont=0.362;conf=64.08;score=2.52;cscore=-0.28;sscore=2.80;rscore=0.08;uscore=3.22;tscore=0.00;
+scallop_SRR5956444_SRR5956444_SCLP.17.0.1\tProdigal_v2.6.3\tCDS\t798\t1085\t16.5\t-\t0\tID=270_3;partial=01;start_type=Edge;rbs_motif=None;rbs_spacer=None;gc_cont=0.448;conf=97.82;score=16.54;cscore=13.32;sscore=3.22;rscore=0.00;uscore=0.00;tscore=3.22;"""
+
+        logger = create_default_logger("test_partial_gff_negative_3", "DEBUG")
+        for pos, line in enumerate(lines.split("\t")):
+            line = GFF.GffLine(line)
+            b = bed12.BED12(line, transcriptomic=True, start_adjustment=True, lenient=False, sequence=sequence,
+                            logger=logger, max_regression=0.1)
+            self.assertFalse(b.invalid, b.invalid_reason)
+            if pos != 2:
+                self.assertEqual(b.phase, 0)
+                self.assertTrue(b.has_start_codon)
+            else:
+                self.assertFalse(b.has_start_codon)
+                self.assertEqual(b.phase, 2)
+            self.assertTrue(b.has_stop_codon)
+
 
 if __name__ == '__main__':
     unittest.main()

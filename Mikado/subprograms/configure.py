@@ -412,9 +412,9 @@ Default: 20%%.")
                        default="")
     files.add_argument("--list", type=argparse.FileType("r"),
                         help="""Tab-delimited file containing rows with the following format:
-    <file>  <label> <strandedness(def. False)> <score(optional, def. 0)> <is_reference(optional, def. False)> <exclude_redundant(optional, def. True)> <skip_split(optional, def. False)>
-    strandedness, is_reference, exclude_redundant and skip_split must be boolean values (True, False)
-    score must be a valid floating number.
+    <file>  <label> <strandedness(def. False)> <score(optional, def. 0)> <is_reference(optional, def. False)> <exclude_redundant(optional, def. True)> <strip_cds(optional, def. False)> <skip_split(optional, def. False)>
+    "strandedness", "is_reference", "exclude_redundant", "strip_cds" and "skip_split" must be boolean values (True, False)
+    "score" must be a valid floating number.
     """)
     parser.add_argument("--reference", "--genome", help="Fasta genomic reference.", default=None, dest="reference")
     serialisers = parser.add_argument_group(

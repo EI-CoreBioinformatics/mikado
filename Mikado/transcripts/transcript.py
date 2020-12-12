@@ -2387,10 +2387,16 @@ index {3}, internal ORFs: {4}".format(
 
         self.__segmenttree = IntervalTree()
         for exon in self.exons:
-            self.__segmenttree.add(exon[0], exon[1], value="exon")
+            try:
+                self.__segmenttree.add(exon[0], exon[1], value="exon")
+            except AssertionError as exc:
+                raise AssertionError(f"Exon for {self.id} invalid: {exon}\n{exc}")
 
         for intron in self.introns:
-            self.__segmenttree.add(intron[0], intron[1], value="intron")
+            try:
+                self.__segmenttree.add(intron[0], intron[1], value="intron")
+            except AssertionError as exc:
+                raise AssertionError(f"Intron for {self.id} invalid: {intron}\n{exc}")
 
     @property
     def derived_children(self):

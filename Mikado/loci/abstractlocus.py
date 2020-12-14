@@ -476,7 +476,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         """
 
         transcript.finalize()
-        self.monoexonic = self.monoexonic and transcript.monoexonic
+        self.monoexonic = self.monoexonic and self._is_transcript_monoexonic(transcript)
 
         if "flank" in kwargs:
             pass
@@ -546,6 +546,12 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         Abstractlocus.remove_transcript_from_locus(self, original_transcript.id)
         Abstractlocus.add_transcript_to_locus(self, transcript, check_in_locus=False)
         return
+
+    def _is_transcript_monoexonic(self, transcript: Transcript):
+        if self._cds_only and transcript.is_coding is True:
+            return len(transcript.selected_cds) == 1
+        else:
+            return transcript.monoexonic
 
     def remove_transcript_from_locus(self, tid: str):
         """
@@ -1760,6 +1766,16 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             return max(_.score for _ in self.transcripts.values())
         else:
             return None
+
+    @property
+    def _cds_only(self):
+        return self.json_conf["pick"]["clustering"]["cds_only"]
+
+    @_cds_only.setter
+    def _cds_only(self, value):
+        if value not in (True, False):
+            raise ValueError(value)
+        self.json_conf["pick"]["clustering"]["cds_only"] = value
 
     @property
     def segmenttree(self):

@@ -1443,7 +1443,6 @@ class Superlocus(Abstractlocus):
 
         """Overloading of the original method to avoid being a O(n**2) algorithm."""
 
-        cds_only = self.json_conf["pick"]["clustering"]["cds_only"]
         graph = networkx.Graph()
 
         # As we are using intern for transcripts, this should prevent
@@ -1458,14 +1457,13 @@ class Superlocus(Abstractlocus):
 
         for tid in keys:
             transcript = self.transcripts[tid]
-            if cds_only is True and transcript.is_coding:
+            if self._cds_only is True and transcript.is_coding:
                 if transcript.selected_cds_introns:
                     for intron in transcript.selected_cds_introns:
                         intronic[intron].add(tid)
                 else:
-                    interval = Interval(transcript.selected_cds_start,
-                                        transcript.selected_cds_end,
-                                        transcript.id)
+                    start, end = sorted([transcript.selected_cds_start, transcript.selected_cds_end])
+                    interval = Interval(start, end, transcript.id)
                     monos.append(interval)
                     monos.append(interval)
             else:
@@ -1512,24 +1510,24 @@ class Superlocus(Abstractlocus):
         itree = IntervalTree()
         primaries = set()
 
-        if cds_only:
-            attrs = ["selected_cds_start", "selected_cds_end"]
-        else:
-            attrs = ["start", "end"]
-
         for lid in self.loci:
             transcript = self.loci[lid].primary_transcript
             primaries.add(transcript.id)
-            itree.add_interval(Interval(getattr(transcript, attrs[0]),
-                                        getattr(transcript, attrs[1]), transcript.id))
+            if transcript.is_coding and cds_only:
+                start, end = sorted([transcript.selected_cds_start, transcript.selected_cds_end])
+            else:
+                start, end = transcript.start, transcript.end
+            itree.add_interval(Interval(start, end, transcript.id))
 
         for tid in self.transcripts:
             if tid in primaries:
                 continue
             transcript = self[tid]
-            for found in itree.find(getattr(transcript, attrs[0]),
-                                    getattr(transcript, attrs[1]),
-                                    strict=False):
+            if transcript.is_coding and cds_only:
+                start, end = sorted([transcript.selected_cds_start, transcript.selected_cds_end])
+            else:
+                start, end = transcript.start, transcript.end
+            for found in itree.find(start, end, strict=False):
                 locus_transcript = found.value
                 if method(self[locus_transcript], transcript):
                     graph.add_edge(tid, locus_transcript)

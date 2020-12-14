@@ -162,6 +162,7 @@ def setup(args):
 
     if not args.json_conf["prepare"]["files"]["gff"]:
         parser = prepare_parser()
+        logger.error("No input files found!")
         print(parser.format_help())
         sys.exit(0)
 

@@ -178,22 +178,31 @@ class Sublocus(Abstractlocus):
 
         if transcript is None:
             return
-        if self.initialized is False:
-            self.monoexonic = transcript.monoexonic
-        elif self.monoexonic != transcript.monoexonic:
-            raise ValueError(
-                """Sublocus and transcript are not compatible!
-                {0}\t{1}\t{2}\t{3}\t{4}
-                {5}""".format(self.chrom,
-                              self.start,
-                              self.end,
-                              self.strand,
-                              self.monoexonic,
-                              Transcript))
 
+        cds_only = self.json_conf["pick"]["clustering"]["cds_only"]
+
+        monoexonic = self._is_transcript_monoexonic(transcript)
+
+        if self.initialized is False:
+            self.monoexonic = monoexonic
+            self.logger.debug("Locus %s is %s because of %s that is monoexonic: %s",
+                              self.id, self.monoexonic, transcript.id, monoexonic)
+
+        elif self.monoexonic != monoexonic:
+            raise ValueError("""Sublocus and transcript are not compatible!
+                            {0}\t{1}\t{2}\t{3}\t
+                            Locus monoexonic: {4}; CDS only: {5}
+                            Wrong transcript:
+                            {6}
+                            Others:
+                            {7}
+                            """.format(self.chrom, self.start, self.end, self.strand, self.monoexonic, cds_only,
+                                       transcript.format("bed12") + "\t{}".format(
+                                           self._is_transcript_monoexonic(transcript)),
+                                       "\n".join([_.format("bed12") + "\t{}".format(
+                                           self._is_transcript_monoexonic(_)) for _ in self.transcripts.values()])))
         super().add_transcript_to_locus(transcript)
         # add the verified introns from the outside
-
         self.logger.debug("Added %s to %s", transcript.id, self.id)
         # Update the id
 

@@ -140,6 +140,9 @@ def check_run_options(args, logger=create_null_logger()):
     if args.cds_only is True:
         args.json_conf["pick"]["clustering"]["cds_only"] = True
 
+    if args.as_cds_only is True:
+        args.json_conf["pick"]["alternative_splicing"]["cds_only"] = True
+
     for key in ["loci_out", "gff", "monoloci_out", "subloci_out", "log"]:
         if getattr(args, key):
             if key == "gff":
@@ -317,11 +320,14 @@ file (default value there is 1,000,000 bps).""")
                         help='''Flag. If set, the pipeline will NOT suppress any loci \
 whose transcripts do not pass the requirements set in the JSON file.''')
     parser.add_argument("--cds-only", dest="cds_only",
-                        default=False, action="store_true",
+                        default=None, action="store_true",
                         help=""""Flag. If set, Mikado will only look for overlap in the coding features \
 when clustering transcripts (unless one transcript is non-coding, in which case  the whole transcript will \
 be considered). Please note that Mikado will only consider the **best** ORF for this. \
 Default: False, Mikado will consider transcripts in their entirety.""")
+    parser.add_argument("--as-cds-only", dest="as_cds_only", default=None, action="store_true",
+                        help="""Flag. If set, Mikado will only consider the CDS to determine whether a transcript
+                        is a valid alternative splicing event in a locus.""")
     parser.add_argument("--only-reference-update", dest="only_reference_update", default=None,
                         action="store_true",
                         help="""Flag. If switched on, Mikado will only keep loci where at least one of the transcripts \

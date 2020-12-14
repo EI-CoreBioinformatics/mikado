@@ -242,6 +242,12 @@ switch.")
 
         config["pick"]["scoring_file"] = args.scoring
 
+    if args.cds_only is True:
+        args.json_conf["pick"]["clustering"]["cds_only"] = True
+
+    if args.as_cds_only is True:
+        args.json_conf["pick"]["alternative_splicing"]["cds_only"] = True
+
     if args.daijin is False and args.mode is not None and len(args.mode) == 1:
         args.mode = args.mode.pop()
         if args.mode == "nosplit":
@@ -399,6 +405,15 @@ Default: 20%%.")
 locus during the late picking stages. \
 NOTE: if not specified, and --min-cdna-overlap is specified on the command line, min-cds-overlap will be set to this value! \
 Default: 20%%.")
+    picking.add_argument("--cds-only", dest="cds_only",
+                         default=None, action="store_true",
+                         help=""""Flag. If set, Mikado will only look for overlap in the coding features \
+    when clustering transcripts (unless one transcript is non-coding, in which case  the whole transcript will \
+    be considered). Please note that Mikado will only consider the **best** ORF for this. \
+    Default: False, Mikado will consider transcripts in their entirety.""")
+    picking.add_argument("--as-cds-only", dest="as_cds_only", default=None, action="store_true",
+                         help="""Flag. If set, Mikado will only consider the CDS to determine whether a transcript
+                            is a valid alternative splicing event in a locus.""")
     parser.add_argument("--strand-specific", default=False,
                         action="store_true",
                         help="""Boolean flag indicating whether all the assemblies are strand-specific.""")

@@ -365,6 +365,7 @@
             "- max_fiveutr_length: Maximum length of the 5'UTR for AS events. Default: 10e6 (i.e. no limit)",
             "- max_threeutr_length: Maximum length of the 5'UTR for AS events. Default: 10e6 (i.e. no limit)",
             "- min_score_perc: Minimum score threshold for subsequent AS events. Only transcripts with a score at least (best) * value are retained.",
+            "- cds_only: Only consider the coding part of transcripts to determine the validity of the AS event.",
             "- only_confirmed_introns: bring back AS events only when their introns are either present in the primary transcript or in the set of confirmed introns.",
             "- pad: boolean switch. If true, Mikado will pad all the transcript in a gene so that their ends are the same",
             "- ts_distance: if padding, this is the maximum distance in base-pairs between the starts of transcripts to be considered to be padded together.",
@@ -384,6 +385,7 @@
               "type": "boolean",
               "default": true
             },
+            "cds_only": {"type":  "boolean", "default": false},
             "min_cds_overlap": {
               "type": "number",
               "minimum": 0,

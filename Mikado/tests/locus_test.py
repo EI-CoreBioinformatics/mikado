@@ -979,7 +979,8 @@ class ASeventsTester(unittest.TestCase):
         # self.locus.add_transcript_to_locus(t2)
         self.assertEqual(self.locus.is_alternative_splicing(t2)[:2], (True, "J"))
         self.locus.json_conf["pick"]["clustering"]["cds_only"] = True
-
+        self.assertEqual(self.locus.is_alternative_splicing(t2)[:2], (True, "J"))
+        self.locus.json_conf["pick"]["alternative_splicing"]["cds_only"] = True
         self.assertEqual(self.locus.is_alternative_splicing(t2)[:2], (False, "="))
 
     def test_redundant_cds_non_redundant_cdna(self):
@@ -1020,12 +1021,19 @@ class ASeventsTester(unittest.TestCase):
 
         self.assertEqual(self.locus.is_alternative_splicing(t3)[:2], (True, "j"))
         self.locus.json_conf["pick"]["clustering"]["cds_only"] = True
+        self.assertEqual(self.locus.is_alternative_splicing(t3)[:2], (True, "j"))
+        self.locus.json_conf["pick"]["alternative_splicing"]["cds_only"] = True
         self.assertEqual(self.locus.is_alternative_splicing(t3)[:2], (False, "j"))
         self.locus.json_conf["pick"]["clustering"]["cds_only"] = False
+        self.locus.json_conf["pick"]["alternative_splicing"]["cds_only"] = False
         self.locus.add_transcript_to_locus(t3)
         self.assertEqual(len(self.locus.transcripts), 3, self.locus.transcripts)
         self.locus.remove_transcript_from_locus(t3.id)
         self.locus.json_conf["pick"]["clustering"]["cds_only"] = True
+        self.locus.add_transcript_to_locus(t3)
+        self.assertEqual(len(self.locus.transcripts), 3, self.locus.transcripts)
+        self.locus.remove_transcript_from_locus(t3.id)
+        self.locus.json_conf["pick"]["alternative_splicing"]["cds_only"] = True
         self.locus.add_transcript_to_locus(t3)
         self.assertEqual(len(self.locus.transcripts), 2, self.locus.transcripts)
 

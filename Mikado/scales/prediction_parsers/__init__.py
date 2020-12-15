@@ -68,7 +68,7 @@ def parse_prediction(args, index, queue_logger):
         nargs = Namespace(default=False, **dargs)
         nargs.self = doself
         procs = [Assigners(index, nargs, queue, returnqueue, log_queue, counter)
-                 for counter in range(1, args.processes)]
+                 for counter in range(args.processes)]
         [proc.start() for proc in procs]
         final_proc = FinalAssigner(index, nargs, returnqueue, log_queue=log_queue, nprocs=len(procs))
         final_proc.start()

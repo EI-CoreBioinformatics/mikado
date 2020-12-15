@@ -31,10 +31,10 @@ def get_best_result(transcript, assigner_instance: Assigner):
 orf_pattern = re.compile(r"\.orf[0-9]+$", re.IGNORECASE)
 
 
-def transmit_transcript(transcript: Transcript, done: int, lastdone: int,
+def transmit_transcript(transcript: Union[None,Transcript], done: int, lastdone: int,
                          rows: list, queue: Queue,
                          queue_logger: Logger,
-                         __found_with_orf: set, send_all=False) -> [list, int, int, int]:
+                         __found_with_orf: set, send_all=False):
 
     if transcript is not None:
         if orf_pattern.search(transcript.id):

@@ -768,7 +768,9 @@ class Assigner:
 
         self.print_refmap()
         self.stat_calculator.print_stats()
+        self.logger.info("Finished printing final stats")
         self.tmap_out.close()
+        self.logger.info("Closed output files")
 
     def calc_and_store_compare(self, prediction: Transcript, reference: Transcript, fuzzymatch=0) -> ResultStorer:
         """Thin layer around the calc_and_store_compare class method.

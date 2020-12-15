@@ -96,4 +96,7 @@ class FinalAssigner(mp.Process):
                 self.assigner.load_result(tmap_row[1], tmap_row[2])
             self.queue.task_done()
 
+        self.queue.join()
         self.assigner.finish()
+        self.assigner.logger.info("Finished everything, shutting down")
+        return

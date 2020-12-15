@@ -3,7 +3,7 @@ from ...transcripts import Gene
 from ...transcripts import Transcript
 
 
-def parse_prediction_gff3(args, queue, queue_logger):
+def parse_prediction_gff3(args, queue_logger):
     """Method to parse GFF files. This will use the Gene, rather than Transcript, class."""
 
     gene = None

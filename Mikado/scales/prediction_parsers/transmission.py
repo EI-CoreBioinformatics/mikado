@@ -3,13 +3,24 @@ import msgpack
 import zlib
 from ..assignment.assigner import Assigner
 import re
+from queue import Queue
+from logging import Logger
+from typing import Union
 
 
-def transmit_transcript(transcript: Transcript, queue):
-    transcript.finalize()
-    d = transcript.as_dict(remove_attributes=False)
-    to_write = msgpack.dumps(d)
-    queue.put(to_write)
+def send_transcripts(transcript: Union[None,Transcript], rows: list, queue: Queue, maxsize=1000):
+    if transcript is not None:
+        transcript.finalize()
+        d = transcript.as_dict(remove_attributes=False)
+        rows.append(d)
+        send_all = False
+    else:
+        send_all = True
+    if len(rows) >= maxsize or send_all is True:
+        to_write = msgpack.dumps(rows)
+        queue.put(to_write)
+        rows = []
+    return rows
 
 
 def get_best_result(transcript, assigner_instance: Assigner):
@@ -20,9 +31,10 @@ def get_best_result(transcript, assigner_instance: Assigner):
 orf_pattern = re.compile(r"\.orf[0-9]+$", re.IGNORECASE)
 
 
-def _transmit_transcript(transcript, done, lastdone,
-                         transmitter, queue_logger,
-                         __found_with_orf):
+def transmit_transcript(transcript: Transcript, done: int, lastdone: int,
+                         rows: list, queue: Queue,
+                         queue_logger: Logger,
+                         __found_with_orf: set, send_all=False) -> [list, int, int, int]:
 
     if transcript is not None:
         if orf_pattern.search(transcript.id):
@@ -33,7 +45,7 @@ def _transmit_transcript(transcript, done, lastdone,
                 if done and done % 10000 == 0:
                     queue_logger.info("Parsed %s transcripts", done)
                     lastdone = done
-                transmitter(transcript)
+                rows = send_transcripts(transcript, rows, queue)
             else:
                 pass
         else:
@@ -42,8 +54,11 @@ def _transmit_transcript(transcript, done, lastdone,
                 queue_logger.info("Parsed %s transcripts", done)
                 lastdone = done
             try:
-                transmitter(transcript)
+                rows = send_transcripts(transcript, rows, queue)
             except AssertionError:
                 raise AssertionError((transcript.id, ))
 
-    return done, lastdone, __found_with_orf
+    if send_all is True:
+        send_transcripts(None, rows, queue)
+
+    return rows, done, lastdone, __found_with_orf

@@ -35,25 +35,32 @@ class Assigners(mp.Process):
                                           printout_tmap=False,
                                           counter=self.__counter,
                                           fuzzymatch=self.__fuzzymatch)
+        results = []
         while True:
-            transcr = self.queue.get()
-            if transcr == "EXIT":
+            transcripts = self.queue.get()
+            if transcripts == "EXIT":
                 self.queue.put("EXIT")
                 self.queue.task_done()
+                result = msgpack.dumps([res.as_dict() for res in results], strict_types=True)
+                self.returnqueue.put(("tmap", result))
                 refmap, stats = self.assigner_instance.dump()
                 self.returnqueue.put(("refmap", refmap, stats))
                 self.returnqueue.put("EXIT")
                 break
             else:
-                dumped = msgpack.loads(transcr)
-                transcr = Transcript()
-                transcr.load_dict(dumped, trust_orf=True, accept_undefined_multi=True)
-                result = self.assigner_instance.get_best(transcr)
-                if isinstance(result, ResultStorer):
-                    result = [result]
-                result = msgpack.dumps([res.as_dict() for res in result], strict_types=True)
+                dumped = msgpack.loads(transcripts)
+                for dump in dumped:
+                    transcr = Transcript()
+                    transcr.load_dict(dump, trust_orf=True, accept_undefined_multi=True)
+                    result = self.assigner_instance.get_best(transcr)
+                    if isinstance(result, ResultStorer):
+                        result = [result]
+                    results.extend(result)
+                    if len(results) >= 1000:
+                        result = msgpack.dumps([res.as_dict() for res in results], strict_types=True)
+                        self.returnqueue.put(("tmap", result))
+                        results = []
                 self.queue.task_done()
-                self.returnqueue.put(("tmap", result))
 
 
 class FinalAssigner(mp.Process):

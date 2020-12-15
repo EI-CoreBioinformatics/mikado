@@ -1,8 +1,11 @@
 import functools
 from ...transcripts import Gene
+from ...transcripts import Transcript
+import functools
+from .transmission import transmit_transcript
 
 
-def parse_prediction_gff3(args, queue_logger, transmit_wrapper, constructor):
+def parse_prediction_gff3(args, queue, queue_logger):
     """Method to parse GFF files. This will use the Gene, rather than Transcript, class."""
 
     gene = None
@@ -15,6 +18,8 @@ def parse_prediction_gff3(args, queue_logger, transmit_wrapper, constructor):
                                      only_coding=args.protein_coding,
                                      logger=queue_logger,
                                      use_computer=False)
+    constructor = functools.partial(Transcript, logger=queue_logger, trust_orf=True, accept_undefined_multi=True)
+    rows = []
     for row in args.prediction:
         if row.header is True:
             queue_logger.debug("Skipping row %s", row)
@@ -24,9 +29,10 @@ def parse_prediction_gff3(args, queue_logger, transmit_wrapper, constructor):
                 gene.finalize(exclude_utr=args.exclude_utr)
                 for transcript in gene:
                     transcript.finalize()
-                    done, lastdone, __found_with_orf = transmit_wrapper(transcript=transcript,
-                        done=done, lastdone=lastdone,
-                        __found_with_orf=__found_with_orf)
+                    rows, done, lastdone, __found_with_orf = transmit_transcript(
+                        transcript=transcript, done=done, lastdone=lastdone,
+                        rows=rows, __found_with_orf=__found_with_orf,
+                        queue=queue, queue_logger=queue_logger)
             gene = gconstructor(row)
             queue_logger.debug("Creating gene %s", gene.id)
         elif row.is_transcript is True or row.feature == "match":
@@ -40,10 +46,10 @@ def parse_prediction_gff3(args, queue_logger, transmit_wrapper, constructor):
                     gene.finalize(exclude_utr=args.exclude_utr)
                     queue_logger.debug("Sending transcripts of %s", gene.id)
                     for gtranscript in gene:
-                        done, lastdone, __found_with_orf = transmit_wrapper(
-                            transcript=gtranscript,
-                            done=done, lastdone=lastdone,
-                            __found_with_orf=__found_with_orf)
+                        rows, done, lastdone, __found_with_orf = transmit_transcript(
+                            transcript=gtranscript, done=done, lastdone=lastdone,
+                            rows=rows, __found_with_orf=__found_with_orf,
+                            queue=queue, queue_logger=queue_logger)
                 gene = gconstructor(transcript)
                 queue_logger.debug("Creating gene %s", gene.id)
             else:
@@ -67,20 +73,22 @@ def parse_prediction_gff3(args, queue_logger, transmit_wrapper, constructor):
                     assert gene.transcripts, (gene.id, str(row))
                     for gtranscript in gene:
                         queue_logger.debug("Sending %s", gtranscript.id)
-                        done, lastdone, __found_with_orf = transmit_wrapper(
-                            transcript=gtranscript,
-                            done=done, lastdone=lastdone,
-                            __found_with_orf=__found_with_orf)
+                        rows, done, lastdone, __found_with_orf = transmit_transcript(
+                            transcript=gtranscript, done=done, lastdone=lastdone,
+                            rows=rows, __found_with_orf=__found_with_orf,
+                            queue=queue, queue_logger=queue_logger)
                 gene = gconstructor(row)
         else:
             queue_logger.warning("Skipped row: {}".format(row))
 
     if gene is not None:
         gene.finalize(exclude_utr=args.exclude_utr)
-        for transcript in gene:
+        counter = 0
+        for transcript in gene.transcripts:
+            counter += 1
             transcript.finalize()
-            done, lastdone, __found_with_orf = transmit_wrapper(
-                transcript=transcript,
-                done=done, lastdone=lastdone,
-                __found_with_orf=__found_with_orf)
+            rows, done, lastdone, __found_with_orf = transmit_transcript(
+                transcript=transcript, done=done, lastdone=lastdone,
+                rows=rows, __found_with_orf=__found_with_orf,
+                queue=queue, queue_logger=queue_logger, send_all=(counter == len(gene.transcripts)))
     return done, lastdone

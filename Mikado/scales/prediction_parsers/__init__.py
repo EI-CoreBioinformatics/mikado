@@ -1,14 +1,12 @@
-import tempfile
 import multiprocessing as mp
 from ...utilities.namespace import Namespace
-import os
 import functools
 from ..assignment.assigner import Assigner
 from ..assignment.distributed import Assigners, FinalAssigner
-from .transmission import get_best_result, transmit_transcript, _transmit_transcript
+from .transmission import get_best_result
 from ..reference_preparation.gene_dict import GeneDict
 from ..resultstorer import ResultStorer
-from ...transcripts import Transcript, Gene
+from ...transcripts import Gene
 from ...parsers.GFF import GFF3
 from ...parsers.GTF import GTF
 from ...parsers.bed12 import Bed12Parser
@@ -41,8 +39,8 @@ def parse_prediction(args, index, queue_logger):
     if hasattr(args, "self") and args.self is True:
         args.prediction = to_gff(args.reference.name)
     __found_with_orf = set()
-    queue = mp.JoinableQueue(1000)
-    returnqueue = mp.JoinableQueue(1000)
+    queue = mp.JoinableQueue(100)
+    returnqueue = mp.JoinableQueue(100)
 
     queue_logger.info("Starting to parse the prediction")
     if args.processes > 1:
@@ -63,19 +61,10 @@ def parse_prediction(args, index, queue_logger):
         [proc.start() for proc in procs]
         final_proc = FinalAssigner(index, nargs, returnqueue, log_queue=log_queue, nprocs=len(procs))
         final_proc.start()
-        transmitter = functools.partial(transmit_transcript, queue=queue)
         assigner_instance = None
     else:
         procs = []
         assigner_instance = Assigner(index, args, printout_tmap=True, )
-        transmitter = functools.partial(get_best_result, assigner_instance=assigner_instance)
-
-    transmit_wrapper = functools.partial(_transmit_transcript,
-                                         transmitter=transmitter,
-                                         queue_logger=queue_logger)
-
-    constructor = functools.partial(Transcript,
-                                    logger=queue_logger, trust_orf=True, accept_undefined_multi=True)
 
     if args.prediction.__annot_type__ == BamParser.__annot_type__:
         annotator = parse_prediction_bam
@@ -88,7 +77,7 @@ def parse_prediction(args, index, queue_logger):
     else:
         raise ValueError("Unsupported input file format")
 
-    done, lastdone = annotator(args, queue_logger, transmit_wrapper, constructor)
+    done, lastdone = annotator(args, queue, queue_logger)
 
     queue_logger.info("Finished parsing, %s transcripts in total", done)
     if assigner_instance is None:

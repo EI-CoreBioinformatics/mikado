@@ -162,10 +162,6 @@ class Assigner:
                 self.tmap_out = gzip.open("{0}.tmap.gz".format(args.out), 'wt')
             self.tmap_rower = csv.DictWriter(self.tmap_out, ResultStorer.__slots__, delimiter="\t")
             self.tmap_rower.writeheader()
-            self.db, self._connection, self._cursor = [None] * 3
-        else:
-            self.db = tempfile.NamedTemporaryFile(prefix=".compare", suffix=".db", dir="..", delete=False,
-                                                  mode="wb")
 
         self.gene_matches = collections.defaultdict(dict)
         self.done = 0

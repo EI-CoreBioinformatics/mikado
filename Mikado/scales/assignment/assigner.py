@@ -341,7 +341,6 @@ class Assigner:
                 self.print_tmap(None)
                 return None
         except InvalidTranscript as err:
-            #         args.queue.put_nowait("mock")
             self.logger.warning("Invalid transcript: %s", prediction.id)
             self.logger.warning("Error message: %s", err)
             # self.done += 1
@@ -688,7 +687,6 @@ class Assigner:
         # Ignore non-coding RNAs if we are interested in protein-coding transcripts only
         # noinspection PyUnresolvedReferences
         if self.args.protein_coding is True and prediction.combined_cds_length == 0:
-            #         args.queue.put_nowait("mock")
             self.logger.debug("No CDS for %s. Ignoring.", prediction.id)
             # self.done += 1
             self.print_tmap(None)

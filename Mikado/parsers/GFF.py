@@ -47,16 +47,23 @@ class GffLine(GFAnnotation):
         attribute_order = [key for key, val in infolist if key not in ("Parent", "parent", "id", "ID", "Id")]
         attributes = dict((key, _attribute_definition(val)) for key, val in infolist)
 
+        # Ensure that the "parent" attribute is a string
         if "Parent" in attributes:
+            attributes["Parent"] = str(attributes["Parent"])
             self.parent = attributes["Parent"]
         elif "parent" in attributes:
+            attributes["parent"] = str(attributes["parent"])
             self.parent = attributes["parent"]
 
+        # Ensure that the "ID" attribute is a string
         if "ID" in attributes:
+            attributes["ID"] = str(attributes["ID"])
             self.id = attributes["ID"]
         elif "id" in attributes:
+            attributes["id"] = str(attributes["id"])
             self.id = attributes["id"]
         elif "Id" in attributes:
+            attributes["Id"] = str(attributes["Id"])
             self.id = attributes["Id"]
 
         self.attributes.update(attributes)

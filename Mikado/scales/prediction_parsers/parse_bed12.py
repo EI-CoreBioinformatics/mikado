@@ -1,21 +1,18 @@
 from ...exceptions import InvalidTranscript
+from ...transcripts import Transcript
+import functools
 
 
-def parse_prediction_bed12(args, queue_logger, transmit_wrapper, constructor):
+def parse_prediction_bed12(args, queue_logger):
     """"""
 
+    constructor = functools.partial(Transcript, logger=queue_logger, trust_orf=True, accept_undefined_multi=True)
     transcript = None
-    done = 0
-    lastdone = 1
     invalids = set()
-    __found_with_orf = set()
     for row in args.prediction:
         if row.header is True:
             continue
-        done, lastdone, __found_with_orf = transmit_wrapper(transcript=transcript,
-                                                            done=done,
-                                                            lastdone=lastdone,
-                                                            __found_with_orf=__found_with_orf)
+        yield transcript
         try:
             transcript = constructor(row)
         except (InvalidTranscript, AssertionError, TypeError, ValueError):
@@ -25,8 +22,4 @@ def parse_prediction_bed12(args, queue_logger, transmit_wrapper, constructor):
             continue
         transcript.parent = transcript.id
 
-    done, lastdone, __found_with_orf = transmit_wrapper(transcript=transcript,
-                                                        done=done,
-                                                        lastdone=lastdone,
-                                                        __found_with_orf=__found_with_orf)
-    return done, lastdone
+    yield transcript

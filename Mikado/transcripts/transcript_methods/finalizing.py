@@ -119,7 +119,8 @@ def _check_cdna_vs_utr(transcript):
     """
 
     transcript.logger.debug("Checking the cDNA for %s", transcript.id)
-    if transcript.cdna_length > transcript.combined_utr_length + transcript.combined_cds_length:
+    cdna_length = transcript.cdna_length
+    if cdna_length > transcript.combined_utr_length + transcript.combined_cds_length:
         if transcript.combined_utr == transcript.combined_cds == []:
             # non-coding transcript
             transcript.logger.debug("%s is non coding, returning", transcript.id)
@@ -127,16 +128,12 @@ def _check_cdna_vs_utr(transcript):
         assert transcript.combined_cds != []
 
         transcript.logger.debug("Recalculating the UTR for %s. Reason: cDNA length %s, UTR %s, CDS %s (total %s)",
-                                transcript.id, transcript.cdna_length, transcript.combined_utr_length,
+                                transcript.id, cdna_length, transcript.combined_utr_length,
                                 transcript.combined_cds_length,
                                 transcript.combined_utr_length + transcript.combined_cds_length)
         transcript.combined_utr = []  # Reset
         transcript.combined_cds = sorted(transcript.combined_cds,
                                          key=operator.itemgetter(0, 1))
-
-        combined_cds = IntervalTree.from_tuples(transcript.combined_cds)
-        orfs = [IntervalTree.from_tuples([_[1] for _ in orf if _[0] == "CDS"]) for orf in transcript.internal_orfs]
-        assert isinstance(combined_cds, IntervalTree)
 
         exons = IntervalTree.from_intervals([Interval(*exon) for exon in transcript.exons])
 
@@ -205,7 +202,7 @@ def _check_cdna_vs_utr(transcript):
         # If no CDS and no UTR are present, all good
         equality_one = (transcript.combined_cds_length == transcript.combined_utr_length == 0)
         # Otherwise, if cDNA length == UTR + CDS, all good
-        equality_two = (transcript.cdna_length ==
+        equality_two = (cdna_length ==
                         transcript.combined_utr_length + transcript.combined_cds_length)
         if not (equality_one or equality_two):
             # Something fishy going on
@@ -798,11 +795,9 @@ def finalize(transcript):
             except AttributeError:  # Some instance attributes CANNOT be set from the attributes of the GTF
                 transcript.attributes.pop(prop)
 
-    # transcript = __calc_cds_introns(transcript)
     _ = transcript.cdna_length
     transcript._set_basic_lengths()
     transcript._set_distances()
-
     transcript.finalized = True
     transcript.logger.debug("Finished finalising %s", transcript.id)
 

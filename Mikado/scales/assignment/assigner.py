@@ -162,10 +162,6 @@ class Assigner:
                 self.tmap_out = gzip.open("{0}.tmap.gz".format(args.out), 'wt')
             self.tmap_rower = csv.DictWriter(self.tmap_out, ResultStorer.__slots__, delimiter="\t")
             self.tmap_rower.writeheader()
-            self.db, self._connection, self._cursor = [None] * 3
-        else:
-            self.db = tempfile.NamedTemporaryFile(prefix=".compare", suffix=".db", dir="..", delete=False,
-                                                  mode="wb")
 
         self.gene_matches = collections.defaultdict(dict)
         self.done = 0
@@ -341,7 +337,6 @@ class Assigner:
                 self.print_tmap(None)
                 return None
         except InvalidTranscript as err:
-            #         args.queue.put_nowait("mock")
             self.logger.warning("Invalid transcript: %s", prediction.id)
             self.logger.warning("Error message: %s", err)
             # self.done += 1
@@ -688,7 +683,6 @@ class Assigner:
         # Ignore non-coding RNAs if we are interested in protein-coding transcripts only
         # noinspection PyUnresolvedReferences
         if self.args.protein_coding is True and prediction.combined_cds_length == 0:
-            #         args.queue.put_nowait("mock")
             self.logger.debug("No CDS for %s. Ignoring.", prediction.id)
             # self.done += 1
             self.print_tmap(None)
@@ -770,7 +764,9 @@ class Assigner:
 
         self.print_refmap()
         self.stat_calculator.print_stats()
+        self.logger.info("Finished printing final stats")
         self.tmap_out.close()
+        self.logger.info("Closed output files")
 
     def calc_and_store_compare(self, prediction: Transcript, reference: Transcript, fuzzymatch=0) -> ResultStorer:
         """Thin layer around the calc_and_store_compare class method.

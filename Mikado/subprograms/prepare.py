@@ -296,10 +296,10 @@ def prepare_parser():
                         help="Comma-delimited list of strand specific assemblies.")
     parser.add_argument("--list", type=argparse.FileType("r"),
                         help="""Tab-delimited file containing rows with the following format:
-<file>  <label> <strandedness, def. False> <score(optional, def. 0)> <is_reference(optional, def. False)> <exclude_redundant(optional, def. False)>
-strandedness, is_reference and exclude_redundant must be boolean values (True, False)
-score must be a valid floating number.
-""")
+    <file>  <label> <strandedness(def. False)> <score(optional, def. 0)> <is_reference(optional, def. False)> <exclude_redundant(optional, def. True)> <strip_cds(optional, def. False)> <skip_split(optional, def. False)>
+    "strandedness", "is_reference", "exclude_redundant", "strip_cds" and "skip_split" must be boolean values (True, False)
+    "score" must be a valid floating number."""
+                        )
     parser.add_argument("-l", "--log", type=argparse.FileType("w"), default=None,
                         help="Log file. Optional.")
     parser.add_argument("--lenient", action="store_true", default=None,

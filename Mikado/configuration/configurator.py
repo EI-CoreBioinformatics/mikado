@@ -264,43 +264,30 @@ def check_all_requirements(json_conf):
     if "requirements" not in json_conf:
         raise InvalidJson("No minimal requirements specified!")
 
-    if "not_fragmentary" not in json_conf:
-        json_conf["not_fragmentary"] = dict()
-        json_conf["not_fragmentary"].update(json_conf["requirements"])
+    for section in ["requirements", "as_requirements", "cds_requirements", "not_fragmentary"]:
+        if section not in json_conf:
+            json_conf[section] = dict()
+            if section != "cds_requirements":
+                json_conf[section].update(json_conf["requirements"])
+                json_conf[section]["expression"] = json_conf[section]["__expression"][:]
+                del json_conf[section]["__expression"]
+            else:
+                json_conf[section]["parameters"] = {
+                    "selected_cds_length": {"operator": "ge",
+                                            "value": json_conf.get("pick", dict()).get("orf_loading", dict()).get(
+                                                "minimal_orf_length", 0)}}
+                json_conf[section]["expression"] = ["selected_cds_length"]
 
-    try:
-        json_conf = check_requirements(json_conf,
-                                       require_schema,
-                                       "not_fragmentary")
-    except (InvalidJson, SyntaxError) as exc:
-        print(json_conf["not_fragmentary"]["expression"])
-        print(type(json_conf["not_fragmentary"]["expression"]))
-        raise exc
-
-    if "as_requirements" not in json_conf:
-        json_conf["as_requirements"] = dict()
-        json_conf["as_requirements"].update(json_conf["requirements"])
-
-    # Check requirements will MODIFY IN PLACE the expression, so the copying
-    # must happend before, not after.
-
-    try:
-        json_conf = check_requirements(json_conf,
-                                       require_schema,
-                                       "as_requirements")
-    except (InvalidJson, SyntaxError) as exc:
-        print(json_conf["as_requirements"]["expression"])
-        print(type(json_conf["as_requirements"]["expression"]))
-        raise exc
-
-    try:
-        json_conf = check_requirements(json_conf,
-                                       require_schema,
-                                       "requirements")
-    except (InvalidJson, SyntaxError) as exc:
-        print(json_conf["as_requirements"]["expression"])
-        print(type(json_conf["as_requirements"]["expression"]))
-        raise exc
+        # Check requirements will MODIFY IN PLACE the expression, so the copying
+        # must happen before, not after.
+        try:
+            json_conf = check_requirements(json_conf,
+                                           require_schema,
+                                           section)
+        except (InvalidJson, SyntaxError) as exc:
+            print(json_conf[section]["expression"])
+            print(type(json_conf[section]["expression"]))
+            raise exc
 
     return json_conf
 

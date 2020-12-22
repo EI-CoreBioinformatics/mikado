@@ -276,6 +276,7 @@ def check_all_requirements(json_conf):
                     "selected_cds_length": {"operator": "ge",
                                             "value": json_conf.get("pick", dict()).get("orf_loading", dict()).get(
                                                 "minimal_orf_length", 0)}}
+                json_conf[section]["expression"] = ["selected_cds_length"]
 
         # Check requirements will MODIFY IN PLACE the expression, so the copying
         # must happen before, not after.

@@ -1,26 +1,23 @@
 import collections
 from ...parsers.bam_parser import BamParser
 from ...exceptions import InvalidTranscript
+from ...transcripts import Transcript
+import functools
 
 
-def parse_prediction_bam(args, queue_logger, transmit_wrapper, constructor):
+def parse_prediction_bam(args, queue_logger):
+    constructor = functools.partial(Transcript, logger=queue_logger, trust_orf=True, accept_undefined_multi=True)
 
     transcript = None
-    done = 0
-    lastdone = 1
-    __found_with_orf = set()
     name_counter = collections.Counter()  # This is needed for BAMs
     invalids = set()
     if args.prediction.__annot_type__ == BamParser.__annot_type__:
         for row in args.prediction:
             if row.is_unmapped is True:
                 continue
-            done, lastdone, __found_with_orf = transmit_wrapper(transcript=transcript,
-                                                                done=done,
-                                                                lastdone=lastdone,
-                                                                __found_with_orf=__found_with_orf)
+            yield transcript
             try:
-                transcript = constructor(row, accept_undefined_multi=True, trust_orf=True)
+                transcript = constructor(row)
             except (InvalidTranscript, AssertionError, TypeError, ValueError):
                 queue_logger.warning("Row %s is invalid, skipping.", row)
                 transcript = None
@@ -32,10 +29,4 @@ def parse_prediction_bam(args, queue_logger, transmit_wrapper, constructor):
                 name = row.query_name
             transcript.id = transcript.name = transcript.alias = name
             transcript.parent = transcript.attributes["gene_id"] = "{0}.gene".format(name)
-    done, lastdone, __found_with_orf = transmit_wrapper(
-        transcript=transcript,
-        done=done,
-        lastdone=lastdone,
-        __found_with_orf=__found_with_orf)
-
-    return done, lastdone
+    yield transcript

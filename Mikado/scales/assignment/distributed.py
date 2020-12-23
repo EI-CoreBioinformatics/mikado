@@ -35,23 +35,32 @@ class Assigners(mp.Process):
                                           printout_tmap=False,
                                           counter=self.__counter,
                                           fuzzymatch=self.__fuzzymatch)
+        results = []
         while True:
-            transcr = self.queue.get()
-            if transcr == "EXIT":
-                self.queue.put_nowait("EXIT")
+            transcripts = self.queue.get()
+            if transcripts == "EXIT":
+                self.queue.put("EXIT")
+                self.queue.task_done()
+                result = msgpack.dumps([res.as_dict() for res in results], strict_types=True)
+                self.returnqueue.put(("tmap", result))
                 refmap, stats = self.assigner_instance.dump()
                 self.returnqueue.put(("refmap", refmap, stats))
                 self.returnqueue.put("EXIT")
                 break
             else:
-                dumped = msgpack.loads(transcr)
-                transcr = Transcript()
-                transcr.load_dict(dumped, trust_orf=True, accept_undefined_multi=True)
-                result = self.assigner_instance.get_best(transcr)
-                if isinstance(result, ResultStorer):
-                    result = [result]
-                result = msgpack.dumps([res.as_dict() for res in result], strict_types=True)
-                self.returnqueue.put(("tmap", result))
+                dumped = msgpack.loads(transcripts)
+                for dump in dumped:
+                    transcr = Transcript()
+                    transcr.load_dict(dump, trust_orf=True, accept_undefined_multi=True)
+                    result = self.assigner_instance.get_best(transcr)
+                    if isinstance(result, ResultStorer):
+                        result = [result]
+                    results.extend(result)
+                    if len(results) >= 1000:
+                        result = msgpack.dumps([res.as_dict() for res in results], strict_types=True)
+                        self.returnqueue.put(("tmap", result))
+                        results = []
+                self.queue.task_done()
 
 
 class FinalAssigner(mp.Process):
@@ -77,6 +86,7 @@ class FinalAssigner(mp.Process):
             tmap_row = self.queue.get()
             if tmap_row == "EXIT":
                 finished_children += 1
+                self.queue.task_done()
                 continue
             elif tmap_row[0] == "tmap":
                 rows = [ResultStorer(state=row) for row in msgpack.loads(tmap_row[1])]
@@ -84,5 +94,9 @@ class FinalAssigner(mp.Process):
                     self.assigner.print_tmap(row)
             elif tmap_row[0] == "refmap":
                 self.assigner.load_result(tmap_row[1], tmap_row[2])
+            self.queue.task_done()
 
+        self.queue.join()
         self.assigner.finish()
+        self.assigner.logger.info("Finished everything, shutting down")
+        return

@@ -637,7 +637,7 @@ class BED12:
                     orf_sequence = Seq.reverse_complement(
                         sequence[
                         (self.thick_start - 1):
-                        (self.thick_end if not self.phase else self.end + 1 - (3 - self.phase) % 3)])
+                        (self.thick_end if not self.phase else self.end - self.phase)])
 
                 last_pos = -3 - ((len(orf_sequence)) % 3)
                 translated_seq = _translate_str(orf_sequence[:last_pos],

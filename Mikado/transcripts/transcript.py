@@ -2184,8 +2184,7 @@ class Transcript:
             raise TypeError("Invalid value for combined CDS: {0}".format(combined))
 
         if len(combined) > 0:
-            ar = np.array(list(zip(*combined)))
-            self.__combined_cds_length = int(np.subtract(ar[1], ar[0] - 1).sum())
+            self.__combined_cds_length = sum([_[1] - _[0] + 1 for _ in combined])
         else:
             self.__combined_cds_length = 0
 
@@ -2510,8 +2509,7 @@ index {3}, internal ORFs: {4}".format(
     combined_utr_fraction.rtype = "float"
 
     def __calculate_cdna_length(self):
-        ar = np.array(list(zip(*self.exons)))
-        self.__cdna_length = int(np.subtract(ar[1], ar[0] - 1).sum())
+        self.__cdna_length = int(sum([_[1] - _[0] + 1 for _ in self.exons]))
 
     @Metric
     def cdna_length(self):

@@ -1205,7 +1205,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
         self.logger.debug("Calculated metrics for {0}".format(tid))
 
-    def _check_not_passing(self, previous_not_passing=set()):
+    def _check_not_passing(self, previous_not_passing=set(), section="requirements"):
         """
         This private method will identify all transcripts which do not pass
         the minimum muster specified in the configuration. It will *not* delete them;
@@ -1214,15 +1214,14 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         """
 
         self.get_metrics()
-        # self.logger.debug("Expression: %s", self.json_conf["requirements"]["expression"])
 
-        if ("compiled" not in self.json_conf["requirements"] or
-                self.json_conf["requirements"]["compiled"] is None):
-            if "expression" not in self.json_conf["requirements"]:
-                raise KeyError(self.json_conf["requirements"])
+        if ("compiled" not in self.json_conf[section] or
+                self.json_conf[section]["compiled"] is None):
+            if "expression" not in self.json_conf[section]:
+                raise KeyError(self.json_conf[section])
 
-            self.json_conf["requirements"]["compiled"] = compile(
-                self.json_conf["requirements"]["expression"], "<json>",
+            self.json_conf[section]["compiled"] = compile(
+                self.json_conf[section]["expression"], "<json>",
                 "eval")
 
         not_passing = set()
@@ -1252,17 +1251,17 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                 self.logger.debug("Performing the requirement check for %s even if it is a reference transcript", tid)
 
             evaluated = dict()
-            for key in self.json_conf["requirements"]["parameters"]:
+            for key in self.json_conf[section]["parameters"]:
                 value = rgetattr(self.transcripts[tid],
-                                 self.json_conf["requirements"]["parameters"][key]["name"])
+                                 self.json_conf[section]["parameters"][key]["name"])
                 if "external" in key:
                     value = value[0]
 
                 evaluated[key] = self.evaluate(
                     value,
-                    self.json_conf["requirements"]["parameters"][key])
+                    self.json_conf[section]["parameters"][key])
             # pylint: disable=eval-used
-            if eval(self.json_conf["requirements"]["compiled"]) is False:
+            if eval(self.json_conf[section]["compiled"]) is False:
 
                 not_passing.add(tid)
         self.logger.debug("The following transcripts in %s did not pass the minimum check for requirements: %s",

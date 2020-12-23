@@ -16,23 +16,20 @@ __author__ = 'Luca Venturini'
 [intern(_) for _ in ["+", "-", "?", "true", "True", "false", "False"]]
 
 
-def last(value):
-    if value in ("true", "True"):
-        value = True
-    elif value in ("False", "false"):
-        value = False
-    return value
-
-
 def _attribute_definition(val):
     try:
-        val = int(val)
+        val = float(val)
+        if val.is_integer():
+            return int(val)
+        return val
     except (ValueError, TypeError):
-        try:
-            val = float(val)
-        except (ValueError, TypeError):
-            val = last(val)
-    return val
+        if val.lower() in ("true", "false"):
+            val = val.capitalize()
+            if val == "True":
+                return True
+            else:
+                return False
+        return val
 
 
 # This class has exactly how many attributes I need it to have

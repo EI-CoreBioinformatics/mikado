@@ -849,6 +849,7 @@ class Locus(Abstractlocus):
 
         valid_ccodes = self.json_conf["pick"]["alternative_splicing"]["valid_ccodes"]
         redundant_ccodes = self.json_conf["pick"]["alternative_splicing"]["redundant_ccodes"]
+        cds_only = self.json_conf["pick"]["alternative_splicing"]["cds_only"]
 
         if other.is_coding and not self.primary_transcript.is_coding:
             reason = "{} is coding, and cannot be added to a non-coding locus.".format(other.id)
@@ -861,7 +862,7 @@ class Locus(Abstractlocus):
             main_ccode = "NA"
             main_result = None
         else:
-            if self.json_conf["pick"]["clustering"]["cds_only"] is True:
+            if cds_only is True:
                 self.logger.debug("Checking whether the CDS of %s and %s are overlapping enough",
                                   other.id, self.primary_transcript_id)
                 main_result, _ = Assigner.compare(other._selected_orf_transcript,
@@ -913,7 +914,7 @@ class Locus(Abstractlocus):
 
             for tid in iter(tid for tid in others if tid not in (self.primary_transcript_id, other.id)):
                 candidate = self.transcripts[tid]
-                if self.json_conf["pick"]["clustering"]["cds_only"] is True:
+                if cds_only is True:
                     result, _ = Assigner.compare(other._selected_orf_transcript, candidate._selected_orf_transcript)
                 else:
                     result, _ = Assigner.compare(other, candidate)

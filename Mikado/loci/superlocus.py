@@ -969,6 +969,11 @@ class Superlocus(Abstractlocus):
         self.compile_requirements()
         self.subloci = []
 
+        # First, check whether we need to remove CDS from anything.
+        for tid in super()._check_not_passing(section="cds_requirements"):
+            self.transcripts[tid].strip_cds(strand_specific=True)
+            self.metrics_calculated = False
+
         # Check whether there is something to remove
         self._check_requirements()
         excluded_tids = list(self._excluded_transcripts.keys())
@@ -1423,16 +1428,17 @@ class Superlocus(Abstractlocus):
     def compile_requirements(self):
         """Quick function to evaluate the filtering expression, if it is present."""
 
-        if "requirements" in self.json_conf:
-            if "compiled" in self.json_conf["requirements"]:
-                return
+        for section in ["requirements", "as_requirements", "cds_requirements"]:
+            if section in self.json_conf:
+                if "compiled" in self.json_conf[section]:
+                    return
+                else:
+                    self.json_conf[section]["compiled"] = compile(
+                        self.json_conf[section]["expression"],
+                        "<json>", "eval")
+                    return
             else:
-                self.json_conf["requirements"]["compiled"] = compile(
-                    self.json_conf["requirements"]["expression"],
-                    "<json>", "eval")
-                return
-        else:
-            return
+                continue
 
     # ############ Class methods ###########
 

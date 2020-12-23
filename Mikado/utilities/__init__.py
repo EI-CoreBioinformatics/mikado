@@ -305,7 +305,6 @@ def parse_list_file(json_conf: dict, list_file):
             except ValueError:
                 score = 0
             json_conf["prepare"]["files"]["source_score"][label] = score
-        keep = False
         for arr, pos, default in [("reference", 4, False), ("exclude_redundant", 5, False),
                                   ("strip_cds", 6, False), ("skip_split", 7, False)]:
             try:
@@ -314,8 +313,6 @@ def parse_list_file(json_conf: dict, list_file):
                     val = eval(val.capitalize())
                 else:
                     raise ValueError("Malformed line. The last two fields should be either True or False.")
-                val = keep or val
-                keep = val
             except IndexError:
                 val = default
             if arr == "skip_split":

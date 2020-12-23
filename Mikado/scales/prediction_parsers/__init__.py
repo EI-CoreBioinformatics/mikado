@@ -1,14 +1,12 @@
-import tempfile
 import multiprocessing as mp
 from ...utilities.namespace import Namespace
-import os
-import functools
+from .transmission import transmit_transcript
 from ..assignment.assigner import Assigner
 from ..assignment.distributed import Assigners, FinalAssigner
-from .transmission import get_best_result, transmit_transcript, _transmit_transcript
+from .transmission import get_best_result
 from ..reference_preparation.gene_dict import GeneDict
 from ..resultstorer import ResultStorer
-from ...transcripts import Transcript, Gene
+from ...transcripts import Gene
 from ...parsers.GFF import GFF3
 from ...parsers.GTF import GTF
 from ...parsers.bed12 import Bed12Parser
@@ -41,11 +39,21 @@ def parse_prediction(args, index, queue_logger):
     if hasattr(args, "self") and args.self is True:
         args.prediction = to_gff(args.reference.name)
     __found_with_orf = set()
-    manager = mp.Manager()
-    queue = manager.JoinableQueue(-1)
-    returnqueue = manager.JoinableQueue(-1)
+    queue = mp.JoinableQueue(100)
+    returnqueue = mp.JoinableQueue(100)
 
     queue_logger.info("Starting to parse the prediction")
+    if args.prediction.__annot_type__ == BamParser.__annot_type__:
+        annotator = parse_prediction_bam
+    elif args.prediction.__annot_type__ == Bed12Parser.__annot_type__:
+        annotator = parse_prediction_bed12
+    elif args.prediction.__annot_type__ == GFF3.__annot_type__:
+        annotator = parse_prediction_gff3
+    elif args.prediction.__annot_type__ == GTF.__annot_type__:
+        annotator = parse_prediction_gtf
+    else:
+        raise ValueError("Unsupported input file format")
+
     if args.processes > 1:
         log_queue = args.log_queue
         dargs = dict()
@@ -60,48 +68,37 @@ def parse_prediction(args, index, queue_logger):
         nargs = Namespace(default=False, **dargs)
         nargs.self = doself
         procs = [Assigners(index, nargs, queue, returnqueue, log_queue, counter)
-                 for counter in range(1, args.processes)]
+                 for counter in range(args.processes)]
         [proc.start() for proc in procs]
         final_proc = FinalAssigner(index, nargs, returnqueue, log_queue=log_queue, nprocs=len(procs))
         final_proc.start()
-        transmitter = functools.partial(transmit_transcript, queue=queue)
-        assigner_instance = None
-    else:
-        procs = []
-        assigner_instance = Assigner(index, args, printout_tmap=True, )
-        transmitter = functools.partial(get_best_result, assigner_instance=assigner_instance)
+        done = 0
+        lastdone = 1
+        rows = []
+        for transcript in annotator(args, queue_logger):
+            rows, done, lastdone, __found_with_orf = transmit_transcript(
+                transcript, done=done, lastdone=lastdone, rows=rows, queue=queue, queue_logger=queue_logger,
+                __found_with_orf=__found_with_orf)
 
-    transmit_wrapper = functools.partial(_transmit_transcript,
-                                         transmitter=transmitter,
-                                         queue_logger=queue_logger)
+        rows, done, lastdone, __found_with_orf = transmit_transcript(
+            None, done=done, lastdone=lastdone, rows=rows, queue=queue, queue_logger=queue_logger,
+            __found_with_orf=__found_with_orf, send_all=True)
 
-    constructor = functools.partial(Transcript,
-                                    logger=queue_logger, trust_orf=True, accept_undefined_multi=True)
-
-    if args.prediction.__annot_type__ == BamParser.__annot_type__:
-        annotator = parse_prediction_bam
-    elif args.prediction.__annot_type__ == Bed12Parser.__annot_type__:
-        annotator = parse_prediction_bed12
-    elif args.prediction.__annot_type__ == GFF3.__annot_type__:
-        annotator = parse_prediction_gff3
-    elif args.prediction.__annot_type__ == GTF.__annot_type__:
-        annotator = parse_prediction_gtf
-    else:
-        raise ValueError("Unsupported input file format")
-
-    done, lastdone = annotator(args, queue_logger, transmit_wrapper, constructor)
-
-    queue_logger.info("Finished parsing, %s transcripts in total", done)
-    if assigner_instance is None:
+        queue_logger.info("Finished parsing, %s transcripts in total", done)
+        queue.join()
         queue.put("EXIT")
         [proc.join() for proc in procs]
-        returnqueue.put("EXIT")
         final_proc.join()
     else:
-        assert not procs, procs
-        assert isinstance(assigner_instance, Assigner)
+        assigner_instance = Assigner(index, args, printout_tmap=True, )
+        done = 0
+        for transcript in annotator(args, queue_logger):
+            if transcript is None:
+                continue
+            done += 1
+            assigner_instance.get_best(transcript)
+        queue_logger.info("Finished parsing, %s transcripts in total", done + 1)
         assigner_instance.finish()
-    manager.shutdown()
 
 
 def parse_self(args, gdict: GeneDict, queue_logger):

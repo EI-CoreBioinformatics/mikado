@@ -922,11 +922,12 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
     @staticmethod
     def _evaluate_transcript_overlap(
-            other,
-            transcript,
+            other: Transcript,
+            transcript: Transcript,
             min_cdna_overlap=0.2,
             min_cds_overlap=0.2,
             comparison=None,
+            check_references=True,
             fixed_perspective=True):
 
         """This private static method evaluates whether the cDNA and CDS overlap of two transcripts
@@ -996,8 +997,12 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                 cds_overlap /= min(transcript.selected_cds_length, other.selected_cds_length)
             assert cds_overlap <= 1
 
-        if transcript.is_coding and other.is_coding:
+        if other.is_reference is True and check_references is False and transcript.is_reference is True:
+            intersecting = True
+            reason = "{} is a reference transcript being added to a reference locus. Keeping it.".format(other.id)
+        elif transcript.is_coding and other.is_coding:
             intersecting = (cdna_overlap >= min_cdna_overlap and cds_overlap >= min_cds_overlap)
+
             reason = "{} and {} {}share enough cDNA ({}%, min. {}%) and CDS ({}%, min. {}%), {}intersecting".format(
                 transcript.id, other.id,
                 "do not " if not intersecting else "",

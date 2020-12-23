@@ -914,14 +914,12 @@ class Transcript:
     def is_reference(self):
         """Checks whether the transcript has been marked as reference by Mikado prepare"""
 
-        if self.json_conf is None and self.__is_reference is not None:
-            return self.__is_reference
-        elif self.__is_reference is None and self.json_conf is not None:
-            return self.original_source in self.json_conf["prepare"]["files"]["reference"]
-        elif self.__is_reference is not None and self.json_conf is not None:
-            return self.__is_reference or self.original_source in self.json_conf["prepare"]["files"]["reference"]
-        else:
+        if self.__is_reference is None and self.json_conf is None:
             return False
+        elif self.__is_reference is None:
+            self.__is_reference = (self.original_source in self.json_conf["prepare"]["files"]["reference"])
+
+        return self.__is_reference
 
     @is_reference.setter
     def is_reference(self, value):

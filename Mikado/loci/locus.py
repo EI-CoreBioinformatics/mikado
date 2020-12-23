@@ -873,6 +873,7 @@ class Locus(Abstractlocus):
                     min_cdna_overlap=self.json_conf["pick"]["alternative_splicing"]["min_cdna_overlap"],
                     min_cds_overlap=self.json_conf["pick"]["alternative_splicing"]["min_cds_overlap"],
                     comparison=main_result,
+                    check_references=self.json_conf["pick"]["run_options"]["check_references"],
                     fixed_perspective=True)
             else:
                 main_result, _ = Assigner.compare(other,
@@ -883,6 +884,7 @@ class Locus(Abstractlocus):
                     min_cdna_overlap=self.json_conf["pick"]["alternative_splicing"]["min_cdna_overlap"],
                     min_cds_overlap=self.json_conf["pick"]["alternative_splicing"]["min_cds_overlap"],
                     comparison=main_result,
+                    check_references=self.json_conf["pick"]["run_options"]["check_references"],
                     fixed_perspective=True)
 
             self.logger.debug(overlap_reason)
@@ -899,7 +901,10 @@ class Locus(Abstractlocus):
                               other.id, overlap_reason)
             is_valid = False
 
-        if is_valid:
+        if (is_valid and self.json_conf["pick"]["run_options"]["check_references"] is False and
+                other.is_reference is True):
+            pass
+        elif is_valid:
             if others is None:
                 others = self.transcripts.keys()
             else:

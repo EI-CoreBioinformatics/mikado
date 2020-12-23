@@ -33,7 +33,9 @@ def setup_logger(args):
         _log_folder = os.path.dirname(args.log)
         if _log_folder and not os.path.exists(_log_folder):
             os.makedirs(_log_folder)
-        handler = logging.FileHandler(args.log, mode="w")
+        handle = open(args.log, mode="wt")
+        handle.close()
+        handler = logging.FileHandler(handle.name)
         logger = logging.getLogger("main_compare")
         handler.setFormatter(formatter)
         logger.addHandler(handler)

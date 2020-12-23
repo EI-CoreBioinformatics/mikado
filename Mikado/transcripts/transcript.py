@@ -914,14 +914,12 @@ class Transcript:
     def is_reference(self):
         """Checks whether the transcript has been marked as reference by Mikado prepare"""
 
-        if self.json_conf is None and self.__is_reference is not None:
-            return self.__is_reference
-        elif self.__is_reference is None and self.json_conf is not None:
-            return self.original_source in self.json_conf["prepare"]["files"]["reference"]
-        elif self.__is_reference is not None and self.json_conf is not None:
-            return self.__is_reference or self.original_source in self.json_conf["prepare"]["files"]["reference"]
-        else:
+        if self.__is_reference is None and self.json_conf is None:
             return False
+        elif self.__is_reference is None:
+            self.__is_reference = (self.original_source in self.json_conf["prepare"]["files"]["reference"])
+
+        return self.__is_reference
 
     @is_reference.setter
     def is_reference(self, value):
@@ -2386,10 +2384,16 @@ index {3}, internal ORFs: {4}".format(
 
         self.__segmenttree = IntervalTree()
         for exon in self.exons:
-            self.__segmenttree.add(exon[0], exon[1], value="exon")
+            try:
+                self.__segmenttree.add(exon[0], exon[1], value="exon")
+            except AssertionError as exc:
+                raise AssertionError(f"Exon for {self.id} invalid: {exon}\n{exc}")
 
         for intron in self.introns:
-            self.__segmenttree.add(intron[0], intron[1], value="intron")
+            try:
+                self.__segmenttree.add(intron[0], intron[1], value="intron")
+            except AssertionError as exc:
+                raise AssertionError(f"Intron for {self.id} invalid: {intron}\n{exc}")
 
     @property
     def derived_children(self):

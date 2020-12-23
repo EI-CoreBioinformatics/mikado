@@ -61,7 +61,7 @@ class MiscTest(unittest.TestCase):
 
             batch_file = tempfile.NamedTemporaryFile(mode="wb", delete=False)
             proc = ProcRunner(checking.CheckingProcess,
-                              batch_file,
+                              batch_file.name,
                               logging_queue,
                               shelve_stacks=[],
                               fasta=self.fasta,
@@ -73,6 +73,7 @@ class MiscTest(unittest.TestCase):
                               log_level="DEBUG")
             import msgpack
             msgpack.dump([], batch_file)
+            batch_file.flush()
             proc.start()
             time.sleep(0.1)  # Necessary otherwise the check might be too fast for the FileSystem
             self.assertEqual(proc.func.fasta_out, os.path.join(tempfile.gettempdir(), self.fasta_out + "-0"))

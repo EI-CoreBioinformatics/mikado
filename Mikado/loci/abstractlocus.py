@@ -434,6 +434,19 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             return list(transcripts.keys())[0]
         # np.random.seed(self.json_conf["seed"])
         random.seed(self.json_conf["seed"])
+        if self.reference_update is True:
+            # We need to select only amongst the reference transcripts
+            reference_sources = {source for source, is_reference in
+                                 zip(self.json_conf["prepare"]["files"]["labels"],
+                                     self.json_conf["prepare"]["files"]["reference"]) if is_reference is True}
+            reference_tids = set()
+            for tid, transcript in transcripts.items():
+                is_reference = transcript.original_source in reference_sources or transcript.is_reference is True
+                if is_reference:
+                    reference_tids.add(tid)
+            if len(reference_tids) > 0:
+                transcripts = dict((tid, transcripts[tid]) for tid in reference_tids)
+
         max_score = max(transcripts.values(),
                         key=operator.attrgetter("score")).score
         valid = sorted([transc for transc in transcripts if transcripts[transc].score == max_score])
@@ -463,7 +476,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         """
 
         transcript.finalize()
-        self.monoexonic = self.monoexonic and transcript.monoexonic
+        self.monoexonic = self.monoexonic and self._is_transcript_monoexonic(transcript)
 
         if "flank" in kwargs:
             pass
@@ -534,6 +547,12 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         Abstractlocus.add_transcript_to_locus(self, transcript, check_in_locus=False)
         return
 
+    def _is_transcript_monoexonic(self, transcript: Transcript):
+        if self._cds_only and transcript.is_coding is True:
+            return len(transcript.selected_cds) == 1
+        else:
+            return transcript.monoexonic
+
     def remove_transcript_from_locus(self, tid: str):
         """
         :param tid: name of the transcript to remove
@@ -548,6 +567,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             self.logger.debug("Transcript %s is not present in the Locus. Ignoring it.", tid)
             return
 
+        self.logger.debug("Deleting %s from %s", tid, self.id)
         self.remove_path_from_graph(self.transcripts[tid], self._internal_graph)
         del self.transcripts[tid]
         for locattr, tranattr in self.__locus_to_transcript_attrs.items():
@@ -902,11 +922,12 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
     @staticmethod
     def _evaluate_transcript_overlap(
-            other,
-            transcript,
+            other: Transcript,
+            transcript: Transcript,
             min_cdna_overlap=0.2,
             min_cds_overlap=0.2,
             comparison=None,
+            check_references=True,
             fixed_perspective=True):
 
         """This private static method evaluates whether the cDNA and CDS overlap of two transcripts
@@ -976,8 +997,12 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                 cds_overlap /= min(transcript.selected_cds_length, other.selected_cds_length)
             assert cds_overlap <= 1
 
-        if transcript.is_coding and other.is_coding:
+        if other.is_reference is True and check_references is False and transcript.is_reference is True:
+            intersecting = True
+            reason = "{} is a reference transcript being added to a reference locus. Keeping it.".format(other.id)
+        elif transcript.is_coding and other.is_coding:
             intersecting = (cdna_overlap >= min_cdna_overlap and cds_overlap >= min_cds_overlap)
+
             reason = "{} and {} {}share enough cDNA ({}%, min. {}%) and CDS ({}%, min. {}%), {}intersecting".format(
                 transcript.id, other.id,
                 "do not " if not intersecting else "",
@@ -1200,6 +1225,9 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                 "eval")
 
         not_passing = set()
+        reference_sources = {source for source, is_reference in zip(self.json_conf["prepare"]["files"]["labels"],
+                                        self.json_conf["prepare"]["files"]["reference"]) if is_reference}
+
         for tid in iter(tid for tid in self.transcripts if
                         tid not in previous_not_passing):
             if self.transcripts[tid].json_conf is None:
@@ -1208,7 +1236,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                 self.transcripts[tid].json_conf = self.json_conf
 
             is_reference = ((self.transcripts[tid].is_reference is True) or
-                            (self.transcripts[tid].original_source in self.json_conf["prepare"]["files"]["reference"]))
+                             self.transcripts[tid].original_source in reference_sources)
 
             if is_reference is False:
                 self.logger.debug("Transcript %s (source %s) is not a reference transcript (references: %s; in it: %s)",
@@ -1744,6 +1772,16 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             return None
 
     @property
+    def _cds_only(self):
+        return self.json_conf["pick"]["clustering"]["cds_only"]
+
+    @_cds_only.setter
+    def _cds_only(self, value):
+        if value not in (True, False):
+            raise ValueError(value)
+        self.json_conf["pick"]["clustering"]["cds_only"] = value
+
+    @property
     def segmenttree(self):
         if len(self.__segmenttree) != len(self.exons) + len(self.introns):
             self.__segmenttree = self._calculate_segment_tree(self.exons, self.introns)
@@ -1811,3 +1849,12 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         if value not in (False, True):
             raise ValueError
         self.json_conf["pick"]["alternative_splicing"]["pad"] = value
+
+    @property
+    def only_reference_update(self):
+        return self.json_conf.get("pick", dict()).get("run_options", dict()).get("only_reference_update", False)
+
+    @property
+    def reference_update(self):
+        ref_update = self.json_conf.get("pick", dict()).get("run_options", dict()).get("reference_update", False)
+        return ref_update or self.only_reference_update

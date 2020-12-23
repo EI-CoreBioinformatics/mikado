@@ -87,12 +87,16 @@ class Locus(Abstractlocus):
         self.fai = None
         self.__finalized = False
 
+        self._reference_sources = set(source for source, is_reference in
+                                      zip(self.json_conf["prepare"]["files"]["labels"],
+                                          self.json_conf["prepare"]["files"]["reference"]) if is_reference is True)
+
         if pad_transcripts in (False, True):
             # self._set_padding(pad_transcripts)
             self.json_conf["pick"]["alternative_splicing"]["pad"] = pad_transcripts
             assert self.perform_padding == pad_transcripts
 
-        if self.perform_padding is True and self.json_conf["pick"]["run_options"]["only_reference_update"] is True:
+        if self.perform_padding is True and self.reference_update is True:
             self._add_to_alternative_splicing_codes("=")
             self._add_to_alternative_splicing_codes("_")
             self._add_to_alternative_splicing_codes("n")
@@ -159,6 +163,9 @@ class Locus(Abstractlocus):
         that might have scored relatively well on its own will score pretty badly when
         brought inside the locus.
 
+        Please note that, **when doing a reference update**, reference transcripts that have passed the previous checks
+        will *always* be retained and will not count for the purposes of determining the maximum number of isoforms.
+
         :param _scores:only for testing. Load directly a score mock-up.
         """
 
@@ -181,16 +188,26 @@ class Locus(Abstractlocus):
         original = dict((tid, self.transcripts[tid].copy()) for tid in self.transcripts)
 
         # *Never* lose the primary transcript
-        order = sorted(sorted([(tid, self.transcripts[tid].score, self.transcripts[tid].start,
-                                self.transcripts[tid]) for tid in self.transcripts
-                        if tid != self.primary_transcript_id],
-                        key=operator.itemgetter(1), reverse=True),
-                        key=operator.itemgetter(2), reverse=False)
+        reference_sources = set(source for source, is_reference in zip(
+            self.json_conf["prepare"]["files"]["labels"],
+            self.json_conf["prepare"]["files"]["reference"]
+        ))
+        reference_transcripts = dict(
+            (tid, self.transcripts[tid].is_reference or self.transcripts[tid].original_source in reference_sources)
+            for tid in self.transcripts)
+
+        order = sorted([[tid, self.transcripts[tid].score] for tid in self.transcripts
+                       if tid != self.primary_transcript_id and
+                        (reference_transcripts[tid] is False or
+                         self.json_conf["pick"]["run_options"]["reference_update"] is False)],
+                       key=operator.itemgetter(1), reverse=True)
         threshold = self.json_conf["pick"]["alternative_splicing"]["min_score_perc"] * self.primary_transcript.score
+
         score_passing = [_ for _ in order if _[1] >= threshold]
         removed = set([_[0] for _ in order if _[1] < threshold])
+
         remainder = score_passing[max_isoforms:]
-        score_passing= score_passing[:max_isoforms]
+        score_passing = score_passing[:max_isoforms]
 
         [self.remove_transcript_from_locus(tid) for tid in removed]
         [self.remove_transcript_from_locus(tup[0]) for tup in remainder]
@@ -527,19 +544,24 @@ class Locus(Abstractlocus):
                               transcript.id, self.id, transcript.strand, self.strand)
             to_be_added = False
 
-        if self.json_conf["pick"]["alternative_splicing"]["only_confirmed_introns"] is True:
+        reference_pass = False
+        if self.reference_update is True and \
+                (transcript.is_reference is True or transcript.original_source in self._reference_sources):
+            reference_pass = True
+
+        if self.json_conf["pick"]["alternative_splicing"]["only_confirmed_introns"] is True and reference_pass is False:
             to_check = (transcript.introns - transcript.verified_introns) - self.primary_transcript.introns
-            if len(to_check) > 0:
+            to_be_added = len(to_check) == 0
+            if not to_be_added:
                 self.logger.debug(
                     "%s not added because it has %d non-confirmed intron%s",
                     transcript.id,
                     len(to_check),
                     "s" * min(1, len(to_check) - 1))
-                to_be_added = False
 
         # Add a check similar to what we do for the minimum requirements and the fragments
         if to_be_added and "as_requirements" in self.json_conf:
-            to_be_added = self.__check_as_requirements(transcript)
+            to_be_added = self.__check_as_requirements(transcript, is_reference=reference_pass)
 
         if to_be_added is True:
             is_alternative, ccode, _ = self.is_alternative_splicing(transcript)
@@ -567,9 +589,11 @@ class Locus(Abstractlocus):
 
         self.locus_verified_introns.update(transcript.verified_introns)
 
-    def __check_as_requirements(self, transcript: Transcript) -> bool:
+    def __check_as_requirements(self, transcript: Transcript, is_reference=False) -> bool:
 
         to_be_added = True
+        if is_reference is True and self.json_conf["pick"]["run_options"]["check_references"] is False:
+            return True
         if ("compiled" not in self.json_conf["as_requirements"] or
                 self.json_conf["as_requirements"]["compiled"] is None):
             self.json_conf["as_requirements"]["compiled"] = compile(
@@ -850,6 +874,7 @@ class Locus(Abstractlocus):
                     min_cdna_overlap=self.json_conf["pick"]["alternative_splicing"]["min_cdna_overlap"],
                     min_cds_overlap=self.json_conf["pick"]["alternative_splicing"]["min_cds_overlap"],
                     comparison=main_result,
+                    check_references=self.json_conf["pick"]["run_options"]["check_references"],
                     fixed_perspective=True)
             else:
                 main_result, _ = Assigner.compare(other,
@@ -860,6 +885,7 @@ class Locus(Abstractlocus):
                     min_cdna_overlap=self.json_conf["pick"]["alternative_splicing"]["min_cdna_overlap"],
                     min_cds_overlap=self.json_conf["pick"]["alternative_splicing"]["min_cds_overlap"],
                     comparison=main_result,
+                    check_references=self.json_conf["pick"]["run_options"]["check_references"],
                     fixed_perspective=True)
 
             self.logger.debug(overlap_reason)
@@ -876,7 +902,10 @@ class Locus(Abstractlocus):
                               other.id, overlap_reason)
             is_valid = False
 
-        if is_valid:
+        if (is_valid and self.json_conf["pick"]["run_options"]["check_references"] is False and
+                other.is_reference is True):
+            pass
+        elif is_valid:
             if others is None:
                 others = self.transcripts.keys()
             else:

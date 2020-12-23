@@ -294,9 +294,9 @@ class PrepareCheck(unittest.TestCase):
         rev_strand = {"+": "-", "-": "+"}
 
         self.conf["prepare"]["files"]["labels"] = ["ann"]
-        dir = tempfile.TemporaryDirectory(prefix="test_prepare_with_cds")
+        folder = tempfile.TemporaryDirectory(prefix="test_prepare_with_cds")
         ann_gff3 = pkg_resources.resource_filename("Mikado.tests", "annotation.gff3")
-        rev_ann_gff3 = tempfile.NamedTemporaryFile(suffix=".gff3", mode="wt", dir=dir.name)
+        rev_ann_gff3 = tempfile.NamedTemporaryFile(suffix=".gff3", mode="wt", dir=folder.name)
         with open(ann_gff3) as ann:
             for line in ann:
                 line = GffLine(line)
@@ -307,7 +307,7 @@ class PrepareCheck(unittest.TestCase):
         rev_ann_gff3.flush()
 
         self.conf["prepare"]["files"]["gff"] = []
-        self.conf["prepare"]["files"]["output_dir"] = dir.name
+        self.conf["prepare"]["files"]["output_dir"] = folder.name
         self.conf["prepare"]["files"]["out_fasta"] = "mikado_prepared.fasta"
         self.conf["prepare"]["files"]["out"] = "mikado_prepared.gtf"
         args = Namespace()
@@ -354,6 +354,7 @@ class PrepareCheck(unittest.TestCase):
                                 self.assertTrue(models[model].is_coding, models[model].format("gtf"))
                             else:
                                 self.assertFalse(models[model].is_coding, models[model].format("gtf"))
+        rev_ann_gff3.close()
 
     @mark.slow
     def test_cdna_redundant_cds_not(self):
@@ -890,7 +891,7 @@ class CompareCheck(unittest.TestCase):
         namespace.index = True
         namespace.prediction = None
         dir = tempfile.mkdtemp(prefix="test_index")
-        namespace.log = os.path.join(dir, "index.log")
+        namespace.log = None
         logger = create_null_logger("null")
 
         for ref in files:
@@ -900,9 +901,9 @@ class CompareCheck(unittest.TestCase):
                         open(temp_ref, "wb") as out_handle:
                     out_handle.write(ref_handle.read())
                 namespace.reference = to_gff(temp_ref)
-                compare(namespace)
+                with self.assertLogs("main_compare") as ctx:
+                    compare(namespace)
 
-                self.assertTrue(os.path.exists(namespace.log))
                 self.assertTrue(os.path.exists("{}.midx".format(namespace.reference.name)))
                 self.assertGreater(os.stat("{}.midx".format(namespace.reference.name)).st_size, 0)
                 genes, positions = load_index(namespace, logger)
@@ -910,7 +911,6 @@ class CompareCheck(unittest.TestCase):
                 self.assertIsInstance(positions, dict)
                 self.assertEqual(len(genes), 38)
                 os.remove(namespace.reference.name)
-                os.remove(namespace.log)
                 os.remove("{}.midx".format(namespace.reference.name))
                 namespace.reference.close()
         shutil.rmtree(dir)
@@ -938,35 +938,30 @@ class CompareCheck(unittest.TestCase):
                 namespace.reference = to_gff(ref)
                 namespace.prediction = to_gff(pred)
                 namespace.processes = 2
-                dir = tempfile.mkdtemp(prefix="test_compare_trinity_{}_{}".format(
-                    os.path.splitext(ref)[-1], os.path.splitext(pred)[-1]
-                ))
+                folder = tempfile.mkdtemp(prefix="test_compare_trinity_{}_{}".format(
+                    os.path.splitext(ref)[-1], os.path.splitext(pred)[-1]))
+                namespace.log = None
                 if pred != bam:
-                    namespace.log = os.path.join(dir,  # .name,
-                                                 "compare_{}_{}.log".format(
-                        files.index(ref), files.index(pred)))
-                    namespace.out = os.path.join(dir,  # .name
+                    namespace.out = os.path.join(folder,
                                                  "compare_{}_{}".format(
                         files.index(ref), files.index(pred)))
                 else:
-                    namespace.log = os.path.join(dir,  # .name,
-                                                 "compare_{}_{}.log".format(
-                        files.index(ref), len(files) + 1))
-                    namespace.out = os.path.join(dir,  # .name,
+                    namespace.out = os.path.join(folder,
                                                  "compare_{}_{}".format(
                         files.index(ref), len(files) + 1))
-                try:
-                    compare(namespace)
-                except (ValueError, TypeError) as exc:
-                    self.assertTrue(False, (ref, pred, exc))
+
+                with self.assertLogs("main_compare") as ctx:
+                    try:
+                        compare(namespace)
+                    except (ValueError, TypeError) as exc:
+                        self.assertTrue(False, (ref, pred, exc))
                 sleep(0.1)
                 refmap = "{}.refmap".format(namespace.out)
                 tmap = "{}.tmap".format(namespace.out)
                 stats = "{}.stats".format(namespace.out)
 
-                self.assertTrue(os.path.exists(namespace.log))
-                with open(namespace.log) as log_handle:
-                    log = [_.rstrip() for _ in log_handle]
+                self.assertTrue(len(ctx.records) > 0)
+                log = [str(_) for _ in ctx.records]
                 for fname in [refmap, stats, tmap]:
                     self.assertTrue(os.path.exists(fname),
                                     (fname, ref, pred, glob.glob(namespace.out + "*"), "\n".join(log)))
@@ -987,8 +982,7 @@ class CompareCheck(unittest.TestCase):
                         for counter, line in enumerate(reader, start=1):
                             pass
                     self.assertEqual(counter, 38)
-
-                # dir.cleanup()
+                shutil.rmtree(folder)
 
     def test_compare_problematic(self):
 
@@ -1001,13 +995,15 @@ class CompareCheck(unittest.TestCase):
         namespace.self = False
         namespace.gzip = False
 
+        folders = []
         for proc in (1, 3):
             namespace.reference = to_gff(problematic)
             namespace.prediction = to_gff(problematic)
             namespace.processes = proc
-            dir = tempfile.mkdtemp(prefix="test_compare_problematic_{}".format(proc))
-            namespace.log = os.path.join(dir, "compare_problematic_{proc}.log".format(proc=proc))
-            namespace.out = os.path.join(dir, "compare_problematic_{proc}".format(proc=proc))
+            folder = tempfile.mkdtemp(prefix="test_compare_problematic_{}".format(proc))
+            namespace.log = os.path.join(folder, "compare_problematic_{proc}.log".format(proc=proc))
+            namespace.out = os.path.join(folder, "compare_problematic_{proc}".format(proc=proc))
+            folders.append(folder)
             compare(namespace)
             sleep(1)
             refmap = "{}.refmap".format(namespace.out)
@@ -1032,7 +1028,7 @@ class CompareCheck(unittest.TestCase):
                 for counter, line in enumerate(reader, start=1):
                     pass
             self.assertEqual(counter, 4)
-            shutil.rmtree(dir)
+        [shutil.rmtree(folder) for folder in folders]
 
 
 class ConfigureCheck(unittest.TestCase):
@@ -1610,7 +1606,7 @@ class PickTest(unittest.TestCase):
     @mark.slow
     def test_purging2(self):
 
-        gtf, dir, temp_gtf, scoring = self.__get_purgeable_gff()
+        gtf, folder, temp_gtf, scoring = self.__get_purgeable_gff()
 
         # Now let us test with a scoring which will create transcripts with negative scores
         scoring["scoring"] = dict()
@@ -1624,7 +1620,7 @@ class PickTest(unittest.TestCase):
         scoring["scoring"]["exon_num"] = dict()
         scoring["scoring"]["exon_num"]["rescaling"] = "max"
 
-        scoring_file = tempfile.NamedTemporaryFile(suffix=".yaml", delete=True, mode="wt", dir=dir.name)
+        scoring_file = tempfile.NamedTemporaryFile(suffix=".yaml", delete=True, mode="wt", dir=folder.name)
         yaml.dump(scoring, scoring_file)
         scoring_file.flush()
         self.json_conf["pick"]["scoring_file"] = scoring_file.name
@@ -1634,7 +1630,7 @@ class PickTest(unittest.TestCase):
                 self.json_conf["pick"]["files"]["loci_out"] = "mikado.purging_{}.loci.gff3".format(purging)
                 self.json_conf["pick"]["files"]["subloci_out"] = "mikado.purging_{}.subloci.gff3".format(purging)
                 self.json_conf["pick"]["files"]["log"] = os.path.join(
-                    dir.name,
+                    folder.name,
                     "mikado.purging_{}.log".format(purging))
                 self.json_conf["pick"]["clustering"]["purge"] = purging
                 self.json_conf["pick"]["scoring_file"] = scoring_file.name
@@ -1642,12 +1638,11 @@ class PickTest(unittest.TestCase):
                 self.assertEqual(len(self.json_conf["scoring"].keys()), 2,
                                  self.json_conf["scoring"].keys())
 
-                continue
                 pick_caller = picker.Picker(json_conf=self.json_conf)
                 with self.assertRaises(SystemExit), self.assertLogs("main_logger", "INFO"):
                     pick_caller()
 
-                with to_gff(os.path.join(dir.name,
+                with to_gff(os.path.join(folder.name,
                                          self.json_conf["pick"]["files"]["loci_out"])) as gff:
                     lines = [line for line in gff if line.header is False]
                 self.assertGreater(len(lines), 0)
@@ -1661,10 +1656,11 @@ class PickTest(unittest.TestCase):
 
             # Clean up
             for fname in ["mikado.db", "mikado.purging_{}.*".format(purging)]:
-                [os.remove(_) for _ in glob.glob(os.path.join(dir.name, fname))]
+                [os.remove(_) for _ in glob.glob(os.path.join(folder.name, fname))]
 
         temp_gtf.close()
-        dir.cleanup()
+        scoring_file.close()
+        folder.cleanup()
 
     @mark.slow
     def test_purging3(self):

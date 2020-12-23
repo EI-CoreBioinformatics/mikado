@@ -163,6 +163,10 @@ def check_run_options(args, logger=create_null_logger()):
 
     if args.only_reference_update is True:
         args.json_conf["pick"]["run_options"]["only_reference_update"] = True
+        args.json_conf["pick"]["run_options"]["reference_update"] = True
+
+    if args.reference_update is True:
+        args.json_conf["pick"]["run_options"]["reference_update"] = True
 
     if args.check_references is True:
         args.json_conf["pick"]["run_options"]["check_references"] = True
@@ -328,11 +332,14 @@ Default: False, Mikado will consider transcripts in their entirety.""")
     parser.add_argument("--as-cds-only", dest="as_cds_only", default=None, action="store_true",
                         help="""Flag. If set, Mikado will only consider the CDS to determine whether a transcript
                         is a valid alternative splicing event in a locus.""")
+    parser.add_argument("--reference-update", dest="reference_update", default=None,
+                         action="store_true",
+                         help="""Flag. If switched on, Mikado will prioritise transcripts marked as reference and will \
+    consider any other transcipt within loci only in reference to these reference transcripts. Novel loci will still be reported.""")
     parser.add_argument("--only-reference-update", dest="only_reference_update", default=None,
                         action="store_true",
                         help="""Flag. If switched on, Mikado will only keep loci where at least one of the transcripts \
-is marked as "reference". CAUTION: new and experimental. If no transcript has been marked as reference, \
-the output will be completely empty!""")
+is marked as "reference". CAUTION: if no transcript has been marked as reference, the output will be completely empty!""")
     parser.add_argument("-eri", "--exclude-retained-introns", default=None, action="store_true",
                         help="""Exclude all retained intron alternative splicing events from the final output. \
 Default: False. Retained intron events that do not dirsupt the CDS are kept by Mikado in the final output.""")

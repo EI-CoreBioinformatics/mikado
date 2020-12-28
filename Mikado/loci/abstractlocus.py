@@ -868,6 +868,8 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             return
         transcript.logger = self.logger
         transcript.finalize()
+        # Reset this flag
+        transcript.cds_disrupted_by_ri = False
 
         # A retained intron is defined as an exon which
         # - is not completely coding

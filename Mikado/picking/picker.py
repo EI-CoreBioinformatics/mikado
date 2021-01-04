@@ -1091,7 +1091,10 @@ Please update your configuration files in the future.""".format(
         :return: jobs (the list of all jobs already submitted)
         """
 
-        if self.json_conf["pick"]["run_options"]["single_thread"] is False:
+        single_thread = (self.json_conf["pick"]["run_options"]["single_thread"] or self.procs == 1
+                         or self.json_conf["log_settings"]["log_level"] == "DEBUG")
+        
+        if single_thread is False:
             self.__submit_multi_threading()
         else:
             self.__submit_single_threaded()

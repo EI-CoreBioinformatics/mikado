@@ -862,15 +862,15 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                               self.id)
             return
 
-        if len(self.introns) == 0:
-            transcript.retained_introns = tuple()
-            self.logger.debug("No introns in the locus to check against. Exiting.")
-            return
         transcript.logger = self.logger
         transcript.finalize()
         # Reset this flag
         transcript.cds_disrupted_by_ri = False
-
+        if len(self.introns) == 0:
+            transcript.retained_introns = tuple()
+            self.logger.debug("No introns in the locus to check against. Exiting.")
+            return
+        
         # A retained intron is defined as an exon which
         # - is not completely coding
         # - EITHER spans completely the intron of another transcript.

@@ -241,7 +241,7 @@ def perform_check(keys, shelve_names, args, logger):
             create_transcript,
             canonical_splices=args.json_conf["prepare"]["canonical"],
             logger=logger,
-            force_keep_cds=not args.json_conf["prepare"]["strip_cds"])
+            force_keep_cds=args.json_conf["prepare"]["force_keep_cds"])
 
         for tid, chrom, key in keys:
             tid, shelf_name, write_start, write_length = tid
@@ -288,7 +288,7 @@ def perform_check(keys, shelve_names, args, logger):
             "seed": args.json_conf["seed"],
             "lenient": args.json_conf["prepare"]["lenient"],
             "canonical_splices": args.json_conf["prepare"]["canonical"],
-            "force_keep_cds": not args.json_conf["prepare"]["strip_cds"],
+            "force_keep_cds": args.json_conf["prepare"]["force_keep_cds"],
             "log_level": args.level
         }
 

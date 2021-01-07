@@ -255,7 +255,7 @@ class PrepareCheck(unittest.TestCase):
                 ("cufflinks.gtf", "cufflinks.no_transcript.gtf"),
                 (("trinity.gff3", "trinity.match_matchpart.gff3", "trinity.cDNA_match.gff3", "trinity.gtf",
                   "trinity.no_transcript_feature.gtf"))):
-            for proc in (1, 3):
+            for proc in (1, ):
                 with self.subTest(test_file=test_file, cuff_file=cuff_file, proc=proc):
                     self.conf["prepare"]["files"]["gff"][0] = pkg_resources.resource_filename("Mikado.tests",
                                                                                               cuff_file)
@@ -315,7 +315,7 @@ class PrepareCheck(unittest.TestCase):
 
         for fname in [ann_gff3, rev_ann_gff3.name]:
             for strip in (True, False):
-                for proc in (1, 3):
+                for proc in (1, ):
                     with self.subTest(fname=fname, strip=strip, proc=proc):
                         self.conf["prepare"]["files"]["gff"] = [fname]
                         args.json_conf["prepare"]["strip_cds"] = False
@@ -873,9 +873,6 @@ class CompareCheck(unittest.TestCase):
 
     """Test to check that compare interacts correctly with match, match_part, cDNA_match"""
 
-    def tearDown(self):
-        logging.shutdown()
-
     def test_index(self):
 
         # Create the list of files
@@ -884,22 +881,17 @@ class CompareCheck(unittest.TestCase):
                  "trinity.cDNA_match.gff3",
                  "trinity.match_matchpart.gff3",
                  "trinity.bed12"]
-        # files = [pkg_resources.resource_filename("Mikado.tests", filename) for filename in files]
 
         namespace = Namespace(default=False)
         namespace.distance = 2000
         namespace.index = True
         namespace.prediction = None
-        dir = tempfile.mkdtemp(prefix="test_index")
         namespace.log = None
         logger = create_null_logger("null")
-
         for ref in files:
-            with self.subTest(ref=ref):
-                temp_ref = os.path.join(dir, ref)
-                with pkg_resources.resource_stream("Mikado.tests", ref) as ref_handle,\
-                        open(temp_ref, "wb") as out_handle:
-                    out_handle.write(ref_handle.read())
+            with self.subTest(ref=ref), tempfile.TemporaryDirectory() as folder:
+                temp_ref = os.path.join(folder, ref)
+                os.symlink(pkg_resources.resource_filename("Mikado.tests", ref), temp_ref)
                 namespace.reference = to_gff(temp_ref)
                 with self.assertLogs("main_compare") as ctx:
                     compare(namespace)
@@ -913,7 +905,6 @@ class CompareCheck(unittest.TestCase):
                 os.remove(namespace.reference.name)
                 os.remove("{}.midx".format(namespace.reference.name))
                 namespace.reference.close()
-        shutil.rmtree(dir)
 
     @mark.slow
     def test_compare_trinity(self):
@@ -934,12 +925,12 @@ class CompareCheck(unittest.TestCase):
 
         for ref, pred in itertools.chain(itertools.permutations(files, 2),
                                          [(ref, bam) for ref in files]):
-            with self.subTest(ref=ref, pred=pred):
+            with self.subTest(ref=ref, pred=pred), tempfile.TemporaryDirectory(
+                    prefix="test_compare_trinity_{}_{}".format(os.path.splitext(ref)[-1],
+                                                               os.path.splitext(pred)[-1])) as folder:
                 namespace.reference = to_gff(ref)
                 namespace.prediction = to_gff(pred)
-                namespace.processes = 2
-                folder = tempfile.mkdtemp(prefix="test_compare_trinity_{}_{}".format(
-                    os.path.splitext(ref)[-1], os.path.splitext(pred)[-1]))
+                namespace.processes = 1
                 namespace.log = None
                 if pred != bam:
                     namespace.out = os.path.join(folder,
@@ -982,7 +973,6 @@ class CompareCheck(unittest.TestCase):
                         for counter, line in enumerate(reader, start=1):
                             pass
                     self.assertEqual(counter, 38)
-                shutil.rmtree(folder)
 
     def test_compare_problematic(self):
 
@@ -995,40 +985,95 @@ class CompareCheck(unittest.TestCase):
         namespace.self = False
         namespace.gzip = False
 
-        folders = []
         for proc in (1, 3):
-            namespace.reference = to_gff(problematic)
-            namespace.prediction = to_gff(problematic)
-            namespace.processes = proc
-            folder = tempfile.mkdtemp(prefix="test_compare_problematic_{}".format(proc))
-            namespace.log = os.path.join(folder, "compare_problematic_{proc}.log".format(proc=proc))
-            namespace.out = os.path.join(folder, "compare_problematic_{proc}".format(proc=proc))
-            folders.append(folder)
-            compare(namespace)
-            sleep(1)
-            refmap = "{}.refmap".format(namespace.out)
-            tmap = "{}.tmap".format(namespace.out)
-            stats = "{}.stats".format(namespace.out)
+            with tempfile.TemporaryDirectory(prefix="test_compare_problematic_{}_".format(proc)) as folder:
+                namespace.reference = to_gff(problematic)
+                namespace.prediction = to_gff(problematic)
+                namespace.processes = proc
+                namespace.log = None
+                namespace.out = os.path.join(folder, "compare_problematic")
+                self.assertTrue(os.path.exists(folder))
+                self.assertIsInstance(folder, str)
+                with self.assertLogs("main_compare", level="INFO") as cm:
+                    compare(namespace)
+                refmap = "{}.refmap".format(namespace.out)
+                tmap = "{}.tmap".format(namespace.out)
+                stats = "{}.stats".format(namespace.out)
 
-            self.assertTrue(os.path.exists(namespace.log))
-            with open(namespace.log) as log_handle:
-                log = [_.rstrip() for _ in log_handle]
-            for fname in [refmap, stats, tmap]:
-                self.assertTrue(os.path.exists(fname), (glob.glob(namespace.out + "*"), "\n".join(log)))
-                self.assertGreater(os.stat(fname).st_size, 0,
-                                   "\n".join(log))
-            with open(refmap) as _:
-                reader = csv.DictReader(_, delimiter="\t")
-                for counter, line in enumerate(reader, start=1):
-                    ccode = line["ccode"]
-                    self.assertIn(ccode, ("_", "=", "f,_", "f,="), line)
+                log = [str(_).rstrip() for _ in cm.records]
+                for fname in [refmap, stats, tmap]:
+                    self.assertTrue(os.path.exists(fname), (glob.glob(namespace.out + "*"), "\n".join(log)))
+                    self.assertGreater(os.stat(fname).st_size, 0,
+                                       "\n".join(log))
+                with open(refmap) as _:
+                    reader = csv.DictReader(_, delimiter="\t")
+                    for counter, line in enumerate(reader, start=1):
+                        ccode = line["ccode"]
+                        self.assertIn(ccode, ("_", "=", "f,_", "f,="), line)
+                    self.assertEqual(counter, 4)
+                with open(tmap) as _:
+                    reader = csv.DictReader(_, delimiter="\t")
+                    for counter, line in enumerate(reader, start=1):
+                        pass
                 self.assertEqual(counter, 4)
-            with open(tmap) as _:
-                reader = csv.DictReader(_, delimiter="\t")
-                for counter, line in enumerate(reader, start=1):
-                    pass
-            self.assertEqual(counter, 4)
-        [shutil.rmtree(folder) for folder in folders]
+
+
+class CompareFusionCheck(unittest.TestCase):
+
+    """WARNING!!! This test seems to cause a deadlock if put in the same class as other compare tests,
+    e.g. CompareCheck above. KEEP SEPARATE"""
+
+    # @unittest.skip
+    def test_false_fusion(self):
+
+        """
+        System test to verify that the false fusion is not called.
+        WARNING: this test is quite brittle as I am creating the namespace myself
+        instead of loading it from the subprograms.compare module.
+        :return:
+        """
+
+        master = pkg_resources.resource_filename("Mikado.tests", "fusion_test")
+        # import pathlib
+        # with pathlib.Path("fusioner") as out:
+        with tempfile.TemporaryDirectory(prefix="fusion_test_") as out:
+            # out.mkdir(exist_ok=True, parents=True)
+            args = Namespace()
+            args.no_save_index = True
+            os.symlink(os.path.join(master, "fusion_test_ref.gff3"), os.path.join(out, "fusion_test_ref.gff3"))
+            os.symlink(os.path.join(master, "fusion_test_pred.gtf"), os.path.join(out, "fusion_test_pred.gtf"))
+            ref = to_gff(os.path.join(out, "fusion_test_ref.gff3"))
+            pred = to_gff(os.path.join(out, "fusion_test_pred.gtf"))
+            args.reference = ref
+            args.prediction = pred
+            args.log = os.path.join(out, "fusion.log")
+            args.out = os.path.join(out, "fusion_test")
+            args.distance = 2000
+            args.verbose = True
+            args.exclude_utr = False
+            args.protein_coding = False
+            args.index = False
+            args.self = False
+            args.extended_refmap = False
+            args.gzip = False
+            args.processes = 1
+            import threading
+
+            with self.assertLogs("main_compare") as ctx:
+                t = threading.Thread(target=compare, args=(args,))
+                t.start()
+                t.join(timeout=4)
+            out_refmap = os.path.join(out, "fusion_test.refmap")
+            self.assertTrue(os.path.exists(out_refmap))
+            self.assertGreater(os.stat(out_refmap).st_size, 0)
+            with open(out_refmap) as refmap:
+                for line in csv.DictReader(refmap, delimiter="\t"):
+                    if line["ref_id"] not in ("AT1G78880.1", "AT1G78882.1"):
+                        continue
+                    self.assertEqual(line["ccode"], "=", line)
+            ref.close()
+            pred.close()
+        return
 
 
 class ConfigureCheck(unittest.TestCase):

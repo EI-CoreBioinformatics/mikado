@@ -37,6 +37,9 @@ def parse_prepare_options(args, config):
     if getattr(args, "lenient", None) is not None:
         config["prepare"]["lenient"] = True
 
+    if getattr(args, "strip_faulty_cds", None) is not None:
+        config["prepare"]["force_keep_cds"] = False
+
     if getattr(args, "strip_cds", False) is True:
         config["prepare"]["strip_cds"] = True
 
@@ -337,6 +340,9 @@ def prepare_parser():
                         dest="exclude_redundant", action="store_true",
                         help="Boolean flag. If invoked, Mikado prepare will exclude redundant models,\
 ignoring the per-sample instructions.")
+    parser.add_argument("--strip-faulty-cds", default=None, action="store_true",
+                        help="Flag. If set, **non-reference** transcripts with an incorrect CDS will be retained but\
+with their CDS stripped. Default behaviour: the whole transcript will be considered invalid and discarded.")
     parser.add_argument("--seed", type=int, default=None,
                         help="Random seed number.")
     parser.add_argument("gff", help="Input GFF/GTF file(s).", nargs="*")

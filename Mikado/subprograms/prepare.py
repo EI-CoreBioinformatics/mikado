@@ -25,6 +25,7 @@ def parse_prepare_options(args, config):
     if getattr(args, "minimum_cdna_length", None) not in (None, False):
         config["prepare"]["minimum_cdna_length"] = args.minimum_cdna_length
 
+
     if getattr(args, "max_intron_length", None) not in (None, False):
         config["prepare"]["max_intron_length"] = args.max_intron_length
 

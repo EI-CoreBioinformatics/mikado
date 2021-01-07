@@ -358,6 +358,9 @@ def configure_parser():
                           help="Minimum cDNA length for transcripts.")
     preparer.add_argument("--max-intron-length", default=None, type=int, dest="max_intron_length",
                           help="Maximum intron length for transcripts.")
+    preparer.add_argument("--strip-faulty-cds", default=None, action="store_true",
+                          help="Flag. If set, **non-reference** transcripts with an incorrect CDS will be retained but\
+    with their CDS stripped. Default behaviour: the whole transcript will be considered invalid and discarded.")
     scoring = parser.add_argument_group("Options related to the scoring system")
     scoring.add_argument("--scoring", type=str, default=None,
                          help="Scoring file to use. Mikado provides the following:\n{}".format(

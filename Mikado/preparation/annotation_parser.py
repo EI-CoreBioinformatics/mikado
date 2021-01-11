@@ -598,9 +598,10 @@ def load_from_bed12(shelf_name,
             else:
                 exon_lines[transcript.id]["source"] = gff_handle.name  # BED12 files have no source
             exon_lines[transcript.id]["features"] = dict()
-            exon_lines[transcript.id]["chrom"] = row.chrom
-            exon_lines[transcript.id]["strand"] = row.strand
-            exon_lines[transcript.id]["attributes"] = row.attributes  # Should deal with GFFRead style input and BAM
+            exon_lines[transcript.id]["chrom"] = transcript.chrom
+            exon_lines[transcript.id]["strand"] = transcript.strand
+            # Should deal with GFFRead style input and BAM
+            exon_lines[transcript.id]["attributes"] = transcript.attributes
             exon_lines[transcript.id]["tid"] = transcript.id
             exon_lines[transcript.id]["parent"] = "{}.gene".format(transcript.id)
             exon_lines[transcript.id]["strand_specific"] = strand_specific

@@ -15,3 +15,7 @@ class BamParser(Parser):
 
     def __next__(self):
         return next(self._handle)
+
+    @property
+    def name(self):
+        return self._handle.filename.decode()

@@ -584,19 +584,21 @@ def __check_phase_correctness(transcript, strip_faulty_cds=True):
     transcript.segments, transcript.internal_orfs = segments, internal_orfs
 
     __orfs_to_remove = []
+    orf_excs = []
     for orf_index in range(len(internal_orfs)):
         try:
             transcript = __check_internal_orf(transcript, orf_index)
         except (InvalidTranscript, InvalidCDS) as exc:
-            transcript.logger.warning("ORF %s of %s is invalid. Exception: %s", orf_index, transcript.id, exc)
+            transcript.logger.debug("ORF %s of %s is invalid. Exception: %s", orf_index, transcript.id, exc)
             __orfs_to_remove.append(orf_index)
+            orf_excs.append(str(exc))
 
     __num_orfs = len(internal_orfs)
-    if len(__orfs_to_remove) > 1:
+    if len(__orfs_to_remove) >= 1:
         if strip_faulty_cds is False:
-            err = "{} is an invalid transcript as it has {} invalid ORF{} out of {}".format(
-                                      transcript.id, len(__orfs_to_remove), "" if len(__orfs_to_remove) == 1 else "s",
-                __num_orfs)
+            err = "{} is an invalid transcript as it has {} invalid ORF{} out of {}. Exceptions: {}".format(
+                transcript.id, len(__orfs_to_remove), "" if len(__orfs_to_remove) == 1 else "s",
+                __num_orfs, "\n".join(orf_excs))
             transcript.logger.warning(err)
             raise InvalidCDS(err)
         elif len(__orfs_to_remove) == __num_orfs:

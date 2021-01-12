@@ -39,7 +39,7 @@ def parse_prepare_options(args, config):
         config["prepare"]["lenient"] = True
 
     if getattr(args, "strip_faulty_cds", None) is not None:
-        config["prepare"]["force_keep_cds"] = False
+        config["prepare"]["strip_faulty_cds"] = True
 
     if getattr(args, "strip_cds", False) is True:
         config["prepare"]["strip_cds"] = True

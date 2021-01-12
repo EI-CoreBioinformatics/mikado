@@ -323,7 +323,7 @@
           }
         },
         "strip_cds": {"type": "boolean", "default": false},
-        "force_keep_cds": {"type": "boolean", "default": true},
+        "strip_faulty_cds": {"type": "boolean", "default": false},
         "single": {"type": "boolean", "default": false},
         "lenient": {"type": "boolean", "default": false},
         "strand_specific": {"type": "boolean", "default": false},

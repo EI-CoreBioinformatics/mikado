@@ -35,7 +35,7 @@ class TranscriptChecker(Transcript):
                  strand_specific=False, lenient=False,
                  is_reference=False,
                  canonical_splices=(("GT", "AG"), ("GC", "AG"), ("AT", "AC")),
-                 force_keep_cds=False,
+                 strip_faulty_cds=False,
                  logger=None):
 
         """
@@ -74,7 +74,7 @@ class TranscriptChecker(Transcript):
         self.canonical_splices = []
         self.__is_reference = False
         self.is_reference = is_reference
-        self.__force_keep_cds = force_keep_cds
+        self.strip_faulty_cds = strip_faulty_cds
         self.lenient = (self.is_reference or lenient)
         self.strand_specific = (self.is_reference or strand_specific)
         if not isinstance(canonical_splices, (tuple, list)):
@@ -202,7 +202,7 @@ class TranscriptChecker(Transcript):
         if self.checked is True:
             return
 
-        if self.strand_specific is False and self.monoexonic is True and self.__force_keep_cds is False:
+        if self.strand_specific is False and self.monoexonic is True and self.is_coding is False:
             self.strand = None
 
         elif self.monoexonic is False:
@@ -278,7 +278,7 @@ we will not reverse it")
     def reverse_strand(self):
         if self.is_reference is True:
             raise InvalidTranscript("I cannot reverse the strand of a reference transcript.")
-        elif self.is_coding is True and self.__force_keep_cds is True:
+        elif self.is_coding is True and self.strip_faulty_cds is False:
             raise InvalidTranscript("I cannot reverse the strand of a coding transcript.")
         super().reverse_strand()
 
@@ -331,7 +331,7 @@ we will not reverse it")
             try:
                 orfs = list(self.get_internal_orf_beds())
             except AssertionError as exc:  # Invalid ORFs found
-                if self.__force_keep_cds is True:
+                if self.strip_faulty_cds is False:
                     raise InvalidTranscript("Invalid ORF(s) for %s. Discarding it. Error: %s", self.id, exc)
                 else:
                     self.logger.warning("Invalid ORF(s) for %s. Stripping it of its CDS. Error: %s",
@@ -355,7 +355,7 @@ we will not reverse it")
             assert isinstance(orf, BED12)
 
             if orf.invalid:
-                if self.__force_keep_cds is True:
+                if self.strip_faulty_cds is False:
                     raise InvalidTranscript("Invalid ORF(s) for %s. Discarding it. Reason: %s", self.id,
                                             orf.invalid_reason)
                 else:

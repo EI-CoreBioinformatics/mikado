@@ -176,7 +176,7 @@ class TChekerTester(unittest.TestCase):
                 model.finalize()
                 self.assertTrue(model.is_coding)
                 fasta = self.fasta[model.chrom][model.start - 1: model.end]
-                tcheck = TranscriptChecker(model.copy(), fasta, force_keep_cds=True, strand_specific=False)
+                tcheck = TranscriptChecker(model.copy(), fasta, strip_faulty_cds=False, strand_specific=False)
                 tcheck.check_strand()
                 self.assertTrue(tcheck.is_coding)
                 self.assertEqual(tcheck.strand, strand)
@@ -259,17 +259,17 @@ class TChekerTester(unittest.TestCase):
                         features="CDS")
         model.finalize()
         model_fasta = self.fasta["Chr5"][model.start - 1:model.end]
-        check_model = TranscriptChecker(model, model_fasta)
+        check_model = TranscriptChecker(model, model_fasta, strip_faulty_cds=True)
         check_model.check_strand()
         self.assertEqual(check_model.strand, "-")
         self.assertGreater(check_model.combined_cds_length, 0)
         model.unfinalize()
         model.strand = "+"
-        check_model = TranscriptChecker(model, model_fasta)
+        check_model = TranscriptChecker(model, model_fasta, strip_faulty_cds=True)
         check_model.check_strand()
         self.assertEqual(check_model.strand, "-")
         self.assertFalse(check_model.is_coding)
-        check_model = TranscriptChecker(model, model_fasta, force_keep_cds=True)
+        check_model = TranscriptChecker(model, model_fasta, strip_faulty_cds=False)
         # Check that if we want to keep the CDS, this will raise an error
         with self.assertRaises(InvalidTranscript):
             check_model.check_strand()
@@ -283,17 +283,17 @@ class TChekerTester(unittest.TestCase):
         model.add_exons([(10638, 12665), (12797, 13003)], features="CDS")
         model.finalize()
         model_fasta = self.fasta["Chr5"][model.start - 1:model.end]
-        check_model = TranscriptChecker(model, model_fasta)
+        check_model = TranscriptChecker(model, model_fasta, strip_faulty_cds=True)
         check_model.check_strand()
         self.assertEqual(check_model.strand, "+")
         self.assertGreater(check_model.combined_cds_length, 0)
         model.unfinalize()
         model.strand = "-"
-        check_model = TranscriptChecker(model, model_fasta)
+        check_model = TranscriptChecker(model, model_fasta, strip_faulty_cds=True)
         check_model.check_strand()
         self.assertEqual(check_model.strand, "+")
         self.assertFalse(check_model.is_coding)
-        check_model = TranscriptChecker(model, model_fasta, force_keep_cds=True)
+        check_model = TranscriptChecker(model, model_fasta, strip_faulty_cds=False)
         with self.assertRaises(InvalidTranscript):
             check_model.check_strand()
 

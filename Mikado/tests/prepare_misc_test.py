@@ -239,6 +239,7 @@ class MiscTest(unittest.TestCase):
                               gtf_out=self.gtf_out,
                               seed=None,
                               tmpdir=tempfile.gettempdir(),
+                              strip_faulty_cds=True,
                               log_level="DEBUG")
 
             self.submission_queue.put((lines, lines["start"], lines["end"], 0))
@@ -246,34 +247,36 @@ class MiscTest(unittest.TestCase):
             proc.start()
             proc.join()
             time.sleep(0.5)
-            self.assertTrue(os.stat(proc.func.fasta_out).st_size > 0, proc.func.fasta_out)
-            fasta_lines = []
-            with open(proc.func.fasta_out) as f_out:
-                for line in f_out:
-                    line = line.rstrip()
-                    line = re.sub("0/", "", line)
-                    fasta_lines.append(line)
 
-            self.assertGreater(len(fasta_lines), 1)
-            seq = self.fai.fetch(lines["chrom"], lines["start"] - 1, lines["end"])
-            res = checking.create_transcript(lines, seq, lines["start"], lines["end"])
-            self.assertTrue(len(res.cdna), (209593 - 208937 + 1) + (210445 - 209881 + 1))
+        self.assertTrue(os.stat(proc.func.fasta_out).st_size > 0, (proc.func.fasta_out,
+                        cmo.output))
+        fasta_lines = []
+        with open(proc.func.fasta_out) as f_out:
+            for line in f_out:
+                line = line.rstrip()
+                line = re.sub("0/", "", line)
+                fasta_lines.append(line)
 
-            with tempfile.NamedTemporaryFile(suffix="fa", delete=True, mode="wt") as faix:
+        self.assertGreater(len(fasta_lines), 1)
+        seq = self.fai.fetch(lines["chrom"], lines["start"] - 1, lines["end"])
+        res = checking.create_transcript(lines, seq, lines["start"], lines["end"])
+        self.assertTrue(len(res.cdna), (209593 - 208937 + 1) + (210445 - 209881 + 1))
 
-                assert len(fasta_lines) > 1
-                assert fasta_lines[0][0] == ">"
-                for line in fasta_lines:
-                    print(line, file=faix)
-                faix.flush()
-                try:
-                    fa = pyfaidx.Fasta(faix.name)
-                except TypeError:
-                    raise TypeError([_ for _ in open(faix.name)])
-                self.assertEqual(list(fa.keys()), ["AT5G01530.0"])
-                self.assertEqual(str(fa["AT5G01530.0"]), str(res.cdna))
-                self.assertEqual(len(str(fa["AT5G01530.0"])), res.cdna_length)
+        with tempfile.NamedTemporaryFile(suffix="fa", delete=True, mode="wt") as faix:
 
-                os.remove(faix.name + ".fai")
+            assert len(fasta_lines) > 1
+            assert fasta_lines[0][0] == ">"
+            for line in fasta_lines:
+                print(line, file=faix)
+            faix.flush()
+            try:
+                fa = pyfaidx.Fasta(faix.name)
+            except TypeError:
+                raise TypeError([_ for _ in open(faix.name)])
+            self.assertEqual(list(fa.keys()), ["AT5G01530.0"])
+            self.assertEqual(str(fa["AT5G01530.0"]), str(res.cdna))
+            self.assertEqual(len(str(fa["AT5G01530.0"])), res.cdna_length)
+
+            os.remove(faix.name + ".fai")
 
         listener.stop()

@@ -34,6 +34,16 @@ import rapidjson as json
 json_conf = to_json(None)
 
 
+def to_bool(param: str):
+    lparam = param.lower()
+    if lparam == 'true':
+        return True
+    elif lparam == 'false':
+        return False
+
+    raise ValueError
+
+
 class Abstractlocus(metaclass=abc.ABCMeta):
     """This abstract class defines the basic features of any Locus-like object.
     It also defines methods/properties that are needed throughout the program,
@@ -41,6 +51,9 @@ class Abstractlocus(metaclass=abc.ABCMeta):
     """
 
     __name__ = "Abstractlocus"
+    cast_to = {'int': int,
+               'float': float,
+               'bool': to_bool}
     available_metrics = Transcript.get_available_metrics()
 
     # ##### Special methods #########
@@ -870,7 +883,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             transcript.retained_introns = tuple()
             self.logger.debug("No introns in the locus to check against. Exiting.")
             return
-        
+
         # A retained intron is defined as an exon which
         # - is not completely coding
         # - EITHER spans completely the intron of another transcript.
@@ -1205,12 +1218,25 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         self._metrics[tid] = dict((metric, rgetattr(self.transcripts[tid], metric))
                                    for metric in self.available_metrics)
 
-        # TODO get the scoring metrics to retrieve from the attributes
-        attribute_metrics = dict((param, self.json_conf["scoring"][param]["default"])
-                                 for param in self.json_conf["scoring"] if param.startswith("attribute."))
-        for metric, default in attribute_metrics.items():
-            self._metrics[tid].update((metric, self.transcripts[tid].attributes.get(metric.split(".")[1], default)
-                                       ))
+        # Get the value for each attribute defined metric
+        attribute_metrics = dict((param,
+                                  {
+                                      'default': self.json_conf["scoring"][param]["default"],
+                                      'rtype': self.json_conf['scoring'][param]['rtype']
+                                  }
+                                  )
+                                 for param in self.json_conf["scoring"] if param.startswith("attributes."))
+        # TODO: attribute_metrics should be defined once for the class after the config has been loaded instead of
+        #  each time we evaluate a single transcript metrics
+
+        for metric, values in attribute_metrics.items():
+            # 11 == len('attributes.') removes 'attributes.' to keep the metric name same as in the file attributes
+            attribute_metric_value = self.transcripts[tid].attributes.get(
+                metric[11:], self.cast_to[values['rtype']](values['default']))
+            try:
+                self._metrics[tid].update([(metric, attribute_metric_value)])
+            except KeyError:
+                self._metrics[tid].add((metric, attribute_metric_value))
 
         self.logger.debug("Calculated metrics for {0}".format(tid))
 
@@ -1436,6 +1462,8 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         use_raw = self.json_conf["scoring"][param]["use_raw"]
         multiplier = self.json_conf["scoring"][param]["multiplier"]
 
+        # Loading the metrics in preparation for evaluation
+        # TODO: Add external metrics from the transcripts attributes (requires a default?)
         metrics = dict()
         for tid, transcript in self.transcripts.items():
             try:

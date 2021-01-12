@@ -354,7 +354,7 @@ def __calculate_phases(coding: list, previous: int) -> (int, dict):
     return total_cds_length, __calculated_phases
 
 
-def __check_internal_orf(transcript, index):
+def __check_internal_orf(transcript, index, strip_faulty_cds=True):
 
     """
     Method that verifies that an internal ORF does not have any internal gap.
@@ -538,7 +538,7 @@ Coding_exons (recalculated): {}""".format(
     return transcript
 
 
-def __check_phase_correctness(transcript):
+def __check_phase_correctness(transcript, strip_faulty_cds=True):
 
     """
     This method verifies that the phases are assigned correctly in the case of a coding transcript.
@@ -547,7 +547,6 @@ def __check_phase_correctness(transcript):
     :return: Mikado.loci.transcript.Transcript
     """
 
-    strip_faulty_cds = getattr(transcript, "strip_faulty_cds", True)
     segments, internal_orfs = transcript.segments, transcript.internal_orfs
 
     if min(len(segments), len(internal_orfs)) == 0:
@@ -586,35 +585,29 @@ def __check_phase_correctness(transcript):
 
     __orfs_to_remove = []
     for orf_index in range(len(internal_orfs)):
-        # transcript.logger.debug("ORF #%d for %s: %s",
-        #                         orf_index, transcript.id, transcript.internal_orfs[orf_index])
-        # transcript = __check_internal_orf(transcript, orf_index)
         try:
-            transcript = __check_internal_orf(transcript, orf_index)
+            transcript = __check_internal_orf(transcript, orf_index, strip_faulty_cds=strip_faulty_cds)
         except (InvalidTranscript, InvalidCDS) as exc:
-            transcript.logger.warning("ORF %s of %s is invalid.", orf_index, transcript.id)
+            transcript.logger.warning("ORF %s of %s is invalid. Exception: %s", orf_index, transcript.id, exc)
             __orfs_to_remove.append(orf_index)
 
     __num_orfs = len(internal_orfs)
-    if (__num_orfs > 0) and (len(__orfs_to_remove) == __num_orfs):
-        if strip_faulty_cds is True:
-            transcript.logger.warning("Every ORF of %s is invalid, stripping the CDS", transcript.id)
-            transcript.strip_cds(strand_specific=True)
-        else:
-            transcript.logger.info(
-                "Every ORF of %s is invalid, but keeping them in place as requested.")
+    if strip_faulty_cds is False and len(__orfs_to_remove) > 1:
+        err = "{} is an invalid transcript as it has {} invalid ORF{} out of {}".format(
+                                  transcript.id, len(__orfs_to_remove), "" if len(__orfs_to_remove) == 1 else "s",
+            __num_orfs)
+        transcript.logger.warning(err)
+        raise InvalidCDS(err)
+
+    elif (__num_orfs > 0) and (len(__orfs_to_remove) == __num_orfs):
+        transcript.logger.warning("Every ORF of %s is invalid, stripping the CDS", transcript.id)
+        transcript.strip_cds(strand_specific=True)
     elif len(__orfs_to_remove):
-        if strip_faulty_cds is True:
-            transcript.logger.warning("Stripping %s of %s ORFs out of %s",
-                                      transcript.id, len(__orfs_to_remove), __num_orfs)
-            for orf_index in reversed(sorted(__orfs_to_remove)):
-                internal_orfs.pop(orf_index)
-            transcript.internal_orfs = internal_orfs
-        else:
-            transcript.logger.info(
-                "%s ORFs out of %s of %s %s invalid, but keeping %s in place as requested.",
-                len(__orfs_to_remove), __num_orfs, transcript.id, "is" if len(__orfs_to_remove) == 1 else "are",
-                "it" if len(__orfs_to_remove) == 1 else "them")
+        transcript.logger.warning("Stripping %s of %s ORFs out of %s",
+                                  transcript.id, len(__orfs_to_remove), __num_orfs)
+        for orf_index in reversed(sorted(__orfs_to_remove)):
+            internal_orfs.pop(orf_index)
+        transcript.internal_orfs = internal_orfs
     else:
         pass
 
@@ -739,19 +732,23 @@ def finalize(transcript):
     transcript.combined_utr = sorted(transcript.combined_utr,
                                      key=operator.itemgetter(0, 1))
 
+    strip_faulty_cds = getattr(transcript, "strip_faulty_cds", True)
     try:
         __check_completeness(transcript)
         __verify_boundaries(transcript)
         assert all([segment[1] in transcript.exons for segment in transcript.segments if
                     segment[0] == "exon"]), (transcript.exons, transcript.segments)
         transcript.logger.debug("Verifying phase correctness for %s", transcript.id)
-        __check_phase_correctness(transcript)
+        __check_phase_correctness(transcript, strip_faulty_cds=strip_faulty_cds)
         transcript.logger.debug("Calculating intron correctness for %s", transcript.id)
         __calculate_introns(transcript)
     except (InvalidCDS, InvalidTranscript):
-        transcript.finalized = True
-        transcript.unfinalize()
-        return
+        if strip_faulty_cds is True:
+            transcript.finalized = True
+            transcript.unfinalize()
+            return
+        else:
+            raise
 
     if transcript.feature == "transcript":
         if len(transcript.combined_cds) > 0:

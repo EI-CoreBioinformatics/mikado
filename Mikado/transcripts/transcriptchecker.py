@@ -6,7 +6,7 @@ to verify that e.g. the assigned strand is correct.
 """
 
 from .transcript import Transcript
-from ..exceptions import IncorrectStrandError, InvalidTranscript
+from ..exceptions import IncorrectStrandError, InvalidTranscript, InvalidCDS
 from collections import Counter
 from itertools import zip_longest
 from ..parsers.bed12 import BED12
@@ -182,7 +182,10 @@ class TranscriptChecker(Transcript):
         The finalize method is called preliminarly before any operation.
         """
 
-        self.finalize()
+        try:
+            self.finalize()
+        except (InvalidTranscript, InvalidCDS) as exc:
+            raise InvalidTranscript("{} cannot be finalised correctly. Discarding it. Error: {}".format(self.id, exc))
 
         if self.exons[0][0] - self.start != 0:
             error = "First exon start and transcript start disagree in {}: {} vs {}".format(self.id,

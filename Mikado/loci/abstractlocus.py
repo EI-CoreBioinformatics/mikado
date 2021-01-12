@@ -1203,7 +1203,14 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         self.transcripts[tid].retained_fraction = fraction
 
         self._metrics[tid] = dict((metric, rgetattr(self.transcripts[tid], metric))
-                                    for metric in self.available_metrics)
+                                   for metric in self.available_metrics)
+
+        # TODO get the scoring metrics to retrieve from the attributes
+        attribute_metrics = dict((param, self.json_conf["scoring"][param]["default"])
+                                 for param in self.json_conf["scoring"] if param.startswith("attribute."))
+        for metric, default in attribute_metrics.items():
+            self._metrics[tid].update((metric, self.transcripts[tid].attributes.get(metric.split(".")[1], default)
+                                       ))
 
         self.logger.debug("Calculated metrics for {0}".format(tid))
 
@@ -1227,8 +1234,9 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                 "eval")
 
         not_passing = set()
-        reference_sources = {source for source, is_reference in zip(self.json_conf["prepare"]["files"]["labels"],
-                                        self.json_conf["prepare"]["files"]["reference"]) if is_reference}
+        reference_sources = {source for source, is_reference in
+                             zip(self.json_conf["prepare"]["files"]["labels"],
+                                 self.json_conf["prepare"]["files"]["reference"]) if is_reference}
 
         for tid in iter(tid for tid in self.transcripts if
                         tid not in previous_not_passing):

@@ -1,6 +1,8 @@
 import unittest
-
-from ..loci import Transcript
+from ..loci import Transcript, Superlocus
+import pkg_resources
+import os
+from ..configuration.configurator import to_json
 
 
 class ExternalTester(unittest.TestCase):
@@ -33,3 +35,14 @@ class ExternalTester(unittest.TestCase):
         transcript = self.transcript.deepcopy()
         self.assertEqual(transcript.external_scores.test, 0)
         self.assertEqual(transcript.external_scores.test1, 1)
+
+    @unittest.skip
+    def test_real(self):
+        conf = to_json(None)
+        self.assertIn("scoring", conf)
+        self.transcript.attributes["tpm"] = 10
+        conf["scoring"]["attributes.tpm"] = {"rescaling": "max", "default": 0, "rtype": "float"}
+        sup = Superlocus(self.transcript, json_conf=conf)
+        sup.get_metrics()
+        self.assertIn("attributes.tpm", sup._metrics[self.transcript.id])
+        self.assertEqual(sup._metrics[self.transcript.id]["attributes.tpm"], 10)

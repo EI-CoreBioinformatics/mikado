@@ -329,6 +329,15 @@ we will not reverse it")
         self.has_start_codon = False
         self.has_stop_codon = False
 
+        try:
+            self.finalize()
+        except InvalidCDS:
+            if self.strip_faulty_cds is True:
+                self.strip_cds(strand_specific=True)
+                self.finalize()
+            else:
+                self.logger.warning("Transcript %s has an invalid CDS and must therefore be discarded.", self.id)
+
         if self.is_coding is False:
             return
         else:

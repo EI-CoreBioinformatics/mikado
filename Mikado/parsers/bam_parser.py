@@ -8,7 +8,7 @@ class BamParser(Parser):
 
     def __init__(self, handle):
         self.__closed = False
-        self._handle = pysam.AlignmentFile(handle, "rb")
+        self._handle = pysam.AlignmentFile(handle, "rb", check_seq=False)
 
     def __iter__(self):
         return self

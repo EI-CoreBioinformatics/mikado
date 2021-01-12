@@ -181,6 +181,7 @@ class TranscriptChecker(Transcript):
 
         The finalize method is called preliminarly before any operation.
         """
+
         self.finalize()
 
         if self.exons[0][0] - self.start != 0:

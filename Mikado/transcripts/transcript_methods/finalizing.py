@@ -538,7 +538,7 @@ Coding_exons (recalculated): {}""".format(
     return transcript
 
 
-def __check_phase_correctness(transcript):
+def __check_phase_correctness(transcript, strip_faulty_cds=True):
 
     """
     This method verifies that the phases are assigned correctly in the case of a coding transcript.
@@ -591,11 +591,13 @@ def __check_phase_correctness(transcript):
         try:
             transcript = __check_internal_orf(transcript, orf_index)
         except (InvalidTranscript, InvalidCDS) as exc:
-            transcript.logger.warning("ORF %s of %s is invalid, removing.",
-                                      orf_index, transcript.id)
+            transcript.logger.warning("ORF %s of %s is invalid.", orf_index, transcript.id)
             __orfs_to_remove.append(orf_index)
 
     __num_orfs = len(internal_orfs)
+    if len(__orfs_to_remove) > 0 and strip_faulty_cds is False:
+        raise InvalidCDS("")
+
     if (__num_orfs > 0) and (len(__orfs_to_remove) == __num_orfs):
         transcript.logger.warning("Every ORF of %s is invalid, stripping the CDS", transcript.id)
         transcript.strip_cds(strand_specific=True)
@@ -735,7 +737,7 @@ def finalize(transcript):
         assert all([segment[1] in transcript.exons for segment in transcript.segments if
                     segment[0] == "exon"]), (transcript.exons, transcript.segments)
         transcript.logger.debug("Verifying phase correctness for %s", transcript.id)
-        __check_phase_correctness(transcript)
+        __check_phase_correctness(transcript, strip_faulty_cds=getattr(transcript, "strip_faulty_cds", True))
         transcript.logger.debug("Calculating intron correctness for %s", transcript.id)
         __calculate_introns(transcript)
     except (InvalidCDS, InvalidTranscript):

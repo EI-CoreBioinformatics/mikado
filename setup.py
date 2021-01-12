@@ -83,7 +83,7 @@ setup(
     keywords="rna-seq annotation genomics transcriptomics",
     packages=find_packages(),
     scripts=glob.glob("util/*.py"),
-    entry_points={"console_scripts": ["mikado = Mikado:main",
+    entry_points={"console_scripts": ["mikado = Mikado.__main__:main",
                                       "daijin = Mikado.daijin:main",
                                       ]},
     install_requires=[line.rstrip() for line in open("requirements.txt", "rt")],

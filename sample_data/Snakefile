@@ -267,6 +267,10 @@ rule test_external_kal_pick:
       loci_out="mikado-permissive.loci.gff3"
     log: os.path.join("Daijin", "5-mikado", "pick", "external", "mikado-permissive.log")
     threads: 2
+    message: """mikado pick --scoring-file {input.scoring} --source Mikado_permissive \
+    --mode=permissive --procs=2 --start-method=spawn \
+    --json-conf=configuration.yaml -od {params.outdir} \
+     -l {log} --loci-out {params.loci_out} -lv INFO -db {input.db} {input.gtf}"""
     shell: """mikado pick --scoring-file {input.scoring} --source Mikado_permissive \
     --mode=permissive --procs=2 --start-method=spawn \
     --json-conf=configuration.yaml -od {params.outdir} \

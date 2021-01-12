@@ -2,7 +2,6 @@ import argparse
 import sys
 from multiprocessing.spawn import freeze_support
 
-from Mikado import create_default_logger
 from Mikado.version import __version__
 
 
@@ -79,7 +78,7 @@ by Cufflinks's cuffcompare and ParsEval.")
     except BrokenPipeError:
         pass
     except Exception as exc:
-        logger = create_default_logger("main")
+        logger = ("main")
         logger.error("Mikado crashed, cause:")
         logger.exception(exc)
         import multiprocessing as mp
@@ -92,7 +91,7 @@ by Cufflinks's cuffcompare and ParsEval.")
 if __name__ == '__main__':
     # __spec__ = "Mikado"
     freeze_support()
-    main()
+    sys.exit(main())
 else:
     from numpy._pytesttester import PytestTester
     test = PytestTester(__name__)

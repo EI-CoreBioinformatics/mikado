@@ -183,7 +183,8 @@ def check_scoring(json_conf):
     for parameter in jdict:
         if parameter not in available_metrics:
             # Leniency for external_scores
-            if "." in parameter and len(parameter.split(".")) == 2 and parameter.split(".")[0] == "external":
+            if "." in parameter and len(parameter.split(".")) == 2 and (parameter.split(".")[0] == "external" or
+                                                                        parameter.split(".")[0] == "attributes"):
                 pass
             else:
                 parameters_not_found.append(parameter)
@@ -203,7 +204,7 @@ def check_scoring(json_conf):
         except Exception as err:
             raise ValueError(parameter, err)
 
-        if ("external" not in parameter and
+        if (not parameter.startswith("external") and not parameter.startswith("attributes") and
                     getattr(Transcript, parameter).usable_raw is False and
                     jdict[parameter]["use_raw"] is True):
             invalid_raw.add(parameter)

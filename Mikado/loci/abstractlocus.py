@@ -41,7 +41,7 @@ def to_bool(param: Union[str,bool,int,float]):
     elif isinstance(param, (int, float)):
         if param == 1:
             return True
-        else:
+        elif param == 0:
             return False
     else:
         lparam = param.lower()
@@ -1227,14 +1227,25 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         self._metrics[tid] = dict((metric, rgetattr(self.transcripts[tid], metric))
                                    for metric in self.available_metrics)
 
-        # TODO: attribute_metrics should be defined once for the class after the config has been loaded instead of
-        #  each time we evaluate a single transcript metrics
-
         for metric, values in self._attribute_metrics.items():
             # 11 == len('attributes.') removes 'attributes.' to keep the metric name same as in the file attributes
-            self.logger.warning("Rtype: %s", self.cast_to[values['rtype']])
             rtype = self.cast_to[values['rtype']]
-            attribute_metric_value = rtype(self.transcripts[tid].attributes.get(metric[11:], values['default']))
+            attribute_metric_value = self.transcripts[tid].attributes.get(metric[11:], values['default'])
+            try:
+                attribute_metric_value = rtype(attribute_metric_value)
+            except ValueError:
+                message = f"Error encountered when processing Transcript {tid}. " \
+                          f"The 'attributes' based metric {metric}, with value {attribute_metric_value} " \
+                          f"could not be created as type {values['rtype']}"
+                self.logger.error(message)
+                raise ValueError(message)
+            if values['use_raw'] is True and not (0 <= attribute_metric_value <= 1):
+                message = f"Error encountered when processing Transcript {tid}. " \
+                          f"The 'attributes' based metric {metric}, with value {attribute_metric_value} " \
+                          f"defined as 'use_raw' is not between 0 and 1 inclusive."
+                self.logger.error(message)
+                raise ValueError(message)
+
             self._metrics[tid].update([(metric, attribute_metric_value)])
 
         self.logger.debug("Calculated metrics for {0}".format(tid))
@@ -1304,12 +1315,13 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
         return not_passing
 
-    def calculate_scores(self):
+    def filter_and_calculate_scores(self, check_requirements=True):
         """
         Function to calculate a score for each transcript, given the metrics derived
         with the calculate_metrics method and the scoring scheme provided in the JSON configuration.
         If any requirements have been specified, all transcripts which do not pass them
-        will be assigned a score of 0 and subsequently ignored.
+        will be either purged according to the configuration file ('pick.clustering.purge')
+        or assigned a score of 0 and subsequently ignored.
         Scores are rounded to the nearest integer.
         """
 
@@ -1330,7 +1342,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
         self.get_metrics()
         self.logger.debug("Calculating scores for {0}".format(self.id))
-        if "requirements" in self.json_conf:
+        if "requirements" in self.json_conf and check_requirements:
             self._check_requirements()
 
         if len(self.transcripts) == 0:
@@ -1461,8 +1473,6 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         use_raw = self.json_conf["scoring"][param]["use_raw"]
         multiplier = self.json_conf["scoring"][param]["multiplier"]
 
-        # Loading the metrics in preparation for evaluation
-        # TODO: Add external metrics from the transcripts attributes (requires a default?)
         metrics = dict()
         for tid, transcript in self.transcripts.items():
             try:
@@ -1539,6 +1549,9 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                     raise TypeError(
                         "Value of {param} is {metric}. It should be a tuple with a boolean second element".format(
                             **locals()))
+            elif param.startswith('attributes'):
+                usable_raw = use_raw
+
             else:
                 usable_raw = getattr(Transcript, param).usable_raw
 
@@ -1681,7 +1694,8 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         self._attribute_metrics = dict((param,
                                   {
                                       'default': self.json_conf["scoring"][param]["default"],
-                                      'rtype': self.json_conf['scoring'][param]['rtype']
+                                      'rtype': self.json_conf['scoring'][param]['rtype'],
+                                      'use_raw': self.json_conf['scoring'][param]['use_raw']
                                   }
                                   )
                                  for param in self.__json_conf["scoring"] if param.startswith("attributes."))

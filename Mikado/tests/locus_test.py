@@ -63,7 +63,7 @@ class ExcludedTester(unittest.TestCase):
         with self.assertRaises(NotImplementedError):
             str(excluded)
         with self.assertRaises(NotImplementedError):
-            excluded.calculate_scores()
+            excluded.filter_and_calculate_scores()
         with self.assertRaises(NotImplementedError):
             excluded.define_monosubloci()
         with self.assertRaises(NotImplementedError):
@@ -1752,7 +1752,7 @@ class TestLocus(unittest.TestCase):
         self.assertEqual(t.number_internal_orfs, 2)
 
         locus = Locus(t)
-        locus.calculate_scores()
+        locus.filter_and_calculate_scores()
         self.assertTrue(list(locus.scores.keys()), [t.id])
         rows = list(locus.print_scores())
         self.assertEqual(len(rows), 1, rows)
@@ -2018,7 +2018,7 @@ Chr1	100	2682	ID=test_3;coding=True;phase=0	0	+	497	2474	0	7	234,201,41,164,106,
         for tid in transcripts:
             sl.add_transcript_to_locus(transcripts[tid], check_in_locus=False)
 
-        sl.calculate_scores()
+        sl.filter_and_calculate_scores()
         for tid in sl:
             if tid == "test_2":
                 self.assertTrue(sl[tid].cds_disrupted_by_ri)
@@ -2088,7 +2088,7 @@ Chr1	100	2682	ID=test_3;coding=True;phase=0	0	+	497	2474	0	7	234,201,41,164,106,
                 logger = create_default_logger("test_false_ri", level="DEBUG")
                 sup = Superlocus(tr1, logger=logger)
                 sup.add_transcript_to_locus(tr2)
-                sup.calculate_scores()
+                sup.filter_and_calculate_scores()
                 self.assertFalse(sup["t1"].cds_disrupted_by_ri)
                 self.assertEqual(sup["t1"].retained_intron_num, 0)
                 self.assertFalse(sup["t2"].cds_disrupted_by_ri)
@@ -2890,7 +2890,7 @@ Chr1	100	2682	ID=test_3;coding=True;phase=0	0	+	497	2474	0	7	234,201,41,164,106,
                     sup.add_transcript_to_locus(transcripts[tid], check_in_locus=True)
                     self.assertIn(tid, sup.transcripts.keys())
 
-                sup.calculate_scores()
+                sup.filter_and_calculate_scores()
                 sup.logger.setLevel("WARNING")
                 for tid in sorted(res.keys()):
                     self.assertIn(tid, sup.transcripts.keys())
@@ -2932,7 +2932,7 @@ Chr1	100	2682	ID=test_3;coding=True;phase=0	0	+	497	2474	0	7	234,201,41,164,106,
             self.assertIn("t1", sup.transcripts.keys())
             [sup.add_transcript_to_locus(transcripts[tid]) for tid in transcripts if tid != "t1"]
             sup.logger = logger
-            sup.calculate_scores()
+            sup.filter_and_calculate_scores()
             for tid in sorted(res.keys()):
                 self.assertEqual((sup.transcripts[tid].retained_introns, sup.transcripts[tid].cds_disrupted_by_ri),
                                  res[tid],
@@ -3746,7 +3746,7 @@ class PaddingTester(unittest.TestCase):
         second.finalize()
         locus.add_transcript_to_locus(second)
         self.assertEqual(len(locus.transcripts), 2)
-        locus.calculate_scores()
+        locus.filter_and_calculate_scores()
         self.assertAlmostEqual(locus[second.id].exon_fraction, 2/3, places=3)
         self.assertAlmostEqual(locus[transcript.id].exon_fraction, 2 / 3, places=3)
         self.assertEqual(locus.primary_transcript, transcript)
@@ -3762,7 +3762,7 @@ class PaddingTester(unittest.TestCase):
         locus._swap_transcript(transcript, new)
         self.assertEqual(locus.primary_transcript, new)
         self.assertEqual(locus.exons, {(51, 200), (501, 1000), (101, 1000), (1301, 1600), (1201, 1500)})
-        locus.calculate_scores()
+        locus.filter_and_calculate_scores()
         self.assertAlmostEqual(locus[second.id].exon_fraction, 2 / 5, places=3)
         self.assertAlmostEqual(locus[transcript.id].exon_fraction, 3 / 5, places=3)
 

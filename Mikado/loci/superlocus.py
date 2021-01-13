@@ -1423,7 +1423,7 @@ class Superlocus(Abstractlocus):
             # monoholder.scores_calculated = False
             if self.regressor is not None:
                 monoholder.regressor = self.regressor
-            monoholder.calculate_scores()
+            monoholder.filter_and_calculate_scores()
 
     def compile_requirements(self):
         """Quick function to evaluate the filtering expression, if it is present."""

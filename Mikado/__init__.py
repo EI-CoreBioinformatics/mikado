@@ -27,3 +27,5 @@ __all__ = ["configuration",
 
 
 from .utilities.log_utils import create_default_logger
+from numpy._pytesttester import PytestTester
+test = PytestTester(__name__)

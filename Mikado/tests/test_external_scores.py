@@ -8,7 +8,8 @@ from ..configuration.configurator import to_json, check_scoring
 class ExternalTester(unittest.TestCase):
     
     def setUp(self):
-        
+
+        self.conf = to_json(None)
         self.transcript = Transcript()
         self.transcript.chrom = "15"
         self.transcript.source = "protein_coding"
@@ -26,6 +27,9 @@ class ExternalTester(unittest.TestCase):
         self.transcript.add_exons(exons)
         self.transcript.id = "ENST00000560636"
         self.transcript.parent = "ENSG00000137872"
+        self.transcript2 = self.transcript.copy()
+        self.transcript2.id = "ENST00000560637"
+        self.assertIn("scoring", self.conf)
         
     def test_copying(self):
         
@@ -37,52 +41,49 @@ class ExternalTester(unittest.TestCase):
         self.assertEqual(transcript.external_scores.test1, 1)
 
     def test_real(self):
-        conf = to_json(None)
-        transcript = Transcript()
-        transcript.chrom = "15"
-        transcript.source = "protein_coding"
-        transcript.start = 47631264
-        transcript.end = 48051999
 
-        exons = [(47631264, 47631416),
-                 (47704590, 47704669),
-                 (47762671, 47762742),
-                 (47893062, 47893093),
-                 (47895572, 47895655),
-                 (48051942, 48051999)]
+        self.transcript.attributes["tpm"] = 10
 
-        transcript.strand = "+"
-        transcript.add_exons(exons)
-        transcript.id = "ENST00000560636"
-        transcript.parent = "ENSG00000137872"
+        self.conf["scoring"]["attributes.tpm"] = {"rescaling": "max", "default": 0, "rtype": "float"}
 
-
-        transcript2 = Transcript()
-        transcript2.chrom = "15"
-        transcript2.source = "protein_coding"
-        transcript2.start = 47631264
-        transcript2.end = 48051999
-
-        transcript2.strand = "+"
-        transcript2.add_exons(exons)
-        transcript2.id = "ENST00000560637"
-        transcript2.parent = "ENSG00000137872"
-
-        self.assertIn("scoring", conf)
-        transcript.attributes["tpm"] = 10
-
-        conf["scoring"]["attributes.tpm"] = {"rescaling": "max", "default": 0, "rtype": "float"}
-
-        checked_conf = check_scoring(conf)
+        checked_conf = check_scoring(self.conf)
 
         self.assertIn('attributes.tpm', checked_conf['scoring'])
 
-        sup = Superlocus(transcript, json_conf=checked_conf)
+        sup = Superlocus(self.transcript, json_conf=checked_conf)
         sup.get_metrics()
-        self.assertIn("attributes.tpm", sup._metrics[transcript.id])
-        self.assertEqual(sup._metrics[transcript.id]["attributes.tpm"], 10)
+        self.assertIn("attributes.tpm", sup._metrics[self.transcript.id])
+        self.assertEqual(sup._metrics[self.transcript.id]["attributes.tpm"], 10)
 
-        sup2 = Superlocus(transcript2, json_conf=checked_conf)
+        sup2 = Superlocus(self.transcript2, json_conf=checked_conf)
         sup2.get_metrics()
-        self.assertIn("attributes.tpm", sup2._metrics[transcript2.id])
-        self.assertEqual(sup2._metrics[transcript2.id]["attributes.tpm"], 0)
+        self.assertIn("attributes.tpm", sup2._metrics[self.transcript2.id])
+        self.assertEqual(sup2._metrics[self.transcript2.id]["attributes.tpm"], 0)
+
+    def test_default_attribute_score(self):
+
+        self.transcript.attributes["foo"] = True
+
+        self.conf["scoring"]["attributes.foo"] = {"rescaling": "max", "default": False, "rtype": "bool"}
+        checked_conf = check_scoring(self.conf)
+
+        self.assertIn('attributes.foo', checked_conf['scoring'])
+
+        sup = Superlocus(self.transcript, json_conf=checked_conf)
+        sup.get_metrics()
+        self.assertIn("attributes.foo", sup._metrics[self.transcript.id])
+        self.assertEqual(sup._metrics[self.transcript.id]["attributes.foo"], True)
+
+        sup2 = Superlocus(self.transcript2, json_conf=checked_conf)
+        sup2.get_metrics()
+        self.assertIn("attributes.foo", sup2._metrics[self.transcript2.id])
+        self.assertEqual(sup2._metrics[self.transcript2.id]["attributes.foo"], False)
+
+    def test_error_attribute(self):
+        self.transcript.attributes["tpm"] = "10a"
+        self.conf["scoring"]["attributes.tpm"] = {"rescaling": "max", "default": 0, "rtype": "float"}
+        checked_conf = check_scoring(self.conf)
+        self.assertIn('attributes.tpm', checked_conf['scoring'])
+        sup = Superlocus(self.transcript, json_conf=checked_conf)
+        with self.assertRaises(ValueError):
+            sup.get_metrics()

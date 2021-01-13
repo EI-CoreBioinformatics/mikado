@@ -73,7 +73,7 @@ class Excluded(Abstractlocus):
         it should not be printed out directly!"""
         raise NotImplementedError(message)
 
-    def calculate_scores(self):
+    def filter_and_calculate_scores(self):
         """
         Suppress the method from the base class
         """

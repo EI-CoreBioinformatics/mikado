@@ -181,7 +181,7 @@ class Locus(Abstractlocus):
             self.metrics_calculated = False
             self.scores_calculated = False
             self.logger.debug("Re-calculating metrics and scores for %s", self.id)
-            self.calculate_scores()
+            self.filter_and_calculate_scores()
             self.logger.debug("Re-calculated metrics and scores for %s", self.id)
 
         max_isoforms = self.json_conf["pick"]["alternative_splicing"]["max_isoforms"]
@@ -221,7 +221,7 @@ class Locus(Abstractlocus):
             if _scores is None:
                     self.metrics_calculated = False
                     self.scores_calculated = False
-                    self.calculate_scores()
+                    self.filter_and_calculate_scores()
             else:
                 pass
             with_retained = self._remove_retained_introns()
@@ -289,7 +289,7 @@ class Locus(Abstractlocus):
         self.logger.debug("Done padding for %s", self.id)
         self.metrics_calculated = False
         self.scores_calculated = False
-        self.calculate_scores()
+        self.filter_and_calculate_scores()
         self.logger.debug("Recalculated metrics after padding in %s", self.id)
 
         self._not_passing = set()
@@ -309,7 +309,7 @@ class Locus(Abstractlocus):
                 self._swap_transcript(self.transcripts[tid], backup[tid])
             self.metrics_calculated = False
             self.scores_calculated = False
-            self.calculate_scores()
+            self.filter_and_calculate_scores()
             failed = True
             return failed
 
@@ -347,7 +347,7 @@ class Locus(Abstractlocus):
             [self.remove_transcript_from_locus(tid) for tid in set.intersection(templates, removed)]
             self.metrics_calculated = False
             self.scores_calculated = False
-            self.calculate_scores()
+            self.filter_and_calculate_scores()
             failed = True
             self.logger.debug("Padding failed for %s (removed: %s), restarting", self.id, removed)
             return failed
@@ -389,7 +389,7 @@ class Locus(Abstractlocus):
                 self.__segmenttree = self._calculate_segment_tree(self.exons, self.introns)
                 self.metrics_calculated = False
                 self.scores_calculated = False
-                self.calculate_scores()
+                self.filter_and_calculate_scores()
             else:
                 break
 
@@ -482,7 +482,7 @@ class Locus(Abstractlocus):
         return to_remove
 
     def as_dict(self):
-        self.calculate_scores()
+        # self.calculate_scores()
         return super().as_dict()
 
     def remove_transcript_from_locus(self, tid: str):
@@ -767,7 +767,7 @@ class Locus(Abstractlocus):
 
         self.logger.debug("Calculated metrics for {0}".format(tid))
 
-    def calculate_scores(self):
+    def filter_and_calculate_scores(self):
         """
         Function to calculate a score for each transcript, given the metrics derived
         with the calculate_metrics method and the scoring scheme provided in the JSON configuration.
@@ -776,7 +776,7 @@ class Locus(Abstractlocus):
         Scores are rounded to the nearest integer.
         """
 
-        super().calculate_scores()
+        super().filter_and_calculate_scores()
 
         self.logger.debug("Calculated scores for %s, now checking for double IDs", self.id)
         for index, item in enumerate(reversed(self.metric_lines_store)):
@@ -794,7 +794,7 @@ class Locus(Abstractlocus):
 
     def print_scores(self):
         """This method yields dictionary rows that are given to a csv.DictWriter class."""
-        self.calculate_scores()
+        self.filter_and_calculate_scores()
         if self.regressor is None:
             score_keys = sorted(list(self.json_conf["scoring"].keys()) + ["source_score"])
         else:

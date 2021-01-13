@@ -53,7 +53,7 @@ rule daijin_configure:
       genome="chr5.fas.gz"
     output: "daijin.toml"
     shell: "daijin configure -as stringtie scallop -lal gmap --scheduler local -al \
-star hisat gsnap --sample-sheet samples.txt -o {output} -g {input.genome} -od daijin_test \
+hisat gsnap --sample-sheet samples.txt -o {output} -g {input.genome} -od daijin_test \
  --prot-db {input.prots} --scoring plant.yaml"
 
 
@@ -267,6 +267,10 @@ rule test_external_kal_pick:
       loci_out="mikado-permissive.loci.gff3"
     log: os.path.join("Daijin", "5-mikado", "pick", "external", "mikado-permissive.log")
     threads: 2
+    message: """mikado pick --scoring-file {input.scoring} --source Mikado_permissive \
+    --mode=permissive --procs=2 --start-method=spawn \
+    --json-conf=configuration.yaml -od {params.outdir} \
+     -l {log} --loci-out {params.loci_out} -lv INFO -db {input.db} {input.gtf}"""
     shell: """mikado pick --scoring-file {input.scoring} --source Mikado_permissive \
     --mode=permissive --procs=2 --start-method=spawn \
     --json-conf=configuration.yaml -od {params.outdir} \

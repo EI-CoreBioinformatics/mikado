@@ -67,7 +67,7 @@ class ScoreTester(unittest.TestCase):
                 self.assertEqual(self.locus.json_conf["scoring"]["exon_num"]["multiplier"], multiplier)
                 self.assertIn("t3", self.locus.transcripts)
                 self.locus.logger = logger
-                self.locus.calculate_scores()
+                self.locus.filter_and_calculate_scores()
                 self.assertEqual(self.locus.scores["t1"]["exon_num"], 0)
                 self.assertIn("t3", self.locus.transcripts)
                 self.assertIn("t3", self.locus.scores, self.locus.scores)
@@ -87,7 +87,7 @@ class ScoreTester(unittest.TestCase):
                 self.locus.json_conf["scoring"] = scoring
                 self.assertIn("t3", self.locus.transcripts)
                 self.locus.logger = logger
-                self.locus.calculate_scores()
+                self.locus.filter_and_calculate_scores()
                 self.assertEqual(self.locus.scores["t1"]["exon_num"], multiplier)
                 self.assertIn("t3", self.locus.transcripts)
                 self.assertIn("t3", self.locus.scores, self.locus.scores)
@@ -107,7 +107,7 @@ class ScoreTester(unittest.TestCase):
                 self.locus.json_conf["scoring"] = scoring
                 self.assertIn("t3", self.locus.transcripts)
                 self.locus.logger = logger
-                self.locus.calculate_scores()
+                self.locus.filter_and_calculate_scores()
                 self.assertEqual(self.locus.scores["t1"]["exon_num"], 0)
                 self.assertIn("t3", self.locus.transcripts)
                 self.assertIn("t3", self.locus.scores, self.locus.scores)
@@ -127,7 +127,7 @@ class ScoreTester(unittest.TestCase):
                 self.locus.json_conf["scoring"] = scoring
                 self.assertIn("t3", self.locus.transcripts)
                 self.locus.logger = logger
-                self.locus.calculate_scores()
+                self.locus.filter_and_calculate_scores()
                 self.assertEqual(self.locus.scores["t1"]["exon_num"], multiplier)
                 self.assertIn("t3", self.locus.transcripts)
                 self.assertIn("t3", self.locus.scores, self.locus.scores)
@@ -148,7 +148,7 @@ class ScoreTester(unittest.TestCase):
                 self.locus.json_conf["scoring"] = scoring
                 self.assertIn("t3", self.locus.transcripts)
                 self.locus.logger = logger
-                self.locus.calculate_scores()
+                self.locus.filter_and_calculate_scores()
                 self.assertEqual(self.locus.scores["t1"]["exon_num"], 0)
                 self.assertIn("t3", self.locus.transcripts)
                 self.assertIn("t3", self.locus.scores, self.locus.scores)
@@ -169,7 +169,7 @@ class ScoreTester(unittest.TestCase):
                 self.locus.json_conf["scoring"] = scoring
                 self.assertIn("t3", self.locus.transcripts)
                 self.locus.logger = logger
-                self.locus.calculate_scores()
+                self.locus.filter_and_calculate_scores()
                 self.assertEqual(self.locus.scores["t1"]["combined_cds_length"], 0)
                 self.assertIn("t3", self.locus.transcripts)
                 self.assertIn("t3", self.locus.scores, self.locus.scores)
@@ -190,7 +190,7 @@ class ScoreTester(unittest.TestCase):
                 self.locus.json_conf["scoring"] = scoring
                 self.assertIn("t3", self.locus.transcripts)
                 self.locus.logger = logger
-                self.locus.calculate_scores()
+                self.locus.filter_and_calculate_scores()
 
                 self.assertIn("t3", self.locus.transcripts)
                 self.assertIn("t3", self.locus.scores, self.locus.scores)
@@ -210,7 +210,7 @@ class ScoreTester(unittest.TestCase):
         for transcript in (self.t1, self.t2, self.t3):
             self.assertIn(transcript.id, locus)
             self.assertEqual(locus.scores[transcript.id], transcript.score)
-        locus.calculate_scores()
+        locus.filter_and_calculate_scores()
         for transcript in (self.t1, self.t2, self.t3):
             self.assertIn(transcript.id, locus)
             self.assertEqual(locus.scores[transcript.id], transcript.score)

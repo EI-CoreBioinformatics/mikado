@@ -28,10 +28,29 @@ else:
     from collections import OrderedDict as SortedDict
 import random
 import rapidjson as json
+from typing import Union
 
 # I do not care that there are too many attributes: this IS a massive class!
 # pylint: disable=too-many-instance-attributes,too-many-public-methods
 json_conf = to_json(None)
+
+
+def to_bool(param: Union[str,bool,int,float]):
+    if isinstance(param, bool):
+        return param
+    elif isinstance(param, (int, float)):
+        if param == 1:
+            return True
+        elif param == 0:
+            return False
+    else:
+        lparam = param.lower()
+        if lparam == 'true':
+            return True
+        elif lparam == 'false':
+            return False
+
+    raise ValueError
 
 
 class Abstractlocus(metaclass=abc.ABCMeta):
@@ -41,6 +60,9 @@ class Abstractlocus(metaclass=abc.ABCMeta):
     """
 
     __name__ = "Abstractlocus"
+    cast_to = {'int': int,
+               'float': float,
+               'bool': to_bool}
     available_metrics = Transcript.get_available_metrics()
 
     # ##### Special methods #########
@@ -70,7 +92,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
         # Mock values
         self.__source = source
-
+        self._attribute_metrics = dict()
         self.__logger = None
         self.logger = logger
         self.__stranded = False
@@ -870,7 +892,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             transcript.retained_introns = tuple()
             self.logger.debug("No introns in the locus to check against. Exiting.")
             return
-        
+
         # A retained intron is defined as an exon which
         # - is not completely coding
         # - EITHER spans completely the intron of another transcript.
@@ -1203,7 +1225,28 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         self.transcripts[tid].retained_fraction = fraction
 
         self._metrics[tid] = dict((metric, rgetattr(self.transcripts[tid], metric))
-                                    for metric in self.available_metrics)
+                                   for metric in self.available_metrics)
+
+        for metric, values in self._attribute_metrics.items():
+            # 11 == len('attributes.') removes 'attributes.' to keep the metric name same as in the file attributes
+            rtype = self.cast_to[values['rtype']]
+            attribute_metric_value = self.transcripts[tid].attributes.get(metric[11:], values['default'])
+            try:
+                attribute_metric_value = rtype(attribute_metric_value)
+            except ValueError:
+                message = f"Error encountered when processing Transcript {tid}. " \
+                          f"The 'attributes' based metric {metric}, with value {attribute_metric_value} " \
+                          f"could not be created as type {values['rtype']}"
+                self.logger.error(message)
+                raise ValueError(message)
+            if values['use_raw'] is True and not (0 <= attribute_metric_value <= 1):
+                message = f"Error encountered when processing Transcript {tid}. " \
+                          f"The 'attributes' based metric {metric}, with value {attribute_metric_value} " \
+                          f"defined as 'use_raw' is not between 0 and 1 inclusive."
+                self.logger.error(message)
+                raise ValueError(message)
+
+            self._metrics[tid].update([(metric, attribute_metric_value)])
 
         self.logger.debug("Calculated metrics for {0}".format(tid))
 
@@ -1227,8 +1270,9 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                 "eval")
 
         not_passing = set()
-        reference_sources = {source for source, is_reference in zip(self.json_conf["prepare"]["files"]["labels"],
-                                        self.json_conf["prepare"]["files"]["reference"]) if is_reference}
+        reference_sources = {source for source, is_reference in
+                             zip(self.json_conf["prepare"]["files"]["labels"],
+                                 self.json_conf["prepare"]["files"]["reference"]) if is_reference}
 
         for tid in iter(tid for tid in self.transcripts if
                         tid not in previous_not_passing):
@@ -1271,12 +1315,13 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
         return not_passing
 
-    def calculate_scores(self):
+    def filter_and_calculate_scores(self, check_requirements=True):
         """
         Function to calculate a score for each transcript, given the metrics derived
         with the calculate_metrics method and the scoring scheme provided in the JSON configuration.
         If any requirements have been specified, all transcripts which do not pass them
-        will be assigned a score of 0 and subsequently ignored.
+        will be either purged according to the configuration file ('pick.clustering.purge')
+        or assigned a score of 0 and subsequently ignored.
         Scores are rounded to the nearest integer.
         """
 
@@ -1297,7 +1342,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
         self.get_metrics()
         self.logger.debug("Calculating scores for {0}".format(self.id))
-        if "requirements" in self.json_conf:
+        if "requirements" in self.json_conf and check_requirements:
             self._check_requirements()
 
         if len(self.transcripts) == 0:
@@ -1504,6 +1549,9 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                     raise TypeError(
                         "Value of {param} is {metric}. It should be a tuple with a boolean second element".format(
                             **locals()))
+            elif param.startswith('attributes'):
+                usable_raw = use_raw
+
             else:
                 usable_raw = getattr(Transcript, param).usable_raw
 
@@ -1642,6 +1690,15 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         elif not isinstance(conf, dict):
             raise TypeError("Invalid configuration!")
         self.__json_conf = conf
+        # Get the value for each attribute defined metric
+        self._attribute_metrics = dict((param,
+                                  {
+                                      'default': self.json_conf["scoring"][param]["default"],
+                                      'rtype': self.json_conf['scoring'][param]['rtype'],
+                                      'use_raw': self.json_conf['scoring'][param]['use_raw']
+                                  }
+                                  )
+                                 for param in self.__json_conf["scoring"] if param.startswith("attributes."))
 
     def check_configuration(self):
         """Method to be invoked to verify that the configuration is correct.

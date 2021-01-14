@@ -37,9 +37,9 @@ jobs:
         environment-file: ./environment.yml
         mamba-version: "*"
         use-mamba: true
-        channels: conda-forge,bioconda,anaconda,defaults
+        channels: bioconda, conda-forge, intel, defaults
         use-only-tar-bz2: true # IMPORTANT: This needs to be set for caching to work properly!
-        # auto-update-conda: true
+        auto-update-conda: true
         activate-environment: "test"
         auto-activate-base: false
     - name: Install dependencies

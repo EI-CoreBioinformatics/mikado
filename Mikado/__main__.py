@@ -1,7 +1,7 @@
 import argparse
 import sys
 from multiprocessing.spawn import freeze_support
-
+import logging
 from Mikado.version import __version__
 
 
@@ -78,7 +78,7 @@ by Cufflinks's cuffcompare and ParsEval.")
     except BrokenPipeError:
         pass
     except Exception as exc:
-        logger = ("main")
+        logger = logging.getLogger("main")
         logger.error("Mikado crashed, cause:")
         logger.exception(exc)
         import multiprocessing as mp

@@ -27,7 +27,7 @@ tt {
 
 body {
     font-family: {{ theme_bodyfont }};
-    font-size: 150%;
+    /*font-size: 150%;*/
     background-color: {{ theme_footerbgcolor }};
     color: #000;
     margin: 0;

@@ -27,13 +27,12 @@ jobs:
     - name: Install dependencies with CONDA
       run: |
         # $CONDA is an environment variable pointing to the root of the miniconda directory
-        $CONDA/bin/conda activate base
         python -m pip install --upgrade pip
         pip install flake8 pytest pytest-benchmark wheel
         # if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-        $CONDA/bin/conda env update --file environment.yml --name base
-        $CONDA/bin/conda install -y -c conda-forge -- pytest-cov codecov;
-        $CONDA/bin/conda install -c bioconda -c conda-forge -y stringtie scallop gmap star hisat2 prodigal blast diamond transdecoder conda-forge::gnuplot kallisto samtools gffread
+        conda env update --file environment.yml --name base
+        conda install -y -c conda-forge -- pytest-cov codecov;
+        conda install -c bioconda -c conda-forge -y stringtie scallop gmap star hisat2 prodigal blast diamond transdecoder conda-forge::gnuplot kallisto samtools gffread
     - name: Lint with flake8
       run: |
         # stop the build if there are Python syntax errors or undefined names

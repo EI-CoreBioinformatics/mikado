@@ -73,7 +73,6 @@ class ExternalTester(unittest.TestCase):
         sup.filter_and_calculate_scores(check_requirements=False)
         self.assertEqual(sup.scores[tid]['attributes.tpm'], 4)
 
-
     def test_default_attribute_score(self):
         self.transcript.attributes["foo"] = True
 
@@ -117,3 +116,21 @@ class ExternalTester(unittest.TestCase):
         self.assertIn(tid, sup.transcripts)
         with self.assertRaises(ValueError):
             sup.get_metrics()
+
+    def test_attribute_use_raw_percentage(self):
+
+        self.transcript.attributes["tpm"] = 10
+
+        self.conf["scoring"]["attributes.tpm"] = {"rescaling": "max", "default": 0, "rtype": "float", 'multiplier': 4,
+                                                  'use_raw': True, 'percentage': True}
+
+        checked_conf = check_scoring(self.conf)
+
+        self.assertIn('attributes.tpm', checked_conf['scoring'])
+
+        sup = Superlocus(self.transcript, json_conf=checked_conf)
+        tid = self.transcript.id
+        self.assertIn(tid, sup.transcripts)
+        sup.get_metrics()
+        self.assertIn("attributes.tpm", sup._metrics[self.transcript.id])
+        self.assertEqual(sup._metrics[self.transcript.id]["attributes.tpm"], 0.1)

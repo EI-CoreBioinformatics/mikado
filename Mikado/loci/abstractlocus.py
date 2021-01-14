@@ -1233,6 +1233,8 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             attribute_metric_value = self.transcripts[tid].attributes.get(metric[11:], values['default'])
             try:
                 attribute_metric_value = rtype(attribute_metric_value)
+                if values['percentage']:
+                    attribute_metric_value = attribute_metric_value / 100.
             except ValueError:
                 message = f"Error encountered when processing Transcript {tid}. " \
                           f"The 'attributes' based metric {metric}, with value {attribute_metric_value} " \
@@ -1695,7 +1697,8 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                                   {
                                       'default': self.json_conf["scoring"][param]["default"],
                                       'rtype': self.json_conf['scoring'][param]['rtype'],
-                                      'use_raw': self.json_conf['scoring'][param]['use_raw']
+                                      'use_raw': self.json_conf['scoring'][param]['use_raw'],
+                                      'percentage': self.json_conf['scoring'][param]['percentage']
                                   }
                                   )
                                  for param in self.__json_conf["scoring"] if param.startswith("attributes."))

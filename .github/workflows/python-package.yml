@@ -17,6 +17,13 @@ jobs:
       uses: actions/setup-python@v2
       with:
         python-version: ${{ matrix.python-version }}
+    - name: Free up memory
+      run: |
+        # https://github.com/vmware/concord-bft/pull/994
+        sudo rm -rf /usr/share/dotnet
+        sudo rm -rf /opt/ghc
+        sudo rm -rf "/usr/local/share/boost"
+        sudo rm -rf "$AGENT_TOOLSDIRECTORY"
     - name: Install dependencies with CONDA
       run: |
         # $CONDA is an environment variable pointing to the root of the miniconda directory

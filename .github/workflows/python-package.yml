@@ -27,8 +27,8 @@ jobs:
     - name: Install system development tools
       run: |
         export DEBIAN_FRONTEND=noninteractive
-        apt update
-        apt install -y build-essential zlib1g-dev zlib1g
+        sudo apt update
+        sudo apt install -y build-essential zlib1g-dev zlib1g
     - uses: conda-incubator/setup-miniconda@v2
       with:
         python-version: ${{ matrix.python-version }}

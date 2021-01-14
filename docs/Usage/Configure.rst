@@ -57,9 +57,7 @@ Selected command line parameters:
 - *--seed*: random seed for full reproducibility of Mikado runs.
 - *--list*: the argument to this option specifies the input annotation files for Mikado. See above.
 
-Command line help:
-
-.. code-block::
+Command line help::
 
     $ mikado configure --help
     usage: Mikado configure [-h] [--full] [--seed SEED] [--minimum-cdna-length MINIMUM_CDNA_LENGTH] [--max-intron-length MAX_INTRON_LENGTH] [--scoring SCORING] [--copy-scoring COPY_SCORING]
@@ -182,6 +180,7 @@ Global options
 The following options apply to all programs in the Mikado pipeline, and they refer to general parameters such as logging verbosity, number of threads, etc.
 
 Parameters:
+
 - *threads*: this is the number of processes/threads that will be requested by the Mikado programs. This parameter can be overridden on the command line.
 - *seed*: random seed specification, to ensure maximum reproducibility of the run.
 .. _start-methods:
@@ -542,8 +541,7 @@ Parameters regarding the clustering of transcripts in loci
 
 This section influences how Mikado clusters transcripts in its multi-stage selection. The available parameters are:
 
-- *flank*: numerical. When constructing :ref:`Superloci <superloci>`, Mikado will use this value as the maximum distance
-between transcripts for them to be integrated within the same superlocus.
+- *flank*: numerical. When constructing :ref:`Superloci <superloci>`, Mikado will use this value as the maximum distance between transcripts for them to be integrated within the same superlocus.
 - *cds_only*: boolean. If set to true, during the :ref:`picking stage <pick-algo>` Mikado will consider only the **primary ORF** to evaluate whether two transcripts intersect. Transcripts which eg. share introns in their UTR but have completely unrelated CDSs will be clustered separately. Disabled by default.
 - *purge*: boolean. If true, any transcript failing the :ref:`specified requirements <requirements-section>` will be purged out. Otherwise, they will be assigned a score of 0 and might potentially appear in the final output, if no other transcript is present in the locus.
 - *simple_overlap_for_monoexonic*: boolean. During the :ref:`second clustering <monosubloci>`, by default monoexonic transcripts are clustered together even if they have a very slight overlap with another transcript. Manually setting this flag to *false* will cause Mikado to cluster monoexonic transcripts only if they have a minimum amount of cDNA and CDS overlap with the other transcripts in the holder.
@@ -627,8 +625,7 @@ This section determines how Mikado will deal with :ref:`chimeras <chimera_splitt
 - *execute*: boolean. If set to *false*, Mikado will operate in the *nosplit* mode. If set to *true*, the choice of the mode will be determined by the other parameters.
 - *skip*: this is list of input assemblies (identified by the label in prepare, :ref:`above <input_file_list>`) that will **never** have the transcripts split.
 
-.. hint:: cDNAs, reference transcripts, and the like should end up in the "skip" category. These are, after all, transcripts
-that are presupposed to be originated from a single RNA molecule and therefore without fusions.
+.. hint:: cDNAs, reference transcripts, and the like should end up in the "skip" category. These are, after all, transcripts that are presupposed to be originated from a single RNA molecule and therefore without fusions.
 
 - *blast_check*: boolean. Whether to execute the check on the BLAST hits. If set to *false*, Mikado will operate in the *split* mode, unless *execute* is set to *false* (execute takes precedence over the other parameters).
 - *blast_params*: this section contains the settings relative to the *permissive*, *lenient* and *stringent* mode.

@@ -6,6 +6,9 @@
     "value": {"oneOf": [{"type": "number"}, {"type": "boolean"}]},
     "multiplier": {"type": "number", "default": 1, "minVal": 0.00001},
     "use_raw": {"type": "boolean", "default": false},
+    "default": {"type":  ["boolean", "number", "integer"], "default":  0},
+    "rtype": {"type":  ["string"], "enum": ["float", "int", "bool"], "default":  "float"},
+    "percentage": {"type":  "boolean", "default": false},
     "filter": {
       "type": "object",
       "properties":{

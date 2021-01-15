@@ -1,5 +1,6 @@
 import multiprocessing
 from ..parsers import to_gff
+from ..parsers.bam_parser import BamParser
 from ..utilities.log_utils import create_queue_logger
 from ..utilities import overlap
 import logging
@@ -23,6 +24,8 @@ import zlib
 
 __author__ = 'Luca Venturini'
 
+# TODO: found_ids can be refactored out, in preference of a unique ID per file which is used as part of the label
+#  in doing this, we prevent requiring the user to rename their inputs as there would be no repeated naming.
 
 def __raise_redundant(row_id, name, label):
 
@@ -595,9 +598,10 @@ def load_from_bed12(shelf_name,
             else:
                 exon_lines[transcript.id]["source"] = gff_handle.name  # BED12 files have no source
             exon_lines[transcript.id]["features"] = dict()
-            exon_lines[transcript.id]["chrom"] = row.chrom
-            exon_lines[transcript.id]["strand"] = row.strand
-            exon_lines[transcript.id]["attributes"] = dict()  # BED12 files have no attributes
+            exon_lines[transcript.id]["chrom"] = transcript.chrom
+            exon_lines[transcript.id]["strand"] = transcript.strand
+            # Should deal with GFFRead style input and BAM
+            exon_lines[transcript.id]["attributes"] = transcript.attributes
             exon_lines[transcript.id]["tid"] = transcript.id
             exon_lines[transcript.id]["parent"] = "{}.gene".format(transcript.id)
             exon_lines[transcript.id]["strand_specific"] = strand_specific
@@ -622,18 +626,45 @@ def load_from_bed12(shelf_name,
     return new_ids, rows
 
 
-def load_from_bam(shelf_name,
-                  gff_handle,
-                  label,
-                  found_ids,
-                  logger,
+def load_from_bam(shelf_name: str,
+                  gff_handle: BamParser,
+                  label: str,
+                  found_ids: set,
+                  logger: logging.Logger,
                   min_length=0,
                   max_intron=3*10**5,
                   is_reference=False,
                   exclude_redundant=False,
                   strip_cds=False,
                   strand_specific=False):
-    raise NotImplementedError()
+    """
+    Method to load the exon lines from BAM files.
+    :param shelf_name: the name of the shelf DB to use.
+    :param gff_handle: The handle for the BAM to be parsed. This handle is BamParser with a file attached to read from.
+    :param label: label to be attached to all transcripts.
+    :type label: str
+    :param found_ids: set of IDs already found in other files.
+    :type found_ids: set
+    :param logger: a logger to report any messages
+    :type logger: logging.Logger
+    :param min_length: minimum length for a cDNA to be considered as valid
+    :type min_length: int
+    :param max_intron: maximum intron length for a cDNA to be considered as valid
+    :type max_intron: int
+    :param strip_cds: boolean flag. If true, all CDS lines will be ignored.
+    :type strip_cds: bool
+    :param strand_specific: whether the input data is strand-specific or not.
+    :type strand_specific: bool
+    :param is_reference: boolean. If set to True, the transcript will always be retained.
+    :type is_reference: bool
+    :param exclude_redundant: boolean. If set to True, the transcript will be marked for potential redundancy removal.
+    :type exclude_redundant: bool
+    :return:
+    """
+    return load_from_bed12(shelf_name, gff_handle, label, found_ids, logger,
+                           min_length=min_length, max_intron=max_intron,
+                           is_reference=is_reference,exclude_redundant=exclude_redundant,
+                           strip_cds=strip_cds, strand_specific=strand_specific)
 
 
 loaders = {"gtf": load_from_gtf, "gff": load_from_gff, "gff3": load_from_gff,

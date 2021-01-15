@@ -3,3 +3,4 @@ cufflinks.gtf	cuff	True		False	False
 stringtie.gtf	st	True	1	False	True
 trinity.gff3	tr	False	-0.5	False	False
 reference.gff3	at	True	5	True	False
+pacbio.bam	pb	True	1	False	False

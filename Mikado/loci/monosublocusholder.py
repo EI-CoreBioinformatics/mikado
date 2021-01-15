@@ -149,7 +149,7 @@ class MonosublocusHolder(Sublocus, Abstractlocus):
         self_line = GffLine('')
         for attr in ["chrom", 'feature', 'source', 'start', 'end', 'strand']:
             setattr(self_line, attr, getattr(self, attr))
-        self.calculate_scores()
+        self.filter_and_calculate_scores()
 
         self_line.phase, self_line.score = None, self.score
         if source_in_name is True:
@@ -205,7 +205,7 @@ class MonosublocusHolder(Sublocus, Abstractlocus):
 
         self.excluded = excluded
 
-        self.calculate_scores()
+        self.filter_and_calculate_scores()
 
         graph = self.define_graph(
             self.transcripts,

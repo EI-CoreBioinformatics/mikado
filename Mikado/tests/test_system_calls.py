@@ -1033,21 +1033,18 @@ class CompareFusionCheck(unittest.TestCase):
         :return:
         """
 
-        master = pkg_resources.resource_filename("Mikado.tests", "fusion_test")
-        # import pathlib
-        # with pathlib.Path("fusioner") as out:
-        with tempfile.TemporaryDirectory(prefix="fusion_test_") as out:
-            # out.mkdir(exist_ok=True, parents=True)
+        ref_file = pkg_resources.resource_filename("Mikado.tests", os.path.join("fusion_test",
+                                                                                "fusion_test_ref.gff3"))
+        pred_file = pkg_resources.resource_filename("Mikado.tests", os.path.join("fusion_test",
+                                                                                 "fusion_test_pred.gtf"))
+        with tempfile.TemporaryDirectory() as out, \
+                to_gff(ref_file) as reference, to_gff(pred_file) as prediction:
             args = Namespace()
             args.no_save_index = True
-            os.symlink(os.path.join(master, "fusion_test_ref.gff3"), os.path.join(out, "fusion_test_ref.gff3"))
-            os.symlink(os.path.join(master, "fusion_test_pred.gtf"), os.path.join(out, "fusion_test_pred.gtf"))
-            ref = to_gff(os.path.join(out, "fusion_test_ref.gff3"))
-            pred = to_gff(os.path.join(out, "fusion_test_pred.gtf"))
-            args.reference = ref
-            args.prediction = pred
-            args.log = os.path.join(out, "fusion.log")
-            args.out = os.path.join(out, "fusion_test")
+            args.reference = reference
+            args.prediction = prediction
+            args.log = None
+            args.out = os.path.join(out, "fusion_test", "fusion_test")
             args.distance = 2000
             args.verbose = True
             args.exclude_utr = False
@@ -1057,22 +1054,20 @@ class CompareFusionCheck(unittest.TestCase):
             args.extended_refmap = False
             args.gzip = False
             args.processes = 1
-            import threading
-
-            with self.assertLogs("main_compare") as ctx:
+            with self.assertLogs("main_compare") as cmo:
                 t = threading.Thread(target=compare, args=(args,))
                 t.start()
                 t.join(timeout=4)
-            out_refmap = os.path.join(out, "fusion_test.refmap")
-            self.assertTrue(os.path.exists(out_refmap))
-            self.assertGreater(os.stat(out_refmap).st_size, 0)
+
+            out_refmap = os.path.join(out, "fusion_test", "fusion_test.refmap")
+            self.assertTrue(os.path.exists(out_refmap), cmo.output)
+            self.assertGreater(os.stat(out_refmap).st_size, 0, cmo.output)
             with open(out_refmap) as refmap:
                 for line in csv.DictReader(refmap, delimiter="\t"):
                     if line["ref_id"] not in ("AT1G78880.1", "AT1G78882.1"):
                         continue
-                    self.assertEqual(line["ccode"], "=", line)
-            ref.close()
-            pred.close()
+                    self.assertEqual(line["ccode"], "=", (line, cmo.output))
+
         return
 
 

@@ -227,7 +227,7 @@ class Sublocus(Abstractlocus):
         self.monosubloci = []
         # self.excluded = excluded
         self.logger.debug("Launching calculate scores for {0}".format(self.id))
-        self.calculate_scores()
+        self.filter_and_calculate_scores()
 
         if len(self._excluded_transcripts) > 0 and self.purge:
             excluded_tids = list(self._excluded_transcripts.keys())
@@ -315,14 +315,14 @@ class Sublocus(Abstractlocus):
         :return:
         """
 
-        self.calculate_scores()
+        self.filter_and_calculate_scores()
         self.metric_lines_store = [_ for _ in self.prepare_metrics()]
         for row in self.metric_lines_store:
             yield row
 
     def print_scores(self):
         """This method yields dictionary rows that are given to a csv.DictWriter class."""
-        self.calculate_scores()
+        self.filter_and_calculate_scores()
         if self.regressor is None:
             score_keys = sorted(list(self.json_conf["scoring"].keys()) + ["source_score"])
         else:

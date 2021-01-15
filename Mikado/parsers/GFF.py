@@ -359,21 +359,23 @@ class GFF3(Parser):
         """
         super().__init__(handle)
         self.header = False
+        self.__line_counter = 0
 
     def __next__(self):
 
         if self.closed:
             raise StopIteration
         line = next(self._handle)
+        self.__line_counter += 1
 
         if line[0] == "#":
             return GffLine(line, header=True)
 
         try:
             gff_line = GffLine(line)
-        except Exception:
-            error = "Invalid line for file {}, position {}:\n{}".format(
-                self.name, self._handle.tell(), line)
+        except Exception as exc:
+            error = "Invalid line for file {name}, position {counter}:\n{line}Error: {exc}".format(
+                name=self.name, counter=self.__line_counter, line=line, exc=exc)
             raise ValueError(error)
         return gff_line
 

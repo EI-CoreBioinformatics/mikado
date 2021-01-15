@@ -1482,6 +1482,7 @@ class Bed12Parser(Parser):
         self.header = False
         self.__table = table
         self._is_bed12 = (not is_gff)
+        self.__line_counter = 0
 
     @staticmethod
     def __set_fasta_index(fasta_index):
@@ -1534,6 +1535,7 @@ class Bed12Parser(Parser):
         bed12 = None
         while bed12 is None:
             line = next(self._handle)
+            self.__line_counter += 1
             try:
                 bed12 = BED12(line,
                               fasta_index=self.fasta_index,
@@ -1543,9 +1545,9 @@ class Bed12Parser(Parser):
                               table=self.__table,
                               logger=self.logger,
                               start_adjustment=self.start_adjustment)
-            except Exception:
-                error = "Invalid line for file {}, position {}:\n{}".format(
-                    self.name, self._handle.tell(), line)
+            except Exception as exc:
+                error = "Invalid line for file {name}, line {counter}:\n{line}\nError: {exc}".format(
+                    name=self.name, counter=self.__line_counter, line=line.rstrip(), exc=exc)
                 raise ValueError(error)
         return bed12
 
@@ -1558,11 +1560,12 @@ class Bed12Parser(Parser):
         bed12 = None
         while bed12 is None:
             line = next(self._handle)
+            self.__line_counter += 1
             try:
                 gff_line = GffLine(line)
-            except Exception:
-                error = "Invalid line for file {}, position {}:\n{}".format(
-                    self.name, self._handle.tell(), line)
+            except Exception as exc:
+                error = "Invalid line for file {name}, line {counter}:\n{line}\nError: {exc}".format(
+                    name=self.name, counter=self.__line_counter, line=line.rstrip(), exc=exc)
                 raise ValueError(error)
 
             if gff_line.feature != "CDS":
@@ -1576,9 +1579,9 @@ class Bed12Parser(Parser):
                               table=self.__table,
                               start_adjustment=self.start_adjustment,
                               logger=self.logger)
-            except Exception:
-                error = "Invalid line for file {}, position {}:\n{}".format(
-                    self.name, self._handle.tell(), line)
+            except Exception as exc:
+                error = "Invalid line for file {name}, line {counter}:\n{line}\nError: {exc}".format(
+                    name=self.name, counter=self.__line_counter, line=line.rstrip(), exc=exc)
                 raise ValueError(error)
         # raise NotImplementedError("Still working on this!")
         return bed12

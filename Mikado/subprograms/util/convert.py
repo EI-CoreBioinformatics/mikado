@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import argparse
 import sys
+from ...exceptions import InvalidTranscript
 
 
 def launch(args):
@@ -36,8 +37,10 @@ def launch(args):
         print("##gff-version\t3", file=args.out)
 
     mock_gene_counter = 0
+    _line_counter = 0
 
     for line in parser:
+        _line_counter += 1
         if line.header is True:
             continue
         if parser.__annot_type__ == "bam":
@@ -47,7 +50,14 @@ def launch(args):
 
             mock_gene_counter += 1
             gene = "gene_{mock_gene_counter}".format(**locals())
-            transcript = Transcript(line)
+            try:
+                transcript = Transcript(line)
+            except KeyboardInterrupt:
+                raise
+            except Exception as exc:
+                raise InvalidTranscript("Invalid BAM line at position {} for file {}. Error: {}".format(
+                    _line_counter, parser.name, exc
+                ))
             transcript.parent = gene
             print(Gene(transcript).format(out_format, transcriptomic=args.transcriptomic), file=args.out)
             continue

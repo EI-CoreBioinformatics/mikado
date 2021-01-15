@@ -62,8 +62,10 @@ class GtfLine(GFAnnotation):
         self.attributes.update(attributes)
         self.__name = self.__set_name()
         self.__set_gene()
-        assert "gene_id" in self.attributes
-        assert self.gene is not None, self.attributes
+        if "gene_id" not in self.attributes:
+            raise ValueError("Missing 'gene_id' in the line")
+        if self.gene is None:
+            raise TypeError("Invalid null gene_id; attributes: {}".format(self.attributes))
 
     def _format_attributes(self):
 
@@ -397,14 +399,16 @@ class GTF(Parser):
         """
 
         super().__init__(handle)
+        self.__line_counter = 0
 
     def __next__(self):
         line = next(self._handle)
+        self.__line_counter += 1
         try:
             return GtfLine(line)
-        except Exception:
-            error = "Invalid line for file {}, position {}:\n{}".format(
-                self.name, self._handle.tell(), line)
+        except Exception as exc:
+            error = "Invalid line for file {name}, line {counter}:\n{line}Error: {exc}\n".format(
+                name=self.name, counter=self.__line_counter, line=line, exc=exc)
             raise ValueError(error)
 
     @property

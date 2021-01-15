@@ -779,7 +779,7 @@ Chr5	TAIR10	exon	5256	5576	.	-	.	Parent=AT5G01015.1"""
         import pandas as pd
         s = pd.Series(cmo.output)
         self.assertTrue(any(s.str.contains(
-            "ORF 2 of test.1 is invalid, removing.*")), cmo.output)
+            "ORF 2 of test.1 is invalid. Exception:")), cmo.output)
 
 
 if __name__ == '__main__':

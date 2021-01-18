@@ -558,8 +558,6 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         """This method is needed to exchange transcripts that might have been modified by padding."""
         if original_transcript.tid != transcript.tid:
             raise KeyError("I cannot hot swap two transcripts with two different IDs!")
-        # if hash(original_transcript) == hash(transcript):  # Expensive operation, let us try to avoid it if possible
-        #     return
         if original_transcript == transcript:
             return
 
@@ -1151,7 +1149,6 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
         self.logger.debug("Calculating metrics for %s", tid)
         # The transcript must be finalized before we can calculate the score.
-        # self.transcripts[tid].finalize()
 
         if len(self.locus_verified_introns) == 0 and self.transcripts[tid].verified_introns_num > 0:
             raise ValueError("Locus {} has 0 verified introns, but its transcript {} has {}!".format(

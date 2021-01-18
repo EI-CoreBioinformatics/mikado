@@ -317,7 +317,7 @@ class GffLine(GFAnnotation):
         else:
             if "Derives_from" not in self.attributes:
                 key = [_ for _ in self.attributes.keys() if _.lower() == "derives_from"]
-                assert len(key) == 1, (str(self), key)
+                assert len(key) == 1, (str(self), "Multiple 'derives_from' found:\n"+ str(key))
                 self.attributes["Derives_from"] = self.attributes[key[0]]
 
             return self.attributes["Derives_from"].split(",")

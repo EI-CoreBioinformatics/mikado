@@ -534,8 +534,6 @@ class Accountant:
                 bases[1] += len(curr_pred_bases)
                 bases[2] += len(curr_ref_bases)
 
-        # result_dictionary["bases"] = dict()
-
         assert bases[0] <= min(bases[1], bases[2]), bases
         result_dictionary["bases"] = bases
         result_dictionary["exons"]["stringent"] = exon_stringent

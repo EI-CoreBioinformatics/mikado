@@ -302,7 +302,7 @@ class ExternalSerializer:
                 if record in cache:
                     continue
                 objects.append(Query(record, len(self.fasta_index[record])))
-                assert record not in found, record
+                assert record not in found, "The record {record} is duplicated in the FASTA index".format(record)
                 found.add(record)
                 if len(objects) >= self.maxobjects:
                     done += len(objects)

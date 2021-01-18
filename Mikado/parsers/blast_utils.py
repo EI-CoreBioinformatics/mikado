@@ -60,7 +60,6 @@ class BlastOpener:
                     raise ValueError("Unrecognized file format for {}".format(self.__filename))
             elif self.__filename.endswith(".xml"):
                 self.__handle = open(self.__filename)
-                assert self.__handle is not None
             elif self.__filename.endswith(".asn"):
                 blast_formatter = subprocess.Popen(
                     ['blast_formatter', '-outfmt', '5', '-archive', self.__filename],
@@ -69,8 +68,9 @@ class BlastOpener:
             else:
                 raise ValueError("Unrecognized file format: {}".format(self.__filename))
 
+        if self.__handle is None:
+            raise OSError("Failed to open file {}".format(self.__filename))
         self.__opened = True
-        assert self.__handle is not None, self.__filename
 
     def __enter__(self):
 
@@ -145,7 +145,6 @@ class BlastOpener:
         header = []
         exc = None
         valid = True
-        # assert handle is not None
         while True:
             try:
                 line = next(self.__handle)

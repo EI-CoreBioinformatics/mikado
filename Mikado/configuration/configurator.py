@@ -597,17 +597,13 @@ def check_json(json_conf, simple=False, external_dict=None, logger=None):
 
     try:
         validator = create_validator(simple=simple)
-
-        # config_folder = os.path.dirname(os.path.abspath(__file__))
-
-        # This will check for consistency and add the default
-        # values if they are missing
+        # This will check for consistency and add the default values if they are missing
         validator.validate(json_conf)
         if "pick" not in json_conf:
             print(json_conf)
-            raise AssertionError
-
-        assert "files" in json_conf["pick"], (json_conf if json_conf is not None else dict())
+            raise AssertionError("Pick section missing from the configuration.")
+        elif "files" not in json_conf["pick"]:
+            raise AssertionError("Files section missing from the 'pick' section.")
 
         json_conf, overwritten = _check_scoring_file(json_conf, logger)
 
@@ -695,15 +691,12 @@ def to_json(string, simple=False, logger=None):
 
     seed = json_dict.get("seed", 0)
     if seed == 0:
-        # seed = numpy.random.randint(1, 2 ** 32 - 1)
         seed = random.randint(1, 2 ** 32 - 1)
         logger.info("Random seed: {}", seed)
 
     if seed != 0:
-        # numpy.random.seed(seed % (2 ** 32 - 1))
         random.seed(seed % (2 ** 32 - 1))
     else:
-        # numpy.random.seed(None)
         random.seed(None)
 
     return json_dict

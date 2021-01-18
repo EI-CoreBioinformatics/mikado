@@ -81,7 +81,8 @@ def get_queries(engine):
     queries.columns = ["qid", "qlength"]
     queries["qid"] = queries["qid"].astype(int)
     queries.index = queries.index.str.replace(id_pattern, "\\1")
-    assert queries.qid.drop_duplicates().shape[0] == queries.shape[0]
+    assert queries.qid.drop_duplicates().shape[0] == queries.shape[0], \
+        "Duplicated IDs found in the Mikado query database!"
     return queries
 
 
@@ -89,7 +90,8 @@ def get_targets(engine):
     targets = pd.read_sql_table("target", engine, index_col="target_name")
     targets.columns = ["sid", "slength"]
     targets["sid"] = targets["sid"].astype(int)
-    assert targets.sid.drop_duplicates().shape[0] == targets.shape[0]
+    assert targets.sid.drop_duplicates().shape[0] == targets.shape[0], \
+        "Duplicated IDs found in the Mikado target database!"
 
     targets.index = targets.index.str.replace(id_pattern, "\\1")
     if targets[targets.slength.isna()].shape[0] > 0:
@@ -271,7 +273,12 @@ def sanitize_blast_data(data: pd.DataFrame, queries: pd.DataFrame, targets: pd.D
             err_val = (col, data[data[col].isna()].shape[0], data.shape[0])
         else:
             err_val = (col, data[["sseqid"]].head())
-        assert ~(data[col].isna().any()), err_val
+        assert ~(data[col].isna().any()), \
+            "Column {col} contains {nnan} NaN values out of {tot}. Head: {err_val}\
+Please make sure you have run BLAST asking for the following fields:\
+{blast_keys} \
+".format(col=col, nnan=np.where(data[col].isna())[0].shape[0], tot=data.shape[0], err_val=err_val,
+         blast_keys=blast_keys)
         try:
             data[col] = data[col].astype(int).values
         except ValueError as exc:

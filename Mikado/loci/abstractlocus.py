@@ -1093,7 +1093,6 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                     value = "NA"
                 row[key] = value
 
-            # assert row != {}
             yield row
 
         return
@@ -1171,9 +1170,6 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         assert (not (len(self.locus_verified_introns) and self.transcripts[tid].verified_introns_num > 0) or
                 (self.transcripts[tid].proportion_verified_introns_inlocus > 0))
 
-        # if len(self.locus_verified_introns) and self.transcripts[tid].verified_introns_num > 0:
-        #     assert self.transcripts[tid].proportion_verified_introns_inlocus > 0
-
         _ = len(set.intersection(self.exons, self.transcripts[tid].exons))
         fraction = _ / len(self.exons)
 
@@ -1217,7 +1213,9 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         self.logger.debug("Starting to calculate retained introns for %s", tid)
         if len(self.transcripts) > 1 and any(len(self[_].introns) > 0 for _ in self if _ != tid):
             self.find_retained_introns(self.transcripts[tid])
-        assert isinstance(self.transcripts[tid], Transcript)
+        assert isinstance(self.transcripts[tid], Transcript), \
+            "Key {tid} does not point to a transcript but to an object of type {tobj}".format(
+                tid=tid, tobj=type(self.transcripts[tid]))
 
         retained_bases = sum(e[1] - e[0] + 1
                              for e in self.transcripts[tid].retained_introns)
@@ -1328,7 +1326,6 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         """
 
         if self.scores_calculated is True:
-            # assert self.transcripts[list(self.transcript.keys())[0]].score is not None
             test = set.difference(set(self.transcripts.keys()),
                                   set(self._excluded_transcripts.keys()))
             if test and self.transcripts[test.pop()].score is None:
@@ -1633,8 +1630,6 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         # Add path FAILS if the transcript is monoexonic!
         graph.add_nodes_from(segments)
         networkx.add_path(graph, segments)
-
-        # assert len(graph.nodes()) >= len(segments), (len(graph.nodes()), len(graph.edges()), len(segments))
 
         for segment in segments:
             weights[segment] = weights.get(segment, 0) + 1

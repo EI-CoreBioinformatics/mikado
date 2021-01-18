@@ -189,7 +189,6 @@ cdef str __assign_multiexonic_ccode(prediction, reference, long nucl_overlap, do
         if set.difference(p_introns, r_introns):
             ccode = "j"
         elif nucl_precision == 1:
-            # assert nucl_recall < 1
             ccode = "c"
         else:
             missed_introns = r_introns - p_introns

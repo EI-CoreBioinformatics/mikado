@@ -178,12 +178,11 @@ class JunctionSerializer:
             self.fai = json_conf["reference"]["genome_fai"]
 
         if isinstance(self.fai, str):
-            assert os.path.exists(self.fai), self.fai
-            # noinspection PyTypeChecker
+            assert os.path.exists(self.fai), "File {fai} does not exist!".format(fai=self.fai)
             self.fai = open(self.fai)
         else:
             if self.fai is not None:
-                assert isinstance(self.fai, io.TextIOWrapper)
+                assert isinstance(self.fai, io.TextIOWrapper), "The FAI index is not a valid file handle."
 
     def serialize(self):
         """

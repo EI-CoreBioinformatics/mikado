@@ -167,12 +167,9 @@ class Calculator:
                     gid = record.id + ".gene"
                 else:
                     gid = record.parent[0]
-                    # assert current_gene is not None, record
                 if current_gene is None or gid != current_gene.id:
                     # Create a gene record
                     self.__store_gene(current_gene)
-                    # if record.feature != "match":
-                    #     new_record.feature = "gene"
                     current_gene = Gene(
                         record,
                         gid=gid,
@@ -621,7 +618,6 @@ class Calculator:
         row["Total"] = total
         if stat in self.__arrays:
             current_array = self.__arrays[stat]
-            # assert isinstance(current_array, Counter), type(current_array)
         else:
             current_array = None
         row = self.get_stats(row, current_array)

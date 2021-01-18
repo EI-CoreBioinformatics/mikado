@@ -92,7 +92,6 @@ class Locus(Abstractlocus):
                                           self.json_conf["prepare"]["files"]["reference"]) if is_reference is True)
 
         if pad_transcripts in (False, True):
-            # self._set_padding(pad_transcripts)
             self.json_conf["pick"]["alternative_splicing"]["pad"] = pad_transcripts
             assert self.perform_padding == pad_transcripts
 
@@ -369,7 +368,10 @@ class Locus(Abstractlocus):
                 if transcript.retained_intron_num > 0:
                     retained_introns.add(tid)
                 if transcript.cds_disrupted_by_ri is True:
-                    assert transcript.retained_intron_num > 0
+                    if transcript.retained_intron_num <= 0:
+                        raise AssertionError(
+                            "Transcript {transcript.id} is marked as having its CDS disrupted by a retained intron event, yet \
+it is marked as having 0 retained introns. This is an error.".format(transcript=transcript))
                     cds_disrupted.add(tid)
             if max(len(retained_introns), len(cds_disrupted)) == 0:
                 break
@@ -1063,7 +1065,6 @@ class Locus(Abstractlocus):
                         if edge:
                             assert edge[0].id in self
                             assert edge[1].id in self
-                            # assert edge[1].id in self.scores
                             graph.add_edge(edge[0].id, edge[1].id)
         else:
 

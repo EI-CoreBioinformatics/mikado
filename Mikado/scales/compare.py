@@ -109,7 +109,7 @@ def compare(args):
 
     from .reference_preparation import prepare_index
     index_name = prepare_index(args, queue_logger)
-    assert os.path.exists(index_name)
+    assert os.path.exists(index_name), "Something went wrong in creating or loading the index {}".format(index_name)
 
     if args.index is True:
         _shutdown(args, index_name, logger, handler, queue_logger, log_queue_listener)

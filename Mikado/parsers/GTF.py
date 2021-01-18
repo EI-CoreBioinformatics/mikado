@@ -86,7 +86,6 @@ class GtfLine(GFAnnotation):
 
         if not gene:
             pass
-            # assert attributes["gene_id"], attributes
         else:
             attributes['gene_id'] = gene
         if "gene_id" in attributes and isinstance(attributes["gene_id"], list):
@@ -96,8 +95,6 @@ class GtfLine(GFAnnotation):
             attributes["transcript_id"] = attributes.pop("transcript_id", None)
         else:
             attributes["transcript_id"] = transcript
-
-        # assert attributes["transcript_id"]
 
         order = ['gene_id', 'transcript_id', 'exon_number', 'gene_name', 'transcript_name']
 

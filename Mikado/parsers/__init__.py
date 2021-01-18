@@ -142,7 +142,8 @@ def to_gff(string, input_format=None):
     :rtype: (Mikado.parsers.GTF.GTF | Mikado.parsers.GFF.GFF3)
     """
 
-    # handle = open(string)
+    # TODO: rename the function *and* add a sniffer
+
     if isinstance(string, io.TextIOWrapper):
         fname = "-"
     elif isinstance(string, (io.BytesIO, io.BufferedReader)):
@@ -156,7 +157,6 @@ def to_gff(string, input_format=None):
     if input_format == "gtf" or".gtf" in fname:
         return GTF.GTF(string)
     elif input_format == "gff3" or ".gff" in fname or ".gff3" in fname:
-    # elif string.endswith('gff') or string.endswith('gff3'):
         return GFF.GFF3(string)
     elif input_format == "bed12" or ".bed12" in fname or ".bed" in fname:
         return bed12.Bed12Parser(string)

@@ -141,8 +141,14 @@ def create_index(reference, queue_logger, index_name, ref_gff=False,
     conn = sqlite3.connect(temp_db)
     cursor = conn.cursor()
     cursor.execute("CREATE TABLE positions (chrom text, start integer, end integer, gid text)")
-    genes, positions = prepare_reference(reference, queue_logger, ref_gff=ref_gff,
-                                         exclude_utr=exclude_utr, protein_coding=protein_coding)
+    try:
+        genes, positions = prepare_reference(reference, queue_logger, ref_gff=ref_gff,
+                                             exclude_utr=exclude_utr, protein_coding=protein_coding)
+    except KeyboardInterrupt:
+        raise
+    except Exception as exc:
+        queue_logger.critical(exc)
+        raise
 
     gid_vals = []
     for chrom in positions:

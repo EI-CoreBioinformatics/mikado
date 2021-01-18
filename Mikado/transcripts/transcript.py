@@ -36,6 +36,7 @@ from ..utilities.intervaltree import Interval, IntervalTree
 from ..utilities.namespace import Namespace
 from collections.abc import Hashable
 import numpy as np
+import pprint
 import pysam
 
 
@@ -400,7 +401,6 @@ class Transcript:
             elif cigar == 3:  # Intron
                 if current_exon is None:
                     continue  # Read positioned at the end/beginning of scaffold
-                # assert current_exon is not None
                 self.add_exon(current_exon)
                 current_exon = None
                 current += length
@@ -522,6 +522,9 @@ class Transcript:
             else:
                 raise ValueError(transcript_row)
             self.feature = intern(transcript_row.feature)
+
+    def __repr__(self):
+        return pprint.saferepr(self.__dict__)
 
     def __str__(self, to_gtf=False, print_cds=True):
         """
@@ -668,52 +671,59 @@ class Transcript:
 
     # ######## Class instance methods ####################
 
-    def add_exon(self, gffline, feature=None, phase=None):
+    def add_exon(self, exon_data, feature=None, phase=None):
         """This function will append an exon/CDS feature to the object.
-        :param gffline: an annotation line
-        :type gffline: (Mikado.parsers.GFF.GffLine | Mikado.parsers.GTF.GtfLine | tuple | list)
+        :param exon_data: an annotation line
+        :type exon_data: (Mikado.parsers.GFF.GffLine | Mikado.parsers.GTF.GtfLine | tuple | list)
         :type feature: flag to indicate what kind of feature we are adding
         """
 
         if self.finalized is True:
             raise ModificationError("You cannot add exons to a finalized transcript!")
 
-        _gtype = type(gffline)
+        _gtype = type(exon_data)
 
         if _gtype in (tuple, list):
-            assert len(gffline) == 2
+            assert len(exon_data) == 2
             try:
-                start, end = sorted(gffline)
+                start, end = sorted(exon_data)
             except TypeError:
-                raise TypeError((gffline, _gtype))
+                raise TypeError((exon_data, _gtype))
             if feature is None:
                 feature = "exon"
         elif _gtype is intervaltree.Interval:
-            start, end = gffline[0], gffline[1]
+            start, end = exon_data[0], exon_data[1]
             if feature is None:
                 feature = "exon"
         elif _gtype is Interval:
-            start, end = gffline.start, gffline.end
+            start, end = exon_data.start, exon_data.end
             if feature is None:
                 feature = "exon"
         elif _gtype not in (GtfLine, GffLine):
             raise InvalidTranscript("Unkwown feature type! %s", _gtype)
         else:
-            start, end = sorted([gffline.start, gffline.end])
+            start, end = sorted([exon_data.start, exon_data.end])
             if feature is None:
-                feature = gffline.feature
-            if _gtype is GffLine and "cdna_match" in gffline.feature.lower():
-                gffline.parent = gffline.id
+                feature = exon_data.feature
+            if _gtype is GffLine and "cdna_match" in exon_data.feature.lower():
+                exon_data.parent = exon_data.id
 
-            if self.id not in gffline.parent:
+            if self.id not in exon_data.parent:
                 raise InvalidTranscript(
                     """Mismatch between transcript and exon:
                     {0}
                     {1}
-                    {2}""".format(self.id, gffline.parent, gffline))
-            assert gffline.is_exon is True, str(gffline)
-            assert gffline.chrom == self.chrom, (gffline.chrom, self.chrom)
-            phase = gffline.phase
+                    {2}""".format(self.id, exon_data.parent, exon_data))
+            # As this should be a GffLine/GtfLine object, we must check that the object is an exon
+            if exon_data.is_exon is False:
+                raise TypeError("The provided exon data of type {texon} is not a valid exon line\n{exon_data}".format(
+                    texon=type(exon_data), exon_data=str(exon_data)))
+            if exon_data.chrom != self.chrom:
+                raise TypeError(
+                    "The exon data for {self.id} should all be located on chromosome {self.chrom}, but the provided\
+exon data is on a different chromosome, {exon_data.chrom}. \
+{exon_data}".format(exon_data=exon_data, self=self))
+            phase = exon_data.phase
 
         assert isinstance(start,
                           (int, np.int, np.int32, np.int64)) and isinstance(end,
@@ -740,7 +750,7 @@ class Transcript:
         elif feature == "intron":
             store = self.introns
         else:
-            raise InvalidTranscript("Unknown feature: {0}".format(gffline.feature))
+            raise InvalidTranscript("Unknown feature: {0}".format(exon_data.feature))
 
         segment = tuple([int(start), int(end)])
         if segment in store:
@@ -1129,8 +1139,10 @@ class Transcript:
         # Need to recalculate it
         self.__cdna_length = None
         self.finalize()
-        assert self.combined_utr == self.three_utr == self.five_utr == [], (
-            self.combined_utr, self.three_utr, self.five_utr, self.start, self.end)
+        if not (self.combined_utr == self.three_utr == self.five_utr == []):
+            raise ValueError(
+                "UTRs have not been properly reset.\n{self.combined_utr}\n{self.three_utr}\n{self.five_utr}".format(
+                    self=self))
 
     def strip_cds(self, strand_specific=True):
         """Method to completely remove CDS information from a transcript.
@@ -1142,7 +1154,9 @@ class Transcript:
 
         self.logger.debug("Stripping CDS from {0}".format(self.id))
         self.finalized = False
-        assert len(self.exons) > 0
+        if len(self.exons) == 0:
+            raise ValueError("A finalised transcript must have at least one exon, but {self.id} has 0!".format(
+                self=self))
         if self.monoexonic is True and strand_specific is False:
             self.strand = None
 
@@ -1325,12 +1339,6 @@ class Transcript:
         self.external_scores.update(state.get("external", dict()))
         self._original_source = self.source
         self.attributes = state["attributes"].copy()
-
-        # for subkey in self.attributes:
-        #     if self.attributes[subkey] == maxsize:
-        #         self.attributes[subkey] = float("inf")
-        #     elif self.attributes[subkey] == maxsize:
-        #         self.attributes[subkey] = float("-inf")
 
         self.exons = []
         self.combined_cds = []
@@ -1627,7 +1635,10 @@ class Transcript:
             else:
                 pass
         else:
-            assert isinstance(logger, logging.Logger), type(logger)
+            if not isinstance(logger, logging.Logger):
+                raise TypeError(
+                    "Objects of type {tself} accept only logging.Logger instances as loggers, not {tlog}!".format(
+                        tself=type(self), tlog=type(logger)))
             self.__logger = logger
         # self.__logger.propagate = False
 
@@ -1939,14 +1950,6 @@ class Transcript:
         else:
             return tuple([])
 
-        # if self.combined_cds_length == 0:
-        #     # self.__max_internal_orf_length = 0
-        #     # self.selected_internal_orf_index = None
-        #     return tuple([])
-        # else:
-        #     assert self.selected_internal_orf_index is not None
-        #     return self.internal_orfs[self.selected_internal_orf_index]
-
     @property
     def selected_internal_orf_cds(self):
         """This property will return the tuple of tuples of the CDS segments of
@@ -2130,21 +2133,6 @@ class Transcript:
         CDS segments in the selected ORF."""
 
         return self._selected_cds_introns
-
-        # if len(self.selected_cds) < 2:
-        #     return set()
-        # if self.number_internal_orfs == 0 or len(self.combined_cds) < 2:
-        #     return set()
-        #
-        # cintrons = []
-        # for first, second in zip(self.selected_cds[:-1], self.selected_cds[1:]):
-        #     cintrons.append(
-        #         intervaltree.Interval(first[1] + 1,
-        #                               second[0] - 1)
-        #     )
-        # cintrons = set(cintrons)
-        # assert len(cintrons) > 0
-        # return cintrons
 
     @property
     def combined_cds_start(self):
@@ -2451,10 +2439,6 @@ index {3}, internal ORFs: {4}".format(
     def combined_cds_length(self):
         """This property return the length of the CDS part of the transcript."""
 
-        # if self.__combined_cds_length == 0 and len(self.combined_cds) > 0:
-        #     ar = np.array(list(*zip(self.combined_cds)))
-        #     c_length = int(np.subtract(ar[1], ar[0] - 1).sum())
-        #     assert c_length > 0
         return self.__combined_cds_length
 
     combined_cds_length.category = "CDS"
@@ -2515,7 +2499,9 @@ index {3}, internal ORFs: {4}".format(
     def cdna_length(self):
         """This property returns the length of the transcript."""
         if self.__cdna_length is None and self.finalized is True:
-            raise AssertionError
+            raise AssertionError(
+                "A finalised transcript must have a defined cDNA length, yet for {sid} it is unset".format(
+                    sid=self.id))
         if self.finalized is False or self.__cdna_length is None:
             self.__calculate_cdna_length()
 
@@ -3315,7 +3301,10 @@ when the transcript has at least one intron!""")
         This metric returns the number of introns of the transcript which are validated
         by external data."""
 
-        assert len(self.verified_introns) <= len(self.introns)
+        if not len(self.verified_introns) <= len(self.introns):
+            raise AssertionError("Transcript {self.id} has extra verified introns:\
+Transcript introns: {self.introns}\
+Verified introns: {self.verified_introns}".format(self=self))
         return len(self.verified_introns)
 
     verified_introns_num.category = "External"

@@ -286,7 +286,6 @@ class OrfSerializer:
                 if ref in cache:
                     continue
                 objects.append({"query_name": ref, "query_length": length})
-                # objects.append(Query(ref, length))
                 assert ref not in found, ref
                 found.add(ref)
                 if len(objects) >= self.maxobjects:
@@ -295,7 +294,6 @@ class OrfSerializer:
                         Query.__table__.insert(),
                         objects
                     )
-                    # self.session.bulk_save_objects(objects)
                     self.session.commit()
                     self.logger.debug(
                         "Loaded %d transcripts into query table", done)

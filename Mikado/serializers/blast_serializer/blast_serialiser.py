@@ -146,13 +146,12 @@ class BlastSerializer:
         """
 
         if isinstance(query_seqs, str):
-            assert os.path.exists(query_seqs)
+            assert os.path.exists(query_seqs), "Invalid FASTA file name, as it does not exist: {}".format(query_seqs)
             self.query_seqs = pysam.FastaFile(query_seqs)
         elif query_seqs is None:
             self.query_seqs = None
         else:
             self.logger.warn("Query type: %s", type(query_seqs))
-            # assert "SeqIO.index" in repr(query_seqs)
             self.query_seqs = query_seqs
 
         self.target_seqs = []
@@ -306,10 +305,8 @@ class BlastSerializer:
         self.logger.debug("Started the sequence serialisation")
         if self.target_seqs:
             targets = self.__serialize_targets(targets)
-            # assert len(targets) > 0
         if self.query_seqs is not None:
             queries = self.__serialize_queries(queries)
-            # assert len(queries) > 0
 
         return queries, targets
 

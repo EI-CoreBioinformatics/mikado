@@ -317,7 +317,7 @@ class GffLine(GFAnnotation):
         else:
             if "Derives_from" not in self.attributes:
                 key = [_ for _ in self.attributes.keys() if _.lower() == "derives_from"]
-                assert len(key) == 1, (str(self), key)
+                assert len(key) == 1, (str(self), "Multiple 'derives_from' found:\n"+ str(key))
                 self.attributes["Derives_from"] = self.attributes[key[0]]
 
             return self.attributes["Derives_from"].split(",")
@@ -359,21 +359,23 @@ class GFF3(Parser):
         """
         super().__init__(handle)
         self.header = False
+        self.__line_counter = 0
 
     def __next__(self):
 
         if self.closed:
             raise StopIteration
         line = next(self._handle)
+        self.__line_counter += 1
 
         if line[0] == "#":
             return GffLine(line, header=True)
 
         try:
             gff_line = GffLine(line)
-        except Exception:
-            error = "Invalid line for file {}, position {}:\n{}".format(
-                self.name, self._handle.tell(), line)
+        except Exception as exc:
+            error = "Invalid line for file {name}, position {counter}:\n{line}Error: {exc}".format(
+                name=self.name, counter=self.__line_counter, line=line, exc=exc)
             raise ValueError(error)
         return gff_line
 

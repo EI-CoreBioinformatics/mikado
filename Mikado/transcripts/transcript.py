@@ -36,8 +36,8 @@ from ..utilities.intervaltree import Interval, IntervalTree
 from ..utilities.namespace import Namespace
 from collections.abc import Hashable
 import numpy as np
+import pprint
 import pysam
-import pprint as pp
 
 
 class Metric(property):
@@ -524,7 +524,7 @@ class Transcript:
             self.feature = intern(transcript_row.feature)
 
     def __repr__(self):
-        return pp.saferepr(self)
+        return pprint.saferepr(self.__dict__)
 
     def __str__(self, to_gtf=False, print_cds=True):
         """

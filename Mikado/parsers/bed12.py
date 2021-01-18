@@ -661,11 +661,11 @@ class BED12:
 
     def _adjust_start(self, sequence, orf_sequence):
 
-        if len(orf_sequence) == (self.thick_end - self.thick_start + 1 - self.phase):
+        if len(orf_sequence) != (self.thick_end - self.thick_start + 1 - self.phase):
             # We are checking that the sequence of the ORF (provided as argument) is the same length as
             # the imputed length of the ORF
-            raise ValueError("The provided orf_sequence of length {lorf} is different from the imputed length of the ORF\
-for {sid} (total {ltotal}; thick start {self.thick_start}, thick end {self.thick_end}, phase {self.phase}".format(
+            raise ValueError("The provided orf_sequence of length {lorf} is different from the imputed length of the\
+ ORF for {sid} (total {ltotal}; thick start {self.thick_start}, thick end {self.thick_end}, phase {self.phase})".format(
                 lorf=len(orf_sequence), ltotal=self.thick_end - self.thick_start + 1 - self.phase,
                 sid=self.name, self=self))
 
@@ -790,7 +790,7 @@ for {sid} (total {ltotal}; thick start {self.thick_start}, thick end {self.thick
             self.logger.debug("Final internal coords for %s: %s-%s", self.chrom, self.thick_start, self.thick_end)
 
     def __repr__(self):
-        return pp.saferepr(self)
+        return pp.saferepr(self.__dict__)
 
     def __str__(self):
 

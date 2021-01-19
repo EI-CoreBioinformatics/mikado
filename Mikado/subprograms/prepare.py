@@ -25,6 +25,7 @@ def parse_prepare_options(args, config):
     if getattr(args, "minimum_cdna_length", None) not in (None, False):
         config["prepare"]["minimum_cdna_length"] = args.minimum_cdna_length
 
+
     if getattr(args, "max_intron_length", None) not in (None, False):
         config["prepare"]["max_intron_length"] = args.max_intron_length
 
@@ -36,6 +37,9 @@ def parse_prepare_options(args, config):
 
     if getattr(args, "lenient", None) is not None:
         config["prepare"]["lenient"] = True
+
+    if getattr(args, "strip_faulty_cds", None) is not None:
+        config["prepare"]["strip_faulty_cds"] = True
 
     if getattr(args, "strip_cds", False) is True:
         config["prepare"]["strip_cds"] = True
@@ -337,6 +341,10 @@ def prepare_parser():
                         dest="exclude_redundant", action="store_true",
                         help="Boolean flag. If invoked, Mikado prepare will exclude redundant models,\
 ignoring the per-sample instructions.")
+    cds_stripping = parser.add_mutually_exclusive_group()
+    cds_stripping.add_argument("--strip-faulty-cds", default=None, action="store_true",
+                        help="Flag. If set, transcripts with an incorrect CDS will be retained but \
+with their CDS stripped. Default behaviour: the whole transcript will be considered invalid and discarded.")
     parser.add_argument("--seed", type=int, default=None,
                         help="Random seed number.")
     parser.add_argument("gff", help="Input GFF/GTF file(s).", nargs="*")

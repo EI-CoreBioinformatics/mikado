@@ -6,7 +6,7 @@ to verify that e.g. the assigned strand is correct.
 """
 
 from .transcript import Transcript
-from ..exceptions import IncorrectStrandError, InvalidTranscript
+from ..exceptions import IncorrectStrandError, InvalidTranscript, InvalidCDS
 from collections import Counter
 from itertools import zip_longest
 from ..parsers.bed12 import BED12
@@ -35,7 +35,7 @@ class TranscriptChecker(Transcript):
                  strand_specific=False, lenient=False,
                  is_reference=False,
                  canonical_splices=(("GT", "AG"), ("GC", "AG"), ("AT", "AC")),
-                 force_keep_cds=False,
+                 strip_faulty_cds=False,
                  logger=None):
 
         """
@@ -74,18 +74,9 @@ class TranscriptChecker(Transcript):
         self.canonical_splices = []
         self.__is_reference = False
         self.is_reference = is_reference
-        if force_keep_cds is True or self.is_reference is True:
-            self.__force_keep_cds = True
-        else:
-            self.__force_keep_cds = False
-        if lenient is True or self.is_reference is True:
-            self.lenient = True
-        else:
-            self.lenient = False
-        if self.is_reference is True or strand_specific is True:
-            self.strand_specific = True
-        else:
-            self.strand_specific = False
+        self.strip_faulty_cds = strip_faulty_cds
+        self.lenient = (self.is_reference or lenient)
+        self.strand_specific = (self.is_reference or strand_specific)
         if not isinstance(canonical_splices, (tuple, list)):
             raise ValueError("Canonical splices should be provided as lists or tuples")
 
@@ -190,7 +181,11 @@ class TranscriptChecker(Transcript):
 
         The finalize method is called preliminarly before any operation.
         """
-        self.finalize()
+
+        try:
+            self.finalize()
+        except (InvalidTranscript, InvalidCDS) as exc:
+            raise InvalidTranscript("{} cannot be finalised correctly. Discarding it. Error: {}".format(self.id, exc))
 
         if self.exons[0][0] - self.start != 0:
             error = "First exon start and transcript start disagree in {}: {} vs {}".format(self.id,
@@ -211,7 +206,7 @@ class TranscriptChecker(Transcript):
         if self.checked is True:
             return
 
-        if self.strand_specific is False and self.monoexonic is True and self.__force_keep_cds is False:
+        if self.strand_specific is False and self.monoexonic is True and self.is_coding is False:
             self.strand = None
 
         elif self.monoexonic is False:
@@ -285,7 +280,9 @@ we will not reverse it")
         return
 
     def reverse_strand(self):
-        if self.is_coding is True and self.__force_keep_cds is True:
+        if self.is_reference is True:
+            raise InvalidTranscript("I cannot reverse the strand of a reference transcript.")
+        elif self.is_coding is True and self.strip_faulty_cds is False:
             raise InvalidTranscript("I cannot reverse the strand of a coding transcript.")
         super().reverse_strand()
 
@@ -332,15 +329,27 @@ we will not reverse it")
         self.has_start_codon = False
         self.has_stop_codon = False
 
+        try:
+            self.finalize()
+        except InvalidCDS:
+            if self.strip_faulty_cds is True:
+                self.strip_cds(strand_specific=True)
+                self.finalize()
+            else:
+                self.logger.warning("Transcript %s has an invalid CDS and must therefore be discarded.", self.id)
+
         if self.is_coding is False:
             return
         else:
             try:
                 orfs = list(self.get_internal_orf_beds())
             except AssertionError as exc:  # Invalid ORFs found
-                self.logger.warning("Invalid ORF(s) for %s. Stripping it of its CDS. Error: %s",
-                                    self.id, exc)
-                self.strip_cds()
+                if self.strip_faulty_cds is False:
+                    raise InvalidTranscript("Invalid ORF(s) for %s. Discarding it. Error: %s", self.id, exc)
+                else:
+                    self.logger.warning("Invalid ORF(s) for %s. Stripping it of its CDS. Error: %s",
+                                        self.id, exc)
+                    self.strip_cds()
                 return
 
             if len(orfs) > 1:
@@ -359,8 +368,12 @@ we will not reverse it")
             assert isinstance(orf, BED12)
 
             if orf.invalid:
-                self.logger.warning("Invalid ORF for %s (reason: %s)", self.id, orf.invalid_reason)
-                self.strip_cds(self.strand_specific)
+                if self.strip_faulty_cds is False:
+                    raise InvalidTranscript("Invalid ORF(s) for %s. Discarding it. Reason: %s", self.id,
+                                            orf.invalid_reason)
+                else:
+                    self.logger.warning("Invalid ORF for %s (reason: %s)", self.id, orf.invalid_reason)
+                    self.strip_cds(self.strand_specific)
             else:
                 self.logger.debug("%s %s a valid start codon, %s a valid stop codon",
                                   self.id, "has" if orf.has_start_codon else "does not have",

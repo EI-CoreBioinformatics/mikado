@@ -8,13 +8,7 @@ Unit tests for the scales library
 import unittest
 from .. import loci, utilities
 from .. import scales
-import argparse
-import os
-from .. import parsers
-import csv
-import tempfile
 from ..scales.assignment.assigner import Assigner
-import pkg_resources
 
 
 class AssignerTest(unittest.TestCase):
@@ -1083,47 +1077,6 @@ class AssignerTest(unittest.TestCase):
                          keys, (5350,5500), distance=10000),
                          [((350, 500), 4850), ((10, 200), 5150)]
                          )
-
-    def test_false_fusion(self):
-
-        """
-        System test to verify that the false fusion is not called.
-        WARNING: this test is quite brittle as I am creating the namespace myself
-        instead of loading it from the subprograms.compare module.
-        :return:
-        """
-
-        ref_file = pkg_resources.resource_filename("Mikado.tests", os.path.join("fusion_test",
-                                                                                "fusion_test_ref.gff3"))
-        pred_file = pkg_resources.resource_filename("Mikado.tests", os.path.join("fusion_test",
-                                                                                 "fusion_test_pred.gtf"))
-        with tempfile.TemporaryDirectory() as out, \
-                parsers.to_gff(ref_file) as reference, parsers.to_gff(pred_file) as prediction:
-            with self.assertLogs("main_compare") as cmo:
-                args = argparse.Namespace()
-                args.no_save_index = True
-                args.reference = reference
-                args.prediction = prediction
-                args.log = None
-                args.out = os.path.join(out, "fusion_test", "fusion_test")
-                args.distance = 2000
-                args.verbose = True
-                args.exclude_utr = False
-                args.protein_coding = False
-                args.index = False
-                args.self = False
-                args.extended_refmap = False
-                args.gzip = False
-                args.processes = 1
-                scales.compare.compare(args)
-                out_refmap = os.path.join(out, "fusion_test", "fusion_test.refmap")
-                self.assertTrue(os.path.exists(out_refmap), cmo.output)
-                self.assertGreater(os.stat(out_refmap).st_size, 0, cmo.output)
-                with open(out_refmap) as refmap:
-                    for line in csv.DictReader(refmap, delimiter="\t"):
-                        if line["ref_id"] not in ("AT1G78880.1", "AT1G78882.1"):
-                            continue
-                        self.assertEqual(line["ccode"], "=", (line, cmo.output))
 
     def test_monoexonic_contained(self):
         t1 = loci.Transcript()

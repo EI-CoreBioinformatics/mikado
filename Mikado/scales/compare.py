@@ -68,7 +68,7 @@ def setup_logger(args):
     return args, handler, logger, log_queue_listener, queue_logger
 
 
-def _shutdown(args, index_name, logger, handler, queue_logger, log_queue_listener):
+def _shutdown(args, index_name, logger, handler, queue_logger: logging.Logger, log_queue_listener):
     queue_logger.info("Finished")
     log_queue_listener.enqueue_sentinel()
     log_queue_listener.stop()
@@ -81,6 +81,7 @@ def _shutdown(args, index_name, logger, handler, queue_logger, log_queue_listene
         args.prediction.close()
     if args.no_save_index is True:
         os.remove(index_name)
+    [_.close() for _ in queue_logger.handlers]
     return
 
 
@@ -98,8 +99,8 @@ def compare(args):
 
     if isinstance(args.out, str):
         _out_folder = os.path.dirname(args.out)
-        if _out_folder and not os.path.exists(_out_folder):
-            os.makedirs(_out_folder)
+        if _out_folder:
+            os.makedirs(_out_folder, exist_ok=True)
 
     args, handler, logger, log_queue_listener, queue_logger = setup_logger(args)
     queue_logger.info("Start")

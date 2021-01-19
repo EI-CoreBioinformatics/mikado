@@ -538,7 +538,7 @@ Coding_exons (recalculated): {}""".format(
     return transcript
 
 
-def __check_phase_correctness(transcript):
+def __check_phase_correctness(transcript, strip_faulty_cds=True):
 
     """
     This method verifies that the phases are assigned correctly in the case of a coding transcript.
@@ -584,27 +584,32 @@ def __check_phase_correctness(transcript):
     transcript.segments, transcript.internal_orfs = segments, internal_orfs
 
     __orfs_to_remove = []
+    orf_excs = []
     for orf_index in range(len(internal_orfs)):
-        # transcript.logger.debug("ORF #%d for %s: %s",
-        #                         orf_index, transcript.id, transcript.internal_orfs[orf_index])
-        # transcript = __check_internal_orf(transcript, orf_index)
         try:
             transcript = __check_internal_orf(transcript, orf_index)
         except (InvalidTranscript, InvalidCDS) as exc:
-            transcript.logger.warning("ORF %s of %s is invalid, removing.",
-                                      orf_index, transcript.id)
+            transcript.logger.debug("ORF %s of %s is invalid. Exception: %s", orf_index, transcript.id, exc)
             __orfs_to_remove.append(orf_index)
+            orf_excs.append(str(exc))
 
     __num_orfs = len(internal_orfs)
-    if (__num_orfs > 0) and (len(__orfs_to_remove) == __num_orfs):
-        transcript.logger.warning("Every ORF of %s is invalid, stripping the CDS", transcript.id)
-        transcript.strip_cds(strand_specific=True)
-    elif len(__orfs_to_remove):
-        transcript.logger.warning("Stripping %s of %s ORFs out of %s",
-                                  transcript.id, len(__orfs_to_remove), __num_orfs)
-        for orf_index in reversed(sorted(__orfs_to_remove)):
-            internal_orfs.pop(orf_index)
-        transcript.internal_orfs = internal_orfs
+    if len(__orfs_to_remove) >= 1:
+        if strip_faulty_cds is False:
+            err = "{} is an invalid transcript as it has {} invalid ORF{} out of {}. Exceptions: {}".format(
+                transcript.id, len(__orfs_to_remove), "" if len(__orfs_to_remove) == 1 else "s",
+                __num_orfs, "\n".join(orf_excs))
+            transcript.logger.warning(err)
+            raise InvalidCDS(err)
+        elif len(__orfs_to_remove) == __num_orfs:
+            transcript.logger.warning("Every ORF of %s is invalid, stripping the CDS", transcript.id)
+            transcript.strip_cds(strand_specific=True)
+        else:
+            transcript.logger.warning("Stripping %s of %s ORFs out of %s",
+                                      transcript.id, len(__orfs_to_remove), __num_orfs)
+            for orf_index in reversed(sorted(__orfs_to_remove)):
+                internal_orfs.pop(orf_index)
+            transcript.internal_orfs = internal_orfs
     else:
         pass
 
@@ -680,6 +685,7 @@ def finalize(transcript):
     transcript.exons = sorted(transcript.exons)
 
     # Add the stop codon to the CDS
+    strip_faulty_cds = getattr(transcript, "strip_faulty_cds", True)
     if transcript.stop_codon:
         transcript.logger.debug("Adding the stop codon to %s", transcript.id)
         transcript.stop_codon = sorted(transcript.stop_codon)
@@ -694,8 +700,11 @@ def finalize(transcript):
             # Here comes the complicated part
             try:
                 transcript = _fix_stop_codon(transcript)
-            except InvalidCDS:
-                transcript.strip_cds()
+            except InvalidCDS as exc:
+                if strip_faulty_cds is True:
+                    transcript.strip_cds()
+                else:
+                    raise InvalidCDS(exc)
 
     transcript.__cdna_length = None
     __basic_final_checks(transcript)
@@ -713,15 +722,18 @@ def finalize(transcript):
             try:
                 _check_cdna_vs_utr(transcript)
             except InvalidCDS as exc:
-                transcript.logger.warning("CDS for %s completely invalid. Removing it.",
-                                          transcript.id)
-                transcript.logger.exception(exc)
-                transcript.combined_cds = []
-                transcript.combined_utr = []
-                transcript.segments = []
-                transcript.internal_orfs = []
-                __basic_final_checks(transcript)
-                _check_cdna_vs_utr(transcript)
+                if strip_faulty_cds is True:
+                    transcript.logger.warning("CDS for %s completely invalid. Removing it.",
+                                              transcript.id)
+                    transcript.logger.exception(exc)
+                    transcript.combined_cds = []
+                    transcript.combined_utr = []
+                    transcript.segments = []
+                    transcript.internal_orfs = []
+                    __basic_final_checks(transcript)
+                    _check_cdna_vs_utr(transcript)
+                else:
+                    raise InvalidCDS(exc)
 
     transcript.combined_cds = sorted(transcript.combined_cds,
                                      key=operator.itemgetter(0, 1))
@@ -735,13 +747,16 @@ def finalize(transcript):
         assert all([segment[1] in transcript.exons for segment in transcript.segments if
                     segment[0] == "exon"]), (transcript.exons, transcript.segments)
         transcript.logger.debug("Verifying phase correctness for %s", transcript.id)
-        __check_phase_correctness(transcript)
+        __check_phase_correctness(transcript, strip_faulty_cds=strip_faulty_cds)
         transcript.logger.debug("Calculating intron correctness for %s", transcript.id)
         __calculate_introns(transcript)
     except (InvalidCDS, InvalidTranscript):
-        transcript.finalized = True
-        transcript.unfinalize()
-        return
+        if strip_faulty_cds is True:
+            transcript.finalized = True
+            transcript.unfinalize()
+            return
+        else:
+            raise
 
     if transcript.feature == "transcript":
         if len(transcript.combined_cds) > 0:

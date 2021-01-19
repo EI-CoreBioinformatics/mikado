@@ -102,6 +102,7 @@ class Picker:
                                          force=True)
 
         # self.setup_logger()
+        self.logger.info("Starting to analyse input file %s", self.input_file)
         self.logger.info("Random seed: %s", self.json_conf["seed"])
         if self.json_conf["seed"] is not None:
             # numpy.random.seed((self.json_conf["seed"]) % (2 ** 32 - 1))

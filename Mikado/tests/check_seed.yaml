@@ -120,7 +120,7 @@ pick:
     procs: 1
     single_thread: false
     intron_range: [60, 900]
-  scoring_file: plant.yaml
+  scoring_file: HISTORIC/plant.yaml
 portcullis:
   #  Options related to portcullis
   canonical_juncs: C,S

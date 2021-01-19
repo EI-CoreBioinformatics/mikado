@@ -954,7 +954,7 @@ class Superlocus(Abstractlocus):
         max_edges = max([d for n, d in transcript_graph.degree])
         return transcript_graph, max_edges
 
-    def define_subloci(self):
+    def define_subloci(self, check_requirements=True):
         """This method will define all subloci inside the superlocus.
         Steps:
             - Call the BronKerbosch algorithm to define cliques
@@ -975,14 +975,15 @@ class Superlocus(Abstractlocus):
             self.metrics_calculated = False
 
         # Check whether there is something to remove
-        self._check_requirements()
-        excluded_tids = list(self._excluded_transcripts.keys())
-        for excluded_tid in excluded_tids:
-            to_remove = self._excluded_transcripts[excluded_tid]
-            self.excluded.add_transcript_to_locus(to_remove, check_in_locus=False)
-            self.remove_transcript_from_locus(to_remove.id)
-            if excluded_tid in self._excluded_transcripts:
-                del self._excluded_transcripts[excluded_tid]
+        if check_requirements is True:
+            self._check_requirements()
+            excluded_tids = list(self._excluded_transcripts.keys())
+            for excluded_tid in excluded_tids:
+                to_remove = self._excluded_transcripts[excluded_tid]
+                self.excluded.add_transcript_to_locus(to_remove, check_in_locus=False)
+                self.remove_transcript_from_locus(to_remove.id)
+                if excluded_tid in self._excluded_transcripts:
+                    del self._excluded_transcripts[excluded_tid]
 
         if len(self.transcripts) == 0:
             # we have removed all transcripts from the Locus. Set the flag to True and exit.
@@ -1065,7 +1066,7 @@ class Superlocus(Abstractlocus):
         self.subloci = sorted(self.subloci)
         self.subloci_defined = True
 
-    def define_monosubloci(self):
+    def define_monosubloci(self, check_requirements=True):
 
         """This is a wrapper method that defines the monosubloci for each sublocus.
         """
@@ -1080,7 +1081,7 @@ class Superlocus(Abstractlocus):
         self.monosubloci = dict()
         # Extract the relevant transcripts
         for sublocus_instance in sorted(self.subloci):
-            sublocus_instance.define_monosubloci(purge=self.purge)
+            sublocus_instance.define_monosubloci(purge=self.purge, check_requirements=check_requirements)
             for transcript in sublocus_instance.excluded.transcripts.values():
                 self.excluded.add_transcript_to_locus(transcript)
             for tid in sublocus_instance.transcripts:
@@ -1178,7 +1179,7 @@ class Superlocus(Abstractlocus):
             for row in self.loci[locus].print_scores():
                 yield row
 
-    def define_loci(self):
+    def define_loci(self, check_requirements=True):
         """This is the final method in the pipeline. It creates a container
         for all the monosubloci (an instance of the class MonosublocusHolder)
         and retrieves the loci it calculates internally."""
@@ -1188,10 +1189,10 @@ class Superlocus(Abstractlocus):
 
         self.logger.debug("Calculating monosubloci for %s, %d transcripts",
                           self.id, len(self.transcripts))
-        self.define_monosubloci()
+        self.define_monosubloci(check_requirements=check_requirements)
         self.logger.debug("Calculated monosubloci for %s, %d transcripts",
                           self.id, len(self.transcripts))
-        self.calculate_mono_metrics()
+        self.calculate_mono_metrics(check_requirements=check_requirements)
 
         self.loci = SortedDict()
         if len(self.monoholders) == 0:
@@ -1205,7 +1206,7 @@ class Superlocus(Abstractlocus):
 
         loci = []
         for monoholder in self.monoholders:
-            monoholder.define_loci(purge=self.purge)
+            monoholder.define_loci(purge=self.purge, check_requirements=check_requirements)
             for locus_instance in monoholder.loci:
                 monoholder.loci[locus_instance].parent = self.id
                 loci.append(monoholder.loci[locus_instance])
@@ -1239,7 +1240,7 @@ class Superlocus(Abstractlocus):
                 else:
                     new_locus.add_transcript_to_locus(transcript,
                                                       check_in_locus=False)
-            new_locus.define_loci()
+            new_locus.define_loci(check_requirements=check_requirements)
             self.loci.update(new_locus.loci)
             self.__lost = new_locus.lost_transcripts
 
@@ -1389,10 +1390,10 @@ class Superlocus(Abstractlocus):
         self.loci = new
         return
 
-    def calculate_mono_metrics(self):
+    def calculate_mono_metrics(self, check_requirements=True):
         """Wrapper to calculate the metrics for the monosubloci."""
         self.monoholders = []
-        self.define_monosubloci()
+        self.define_monosubloci(check_requirements=check_requirements)
 
         mono_graph = super().define_graph(
             self.monosubloci,
@@ -1423,7 +1424,7 @@ class Superlocus(Abstractlocus):
             # monoholder.scores_calculated = False
             if self.regressor is not None:
                 monoholder.regressor = self.regressor
-            monoholder.filter_and_calculate_scores()
+            monoholder.filter_and_calculate_scores(check_requirements=check_requirements)
 
     def compile_requirements(self):
         """Quick function to evaluate the filtering expression, if it is present."""

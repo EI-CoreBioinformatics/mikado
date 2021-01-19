@@ -174,6 +174,7 @@ def create_config(args):
             del default["requirements"]
             del default["not_fragmentary"]
             del default["as_requirements"]
+            del default["cds_requirements"]
             config = default
         else:
             config = create_simple_config(seed=args.seed)

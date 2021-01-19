@@ -206,15 +206,19 @@ class Sublocus(Abstractlocus):
         self.logger.debug("Added %s to %s", transcript.id, self.id)
         # Update the id
 
-    def define_monosubloci(self, purge=False):
+    def define_monosubloci(self, purge=False, check_requirements=True):
         """
+        :param excluded: the excluded Locus to which transcripts from purged loci will be added to
+        :type excluded: None
+        :type excluded: Mikado.loci_objects.excluded.Excluded
+
         :param purge: a flag which indicates whether loci whose
         best transcript has a score of 0 should be excluded (True) or retained (False)
         :type purge: bool
 
-        :param excluded: the excluded Locus to which transcripts from purged loci will be added to
-        :type excluded: None
-        :type excluded: Mikado.loci_objects.excluded.Excluded
+        :param check_requirements: Boolean flag, true by default. If set to false transcripts requirements will not
+        be evaluated.
+        :type check_requirements: bool
 
         This function retrieves the best non-overlapping transcripts inside
         the sublocus, according to the score calculated by
@@ -227,7 +231,7 @@ class Sublocus(Abstractlocus):
         self.monosubloci = []
         # self.excluded = excluded
         self.logger.debug("Launching calculate scores for {0}".format(self.id))
-        self.filter_and_calculate_scores()
+        self.filter_and_calculate_scores(check_requirements=check_requirements)
 
         if len(self._excluded_transcripts) > 0 and self.purge:
             excluded_tids = list(self._excluded_transcripts.keys())

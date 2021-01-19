@@ -191,9 +191,16 @@ def create_daijin_config(args, level="ERROR", piped=False):
 
     config["reference"]["genome"] = args.genome
     logger.setLevel("INFO")
-    logger.info("Indexing the genome")
+    index_present = os.path.exists(config["reference"]["genome"] + ".fai")
+    if not index_present:
+        logger.info("Indexing the genome")
+    else:
+        logger.debug("Loading the reference index")
     pysam.FastaFile(config["reference"]["genome"])
-    logger.info("Indexed the genome")
+    if not index_present:
+        logger.info("Indexed the genome")
+    else:
+        logger.debug("Loaded the reference index")
     logger.setLevel(level)
     config["reference"]["transcriptome"] = args.transcriptome
 
@@ -304,9 +311,11 @@ def create_daijin_config(args, level="ERROR", piped=False):
 
     del final_config["load"]
     final_config.pop("as_requirements", None)
+    final_config.pop("cds_requirements", None)
     final_config.pop("scoring", None)
     final_config.pop("requirements", None)
     final_config.pop("not_fragmentary", None)
+
     if any(key.startswith("_") for key in final_config):
         _to_remove = [_ for _ in final_config if isinstance(_, str) and _.startswith("_")]
         [final_config.pop(key) for key in _to_remove]

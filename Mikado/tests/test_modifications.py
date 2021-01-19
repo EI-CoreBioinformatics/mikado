@@ -320,7 +320,7 @@ class TestPadding(unittest.TestCase):
         # locus.logger.setLevel("DEBUG")
         # for tid in locus:
         #     locus[tid].logger.setLevel("DEBUG")
-        locus.finalize_alternative_splicing()
+        locus.finalize_alternative_splicing(check_requirements=False)
         self.assertTrue(locus._finalized)
         self.assertNotIn(template1.id, locus, "\n" + str(locus))
         self.assertNotIn(template2.id, locus, "\n" + str(locus))

@@ -184,7 +184,7 @@ class MonosublocusHolder(Sublocus, Abstractlocus):
         """Overriden and set to NotImplemented to avoid cross-calling it when inappropriate."""
         raise NotImplementedError("Monosubloci are the input of this object, not the output.")
 
-    def define_loci(self, purge=False, excluded=None):
+    def define_loci(self, purge=False, excluded=None, check_requirements=True):
         """This is the main function of the class. It is analogous
         to the define_subloci class defined for sublocus objects,
         but it returns "Locus" objects (not "Monosublocus").
@@ -199,13 +199,16 @@ class MonosublocusHolder(Sublocus, Abstractlocus):
         :param excluded
         :type excluded: Excluded
 
+        :param check_requirements: boolean flag. If set to false, transcripts will not be checked for passing requirements.
+        :type check_requirements: bool
+
         """
         if self.splitted is True:
             return
 
         self.excluded = excluded
 
-        self.filter_and_calculate_scores()
+        self.filter_and_calculate_scores(check_requirements=check_requirements)
 
         graph = self.define_graph(
             self.transcripts,

@@ -154,7 +154,7 @@ class Locus(Abstractlocus):
         super(Locus, self).__setstate__(state)
         self._not_passing = set(self._not_passing)
 
-    def finalize_alternative_splicing(self, _scores=None):
+    def finalize_alternative_splicing(self, _scores=None, check_requirements=True):
 
         """"This method ensures that all the transcripts retained in the locus
         are within the score threshold. This is due to the fact that the score
@@ -166,6 +166,8 @@ class Locus(Abstractlocus):
         will *always* be retained and will not count for the purposes of determining the maximum number of isoforms.
 
         :param _scores:only for testing. Load directly a score mock-up.
+
+        :param check_requirements: boolean switch. If set to False, requirements will not be evaluated.
         """
 
         if self._finalized is True:
@@ -180,7 +182,7 @@ class Locus(Abstractlocus):
             self.metrics_calculated = False
             self.scores_calculated = False
             self.logger.debug("Re-calculating metrics and scores for %s", self.id)
-            self.filter_and_calculate_scores()
+            self.filter_and_calculate_scores(check_requirements=check_requirements)
             self.logger.debug("Re-calculated metrics and scores for %s", self.id)
 
         max_isoforms = self.json_conf["pick"]["alternative_splicing"]["max_isoforms"]
@@ -220,7 +222,7 @@ class Locus(Abstractlocus):
             if _scores is None:
                     self.metrics_calculated = False
                     self.scores_calculated = False
-                    self.filter_and_calculate_scores()
+                    self.filter_and_calculate_scores(check_requirements=check_requirements)
             else:
                 pass
             with_retained = self._remove_retained_introns()
@@ -769,7 +771,7 @@ it is marked as having 0 retained introns. This is an error.".format(transcript=
 
         self.logger.debug("Calculated metrics for {0}".format(tid))
 
-    def filter_and_calculate_scores(self):
+    def filter_and_calculate_scores(self, check_requirements=True):
         """
         Function to calculate a score for each transcript, given the metrics derived
         with the calculate_metrics method and the scoring scheme provided in the JSON configuration.
@@ -778,7 +780,7 @@ it is marked as having 0 retained introns. This is an error.".format(transcript=
         Scores are rounded to the nearest integer.
         """
 
-        super().filter_and_calculate_scores()
+        super().filter_and_calculate_scores(check_requirements=check_requirements)
 
         self.logger.debug("Calculated scores for %s, now checking for double IDs", self.id)
         for index, item in enumerate(reversed(self.metric_lines_store)):

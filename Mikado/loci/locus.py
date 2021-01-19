@@ -794,8 +794,12 @@ it is marked as having 0 retained introns. This is an error.".format(transcript=
 
         self.get_metrics()
         metrics_store = self._metrics.copy()
+        if len(self._orf_doubles) == 0:
+            doubled = set()
+        else:
+            doubled = set.union(*self._orf_doubles.values())
         for key, item in metrics_store.items():
-            if item["tid"] not in self._orf_doubles:
+            if item["tid"] in doubled:
                 del self._metrics[key]
                 self.transcripts.pop(item["tid"], None)
 

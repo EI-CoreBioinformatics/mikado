@@ -749,6 +749,7 @@ it is marked as having 0 retained introns. This is an error.".format(transcript=
                     self.json_conf["pick"]["output_format"]["report_all_orfs"] is False):
             super().calculate_metrics(tid)
         else:
+            super().calculate_metrics(tid)
             transcript = self.transcripts[tid]
             orfs = list(transcript.get_internal_orf_beds())
             selected = orfs[transcript.selected_internal_orf_index]
@@ -813,6 +814,7 @@ it is marked as having 0 retained introns. This is an error.".format(transcript=
         else:
             self.get_metrics()
             for tid, transcript in sorted(self.transcripts.items(), key=operator.itemgetter(1)):
+                yield self._create_metrics_row(tid, self._metrics[tid], transcript)
                 if tid in self._orf_doubles:
                     for mtid in self._orf_doubles[tid]:
                         yield self._create_metrics_row(mtid, self._metrics[mtid], transcript)

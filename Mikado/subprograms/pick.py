@@ -171,6 +171,9 @@ def check_run_options(args, logger=create_null_logger()):
     if args.check_references is True:
         args.json_conf["pick"]["run_options"]["check_references"] = True
 
+    if args.report_all_orfs is True:
+        args.json_conf["pick"]["output_format"]["report_all_orfs"] = True
+
     if getattr(args, "fasta"):
         args.fasta.close()
         args.json_conf["reference"]["genome"] = args.fasta.name
@@ -336,6 +339,8 @@ Default: False, Mikado will consider transcripts in their entirety.""")
                          action="store_true",
                          help="""Flag. If switched on, Mikado will prioritise transcripts marked as reference and will \
     consider any other transcipt within loci only in reference to these reference transcripts. Novel loci will still be reported.""")
+    parser.add_argument("--report-all-orfs", default=False, action="store_true",
+                        help="Boolean switch. If set to true, all ORFs will be reported, not just the primary.")
     parser.add_argument("--only-reference-update", dest="only_reference_update", default=None,
                         action="store_true",
                         help="""Flag. If switched on, Mikado will only keep loci where at least one of the transcripts \

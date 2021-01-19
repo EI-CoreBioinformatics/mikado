@@ -232,6 +232,9 @@ switch.")
     if args.check_references is True:
         config["pick"]["run_options"]["check_references"] = True
 
+    if args.report_all_orfs is True:
+        args.json_conf["pick"]["output_format"]["report_all_orfs"] = True
+
     if args.scoring is not None:
         if args.copy_scoring is not False:
             with open(args.copy_scoring, "wt") as out:
@@ -414,6 +417,8 @@ Default: 20%%.")
 locus during the late picking stages. \
 NOTE: if not specified, and --min-cdna-overlap is specified on the command line, min-cds-overlap will be set to this value! \
 Default: 20%%.")
+    picking.add_argument("--report-all-orfs", default=False, action="store_true",
+                         help="Boolean switch. If set to true, all ORFs will be reported, not just the primary.")
     picking.add_argument("--cds-only", dest="cds_only",
                          default=None, action="store_true",
                          help=""""Flag. If set, Mikado will only look for overlap in the coding features \

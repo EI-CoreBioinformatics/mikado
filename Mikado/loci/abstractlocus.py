@@ -1041,6 +1041,43 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
         return intersecting, reason
 
+    def _create_metrics_row(self, tid, metrics, transcript):
+        row = dict()
+        for num, key in enumerate(self.available_metrics):
+
+            if num == 0:  # transcript id
+                value = tid
+            elif num == 2:  # Parent
+                value = self.id
+            else:
+                value = metrics.get(key, "NA")
+                # value = getattr(transcript, key, "NA")
+            if isinstance(value, float):
+                value = round(value, 2)
+            elif value is None or value == "":
+                if key == "score":
+                    value = self.scores.get(tid, dict()).get("score", None)
+                    self.transcripts[tid].score = value
+                    if isinstance(value, float):
+                        value = round(value, 2)
+                    elif value is None:
+                        value = "NA"
+                else:
+                    value = "NA"
+            row[key] = value
+
+        for source in transcript.external_scores:
+            # Each score from external files also contains a multiplier.
+            key = "external.{}".format(source)
+            value = transcript.external_scores.get(source)[0]
+            if isinstance(value, float):
+                value = round(value, 2)
+            elif value is None or value == "":
+                value = "NA"
+            row[key] = value
+
+        return row
+
     def print_metrics(self):
 
         """This method yields dictionary "rows" that will be given to a csv.DictWriter class."""
@@ -1052,47 +1089,19 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         self.get_metrics()
 
         for tid, transcript in sorted(self.transcripts.items(), key=operator.itemgetter(1)):
-            row = {}
-            if tid not in self._metrics and transcript.alias in self._metrics:
-                metrics = self._metrics[transcript.alias]
-            else:
-                metrics = self._metrics[tid]
-
-            for num, key in enumerate(self.available_metrics):
-
-                if num == 0:  # transcript id
-                    value = tid
-                elif num == 2:  # Parent
-                    value = self.id
+            try:
+                if tid not in self._metrics and transcript.alias in self._metrics:
+                    metrics = self._metrics[transcript.alias]
                 else:
-                    value = metrics.get(key, "NA")
-                    # value = getattr(transcript, key, "NA")
-                if isinstance(value, float):
-                    value = round(value, 2)
-                elif value is None or value == "":
-                    if key == "score":
-                        value = self.scores.get(tid, dict()).get("score", None)
-                        self.transcripts[tid].score = value
-                        if isinstance(value, float):
-                            value = round(value, 2)
-                        elif value is None:
-                            value = "NA"
-                    else:
-                        value = "NA"
-                row[key] = value
-
-            for source in transcript.external_scores:
-                # Each score from external files also contains a multiplier.
-                key = "external.{}".format(source)
-                value = transcript.external_scores.get(source)[0]
-                if isinstance(value, float):
-                    value = round(value, 2)
-                elif value is None or value == "":
-                    value = "NA"
-                row[key] = value
-
-            yield row
-
+                    metrics = self._metrics[tid]
+                yield self._create_metrics_row(tid, metrics, transcript)
+            except KeyError:
+                error = "Transcript {} is not present in the locus! Available transcripts:\n{}".format(
+                    tid,
+                    ", ".join(list(self._metrics.keys()))
+                )
+                self.logger.critical(error)
+                raise KeyError(error)
         return
 
     def get_metrics(self):

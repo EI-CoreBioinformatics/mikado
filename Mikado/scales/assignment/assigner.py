@@ -914,7 +914,7 @@ class Assigner:
                 for tid in sorted(self.gene_matches[gid].keys()):
                     if len(self.gene_matches[gid][tid]) == 0:
                         # First part of the tuple
-                        row = tuple([tid, gid] + ["NA"] * 6)
+                        row = tuple([tid, gid] + ["NA"] * 7)
                     else:
                         # Choose the best hit for the transcript
                         if any((x.j_f1[0] > 0 or x.n_f1[0] > 0) for x in self.gene_matches[gid][tid]):

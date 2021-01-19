@@ -792,9 +792,18 @@ it is marked as having 0 retained introns. This is an error.".format(transcript=
         Scores are rounded to the nearest integer.
         """
 
+        self.get_metrics()
+        metrics_store = self._metrics.copy()
+        for key, item in metrics_store.items():
+            if item["tid"] not in self._orf_doubles:
+                del self._metrics[key]
+                self.transcripts.pop(item["tid"], None)
+
         super().filter_and_calculate_scores(check_requirements=check_requirements)
 
+        self._metrics = metrics_store
         self.logger.debug("Calculated scores for %s, now checking for double IDs", self.id)
+
         for index, item in enumerate(reversed(self.metric_lines_store)):
             if item["tid"] in self._orf_doubles:
                 del self.metric_lines_store[index]
@@ -813,13 +822,19 @@ it is marked as having 0 retained introns. This is an error.".format(transcript=
             yield from super().print_metrics()
         else:
             self.get_metrics()
+            ignore = set.union(*self._orf_doubles.values())
             for tid, transcript in sorted(self.transcripts.items(), key=operator.itemgetter(1)):
+                if tid in ignore:
+                    continue
                 yield self._create_metrics_row(tid, self._metrics[tid], transcript)
+                founds = []
                 if tid in self._orf_doubles:
                     for mtid in self._orf_doubles[tid]:
+                        founds.append(mtid)
                         yield self._create_metrics_row(mtid, self._metrics[mtid], transcript)
                 elif transcript.alias in self._orf_doubles:
                     for mtid in self._orf_doubles[transcript.alias]:
+                        founds.append(mtid)
                         yield self._create_metrics_row(mtid, self._metrics[mtid], transcript)
 
     def print_scores(self):

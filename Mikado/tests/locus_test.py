@@ -2092,7 +2092,7 @@ Chr1	100	2682	ID=test_3;coding=True;phase=0	0	+	497	2474	0	7	234,201,41,164,106,
                 logger = create_default_logger("test_false_ri", level="DEBUG")
                 sup = Superlocus(tr1, logger=logger)
                 sup.add_transcript_to_locus(tr2)
-                sup.filter_and_calculate_scores()
+                sup.filter_and_calculate_scores(check_requirements=False)
                 self.assertFalse(sup["t1"].cds_disrupted_by_ri)
                 self.assertEqual(sup["t1"].retained_intron_num, 0)
                 self.assertFalse(sup["t2"].cds_disrupted_by_ri)

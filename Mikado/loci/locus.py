@@ -76,7 +76,7 @@ class Locus(Abstractlocus):
         # A set of the transcript we will ignore during printing
         # because they are duplications of the original instance. Done solely to
         # get the metrics right.
-        self.__orf_doubles = collections.defaultdict(set)
+        self._orf_doubles = collections.defaultdict(set)
         self.excluded = None
         self.parent = None
 
@@ -749,25 +749,37 @@ it is marked as having 0 retained introns. This is an error.".format(transcript=
                     self.json_conf["pick"]["output_format"]["report_all_orfs"] is False):
             super().calculate_metrics(tid)
         else:
+            super().calculate_metrics(tid)
             transcript = self.transcripts[tid]
-            selected = transcript.selected_internal_orf
-            new_transcript = transcript.copy()
+            orfs = list(transcript.get_internal_orf_beds())
+            selected = orfs[transcript.selected_internal_orf_index]
+            template = transcript.copy()
+            template.strip_cds()
+            new_transcript = template.copy()
+            self.logger.debug("Changing the name of %s to %s", transcript.id,
+                              ", ".join([transcript.id + ".orf" + str(_)
+                                         for _ in range(1, len(transcript.internal_orfs) + 1)]))
+
             new_transcript.id = "{0}.orf1".format(new_transcript.id)
+            from ..parsers.bed12 import BED12
+            assert isinstance(selected, BED12), (type(selected), selected)
+            new_transcript.load_orfs([selected])
+
             self.transcripts[new_transcript.id] = new_transcript
             super().calculate_metrics(new_transcript.id)
-            self.__orf_doubles[tid].add(new_transcript.id)
+            if tid not in self._orf_doubles:
+                self._orf_doubles[tid] = set([])
 
-            for num, orf in enumerate([_ for _ in transcript.internal_orfs if
-                                       _ != selected]):
-                new_transcript = transcript.copy()
+            self._orf_doubles[tid].add(new_transcript.id)
+
+            for num, orf in enumerate([_ for _ in orfs if _ != selected]):
+                new_transcript = template.copy()
                 assert isinstance(new_transcript, Transcript)
-                new_transcript.internal_orfs = [orf]
-                new_transcript.internal_orfs.extend([_ for _ in transcript.internal_orfs if
-                                                     orf != _])
+                new_transcript.load_orfs([orf])
                 new_transcript.id = "{0}.orf{1}".format(new_transcript.id, num + 2)
                 self.transcripts[new_transcript.id] = new_transcript
                 super().calculate_metrics(new_transcript.id)
-                self.__orf_doubles[tid].add(new_transcript.id)
+                self._orf_doubles[tid].add(new_transcript.id)
 
         self.logger.debug("Calculated metrics for {0}".format(tid))
 
@@ -780,21 +792,54 @@ it is marked as having 0 retained introns. This is an error.".format(transcript=
         Scores are rounded to the nearest integer.
         """
 
+        self.get_metrics()
+        metrics_store = self._metrics.copy()
+        if len(self._orf_doubles) == 0:
+            doubled = set()
+        else:
+            doubled = set.union(*self._orf_doubles.values())
+        for key, item in metrics_store.items():
+            if item["tid"] in doubled:
+                del self._metrics[key]
+                self.transcripts.pop(item["tid"], None)
+
         super().filter_and_calculate_scores(check_requirements=check_requirements)
 
+        self._metrics = metrics_store
         self.logger.debug("Calculated scores for %s, now checking for double IDs", self.id)
+
         for index, item in enumerate(reversed(self.metric_lines_store)):
-            if item["tid"] in self.__orf_doubles:
+            if item["tid"] in self._orf_doubles:
                 del self.metric_lines_store[index]
             else:
                 continue
 
-        for doubled in self.__orf_doubles:
-            for partial in self.__orf_doubles[doubled]:
+        for doubled in self._orf_doubles:
+            for partial in self._orf_doubles[doubled]:
                 if partial in self.transcripts:
                     del self.transcripts[partial]
                 if partial in self.scores:
                     del self.scores[partial]
+
+    def print_metrics(self):
+        if self.json_conf["pick"]["output_format"]["report_all_orfs"] is False:
+            yield from super().print_metrics()
+        else:
+            self.get_metrics()
+            ignore = set.union(*self._orf_doubles.values())
+            for tid, transcript in sorted(self.transcripts.items(), key=operator.itemgetter(1)):
+                if tid in ignore:
+                    continue
+                yield self._create_metrics_row(tid, self._metrics[tid], transcript)
+                founds = []
+                if tid in self._orf_doubles:
+                    for mtid in self._orf_doubles[tid]:
+                        founds.append(mtid)
+                        yield self._create_metrics_row(mtid, self._metrics[mtid], transcript)
+                elif transcript.alias in self._orf_doubles:
+                    for mtid in self._orf_doubles[transcript.alias]:
+                        founds.append(mtid)
+                        yield self._create_metrics_row(mtid, self._metrics[mtid], transcript)
 
     def print_scores(self):
         """This method yields dictionary rows that are given to a csv.DictWriter class."""
@@ -1236,13 +1281,19 @@ it is marked as having 0 retained introns. This is an error.".format(transcript=
 
         if string == self.__id:
             return
+
+        self.logger.debug("Changing the ID of %s to %s", self.__id, string)
         primary_id = "{0}.1".format(string)
         old_primary = self.primary_transcript.id
+        self.logger.debug("Changing the ID of the primary transcript of %s from %s to %s", self.__id,
+                          self.primary_transcript.id, primary_id)
         self.primary_transcript.attributes["alias"] = self.primary_transcript.id
         self.primary_transcript.id = primary_id
         self.transcripts[primary_id] = self.primary_transcript
         self.primary_transcript_id = primary_id
         del self.transcripts[old_primary]
+        self._orf_doubles[primary_id] = set([_.replace(old_primary, primary_id)
+                                             for _ in self._orf_doubles.pop(old_primary, set())])
 
         order = sorted([k for k in self.transcripts.keys() if k != primary_id],
                        key=lambda xtid: self.transcripts[xtid])
@@ -1255,16 +1306,24 @@ it is marked as having 0 retained introns. This is an error.".format(transcript=
             new_id = "{0}.{1}".format(string, counter)
             self.transcripts[tid].id = new_id
             self.transcripts[new_id] = self.transcripts.pop(tid)
+            olds = self._orf_doubles.pop(tid, set())
+            self._orf_doubles[new_id] = set([_.replace(tid, new_id) for _ in self._orf_doubles.pop(tid, set())])
+            news = self._orf_doubles.pop(tid, set())
+            self.logger.debug("Changed the old ORF IDs for %s from %s to %s", tid, olds, news)
+            assert self._orf_doubles[new_id] is not None
             mapper[tid] = new_id
 
-        if self.scores_calculated is True:
-            for tid in mapper:
-                self.scores[mapper[tid]] = self.scores.pop(tid)
-                self._metrics[mapper[tid]] = self._metrics.pop(tid)
-        if self.metrics_calculated is True:
-            for index in range(len(self.metric_lines_store)):
-                self.metric_lines_store[index]["tid"] = mapper[self.metric_lines_store[index]["tid"]]
-                self.metric_lines_store[index]["parent"] = self.id
+        self.scores_calculated = False
+        self.metrics_calculated = False
+
+        # if self.scores_calculated is True:
+        #     for tid in mapper:
+        #         self.scores[mapper[tid]] = self.scores.pop(tid)
+        #         self._metrics[mapper[tid]] = self._metrics.pop(tid)
+        # if self.metrics_calculated is True:
+        #     for index in range(len(self.metric_lines_store)):
+        #         self.metric_lines_store[index]["tid"] = mapper[self.metric_lines_store[index]["tid"]]
+        #         self.metric_lines_store[index]["parent"] = self.id
 
 
     # pylint: enable=invalid-name,arguments-differ

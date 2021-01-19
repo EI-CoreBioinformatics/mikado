@@ -211,8 +211,8 @@ def create_lines_cds(transcript,
             transcript.logger.debug("CDS run for %s: %s", transcript.id, cds_run)
             if transcript.number_internal_orfs > 1 and all_orfs is True:
                 transcript_counter += 1
+                transcript.attributes["derives_from"] = transcript.id
                 tid = "{0}.orf{1}".format(transcript.id, transcript_counter)
-
                 if index == transcript.selected_internal_orf_index:
                     transcript.attributes["maximal"] = True
                 else:
@@ -243,7 +243,7 @@ def create_lines_cds(transcript,
                     parent_line["attributes"]["parent"] = transcript.parent
                     parent_line["attributes"]["ID"] = tid
 
-                parent_line["attributes"]["name"] = transcript.id
+                parent_line["attributes"]["name"] = tid
 
                 exon_lines = __create_cds_lines(transcript,
                                                 cds_run,

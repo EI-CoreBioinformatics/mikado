@@ -1,0 +1,44 @@
+FROM alpine:latest
+
+ENV hts_version 1.11
+
+ADD https://github.com/samtools/htslib/releases/download/${hts_version}/htslib-${hts_version}.tar.bz2 /usr/local/src/
+ADD https://github.com/samtools/samtools/releases/download/${hts_version}/samtools-${hts_version}.tar.bz2 /usr/local/src/
+
+LABEL description="Docker file for the Mikado pipeline"
+
+# Additional packages maybe not necessary: libpng-dev openblas-dev ca-certificates dialog readline-dev openssl-dev
+# alpine-sdk build-base gfortran freetype-dev 
+
+RUN apk add --update --no-cache ncurses libbz2 xz zlib \
+    && apk add --virtual=deps --update --no-cache ncurses-dev musl-dev g++ make zlib-dev bzip2-dev xz-dev curl-dev tar \
+    autoconf automake \
+    && cd /usr/local/src/ && tar xjvf htslib-${hts_version}.tar.bz2 \
+    && cd htslib-${hts_version} && make && make install \
+    && cd /usr/local/src/ && tar xjvf samtools-${hts_version}.tar.bz2 \
+    && cd samtools-${hts_version} && autoreconf && ./configure && make && make install \
+    && cd /tmp/ \
+    && apk add --no-cache --repository=http://dl-cdn.alpinelinux.org/alpine/edge/main --upgrade "python3>=3.8" "python3-dev>=3.8" \
+    git msgpack-c py3-pip \
+    gcc "cython>=0.25" \
+    "py3-numpy>=1.7" "py3-scipy>=1.3" "py3-pandas>=1.0" py3-psutil "py3-scikit-learn>=0.21.3" \
+    py3-numpy-dev && \
+    git clone --depth 1 https://github.com/EI-CoreBioinformatics/mikado.git /usr/local/src/mikado && \
+    cd /usr/local/src/mikado && \
+    pip install -r requirements.txt && \
+    pip install wheel && \
+    python3 setup.py bdist_wheel && \
+    pip install dist/*ikado*whl && \
+    chash=$(git log | head -n1 | cut -f 2 -d " ") && \
+    echo -e "#!/bin/bash\necho ${chash}" > $(dirname $(which mikado))/show_commit_hash && \
+    chmod 775 $(dirname $(which mikado))/show_commit_hash && \
+    chmod -R 775 /usr/local/src/mikado/util/* && \
+    install -t $(dirname $(which mikado))/ util/* && \
+    cd /usr/local/src && \
+    rm -rf * && \
+    rm -rf /var/cache/apk/* /tmp/* \
+    && apk del deps
+
+WORKDIR /global
+RUN rm -rf /usr/local/src/*
+CMD ["mikado"]

@@ -17,11 +17,7 @@ From: alpine
     apk add --update --no-cache ncurses libbz2 xz zlib
     apk add --virtual=deps --update --no-cache ncurses-dev musl-dev g++ make zlib-dev bzip2-dev xz-dev curl-dev tar autoconf automake wget
     export hts_version=1.11;
-    wget https://github.com/samtools/htslib/releases/download/${hts_version}/htslib-${hts_version}.tar.bz2 -P /usr/local/src/
     wget https://github.com/samtools/samtools/releases/download/${hts_version}/samtools-${hts_version}.tar.bz2 -P /usr/local/src/
-    cd /usr/local/src/
-    tar xjvf htslib-${hts_version}.tar.bz2
-    cd htslib-${hts_version} && make && make install
     cd /usr/local/src/ && tar xjvf samtools-${hts_version}.tar.bz2 
     cd samtools-${hts_version} && autoreconf && ./configure && make && make install
 
@@ -34,7 +30,8 @@ From: alpine
 
     git clone --depth 1 https://github.com/EI-CoreBioinformatics/mikado.git /usr/local/src/mikado
     cd /usr/local/src/mikado
-    pip install -r requirements.txt && pip install wheel
+    pip install wheel
+    pip install -r requirements.txt
     python3 setup.py bdist_wheel
     pip install dist/*ikado*whl
     chash=$(git log | head -n1 | cut -f 2 -d " ")

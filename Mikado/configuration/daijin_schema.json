@@ -1,14 +1,11 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "type": "object",
-  "SimpleComment": ["This is a standard configuration file for Daijin. Fields:",
-    "- short_reads: this section deals with RNA-Seq short read input data.",
-    "- name: name of the species under analysis.",
-    "- reference: reference data to use. A reference genome is required."],
+  "title": "This is a standard configuration file for Daijin.",
   "properties": {
     "required": ["name", "pick", "threads", "scheduler"],
     "load":{
-      "SimpleComment": ["Commands to use to load/select the versions of the programs to use. Leave an empty string if no loading is necessary."],
+      "description": "Commands to use to load/select the versions of the programs to use. Leave an empty string if no loading is necessary.",
       "type": "object",
       "required": ["tophat", "gmap", "star", "hisat", "samtools", "cufflinks", "trinity", "scallop",
         "stringtie", "class", "transdecoder", "portcullis", "mikado", "blast"],
@@ -35,7 +32,7 @@
     "prepare":  {"$ref": "configuration_blueprint.json#properties/prepare/properties"},
     "serialise":  {"$ref": "configuration_blueprint.json#properties/serialise/properties"},
     "portcullis": {
-      "SimpleComment": ["Options related to portcullis"],
+      "description": "Options related to portcullis",
       "type": "object",
       "required": ["do", "canonical_juncs"],
       "properties": {
@@ -44,8 +41,7 @@
       }
     },
     "aln_index": {
-      "SimpleComment": ["Options related to indexing."],
-      "Comment": ["Options related to indexing."],
+      "description": "Options related to indexing.",
       "type": "object",
       "required": [],
       "properties": {
@@ -53,9 +49,7 @@
       }
     },
     "long_reads": {
-      "type": "object",
-      "SimpleComment": ["Parameters related to long reads to use for the assemblies."],
-      "Comment": ["Parameters related to long reads to use for the assemblies."],
+      "description": "Parameters related to long reads to use for the assemblies.",
       "properties": {
         "files": {"type": "array", "default": []},
         "samples": {"type": "array", "default": []},
@@ -68,42 +62,31 @@
       }
     },
     "short_reads": {
-      "SimpleComment": ["Parameters related to the reads to use for the assemblies. Voices:",
-          "- r1: array of left read files.",
-          "- r2: array of right read files. It must be of the same length of r1; if one",
-          "  one or more of the samples are single-end reads, add an empty string.",
-          "- samples: array of the sample names. It must be of the same length of r1.",
-          "- strandedness: array of strand-specificity of the samples. It must be of the",
-          "  same length of r1. Valid values: fr-firststrand, fr-secondstrand, fr-unstranded."
-        ],
-      "Comment": ["Parameters related to the reads to use for the assemblies. Voices:",
-          "- r1: array of left read files.",
-          "- r2: array of right read files. It must be of the same length of r1; if one",
-          "  one or more of the samples are single-end reads, add an empty string.",
-          "- samples: array of the sample names. It must be of the same length of r1.",
-          "- strandedness: array of strand-specificity of the samples. It must be of the",
-          "  same length of r1. Valid values: fr-firststrand, fr-secondstrand, fr-unstranded."
-        ],
+      "description": "Parameters related to the reads to use for the assemblies.",
       "type": "object",
       "required": ["r1", "r2", "samples", "strandedness"],
       "properties": {
         "r1": {
+          "description": "Array of left read files.",
           "type": "array",
           "default": [],
           "uniqueItems": true,
           "items": {"type": "string"}
         },
         "r2": {
+          "description": "Array of right read files. It must be of the same length of r1; if one or more of the samples are single-end reads, add an empty string.",
           "type": "array",
           "items": {"type": ["string", "null"]},
           "default": []
         },
         "samples": {
+          "description": "Array of the sample names. It must be of the same length of r1.",
           "type": "array",
           "items": {"type": "string"},
           "default": []
         },
         "strandedness": {
+          "description": "Array of strand-specificity of the samples. It must be of the same length of r1. Valid values: fr-firststrand, fr-secondstrand, fr-unstranded.",
           "type": "array",
           "default": [],
           "items": {"type": "string",
@@ -117,40 +100,30 @@
     "name": {
       "type": "string",
       "default": "Daijin",
-      "SimpleComment": ["Name to be used for the project."],
-      "Comment": ["Name to be used for the project."]
+      "description": "Name to be used for the project"
     },
     "out_dir": {
       "type": "string",
       "default": "daijin",
-      "Comment": ["Output directory for the project"],
-      "SimpleComment": ["Output directory for the project"]
+      "description": "Output directory for the project"
     },
     "threads": {
       "type": "integer",
       "default": 4,
-      "Comment": "Threads to be used per process.",
+      "description": "Threads to be used per process.",
       "minimum": 1
     },
     "scheduler": {
       "type": ["string"],
       "default": "",
       "enum": ["LSF", "SLURM", "PBS", "", "local"],
-      "Comment": ["Scheduler to be used for the project. Set to null if you plan to use DRMAA or are using a local machine."],
-      "SimpleComment": ["Scheduler to be used for the project. Set to null if you plan to use DRMAA or are using a local machine."]
+      "description": "Scheduler to be used for the project. Set to null if you plan to use DRMAA or are using a local machine."
     },
     "align_methods": {
       "type": "object",
-      "SimpleComment": ["Aligners to use. Each aligner can be invoked multiple times:",
-                        "the per-aligner list includes the extra command line arguments",
-                        "to be passed to the program"],
-      "Comment": ["Aligners to use. Each aligner can be invoked multiple times:",
-                  "the per-aligner list includes the extra command line arguments",
-                  "to be passed to the program"],
+      "description": "Aligners to use. Each aligner can be invoked multiple times: the per-aligner list includes the extra command line arguments to be passed to the program",
       "additionalProperties": false,
       "properties": {
-        "SimpleComment": {"type": "array", "items": {"type": "string"}},
-        "Comment": {"type": "array", "items": {"type": "string"}},
         "tophat": {
           "type": "array",
           "items": {
@@ -184,15 +157,8 @@
     "long_read_align_methods": {
       "type": "object",
       "additionalProperties": false,
-      "SimpleComment": ["Aligners for long reads to use. Each aligner can be invoked multiple times:",
-                        "the per-aligner list includes the extra command line arguments",
-                        "to be passed to the program"],
-      "Comment": ["Aligners for long reads to use. Each aligner can be invoked multiple times:",
-                  "the per-aligner list includes the extra command line arguments",
-                  "to be passed to the program"],
+      "description": "Aligners for long reads to use. Each aligner can be invoked multiple times: the per-aligner list includes the extra command line arguments to be passed to the program",
       "properties": {
-        "SimpleComment": {"type": "array", "items": {"type": "string"}},
-        "Comment": {"type": "array", "items": {"type": "string"}},
         "star": {
           "type": "array",
           "items": {
@@ -212,15 +178,8 @@
     "asm_methods": {
       "type": "object",
       "additionalProperties": false,
-      "SimpleComment": ["Short-read assemblers to use. Each assembler can be invoked multiple times:",
-                        "the per-aligner list includes the extra command line arguments",
-                        "to be passed to the program"],
-      "Comment": ["Short-read assemblers to use. Each assembler can be invoked multiple times:",
-                  "the per-aligner list includes the extra command line arguments",
-                  "to be passed to the program"],
+      "description": "Short-read assemblers to use. Each assembler can be invoked multiple times: the per-aligner list includes the extra command line arguments to be passed to the program",
       "properties": {
-        "SimpleComment": {"type": "array", "items": {"type": "string"}},
-        "Comment": {"type": "array", "items": {"type": "string"}},
         "stringtie": {
           "type": "array",
           "items": {
@@ -263,75 +222,60 @@
       },
     "orf_calling": {
       "required": ["min_protein_len"],
-      "SimpleComment": ["Parameters related to the ORF calling:",
-      "- min_protein_len: minimum length of called proteins (in AAs). Default: 30 (90 nts)"],
-      "Comment": ["Parameters related to the ORF calling:",
-      "- min_protein_len: minimum length of called proteins (in AAs). Default: 30 (90 nts)",
-      "- execute: boolean flag. Default: true, ie execute the ORF calling."],
+      "title": "Parameters related to the ORF calling:",
       "type": "object",
       "properties": {
-        "min_protein_len": {"type": "integer", "minimum": 1, "default": 30},
-        "execute": {"type": "boolean", "default": true}
+        "min_protein_len": {"type": "integer", "minimum": 1, "default": 30,
+        "description": "minimum length of called proteins (in AAs). Default: 30 (90 nts)"},
+        "execute": {"type": "boolean", "default": true,
+          "description": "boolean flag. Default: true, ie execute the ORF calling."}
       }
     },
     "blastx": {
       "type":"object",
       "required": ["prot_db", "evalue"],
-      "Comment": ["Parameters related to the homology search via DIAMOND or BLASTX:",
-      "- prot_db: FASTA file(s) to be used as database for the homology search. Multiple files can be provided,",
-      " and they will be merged into a single database before running.",
-      "- evalue: maximum e-value. Default 1e-7",
-      "- max_target_seqs: maximum number of targets that the homology will report. Default: 10",
-      "- chunks: number of chunks to divide the search into. Must be equal or greater than the number of processes."],
-      "SimpleComment": ["Parameters related to the homology search via DIAMOND or BLASTX:",
-      "- prot_db: FASTA file(s) to be used as database for the homology search. Multiple files can be provided,",
-      " and they will be merged into a single database before running.",
-      "- evalue: maximum e-value. Default 1e-7"],
+      "description": "Parameters related to the homology search via DIAMOND or BLASTX.",
       "properties":{
-        "prot_db": {"type": "array", "default": []},
-        "evalue": {"type": "number", "minimum": 0, "default": 0.0000001},
-        "max_target_seqs": {"type": "integer", "minimum": 1, "default": 10},
-        "chunks": {"type": "integer", "minimum": 1, "default": 10}
+        "prot_db": {"type": "array", "default": [],
+          "description": "FASTA file(s) to be used as database for the homology search. Multiple files can be provided and they will be merged into a single database before running."},
+        "evalue": {"type": "number", "minimum": 0, "default": 0.0000001, "description": "Maximum e-value. Default 1e-7"},
+        "max_target_seqs": {"type": "integer", "minimum": 1, "default": 10,
+        "description": "Maximum number of targets that the homology will report. Default: 10"},
+        "chunks": {"type": "integer", "minimum": 1, "default": 10,
+        "description": "Number of chunks to divide the search into. Must be equal or greater than the number of processes."}
       }
     },
     "mikado": {
       "type": "object",
-      "SimpleComment": ["Parameters related to the Mikado execution:",
-        "- modes: which modes to run Mikado into. Default: permissive (split multiple ORF models unless",
-        "there is strong BLAST evidence against the decision).",
-        "- use_diamond: use DIAMOND instead of NCBI BLASTX. Default: true",
-        "- use_prodigal: use Prodigal instead of TransDecoder for ORF calling. Default: true"
-      ],
-      "Comment": ["Parameters related to the Mikado execution:",
-        "- modes: which modes to run Mikado into. Default: permissive (split multiple ORF models unless",
-        "there is strong BLAST evidence against the decision).",
-        "- use_diamond: use DIAMOND instead of NCBI BLASTX. Default: true",
-        "- use_prodigal: use Prodigal instead of TransDecoder for ORF calling. Default: true"
-      ],
+      "additionalProperties": false,
+      "description": "Parameters related to the Mikado execution.",
       "required": ["modes", "use_diamond", "use_prodigal"],
       "properties": {
         "modes": {"type": "array", "minItems": 1,
+          "description": "which mode(s) to run Mikado into. Default: permissive (split multiple ORF models unless there is strong BLAST evidence against the decision).",
           "items": {"type": "string",
             "enum": ["nosplit", "split", "lenient", "permissive", "stringent"]},
           "default": ["stringent"]
         },
-        "use_diamond": {"type": "boolean", "default": true},
-        "use_prodigal": {"type": "boolean", "default": true}
+        "use_diamond": {"type": "boolean", "default": true,
+          "description": "use DIAMOND instead of NCBI BLASTX. Default: true"},
+        "use_prodigal": {"type": "boolean", "default": true,
+          "description": "Use Prodigal instead of TransDecoder for ORF calling. Default: true"}
       }
     },
     "tgg": {
+      "additionalProperties": false,
       "type": "object",
-      "SimpleComment": ["Options related to genome-guided Trinity."],
-      "Comment": ["Options related to genome-guided Trinity.",
-      "- max_mem: Maximum memory to be used for the assembly. Default: 6000Mb",
-      "- npaths: number of alignments per sequence, using GMAP. Default: 0 (one alignment per sequence, exclude chimeric).",
-      "- identity: minimum identity for any alignment. Default: 95%",
-      "- coverage: minimum coverage for any alignment. Default: 70%"],
+      "title": "Options related to genome-guided Trinity.",
       "properties": {
-        "max_mem": {"type": "integer", "default": 6000, "minimum": 1000},
-        "npaths": {"type": "integer", "default": 0},
-        "identity": {"type": "number", "default": 0.95, "minimum": 0, "maximum": 1},
-        "coverage": {"type": "number", "default": 0.70, "minimum": 0, "maximum": 1}
+        "max_mem": {"type": "integer", "default": 6000, "minimum": 1000,
+          "description": "Maximum memory to be used for the assembly. Default: 6000Mb"},
+        "npaths": {"type": "integer", "default": 0,
+        "description": "Number of alignments per sequence, using GMAP. Default: 0 (one alignment per sequence, exclude chimeric)."},
+        "identity": {"type": "number", "default": 0.95, "minimum": 0, "maximum": 1,
+          "description": "minimum identity for any alignment. Default: 95%"},
+        "coverage": {"type": "number", "default": 0.70, "minimum": 0, "maximum": 1,
+          "description": "minimum coverage for any alignment. Default: 70%"}
       }
     }
   }

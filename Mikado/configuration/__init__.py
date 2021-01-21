@@ -126,9 +126,6 @@ def check_has_requirements(dictionary, schema, key=None, first_level=True):
             if new_key in ("Comment", "SimpleComment"):
                 continue
             elif new_key in schema:
-                # if "SimpleComment" in schema[new_key]:
-                #     required.append((key, new_key, "SimpleComment"))
-
                 if "required" in schema[new_key] and schema[new_key]["required"] is True:
                     required.append([new_key])
         else:

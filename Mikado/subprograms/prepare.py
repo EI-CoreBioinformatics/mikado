@@ -68,7 +68,7 @@ def parse_prepare_options(args, config):
             for member in args.strand_specific_assemblies:
                 if member not in config["prepare"]["files"]["gff"]:
                     raise ValueError("Incorrect assembly file specified as strand-specific")
-            config["prepare"]["strand_specific_assemblies"] = args.strand_specific_assemblies
+            config["prepare"]["files"]["strand_specific_assemblies"] = args.strand_specific_assemblies
         if args.labels:
             args.labels = args.labels.split(",")
             # Checks labels are unique

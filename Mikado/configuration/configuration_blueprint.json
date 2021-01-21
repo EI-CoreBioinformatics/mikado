@@ -3,6 +3,7 @@
   "id": "configuration_blueprint",
   "type": "object",
   "properties": {
+    "filename": {},
     "required": ["multiprocessing_method"],
     "SimpleComment": {"type": "object", "properties": {},
       "SimpleComment": [
@@ -55,7 +56,10 @@
         "- log_level: verbosity. Default: INFO. In decreasing order: 'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'"
       ],
       "type": "object",
+      "additionalProperties": false,
       "properties": {
+        "Comment": {},
+        "SimpleComment": {},
         "log_level": {
           "type": "string",
           "enum": [
@@ -99,7 +103,10 @@
         "dbtype: Type of DB to use. Choices: sqlite, postgresql, mysql. Default: sqlite."
       ],
       "type": "object",
+      "additionalProperties": false,
       "properties": {
+        "Comment": {},
+        "SimpleComment": {},
         "db": {
           "default": "mikado.db",
           "type": "string"
@@ -137,6 +144,7 @@
     },
     "serialise":{
       "type": "object",
+      "additionalProperties": false,
       "Comment": ["Options related to serialisation",
               "- force: whether to drop and reload everything into the DB",
               "- files: options related to input files",
@@ -158,15 +166,19 @@
         "  in the first 30 bps (10% of the cDNA).",
         "- codon_table: codon table to use for verifying/modifying the ORFs. Default: 0, ie",
         " the universal codon table but enforcing as only valid start codon ATG."
-      ],
-      "required": ["max_regression", "codon_table", "substitution_matrix"],
+      ],      "required": ["max_regression", "codon_table", "substitution_matrix"],
       "properties": {
+        "Comment": {},
+        "SimpleComment": {},
         "files": {
           "type": "object",
-          "Comment": [],
-          "SimpleComment": [],
+          "additionalProperties": false,
+          "Comment": {},
+          "SimpleComment": {},
           "required": ["transcripts"],
           "properties": {
+            "Comment": {},
+            "SimpleComment": {},
             "junctions": {
               "type": "array",
               "default": [],
@@ -242,6 +254,7 @@
     },
     "prepare":{
       "type": "object",
+      "additionalProperties": false,
       "Comment": ["Options related to the input data preparation.",
         "- files: options relative to the input/output files.",
         "- strip_cds: whether to remove the CDS from the predictions during preparation.",
@@ -264,6 +277,8 @@
       "required": ["files", "strand_specific", "minimum_cdna_length", "max_intron_length"],
       "properties":
       {
+        "Comment": {},
+        "SimpleComment": {},
         "exclude_redundant": {
           "type": "boolean", "default": false
         },
@@ -300,8 +315,11 @@
             " ie no source-specific score is applied."
           ],
           "type": "object",
+          "additionalProperties": false,
           "required": ["out", "out_fasta", "gff"],
           "properties": {
+            "Comment": {},
+            "SimpleComment": {},
             "output_dir": {"type": "string", "default": "."},
             "out": {"type": "string", "default": "mikado_prepared.gtf"},
             "out_fasta": {"type": "string", "default": "mikado_prepared.fasta"},
@@ -336,6 +354,7 @@
     },
     "pick": {
       "type": "object",
+      "additionalProperties": false,
       "required": ["scoring_file"],
       "Comment": ["- scoring_file: a scoring file for the analysis. Default: plant.yaml.",
       "- source_score: a dictionary with pre-defined scores to assign to the transcripts according to their source. Eg all Cufflinks transcripts from the seed (label: \"cuff_seed\") could be assigned a default additional score of 1."],
@@ -346,6 +365,8 @@
         "- run_options: generic options related to the run, eg number of processors to use.",
         "- scoring_file: a scoring file for the analysis. Default: plant.yaml."],
       "properties": {
+        "Comment": {},
+        "SimpleComment": {},
         "scoring_file": {
           "type": "string",
           "default": "plant.yaml"
@@ -362,9 +383,6 @@
             "is retained compared to the primary or any other valid AS. Default: false.",
             "- valid_ccodes: Valid class codes for AS events. Valid codes are in categories",
             "'Alternative splicing', 'Extension' (with junction F1 lower than 100%), and Overlap (exluding m). Default: j, J, g, G, C, h",
-            "- max_utr_length: Maximum length of the UTR for AS events. Default: 10e6 (i.e. no limit)",
-            "- max_fiveutr_length: Maximum length of the 5'UTR for AS events. Default: 10e6 (i.e. no limit)",
-            "- max_threeutr_length: Maximum length of the 5'UTR for AS events. Default: 10e6 (i.e. no limit)",
             "- min_score_perc: Minimum score threshold for subsequent AS events. Only transcripts with a score at least (best) * value are retained.",
             "- cds_only: Only consider the coding part of transcripts to determine the validity of the AS event.",
             "- only_confirmed_introns: bring back AS events only when their introns are either present in the primary transcript or in the set of confirmed introns.",
@@ -381,7 +399,10 @@
           ],
           "required": ["report", "only_confirmed_introns", "pad"],
           "type": "object",
+          "additionalProperties": false,
           "properties": {
+            "Comment": {},
+            "SimpleComment": {},
             "report": {
               "type": "boolean",
               "default": true
@@ -504,7 +525,10 @@
             "  - id_prefix: prefix for the ID of the genes/transcripts in the output"
           ],
           "type": "object",
+          "additionalProperties": false,
           "properties": {
+            "Comment": {},
+            "SimpleComment": {},
             "source": {
               "type": "string",
               "default": "Mikado"
@@ -520,6 +544,7 @@
           }
         },
         "orf_loading": {
+          "additionalProperties": false,
           "type": "object",
           "Comment": [
             "Parameters related to ORF loading.",
@@ -528,6 +553,8 @@
             "- strand_specific: Boolean flag. If set to true, monoexonic transcripts will not have their ORF reversed even if they would have an ORF on the opposite strand."
           ],
           "properties": {
+            "Comment": {},
+            "SimpleComment": {},
             "minimal_secondary_orf_length": {
               "type": "integer",
               "default": 200,
@@ -560,7 +587,10 @@
             "- blast_params: Parameters related to which BLAST data we want to analyse."
           ],
           "type": "object",
+          "additionalProperties": false,
           "properties": {
+            "Comment": {},
+            "SimpleComment": {},
             "blast_check": {
               "type": "boolean",
               "default": true
@@ -591,6 +621,8 @@
                 "- max_target_seqs: maximum number of hits to consider. Default: 3"
                 ],
               "properties": {
+                "Comment": {},
+                "SimpleComment": {},
                 "evalue": {
                   "type": "number",
                   "minimum": 0,
@@ -637,6 +669,7 @@
         },
         "run_options": {
           "type": "object",
+          "additionalProperties": false,
           "required": ["single_thread", "intron_range"],
           "Comment": [
             "Generic run options.",
@@ -653,6 +686,8 @@
             "- single_thread: boolean flag. If set, multithreading will be disabled - useful for profiling and debugging."
           ],
           "properties": {
+            "Comment": {},
+            "SimpleComment": {},
             "shm": {
               "type": "boolean",
               "default": false
@@ -692,6 +727,7 @@
         },
         "clustering": {
           "type": "object",
+          "additionalProperties": false,
           "Comment": [
             "Parameters related to the clustering of transcripts into loci.",
             "- cds_only: boolean, it specifies whether to cluster transcripts only according to their CDS (if present).",
@@ -708,6 +744,8 @@
             "- flank: maximum distance for transcripts to be clustered within the same superlocus."
           ],
           "properties": {
+            "Comment": {},
+            "SimpleComment": {},
             "cds_only": {
               "type": "boolean",
               "default": false
@@ -740,6 +778,7 @@
           }
         },
         "fragments":{
+            "additionalProperties": false,
             "type": "object",
             "Comment": ["Parameters related to the handling of fragments.",
             "- remove: boolean. Whether to remove fragments or leave them, properly tagged.",
@@ -749,6 +788,8 @@
             "SimpleComment": ["Parameters related to the handling of fragments.",
             "- remove: boolean. Whether to remove fragments or leave them, properly tagged."],
             "properties": {
+            "Comment": {},
+            "SimpleComment": {},
             "remove": {
               "type": "boolean",
               "default": true
@@ -792,6 +833,7 @@
             }
           },
           "files": {
+          "additionalProperties": false,
           "type": "object",
           "Comment": [
             "Input and output files for Mikado pick.",
@@ -810,6 +852,8 @@
             "- log: log file for this step."],
           "required": ["input"],
           "properties": {
+            "Comment": {},
+            "SimpleComment": {},
             "output_dir": {
               "type": "string",
               "default": "."
@@ -836,6 +880,7 @@
       }
     },
     "reference": {
+    "additionalProperties": false,
     "type": "object",
     "Comment": ["Options related to the reference genome.",
     "- genome: the genome FASTA file. Required",
@@ -844,6 +889,8 @@
     "required": ["genome"],
     "anyOf": [{"required": ["genome"]}, "genome_fai", "transcriptome"],
     "properties": {
+      "Comment": {},
+      "SimpleComment": {},
       "genome": {
         "type": "string",
         "default": ""

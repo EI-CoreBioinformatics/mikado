@@ -1383,7 +1383,6 @@ class PickTest(unittest.TestCase):
 
         for num in (1, 2):
             with self.subTest(num=num):
-                self.json_conf["pick"]["threads"] = num
                 self.json_conf["pick"]["run_options"]["single_thread"] = (num == 1)
                 json_file = os.path.join(dir.name, "mikado.yaml")
 

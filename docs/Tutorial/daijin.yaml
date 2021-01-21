@@ -62,10 +62,7 @@ mikado:
       #  either
       #   present in the primary transcript or in the set of confirmed introns.
       keep_retained_introns: false
-      max_fiveutr_length: 1000000
       max_isoforms: 3
-      max_threeutr_length: 1000000
-      max_utr_length: 1000000
       min_cdna_overlap: 0
       min_cds_overlap: 0.6
       min_score_perc: 0.6

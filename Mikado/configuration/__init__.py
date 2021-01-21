@@ -104,6 +104,8 @@ def check_has_requirements(dictionary, schema, key=None, first_level=True):
 
     for new_key, value in dictionary.items():
         if isinstance(value, dict):
+            if new_key == "Comment" or new_key == "SimpleComment":
+                continue
             assert "properties" in schema[new_key], new_key
             if "SimpleComment" in schema[new_key]:
                 required.append((key, new_key, "SimpleComment"))

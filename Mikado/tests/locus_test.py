@@ -823,9 +823,9 @@ class ASeventsTester(unittest.TestCase):
         self.conf = configurator.to_json(None)
         # self.conf["pick"]["alternative_splicing"] = dict()
         self.conf["pick"]["alternative_splicing"]["report"] = True
-        self.conf["pick"]["alternative_splicing"]["max_utr_length"] = 10000
-        self.conf["pick"]["alternative_splicing"]["max_fiveutr_length"] = 10000
-        self.conf["pick"]["alternative_splicing"]["max_threeutr_length"] = 10000
+        # self.conf["pick"]["alternative_splicing"]["max_utr_length"] = 10000
+        # self.conf["pick"]["alternative_splicing"]["max_fiveutr_length"] = 10000
+        # self.conf["pick"]["alternative_splicing"]["max_threeutr_length"] = 10000
         self.conf["pick"]["alternative_splicing"]["valid_ccodes"] = ["j", "J", "o"]
         self.conf["pick"]["alternative_splicing"]["redundant_ccodes"] = ["c", "=", "_", "m"]
         self.conf["pick"]["alternative_splicing"]["only_confirmed_introns"] = False
@@ -1502,9 +1502,9 @@ class TestLocus(unittest.TestCase):
         self.json_conf["pick"]["alternative_splicing"] = dict()
         self.json_conf["pick"]["alternative_splicing"]["report"] = True
         self.json_conf["pick"]["alternative_splicing"]["pad"] = True
-        self.json_conf["pick"]["alternative_splicing"]["max_utr_length"] = 2000
-        self.json_conf["pick"]["alternative_splicing"]["max_fiveutr_length"] = 1000
-        self.json_conf["pick"]["alternative_splicing"]["max_threeutr_length"] = 1000
+        # self.json_conf["pick"]["alternative_splicing"]["max_utr_length"] = 2000
+        # self.json_conf["pick"]["alternative_splicing"]["max_fiveutr_length"] = 1000
+        # self.json_conf["pick"]["alternative_splicing"]["max_threeutr_length"] = 1000
         self.json_conf["pick"]["alternative_splicing"]["max_isoforms"] = 3
         self.json_conf["pick"]["alternative_splicing"]["keep_retained_introns"] = False
         self.json_conf["pick"]["alternative_splicing"]["min_cds_overlap"] = 0

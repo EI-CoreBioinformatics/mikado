@@ -123,14 +123,17 @@ def create_queue_logger(instance, prefix=""):
 def create_logger_from_conf(conf, name="mikado", mode="a"):
 
     logger = logging.getLogger(name)
-    handle = conf["log_settings"].get("log", None)
+    log_settings = conf.log_settings
+    assert isinstance(log_settings, LoggingConfiguration)
+    handle = log_settings.log
+
     if handle is None:
         handler = logging.StreamHandler()
     else:
-        handler = logging.FileHandler(conf["log_settings"]['log'], mode=mode)
+        handler = logging.FileHandler(log_settings.log, mode=mode)
 
     handler.setFormatter(formatter)
-    logger.setLevel(conf["log_settings"]['log_level'])
+    logger.setLevel(log_settings.log_level)
     logger.addHandler(handler)
     logger.propagate = False
     return logger

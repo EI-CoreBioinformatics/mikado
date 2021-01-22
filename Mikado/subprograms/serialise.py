@@ -20,6 +20,7 @@ from ..exceptions import InvalidJson
 from ..exceptions import InvalidSerialization
 import random
 from ..utilities import blast_keys
+from ..configuration import MikadoConfiguration, DaijinConfiguration
 
 
 __author__ = 'Luca Venturini'
@@ -63,11 +64,13 @@ def load_junctions(args, logger):
     :return:
     """
 
-    if not args.json_conf["serialise"]["files"]["junctions"]:
+    assert isinstance(args.json_conf, (MikadoConfiguration, DaijinConfiguration))
+
+    if not args.json_conf.serialise.files.junctions:
         logger.info("Skipping junction loading as no junctions have been provided.")
         return
 
-    if not args.json_conf["reference"]["genome"]:
+    if not args.json_conf.reference.genome:
         exc = InvalidJson(
             "Missing the genome FAI file for serialising the junctions. \
 I cannot proceed with this step!")
@@ -75,9 +78,9 @@ I cannot proceed with this step!")
         raise exc
 
     logger.info("Starting to load junctions: %s",
-                args.json_conf["serialise"]["files"]["junctions"])
+                args.json_conf.serialise.files.junctions)
     for junction_file in iter(
-            j_file for j_file in args.json_conf["serialise"]["files"]["junctions"]
+            j_file for j_file in args.json_conf.serialise.files.junctions
             if j_file != ''):
         logger.debug("Loading junctions: %s", junction_file)
         from ..serializers import junction

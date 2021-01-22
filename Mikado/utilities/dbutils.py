@@ -12,6 +12,7 @@ import sqlite3
 import logging
 import functools
 
+
 Inspector = Inspector
 DBBASE = declarative_base()
 
@@ -43,7 +44,6 @@ def create_connector(json_conf, logger=None):
     These are controlled and added automatically by the json_utils functions.
 
     :param json_conf: configuration dictionary
-    :type json_conf: dict
 
     :param logger: a logger instance
     :type logger: logging.Logger
@@ -57,51 +57,52 @@ def create_connector(json_conf, logger=None):
         logger = logging.Logger("null")
         logger.addHandler(logging.NullHandler())
 
-    db_settings = json_conf["db_settings"]
+    db_settings = json_conf.db_settings
+    assert isinstance(db_settings, DBConfiguration)
 
     func = None
-    if db_settings["dbtype"] == "sqlite":
-        if not database_exists("sqlite:///{}".format(db_settings["db"])):
+    if db_settings.dbtype == "sqlite":
+        if not database_exists("sqlite:///{}".format(db_settings.db)):
             logger.debug("No database found, creating a mock one")
-            create_database("sqlite:///{}".format(db_settings["db"]))
-        logger.debug("Connecting to %s", db_settings["db"])
-        func = sqlite3.connect(database=db_settings["db"], check_same_thread=False)
-    elif db_settings["dbtype"] in ("mysql", "postgresql"):
-        if db_settings["dbpasswd"] != '':
-            passwd = ":{0}".format(db_settings["dbpasswd"])
+            create_database("sqlite:///{}".format(db_settings.db))
+        logger.debug("Connecting to %s", db_settings.db)
+        func = sqlite3.connect(database=db_settings.db, check_same_thread=False)
+    elif db_settings.dbtype in ("mysql", "postgresql"):
+        if db_settings.dbpasswd != '':
+            passwd = ":{0}".format(db_settings.dbpasswd)
         else:
             passwd = ''
         url = "{dialect}://{user}{passwd}@{host}:{port}/{db}".format(
-            dialect=db_settings["dbtype"],
-            host=db_settings["dbhost"],
-            user=db_settings["dbuser"],
+            dialect=db_settings.dbtype,
+            host=db_settings.dbhost,
+            user=db_settings.dbuser,
             passwd=passwd,
-            db=db_settings["db"],
-            port=db_settings["dbport"]
+            db=db_settings.db,
+            port=db_settings.dbport
         )
         if database_exists(url) is False:
             create_database(url)
 
-        if db_settings["dbtype"] == "mysql":
+        if db_settings.dbtype == "mysql":
             import MySQLdb
-            logger.debug("Connecting to MySQL %s", db_settings["db"])
-            func = MySQLdb.connect(host=db_settings["dbhost"],
-                                   user=db_settings["dbuser"],
-                                   passwd=db_settings["dbpasswd"],
-                                   db=db_settings["db"],
-                                   port=db_settings["dbport"])
-        elif db_settings["dbtype"] == "postgresql":
+            logger.debug("Connecting to MySQL %s", db_settings.db)
+            func = MySQLdb.connect(host=db_settings.dbhost,
+                                   user=db_settings.dbuser,
+                                   passwd=db_settings.dbpasswd,
+                                   db=db_settings.db,
+                                   port=db_settings.dbport)
+        elif db_settings.dbtype == "postgresql":
             import psycopg2
-            logger.debug("Connecting to PSQL %s", db_settings["db"])
+            logger.debug("Connecting to PSQL %s", db_settings.db)
             func = psycopg2.connect(
-                host=db_settings["dbhost"],
-                user=db_settings["dbuser"],
-                password=db_settings["dbpasswd"],
-                database=db_settings["db"],
-                port=db_settings["dbport"]
+                host=db_settings.dbhost,
+                user=db_settings.dbuser,
+                password=db_settings.dbpasswd,
+                database=db_settings.db,
+                port=db_settings.dbport
             )
     else:
-        raise ValueError("DB type not supported! {0}".format(db_settings["dbtype"]))
+        raise ValueError("DB type not supported! {0}".format(db_settings.dbtype))
     return func
 
 
@@ -133,7 +134,7 @@ def connect(json_conf, logger=None, **kwargs):
         return create_engine("sqlite:///:memory:", **kwargs)
 
     db_connection = functools.partial(create_connector, json_conf, logger=logger)
-    engine = create_engine("{0}://".format(json_conf["db_settings"]["dbtype"]),
+    engine = create_engine("{0}://".format(json_conf.db_settings.dbtype),
                            creator=db_connection, **kwargs)
     DBBASE.metadata.create_all(engine, checkfirst=True)
 

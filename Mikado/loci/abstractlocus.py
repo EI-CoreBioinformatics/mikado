@@ -129,7 +129,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         if flank is not None:
             self.flank = flank
         else:
-            self.flank = self.json_conf["pick"]["clustering"]["flank"]
+            self.flank = self.json_conf.pick.clustering.flank
 
     @abc.abstractmethod
     def __str__(self, *args, **kwargs):
@@ -454,13 +454,12 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         # Choose one transcript randomly between those that have the maximum score
         if len(transcripts) == 1:
             return list(transcripts.keys())[0]
-        # np.random.seed(self.json_conf["seed"])
-        random.seed(self.json_conf["seed"])
+        random.seed(self.json_conf.seed)
         if self.reference_update is True:
             # We need to select only amongst the reference transcripts
             reference_sources = {source for source, is_reference in
-                                 zip(self.json_conf["prepare"]["files"]["labels"],
-                                     self.json_conf["prepare"]["files"]["reference"]) if is_reference is True}
+                                 zip(self.json_conf.prepare.files.labels,
+                                     self.json_conf.prepare.files.reference) if is_reference is True}
             reference_tids = set()
             for tid, transcript in transcripts.items():
                 is_reference = transcript.original_source in reference_sources or transcript.is_reference is True
@@ -897,7 +896,6 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         # - OR is the last exon of the transcript and it ends within the intron of another transcript
 
         retained_introns = []
-        # consider_truncated = self.json_conf["pick"]["run_options"]["consider_truncated_for_retained"]
 
         cds_broken = False
 
@@ -1277,14 +1275,14 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
         not_passing = set()
         reference_sources = {source for source, is_reference in
-                             zip(self.json_conf["prepare"]["files"]["labels"],
-                                 self.json_conf["prepare"]["files"]["reference"]) if is_reference}
+                             zip(self.json_conf.prepare.files.labels,
+                                 self.json_conf.prepare.files.reference) if is_reference}
 
         for tid in iter(tid for tid in self.transcripts if
                         tid not in previous_not_passing):
             if self.transcripts[tid].json_conf is None:
                 self.transcripts[tid].json_conf = self.json_conf
-            elif self.transcripts[tid].json_conf["prepare"]["files"]["reference"] != self.json_conf["prepare"]["files"]["reference"]:
+            elif self.transcripts[tid].json_conf.prepare.files.reference != self.json_conf.prepare.files.reference:
                 self.transcripts[tid].json_conf = self.json_conf
 
             is_reference = ((self.transcripts[tid].is_reference is True) or
@@ -1293,13 +1291,12 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             if is_reference is False:
                 self.logger.debug("Transcript %s (source %s) is not a reference transcript (references: %s; in it: %s)",
                                   tid, self.transcripts[tid].original_source,
-                                  self.json_conf["prepare"]["files"]["reference"],
-                                  self.transcripts[tid].original_source in self.json_conf["prepare"]["files"][
-                                      "reference"])
-            elif is_reference is True and self.json_conf["pick"]["run_options"]["check_references"] is False:
+                                  self.json_conf.prepare.files.reference,
+                                  self.transcripts[tid].original_source in self.json_conf.prepare.files.reference)
+            elif is_reference is True and self.json_conf.pick.run_options.check_references is False:
                 self.logger.debug("Skipping %s from the requirement check as it is a reference transcript", tid)
                 continue
-            elif is_reference is True and self.json_conf["pick"]["run_options"]["check_references"] is True:
+            elif is_reference is True and self.json_conf.pick.run_options.check_references is True:
                 self.logger.debug("Performing the requirement check for %s even if it is a reference transcript", tid)
 
             evaluated = dict()
@@ -1778,21 +1775,13 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         :type logger: logging.Logger | Nonell
         """
 
-        # if self.__logger is not None:
-        #     self.__logger.disabled = True
-
         if logger is None:
             self.__logger = create_null_logger()
             self.__logger.propagate = False
         elif not isinstance(logger, logging.Logger):
             raise TypeError("Invalid logger: {0}".format(type(logger)))
         else:
-            # while len(logger.handlers) > 1:
-            #     logger.handlers.pop()
-            # logger.propagate = False
             self.__logger = logger
-
-        # self.__logger.setLevel("DEBUG")
 
     @logger.deleter
     def logger(self):

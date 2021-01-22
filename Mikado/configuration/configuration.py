@@ -1,8 +1,8 @@
 from dataclasses import dataclass
 
-from Mikado.picking.configuration import PickConfiguration
-from Mikado.preparation.configuration import PrepareConfiguration
-from Mikado.serializers.configuration import SerialiseConfiguration
+from Mikado.configuration.picking import PickConfiguration
+from Mikado.configuration.prepare import PrepareConfiguration
+from Mikado.configuration.serialise import SerialiseConfiguration
 from Mikado.utilities.dbutils import DBConfiguration
 from Mikado.utilities.log_utils import LoggingConfiguration
 

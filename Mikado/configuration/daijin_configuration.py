@@ -1,10 +1,10 @@
 from dataclasses import dataclass, field
-from ..picking.configuration import PickConfiguration
-from ..preparation.configuration import PrepareConfiguration
-from ..serializers.configuration import SerialiseConfiguration
-from ..utilities.dbutils import DBConfiguration
-from ..utilities.log_utils import LoggingConfiguration
-from ..configuration.configuration import ReferenceConfiguration
+from Mikado.configuration.picking import PickConfiguration
+from Mikado.configuration.prepare import PrepareConfiguration
+from Mikado.configuration.serialise import SerialiseConfiguration
+from Mikado.utilities.dbutils import DBConfiguration
+from Mikado.utilities.log_utils import LoggingConfiguration
+from Mikado.configuration.configuration import ReferenceConfiguration
 
 
 @dataclass

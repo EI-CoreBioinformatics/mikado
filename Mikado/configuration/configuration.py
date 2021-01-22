@@ -1,10 +1,10 @@
 from dataclasses import dataclass
-
-from Mikado.configuration.picking import PickConfiguration
-from Mikado.configuration.prepare import PrepareConfiguration
-from Mikado.configuration.serialise import SerialiseConfiguration
-from Mikado.utilities.dbutils import DBConfiguration
-from Mikado.utilities.log_utils import LoggingConfiguration
+import copy
+from .picking_config import PickConfiguration
+from .prepare_config import PrepareConfiguration
+from .serialise_config import SerialiseConfiguration
+from ..utilities.dbutils import DBConfiguration
+from ..utilities.log_utils import LoggingConfiguration
 
 
 @dataclass
@@ -25,3 +25,6 @@ class MikadoConfiguration:
     prepare: PrepareConfiguration = PrepareConfiguration()
     pick: PickConfiguration = PickConfiguration()
     reference: ReferenceConfiguration = ReferenceConfiguration()
+
+    def copy(self):
+        return copy.deepcopy(self)

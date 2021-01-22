@@ -1,11 +1,11 @@
 from dataclasses import dataclass, field
-from Mikado.configuration.picking import PickConfiguration
-from Mikado.configuration.prepare import PrepareConfiguration
-from Mikado.configuration.serialise import SerialiseConfiguration
-from Mikado.utilities.dbutils import DBConfiguration
-from Mikado.utilities.log_utils import LoggingConfiguration
-from Mikado.configuration.configuration import ReferenceConfiguration
-
+from .picking_config import PickConfiguration
+from .prepare_config import PrepareConfiguration
+from .serialise_config import  SerialiseConfiguration
+from ..utilities.dbutils import DBConfiguration
+from ..utilities.log_utils import LoggingConfiguration
+from .configuration import ReferenceConfiguration
+import copy
 
 @dataclass
 class ShortReads:
@@ -118,3 +118,6 @@ class DaijinConfiguration:
     asm_methods: AsmMethods = AsmMethods()
     load: ProgramLoader = ProgramLoader()
     portcullis: Portcullis = Portcullis()
+
+    def copy(self):
+        return copy.deepcopy(self)

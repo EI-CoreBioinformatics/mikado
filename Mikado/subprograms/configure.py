@@ -248,6 +248,8 @@ switch.")
         config["pick"]["scoring_file"] = args.scoring
 
     if args.cds_only is True:
+        if "clustering" not in config["pick"]:
+            config["pick"]["clustering"] = dict()
         args.json_conf["pick"]["clustering"]["cds_only"] = True
 
     if args.as_cds_only is True:
@@ -279,9 +281,13 @@ switch.")
         config["pick"]["alternative_splicing"]["pad"] = True
 
     if args.min_clustering_cds_overlap is not None:
+        if "clustering" not in config["pick"]:
+            config["pick"]["clustering"] = dict()
         config["pick"]["clustering"]["min_cds_overlap"] = args.min_clustering_cds_overlap
 
     if args.min_clustering_cdna_overlap is not None:
+        if "clustering" not in config["pick"]:
+            config["pick"]["clustering"] = dict()
         config["pick"]["clustering"]["min_cdna_overlap"] = args.min_clustering_cdna_overlap
         if args.min_clustering_cds_overlap is None:
             config["pick"]["clustering"]["min_cds_overlap"] = args.min_clustering_cdna_overlap

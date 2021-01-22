@@ -279,7 +279,7 @@
       "type": "object",
       "description": "Parameters related to the Mikado pick stage.",
       "additionalProperties": false,
-      "required": ["scoring_file", "clustering"],
+      "required": ["scoring_file"],
       "properties": {
         "scoring_file": {
           "type": "string",

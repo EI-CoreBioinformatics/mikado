@@ -1,4 +1,5 @@
 from dataclasses import dataclass, field
+from typing import Union
 
 
 @dataclass
@@ -19,7 +20,7 @@ class SerialiseConfiguration:
     files: FilesConfiguration = FilesConfiguration()
     substitution_matrix: str = "blosum62"
     blast_flavour: str = "blastx"
-    codon_table: str = "0"
+    codon_table: Union[str,int] = 0
     max_objects: int = 10000000
     max_regression: float = 0.2
     start_adjustment: bool = True

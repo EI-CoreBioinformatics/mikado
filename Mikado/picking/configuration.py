@@ -10,8 +10,8 @@ class AlternativeSplicingConfiguration:
     keep_retained_introns: bool = True
     keep_cds_disrupted_by_ri: bool = False
     max_isoforms: int = 10
-    valid_ccodes: list = field(default=["j", "J", "G", "h"])
-    redundant_ccodes: list = field(default=["c", "m", "_", "=", "n"])
+    valid_ccodes: list = field(default_factory=lambda: ["j", "J", "G", "h"])
+    redundant_ccodes: list = field(default_factory=lambda: ["c", "m", "_", "=", "n"])
     min_score_perc: float = 0.5
     only_confirmed_introns: bool = True
     ts_distance: int = 2000
@@ -55,7 +55,7 @@ class ChimeraSplitConfiguration:
 class RunOptionsConfiguration:
     shm: bool = False
     exclude_cds: bool = False
-    intron_range: list = field(default=[60, 10000])
+    intron_range: list = field(default_factory=lambda: [60, 10000])
     reference_update: bool = False
     only_reference_update: bool = False
     check_references: bool = False
@@ -76,7 +76,7 @@ class ClusteringConfiguration:
 class FragmentsConfiguration:
     remove: bool = True
     max_distance: int = 2000
-    valid_ccodes: list = field(default=["p", "P", "x", "X", "i", "m", "_", "e", "o"])
+    valid_ccodes: list = field(default_factory=lambda: ["p", "P", "x", "X", "i", "m", "_", "e", "o"])
 
 
 @dataclass

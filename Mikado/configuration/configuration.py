@@ -17,6 +17,7 @@ class ReferenceConfiguration:
 @dataclass
 class MikadoConfiguration:
     filename: str = None
+    threads: int = 1
     seed: int = 0
     multiprocessing_method: str = "spawn"
     log_settings: LoggingConfiguration = LoggingConfiguration()

@@ -16,6 +16,8 @@ from .overlap import overlap
 from . import intervaltree
 from .intervaltree import Interval, IntervalTree
 from collections import Counter
+
+from ..configuration import MikadoConfiguration
 from ..exceptions import InvalidJson
 
 __author__ = 'Luca Venturini'
@@ -268,7 +270,8 @@ class NumpyEncoder(json.JSONEncoder):
             return super(NumpyEncoder, self).default(obj)
 
 
-def parse_list_file(json_conf: dict, list_file):
+def parse_list_file(cfg: MikadoConfiguration, list_file):
+    json_conf = dict()
     json_conf["prepare"]["files"]["gff"] = []
     json_conf["prepare"]["files"]["labels"] = []
     json_conf["prepare"]["files"]["strand_specific_assemblies"] = []
@@ -327,6 +330,16 @@ def parse_list_file(json_conf: dict, list_file):
                 ", ".join(_[0] for _ in files_counter.most_common() if _[1] > 1)))
 
     assert "exclude_redundant" in json_conf["prepare"]["files"]
+
+    cfg.prepare.files.gff = json_conf["prepare"]["files"]["gff"]
+    cfg.prepare.files.labels = json_conf["prepare"]["files"]["labels"]
+    cfg.prepare.files.strand_specific_assemblies = json_conf["prepare"]["files"]["strand_specific_assemblies"]
+    cfg.prepare.files.source_score = json_conf["prepare"]["files"]["source_score"]
+    cfg.prepare.files.reference = json_conf["prepare"]["files"]["reference"]
+    cfg.prepare.files.exclude_redundant = json_conf["prepare"]["files"]["exclude_redundant"]
+    cfg.prepare.files.strip_cds = json_conf["prepare"]["files"]["strip_cds"]
+    cfg.pick.chimera_split.skip = json_conf["pick"]["chimera_split"]["skip"]
+
     return json_conf
 
 

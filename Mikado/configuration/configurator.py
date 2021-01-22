@@ -108,11 +108,6 @@ def extend_with_default(validator_class, resolver=None, simple=False):
                     continue
                 elif subschema["type"] == "object":
                     instance[prop] = dict()
-                    if not simple_comment and "Comment" in subschema:
-                        instance[prop].setdefault("Comment", subschema["Comment"])
-                    elif simple_comment and "SimpleComment" in subschema:
-                        instance[prop].setdefault("SimpleComment",
-                                                  subschema["SimpleComment"])
                     instance[prop] = set_default(instance[prop],
                                                  subschema,
                                                  simple_comment=simple_comment)

@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-04/schema#",
   "id": "configuration_blueprint",
   "type": "object",
-  "description": "Configuration file for Mikado. Please note that absent values, e.g. if a field is deleted, will be imputed by the default values for the program..\nSections:",
+  "title": "Configuration file for Mikado. Please note that absent values, e.g. if a field is deleted, will be imputed by the default values for the program. Sections:",
   "properties": {
     "filename": {"type": "string", "description": "Name of the configuration file."},
     "threads": {

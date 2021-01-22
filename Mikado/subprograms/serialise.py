@@ -205,9 +205,6 @@ def setup(args):
                     if file_key in ("xml", "junctions", "orfs"):
                         setattr(args, file_key, getattr(args, file_key).split(","))
                     args.json_conf["serialise"]["files"][file_key] = getattr(args, file_key)
-        elif key in ("SimpleComment", "Comment"):
-            # Necessary for JSON configurations
-            continue
         else:
             if getattr(args, key, None) or getattr(args, key, None) == 0:
                 if getattr(args, key) is False or getattr(args, key) is None:

@@ -92,10 +92,17 @@ def _parse_sample_sheet(sample_sheet, config, logger):
 
     """Mini-function to parse the sample sheet."""
 
+    if "short_reads" not in config:
+        config["short_reads"] = dict()
+
     config["short_reads"]["r1"] = []
     config["short_reads"]["r2"] = []
     config["short_reads"]["samples"] = []
     config["short_reads"]["strandedness"] = []
+
+    if "long_reads" not in config:
+        config["long_reads"] = dict()
+
     config["long_reads"]["files"] = []
     config["long_reads"]["samples"] = []
     config["long_reads"]["strandedness"] = []
@@ -320,7 +327,7 @@ def create_daijin_config(args, level="ERROR", piped=False):
         _to_remove = [_ for _ in final_config if isinstance(_, str) and _.startswith("_")]
         [final_config.pop(key) for key in _to_remove]
 
-    def _rec_delete(d: dict, keep_comments=True):
+    def _rec_delete(d: dict, keep_comments=False):
         _to_remove = []
         if len(d) == 0:
             return d
@@ -331,13 +338,28 @@ def create_daijin_config(args, level="ERROR", piped=False):
         else:
             for key in d:
                 if isinstance(d[key], dict):
-                    d[key] = _rec_delete(d[key], ("Comment" in key))
+                    d[key] = _rec_delete(d[key], keep_comments=keep_comments)
                     if len(d[key]) == 0:
                         _to_remove.append(key)
         [d.pop(key) for key in _to_remove]
         return d
 
-    final_config = _rec_delete(final_config)
+    final_config = _rec_delete(final_config, keep_comments=False)
+
+    # Check no comments are present
+    def checker(d):
+        if not isinstance(d, dict):
+            return
+        else:
+            if "Comment" in d.keys() or "SimpleComment" in d.keys():
+                raise KeyError
+            for key in d.keys():
+                try:
+                    checker(d[key])
+                except KeyError:
+                    raise KeyError(key)
+        return
+    checker(final_config)
 
     if piped is True:
         return final_config

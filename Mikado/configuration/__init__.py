@@ -8,7 +8,8 @@ from . import configurator
 import itertools
 import re
 import textwrap
-import tomlkit
+import pkg_resources
+import json
 
 
 __author__ = 'Luca Venturini'
@@ -16,29 +17,53 @@ __author__ = 'Luca Venturini'
 
 def print_toml_config(output, out):
 
-    pat = re.compile(r"(SimpleComment|Comment)\s{0,}=\s{0,}")
-    skip_pat = re.compile(r"^\[(SimpleComment|Comment)\]")
-    
-    initial_comment = []
-    first_indent_found = False
+    import sys
+
+    schema = json.load(pkg_resources.resource_stream("Mikado.configuration", "configuration_blueprint.json"))
+    daijin_schema = json.load(pkg_resources.resource_stream("Mikado.configuration", "daijin_schema.json"))
+    daijin_found = False
+
     lines = []
 
+    level = schema
     for line in output.split("\n"):
-        if skip_pat.match(line):
-            continue
-        elif line.startswith("["):
-            first_indent_found = True
+        if line.startswith("["):
+            keys = line.rstrip().replace("[", "").replace("]", "").split(".")
+            level = schema
+            for key in keys:
+                if key not in level["properties"]:
+                    level = daijin_schema
+                    daijin_found = True
+                if key not in level["properties"]:
+                    raise KeyError("Unknown key found: {}".format(key))
+                level = level["properties"][key]
+            # print("We are at", key, "with level: ", level, file=sys.stderr)
+            comment = []
+            # title = level.get("title", None)
+            # if title:
+            #     comment += ["# " + _ for _ in textwrap.wrap(title)]
+            description = level.get("description", None)
+            if description:
+                comment += ["# " + _ for _ in textwrap.wrap(description)]
             lines.append(line)
-        elif pat.match(line.lstrip()):
-            for l in eval(pat.sub("", line.lstrip().rstrip())):
-                if first_indent_found is True:
-                    lines.append(f"# {l}")
-                else:
-                    initial_comment.append(f"# {l}")
+            lines.extend(comment)
         else:
+            comment = []
+            if "=" in line:
+                key = line.split("=")[0].strip()
+                if "Comment" in key:
+                    raise KeyError((line, key, level))
+                description = level["properties"].get(key, dict()).get("description", None)
+                if description:
+                    comment += ["# " + key + ": " + _ for _ in textwrap.wrap(description)]
+                lines.extend(comment)
             lines.append(line.rstrip())
 
-    print(*initial_comment, sep="\n", file=out)
+    if daijin_found is True:
+        print(*["# " + _ for _ in textwrap.wrap(daijin_schema["title"])], sep="\n", file=out)
+    else:
+        print(*["# " + _ for _ in textwrap.wrap(schema["title"])], sep="\n", file=out)
+
     print(*lines, sep="\n", file=out)
 
 
@@ -110,11 +135,7 @@ def check_has_requirements(dictionary, schema, key=None, first_level=True):
 
     for new_key, value in dictionary.items():
         if isinstance(value, dict):
-            if new_key == "Comment" or new_key == "SimpleComment":
-                continue
             assert "properties" in schema[new_key], new_key
-            if "SimpleComment" in schema[new_key]:
-                required.append((key, new_key, "SimpleComment"))
             if "required" in schema[new_key]:
                 for req in schema[new_key]["required"]:
                     required.append((key, new_key, req))
@@ -129,9 +150,7 @@ def check_has_requirements(dictionary, schema, key=None, first_level=True):
                 nkey = tuple(nkey)
                 required.append(nkey)
         elif first_level is True:
-            if new_key in ("Comment", "SimpleComment"):
-                continue
-            elif new_key in schema:
+            if new_key in schema:
                 if "required" in schema[new_key] and schema[new_key]["required"] is True:
                     required.append([new_key])
         else:

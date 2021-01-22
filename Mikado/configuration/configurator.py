@@ -611,7 +611,7 @@ def check_json(json_conf, simple=False, external_dict=None, logger=None):
         json_conf = check_db(json_conf)
         # json_conf = check_blast(json_conf, json_file)
         validator.validate(json_conf)
-        if not json_conf.get("multiprocessing_method", None):
+        if json_conf.get("multiprocessing_method", None):
             json_conf["multiprocessing_method"] = get_start_method()
     except Exception as exc:
         logger.exception(exc)

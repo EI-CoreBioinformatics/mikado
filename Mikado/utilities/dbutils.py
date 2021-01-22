@@ -1,6 +1,7 @@
 # coding: utf-8
 
 """This initializer contains the base declaration for all the DB classes of the module."""
+from dataclasses import dataclass
 
 from sqlalchemy.engine.reflection import Inspector
 from sqlalchemy.ext.declarative import declarative_base
@@ -13,6 +14,16 @@ import functools
 
 Inspector = Inspector
 DBBASE = declarative_base()
+
+
+@dataclass
+class DBConfiguration:
+    db: str = "mikado.db"
+    dbtype: str = "sqlite"
+    dbhost: str = "localhost"
+    dbuser: str = ""
+    dbpasswd: str = ""
+    dbport: int = 0
 
 
 def create_connector(json_conf, logger=None):

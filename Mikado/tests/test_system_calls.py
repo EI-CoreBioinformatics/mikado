@@ -156,6 +156,7 @@ class PrepareCheck(unittest.TestCase):
     def setUp(self):
 
         self.conf = configurator.to_json(None)
+        self.conf['filename'] = "nofile"  # FIXME: Filename is added dynamically to this obj and not validated
         self.conf["seed"] = 1066
         self.conf["reference"]["genome"] = self.fai.filename.decode()
         assert isinstance(self.conf["reference"]["genome"], str)
@@ -1114,6 +1115,7 @@ class ConfigureCheck(unittest.TestCase):
         namespace.reference = ""
         namespace.external = None
         namespace.threads = 1
+        namespace.multiprocessing_method = "spawn"
         namespace.blast_targets = []
         namespace.junctions = []
         namespace.new_scoring = None
@@ -1125,6 +1127,7 @@ class ConfigureCheck(unittest.TestCase):
             with self.subTest(trial=trial):
                 namespace.mode = ["permissive"]
                 namespace.seed = trial
+                namespace.multiprocessing_method = "spawn"
                 with open(out, "w") as out_handle:
                     namespace.out = out_handle
                     sub_configure.create_config(namespace)

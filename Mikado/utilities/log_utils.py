@@ -8,13 +8,21 @@ import logging.handlers
 
 __author__ = 'Luca Venturini'
 
+from dataclasses import dataclass
+
+
+@dataclass
+class LoggingConfiguration:
+    log_level: str = "INFO"
+    sql_level: str = "WARNING"
+    log: str = ""
+
 
 formatter = logging.Formatter(
         "{asctime} - {name} - {filename}:{lineno} - {levelname} - {funcName} \
 - {processName} - {message}",
         style="{"
         )
-
 
 null_logger = logging.getLogger("null")
 null_handler = logging.NullHandler()

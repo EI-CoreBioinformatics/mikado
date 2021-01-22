@@ -8,6 +8,7 @@ db_settings:
   #  dbport: Integer. It indicates the default port for the DB.
   db: mikado.db
   dbtype: sqlite
+multiprocessing_method: spawn
 pick:
   #  scoring_file: a scoring file for the analysis. Default: plant.yaml.
   alternative_splicing:

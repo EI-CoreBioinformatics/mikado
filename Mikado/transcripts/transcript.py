@@ -34,6 +34,8 @@ from .transcript_methods.printing import create_lines_cds
 from .transcript_methods.printing import create_lines_no_cds, create_lines_bed, as_bed12
 from ..utilities.intervaltree import Interval, IntervalTree
 from ..utilities.namespace import Namespace
+from Mikado.configuration.configuration import MikadoConfiguration
+from Mikado.configuration.daijin_configuration import DaijinConfiguration
 from collections.abc import Hashable
 import numpy as np
 import pprint
@@ -1665,7 +1667,10 @@ exon data is on a different chromosome, {exon_data.chrom}. \
         :return:
         """
 
-        assert isinstance(json_conf, dict) or json_conf is None
+        assert isinstance(json_conf, (MikadoConfiguration, DaijinConfiguration)) or json_conf is None
+        if json_conf is None:
+            json_conf = MikadoConfiguration()
+
         self.__json_conf = json_conf
 
     @logger.deleter
@@ -2354,7 +2359,7 @@ index {3}, internal ORFs: {4}".format(
 
         if self.json_conf is None:
             return 0
-        return self.json_conf.get("serialise", {}).get("codon_table", 0)
+        return self.json_conf.serialise.codon_table
 
     @property
     def segmenttree(self):
@@ -2427,8 +2432,7 @@ index {3}, internal ORFs: {4}".format(
         in virtue of its origin."""
 
         if self.json_conf is not None:
-            return self.json_conf.get("prepare", {}).get("files", {}).get(
-                "source_score", {}).get(self.original_source, 0)
+            self.json_conf.prepare.files.source_score.get(self.original_source, 0)
         else:
             return 0
 

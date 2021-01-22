@@ -3,7 +3,7 @@ from dataclasses import dataclass, field
 
 @dataclass
 class PrepareFilesConfiguration:
-    output_dir: str = "."
+    output_dir: str = "../preparation"
     out: str = "mikado_prepared.gtf"
     out_fasta: str = "mikado_prepared.fasta"
     log: str = "prepare.log"

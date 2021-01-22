@@ -19,11 +19,9 @@ import pkg_resources
 import yaml
 from pkg_resources import resource_stream, resource_filename
 from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
-from ..transcripts.transcript import Transcript
 from ..exceptions import InvalidJson, UnrecognizedRescaler
 from ..utilities import merge_dictionaries
 from ..utilities.log_utils import create_default_logger
-import numpy
 import random
 import toml
 try:
@@ -166,6 +164,7 @@ def check_scoring(json_conf):
     double_parameters = []
     invalid_raw = set()
     invalid_filter = set()
+    from ..transcripts.transcript import Transcript
     available_metrics = Transcript.get_available_metrics()
     if "scoring" not in json_conf:
         raise InvalidJson("\"Scoring\" key not find in the scoring dictionary.")
@@ -311,6 +310,7 @@ def check_requirements(json_conf, require_schema, index):
 
     # Check that the parameters are valid
     parameters_not_found = []
+    from ..transcripts.transcript import Transcript
     available_metrics = Transcript.get_available_metrics()
 
     if "parameters" not in json_conf[index]:

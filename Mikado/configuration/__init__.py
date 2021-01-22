@@ -4,6 +4,8 @@ plus the JSON schemas for the configuration and scoring files.
 """
 
 
+from .configuration import MikadoConfiguration
+from .daijin_configuration import DaijinConfiguration
 from . import configurator
 import itertools
 import re

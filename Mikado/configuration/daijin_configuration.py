@@ -1,11 +1,11 @@
 from dataclasses import dataclass, field
-from ..picking.configuration import PickConfiguration
-from ..preparation.configuration import PrepareConfiguration
-from ..serializers.configuration import SerialiseConfiguration
+from .picking_config import PickConfiguration
+from .prepare_config import PrepareConfiguration
+from .serialise_config import  SerialiseConfiguration
 from ..utilities.dbutils import DBConfiguration
 from ..utilities.log_utils import LoggingConfiguration
-from ..configuration.configuration import ReferenceConfiguration
-
+from .configuration import ReferenceConfiguration
+import copy
 
 @dataclass
 class ShortReads:
@@ -118,3 +118,6 @@ class DaijinConfiguration:
     asm_methods: AsmMethods = AsmMethods()
     load: ProgramLoader = ProgramLoader()
     portcullis: Portcullis = Portcullis()
+
+    def copy(self):
+        return copy.deepcopy(self)

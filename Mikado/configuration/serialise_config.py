@@ -12,7 +12,7 @@ class FilesConfiguration:
     transcripts: str = "mikado_prepared.fasta"
     log: str = "serialise.log"
     blast_targets: list = field(default_factory=list)
-    output_dir: str = "."
+    output_dir: str = "../serializers"
 
 
 @dataclass

@@ -81,7 +81,7 @@ class FragmentsConfiguration:
 
 @dataclass
 class FilesConfiguration:
-    output_dir: str = "."
+    output_dir: str = "../picking"
     input: str = "mikado_prepared.gtf"
     loci_out: str = "mikado.loci.gff3"
     subloci_out: str = ""

@@ -6,7 +6,6 @@ Module that defines the blueprint for all loci classes.
 
 import abc
 import itertools
-import numpy as np
 import logging
 from sys import maxsize
 import networkx
@@ -29,10 +28,11 @@ else:
 import random
 import rapidjson as json
 from typing import Union
+from Mikado.configuration.configuration import MikadoConfiguration
 
 # I do not care that there are too many attributes: this IS a massive class!
 # pylint: disable=too-many-instance-attributes,too-many-public-methods
-json_conf = to_json(None)
+json_conf = MikadoConfiguration()
 
 
 def to_bool(param: Union[str,bool,int,float]):

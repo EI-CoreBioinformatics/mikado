@@ -35,6 +35,7 @@ dependencies:
   - wheel
   - pytest>=5.4.1
   - libffi  # necessary for intervaltree
+  - dacite
   - pip:
     - jsonref>=0.2
     - rapidjson>=1.0.0

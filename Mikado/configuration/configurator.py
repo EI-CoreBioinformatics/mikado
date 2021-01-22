@@ -616,9 +616,7 @@ def check_json(json_conf, simple=False, external_dict=None, logger=None):
         json_conf = check_db(json_conf)
         # json_conf = check_blast(json_conf, json_file)
         validator.validate(json_conf)
-        # json_conf["prepare"]["canonical"] = tuple([tuple(_) for _
-        #                                            in json_conf["prepare"]["canonical"]])
-        if not json_conf["multiprocessing_method"]:
+        if not json_conf.get("multiprocessing_method", None):
             json_conf["multiprocessing_method"] = get_start_method()
     except Exception as exc:
         logger.exception(exc)

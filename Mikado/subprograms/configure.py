@@ -263,6 +263,8 @@ switch.")
                 config["pick"]["chimera_split"]["blast_check"] = False
             else:
                 config["pick"]["chimera_split"]["blast_check"] = True
+                if "blast_params" not in config["pick"]["chimera_split"]:
+                    config["pick"]["chimera_split"]["blast_params"] = dict()
                 config["pick"]["chimera_split"]["blast_params"]["leniency"] = args.mode.upper()
 
     if args.skip_split:

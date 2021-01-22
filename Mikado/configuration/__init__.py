@@ -42,7 +42,7 @@ def print_toml_config(output, out):
     print(*lines, sep="\n", file=out)
 
 
-def print_config(output, out):
+def print_config(output, out, format="yaml"):
 
     """
     Function to print out the prepared configuration.
@@ -54,6 +54,12 @@ def print_config(output, out):
 
     comment = []
     comment_level = -1
+
+    if format == "json":
+        import json
+        print(json.dumps(output, indent=4, sort_keys=True), file=out)
+
+    # elif format == "yaml":
 
     for line in output.split("\n"):
         # comment found

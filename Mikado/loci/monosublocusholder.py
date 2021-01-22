@@ -91,12 +91,12 @@ class MonosublocusHolder(Sublocus, Abstractlocus):
         if check_in_locus is True and self.in_locus(
                 self,
                 transcript,
-                flank=self.json_conf["pick"]["clustering"]["flank"],
+                flank=self.json_conf.pick.clustering.flank,
                 logger=self.logger,
-                cds_only=self.json_conf["pick"]["clustering"]["cds_only"],
-                min_cdna_overlap=self.json_conf["pick"]["clustering"]["min_cdna_overlap"],
-                min_cds_overlap=self.json_conf["pick"]["clustering"]["min_cds_overlap"],
-                simple_overlap_for_monoexonic=self.json_conf["pick"]["clustering"]["simple_overlap_for_monoexonic"]
+                cds_only=self.json_conf.pick.clustering.cds_only,
+                min_cdna_overlap=self.json_conf.pick.clustering.min_cdna_overlap,
+                min_cds_overlap=self.json_conf.pick.clustering.min_cds_overlap,
+                simple_overlap_for_monoexonic=self.json_conf.pick.clustering.simple_overlap_for_monoexonic
         ) is False:
 
                 self.logger.debug("%s is not a valid intersection for %s", transcript.id, self.id)
@@ -175,7 +175,7 @@ class MonosublocusHolder(Sublocus, Abstractlocus):
 
             lines.append(transcript_instance.format(
                 "gff",
-                all_orfs=self.json_conf["pick"]["output_format"]["report_all_orfs"],
+                all_orfs=self.json_conf.pick.output_format.report_all_orfs,
                 with_cds=print_cds).rstrip())
 
         return "\n".join(lines)
@@ -214,10 +214,10 @@ class MonosublocusHolder(Sublocus, Abstractlocus):
             self.transcripts,
             inters=self.is_intersecting,
             logger=self.logger,
-            cds_only=self.json_conf["pick"]["clustering"]["cds_only"],
-            min_cdna_overlap=self.json_conf["pick"]["clustering"]["min_cdna_overlap"],
-            min_cds_overlap=self.json_conf["pick"]["clustering"]["min_cds_overlap"],
-            simple_overlap_for_monoexonic=self.json_conf["pick"]["clustering"]["simple_overlap_for_monoexonic"]
+            cds_only=self.json_conf.pick.clustering.cds_only,
+            min_cdna_overlap=self.json_conf.pick.clustering.min_cdna_overlap,
+            min_cds_overlap=self.json_conf.pick.clustering.min_cds_overlap,
+            simple_overlap_for_monoexonic=self.json_conf.pick.clustering.simple_overlap_for_monoexonic
         )
 
         loci = []

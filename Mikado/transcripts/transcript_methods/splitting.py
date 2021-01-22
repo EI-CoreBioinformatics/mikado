@@ -5,6 +5,8 @@ supporting them being part of the same transcript).
 """
 
 from sys import version_info
+
+from ...configuration.daijin_configuration import DaijinConfiguration
 if version_info.minor < 5:
     from sortedcontainers import SortedDict
 else:
@@ -16,6 +18,8 @@ from ...utilities import overlap
 from ...exceptions import InvalidTranscript
 from ...parsers.blast_utils import merge
 from ...parsers.bed12 import BED12
+from ...configuration.configuration import MikadoConfiguration
+
 
 __author__ = 'Luca Venturini'
 
@@ -50,8 +54,9 @@ def check_split_by_blast(transcript, cds_boundaries):
     # Establish the minimum overlap between an ORF and a BLAST hit to consider it
     # to establish belongingness
 
-    minimal_overlap = transcript.json_conf[
-        "pick"]["chimera_split"]["blast_params"]["minimal_hsp_overlap"]
+    assert isinstance(transcript.json_conf, (MikadoConfiguration, DaijinConfiguration))
+
+    minimal_overlap = transcript.json_conf.pick.chimera_split.blast_params.minimal_hsp_overlap
 
     cds_hit_dict = SortedDict().fromkeys(cds_boundaries.keys())
     for key in cds_hit_dict:
@@ -68,7 +73,7 @@ def check_split_by_blast(transcript, cds_boundaries):
     transcript.logger.debug("%s has %d possible hits", transcript.id, len(transcript.blast_hits))
 
     # Determine for each CDS which are the hits available
-    min_eval = transcript.json_conf["pick"]['chimera_split']['blast_params']['hsp_evalue']
+    min_eval = transcript.json_conf.pick.chimera_split.blast_params.hsp_evalue
     for hit in transcript.blast_hits:
         for hsp in iter(_hsp for _hsp in hit["hsps"] if
                         _hsp["hsp_evalue"] <= min_eval):
@@ -136,8 +141,8 @@ def check_common_hits(transcript, cds_hits, old_hits):
     in_common = set.intersection(set(cds_hits.keys()),
                                  set(old_hits.keys()))
     # We do not have any hit in common
-    min_overlap_duplication = transcript.json_conf[
-        "pick"]['chimera_split']['blast_params']['min_overlap_duplication']
+    assert isinstance(transcript.json_conf, (MikadoConfiguration, DaijinConfiguration))
+    min_overlap_duplication = transcript.json_conf.pick.chimera_split.blast_params.min_overlap_duplication
     to_break = True
     for common_hit in in_common:
         old_hsps = old_hits[common_hit]
@@ -184,7 +189,7 @@ def __get_boundaries_from_blast(transcript, cds_boundaries, cds_hit_dict):
     :return:
     """
     new_boundaries = []
-    leniency = transcript.json_conf["pick"]['chimera_split']['blast_params']['leniency']
+    leniency = transcript.json_conf.pick.chimera_split.blast_params.leniency
     for cds_boundary in cds_boundaries:
         if not new_boundaries:
             new_boundaries.append([cds_boundary])
@@ -579,8 +584,7 @@ def __load_blast_hits(new_transcript, boundary, transcript):
     for hit in transcript.blast_hits:
         if overlap((hit["query_start"], hit["query_end"]), boundary) > 0:
 
-            minimal_overlap = transcript.json_conf[
-                "pick"]["chimera_split"]["blast_params"]["minimal_hsp_overlap"]
+            minimal_overlap = transcript.json_conf.pick.chimera_split.blast_params.minimal_hsp_overlap
             new_hit = __recalculate_hit(hit, boundary, minimal_overlap)
             if new_hit is not None:
                 transcript.logger.debug("""Hit %s,
@@ -770,11 +774,7 @@ def split_by_cds(transcript):
 
     if transcript.number_internal_orfs < 2:
         new_transcripts = [transcript]  # If we only have one ORF this is easy
-    elif (transcript.json_conf and
-              transcript.json_conf.get("pick", None) and
-              transcript.json_conf["pick"].get("chimera_split", None) and
-              transcript.json_conf["pick"]["chimera_split"].get("skip", None) and
-              transcript.source in transcript.json_conf["pick"]["chimera_split"]["skip"]):
+    elif transcript.source in transcript.json_conf.pick.chimera_split.skip:
         # Disable splitting for transcripts with certain tags
         transcript.logger.warning("%s (label %s) to be skipped for splitting",
                                   transcript.id,
@@ -787,9 +787,8 @@ def split_by_cds(transcript):
             cds_boundaries[(orf.thick_start, orf.thick_end)] = [orf]
 
         # Check whether we have to split or not based on BLAST data
-        if transcript.json_conf is not None:
-            if transcript.json_conf["pick"]["chimera_split"]["blast_check"] is True:
-                cds_boundaries = check_split_by_blast(transcript, cds_boundaries)
+        if transcript.json_conf.pick.chimera_split.blast_check is True:
+            cds_boundaries = check_split_by_blast(transcript, cds_boundaries)
 
         if len(cds_boundaries) == 1:
             # Recheck how many boundaries we have - after the BLAST check

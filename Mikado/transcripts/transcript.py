@@ -929,7 +929,7 @@ exon data is on a different chromosome, {exon_data.chrom}. \
         if self.__is_reference is None and self.json_conf is None:
             return False
         elif self.__is_reference is None:
-            self.__is_reference = (self.original_source in self.json_conf["prepare"]["files"]["reference"])
+            self.__is_reference = (self.original_source in self.json_conf.prepare.files.reference)
 
         return self.__is_reference
 

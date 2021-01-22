@@ -97,6 +97,6 @@ class PickConfiguration:
     orf_loading: OrfLoadingConfiguration = OrfLoadingConfiguration()
     chimera_split: ChimeraSplitConfiguration = ChimeraSplitConfiguration()
     run_options: RunOptionsConfiguration = RunOptionsConfiguration()
-    clustering_options: ClusteringConfiguration = ClusteringConfiguration()
+    clustering: ClusteringConfiguration = ClusteringConfiguration()
     fragments: FragmentsConfiguration = FragmentsConfiguration()
     files: FilesConfiguration = FilesConfiguration()

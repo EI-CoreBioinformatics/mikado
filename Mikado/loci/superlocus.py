@@ -509,7 +509,7 @@ class Superlocus(Abstractlocus):
                                                        data_dict=data_dict)
         to_remove, to_add = False, dict()
 
-        if self.json_conf["pick"]["chimera_split"]["execute"] is True:
+        if self.json_conf.pick.chimera_split.execute is True:
             if self.transcripts[tid].number_internal_orfs > 1:
                 new_tr = list(self.transcripts[tid].split_by_cds())
                 if len(new_tr) > 1:
@@ -540,7 +540,7 @@ class Superlocus(Abstractlocus):
 
         self.logger.debug("Querying the DB for introns, %d total", len(self.introns))
         if data_dict is None:
-            if self.json_conf["db_settings"]["db"] is None or self.json_conf["db_settings"]["db"] == "":
+            if not self.json_conf.db_settings.db:
                 return  # No data to load
             # dbquery = self.db_baked(self.session).params(chrom_name=self.chrom).all()
 
@@ -628,7 +628,7 @@ class Superlocus(Abstractlocus):
             hsp_command = " ".join([
                 "select * from hsp where",
                 "hsp_evalue <= {0} and query_id in {1} order by query_id;"]).format(
-                self.json_conf["pick"]["chimera_split"]["blast_params"]["hsp_evalue"],
+                self.json_conf.pick.chimera_split.blast_params.hsp_evalue,
                 "({0})".format(", ".join([str(_) for _ in query_ids.keys()]))
             )
 
@@ -647,8 +647,8 @@ class Superlocus(Abstractlocus):
                 "and hit_number <= {1} and query_id in {2}",
                 "order by query_id, evalue asc;"
             ]).format(
-                self.json_conf["pick"]["chimera_split"]["blast_params"]["evalue"],
-                self.json_conf["pick"]["chimera_split"]["blast_params"]["max_target_seqs"],
+                self.json_conf.pick.chimera_split.blast_params.evalue,
+                self.json_conf.pick.chimera_split.blast_params.max_target_seqs,
                 "({0})".format(", ".join([str(_) for _ in query_ids.keys()])))
 
             if len(targets) > 0:
@@ -819,7 +819,7 @@ class Superlocus(Abstractlocus):
         pass."""
 
         ichains = collections.defaultdict(list)
-        cds_only = self.json_conf["pick"]["clustering"]["cds_only"]
+        cds_only = self.json_conf.pick.clustering.cds_only
         for transcript in self.transcripts.values():
             # Ordered by coordinates
             if cds_only:
@@ -885,7 +885,7 @@ class Superlocus(Abstractlocus):
 
         to_remove = set()
         done = set()
-        cds_only = self.json_conf["pick"]["clustering"]["cds_only"]
+        cds_only = self.json_conf.pick.clustering.cds_only
         if cds_only:
             order = sorted(list(transcript_graph.nodes), key=lambda node: self.transcripts[node].selected_cds_start)
         else:
@@ -990,7 +990,6 @@ class Superlocus(Abstractlocus):
             self.subloci_defined = True
             return
 
-        # cds_only = self.json_conf["pick"]["clustering"]["cds_only"]
         self.logger.debug("Calculating the transcript graph for %d transcripts", len(self.transcripts))
         transcript_graph = self.define_graph()
 
@@ -1220,8 +1219,8 @@ class Superlocus(Abstractlocus):
 
         self.logger.debug("Looking for AS events in %s: %s",
                           self.id,
-                          self.json_conf["pick"]["alternative_splicing"]["report"])
-        if self.json_conf["pick"]["alternative_splicing"]["report"] is True:
+                          self.json_conf.pick.alternative_splicing.report)
+        if self.json_conf.pick.alternative_splicing.report is True:
             self.define_alternative_splicing()
 
         self.__find_lost_transcripts()
@@ -1244,7 +1243,7 @@ class Superlocus(Abstractlocus):
             self.loci.update(new_locus.loci)
             self.__lost = new_locus.lost_transcripts
 
-        if self.json_conf["pick"]["run_options"]["only_reference_update"] is True:
+        if self.json_conf.pick.run_options.only_reference_update is True:
             lids = list(self.loci.keys())[:]
             for lid in lids:
                 if self.loci[lid].has_reference_transcript is False:
@@ -1258,10 +1257,10 @@ class Superlocus(Abstractlocus):
     def __find_lost_transcripts(self):
 
         self.__lost = dict()
-        cds_only = self.json_conf["pick"]["clustering"]["cds_only"]
-        simple_overlap = self.json_conf["pick"]["clustering"]["simple_overlap_for_monoexonic"]
-        cdna_overlap = self.json_conf["pick"]["clustering"]["min_cdna_overlap"]
-        cds_overlap = self.json_conf["pick"]["clustering"]["min_cds_overlap"]
+        cds_only = self.json_conf.pick.clustering.cds_only
+        simple_overlap = self.json_conf.pick.clustering.simple_overlap_for_monoexonic
+        cdna_overlap = self.json_conf.pick.clustering.min_cdna_overlap
+        cds_overlap = self.json_conf.pick.clustering.min_cds_overlap
 
         loci_transcripts = set()
         for locus in self.loci.values():
@@ -1317,9 +1316,9 @@ class Superlocus(Abstractlocus):
         primary_transcripts = set(locus.primary_transcript_id for locus in self.loci.values())
         self.logger.debug("Primary transcripts: %s", primary_transcripts)
 
-        cds_only = self.json_conf["pick"]["clustering"]["cds_only"]
-        cds_overlap = self.json_conf["pick"]["alternative_splicing"]["min_cds_overlap"]
-        cdna_overlap = self.json_conf["pick"]["alternative_splicing"]["min_cdna_overlap"]
+        cds_only = self.json_conf.pick.clustering.cds_only
+        cds_overlap = self.json_conf.pick.alternative_splicing.min_cds_overlap
+        cdna_overlap = self.json_conf.pick.alternative_splicing.min_cdna_overlap
 
         self.logger.debug("Defining the transcript graph")
         t_graph = self.define_as_graph(inters=MonosublocusHolder.is_intersecting,
@@ -1399,10 +1398,10 @@ class Superlocus(Abstractlocus):
             self.monosubloci,
             inters=MonosublocusHolder.in_locus,
             logger=self.logger,
-            cds_only=self.json_conf["pick"]["clustering"]["cds_only"],
-            min_cdna_overlap=self.json_conf["pick"]["clustering"]["min_cdna_overlap"],
-            min_cds_overlap=self.json_conf["pick"]["clustering"]["min_cds_overlap"],
-            simple_overlap_for_monoexonic=self.json_conf["pick"]["clustering"]["simple_overlap_for_monoexonic"])
+            cds_only=self.json_conf.pick.clustering.cds_only,
+            min_cdna_overlap=self.json_conf.pick.clustering.min_cdna_overlap,
+            min_cds_overlap=self.json_conf.pick.clustering.min_cds_overlap,
+            simple_overlap_for_monoexonic=self.json_conf.pick.clustering.simple_overlap_for_monoexonic)
 
         assert len(mono_graph.nodes()) == len(self.monosubloci)
 
@@ -1429,6 +1428,7 @@ class Superlocus(Abstractlocus):
     def compile_requirements(self):
         """Quick function to evaluate the filtering expression, if it is present."""
 
+        # TODO this must be different
         for section in ["requirements", "as_requirements", "cds_requirements"]:
             if section in self.json_conf:
                 if "compiled" in self.json_conf[section]:

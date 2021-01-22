@@ -327,6 +327,7 @@ class Sublocus(Abstractlocus):
     def print_scores(self):
         """This method yields dictionary rows that are given to a csv.DictWriter class."""
         self.filter_and_calculate_scores()
+        # TODO to be changed
         if self.regressor is None:
             score_keys = sorted(list(self.json_conf["scoring"].keys()) + ["source_score"])
         else:

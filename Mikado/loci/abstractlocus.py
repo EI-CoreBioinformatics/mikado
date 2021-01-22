@@ -1825,13 +1825,13 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
     @property
     def _cds_only(self):
-        return self.json_conf["pick"]["clustering"]["cds_only"]
+        return self.json_conf.pick.clustering.cds_only
 
     @_cds_only.setter
     def _cds_only(self, value):
         if value not in (True, False):
             raise ValueError(value)
-        self.json_conf["pick"]["clustering"]["cds_only"] = value
+        self.json_conf.pick.clustering.cds_only = value
 
     @property
     def segmenttree(self):
@@ -1880,7 +1880,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
     def purge(self):
         """This property relates to pick/clustering/purge."""
 
-        return self.json_conf.get("pick", dict()).get("clustering", {}).get("purge", True)
+        return self.json_conf.pick.clustering.purge
 
     @property
     def _use_transcript_scores(self):
@@ -1895,18 +1895,18 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
     @property
     def perform_padding(self):
-        return self.json_conf["pick"]["alternative_splicing"]["pad"]
+        return self.json_conf.pick.alternative_splicing.pad
 
     def _set_padding(self, value):
         if value not in (False, True):
             raise ValueError
-        self.json_conf["pick"]["alternative_splicing"]["pad"] = value
+        self.json_conf.pick.alternative_splicing.pad = value
 
     @property
     def only_reference_update(self):
-        return self.json_conf.get("pick", dict()).get("run_options", dict()).get("only_reference_update", False)
+        return self.json_conf.pick.run_options.only_reference_update
 
     @property
     def reference_update(self):
-        ref_update = self.json_conf.get("pick", dict()).get("run_options", dict()).get("reference_update", False)
+        ref_update = self.json_conf.pick.run_options.reference_update
         return ref_update or self.only_reference_update

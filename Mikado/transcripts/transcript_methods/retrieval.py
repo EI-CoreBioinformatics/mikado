@@ -221,12 +221,8 @@ def __load_blast(transcript, data_dict=None, reverse=False):
     # if self.query_id is None:
     #     return
 
-    # if self.json_conf["pick"]["chimera_split"]["blast_check"] is False:
-    #     return
-
-    max_target_seqs = transcript.json_conf[
-        "pick"]["chimera_split"]["blast_params"]["max_target_seqs"]
-    maximum_evalue = transcript.json_conf["pick"]["chimera_split"]["blast_params"]["evalue"]
+    max_target_seqs = transcript.json_conf.pick.chimera_split.blast_params.max_target_seqs
+    maximum_evalue = transcript.json_conf.pick.chimera_split.blast_params.evalue
 
     if data_dict is None:
         blast_hits_query = [_.as_dict() for _ in transcript.blast_baked(transcript.session).params(
@@ -397,8 +393,8 @@ def retrieve_from_dict(transcript, data_dict):
                             sorted(transcript.introns))
 
     # ORF data
-    trust_strand = transcript.json_conf["pick"]["orf_loading"]["strand_specific"]
-    min_cds_len = transcript.json_conf["pick"]["orf_loading"]["minimal_orf_length"]
+    trust_strand = transcript.json_conf.pick.orf_loading.strand_specific
+    min_cds_len = transcript.json_conf.pick.orf_loading.minimal_orf_length
 
     transcript.logger.debug("Retrieving ORF information from DB dictionary for %s",
                             transcript.id)
@@ -438,7 +434,6 @@ def retrieve_from_dict(transcript, data_dict):
         transcript.logger.debug("Skipping ORF loading for reference %s", transcript.id)
         is_reversed = False
 
-    # if transcript.json_conf["pick"]["chimera_split"]["blast_check"] is True:
     transcript.logger.debug("Retrieving BLAST hits for %s",
                             transcript.id)
 
@@ -470,11 +465,7 @@ def find_overlapping_cds(transcript, candidates: list) -> list:
         candidates = list(corf for corf in candidates if corf.strand == "+")
 
     # Prepare the minimal secondary length parameter
-    if transcript.json_conf is not None:
-        minimal_secondary_orf_length = \
-            transcript.json_conf["pick"]["orf_loading"]["minimal_secondary_orf_length"]
-    else:
-        minimal_secondary_orf_length = 0
+    minimal_secondary_orf_length = transcript.json_conf.pick.orf_loading.minimal_secondary_orf_length
     transcript.logger.debug("Minimal orf loading: %d", minimal_secondary_orf_length)
 
     transcript.logger.debug("{0} input ORFs for {1}".format(len(candidates), transcript.id))
@@ -679,8 +670,8 @@ def retrieve_orfs(transcript):
     # if self.query_id is None:
     #     return []
 
-    trust_strand = transcript.json_conf["pick"]["orf_loading"]["strand_specific"]
-    min_cds_len = transcript.json_conf["pick"]["orf_loading"]["minimal_orf_length"]
+    trust_strand = transcript.json_conf.pick.orf_loading.strand_specific
+    min_cds_len = transcript.json_conf.pick.orf_loading.minimal_orf_length
 
     orf_results = transcript.orf_baked(transcript.session).params(query=transcript.id,
                                                                   cds_len=min_cds_len)

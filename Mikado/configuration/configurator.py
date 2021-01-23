@@ -34,7 +34,7 @@ __author__ = "Luca Venturini"
 
 
 def create_cluster_config(config, args, logger):
-    if (config["scheduler"] and config["scheduler"] != "local") or (not config["scheduler"] and args.cluster_config):
+    if (config.scheduler and config.scheduler != "local") or (not config.scheduler and args.cluster_config):
         if not args.queue:
             error = "A queue must be specified for the analysis when in HPC mode. Please relaunch."
             logger.error(error)
@@ -408,38 +408,30 @@ def check_db(json_conf):
     :return:
     """
 
-    if json_conf["db_settings"]["dbtype"] in ("mysql", "postgresql"):
-        if "dbhost" not in json_conf["db_settings"]:
-            raise InvalidJson(
-                "No host specified for the {0} database!".format(
-                    json_conf["db_settings"]["dbtype"]))
-        if "dbuser" not in json_conf["db_settings"]:
-            raise InvalidJson(
-                "No user specified for the {0} database!".format(
-                    json_conf["db_settings"]["dbtype"]))
-        if json_conf["db_settings"]["dbport"] == 0:
-            if json_conf["db_settings"]["dbtype"] == "mysql":
-                json_conf["db_settings"]["dbport"] = 3306
+    if json_conf.db_settings.dbtype in ("mysql", "postgresql"):
+        if json_conf.db_settings.dbport == 0:
+            if json_conf.db_settings.dbtype == "mysql":
+                json_conf.db_settings.dbport = 3306
             else:
-                json_conf["db_settings"]["dbport"] = 5432
+                json_conf.db_settings.dbport = 5432
     else:
-        if (json_conf["db_settings"]["db"] is not None and
-                not os.path.isabs(json_conf["db_settings"]["db"])):
+        if (json_conf.db_settings.db is not None and
+                not os.path.isabs(json_conf.db_settings.db)):
             if os.path.exists(os.path.join(os.getcwd(),
-                                           json_conf["db_settings"]["db"])):
-                json_conf["db_settings"]["db"] = os.path.join(
-                    os.getcwd(), json_conf["db_settings"]["db"])
+                                           json_conf.db_settings.db)):
+                json_conf.db_settings.db = os.path.join(
+                    os.getcwd(), json_conf.db_settings.db)
             elif os.path.exists(os.path.join(
-                os.path.dirname(json_conf["filename"]),
-                    json_conf["db_settings"]["db"]
+                os.path.dirname(json_conf.filename),
+                    json_conf.db_settings.db
             )):
-                json_conf["db_settings"]["db"] = os.path.join(
-                    os.path.dirname(json_conf["filename"]),
-                    json_conf["db_settings"]["db"])
+                json_conf.db_settings.db = os.path.join(
+                    os.path.dirname(json_conf.filename),
+                    json_conf.db_settings.db)
             else:
-                json_conf["db_settings"]["db"] = os.path.join(
-                    os.path.dirname(json_conf["filename"]),
-                    json_conf["db_settings"]["db"])
+                json_conf.db_settings.db = os.path.join(
+                    os.path.dirname(json_conf.filename),
+                    json_conf.db_settings.db)
 
     return json_conf
 
@@ -490,7 +482,7 @@ def _check_scoring_file(json_conf: dict, logger):
         [json_conf.pop(_, None) for _ in ("__loaded_scoring",
             "scoring", "requirements", "as_requirements", "not_fragmentary")]
 
-    # TODO: Fix the following lines as is not clear what the idea behind 'model' and 'pickle' is
+    # FIXME: The scoring needs to be handled either within the Configuration object or made into a separate one
     elif all(_ in json_conf for _ in ["scoring", "requirements", "as_requirements", "not_fragmentary"]):
         try:
             if not json_conf.get("__loaded_scoring", "").endswith(("model", "pickle")):

@@ -55,7 +55,7 @@ load:
         cufflinks: "set +u && source cufflinks-2.2.1_gk && set -u"
         trinity: "set +u && source trinityrnaseq-2.0.6 && set -u"
         stringtie: "set +u && source stringtie-1.0.4 && set -u"
-        class: "set +u && source class-2.12 && set -u"
+        class2: "set +u && source class-2.12 && set -u"
         transdecoder: "set +u && source transdecoder-3.0.0 && set -u"
         portcullis: "set +u && source portcullis-0.17.0 && set -u"
         mikado: "set +u && source mikado-0.24.0 && set -u"

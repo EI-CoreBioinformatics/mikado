@@ -293,7 +293,7 @@ def perform_check(keys, shelve_names, mikado_config: MikadoConfiguration, logger
             "lenient": mikado_config.prepare.lenient,
             "canonical_splices": mikado_config.prepare.canonical,
             "strip_faulty_cds": mikado_config.prepare.strip_faulty_cds,
-            "log_level": mikado_config.level
+            "log_level": mikado_config.log_settings.log_level
         }
 
         working_processes = []
@@ -429,7 +429,7 @@ def _load_exon_lines_multi(mikado_config, shelve_names, logger, min_length, stri
                                 return_queue,
                                 mikado_config.logging_queue,
                                 num + 1,
-                                log_level=mikado_config.level,
+                                log_level=mikado_config.log_settings.log_level,
                                 min_length=min_length,
                                 max_intron=max_intron,
                                 strip_cds=strip_cds,
@@ -647,7 +647,7 @@ def prepare(mikado_config: MikadoConfiguration, logger):
         rows = rows.merge(shelve_table, on="shelf", how="left")
         random.seed(mikado_config.seed)
 
-        shelves = dict((shelf_name, open(shelf_name, "rb")) for shelf_name in shelve_table["shelf.unique()"])
+        shelves = dict((shelf_name, open(shelf_name, "rb")) for shelf_name in shelve_table["shelf"].unique())
 
         def divide_by_chrom():
             # chrom, start, end, strand, tid, write_start, write_length, shelf

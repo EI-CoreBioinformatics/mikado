@@ -5,7 +5,7 @@ from .serialise_config import  SerialiseConfiguration
 from ..utilities.dbutils import DBConfiguration
 from ..utilities.log_utils import LoggingConfiguration
 from .configuration import ReferenceConfiguration
-from typing import Union
+from typing import Union, List
 import copy
 
 @dataclass
@@ -94,6 +94,13 @@ class AlnIndex:
 
 
 @dataclass
+class DaijinMikadoConfiguration:
+    use_diamond: bool = True
+    use_prodigal: bool = True
+    modes: List[str] = field(default_factory=lambda: ["stringent"])
+
+
+@dataclass
 class DaijinConfiguration:
     filename: Union[str, None] = None
     seed: int = 0
@@ -120,6 +127,8 @@ class DaijinConfiguration:
     asm_methods: AsmMethods = AsmMethods()
     load: ProgramLoader = ProgramLoader()
     portcullis: Portcullis = Portcullis()
+
+    mikado: DaijinMikadoConfiguration = DaijinMikadoConfiguration()
 
     # These fields are loaded *from the scoring configuration*
     scoring: dict = None

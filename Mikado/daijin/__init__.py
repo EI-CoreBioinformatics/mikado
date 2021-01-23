@@ -12,9 +12,14 @@ import argparse
 import datetime
 import time
 import json
+from dataclasses import asdict
+
+import dacite
 import yaml
 import snakemake
 from snakemake.utils import min_version
+
+from ..configuration import DaijinConfiguration
 from ..utilities.log_utils import create_default_logger
 from ..configuration.daijin_configurator import create_daijin_config, check_config
 import shutil
@@ -450,7 +455,7 @@ def mikado_pipeline(args):
     else:
         loader = functools.partial(toml.load)
     with open(args.config, 'r') as _:
-        doc = loader(_)
+        daijin_config = loader(_)
 
     additional_config = {}
     if args.threads is not None:
@@ -462,12 +467,14 @@ def mikado_pipeline(args):
         else:
             loader = functools.partial(yaml.load, Loader=yLoader)
         with open(args.exe) as _:
-            doc["load"] = loader(_)
+            daijin_config["load"] = loader(_)
 
-    check_config(doc)
+    check_config(daijin_config)
+
+    daijin_config = dacite.from_dict(data_class=DaijinConfiguration, data=daijin_config)
 
     # pylint: disable=invalid-name
-    SCHEDULER = doc["scheduler"] if ("scheduler" in doc and doc["scheduler"]) else ""
+    SCHEDULER = daijin_config.scheduler if daijin_config.scheduler else ""
     CWD = os.path.abspath(".")
     # pylint: enable=invalid-name
 
@@ -507,7 +514,7 @@ def mikado_pipeline(args):
         hpc_conf = None
 
     yaml_file = open("daijin.{}.yaml".format(NOW), "wt")
-    yaml.dump(doc, yaml_file)
+    yaml.dump(asdict(daijin_config), yaml_file)
     yaml_file.flush()
     shutil.copystat(args.config, yaml_file.name)
 
@@ -530,8 +537,8 @@ def mikado_pipeline(args):
     else:
         latency = 1
 
-    BLASTX_CHUNKS = max(int(doc["blastx"]["chunks"]), doc["threads"])
-    if BLASTX_CHUNKS > doc["blastx"]["chunks"]:
+    BLASTX_CHUNKS = max(int(daijin_config.blastx.chunks), daijin_config.threads)
+    if BLASTX_CHUNKS > daijin_config.blastx.chunks:
         print("INFO: Increasing the number of chunks for DIAMOND/BLASTX to match the requested threads, \
 as Mikado serialise relies on having a number of chunks equal or greater than the number of requested threads.")
 

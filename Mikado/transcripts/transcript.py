@@ -42,7 +42,6 @@ from collections.abc import Hashable
 import numpy as np
 import pprint
 import pysam
-import dataclasses
 
 
 class Metric(property):
@@ -281,7 +280,7 @@ class Transcript:
         self.cds_intron_fraction = self.selected_cds_intron_fraction = 1
 
         # Json configuration
-        self.__json_conf = None
+        self.json_conf = None
 
         # Things that will be populated by querying the database
         self.loaded_bed12 = []
@@ -1657,6 +1656,7 @@ exon data is on a different chromosome, {exon_data.chrom}. \
         assert isinstance(json_conf, (MikadoConfiguration, DaijinConfiguration)) or json_conf is None
         if json_conf is None:
             json_conf = to_json(None)
+            assert isinstance(json_conf, (MikadoConfiguration, DaijinConfiguration))
 
         self.__json_conf = json_conf
 

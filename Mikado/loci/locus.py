@@ -847,7 +847,7 @@ it is marked as having 0 retained introns. This is an error.".format(transcript=
         self.filter_and_calculate_scores()
         # TODO needs changing
         if self.regressor is None:
-            score_keys = sorted(list(self.json_conf["scoring"].keys()) + ["source_score"])
+            score_keys = sorted(list(self.json_conf.scoring.keys()) + ["source_score"])
         else:
             score_keys = sorted(self.regressor.metrics + ["source_score"])
         keys = ["tid", "alias", "parent", "score"] + score_keys
@@ -986,7 +986,10 @@ it is marked as having 0 retained introns. This is an error.".format(transcript=
         """
 
         try:
-            self.fai = pysam.FastaFile(self.json_conf.reference.genome)
+            if isinstance(self.json_conf.reference.genome, pysam.FastaFile):
+                self.fai = self.json_conf.reference.genome
+            else:
+                self.fai = pysam.FastaFile(self.json_conf.reference.genome)
         except KeyError:
             raise KeyError(self.json_conf.keys())
 
@@ -1396,22 +1399,22 @@ it is marked as having 0 retained introns. This is an error.".format(transcript=
 
     def _add_to_alternative_splicing_codes(self, code):
         """Method to retrieve the currently valid alternative splicing event codes"""
-        self.json_conf.pick.alternative_splicing.valid_class_codes = list(set(
-            list(self.json_conf.pick.alternative_splicing.valid_class_codes) + [code]
-        ))
-        _valid_ccodes.validate(self.json_conf.pick.alternative_splicing.valid_class_codes)
+        codes = set(self.json_conf.pick.alternative_splicing.valid_ccodes)
+        codes.add(code)
+        self.json_conf.pick.alternative_splicing.valid_ccodes = list(codes)
+        _valid_ccodes.validate(self.json_conf.pick.alternative_splicing.valid_ccodes)
         self._remove_from_redundant_splicing_codes(code)
 
     def _add_to_redundant_splicing_codes(self, code):
         """Method to retrieve the currently valid alternative splicing event codes"""
-        self.json_conf.pick.alternative_splicing.redundant_ccodes = list(set(
-            list(self.json_conf.pick.alternative_splicing.redundant_ccodes) + [code]
-        ))
+        codes = set(self.json_conf.pick.alternative_splicing.redundant_ccodes)
+        codes.add(code)
+        self.json_conf.pick.alternative_splicing.redundant_ccodes = list(codes)
         _valid_redundant.validate(self.json_conf.pick.alternative_splicing.redundant_ccodes)
         self._remove_from_alternative_splicing_codes(code)
 
     def _remove_from_alternative_splicing_codes(self, *ccodes):
-        sub = self.json_conf.pick.alternative_splicing.valid_class_codes
+        sub = self.json_conf.pick.alternative_splicing.valid_ccodes
         for ccode in ccodes:
             if ccode in sub:
                 sub.remove(ccode)

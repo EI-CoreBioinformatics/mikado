@@ -475,8 +475,8 @@ def create_validator(simple=False):
     return validator
 
 
-def _check_scoring_file(json_conf: Union[MikadoConfiguration, DaijinConfiguration], logger: Logger) -> Union[
-    DaijinConfiguration, MikadoConfiguration]:
+def _check_scoring_file(json_conf: Union[MikadoConfiguration, DaijinConfiguration], logger: Logger) -> (Union[
+    DaijinConfiguration, MikadoConfiguration], bool):
 
     """The purpose of this section is the following:
     - check that the scoring file exists somewhere different from the system folder. If it does, check whether it is
@@ -488,34 +488,34 @@ def _check_scoring_file(json_conf: Union[MikadoConfiguration, DaijinConfiguratio
 
     overwritten = False
 
-    if getattr(json_conf, "__loaded_scoring", json_conf.pick.scoring_file) != json_conf.pick.scoring_file:
+    if getattr(json_conf, "_loaded_scoring", json_conf.pick.scoring_file) != json_conf.pick.scoring_file:
         logger.debug("Overwriting the scoring configuration using '%s' as scoring file",
                      json_conf.pick.scoring_file)
-        [json_conf.pop(_, None) for _ in ("__loaded_scoring",
+        [setattr(json_conf, _, None) for _ in ("_loaded_scoring",
             "scoring", "requirements", "as_requirements", "not_fragmentary")]
 
     # FIXME: The scoring needs to be handled either within the Configuration object or made into a separate one
-    elif all(_ in json_conf for _ in ["scoring", "requirements", "as_requirements", "not_fragmentary"]):
+    elif all(getattr(json_conf, _, None) is not None for _
+             in ["scoring", "requirements", "as_requirements", "not_fragmentary"]):
         try:
-            if not json_conf.get("__loaded_scoring", "").endswith(("model", "pickle")):
-                # Random forest models are not standard scoring files
-                check_scoring(json_conf)
+            check_scoring(json_conf)
             check_all_requirements(json_conf)
-            json_conf["__loaded_scoring"] = json_conf["pick"]["scoring_file"]
+            json_conf._loaded_scoring = json_conf.pick.scoring_file
             logger.debug("Verified everything is OK for the scoring, returning")
             return json_conf, overwritten
         except InvalidJson:
             logger.debug("Invalid scoring for the jconf, resetting")
-            [json_conf.pop(_, None) for _ in ("scoring", "requirements", "as_requirements", "not_fragmentary")]
-            json_conf.pop("__loaded_scoring", None)
+            [setattr(json_conf, _, None) for _ in ("scoring", "requirements", "as_requirements", "not_fragmentary")]
+            json_conf._loaded_scoring = None
     else:
         logger.debug("Restarting")
-        json_conf.pop("__loaded_scoring", None)
+        json_conf._loaded_scoring = None
 
     overwritten = True
 
-    options = [os.path.abspath(json_conf["pick"]["scoring_file"]),
-               os.path.abspath(os.path.join(os.path.dirname(json_conf["filename"]), json_conf["pick"]["scoring_file"])),
+    options = [os.path.abspath(json_conf.pick.scoring_file),
+               os.path.abspath(os.path.join(os.path.dirname(json_conf.filename or ""),
+                                            json_conf.pick.scoring_file)),
                os.path.abspath(os.path.join(resource_filename("Mikado.configuration", "scoring_files"),
                                json_conf.pick.scoring_file))]
 
@@ -551,7 +551,7 @@ def _check_scoring_file(json_conf: Union[MikadoConfiguration, DaijinConfiguratio
             json_conf.scoring_file = option
             break
 
-    return json_conf
+    return json_conf, overwritten
 
 
 def check_json(json_conf: Union[dict, MikadoConfiguration, DaijinConfiguration],
@@ -590,7 +590,7 @@ def check_json(json_conf: Union[dict, MikadoConfiguration, DaijinConfiguration],
         elif not json_conf.pick:
             raise AssertionError("Files section missing from the 'pick' section.")
 
-        json_conf = _check_scoring_file(json_conf, logger)
+        json_conf, overwritten = _check_scoring_file(json_conf, logger)
         assert json_conf.scoring is not None
 
         # TODO change this
@@ -599,11 +599,10 @@ def check_json(json_conf: Union[dict, MikadoConfiguration, DaijinConfiguration],
                 raise TypeError("Passed an invalid external dictionary, type {}".format(
                     type(external_dict)))
             json_conf = merge_dictionaries(asdict(json_conf), external_dict)
-
-        try:
-            json_conf = dacite.from_dict(data=json_conf, data_class=MikadoConfiguration)
-        except:
-            json_conf = dacite.from_dict(data=json_conf, data_class=DaijinConfiguration)
+            try:
+                json_conf = dacite.from_dict(data=json_conf, data_class=MikadoConfiguration)
+            except:
+                json_conf = dacite.from_dict(data=json_conf, data_class=DaijinConfiguration)
 
         json_conf = check_db(json_conf)
         # json_conf = check_blast(json_conf, json_file)
@@ -671,11 +670,18 @@ def to_json(string, simple=False, logger=None) -> Union[MikadoConfiguration, Dai
                     assert isinstance(json_dict, dict)
                 else:
                     json_dict = json.loads(json_file.read())
+            try:
+                json_dict = dacite.from_dict(data_class=MikadoConfiguration, data=json_dict)
+            except:
+                json_dict = dacite.from_dict(data_class=DaijinConfiguration, data=json_dict)
+
         json_dict.filename = string
         json_dict = check_json(json_dict, simple=simple, logger=logger)
 
     except Exception as exc:
-        raise OSError((exc, string))
+        logger.exception(exc)
+        raise
+        # raise OSError((exc, string))
 
     seed = json_dict.seed
     if seed == 0:

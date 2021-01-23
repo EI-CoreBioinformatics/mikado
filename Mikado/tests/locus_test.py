@@ -316,7 +316,7 @@ class AbstractLocusTester(unittest.TestCase):
 
     def test_invalid_sublocus(self):
 
-        with self.assertRaises((OSError, FileNotFoundError)):
+        with self.assertRaises((OSError, FileNotFoundError, exceptions.InvalidJson)):
             _ = Sublocus(self.transcript1, json_conf="test")
 
     def test_sublocus_from_sublocus(self):
@@ -812,6 +812,7 @@ class ASeventsTester(unittest.TestCase):
         self.conf.pick.alternative_splicing.min_cdna_overlap = 0.2
         self.conf.pick.alternative_splicing.min_cds_overlap = 0.2
         self.conf.pick.alternative_splicing.max_isoforms = 3
+        self.conf.pick.alternative_splicing.cds_only = False
     
         self.t1 = Transcript()
         self.t1.chrom = "Chr1"
@@ -887,6 +888,7 @@ class ASeventsTester(unittest.TestCase):
         t2.add_exons([(401, 500), (601, 700), (1001, 1300), (1401, 1440)],
                      "CDS")
         t2.finalize()        
+        self.locus.json_conf.pick.alternative_splicing.cds_only = False
 
         self.assertEqual(self.locus.is_alternative_splicing(t2)[:2], (True, "J"))
 
@@ -1572,11 +1574,8 @@ class TestLocus(unittest.TestCase):
         self.t1_retained.score = 10
         self.t1_retained.finalize()
 
-        # self.logger = logging.getLogger("tester")
-        # self.handler = logging.StreamHandler()
         self.logger.setLevel(logging.WARNING)
         self.json_conf.reference.genome = self.fai.filename.decode()
-        # self.logger.addHandler(self.handler)
 
     def test_validity(self):
         """
@@ -1623,7 +1622,7 @@ class TestLocus(unittest.TestCase):
         we explicitly ask for it"""
 
         locus = loci.Locus(self.t1, logger=self.logger)
-        locus.json_conf = self.json_conf
+        locus.json_conf = self.json_conf.copy()
         locus.json_conf.pick.alternative_splicing.valid_ccodes.append("c")
         self.assertEqual(len(locus.transcripts), 1)
         locus.add_transcript_to_locus(self.t1_contained)
@@ -1649,7 +1648,7 @@ class TestLocus(unittest.TestCase):
         """
 
         locus = loci.Locus(self.t1, logger=self.logger)
-        locus.json_conf = self.json_conf
+        locus.json_conf = self.json_conf.copy()
         self.assertEqual(len(locus.transcripts), 1)
 
         locus.json_conf.pick.alternative_splicing.max_isoforms = 3
@@ -1670,7 +1669,7 @@ class TestLocus(unittest.TestCase):
         logger = self.logger
         # logger.setLevel(logging.DEBUG)
         locus = loci.Locus(self.t1, logger=logger)
-        locus.json_conf = self.json_conf
+        locus.json_conf = self.json_conf.copy()
         self.assertEqual(len(locus.transcripts), 1)
         locus.add_transcript_to_locus(candidate)
         self.assertEqual(len(locus.transcripts), 1)
@@ -3018,7 +3017,7 @@ class PaddingTester(unittest.TestCase):
         logger = create_default_logger(inspect.getframeinfo(inspect.currentframe())[2], level="WARNING")
         transcripts = self.load_from_bed("Mikado.tests", "pad_three_neg.bed12")
         locus = Locus(transcripts["mikado.Chr5G486.1"], logger=logger)
-        locus.json_conf.reference.genome = self.fai
+        locus.json_conf.reference.genome = self.fai.filename
         locus.add_transcript_to_locus(transcripts["mikado.Chr5G486.2"])
         # We need to pad
         locus.json_conf.pick.alternative_splicing.pad = True

@@ -1283,6 +1283,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                              zip(self.json_conf.prepare.files.labels,
                                  self.json_conf.prepare.files.reference) if is_reference}
 
+        section = getattr(self.json_conf, section_name)
         for tid in iter(tid for tid in self.transcripts if
                         tid not in previous_not_passing):
             if self.transcripts[tid].json_conf is None:
@@ -1305,7 +1306,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                 self.logger.debug("Performing the requirement check for %s even if it is a reference transcript", tid)
 
             evaluated = dict()
-            for key in self.json_conf[section_name]["parameters"]:
+            for key in section["parameters"]:
                 value = rgetattr(self.transcripts[tid], section["parameters"][key]["name"])
                 if "external" in key:
                     value = value[0]
@@ -1359,7 +1360,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         for tid in self.transcripts:
             self.scores[tid] = dict()
             # Add the score for the transcript source
-            self.scores[tid]["source_score"] = self.transcripts[tid].source_score
+            self.scores[tid]["source_score"] = self.transcripts[tid].source_score or 0
 
         if self.regressor is None:
             for param in self.json_conf.scoring:
@@ -1374,7 +1375,10 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                                       tid)
                     self.transcripts[tid].score = 0
                 else:
-                    self.transcripts[tid].score = sum(self.scores[tid].values())
+                    try:
+                        self.transcripts[tid].score = sum(self.scores[tid].values())
+                    except TypeError:
+                        raise TypeError(list(self.scores[tid].items()))
                     if self.transcripts[tid].score <= 0:
                         self.logger.debug("Excluding %s as it has a score <= 0", tid)
                         self.transcripts[tid].score = 0
@@ -1472,14 +1476,13 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         :return:
         """
 
-        rescaling = self.json_conf["scoring"][param]["rescaling"]
-        use_raw = self.json_conf["scoring"][param]["use_raw"]
-        multiplier = self.json_conf["scoring"][param]["multiplier"]
+        rescaling = self.json_conf.scoring[param]["rescaling"]
+        use_raw = self.json_conf.scoring[param]["use_raw"]
+        multiplier = self.json_conf.scoring[param]["multiplier"]
 
         metrics = dict()
         for tid, transcript in self.transcripts.items():
             try:
-                # metric = rgetattr(self.transcripts[tid], param)
                 if tid not in self._metrics and transcript.alias in self._metrics:
                     if param in self._metrics[transcript.alias]:
                         metric = self._metrics[transcript.alias][param]
@@ -1508,12 +1511,11 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         for tid in self.transcripts.keys():
             tid_metric = metrics[tid]
 
-            if ("filter" in self.json_conf["scoring"][param] and
-                    self.json_conf["scoring"][param]["filter"] != {}):
-                if "metric" not in self.json_conf["scoring"][param]["filter"]:
+            if "filter" in self.json_conf.scoring[param] and self.json_conf.scoring[param]["filter"]:
+                if "metric" not in self.json_conf.scoring[param]["filter"]:
                     metric_to_evaluate = tid_metric
                 else:
-                    metric_key = self.json_conf["scoring"][param]["filter"]["metric"]
+                    metric_key = self.json_conf.scoring[param]["filter"]["metric"]
                     if not rhasattr(self.transcripts[tid], metric_key):
                         raise KeyError("Asked for an invalid metric in filter: {}".format(metric_key))
                     if tid not in self._metrics and self.transcripts[tid].alias in self._metrics:
@@ -1524,7 +1526,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                     if "external" in metric_key:
                         metric_to_evaluate = metric_to_evaluate[0]
 
-                check = self.evaluate(metric_to_evaluate, self.json_conf["scoring"][param]["filter"])
+                check = self.evaluate(metric_to_evaluate, self.json_conf.scoring[param]["filter"])
                 if not check:
                     del metrics[tid]
             else:
@@ -1569,7 +1571,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                 use_raw = False
 
             if rescaling == "target":
-                target = self.json_conf["scoring"][param]["value"]
+                target = self.json_conf.scoring[param]["value"]
                 denominator = max(abs(x - target) for x in metrics.values())
             else:
                 target = None
@@ -1610,7 +1612,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                 self.scores[tid][param] = round(score, 2)
 
         # This MUST be true
-        if "filter" not in self.json_conf["scoring"][param] and max(
+        if "filter" not in self.json_conf.scoring[param] and max(
                 [self.scores[tid][param] for tid in self.transcripts.keys()]) == 0:
             self.logger.warning("All transcripts have a score of 0 for %s in %s",
                                 param, self.id)

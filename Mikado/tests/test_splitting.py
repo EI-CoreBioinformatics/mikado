@@ -74,14 +74,13 @@ class TestSplitMonoexonic(unittest.TestCase):
         self.transcript.logger = self.logger
 
         self.transcript.json_conf = configuration.configurator.to_json(None)
-        self.transcript.json_conf["pick"]["chimera_split"]["blast_check"] = False
-        self.transcript.json_conf["pick"][
-            "chimera_split"]["blast_params"]["leniency"] = "LENIENT"
-        self.transcript.json_conf["pick"]["chimera_split"]["blast_params"]["min_overlap_duplication"] = 0.8
-        self.transcript.json_conf["pick"]["chimera_split"]["blast_params"]["minimal_hsp_overlap"] = 0.8  # 80%
-        self.transcript.json_conf["pick"]["chimera_split"]["blast_params"]["hsp_evalue"] = 0.0001
-        self.transcript.json_conf["pick"]["chimera_split"]["blast_params"]["evalue"] = 0.0001
-        self.transcript.json_conf["pick"]["orf_loading"]["minimal_secondary_orf_length"] = 50
+        self.transcript.json_conf.pick.chimera_split.blast_check = False
+        self.transcript.json_conf.pick.chimera_split.blast_params.leniency = "LENIENT"
+        self.transcript.json_conf.pick.chimera_split.blast_params.min_overlap_duplication = 0.8
+        self.transcript.json_conf.pick.chimera_split.blast_params.minimal_hsp_overlap = 0.8  # 80%
+        self.transcript.json_conf.pick.chimera_split.blast_params.hsp_evalue = 0.0001
+        self.transcript.json_conf.pick.chimera_split.blast_params.evalue = 0.0001
+        self.transcript.json_conf.pick.orf_loading.minimal_secondary_orf_length = 50
 
         self.transcript.load_orfs([self.bed1, self.bed2])
         self.assertTrue(self.transcript.is_coding)

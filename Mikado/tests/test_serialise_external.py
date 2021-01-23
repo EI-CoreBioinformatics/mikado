@@ -21,8 +21,8 @@ class TestExternal(unittest.TestCase):
     def setUp(self):
         self.dbfile = tempfile.mktemp(suffix=".db")
         self.json_conf = configuration.configurator.to_json(None)
-        self.json_conf["db_settings"]["dbtype"] = "sqlite"
-        self.json_conf["db_settings"]["db"] = self.dbfile
+        self.json_conf.db_settings.dbtype = "sqlite"
+        self.json_conf.db_settings.db = self.dbfile
         self.__create_session()
 
     def __create_session(self):

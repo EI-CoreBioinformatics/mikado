@@ -156,12 +156,12 @@ class PrepareCheck(unittest.TestCase):
     def setUp(self):
 
         self.conf = configurator.to_json(None)
-        self.conf['filename'] = "nofile"  # FIXME: Filename is added dynamically to this obj and not validated
-        self.conf["seed"] = 1066
-        self.conf["reference"]["genome"] = self.fai.filename.decode()
-        assert isinstance(self.conf["reference"]["genome"], str)
+        self.conf.filename = "nofile"  # FIXME: Filename is added dynamically to this obj and not validated
+        self.conf.seed = 1066
+        self.conf.reference.genome = self.fai.filename.decode()
+        assert isinstance(self.conf.reference.genome, str)
         self.logger = create_null_logger("prepare")
-        self.conf["prepare"]["exclude_redundant"] = False
+        self.conf.prepare.exclude_redundant = False
 
     def tearDown(self):
         logging.shutdown()
@@ -1294,7 +1294,7 @@ class PickTest(unittest.TestCase):
     def setUp(self):
         
         self.json_conf = configurator.to_json(None)
-        self.json_conf["reference"]["genome"] = self.fai.filename.decode()
+        self.json_conf.reference.genome = self.fai.filename.decode()
 
     @classmethod
     def setUpClass(cls):
@@ -1472,24 +1472,22 @@ class PickTest(unittest.TestCase):
     def test_different_scoring(self):
 
         dir = tempfile.TemporaryDirectory()
-        self.json_conf["pick"]["files"]["output_dir"] = os.path.abspath(dir.name)
-        self.json_conf["pick"]["files"]["input"] = pkg_resources.resource_filename("Mikado.tests",
+        self.json_conf.pick.files.output_dir = os.path.abspath(dir.name)
+        self.json_conf.pick.files.input = pkg_resources.resource_filename("Mikado.tests",
                                                                                    "mikado_prepared.gtf")
 
-        self.json_conf["pick"]["files"]["loci_out"] = "mikado.test_diff.loci.gff3"
-        self.json_conf["pick"]["files"]["subloci_out"] = "mikado.test_diff.subloci.gff3"
-        self.json_conf["pick"]["files"]["monoloci_out"] = "mikado.test_diff.monoloci.gff3"
-        self.json_conf["pick"]["files"]["log"] = "mikado.test_diff.log"
-        self.json_conf["pick"]["alternative_splicing"]["pad"] = False
-        self.json_conf["log_settings"]["log_level"] = "DEBUG"
+        self.json_conf.pick.files.loci_out = "mikado.test_diff.loci.gff3"
+        self.json_conf.pick.files.subloci_out = "mikado.test_diff.subloci.gff3"
+        self.json_conf.pick.files.monoloci_out = "mikado.test_diff.monoloci.gff3"
+        self.json_conf.pick.files.log = "mikado.test_diff.log"
+        self.json_conf.pick.alternative_splicing.pad = False
+        self.json_conf.log_settings.log_level = "DEBUG"
 
-        self.assertEqual(os.path.basename(self.json_conf["pick"]["scoring_file"]),
-                         "plant.yaml")
+        self.assertEqual(os.path.basename(self.json_conf.pick.scoring_file), "plant.yaml")
         shutil.copy(pkg_resources.resource_filename("Mikado.tests", "mikado.db"),
-                    os.path.join(self.json_conf["pick"]["files"]["output_dir"], "mikado.db"))
-        self.json_conf["db_settings"]["db"] = os.path.join(self.json_conf["pick"]["files"]["output_dir"],
-                                                           "mikado.db")
-        json_file = os.path.join(self.json_conf["pick"]["files"]["output_dir"], "mikado.yaml")
+                    os.path.join(self.json_conf.pick.files.output_dir, "mikado.db"))
+        self.json_conf.db_settings.db = os.path.join(self.json_conf.pick.files.output_dir, "mikado.db")
+        json_file = os.path.join(self.json_conf.pick.files.output_dir, "mikado.yaml")
         with open(json_file, "wt") as json_handle:
             print_config(yaml.dump(self.json_conf, default_flow_style=False), json_handle)
         sys.argv = ["mikado", "pick", "--json-conf", json_file, "--single", "--seed", "1078"]
@@ -1508,29 +1506,26 @@ class PickTest(unittest.TestCase):
     @mark.slow
     def test_different_scoring_2(self):
 
-        self.json_conf["pick"]["files"]["input"] = pkg_resources.resource_filename("Mikado.tests",
-                                                                                   "mikado_prepared.gtf")
+        self.json_conf.pick.files.input = pkg_resources.resource_filename("Mikado.tests", "mikado_prepared.gtf")
 
-        self.json_conf["pick"]["files"]["loci_out"] = "mikado.test_diff.loci.gff3"
-        self.json_conf["pick"]["files"]["subloci_out"] = "mikado.test_diff.subloci.gff3"
-        self.json_conf["pick"]["files"]["monoloci_out"] = "mikado.test_diff.monoloci.gff3"
-        self.json_conf["pick"]["files"]["log"] = "mikado.test_diff.log"
-        self.json_conf["pick"]["alternative_splicing"]["pad"] = False
-        self.json_conf["log_settings"]["log_level"] = "DEBUG"
+        self.json_conf.pick.files.loci_out = "mikado.test_diff.loci.gff3"
+        self.json_conf.pick.files.subloci_out = "mikado.test_diff.subloci.gff3"
+        self.json_conf.pick.files.monoloci_out = "mikado.test_diff.monoloci.gff3"
+        self.json_conf.pick.files.log = "mikado.test_diff.log"
+        self.json_conf.pick.alternative_splicing.pad = False
+        self.json_conf.log_settings.log_level = "DEBUG"
 
-        self.assertEqual(os.path.basename(self.json_conf["pick"]["scoring_file"]),
-                         "plant.yaml")
+        self.assertEqual(os.path.basename(self.json_conf.pick.scoring_file), "plant.yaml")
 
         outdir = tempfile.TemporaryDirectory()
         shutil.copy(pkg_resources.resource_filename("Mikado.tests", "mikado.db"),
                     os.path.join(outdir.name, "mikado.db"))
-        self.json_conf["db_settings"]["db"] = os.path.join(outdir.name, "mikado.db")
-        self.json_conf["pick"]["files"]["output_dir"] = os.path.join(outdir.name)
+        self.json_conf.db_settings.db = os.path.join(outdir.name, "mikado.db")
+        self.json_conf.pick.files.output_dir = os.path.join(outdir.name)
         json_file = os.path.join(outdir.name, "mikado.yaml")
         with open(json_file, "wt") as json_handle:
-            print_config(yaml.dump(self.json_conf, default_flow_style=False),
-                                                      json_handle)
-        self.json_conf["pick"]["files"]["output_dir"] = os.path.join(outdir.name)
+            print_config(yaml.dump(self.json_conf, default_flow_style=False), json_handle)
+        self.json_conf.pick.files.output_dir = os.path.join(outdir.name)
         scoring_file = pkg_resources.resource_filename("Mikado.tests", "scoring_only_cds.yaml")
         sys.argv = ["mikado", "pick", "--json-conf", json_file, "--single",
                     "--scoring-file", scoring_file, "--seed", "1078"]
@@ -1539,8 +1534,7 @@ class PickTest(unittest.TestCase):
             pkg_resources.load_entry_point("Mikado", "console_scripts", "mikado")()
 
         import csv
-        with open(os.path.join(self.json_conf["pick"]["files"]["output_dir"],
-                               "mikado.test_diff.loci.scores.tsv")) as tsv:
+        with open(os.path.join(self.json_conf.pick.files.output_dir, "mikado.test_diff.loci.scores.tsv")) as tsv:
             reader = csv.DictReader(tsv, delimiter="\t")
             score_header = [_ for _ in reader.fieldnames if _ not in
                             ("tid", "alias", "parent", "score", "source_score")]
@@ -1565,15 +1559,15 @@ class PickTest(unittest.TestCase):
         temp_gtf.write(gtf)
         temp_gtf.flush()
 
-        self.json_conf["pick"]["files"]["input"] = temp_gtf.name
-        self.json_conf["db_settings"]["db"] = os.path.join(dir.name, "mikado.db")
-        self.json_conf["pick"]["files"]["output_dir"] = dir.name
-        self.json_conf["log_settings"]["log_level"] = "WARNING"
-        self.json_conf["pick"]["alternative_splicing"]["pad"] = False  # Necessary!
-        del self.json_conf["scoring"]
-        del self.json_conf["requirements"]
-        del self.json_conf["as_requirements"]
-        del self.json_conf["not_fragmentary"]
+        self.json_conf.pick.files.input = temp_gtf.name
+        self.json_conf.db_settings.db = os.path.join(dir.name, "mikado.db")
+        self.json_conf.pick.files.output_dir = dir.name
+        self.json_conf.log_settings.log_level = "WARNING"
+        self.json_conf.pick.alternative_splicing.pad = False  # Necessary!
+        # del self.json_conf["scoring"]
+        # del self.json_conf["requirements"]
+        # del self.json_conf["as_requirements"]
+        # del self.json_conf["not_fragmentary"]
         scoring = dict()
 
         scoring["requirements"] = dict()
@@ -1606,25 +1600,23 @@ class PickTest(unittest.TestCase):
         scoring_file = tempfile.NamedTemporaryFile(suffix=".yaml", delete=True, mode="wt", dir=dir.name)
         yaml.dump(scoring, scoring_file)
         scoring_file.flush()
-        self.json_conf["pick"]["scoring_file"] = scoring_file.name
+        self.json_conf.pick.scoring_file = scoring_file.name
 
         for purging in (False, True):
             with self.subTest(purging=purging):
-                self.json_conf["pick"]["files"]["loci_out"] = "mikado.purging_{}.loci.gff3".format(purging)
-                self.json_conf["pick"]["files"]["log"] = os.path.join(
-                    dir.name,
-                    "mikado.purging_{}.log".format(purging))
-                self.json_conf["pick"]["clustering"]["purge"] = purging
-                self.json_conf["pick"]["scoring_file"] = scoring_file.name
+                self.json_conf.pick.files.loci_out = "mikado.purging_{}.loci.gff3".format(purging)
+                self.json_conf.pick.files.log = os.path.join(dir.name, "mikado.purging_{}.log".format(purging))
+                self.json_conf.pick.clustering.purge = purging
+                self.json_conf.pick.scoring_file = scoring_file.name
                 self.json_conf = configurator.check_json(self.json_conf)
-                self.assertEqual(len(self.json_conf["scoring"].keys()), 1, self.json_conf["scoring"].keys())
+                self.assertEqual(len(self.json_conf.scoring.keys()), 1, self.json_conf.scoring.keys())
 
                 pick_caller = picker.Picker(json_conf=self.json_conf)
                 with self.assertRaises(SystemExit), self.assertLogs("main_logger", "INFO"):
                     pick_caller()
 
                 with to_gff(os.path.join(dir.name,
-                                         self.json_conf["pick"]["files"]["loci_out"])) as gff:
+                                         self.json_conf.pick.files.loci_out)) as gff:
                     lines = [line for line in gff if line.header is False]
                 self.assertGreater(len(lines), 0)
                 self.assertTrue(any([_ for _ in lines if _.attributes.get("alias", "") == "foo2.1"]),
@@ -1664,27 +1656,27 @@ class PickTest(unittest.TestCase):
         scoring_file = tempfile.NamedTemporaryFile(suffix=".yaml", delete=True, mode="wt", dir=folder.name)
         yaml.dump(scoring, scoring_file)
         scoring_file.flush()
-        self.json_conf["pick"]["scoring_file"] = scoring_file.name
+        self.json_conf.pick.scoring_file = scoring_file.name
 
         for purging in (False, True):
             with self.subTest(purging=purging):
-                self.json_conf["pick"]["files"]["loci_out"] = "mikado.purging_{}.loci.gff3".format(purging)
-                self.json_conf["pick"]["files"]["subloci_out"] = "mikado.purging_{}.subloci.gff3".format(purging)
-                self.json_conf["pick"]["files"]["log"] = os.path.join(
+                self.json_conf.pick.files.loci_out = "mikado.purging_{}.loci.gff3".format(purging)
+                self.json_conf.pick.files.subloci_out = "mikado.purging_{}.subloci.gff3".format(purging)
+                self.json_conf.pick.files.log = os.path.join(
                     folder.name,
                     "mikado.purging_{}.log".format(purging))
-                self.json_conf["pick"]["clustering"]["purge"] = purging
-                self.json_conf["pick"]["scoring_file"] = scoring_file.name
+                self.json_conf.pick.clustering.purge = purging
+                self.json_conf.pick.scoring_file = scoring_file.name
                 self.json_conf = configurator.check_json(self.json_conf)
-                self.assertEqual(len(self.json_conf["scoring"].keys()), 2,
-                                 self.json_conf["scoring"].keys())
+                self.assertEqual(len(self.json_conf.scoring.keys()), 2,
+                                 self.json_conf.scoring.keys())
 
                 pick_caller = picker.Picker(json_conf=self.json_conf)
                 with self.assertRaises(SystemExit), self.assertLogs("main_logger", "INFO"):
                     pick_caller()
 
                 with to_gff(os.path.join(folder.name,
-                                         self.json_conf["pick"]["files"]["loci_out"])) as gff:
+                                         self.json_conf.pick.files.loci_out)) as gff:
                     lines = [line for line in gff if line.header is False]
                 self.assertGreater(len(lines), 0)
                 self.assertTrue(any([_ for _ in lines if _.attributes.get("alias", "") == "foo2.1"]))
@@ -1723,7 +1715,7 @@ class PickTest(unittest.TestCase):
         scoring_file = tempfile.NamedTemporaryFile(suffix=".yaml", delete=True, mode="wt", dir=dir.name)
         yaml.dump(scoring, scoring_file)
         scoring_file.flush()
-        self.json_conf["pick"]["scoring_file"] = scoring_file.name
+        self.json_conf.pick.scoring_file = scoring_file.name
 
         temp_gtf = tempfile.NamedTemporaryFile(mode="wt", suffix=".gtf", delete=True, dir=dir.name)
 
@@ -1731,24 +1723,24 @@ class PickTest(unittest.TestCase):
 
         temp_gtf.write(gtf)
         temp_gtf.flush()
-        self.json_conf["pick"]["files"]["input"] = temp_gtf.name
+        self.json_conf.pick.files.input = temp_gtf.name
 
         for purging in (False, True):
             with self.subTest(purging=purging):
-                self.json_conf["pick"]["files"]["loci_out"] = "mikado.purging_{}.loci.gff3".format(purging)
-                self.json_conf["pick"]["files"]["subloci_out"] = "mikado.purging_{}.subloci.gff3".format(purging)
-                self.json_conf["pick"]["files"]["log"] = "mikado.purging_{}.log".format(purging)
-                self.json_conf["pick"]["clustering"]["purge"] = purging
-                self.json_conf["pick"]["scoring_file"] = scoring_file.name
+                self.json_conf.pick.files.loci_out = "mikado.purging_{}.loci.gff3".format(purging)
+                self.json_conf.pick.files.subloci_out = "mikado.purging_{}.subloci.gff3".format(purging)
+                self.json_conf.pick.files.log = "mikado.purging_{}.log".format(purging)
+                self.json_conf.pick.clustering.purge = purging
+                self.json_conf.pick.scoring_file = scoring_file.name
                 self.json_conf = configurator.check_json(self.json_conf)
-                self.assertEqual(len(self.json_conf["scoring"].keys()), 2, self.json_conf["scoring"].keys())
+                self.assertEqual(len(self.json_conf.scoring.keys()), 2, self.json_conf.scoring.keys())
 
                 pick_caller = picker.Picker(json_conf=self.json_conf)
                 with self.assertRaises(SystemExit), self.assertLogs("main_logger", "INFO"):
                     pick_caller()
 
                 with to_gff(os.path.join(dir.name,
-                                         self.json_conf["pick"]["files"]["loci_out"])) as gff:
+                                         self.json_conf.pick.files.loci_out)) as gff:
                     lines = [line for line in gff if line.header is False]
                 self.assertGreater(len(lines), 0)
                 self.assertTrue(any([_ for _ in lines if _.attributes.get("alias", "") == "foo2.1"]),
@@ -1773,7 +1765,7 @@ class SerialiseChecker(unittest.TestCase):
 
     def setUp(self):
         self.json_conf = configurator.to_json(None)
-        self.json_conf["reference"]["genome"] = self.fai.filename.decode()
+        self.json_conf.reference.genome = self.fai.filename.decode()
 
     @classmethod
     def setUpClass(cls):

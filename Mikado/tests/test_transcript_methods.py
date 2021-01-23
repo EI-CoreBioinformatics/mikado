@@ -555,12 +555,11 @@ class TestRetrieval(unittest.TestCase):
             os.path.dirname(__file__),
             "configuration.yaml"
         ))
-        self.assertTrue(conf["pick"]["chimera_split"]["blast_check"])
-        self.assertTrue(conf["pick"]["chimera_split"]["execute"])
-        self.assertEqual(conf["pick"]["chimera_split"]["blast_params"]["leniency"],
-                         "LENIENT")
+        self.assertTrue(conf.pick.chimera_split.blast_check)
+        self.assertTrue(conf.pick.chimera_split.execute)
+        self.assertEqual(conf.pick.chimera_split.blast_params.leniency, "LENIENT")
 
-        conf["pick"]["orf_loading"]["minimal_secondary_orf_length"] = 50
+        conf.pick.orf_loading.minimal_secondary_orf_length = 50
 
         self.tr.json_conf = conf
 
@@ -585,7 +584,7 @@ class TestRetrieval(unittest.TestCase):
         with self.assertLogs("null", "DEBUG") as _:
             after_overlap_check = retrieval.find_overlapping_cds(self.tr, [b1, b2])
 
-        self.assertEqual(len(after_overlap_check), 2, self.tr.json_conf["pick"]["orf_loading"])
+        self.assertEqual(len(after_overlap_check), 2, self.tr.json_conf.pick.orf_loading)
         self.assertEqual(after_overlap_check,
                          [b1, b2],
                          [_.name for _ in after_overlap_check])

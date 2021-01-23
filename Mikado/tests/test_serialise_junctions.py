@@ -24,9 +24,9 @@ class TestLoadJunction(unittest.TestCase):
     def setUp(self):
         self.dbfile = tempfile.mktemp(suffix=".db")
         self.json_conf = configuration.configurator.to_json(None)
-        self.json_conf["db_settings"]["dbtype"] = "sqlite"
-        self.json_conf["db_settings"]["db"] = self.dbfile
-        self.json_conf["reference"]["genome_fai"] = os.path.join(
+        self.json_conf.db_settings.dbtype = "sqlite"
+        self.json_conf.db_settings.db = self.dbfile
+        self.json_conf.reference.genome_fai = os.path.join(
             os.path.dirname(__file__),
             "genome.fai")
         self.session = utilities.dbutils.connect(self.json_conf)

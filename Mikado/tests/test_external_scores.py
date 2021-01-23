@@ -41,7 +41,7 @@ class ExternalTester(unittest.TestCase):
     def test_real(self):
         self.transcript.attributes["tpm"] = 10
 
-        self.conf["scoring"]["attributes.tpm"] = {"rescaling": "max", "default": 0, "rtype": "float"}
+        self.conf.scoring["attributes.tpm"] = {"rescaling": "max", "default": 0, "rtype": "float"}
 
         checked_conf = check_scoring(self.conf)
 
@@ -61,7 +61,7 @@ class ExternalTester(unittest.TestCase):
 
         self.transcript.attributes["tpm"] = 10
 
-        self.conf["scoring"]["attributes.tpm"] = {"rescaling": "max", "default": 0, "rtype": "float", 'multiplier': 4}
+        self.conf.scoring["attributes.tpm"] = {"rescaling": "max", "default": 0, "rtype": "float", 'multiplier': 4}
 
         checked_conf = check_scoring(self.conf)
 
@@ -76,7 +76,7 @@ class ExternalTester(unittest.TestCase):
     def test_default_attribute_score(self):
         self.transcript.attributes["foo"] = True
 
-        self.conf["scoring"]["attributes.foo"] = {"rescaling": "max", "default": False, "rtype": "bool"}
+        self.conf.scoring["attributes.foo"] = {"rescaling": "max", "default": False, "rtype": "bool"}
         checked_conf = check_scoring(self.conf)
 
         self.assertIn('attributes.foo', checked_conf['scoring'])
@@ -93,7 +93,7 @@ class ExternalTester(unittest.TestCase):
 
     def test_error_attribute(self):
         self.transcript.attributes["tpm"] = "10a"
-        self.conf["scoring"]["attributes.tpm"] = {"rescaling": "max", "default": 0, "rtype": "float"}
+        self.conf.scoring["attributes.tpm"] = {"rescaling": "max", "default": 0, "rtype": "float"}
         checked_conf = check_scoring(self.conf)
         self.assertIn('attributes.tpm', checked_conf['scoring'])
         sup = Superlocus(self.transcript, json_conf=checked_conf)
@@ -104,8 +104,8 @@ class ExternalTester(unittest.TestCase):
 
         self.transcript.attributes["tpm"] = 10
 
-        self.conf["scoring"]["attributes.tpm"] = {"rescaling": "max", "default": 0, "rtype": "float", 'multiplier': 4,
-                                                  'use_raw': True}
+        self.conf.scoring["attributes.tpm"] = {"rescaling": "max", "default": 0, "rtype": "float", 'multiplier': 4,
+                                               'use_raw': True}
 
         checked_conf = check_scoring(self.conf)
 
@@ -121,8 +121,8 @@ class ExternalTester(unittest.TestCase):
 
         self.transcript.attributes["tpm"] = 10
 
-        self.conf["scoring"]["attributes.tpm"] = {"rescaling": "max", "default": 0, "rtype": "float", 'multiplier': 4,
-                                                  'use_raw': True, 'percentage': True}
+        self.conf.scoring["attributes.tpm"] = {"rescaling": "max", "default": 0, "rtype": "float", 'multiplier': 4,
+                                                'use_raw': True, 'percentage': True}
 
         checked_conf = check_scoring(self.conf)
 

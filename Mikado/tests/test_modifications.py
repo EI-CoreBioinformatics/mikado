@@ -199,9 +199,9 @@ class TestPadding(unittest.TestCase):
                     template.add_exons(exons_to_add)  # New exon, template at 5'
                     template.finalize()
                     json_conf = to_json(None)
-                    json_conf["reference"]["genome"] = self.fai
-                    json_conf["pick"]["alternative_splicing"]["only_confirmed_introns"] = False
-                    json_conf["pick"]["run_options"]["only_reference_update"] = True
+                    json_conf.reference.genome = self.fai
+                    json_conf.pick.alternative_splicing.only_confirmed_introns = False
+                    json_conf.pick.run_options.only_reference_update = True
                     locus = Locus(self.reference.copy(), logger=logger, json_conf=json_conf,
                                   pad_transcripts=pad_transcripts)
                     self.assertTrue(locus[self.reference.id].is_reference)
@@ -279,9 +279,9 @@ class TestPadding(unittest.TestCase):
         logger = create_null_logger("test_add_two_partials")
         logger.setLevel("INFO")
         json_conf = to_json(None)
-        json_conf["reference"]["genome"] = self.fai
-        json_conf["pick"]["alternative_splicing"]["only_confirmed_introns"] = False
-        json_conf["pick"]["run_options"]["only_reference_update"] = True
+        json_conf.reference.genome = self.fai
+        json_conf.pick.alternative_splicing.only_confirmed_introns = False
+        json_conf.pick.run_options.only_reference_update = True
 
         ref = Transcript(is_reference=True)
         ref.chrom, ref.strand, ref.id = "Chr5", "-", "AT5G66670.2"

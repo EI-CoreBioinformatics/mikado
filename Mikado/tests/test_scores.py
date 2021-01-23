@@ -1,13 +1,14 @@
 # import Mikado
-from .. import loci, configuration, transcripts
-from ..transcripts import Transcript
-from ..parsers.bed12 import BED12
-from ..utilities.log_utils import create_default_logger
-import unittest
-import rapidjson as json
 import io
+import unittest
+
+import rapidjson as json
 from pkg_resources import resource_stream
 
+from .. import loci, configuration, transcripts
+from ..parsers.bed12 import BED12
+from ..transcripts import Transcript
+from ..utilities.log_utils import create_default_logger
 
 with io.TextIOWrapper(resource_stream("Mikado.configuration",
                                       "requirements_blueprint.json")) as rs_blueprint:
@@ -220,13 +221,15 @@ class LocusMissedTester(unittest.TestCase):
 
     def setUp(self):
         self.json_conf = loci.abstractlocus.json_conf
-        reqs = {"requirements":
-                    {"expression": ["cdna_length"],
-                     "parameters": {
-                         "cdna_length": {"operator": "gt", "value": 0}
-                     }
-                     }
+        reqs = {
+            "requirements": {
+                "expression": ["cdna_length"],
+                "parameters": {
+                    "cdna_length": {
+                        "operator": "gt", "value": 0}
                 }
+            }
+        }
 
         reqs = configuration.configurator.check_requirements(reqs, require_schema, "requirements")
         self.json_conf["requirements"] = reqs["requirements"]

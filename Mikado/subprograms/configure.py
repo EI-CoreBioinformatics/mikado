@@ -10,7 +10,7 @@ from pkg_resources import resource_filename, resource_stream
 import glob
 import argparse
 import sys
-
+import dataclasses
 from ..configuration import DaijinConfiguration, MikadoConfiguration
 from ..exceptions import InvalidJson
 from ..utilities import comma_split, percentage
@@ -326,6 +326,12 @@ switch.")
     except InvalidJson as exc:
         raise InvalidJson("Created an invalid configuration file! Error:\n{}".format(exc))
 
+    if not isinstance(config, dict):
+        config = dataclasses.asdict(config)
+
+    for key in ["filename", "scoring", "as_requirements", "cds_requirements", "not_fragmentary", "requirements"]:
+        config.pop(key, None)
+
     if args.json is True:
         json.dump(config, args.out, sort_keys=True, indent=4)
     elif args.yaml is True:
@@ -340,7 +346,7 @@ switch.")
         output = yaml.dump(config, default_flow_style=False)
         print_config(output, args.out)
     else:
-        output = tomlkit.dumps(config)
+        output = toml.dumps(config)
         print_toml_config(output, args.out)
 
 

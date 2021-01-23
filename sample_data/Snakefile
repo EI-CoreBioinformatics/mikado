@@ -10,6 +10,7 @@ import gzip
 from snakemake import logger as snake_logger
 import pkg_resources
 import Mikado
+import dataclasses
 
 prod_conda = pkg_resources.resource_filename("Mikado.daijin", os.path.join("envs", "prodigal.yaml"))
 swissprot = "uniprot_sprot_plants.fasta.gz"
@@ -31,14 +32,16 @@ if not os.path.exists(configname):
     subprocess.call(config_command, shell=True)
 
 snake_logger.info("Reading the configuration file")
+_config = dataclasses.asdict(Mikado.configuration.configurator.to_json(configname))
+
 try:
-    config = Mikado.configuration.configurator.to_json(configname)
+    config = _config
 except Exception as exc:
-    snake_logger.error("Error in reading the configuration file: {}".format(exc))
+    snake_logger.error("Error in reading the configuration file: {}\n{}".format(exc, _config))
     os.remove(configname)
     raise
 
-configfile: "configuration.yaml"
+# configfile: "configuration.yaml"
 
 rule complete:    
     input: "compare.stats", "compare_subloci.stats", "compare_input.stats", "check.ok",

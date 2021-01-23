@@ -2997,6 +2997,8 @@ class PaddingTester(unittest.TestCase):
         logger = create_default_logger(inspect.getframeinfo(inspect.currentframe())[2], level="WARNING")
         transcripts = self.load_from_bed("Mikado.tests", "pad_utr.bed12")
         locus = Locus(transcripts["mikado.Chr5G2.1"], logger=logger)
+        [locus._add_to_alternative_splicing_codes(code) for code in ("J", "j", "G", "h")]
+        self.assertIn("J", locus.json_conf.pick.alternative_splicing.valid_ccodes)
         locus.json_conf.reference.genome = self.fai
         # We need to pad
         locus.json_conf.pick.alternative_splicing.pad = True
@@ -3006,9 +3008,13 @@ class PaddingTester(unittest.TestCase):
         locus.json_conf.pick.alternative_splicing.ts_max_splices = 10
         locus.json_conf.pick.alternative_splicing.only_confirmed_introns = False
         locus.json_conf.pick.alternative_splicing.min_cdna_overlap = 0.1
-        locus.add_transcript_to_locus(transcripts["mikado.Chr5G2.2"])
-        self.assertIn("mikado.Chr5G2.1", locus.transcripts)
-        self.assertIn("mikado.Chr5G2.2", locus.transcripts)
+
+        locus.logger = create_default_logger("test_pad_utr", level="DEBUG")
+        with self.assertLogs("test_pad_utr", "DEBUG") as cmo:
+            locus.add_transcript_to_locus(transcripts["mikado.Chr5G2.2"])
+
+        self.assertIn("mikado.Chr5G2.1", locus.transcripts, cmo.output)
+        self.assertIn("mikado.Chr5G2.2", locus.transcripts, cmo.output)
         locus.pad_transcripts()
         for tid in locus:
             self.assertEqual(locus[tid].end, locus.end, tid)
@@ -3017,6 +3023,8 @@ class PaddingTester(unittest.TestCase):
         logger = create_default_logger(inspect.getframeinfo(inspect.currentframe())[2], level="WARNING")
         transcripts = self.load_from_bed("Mikado.tests", "pad_three_neg.bed12")
         locus = Locus(transcripts["mikado.Chr5G486.1"], logger=logger)
+        [locus._add_to_alternative_splicing_codes(code) for code in ("J", "j", "G", "h")]
+        self.assertIn("J", locus.json_conf.pick.alternative_splicing.valid_ccodes)
         locus.json_conf.reference.genome = self.fai.filename
         locus.add_transcript_to_locus(transcripts["mikado.Chr5G486.2"])
         # We need to pad
@@ -3027,13 +3035,12 @@ class PaddingTester(unittest.TestCase):
         locus.json_conf.pick.alternative_splicing.ts_max_splices = 10
         locus.json_conf.pick.alternative_splicing.only_confirmed_introns = False
         locus.json_conf.pick.alternative_splicing.min_cdna_overlap = 0.1
-        self.assertIn("mikado.Chr5G486.1", locus.transcripts)
-        self.assertIn("mikado.Chr5G486.2", locus.transcripts)
+        self.assertIn("mikado.Chr5G486.1", locus.transcripts.keys())
+        self.assertIn("mikado.Chr5G486.2", locus.transcripts.keys())
         locus.logger.setLevel("DEBUG")
         locus.pad_transcripts()
         for tid in locus:
             self.assertEqual(locus[tid].start, locus.start, tid)
-
 
     def test_one_off(self):
         logger = create_default_logger(inspect.getframeinfo(inspect.currentframe())[2], level="WARNING")

@@ -88,6 +88,7 @@ class Portcullis:
     canonical_juncs: list = field(default_factory=lambda: ["C", "S"])
 
 
+@dataclass
 class AlnIndex:
     star: str = ""
 
@@ -115,7 +116,7 @@ class DaijinConfiguration:
     blastx: BlastX = BlastX()
     aln_index: AlnIndex = AlnIndex()
     align_methods: AlignMethods = AlignMethods()
-    long_read_align: LongReadAlign = LongReadAlign()
+    long_read_align_methods: LongReadAlign = LongReadAlign()
     asm_methods: AsmMethods = AsmMethods()
     load: ProgramLoader = ProgramLoader()
     portcullis: Portcullis = Portcullis()

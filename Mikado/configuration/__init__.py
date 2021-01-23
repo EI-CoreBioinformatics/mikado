@@ -19,8 +19,6 @@ __author__ = 'Luca Venturini'
 
 def print_toml_config(output, out):
 
-    import sys
-
     schema = json.load(pkg_resources.resource_stream("Mikado.configuration", "configuration_blueprint.json"))
     daijin_schema = json.load(pkg_resources.resource_stream("Mikado.configuration", "daijin_schema.json"))
     daijin_found = False
@@ -28,6 +26,7 @@ def print_toml_config(output, out):
     lines = []
 
     level = schema
+
     for line in output.split("\n"):
         if line.startswith("["):
             keys = line.rstrip().replace("[", "").replace("]", "").split(".")
@@ -37,13 +36,9 @@ def print_toml_config(output, out):
                     level = daijin_schema
                     daijin_found = True
                 if key not in level["properties"]:
-                    raise KeyError("Unknown key found: {}".format(key))
+                    raise KeyError("Unknown key found: {}\n{}".format(key, level))
                 level = level["properties"][key]
-            # print("We are at", key, "with level: ", level, file=sys.stderr)
             comment = []
-            # title = level.get("title", None)
-            # if title:
-            #     comment += ["# " + _ for _ in textwrap.wrap(title)]
             description = level.get("description", None)
             if description:
                 comment += ["# " + _ for _ in textwrap.wrap(description)]
@@ -57,7 +52,10 @@ def print_toml_config(output, out):
                     raise KeyError((line, key, level))
                 description = level["properties"].get(key, dict()).get("description", None)
                 if description:
-                    comment += ["# " + key + ": " + _ for _ in textwrap.wrap(description)]
+                    _comment = textwrap.wrap(description)
+                    if _comment:
+                        _comment[0] = key + ": " + _comment[0]
+                        comment += ["# " + _ for _ in _comment]
                 lines.extend(comment)
             lines.append(line.rstrip())
 

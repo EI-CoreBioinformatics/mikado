@@ -28,7 +28,7 @@ class ExternalTester(unittest.TestCase):
         self.transcript.parent = "ENSG00000137872"
         self.transcript2 = self.transcript.copy()
         self.transcript2.id = "ENST00000560637"
-        self.assertIn("scoring", self.conf)
+        # self.assertIn("scoring", self.conf)
 
     def test_copying(self):
         self.transcript.external_scores.update({"test": 0, "test1": 1})
@@ -45,7 +45,7 @@ class ExternalTester(unittest.TestCase):
 
         checked_conf = check_scoring(self.conf)
 
-        self.assertIn('attributes.tpm', checked_conf['scoring'])
+        self.assertIn('attributes.tpm', checked_conf.scoring)
 
         sup = Superlocus(self.transcript, json_conf=checked_conf)
         sup.get_metrics()
@@ -65,7 +65,7 @@ class ExternalTester(unittest.TestCase):
 
         checked_conf = check_scoring(self.conf)
 
-        self.assertIn('attributes.tpm', checked_conf['scoring'])
+        self.assertIn('attributes.tpm', checked_conf.scoring)
 
         sup = Superlocus(self.transcript, json_conf=checked_conf)
         tid = self.transcript.id
@@ -79,7 +79,7 @@ class ExternalTester(unittest.TestCase):
         self.conf.scoring["attributes.foo"] = {"rescaling": "max", "default": False, "rtype": "bool"}
         checked_conf = check_scoring(self.conf)
 
-        self.assertIn('attributes.foo', checked_conf['scoring'])
+        self.assertIn('attributes.foo', checked_conf.scoring)
 
         sup = Superlocus(self.transcript, json_conf=checked_conf)
         sup.get_metrics()
@@ -95,7 +95,7 @@ class ExternalTester(unittest.TestCase):
         self.transcript.attributes["tpm"] = "10a"
         self.conf.scoring["attributes.tpm"] = {"rescaling": "max", "default": 0, "rtype": "float"}
         checked_conf = check_scoring(self.conf)
-        self.assertIn('attributes.tpm', checked_conf['scoring'])
+        self.assertIn('attributes.tpm', checked_conf.scoring)
         sup = Superlocus(self.transcript, json_conf=checked_conf)
         with self.assertRaises(ValueError):
             sup.get_metrics()
@@ -109,7 +109,7 @@ class ExternalTester(unittest.TestCase):
 
         checked_conf = check_scoring(self.conf)
 
-        self.assertIn('attributes.tpm', checked_conf['scoring'])
+        self.assertIn('attributes.tpm', checked_conf.scoring)
 
         sup = Superlocus(self.transcript, json_conf=checked_conf)
         tid = self.transcript.id
@@ -126,7 +126,7 @@ class ExternalTester(unittest.TestCase):
 
         checked_conf = check_scoring(self.conf)
 
-        self.assertIn('attributes.tpm', checked_conf['scoring'])
+        self.assertIn('attributes.tpm', checked_conf.scoring)
 
         sup = Superlocus(self.transcript, json_conf=checked_conf)
         tid = self.transcript.id

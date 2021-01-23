@@ -5,7 +5,7 @@ import yaml
 import tomlkit
 import jsonschema
 from pkg_resources import resource_stream, resource_filename
-from .configurator import extend_with_default, merge_dictionaries, check_all_requirements, check_scoring, to_json
+from .configurator import extend_with_default, check_all_requirements, check_scoring, to_json
 from .configurator import create_cluster_config
 from . import print_config, check_has_requirements, print_toml_config
 from ..exceptions import InvalidJson
@@ -83,7 +83,7 @@ def create_daijin_base_config(simple=True):
     conf = dict()
     validator.validate(conf)
     mikado_conf = to_json(None, simple=simple)
-    mikado_conf = merge_dictionaries(mikado_conf, conf)
+    # mikado_conf = merge_dictionaries(mikado_conf, conf)
 
     return mikado_conf
 

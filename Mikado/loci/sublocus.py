@@ -62,7 +62,7 @@ class Sublocus(Abstractlocus):
         self.feature = self.__name__
         self.logger.debug("Verified introns for %s: %s", self.id, verified_introns)
         self.fixed_size = False
-        self.source = self.json_conf["pick"]["output_format"]["source"]
+        self.source = self.json_conf.pick.output_format.source
 
         self.excluded = None
         self._not_passing = set()
@@ -78,13 +78,12 @@ class Sublocus(Abstractlocus):
             if transcript_instance and transcript_instance.feature == "sublocus":
                 self.fixed_size = True
 
-        if json_conf is None or not isinstance(json_conf, dict):
-            raise ValueError("I am missing the configuration for prioritizing transcripts!")
+        self.json_conf = json_conf
 
         # This part is necessary to import modules
-        if "modules" in self.json_conf:
+        if hasattr(self.json_conf, "modules"):
             import importlib
-            for mod in self.json_conf["modules"]:
+            for mod in self.json_conf.modules:
                 globals()[mod] = importlib.import_module(mod)
 
         if isinstance(transcript_instance, Transcript):
@@ -125,7 +124,7 @@ class Sublocus(Abstractlocus):
             self.transcripts[tid].parent = self_line.id
             lines.append(self.transcripts[tid].format(
                 "gff3",
-                all_orfs=self.json_conf["pick"]["output_format"]["report_all_orfs"],
+                all_orfs=self.json_conf.pick.output_format.report_all_orfs,
                 with_cds=print_cds).rstrip())
 
         return "\n".join(lines)
@@ -179,7 +178,7 @@ class Sublocus(Abstractlocus):
         if transcript is None:
             return
 
-        cds_only = self.json_conf["pick"]["clustering"]["cds_only"]
+        cds_only = self.json_conf.pick.clustering.cds_only
 
         monoexonic = self._is_transcript_monoexonic(transcript)
 
@@ -329,7 +328,7 @@ class Sublocus(Abstractlocus):
         self.filter_and_calculate_scores()
         # TODO to be changed
         if self.regressor is None:
-            score_keys = sorted(list(self.json_conf["scoring"].keys()) + ["source_score"])
+            score_keys = sorted(list(self.json_conf.scoring.keys()) + ["source_score"])
         else:
             score_keys = sorted(self.regressor.metrics + ["source_score"])
         keys = ["tid", "alias", "parent", "score"] + sorted(score_keys)

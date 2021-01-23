@@ -5,6 +5,7 @@ from .prepare_config import PrepareConfiguration
 from .serialise_config import SerialiseConfiguration
 from ..utilities.dbutils import DBConfiguration
 from ..utilities.log_utils import LoggingConfiguration
+from typing import Union
 
 
 @dataclass
@@ -16,7 +17,7 @@ class ReferenceConfiguration:
 
 @dataclass
 class MikadoConfiguration:
-    filename: str = None
+    filename: Union[str, None] = None
     threads: int = 1
     seed: int = 0
     multiprocessing_method: str = "spawn"
@@ -26,6 +27,13 @@ class MikadoConfiguration:
     prepare: PrepareConfiguration = PrepareConfiguration()
     pick: PickConfiguration = PickConfiguration()
     reference: ReferenceConfiguration = ReferenceConfiguration()
+
+    # These fields are loaded *from the scoring configuration*
+    scoring: Union[dict, None] = None
+    cds_requirements: Union[dict, None] = None
+    as_requirements: Union[dict, None] = None
+    requirements: Union[dict, None] = None
+    not_fragmentary: Union[dict, None] = None
 
     def copy(self):
         return copy.deepcopy(self)

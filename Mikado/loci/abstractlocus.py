@@ -5,6 +5,7 @@ Module that defines the blueprint for all loci classes.
 """
 
 import abc
+import dacite
 import itertools
 import logging
 from sys import maxsize
@@ -28,11 +29,13 @@ else:
 import random
 import rapidjson as json
 from typing import Union
-from Mikado.configuration.configuration import MikadoConfiguration
+from ..configuration.configuration import MikadoConfiguration
+from ..configuration.daijin_configuration import DaijinConfiguration
 
 # I do not care that there are too many attributes: this IS a massive class!
 # pylint: disable=too-many-instance-attributes,too-many-public-methods
-json_conf = MikadoConfiguration()
+json_conf = to_json(None)
+assert json_conf.scoring is not None
 
 
 def to_bool(param: Union[str,bool,int,float]):
@@ -194,11 +197,11 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             # This removes unpicklable compiled attributes, eg in "requirements" or "as_requirements"
             if "json_conf" not in state:
                 state["json_conf"] = self.json_conf.copy()
-            for key in self.json_conf:
-                if (isinstance(self.json_conf[key], dict) and
-                        self.json_conf[key].get("compiled", None) is not None):
-                    assert key in state["json_conf"]
-                    del state["json_conf"][key]["compiled"]
+            for key in ["requirements", "cds_requirements", "as_requirements", "not_fragmentary"]:
+                section = getattr(state["json_conf"], key)
+                if "compiled" in section:
+                    del section["compiled"]
+                    setattr(state["json_conf"], key, section)
 
         if hasattr(self, "session"):
             if self.session is not None:
@@ -251,10 +254,11 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             raise TypeError(edges)
 
         if hasattr(self, "json_conf"):
-            if "requirements" in self.json_conf and "expression" in self.json_conf["requirements"]:
-                self.json_conf["requirements"]["compiled"] = compile(
-                    self.json_conf["requirements"]["expression"],
-                    "<json>", "eval")
+            for key in ["requirements", "cds_requirements", "as_requirements", "not_fragmentary"]:
+                section = getattr(self.json_conf, key)
+                if "expression" in section:
+                    section["compiled"] = compile(section["expression"], "<json>", "eval")
+                    setattr(self.json_conf, key, section)
         # Set the logger to NullHandler
         _ = self.__segmenttree
         self.logger = None
@@ -717,7 +721,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                           internal_splices: set,
                           cds_introns: set,
                           coding=True,
-                          logger=create_null_logger()):
+                          logger=create_null_logger()) -> (bool, bool):
 
         """Private static method to verify whether a given exon is a retained intron in the current locus.
         The method is as follows:
@@ -740,10 +744,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         :param internal_splices: which of the two boundaries of the exon are actually internal (if any).
         :type internal_splices: set
 
-        :param terminal: whether the exon is at the 3' end.
-        :type terminal: bool
-
-        :rtype: bool
+        :rtype: (bool, bool)
         """
 
         is_retained = False
@@ -1254,7 +1255,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
         self.logger.debug("Calculated metrics for {0}".format(tid))
 
-    def _check_not_passing(self, previous_not_passing=set(), section="requirements"):
+    def _check_not_passing(self, previous_not_passing=set(), section_name="requirements"):
         """
         This private method will identify all transcripts which do not pass
         the minimum muster specified in the configuration. It will *not* delete them;
@@ -1264,14 +1265,18 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
         self.get_metrics()
 
-        if ("compiled" not in self.json_conf[section] or
-                self.json_conf[section]["compiled"] is None):
-            if "expression" not in self.json_conf[section]:
-                raise KeyError(self.json_conf[section])
+        if section_name == "cds_requirements":
+            section = self.json_conf.cds_requirements
+        elif section_name == "requirements":
+            section = self.json_conf.requirements
+        else:
+            raise KeyError("Invalid requirements section: {}".format(section_name))
 
-            self.json_conf[section]["compiled"] = compile(
-                self.json_conf[section]["expression"], "<json>",
-                "eval")
+        if "compiled" not in section or section["compiled"] is None:
+            if "expression" not in section:
+                raise KeyError(section)
+            section["compiled"] = compile(section["expression"], "<json>", "eval")
+            setattr(self.json_conf, section_name, section)
 
         not_passing = set()
         reference_sources = {source for source, is_reference in
@@ -1300,18 +1305,14 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                 self.logger.debug("Performing the requirement check for %s even if it is a reference transcript", tid)
 
             evaluated = dict()
-            for key in self.json_conf[section]["parameters"]:
-                value = rgetattr(self.transcripts[tid],
-                                 self.json_conf[section]["parameters"][key]["name"])
+            for key in self.json_conf[section_name]["parameters"]:
+                value = rgetattr(self.transcripts[tid], section["parameters"][key]["name"])
                 if "external" in key:
                     value = value[0]
 
-                evaluated[key] = self.evaluate(
-                    value,
-                    self.json_conf[section]["parameters"][key])
+                evaluated[key] = self.evaluate(value, section["parameters"][key])
             # pylint: disable=eval-used
-            if eval(self.json_conf[section]["compiled"]) is False:
-
+            if eval(section["compiled"]) is False:
                 not_passing.add(tid)
         self.logger.debug("The following transcripts in %s did not pass the minimum check for requirements: %s",
                           self.id, ", ".join(list(not_passing)))
@@ -1344,13 +1345,13 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
         self.get_metrics()
         self.logger.debug("Calculating scores for {0}".format(self.id))
-        if "requirements" in self.json_conf and check_requirements:
+        if self.json_conf.requirements and check_requirements:
             self._check_requirements()
 
         if len(self.transcripts) == 0:
             self.logger.warning("No transcripts pass the muster for %s (requirements:\n%s)",
                                 self.id,
-                                self.json_conf["requirements"])
+                                self.json_conf.requirements)
             self.scores_calculated = True
             return
         self.scores = dict()
@@ -1361,7 +1362,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             self.scores[tid]["source_score"] = self.transcripts[tid].source_score
 
         if self.regressor is None:
-            for param in self.json_conf["scoring"]:
+            for param in self.json_conf.scoring:
                 self._calculate_score(param)
 
             for tid in self.scores:
@@ -1678,28 +1679,36 @@ class Abstractlocus(metaclass=abc.ABCMeta):
     # ##### Properties #######
 
     @property
-    def json_conf(self):
+    def json_conf(self) -> Union[MikadoConfiguration,DaijinConfiguration]:
         return self.__json_conf
 
     @json_conf.setter
     def json_conf(self, conf):
         if conf is None:
             conf = json_conf.copy()
+            conf = check_json(conf)
         elif isinstance(conf, str):
             conf = to_json(conf)
-        elif not isinstance(conf, dict):
+        elif isinstance(conf, dict):
+            try:
+                conf = dacite.from_dict(data_class=MikadoConfiguration, data=conf)
+            except:
+                conf = dacite.from_dict(data_class=DaijinConfiguration, data=conf)
+        elif not isinstance(conf, (MikadoConfiguration, DaijinConfiguration)):
             raise TypeError("Invalid configuration!")
         self.__json_conf = conf
         # Get the value for each attribute defined metric
-        self._attribute_metrics = dict((param,
-                                  {
-                                      'default': self.json_conf["scoring"][param]["default"],
-                                      'rtype': self.json_conf['scoring'][param]['rtype'],
-                                      'use_raw': self.json_conf['scoring'][param]['use_raw'],
-                                      'percentage': self.json_conf['scoring'][param]['percentage']
+        self._attribute_metrics = dict()
+        assert self.__json_conf.scoring is not None, (self.__json_conf.scoring, self.__json_conf.requirements)
+        for param in self.__json_conf.scoring:
+            if not param.startswith("attributes."):
+                continue
+            self._attribute_metrics[param] = {
+                                      'default': self.json_conf.scoring[param]["default"],
+                                      'rtype': self.json_conf.scoring[param]['rtype'],
+                                      'use_raw': self.json_conf.scoring[param]['use_raw'],
+                                      'percentage': self.json_conf.scoring[param]['percentage']
                                   }
-                                  )
-                                 for param in self.__json_conf["scoring"] if param.startswith("attributes."))
 
     def check_configuration(self):
         """Method to be invoked to verify that the configuration is correct.

@@ -5,6 +5,7 @@ from .serialise_config import  SerialiseConfiguration
 from ..utilities.dbutils import DBConfiguration
 from ..utilities.log_utils import LoggingConfiguration
 from .configuration import ReferenceConfiguration
+from typing import Union
 import copy
 
 @dataclass
@@ -93,7 +94,7 @@ class AlnIndex:
 
 @dataclass
 class DaijinConfiguration:
-    filename: str = None
+    filename: Union[str, None] = None
     seed: int = 0
     multiprocessing_method: str = "spawn"
     log_settings: LoggingConfiguration = LoggingConfiguration()
@@ -118,6 +119,13 @@ class DaijinConfiguration:
     asm_methods: AsmMethods = AsmMethods()
     load: ProgramLoader = ProgramLoader()
     portcullis: Portcullis = Portcullis()
+
+    # These fields are loaded *from the scoring configuration*
+    scoring: dict = None
+    cds_requirements: dict = None
+    as_requirements: dict = None
+    requirements: dict = None
+    not_fragmentary: dict = None
 
     def copy(self):
         return copy.deepcopy(self)

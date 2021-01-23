@@ -566,7 +566,7 @@ it is marked as having 0 retained introns. This is an error.".format(transcript=
                     "s" * min(1, len(to_check) - 1))
 
         # Add a check similar to what we do for the minimum requirements and the fragments
-        if to_be_added and "as_requirements" in self.json_conf:
+        if to_be_added and self.json_conf.as_requirements:
             to_be_added = self.__check_as_requirements(transcript, is_reference=reference_pass)
 
         if to_be_added is True:
@@ -601,23 +601,21 @@ it is marked as having 0 retained introns. This is an error.".format(transcript=
         if is_reference is True and self.json_conf.pick.run_options.check_references is False:
             return True
         # TODO where are we going to put the as_requirements?
-        if ("compiled" not in self.json_conf["as_requirements"] or
-                self.json_conf["as_requirements"]["compiled"] is None):
-            self.json_conf["as_requirements"]["compiled"] = compile(
-                self.json_conf["as_requirements"]["expression"], "<json>",
-                "eval")
+        section = self.json_conf.as_requirements
+
+        if "compiled" not in section or section["compiled"] is None:
+            section["compiled"] = compile(section["expression"], "<json>", "eval")
+            self.json_conf.as_requirements = section
+
         evaluated = dict()
-        for key in self.json_conf["as_requirements"]["parameters"]:
-            value = rgetattr(transcript,
-                             self.json_conf["as_requirements"]["parameters"][key]["name"])
+        for key in section["parameters"]:
+            value = rgetattr(transcript, section["parameters"][key]["name"])
             if "external" in key:
                 value = value[0]
 
-            evaluated[key] = self.evaluate(
-                value,
-                self.json_conf["as_requirements"]["parameters"][key])
+            evaluated[key] = self.evaluate(value, section["parameters"][key])
             # pylint: disable=eval-used
-        if eval(self.json_conf["as_requirements"]["compiled"]) is False:
+        if eval(section["compiled"]) is False:
             self.logger.debug("%s fails the minimum requirements for AS events", transcript.id)
             to_be_added = False
         return to_be_added
@@ -639,33 +637,32 @@ it is marked as having 0 retained introns. This is an error.".format(transcript=
             return False
 
         # TODO this needs to be changed
-        self.json_conf["not_fragmentary"]["compiled"] = compile(
-            self.json_conf["not_fragmentary"]["expression"], "<json>",
-            "eval")
+        if "compiled" not in self.json_conf.not_fragmentary:
+            self.json_conf.not_fragmentary["compiled"] = compile(
+                self.json_conf.not_fragmentary["expression"], "<json>", "eval")
 
         current_id = self.id[:]
 
         evaluated = dict()
-        for key in self.json_conf["not_fragmentary"]["parameters"]:
+        for key in self.json_conf.not_fragmentary["parameters"]:
             value = rgetattr(self.primary_transcript,
-                             self.json_conf["not_fragmentary"]["parameters"][key]["name"])
+                             self.json_conf.not_fragmentary["parameters"][key]["name"])
             if "external" in key:
                 value = value[0]
             try:
-                evaluated[key] = self.evaluate(
-                    value,
-                    self.json_conf["not_fragmentary"]["parameters"][key])
+                evaluated[key] = self.evaluate(value,
+                    self.json_conf.not_fragmentary["parameters"][key])
             except Exception as err:
                 self.logger.error(
                     """Exception while calculating putative fragments. Key: {}, \
                     Transcript value: {} (type {}) \
                     configuration value: {} (type {}).""".format(
-                        key, value, type(value), self.json_conf["not_fragmentary"]["parameters"][key],
-                        type(self.json_conf["not_fragmentary"]["parameters"][key])
+                        key, value, type(value), self.json_conf.not_fragmentary["parameters"][key],
+                        type(self.json_conf.not_fragmentary["parameters"][key])
                     ))
                 self.logger.exception(err)
                 raise err
-        if eval(self.json_conf["not_fragmentary"]["compiled"]) is True:
+        if eval(self.json_conf.not_fragmentary["compiled"]) is True:
             self.logger.debug("%s cannot be a fragment according to the definitions, keeping it",
                               self.id)
             fragment = False

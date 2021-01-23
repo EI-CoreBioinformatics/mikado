@@ -6,11 +6,11 @@ This module defines the functionalities needed to verify the integrity and compl
 of Mikado configuration files. Missing values are replaced with default ones,
 while existing values are checked for type and consistency.
 """
+import dataclasses
 
 import io
 import json
 import os.path
-import pickle
 import re
 from dataclasses import asdict
 from multiprocessing import get_start_method
@@ -19,7 +19,6 @@ import jsonschema
 import pkg_resources
 import yaml
 from pkg_resources import resource_stream, resource_filename
-from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
 from ..exceptions import InvalidJson, UnrecognizedRescaler
 from ..utilities import merge_dictionaries
 from ..utilities.log_utils import create_default_logger
@@ -143,10 +142,10 @@ def extend_with_default(validator_class, resolver=None, simple=False):
     )
 
 
-def check_scoring(json_conf):
+def check_scoring(json_conf: Union[MikadoConfiguration, DaijinConfiguration]):
     """
     :param json_conf: configuration dictionary to check.
-    :type json_conf: dict
+    :type json_conf: (MikadoConfiguration|DaijinConfiguration)
 
     :param key: key in the dictionary leading to the store to check. Default: "scoring"
     :type key: str
@@ -172,12 +171,14 @@ def check_scoring(json_conf):
     invalid_filter = set()
     from ..transcripts.transcript import Transcript
     available_metrics = Transcript.get_available_metrics()
-    if "scoring" not in json_conf:
+    scoring = json_conf.scoring
+
+    if scoring is None:
         raise InvalidJson("\"Scoring\" key not find in the scoring dictionary.")
-    elif len(json_conf["scoring"]) == 0:
+    elif len(scoring) == 0:
         raise InvalidJson("Empty \"scoring\" dictionary.")
 
-    jdict = json_conf["scoring"].copy()
+    jdict = scoring.copy()
     validator = extend_with_default(jsonschema.Draft7Validator)
 
     for parameter in jdict:
@@ -210,17 +211,17 @@ def check_scoring(json_conf):
             invalid_raw.add(parameter)
 
         if jdict[parameter]["rescaling"] == "target":
-            if "value" not in json_conf["scoring"][parameter]:
+            if "value" not in jdict[parameter]:
                 message = """Target rescaling requested for {0} but no target value specified.
                     Please specify it with the \"value\" keyword.\n{1}"""
-                message = message.format(parameter, json_conf["scoring"][parameter])
+                message = message.format(parameter, json_conf.scoring[parameter])
                 raise UnrecognizedRescaler(message)
             elif jdict[parameter]["use_raw"] is True:
                 invalid_raw.add(parameter)
 
-        if "filter" in json_conf["scoring"][parameter] and "metric" in json_conf["scoring"][parameter]["filter"]:
-            if json_conf["scoring"][parameter]["filter"]["metric"] not in available_metrics:
-                parameters_not_found.append(json_conf["scoring"][parameter]["filter"]["metric"])
+        if "filter" in jdict[parameter] and "metric" in jdict[parameter]["filter"]:
+            if jdict[parameter]["filter"]["metric"] not in available_metrics:
+                parameters_not_found.append(jdict[parameter]["filter"]["metric"])
 
     if len(parameters_not_found) > 0 or len(double_parameters) > 0 or len(invalid_filter) > 0 or len(invalid_raw) > 0:
         err_message = ''
@@ -241,12 +242,13 @@ def check_scoring(json_conf):
             \t{0}""".format("\n\t".join(list(invalid_raw)))
         raise InvalidJson(err_message)
 
-    json_conf["scoring"] = jdict
+    json_conf.scoring = jdict
+    assert json_conf.scoring is not None
 
     return json_conf
 
 
-def check_all_requirements(json_conf):
+def check_all_requirements(json_conf: Union[MikadoConfiguration,DaijinConfiguration]):
     """
     Function to check all the "requirements" sections of the configuration.
 
@@ -262,33 +264,34 @@ def check_all_requirements(json_conf):
                                           "requirements_blueprint.json")) as rs_blueprint:
         require_schema = json.loads(rs_blueprint.read())
 
-    if not hasattr(json_conf, "requirements"):
+    if not hasattr(json_conf, "requirements") or len(json_conf.requirements) == 0:
         raise InvalidJson("No minimal requirements specified!")
 
-    for section in ["requirements", "as_requirements", "cds_requirements", "not_fragmentary"]:
-        if not hasattr(json_conf, section):
-            json_conf.section = dict()
-            if section != "cds_requirements":
-                json_conf.section.update(json_conf.requirements)
-                json_conf.section["expression"] = json_conf.section["__expression"][:]
-                del json_conf.section["__expression"]
-            else:
-                json_conf.section["parameters"] = {
+    for section_name in ["requirements", "as_requirements", "cds_requirements", "not_fragmentary"]:
+        if not hasattr(json_conf, section_name) or getattr(json_conf, section_name) is None:
+            section = dict()
+            if section_name == "cds_requirements":
+                section["parameters"] = {
                     "selected_cds_length": {"operator": "ge",
-                                            "value": json_conf.get("pick", dict()).get("orf_loading", dict()).get(
-                                                "minimal_orf_length", 0)}}
-                json_conf.section["expression"] = ["selected_cds_length"]
+                                            "value": json_conf.pick.orf_loading.minimal_orf_length}}
+                section["expression"] = ["selected_cds_length"]
+            else:
+                section.update(json_conf.requirements)
+                section["expression"] = section["__expression"][:]
+                del section["__expression"]
+        else:
+            section = getattr(json_conf, section_name)
 
         # Check requirements will MODIFY IN PLACE the expression, so the copying
         # must happen before, not after.
+
         try:
-            json_conf = check_requirements(json_conf,
-                                           require_schema,
-                                           section)
+            section = check_requirements(section, require_schema=require_schema, index=section_name)
         except (InvalidJson, SyntaxError) as exc:
-            print(json_conf[section]["expression"])
-            print(type(json_conf[section]["expression"]))
+            print(section["expression"])
+            print(type(section["expression"]))
             raise exc
+        setattr(json_conf, section_name, section)
 
     return json_conf
 
@@ -296,20 +299,20 @@ def check_all_requirements(json_conf):
 key_pattern = re.compile(r"([^ ()]+)")
 
 
-def check_requirements(json_conf, require_schema, index):
+def check_requirements(section: dict, require_schema, index: str):
     """
     Function to check the "requirements" section of the configuration.
     Each filtering function will be checked for:
     - validity of the expression (it can be interpreted by Mikado)
     - validity of the parameter (it is a valid Metric)
 
-    :param json_conf: configuration dictionary to check.
-    :type json_conf: [MikadoConfiguration|DaijinConfiguration]
+    :param section: configuration dictionary to check.
+    :type section: dict
 
     :param require_schema: the requirements section of the JSON schema.
     :type require_schema: dict
 
-    :return: json_conf
+    :return: section
     :rtype dict
 
     """
@@ -319,13 +322,13 @@ def check_requirements(json_conf, require_schema, index):
     from ..transcripts.transcript import Transcript
     available_metrics = Transcript.get_available_metrics()
 
-    if "parameters" not in json_conf.index:
+    if "parameters" not in section:
         raise InvalidJson(
             "The {} field must have a \"parameters\" subfield!".format(index))
-    for key in json_conf.index["parameters"]:
+    for key in section["parameters"]:
         key_value = None
         dots = key.split(".")
-        if dots[0] == "external":
+        if dots[0] == "external" or dots[0] == "attributes":
             if len(dots) == 1 or len(dots) > 3:
                 parameters_not_found.append(dots[0])
                 continue
@@ -333,7 +336,7 @@ def check_requirements(json_conf, require_schema, index):
                 key_name = ".".join(dots)
             else:
                 key_name = ".".join(dots[:-1])
-                print(key_name)
+                # print(key_name)
             key_value = dots[1]
         else:
             key_name = dots[0]
@@ -344,16 +347,16 @@ def check_requirements(json_conf, require_schema, index):
                 parameters_not_found.append(key_name)
                 continue
         if not jsonschema.Draft7Validator(require_schema["definitions"]["parameter"]).is_valid(
-                json_conf.index["parameters"][key]):
+                section["parameters"][key]):
             errors = list(jsonschema.Draft7Validator(require_schema).iter_errors(
-                json_conf.index["parameters"][key]
+                section["parameters"][key]
             ))
             raise InvalidJson("Invalid parameter for {0} in {1}: \n{2}".format(
                 key, index, errors))
 
-        json_conf.index["parameters"][key]["name"] = key_name
+        section["parameters"][key]["name"] = key_name
         if key_value:
-            json_conf.index["parameters"][key]["source"] = key_value
+            section["parameters"][key]["source"] = key_value
 
     if len(parameters_not_found) > 0:
         raise InvalidJson(
@@ -362,30 +365,30 @@ def check_requirements(json_conf, require_schema, index):
             ))
 
     # Create automatically a filtering expression
-    if "__expression" in json_conf.index:
-        json_conf.index["expression"] = json_conf.index["__expression"][:]
+    if "__expression" in section:
+        section["expression"] = section["__expression"][:]
 
-    if "expression" not in json_conf.index:
-        json_conf[index]["expression"] = " and ".join(
-            list(json_conf[index]["parameters"].keys()))
-        keys = json_conf.index["parameters"].keys()
-        newexpr = json_conf.index["expression"][:]
-        json_conf.index["__expression"] = json_conf.index["expression"][:]
+    if "expression" not in section:
+        section["expression"] = " and ".join(
+            list(section["parameters"].keys()))
+        keys = section["parameters"].keys()
+        newexpr = section["expression"][:]
+        section["__expression"] = section["expression"][:]
     else:
         if not jsonschema.Draft7Validator(
                 require_schema["definitions"]["expression"]).is_valid(
-                    json_conf.index["expression"]):
+                    section["expression"]):
             raise InvalidJson("Invalid expression field")
 
-        json_conf.index["__expression"] = json_conf.index["expression"][:]
+        section["__expression"] = section["expression"][:]
 
-        expr = " ".join(json_conf.index["expression"])
+        expr = " ".join(section["expression"])
         newexpr = expr[:]
 
         keys = set([key for key in key_pattern.findall(expr) if key not in ("and", "or", "not", "xor")])
 
         diff_params = set.difference(
-            set(keys), set(json_conf.index["parameters"].keys()))
+            set(keys), set(section["parameters"].keys()))
 
         if len(diff_params) > 0:
             raise InvalidJson(
@@ -401,11 +404,11 @@ def check_requirements(json_conf, require_schema, index):
     except SyntaxError:
         raise InvalidJson("Invalid expression for {}:\n{}".format(index, newexpr))
 
-    json_conf.index["expression"] = newexpr
-    return json_conf
+    section["expression"] = newexpr
+    return section
 
 
-def check_db(json_conf):
+def check_db(json_conf: Union[MikadoConfiguration, DaijinConfiguration]):
 
     """
     Function to check the validity of the database options.
@@ -414,6 +417,14 @@ def check_db(json_conf):
     """
 
     if json_conf.db_settings.dbtype in ("mysql", "postgresql"):
+        if json_conf.db_settings.dbhost is None:
+            raise InvalidJson(
+                "No host specified for the {0} database!".format(
+                    json_conf.db_settings.dbtype))
+        if json_conf.db_settings.dbuser is None:
+            raise InvalidJson(
+                "No user specified for the {0} database!".format(
+                    json_conf.db_settings.dbtype))
         if json_conf.db_settings.dbport == 0:
             if json_conf.db_settings.dbtype == "mysql":
                 json_conf.db_settings.dbport = 3306
@@ -426,17 +437,12 @@ def check_db(json_conf):
                                            json_conf.db_settings.db)):
                 json_conf.db_settings.db = os.path.join(
                     os.getcwd(), json_conf.db_settings.db)
-            elif os.path.exists(os.path.join(
-                os.path.dirname(json_conf.filename),
-                    json_conf.db_settings.db
-            )):
-                json_conf.db_settings.db = os.path.join(
-                    os.path.dirname(json_conf.filename),
-                    json_conf.db_settings.db)
+            elif os.path.exists(os.path.join(os.path.dirname(json_conf.filename or ""), json_conf.db_settings.db)):
+                json_conf.db_settings.db = os.path.join(os.path.dirname(json_conf.filename or ""),
+                                                        json_conf.db_settings.db)
             else:
-                json_conf.db_settings.db = os.path.join(
-                    os.path.dirname(json_conf.filename),
-                    json_conf.db_settings.db)
+                json_conf.db_settings.db = os.path.join(os.path.dirname(json_conf.filename or ""),
+                                                        json_conf.db_settings.db)
 
     return json_conf
 
@@ -469,7 +475,8 @@ def create_validator(simple=False):
     return validator
 
 
-def _check_scoring_file(json_conf: Union[MikadoConfiguration, DaijinConfiguration], logger: Logger):
+def _check_scoring_file(json_conf: Union[MikadoConfiguration, DaijinConfiguration], logger: Logger) -> Union[
+    DaijinConfiguration, MikadoConfiguration]:
 
     """The purpose of this section is the following:
     - check that the scoring file exists somewhere different from the system folder. If it does, check whether it is
@@ -517,45 +524,38 @@ def _check_scoring_file(json_conf: Union[MikadoConfiguration, DaijinConfiguratio
     for option in options:
         if not os.path.exists(option):
             continue
-        elif option.endswith(("yaml", "json")):
+        if option.endswith(("yaml", "json", "toml")):
             with open(option) as scoring_file:
                 if option.endswith("yaml"):
                     scoring = yaml.load(scoring_file, Loader=yLoader)
+                elif option.endswith("toml"):
+                    scoring = toml.load(scoring_file)
                 else:
                     scoring = json.loads(scoring_file.read())
                 if not isinstance(scoring, dict):
                     continue
+                for key, item in scoring.items():
+                    assert hasattr(json_conf, key), key
+                    setattr(json_conf, key, item)
                 try:
-                    scoring = check_scoring(scoring)
-                    scoring = check_all_requirements(scoring)
+                    json_conf = check_scoring(json_conf)
+                    json_conf = check_all_requirements(json_conf)
                 except InvalidJson:
                     continue
-                json_conf = merge_dictionaries(json_conf, scoring)
+                for key in scoring:
+                    setattr(json_conf, key, scoring[key])
                 found = True
                 json_conf.scoring_file = option
-        elif option.endswith(("model", "pickle")):
-            with open(option, "rb") as forest:
-                scoring = pickle.load(forest)
-                if not isinstance(scoring, dict):
-                    continue
-                elif "scoring" not in scoring:
-                    continue
-                elif not isinstance(scoring["scoring"], (RandomForestRegressor, RandomForestClassifier)):
-                    continue
-                del scoring["scoring"]
-                json_conf = merge_dictionaries(json_conf, scoring)
-                json_conf = check_all_requirements(json_conf)
-                json_conf["scoring_file"] = option
-                found = True
         if found is True:
             logger.info("Found the correct option: %s", option)
             json_conf.scoring_file = option
             break
 
-    return scoring_file
+    return json_conf
 
 
-def check_json(json_conf, simple=False, external_dict=None, logger=None):
+def check_json(json_conf: Union[dict, MikadoConfiguration, DaijinConfiguration],
+               simple=False, external_dict=None, logger=None) -> Union[MikadoConfiguration, DaijinConfiguration]:
 
     """
     Wrapper for the various checks performed on the configuration file.
@@ -590,8 +590,10 @@ def check_json(json_conf, simple=False, external_dict=None, logger=None):
         elif not json_conf.pick:
             raise AssertionError("Files section missing from the 'pick' section.")
 
-        scoring_dictionary = _check_scoring_file(json_conf, logger)
+        json_conf = _check_scoring_file(json_conf, logger)
+        assert json_conf.scoring is not None
 
+        # TODO change this
         if external_dict is not None:
             if not isinstance(external_dict, dict):
                 raise TypeError("Passed an invalid external dictionary, type {}".format(
@@ -605,19 +607,19 @@ def check_json(json_conf, simple=False, external_dict=None, logger=None):
 
         json_conf = check_db(json_conf)
         # json_conf = check_blast(json_conf, json_file)
-        validator.validate(json_conf)
-        if json_conf.get("multiprocessing_method", None):
-            json_conf["multiprocessing_method"] = get_start_method()
+        validator.validate(dataclasses.asdict(json_conf))
+        if json_conf.multiprocessing_method is None:
+            json_conf.multiprocessing_method = get_start_method()
     except Exception as exc:
         logger.exception(exc)
         raise
 
-    seed = json_conf.get("seed", None)
+    seed = json_conf.seed
     if seed is None:
         # seed = numpy.random.randint(0, 2**32 - 1)
         seed = random.randint(0, 2**32 - 1)
         logger.info("Random seed: {}", seed)
-        json_conf["seed"] = seed
+        json_conf.seed = seed
 
     if seed is not None:
         # numpy.random.seed(seed % (2 ** 32 - 1))
@@ -626,10 +628,10 @@ def check_json(json_conf, simple=False, external_dict=None, logger=None):
         # numpy.random.seed(None)
         random.seed(None)
 
-    return json_conf, scoring_dictionary
+    return json_conf
 
 
-def to_json(string, simple=False, logger=None):
+def to_json(string, simple=False, logger=None) -> Union[MikadoConfiguration, DaijinConfiguration]:
     """
     Function to serialise the JSON for configuration and check its consistency.
 
@@ -652,9 +654,11 @@ def to_json(string, simple=False, logger=None):
     try:
         if isinstance(string, dict):
             json_dict = string
+        elif isinstance(string, (MikadoConfiguration, DaijinConfiguration)):
+            json_dict = string
         elif string is None or string == '' or string == dict():
-            json_dict = dict()
-            string = os.path.join(os.path.abspath(os.getcwd()), "mikado.json")
+            json_dict = MikadoConfiguration()
+            string = None
         else:
             string = os.path.abspath(string)
             if not os.path.exists(string) or os.stat(string).st_size == 0:
@@ -673,7 +677,7 @@ def to_json(string, simple=False, logger=None):
     except Exception as exc:
         raise OSError((exc, string))
 
-    seed = json_dict.get("seed", 0)
+    seed = json_dict.seed
     if seed == 0:
         seed = random.randint(1, 2 ** 32 - 1)
         logger.info("Random seed: {}", seed)
@@ -682,5 +686,11 @@ def to_json(string, simple=False, logger=None):
         random.seed(seed % (2 ** 32 - 1))
     else:
         random.seed(None)
+
+    if isinstance(json_dict, dict):
+        try:
+            json_dict = dacite.from_dict(data_class=MikadoConfiguration, data=json_dict)
+        except:
+            json_dict = dacite.from_dict(data_class=DaijinConfiguration, data=json_dict)
 
     return json_dict

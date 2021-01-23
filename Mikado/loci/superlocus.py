@@ -970,7 +970,7 @@ class Superlocus(Abstractlocus):
         self.subloci = []
 
         # First, check whether we need to remove CDS from anything.
-        for tid in super()._check_not_passing(section="cds_requirements"):
+        for tid in super()._check_not_passing(section_name="cds_requirements"):
             self.transcripts[tid].strip_cds(strand_specific=True)
             self.metrics_calculated = False
 
@@ -1429,17 +1429,17 @@ class Superlocus(Abstractlocus):
         """Quick function to evaluate the filtering expression, if it is present."""
 
         # TODO this must be different
-        for section in ["requirements", "as_requirements", "cds_requirements"]:
-            if section in self.json_conf:
-                if "compiled" in self.json_conf[section]:
-                    return
-                else:
-                    self.json_conf[section]["compiled"] = compile(
-                        self.json_conf[section]["expression"],
-                        "<json>", "eval")
-                    return
+        def compile_expression(section):
+            if "compiled" in section:
+                pass
             else:
-                continue
+                section["compiled"] = compile(section["expression"], "<json>", "eval")
+            return section
+
+        self.json_conf.requirements = compile_expression(self.json_conf.requirements)
+        self.json_conf.not_fragmentary = compile_expression(self.json_conf.not_fragmentary)
+        self.json_conf.as_requirements = compile_expression(self.json_conf.as_requirements)
+        self.json_conf.cds_requirements = compile_expression(self.json_conf.cds_requirements)
 
     # ############ Class methods ###########
 

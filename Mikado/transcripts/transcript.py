@@ -19,6 +19,8 @@ from sqlalchemy import and_
 from sqlalchemy import bindparam
 from sqlalchemy.ext import baked
 from sqlalchemy.sql.expression import desc, asc  # SQLAlchemy imports
+
+from ..configuration.configurator import to_json
 from ..exceptions import ModificationError, InvalidTranscript, CorruptIndex
 from ..parsers.GFF import GffLine
 from ..parsers.GTF import GtfLine
@@ -34,12 +36,13 @@ from .transcript_methods.printing import create_lines_cds
 from .transcript_methods.printing import create_lines_no_cds, create_lines_bed, as_bed12
 from ..utilities.intervaltree import Interval, IntervalTree
 from ..utilities.namespace import Namespace
-from Mikado.configuration.configuration import MikadoConfiguration
-from Mikado.configuration.daijin_configuration import DaijinConfiguration
+from ..configuration.configuration import MikadoConfiguration
+from ..configuration.daijin_configuration import DaijinConfiguration
 from collections.abc import Hashable
 import numpy as np
 import pprint
 import pysam
+import dataclasses
 
 
 class Metric(property):
@@ -612,7 +615,7 @@ class Transcript:
 
         state = dict()
         for key, item in self.__dict__.items():
-            if key.endswith("json_conf") or key in ("_Transcript__segmenttree", "_Transcript__cds_tree"):
+            if key in ("_Transcript__segmenttree", "_Transcript__cds_tree"):
                 continue
             try:
                 state[key] = copy.deepcopy(item)
@@ -622,29 +625,13 @@ class Transcript:
         self.logger = logger
 
         if hasattr(self, "json_conf") and self.json_conf is not None:
-            if "json_conf" not in state:
-                state["json_conf"] = dict()
-                for key in self.json_conf:
-                    if not isinstance(self.json_conf[key], dict):
-                        if key == "compiled":
-                            continue
-                        if isinstance(self.json_conf[key], pysam.FastaFile):
-                            state["json_conf"][key] = self.json_conf[key].filename
-                        else:
-                            state["json_conf"][key] = copy.deepcopy(self.json_conf[key])
-                    else:
-                        state["json_conf"][key] = dict()
-                        for subkey in self.json_conf[key]:
-                            if subkey == "compiled":
-                                continue
-                            else:
-                                if isinstance(self.json_conf[key][subkey], pysam.FastaFile):
-                                    state["json_conf"][key][subkey] = self.json_conf[key][subkey].filename
-                                else:
-                                    try:
-                                        state["json_conf"][key][subkey] = copy.deepcopy(self.json_conf[key][subkey])
-                                    except TypeError:
-                                        raise TypeError((key, subkey, self.json_conf[key][subkey]))
+            state["json_conf"] = self.json_conf.copy()
+            if isinstance(state["json_conf"].reference.genome, pysam.FastaFile):
+                state["json_conf"][key] = state["json_conf"].reference.genome.filename
+            state["json_conf"].requirements.pop("compiled", None)
+            state["json_conf"].as_requirements.pop("compiled", None)
+            state["json_conf"].cds_requirements.pop("compiled", None)
+            state["json_conf"].not_fragmentary.pop("compiled", None)
 
         if hasattr(self, "session"):
             if state["session"] is not None:
@@ -1669,7 +1656,7 @@ exon data is on a different chromosome, {exon_data.chrom}. \
 
         assert isinstance(json_conf, (MikadoConfiguration, DaijinConfiguration)) or json_conf is None
         if json_conf is None:
-            json_conf = MikadoConfiguration()
+            json_conf = to_json(None)
 
         self.__json_conf = json_conf
 

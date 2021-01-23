@@ -208,7 +208,6 @@ def setup(args):
 
     from ..configuration.configurator import to_json
     mikado_config = to_json(args.json_conf)
-    # mikado_config = MikadoConfiguration()
 
     if args.start_method:
         mikado_config.multiprocessing_method = args.start_method

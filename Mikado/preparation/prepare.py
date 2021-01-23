@@ -344,7 +344,7 @@ def perform_check(keys, shelve_names, mikado_config: MikadoConfiguration, logger
     logger.setLevel(logging.INFO)
     # logger.info("Finished to analyse %d transcripts (%d retained)",
     #             len(exon_lines), counter)
-    logger.setLevel(mikado_config.level)
+    logger.setLevel(mikado_config.log_settings.log_level)
     return
 
 

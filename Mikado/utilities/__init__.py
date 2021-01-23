@@ -17,7 +17,6 @@ from . import intervaltree
 from .intervaltree import Interval, IntervalTree
 from collections import Counter
 
-from ..configuration import MikadoConfiguration
 from ..exceptions import InvalidJson
 
 __author__ = 'Luca Venturini'
@@ -268,79 +267,6 @@ class NumpyEncoder(json.JSONEncoder):
             return obj.tolist()
         else:
             return super(NumpyEncoder, self).default(obj)
-
-
-def parse_list_file(cfg: MikadoConfiguration, list_file):
-    json_conf = dict()
-    json_conf["prepare"]["files"]["gff"] = []
-    json_conf["prepare"]["files"]["labels"] = []
-    json_conf["prepare"]["files"]["strand_specific_assemblies"] = []
-    json_conf["prepare"]["files"]["source_score"] = dict()
-    json_conf["prepare"]["files"]["reference"] = []
-    json_conf["prepare"]["files"]["exclude_redundant"] = []
-    json_conf["prepare"]["files"]["strip_cds"] = []
-    json_conf["pick"]["chimera_split"]["skip"] = []
-    files_counter = Counter()
-
-    if isinstance(list_file, str):
-        list_file = open(list_file)
-
-    for line in list_file:
-        fields = line.rstrip().split("\t")
-        gff_name, label, stranded = fields[:3]
-        if not os.path.exists(gff_name):
-            raise ValueError("Invalid file name: {}".format(gff_name))
-        if label in json_conf["prepare"]["files"]["labels"]:
-            raise ValueError("Non-unique label specified: {}".format(label))
-        if stranded.lower() not in ("true", "false"):
-            raise ValueError("Malformed line for the list: {}".format(line))
-        if gff_name in json_conf["prepare"]["files"]["gff"]:
-            raise ValueError("Repeated prediction file: {}".format(line))
-        elif label != '' and label in json_conf["prepare"]["files"]["labels"]:
-            raise ValueError("Repeated label: {}".format(line))
-        json_conf["prepare"]["files"]["gff"].append(gff_name)
-        json_conf["prepare"]["files"]["labels"].append(label)
-        if stranded.capitalize() == "True":
-            json_conf["prepare"]["files"]["strand_specific_assemblies"].append(gff_name)
-        if len(fields) >= 4:
-            try:
-                score = float(fields[3])
-            except ValueError:
-                score = 0
-            json_conf["prepare"]["files"]["source_score"][label] = score
-        for arr, pos, default in [("reference", 4, False), ("exclude_redundant", 5, False),
-                                  ("strip_cds", 6, False), ("skip_split", 7, False)]:
-            try:
-                val = fields[pos]
-                if val.lower() in ("false", "true"):
-                    val = eval(val.capitalize())
-                else:
-                    raise ValueError("Malformed line. The last two fields should be either True or False.")
-            except IndexError:
-                val = default
-            if arr == "skip_split":
-                json_conf["pick"]["chimera_split"]["skip"].append(val)
-            else:
-                json_conf["prepare"]["files"][arr].append(val)
-
-    files_counter.update(json_conf["prepare"]["files"]["gff"])
-    if files_counter.most_common()[0][1] > 1:
-        raise InvalidJson(
-            "Repeated elements among the input GFFs! Duplicated files: {}".format(
-                ", ".join(_[0] for _ in files_counter.most_common() if _[1] > 1)))
-
-    assert "exclude_redundant" in json_conf["prepare"]["files"]
-
-    cfg.prepare.files.gff = json_conf["prepare"]["files"]["gff"]
-    cfg.prepare.files.labels = json_conf["prepare"]["files"]["labels"]
-    cfg.prepare.files.strand_specific_assemblies = json_conf["prepare"]["files"]["strand_specific_assemblies"]
-    cfg.prepare.files.source_score = json_conf["prepare"]["files"]["source_score"]
-    cfg.prepare.files.reference = json_conf["prepare"]["files"]["reference"]
-    cfg.prepare.files.exclude_redundant = json_conf["prepare"]["files"]["exclude_redundant"]
-    cfg.prepare.files.strip_cds = json_conf["prepare"]["files"]["strip_cds"]
-    cfg.pick.chimera_split.skip = json_conf["pick"]["chimera_split"]["skip"]
-
-    return json_conf
 
 
 def percentage(value):

@@ -12,8 +12,7 @@ import logging
 import logging.handlers
 
 from ..configuration import MikadoConfiguration
-from ..configuration.prepare_config import PrepareConfiguration
-from ..utilities import path_join, parse_list_file
+from ..utilities import path_join
 from ..utilities.log_utils import formatter
 from ..exceptions import InvalidJson
 import random
@@ -23,23 +22,107 @@ from collections import Counter
 __author__ = 'Luca Venturini'
 
 
+def parse_list_file(cfg, list_file):
+    json_conf = {
+        "pick": {
+            "chimera_split": {
+                "skip": []
+            }
+        },
+        "prepare": {
+            "files": {
+                "gff": [],
+                "labels": [],
+                "strand_specific_assemblies": [],
+                "source_score": {},
+                "reference": [],
+                "exclude_redundant": [],
+                "strip_cds": [],
+                "skip": []
+            }
+        }
+    }
+
+    files_counter = Counter()
+
+    if isinstance(list_file, str):
+        list_file = open(list_file)
+
+    for line in list_file:
+        fields = line.rstrip().split("\t")
+        gff_name, label, stranded = fields[:3]
+        if not os.path.exists(gff_name):
+            raise ValueError("Invalid file name: {}".format(gff_name))
+        if label in json_conf["prepare"]["files"]["labels"]:
+            raise ValueError("Non-unique label specified: {}".format(label))
+        if stranded.lower() not in ("true", "false"):
+            raise ValueError("Malformed line for the list: {}".format(line))
+        if gff_name in json_conf["prepare"]["files"]["gff"]:
+            raise ValueError("Repeated prediction file: {}".format(line))
+        elif label != '' and label in json_conf["prepare"]["files"]["labels"]:
+            raise ValueError("Repeated label: {}".format(line))
+        json_conf["prepare"]["files"]["gff"].append(gff_name)
+        json_conf["prepare"]["files"]["labels"].append(label)
+        if stranded.capitalize() == "True":
+            json_conf["prepare"]["files"]["strand_specific_assemblies"].append(gff_name)
+        if len(fields) >= 4:
+            try:
+                score = float(fields[3])
+            except ValueError:
+                score = 0
+            json_conf["prepare"]["files"]["source_score"][label] = score
+        for arr, pos, default in [("reference", 4, False), ("exclude_redundant", 5, False),
+                                  ("strip_cds", 6, False), ("skip_split", 7, False)]:
+            try:
+                val = fields[pos]
+                if val.lower() in ("false", "true"):
+                    val = eval(val.capitalize())
+                else:
+                    raise ValueError("Malformed line. The last two fields should be either True or False.")
+            except IndexError:
+                val = default
+            if arr == "skip_split":
+                json_conf["pick"]["chimera_split"]["skip"].append(val)
+            else:
+                json_conf["prepare"]["files"][arr].append(val)
+
+    files_counter.update(json_conf["prepare"]["files"]["gff"])
+    if files_counter.most_common()[0][1] > 1:
+        raise InvalidJson(
+            "Repeated elements among the input GFFs! Duplicated files: {}".format(
+                ", ".join(_[0] for _ in files_counter.most_common() if _[1] > 1)))
+
+    assert "exclude_redundant" in json_conf["prepare"]["files"]
+
+    cfg.prepare.files.gff = json_conf["prepare"]["files"]["gff"]
+    cfg.prepare.files.labels = json_conf["prepare"]["files"]["labels"]
+    cfg.prepare.files.strand_specific_assemblies = json_conf["prepare"]["files"]["strand_specific_assemblies"]
+    cfg.prepare.files.source_score = json_conf["prepare"]["files"]["source_score"]
+    cfg.prepare.files.reference = json_conf["prepare"]["files"]["reference"]
+    cfg.prepare.files.exclude_redundant = json_conf["prepare"]["files"]["exclude_redundant"]
+    cfg.prepare.files.strip_cds = json_conf["prepare"]["files"]["strip_cds"]
+    cfg.pick.chimera_split.skip = json_conf["pick"]["chimera_split"]["skip"]
+
+    return json_conf
+
+
 def parse_prepare_options(args, mikado_config):
-    if args.codon_table is not None:
+    if args.codon_table:
         try:
             args.codon_table = int(args.codon_table)
         except ValueError:
             pass
         mikado_config.serialise.codon_table = args.codon_table
 
-    if args.log is not None:
-        args.log.close()
-        mikado_config.prepare.files.log = args.log.name
+    # if args.log:
+    #     args.log.close()
+    #     mikado_config.prepare.files.log = args.log.name
 
-    if args.seed is not None:
-        mikado_config.seed = args.seed
-        random.seed(args.seed % (2 ** 32 - 1))
-    else:
-        random.seed(None)
+    # if args.seed:
+    #     mikado_config.seed = args.seed
+    #     random.seed(args.seed % (2 ** 32 - 1))
+    # else:
+    #     random.seed(None)
 
     if getattr(args, "minimum_cdna_length", None) not in (None, False):
         mikado_config.prepare.minimum_cdna_length = args.minimum_cdna_length
@@ -69,9 +152,9 @@ def parse_prepare_options(args, mikado_config):
                 ))
         mikado_config.prepare.files.gff = args.gff
         num_files = len(mikado_config.prepare.files.gff)
-        if args.strand_specific is True:
+        if args.strand_specific:
             mikado_config.prepare.strand_specific = True
-        elif args.strand_specific_assemblies is not None:
+        elif args.strand_specific_assemblies:
             args.strand_specific_assemblies = args.strand_specific_assemblies.split(",")
             if len(args.strand_specific_assemblies) > num_files:
                 raise ValueError("Incorrect number of strand-specific assemblies specified!")
@@ -107,8 +190,10 @@ def parse_prepare_options(args, mikado_config):
         mikado_config.prepare.minimum_cdna_length = args.minimum_cdna_length
     if args.max_intron_length:
         mikado_config.prepare.max_intron_length = args.max_intron_length
-    if args.single:
+    if getattr(args, "single", None) not in (None, False):
         mikado_config.prepare.single = args.single
+
+    return mikado_config
 
 
 def setup(args):

@@ -76,7 +76,7 @@ class ClusteringConfiguration:
 class FragmentsConfiguration:
     remove: bool = True
     max_distance: int = 2000
-    valid_ccodes: list = field(default_factory=lambda: ["p", "P", "x", "X", "i", "m", "_", "e", "o"])
+    valid_class_codes: list = field(default_factory=lambda: ["p", "P", "x", "X", "i", "m", "_", "e", "o"])
 
 
 @dataclass

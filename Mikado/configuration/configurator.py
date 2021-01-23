@@ -12,6 +12,7 @@ import json
 import os.path
 import pickle
 import re
+from dataclasses import asdict
 from multiprocessing import get_start_method
 from logging import Logger
 import jsonschema
@@ -483,11 +484,13 @@ def _check_scoring_file(json_conf: dict, logger):
 
     overwritten = False
 
-    if json_conf.get("__loaded_scoring", json_conf["pick"]["scoring_file"]) != json_conf["pick"]["scoring_file"]:
+    if getattr(json_conf, "__loaded_scoring", json_conf.pick.scoring_file) != json_conf.pick.scoring_file:
         logger.debug("Overwriting the scoring configuration using '%s' as scoring file",
-                     json_conf["pick"]["scoring_file"])
+                     json_conf.pick.scoring_file)
         [json_conf.pop(_, None) for _ in ("__loaded_scoring",
             "scoring", "requirements", "as_requirements", "not_fragmentary")]
+
+    # TODO: Fix the following lines as is not clear what the idea behind 'model' and 'pickle' is
     elif all(_ in json_conf for _ in ["scoring", "requirements", "as_requirements", "not_fragmentary"]):
         try:
             if not json_conf.get("__loaded_scoring", "").endswith(("model", "pickle")):
@@ -593,11 +596,12 @@ def check_json(json_conf, simple=False, external_dict=None, logger=None):
     try:
         validator = create_validator(simple=simple)
         # This will check for consistency and add the default values if they are missing
-        validator.validate(json_conf)
-        if "pick" not in json_conf:
+
+        validator.validate(asdict(json_conf))
+        if not json_conf.pick:
             print(json_conf)
             raise AssertionError("Pick section missing from the configuration.")
-        elif "files" not in json_conf["pick"]:
+        elif not json_conf.pick:
             raise AssertionError("Files section missing from the 'pick' section.")
 
         json_conf, overwritten = _check_scoring_file(json_conf, logger)
@@ -670,13 +674,13 @@ def to_json(string, simple=False, logger=None):
                 raise InvalidJson("JSON file {} not found!".format(string))
             with open(string) as json_file:
                 if string.endswith(".yaml"):
-                    json_dict = yaml.load(json_file, Loader=yLoader)
+                    json_dict = yaml.load(json_file, Loader=yaml.Loader)
                 elif string.endswith(".toml"):
                     json_dict = toml.load(json_file)
                     assert isinstance(json_dict, dict)
                 else:
                     json_dict = json.loads(json_file.read())
-        json_dict["filename"] = string
+        json_dict.filename = string
         json_dict = check_json(json_dict, simple=simple, logger=logger)
 
     except Exception as exc:

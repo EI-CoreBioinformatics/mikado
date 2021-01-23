@@ -1399,10 +1399,10 @@ it is marked as having 0 retained introns. This is an error.".format(transcript=
 
     def _add_to_alternative_splicing_codes(self, code):
         """Method to retrieve the currently valid alternative splicing event codes"""
-        self.json_conf.pick.alternative_splicing.valid_ccodes = list(set(
-            list(self.json_conf.pick.alternative_splicing.valid_ccodes) + [code]
+        self.json_conf.pick.alternative_splicing.valid_class_codes = list(set(
+            list(self.json_conf.pick.alternative_splicing.valid_class_codes) + [code]
         ))
-        _valid_ccodes.validate(self.json_conf.pick.alternative_splicing.valid_ccodes)
+        _valid_ccodes.validate(self.json_conf.pick.alternative_splicing.valid_class_codes)
         self._remove_from_redundant_splicing_codes(code)
 
     def _add_to_redundant_splicing_codes(self, code):
@@ -1414,7 +1414,7 @@ it is marked as having 0 retained introns. This is an error.".format(transcript=
         self._remove_from_alternative_splicing_codes(code)
 
     def _remove_from_alternative_splicing_codes(self, *ccodes):
-        sub = self.json_conf.pick.alternative_splicing.valid_ccodes
+        sub = self.json_conf.pick.alternative_splicing.valid_class_codes
         for ccode in ccodes:
             if ccode in sub:
                 sub.remove(ccode)

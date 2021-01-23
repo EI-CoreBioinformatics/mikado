@@ -10,6 +10,8 @@ from pkg_resources import resource_filename, resource_stream
 import glob
 import argparse
 import sys
+
+from ..configuration import DaijinConfiguration, MikadoConfiguration
 from ..exceptions import InvalidJson
 from ..utilities import comma_split, percentage
 from ..utilities.namespace import Namespace
@@ -166,7 +168,8 @@ def create_config(args):
         args.daijin = True
 
     if args.daijin is not False:
-        config = __add_daijin_specs(args)
+        config = DaijinConfiguration()
+        # config = __add_daijin_specs(args)
     else:
         if args.full is True:
             default = to_json(None)
@@ -175,9 +178,9 @@ def create_config(args):
             del default["not_fragmentary"]
             del default["as_requirements"]
             del default["cds_requirements"]
-            config = default
+            config = MikadoConfiguration("mikado.json")
         else:
-            config = create_simple_config(seed=args.seed)
+            config = MikadoConfiguration(seed=args.seed)
 
     if args.external is not None:
         if args.external.endswith("json"):
@@ -189,13 +192,15 @@ def create_config(args):
         with open(args.external) as external:
             external_conf = loader(external)
         # Overwrite values specific to Mikado
+
+        # TODO: This needs to be tested
         if "mikado" in external_conf:
             mikado_conf = dict((key, val) for key, val in external_conf["mikado"].items() if key in config)
             config = merge_dictionaries(config, mikado_conf)
         config = merge_dictionaries(config, external_conf)
 
-    config["pick"]["files"]["subloci_out"] = args.subloci_out if args.subloci_out else ""
-    config["pick"]["files"]["monoloci_out"] = args.monoloci_out if args.monoloci_out else ""
+    config.pick.files.subloci_out = args.subloci_out if args.subloci_out else ""
+    config.pick.files.monoloci_out = args.monoloci_out if args.monoloci_out else ""
 
     if isinstance(args.gff, str):
         args.gff = args.gff.split(",")
@@ -204,14 +209,15 @@ def create_config(args):
     config = parse_prepare_options(args, config)
 
     if args.seed is not None:
-        config["seed"] = args.seed
+        config.seed = args.seed
 
     if args.junctions is not None:
-        config["serialise"]["files"]["junctions"] = args.junctions
+        config.serialise.files.junctions = args.junctions
 
     if args.blast_targets is not None:
-        config["serialise"]["files"]["blast_targets"] = args.blast_targets
+        config.serialise.files.blast_targets = args.blast_targets
 
+    # TODO: What does this do by removing the reference settings, {pick, serialise and prepare} files and db_settings?
     if args.no_files is True:
         for stage in ["pick", "prepare", "serialise"]:
             if "files" in config[stage]:
@@ -220,20 +226,20 @@ def create_config(args):
         del config["db_settings"]
 
     if args.only_reference_update is True or args.reference_update is True:
-        if len(config["prepare"]["files"]["reference"]) == 0:
+        if len(config.prepare.files.reference) == 0:
             logger = create_default_logger("configure")
             logger.error(
                 "No reference dataset provided! Please correct the issue or remove the \"--only-reference-update\" \
 switch.")
             sys.exit(1)
         else:
-            config["pick"]["run_options"]["only_reference_update"] = True
+            config.pick.run_options.only_reference_update = True
 
     if args.check_references is True:
-        config["pick"]["run_options"]["check_references"] = True
+        config.pick.run_options.check_references = True
 
     if args.report_all_orfs is True:
-        args.json_conf["pick"]["output_format"]["report_all_orfs"] = True
+        config.pick.output_format.report_all_orfs = True
 
     if args.scoring is not None:
         if args.copy_scoring is not False:
@@ -245,78 +251,70 @@ switch.")
                         print(line.decode().rstrip(), file=out)
             args.scoring = args.copy_scoring
 
-        config["pick"]["scoring_file"] = args.scoring
+        config.pick.scoring_file = args.scoring
 
     if args.cds_only is True:
-        if "clustering" not in config["pick"]:
-            config["pick"]["clustering"] = dict()
-        args.json_conf["pick"]["clustering"]["cds_only"] = True
+        config.pick.clustering.cds_only = True
 
     if args.as_cds_only is True:
-        args.json_conf["pick"]["alternative_splicing"]["cds_only"] = True
+        config.pick.alternative_splicing.cds_only = True
 
     if args.daijin is False and args.mode is not None and len(args.mode) == 1:
         args.mode = args.mode.pop()
         if args.mode == "nosplit":
-            config["pick"]["chimera_split"]["execute"] = False
+            config.pick.chimera_split.execute = False
         else:
-            config["pick"]["chimera_split"]["execute"] = True
+            config.pick.chimera_split.execute = True
             if args.mode == "split":
-                config["pick"]["chimera_split"]["blast_check"] = False
+                config.pick.chimera_split.blast_check = False
             else:
-                config["pick"]["chimera_split"]["blast_check"] = True
-                if "blast_params" not in config["pick"]["chimera_split"]:
-                    config["pick"]["chimera_split"]["blast_params"] = dict()
-                config["pick"]["chimera_split"]["blast_params"]["leniency"] = args.mode.upper()
+                config.pick.chimera_split.blast_check = True
+                config.pick.chimera_split.blast_params.leniency = args.mode.upper()
 
     if args.skip_split:
-        if not all(_ in config["prepare"]["files"]["labels"] for _ in args.skip_split):
+        if not all(_ in config.prepare.files.labels for _ in args.skip_split):
             raise InvalidJson("Some of the labels to skip for splitting are invalid: {}".format(
-                [_ for _ in args.skip_split if _ not in config["prepare"]["files"]["labels"]]
+                [_ for _ in args.skip_split if _ not in config.prepare.files.labels]
             ))
-        config["pick"]["chimera_split"]["skip"] = list(set(config["pick"]["chimera_split"]["skip"].extend(
+        config.pick.chimera_split.skip = list(set(config.pick.chimera_split.skip.extend(
             args.skip_split)))
 
     if args.pad is True:
-        config["pick"]["alternative_splicing"]["pad"] = True
+        config.pick.alternative_splicing.pad = True
 
     if args.min_clustering_cds_overlap is not None:
-        if "clustering" not in config["pick"]:
-            config["pick"]["clustering"] = dict()
-        config["pick"]["clustering"]["min_cds_overlap"] = args.min_clustering_cds_overlap
+        config.pick.clustering.min_cds_overlap = args.min_clustering_cds_overlap
 
     if args.min_clustering_cdna_overlap is not None:
-        if "clustering" not in config["pick"]:
-            config["pick"]["clustering"] = dict()
-        config["pick"]["clustering"]["min_cdna_overlap"] = args.min_clustering_cdna_overlap
+        config.pick.clustering.min_cdna_overlap = args.min_clustering_cdna_overlap
         if args.min_clustering_cds_overlap is None:
-            config["pick"]["clustering"]["min_cds_overlap"] = args.min_clustering_cdna_overlap
+            config.pick.clustering.min_cds_overlap = args.min_clustering_cdna_overlap
 
     if args.intron_range is not None:
-        config["pick"]["run_options"]["intron_range"] = sorted(args.intron_range)
+        config.pick.run_options.intron_range = sorted(args.intron_range)
 
     if args.codon_table is not None:
         try:
             args.codon_table = int(args.codon_table)
         except ValueError:
             pass
-        config["serialise"]["codon_table"] = args.codon_table
+        config.serialise.codon_table = args.codon_table
     else:
-        assert args.full is False or "codon_table" in config["serialise"]
+        assert args.full is False # or "codon_table" in config["serialise"]
 
-    config.pop("__loaded_scoring", None)
-    config.pop("scoring_file", None)
-    config.pop("filename", None)
-    config.pop("as_requirements", None)
-    config.pop("scoring", None)
-    config.pop("not_fragmentary", None)
-    config.pop("requirements", None)
+    # config.pop("__loaded_scoring", None)
+    # config.pop("scoring_file", None)
+    # config.pop("filename", None)
+    # config.pop("as_requirements", None)
+    # config.pop("scoring", None)
+    # config.pop("not_fragmentary", None)
+    # config.pop("requirements", None)
 
     if args.keep_disrupted_cds is True:
-        config["pick"]["alternative_splicing"]["keep_cds_disrupted_by_ri"] = True
+        config.pick.alternative_splicing.keep_cds_disrupted_by_ri = True
 
     if args.exclude_retained_introns is True:
-        config["pick"]["alternative_splicing"]["keep_retained_introns"] = False
+        config.pick.alternative_splicing.keep_retained_introns = False
 
     # Check that the configuration file is correct
     tempcheck = tempfile.NamedTemporaryFile("wt", suffix=".yaml", delete=False)

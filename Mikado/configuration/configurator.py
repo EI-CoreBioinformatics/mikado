@@ -671,9 +671,9 @@ def to_json(string, simple=False, logger=None) -> Union[MikadoConfiguration, Dai
                 else:
                     json_dict = json.loads(json_file.read())
             try:
-                json_dict = dacite.from_dict(data_class=MikadoConfiguration, data=json_dict)
+                json_dict = dacite.from_dict(data_class=MikadoConfiguration, data=asdict(json_dict))
             except:
-                json_dict = dacite.from_dict(data_class=DaijinConfiguration, data=json_dict)
+                json_dict = dacite.from_dict(data_class=DaijinConfiguration, data=asdict(json_dict))
 
         json_dict.filename = string
         json_dict = check_json(json_dict, simple=simple, logger=logger)

@@ -1,3 +1,4 @@
+import dacite
 import rapidjson as json
 import os
 import io
@@ -7,7 +8,7 @@ import jsonschema
 from pkg_resources import resource_stream, resource_filename
 from .configurator import extend_with_default, check_all_requirements, check_scoring, to_json
 from .configurator import create_cluster_config
-from . import print_config, check_has_requirements, print_toml_config
+from . import print_config, check_has_requirements, print_toml_config, DaijinConfiguration
 from ..exceptions import InvalidJson
 from ..utilities.log_utils import create_default_logger
 import sys
@@ -82,18 +83,14 @@ def create_daijin_base_config(simple=True):
     validator = create_daijin_validator(simple=simple)
     conf = dict()
     validator.validate(conf)
-    mikado_conf = to_json(None, simple=simple)
-    # mikado_conf = merge_dictionaries(mikado_conf, conf)
-
-    return mikado_conf
+    daijin_conf = dacite.from_dict(data_class=DaijinConfiguration, data=conf)
+    daijin_conf = to_json(daijin_conf, simple=simple)
+    return daijin_conf
 
 
 def _parse_sample_sheet(sample_sheet, config, logger):
 
     """Mini-function to parse the sample sheet."""
-
-    if "short_reads" not in config:
-        config["short_reads"] = dict()
 
     config["short_reads"]["r1"] = []
     config["short_reads"]["r2"] = []
@@ -189,55 +186,55 @@ def create_daijin_config(args, level="ERROR", piped=False):
 
     config = create_daijin_base_config(simple=(not args.full))
     if args.seed is not None and isinstance(args.seed, int) and args.seed not in (True, False):
-        config["seed"] = args.seed
-    assert "reference" in config, config.keys()
+        config.seed = args.seed
+    # assert "reference" in config, config.keys()
     if not os.path.exists(args.genome):
         error = "The genome FASTA file {} does not exist!".format(args.genome)
         logger.critical(error)
         raise ValueError(error)
 
-    config["reference"]["genome"] = args.genome
+    config.reference.genome = args.genome
     logger.setLevel("INFO")
-    index_present = os.path.exists(config["reference"]["genome"] + ".fai")
+    index_present = os.path.exists(config.reference.genome + ".fai")
     if not index_present:
         logger.info("Indexing the genome")
     else:
         logger.debug("Loading the reference index")
-    pysam.FastaFile(config["reference"]["genome"])
+    pysam.FastaFile(config.reference.genome)
     if not index_present:
         logger.info("Indexed the genome")
     else:
         logger.debug("Loaded the reference index")
     logger.setLevel(level)
-    config["reference"]["transcriptome"] = args.transcriptome
+    config.reference.transcriptome = args.transcriptome
 
-    config["name"] = args.name
+    config.name = args.name
     if args.out_dir is None:
         args.out_dir = args.name
-    config["out_dir"] = args.out_dir
+    config.out_dir = args.out_dir
 
     if args.sample_sheet:
         _parse_sample_sheet(args.sample_sheet, config, logger)
     else:
         _parse_reads_from_cli(args, config, logger)
 
-    config["scheduler"] = args.scheduler
+    config.scheduler = args.scheduler
     create_cluster_config(config, args, logger)
 
-    config["threads"] = args.threads
+    config.threads = args.threads
 
-    config["mikado"]["modes"] = args.modes
+    config.mikado.modes = args.modes
 
     failed = False
-    if config["short_reads"]["r1"] and not args.aligners:
+    if config.short_reads.r1 and not args.aligners:
         logger.critical(
             "No short read aligner selected, but there are short read samples. Please select at least one alignment method.")
         failed = True
-    if config["short_reads"]["r1"] and not args.asm_methods:
+    if config.short_reads.r1 and not args.asm_methods:
         logger.critical(
             "No short read assembler selected, but there are short read samples. Please select at least one assembly method.")
         failed = True
-    if config.get("long_reads", dict()).get("files", []) and not args.long_aln_methods:
+    if config.long_reads and not args.long_aln_methods:
         logger.critical(
             "No long read aligner selected, but there are long read samples. Please select at least one assembly method.")
         failed = True
@@ -245,12 +242,13 @@ def create_daijin_config(args, level="ERROR", piped=False):
     if failed:
         sys.exit(1)
 
-    for method in args.aligners:
-        config["align_methods"][method] = [""]
-    for method in args.asm_methods:
-        config["asm_methods"][method] = [""]
-    for method in args.long_aln_methods:
-        config["long_read_align_methods"][method] = [""]
+    # TODO: This is probably something about initialisation, check against DaijinConfiguration object
+    # for method in args.aligners:
+    #     config["align_methods"][method] = [""]
+    # for method in args.asm_methods:
+    #     config["asm_methods"][method] = [""]
+    # for method in args.long_aln_methods:
+    #     config["long_read_align_methods"][method] = [""]
 
     # Set and eventually copy the scoring file.
     if args.scoring is not None:
@@ -262,7 +260,7 @@ def create_daijin_config(args, level="ERROR", piped=False):
                     for line in original:
                         print(line.decode(), file=out, end="")
             args.scoring = os.path.abspath(args.copy_scoring)
-        config.get("pick", dict())["scoring_file"] = args.scoring
+        config.pick.scoring_file = args.scoring
     elif args.new_scoring is not None:
         if os.path.exists(args.new_scoring):
             # Check it's a valid scoring file
@@ -289,20 +287,19 @@ def create_daijin_config(args, level="ERROR", piped=False):
                     json.dump(ns, out)
                 else:
                     yaml.dump(ns, out)
-            config.get("pick", dict())["scoring_file"] = args.new_scoring
+            config.pick.scoring_file = args.new_scoring
 
     if args.flank is not None:
-        config.get("pick", {}).get("clustering", {})["flank"] = args.flank
-        config.get("pick", {}).get("fragments", {})["max_distance"] = args.flank
+        config.pick.clustering.flank = args.flank
+        config.pick.fragments.max_distance = args.flank
     if args.intron_range is not None:
         args.intron_range = sorted(args.intron_range)
-        config.get("pick", {}).get("run_options", {})["intron_range"] = args.intron_range
+        config.pick.run_options.intron_range = args.intron_range
 
-    config["blastx"]["prot_db"] = args.prot_db
-    assert "prot_db" in config["blastx"]
+    config.blastx.prot_db = args.prot_db
 
-    config["mikado"]["use_diamond"] = (not args.use_blast)
-    config["mikado"]["use_prodigal"] = (not args.use_transdecoder)
+    config.mikado.use_diamond = (not args.use_blast)
+    config.mikado.use_prodigal = (not args.use_transdecoder)
 
     final_config = config.copy()
     check_config(final_config, logger)

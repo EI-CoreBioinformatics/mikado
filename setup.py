@@ -88,7 +88,7 @@ setup(
     packages=find_packages(),
     scripts=glob.glob("util/*.py"),
     entry_points={"console_scripts": ["mikado = Mikado.__main__:main",
-                                      "daijin = Mikado.daijin:main",
+                                      "daijin = Mikado.daijin.__main__:main",
                                       ]},
     install_requires=requirements,
     extras_require={

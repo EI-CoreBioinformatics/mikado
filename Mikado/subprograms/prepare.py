@@ -207,8 +207,8 @@ def setup(args):
     logger.setLevel(logging.INFO)
 
     from ..configuration.configurator import to_json
-    args.json_conf = to_json(args.json_conf)
-    mikado_config = MikadoConfiguration()
+    mikado_config = to_json(args.json_conf)
+    # mikado_config = MikadoConfiguration()
 
     if args.start_method:
         mikado_config.multiprocessing_method = args.start_method
@@ -232,7 +232,7 @@ def setup(args):
 
     parse_prepare_options(args, mikado_config)
 
-    if not mikado_config.prepare.files.gff:
+    if len(mikado_config.prepare.files.gff) == 0:
         parser = prepare_parser()
         logger.error("No input files found!")
         print(parser.format_help())
@@ -264,7 +264,7 @@ def setup(args):
     assert logger.handlers == [handler]
     logger.propagate = False
     logger.info("Command line: %s",  " ".join(sys.argv))
-    logger.info("Random seed: %s", args.json_conf["seed"])
+    logger.info("Random seed: %s", mikado_config.seed)
 
     if args.verbose is True:
         mikado_config.log_settings.log_level = "DEBUG"
@@ -291,13 +291,6 @@ def setup(args):
     if isinstance(mikado_config.reference.genome, bytes):
         mikado_config.reference.genome = mikado_config.reference.genome.decode()
 
-    from ..configuration.configurator import to_json, check_json
-    # try:
-    #     args.json_conf = check_json(to_json(args.json_conf))
-    # except InvalidJson as exc:
-    #     logger.exception(exc)
-    #     raise exc
-    #
     return args, mikado_config, logger
 
 

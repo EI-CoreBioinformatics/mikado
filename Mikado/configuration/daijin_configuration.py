@@ -85,7 +85,7 @@ class ProgramLoader:
 @dataclass
 class Portcullis:
     do: bool = True
-    canonical_juncs: list = field(default_factory=lambda: ["C", "S"])
+    canonical_juncs: str = "C,S"
 
 
 @dataclass

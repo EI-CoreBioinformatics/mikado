@@ -8,7 +8,7 @@
       "description": "Commands to use to load/select the versions of the programs to use. Leave an empty string if no loading is necessary.",
       "type": "object",
       "required": ["tophat", "gmap", "star", "hisat", "samtools", "cufflinks", "trinity", "scallop",
-        "stringtie", "class", "transdecoder", "portcullis", "mikado", "blast"],
+        "stringtie", "class2", "transdecoder", "portcullis", "mikado", "blast"],
       "properties": {
        "tophat": {"type": "string", "default": ""},
         "gmap": {"type": "string", "default": ""},
@@ -19,7 +19,7 @@
         "scallop": {"type": "string", "default": ""},
         "trinity": {"type": "string", "default": ""},
         "stringtie": {"type": "string", "default": ""},
-        "class": {"type": "string", "default": ""},
+        "class2": {"type": "string", "default": ""},
         "transdecoder": {"type": "string", "default": ""},
         "prodigal": {"type": "string", "default": ""},
         "portcullis": {"type": "string", "default": ""},
@@ -129,28 +129,28 @@
           "items": {
             "type": "string"
           },
-          "minItems": 1
+          "minItems": 0
         },
         "hisat": {
           "type": "array",
           "items": {
             "type": "string"
           },
-          "minItems": 1
+          "minItems": 0
         },
         "star": {
           "type": "array",
           "items": {
             "type": "string"
           },
-          "minItems": 1
+          "minItems": 0
         },
         "gsnap": {
           "type": "array",
           "items": {
             "type": "string"
           },
-          "minItems": 1
+          "minItems": 0
         }
       }
     },
@@ -164,14 +164,14 @@
           "items": {
             "type": "string"
           },
-          "minItems": 1
+          "minItems": 0
         },
         "gmap": {
           "type": "array",
           "items": {
             "type": "string"
           },
-          "minItems": 1
+          "minItems": 0
         }
       }
     },
@@ -185,35 +185,35 @@
           "items": {
             "type": "string"
           },
-          "minItems": 1
+          "minItems": 0
         },
         "cufflinks": {
           "type": "array",
           "items": {
             "type": "string"
           },
-          "minItems": 1
+          "minItems": 0
         },
-        "class": {
+        "class2": {
           "type": "array",
           "items": {
             "type": "string"
           },
-          "minItems": 1
+          "minItems": 0
         },
         "scallop": {
           "type": "array",
           "items": {
             "type": "string"
           },
-          "minItems": 1
+          "minItems": 0
         },
         "trinity": {
           "type": "array",
           "items": {
             "type": "string"
           },
-          "minItems": 1
+          "minItems": 0
         }
       }
     },

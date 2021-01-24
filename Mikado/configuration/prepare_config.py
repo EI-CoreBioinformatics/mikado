@@ -27,4 +27,4 @@ class PrepareConfiguration:
     lenient: bool = False
     strand_specific: bool = False
     canonical: list = field(default_factory=lambda: [["GT", "AG"], ["GC", "AG"], ["AT", "AC"]])
-    files: PrepareFilesConfiguration = PrepareFilesConfiguration()
+    files: PrepareFilesConfiguration = field(default_factory=PrepareFilesConfiguration)

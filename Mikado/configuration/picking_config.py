@@ -48,7 +48,7 @@ class ChimeraSplitConfiguration:
     blast_check: bool = True
     execute: bool = True
     skip: list = field(default_factory=list)
-    blast_params: BlastParamsConfiguration = BlastParamsConfiguration()
+    blast_params: BlastParamsConfiguration = field(default_factory=BlastParamsConfiguration)
 
 
 @dataclass
@@ -92,11 +92,11 @@ class FilesConfiguration:
 @dataclass
 class PickConfiguration:
     scoring_file: str = "plant.yaml"
-    alternative_splicing: AlternativeSplicingConfiguration = AlternativeSplicingConfiguration()
-    output_format: OutputFormatConfiguration = OutputFormatConfiguration()
-    orf_loading: OrfLoadingConfiguration = OrfLoadingConfiguration()
-    chimera_split: ChimeraSplitConfiguration = ChimeraSplitConfiguration()
-    run_options: RunOptionsConfiguration = RunOptionsConfiguration()
-    clustering: ClusteringConfiguration = ClusteringConfiguration()
-    fragments: FragmentsConfiguration = FragmentsConfiguration()
-    files: FilesConfiguration = FilesConfiguration()
+    alternative_splicing: AlternativeSplicingConfiguration = field(default_factory=AlternativeSplicingConfiguration)
+    output_format: OutputFormatConfiguration = field(default_factory=OutputFormatConfiguration)
+    orf_loading: OrfLoadingConfiguration = field(default_factory=OrfLoadingConfiguration)
+    chimera_split: ChimeraSplitConfiguration = field(default_factory=ChimeraSplitConfiguration)
+    run_options: RunOptionsConfiguration = field(default_factory=RunOptionsConfiguration)
+    clustering: ClusteringConfiguration = field(default_factory=ClusteringConfiguration)
+    fragments: FragmentsConfiguration = field(default_factory=FragmentsConfiguration)
+    files: FilesConfiguration = field(default_factory=FilesConfiguration)

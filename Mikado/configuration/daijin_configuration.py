@@ -1,12 +1,13 @@
 from dataclasses import dataclass, field
 from .picking_config import PickConfiguration
 from .prepare_config import PrepareConfiguration
-from .serialise_config import  SerialiseConfiguration
+from .serialise_config import SerialiseConfiguration
 from ..utilities.dbutils import DBConfiguration
 from ..utilities.log_utils import LoggingConfiguration
 from .configuration import ReferenceConfiguration
 from typing import Union, List
 import copy
+
 
 @dataclass
 class ShortReads:
@@ -105,30 +106,30 @@ class DaijinConfiguration:
     filename: Union[str, None] = None
     seed: int = 0
     multiprocessing_method: str = "spawn"
-    log_settings: LoggingConfiguration = LoggingConfiguration()
-    db_settings: DBConfiguration = DBConfiguration()
-    serialise: SerialiseConfiguration = SerialiseConfiguration()
-    prepare: PrepareConfiguration = PrepareConfiguration()
-    pick: PickConfiguration = PickConfiguration()
-    reference: ReferenceConfiguration = ReferenceConfiguration()
+    log_settings: LoggingConfiguration = field(default_factory=LoggingConfiguration)
+    db_settings: DBConfiguration = field(default_factory=DBConfiguration)
+    serialise: SerialiseConfiguration = field(default_factory=SerialiseConfiguration)
+    prepare: PrepareConfiguration = field(default_factory=PrepareConfiguration)
+    pick: PickConfiguration = field(default_factory=PickConfiguration)
+    reference: ReferenceConfiguration = field(default_factory=ReferenceConfiguration)
     name: str = "Daijin"
     out_dir: str = "daijin"
     threads: int = 4
     scheduler: str = None
 
     # Daijin specific sub-modules
-    short_reads: ShortReads = ShortReads()
-    long_reads: LongReads = LongReads()
-    orf_calling: OrfCalling = OrfCalling()
-    blastx: BlastX = BlastX()
-    aln_index: AlnIndex = AlnIndex()
-    align_methods: AlignMethods = AlignMethods()
-    long_read_align_methods: LongReadAlign = LongReadAlign()
-    asm_methods: AsmMethods = AsmMethods()
-    load: ProgramLoader = ProgramLoader()
-    portcullis: Portcullis = Portcullis()
+    short_reads: ShortReads = field(default_factory=ShortReads)
+    long_reads: LongReads = field(default_factory=LongReads)
+    orf_calling: OrfCalling = field(default_factory=OrfCalling)
+    blastx: BlastX = field(default_factory=BlastX)
+    aln_index: AlnIndex = field(default_factory=AlnIndex)
+    align_methods: AlignMethods = field(default_factory=AlignMethods)
+    long_read_align_methods: LongReadAlign = field(default_factory=LongReadAlign)
+    asm_methods: AsmMethods = field(default_factory=AsmMethods)
+    load: ProgramLoader = field(default_factory=ProgramLoader)
+    portcullis: Portcullis = field(default_factory=Portcullis)
 
-    mikado: DaijinMikadoConfiguration = DaijinMikadoConfiguration()
+    mikado: DaijinMikadoConfiguration = field(default_factory=DaijinMikadoConfiguration)
 
     # These fields are loaded *from the scoring configuration*
     scoring: dict = None

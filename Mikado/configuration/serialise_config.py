@@ -17,7 +17,7 @@ class FilesConfiguration:
 
 @dataclass
 class SerialiseConfiguration:
-    files: FilesConfiguration = FilesConfiguration()
+    files: FilesConfiguration = field(default_factory=FilesConfiguration)
     substitution_matrix: str = "blosum62"
     blast_flavour: str = "blastx"
     codon_table: Union[str,int] = 0

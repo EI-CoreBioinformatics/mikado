@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import copy
 from .picking_config import PickConfiguration
 from .prepare_config import PrepareConfiguration
@@ -21,12 +21,12 @@ class MikadoConfiguration:
     threads: int = 1
     seed: int = 0
     multiprocessing_method: str = "spawn"
-    log_settings: LoggingConfiguration = LoggingConfiguration()
-    db_settings: DBConfiguration = DBConfiguration()
-    serialise: SerialiseConfiguration = SerialiseConfiguration()
-    prepare: PrepareConfiguration = PrepareConfiguration()
-    pick: PickConfiguration = PickConfiguration()
-    reference: ReferenceConfiguration = ReferenceConfiguration()
+    log_settings: LoggingConfiguration = field(default_factory=LoggingConfiguration)
+    db_settings: DBConfiguration = field(default_factory=DBConfiguration)
+    serialise: SerialiseConfiguration = field(default_factory=SerialiseConfiguration)
+    prepare: PrepareConfiguration = field(default_factory=PrepareConfiguration)
+    pick: PickConfiguration = field(default_factory=PickConfiguration)
+    reference: ReferenceConfiguration = field(default_factory=ReferenceConfiguration)
 
     # These fields are loaded *from the scoring configuration*
     scoring: Union[dict, None] = None

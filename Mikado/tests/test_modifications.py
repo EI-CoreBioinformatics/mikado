@@ -228,9 +228,9 @@ class TestPadding(unittest.TestCase):
         logger = create_default_logger("test_add_two_partials", "INFO")
         json_conf = to_json(None)
         json_conf.reference.genome = self.fai
-        json_conf["pick"]["alternative_splicing"]["only_confirmed_introns"] = False
-        json_conf["pick"]["alternative_splicing"]["keep_retained_introns"] = True
-        json_conf["pick"]["alternative_splicing"]["pad"] = True
+        json_conf.pick.alternative_splicing.only_confirmed_introns = False
+        json_conf.pick.alternative_splicing.keep_retained_introns = True
+        json_conf.pick.alternative_splicing.pad = True
 
         t1 = Transcript(BED12(
             "Chr5\t26584779\t26587869\tID=AT5G66610.1;coding=True;phase=0\t0\t+\t26585222\t26587755\t0\t11\t\

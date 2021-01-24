@@ -22,16 +22,16 @@ def check_log_settings(args):
     """
 
     if args.log == "stderr":
-        args.json_conf["log_settings"]['log'] = None
+        args.json_conf.log_settings.log = None
     elif args.log is not None:
-        args.json_conf["log_settings"]['log'] = args.log
+        args.json_conf.log_settings.log = args.log
 
     if args.log_level is not None:
-        args.json_conf["log_settings"]['log_level'] = args.log_level
+        args.json_conf.log_settings.log_level = args.log_level
     elif args.verbose is True:
-        args.json_conf["log_settings"]['log_level'] = "DEBUG"
+        args.json_conf.log_settings.log_level = "DEBUG"
     elif args.noverbose is True:
-        args.json_conf["log_settings"]['log_level'] = "ERROR"
+        args.json_conf.log_settings.log_level = "ERROR"
 
     return args
 
@@ -46,15 +46,15 @@ def check_run_options(args, logger=create_null_logger()):
     """
 
     if args.start_method is not None:
-        args.json_conf["multiprocessing_method"] = args.start_method
+        args.json_conf.multiprocessing_method = args.start_method
 
     if args.procs is not None:
-        args.json_conf["threads"] = args.procs
+        args.json_conf.threads = args.procs
 
-    args.json_conf["pick"]["run_options"]["single_thread"] = args.single
+    args.json_conf.pick.run_options.single_thread = args.single
 
     if args.seed is not None:
-        args.json_conf["seed"] = args.seed
+        args.json_conf.seed = args.seed
         # numpy.random.seed(args.seed % (2 ** 32 - 1))
         random.seed(args.seed % (2 ** 32 - 1))
     else:
@@ -62,22 +62,22 @@ def check_run_options(args, logger=create_null_logger()):
         random.seed(None)
 
     if args.no_cds is not False:
-        args.json_conf["pick"]["run_options"]["exclude_cds"] = True
+        args.json_conf.pick.run_options.exclude_cds = True
     if args.no_purge is True:
-        args.json_conf["pick"]["clustering"]["purge"] = False
+        args.json_conf.pick.run_options.purge = False
 
     if args.flank is not None:
-        args.json_conf["pick"]["clustering"]["flank"] = args.flank
+        args.json_conf.pick.run_options.flank = args.flank
 
     if args.output_dir is not None:
-        args.json_conf["pick"]["files"]["output_dir"] = os.path.abspath(args.output_dir)
+        args.json_conf.pick.files.output_dir = os.path.abspath(args.output_dir)
     else:
-        args.json_conf["pick"]["files"]["output_dir"] = os.path.abspath(args.json_conf["pick"]["files"]["output_dir"])
+        args.json_conf.pick.files.output_dir = os.path.abspath(args.json_conf.pick.files.output_dir)
 
     if args.source is not None:
-        args.json_conf["pick"]["output_format"]["source"] = args.source
+        args.json_conf.pick.output_format.source = args.source
     if args.prefix is not None:
-        args.json_conf["pick"]["output_format"]["id_prefix"] = args.prefix
+        args.json_conf.pick.output_format.id_prefix = args.prefix
 
     if args.sqlite_db is not None:
         if not os.path.exists(args.sqlite_db):
@@ -88,12 +88,12 @@ def check_run_options(args, logger=create_null_logger()):
 
     elif not (args.json_conf.db_settings.dbtype == "sqlite" and
         not os.path.exists(args.json_conf.db_settings.db) and
-        os.path.abspath(args.json_conf["pick"]["files"]["output_dir"]) != os.path.dirname(
+        os.path.abspath(args.json_conf.pick.files.output_dir) != os.path.dirname(
                 args.json_conf.db_settings.db)
     ):
-        __compound = os.path.join(args.json_conf["pick"]["files"]["output_dir"],
+        __compound = os.path.join(args.json_conf.pick.files.output_dir,
                                   args.json_conf.db_settings.db)
-        __base = os.path.join(args.json_conf["pick"]["files"]["output_dir"],
+        __base = os.path.join(args.json_conf.pick.files.output_dir,
                                   args.json_conf.db_settings.db)
         if os.path.exists(__compound):
             args.json_conf.db_settings.db = __compound
@@ -105,74 +105,98 @@ def check_run_options(args, logger=create_null_logger()):
 
     if args.mode is not None:
         if args.mode == "nosplit":
-            args.json_conf["pick"]["chimera_split"]["execute"] = False
+            args.json_conf.pick.chimera_split.execute = False
         else:
-            args.json_conf["pick"]["chimera_split"]["execute"] = True
+            args.json_conf.pick.chimera_split.execute = True
             if args.mode == "split":
-                args.json_conf["pick"]["chimera_split"]["blast_check"] = False
+                args.json_conf.pick.chimera_split.blast_check = False
             else:
-                args.json_conf["pick"]["chimera_split"]["blast_check"] = True
-                args.json_conf["pick"]["chimera_split"]["blast_params"]["leniency"] = args.mode.upper()
+                args.json_conf.pick.chimera_split.blast_check = True
+                args.json_conf.pick.chimera_split.blast_params.leniency = args.mode.upper()
 
     if args.pad is not None:
-        args.json_conf["pick"]["alternative_splicing"]["pad"] = args.pad
+        args.json_conf.pick.alternative_splicing.pad = args.pad
 
     if args.min_clustering_cds_overlap is not None:
-        args.json_conf["pick"]["clustering"]["min_cds_overlap"] = args.min_clustering_cds_overlap
+        args.json_conf.pick.clustering.min_cds_overlap = args.min_clustering_cds_overlap
 
     if args.min_clustering_cdna_overlap is not None:
-        args.json_conf["pick"]["clustering"]["min_cdna_overlap"] = args.min_clustering_cdna_overlap
+        args.json_conf.pick.clustering.min_cdna_overlap = args.min_clustering_cdna_overlap
         if args.min_clustering_cds_overlap is None:
-            args.json_conf["pick"]["clustering"]["min_cds_overlap"] = args.min_clustering_cdna_overlap
+            args.json_conf.pick.clustering.min_cds_overlap = args.min_clustering_cdna_overlap
 
     if args.pad_max_splices is not None:
-        args.json_conf["pick"]["alternative_splicing"]["ts_max_splices"] = True
+        args.json_conf.pick.alternative_splicing.ts_max_splices = True
 
     if args.pad_max_distance is not None:
-        args.json_conf["pick"]["alternative_splicing"]["ts_distance"] = True
+        args.json_conf.pick.alternative_splicing.ts_distance = True
 
     if args.intron_range is not None:
-        args.json_conf["pick"]["run_options"]["intron_range"] = tuple(sorted(args.intron_range))
+        args.json_conf.pick.run_options.intron_range = tuple(sorted(args.intron_range))
 
     if args.max_intron_length is not None:
-        args.json_conf["prepare"]["max_intron_length"] = args.max_intron_length
+        args.json_conf.prepare.max_intron_length = args.max_intron_length
 
     if args.cds_only is True:
-        args.json_conf["pick"]["clustering"]["cds_only"] = True
+        args.json_conf.pick.clustering.cds_only = True
 
     if args.as_cds_only is True:
-        args.json_conf["pick"]["alternative_splicing"]["cds_only"] = True
+        args.json_conf.pick.alternative_splicing.cds_only = True
 
-    for key in ["loci_out", "gff", "monoloci_out", "subloci_out", "log"]:
-        if getattr(args, key):
-            if key == "gff":
-                args.json_conf["pick"]["files"]["input"] = getattr(
-                    args,
-                    key,
-                    args.json_conf["pick"]["files"]["input"])
-            else:
-                val = getattr(args, key, args.json_conf["pick"]["files"][key])
-                if key in ("loci_out", "monoloci_out", "subloci_out"):
-                    if val.split(".")[-1] not in ("gff3", "gff"):
-                        val = "{0}.gff3".format(val)
+    # TODO: Review
+    #  The code following this comment should do the same as the code commented below
+    # for key in ["loci_out", "gff", "monoloci_out", "subloci_out", "log"]:
+    #     if getattr(args, key):
+    #         if key == "gff":
+    #             args.json_conf["pick"]["files"]["input"] = getattr(
+    #                 args,
+    #                 key,
+    #                 args.json_conf["pick"]["files"]["input"])
+    #         else:
+    #             val = getattr(args, key, args.json_conf["pick"]["files"][key])
+    #             if key in ("loci_out", "monoloci_out", "subloci_out"):
+    #                 if val.split(".")[-1] not in ("gff3", "gff"):
+    #                     val = "{0}.gff3".format(val)
+    #
+    #             args.json_conf["pick"]["files"][key] = val
 
-                args.json_conf["pick"]["files"][key] = val
+    if args.gff:
+        args.json_conf.pick.files.input = args.gff
+
+    if args.loci_out:
+        args.json_conf.pick.files.loci_out = args.loci_out if \
+            args.loci_out.split('.')[-1] in ("gff3", "gff") else \
+            "{0}.gff3".format(args.loci_out)
+
+    if args.monoloci_out:
+        args.json_conf.pick.files.monoloci_out = args.monoloci_out if \
+            args.monoloci_out.split('.')[-1] in ("gff3", "gff") else \
+            "{0}.gff3".format(args.monoloci_out)
+
+    if args.subloci_out:
+        args.json_conf.pick.files.subloci_out = args.subloci_out if \
+            args.subloci_out.split('.')[-1] in ("gff3", "gff") else \
+            "{0}.gff3".format(args.subloci_out)
+
+    if args.log:
+        args.json_conf.pick.files.log = args.log
+
 
     if args.shm is True:
-        args.json_conf["pick"]["run_options"]["shm"] = True
+        args.json_conf.pick.run_options.shm = True
 
     if args.only_reference_update is True:
-        args.json_conf["pick"]["run_options"]["only_reference_update"] = True
-        args.json_conf["pick"]["run_options"]["reference_update"] = True
+        args.json_conf.pick.run_options.only_reference_update = True
+        args.json_conf.pick.run_options.reference_update = True
 
     if args.reference_update is True:
-        args.json_conf["pick"]["run_options"]["reference_update"] = True
+        args.json_conf.pick.run_options.reference_update = True
 
     if args.check_references is True:
-        args.json_conf["pick"]["run_options"]["check_references"] = True
+        args.json_conf.pick.run_options.check_references = True
 
     if args.report_all_orfs is True:
-        args.json_conf["pick"]["output_format"]["report_all_orfs"] = True
+        args.json_conf.pick.run_options.report_all_orfs = True
 
     if getattr(args, "fasta"):
         args.fasta.close()
@@ -181,19 +205,19 @@ def check_run_options(args, logger=create_null_logger()):
     if args.scoring_file is not None:
         if not os.path.exists(args.scoring_file) and os.path.isfile(args.scoring_file):
             raise ValueError("Invalid/inexistent scoring file: {}".format(args.scoring_file))
-        args.json_conf["pick"]["scoring_file"] = args.scoring_file
+        args.json_conf.pick.scoring_file = args.scoring_file
 
-    if (args.json_conf["pick"]["alternative_splicing"]["pad"] and
+    if (args.json_conf.pick.alternative_splicing.pad and
             not os.path.exists(args.json_conf.reference.genome)):
         logger.critical("Transcript padding cannot function unless the genome file is specified. \
         Please either provide a valid genome file or disable the padding.")
         sys.exit(1)
 
     if args.keep_disrupted_cds is True:
-        args.json_conf["pick"]["alternative_splicing"]["keep_cds_disrupted_by_ri"] = True
+        args.json_conf.pick.alternative_splicing.keep_cds_disrupted_by_ri = True
 
     if args.exclude_retained_introns is True:
-        args.json_conf["pick"]["alternative_splicing"]["keep_retained_introns"] = False
+        args.json_conf.pick.alternative_splicing.keep_retained_introns = False
 
     if args.codon_table is not None:
         try:
@@ -201,8 +225,8 @@ def check_run_options(args, logger=create_null_logger()):
         except ValueError:
             pass
         args.json_conf.serialise.codon_table = args.codon_table
-    else:
-        assert "codon_table" in args.json_conf["serialise"]
+    # else:
+    #     assert "codon_table" in args.json_conf["serialise"]
 
     from ..configuration.configurator import check_json
     args.json_conf = check_json(args.json_conf, logger=logger)

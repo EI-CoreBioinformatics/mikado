@@ -33,7 +33,7 @@ def print_locus(stranded_locus,
     if sub_out is not None:  # Skip this section if no sub_out is defined
         sub_lines = stranded_locus.__str__(
             level="subloci",
-            print_cds=not json_conf["pick"]["run_options"]["exclude_cds"])
+            print_cds=not json_conf.pick.run_options.exclude_cds)
         if sub_lines != '':
             print(sub_lines, file=sub_out)
         sub_metrics_rows = [_ for _ in stranded_locus.print_subloci_metrics()
@@ -49,7 +49,7 @@ def print_locus(stranded_locus,
     if mono_out is not None:
         mono_lines = stranded_locus.__str__(
             level="monosubloci",
-            print_cds=not json_conf["pick"]["run_options"]["exclude_cds"])
+            print_cds=not json_conf.pick.run_options.exclude_cds)
         if mono_lines != '':
             print(mono_lines, file=mono_out)
         mono_metrics_rows = [_ for _ in stranded_locus.print_monoholder_metrics()
@@ -66,13 +66,13 @@ def print_locus(stranded_locus,
     for locus in stranded_locus.loci:
         gene_counter += 1
         new_id = "{0}.{1}G{2}".format(
-            json_conf["pick"]["output_format"]["id_prefix"],
+            json_conf.pick.output_format.id_prefix,
             stranded_locus.chrom, gene_counter)
         stranded_locus.loci[locus].logger = logger
         stranded_locus.loci[locus].id = new_id
 
     locus_lines = stranded_locus.__str__(
-        print_cds=not json_conf["pick"]["run_options"]["exclude_cds"],
+        print_cds=not json_conf.pick.run_options.exclude_cds,
         level="loci")
 
     locus_metrics_rows = [x for x in stranded_locus.print_loci_metrics()]

@@ -125,13 +125,13 @@ class Picker:
         dbutils.DBBASE.metadata.create_all(engine)
         engine.dispose()
 
-        if self.json_conf["pick"]["run_options"]["single_thread"] is True:
+        if self.json_conf.pick.run_options.single_thread is True:
             # Reset threads to 1
             if self.json_conf["threads"] > 1:
                 self.main_logger.warning("Reset number of threads to 1 as requested")
                 self.procs = 1
         # elif self.json_conf["threads"] == 1:
-        #     self.json_conf["pick"]["run_options"]["single_thread"] = True
+        #     self.json_conf.pick.run_options.single_thread = True
 
         if self.locus_out is None:
             raise InvalidJson(
@@ -231,8 +231,8 @@ Please update your configuration files in the future.""".format(
             pass
 
         self.context = multiprocessing.get_context()
-        if self.json_conf["pick"]["scoring_file"].endswith((".pickle", ".model")):
-            with open(self.json_conf["pick"]["scoring_file"], "rb") as forest:
+        if self.json_conf.pick.scoring_file.endswith((".pickle", ".model")):
+            with open(self.json_conf.pick.scoring_file, "rb") as forest:
                 self.regressor = pickle.load(forest)
             if not isinstance(self.regressor["scoring"], (RandomForestRegressor, RandomForestClassifier)):
                 exc = TypeError("Invalid regressor provided, type: %s", type(self.regressor["scoring"]))
@@ -249,20 +249,20 @@ Please update your configuration files in the future.""".format(
 
         if self.json_conf["pick"]["files"]["subloci_out"]:
             self.sub_out = path_join(
-                self.json_conf["pick"]["files"]["output_dir"],
+                self.json_conf.pick.files.output_dir,
                 self.json_conf["pick"]["files"]["subloci_out"]
             )
         else:
             self.sub_out = ""
         if self.json_conf["pick"]["files"]["monoloci_out"]:
             self.monolocus_out = path_join(
-                self.json_conf["pick"]["files"]["output_dir"],
+                self.json_conf.pick.files.output_dir,
                 self.json_conf["pick"]["files"]["monoloci_out"]
             )
         else:
             self.monolocus_out = ""
         self.locus_out = path_join(
-            self.json_conf["pick"]["files"]["output_dir"],
+            self.json_conf.pick.files.output_dir,
             self.json_conf["pick"]["files"]["loci_out"])
 
         assert self.locus_out != ''
@@ -274,7 +274,7 @@ Please update your configuration files in the future.""".format(
         This method will copy the SQLite input DB into memory.
         """
 
-        if self.json_conf["pick"]["run_options"]["shm"] is True:
+        if self.json_conf.pick.run_options.shm is True:
             self.main_logger.info("Copying Mikado database into a SHM db")
             assert self.json_conf.db_settings.dbtype == "sqlite"
             # Create temporary file
@@ -293,7 +293,7 @@ Please update your configuration files in the future.""".format(
                 self.main_logger.warning(
                     """Permission to write on /dev/shm denied.
                     Back to using the DB on disk.""")
-                self.json_conf["pick"]["run_options"]["shm"] = False
+                self.json_conf.pick.run_options.shm = False
             self.main_logger.info("DB copied into memory")
 
     def setup_logger(self):
@@ -307,19 +307,19 @@ Please update your configuration files in the future.""".format(
         self.printer_queue = multiprocessing.Queue(-1)
         self.formatter = formatter
         self.main_logger = logging.getLogger("main_logger")
-        if not os.path.exists(self.json_conf["pick"]["files"]["output_dir"]):
+        if not os.path.exists(self.json_conf.pick.files.output_dir):
             try:
-                os.makedirs(self.json_conf["pick"]["files"]["output_dir"])
+                os.makedirs(self.json_conf.pick.files.output_dir)
             except (OSError, PermissionError) as exc:
                 self.logger.error("Failed to create the output directory!")
                 self.logger.exception(exc)
                 raise
-        elif not os.path.isdir(self.json_conf["pick"]["files"]["output_dir"]):
+        elif not os.path.isdir(self.json_conf.pick.files.output_dir):
             self.logger.error(
                 "The specified output directory %s exists and is not a file; aborting",
-                self.json_conf["pick"]["files"]["output_dir"])
+                self.json_conf.pick.files.output_dir)
             raise OSError("The specified output directory %s exists and is not a file; aborting" %
-                          self.json_conf["pick"]["files"]["output_dir"])
+                          self.json_conf.pick.files.output_dir)
 
         self.logger = logging.getLogger("listener")
         self.logger.propagate = False
@@ -328,7 +328,7 @@ Please update your configuration files in the future.""".format(
             self.log_handler = logging.StreamHandler()
         else:
             if os.path.basename(self.json_conf["pick"]["files"]["log"]) == self.json_conf["pick"]["files"]["log"]:
-                fname = path_join(self.json_conf["pick"]["files"]["output_dir"],
+                fname = path_join(self.json_conf.pick.files.output_dir,
                                   self.json_conf["pick"]["files"]["log"])
             else:
                 fname = self.json_conf["pick"]["files"]["log"]
@@ -698,17 +698,17 @@ Please update your configuration files in the future.""".format(
         :return:
         """
 
-        intron_range = self.json_conf["pick"]["run_options"]["intron_range"]
+        intron_range = self.json_conf.pick.run_options.intron_range
         self.logger.debug("Intron range: %s", intron_range)
 
         locus_queue = self.manager.JoinableQueue(-1)
         status_queue = self.manager.JoinableQueue(-1)
 
         handles = list(self.__get_output_files())
-        if self.json_conf["pick"]["run_options"]["shm"] is True:
+        if self.json_conf.pick.run_options.shm is True:
             basetempdir = "/dev/shm"
         else:
-            basetempdir = self.json_conf["pick"]["files"]["output_dir"]
+            basetempdir = self.json_conf.pick.files.output_dir
 
         tempdirectory = tempfile.TemporaryDirectory(suffix="",
                                                     prefix="mikado_pick_tmp",
@@ -774,7 +774,7 @@ Please update your configuration files in the future.""".format(
                    handles,
                    total,
                    logger=self.logger,
-                   source=self.json_conf["pick"]["output_format"]["source"])
+                   source=self.json_conf.pick.output_format.source)
 
         self.logger.info("Finished merging partial files")
         try:
@@ -865,12 +865,12 @@ Please update your configuration files in the future.""".format(
     def __parse_multithreaded(self, locus_queue):
         counter = 0
         invalids = set()
-        flank = self.json_conf["pick"]["clustering"]["flank"]
+        flank = self.json_conf.pick.run_options.flank
         mapper = dict()
 
         with self.define_input(multithreading=True) as input_annotation:
             current = {"chrom": None, "start": None, "end": None, "transcripts": dict()}
-            max_intron = self.json_conf["prepare"]["max_intron_length"]
+            max_intron = self.json_conf.prepare.max_intron_length
             for row in input_annotation:
                 row = self._parse_gtf_line(row)
                 if row is None:  # Header
@@ -973,7 +973,7 @@ Please update your configuration files in the future.""".format(
         logger.setLevel(self.json_conf.log_settings.log_level)
         logger.debug("Begun single-threaded run")
 
-        intron_range = self.json_conf["pick"]["run_options"]["intron_range"]
+        intron_range = self.json_conf.pick.run_options.intron_range
         logger.debug("Intron range: %s", intron_range)
 
         handles = self.__get_output_files()
@@ -994,7 +994,7 @@ Please update your configuration files in the future.""".format(
 
         counter = -1
         invalid = False
-        max_intron = self.json_conf["prepare"]["max_intron_length"]
+        max_intron = self.json_conf.prepare.max_intron_length
         skip_transcript = False
         with self.define_input() as input_annotation:
             for row in input_annotation:
@@ -1059,7 +1059,7 @@ Please update your configuration files in the future.""".format(
                     current_transcript.id, current_transcript.max_intron_length, max_intron)
             elif current_locus and Superlocus.in_locus(
                             current_locus, current_transcript,
-                            flank=self.json_conf["pick"]["clustering"]["flank"]) is True:
+                            flank=self.json_conf.pick.run_options.flank) is True:
                     current_locus.add_transcript_to_locus(current_transcript, check_in_locus=False)
             else:
                 counter += 1
@@ -1078,7 +1078,7 @@ Please update your configuration files in the future.""".format(
                         None if current_locus is None else current_locus.id, exc)
 
                 current_locus = Superlocus(current_transcript, stranded=False, json_conf=self.json_conf,
-                                           source=self.json_conf["pick"]["output_format"]["source"])
+                                           source=self.json_conf.pick.output_format.source)
                 if self.regressor is not None:
                     current_locus.regressor = self.regressor
 
@@ -1092,7 +1092,7 @@ Please update your configuration files in the future.""".format(
         :return: jobs (the list of all jobs already submitted)
         """
 
-        single_thread = (self.json_conf["pick"]["run_options"]["single_thread"] or self.procs == 1
+        single_thread = (self.json_conf.pick.run_options.single_thread or self.procs == 1
                          or self.json_conf.log_settings.log_level == "DEBUG")
         
         if single_thread is False:
@@ -1107,7 +1107,7 @@ Please update your configuration files in the future.""".format(
             self.queue_pool.dispose()
 
         # Clean up the DB copied to SHM
-        if self.json_conf["pick"]["run_options"]["shm"] is True:
+        if self.json_conf.pick.run_options.shm is True:
             assert os.path.dirname(self.json_conf.db_settings.db) == os.path.join("/dev", "shm"), (
                 self.json_conf.db_settings.db, os.path.dirname(self.json_conf.db_settings.db),
                 os.path.join("/dev", "shm"))
@@ -1123,7 +1123,7 @@ Please update your configuration files in the future.""".format(
         # Otherwise it will raise all sorts of mistakes
 
         self.logger.debug("Source: %s",
-                          self.json_conf["pick"]["output_format"]["source"])
+                          self.json_conf.pick.output_format.source)
         if self.json_conf.db_settings.dbtype == "sqlite":
             self.queue_pool = sqlalchemy.pool.QueuePool(
                 self.db_connection,

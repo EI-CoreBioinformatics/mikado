@@ -246,7 +246,7 @@ def analyse_locus(slocus: Superlocus,
         slocus.stranded = False
 
     slocus.logger = logger
-    slocus.source = json_conf["pick"]["output_format"]["source"]
+    slocus.source = json_conf.pick.output_format.source
 
     try:
         slocus.load_all_transcript_data(engine=engine,
@@ -341,8 +341,8 @@ class LociProcesser(Process):
         self.regressor = None
         # self.dump_db, self.dump_conn, self.dump_cursor = self._create_temporary_store(self._tempdir, self.identifier)
 
-        if self.json_conf["pick"]["scoring_file"].endswith((".pickle", ".model")):
-            with open(self.json_conf["pick"]["scoring_file"], "rb") as forest:
+        if self.json_conf.pick.scoring_file.endswith((".pickle", ".model")):
+            with open(self.json_conf.pick.scoring_file, "rb") as forest:
                 self.regressor = pickle.load(forest)
             from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
             if not isinstance(self.regressor["scoring"], (RandomForestRegressor, RandomForestClassifier)):
@@ -429,7 +429,7 @@ class LociProcesser(Process):
         """Start polling the queue, analyse the loci, and send them to the printer process."""
         self.logger.debug("Starting to parse data for {0}".format(self.name))
 
-        print_cds = (not self.json_conf["pick"]["run_options"]["exclude_cds"])
+        print_cds = (not self.json_conf.pick.run_options.exclude_cds)
         print_monoloci = (self.json_conf["pick"]["files"]["monoloci_out"] != "")
         print_subloci = (self.json_conf["pick"]["files"]["subloci_out"] != "")
 
@@ -461,7 +461,7 @@ class LociProcesser(Process):
                         is_reference = definition["source"] in self.json_conf["prepare"]["files"]["reference"]
                         transcript = Transcript(logger=self.logger,
                                                 source=definition["source"],
-                                                intron_range=self.json_conf["pick"]["run_options"]["intron_range"],
+                                                intron_range=self.json_conf.pick.run_options.intron_range,
                                                 is_reference=is_reference)
                         transcript.chrom, transcript.start, transcript.end = (definition["chrom"],
                                                                               definition["start"], definition["end"])
@@ -486,7 +486,7 @@ class LociProcesser(Process):
                     slocus = Superlocus(tobjects.pop(),
                                         stranded=False,
                                         json_conf=self.json_conf,
-                                        source=self.json_conf["pick"]["output_format"]["source"])
+                                        source=self.json_conf.pick.output_format.source)
                     while len(tobjects) > 0:
                         slocus.add_transcript_to_locus(tobjects.pop(),
                                                        check_in_locus=False)

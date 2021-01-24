@@ -112,7 +112,7 @@ class TestScoring(unittest.TestCase):
                                  "**", "*yaml"), recursive=True):
             conf = dict()
             conf["pick"] = dict()
-            conf["pick"]["scoring_file"] = scorer
+            conf.pick.scoring_file = scorer
             conf["filename"] = os.path.join(os.getcwd(), "foo.yaml")
             self.assertIsInstance(configuration.configurator.check_json(conf),
                                   dict, scorer)

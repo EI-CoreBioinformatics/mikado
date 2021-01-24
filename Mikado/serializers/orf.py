@@ -220,11 +220,11 @@ class OrfSerializer:
             self.logger = check_logger(logger)
 
         fasta_index = json_conf["serialise"]["files"]["transcripts"]
-        self._max_regression = json_conf["serialise"]["max_regression"]
-        self._table = json_conf["serialise"]["codon_table"]
+        self._max_regression = json_conf.serialise.max_regression
+        self._table = json_conf.serialise.codon_table
         self.procs = json_conf["threads"]
-        self.single_thread = json_conf["serialise"]["single_thread"]
-        self.adjust_start = json_conf["serialise"]["start_adjustment"]
+        self.single_thread = json_conf.serialise.single_thread
+        self.adjust_start = json_conf.serialise.start_adjustment
         if self.single_thread:
             self.procs = 1
 
@@ -255,8 +255,8 @@ class OrfSerializer:
         if Orf.__tablename__ not in inspector.get_table_names():
             DBBASE.metadata.create_all(self.engine)
         self.session = session
-        self.maxobjects = json_conf["serialise"]["max_objects"]
-        self.log_level = json_conf["log_settings"]["log_level"]
+        self.maxobjects = json_conf.serialise.max_objects
+        self.log_level = json_conf.log_settings.log_level
 
     def load_fasta(self):
 

@@ -83,22 +83,22 @@ def check_run_options(args, logger=create_null_logger()):
         if not os.path.exists(args.sqlite_db):
             logger.critical("Mikado database {} not found. Exiting.", args.sqlite_db)
             sys.exit(1)
-        args.json_conf["db_settings"]["db"] = args.sqlite_db
-        args.json_conf["db_settings"]["dbtype"] = "sqlite"
+        args.json_conf.db_settings.db = args.sqlite_db
+        args.json_conf.db_settings.dbtype = "sqlite"
 
-    elif not (args.json_conf["db_settings"]["dbtype"] == "sqlite" and
-        not os.path.exists(args.json_conf["db_settings"]["db"]) and
+    elif not (args.json_conf.db_settings.dbtype == "sqlite" and
+        not os.path.exists(args.json_conf.db_settings.db) and
         os.path.abspath(args.json_conf["pick"]["files"]["output_dir"]) != os.path.dirname(
-                args.json_conf["db_settings"]["db"])
+                args.json_conf.db_settings.db)
     ):
         __compound = os.path.join(args.json_conf["pick"]["files"]["output_dir"],
-                                  args.json_conf["db_settings"]["db"])
+                                  args.json_conf.db_settings.db)
         __base = os.path.join(args.json_conf["pick"]["files"]["output_dir"],
-                                  args.json_conf["db_settings"]["db"])
+                                  args.json_conf.db_settings.db)
         if os.path.exists(__compound):
-            args.json_conf["db_settings"]["db"] = __compound
+            args.json_conf.db_settings.db = __compound
         elif os.path.exists(__base):
-            args.json_conf["db_settings"]["db"] = __base
+            args.json_conf.db_settings.db = __base
         else:
             logger.critical("Mikado database {} not found. Exiting.", args.sqlite_db)
             sys.exit(1)
@@ -176,7 +176,7 @@ def check_run_options(args, logger=create_null_logger()):
 
     if getattr(args, "fasta"):
         args.fasta.close()
-        args.json_conf["reference"]["genome"] = args.fasta.name
+        args.json_conf.reference.genome = args.fasta.name
 
     if args.scoring_file is not None:
         if not os.path.exists(args.scoring_file) and os.path.isfile(args.scoring_file):
@@ -184,7 +184,7 @@ def check_run_options(args, logger=create_null_logger()):
         args.json_conf["pick"]["scoring_file"] = args.scoring_file
 
     if (args.json_conf["pick"]["alternative_splicing"]["pad"] and
-            not os.path.exists(args.json_conf["reference"]["genome"])):
+            not os.path.exists(args.json_conf.reference.genome)):
         logger.critical("Transcript padding cannot function unless the genome file is specified. \
         Please either provide a valid genome file or disable the padding.")
         sys.exit(1)
@@ -200,7 +200,7 @@ def check_run_options(args, logger=create_null_logger()):
             args.codon_table = int(args.codon_table)
         except ValueError:
             pass
-        args.json_conf["serialise"]["codon_table"] = args.codon_table
+        args.json_conf.serialise.codon_table = args.codon_table
     else:
         assert "codon_table" in args.json_conf["serialise"]
 

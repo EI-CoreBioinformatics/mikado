@@ -402,8 +402,8 @@ def parse_tab_blast(self,
                   "matrix_name": matrix_name,
                   "qmult": qmult,
                   "tmult": tmult,
-                  "sql_level": self.json_conf["log_settings"]["sql_level"],
-                  "log_level": self.json_conf["log_settings"]["log_level"],
+                  "sql_level": self.json_conf.log_settings.sql_level,
+                  "log_level": self.json_conf.log_settings.log_level,
                   "logging_queue": self.logging_queue,
                   "params_file": params_file}
         processes = [Preparer(index_files[idx], idx, **kwargs) for idx in range(procs)]

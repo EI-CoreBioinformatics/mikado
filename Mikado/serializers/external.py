@@ -172,7 +172,7 @@ class ExternalSerializer:
 
         self.session = session
         if json_conf is not None:
-            self.maxobjects = json_conf["serialise"]["max_objects"]
+            self.maxobjects = json_conf.serialise.max_objects
         else:
             self.maxobjects = 10000
 

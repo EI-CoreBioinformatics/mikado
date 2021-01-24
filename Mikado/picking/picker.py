@@ -121,7 +121,7 @@ class Picker:
             self.logger)
 
         # Update the database if necessary
-        engine = create_engine("{0}://".format(self.json_conf["db_settings"]["dbtype"]), creator=self.db_connection)
+        engine = create_engine("{0}://".format(self.json_conf.db_settings.dbtype), creator=self.db_connection)
         dbutils.DBBASE.metadata.create_all(engine)
         engine.dispose()
 
@@ -221,7 +221,7 @@ Please update your configuration files in the future.""".format(
             # Check that, when asks for padding, the reference genome is present
             self.logger.debug("Checking for the presence of the reference genome")
             try:
-                _ = pyfaidx.Fasta(self.json_conf["reference"]["genome"])
+                _ = pyfaidx.Fasta(self.json_conf.reference.genome)
             except (pyfaidx.FastaIndexingError, FileNotFoundError, pyfaidx.FastaNotFoundError):
                 self.logger.error("Transcript padding cannot be executed without a valid genome file.\
                  Please, either disable the padding or provide a valid genome sequence.")
@@ -276,19 +276,19 @@ Please update your configuration files in the future.""".format(
 
         if self.json_conf["pick"]["run_options"]["shm"] is True:
             self.main_logger.info("Copying Mikado database into a SHM db")
-            assert self.json_conf["db_settings"]["dbtype"] == "sqlite"
+            assert self.json_conf.db_settings.dbtype == "sqlite"
             # Create temporary file
             temp = tempfile.mktemp(suffix=".db",
                                    prefix="/dev/shm/")
             if os.path.exists(temp):
                 os.remove(temp)
             self.main_logger.debug("Copying {0} into {1}".format(
-                self.json_conf["db_settings"]["db"],
+                self.json_conf.db_settings.db,
                 temp))
             try:
-                shutil.copy2(self.json_conf["db_settings"]["db"],
+                shutil.copy2(self.json_conf.db_settings.db,
                              temp)
-                self.json_conf["db_settings"]["db"] = temp
+                self.json_conf.db_settings.db = temp
             except PermissionError:
                 self.main_logger.warning(
                     """Permission to write on /dev/shm denied.
@@ -337,7 +337,7 @@ Please update your configuration files in the future.""".format(
             assert os.path.exists(fname)
 
         # For the main logger I want to keep it at the "INFO" level
-        self.log_level = self.json_conf["log_settings"]["log_level"]
+        self.log_level = self.json_conf.log_settings.log_level
         self.log_handler.setFormatter(self.formatter)
         self.logger.setLevel(self.log_level)
         self.logger.addHandler(self.log_handler)
@@ -369,14 +369,14 @@ Please update your configuration files in the future.""".format(
         self.queue_logger = logging.getLogger("parser")
         self.queue_logger.addHandler(self.logger_queue_handler)
 
-        self.queue_logger.setLevel(logging.getLevelName(self.json_conf["log_settings"]["log_level"]))
+        self.queue_logger.setLevel(logging.getLevelName(self.json_conf.log_settings.log_level))
         self.logger.warning("Current level for queue: %s", logging.getLevelName(self.queue_logger.level))
 
         self.queue_logger.propagate = False
 
         # Configure SQL logging
         sqllogger = logging.getLogger("sqlalchemy.engine")
-        sqllogger.setLevel(self.json_conf["log_settings"]["sql_level"])
+        sqllogger.setLevel(self.json_conf.log_settings.sql_level)
         sqllogger.addHandler(self.logger_queue_handler)
 
         return
@@ -390,7 +390,7 @@ Please update your configuration files in the future.""".format(
         """
 
         print('##gff-version 3', file=locus_out)
-        engine = create_engine("{0}://".format(self.json_conf["db_settings"]["dbtype"]),
+        engine = create_engine("{0}://".format(self.json_conf.db_settings.dbtype),
                                creator=self.db_connection)
         session = sqlalchemy.orm.sessionmaker(bind=engine)()
         try:
@@ -400,9 +400,9 @@ Please update your configuration files in the future.""".format(
                 locus_out.flush()
         except sqlalchemy.exc.OperationalError as _:
             self.logger.error("Empty database! Creating a mock one")
-            self.json_conf["db_settings"]["dbtype"] = "sqlite"
-            self.json_conf["db_settings"]["db"] = tempfile.mktemp()
-            engine = create_engine("{0}://".format(self.json_conf["db_settings"]["dbtype"]),
+            self.json_conf.db_settings.dbtype = "sqlite"
+            self.json_conf.db_settings.db = tempfile.mktemp()
+            engine = create_engine("{0}://".format(self.json_conf.db_settings.dbtype),
                                    creator=self.db_connection)
             session = sqlalchemy.orm.sessionmaker(bind=engine)()
             dbutils.DBBASE.metadata.create_all(engine)
@@ -502,7 +502,7 @@ Please update your configuration files in the future.""".format(
                 all of these are file handles
         """
 
-        engine = create_engine("{0}://".format(self.json_conf["db_settings"]["dbtype"]),
+        engine = create_engine("{0}://".format(self.json_conf.db_settings.dbtype),
                                creator=self.db_connection)
         session = sqlalchemy.orm.sessionmaker(bind=engine)()
 
@@ -970,7 +970,7 @@ Please update your configuration files in the future.""".format(
         logger = logging.getLogger("queue_listener")
         logger.propagate = False
         logger.addHandler(handler)
-        logger.setLevel(self.json_conf["log_settings"]["log_level"])
+        logger.setLevel(self.json_conf.log_settings.log_level)
         logger.debug("Begun single-threaded run")
 
         intron_range = self.json_conf["pick"]["run_options"]["intron_range"]
@@ -1093,7 +1093,7 @@ Please update your configuration files in the future.""".format(
         """
 
         single_thread = (self.json_conf["pick"]["run_options"]["single_thread"] or self.procs == 1
-                         or self.json_conf["log_settings"]["log_level"] == "DEBUG")
+                         or self.json_conf.log_settings.log_level == "DEBUG")
         
         if single_thread is False:
             self.__submit_multi_threading()
@@ -1108,11 +1108,11 @@ Please update your configuration files in the future.""".format(
 
         # Clean up the DB copied to SHM
         if self.json_conf["pick"]["run_options"]["shm"] is True:
-            assert os.path.dirname(self.json_conf["db_settings"]["db"]) == os.path.join("/dev", "shm"), (
-                self.json_conf["db_settings"]["db"], os.path.dirname(self.json_conf["db_settings"]["db"]),
+            assert os.path.dirname(self.json_conf.db_settings.db) == os.path.join("/dev", "shm"), (
+                self.json_conf.db_settings.db, os.path.dirname(self.json_conf.db_settings.db),
                 os.path.join("/dev", "shm"))
-            self.main_logger.debug("Removing shared memory DB %s", self.json_conf["db_settings"]["db"])
-            os.remove(self.json_conf["db_settings"]["db"])
+            self.main_logger.debug("Removing shared memory DB %s", self.json_conf.db_settings.db)
+            os.remove(self.json_conf.db_settings.db)
         self.manager.shutdown()
 
     def __call__(self):
@@ -1124,7 +1124,7 @@ Please update your configuration files in the future.""".format(
 
         self.logger.debug("Source: %s",
                           self.json_conf["pick"]["output_format"]["source"])
-        if self.json_conf["db_settings"]["dbtype"] == "sqlite":
+        if self.json_conf.db_settings.dbtype == "sqlite":
             self.queue_pool = sqlalchemy.pool.QueuePool(
                 self.db_connection,
                 pool_size=self.procs,

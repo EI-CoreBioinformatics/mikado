@@ -139,7 +139,7 @@ class JunctionSerializer:
         :type handle: str | io.IOBase | io.TextIOWrapper
 
         :param json_conf: Optional configuration dictionary with db connection parameters.
-        :type json_conf: dict | None
+        :type json_conf: (MikadoConfiguration|DaijinConfiguration) | None
         """
 
         self.bed12_parser = None
@@ -166,16 +166,16 @@ class JunctionSerializer:
 
         self.session = session
         if json_conf is not None:
-            self.maxobjects = json_conf["serialise"]["max_objects"]
+            self.maxobjects = json_conf.serialise.max_objects
         else:
             self.maxobjects = 10000
 
-        if "genome_fai" not in json_conf["reference"] or not json_conf["reference"]["genome_fai"]:
-            _ = pyfaidx.Fasta(json_conf["reference"]["genome"])
+        if not json_conf.reference.genome_fai:
+            _ = pyfaidx.Fasta(json_conf.reference.genome)
             self.fai = _.faidx.indexname
             _.close()
         else:
-            self.fai = json_conf["reference"]["genome_fai"]
+            self.fai = json_conf.reference.genome_fai
 
         if isinstance(self.fai, str):
             assert os.path.exists(self.fai), "File {fai} does not exist!".format(fai=self.fai)

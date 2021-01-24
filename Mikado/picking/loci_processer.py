@@ -238,7 +238,7 @@ def analyse_locus(slocus: Superlocus,
 
     # We need to set this to the lowest possible level,
     # otherwise we overwrite the global configuration
-    logger.setLevel(json_conf["log_settings"]["log_level"])
+    logger.setLevel(json_conf.log_settings.log_level)
     logger.propagate = False
     logger.debug("Started with %s, counter %d", slocus.id, counter)
     if slocus.stranded is True:
@@ -333,7 +333,7 @@ class LociProcesser(Process):
         self.handler = logging_handlers.QueueHandler(self.logging_queue)
         self.logger = logging.getLogger(self.name)
         self.logger.addHandler(self.handler)
-        self.logger.setLevel(self.json_conf["log_settings"]["log_level"])
+        self.logger.setLevel(self.json_conf.log_settings.log_level)
 
         self.logger.propagate = False
         self._tempdir = tempdir
@@ -409,7 +409,7 @@ class LociProcesser(Process):
         self.handler = logging_handlers.QueueHandler(self.logging_queue)
         self.logger = logging.getLogger(self.name)
         self.logger.addHandler(self.handler)
-        self.logger.setLevel(self.json_conf["log_settings"]["log_level"])
+        self.logger.setLevel(self.json_conf.log_settings.log_level)
         self.logger.propagate = False
         self.engine = dbutils.connect(self.json_conf, self.logger)
         self.analyse_locus = functools.partial(analyse_locus,

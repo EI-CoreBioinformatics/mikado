@@ -104,9 +104,9 @@ class TestLoadJunction(unittest.TestCase):
 
         self.dbfile = tempfile.mktemp(suffix=".db")
         self.json_conf = configuration.configurator.to_json(None)
-        self.json_conf["db_settings"]["dbtype"] = "sqlite"
-        self.json_conf["db_settings"]["db"] = self.dbfile
-        self.json_conf["reference"]["genome_fai"] = os.path.join(
+        self.json_conf.db_settings.dbtype = "sqlite"
+        self.json_conf.db_settings.db = self.dbfile
+        self.json_conf.reference.genome_fai = os.path.join(
             os.path.dirname(__file__),
             "genome.fai")
         self.session = utilities.dbutils.connect(self.json_conf)
@@ -115,7 +115,7 @@ class TestLoadJunction(unittest.TestCase):
             "junctions.bed"
         )
 
-        self.json_conf["serialise"]["max_objects"] = 100
+        self.json_conf.serialise.max_objects = 100
 
         self.logger.setLevel("DEBUG")
         self.junction_serialiser = serializers.junction.JunctionSerializer(
@@ -212,13 +212,13 @@ class TestLoadJunction(unittest.TestCase):
         db = tempfile.mktemp(suffix=".db")
         genome_file = tempfile.NamedTemporaryFile("wb", suffix=".fa.gz", prefix="Chr5", dir=".")
         jconf = self.json_conf.copy()
-        jconf["db_settings"]["db"] = db
-        jconf["reference"]["genome_fai"] = None
+        jconf.db_settings.db = db
+        jconf.reference.genome_fai = None
         with resource_stream("Mikado.tests", "chr5.fas.gz") as _:
             genome_file.write(_.read())
         genome_file.flush()
 
-        jconf["reference"]["genome"] = genome_file.name
+        jconf.reference.genome = genome_file.name
 
         seri = serializers.junction.JunctionSerializer(
                 self.junction_file,

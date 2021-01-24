@@ -227,7 +227,7 @@ class TestPadding(unittest.TestCase):
 
         logger = create_default_logger("test_add_two_partials", "INFO")
         json_conf = to_json(None)
-        json_conf["reference"]["genome"] = self.fai
+        json_conf.reference.genome = self.fai
         json_conf["pick"]["alternative_splicing"]["only_confirmed_introns"] = False
         json_conf["pick"]["alternative_splicing"]["keep_retained_introns"] = True
         json_conf["pick"]["alternative_splicing"]["pad"] = True

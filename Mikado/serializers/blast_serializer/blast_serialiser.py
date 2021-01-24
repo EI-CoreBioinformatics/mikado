@@ -69,7 +69,7 @@ class BlastSerializer:
         # Runtime arguments
 
         self.procs = json_conf["threads"]
-        self.single_thread = json_conf["serialise"]["single_thread"]
+        self.single_thread = json_conf.serialise.single_thread
         self.json_conf = json_conf
         # pylint: disable=unexpected-argument,E1123
         multiprocessing.set_start_method(self.json_conf["multiprocessing_method"],
@@ -80,13 +80,13 @@ class BlastSerializer:
         self.logger_queue_handler = logging_handlers.QueueHandler(self.logging_queue)
         self.queue_logger = logging.getLogger("parser")
         self.queue_logger.addHandler(self.logger_queue_handler)
-        self.queue_logger.setLevel(self.json_conf["log_settings"]["log_level"])
+        self.queue_logger.setLevel(self.json_conf.log_settings.log_level)
         self.queue_logger.propagate = False
         self.log_writer = logging_handlers.QueueListener(self.logging_queue, self.logger)
         self.log_writer.start()
 
         self._max_target_seqs = json_conf["serialise"]["max_target_seqs"]
-        self.maxobjects = json_conf["serialise"]["max_objects"]
+        self.maxobjects = json_conf.serialise.max_objects
         target_seqs = json_conf["serialise"]["files"]["blast_targets"]
         query_seqs = json_conf["serialise"]["files"]["transcripts"]
 

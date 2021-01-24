@@ -103,7 +103,7 @@ def load_blast(args, logger):
     :type logger: (None | logging.Logger)
 
     """
-    if args.json_conf["serialise"]["files"]["xml"]:
+    if args.json_conf.serialise.files.xml:
         logger.info("Starting to load BLAST data")
         filenames = []
 
@@ -111,7 +111,7 @@ def load_blast(args, logger):
             xml_launcher,
             **{"json_conf": args.json_conf, "logger": logger})
 
-        for xml in args.json_conf["serialise"]["files"]["xml"]:
+        for xml in args.json_conf.serialise.files.xml:
             if os.path.isdir(xml):
                 filenames.extend(
                     [os.path.join(xml, _xml) for _xml in
@@ -136,9 +136,9 @@ def load_orfs(args, logger):
     :return:
     """
 
-    if len(args.json_conf["serialise"]["files"]["orfs"]) > 0:
+    if len(args.json_conf.serialise.files.orfs) > 0:
         logger.info("Starting to load ORF data")
-        for orf_file in args.json_conf["serialise"]["files"]["orfs"]:
+        for orf_file in args.json_conf.serialise.files.orfs:
             logger.debug("Starting to load ORFs from %s", orf_file)
             from ..serializers import orf
             try:
@@ -148,7 +148,7 @@ def load_orfs(args, logger):
                 serializer()
             except InvalidSerialization:
                 logger.critical("Mikado serialise failed due to problems with the input data. Please check the logs.")
-                os.remove(args.json_conf["db_settings"]["db"])
+                os.remove(args.json_conf.db_settings.db)
                 sys.exit(1)
         logger.info("Finished loading ORF data")
     else:
@@ -159,14 +159,14 @@ def load_external(args, logger):
 
     """Function to load external data from."""
 
-    if args.json_conf["serialise"]["files"]["external_scores"] in (None, ""):
+    if args.json_conf.serialise.files.external_scores in (None, ""):
         logger.debug("No external scores to load, returning")
         return
     else:
         logger.info("Starting to load external data")
         from ..serializers import external
         with external.ExternalSerializer(
-                args.json_conf["serialise"]["files"]["external_scores"],
+                args.json_conf.serialise.files.external_scores,
                 json_conf=args.json_conf,
                 logger=logger) as serializer:
             serializer()
@@ -188,39 +188,40 @@ def setup(args):
     logger = create_default_logger("serialiser")
     # Get the log level from general settings
     if args.start_method is not None:
-        args.json_conf["multiprocessing_method"] = args.start_method
+        args.json_conf.multiprocessing_method = args.start_method
 
     if args.log_level is None:
-        args.log_level = args.json_conf["log_settings"]["log_level"]
+        args.log_level = args.json_conf.log_settings.log_level
     else:
-        args.json_conf["log_settings"]["log_level"] = args.log_level
-
-    args.json_conf["serialise"]["log_level"] = args.json_conf["log_settings"]["log_level"]
+        args.json_conf.log_settings.log_level = args.log_level
 
     if args.procs is not None and args.procs > 0:
-        args.json_conf["threads"] = args.procs
+        args.json_conf.threads = args.procs
 
     # Retrieve data from the argparse and put it into the configuration
-    for key in args.json_conf["serialise"]:
-        if key == "files":
-            for file_key in args.json_conf["serialise"]["files"]:
-                if getattr(args, file_key, None):
-                    if file_key in ("xml", "junctions", "orfs"):
-                        setattr(args, file_key, getattr(args, file_key).split(","))
-                    args.json_conf["serialise"]["files"][file_key] = getattr(args, file_key)
-        else:
-            if getattr(args, key, None) or getattr(args, key, None) == 0:
-                if getattr(args, key) is False or getattr(args, key) is None:
-                    continue
-                else:
-                    args.json_conf["serialise"][key] = getattr(args, key)
+    # TODO: Review this, but seems like this code is unreachable (only place called is from the serialise CLI parser)
+    #  and it doesn't seem as if there is a 'files' CLI argument for serialise so this can never be reached from that
+    #  route
+    # for key in args.json_conf["serialise"]:
+    #     if key == "files":
+    #         for file_key in args.json_conf["serialise"]["files"]:
+    #             if getattr(args, file_key, None):
+    #                 if file_key in ("xml", "junctions", "orfs"):
+    #                     setattr(args, file_key, getattr(args, file_key).split(","))
+    #                 args.json_conf["serialise"]["files"][file_key] = getattr(args, file_key)
+    #     else:
+    #         if getattr(args, key, None) or getattr(args, key, None) == 0:
+    #             if getattr(args, key) is False or getattr(args, key) is None:
+    #                 continue
+    #             else:
+    #                 args.json_conf["serialise"][key] = getattr(args, key)
 
     if args.db is not None:
-        args.json_conf["db_settings"]["db"] = args.db
-        args.json_conf["dbtype"] = "sqlite"
+        args.json_conf.db_settings.db = args.db
+        args.json_conf.db_settings.dbtype = "sqlite"
 
     if args.seed is not None:
-        args.json_conf["seed"] = args.seed
+        args.json_conf.seed = args.seed
         # numpy.random.seed((args.seed) % (2 ** 32 - 1))
         random.seed((args.seed) % (2 ** 32 - 1))
     else:
@@ -228,65 +229,65 @@ def setup(args):
         random.seed(None)
 
     if args.output_dir is not None:
-        args.json_conf["serialise"]["files"]["output_dir"] = args.output_dir
-        if args.json_conf["db_settings"]["dbtype"] == "sqlite":
-            args.json_conf["db_settings"]["db"] = os.path.basename(
-                args.json_conf["db_settings"]["db"])
+        args.json_conf.serialise.files.output_dir = args.output_dir
+        if args.json_conf.db_settings.dbtype == "sqlite":
+            args.json_conf.db_settings.db = os.path.basename(
+                args.json_conf.db_settings.db)
 
-    args.json_conf["serialise"]["start_adjustment"] = args.start_adjustment
+    args.json_conf.serialise.start_adjustment = args.start_adjustment
 
-    if not os.path.exists(args.json_conf["serialise"]["files"]["output_dir"]):
+    if not os.path.exists(args.json_conf.serialise.files.output_dir):
         try:
-            os.makedirs(args.json_conf["serialise"]["files"]["output_dir"])
+            os.makedirs(args.json_conf.serialise.files.output_dir)
         except (OSError, PermissionError) as exc:
             logger.error("Failed to create the output directory!")
             logger.exception(exc)
             raise
-    elif not os.path.isdir(args.json_conf["serialise"]["files"]["output_dir"]):
+    elif not os.path.isdir(args.json_conf.serialise.files.output_dir):
         logger.error(
             "The specified output directory %s exists and is not a file; aborting",
-            args.json_conf["serialise"]["files"]["output_dir"])
+            args.json_conf.serialise.files.output_dir)
         raise OSError("The specified output directory %s exists and is not a file; aborting" %
-                      args.json_conf["prepare"]["files"]["output_dir"])
+                      args.json_conf.serialise.files.output_dir)
 
-    if args.json_conf["db_settings"]["dbtype"] == "sqlite":
-        args.json_conf["db_settings"]["db"] = path_join(
-            args.json_conf["serialise"]["files"]["output_dir"],
-            args.json_conf["db_settings"]["db"])
+    if args.json_conf.db_settings.dbtype == "sqlite":
+        args.json_conf.db_settings.db = path_join(
+            args.json_conf.serialise.files.output_dir,
+            args.json_conf.db_settings.db)
 
     if args.log is not None:
-        args.json_conf["serialise"]["files"]["log"] = args.log
+        args.json_conf.serialise.files.log = args.log
 
-    args.json_conf["log_settings"]["log"] = args.json_conf["serialise"]["files"]["log"][:]
+    args.json_conf.log_settings.log = args.json_conf.serialise.files.log[:]
 
-    if args.json_conf["serialise"]["files"]["log"] is not None and args.json_conf["serialise"]["files"]["log"] != "":
-        if args.log != args.json_conf["serialise"]["files"]["log"] and args.log is not None:
-            args.json_conf["serialise"]["files"]["log"] = args.log
-        if not isinstance(args.json_conf["serialise"]["files"]["log"], str):
-            args.json_conf["serialise"]["files"]["log"].close()
-            args.json_conf["serialise"]["files"]["log"] = args.json_conf["serialise"]["files"]["log"].name
+    if args.json_conf.serialise.files.log is not None and args.json_conf.serialise.files.log != "":
+        if args.log != args.json_conf.serialise.files.log and args.log is not None:
+            args.json_conf.serialise.files.log = args.log
+        if not isinstance(args.json_conf.serialise.files.log, str):
+            args.json_conf.serialise.files.log.close()
+            args.json_conf.serialise.files.log = args.json_conf.serialise.files.log.name
 
-        log = args.json_conf["serialise"]["files"]["log"]
+        log = args.json_conf.serialise.files.log
         if os.path.dirname(log) == "":
-            args.json_conf["serialise"]["files"]["log"] = \
-                os.path.join(args.json_conf["serialise"]["files"]["output_dir"],
+            args.json_conf.serialise.files.log = \
+                os.path.join(args.json_conf.serialise.files.output_dir,
                              os.path.basename(log))
         else:
             logdir = os.path.dirname(log).rstrip(os.path.sep)
-            logdir = os.path.relpath(logdir, args.json_conf["serialise"]["files"]["output_dir"])
-            args.json_conf["serialise"]["files"]["log"] = \
-                os.path.join(args.json_conf["serialise"]["files"]["output_dir"],
+            logdir = os.path.relpath(logdir, args.json_conf.serialise.files.output_dir)
+            args.json_conf.serialise.files.log = \
+                os.path.join(args.json_conf.serialise.files.output_dir,
                              logdir,
                              os.path.basename(log))
-        # path_join(args.json_conf["serialise"]["files"]["output_dir"], args.json_conf["serialise"]["files"]["log"])
+        # path_join(args.json_conf.serialise.files.output_dir, args.json_conf.serialise.files.log)
         handlers = logger.handlers[:]
         for handler in handlers:
             # if hasattr(handler, "baseFilename"):
             logger.removeHandler(handler)
 
-        os.makedirs(os.path.dirname(args.json_conf["serialise"]["files"]["log"]), exist_ok=True)
-        open(args.json_conf["serialise"]["files"]["log"], "wt").close()
-        handler = logging.FileHandler(args.json_conf["serialise"]["files"]["log"], mode="wt", delay=False)
+        os.makedirs(os.path.dirname(args.json_conf.serialise.files.log), exist_ok=True)
+        open(args.json_conf.serialise.files.log, "wt").close()
+        handler = logging.FileHandler(args.json_conf.serialise.files.log, mode="wt", delay=False)
         handler.setFormatter(formatter)
         logger.addHandler(handler)
 
@@ -298,60 +299,60 @@ def setup(args):
             print("Handler:", handler.baseFilename)
         raise
 
-    logger.info("Random seed: %s", args.json_conf["seed"])
+    logger.info("Random seed: %s", args.json_conf.seed)
     logger.setLevel(args.log_level)
 
-    if args.json_conf["serialise"]["files"]["junctions"]:
+    if args.json_conf.serialise.files.junctions:
         if args.genome_fai is not None:
-            args.json_conf["reference"]["genome_fai"] = args.genome_fai
-        elif args.json_conf["reference"]["genome_fai"] in (None, ""):
-            if args.json_conf["reference"]["genome"] not in (None, ""):
-                _ = pyfaidx.Fasta(args.json_conf["reference"]["genome"])
-                args.json_conf["reference"]["genome_fai"] = _.faidx.indexname
+            args.json_conf.reference.genome_fai = args.genome_fai
+        elif args.json_conf.reference.genome_fai in (None, ""):
+            if args.json_conf.reference.genome not in (None, ""):
+                _ = pyfaidx.Fasta(args.json_conf.reference.genome)
+                args.json_conf.reference.genome_fai = _.faidx.indexname
             else:
                 logger.critical("Missing FAI file for junction loading!")
                 sys.exit(1)
 
     # File with the external scores
     if args.external_scores is not None:
-        args.json_conf["serialise"]["files"]["external_scores"] = args.external_scores
+        args.json_conf.serialise.files.external_scores = args.external_scores
 
     if args.max_regression is not None:
-        args.json_conf["serialise"]["max_regression"] = args.max_regression
+        args.json_conf.serialise.max_regression = args.max_regression
 
     if args.codon_table is not None:
         try:
             args.codon_table = int(args.codon_table)
         except ValueError:
             pass
-        args.json_conf["serialise"]["codon_table"] = args.codon_table
-    else:
-        assert "codon_table" in args.json_conf["serialise"]
+        args.json_conf.serialise.codon_table = args.codon_table
+    # else:
+    #     assert "codon_table" in args.json_conf["serialise"]
 
     # Add sqlalchemy logging
     sql_logger = logging.getLogger("sqlalchemy.engine")
     if args.log_level == "DEBUG":
-        level = args.json_conf["serialise"]["log_level"]
+        level = args.json_conf.log_settings.log_level
     else:
-        level = args.json_conf["log_settings"]["sql_level"]
+        level = args.json_conf.log_settings.sql_level
 
     sql_logger.setLevel(level)
     sql_logger.addHandler(logger.handlers[0])
 
     logger.info("Using a %s database (location: %s)",
-                args.json_conf["db_settings"]["dbtype"],
-                args.json_conf["db_settings"]["db"])
+                args.json_conf.db_settings.dbtype,
+                args.json_conf.db_settings.db)
 
     logger.info("Requested %d threads, forcing single thread: %s",
-                args.json_conf["threads"],
-                args.json_conf["serialise"]["single_thread"])
+                args.json_conf.threads,
+                args.json_conf.serialise.single_thread)
 
-    if args.json_conf["serialise"]["force"] is True:
-        if (args.json_conf["db_settings"]["dbtype"] == "sqlite" and
-                os.path.exists(args.json_conf["db_settings"]["db"])):
+    if args.json_conf.serialise.force is True:
+        if (args.json_conf.db_settings.dbtype == "sqlite" and
+                os.path.exists(args.json_conf.db_settings.db)):
             logger.warn("Removing old data from %s because force option in place",
-                        args.json_conf["db_settings"]["db"])
-            os.remove(args.json_conf["db_settings"]["db"])
+                        args.json_conf.db_settings.db)
+            os.remove(args.json_conf.db_settings.db)
 
         engine = dbutils.connect(args.json_conf)
         meta = sqlalchemy.MetaData(bind=engine)
@@ -359,12 +360,12 @@ def setup(args):
         for tab in reversed(meta.sorted_tables):
             logger.debug("Dropping %s", tab)
             tab.drop()
-            if args.json_conf["db_settings"]["dbtype"] == "mysql":
+            if args.json_conf.db_settings.dbtype == "mysql":
                 engine.execute("OPTIMIZE TABLE {}".format(tab.name))
-        if args.json_conf["db_settings"]["dbtype"] == "mysql":
+        if args.json_conf.db_settings.dbtype == "mysql":
             engine.execute("")
         # This would fail in MySQL as it uses the OPTIMIZE TABLE syntax above
-        elif args.json_conf["db_settings"]["dbtype"] != "sqlite":
+        elif args.json_conf.db_settings.dbtype != "sqlite":
             engine.execute("VACUUM")
         dbutils.DBBASE.metadata.create_all(engine)
 

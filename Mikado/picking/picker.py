@@ -44,6 +44,9 @@ import pyfaidx
 import sqlite3
 import msgpack
 from numpy import percentile
+import dataclasses
+from ..configuration.configuration import MikadoConfiguration
+from ..configuration.daijin_configuration import DaijinConfiguration
 logging.captureWarnings(True)
 warnings.simplefilter("always")
 try:
@@ -68,6 +71,7 @@ class Picker:
         prepared by the json_utils functions.
 
         :param json_conf: Either a configuration dictionary or the configuration file.
+        :type json_conf: (MikadoConfiguration|DaijinConfiguration)
 
         :param commandline: optional, the commandline used to start the program
         :type commandline: str
@@ -78,10 +82,6 @@ class Picker:
         self.log_level = "WARN"
 
         # # Things that have to be deleted upon serialisation
-        # self.not_pickable = ["queue_logger", "manager", "printer_process",
-        #                      "log_process", "pool", "main_logger",
-        #                      "log_handler", "log_writer", "logger", "engine"]
-        #
         # Now we start the real work
         self.commandline = commandline
         self.json_conf = json_conf
@@ -90,7 +90,7 @@ class Picker:
         self.__regions = regions
         self.regressor = None
 
-        self.procs = self.json_conf["threads"]
+        self.procs = self.json_conf.threads
 
         # Check the input file
         with self.define_input() as _:
@@ -98,19 +98,17 @@ class Picker:
 
         self.__create_output_handles()
         # pylint: disable=no-member
-        multiprocessing.set_start_method(self.json_conf["multiprocessing_method"],
+        multiprocessing.set_start_method(self.json_conf.multiprocessing_method,
                                          force=True)
 
         # self.setup_logger()
         self.logger.info("Starting to analyse input file %s", self.input_file)
-        self.logger.info("Random seed: %s", self.json_conf["seed"])
-        if self.json_conf["seed"] is not None:
-            # numpy.random.seed((self.json_conf["seed"]) % (2 ** 32 - 1))
-            random.seed((self.json_conf["seed"]) % (2 ** 32 - 1))
+        self.logger.info("Random seed: %s", self.json_conf.seed)
+        if self.json_conf.seed is not None:
+            random.seed((self.json_conf.seed) % (2 ** 32 - 1))
         else:
-            # numpy.random.seed(None)
             random.seed(None)
-        self.logger.debug("Multiprocessing method: %s", self.json_conf["multiprocessing_method"])
+        self.logger.debug("Multiprocessing method: %s", self.json_conf.multiprocessing_method)
 
         # pylint: enable=no-member
         self.manager = self.context.Manager()
@@ -127,11 +125,9 @@ class Picker:
 
         if self.json_conf.pick.run_options.single_thread is True:
             # Reset threads to 1
-            if self.json_conf["threads"] > 1:
+            if self.json_conf.threads > 1:
                 self.main_logger.warning("Reset number of threads to 1 as requested")
                 self.procs = 1
-        # elif self.json_conf["threads"] == 1:
-        #     self.json_conf.pick.run_options.single_thread = True
 
         if self.locus_out is None:
             raise InvalidJson(
@@ -179,14 +175,14 @@ class Picker:
             assert os.path.exists(self.json_conf)
             self.json_conf = to_json(self.json_conf, logger=self.logger)
             # pylint: disable=no-member
-            multiprocessing.set_start_method(self.json_conf["multiprocessing_method"],
+            multiprocessing.set_start_method(self.json_conf.multiprocessing_method,
                                              force=True)
-            self.input_file = self.json_conf["pick"]["files"]["input"]
+            self.input_file = self.json_conf.pick.files.input
             self.setup_logger()
-        elif isinstance(self.json_conf, dict):
+        elif isinstance(self.json_conf, (MikadoConfiguration,DaijinConfiguration)):
             # pylint: disable=no-member
-            self.input_file = self.json_conf["pick"]["files"]["input"]
-            multiprocessing.set_start_method(self.json_conf["multiprocessing_method"],
+            self.input_file = self.json_conf.pick.files.input
+            multiprocessing.set_start_method(self.json_conf.multiprocessing_method,
                                              force=True)
             self.setup_logger()
             self.logger.debug("Checking the configuration dictionary")
@@ -199,25 +195,9 @@ class Picker:
                 sys.exit(1)
         else:
             raise TypeError(type(self.json_conf))
-        assert isinstance(self.json_conf, dict)
+        assert isinstance(self.json_conf, (MikadoConfiguration, DaijinConfiguration))
 
-        for key in ("remove_overlapping_fragments", "flank", "purge"):
-            if key in self.json_conf["pick"]["run_options"]:
-                # Put warnings in place for the deprecation of some options.
-
-                if key == "remove_overlapping_fragments":
-                    self.json_conf["pick"]["fragments"]["remove"] = self.json_conf["pick"]["run_options"].pop(key)
-                    new_home = "fragments/remove"
-                else:
-                    self.json_conf["pick"]["clustering"][key] = self.json_conf["pick"]["run_options"].pop(key)
-                    new_home = "clustering/{}".format(key)
-                warns = PendingDeprecationWarning(
-                    """The \"{}\" property has now been moved to pick/{}. \
-Please update your configuration files in the future.""".format(
-                        key, new_home))
-                self.logger.warning(warns)
-
-        if self.json_conf.get("pick", {}).get("alternative_splicing", {}).get("pad", False) is True:
+        if self.json_conf.pick.alternative_splicing.pad is True:
             # Check that, when asks for padding, the reference genome is present
             self.logger.debug("Checking for the presence of the reference genome")
             try:
@@ -247,23 +227,23 @@ Please update your configuration files in the future.""".format(
 
         """Create all the output-related variables."""
 
-        if self.json_conf["pick"]["files"]["subloci_out"]:
+        if self.json_conf.pick.files.subloci_out:
             self.sub_out = path_join(
                 self.json_conf.pick.files.output_dir,
-                self.json_conf["pick"]["files"]["subloci_out"]
+                self.json_conf.pick.files.subloci_out
             )
         else:
             self.sub_out = ""
-        if self.json_conf["pick"]["files"]["monoloci_out"]:
+        if self.json_conf.pick.files.monoloci_out:
             self.monolocus_out = path_join(
                 self.json_conf.pick.files.output_dir,
-                self.json_conf["pick"]["files"]["monoloci_out"]
+                self.json_conf.pick.files.monoloci_out
             )
         else:
             self.monolocus_out = ""
         self.locus_out = path_join(
             self.json_conf.pick.files.output_dir,
-            self.json_conf["pick"]["files"]["loci_out"])
+            self.json_conf.pick.files.loci_out)
 
         assert self.locus_out != ''
         assert self.locus_out != self.sub_out and self.locus_out != self.monolocus_out
@@ -323,15 +303,15 @@ Please update your configuration files in the future.""".format(
 
         self.logger = logging.getLogger("listener")
         self.logger.propagate = False
-        if (self.json_conf["pick"]["files"]["log"] is None or
-                self.json_conf["pick"]["files"]["log"] in ("stream", "")):
+        if (self.json_conf.pick.files.log is None or
+                self.json_conf.pick.files.log in ("stream", "")):
             self.log_handler = logging.StreamHandler()
         else:
-            if os.path.basename(self.json_conf["pick"]["files"]["log"]) == self.json_conf["pick"]["files"]["log"]:
+            if os.path.basename(self.json_conf.pick.files.log) == self.json_conf.pick.files.log:
                 fname = path_join(self.json_conf.pick.files.output_dir,
-                                  self.json_conf["pick"]["files"]["log"])
+                                  self.json_conf.pick.files.log)
             else:
-                fname = self.json_conf["pick"]["files"]["log"]
+                fname = self.json_conf.pick.files.log
 
             self.log_handler = logging.FileHandler(filename=fname, mode='w')
             assert os.path.exists(fname)
@@ -342,11 +322,11 @@ Please update your configuration files in the future.""".format(
         self.logger.setLevel(self.log_level)
         self.logger.addHandler(self.log_handler)
 
-        if self.log_level == "DEBUG" and self.json_conf["threads"] > 1:
+        if self.log_level == "DEBUG" and self.json_conf.threads > 1:
             self.main_logger.setLevel(logging.DEBUG)
             self.main_logger.warning(
                     "Due to a Python design bug, we have to force Mikado to go in single-threaded mode when debugging.")
-            self.procs = self.json_conf["threads"] = 1
+            self.procs = self.json_conf.threads = 1
         else:
             self.main_logger.setLevel(logging.INFO)
         self.main_logger.addHandler(self.log_handler)
@@ -510,7 +490,7 @@ Please update your configuration files in the future.""".format(
 
         score_keys = ["source_score"]
         if self.regressor is None:
-            __scores = sorted(list(self.json_conf["scoring"].keys()))
+            __scores = sorted(list(self.json_conf.scoring.keys()))
             # Check that the external scores are all present. If they are not, raise a warning.
             __externals = set([_ for _ in __scores if _.startswith("external.")])
             if __externals - set(external_metrics):
@@ -719,7 +699,7 @@ Please update your configuration files in the future.""".format(
 
         self.logger.debug("Creating the worker processes")
 
-        working_processes = [LociProcesser(msgpack.dumps(self.json_conf),
+        working_processes = [LociProcesser(msgpack.dumps(dataclasses.asdict(self.json_conf)),
                                            locus_queue,
                                            self.logging_queue,
                                            status_queue,
@@ -865,7 +845,7 @@ Please update your configuration files in the future.""".format(
     def __parse_multithreaded(self, locus_queue):
         counter = 0
         invalids = set()
-        flank = self.json_conf.pick.run_options.flank
+        flank = self.json_conf.pick.clustering.flank
         mapper = dict()
 
         with self.define_input(multithreading=True) as input_annotation:
@@ -1059,7 +1039,7 @@ Please update your configuration files in the future.""".format(
                     current_transcript.id, current_transcript.max_intron_length, max_intron)
             elif current_locus and Superlocus.in_locus(
                             current_locus, current_transcript,
-                            flank=self.json_conf.pick.run_options.flank) is True:
+                            flank=self.json_conf.pick.clustering.flank) is True:
                     current_locus.add_transcript_to_locus(current_transcript, check_in_locus=False)
             else:
                 counter += 1

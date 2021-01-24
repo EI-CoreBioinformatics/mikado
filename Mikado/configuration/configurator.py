@@ -583,7 +583,15 @@ def check_json(json_conf: Union[dict, MikadoConfiguration, DaijinConfiguration],
     try:
         validator = create_validator(simple=simple)
         # This will check for consistency and add the default values if they are missing
-        validator.validate(asdict(json_conf))
+        if isinstance(json_conf, (MikadoConfiguration, DaijinConfiguration)):
+            validator.validate(asdict(json_conf))
+        else:
+            validator.validate(json_conf)
+            try:
+                json_conf = dacite.from_dict(data=json_conf, data_class=MikadoConfiguration)
+            except:
+                json_conf = dacite.from_dict(data=json_conf, data_class=DaijinConfiguration)
+
         if not json_conf.pick:
             print(json_conf)
             raise AssertionError("Pick section missing from the configuration.")
@@ -657,7 +665,7 @@ def to_json(string, simple=False, logger=None) -> Union[MikadoConfiguration, Dai
             json_dict = string
         elif string is None or string == '' or string == dict():
             json_dict = MikadoConfiguration()
-            string = None
+            json_dict.filename = None
         else:
             string = os.path.abspath(string)
             if not os.path.exists(string) or os.stat(string).st_size == 0:
@@ -675,8 +683,8 @@ def to_json(string, simple=False, logger=None) -> Union[MikadoConfiguration, Dai
                     json_dict = dacite.from_dict(data_class=MikadoConfiguration, data=json_dict)
                 except:
                     json_dict = dacite.from_dict(data_class=DaijinConfiguration, data=json_dict)
+            json_dict.filename = string
 
-        json_dict.filename = string
         json_dict = check_json(json_dict, simple=simple, logger=logger)
 
     except Exception as exc:

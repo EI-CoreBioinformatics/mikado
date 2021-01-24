@@ -95,7 +95,7 @@ class Superlocus(Abstractlocus):
         the Locus should use or ignore strand information
         :type stranded: bool
         :param json_conf: a configuration dictionary derived from JSON/YAML config files
-        :type json_conf: dict
+        :type json_conf: (MikadoConfiguration|DaijinConfiguration)
         :param source: optional source for the locus
         :type source: str
         :param logger: the logger for the class

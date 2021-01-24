@@ -3,6 +3,7 @@
 """
 Module that defines the blueprint for all loci classes.
 """
+import dataclasses
 
 import abc
 import dacite
@@ -193,15 +194,12 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         state = self.__dict__.copy()
         self.logger = logger
 
-        if hasattr(self, "json_conf"):
-            # This removes unpicklable compiled attributes, eg in "requirements" or "as_requirements"
-            if "json_conf" not in state:
-                state["json_conf"] = self.json_conf.copy()
-            for key in ["requirements", "cds_requirements", "as_requirements", "not_fragmentary"]:
-                section = getattr(state["json_conf"], key)
-                if "compiled" in section:
-                    del section["compiled"]
-                    setattr(state["json_conf"], key, section)
+        state["json_conf"] = self.json_conf.copy()
+
+        state["json_conf"].requirements.pop("compiled", None)
+        state["json_conf"].cds_requirements.pop("compiled", None)
+        state["json_conf"].as_requirements.pop("compiled", None)
+        state["json_conf"].not_fragmentary.pop("compiled", None)
 
         if hasattr(self, "session"):
             if self.session is not None:
@@ -237,6 +235,9 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         self.__dict__.update(state)
         self.__segmenttree = IntervalTree()
         self.__internal_graph = networkx.DiGraph()
+        assert state["json_conf"] is not None
+        self.json_conf = state["json_conf"]
+        assert self.json_conf is not None
         try:
             nodes = json.loads(state["_Abstractlocus__internal_nodes"])
         except json.decoder.JSONDecodeError:
@@ -253,12 +254,15 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         except TypeError:
             raise TypeError(edges)
 
-        if hasattr(self, "json_conf"):
-            for key in ["requirements", "cds_requirements", "as_requirements", "not_fragmentary"]:
-                section = getattr(self.json_conf, key)
-                if "expression" in section:
-                    section["compiled"] = compile(section["expression"], "<json>", "eval")
-                    setattr(self.json_conf, key, section)
+        self.json_conf.requirements["compiled"] = compile(self.json_conf.requirements.get("expression", "True"),
+                                                          "<json>", "eval")
+        self.json_conf.cds_requirements["compiled"] = compile(self.json_conf.cds_requirements.get("expression", "True"),
+                                                              "<json>", "eval")
+        self.json_conf.as_requirements["compiled"] = compile(self.json_conf.as_requirements.get("expression", True),
+                                                             "<json>", "eval")
+        self.json_conf.not_fragmentary["compiled"] = compile(self.json_conf.not_fragmentary.get("expression", True),
+                                                             "<json>", "eval")
+
         # Set the logger to NullHandler
         _ = self.__segmenttree
         self.logger = None
@@ -268,6 +272,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         state = self.__getstate__()
         state["transcripts"] = dict((tid, state["transcripts"][tid].as_dict()) for tid in state["transcripts"])
         assert "metrics_calculated" in state
+        state["json_conf"] = dataclasses.asdict(state["json_conf"])
         return state
 
     def load_dict(self, state, load_transcripts=True):

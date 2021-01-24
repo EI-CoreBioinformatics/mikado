@@ -14,6 +14,7 @@ import pickle
 from ..transcripts import Transcript
 from ..exceptions import InvalidTranscript
 from ..parsers.GTF import GtfLine
+from ..configuration.configurator import to_json
 import msgpack
 from ._loci_serialiser import serialise_locus
 try:
@@ -122,7 +123,7 @@ def remove_fragments(stranded_loci, json_conf, logger):
     :type stranded_loci: list[Superlocus]
 
     :param json_conf: the configuration dictionary
-    :type json_conf: dict
+    :type json_conf: (MikadoConfiguration|DaijinConfiguration)
 
     :param logger: the logger
     :type logger: logging.Logger
@@ -130,9 +131,6 @@ def remove_fragments(stranded_loci, json_conf, logger):
     """
 
     loci_to_check = {True: list(), False: list()}
-    # mcdl = json_conf["pick"]["run_options"]["fragments_maximal_cds"]
-    # mexons = json_conf["pick"]["run_options"]["fragments_maximal_exons"]
-    # mcdna = json_conf["pick"]["run_options"]["fragments_maximal_cdna"]
 
     total = 0
 
@@ -167,7 +165,7 @@ def remove_fragments(stranded_loci, json_conf, logger):
             comparisons[locus_to_check.id].append(comparison)
 
     for locus in comparisons:
-        if json_conf["pick"]["fragments"]["remove"] is True:
+        if json_conf.pick.fragments.remove is True:
             # A bit convoluted: use the locus ID to find the correct superlocus, then delete the ID inside the SL.
             if locus not in stranded_loci_dict[loci_to_superloci[locus]].loci:
                 logger.error("Locus %s has been lost from superlocus %s!",
@@ -323,7 +321,7 @@ class LociProcesser(Process):
 
         # current_counter, gene_counter, current_chrom = shared_values
         super(LociProcesser, self).__init__()
-        json_conf = msgpack.loads(json_conf, raw=False)
+        json_conf = to_json(msgpack.loads(json_conf, raw=False))
         self.logging_queue = logging_queue
         self.status_queue = status_queue
         self.__identifier = identifier  # Property directly unsettable
@@ -430,8 +428,12 @@ class LociProcesser(Process):
         self.logger.debug("Starting to parse data for {0}".format(self.name))
 
         print_cds = (not self.json_conf.pick.run_options.exclude_cds)
-        print_monoloci = (self.json_conf["pick"]["files"]["monoloci_out"] != "")
-        print_subloci = (self.json_conf["pick"]["files"]["subloci_out"] != "")
+        print_monoloci = (self.json_conf.pick.files.monoloci_out is not None and
+                          self.json_conf.pick.files.monoloci_out != "" and
+                          self.json_conf.pick.files.monoloci_out)
+        print_subloci = (self.json_conf.pick.files.subloci_out is not None and
+                          self.json_conf.pick.files.subloci_out != "" and
+                          self.json_conf.pick.files.subloci_out)
 
         while True:
             vals = self.locus_queue.get()
@@ -458,7 +460,7 @@ class LociProcesser(Process):
                     chroms = set()
                     for tjson in transcripts:
                         definition = GtfLine(tjson["definition"]).as_dict()
-                        is_reference = definition["source"] in self.json_conf["prepare"]["files"]["reference"]
+                        is_reference = definition["source"] in self.json_conf.prepare.files.reference
                         transcript = Transcript(logger=self.logger,
                                                 source=definition["source"],
                                                 intron_range=self.json_conf.pick.run_options.intron_range,

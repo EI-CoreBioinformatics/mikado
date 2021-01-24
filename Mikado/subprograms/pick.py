@@ -81,7 +81,7 @@ def check_run_options(args, logger=create_null_logger()):
 
     if args.sqlite_db is not None:
         if not os.path.exists(args.sqlite_db):
-            logger.critical("Mikado database {} not found. Exiting.", args.sqlite_db)
+            logger.critical("Mikado database %s not found. Exiting.", args.sqlite_db)
             sys.exit(1)
         args.json_conf.db_settings.db = args.sqlite_db
         args.json_conf.db_settings.dbtype = "sqlite"

@@ -275,6 +275,8 @@ switch.")
 
     if args.pad is True:
         config["pick"]["alternative_splicing"]["pad"] = True
+    else:
+        config["pick"]["alternative_splicing"]["pad"] = False
 
     if args.min_clustering_cds_overlap is not None:
         config["pick"]["clustering"]["min_cds_overlap"] = args.min_clustering_cds_overlap

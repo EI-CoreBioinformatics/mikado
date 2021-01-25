@@ -1,4 +1,5 @@
 from .tabular_utils import parse_tab_blast, get_queries, get_targets
+from ...configuration import DaijinConfiguration, MikadoConfiguration
 import functools
 
 
@@ -8,11 +9,10 @@ def _serialise_tabular(self):
     else:
         assert isinstance(self.xml, (list, set))
 
-    matrix_name = self.json_conf["serialise"]["substitution_matrix"]
-    program = self.json_conf["serialise"].get("blast_flavour", "blastx")
+    assert isinstance(self.json_conf, (DaijinConfiguration, MikadoConfiguration))
+    matrix_name = self.json_conf.serialise.substitution_matrix
+    program = self.json_conf.serialise.blast_flavour
     qmult, tmult = self.get_multipliers(None, program)
-
-
 
     if self._xml_debug is False and (self.single_thread is True or self.procs == 1):
         queries = get_queries(self.engine)

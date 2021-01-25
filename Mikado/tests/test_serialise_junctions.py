@@ -220,15 +220,28 @@ class TestLoadJunction(unittest.TestCase):
 
         jconf.reference.genome = genome_file.name
 
-        seri = serializers.junction.JunctionSerializer(
-                self.junction_file,
-                json_conf=self.json_conf,
-                logger=self.logger
-                )
-        seri()
-        genome_file.close()
-        os.remove("{}.fai".format(genome_file.name))
-        # genome_file.delete()
+        logger = utilities.log_utils.create_default_logger("test_no_fai", "DEBUG")
+        with self.assertLogs("test_no_fai", level="DEBUG") as cmo:
+            seri = serializers.junction.JunctionSerializer(
+                    self.junction_file,
+                    json_conf=jconf,
+                    logger=logger
+                    )
+            self.assertEqual(seri.db_settings.db, db)
+            seri()
+            genome_file.close()
+        # Now check that there are junctions in the temp database
+        import sqlite3
+        with sqlite3.connect(db) as conn:
+            try:
+                result = conn.execute("select count(*) from junctions").fetchone()[0]
+            except sqlite3.OperationalError:
+                msg = "Failed to obtain data from {}".format(db)
+                raise sqlite3.OperationalError([msg] + cmo.output)
+        self.assertGreater(result, 0)
+
+        if os.path.exists("{}.fai".format(genome_file.name)):
+            os.remove("{}.fai".format(genome_file.name))
 
     def test_invalid_bed12(self):
 

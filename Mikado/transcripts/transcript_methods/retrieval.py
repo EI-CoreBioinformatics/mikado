@@ -504,12 +504,15 @@ def find_overlapping_cds(transcript, candidates: list) -> list:
         [x.name for x in candidate_orfs]))
     final_orfs = [candidate_orfs[0]]
     if len(candidate_orfs) > 1:
-        others = list(corf for corf in candidate_orfs[1:] if
-                      corf.cds_len >= minimal_secondary_orf_length)
-        transcript.logger.debug("Found {0} secondary ORFs for {1} of length >= {2}".format(
-            len(others), transcript.id,
-            minimal_secondary_orf_length
-        ))
+        others = []
+        for corf in candidate_orfs[1:]:
+            passed = corf.cds_len >= minimal_secondary_orf_length
+            transcript.logger.debug("ORF %s for %s %s minimal length of %s (its length: %s)",
+                                    corf.name, transcript.id, "has" if passed else "does not have",
+                                    minimal_secondary_orf_length, corf.cds_len)
+            if passed:
+                others.append(corf)
+
         final_orfs.extend(others)
 
     transcript.logger.debug("Retained %d ORFs for %s: %s",

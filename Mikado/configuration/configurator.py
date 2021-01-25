@@ -665,6 +665,7 @@ def to_json(string, simple=False, logger=None) -> Union[MikadoConfiguration, Dai
             json_dict = string
         elif string is None or string == '' or string == dict():
             json_dict = MikadoConfiguration()
+            assert json_dict.reference.genome == "", json_dict.reference.genome
             json_dict.filename = None
         else:
             string = os.path.abspath(string)

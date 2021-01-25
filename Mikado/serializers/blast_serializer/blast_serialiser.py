@@ -10,6 +10,7 @@ from ...utilities.dbutils import DBBASE
 import pysam
 from ...utilities.dbutils import connect
 from ...utilities.log_utils import create_null_logger, check_logger
+from ...configuration import MikadoConfiguration, DaijinConfiguration
 from . import Query, Target, Hsp, Hit
 from .utils import load_into_db
 from .xml_utils import get_multipliers
@@ -51,7 +52,7 @@ class BlastSerializer:
         Arguments:
 
         :param json_conf: a configuration dictionary.
-        :type json_conf: dict
+        :type json_conf: (MikadoConfiguration|DaijinConfiguration)
 
 
         """
@@ -68,12 +69,11 @@ class BlastSerializer:
 
         # Runtime arguments
 
-        self.procs = json_conf["threads"]
+        self.procs = json_conf.threads
         self.single_thread = json_conf.serialise.single_thread
         self.json_conf = json_conf
         # pylint: disable=unexpected-argument,E1123
-        multiprocessing.set_start_method(self.json_conf["multiprocessing_method"],
-                                         force=True)
+        multiprocessing.set_start_method(self.json_conf.multiprocessing_method, force=True)
         # pylint: enable=unexpected-argument,E1123
         self.logger.info("Number of dedicated workers: %d", self.procs)
         self.logging_queue = multiprocessing.Queue(-1)
@@ -85,10 +85,10 @@ class BlastSerializer:
         self.log_writer = logging_handlers.QueueListener(self.logging_queue, self.logger)
         self.log_writer.start()
 
-        self._max_target_seqs = json_conf["serialise"]["max_target_seqs"]
+        self._max_target_seqs = json_conf.serialise.max_target_seqs
         self.maxobjects = json_conf.serialise.max_objects
-        target_seqs = json_conf["serialise"]["files"]["blast_targets"]
-        query_seqs = json_conf["serialise"]["files"]["transcripts"]
+        target_seqs = json_conf.serialise.files.blast_targets
+        query_seqs = json_conf.serialise.files.transcripts
 
         self.header = None
         if xml_name is None:
@@ -97,16 +97,15 @@ class BlastSerializer:
 
         self.engine = connect(json_conf)
 
-        self._xml_debug = self.json_conf.get("serialise", dict()).get("blast_loading_debug", False)
+        self._xml_debug = self.json_conf.serialise.files.blast_loading_debug
         if self._xml_debug:
             self.logger.warning("Activating the XML debug mode")
             self.single_thread = True
             self.procs = 1
 
-        # session = sessionmaker(autocommit=True)
         DBBASE.metadata.create_all(self.engine)  # @UndefinedVariable
         session = Session(bind=self.engine)
-        self.session = session  # session()
+        self.session = session
         self.hit_i_string = str(Hit.__table__.insert(bind=self.engine).compile())
         self.hsp_i_string = str(Hsp.__table__.insert(bind=self.engine).compile())
         # Remove indices
@@ -115,7 +114,6 @@ class BlastSerializer:
         self.__determine_sequences(query_seqs, target_seqs)
         self.xml = xml_name
         # Just a mock definition
-        # self.get_query = functools.partial(self.__get_query_for_blast)
         self.not_pickable = ["manager", "printer_process",
                              "context", "logger_queue_handler", "queue_logger",
                              "log_writer",

@@ -4,6 +4,7 @@ import gc
 from .checking import create_transcript, CheckingProcess
 from .annotation_parser import AnnotationParser, loaders, row_struct
 from ..configuration import MikadoConfiguration
+from ..exceptions import InvalidJson
 from ..utilities import Interval, IntervalTree
 from ..parsers import to_gff
 import operator
@@ -537,6 +538,9 @@ def prepare(mikado_config: MikadoConfiguration, logger):
     :type logger: logging.Logger
     """
 
+    if not hasattr(mikado_config.reference, "genome"):
+        raise InvalidJson("Invalid configuration; reference: {}".format(mikado_config))
+
     if hasattr(mikado_config.reference.genome, "close"):
         mikado_config.reference.genome.close()
         if hasattr(mikado_config.reference.genome, "filename"):
@@ -678,9 +682,9 @@ def prepare(mikado_config: MikadoConfiguration, logger):
 
     logger.addHandler(logging.StreamHandler())
     if errored is False:
-        logger.info("""Mikado prepare has finished correctly. The output %s FASTA file can now be used for BLASTX \
+        logger.info("""Mikado prepare has finished correctly with seed %s. The output %s FASTA file can now be used for BLASTX \
     and/or ORF calling before the next step in the pipeline, `mikado serialise`.""",
-                    mikado_config.prepare.files.out_fasta)
+                    mikado_config.seed, mikado_config.prepare.files.out_fasta)
         logging.shutdown()
     else:
         logger.error("Mikado prepare has encountered a fatal error. Please check the logs and, if there is a bug,"\

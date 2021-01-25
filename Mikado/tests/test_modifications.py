@@ -129,7 +129,7 @@ class TestPadding(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.fai = pysam.FastaFile(pkg_resources.resource_filename("Mikado.tests", "chr5.fas.gz"))
+        cls.fai = pkg_resources.resource_filename("Mikado.tests", "chr5.fas.gz")
 
     def setUp(self):
         self.reference = "Chr5\t26574999\t26578625\tID=AT5G66600.3;coding=True;phase=0\t0\t-\t26575104\t26578315\t0\t11\t411,126,87,60,100,809,126,72,82,188,107\t0,495,711,885,1035,1261,2163,2378,2856,3239,3519"

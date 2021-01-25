@@ -146,10 +146,10 @@ def __add_daijin_specs(args):
     namespace.new_scoring = getattr(args, "new_scoring", None)
     namespace.full = args.full
     config = create_daijin_config(namespace, level="ERROR", piped=True)
-    config["blastx"]["chunks"] = args.blast_chunks
-    config["mikado"]["use_diamond"] = (not args.use_blast)
-    config["mikado"]["use_prodigal"] = (not args.use_transdecoder)
-    config["scheduler"] = args.scheduler
+    config.blastx.chunks = args.blast_chunks
+    config.mikado.use_diamond = (not args.use_blast)
+    config.mikado.use_prodigal = (not args.use_transdecoder)
+    config.scheduler = args.scheduler
     create_cluster_config(config, args, create_null_logger())
     return config
 
@@ -168,19 +168,19 @@ def create_config(args):
         args.daijin = True
 
     if args.daijin is not False:
-        config = DaijinConfiguration()
-        # config = __add_daijin_specs(args)
+        # config = DaijinConfiguration()
+        config = __add_daijin_specs(args)
     else:
         if args.full is True:
             default = to_json(None)
-            del default["scoring"]
-            del default["requirements"]
-            del default["not_fragmentary"]
-            del default["as_requirements"]
-            del default["cds_requirements"]
+            del default.scoring
+            del default.requirements
+            del default.not_fragmentary
+            del default.as_requirements
+            del default.cds_requirements
             config = MikadoConfiguration("mikado.json")
         else:
-            config = MikadoConfiguration(seed=args.seed)
+            config = MikadoConfiguration(seed=args.seed if args.seed is not None else 0)
 
     if args.external is not None:
         if args.external.endswith("json"):
@@ -191,9 +191,8 @@ def create_config(args):
             loader = toml.load
         with open(args.external) as external:
             external_conf = loader(external)
-        # Overwrite values specific to Mikado
 
-        # TODO: This needs to be tested
+        # TODO: This needs to be changed
         if "mikado" in external_conf:
             mikado_conf = dict((key, val) for key, val in external_conf["mikado"].items() if key in config)
             config = merge_dictionaries(config, mikado_conf)

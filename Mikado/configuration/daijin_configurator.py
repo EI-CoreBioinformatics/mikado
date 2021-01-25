@@ -1,9 +1,11 @@
+import dataclasses
+
 import dacite
 import rapidjson as json
 import os
 import io
 import yaml
-import tomlkit
+import toml
 import jsonschema
 from pkg_resources import resource_stream, resource_filename
 from .configurator import extend_with_default, check_all_requirements, check_scoring, to_json
@@ -55,7 +57,7 @@ def create_daijin_validator(simple=True):
     return validator
 
 
-def check_config(config, logger=None):
+def check_config(config: DaijinConfiguration, logger=None):
 
     """
     Function to check that a configuration abides to the Daijin schema.
@@ -69,9 +71,9 @@ def check_config(config, logger=None):
         logger = create_default_logger("daijin_validator")
 
     try:
-
         validator = create_daijin_validator()
-        # validator = jsonschema.Draft4Validator(blue_print, resolver=resolver)
+        if isinstance(config, DaijinConfiguration):
+            config = dataclasses.asdict(config)
         validator.validate(config)
     except Exception as exc:
         logger.exception(exc)
@@ -88,21 +90,18 @@ def create_daijin_base_config(simple=True):
     return daijin_conf
 
 
-def _parse_sample_sheet(sample_sheet, config, logger):
+def _parse_sample_sheet(sample_sheet, config: DaijinConfiguration, logger):
 
     """Mini-function to parse the sample sheet."""
 
-    config["short_reads"]["r1"] = []
-    config["short_reads"]["r2"] = []
-    config["short_reads"]["samples"] = []
-    config["short_reads"]["strandedness"] = []
+    config.short_reads.r1 = []
+    config.short_reads.r2 = []
+    config.short_reads.samples = []
+    config.short_reads.strandedness = []
 
-    if "long_reads" not in config:
-        config["long_reads"] = dict()
-
-    config["long_reads"]["files"] = []
-    config["long_reads"]["samples"] = []
-    config["long_reads"]["strandedness"] = []
+    config.long_reads.files = []
+    config.long_reads.samples = []
+    config.long_reads.strandedness = []
 
     with open(sample_sheet) as sample_sheet:
         for num, line in enumerate(sample_sheet):
@@ -131,18 +130,18 @@ def _parse_sample_sheet(sample_sheet, config, logger):
                 sys.exit(1)
 
             if is_long_read:
-                config["long_reads"]["files"].append(r1)
-                config["long_reads"]["samples"].append(sample)
-                config["long_reads"]["strandedness"].append(strandedness)
+                config.long_reads.files.append(r1)
+                config.long_reads.samples.append(sample)
+                config.long_reads.strandedness.append(strandedness)
             else:
-                config["short_reads"]["r1"].append(r1)
-                config["short_reads"]["r2"].append(r2)
-                config["short_reads"]["samples"].append(sample)
-                config["short_reads"]["strandedness"].append(strandedness)
+                config.short_reads.r1.append(r1)
+                config.short_reads.r2.append(r2)
+                config.short_reads.samples.append(sample)
+                config.short_reads.strandedness.append(strandedness)
     return config
 
 
-def _parse_reads_from_cli(args, config, logger):
+def _parse_reads_from_cli(args, config: DaijinConfiguration, logger):
 
     """Small function to infer the reads from the CLI."""
 
@@ -173,10 +172,10 @@ def _parse_reads_from_cli(args, config, logger):
         logger.exception(exc)
         sys.exit(1)
 
-    config["short_reads"]["r1"] = args.r1
-    config["short_reads"]["r2"] = args.r2
-    config["short_reads"]["samples"] = args.samples
-    config["short_reads"]["strandedness"] = args.strandedness
+    config.short_reads.r1 = args.r1
+    config.short_reads.r2 = args.r2
+    config.short_reads.samples = args.samples
+    config.short_reads.strandedness = args.strandedness
     return config
 
 
@@ -187,7 +186,6 @@ def create_daijin_config(args, level="ERROR", piped=False):
     config = create_daijin_base_config(simple=(not args.full))
     if args.seed is not None and isinstance(args.seed, int) and args.seed not in (True, False):
         config.seed = args.seed
-    # assert "reference" in config, config.keys()
     if not os.path.exists(args.genome):
         error = "The genome FASTA file {} does not exist!".format(args.genome)
         logger.critical(error)
@@ -234,7 +232,7 @@ def create_daijin_config(args, level="ERROR", piped=False):
         logger.critical(
             "No short read assembler selected, but there are short read samples. Please select at least one assembly method.")
         failed = True
-    if config.long_reads and not args.long_aln_methods:
+    if config.long_reads.files and not args.long_aln_methods:
         logger.critical(
             "No long read aligner selected, but there are long read samples. Please select at least one assembly method.")
         failed = True
@@ -243,12 +241,12 @@ def create_daijin_config(args, level="ERROR", piped=False):
         sys.exit(1)
 
     # TODO: This is probably something about initialisation, check against DaijinConfiguration object
-    # for method in args.aligners:
-    #     config["align_methods"][method] = [""]
-    # for method in args.asm_methods:
-    #     config["asm_methods"][method] = [""]
-    # for method in args.long_aln_methods:
-    #     config["long_read_align_methods"][method] = [""]
+    for method in args.aligners:
+        setattr(config.align_methods, method, [""])
+    for method in args.asm_methods:
+        setattr(config.asm_methods, method, [""])
+    for method in args.long_aln_methods:
+        setattr(config.long_read_align_methods, method, [""])
 
     # Set and eventually copy the scoring file.
     if args.scoring is not None:
@@ -303,64 +301,24 @@ def create_daijin_config(args, level="ERROR", piped=False):
 
     final_config = config.copy()
     check_config(final_config, logger)
-    assert "prot_db" in final_config["blastx"]
 
     if args.exe:
         with open(args.exe, "wt") as out:
-            for key, val in final_config["load"].items():
-                if "Comment" in key:
-                    continue
-                else:
-                    print("{}: \"{}\"".format(key, val), file=out)
+            for key, val in dataclasses.asdict(final_config.load).items():
+                print("{}: \"{}\"".format(key, val), file=out)
 
-    del final_config["load"]
-    final_config.pop("as_requirements", None)
-    final_config.pop("cds_requirements", None)
-    final_config.pop("scoring", None)
-    final_config.pop("requirements", None)
-    final_config.pop("not_fragmentary", None)
-
-    if any(key.startswith("_") for key in final_config):
-        _to_remove = [_ for _ in final_config if isinstance(_, str) and _.startswith("_")]
-        [final_config.pop(key) for key in _to_remove]
-
-    def _rec_delete(d: dict, keep_comments=False):
-        _to_remove = []
-        if len(d) == 0:
-            return d
-        elif keep_comments is False and all(
-                (isinstance(_, str) and "Comment" in _) for _ in d):
-            d = dict()
-            return d
-        else:
-            for key in d:
-                if isinstance(d[key], dict):
-                    d[key] = _rec_delete(d[key], keep_comments=keep_comments)
-                    if len(d[key]) == 0:
-                        _to_remove.append(key)
-        [d.pop(key) for key in _to_remove]
-        return d
-
-    final_config = _rec_delete(final_config, keep_comments=False)
-
-    # Check no comments are present
-    def checker(d):
-        if not isinstance(d, dict):
-            return
-        else:
-            if "Comment" in d.keys() or "SimpleComment" in d.keys():
-                raise KeyError
-            for key in d.keys():
-                try:
-                    checker(d[key])
-                except KeyError:
-                    raise KeyError(key)
-        return
-    checker(final_config)
+    del final_config.as_requirements
+    del final_config.cds_requirements
+    del final_config.requirements
+    del final_config.not_fragmentary
+    del final_config.scoring
 
     if piped is True:
         return final_config
     else:
+        final_config = dataclasses.asdict(final_config)
+        [final_config.pop(key, None) for key in
+         ["cds_requirements", "as_requirements", "not_fragmentary", "scoring", "requirements"]]
         if args.json is True:
             json.dump(final_config, args.out)
         elif args.yaml is True:
@@ -372,7 +330,7 @@ def create_daijin_config(args, level="ERROR", piped=False):
         elif args.out != sys.stdout and args.out.name.endswith("yaml"):
             print_config(yaml.dump(final_config, default_flow_style=False), args.out)
         else:
-            print_toml_config(tomlkit.dumps(final_config), args.out)
+            print_toml_config(toml.dumps(final_config), args.out)
 
         args.out.close()
     return

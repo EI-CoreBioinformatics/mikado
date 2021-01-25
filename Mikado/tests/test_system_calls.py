@@ -1,3 +1,5 @@
+import dataclasses
+
 import csv
 import glob
 import gzip
@@ -12,6 +14,7 @@ import unittest
 import pkg_resources
 import pyfaidx
 import yaml
+import jsonschema
 from ..configuration import print_config
 try:
     from yaml import CSafeLoader as yLoader
@@ -111,6 +114,7 @@ class PrepareCheck(unittest.TestCase):
                                                       ("tr_c58_g1_i4.mrna1.6", 4862),
                                                       ("tr_c58_g1_i6.mrna1.3", 4945),
                                                       ("tr_c58_g1_i8.mrna1", 1819),
+                                                      ("tr_c58_g1_i8.mrna2", 383),
                                                       ("tr_c113_g1_i1.mrna1.94", 379),
                                                       ("tr_c77_g1_i1.mrna1.153", 635),
                                                       ("tr_c109_g1_i1.mrna1.102", 310),
@@ -149,7 +153,7 @@ class PrepareCheck(unittest.TestCase):
                             "cl_cufflinks_star_at.23562.1": 1302,
                             "cl_cufflinks_star_at.23562.2": 1045}
 
-        cls._trinity_redundant = ["c58_g1_i10.mrna2", "c58_g1_i8.mrna2"]
+        cls._trinity_redundant = ["c58_g1_i8.mrna2", "c58_g1_i10.mrna2"]
 
         cls.maxDiff = None
 
@@ -182,7 +186,7 @@ class PrepareCheck(unittest.TestCase):
         for max_intron in (20, 200, 1000, 5000):
             with self.subTest(max_intron=max_intron):
                 self.conf.prepare.max_intron_length = max_intron
-                prepare.prepare(args, self.logger)
+                prepare.prepare(args.json_conf, self.logger)
                 gtf = os.path.join(self.conf.prepare.files.output_dir, "mikado_prepared.gtf")
                 self.assertGreater(os.stat(gtf).st_size, 0, test_file)
                 transcripts = dict()
@@ -221,7 +225,7 @@ class PrepareCheck(unittest.TestCase):
 
                 with self.assertLogs(self.logger) as cm:
                     try:
-                        prepare.prepare(args, self.logger)
+                        prepare.prepare(args.json_conf, self.logger)
                     except OSError:
                         raise OSError(cm.output)
 
@@ -264,12 +268,12 @@ class PrepareCheck(unittest.TestCase):
                                                                                               test_file)
                     self.conf.prepare.files.out_fasta = "mikado_prepared.fasta"
                     self.conf.prepare.files.out = "mikado_prepared.gtf"
-                    args.strip_cds = True
                     args.json_conf = self.conf
-                    args.seed = 10
+                    args.json_conf.seed = 10
                     args.json_conf.threads = proc
-                    args.exclude_redundant = False
-                    prepare.prepare(args, self.logger)
+                    args.json_conf.prepare.exclude_redundant = False
+                    args.json_conf.prepare.strip_cds = True
+                    prepare.prepare(args.json_conf, self.logger)
 
                     # Now that the program has run, let's check the output
                     self.assertTrue(os.path.exists(os.path.join(self.conf.prepare.files.output_dir,
@@ -322,7 +326,7 @@ class PrepareCheck(unittest.TestCase):
                         args.json_conf.threads = proc
                         with self.assertLogs(self.logger, "INFO") as cm:
                             try:
-                                prepare.prepare(args, logger=self.logger)
+                                prepare.prepare(args.json_conf, logger=self.logger)
                             except SystemExit:
                                 raise SystemExit("\n".join(cm.output))
                         fasta = os.path.join(self.conf.prepare.files.output_dir, "mikado_prepared.fasta")
@@ -392,7 +396,8 @@ class PrepareCheck(unittest.TestCase):
                     args.json_conf.reference.genome = args.json_conf.reference.genome.decode()
                 args.log = open(os.path.join(args.output_dir, "prepare.log"), "wt")
                 self.logger.setLevel("DEBUG")
-                args, _ = prepare_setup(args)
+                args, *_ = prepare_setup(args)
+                self.assertIsNotNone(args)
                 self.assertEqual(args.output_dir, folder.name)
                 self.assertEqual(args.json_conf.prepare.files.output_dir, folder.name)
                 self.assertIn(os.path.dirname(args.json_conf.prepare.files.out_fasta),
@@ -411,16 +416,17 @@ class PrepareCheck(unittest.TestCase):
                                                   "prepare.log")).read())
                 fa = pyfaidx.Fasta(os.path.join(folder.name,
                                                 "mikado_prepared.fasta"))
-                logged = [_ for _ in open(args.json_conf.prepare.files.log)]
-                self.assertFalse("AT5G01530.1" in fa.keys(), (b, sorted(list(fa.keys()))))
-                self.assertTrue("AT5G01530.2" in fa.keys())
+                logged = [_ for _ in open(os.path.join(args.json_conf.prepare.files.output_dir,
+                                                       args.json_conf.prepare.files.log))]
+                self.assertFalse("AT5G01530.2" in fa.keys(), (b, sorted(list(fa.keys())), logged))
+                self.assertTrue("AT5G01530.1" in fa.keys())
                 if b is False:
                     self.assertEqual(len(fa.keys()), 4)
-                    self.assertEqual(sorted(fa.keys()), sorted(["AT5G01530."+str(_) for _ in [0, 2, 3, 4]]))
+                    self.assertEqual(sorted(fa.keys()), sorted(["AT5G01530."+str(_) for _ in [0, 1, 3, 4]]))
                 else:
                     self.assertEqual(len(fa.keys()), 3, (fa.keys(), logged))
                     self.assertIn("AT5G01530.0", fa.keys())
-                    self.assertIn("AT5G01530.2", fa.keys())
+                    self.assertIn("AT5G01530.1", fa.keys())
                     self.assertNotIn("AT5G01530.3", fa.keys())
                     self.assertIn("AT5G01530.4", fa.keys())
                 gtf_file = os.path.join(folder.name, "mikado_prepared.gtf")
@@ -453,7 +459,7 @@ class PrepareCheck(unittest.TestCase):
                             self.assertEqual(transcript.is_complete,
                                              transcript.has_start_codon and transcript.has_stop_codon)
                     # self.assertIn("AT5G01530.3", transcripts)
-                    a5 = transcripts["AT5G01530.2"]
+                    a5 = transcripts["AT5G01530.1"]
                     self.assertTrue(a5.is_coding)
                     self.assertIn("has_start_codon", a5.attributes)
                     self.assertIn("has_stop_codon", a5.attributes)
@@ -488,7 +494,7 @@ class PrepareCheck(unittest.TestCase):
                 self.conf.prepare.files.exclude_redundant = [b]
                 folder = tempfile.TemporaryDirectory()
                 args.json_conf = self.conf
-                args.json_conf["seed"] = 10
+                args.json_conf.seed = 10
                 args.exclude_redundant = b
                 args.output_dir = folder.name
                 args.log = None
@@ -497,8 +503,9 @@ class PrepareCheck(unittest.TestCase):
                 args.strand_specific_assemblies = None
                 if isinstance(args.json_conf.reference.genome, bytes):
                     args.json_conf.reference.genome = args.json_conf.reference.genome.decode()
-                args, _ = prepare_setup(args)
-                prepare.prepare(args, self.logger)
+                args, mikado_config, _ = prepare_setup(args)
+                assert hasattr(mikado_config.reference, "genome"), args.json_conf.reference
+                prepare.prepare(mikado_config, self.logger)
                 self.assertTrue(os.path.exists(os.path.join(self.conf.prepare.files.output_dir,
                                                             "mikado_prepared.fasta")))
                 fa = pyfaidx.Fasta(os.path.join(self.conf.prepare.files.output_dir,
@@ -506,11 +513,11 @@ class PrepareCheck(unittest.TestCase):
                 if b is False:
                     self.assertEqual(len(fa.keys()), 5)
                     self.assertEqual(sorted(fa.keys()), sorted(["AT5G01015." + str(_) for _ in
-                                                                [0, 1, 3, 4, 5]]))
+                                                                [0, 2, 3, 4, 5]]))
                 else:
                     self.assertEqual(len(fa.keys()), 4, "\n".join(list(fa.keys())))
                     self.assertIn("AT5G01015.0", fa.keys())
-                    self.assertTrue("AT5G01015.1" in fa.keys())
+                    self.assertTrue("AT5G01015.2" in fa.keys())
                     self.assertNotIn("AT5G01015.3", fa.keys())
                     self.assertIn("AT5G01015.4", fa.keys())
 
@@ -544,7 +551,7 @@ class PrepareCheck(unittest.TestCase):
                             self.assertEqual(transcript.is_complete,
                                              transcript.has_start_codon and transcript.has_stop_codon)
 
-                    a_first = transcripts["AT5G01015.1"]
+                    a_first = transcripts["AT5G01015.2"]
                     self.assertTrue(a_first.is_coding)
                     self.assertIn("has_start_codon", a_first.attributes)
                     self.assertIn("has_stop_codon", a_first.attributes)
@@ -595,7 +602,7 @@ class PrepareCheck(unittest.TestCase):
         args = Namespace()
         args.strip_cds = False
         args.json_conf = self.conf
-        prepare.prepare(args, self.logger)
+        prepare.prepare(args.json_conf, self.logger)
         self.assertTrue(os.path.exists(os.path.join(self.conf.prepare.files.output_dir,
                                                     "mikado_prepared.fasta")))
         fa = pyfaidx.Fasta(os.path.join(self.conf.prepare.files.output_dir,
@@ -670,7 +677,7 @@ class PrepareCheck(unittest.TestCase):
                 args = Namespace()
                 args.strip_cds = False
                 args.json_conf = self.conf
-                prepare.prepare(args, self.logger)
+                prepare.prepare(args.json_conf, self.logger)
                 self.assertGreater(os.stat(self.conf.prepare.files.out_fasta).st_size, 0)
                 fa = pyfaidx.Fasta(self.conf.prepare.files.out_fasta)
                 self.assertEqual(len(fa.keys()), 1, round)
@@ -753,7 +760,7 @@ class PrepareCheck(unittest.TestCase):
                         args.strip_cds = False
                         args.json_conf = self.conf
                         with self.assertLogs(self.logger, "INFO") as cm:
-                            prepare.prepare(args, self.logger)
+                            prepare.prepare(args.json_conf, self.logger)
                         self.assertGreater(os.stat(self.conf.prepare.files.out_fasta).st_size, 0,
                                            (round, fformat, iteration, "\n".join(cm.output)))
                         fa = pyfaidx.Fasta(os.path.join(outdir, os.path.basename(
@@ -846,7 +853,7 @@ class PrepareCheck(unittest.TestCase):
                         args.strip_cds = False
                         args.json_conf = self.conf
                         with self.assertLogs(self.logger, "INFO") as cm:
-                            prepare.prepare(args, self.logger)
+                            prepare.prepare(args.json_conf, self.logger)
                         self.assertGreater(os.stat(self.conf.prepare.files.out_fasta).st_size, 0,
                                            (round, fformat, iteration, "\n".join(cm.output)))
                         fa = pyfaidx.Fasta(os.path.join(outdir, os.path.basename(
@@ -1091,7 +1098,7 @@ class ConfigureCheck(unittest.TestCase):
         namespace.blast_targets = []
         namespace.junctions = []
         namespace.new_scoring = None
-        namespace.seed = None
+        namespace.seed = 0
         namespace.min_clustering_cds_overlap = 0.2
         namespace.min_clustering_cdna_overlap = 0.2
         dir = tempfile.TemporaryDirectory()
@@ -1103,7 +1110,6 @@ class ConfigureCheck(unittest.TestCase):
         conf = configuration.configurator.to_json(out)
         conf = configuration.configurator.check_json(conf)
         conf = configuration.configurator.check_json(conf)
-        self.assertNotIn("asm_methods", conf)
         dir.cleanup()
 
     def test_seed(self):
@@ -1133,22 +1139,20 @@ class ConfigureCheck(unittest.TestCase):
                 conf = configuration.configurator.to_json(out)
                 conf = configuration.configurator.check_json(conf)
                 conf = configuration.configurator.check_json(conf)
-                self.assertNotIn("asm_methods", conf)
                 if trial is not None:
-                    self.assertEqual(conf["seed"], trial)
+                    self.assertEqual(conf.seed, trial)
                 else:
-                    self.assertNotEqual(conf["seed"], trial)
-                    self.assertIsInstance(conf["seed"], int)
+                    self.assertNotEqual(conf.seed, trial)
+                    self.assertIsInstance(conf.seed, int)
 
         for mistake in (False, "hello", 10.5, b"890"):
             with self.subTest(mistake=mistake):
                 namespace.mode = ["permissive"]
-                with self.assertRaises(OSError):
+                with self.assertRaises((OSError, jsonschema.ValidationError)):
                     namespace.seed = mistake
                     with open(out, "w") as out_handle:
                         namespace.out = out_handle
                         sub_configure.create_config(namespace)
-
         dir.cleanup()
 
     def test_mikado_config_full(self):
@@ -1176,7 +1180,6 @@ class ConfigureCheck(unittest.TestCase):
         conf = configuration.configurator.to_json(out)
         conf = configuration.configurator.check_json(conf)
         conf = configuration.configurator.check_json(conf)
-        self.assertNotIn("asm_methods", conf)
         dir.cleanup()
 
     def test_mikado_config_daijin(self):
@@ -1433,12 +1436,13 @@ class PickTest(unittest.TestCase):
                 json_file = os.path.join(dir.name, "mikado.yaml")
 
                 # Printing out would crash without removing these compiled bits
-                self.json_conf["requirements"].pop("compiled", None)
-                self.json_conf["as_requirements"].pop("compiled", None)
-                self.json_conf["not_fragmentary"].pop("compiled", None)
+                self.json_conf.requirements.pop("compiled", None)
+                self.json_conf.as_requirements.pop("compiled", None)
+                self.json_conf.not_fragmentary.pop("compiled", None)
 
                 with open(json_file, "wt") as json_handle:
-                    print_config(yaml.dump(self.json_conf, default_flow_style=False), json_handle)
+                    print_config(yaml.dump(dataclasses.asdict(self.json_conf),
+                                           default_flow_style=False), json_handle)
 
                 log = "pick.log"
                 if os.path.exists(os.path.join(dir.name, log)):
@@ -1887,6 +1891,17 @@ class SerialiseChecker(unittest.TestCase):
             logs[name] = logged
 
         def prep_dbs(name):
+            import sqlalchemy.exc
+            try:
+                hsp = pd.read_sql(sql="hsp", con=name)
+            except sqlalchemy.exc.OperationalError:
+                try:
+                    with sqlite3.connect(name) as conn:
+                        tables = conn.execute("select sql from sqlite_master where type = 'table'").fetchall()
+                    raise sqlite3.OperationalError(tables)
+                except sqlite3.OperationalError:
+                    raise sqlite3.OperationalError(logs)
+
             hsp, hit, query, target = [pd.read_sql(table, name) for table in ["hsp", "hit", "query", "target"]]
             hit = hit.join(target.set_index("target_id"), on=["target_id"], how="inner").join(
                 query.set_index("query_id"), on=["query_id"], how="inner")

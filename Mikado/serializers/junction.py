@@ -24,6 +24,9 @@ from ..utilities.dbutils import DBBASE, Inspector, connect
 from ..parsers import bed12
 from ..utilities.log_utils import check_logger, create_default_logger
 import pyfaidx
+from copy import deepcopy as copy
+from ..configuration.configuration import MikadoConfiguration
+from ..configuration.daijin_configuration import DaijinConfiguration
 
 
 # pylint: disable=too-few-public-methods
@@ -139,7 +142,7 @@ class JunctionSerializer:
         :type handle: str | io.IOBase | io.TextIOWrapper
 
         :param json_conf: Optional configuration dictionary with db connection parameters.
-        :type json_conf: (MikadoConfiguration|DaijinConfiguration) | None
+        :type json_conf: (MikadoConfiguration|DaijinConfiguration)
         """
 
         self.bed12_parser = None
@@ -158,6 +161,7 @@ class JunctionSerializer:
 
         self.bed12_parser = bed12.Bed12Parser(handle)
         self.engine = connect(json_conf, logger=logger)
+        self.db_settings = copy(json_conf.db_settings)
 
         session = Session(bind=self.engine, autocommit=False, autoflush=False, expire_on_commit=False)
         inspector = Inspector.from_engine(self.engine)
@@ -182,7 +186,10 @@ class JunctionSerializer:
             self.fai = open(self.fai)
         else:
             if self.fai is not None:
-                assert isinstance(self.fai, io.TextIOWrapper), "The FAI index is not a valid file handle."
+                if not isinstance(self.fai, io.TextIOWrapper):
+                    msg = "The FAI index is not a valid file handle. Type: {}".format(type(self.fai))
+                    logger.critical(msg)
+                    raise TypeError(msg)
 
     def serialize(self):
         """
@@ -194,6 +201,7 @@ class JunctionSerializer:
             self.logger.warning("No input file specified. Exiting.")
             return
 
+        self.logger.debug("Starting to serialise junctions.")
         if self.fai is not None:
             self.session.begin(subtransactions=True)
             for line in self.fai:
@@ -211,9 +219,10 @@ class JunctionSerializer:
                 sequences[query.name] = query.chrom_id
             self.fai.close()
 
+        self.logger.debug("Serialised sequences.")
         objects = []
 
-        for row in self.bed12_parser:
+        for counter, row in enumerate(self.bed12_parser, 1):
             if row.header is True:
                 continue
             if row.chrom in sequences:
@@ -236,6 +245,7 @@ class JunctionSerializer:
                 objects = []
 
         self.session.bulk_save_objects(objects)
+        self.logger.debug("Serialised %s junctions into %s.", counter, self.db_settings)
         self.session.commit()
         self.close()
 

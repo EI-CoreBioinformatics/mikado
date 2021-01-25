@@ -21,6 +21,7 @@ from ..exceptions import InvalidSerialization
 import random
 from ..utilities import blast_keys
 from ..configuration import MikadoConfiguration, DaijinConfiguration
+import pysam
 
 
 __author__ = 'Luca Venturini'
@@ -181,7 +182,6 @@ def setup(args):
     :return:
     """
 
-    import pyfaidx
     import sqlalchemy
     from ..configuration import configurator
     args.json_conf = configurator.to_json(args.json_conf)
@@ -190,35 +190,40 @@ def setup(args):
     if args.start_method is not None:
         args.json_conf.multiprocessing_method = args.start_method
 
-    if args.log_level is None:
-        args.log_level = args.json_conf.log_settings.log_level
-    else:
-        args.json_conf.log_settings.log_level = args.log_level
-
     if args.procs is not None and args.procs > 0:
         args.json_conf.threads = args.procs
 
     # Retrieve data from the argparse and put it into the configuration
-    # TODO: Review this, but seems like this code is unreachable (only place called is from the serialise CLI parser)
-    #  and it doesn't seem as if there is a 'files' CLI argument for serialise so this can never be reached from that
-    #  route
-    # for key in args.json_conf["serialise"]:
-    #     if key == "files":
-    #         for file_key in args.json_conf["serialise"]["files"]:
-    #             if getattr(args, file_key, None):
-    #                 if file_key in ("xml", "junctions", "orfs"):
-    #                     setattr(args, file_key, getattr(args, file_key).split(","))
-    #                 args.json_conf["serialise"]["files"][file_key] = getattr(args, file_key)
-    #     else:
-    #         if getattr(args, key, None) or getattr(args, key, None) == 0:
-    #             if getattr(args, key) is False or getattr(args, key) is None:
-    #                 continue
-    #             else:
-    #                 args.json_conf["serialise"][key] = getattr(args, key)
-
+    if args.orfs:
+        args.json_conf.serialise.files.orfs = args.orfs.split(",")
+    if args.xml:
+        args.json_conf.serialise.files.xml = args.xml.split(",")
+    if args.junctions:
+        args.json_conf.serialise.files.junctions = args.junctions.split(",")
+    if args.transcripts is not None:
+        args.json_conf.serialise.files.transcripts = args.transcripts
+    if args.blast_targets is not None and args.blast_targets:
+        args.json_conf.serialise.files.blast_targets = args.blast_targets
+    if args.genome_fai is not None:
+        args.json_conf.reference.genome_fai = args.genome_fai
     if args.db is not None:
         args.json_conf.db_settings.db = args.db
         args.json_conf.db_settings.dbtype = "sqlite"
+    if args.output_dir is not None:
+        args.json_conf.serialise.files.output_dir = args.output_dir
+        if args.json_conf.db_settings.dbtype == "sqlite":
+            args.json_conf.db_settings.db = os.path.basename(
+                args.json_conf.db_settings.db)
+
+    if args.log_level is not None:
+        args.json_conf.log_settings.log_level = args.log_level
+
+    args.json_conf.serialise.force = args.force
+    args.json_conf.serialise.max_regression = args.max_regression or args.json_conf.serialise.max_regression
+    args.json_conf.serialise.start_adjustment = args.start_adjustment
+    args.json_conf.serialise.max_target_seqs = args.max_target_seqs or args.json_conf.serialise.max_target_seqs
+    args.json_conf.threads = args.procs or args.json_conf.threads
+    args.json_conf.serialise.single_thread = args.single_thread or args.json_conf.serialise.single_thread
 
     if args.seed is not None:
         args.json_conf.seed = args.seed
@@ -227,14 +232,6 @@ def setup(args):
     else:
         # numpy.random.seed(None)
         random.seed(None)
-
-    if args.output_dir is not None:
-        args.json_conf.serialise.files.output_dir = args.output_dir
-        if args.json_conf.db_settings.dbtype == "sqlite":
-            args.json_conf.db_settings.db = os.path.basename(
-                args.json_conf.db_settings.db)
-
-    args.json_conf.serialise.start_adjustment = args.start_adjustment
 
     if not os.path.exists(args.json_conf.serialise.files.output_dir):
         try:
@@ -300,15 +297,13 @@ def setup(args):
         raise
 
     logger.info("Random seed: %s", args.json_conf.seed)
-    logger.setLevel(args.log_level)
+    logger.setLevel(args.json_conf.log_settings.log_level)
 
     if args.json_conf.serialise.files.junctions:
-        if args.genome_fai is not None:
-            args.json_conf.reference.genome_fai = args.genome_fai
-        elif args.json_conf.reference.genome_fai in (None, ""):
+        if args.json_conf.reference.genome_fai in (None, ""):
             if args.json_conf.reference.genome not in (None, ""):
-                _ = pyfaidx.Fasta(args.json_conf.reference.genome)
-                args.json_conf.reference.genome_fai = _.faidx.indexname
+                _ = pysam.Fastafile(args.json_conf.reference.genome)
+                args.json_conf.reference.genome_fai = args.json_conf.reference.genome + ".fai"
             else:
                 logger.critical("Missing FAI file for junction loading!")
                 sys.exit(1)
@@ -317,17 +312,12 @@ def setup(args):
     if args.external_scores is not None:
         args.json_conf.serialise.files.external_scores = args.external_scores
 
-    if args.max_regression is not None:
-        args.json_conf.serialise.max_regression = args.max_regression
-
     if args.codon_table is not None:
         try:
             args.codon_table = int(args.codon_table)
         except ValueError:
             pass
         args.json_conf.serialise.codon_table = args.codon_table
-    # else:
-    #     assert "codon_table" in args.json_conf["serialise"]
 
     # Add sqlalchemy logging
     sql_logger = logging.getLogger("sqlalchemy.engine")

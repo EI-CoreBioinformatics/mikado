@@ -24,6 +24,7 @@ import logging.handlers as logging_handlers
 import multiprocessing as mp
 import msgpack
 import zlib
+from ..configuration import DaijinConfiguration, MikadoConfiguration
 
 
 # This is a serialization class, it must have a ton of attributes ...
@@ -212,17 +213,17 @@ class OrfSerializer:
         :type handle: (io.TextIOWrapper|str)
 
         :param json_conf: a configuration dictionary
-        :type json_conf: dict
+        :type json_conf: (MikadoConfiguration|DaijinConfiguration)
 
         """
 
         if logger is not None:
             self.logger = check_logger(logger)
 
-        fasta_index = json_conf["serialise"]["files"]["transcripts"]
+        fasta_index = json_conf.serialise.files.transcripts
         self._max_regression = json_conf.serialise.max_regression
         self._table = json_conf.serialise.codon_table
-        self.procs = json_conf["threads"]
+        self.procs = json_conf.threads
         self.single_thread = json_conf.serialise.single_thread
         self.adjust_start = json_conf.serialise.start_adjustment
         if self.single_thread:
@@ -230,14 +231,16 @@ class OrfSerializer:
 
         if isinstance(fasta_index, str):
             assert os.path.exists(fasta_index)
-            self.fasta_index = pysam.FastaFile(fasta_index)
+            fasta_index = pysam.FastaFile(fasta_index)
         elif fasta_index is None:
             exc = ValueError("A fasta index is needed for the serialization!")
             self.logger.exception(exc)
             return
         else:
             assert isinstance(fasta_index, pysam.FastaFile)
-            self.fasta_index = fasta_index
+
+        self.fasta_index = fasta_index
+        assert isinstance(self.fasta_index, pysam.FastaFile)
 
         if isinstance(handle, str):
             self.is_bed12 = (".bed12" in handle or ".bed" in handle)
@@ -262,12 +265,6 @@ class OrfSerializer:
 
         """
         Private method to load data from the FASTA file into the database.
-        :param cache: a dictionary which memoizes the IDs.
-        :type cache: dict
-
-        :return: the updated cache
-        :rtype: dict
-
         """
 
         objects = []
@@ -275,39 +272,29 @@ class OrfSerializer:
         cache = pd.read_sql_table("query", self.engine, index_col="query_name", columns=["query_name", "query_id"])
         cache = cache.to_dict()["query_id"]
 
-        if self.fasta_index is not None:
-            done = 0
-            self.logger.debug("%d entries already present in db, %d in the index",
-                             len([fasta_key for fasta_key in self.fasta_index.references if
-                                  fasta_key not in cache]),
-                             self.fasta_index.nreferences)
-            found = set()
-            for ref, length in zip(self.fasta_index.references, self.fasta_index.lengths):
-                if ref in cache:
-                    continue
-                objects.append({"query_name": ref, "query_length": length})
-                assert ref not in found, ref
-                found.add(ref)
-                if len(objects) >= self.maxobjects:
-                    done += len(objects)
-                    self.engine.execute(
-                        Query.__table__.insert(),
-                        objects
-                    )
-                    self.session.commit()
-                    self.logger.debug(
-                        "Loaded %d transcripts into query table", done)
-                    objects = []
+        assert isinstance(self.fasta_index, pysam.FastaFile)
+        done = 0
+        self.logger.debug("%d entries already present in db, %d in the index",
+                          len([fasta_key for fasta_key in self.fasta_index.references if fasta_key not in cache]),
+                          self.fasta_index.nreferences)
+        found = set()
+        for ref, length in zip(self.fasta_index.references, self.fasta_index.lengths):
+            if ref in cache:
+                continue
+            objects.append({"query_name": ref, "query_length": length})
+            assert ref not in found, ref
+            found.add(ref)
+            if len(objects) >= self.maxobjects:
+                done += len(objects)
+                self.engine.execute(Query.__table__.insert(), objects)
+                self.session.commit()
+                self.logger.debug("Loaded %d transcripts into query table", done)
+                objects = []
 
-            done += len(objects)
-            self.engine.execute(
-                Query.__table__.insert(),
-                objects
-            )
-            # self.session.begin(subtransactions=True)
-            # self.session.bulk_save_objects(objects)
-            self.session.commit()
-            self.logger.debug("Finished loading %d transcripts into query table", done)
+        done += len(objects)
+        self.engine.execute(Query.__table__.insert(), objects)
+        self.session.commit()
+        self.logger.debug("Finished loading %d transcripts into query table", done)
         return
 
     def __serialize_single_thread(self):
@@ -425,15 +412,15 @@ Please check your input files.")
                     continue
             num, obj = num
             try:
-                object = msgpack.loads(obj, raw=False)
+                loaded_obj = msgpack.loads(obj, raw=False)
             except TypeError:
                 raise TypeError(obj)
 
-            if object["id"] in self.query_cache:
-                current_query = self.query_cache[object["id"]]
+            if loaded_obj["id"] in self.query_cache:
+                current_query = self.query_cache[loaded_obj["id"]]
             elif not self.initial_cache:
-                current_query = Query(object["id"], object["end"])
-                not_found.add(object["id"])
+                current_query = Query(loaded_obj["id"], loaded_obj["end"])
+                not_found.add(loaded_obj["id"])
                 self.session.add(current_query)
                 self.session.commit()
                 self.query_cache[current_query.query_name] = current_query.query_id
@@ -446,8 +433,8 @@ mikado prepare. If this is the case, please use mikado_prepared.fasta to call th
 `mikado serialise` using them as input.")
                 raise InvalidSerialization
 
-            object["query_id"] = current_query
-            objects.append(object)
+            loaded_obj["query_id"] = current_query
+            objects.append(loaded_obj)
             if len(objects) >= self.maxobjects:
                 done += len(objects)
                 self.session.begin(subtransactions=True)
@@ -484,7 +471,8 @@ mikado prepare. If this is the case, please use mikado_prepared.fasta to call th
         """
 
         self.load_fasta()
-        self.query_cache = pd.read_sql_table("query", self.engine, index_col="query_name", columns=["query_name", "query_id"])
+        self.query_cache = pd.read_sql_table("query", self.engine, index_col="query_name",
+                                             columns=["query_name", "query_id"])
         self.query_cache = self.query_cache.to_dict()["query_id"]
         self.initial_cache = (len(self.query_cache) > 0)
 

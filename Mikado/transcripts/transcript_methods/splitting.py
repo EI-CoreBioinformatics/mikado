@@ -57,6 +57,8 @@ def check_split_by_blast(transcript, cds_boundaries):
     assert isinstance(transcript.json_conf, (MikadoConfiguration, DaijinConfiguration))
 
     minimal_overlap = transcript.json_conf.pick.chimera_split.blast_params.minimal_hsp_overlap
+    transcript.logger.debug("Minimal overlap when checking for %s: %s",
+                            transcript.id, minimal_overlap)
 
     cds_hit_dict = SortedDict().fromkeys(cds_boundaries.keys())
     for key in cds_hit_dict:
@@ -100,7 +102,7 @@ def check_split_by_blast(transcript, cds_boundaries):
                         cds_run, (hsp['query_hsp_start'], hsp['query_hsp_end']),
                         overlap_threshold)
 
-    transcript.logger.debug("Final cds_hit_dict for %s: %s", transcript.id, cds_hit_dict)
+    transcript.logger.debug("Final cds_hit_dict for %s (length %s): %s", transcript.id, len(cds_hit_dict), cds_hit_dict)
 
     final_boundaries = SortedDict()
     for boundary in __get_boundaries_from_blast(transcript, cds_boundaries, cds_hit_dict):
@@ -190,6 +192,7 @@ def __get_boundaries_from_blast(transcript, cds_boundaries, cds_hit_dict):
     """
     new_boundaries = []
     leniency = transcript.json_conf.pick.chimera_split.blast_params.leniency
+    transcript.logger.debug("Leniency for %s: %s", transcript.id, leniency)
     for cds_boundary in cds_boundaries:
         if not new_boundaries:
             new_boundaries.append([cds_boundary])
@@ -776,9 +779,8 @@ def split_by_cds(transcript):
         new_transcripts = [transcript]  # If we only have one ORF this is easy
     elif transcript.source in transcript.json_conf.pick.chimera_split.skip:
         # Disable splitting for transcripts with certain tags
-        transcript.logger.warning("%s (label %s) to be skipped for splitting",
-                                  transcript.id,
-                                  transcript.id.split("_")[0])
+        transcript.logger.debug("%s (label %s) to be skipped for splitting",
+                                transcript.id, transcript.id.split("_")[0])
         new_transcripts = [transcript]
     else:
         cds_boundaries = SortedDict()
@@ -793,6 +795,7 @@ def split_by_cds(transcript):
         if len(cds_boundaries) == 1:
             # Recheck how many boundaries we have - after the BLAST check
             # we might have determined that the transcript has not to be split
+            transcript.logger.debug("Not splitting %s", transcript.id)
             new_transcripts = [transcript]
         else:
             try:

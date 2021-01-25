@@ -100,7 +100,7 @@ class ExternalSerializer:
         :type handle: str | io.IOBase | io.TextIOWrapper
 
         :param json_conf: Optional configuration dictionary with db connection parameters.
-        :type json_conf: dict | None
+        :type json_conf: dict | MikadoConfiguration | DaijinConfiguration | None
         """
 
         if logger is not None:
@@ -116,7 +116,7 @@ class ExternalSerializer:
             self.close()
             return
 
-        fasta_index = json_conf["serialise"]["files"]["transcripts"]
+        fasta_index = json_conf.serialise.files.transcripts
         if isinstance(fasta_index, (str, bytes)):
             if isinstance(fasta_index, bytes):
                 fasta_index = fasta_index.decode()

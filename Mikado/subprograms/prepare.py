@@ -11,11 +11,10 @@ import argparse
 import logging
 import logging.handlers
 
-from ..configuration import MikadoConfiguration
+from ..configuration import MikadoConfiguration, DaijinConfiguration
 from ..utilities import path_join
 from ..utilities.log_utils import formatter
 from ..exceptions import InvalidJson
-import random
 from collections import Counter
 
 
@@ -114,24 +113,27 @@ def parse_prepare_options(args, mikado_config):
             pass
         mikado_config.serialise.codon_table = args.codon_table
 
-    # if args.log:
-    #     args.log.close()
-    #     mikado_config.prepare.files.log = args.log.name
-
-    # if args.seed:
-    #     mikado_config.seed = args.seed
-    #     random.seed(args.seed % (2 ** 32 - 1))
-    # else:
-    #     random.seed(None)
-
+    assert isinstance(mikado_config.reference.genome, str)
     if getattr(args, "minimum_cdna_length", None) not in (None, False):
         mikado_config.prepare.minimum_cdna_length = args.minimum_cdna_length
     if getattr(args, "max_intron_length", None) not in (None, False):
         mikado_config.prepare.max_intron_length = args.max_intron_length
     if getattr(args, "single", None) not in (None, False):
         mikado_config.prepare.single = args.single
-    if getattr(args, "reference", None) not in (None, False):
-        mikado_config.reference.genome = args.reference
+
+    if args.reference is not None:
+        if hasattr(args.reference, "close") and hasattr(args.reference, "name"):
+            args.reference.close()
+            mikado_config.reference.genome = args.reference.name
+        elif hasattr(args.reference, "close") and hasattr(args.reference, "filename"):
+            args.reference.close()
+            mikado_config.reference.genome = args.reference.filename.decode()
+        elif isinstance(args.reference, bytes):
+            mikado_config.reference.genome = args.reference.decode()
+        elif isinstance(args.reference, str):
+            mikado_config.reference.genome = args.reference
+        
+    assert isinstance(mikado_config.reference.genome, str)
     if getattr(args, "exclude_redundant", None) is not None:
         mikado_config.prepare.exclude_redundant = args.exclude_redundant
     if getattr(args, "lenient", None) is not None:
@@ -193,21 +195,25 @@ def parse_prepare_options(args, mikado_config):
     if getattr(args, "single", None) not in (None, False):
         mikado_config.prepare.single = args.single
 
+    assert isinstance(mikado_config.reference.genome, str)
     return mikado_config
 
 
-def setup(args):
+def setup(args, logger=None):
     """Method to set up the analysis using the JSON configuration
     and the command line options.
 
     :param args: the ArgumentParser-derived namespace.
     """
 
-    logger = logging.getLogger("prepare")
-    logger.setLevel(logging.INFO)
+    if logger is None or not isinstance(logger, logging.Logger):
+        logger = logging.getLogger("prepare")
+        logger.setLevel(logging.INFO)
 
+    logger.debug("Starting to get prepare arguments")
     from ..configuration.configurator import to_json
     mikado_config = to_json(args.json_conf)
+    assert hasattr(mikado_config.reference, "genome"), mikado_config.reference
 
     if args.start_method:
         mikado_config.multiprocessing_method = args.start_method
@@ -230,6 +236,7 @@ def setup(args):
                       mikado_config.prepare.files.output_dir)
 
     parse_prepare_options(args, mikado_config)
+    assert hasattr(mikado_config.reference, "genome"), mikado_config.reference
 
     if len(mikado_config.prepare.files.gff) == 0:
         parser = prepare_parser()
@@ -280,13 +287,6 @@ def setup(args):
     if getattr(args, "out_fasta") not in (None, False):
         mikado_config.prepare.files.out_fasta = os.path.basename(args.out_fasta)
 
-    if getattr(args, "fasta"):
-        args.fasta.close()
-        name = args.fasta.name
-        if isinstance(name, bytes):
-            name = name.decode()
-        mikado_config.reference.genome = name
-
     if isinstance(mikado_config.reference.genome, bytes):
         mikado_config.reference.genome = mikado_config.reference.genome.decode()
 
@@ -297,6 +297,9 @@ def prepare_launcher(args):
 
     from ..preparation.prepare import prepare
     args, mikado_config, logger = setup(args)
+    assert isinstance(mikado_config, (MikadoConfiguration, DaijinConfiguration))
+    if not hasattr(mikado_config.reference, "genome"):
+        raise InvalidJson("Invalid configuration; reference: {}".format(mikado_config.reference))
     try:
         prepare(mikado_config, logger)
         sys.exit(0)
@@ -337,8 +340,8 @@ def prepare_parser():
     1- add the "transcript" feature
     2- sort by coordinates
     3- check the strand""")
-    parser.add_argument("--fasta", type=argparse.FileType(),
-                        help="Genome FASTA file. Required.")
+    parser.add_argument("--fasta", "--reference", dest="reference",
+                        type=argparse.FileType(), help="Genome FASTA file. Required.")
     verbosity = parser.add_mutually_exclusive_group()
     verbosity.add_argument("-v", "--verbose", action="store_true", default=False)
     verbosity.add_argument("-q", "--quiet", action="store_true", default=False)

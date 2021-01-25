@@ -386,7 +386,7 @@ Chr1\tfoo\texon\t501\t600\t.\t+\t.\tID=t1:exon3;Parent=t1""".split("\n")
         self.my_json = os.path.join(os.path.dirname(__file__), "configuration.yaml")
 
         self.my_json = configurator.to_json(self.my_json)
-        self.my_json.reference.genome = self.fai.filename
+        self.my_json.reference.genome = self.fai.filename.decode()
         self.assertIsInstance(self.my_json.scoring, dict, self.my_json.scoring)
 
     def test_locus(self):
@@ -2997,9 +2997,9 @@ class PaddingTester(unittest.TestCase):
         logger = create_default_logger(inspect.getframeinfo(inspect.currentframe())[2], level="WARNING")
         transcripts = self.load_from_bed("Mikado.tests", "pad_utr.bed12")
         locus = Locus(transcripts["mikado.Chr5G2.1"], logger=logger)
-        [locus._add_to_alternative_splicing_codes(code) for code in ("J", "j", "G", "h")]
+        # [locus._add_to_alternative_splicing_codes(code) for code in ("J", "j", "G", "h")]
         self.assertIn("J", locus.json_conf.pick.alternative_splicing.valid_ccodes)
-        locus.json_conf.reference.genome = self.fai
+        locus.json_conf.reference.genome = self.fai.filename.decode()
         # We need to pad
         locus.json_conf.pick.alternative_splicing.pad = True
         locus.json_conf.pick.alternative_splicing.ts_distance = 10000
@@ -3025,7 +3025,7 @@ class PaddingTester(unittest.TestCase):
         locus = Locus(transcripts["mikado.Chr5G486.1"], logger=logger)
         [locus._add_to_alternative_splicing_codes(code) for code in ("J", "j", "G", "h")]
         self.assertIn("J", locus.json_conf.pick.alternative_splicing.valid_ccodes)
-        locus.json_conf.reference.genome = self.fai.filename
+        locus.json_conf.reference.genome = self.fai.filename.decode()
         locus.add_transcript_to_locus(transcripts["mikado.Chr5G486.2"])
         # We need to pad
         locus.json_conf.pick.alternative_splicing.pad = True
@@ -3052,7 +3052,7 @@ class PaddingTester(unittest.TestCase):
                 t1.add_exons([(100, 200), (300, 500), (700, 800), (900, 1000)])
                 t1.finalize()
                 loc = Locus(t1, logger=logger)
-                loc.json_conf.reference.genome = self.fai
+                loc.json_conf.reference.genome = self.fai.filename.decode()
                 # We need these to be padded
                 loc.json_conf.pick.alternative_splicing.ts_distance = 1000
                 loc.json_conf.pick.alternative_splicing.ts_max_splices = 10

@@ -16,7 +16,7 @@ import numpy
 from ..transcripts.clique_methods import find_communities, define_graph
 from ..transcripts.transcript import Transcript
 from ..configuration.configurator import to_json, check_json
-from ..exceptions import NotInLocusError
+from ..exceptions import NotInLocusError, InvalidJson
 from ..utilities import overlap, merge_ranges, rhasattr, rgetattr
 import operator
 from ..utilities.intervaltree import Interval, IntervalTree
@@ -32,12 +32,13 @@ import rapidjson as json
 from typing import Union
 from ..configuration.configuration import MikadoConfiguration
 from ..configuration.daijin_configuration import DaijinConfiguration
+from ..configuration.configurator import to_json
+
+
+json_conf = to_json(None)
 
 # I do not care that there are too many attributes: this IS a massive class!
 # pylint: disable=too-many-instance-attributes,too-many-public-methods
-json_conf = to_json(None)
-assert json_conf.scoring is not None
-
 
 def to_bool(param: Union[str,bool,int,float]):
     if isinstance(param, bool):
@@ -71,8 +72,6 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
     # ##### Special methods #########
 
-    __json_conf = json_conf.copy()
-
     # This dictionary contains the correspondence between transcript attributes
     # and the relevant containers in Locus classes.
     __locus_to_transcript_attrs = {"splices": "splices",
@@ -83,6 +82,8 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                                    "selected_cds_exons": "selected_cds",
                                    "exons": "exons",
                                    "locus_verified_introns": "verified_introns"}
+
+    __json_conf = json_conf.copy()
 
     @abc.abstractmethod
     def __init__(self,
@@ -228,6 +229,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             del state["engine"]
 
         del state["_Abstractlocus__segmenttree"]
+        assert isinstance(state["json_conf"], (MikadoConfiguration, DaijinConfiguration))
         return state
 
     def __setstate__(self, state):
@@ -277,8 +279,11 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
     def load_dict(self, state, load_transcripts=True):
         assert isinstance(state, dict)
+        try:
+            state["json_conf"] = dacite.from_dict(data_class=MikadoConfiguration, data=state["json_conf"])
+        except:
+            state["json_conf"] = dacite.from_dict(data_class=DaijinConfiguration, data=state["json_conf"])
         self.__setstate__(state)
-
         assert self.metrics_calculated is True
         if load_transcripts is True:
             self.transcripts = dict((tid, Transcript()) for tid in state["transcripts"])
@@ -1691,18 +1696,14 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
     @json_conf.setter
     def json_conf(self, conf):
-        if conf is None:
+        if conf is None or conf == "":
             conf = json_conf.copy()
-            conf = check_json(conf)
-        elif isinstance(conf, str):
+        elif isinstance(conf, str) and conf != "":
             conf = to_json(conf)
-        elif isinstance(conf, dict):
-            try:
-                conf = dacite.from_dict(data_class=MikadoConfiguration, data=conf)
-            except:
-                conf = dacite.from_dict(data_class=DaijinConfiguration, data=conf)
         elif not isinstance(conf, (MikadoConfiguration, DaijinConfiguration)):
-            raise TypeError("Invalid configuration!")
+            raise InvalidJson(
+                "Invalid configuration, type {}, expected MikadoConfiguration or DaijinConfiguration!".format(
+                    type(conf)))
         self.__json_conf = conf
         # Get the value for each attribute defined metric
         self._attribute_metrics = dict()

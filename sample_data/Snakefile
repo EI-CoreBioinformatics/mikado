@@ -5,12 +5,15 @@ import itertools
 import yaml
 from Mikado.utilities import path_join
 import Mikado.configuration.configurator
+from Mikado.configuration.daijin_configuration import DaijinConfiguration
+from Mikado.configuration.configuration import MikadoConfiguration
 import subprocess
 import gzip
 from snakemake import logger as snake_logger
 import pkg_resources
 import Mikado
 import dataclasses
+import marshmallow_dataclass
 
 prod_conda = pkg_resources.resource_filename("Mikado.daijin", os.path.join("envs", "prodigal.yaml"))
 swissprot = "uniprot_sprot_plants.fasta.gz"
@@ -32,7 +35,8 @@ if not os.path.exists(configname):
     subprocess.call(config_command, shell=True)
 
 snake_logger.info("Reading the configuration file")
-_config = dataclasses.asdict(Mikado.configuration.configurator.to_json(configname))
+dschema = MikadoConfiguration()
+_config = dschema.dump(Mikado.configuration.configurator.to_json(configname))
 
 try:
     config = _config

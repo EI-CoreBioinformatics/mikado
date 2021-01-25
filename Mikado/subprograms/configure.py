@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 """Stub of pre-configurer for Mikado"""
-import dacite
 import yaml
 import os
 import re
@@ -198,7 +197,7 @@ def create_config(args):
             config = merge_dictionaries(config, mikado_conf)
         config = merge_dictionaries(config, external_conf)
         print(json.dumps(config), file=sys.stderr)
-        config = dacite.from_dict(data_class=DaijinConfiguration, data=config)
+        config = DaijinConfiguration(config)
 
     config.pick.files.subloci_out = args.subloci_out if args.subloci_out else ""
     config.pick.files.monoloci_out = args.monoloci_out if args.monoloci_out else ""

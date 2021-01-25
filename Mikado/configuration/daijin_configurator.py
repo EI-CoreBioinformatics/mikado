@@ -1,6 +1,4 @@
 import dataclasses
-
-import dacite
 import rapidjson as json
 import os
 import io
@@ -82,11 +80,8 @@ def check_config(config: DaijinConfiguration, logger=None):
 
 def create_daijin_base_config(simple=True):
 
-    validator = create_daijin_validator(simple=simple)
-    conf = dict()
-    validator.validate(conf)
-    daijin_conf = dacite.from_dict(data_class=DaijinConfiguration, data=conf)
-    daijin_conf = to_json(daijin_conf, simple=simple)
+    daijin_conf = DaijinConfiguration()
+    # daijin_conf = to_json(daijin_conf, simple=simple)
     return daijin_conf
 
 

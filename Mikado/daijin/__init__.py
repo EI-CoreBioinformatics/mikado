@@ -13,14 +13,10 @@ import datetime
 import time
 import json
 from dataclasses import asdict
-
-import dacite
 import yaml
 import snakemake
 from snakemake.utils import min_version
-
 from ..configuration import DaijinConfiguration
-from ..utilities.log_utils import create_default_logger
 from ..configuration.daijin_configurator import create_daijin_config, check_config
 import shutil
 import pkg_resources
@@ -31,8 +27,6 @@ try:
     from yaml import CSafeLoader as yLoader
 except ImportError:
     from yaml import SafeLoader as yLoader
-# import logging
-# import logging.handlers
 
 system_hpc_yaml = pkg_resources.resource_filename("Mikado", os.path.join("daijin", "hpc.yaml"))
 
@@ -470,8 +464,6 @@ def mikado_pipeline(args):
             daijin_config["load"] = loader(_)
 
     check_config(daijin_config)
-
-    daijin_config = dacite.from_dict(data_class=DaijinConfiguration, data=daijin_config)
 
     # pylint: disable=invalid-name
     SCHEDULER = daijin_config.scheduler if daijin_config.scheduler else ""

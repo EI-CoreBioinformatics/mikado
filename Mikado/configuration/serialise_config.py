@@ -14,7 +14,7 @@ class FilesConfiguration(Schema):
     transcripts: str = fields.Str(missing="mikado_prepared.fasta")
     log: str = fields.Str(missing="serialise.log")
     blast_targets: list = fields.List(fields.Str(), missing=list)
-    output_dir: str = fields.Str(missing="../serializers")
+    output_dir: str = fields.Str(missing="")
 
 
 class SerialiseConfiguration(Schema):

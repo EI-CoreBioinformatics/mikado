@@ -31,7 +31,6 @@ try:
     from yaml import CSafeLoader as yLoader
 except ImportError:
     from yaml import SafeLoader as yLoader
-import dacite
 
 
 __author__ = "Luca Venturini"
@@ -554,91 +553,7 @@ def _check_scoring_file(json_conf: Union[MikadoConfiguration, DaijinConfiguratio
     return json_conf, overwritten
 
 
-def check_json(json_conf: Union[dict, MikadoConfiguration, DaijinConfiguration],
-               simple=False, external_dict=None, logger=None) -> Union[MikadoConfiguration, DaijinConfiguration]:
-
-    """
-    Wrapper for the various checks performed on the configuration file.
-
-    :param json_conf: The dicitonary loaded from the configuration file.
-    :type json_conf: dict
-
-    :param simple: boolean flag indicating whether we desire
-                   the simplified version of the configuration, or not.
-    :type simple: bool
-
-    :param external_dict: optional external dictionary with values to pass to the configuration.
-    :type external_dict: (dict|None)
-
-    :param logger: external logger instance
-    :type logger: Logger
-
-    :return json_conf
-    :rtype: dict
-    """
-
-    if not isinstance(logger, Logger):
-        logger = create_default_logger("check_json")
-
-    try:
-        validator = create_validator(simple=simple)
-        # This will check for consistency and add the default values if they are missing
-        if isinstance(json_conf, (MikadoConfiguration, DaijinConfiguration)):
-            validator.validate(asdict(json_conf))
-        else:
-            validator.validate(json_conf)
-            try:
-                json_conf = dacite.from_dict(data=json_conf, data_class=MikadoConfiguration)
-            except:
-                json_conf = dacite.from_dict(data=json_conf, data_class=DaijinConfiguration)
-
-        if not json_conf.pick:
-            print(json_conf)
-            raise AssertionError("Pick section missing from the configuration.")
-        elif not json_conf.pick:
-            raise AssertionError("Files section missing from the 'pick' section.")
-
-        json_conf, overwritten = _check_scoring_file(json_conf, logger)
-        assert json_conf.scoring is not None
-
-        # TODO change this
-        if external_dict is not None:
-            if not isinstance(external_dict, dict):
-                raise TypeError("Passed an invalid external dictionary, type {}".format(
-                    type(external_dict)))
-            json_conf = merge_dictionaries(asdict(json_conf), external_dict)
-            try:
-                json_conf = dacite.from_dict(data=json_conf, data_class=MikadoConfiguration)
-            except:
-                json_conf = dacite.from_dict(data=json_conf, data_class=DaijinConfiguration)
-
-        json_conf = check_db(json_conf)
-        # json_conf = check_blast(json_conf, json_file)
-        validator.validate(dataclasses.asdict(json_conf))
-        if json_conf.multiprocessing_method is None:
-            json_conf.multiprocessing_method = get_start_method()
-    except Exception as exc:
-        logger.exception(exc)
-        raise
-
-    seed = json_conf.seed
-    if seed is None:
-        # seed = numpy.random.randint(0, 2**32 - 1)
-        seed = random.randint(0, 2**32 - 1)
-        logger.info("Random seed: {}", seed)
-        json_conf.seed = seed
-
-    if seed is not None:
-        # numpy.random.seed(seed % (2 ** 32 - 1))
-        random.seed(seed % (2 ** 32 - 1))
-    else:
-        # numpy.random.seed(None)
-        random.seed(None)
-
-    return json_conf
-
-
-def to_json(string, simple=False, logger=None) -> Union[MikadoConfiguration, DaijinConfiguration]:
+def to_json(string, logger=None) -> Union[MikadoConfiguration, DaijinConfiguration]:
     """
     Function to serialise the JSON for configuration and check its consistency.
 
@@ -679,14 +594,19 @@ def to_json(string, simple=False, logger=None) -> Union[MikadoConfiguration, Dai
                     assert isinstance(json_dict, dict)
                 else:
                     json_dict = json.loads(json_file.read())
-            if isinstance(json_dict, dict):
-                try:
-                    json_dict = dacite.from_dict(data_class=MikadoConfiguration, data=json_dict)
-                except:
-                    json_dict = dacite.from_dict(data_class=DaijinConfiguration, data=json_dict)
+
+            try:
+                json_dict = MikadoConfiguration.from_dict(json_dict)
+            except:
+                json_dict = DaijinConfiguration.from_dict(json_dict)
+            # if isinstance(json_dict, dict):
+            #     try:
+            #         json_dict = dacite.from_dict(data_class=MikadoConfiguration, data=json_dict)
+            #     except:
+            #         json_dict = dacite.from_dict(data_class=DaijinConfiguration, data=json_dict)
             json_dict.filename = string
 
-        json_dict = check_json(json_dict, simple=simple, logger=logger)
+        # json_dict = check_json(json_dict, simple=simple, logger=logger)
 
     except Exception as exc:
         logger.exception(exc)
@@ -702,11 +622,5 @@ def to_json(string, simple=False, logger=None) -> Union[MikadoConfiguration, Dai
         random.seed(seed % (2 ** 32 - 1))
     else:
         random.seed(None)
-
-    if isinstance(json_dict, dict):
-        try:
-            json_dict = dacite.from_dict(data_class=MikadoConfiguration, data=json_dict)
-        except:
-            json_dict = dacite.from_dict(data_class=DaijinConfiguration, data=json_dict)
 
     return json_dict

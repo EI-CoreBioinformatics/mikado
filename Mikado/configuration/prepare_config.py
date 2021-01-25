@@ -2,7 +2,7 @@ from marshmallow import Schema, fields
 
 
 class PrepareFilesConfiguration(Schema):
-    output_dir: str = fields.Str(missing="../preparation")
+    output_dir: str = fields.Str(missing="")
     out: str = fields.Str(missing="mikado_prepared.gtf")
     out_fasta: str = fields.Str(missing="mikado_prepared.fasta")
     log: str = fields.Str(missing="prepare.log")

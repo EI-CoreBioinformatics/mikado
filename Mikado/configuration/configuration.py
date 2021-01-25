@@ -10,16 +10,13 @@ from ..utilities.log_utils import LoggingConfiguration
 from marshmallow import Schema, fields
 
 
-@dataclass
 class ReferenceConfiguration(Schema):
     genome: str = fields.Str(missing="")
     genome_fai: str = fields.Str(missing="")
     transcriptome: str = fields.Str(missing="")
 
 
-@dataclass
 class MikadoConfiguration(Schema):
-    filename: str = fields.Str()
     threads: int = fields.Int(missing=1)
     seed: int = fields.Int(missing=0)
     multiprocessing_method: str = fields.Str(missing="spawn")
@@ -36,6 +33,7 @@ class MikadoConfiguration(Schema):
     as_requirements: Optional[dict] = fields.Dict(missing=None)
     requirements: Optional[dict] = fields.Dict(missing=None)
     not_fragmentary: Optional[dict] = fields.Dict(missing=None)
+    filename: Optional[str] = fields.Str(missing=None)
 
     def copy(self):
         return copy.deepcopy(self)

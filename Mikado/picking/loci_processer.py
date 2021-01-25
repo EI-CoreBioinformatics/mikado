@@ -14,7 +14,7 @@ import pickle
 from ..transcripts import Transcript
 from ..exceptions import InvalidTranscript
 from ..parsers.GTF import GtfLine
-from ..configuration.configurator import to_json
+from ..configuration.configurator import load_and_validate_config
 import msgpack
 from ._loci_serialiser import serialise_locus
 try:
@@ -319,9 +319,8 @@ class LociProcesser(Process):
                  tempdir="mikado_pick_tmp"
                  ):
 
-        # current_counter, gene_counter, current_chrom = shared_values
         super(LociProcesser, self).__init__()
-        json_conf = to_json(msgpack.loads(json_conf, raw=False))
+        json_conf = load_and_validate_config(msgpack.loads(json_conf, raw=False))
         self.logging_queue = logging_queue
         self.status_queue = status_queue
         self.__identifier = identifier  # Property directly unsettable

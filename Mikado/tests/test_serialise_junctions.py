@@ -23,7 +23,7 @@ class TestLoadJunction(unittest.TestCase):
 
     def setUp(self):
         self.dbfile = tempfile.mktemp(suffix=".db")
-        self.json_conf = configuration.configurator.to_json(None)
+        self.json_conf = configuration.configurator.load_and_validate_config(None)
         self.json_conf.db_settings.dbtype = "sqlite"
         self.json_conf.db_settings.db = self.dbfile
         self.json_conf.reference.genome_fai = os.path.join(
@@ -103,7 +103,7 @@ class TestLoadJunction(unittest.TestCase):
     def test_serialise_low_maxobject(self):
 
         self.dbfile = tempfile.mktemp(suffix=".db")
-        self.json_conf = configuration.configurator.to_json(None)
+        self.json_conf = configuration.configurator.load_and_validate_config(None)
         self.json_conf.db_settings.dbtype = "sqlite"
         self.json_conf.db_settings.db = self.dbfile
         self.json_conf.reference.genome_fai = os.path.join(

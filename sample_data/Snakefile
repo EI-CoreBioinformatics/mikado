@@ -35,8 +35,8 @@ if not os.path.exists(configname):
     subprocess.call(config_command, shell=True)
 
 snake_logger.info("Reading the configuration file")
-dschema = MikadoConfiguration()
-_config = dschema.dump(Mikado.configuration.configurator.to_json(configname))
+dschema = MikadoConfiguration.Schema()
+_config = dschema.dump(Mikado.configuration.configurator.load_and_validate_config(configname))
 
 try:
     config = _config
@@ -79,7 +79,7 @@ rule test_json:
     message: "Checking the configuration"
     run:
         try:
-            __= Mikado.configuration.configurator.to_json(configname)
+            __= Mikado.configuration.configurator.load_and_validate_config(configname)
         except:
             os.remove(configname)
             raise

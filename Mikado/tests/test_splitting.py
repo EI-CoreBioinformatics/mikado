@@ -73,7 +73,7 @@ class TestSplitMonoexonic(unittest.TestCase):
 
         self.transcript.logger = self.logger
 
-        self.transcript.json_conf = configuration.configurator.to_json(None)
+        self.transcript.json_conf = configuration.configurator.load_and_validate_config(None)
         self.transcript.json_conf.pick.chimera_split.blast_check = False
         self.transcript.json_conf.pick.chimera_split.blast_params.leniency = "LENIENT"
         self.transcript.json_conf.pick.chimera_split.blast_params.min_overlap_duplication = 0.8
@@ -396,7 +396,7 @@ class TestWithPhase(unittest.TestCase):
         self.transcript.logger = self.logger
         self.transcript.logger.setLevel("INFO")
 
-        self.transcript.json_conf = configuration.configurator.to_json("")
+        self.transcript.json_conf = configuration.configurator.load_and_validate_config("")
         self.transcript.json_conf.pick.chimera_split.blast_check = False
         self.assertIsNotNone(self.transcript.json_conf)
 

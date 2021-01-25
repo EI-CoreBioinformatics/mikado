@@ -6,9 +6,9 @@ import yaml
 import toml
 import jsonschema
 from pkg_resources import resource_stream, resource_filename
-from .configurator import extend_with_default, check_all_requirements, check_scoring, to_json
+from .configurator import extend_with_default, check_all_requirements, check_scoring
 from .configurator import create_cluster_config
-from . import print_config, check_has_requirements, print_toml_config, DaijinConfiguration
+from . import print_config, print_toml_config, DaijinConfiguration
 from ..exceptions import InvalidJson
 from ..utilities.log_utils import create_default_logger
 import sys
@@ -55,32 +55,9 @@ def create_daijin_validator(simple=True):
     return validator
 
 
-def check_config(config: DaijinConfiguration, logger=None):
-
-    """
-    Function to check that a configuration abides to the Daijin schema.
-
-    :param config: the dictionary to validate
-    :param logger: optional logger. If none is provided, one will be created
-    :return:
-    """
-
-    if logger is None:
-        logger = create_default_logger("daijin_validator")
-
-    try:
-        validator = create_daijin_validator()
-        if isinstance(config, DaijinConfiguration):
-            config = dataclasses.asdict(config)
-        validator.validate(config)
-    except Exception as exc:
-        logger.exception(exc)
-        sys.exit(1)
-
-
 def create_daijin_base_config(simple=True):
 
-    daijin_conf = DaijinConfiguration()
+    daijin_conf = DaijinConfiguration.Schema().load({})
     # daijin_conf = to_json(daijin_conf, simple=simple)
     return daijin_conf
 
@@ -295,7 +272,6 @@ def create_daijin_config(args, level="ERROR", piped=False):
     config.mikado.use_prodigal = (not args.use_transdecoder)
 
     final_config = config.copy()
-    check_config(final_config, logger)
 
     if args.exe:
         with open(args.exe, "wt") as out:

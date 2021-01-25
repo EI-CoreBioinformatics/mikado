@@ -210,8 +210,8 @@ def check_run_options(args, logger=create_null_logger()):
     # else:
     #     assert "codon_table" in args.json_conf["serialise"]
 
-    from ..configuration.configurator import check_json
-    args.json_conf = check_json(args.json_conf, logger=logger)
+    # from ..configuration.configurator import check_json
+    # args.json_conf = check_json(args.json_conf, logger=logger)
     return args
 
 
@@ -223,12 +223,12 @@ def pick(args):
 
     """
 
-    from ..configuration.configurator import to_json
+    from ..configuration.configurator import load_and_validate_config
 
     logger = create_default_logger("pick_init")
 
     args.json_conf.close()
-    args.json_conf = to_json(args.json_conf.name, logger=logger)
+    args.json_conf = load_and_validate_config(args.json_conf.name, logger=logger)
 
     try:
         args = check_log_settings(args)

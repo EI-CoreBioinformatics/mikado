@@ -17,7 +17,7 @@ import yaml
 import snakemake
 from snakemake.utils import min_version
 from ..configuration import DaijinConfiguration
-from ..configuration.daijin_configurator import create_daijin_config, check_config
+from ..configuration.daijin_configurator import create_daijin_config
 import shutil
 import pkg_resources
 import functools
@@ -267,7 +267,7 @@ def assemble_transcripts_pipeline(args):
 
     # print(doc["load"])
     # Check the configuration
-    check_config(doc)
+    _ = DaijinConfiguration.Schema().load(doc)
 
     # pylint: disable=invalid-name
 
@@ -463,7 +463,7 @@ def mikado_pipeline(args):
         with open(args.exe) as _:
             daijin_config["load"] = loader(_)
 
-    check_config(daijin_config)
+    daijin_config = DaijinConfiguration.Schema().load(daijin_config)
 
     # pylint: disable=invalid-name
     SCHEDULER = daijin_config.scheduler if daijin_config.scheduler else ""

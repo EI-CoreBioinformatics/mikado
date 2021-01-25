@@ -3,7 +3,7 @@ import unittest
 import builtins
 from sqlalchemy.engine import reflection
 import itertools
-from ..configuration.configurator import to_json
+from ..configuration.configurator import load_and_validate_config
 from ..loci import Transcript
 from ..parsers.bed12 import BED12
 from ..parsers.GTF import GtfLine
@@ -551,7 +551,7 @@ class TestRetrieval(unittest.TestCase):
         self.tr.id = "test1"
         self.tr.parent = "gene1"
         self.tr.finalize()
-        conf = to_json(os.path.join(
+        conf = load_and_validate_config(os.path.join(
             os.path.dirname(__file__),
             "configuration.yaml"
         ))

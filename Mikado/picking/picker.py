@@ -31,7 +31,7 @@ from ..serializers.junction import Chrom
 from ..serializers.external import ExternalSource
 from ..transcripts import Transcript
 from ..loci.superlocus import Superlocus
-from ..configuration.configurator import to_json, check_json  # Necessary for nosetests
+from ..configuration.configurator import load_and_validate_config
 from ..utilities import dbutils
 from ..exceptions import UnsortedInput, InvalidJson, InvalidTranscript
 from .loci_processer import analyse_locus, LociProcesser, merge_loci
@@ -41,7 +41,6 @@ from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
 import pickle
 import warnings
 import pyfaidx
-import sqlite3
 import msgpack
 from numpy import percentile
 import dataclasses
@@ -173,7 +172,7 @@ class Picker:
 
         if isinstance(self.json_conf, str):
             assert os.path.exists(self.json_conf)
-            self.json_conf = to_json(self.json_conf, logger=self.logger)
+            self.json_conf = load_and_validate_config(self.json_conf, logger=self.logger)
             # pylint: disable=no-member
             multiprocessing.set_start_method(self.json_conf.multiprocessing_method,
                                              force=True)
@@ -186,13 +185,13 @@ class Picker:
                                              force=True)
             self.setup_logger()
             self.logger.debug("Checking the configuration dictionary")
-            try:
-                self.json_conf = check_json(self.json_conf, logger=self.logger)
-                self.logger.debug("Configuration dictionary passes checks")
-            except Exception as exc:
-                self.logger.critical("Something went wrong with the configuration, critical error, aborting.")
-                self.logger.critical(exc)
-                sys.exit(1)
+            # try:
+            #     self.json_conf = check_json(self.json_conf, logger=self.logger)
+            #     self.logger.debug("Configuration dictionary passes checks")
+            # except Exception as exc:
+            #     self.logger.critical("Something went wrong with the configuration, critical error, aborting.")
+            #     self.logger.critical(exc)
+            #     sys.exit(1)
         else:
             raise TypeError(type(self.json_conf))
         assert isinstance(self.json_conf, (MikadoConfiguration, DaijinConfiguration))

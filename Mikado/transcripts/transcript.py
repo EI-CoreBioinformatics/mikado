@@ -20,7 +20,7 @@ from sqlalchemy import bindparam
 from sqlalchemy.ext import baked
 from sqlalchemy.sql.expression import desc, asc  # SQLAlchemy imports
 
-from ..configuration.configurator import to_json
+from ..configuration.configurator import load_and_validate_config
 from ..exceptions import ModificationError, InvalidTranscript, CorruptIndex
 from ..parsers.GFF import GffLine
 from ..parsers.GTF import GtfLine
@@ -1655,7 +1655,7 @@ exon data is on a different chromosome, {exon_data.chrom}. \
 
         assert isinstance(json_conf, (MikadoConfiguration, DaijinConfiguration)) or json_conf is None
         if json_conf is None:
-            json_conf = to_json(None)
+            json_conf = load_and_validate_config(None)
             assert isinstance(json_conf, (MikadoConfiguration, DaijinConfiguration))
 
         self.__json_conf = json_conf

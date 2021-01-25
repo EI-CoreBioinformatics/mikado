@@ -26,8 +26,8 @@ def print_locus(stranded_locus,
     mono_metrics, mono_scores, mono_out = handles[2]
 
     if json_conf is None:
-        from ..configuration.configurator import to_json
-        json_conf = to_json(None)
+        from ..configuration.configurator import load_and_validate_config
+        json_conf = load_and_validate_config(None)
 
     stranded_locus.logger = logger
     if sub_out is not None:  # Skip this section if no sub_out is defined

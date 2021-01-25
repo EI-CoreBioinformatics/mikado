@@ -34,33 +34,33 @@ class OrfCalling:
 
 @dataclass
 class BlastX:
-    prot_db: Optional[List[str]] = field(default_factory=lambda: [""])
-    evalue: float = field(default=1e-7, metadata={"validate": validate})
+    prot_db: Optional[List[str]] = field(default_factory=lambda: [])
+    evalue: float = field(default=1e-7, metadata={"validate": validate.Range(min=0)})
     max_target_seqs: int = field(default=10, metadata={"validate": validate.Range(min=1)})
     chunks: int = field(default=10, metadata={"validate": validate.Range(min=1)})
 
 
 @dataclass
 class AlignMethods:
-    tophat: Optional[List[str]] = field(default=None)
-    hisat: Optional[List[str]] = field(default=None)
-    star: Optional[List[str]] = field(default=None)
-    gsnap: Optional[List[str]] = field(default=None)
+    tophat: List[str] = field(default_factory=lambda: [])
+    hisat: List[str] = field(default_factory=lambda: [])
+    star: List[str] = field(default_factory=lambda: [])
+    gsnap: List[str] = field(default_factory=lambda: [])
 
 
 @dataclass
 class LongReadAlign:
-    star: Optional[List[str]] = field(default=None)
-    gmap: Optional[List[str]] = field(default=None)
+    star: List[str] = field(default_factory=lambda: [])
+    gmap: List[str] = field(default_factory=lambda: [])
 
 
 @dataclass
 class AsmMethods:
-    stringtie: Optional[List[str]] = field(default=None)
-    cufflinks: Optional[List[str]] = field(default=None)
-    class2: Optional[List[str]] = field(default=None)
-    scallop: Optional[List[str]] = field(default=None)
-    trinity: Optional[List[str]] = field(default=None)
+    stringtie: List[str] = field(default_factory=lambda: [])
+    cufflinks: List[str] = field(default_factory=lambda: [])
+    class2: List[str] = field(default_factory=lambda: [])
+    scallop: List[str] = field(default_factory=lambda: [])
+    trinity: List[str] = field(default_factory=lambda: [])
 
 
 @dataclass
@@ -114,7 +114,6 @@ class DaijinConfiguration:
     asm_methods: AsmMethods = field(default_factory=AsmMethods)
     portcullis: Portcullis = field(default_factory=Portcullis)
     mikado: DaijinMikadoConfiguration = field(default_factory=DaijinMikadoConfiguration)
-    #
     filename: Optional[str] = field(default=None)
     seed: int = field(default=0, metadata={"validate": validate.Range(min=0, max=2**32 - 1)})
     multiprocessing_method: str = field(default="spawn",
@@ -132,12 +131,11 @@ class DaijinConfiguration:
                                      metadata={"validate": validate.OneOf(["SLURM", "LSF", "local", "PBS", ""])})
 
     # # These fields are loaded *from the scoring configuration*
-    # TODO test this
-    scoring: Optional[dict] = field(default_factory=dict, default=None)
-    cds_requirements: Optional[dict] = field(default_factory=dict, default=None)
-    as_requirements: Optional[dict] = field(default_factory=dict, default=None)
-    requirements: Optional[dict] = field(default_factory=dict, default=None)
-    not_fragmentary: Optional[dict] = field(default_factory=dict, default=None)
+    scoring: Optional[dict] = field(default=None)
+    cds_requirements: Optional[dict] = field(default=None)
+    as_requirements: Optional[dict] = field(default=None)
+    requirements: Optional[dict] = field(default=None)
+    not_fragmentary: Optional[dict] = field(default=None)
     load: ProgramLoader = field(default_factory=ProgramLoader)
 
     def copy(self):

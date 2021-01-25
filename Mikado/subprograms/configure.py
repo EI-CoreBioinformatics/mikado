@@ -58,10 +58,10 @@ def create_simple_config(seed=None):
     :return:
     """
 
-    from ..configuration.configurator import to_json, create_validator, merge_dictionaries
+    from ..configuration.configurator import load_and_validate_config, create_validator, merge_dictionaries
     from ..configuration import check_has_requirements
 
-    default = to_json("", simple=True)
+    default = load_and_validate_config("", simple=True)
     validator = create_validator(simple=True)
 
     del default["scoring"]
@@ -159,7 +159,7 @@ def create_config(args):
     :return:
     """
 
-    from ..configuration.configurator import to_json, merge_dictionaries
+    from ..configuration.configurator import load_and_validate_config, merge_dictionaries
     from ..configuration import print_config, print_toml_config
 
     if len(args.mode) > 1:
@@ -170,7 +170,7 @@ def create_config(args):
         config = __add_daijin_specs(args)
     else:
         if args.full is True:
-            default = to_json(None)
+            default = load_and_validate_config(None)
             del default.scoring
             del default.requirements
             del default.not_fragmentary
@@ -195,9 +195,10 @@ def create_config(args):
         if "mikado" in external_conf:
             mikado_conf = dict((key, val) for key, val in external_conf["mikado"].items() if key in config)
             config = merge_dictionaries(config, mikado_conf)
+
         config = merge_dictionaries(config, external_conf)
         print(json.dumps(config), file=sys.stderr)
-        config = DaijinConfiguration(config)
+        config = DaijinConfiguration.Schema().load(config)
 
     config.pick.files.subloci_out = args.subloci_out if args.subloci_out else ""
     config.pick.files.monoloci_out = args.monoloci_out if args.monoloci_out else ""
@@ -299,16 +300,6 @@ switch.")
         except ValueError:
             pass
         config.serialise.codon_table = args.codon_table
-    # else:
-    #     assert args.full is False # or "codon_table" in config["serialise"]
-
-    # config.pop("__loaded_scoring", None)
-    # config.pop("scoring_file", None)
-    # config.pop("filename", None)
-    # config.pop("as_requirements", None)
-    # config.pop("scoring", None)
-    # config.pop("not_fragmentary", None)
-    # config.pop("requirements", None)
 
     if args.keep_disrupted_cds is True:
         config.pick.alternative_splicing.keep_cds_disrupted_by_ri = True
@@ -318,11 +309,11 @@ switch.")
 
     # Check that the configuration file is correct
     tempcheck = tempfile.NamedTemporaryFile("wt", suffix=".yaml", delete=False)
-    output = yaml.dump(config, default_flow_style=False)
+    output = yaml.dump(dataclasses.asdict(config), default_flow_style=False)
     print_config(output, tempcheck)
     tempcheck.flush()
     try:
-        to_json(tempcheck.name)
+        load_and_validate_config(tempcheck.name)
     except InvalidJson as exc:
         raise InvalidJson("Created an invalid configuration file! Error:\n{}".format(exc))
 

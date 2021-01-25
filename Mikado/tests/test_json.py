@@ -111,16 +111,16 @@ class TestScoring(unittest.TestCase):
                                  "**", "*yaml"), recursive=True):
             conf = configuration.MikadoConfiguration()
             conf.pick.scoring_file = scorer
-            conf.filename = None
-            self.assertGreater(len(configuration.configurator.check_json(conf).scoring), 0, scorer)
+            # conf.filename = None
+            self.assertGreater(len(configuration.configurator.check_and_load_scoring(conf).scoring), 0, scorer)
 
     def test_analyse_twice(self):
 
         """Verify that parsing and reparsing the configuration dictionary will not cause any errors."""
 
-        scor_conf = configuration.configurator.to_json(None)
+        scor_conf = configuration.configurator.load_and_validate_config(None)
         self.assertGreater(len(scor_conf.as_requirements), 0)
-        scor_conf = configuration.configurator.check_json(scor_conf)
+        scor_conf = configuration.configurator.check_and_load_scoring(scor_conf)
         self.assertGreater(len(scor_conf.as_requirements), 0)
 
 

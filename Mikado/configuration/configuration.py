@@ -1,39 +1,42 @@
-from dataclasses import dataclass, field
+from marshmallow_dataclass import dataclass, List, Optional
 import copy
-from typing import Optional
-
 from .picking_config import PickConfiguration
 from .prepare_config import PrepareConfiguration
 from .serialise_config import SerialiseConfiguration
 from ..utilities.dbutils import DBConfiguration
 from ..utilities.log_utils import LoggingConfiguration
-from marshmallow import Schema, fields
+from marshmallow import validate
+from dataclasses import field
 
 
-class ReferenceConfiguration(Schema):
-    genome: str = fields.Str(missing="")
-    genome_fai: str = fields.Str(missing="")
-    transcriptome: str = fields.Str(missing="")
+@dataclass
+class ReferenceConfiguration:
+    genome: str = field(default="")
+    genome_fai: str = field(default="")
+    transcriptome: str = field(default="")
 
 
-class MikadoConfiguration(Schema):
-    threads: int = fields.Int(missing=1)
-    seed: int = fields.Int(missing=0)
-    multiprocessing_method: str = fields.Str(missing="spawn")
-    log_settings: LoggingConfiguration = fields.Nested(LoggingConfiguration)
-    db_settings: DBConfiguration = fields.Nested(DBConfiguration)
-    serialise: SerialiseConfiguration = fields.Nested(SerialiseConfiguration)
-    prepare: PrepareConfiguration = fields.Nested(PrepareConfiguration)
-    pick: PickConfiguration = fields.Nested(PickConfiguration)
-    reference: ReferenceConfiguration = fields.Nested(ReferenceConfiguration)
+@dataclass
+class MikadoConfiguration:
+    threads: int = field(default=1, metadata={"validate": validate.Range(min=1)})
+    seed: int = field(default=0, metadata={"validate": validate.Range(min=0, max=2**32 - 1)})
+    multiprocessing_method: Optional[str] = field(
+        default="spawn",
+        metadata={"validate": validate.OneOf(["spawn", "fork", "fork-server"])}) 
+    log_settings: LoggingConfiguration = field(default_factory=LoggingConfiguration)
+    db_settings: DBConfiguration = field(default_factory=DBConfiguration)
+    serialise: SerialiseConfiguration = field(default_factory=SerialiseConfiguration)
+    prepare: PrepareConfiguration = field(default_factory=PrepareConfiguration)
+    pick: PickConfiguration = field(default_factory=PickConfiguration)
+    reference: ReferenceConfiguration = field(default_factory=ReferenceConfiguration)
 
     # These fields are loaded *from the scoring configuration*
-    scoring: Optional[dict] = fields.Dict(missing=None)
-    cds_requirements: Optional[dict] = fields.Dict(missing=None)
-    as_requirements: Optional[dict] = fields.Dict(missing=None)
-    requirements: Optional[dict] = fields.Dict(missing=None)
-    not_fragmentary: Optional[dict] = fields.Dict(missing=None)
-    filename: Optional[str] = fields.Str(missing=None)
+    scoring: Optional[dict] = field(default=None)
+    cds_requirements: Optional[dict] = field(default=None)
+    as_requirements: Optional[dict] = field(default=None)
+    requirements: Optional[dict] = field(default=None)
+    not_fragmentary: Optional[dict] = field(default=None)
+    filename: Optional[str] = field(default=None)
 
     def copy(self):
         return copy.deepcopy(self)

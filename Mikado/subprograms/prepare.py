@@ -211,8 +211,8 @@ def setup(args, logger=None):
         logger.setLevel(logging.INFO)
 
     logger.debug("Starting to get prepare arguments")
-    from ..configuration.configurator import to_json
-    mikado_config = to_json(args.json_conf)
+    from ..configuration.configurator import load_and_validate_config
+    mikado_config = load_and_validate_config(args.json_conf)
     assert hasattr(mikado_config.reference, "genome"), mikado_config.reference
 
     if args.start_method:

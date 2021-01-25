@@ -54,8 +54,8 @@ class BlastParamsConfiguration:
 class ChimeraSplitConfiguration:
     blast_check: bool = field(default=True)
     execute: bool = field(default=True)
-    skip: List[str] = field(default=lambda: [], metadata={"validate": validate.Length(min=0)})
-    blast_params: BlastParamsConfiguration = field(default=BlastParamsConfiguration)
+    skip: List[bool] = field(default_factory=lambda: [], metadata={"validate": validate.Length(min=0)})
+    blast_params: BlastParamsConfiguration = field(default_factory=BlastParamsConfiguration)
 
 
 @dataclass
@@ -63,7 +63,7 @@ class RunOptionsConfiguration:
     shm: bool = field(default=False)
     exclude_cds: bool = field(default=False)
     # TODO this must be at most 2
-    intron_range: List[int] = field(default=lambda: [60, 10000],
+    intron_range: List[int] = field(default_factory=lambda: [60, 10000],
                                metadata={"validate": validate.Length(min=2, max=2)})
     reference_update: bool = field(default=False)
     only_reference_update: bool = field(default=False)
@@ -86,7 +86,7 @@ class FragmentsConfiguration:
     remove: bool = field(default=True)
     max_distance: int = field(default=2000, metadata={"validate": validate.Range(min=0)})
     valid_class_codes: List[str] = field(
-        default=lambda: ["p", "P", "x", "X", "i", "m", "_", "e", "o"],
+        default_factory=lambda: ["p", "P", "x", "X", "i", "m", "_", "e", "o"],
         metadata={"validate": validate.ContainsOnly(["p", "P", "i", "I", "ri", "rI", "x", "X", "m", "_", "e", "o"])})
 
 
@@ -103,11 +103,11 @@ class FilesConfiguration:
 @dataclass
 class PickConfiguration:
     scoring_file: str = field(default="plant.yaml")
-    alternative_splicing: AlternativeSplicingConfiguration = field(default=AlternativeSplicingConfiguration)
-    output_format: OutputFormatConfiguration = field(default=OutputFormatConfiguration)
-    orf_loading: OrfLoadingConfiguration = field(default=OrfLoadingConfiguration)
-    chimera_split: ChimeraSplitConfiguration = field(default=ChimeraSplitConfiguration)
-    run_options: RunOptionsConfiguration = field(default=RunOptionsConfiguration)
-    clustering: ClusteringConfiguration = field(default=ClusteringConfiguration)
-    fragments: FragmentsConfiguration = field(default=FragmentsConfiguration)
-    files: FilesConfiguration = field(default=FilesConfiguration)
+    alternative_splicing: AlternativeSplicingConfiguration = field(default_factory=AlternativeSplicingConfiguration)
+    output_format: OutputFormatConfiguration = field(default_factory=OutputFormatConfiguration)
+    orf_loading: OrfLoadingConfiguration = field(default_factory=OrfLoadingConfiguration)
+    chimera_split: ChimeraSplitConfiguration = field(default_factory=ChimeraSplitConfiguration)
+    run_options: RunOptionsConfiguration = field(default_factory=RunOptionsConfiguration)
+    clustering: ClusteringConfiguration = field(default_factory=ClusteringConfiguration)
+    fragments: FragmentsConfiguration = field(default_factory=FragmentsConfiguration)
+    files: FilesConfiguration = field(default_factory=FilesConfiguration)

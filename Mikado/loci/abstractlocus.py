@@ -4,9 +4,7 @@
 Module that defines the blueprint for all loci classes.
 """
 import dataclasses
-
 import abc
-import dacite
 import itertools
 import logging
 from sys import maxsize
@@ -15,7 +13,6 @@ from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
 import numpy
 from ..transcripts.clique_methods import find_communities, define_graph
 from ..transcripts.transcript import Transcript
-from ..configuration.configurator import to_json, check_json
 from ..exceptions import NotInLocusError, InvalidJson
 from ..utilities import overlap, merge_ranges, rhasattr, rgetattr
 import operator
@@ -32,10 +29,10 @@ import rapidjson as json
 from typing import Union
 from ..configuration.configuration import MikadoConfiguration
 from ..configuration.daijin_configuration import DaijinConfiguration
-from ..configuration.configurator import to_json
+from ..configuration.configurator import load_and_validate_config
 
 
-json_conf = to_json(None)
+json_conf = load_and_validate_config(None)
 
 # I do not care that there are too many attributes: this IS a massive class!
 # pylint: disable=too-many-instance-attributes,too-many-public-methods
@@ -280,9 +277,9 @@ class Abstractlocus(metaclass=abc.ABCMeta):
     def load_dict(self, state, load_transcripts=True):
         assert isinstance(state, dict)
         try:
-            state["json_conf"] = dacite.from_dict(data_class=MikadoConfiguration, data=state["json_conf"])
+            state["json_conf"] = MikadoConfiguration.Schema().load(state["json_conf"])
         except:
-            state["json_conf"] = dacite.from_dict(data_class=DaijinConfiguration, data=state["json_conf"])
+            state["json_conf"] = DaijinConfiguration.Schema().load(state["json_conf"])
         self.__setstate__(state)
         assert self.metrics_calculated is True
         if load_transcripts is True:
@@ -1699,7 +1696,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         if conf is None or conf == "":
             conf = json_conf.copy()
         elif isinstance(conf, str) and conf != "":
-            conf = to_json(conf)
+            conf = load_and_validate_config(conf)
         elif not isinstance(conf, (MikadoConfiguration, DaijinConfiguration)):
             raise InvalidJson(
                 "Invalid configuration, type {}, expected MikadoConfiguration or DaijinConfiguration!".format(

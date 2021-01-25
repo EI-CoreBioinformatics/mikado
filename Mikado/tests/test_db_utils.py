@@ -21,7 +21,7 @@ __author__ = 'Luca Venturini'
 class TestDbConnect(unittest.TestCase):
 
     def setUp(self):
-        self.json = configurator.to_json(
+        self.json = configurator.load_and_validate_config(
             os.path.join(os.path.dirname(__file__), "configuration.yaml"))
         self.json.db_settings.db = pkg_resources.resource_filename("Mikado.tests", "mikado.db")
         #

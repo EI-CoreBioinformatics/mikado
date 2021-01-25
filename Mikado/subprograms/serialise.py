@@ -184,7 +184,7 @@ def setup(args):
 
     import sqlalchemy
     from ..configuration import configurator
-    args.json_conf = configurator.to_json(args.json_conf)
+    args.json_conf = configurator.load_and_validate_config(args.json_conf)
     logger = create_default_logger("serialiser")
     # Get the log level from general settings
     if args.start_method is not None:

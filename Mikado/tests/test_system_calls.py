@@ -159,7 +159,7 @@ class PrepareCheck(unittest.TestCase):
 
     def setUp(self):
 
-        self.conf = configurator.to_json(None)
+        self.conf = configurator.load_and_validate_config(None)
         self.conf.filename = "nofile"  # FIXME: Filename is added dynamically to this obj and not validated
         self.conf.seed = 1066
         self.conf.reference.genome = self.fai.filename.decode()
@@ -1107,9 +1107,9 @@ class ConfigureCheck(unittest.TestCase):
             namespace.out = out_handle
             sub_configure.create_config(namespace)
         self.assertGreater(os.stat(out).st_size, 0)
-        conf = configuration.configurator.to_json(out)
-        conf = configuration.configurator.check_json(conf)
-        conf = configuration.configurator.check_json(conf)
+        conf = configuration.configurator.load_and_validate_config(out)
+        conf = configuration.configurator.check_and_load_scoring(conf)
+        conf = configuration.configurator.check_and_load_scoring(conf)
         dir.cleanup()
 
     def test_seed(self):
@@ -1136,9 +1136,9 @@ class ConfigureCheck(unittest.TestCase):
                     namespace.out = out_handle
                     sub_configure.create_config(namespace)
                 self.assertGreater(os.stat(out).st_size, 0)
-                conf = configuration.configurator.to_json(out)
-                conf = configuration.configurator.check_json(conf)
-                conf = configuration.configurator.check_json(conf)
+                conf = configuration.configurator.load_and_validate_config(out)
+                conf = configuration.configurator.check_and_load_scoring(conf)
+                conf = configuration.configurator.check_and_load_scoring(conf)
                 if trial is not None:
                     self.assertEqual(conf.seed, trial)
                 else:
@@ -1177,9 +1177,9 @@ class ConfigureCheck(unittest.TestCase):
             namespace.out = out_handle
             sub_configure.create_config(namespace)
         self.assertGreater(os.stat(out).st_size, 0)
-        conf = configuration.configurator.to_json(out)
-        conf = configuration.configurator.check_json(conf)
-        conf = configuration.configurator.check_json(conf)
+        conf = configuration.configurator.load_and_validate_config(out)
+        conf = configuration.configurator.check_and_load_scoring(conf)
+        conf = configuration.configurator.check_and_load_scoring(conf)
         dir.cleanup()
 
     def test_mikado_config_daijin(self):
@@ -1204,9 +1204,9 @@ class ConfigureCheck(unittest.TestCase):
             namespace.out = out_handle
             sub_configure.create_config(namespace)
         self.assertGreater(os.stat(out).st_size, 0)
-        conf = configuration.configurator.to_json(out)
-        conf = configuration.configurator.check_json(conf)
-        conf = configuration.configurator.check_json(conf)
+        conf = configuration.configurator.load_and_validate_config(out)
+        conf = configuration.configurator.check_and_load_scoring(conf)
+        conf = configuration.configurator.check_and_load_scoring(conf)
         dir.cleanup()
 
     def test_mikado_config_daijin_set_from_mode(self):
@@ -1232,9 +1232,9 @@ class ConfigureCheck(unittest.TestCase):
             namespace.out = out_handle
             sub_configure.create_config(namespace)
         self.assertGreater(os.stat(out).st_size, 0)
-        conf = configuration.configurator.to_json(out)
-        conf = configuration.configurator.check_json(conf)
-        conf = configuration.configurator.check_json(conf)
+        conf = configuration.configurator.load_and_validate_config(out)
+        conf = configuration.configurator.check_and_load_scoring(conf)
+        conf = configuration.configurator.check_and_load_scoring(conf)
         dir.cleanup()
 
     @unittest.skipUnless((sys.version_info.minor > 4),
@@ -1294,7 +1294,7 @@ class PickTest(unittest.TestCase):
 
     def setUp(self):
         
-        self.json_conf = configurator.to_json(None)
+        self.json_conf = configurator.load_and_validate_config(None)
         self.json_conf.reference.genome = self.fai.filename.decode()
 
     @classmethod
@@ -1610,7 +1610,7 @@ class PickTest(unittest.TestCase):
                 self.json_conf.pick.files.log = os.path.join(dir.name, "mikado.purging_{}.log".format(purging))
                 self.json_conf.pick.clustering.purge = purging
                 self.json_conf.pick.scoring_file = scoring_file.name
-                self.json_conf = configurator.check_json(self.json_conf)
+                self.json_conf = configurator.check_and_load_scoring(self.json_conf)
                 self.assertEqual(len(self.json_conf.scoring.keys()), 1, self.json_conf.scoring.keys())
 
                 pick_caller = picker.Picker(json_conf=self.json_conf)
@@ -1669,7 +1669,7 @@ class PickTest(unittest.TestCase):
                     "mikado.purging_{}.log".format(purging))
                 self.json_conf.pick.clustering.purge = purging
                 self.json_conf.pick.scoring_file = scoring_file.name
-                self.json_conf = configurator.check_json(self.json_conf)
+                self.json_conf = configurator.check_and_load_scoring(self.json_conf)
                 self.assertEqual(len(self.json_conf.scoring.keys()), 2,
                                  self.json_conf.scoring.keys())
 
@@ -1734,7 +1734,7 @@ class PickTest(unittest.TestCase):
                 self.json_conf.pick.files.log = "mikado.purging_{}.log".format(purging)
                 self.json_conf.pick.clustering.purge = purging
                 self.json_conf.pick.scoring_file = scoring_file.name
-                self.json_conf = configurator.check_json(self.json_conf)
+                self.json_conf = configurator.check_and_load_scoring(self.json_conf)
                 self.assertEqual(len(self.json_conf.scoring.keys()), 2, self.json_conf.scoring.keys())
 
                 pick_caller = picker.Picker(json_conf=self.json_conf)
@@ -1766,7 +1766,7 @@ class PickTest(unittest.TestCase):
 class SerialiseChecker(unittest.TestCase):
 
     def setUp(self):
-        self.json_conf = configurator.to_json(None)
+        self.json_conf = configurator.load_and_validate_config(None)
         self.json_conf.reference.genome = self.fai.filename.decode()
 
     @classmethod

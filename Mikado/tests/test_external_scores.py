@@ -2,13 +2,13 @@ import unittest
 from ..loci import Transcript, Superlocus
 import pkg_resources
 import os
-from ..configuration.configurator import to_json, check_scoring
+from ..configuration.configurator import load_and_validate_config, check_scoring
 
 
 class ExternalTester(unittest.TestCase):
 
     def setUp(self):
-        self.conf = to_json(None)
+        self.conf = load_and_validate_config(None)
         self.transcript = Transcript()
         self.transcript.chrom = "15"
         self.transcript.source = "protein_coding"

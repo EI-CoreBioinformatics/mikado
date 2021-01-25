@@ -12,7 +12,7 @@ import io
 import json
 import os.path
 import re
-from dataclasses import asdict
+import marshmallow
 from multiprocessing import get_start_method
 from logging import Logger
 import jsonschema
@@ -553,12 +553,72 @@ def _check_scoring_file(json_conf: Union[MikadoConfiguration, DaijinConfiguratio
     return json_conf, overwritten
 
 
-def to_json(string, logger=None) -> Union[MikadoConfiguration, DaijinConfiguration]:
+def check_and_load_scoring(json_conf: Union[DaijinConfiguration, MikadoConfiguration],
+                           external_dict=None, logger=None) -> Union[DaijinConfiguration, MikadoConfiguration]:
+
+    """
+    Wrapper for the various checks performed on the configuration file.
+    :param json_conf: The dicitonary loaded from the configuration file.
+    :type json_conf: dict
+    :param simple: boolean flag indicating whether we desire
+                   the simplified version of the configuration, or not.
+    :type simple: bool
+    :param external_dict: optional external dictionary with values to pass to the configuration.
+    :type external_dict: (dict|None)
+    :param logger: external logger instance
+    :type logger: Logger
+    :return json_conf
+    :rtype: dict
+    """
+
+    if not isinstance(logger, Logger):
+        logger = create_default_logger("check_json")
+
+    try:
+
+        json_conf, overwritten = _check_scoring_file(json_conf, logger)
+
+        # TODO we need to fix this
+        # if external_dict is not None:
+        #     if not isinstance(external_dict, dict):
+        #         raise TypeError("Passed an invalid external dictionary, type {}".format(
+        #             type(external_dict)))
+        #     json_conf = merge_dictionaries(json_conf, external_dict)
+
+        json_conf = check_db(json_conf)
+        if not json_conf.multiprocessing_method:
+            json_conf.multiprocessing_method = get_start_method()
+    except Exception as exc:
+        logger.exception(exc)
+        raise
+
+    if overwritten is True:
+        logger.debug("Scoring parameters: {}".format("\n".join(["\n"] + [
+            "{}: {}".format(_, json_conf.scoring[_]) for _ in json_conf.scoring.keys()])))
+
+    seed = json_conf.seed
+    if seed is None:
+        # seed = numpy.random.randint(0, 2**32 - 1)
+        seed = random.randint(0, 2**32 - 1)
+        logger.info("Random seed: {}", seed)
+        json_conf.seed = seed
+
+    if seed is not None:
+        # numpy.random.seed(seed % (2 ** 32 - 1))
+        random.seed(seed % (2 ** 32 - 1))
+    else:
+        # numpy.random.seed(None)
+        random.seed(None)
+
+    return json_conf
+
+
+def load_and_validate_config(raw_configuration, logger=None) -> Union[MikadoConfiguration, DaijinConfiguration]:
     """
     Function to serialise the JSON for configuration and check its consistency.
 
-    :param string: the configuration file name.
-    :type string: (str | None | dict)
+    :param raw_configuration: the configuration file name.
+    :type raw_configuration: (str | None | dict)
 
     :param simple: boolean flag indicating whether we desire
                    the simplified version of the configuration, or not.
@@ -574,46 +634,47 @@ def to_json(string, logger=None) -> Union[MikadoConfiguration, DaijinConfigurati
         logger = create_default_logger("to_json")
 
     try:
-        if isinstance(string, dict):
-            json_dict = string
-        elif isinstance(string, (MikadoConfiguration, DaijinConfiguration)):
-            json_dict = string
-        elif string is None or string == '' or string == dict():
-            json_dict = MikadoConfiguration()
-            assert json_dict.reference.genome == "", json_dict.reference.genome
-            json_dict.filename = None
-        else:
-            string = os.path.abspath(string)
-            if not os.path.exists(string) or os.stat(string).st_size == 0:
-                raise InvalidJson("JSON file {} not found!".format(string))
-            with open(string) as json_file:
-                if string.endswith(".yaml"):
-                    json_dict = yaml.load(json_file, Loader=yaml.Loader)
-                elif string.endswith(".toml"):
-                    json_dict = toml.load(json_file)
-                    assert isinstance(json_dict, dict)
-                else:
-                    json_dict = json.loads(json_file.read())
-
+        if isinstance(raw_configuration, (MikadoConfiguration, DaijinConfiguration)):
+            config = raw_configuration
+        elif isinstance(raw_configuration, dict):
             try:
-                json_dict = MikadoConfiguration.from_dict(json_dict)
-            except:
-                json_dict = DaijinConfiguration.from_dict(json_dict)
-            # if isinstance(json_dict, dict):
-            #     try:
-            #         json_dict = dacite.from_dict(data_class=MikadoConfiguration, data=json_dict)
-            #     except:
-            #         json_dict = dacite.from_dict(data_class=DaijinConfiguration, data=json_dict)
-            json_dict.filename = string
+                config = MikadoConfiguration.Schema().load(raw_configuration)
+            except marshmallow.exceptions.ValidationError:
+                config = DaijinConfiguration.Schema().load(raw_configuration)
+        elif raw_configuration is None or raw_configuration == '' or raw_configuration == dict():
+            config = MikadoConfiguration()
+        else:
+            assert isinstance(raw_configuration, str), raw_configuration
+            raw_configuration = os.path.abspath(raw_configuration)
+            if not os.path.exists(raw_configuration) or os.stat(raw_configuration).st_size == 0:
+                raise InvalidJson("JSON file {} not found!".format(raw_configuration))
+            with open(raw_configuration) as json_file:
+                if raw_configuration.endswith(".yaml"):
+                    config = yaml.load(json_file, Loader=yaml.Loader)
+                    assert isinstance(config, dict), type(config)
+                elif raw_configuration.endswith(".toml"):
+                    config = toml.load(json_file)
+                else:
+                    config = json.loads(json_file.read())
+            assert isinstance(config, dict), (config, type(config))
+            try:
+                config = MikadoConfiguration.Schema().load(config)
+            except marshmallow.exceptions.ValidationError:
+                try:
+                    config = DaijinConfiguration.Schema().load(config)
+                except marshmallow.exceptions.ValidationError:
+                    raise marshmallow.exceptions.ValidationError((raw_configuration, config))
 
-        # json_dict = check_json(json_dict, simple=simple, logger=logger)
+            config.filename = raw_configuration
 
+        assert isinstance(config, (MikadoConfiguration, DaijinConfiguration)), type(config)
+        config = check_and_load_scoring(config, logger=logger)
     except Exception as exc:
         logger.exception(exc)
         raise
-        # raise OSError((exc, string))
+        # raise OSError((exc, raw_configuration))
 
-    seed = json_dict.seed
+    seed = config.seed
     if seed == 0:
         seed = random.randint(1, 2 ** 32 - 1)
         logger.info("Random seed: {}", seed)
@@ -623,4 +684,4 @@ def to_json(string, logger=None) -> Union[MikadoConfiguration, DaijinConfigurati
     else:
         random.seed(None)
 
-    return json_dict
+    return config

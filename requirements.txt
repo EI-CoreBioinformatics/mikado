@@ -30,5 +30,4 @@ tomlkit>=0.5.8
 pyfaidx>=0.5.8
 dataclasses; python_version < '3.7'
 marshmallow
-marshmallow-union
 marshmallow-dataclass

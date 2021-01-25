@@ -8,7 +8,7 @@ import unittest
 import pysam
 import pkg_resources
 from ..utilities.log_utils import create_null_logger, create_default_logger
-from ..configuration.configurator import to_json
+from ..configuration.configurator import load_and_validate_config
 from pytest import mark
 
 
@@ -198,7 +198,7 @@ class TestPadding(unittest.TestCase):
                     template.end = max([_[1] for _ in exons_to_add])
                     template.add_exons(exons_to_add)  # New exon, template at 5'
                     template.finalize()
-                    json_conf = to_json(None)
+                    json_conf = load_and_validate_config(None)
                     json_conf.reference.genome = self.fai
                     json_conf.pick.alternative_splicing.only_confirmed_introns = False
                     json_conf.pick.run_options.only_reference_update = True
@@ -226,7 +226,7 @@ class TestPadding(unittest.TestCase):
     def test_removal_after_padding(self):
 
         logger = create_default_logger("test_add_two_partials", "INFO")
-        json_conf = to_json(None)
+        json_conf = load_and_validate_config(None)
         json_conf.reference.genome = self.fai
         json_conf.pick.alternative_splicing.only_confirmed_introns = False
         json_conf.pick.alternative_splicing.keep_retained_introns = True
@@ -278,7 +278,7 @@ class TestPadding(unittest.TestCase):
 
         logger = create_null_logger("test_add_two_partials")
         logger.setLevel("INFO")
-        json_conf = to_json(None)
+        json_conf = load_and_validate_config(None)
         json_conf.reference.genome = self.fai
         json_conf.pick.alternative_splicing.only_confirmed_introns = False
         json_conf.pick.run_options.only_reference_update = True

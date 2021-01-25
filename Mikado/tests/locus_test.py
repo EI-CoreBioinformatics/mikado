@@ -227,7 +227,7 @@ class AbstractLocusTester(unittest.TestCase):
 
         self.assertTrue(self.transcript2.monoexonic)
         self.assertEqual(self.transcript2.chrom, gff_transcript2[0].chrom)
-        self.json_conf = configurator.to_json(None)
+        self.json_conf = configurator.load_and_validate_config(None)
         self.assertIsNotNone(self.json_conf.scoring, self.json_conf)
 
         self.transcript1.json_conf = self.json_conf
@@ -385,7 +385,7 @@ Chr1\tfoo\texon\t501\t600\t.\t+\t.\tID=t1:exon3;Parent=t1""".split("\n")
         #     _ = Superlocus(self.transcript1)
         self.my_json = os.path.join(os.path.dirname(__file__), "configuration.yaml")
 
-        self.my_json = configurator.to_json(self.my_json)
+        self.my_json = configurator.load_and_validate_config(self.my_json)
         self.my_json.reference.genome = self.fai.filename.decode()
         self.assertIsInstance(self.my_json.scoring, dict, self.my_json.scoring)
 
@@ -532,7 +532,7 @@ Chr1\tfoo\texon\t801\t1000\t.\t-\t.\tID=tminus0:exon1;Parent=tminus0""".split("\
         t3.add_exons([(100, 250), (300, 505), (600, 1000)])
         t3.finalize()
 
-        jconf = configurator.to_json(None)
+        jconf = configurator.load_and_validate_config(None)
 
         loc = Superlocus(t1, json_conf=jconf)
         loc.add_transcript_to_locus(t2)
@@ -576,10 +576,10 @@ Chr1\tfoo\texon\t801\t1000\t.\t-\t.\tID=tminus0:exon1;Parent=tminus0""".split("\
         t3.add_exons([(100, 250), (300, 505), (600, 1000)])
         t3.finalize()
 
-        jconf = configurator.to_json(None)
+        jconf = configurator.load_and_validate_config(None)
         log = create_default_logger("tester", level="DEBUG")
-        with self.assertLogs(log, "DEBUG") as cm:
-            jconf = configurator.check_json(jconf, logger=log)
+        # with self.assertLogs(log, "DEBUG") as cm:
+        #     jconf = configurator.check_json(jconf, logger=log)
 
         jconf.requirements = dict()
         jconf.requirements["parameters"] = dict()
@@ -802,7 +802,7 @@ class ASeventsTester(unittest.TestCase):
 
     def setUp(self):
         
-        self.conf = configurator.to_json(None)
+        self.conf = configurator.load_and_validate_config(None)
         self.conf.pick.alternative_splicing.report = True
         self.conf.pick.alternative_splicing.valid_ccodes = ["j", "J", "o"]
         self.conf.pick.alternative_splicing.redundant_ccodes = ["c", "=", "_", "m"]
@@ -1393,7 +1393,7 @@ class MonoHolderTester(unittest.TestCase):
         ]
 
         superlocus = None
-        json_conf = configurator.to_json(None)
+        json_conf = configurator.load_and_validate_config(None)
 
         for transcript in transcripts:
             tr = Transcript()
@@ -1424,7 +1424,7 @@ class MonoHolderTester(unittest.TestCase):
         """This test verifies that while we can cluster together the transcripts at the holder stage,
         if the overlap is not enough they will fail to be recognised as valid AS events."""
 
-        jconf = configurator.to_json(None)
+        jconf = configurator.load_and_validate_config(None)
 
         t1, t2 = Transcript(), Transcript()
         t1.chrom, t2.chrom = "1", "1"
@@ -1477,7 +1477,7 @@ class TestLocus(unittest.TestCase):
         """Set up for the unit test."""
 
         # Mock dictionary to be used for the alternative splicing checks
-        self.json_conf = configurator.to_json(None)
+        self.json_conf = configurator.load_and_validate_config(None)
         self.json_conf.pick.alternative_splicing.report = True
         self.json_conf.pick.alternative_splicing.pad = True
         self.json_conf.pick.alternative_splicing.max_isoforms = 3
@@ -1489,7 +1489,7 @@ class TestLocus(unittest.TestCase):
         self.json_conf.pick.alternative_splicing.redundant_ccodes = ["c", "=", "_", "m", "n"]
         self.json_conf.pick.alternative_splicing.only_confirmed_introns = False
 
-        self.json_conf = configurator.check_json(self.json_conf)
+        # self.json_conf = configurator.check_json(self.json_conf)
 
         t1 = """Chr1\tfoo\ttranscript\t1001\t3000\t.\t+\t.\tgene_id "Chr1.1"; transcript_id "Chr1.1.1";
         Chr1\tfoo\texon\t1001\t1300\t.\t+\t.\tgene_id "Chr1.1"; transcript_id "Chr1.1.1";
@@ -1681,7 +1681,7 @@ class TestLocus(unittest.TestCase):
         candidate = self.t1
         pickle.dumps(candidate)
 
-        json_conf = configurator.to_json(None)
+        json_conf = configurator.load_and_validate_config(None)
 
         for obj in Superlocus, Sublocus, Locus:
             with self.subTest(obj=obj):
@@ -1757,7 +1757,7 @@ class TestLocus(unittest.TestCase):
                 tr.finalize()
                 self.assertGreater(tr.combined_cds_length, 0, tr.id)
 
-        conf = configurator.to_json(None)
+        conf = configurator.load_and_validate_config(None)
         conf.pick.alternative_splicing.valid_ccodes = ["j", "J", "g", "G"]
         conf.pick.alternative_splicing.only_confirmed_introns = False
 
@@ -1916,7 +1916,7 @@ class RetainedIntronTester(unittest.TestCase):
 
     def setUp(self):
         self.my_json = os.path.join(os.path.dirname(__file__), "configuration.yaml")
-        self.my_json = configurator.to_json(self.my_json)
+        self.my_json = configurator.load_and_validate_config(self.my_json)
 
     def test_5utr_vs_3utr(self):
 
@@ -2543,7 +2543,7 @@ Chr1	100	2682	ID=test_3;coding=True;phase=0	0	+	497	2474	0	7	234,201,41,164,106,
         transcripts = dict((bed.id, Transcript(bed)) for bed in beds)
         [transcripts[tid].finalize() for tid in transcripts]
         self.assertEqual(len(transcripts), 5)
-        conf = configurator.to_json(None)
+        conf = configurator.load_and_validate_config(None)
         conf.pick.alternative_splicing.keep_cds_disrupted_by_ri = False
         conf.pick.alternative_splicing.pad = False
         logger = create_default_logger("test_issue_255", level="WARNING")
@@ -2945,7 +2945,7 @@ class PicklingTest(unittest.TestCase):
         t3.finalize()
 
         self.t1, self.t2, self.t3 = t1, t2, t3
-        self.json_conf = configurator.to_json(None)
+        self.json_conf = configurator.load_and_validate_config(None)
 
     def test_transcript_pickling(self):
 

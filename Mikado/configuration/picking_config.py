@@ -1,102 +1,94 @@
 from dataclasses import dataclass, field
 
+from marshmallow import Schema, fields
 
-@dataclass
-class AlternativeSplicingConfiguration:
-    report: bool = True
-    cds_only: bool = False
-    min_cds_overlap: float = 0.5
-    min_cdna_overlap: float = 0.6
-    keep_retained_introns: bool = True
-    keep_cds_disrupted_by_ri: bool = False
+
+class AlternativeSplicingConfiguration(Schema):
+    report: fields.Bool(missing=True)
+    cds_only: fields.Bool(missing=False)
+    min_cds_overlap: float = fields.Float(missing=0.5)
+    min_cdna_overlap: float = fields.Float(missing=0.6)
+    keep_retained_introns: fields.Bool(missing=True)
+    keep_cds_disrupted_by_ri: fields.Bool(missing=False)
     max_isoforms: int = 10
     valid_ccodes: list = field(default_factory=lambda: ["j", "J", "G", "h"])
     redundant_ccodes: list = field(default_factory=lambda: ["c", "m", "_", "=", "n"])
-    min_score_perc: float = 0.5
-    only_confirmed_introns: bool = True
+    min_score_perc: float = fields.Float(missing=0.5)
+    only_confirmed_introns: fields.Bool(missing=True)
     ts_distance: int = 2000
-    pad: bool = True
+    pad: fields.Bool(missing=True)
     ts_max_splices: int = 2
 
 
-@dataclass
-class OutputFormatConfiguration:
-    source: str = "Mikado"
-    id_prefix: str = "mikado"
-    report_all_orfs: bool = False
+class OutputFormatConfiguration(Schema):
+    source: fields.Str(missing="Mikado")
+    id_prefix: str = fields.Str(missing="mikado")
+    report_all_orfs: fields.Bool(missing=False)
 
 
-@dataclass
-class OrfLoadingConfiguration:
+class OrfLoadingConfiguration(Schema):
     minimal_secondary_orf_length: int = 200
     minimal_orf_length: int = 50
-    strand_specific: bool = True
+    strand_specific: bool = fields.Bool(missing=True)
 
 
-@dataclass
-class BlastParamsConfiguration:
-    evalue: float = 1e-06
-    hsp_evalue: float = 1e-06
-    leniency: str = "STRINGENT"
-    max_target_seqs: int = 3
-    minimal_hsp_overlap: float = 0.8
-    min_overlap_duplication: float = 0.8
+class BlastParamsConfiguration(Schema):
+    evalue: float = fields.Float(missing=1e-06)
+    hsp_evalue: float = fields.Float(missing=1e-06)
+    leniency: str = fields.Str(missing="STRINGENT")
+    max_target_seqs: int = fields.Int(missing=3)
+    minimal_hsp_overlap: float = fields.Float(missing=0.8)
+    min_overlap_duplication: float = fields.Float(missing=0.8)
 
 
-@dataclass
-class ChimeraSplitConfiguration:
-    blast_check: bool = True
-    execute: bool = True
-    skip: list = field(default_factory=list)
-    blast_params: BlastParamsConfiguration = field(default_factory=BlastParamsConfiguration)
+class ChimeraSplitConfiguration(Schema):
+    blast_check: fields.Bool(missing=True)
+    execute: fields.Bool(missing=True)
+    skip: list = fields.List(fields.Str(), missing=list)
+    blast_params: BlastParamsConfiguration = fields.Nested(BlastParamsConfiguration)
 
 
-@dataclass
-class RunOptionsConfiguration:
-    shm: bool = False
-    exclude_cds: bool = False
+class RunOptionsConfiguration(Schema):
+    shm: fields.Bool(missing=False)
+    exclude_cds: fields.Bool(missing=False)
     intron_range: list = field(default_factory=lambda: [60, 10000])
-    reference_update: bool = False
-    only_reference_update: bool = False
-    check_references: bool = False
-    single_thread: bool = False
+    reference_update: fields.Bool(missing=False)
+    only_reference_update: fields.Bool(missing=False)
+    check_references: fields.Bool(missing=False)
+    single_thread: fields.Bool(missing=False)
 
 
-@dataclass
-class ClusteringConfiguration:
-    cds_only: bool = False
-    min_cds_overlap: float = 0.2
-    min_cdna_overlap: float = 0.2
-    purge: bool = True
-    flank: int = 200
-    simple_overlap_for_monoexonic: bool = False
+class ClusteringConfiguration(Schema):
+    cds_only: fields.Bool(missing=False)
+    min_cds_overlap: float = fields.Float(missing=0.2)
+    min_cdna_overlap: float = fields.Float(missing=0.2)
+    purge: fields.Bool(missing=True)
+    flank: int = fields.Int(missing=200)
+    simple_overlap_for_monoexonic: fields.Bool(missing=False)
 
 
-@dataclass
-class FragmentsConfiguration:
-    remove: bool = True
+class FragmentsConfiguration(Schema):
+    remove: fields.Bool(missing=True)
     max_distance: int = 2000
     valid_class_codes: list = field(default_factory=lambda: ["p", "P", "x", "X", "i", "m", "_", "e", "o"])
 
 
-@dataclass
-class FilesConfiguration:
-    output_dir: str = "../picking"
-    input: str = "mikado_prepared.gtf"
-    loci_out: str = "mikado.loci.gff3"
-    subloci_out: str = ""
-    monoloci_out: str = ""
-    log: str = "pick.log"
+class FilesConfiguration(Schema):
+    output_dir: str = fields.Str(missing="../picking")
+    input: str = fields.Str(missing="mikado_prepared.gtf")
+    loci_out: str = fields.Str(missing="mikado.loci.gff3")
+    subloci_out: str = fields.Str(missing="")
+    monoloci_out: str = fields.Str(missing="")
+    log: str = fields.Str(missing="pick.log")
 
 
-@dataclass
-class PickConfiguration:
-    scoring_file: str = "plant.yaml"
-    alternative_splicing: AlternativeSplicingConfiguration = field(default_factory=AlternativeSplicingConfiguration)
-    output_format: OutputFormatConfiguration = field(default_factory=OutputFormatConfiguration)
-    orf_loading: OrfLoadingConfiguration = field(default_factory=OrfLoadingConfiguration)
-    chimera_split: ChimeraSplitConfiguration = field(default_factory=ChimeraSplitConfiguration)
-    run_options: RunOptionsConfiguration = field(default_factory=RunOptionsConfiguration)
-    clustering: ClusteringConfiguration = field(default_factory=ClusteringConfiguration)
-    fragments: FragmentsConfiguration = field(default_factory=FragmentsConfiguration)
-    files: FilesConfiguration = field(default_factory=FilesConfiguration)
+class PickConfiguration(Schema):
+    scoring_file: str = fields.Str(missing="plant.yaml")
+    alternative_splicing: AlternativeSplicingConfiguration = fields.Nested(AlternativeSplicingConfiguration)
+    output_format: OutputFormatConfiguration = fields.Nested(OutputFormatConfiguration)
+    orf_loading: OrfLoadingConfiguration = fields.Nested(OrfLoadingConfiguration)
+    chimera_split: ChimeraSplitConfiguration = fields.Nested(ChimeraSplitConfiguration)
+    run_options: RunOptionsConfiguration = fields.Nested(RunOptionsConfiguration)
+    clustering: ClusteringConfiguration = fields.Nested(ClusteringConfiguration)
+    fragments: FragmentsConfiguration = fields.Nested(FragmentsConfiguration)
+    files: FilesConfiguration = fields.Nested(FilesConfiguration)

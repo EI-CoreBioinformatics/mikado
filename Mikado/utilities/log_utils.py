@@ -8,14 +8,13 @@ import logging.handlers
 
 __author__ = 'Luca Venturini'
 
-from dataclasses import dataclass
+from marshmallow import fields, Schema
 
 
-@dataclass
-class LoggingConfiguration:
-    log_level: str = "INFO"
-    sql_level: str = "WARNING"
-    log: str = ""
+class LoggingConfiguration(Schema):
+    log_level: str = fields.Str(missing="INFO")
+    sql_level: str = fields.Str(missing="WARNING")
+    log: str = fields.Str(missing="")
 
 
 formatter = logging.Formatter(

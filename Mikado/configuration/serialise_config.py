@@ -6,14 +6,14 @@ from marshmallow import validate
 
 @dataclass
 class FilesConfiguration:
-    junctions: List[str] = field(default_factory=lambda: [""])
-    xml: List[str] = field(default_factory=lambda: [""])
+    junctions: List[str] = field(default_factory=lambda: [])
+    xml: List[str] = field(default_factory=lambda: [])
     blast_loading_debug: bool = field(default=False)
     external_scores: str = field(default="")
-    orfs: List[str] = field(default_factory=lambda: [""])
+    orfs: List[str] = field(default_factory=lambda: [])
     transcripts: str = field(default="mikado_prepared.fasta", metadata={"required": True})
     log: str = field(default="serialise.log")
-    blast_targets: List[str] = field(default_factory=lambda: [""])
+    blast_targets: List[str] = field(default_factory=lambda: [])
     output_dir: str = field(default="")
 
 

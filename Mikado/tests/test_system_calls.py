@@ -5,6 +5,7 @@ import glob
 import gzip
 import itertools
 import logging
+import marshmallow
 import os
 import numpy as np
 import pandas as pd
@@ -15,7 +16,10 @@ import pkg_resources
 import pyfaidx
 import yaml
 import jsonschema
-from ..configuration import print_config
+
+from Mikado.configuration.configurator import load_and_validate_config
+from ..configuration import print_config, DaijinConfiguration
+
 try:
     from yaml import CSafeLoader as yLoader
 except ImportError:
@@ -1125,35 +1129,62 @@ class ConfigureCheck(unittest.TestCase):
         namespace.new_scoring = None
         namespace.min_clustering_cds_overlap = 0.2
         namespace.min_clustering_cdna_overlap = 0.2
-        dir = tempfile.TemporaryDirectory()
-        out = os.path.join(dir.name, "configuration.yaml")
-        for trial in (None, 1066, 175108):
-            with self.subTest(trial=trial):
-                namespace.mode = ["permissive"]
-                namespace.seed = trial
-                namespace.multiprocessing_method = "spawn"
-                with open(out, "w") as out_handle:
-                    namespace.out = out_handle
-                    sub_configure.create_config(namespace)
-                self.assertGreater(os.stat(out).st_size, 0)
-                conf = configuration.configurator.load_and_validate_config(out)
-                conf = configuration.configurator.check_and_load_scoring(conf)
-                conf = configuration.configurator.check_and_load_scoring(conf)
-                if trial is not None:
-                    self.assertEqual(conf.seed, trial)
-                else:
-                    self.assertNotEqual(conf.seed, trial)
-                    self.assertIsInstance(conf.seed, int)
-
-        for mistake in (False, "hello", 10.5, b"890"):
-            with self.subTest(mistake=mistake):
-                namespace.mode = ["permissive"]
-                with self.assertRaises((OSError, jsonschema.ValidationError)):
-                    namespace.seed = mistake
+        with tempfile.TemporaryDirectory() as folder:
+            out = os.path.join(folder, "configuration.yaml")
+            for trial in (1066, 175108):  # (None, 1066, 175108):
+                with self.subTest(trial=trial):
+                    namespace.mode = ["permissive"]
+                    namespace.seed = trial
+                    assert namespace.seed is not False
+                    namespace.multiprocessing_method = "spawn"
                     with open(out, "w") as out_handle:
                         namespace.out = out_handle
                         sub_configure.create_config(namespace)
-        dir.cleanup()
+                    self.assertGreater(os.stat(out).st_size, 0)
+                    conf = configuration.configurator.load_and_validate_config(out)
+                    conf = configuration.configurator.check_and_load_scoring(conf)
+                    conf = configuration.configurator.check_and_load_scoring(conf)
+                    if trial is not None:
+                        self.assertEqual(conf.seed, trial)
+                    else:
+                        self.assertNotEqual(conf.seed, trial)
+                        self.assertIsInstance(conf.seed, int)
+
+            with self.subTest(mistake=False):
+                with self.assertRaises(OSError):
+                    namespace.seed = False
+                    namespace.daijin = False
+                    namespace.mode = ["permissive"]
+                    with open(out, "w") as out_handle:
+                        namespace.out = out_handle
+                        sub_configure.create_config(namespace)
+
+            with self.subTest(mistake="hello"):
+                with self.assertRaises(OSError):
+                    namespace.seed = "hello"
+                    namespace.daijin = False
+                    namespace.mode = ["permissive"]
+                    with open(out, "w") as out_handle:
+                        namespace.out = out_handle
+                        sub_configure.create_config(namespace)
+
+            with self.subTest(mistake=b"890"):
+                with self.assertRaises(OSError):
+                    namespace.seed = b"890"
+                    namespace.daijin = False
+                    namespace.mode = ["permissive"]
+                    with open(out, "w") as out_handle:
+                        namespace.out = out_handle
+                        sub_configure.create_config(namespace)
+
+            with self.subTest(mistake=10.5):
+                with self.assertRaises(OSError):
+                    namespace.seed = 10.5
+                    namespace.daijin = False
+                    namespace.mode = ["permissive"]
+                    with open(out, "w") as out_handle:
+                        namespace.out = out_handle
+                        sub_configure.create_config(namespace)
 
     def test_mikado_config_full(self):
         namespace = Namespace(default=False)
@@ -1198,6 +1229,8 @@ class ConfigureCheck(unittest.TestCase):
         namespace.seed = None
         namespace.min_clustering_cds_overlap = 0.2
         namespace.min_clustering_cdna_overlap = 0.2
+        namespace.blast_chunks = 10
+        namespace.scheduler = ""
         dir = tempfile.TemporaryDirectory()
         out = os.path.join(dir.name, "configuration.yaml")
         with open(out, "w") as out_handle:
@@ -1212,6 +1245,8 @@ class ConfigureCheck(unittest.TestCase):
     def test_mikado_config_daijin_set_from_mode(self):
         namespace = Namespace(default=False)
         namespace.scoring = None
+        namespace.blast_chunks = 10
+        namespace.scheduler = ""
         namespace.intron_range = None
         namespace.reference = pkg_resources.resource_filename("Mikado.tests", "chr5.fas.gz")
         namespace.external = None
@@ -1283,7 +1318,8 @@ class ConfigureCheck(unittest.TestCase):
                 with open(out) as out_handle:
                     config = yaml.load(out_handle, Loader=yLoader)
 
-                daijin_configurator.check_config(config)
+                config = load_and_validate_config(config)
+                self.assertIsInstance(config, DaijinConfiguration)
                 dir.cleanup()
 
 
@@ -1491,7 +1527,7 @@ class PickTest(unittest.TestCase):
         self.json_conf.db_settings.db = os.path.join(self.json_conf.pick.files.output_dir, "mikado.db")
         json_file = os.path.join(self.json_conf.pick.files.output_dir, "mikado.yaml")
         with open(json_file, "wt") as json_handle:
-            print_config(yaml.dump(self.json_conf, default_flow_style=False), json_handle)
+            print_config(yaml.dump(dataclasses.asdict(self.json_conf), default_flow_style=False), json_handle)
         sys.argv = ["mikado", "pick", "--json-conf", json_file, "--single", "--seed", "1078"]
         with self.assertRaises(SystemExit):
             pkg_resources.load_entry_point("Mikado", "console_scripts", "mikado")()

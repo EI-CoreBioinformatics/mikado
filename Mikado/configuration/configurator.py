@@ -486,12 +486,17 @@ def _check_scoring_file(json_conf: Union[MikadoConfiguration, DaijinConfiguratio
     """
 
     overwritten = False
+    if json_conf.pick.scoring_file is None:
+        if getattr(json_conf, "_loaded_scoring", json_conf.pick.scoring_file) != json_conf.pick.scoring_file:
+            logger.debug("Resetting the scoring to its previous value")
+            json_conf.pick.scoring_file = getattr(json_conf, "_loaded_scoring", json_conf.pick.scoring_file)
 
-    if getattr(json_conf, "_loaded_scoring", json_conf.pick.scoring_file) != json_conf.pick.scoring_file:
-        logger.debug("Overwriting the scoring configuration using '%s' as scoring file",
-                     json_conf.pick.scoring_file)
-        [setattr(json_conf, _, None) for _ in ("_loaded_scoring",
-            "scoring", "requirements", "as_requirements", "not_fragmentary")]
+    elif getattr(json_conf, "_loaded_scoring", json_conf.pick.scoring_file) != json_conf.pick.scoring_file:
+
+            logger.debug("Overwriting the scoring configuration using '%s' as scoring file",
+                         json_conf.pick.scoring_file)
+            [setattr(json_conf, _, None) for _ in ("_loaded_scoring",
+                "scoring", "requirements", "as_requirements", "not_fragmentary")]
 
     # FIXME: The scoring needs to be handled either within the Configuration object or made into a separate one
     elif all(getattr(json_conf, _, None) is not None for _
@@ -592,7 +597,7 @@ def check_and_load_scoring(json_conf: Union[DaijinConfiguration, MikadoConfigura
         logger.exception(exc)
         raise
 
-    if overwritten is True:
+    if overwritten is True and json_conf.scoring is not None:
         logger.debug("Scoring parameters: {}".format("\n".join(["\n"] + [
             "{}: {}".format(_, json_conf.scoring[_]) for _ in json_conf.scoring.keys()])))
 
@@ -649,21 +654,22 @@ def load_and_validate_config(raw_configuration, logger=None) -> Union[MikadoConf
             if not os.path.exists(raw_configuration) or os.stat(raw_configuration).st_size == 0:
                 raise InvalidJson("JSON file {} not found!".format(raw_configuration))
             with open(raw_configuration) as json_file:
+                # YAML *might* try to load up the file as the proper object
                 if raw_configuration.endswith(".yaml"):
                     config = yaml.load(json_file, Loader=yaml.Loader)
-                    assert isinstance(config, dict), type(config)
                 elif raw_configuration.endswith(".toml"):
                     config = toml.load(json_file)
                 else:
                     config = json.loads(json_file.read())
-            assert isinstance(config, dict), (config, type(config))
-            try:
-                config = MikadoConfiguration.Schema().load(config)
-            except marshmallow.exceptions.ValidationError:
+            assert isinstance(config, (dict, MikadoConfiguration, DaijinConfiguration)), (config, type(config))
+            if isinstance(config, dict):
                 try:
-                    config = DaijinConfiguration.Schema().load(config)
-                except marshmallow.exceptions.ValidationError:
-                    raise marshmallow.exceptions.ValidationError((raw_configuration, config))
+                    config = MikadoConfiguration.Schema().load(config)
+                except:
+                    try:
+                        config = DaijinConfiguration.Schema().load(config)
+                    except marshmallow.exceptions.ValidationError:
+                        raise marshmallow.exceptions.ValidationError((raw_configuration, config))
 
             config.filename = raw_configuration
 
@@ -671,8 +677,7 @@ def load_and_validate_config(raw_configuration, logger=None) -> Union[MikadoConf
         config = check_and_load_scoring(config, logger=logger)
     except Exception as exc:
         logger.exception(exc)
-        raise
-        # raise OSError((exc, raw_configuration))
+        raise OSError(raw_configuration)
 
     seed = config.seed
     if seed == 0:

@@ -29,8 +29,7 @@ import rapidjson as json
 from typing import Union
 from ..configuration.configuration import MikadoConfiguration
 from ..configuration.daijin_configuration import DaijinConfiguration
-from ..configuration.configurator import load_and_validate_config
-
+from ..configuration.configurator import load_and_validate_config, check_and_load_scoring
 
 json_conf = load_and_validate_config(None)
 
@@ -1719,7 +1718,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         """Method to be invoked to verify that the configuration is correct.
         Quite expensive to run, especially if done multiple times."""
 
-        self.json_conf = check_json(self.json_conf)
+        self.json_conf = check_and_load_scoring(self.json_conf)
 
     @property
     def stranded(self):

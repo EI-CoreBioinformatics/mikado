@@ -169,16 +169,7 @@ def create_config(args):
         # config = DaijinConfiguration()
         config = __add_daijin_specs(args)
     else:
-        if args.full is True:
-            default = load_and_validate_config(None)
-            del default.scoring
-            del default.requirements
-            del default.not_fragmentary
-            del default.as_requirements
-            del default.cds_requirements
-            config = MikadoConfiguration("mikado.json")
-        else:
-            config = MikadoConfiguration(seed=args.seed if args.seed is not None else 0)
+        config = MikadoConfiguration()
 
     if args.external is not None:
         config = dataclasses.asdict(config)
@@ -209,8 +200,14 @@ def create_config(args):
         args.gff = []
     config = parse_prepare_options(args, config)
 
+    if args.seed is not None and not (isinstance(args.seed, int) and 0 <= args.seed <= 2 ** 32 - 1):
+        raise OSError("Invalid seed: {}".format(args.seed))
+
     if args.seed is not None:
-        config.seed = args.seed
+        try:
+            config.seed = args.seed
+        except Exception:
+            raise OSError
 
     if args.junctions is not None:
         config.serialise.files.junctions = args.junctions

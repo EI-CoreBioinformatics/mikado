@@ -6,6 +6,8 @@
 import argparse
 import sys
 import os
+
+from ..configuration.configurator import check_and_load_scoring
 from ..utilities.log_utils import create_default_logger, create_null_logger
 import random
 from ..utilities import to_region, percentage
@@ -210,8 +212,7 @@ def check_run_options(args, logger=create_null_logger()):
     # else:
     #     assert "codon_table" in args.json_conf["serialise"]
 
-    # from ..configuration.configurator import check_json
-    # args.json_conf = check_json(args.json_conf, logger=logger)
+    args.json_conf = check_and_load_scoring(args.json_conf, logger=logger)
     return args
 
 

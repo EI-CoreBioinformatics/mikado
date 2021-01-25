@@ -13,9 +13,9 @@ class PrepareFilesConfiguration:
     gff: List[str] = field(default_factory=lambda: [], metadata={"required": True})
     labels: List[str] = field(default_factory=lambda: [])
     strand_specific_assemblies: List[str] = field(default_factory=lambda: [])
-    reference: List[bool] = field(default_factory=lambda: [])
-    exclude_redundant: List[bool] = field(default_factory=lambda: [])
-    strip_cds: List[bool] = field(default_factory=lambda: [])
+    reference: List[str] = field(default_factory=lambda: [])
+    exclude_redundant: List[str] = field(default_factory=lambda: [])
+    strip_cds: List[str] = field(default_factory=lambda: [])
     source_score: dict = field(default_factory=dict)
 
 

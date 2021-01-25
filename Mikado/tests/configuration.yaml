@@ -141,7 +141,7 @@ serialise:
   substitution_matrix: blosum62
   codon_table: 0
 
-load: {blast: echo, class: echo, cufflinks: echo, gmap: echo, hisat: echo, mikado: echo,
+load: {blast: echo, class2: echo, cufflinks: echo, gmap: echo, hisat: echo, mikado: echo,
   portcullis: echo, samtools: echo, star: echo, stringtie: echo, tophat: echo, transdecoder: echo,
   trinity: echo}
 

@@ -22,7 +22,7 @@ class MikadoConfiguration(Schema):
     filename: str = fields.Str()
     threads: int = fields.Int(missing=1)
     seed: int = fields.Int(missing=0)
-    multiprocessing_method = fields.Str(missing="spawn")
+    multiprocessing_method: str = fields.Str(missing="spawn")
     log_settings: LoggingConfiguration = fields.Nested(LoggingConfiguration)
     db_settings: DBConfiguration = fields.Nested(DBConfiguration)
     serialise: SerialiseConfiguration = fields.Nested(SerialiseConfiguration)

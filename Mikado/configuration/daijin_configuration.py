@@ -21,19 +21,19 @@ class LongReads(Schema):
     files: list = fields.List(fields.Str(), missing=list)
     samples: list = fields.List(fields.Str(), missing=list)
     strandedness: list = fields.List(fields.Str(), missing=list)
-    skip_split: bool = True
+    skip_split: bool = fields.Bool(missing=True)
 
 
 class OrfCalling(Schema):
-    min_protein_len: int = 30
-    execute: bool = True
+    min_protein_len: int = fields.Int(missing=30)
+    execute: bool = fields.Bool(missing=True)
 
 
 class BlastX(Schema):
     prot_db: list = fields.List(fields.Str(), missing=list)
-    evalue: float = 1e-7
-    max_target_seqs: int = 10
-    chunks: int = 10
+    evalue: float = fields.Float(missing=1e-7)
+    max_target_seqs: int = fields.Int(missing=10)
+    chunks: int = fields.Int(missing=10)
 
 
 class AlignMethods(Schema):
@@ -76,7 +76,7 @@ class ProgramLoader(Schema):
 
 
 class Portcullis(Schema):
-    do: bool = True
+    do: bool = fields.Bool(missing=True)
     canonical_juncs: str = fields.Str(missing="C,S")
 
 
@@ -85,8 +85,8 @@ class AlnIndex(Schema):
 
 
 class DaijinMikadoConfiguration(Schema):
-    use_diamond: bool = True
-    use_prodigal: bool = True
+    use_diamond: bool = fields.Bool(missing=True)
+    use_prodigal: bool = fields.Bool(missing=True)
     modes: List[str] = fields.List(fields.Str(), missing=lambda: ["stringent"])
 
 

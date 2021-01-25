@@ -2,7 +2,6 @@
 channels:
   - bioconda
   - conda-forge
-  - intel
   - defaults
 dependencies:
   - bioconda::portcullis>=1.2

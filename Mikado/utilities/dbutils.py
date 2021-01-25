@@ -1,9 +1,9 @@
 # coding: utf-8
 
 """This initializer contains the base declaration for all the DB classes of the module."""
-from dataclasses import dataclass
-from marshmallow import fields, Schema
-
+from marshmallow_dataclass import dataclass, Optional
+from dataclasses import field
+from marshmallow import validate
 from sqlalchemy.engine.reflection import Inspector
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.engine import create_engine, Engine
@@ -18,13 +18,14 @@ Inspector = Inspector
 DBBASE = declarative_base()
 
 
-class DBConfiguration(Schema):
-    db: str = fields.Str(missing="mikado.db")
-    dbtype: str = fields.Str(missing="sqlite")
-    dbhost: str = fields.Str(missing="localhost")
-    dbuser: str = fields.Str(missing="")
-    dbpasswd: str = fields.Str(missing="")
-    dbport: int = fields.Int(missing=0)
+@dataclass
+class DBConfiguration:
+    db: str = field(default="mikado.db")
+    dbtype: str = field(default="sqlite", metadata={"validate": validate.OneOf(["sqlite", "mysql", "postgresql"])})
+    dbhost: str = field(default="localhost")
+    dbuser: Optional[str] = field(default=None)
+    dbpasswd: Optional[str] = field(default=None)
+    dbport: Optional[int] = field(default=None)
 
 
 def create_connector(json_conf, logger=None):

@@ -1,6 +1,6 @@
 from marshmallow_dataclass import dataclass, Optional
 from dataclasses import field
-from marshmallow import fields, validate
+from marshmallow import validate
 from typing import List
 
 

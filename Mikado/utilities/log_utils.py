@@ -5,16 +5,21 @@ Module which contains all functions related to logging.
 
 import logging
 import logging.handlers
+from marshmallow_dataclass import dataclass
+from dataclasses import field
+from marshmallow import validate
+
 
 __author__ = 'Luca Venturini'
 
-from marshmallow import fields, Schema
 
-
-class LoggingConfiguration(Schema):
-    log_level: str = fields.Str(missing="INFO")
-    sql_level: str = fields.Str(missing="WARNING")
-    log: str = fields.Str(missing="")
+@dataclass
+class LoggingConfiguration:
+    log_level: str = field(default="INFO",
+                           metadata={"validate": validate.OneOf(["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"])})
+    sql_level: str = field(default="WARNING",
+                           metadata={"validate": validate.OneOf(["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"])})
+    log: str = field(default="")
 
 
 formatter = logging.Formatter(

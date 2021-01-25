@@ -1,4 +1,7 @@
-from dataclasses import dataclass, field
+from dataclasses import field
+from marshmallow_dataclass import dataclass
+from marshmallow import validate
+from typing import List
 from .picking_config import PickConfiguration
 from .prepare_config import PrepareConfiguration
 from .serialise_config import SerialiseConfiguration
@@ -10,11 +13,12 @@ from marshmallow import Schema, fields
 import copy
 
 
-class ShortReads(Schema):
-    r1: list = fields.List(fields.Str(missing=""), missing=lambda: [""])
-    r2: list = fields.List(fields.Str(missing=""), missing=lambda: [""])
-    samples: list = fields.List(fields.Str(missing=""), missing=lambda: [""])
-    strandedness: list = fields.List(fields.Str(missing=""), missing=lambda: [""])
+@dataclass
+class ShortReads:
+    r1: List[str] = field(default_factory=lambda: [])
+    r2: List[str] = field(default_factory=lambda: [])
+    samples: List[str] = field(default_factory=lambda: [])
+    strandedness: List[str] = field(default_factory=lambda: [])
 
 
 class LongReads(Schema):

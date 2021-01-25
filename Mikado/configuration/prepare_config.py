@@ -1,28 +1,33 @@
-from marshmallow import Schema, fields
+from marshmallow import validate
+from dataclasses import field
+from typing import List
+from marshmallow_dataclass import dataclass
 
 
-class PrepareFilesConfiguration(Schema):
-    output_dir: str = fields.Str(missing="")
-    out: str = fields.Str(missing="mikado_prepared.gtf")
-    out_fasta: str = fields.Str(missing="mikado_prepared.fasta")
-    log: str = fields.Str(missing="prepare.log")
-    gff: list = fields.List(fields.Str(), missing=list)
-    labels: list = fields.List(fields.Str(), missing=list)
-    strand_specific_assemblies: list = fields.List(fields.Str(), missing=list)
-    reference: list = fields.List(fields.Str(), missing=list)
-    exclude_redundant: list = fields.List(fields.Str(), missing=list)
-    strip_cds: list = fields.List(fields.Str(), missing=list)
-    source_score: dict = fields.Dict(missing=dict)
+@dataclass
+class PrepareFilesConfiguration:
+    output_dir: str = field(default="")
+    out: str = field(default="mikado_prepared.gtf", metadata={"required": True})
+    out_fasta: str = field(default="mikado_prepared.fasta", metadata={"required": True})
+    log: str = field(default="prepare.log")
+    gff: List[str] = field(default_factory=lambda: [""], metadata={"required": True})
+    labels: List[str] = field(default_factory=lambda: [""])
+    strand_specific_assemblies: list = field(default_factory=lambda: [""])
+    reference: List[str] = field(default_factory=lambda: [""])
+    exclude_redundant: List[str] = field(default_factory=lambda: [""])
+    strip_cds: List[str] = field(default_factory=lambda: [""])
+    source_score: dict = field(default_factory=dict)
 
 
-class PrepareConfiguration(Schema):
-    exclude_redundant: bool = fields.Bool(missing=False)
-    minimum_cdna_length: int = fields.Int(missing=200)
-    max_intron_length: int = fields.Int(missing=1000000)
-    strip_cds: bool = fields.Bool(missing=False)
-    strip_faulty_cds: bool = fields.Bool(missing=False)
-    single: bool = fields.Bool(missing=False)
-    lenient: bool = fields.Bool(missing=False)
-    strand_specific: bool = fields.Bool(missing=False)
-    canonical: list = fields.List(fields.List(fields.Str()), missing=lambda: [["GT", "AG"], ["GC", "AG"], ["AT", "AC"]])
-    files: PrepareFilesConfiguration = fields.Nested(PrepareFilesConfiguration)
+@dataclass
+class PrepareConfiguration:
+    exclude_redundant: bool = field(default=False)
+    minimum_cdna_length: int = field(default=200, metadata={"validate": validate.Range(min=1), "required": True})
+    max_intron_length: int = field(default=1000000, metadata={"validate": validate.Range(min=20), "required": True})
+    strip_cds: bool = field(default=False)
+    strip_faulty_cds: bool = field(default=False)
+    single: bool = field(default=False)
+    lenient: bool = field(default=False)
+    strand_specific: bool = field(default=False, metadata={"required": True})
+    canonical: List[str] = field(default_factory=lambda: [["GT", "AG"], ["GC", "AG"], ["AT", "AC"]])
+    files: PrepareFilesConfiguration = field(default_factory=PrepareFilesConfiguration, metadata={"required": True})

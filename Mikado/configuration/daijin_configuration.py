@@ -5,7 +5,8 @@ from .serialise_config import SerialiseConfiguration
 from ..utilities.dbutils import DBConfiguration
 from ..utilities.log_utils import LoggingConfiguration
 from .configuration import ReferenceConfiguration
-from typing import Union, List
+from typing import List
+from dacite import Optional
 import copy
 
 
@@ -103,7 +104,7 @@ class DaijinMikadoConfiguration:
 
 @dataclass
 class DaijinConfiguration:
-    filename: Union[str, None] = None
+    filename: Optional[str] = None
     seed: int = 0
     multiprocessing_method: str = "spawn"
     log_settings: LoggingConfiguration = field(default_factory=LoggingConfiguration)
@@ -132,11 +133,11 @@ class DaijinConfiguration:
     mikado: DaijinMikadoConfiguration = field(default_factory=DaijinMikadoConfiguration)
 
     # These fields are loaded *from the scoring configuration*
-    scoring: dict = None
-    cds_requirements: dict = None
-    as_requirements: dict = None
-    requirements: dict = None
-    not_fragmentary: dict = None
+    scoring: Optional[dict] = None
+    cds_requirements: Optional[dict] = None
+    as_requirements: Optional[dict] = None
+    requirements: Optional[dict] = None
+    not_fragmentary: Optional[dict] = None
 
     def copy(self):
         return copy.deepcopy(self)

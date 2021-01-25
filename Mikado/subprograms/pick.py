@@ -143,23 +143,6 @@ def check_run_options(args, logger=create_null_logger()):
     if args.as_cds_only is True:
         args.json_conf.pick.alternative_splicing.cds_only = True
 
-    # TODO: Review
-    #  The code following this comment should do the same as the code commented below
-    # for key in ["loci_out", "gff", "monoloci_out", "subloci_out", "log"]:
-    #     if getattr(args, key):
-    #         if key == "gff":
-    #             args.json_conf["pick"]["files"]["input"] = getattr(
-    #                 args,
-    #                 key,
-    #                 args.json_conf["pick"]["files"]["input"])
-    #         else:
-    #             val = getattr(args, key, args.json_conf["pick"]["files"][key])
-    #             if key in ("loci_out", "monoloci_out", "subloci_out"):
-    #                 if val.split(".")[-1] not in ("gff3", "gff"):
-    #                     val = "{0}.gff3".format(val)
-    #
-    #             args.json_conf["pick"]["files"][key] = val
-
     if args.gff:
         args.json_conf.pick.files.input = args.gff
 
@@ -180,7 +163,6 @@ def check_run_options(args, logger=create_null_logger()):
 
     if args.log:
         args.json_conf.pick.files.log = args.log
-
 
     if args.shm is True:
         args.json_conf.pick.run_options.shm = True

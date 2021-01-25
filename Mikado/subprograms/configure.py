@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 
 """Stub of pre-configurer for Mikado"""
-
-
+import dacite
 import yaml
 import os
 import re
@@ -183,6 +182,7 @@ def create_config(args):
             config = MikadoConfiguration(seed=args.seed if args.seed is not None else 0)
 
     if args.external is not None:
+        config = dataclasses.asdict(config)
         if args.external.endswith("json"):
             loader = json.load
         elif args.external.endswith("yaml"):
@@ -197,6 +197,8 @@ def create_config(args):
             mikado_conf = dict((key, val) for key, val in external_conf["mikado"].items() if key in config)
             config = merge_dictionaries(config, mikado_conf)
         config = merge_dictionaries(config, external_conf)
+        print(json.dumps(config), file=sys.stderr)
+        config = dacite.from_dict(data_class=DaijinConfiguration, data=config)
 
     config.pick.files.subloci_out = args.subloci_out if args.subloci_out else ""
     config.pick.files.monoloci_out = args.monoloci_out if args.monoloci_out else ""

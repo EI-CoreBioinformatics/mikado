@@ -428,12 +428,11 @@ class LociProcesser(Process):
         self.logger.debug("Starting to parse data for {0}".format(self.name))
 
         print_cds = (not self.json_conf.pick.run_options.exclude_cds)
+
         print_monoloci = (self.json_conf.pick.files.monoloci_out is not None and
-                          self.json_conf.pick.files.monoloci_out != "" and
-                          self.json_conf.pick.files.monoloci_out)
+                          len(self.json_conf.pick.files.monoloci_out) > 0)
         print_subloci = (self.json_conf.pick.files.subloci_out is not None and
-                          self.json_conf.pick.files.subloci_out != "" and
-                          self.json_conf.pick.files.subloci_out)
+                         len(self.json_conf.pick.files.subloci_out) > 0)
 
         while True:
             vals = self.locus_queue.get()

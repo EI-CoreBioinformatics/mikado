@@ -677,7 +677,7 @@ def load_and_validate_config(raw_configuration, logger=None) -> Union[MikadoConf
         config = check_and_load_scoring(config, logger=logger)
     except Exception as exc:
         logger.exception(exc)
-        raise marshmallow.exceptions.ValidationError("The configuration file passed is invalid. Please double check.")
+        raise InvalidJson("The configuration file passed is invalid. Please double check.")
 
     seed = config.seed
     if seed == 0:

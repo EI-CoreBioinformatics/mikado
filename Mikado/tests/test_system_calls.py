@@ -18,6 +18,7 @@ import yaml
 import jsonschema
 
 from Mikado.configuration.configurator import load_and_validate_config
+from Mikado.exceptions import InvalidJson
 from ..configuration import print_config, DaijinConfiguration
 
 try:
@@ -1151,7 +1152,7 @@ class ConfigureCheck(unittest.TestCase):
                         self.assertIsInstance(conf.seed, int)
 
             with self.subTest(mistake=False):
-                with self.assertRaises(OSError):
+                with self.assertRaises((OSError, InvalidJson)):
                     namespace.seed = False
                     namespace.daijin = False
                     namespace.mode = ["permissive"]
@@ -1160,7 +1161,7 @@ class ConfigureCheck(unittest.TestCase):
                         sub_configure.create_config(namespace)
 
             with self.subTest(mistake="hello"):
-                with self.assertRaises(OSError):
+                with self.assertRaises((OSError, InvalidJson)):
                     namespace.seed = "hello"
                     namespace.daijin = False
                     namespace.mode = ["permissive"]
@@ -1169,7 +1170,7 @@ class ConfigureCheck(unittest.TestCase):
                         sub_configure.create_config(namespace)
 
             with self.subTest(mistake=b"890"):
-                with self.assertRaises(OSError):
+                with self.assertRaises((OSError, InvalidJson)):
                     namespace.seed = b"890"
                     namespace.daijin = False
                     namespace.mode = ["permissive"]
@@ -1178,7 +1179,7 @@ class ConfigureCheck(unittest.TestCase):
                         sub_configure.create_config(namespace)
 
             with self.subTest(mistake=10.5):
-                with self.assertRaises(OSError):
+                with self.assertRaises((OSError, InvalidJson)):
                     namespace.seed = 10.5
                     namespace.daijin = False
                     namespace.mode = ["permissive"]
@@ -1277,9 +1278,6 @@ class ConfigureCheck(unittest.TestCase):
     @mark.slow
     def test_daijin_config(self):
 
-        # Check the basic function actually functions
-        _ = daijin_configurator.create_daijin_base_config()
-
         namespace = Namespace(default=False)
         namespace.r1 = []
         namespace.r2 = []
@@ -1310,9 +1308,10 @@ class ConfigureCheck(unittest.TestCase):
                 namespace.scoring = scorers[np.random.choice(len(scorers))]
 
                 out = os.path.join(dir.name, "configuration.yaml")
+                config = DaijinConfiguration()
                 with open(out, "wt") as out_handle:
                     namespace.out = out_handle
-                    daijin_configurator.create_daijin_config(namespace, level="ERROR")
+                    daijin_configurator.create_daijin_config(namespace, config, level="ERROR")
                 self.assertGreater(os.stat(out).st_size, 0)
 
                 with open(out) as out_handle:

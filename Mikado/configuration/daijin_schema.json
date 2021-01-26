@@ -97,7 +97,7 @@
         }
       }
     },
-    "name": {
+
       "type": "string",
       "default": "Daijin",
       "description": "Name to be used for the project"

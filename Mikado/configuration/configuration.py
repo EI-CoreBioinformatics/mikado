@@ -31,27 +31,27 @@ class MikadoConfiguration:
         "validate": validate.OneOf(["spawn", "fork", "fork-server"])
     })
     log_settings: LoggingConfiguration = field(default_factory=LoggingConfiguration, metadata={
-        "marshmallow_field": "log_settings",
+
         "description": "Settings related to the verbosity of logs"
     })
     db_settings: DBConfiguration = field(default_factory=DBConfiguration, metadata={
-        "marshmallow_field": "db_settings",
+
         "description": "Settings related to DB connection"
     })
     serialise: SerialiseConfiguration = field(default_factory=SerialiseConfiguration, metadata={
-        "marshmallow_field": "serialise",
+
         "description": "Settings related to data serialisation"
     })
     prepare: PrepareConfiguration = field(default_factory=PrepareConfiguration, metadata={
-        "marshmallow_field": "prepare",
+
         "description": "Settings related to the input data preparation",
     })
     pick: PickConfiguration = field(default_factory=PickConfiguration, metadata={
-        "marshmallow_field": "pick",
+
         "description": "Settings related to the Mikado pick stage",
     })
     reference: ReferenceConfiguration = field(default_factory=ReferenceConfiguration, metadata={
-        "marshmallow_field": "reference",
+
         "description": "Settings related to the reference genome"
     })
 

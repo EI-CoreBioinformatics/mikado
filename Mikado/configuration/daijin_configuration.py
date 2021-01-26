@@ -149,23 +149,23 @@ class TGGConfiguration:
 class DaijinConfiguration(MikadoConfiguration):
     # Daijin specific sub-modules
     load: ProgramLoader = field(default_factory=ProgramLoader, metadata={
-        "marshmallow_field": "load",
+
         "description": "Commands to use to load/select the versions of the programs to use. Leave an empty string if no loading is necessary.",
     })
     portcullis: Portcullis = field(default_factory=Portcullis, metadata={
-        "marshmallow_field": "portcullis",
+
         "description": "Options related to portcullis",
     })
     aln_index: AlnIndex = field(default_factory=AlnIndex, metadata={
-        "marshmallow_field": "aln_index",
+
         "description": "Options related to indexing.",
     })
     long_reads: LongReads = field(default_factory=LongReads, metadata={
-        "marshmallow_field": "long_reads",
+
         "description": "Parameters related to long reads to use for the assemblies.",
     })
     short_reads: ShortReads = field(default_factory=ShortReads, metadata={
-        "marshmallow_field": "short_reads",
+
         "description": "Parameters related to the reads to use for the assemblies.",
     })
     name: str = field(default="Daijin", metadata={
@@ -179,30 +179,30 @@ class DaijinConfiguration(MikadoConfiguration):
         "validate": validate.OneOf(["SLURM", "LSF", "local", "PBS", ""])
     })
     align_methods: AlignMethods = field(default_factory=AlignMethods, metadata={
-        "marshmallow_field": "align_methods",
+
         "description": "Aligners to use. Each aligner can be invoked multiple times: the per-aligner list includes the extra command line arguments to be passed to the program",
     })
     long_read_align_methods: LongReadAlign = field(default_factory=LongReadAlign, metadata={
-        "marshmallow_field": "long_read_align_methods",
+
         "description": "Aligners for long reads to use. Each aligner can be invoked multiple times: the per-aligner list includes the extra command line arguments to be passed to the program",
     })
     asm_methods: AsmMethods = field(default_factory=AsmMethods, metadata={
-        "marshmallow_field": "asm_methods",
+
         "description": "Short-read assemblers to use. Each assembler can be invoked multiple times: the per-aligner list includes the extra command line arguments to be passed to the program",
     })
     orf_calling: OrfCalling = field(default_factory=OrfCalling, metadata={
-        "marshmallow_field": "orf_calling",
+
         "description": "Parameters related to the ORF calling:",
     })
     blastx: BlastX = field(default_factory=BlastX, metadata={
-        "marshmallow_field": "blastx",
+
         "description": "Parameters related to how DIAMOND/BLASTX will be run"
     })
     mikado: DaijinMikadoConfiguration = field(default_factory=DaijinMikadoConfiguration, metadata={
         "description": "Parameters related to the Mikado execution.",
-        "marshmallow_field": "mikado",
+
     })
     tgg: TGGConfiguration = field(default_factory=TGGConfiguration, metadata={
         "description": "Options related to genome-guided Trinity.",
-        "marshmallow_field": "tgg",
+
     })

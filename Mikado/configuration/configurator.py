@@ -665,10 +665,11 @@ def load_and_validate_config(raw_configuration, logger=None) -> Union[MikadoConf
                 try:
                     config = MikadoConfiguration.Schema().load(config)
                 except:
-                    try:
-                        config = DaijinConfiguration.Schema().load(config)
-                    except marshmallow.exceptions.ValidationError:
-                        raise marshmallow.exceptions.ValidationError((raw_configuration, config))
+                    config = DaijinConfiguration.Schema().load(config)
+                    # try:
+                    #     config = DaijinConfiguration.Schema().load(config)
+                    # except marshmallow.exceptions.ValidationError:
+                    #     raise marshmallow.exceptions.ValidationError((raw_configuration, config))
 
             config.filename = raw_configuration
 

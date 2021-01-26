@@ -147,7 +147,7 @@ class RunOptionsConfiguration:
 
         def __call__(self, value):
             if len(value) != len(set(value)):
-                raise v.ValidationError(self._format_error(value))
+                raise validate.ValidationError(self._format_error(value))
             return value
 
     shm: bool = field(default=False, metadata={

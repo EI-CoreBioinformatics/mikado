@@ -1,12 +1,7 @@
 from dataclasses import field
 from marshmallow_dataclass import dataclass, Optional, List
 from marshmallow import validate
-from .picking_config import PickConfiguration
-from .prepare_config import PrepareConfiguration
-from .serialise_config import SerialiseConfiguration
-from ..utilities.dbutils import DBConfiguration
-from ..utilities.log_utils import LoggingConfiguration
-from .configuration import ReferenceConfiguration
+from .configuration import MikadoConfiguration
 import copy
 
 
@@ -120,34 +115,63 @@ class AlnIndex:
 
 @dataclass
 class DaijinMikadoConfiguration:
-    use_diamond: bool = field(default=True)
-    use_prodigal: bool = field(default=True)
-    modes: List[str] = field(default_factory=lambda: ["stringent"])
+    use_diamond: bool = field(default=True, metadata={
+        "description": "which mode(s) to run Mikado into. Default: permissive (split multiple ORF models unless there is strong BLAST evidence against the decision).",
+    })
+    use_prodigal: bool = field(default=True, metadata={
+        "description": "use DIAMOND instead of NCBI BLASTX. Default: true",
+    })
+    modes: List[str] = field(default_factory=lambda: ["stringent"], metadata={
+        "description": "Use Prodigal instead of TransDecoder for ORF calling. Default: true"
+    })
 
 
 @dataclass
 class TGGConfiguration:
-    max_mem: int = field(default=6000, metadata={"validate": validate.Range(min=1000)})
-    npaths: int = field(default=0)
-    identity: float = field(default=0.95, metadata={"validate": validate.Range(min=0.0, max=1.0)})
-    coverage: float = field(default=0.70, metadata={"validate": validate.Range(min=0.0, max=1.0)})
+    max_mem: int = field(default=6000, metadata={
+        "description": "Maximum memory to be used for the assembly. Default: 6000Mb",
+        "validate": validate.Range(min=1000)
+    })
+    npaths: int = field(default=0, metadata={
+        "description": "Number of alignments per sequence, using GMAP. Default: 0 (one alignment per sequence, exclude chimeric)."
+    })
+    identity: float = field(default=0.95, metadata={
+        "description": "minimum identity for any alignment. Default: 95%",
+        "validate": validate.Range(min=0.0, max=1.0)
+    })
+    coverage: float = field(default=0.70, metadata={
+        "description": "minimum coverage for any alignment. Default: 70%",
+        "validate": validate.Range(min=0.0, max=1.0)
+    })
 
 
 @dataclass
-class DaijinConfiguration:
+class DaijinConfiguration(MikadoConfiguration):
     # Daijin specific sub-modules
-    short_reads: ShortReads = field(default_factory=ShortReads, metadata={
-        "description": "Parameters related to the reads to use for the assemblies.",
+    load: ProgramLoader = field(default_factory=ProgramLoader, metadata={
+        "description": "Commands to use to load/select the versions of the programs to use. Leave an empty string if no loading is necessary.",
+    })
+    portcullis: Portcullis = field(default_factory=Portcullis, metadata={
+        "description": "Options related to portcullis",
+    })
+    aln_index: AlnIndex = field(default_factory=AlnIndex, metadata={
+        "description": "Options related to indexing.",
     })
     long_reads: LongReads = field(default_factory=LongReads, metadata={
         "description": "Parameters related to long reads to use for the assemblies.",
     })
-    orf_calling: OrfCalling = field(default_factory=OrfCalling, metadata={
-        "description": "Parameters related to the ORF calling:",
+    short_reads: ShortReads = field(default_factory=ShortReads, metadata={
+        "description": "Parameters related to the reads to use for the assemblies.",
     })
-    blastx: BlastX = field(default_factory=BlastX)
-    aln_index: AlnIndex = field(default_factory=AlnIndex, metadata={
-        "description": "Options related to indexing.",
+    name: str = field(default="Daijin", metadata={
+        "description": "Name to be used for the project"
+    })
+    out_dir: str = field(default="Daijin", metadata={
+        "description": "Output directory for the project"
+    })
+    scheduler: Optional[str] = field(default=None, metadata={
+        "description": "Scheduler to be used for the project. Set to null if you plan to use DRMAA or are using a local machine.",
+        "validate": validate.OneOf(["SLURM", "LSF", "local", "PBS", ""])
     })
     align_methods: AlignMethods = field(default_factory=AlignMethods, metadata={
         "description": "Aligners to use. Each aligner can be invoked multiple times: the per-aligner list includes the extra command line arguments to be passed to the program",
@@ -158,45 +182,38 @@ class DaijinConfiguration:
     asm_methods: AsmMethods = field(default_factory=AsmMethods, metadata={
         "description": "Short-read assemblers to use. Each assembler can be invoked multiple times: the per-aligner list includes the extra command line arguments to be passed to the program",
     })
-    portcullis: Portcullis = field(default_factory=Portcullis, metadata={
-        "description": "Options related to portcullis",
+    orf_calling: OrfCalling = field(default_factory=OrfCalling, metadata={
+        "description": "Parameters related to the ORF calling:",
     })
-    mikado: DaijinMikadoConfiguration = field(default_factory=DaijinMikadoConfiguration)
-    filename: Optional[str] = field(default=None)
-    seed: int = field(default=0, metadata={"validate": validate.Range(min=0, max=2**32 - 1)})
-    multiprocessing_method: str = field(default="spawn",
-                                        metadata={"validate": validate.OneOf(["spawn", "fork", "fork-server"])})
-    log_settings: LoggingConfiguration = field(default_factory=LoggingConfiguration)
-    db_settings: DBConfiguration = field(default_factory=DBConfiguration)
-    serialise: SerialiseConfiguration = field(default_factory=SerialiseConfiguration)
-    prepare: PrepareConfiguration = field(default_factory=PrepareConfiguration)
-    pick: PickConfiguration = field(default_factory=PickConfiguration)
-    reference: ReferenceConfiguration = field(default_factory=ReferenceConfiguration)
-    name: str = field(default="Daijin", metadata={
-        "description": "Name to be used for the project"
+    blastx: BlastX = field(default_factory=BlastX)
+    mikado: DaijinMikadoConfiguration = field(default_factory=DaijinMikadoConfiguration, metadata={
+        "description": "Parameters related to the Mikado execution.",
     })
-    out_dir: str = field(default="Daijin", metadata={
-        "description": "Output directory for the project"
-    })
-    threads: int = field(default=4, metadata={
-        "description": "Threads to be used per process.",
-        "validate": validate.Range(min=1)
-    })
-    scheduler: Optional[str] = field(default=None, metadata={
-        "description": "Scheduler to be used for the project. Set to null if you plan to use DRMAA or are using a local machine.",
-        "validate": validate.OneOf(["SLURM", "LSF", "local", "PBS", ""])
+    tgg: TGGConfiguration = field(default_factory=TGGConfiguration, metadata={
+        "description": "Options related to genome-guided Trinity.",
     })
 
-    tgg: TGGConfiguration = field(default_factory=TGGConfiguration)
-    # # These fields are loaded *from the scoring configuration*
-    scoring: Optional[dict] = field(default=None)
-    cds_requirements: Optional[dict] = field(default=None)
-    as_requirements: Optional[dict] = field(default=None)
-    requirements: Optional[dict] = field(default=None)
-    not_fragmentary: Optional[dict] = field(default=None)
-    load: ProgramLoader = field(default_factory=ProgramLoader, metadata={
-        "description": "Commands to use to load/select the versions of the programs to use. Leave an empty string if no loading is necessary.",
-    })
 
+    # threads: int = field(default=4, metadata={
+    #     "description": "Threads to be used per process.",
+    #     "validate": validate.Range(min=1)
+    # })
+    # pick: PickConfiguration = field(default_factory=PickConfiguration)
+    # prepare: PrepareConfiguration = field(default_factory=PrepareConfiguration)
+    # serialise: SerialiseConfiguration = field(default_factory=SerialiseConfiguration)
+    # reference: ReferenceConfiguration = field(default_factory=ReferenceConfiguration)
+    # filename: Optional[str] = field(default=None)
+    # seed: int = field(default=0, metadata={
+    #     "validate": validate.Range(min=0, max=2**32 - 1)})
+    # multiprocessing_method: str = field(default="spawn", metadata={
+    #     "validate": validate.OneOf(["spawn", "fork", "fork-server"])})
+    # These fields are loaded *from the scoring configuration*
+    # scoring: Optional[dict] = field(default=None)
+    # cds_requirements: Optional[dict] = field(default=None)
+    # as_requirements: Optional[dict] = field(default=None)
+    # requirements: Optional[dict] = field(default=None)
+    # not_fragmentary: Optional[dict] = field(default=None)
+    # log_settings: LoggingConfiguration = field(default_factory=LoggingConfiguration)
+    # db_settings: DBConfiguration = field(default_factory=DBConfiguration)
     def copy(self):
         return copy.deepcopy(self)

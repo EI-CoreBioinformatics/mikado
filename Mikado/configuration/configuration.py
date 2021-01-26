@@ -34,6 +34,7 @@ class MikadoConfiguration:
         "description": "Settings related to the verbosity of logs"
     })
     db_settings: DBConfiguration = field(default_factory=DBConfiguration, metadata={
+        "marshmallow_field": "db_settings",
         "description": "Settings related to DB connection"
     })
     serialise: SerialiseConfiguration = field(default_factory=SerialiseConfiguration, metadata={

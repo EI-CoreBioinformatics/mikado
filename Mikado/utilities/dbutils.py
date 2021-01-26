@@ -21,22 +21,28 @@ DBBASE = declarative_base()
 @dataclass
 class DBConfiguration:
     db: str = field(default="mikado.db", metadata={
+        "marshmallow_field": "db",
         "description": "the DB to connect to. Required. Default: mikado.db",
     })
     dbtype: str = field(default="sqlite", metadata={
+        "marshmallow_field": "dbtype",
         "description": "Type of DB to use. Choices: sqlite, postgresql, mysql. Default: sqlite.",
         "validate": validate.OneOf(["sqlite", "mysql", "postgresql"])
     })
     dbhost: str = field(default="localhost", metadata={
+        "marshmallow_field": "dbhost",
         "description": "Host of the database. Unused if dbtype is sqlite. Default: localhost",
     })
     dbuser: Optional[str] = field(default=None, metadata={
+        "marshmallow_field": "dbuser",
         "description": "DB user. Unused if dbtype is sqlite. Default: empty string",
     })
     dbpasswd: Optional[str] = field(default=None, metadata={
+        "marshmallow_field": "dbpasswd",
         "description": "DB password for the user. Unused if dbtype is sqlite. Default: empty string.",
     })
     dbport: Optional[int] = field(default=None, metadata={
+        "marshmallow_field": "dbport",
         "description": "Integer. It indicates the default port for the DB. Unused if dbtype is sqlite. Default: 0",
     })
 

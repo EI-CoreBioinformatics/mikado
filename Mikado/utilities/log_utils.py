@@ -16,14 +16,18 @@ __author__ = 'Luca Venturini'
 @dataclass
 class LoggingConfiguration:
     log_level: str = field(default="INFO", metadata={
+        "marshmallow_field": "log_level",
         "description": "Verbosity for SQL calls. Default: WARNING. In decreasing order: 'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'",
         "validate": validate.OneOf(["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]),
     })
     sql_level: str = field(default="WARNING", metadata={
+        "marshmallow_field": "sql_level",
         "description": "General verbosity. Default: INFO. In decreasing order: 'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'",
         "validate": validate.OneOf(["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"])
     })
-    log: Optional[str] = field(default=None)
+    log: Optional[str] = field(default=None, metadata={
+        "marshmallow_field": "log",
+    })
 
 
 formatter = logging.Formatter(

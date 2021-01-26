@@ -277,8 +277,8 @@ switch.")
     if args.intron_range is not None:
         config.pick.run_options.intron_range = sorted(args.intron_range)
 
-    if args.codon_table is not None:
-        config.serialise.codon_table = args.codon_table
+    if args.codon_table not in (None, False, True):
+        config.serialise.codon_table = str(args.codon_table)
 
     if args.keep_disrupted_cds is True:
         config.pick.alternative_splicing.keep_cds_disrupted_by_ri = True

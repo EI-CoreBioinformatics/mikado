@@ -51,7 +51,7 @@ class SerialiseConfiguration:
         "description": "Type of BLAST used. Either BLASTP or BLASTX. Default: blastx, which should be the sane presumption in most instances.",
         "validate": validate.OneOf(choices=["blastx", "blastp"])
     })
-    codon_table: str = field(default="0", metadata={
+    codon_table: Optional[str] = field(default="0", metadata={
         "description": "codon table to use for verifying/modifying the ORFs. Default: 0, ie the universal codon table but enforcing ATG as the only valid start codon.",
         "required": True,
         "validate": validate.OneOf(

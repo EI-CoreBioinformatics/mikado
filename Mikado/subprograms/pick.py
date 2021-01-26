@@ -204,8 +204,8 @@ def check_run_options(args, logger=create_null_logger()):
     if args.exclude_retained_introns is True:
         args.json_conf.pick.alternative_splicing.keep_retained_introns = False
 
-    if args.codon_table is not None:
-        args.json_conf.serialise.codon_table = args.codon_table
+    if args.codon_table not in (False, None, True):
+        args.json_conf.serialise.codon_table = str(args.codon_table)
 
     args.json_conf = load_and_validate_config(args.json_conf, logger=logger)
     return args

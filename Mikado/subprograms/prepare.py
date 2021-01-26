@@ -106,8 +106,8 @@ def parse_list_file(cfg, list_file):
 
 
 def parse_prepare_options(args, mikado_config):
-    if args.codon_table is not None:
-        mikado_config.serialise.codon_table = args.codon_table
+    if args.codon_table not in (None, False, True):
+        mikado_config.serialise.codon_table = str(args.codon_table)
 
     assert isinstance(mikado_config.reference.genome, str)
     if getattr(args, "minimum_cdna_length", None) not in (None, False):

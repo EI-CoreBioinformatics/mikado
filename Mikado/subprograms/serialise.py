@@ -312,8 +312,8 @@ def setup(args):
     if args.external_scores is not None:
         args.json_conf.serialise.files.external_scores = args.external_scores
 
-    if args.codon_table is not None:
-        args.json_conf.serialise.codon_table = args.codon_table
+    if args.codon_table not in (None, False, True):
+        args.json_conf.serialise.codon_table = str(args.codon_table)
 
     # Add sqlalchemy logging
     sql_logger = logging.getLogger("sqlalchemy.engine")

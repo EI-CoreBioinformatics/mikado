@@ -183,23 +183,25 @@ prepare:
     out_fasta: mikado_prepared.fasta
     output_dir: .
     reference:
-    - Agly_coding
-    - Apis_coding
-    - BtabMEAM1_coding
-    - BtabMED_coding
-    - Dnox_coding
-    - Mcer_coding
-    - Mikado_All_gold
-    - Mikado_PacBio_gold
-    - MperG006_coding
-    - MYZPE13164_run1
-    - MYZPE13164_run2
-    - MYZPE13164_run3
-    - Nlug_coding
-    - Pnig_coding
-    - Rmai_coding
-    - Rpad_coding
-    - Sfuc_coding
+    - true
+    - true
+    - true
+    - true
+    - true
+    - true
+    - true
+    - false
+    - true
+    - false
+    - true
+    - true
+    - true
+    - true
+    - true
+    - true
+    - true
+    - true
+    - true
     source_score:
       Agly_coding: 100.0
       Apis_coding: 100.0

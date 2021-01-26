@@ -7,11 +7,12 @@ import argparse
 import sys
 import os
 
-from ..configuration.configurator import check_and_load_scoring
+# from ..configuration.configurator import check_and_load_scoring
 from ..utilities.log_utils import create_default_logger, create_null_logger
 import random
 from ..utilities import to_region, percentage
 from ..utilities.intervaltree import IntervalTree, Interval
+from ..configuration.configurator import load_and_validate_config
 
 
 def check_log_settings(args):
@@ -209,10 +210,8 @@ def check_run_options(args, logger=create_null_logger()):
         except ValueError:
             pass
         args.json_conf.serialise.codon_table = args.codon_table
-    # else:
-    #     assert "codon_table" in args.json_conf["serialise"]
 
-    args.json_conf = check_and_load_scoring(args.json_conf, logger=logger)
+    args.json_conf = load_and_validate_config(args.json_conf, logger=logger)
     return args
 
 
@@ -223,8 +222,6 @@ def pick(args):
     :param args: argparse Namespace with the configuration for the run.
 
     """
-
-    from ..configuration.configurator import load_and_validate_config
 
     logger = create_default_logger("pick_init")
 

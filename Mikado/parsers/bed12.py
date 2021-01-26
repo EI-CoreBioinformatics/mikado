@@ -417,6 +417,11 @@ class BED12:
 
     @table.setter
     def table(self, table):
+        # We are going to receive a string, so we need first to convert to integer
+        try:
+            table = int(table)
+        except (ValueError, TypeError):
+            pass
         if table is None:
             self.__table = standard
             self.__table_index = 0

@@ -132,8 +132,12 @@ for key, items in td_codes.items():
 def get_codon_table(return_id=True):
 
     table = config["serialise"]["codon_table"]
-    if table == 0:
-        table = 1
+    try:
+        table = int(table)
+    except (ValueError,TypeError):
+        pass
+    if table == "0":
+        table = "1"
     if isinstance(table, int):
         table = CodonTable.ambiguous_dna_by_id[table]
     elif isinstance(table, (str, bytes)):

@@ -268,6 +268,6 @@ serialise:
     output_dir: Testds
     transcripts: mikado_prepared.testds.fasta
     xml: []
-  codon_table: 0
+  codon_table: "0"
   max_regression: 0.1
   substitution_matrix: blosum62

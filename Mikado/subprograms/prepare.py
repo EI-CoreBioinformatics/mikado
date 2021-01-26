@@ -106,11 +106,7 @@ def parse_list_file(cfg, list_file):
 
 
 def parse_prepare_options(args, mikado_config):
-    if args.codon_table:
-        try:
-            args.codon_table = int(args.codon_table)
-        except ValueError:
-            pass
+    if args.codon_table is not None:
         mikado_config.serialise.codon_table = args.codon_table
 
     assert isinstance(mikado_config.reference.genome, str)

@@ -10,17 +10,19 @@ from . import configurator
 import itertools
 import re
 import textwrap
-import pkg_resources
-import json
-
+import marshmallow_jsonschema
+json_schema_interface = marshmallow_jsonschema.JSONSchema()
 
 __author__ = 'Luca Venturini'
 
 
 def print_toml_config(output, out):
 
-    schema = json.load(pkg_resources.resource_stream("Mikado.configuration", "configuration_blueprint.json"))
-    daijin_schema = json.load(pkg_resources.resource_stream("Mikado.configuration", "daijin_schema.json"))
+    schema = json_schema_interface.dump(MikadoConfiguration().Schema())
+    daijin_schema = marshmallow_jsonschema.JSONSchema().dump(DaijinConfiguration().Schema())
+
+    assert isinstance(schema, dict)
+    assert isinstance(daijin_schema, dict)
     daijin_found = False
 
     lines = []
@@ -32,12 +34,14 @@ def print_toml_config(output, out):
             keys = line.rstrip().replace("[", "").replace("]", "").split(".")
             level = schema
             for key in keys:
-                if key not in level["properties"]:
+                prop_key = "definitions" if "definitions" in level else "properties"
+                if key not in level[prop_key]:
                     level = daijin_schema
                     daijin_found = True
-                if key not in level["properties"]:
-                    raise KeyError("Unknown key found: {}\n{}".format(key, level))
-                level = level["properties"][key]
+                    prop_key = "definitions" if "definitions" in level else "properties"
+                    if key not in level[prop_key]:
+                        raise KeyError("Unknown key found: {}\n{}".format(key, level))
+                level = level[prop_key][key]
             comment = []
             description = level.get("description", None)
             if description:
@@ -50,7 +54,8 @@ def print_toml_config(output, out):
                 key = line.split("=")[0].strip()
                 if "Comment" in key:
                     raise KeyError((line, key, level))
-                description = level["properties"].get(key, dict()).get("description", None)
+                prop_key = "definitions" if "definitions" in level else "properties"
+                description = level[prop_key].get(key, dict()).get("description", None)
                 if description:
                     _comment = textwrap.wrap(description)
                     if _comment:

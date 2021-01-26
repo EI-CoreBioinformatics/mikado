@@ -1,6 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Union, List, Optional
-
+from marshmallow_dataclass import List, Optional
 from marshmallow import validate
 
 
@@ -52,11 +51,12 @@ class SerialiseConfiguration:
         "description": "Type of BLAST used. Either BLASTP or BLASTX. Default: blastx, which should be the sane presumption in most instances.",
         "validate": validate.OneOf(choices=["blastx", "blastp"])
     })
-    codon_table: Union[str, int] = field(default=0, metadata={
+    codon_table: str = field(default="0", metadata={
         "description": "codon table to use for verifying/modifying the ORFs. Default: 0, ie the universal codon table but enforcing ATG as the only valid start codon.",
         "required": True,
         "validate": validate.OneOf(
-            choices=[0, 1, 2, 3, 4, 5, 6, 9, 10, 11, 12, 13, 14, 15, 16, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31,
+            choices=["0", "1", "2", "3", "4", "5", "6", "9", "10", "11", "12", "13", "14", "15",
+                     "16", "21", "22", "23", "24", "25", "26", "27", "28", "29", "30", "31",
                      "Standard", "SGC0",
                      "Vertebrate Mitochondrial", "SGC1",
                      "Yeast Mitochondrial", "SGC2",

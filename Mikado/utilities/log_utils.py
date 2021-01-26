@@ -5,7 +5,7 @@ Module which contains all functions related to logging.
 
 import logging
 import logging.handlers
-from marshmallow_dataclass import dataclass
+from marshmallow_dataclass import dataclass, Optional
 from dataclasses import field
 from marshmallow import validate
 
@@ -23,7 +23,7 @@ class LoggingConfiguration:
         "description": "General verbosity. Default: INFO. In decreasing order: 'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'",
         "validate": validate.OneOf(["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"])
     })
-    log: str = field(default="")
+    log: Optional[str] = field(default=None)
 
 
 formatter = logging.Formatter(

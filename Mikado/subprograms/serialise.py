@@ -313,10 +313,6 @@ def setup(args):
         args.json_conf.serialise.files.external_scores = args.external_scores
 
     if args.codon_table is not None:
-        try:
-            args.codon_table = int(args.codon_table)
-        except ValueError:
-            pass
         args.json_conf.serialise.codon_table = args.codon_table
 
     # Add sqlalchemy logging

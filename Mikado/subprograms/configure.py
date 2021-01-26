@@ -278,10 +278,6 @@ switch.")
         config.pick.run_options.intron_range = sorted(args.intron_range)
 
     if args.codon_table is not None:
-        try:
-            args.codon_table = int(args.codon_table)
-        except ValueError:
-            pass
         config.serialise.codon_table = args.codon_table
 
     if args.keep_disrupted_cds is True:

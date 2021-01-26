@@ -24,6 +24,7 @@ from pkg_resources import resource_stream
 import rapidjson as json
 import jsonschema
 import random
+from copy import deepcopy
 
 
 with io.TextIOWrapper(resource_stream("Mikado.configuration",
@@ -199,7 +200,7 @@ class Locus(Abstractlocus):
             (tid, self.transcripts[tid].is_reference or self.transcripts[tid].original_source in reference_sources)
             for tid in self.transcripts)
 
-        order = sorted([[tid, self.transcripts[tid].score] for tid in self.transcripts
+        order = sorted([(tid, self.transcripts[tid].score, self.transcripts[tid]) for tid in self.transcripts
                        if tid != self.primary_transcript_id and
                         (reference_transcripts[tid] is False or
                          self.json_conf.pick.run_options.reference_update is False)],
@@ -245,7 +246,7 @@ class Locus(Abstractlocus):
             missing = len(self.transcripts) - max_isoforms
             if missing > 0 and remainder:
                 __to_add = remainder[:missing]
-                for tid, score, start, obj in __to_add:
+                for tid, score, obj in __to_add:
                     self.add_transcript_to_locus(obj, check_in_locus=False)
                 remainder = remainder[missing:]
             else:

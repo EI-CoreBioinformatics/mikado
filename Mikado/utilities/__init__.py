@@ -3,6 +3,7 @@ This module contains basic utilities for the suite, like e.g. database connectio
 and log creation.
 """
 
+
 import os
 import functools
 from . import dbutils
@@ -18,6 +19,7 @@ from .intervaltree import Interval, IntervalTree
 from collections import Counter
 
 from ..exceptions import InvalidJson
+
 
 __author__ = 'Luca Venturini'
 

@@ -143,7 +143,7 @@ def parse_prepare_options(args, mikado_config):
     if getattr(args, "strip_cds", False) is True:
         mikado_config.prepare.strip_cds = True
     if args.list:
-        json_conf = parse_list_file(mikado_config, args.list)
+        mikado_config = parse_list_file(mikado_config, args.list)
     elif args.gff and args.gff != [""] and args.gff != []:
         __gff_counter = Counter()
         __gff_counter.update(args.gff)
@@ -176,10 +176,9 @@ def parse_prepare_options(args, mikado_config):
             if not mikado_config.prepare.files.labels:
                 args.labels = list(range(1, 1 + num_files))
                 mikado_config.prepare.files.labels = args.labels
-        if mikado_config.prepare.files.exclude_redundant:
-            assert len(mikado_config.prepare.files.exclude_redundant) == num_files
-        else:
-            mikado_config.prepare.files.exclude_redundant = [True] * num_files
+        mikado_config.prepare.files.exclude_redundant = [False] * len(mikado_config.prepare.files.gff)
+        mikado_config.prepare.files.reference = [False] * len(mikado_config.prepare.files.gff)
+
     if not mikado_config.prepare.files.exclude_redundant:
         mikado_config.prepare.files.exclude_redundant = [False] * len(mikado_config.prepare.files.gff)
     elif len(mikado_config.prepare.files.exclude_redundant) != len(mikado_config.prepare.files.gff):

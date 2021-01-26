@@ -13,7 +13,8 @@ from ..configuration import DaijinConfiguration, MikadoConfiguration
 from ..exceptions import InvalidJson
 from ..utilities import comma_split, percentage, merge_dictionaries
 from ..utilities.namespace import Namespace
-import functools
+from ..configuration.configurator import load_and_validate_config
+from ..configuration import print_config, print_toml_config
 import rapidjson as json
 import tempfile
 from ..utilities.log_utils import create_null_logger, create_default_logger
@@ -158,9 +159,6 @@ def create_config(args):
     :param args:
     :return:
     """
-
-    from ..configuration.configurator import load_and_validate_config, merge_dictionaries
-    from ..configuration import print_config, print_toml_config
 
     if len(args.mode) > 1:
         args.daijin = True

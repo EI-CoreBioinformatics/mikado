@@ -37,8 +37,6 @@ from ..exceptions import UnsortedInput, InvalidJson, InvalidTranscript
 from .loci_processer import analyse_locus, LociProcesser, merge_loci
 from ._locus_single_printer import print_locus
 import multiprocessing.managers
-from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
-import pickle
 import warnings
 import pyfaidx
 import msgpack
@@ -87,7 +85,6 @@ class Picker:
 
         self.__load_configuration()
         self.__regions = regions
-        self.regressor = None
 
         self.procs = self.json_conf.threads
 
@@ -210,16 +207,6 @@ class Picker:
             pass
 
         self.context = multiprocessing.get_context()
-        if self.json_conf.pick.scoring_file.endswith((".pickle", ".model")):
-            with open(self.json_conf.pick.scoring_file, "rb") as forest:
-                self.regressor = pickle.load(forest)
-            if not isinstance(self.regressor["scoring"], (RandomForestRegressor, RandomForestClassifier)):
-                exc = TypeError("Invalid regressor provided, type: %s", type(self.regressor["scoring"]))
-                self.logger.critical(exc)
-                return
-        else:
-            self.regressor = None
-
         self.logger.debug("Configuration loaded successfully")
 
     def __create_output_handles(self):
@@ -488,24 +475,21 @@ class Picker:
         external_metrics = ["external.{}".format(_.source) for _ in session.query(ExternalSource.source).all()]
 
         score_keys = ["source_score"]
-        if self.regressor is None:
-            __scores = sorted(list(self.json_conf.scoring.keys()))
-            # Check that the external scores are all present. If they are not, raise a warning.
-            __externals = set([_ for _ in __scores if _.startswith("external.")])
-            if __externals - set(external_metrics):
-                self.logger.error(
-                    ("The following external metrics, found in the scoring file, are not present in the database. " +
-                     "Please check their existence:\n" + "\n".join(
-                                ["    - {metric}".format(metric=metric) for metric in sorted(
-                                    __externals - set(external_metrics))]
-                                ))
-                )
-                sys.exit(1)
-                # __scores = sorted(set(__scores) - (__externals - set(external_metrics)))
+        __scores = sorted(list(self.json_conf.scoring.keys()))
+        # Check that the external scores are all present. If they are not, raise a warning.
+        __externals = set([_ for _ in __scores if _.startswith("external.")])
+        if __externals - set(external_metrics):
+            self.logger.error(
+                ("The following external metrics, found in the scoring file, are not present in the database. " +
+                 "Please check their existence:\n" + "\n".join(
+                            ["    - {metric}".format(metric=metric) for metric in sorted(
+                                __externals - set(external_metrics))]
+                            ))
+            )
+            sys.exit(1)
+            # __scores = sorted(set(__scores) - (__externals - set(external_metrics)))
 
-            score_keys += __scores
-        else:
-            score_keys += self.regressor["scoring"].metrics
+        score_keys += __scores
 
         score_keys = ["tid", "alias", "parent", "score"] + sorted(score_keys)
         # Define mandatory output files
@@ -1058,8 +1042,6 @@ class Picker:
 
                 current_locus = Superlocus(current_transcript, stranded=False, json_conf=self.json_conf,
                                            source=self.json_conf.pick.output_format.source)
-                if self.regressor is not None:
-                    current_locus.regressor = self.regressor
 
         return current_locus, counter, gene_counter, curr_chrom
 

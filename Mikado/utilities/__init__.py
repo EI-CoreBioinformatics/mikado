@@ -258,21 +258,12 @@ def to_region(string):
     return chrom, start, end
 
 
-class NumpyEncoder(json.JSONEncoder):
-    """Necessary to avoid crashes with numpy integers"""
-    def default(self, obj):
-        if isinstance(obj, numpy.integer):
-            return int(obj)
-        elif isinstance(obj, numpy.floating):
-            return float(obj)
-        elif isinstance(obj, numpy.ndarray):
-            return obj.tolist()
-        else:
-            return super(NumpyEncoder, self).default(obj)
-
-
 def percentage(value):
     value = float(value)
-    while 1 < value < 100:
+    if value < 0:
+        raise ValueError("Negative numbers are not allowed")
+    elif value > 100:
+        raise ValueError("Only numbers between 0 and 100 are allowed")
+    while 1 < value <= 100:
         value /= 100
     return value

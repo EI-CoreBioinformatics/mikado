@@ -326,11 +326,7 @@ class Sublocus(Abstractlocus):
     def print_scores(self):
         """This method yields dictionary rows that are given to a csv.DictWriter class."""
         self.filter_and_calculate_scores()
-        # TODO to be changed
-        if self.regressor is None:
-            score_keys = sorted(list(self.json_conf.scoring.keys()) + ["source_score"])
-        else:
-            score_keys = sorted(self.regressor.metrics + ["source_score"])
+        score_keys = sorted(list(self.json_conf.scoring.keys()) + ["source_score"])
         keys = ["tid", "alias", "parent", "score"] + sorted(score_keys)
 
         for tid in self.scores:
@@ -339,13 +335,11 @@ class Sublocus(Abstractlocus):
             row["alias"] = self.transcripts[tid].alias
             row["parent"] = self.id
             row["score"] = round(self.scores[tid]["score"], 2)
-            calculate_total = (self.regressor is None)
             for key in score_keys:
-                if calculate_total:
-                    assert key in self.scores[tid] and self.scores[tid][key] != "NA" and self.scores[tid][key] is not None, (key, self.scores[tid].keys())
-                    row[key] = round(self.scores[tid][key], 2)
+                assert key in self.scores[tid] and self.scores[tid][key] != "NA" and self.scores[tid][key] is not None, (key, self.scores[tid].keys())
+                row[key] = round(self.scores[tid][key], 2)
 
-            if calculate_total is True and tid not in self._not_passing:
+            if tid not in self._not_passing:
                 score_sum = sum(row[key] for key in score_keys)
 
                 if round(score_sum, 2) != round(self.scores[tid]["score"], 2):

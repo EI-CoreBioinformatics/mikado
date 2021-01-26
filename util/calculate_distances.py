@@ -12,6 +12,8 @@ import tempfile
 from scipy.stats.mstats import mquantiles
 from numpy import arange
 
+from Mikado.utilities.log_utils import LoggingConfiguration
+
 
 class Geomancer(multiprocessing.Process):
 
@@ -106,10 +108,8 @@ def main():
 
     args = parser.parse_args()
 
-    logger = Mikado.utilities.log_utils.create_logger_from_conf({"log_settings": {"log": args.log,
-                                                                                  "log_level": args.log_level}},
-                                                                "geomancer",
-                                                                mode="w")
+    conf = LoggingConfiguration(log=args.log, log_level=args.log_level)
+    logger = Mikado.utilities.log_utils.create_logger_from_conf(conf, "geomancer", mode="w")
     logger.info("Starting to load the GFF3 index")
     with open(args.gff3) as gff3:
         namespace = argparse.Namespace

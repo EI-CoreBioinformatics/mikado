@@ -127,7 +127,10 @@ def create_queue_logger(instance, prefix=""):
 def create_logger_from_conf(conf, name="mikado", mode="a"):
 
     logger = logging.getLogger(name)
-    log_settings = conf.log_settings
+    if isinstance(conf, LoggingConfiguration):
+        log_settings = conf
+    else:
+        log_settings = conf.log_settings
     assert isinstance(log_settings, LoggingConfiguration)
     handle = log_settings.log
 

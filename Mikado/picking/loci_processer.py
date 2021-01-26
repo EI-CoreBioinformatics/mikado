@@ -10,7 +10,6 @@ from ..loci.superlocus import Superlocus
 from ._merge_loci_utils import __create_gene_counters, manage_index
 import collections
 import sys
-import pickle
 from ..transcripts import Transcript
 from ..exceptions import InvalidTranscript
 from ..parsers.GTF import GtfLine
@@ -335,18 +334,6 @@ class LociProcesser(Process):
         self.logger.propagate = False
         self._tempdir = tempdir
         self.locus_queue = locus_queue
-        self.regressor = None
-        # self.dump_db, self.dump_conn, self.dump_cursor = self._create_temporary_store(self._tempdir, self.identifier)
-
-        if self.json_conf.pick.scoring_file.endswith((".pickle", ".model")):
-            with open(self.json_conf.pick.scoring_file, "rb") as forest:
-                self.regressor = pickle.load(forest)
-            from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
-            if not isinstance(self.regressor["scoring"], (RandomForestRegressor, RandomForestClassifier)):
-                exc = TypeError("Invalid regressor provided, type: %s", type(self.regressor))
-                self.logger.critical(exc)
-                self.exitcode = 9
-                self.join()
         self.logger.debug("Starting Process %s", self.name)
 
         self.logger.debug("Starting the pool for {0}".format(self.name))
@@ -491,8 +478,6 @@ class LociProcesser(Process):
                         slocus.add_transcript_to_locus(tobjects.pop(),
                                                        check_in_locus=False)
 
-                    if self.regressor is not None:
-                        slocus.regressor = self.regressor
                     stranded_loci = self.analyse_locus(slocus, counter)
 
                 serialise_locus(stranded_loci,

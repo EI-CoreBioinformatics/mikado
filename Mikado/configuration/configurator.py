@@ -20,7 +20,6 @@ import pkg_resources
 import yaml
 from pkg_resources import resource_stream, resource_filename
 from ..exceptions import InvalidJson, UnrecognizedRescaler
-from ..utilities import merge_dictionaries
 from ..utilities.log_utils import create_default_logger
 import random
 import toml

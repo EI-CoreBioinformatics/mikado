@@ -847,10 +847,7 @@ it is marked as having 0 retained introns. This is an error.".format(transcript=
         """This method yields dictionary rows that are given to a csv.DictWriter class."""
         self.filter_and_calculate_scores()
         # TODO needs changing
-        if self.regressor is None:
-            score_keys = sorted(list(self.json_conf.scoring.keys()) + ["source_score"])
-        else:
-            score_keys = sorted(self.regressor.metrics + ["source_score"])
+        score_keys = sorted(list(self.json_conf.scoring.keys()) + ["source_score"])
         keys = ["tid", "alias", "parent", "score"] + score_keys
 
         for tid in self.scores:
@@ -862,21 +859,18 @@ it is marked as having 0 retained introns. This is an error.".format(transcript=
                 row["score"] = 0
             else:
                 row["score"] = round(self.scores[tid]["score"], 2)
-            calculate_total = (self.regressor is None)
             for key in score_keys:
-                if calculate_total:
-                    assert self.scores[tid][key] != "NA" and self.scores[tid][key] is not None
-                    row[key] = round(self.scores[tid][key], 2)
+                assert self.scores[tid][key] != "NA" and self.scores[tid][key] is not None
+                row[key] = round(self.scores[tid][key], 2)
 
-            if calculate_total is True:
-                score_sum = sum(row[key] for key in score_keys)
-                if tid not in self._not_passing and self.scores[tid]["score"] > 0:
-                    assert round(score_sum, 2) == round(self.scores[tid]["score"], 2), (
-                        score_sum,
-                        self.transcripts[tid].score,
-                        tid)
-                else:
-                    assert self.scores[tid]["score"] == 0
+            score_sum = sum(row[key] for key in score_keys)
+            if tid not in self._not_passing and self.scores[tid]["score"] > 0:
+                assert round(score_sum, 2) == round(self.scores[tid]["score"], 2), (
+                    score_sum,
+                    self.transcripts[tid].score,
+                    tid)
+            else:
+                assert self.scores[tid]["score"] == 0
 
             yield row
 

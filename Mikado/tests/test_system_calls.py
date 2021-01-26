@@ -5,7 +5,6 @@ import glob
 import gzip
 import itertools
 import logging
-import marshmallow
 import os
 import numpy as np
 import pandas as pd
@@ -15,9 +14,7 @@ import unittest
 import pkg_resources
 import pyfaidx
 import yaml
-import jsonschema
-
-from Mikado.configuration.configurator import load_and_validate_config
+from ..configuration.configurator import load_and_validate_config
 from Mikado.exceptions import InvalidJson
 from ..configuration import print_config, DaijinConfiguration
 
@@ -37,7 +34,7 @@ from ..scales.calculator import Calculator
 from ..subprograms.prepare import prepare_launcher
 from ..subprograms.prepare import setup as prepare_setup
 from ..transcripts.transcript import Namespace
-from ..utilities.log_utils import create_null_logger, create_default_logger
+from ..utilities.log_utils import create_null_logger
 from ..parsers.GFF import GffLine
 import sqlite3
 import shutil

@@ -9,7 +9,6 @@ import itertools
 import logging
 from sys import maxsize
 import networkx
-from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
 import numpy
 from ..transcripts.clique_methods import find_communities, define_graph
 from ..transcripts.transcript import Transcript
@@ -116,7 +115,6 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         self.scores_calculated = False
         self.scores = dict()
         self.__segmenttree = IntervalTree()
-        self.__regressor = None
         self.session = None
         self.metrics_calculated = False
         self._metrics = dict()
@@ -1368,68 +1366,35 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             # Add the score for the transcript source
             self.scores[tid]["source_score"] = self.transcripts[tid].source_score or 0
 
-        if self.regressor is None:
-            for param in self.json_conf.scoring:
-                self._calculate_score(param)
+        for param in self.json_conf.scoring:
+            self._calculate_score(param)
 
-            for tid in self.scores:
-                self.transcripts[tid].scores = self.scores[tid].copy()
+        for tid in self.scores:
+            self.transcripts[tid].scores = self.scores[tid].copy()
 
-            for tid in self.transcripts:
-                if tid in self._not_passing:
-                    self.logger.debug("Excluding %s as it does not pass minimum requirements",
-                                      tid)
-                    self.transcripts[tid].score = 0
-                else:
-                    try:
-                        self.transcripts[tid].score = sum(self.scores[tid].values())
-                    except TypeError:
-                        raise TypeError(list(self.scores[tid].items()))
-                    if self.transcripts[tid].score <= 0:
-                        self.logger.debug("Excluding %s as it has a score <= 0", tid)
-                        self.transcripts[tid].score = 0
-                        self._not_passing.add(tid)
-                assert self.transcripts[tid].score is not None
-
-                if tid in self._not_passing:
-                    pass
-                else:
-                    assert self.transcripts[tid].score == sum(self.scores[tid].values()), (
-                        tid, self.transcripts[tid].score, sum(self.scores[tid].values())
-                    )
-                self.scores[tid]["score"] = self.transcripts[tid].score
-
-        else:
-            valid_metrics = self.regressor.metrics
-            metric_rows = SortedDict()
-            for tid, transcript in sorted(self.transcripts.items(), key=operator.itemgetter(0)):
-                for param in valid_metrics:
-                    self.scores[tid][param] = "NA"
-                row = []
-                for attr in valid_metrics:
-                    val = getattr(transcript, attr)
-                    if isinstance(val, bool):
-                        if val:
-                            val = 1
-                        else:
-                            val = 0
-                    row.append(val)
-                # Necessary for sklearn ..
-                row = numpy.array(row)
-                # row = row.reshape(1, -1)
-                metric_rows[tid] = row
-            # scores = SortedDict.fromkeys(metric_rows.keys())
-            if isinstance(self.regressor, RandomForestClassifier):
-                # We have to pick the second probability (correct)
-                for tid in metric_rows:
-                    score = self.regressor.predict_proba(metric_rows[tid])[0][1]
-                    self.scores[tid]["score"] = score
-                    self.transcripts[tid].score = score
+        for tid in self.transcripts:
+            if tid in self._not_passing:
+                self.logger.debug("Excluding %s as it does not pass minimum requirements",
+                                  tid)
+                self.transcripts[tid].score = 0
             else:
-                pred_scores = self.regressor.predict(list(metric_rows.values()))
-                for pos, score in enumerate(pred_scores):
-                    self.scores[list(metric_rows.keys())[pos]]["score"] = score
-                    self.transcripts[list(metric_rows.keys())[pos]].score = score
+                try:
+                    self.transcripts[tid].score = sum(self.scores[tid].values())
+                except TypeError:
+                    raise TypeError(list(self.scores[tid].items()))
+                if self.transcripts[tid].score <= 0:
+                    self.logger.debug("Excluding %s as it has a score <= 0", tid)
+                    self.transcripts[tid].score = 0
+                    self._not_passing.add(tid)
+            assert self.transcripts[tid].score is not None
+
+            if tid in self._not_passing:
+                pass
+            else:
+                assert self.transcripts[tid].score == sum(self.scores[tid].values()), (
+                    tid, self.transcripts[tid].score, sum(self.scores[tid].values())
+                )
+            self.scores[tid]["score"] = self.transcripts[tid].score
 
         self.scores_calculated = True
 
@@ -1859,22 +1824,6 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         return IntervalTree.from_intervals(
                 [Interval(*_, value="exon") for _ in exons] + [Interval(*_, value="intron") for _ in introns]
             )
-
-    @property
-    def regressor(self):
-        return self.__regressor
-
-    @regressor.setter
-    def regressor(self, regr):
-
-        if isinstance(regr, dict) and isinstance(regr["scoring"], (RandomForestRegressor, RandomForestClassifier)):
-            self.__regressor = regr["scoring"]
-        elif regr is None or isinstance(regr, (RandomForestRegressor, RandomForestClassifier)):
-            self.__regressor = regr
-        else:
-            raise TypeError("Invalid regressor provided, type: %s", type(regr))
-
-        self.logger.debug("Set regressor")
 
     @property
     def locus_verified_introns(self):

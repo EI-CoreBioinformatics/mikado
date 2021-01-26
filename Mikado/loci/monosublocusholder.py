@@ -240,8 +240,6 @@ class MonosublocusHolder(Sublocus, Abstractlocus):
 
         for locus in sorted(loci):
             self.loci[locus.id] = locus
-            if self.regressor is not None:
-                self.loci[locus.id].regressor = self.regressor
         self.splitted = True
         return
 

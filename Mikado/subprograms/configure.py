@@ -11,7 +11,7 @@ import sys
 import dataclasses
 from ..configuration import DaijinConfiguration, MikadoConfiguration
 from ..exceptions import InvalidJson
-from ..utilities import comma_split, percentage
+from ..utilities import comma_split, percentage, merge_dictionaries
 from ..utilities.namespace import Namespace
 import functools
 import rapidjson as json
@@ -113,7 +113,7 @@ def _remove_comments(d: dict) -> dict:
     return nudict
 
 
-def __add_daijin_specs(args):
+def __add_daijin_specs(args, config):
     from ..configuration.daijin_configurator import create_cluster_config, create_daijin_config
     namespace = Namespace(default=False)
     namespace.r1 = []
@@ -143,7 +143,7 @@ def __add_daijin_specs(args):
     namespace.scoring = args.scoring
     namespace.new_scoring = getattr(args, "new_scoring", None)
     namespace.full = args.full
-    config = create_daijin_config(namespace, level="ERROR", piped=True)
+    config = create_daijin_config(namespace, config, level="ERROR", piped=True)
     config.blastx.chunks = args.blast_chunks
     config.mikado.use_diamond = (not args.use_blast)
     config.mikado.use_prodigal = (not args.use_transdecoder)
@@ -166,30 +166,18 @@ def create_config(args):
         args.daijin = True
 
     if args.daijin is not False:
-        # config = DaijinConfiguration()
-        config = __add_daijin_specs(args)
+        config = DaijinConfiguration()
     else:
         config = MikadoConfiguration()
 
     if args.external is not None:
+        other = dataclasses.asdict(load_and_validate_config(args.external))
         config = dataclasses.asdict(config)
-        if args.external.endswith("json"):
-            loader = json.load
-        elif args.external.endswith("yaml"):
-            loader = functools.partial(yaml.load, Loader=yLoader)
-        else:
-            loader = toml.load
-        with open(args.external) as external:
-            external_conf = loader(external)
+        config = merge_dictionaries(config, other)
+        config = load_and_validate_config(config)
 
-        # TODO: This needs to be changed
-        if "mikado" in external_conf:
-            mikado_conf = dict((key, val) for key, val in external_conf["mikado"].items() if key in config)
-            config = merge_dictionaries(config, mikado_conf)
-
-        config = merge_dictionaries(config, external_conf)
-        print(json.dumps(config), file=sys.stderr)
-        config = DaijinConfiguration.Schema().load(config)
+    if args.daijin is not False:
+        config = __add_daijin_specs(args, config)
 
     config.pick.files.subloci_out = args.subloci_out if args.subloci_out else ""
     config.pick.files.monoloci_out = args.monoloci_out if args.monoloci_out else ""

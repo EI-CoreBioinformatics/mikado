@@ -55,13 +55,6 @@ def create_daijin_validator(simple=True):
     return validator
 
 
-def create_daijin_base_config(simple=True):
-
-    daijin_conf = DaijinConfiguration.Schema().load({})
-    # daijin_conf = to_json(daijin_conf, simple=simple)
-    return daijin_conf
-
-
 def _parse_sample_sheet(sample_sheet, config: DaijinConfiguration, logger):
 
     """Mini-function to parse the sample sheet."""
@@ -151,11 +144,13 @@ def _parse_reads_from_cli(args, config: DaijinConfiguration, logger):
     return config
 
 
-def create_daijin_config(args, level="ERROR", piped=False):
+def create_daijin_config(args, config, level="ERROR", piped=False):
 
     logger = create_default_logger("daijin_config", level=level)
 
-    config = create_daijin_base_config(simple=(not args.full))
+    if not isinstance(config, DaijinConfiguration):
+        config = DaijinConfiguration()
+
     if args.seed is not None and isinstance(args.seed, int) and args.seed not in (True, False):
         config.seed = args.seed
     if not os.path.exists(args.genome):

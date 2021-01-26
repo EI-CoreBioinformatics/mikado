@@ -102,6 +102,14 @@ class DaijinMikadoConfiguration:
 
 
 @dataclass
+class TGGConfiguration:
+    max_mem: int = field(default=6000, metadata={"validate": validate.Range(min=1000)})
+    npaths: int = field(default=0)
+    identity: float = field(default=0.95, metadata={"validate": validate.Range(min=0.0, max=1.0)})
+    coverage: float = field(default=0.70, metadata={"validate": validate.Range(min=0.0, max=1.0)})
+
+
+@dataclass
 class DaijinConfiguration:
     # Daijin specific sub-modules
     short_reads: ShortReads = field(default_factory=ShortReads)
@@ -130,6 +138,7 @@ class DaijinConfiguration:
     scheduler: Optional[str] = field(default=None,
                                      metadata={"validate": validate.OneOf(["SLURM", "LSF", "local", "PBS", ""])})
 
+    tgg: TGGConfiguration = field(default_factory=TGGConfiguration)
     # # These fields are loaded *from the scoring configuration*
     scoring: Optional[dict] = field(default=None)
     cds_requirements: Optional[dict] = field(default=None)

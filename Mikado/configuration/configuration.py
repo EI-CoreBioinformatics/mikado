@@ -18,17 +18,36 @@ class ReferenceConfiguration:
 
 @dataclass
 class MikadoConfiguration:
-    threads: int = field(default=1, metadata={"validate": validate.Range(min=1)})
-    seed: int = field(default=0, metadata={"validate": validate.Range(min=0, max=2**32 - 1)})
-    multiprocessing_method: Optional[str] = field(
-        default="spawn",
-        metadata={"validate": validate.OneOf(["spawn", "fork", "fork-server"])}) 
-    log_settings: LoggingConfiguration = field(default_factory=LoggingConfiguration)
-    db_settings: DBConfiguration = field(default_factory=DBConfiguration)
-    serialise: SerialiseConfiguration = field(default_factory=SerialiseConfiguration)
-    prepare: PrepareConfiguration = field(default_factory=PrepareConfiguration)
-    pick: PickConfiguration = field(default_factory=PickConfiguration)
-    reference: ReferenceConfiguration = field(default_factory=ReferenceConfiguration)
+    threads: int = field(default=1, metadata={
+        "description": "Threads to be used per process",
+        "validate": validate.Range(min=1),
+    })
+    seed: int = field(default=0, metadata={
+        "description": "Random number generator seed, to ensure reproducibility across runs",
+        "validate": validate.Range(min=0, max=2**32 - 1),
+    })
+    multiprocessing_method: Optional[str] = field(default="spawn", metadata={
+        "description": "Which method (fork, spawn, forkserver) Mikado should use for multiprocessing",
+        "validate": validate.OneOf(["spawn", "fork", "fork-server"])
+    })
+    log_settings: LoggingConfiguration = field(default_factory=LoggingConfiguration, metadata={
+        "description": "Settings related to the verbosity of logs"
+    })
+    db_settings: DBConfiguration = field(default_factory=DBConfiguration, metadata={
+        "description": "Settings related to DB connection"
+    })
+    serialise: SerialiseConfiguration = field(default_factory=SerialiseConfiguration, metadata={
+        "description": "Settings related to data serialisation"
+    })
+    prepare: PrepareConfiguration = field(default_factory=PrepareConfiguration, metadata={
+        "description": "Settings related to the input data preparation",
+    })
+    pick: PickConfiguration = field(default_factory=PickConfiguration, metadata={
+        "description": "Settings related to the Mikado pick stage",
+    })
+    reference: ReferenceConfiguration = field(default_factory=ReferenceConfiguration, metadata={
+        "description": "Settings related to the reference genome"
+    })
 
     # These fields are loaded *from the scoring configuration*
     scoring: Optional[dict] = field(default=None)

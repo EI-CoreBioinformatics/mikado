@@ -125,6 +125,7 @@ class ChimeraSplitConfiguration:
         "description": "Input sources for which Mikado will skip the splitting, e.g. ultra-reliable full cDNA sequences.",
         "validate": validate.Length(min=0)})
     blast_params: BlastParamsConfiguration = field(default_factory=BlastParamsConfiguration, metadata={
+        "marshmallow_field": "blast_params",
         "description": "Parameters for the BLAST check prior to splitting.",
     })
 
@@ -241,27 +242,36 @@ class PickConfiguration:
     scoring_file: str = field(default="plant.yaml", metadata={
         "description": "Scoring file to be used by Mikado.",
     })
-    alternative_splicing: AlternativeSplicingConfiguration = field(default_factory=AlternativeSplicingConfiguration, metadata={
+    alternative_splicing: AlternativeSplicingConfiguration = field(default_factory=AlternativeSplicingConfiguration,
+                                                                   metadata={
+        "marshmallow_field": "alternative_splicing",
         "description": "Parameters related to how Mikado will select and report alternative splicing events.",
     })
     output_format: OutputFormatConfiguration = field(default_factory=OutputFormatConfiguration, metadata={
+        "marshmallow_field": "output_format",
         "description": "Parameters related to the output format.",
     })
     orf_loading: OrfLoadingConfiguration = field(default_factory=OrfLoadingConfiguration, metadata={
+        "marshmallow_field": "orf_loading",
         "description": "Parameters related to ORF loading.",
     })
     chimera_split: ChimeraSplitConfiguration = field(default_factory=ChimeraSplitConfiguration, metadata={
+        "marshmallow_field": "chimera_split",
         "description": "Parameters related to the splitting of transcripts in the presence of two or more ORFs.",
     })
     run_options: RunOptionsConfiguration = field(default_factory=RunOptionsConfiguration, metadata={
+        "marshmallow_field": "run_options",
         "description": "Generic run options for Mikado pick.",
     })
     clustering: ClusteringConfiguration = field(default_factory=ClusteringConfiguration, metadata={
+        "marshmallow_field": "clustering",
         "description": "Parameters related to the clustering of transcripts into loci.",
     })
     fragments: FragmentsConfiguration = field(default_factory=FragmentsConfiguration, metadata={
+        "marshmallow_field": "fragments",
         "description": "Parameters related to the handling of fragments."
     })
     files: FilesConfiguration = field(default_factory=FilesConfiguration, metadata={
+        "marshmallow_field": "files",
         "description": "Input and output files for Mikado pick.",
     })

@@ -144,7 +144,7 @@ def _parse_reads_from_cli(args, config: DaijinConfiguration, logger):
     return config
 
 
-def create_daijin_config(args, config, level="ERROR", piped=False):
+def create_daijin_config(args, config=None, level="ERROR", piped=False):
 
     logger = create_default_logger("daijin_config", level=level)
 

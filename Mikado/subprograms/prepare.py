@@ -102,7 +102,7 @@ def parse_list_file(cfg, list_file):
     cfg.prepare.files.strip_cds = json_conf["prepare"]["files"]["strip_cds"]
     cfg.pick.chimera_split.skip = json_conf["pick"]["chimera_split"]["skip"]
 
-    return json_conf
+    return cfg
 
 
 def parse_prepare_options(args, mikado_config):

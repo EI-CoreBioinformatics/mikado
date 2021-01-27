@@ -267,6 +267,9 @@ def setup(args, logger=None):
     logger.info("Command line: %s",  " ".join(sys.argv))
     logger.info("Random seed: %s", mikado_config.seed)
 
+    if args.seed is not None:
+        mikado_config.seed = args.seed
+
     if args.verbose is True:
         mikado_config.log_settings.log_level = "DEBUG"
     elif args.quiet is True:
@@ -292,6 +295,7 @@ def prepare_launcher(args):
 
     from ..preparation.prepare import prepare
     args, mikado_config, logger = setup(args)
+    print(mikado_config.seed, file=sys.stderr)
     assert isinstance(mikado_config, (MikadoConfiguration, DaijinConfiguration))
     if not hasattr(mikado_config.reference, "genome"):
         raise InvalidJson("Invalid configuration; reference: {}".format(mikado_config.reference))

@@ -214,6 +214,7 @@ class PrepareCheck(unittest.TestCase):
         args.procs = 1
         args.single_thread = True
         args.seed = 10
+        self.conf.seed = 10
 
         for test_file in ("trinity.gff3",
                           "trinity.match_matchpart.gff3",

@@ -87,9 +87,31 @@ def print_config(config: Union[MikadoConfiguration, DaijinConfiguration], out, f
 
     # Necessary otherwise we will be deleting fields from the *original* object!
 
+    if not isinstance(format, str) or format.lower() not in ("yaml", "json", "toml"):
+        raise ValueError("Unknown format: {}. I can only accept yaml, json or toml as options.")
+
+    format = format.lower()
+
     if format == "toml":
         print_toml_config(config, out, no_files=no_files)
-        return
+    elif format == "yaml":
+        print_yaml_config(config, out, no_files=no_files)
+    elif format == "json":
+        config_dict = dataclasses.asdict(config)
+        for key in ["scoring", "cds_requirements", "requirements", "not_fragmentary", "as_requirements"]:
+            config_dict.pop(key, None)
+
+        if no_files is True:
+            for stage in ["pick", "prepare", "serialise"]:
+                if "files" in config_dict[stage]:
+                    del config_dict[stage]["files"]
+            del config_dict["reference"]
+            del config_dict["db_settings"]
+
+        print(json.dumps(config_dict, indent=4, sort_keys=True), file=out)
+
+
+def print_yaml_config(config, out, no_files=False):
 
     config_dict = dataclasses.asdict(config)
     for key in ["scoring", "cds_requirements", "requirements", "not_fragmentary", "as_requirements"]:
@@ -101,10 +123,6 @@ def print_config(config: Union[MikadoConfiguration, DaijinConfiguration], out, f
                 del config_dict[stage]["files"]
         del config_dict["reference"]
         del config_dict["db_settings"]
-
-    if format == "json":
-        print(json.dumps(config_dict, indent=4, sort_keys=True), file=out)
-        return
 
     output = yaml.dump(config_dict, default_flow_style=False)
 

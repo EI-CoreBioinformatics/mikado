@@ -29,7 +29,9 @@ from ..configuration.configuration import MikadoConfiguration
 from ..configuration.daijin_configuration import DaijinConfiguration
 from ..configuration.configurator import load_and_validate_config, check_and_load_scoring
 
+
 default_configuration = load_and_validate_config(None)
+
 
 # I do not care that there are too many attributes: this IS a massive class!
 # pylint: disable=too-many-instance-attributes,too-many-public-methods

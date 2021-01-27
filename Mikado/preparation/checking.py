@@ -2,12 +2,11 @@ import functools
 import multiprocessing
 import multiprocessing.queues
 import os
-import zlib
 import pysam
 import msgpack
 from ..transcripts.transcriptchecker import TranscriptChecker
 from .. import exceptions
-from ..loci import Transcript
+from ..transcripts import Transcript
 from ..utilities.log_utils import create_null_logger, create_queue_logger
 import logging
 import queue

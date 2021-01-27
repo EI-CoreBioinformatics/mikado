@@ -19,8 +19,6 @@ from sqlalchemy import and_
 from sqlalchemy import bindparam
 from sqlalchemy.ext import baked
 from sqlalchemy.sql.expression import desc, asc  # SQLAlchemy imports
-
-from ..configuration.configurator import load_and_validate_config
 from ..exceptions import ModificationError, InvalidTranscript, CorruptIndex
 from ..parsers.GFF import GffLine
 from ..parsers.GTF import GtfLine
@@ -154,6 +152,7 @@ class Transcript:
 
     __name__ = intern("transcript")
     __logger = create_null_logger(__name__)
+    __default_config = MikadoConfiguration()
 
     # Query baking to minimize overhead
     bakery = baked.bakery()
@@ -625,12 +624,17 @@ class Transcript:
 
         if hasattr(self, "configuration") and self.configuration is not None:
             state["configuration"] = self.configuration.copy()
+            assert isinstance(state["configuration"], (MikadoConfiguration, DaijinConfiguration)), type(self.configuration)
             if isinstance(state["configuration"].reference.genome, pysam.FastaFile):
                 state["configuration"][key] = state["configuration"].reference.genome.filename
-            state["configuration"].requirements.pop("compiled", None)
-            state["configuration"].as_requirements.pop("compiled", None)
-            state["configuration"].cds_requirements.pop("compiled", None)
-            state["configuration"].not_fragmentary.pop("compiled", None)
+            if state["configuration"].requirements is not None:
+                state["configuration"].requirements.pop("compiled", None)
+            if state["configuration"].as_requirements is not None:
+                state["configuration"].as_requirements.pop("compiled", None)
+            if state["configuration"].cds_requirements is not None:
+                state["configuration"].cds_requirements.pop("compiled", None)
+            if state["configuration"].not_fragmentary is not None:
+                state["configuration"].not_fragmentary.pop("compiled", None)
 
         if hasattr(self, "session"):
             if state["session"] is not None:
@@ -649,8 +653,8 @@ class Transcript:
         return state
 
     def __setstate__(self, state):
-        self.__configuration = None
-        self.__configuration = state.pop("configuration", None)
+        self.__configuration = self.__default_config.copy()
+        self.configuration = state.pop("configuration", None)
         self.__dict__.update(state)
         self._calculate_cds_tree()
         self._calculate_segment_tree()
@@ -1640,6 +1644,8 @@ exon data is on a different chromosome, {exon_data.chrom}. \
         Configuration dictionary. It can be None.
         :return:
         """
+        if self.__configuration is None:
+            self.__configuration = self.__default_config.copy()
 
         return self.__configuration
 
@@ -1653,9 +1659,8 @@ exon data is on a different chromosome, {exon_data.chrom}. \
         :return:
         """
 
-        assert isinstance(configuration, (MikadoConfiguration, DaijinConfiguration)) or configuration is None
         if configuration is None:
-            configuration = load_and_validate_config(None)
+            configuration = self.__default_config.copy()
             assert isinstance(configuration, (MikadoConfiguration, DaijinConfiguration))
 
         self.__configuration = configuration

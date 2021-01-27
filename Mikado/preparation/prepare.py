@@ -2,7 +2,7 @@ import os
 import tempfile
 import gc
 from .checking import create_transcript, CheckingProcess
-from .annotation_parser import AnnotationParser, loaders, row_struct
+from .annotation_parser import AnnotationParser, loaders
 from ..configuration import MikadoConfiguration
 from ..exceptions import InvalidJson
 from ..utilities import Interval, IntervalTree

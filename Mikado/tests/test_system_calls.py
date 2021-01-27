@@ -421,15 +421,16 @@ class PrepareCheck(unittest.TestCase):
                                                 "mikado_prepared.fasta"))
                 logged = [_ for _ in open(os.path.join(args.configuration.prepare.files.output_dir,
                                                        args.configuration.prepare.files.log))]
-                self.assertFalse("AT5G01530.2" in fa.keys(), (b, sorted(list(fa.keys())), logged))
-                self.assertTrue("AT5G01530.1" in fa.keys())
+                self.assertFalse("AT5G01530.1" in fa.keys(), (b, sorted(list(fa.keys())),
+                                                              print(*logged, sep="\n", file=open("/tmp/log", "wt"))))
+                self.assertTrue("AT5G01530.2" in fa.keys(), print(*logged, sep="\n", file=open("/tmp/log", "wt")))
                 if b is False:
                     self.assertEqual(len(fa.keys()), 4)
-                    self.assertEqual(sorted(fa.keys()), sorted(["AT5G01530."+str(_) for _ in [0, 1, 3, 4]]))
+                    self.assertEqual(sorted(fa.keys()), sorted(["AT5G01530."+str(_) for _ in [0, 2, 3, 4]]))
                 else:
                     self.assertEqual(len(fa.keys()), 3, (fa.keys(), logged))
                     self.assertIn("AT5G01530.0", fa.keys())
-                    self.assertIn("AT5G01530.1", fa.keys())
+                    self.assertIn("AT5G01530.2", fa.keys())
                     self.assertNotIn("AT5G01530.3", fa.keys())
                     self.assertIn("AT5G01530.4", fa.keys())
                 gtf_file = os.path.join(folder.name, "mikado_prepared.gtf")
@@ -461,8 +462,7 @@ class PrepareCheck(unittest.TestCase):
                                              transcript.has_stop_codon))
                             self.assertEqual(transcript.is_complete,
                                              transcript.has_start_codon and transcript.has_stop_codon)
-                    # self.assertIn("AT5G01530.3", transcripts)
-                    a5 = transcripts["AT5G01530.1"]
+                    a5 = transcripts["AT5G01530.2"]
                     self.assertTrue(a5.is_coding)
                     self.assertIn("has_start_codon", a5.attributes)
                     self.assertIn("has_stop_codon", a5.attributes)
@@ -516,11 +516,11 @@ class PrepareCheck(unittest.TestCase):
                 if b is False:
                     self.assertEqual(len(fa.keys()), 5)
                     self.assertEqual(sorted(fa.keys()), sorted(["AT5G01015." + str(_) for _ in
-                                                                [0, 2, 3, 4, 5]]))
+                                                                [0, 1, 3, 4, 5]]))
                 else:
                     self.assertEqual(len(fa.keys()), 4, "\n".join(list(fa.keys())))
                     self.assertIn("AT5G01015.0", fa.keys())
-                    self.assertTrue("AT5G01015.2" in fa.keys())
+                    self.assertTrue("AT5G01015.1" in fa.keys())
                     self.assertNotIn("AT5G01015.3", fa.keys())
                     self.assertIn("AT5G01015.4", fa.keys())
 
@@ -554,7 +554,7 @@ class PrepareCheck(unittest.TestCase):
                             self.assertEqual(transcript.is_complete,
                                              transcript.has_start_codon and transcript.has_stop_codon)
 
-                    a_first = transcripts["AT5G01015.2"]
+                    a_first = transcripts["AT5G01015.1"]
                     self.assertTrue(a_first.is_coding)
                     self.assertIn("has_start_codon", a_first.attributes)
                     self.assertIn("has_stop_codon", a_first.attributes)

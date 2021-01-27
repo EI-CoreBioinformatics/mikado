@@ -33,7 +33,7 @@ class Sublocus(Abstractlocus):
 
     def __init__(self,
                  transcript_instance=None,
-                 json_conf=None,
+                 configuration=None,
                  logger=None,
                  verified_introns=None,
                  **kwargs):
@@ -42,8 +42,8 @@ class Sublocus(Abstractlocus):
         :param transcript_instance: an instance which describes a genomic interval
         :type transcript_instance: Transcript | Abstractlocus
 
-        :param json_conf: a configuration dictionary
-        :type json_conf: dict
+        :param configuration: a configuration dictionary
+        :type configuration: (MikadoConfiguration|DaijinConfiguration)
 
         :param logger: a logger instance from the logging library
         :type logger: logging.Logger | None
@@ -56,13 +56,13 @@ class Sublocus(Abstractlocus):
         self.counter = 0  # simple tag for avoiding collisions in the GFF output
         self.__splitted = False
         Abstractlocus.__init__(self, verified_introns=verified_introns,
-                               json_conf=json_conf,
+                               configuration=configuration,
                                logger=logger,
                                **kwargs)
         self.feature = self.__name__
         self.logger.debug("Verified introns for %s: %s", self.id, verified_introns)
         self.fixed_size = False
-        self.source = self.json_conf.pick.output_format.source
+        self.source = self.configuration.pick.output_format.source
 
         self.excluded = None
         self._not_passing = set()
@@ -73,17 +73,17 @@ class Sublocus(Abstractlocus):
         if transcript_instance is not None:
             if transcript_instance.__name__ == "transcript":
                 transcript_instance.finalize()
-            if json_conf is None and transcript_instance.json_conf is not None:
-                json_conf = transcript_instance.json_conf
+            if configuration is None and transcript_instance.configuration is not None:
+                configuration = transcript_instance.configuration
             if transcript_instance and transcript_instance.feature == "sublocus":
                 self.fixed_size = True
 
-        self.json_conf = json_conf
+        self.configuration = configuration
 
         # This part is necessary to import modules
-        if hasattr(self.json_conf, "modules"):
+        if hasattr(self.configuration, "modules"):
             import importlib
-            for mod in self.json_conf.modules:
+            for mod in self.configuration.modules:
                 globals()[mod] = importlib.import_module(mod)
 
         if isinstance(transcript_instance, Transcript):
@@ -101,7 +101,7 @@ class Sublocus(Abstractlocus):
         self.monosubloci = []
         self.logger.debug("Initialized {0}".format(self.id))
         self.metric_lines_store = []  # This list will contain the lines to be printed in the metrics file
-        self.excluded = Excluded(json_conf=json_conf)
+        self.excluded = Excluded(configuration=configuration)
         self.scores = dict()
 
     # pylint: disable=arguments-differ
@@ -124,7 +124,7 @@ class Sublocus(Abstractlocus):
             self.transcripts[tid].parent = self_line.id
             lines.append(self.transcripts[tid].format(
                 "gff3",
-                all_orfs=self.json_conf.pick.output_format.report_all_orfs,
+                all_orfs=self.configuration.pick.output_format.report_all_orfs,
                 with_cds=print_cds).rstrip())
 
         return "\n".join(lines)
@@ -178,7 +178,7 @@ class Sublocus(Abstractlocus):
         if transcript is None:
             return
 
-        cds_only = self.json_conf.pick.clustering.cds_only
+        cds_only = self.configuration.pick.clustering.cds_only
 
         monoexonic = self._is_transcript_monoexonic(transcript)
 
@@ -267,9 +267,9 @@ class Sublocus(Abstractlocus):
                 if purge is False or selected_transcript.score > 0:
                     new_locus = Monosublocus(selected_transcript,
                                              logger=self.logger,
-                                             json_conf=self.json_conf,
+                                             configuration=self.configuration,
                                              use_transcript_scores=self._use_transcript_scores)
-                    new_locus.json_conf = self.json_conf
+                    new_locus.configuration = self.configuration
                     self.monosubloci.append(new_locus)
             if len(to_remove) < 1:
                 message = "No transcripts to remove from the pool for {0}\n".format(self.id)
@@ -326,7 +326,7 @@ class Sublocus(Abstractlocus):
     def print_scores(self):
         """This method yields dictionary rows that are given to a csv.DictWriter class."""
         self.filter_and_calculate_scores()
-        score_keys = sorted(list(self.json_conf.scoring.keys()) + ["source_score"])
+        score_keys = sorted(list(self.configuration.scoring.keys()) + ["source_score"])
         keys = ["tid", "alias", "parent", "score"] + sorted(score_keys)
 
         for tid in self.scores:

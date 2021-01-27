@@ -2,60 +2,57 @@
 This module defines the functions needed to check the sanity of the configuration file,
 plus the JSON schemas for the configuration and scoring files.
 """
-
+from typing import Union
 
 from .configuration import MikadoConfiguration
 from .daijin_configuration import DaijinConfiguration
 from . import configurator
 import itertools
-import re
 import textwrap
-import marshmallow_jsonschema
-json_schema_interface = marshmallow_jsonschema.JSONSchema()
+import rapidjson as json
+import toml
+import dataclasses
+import yaml
+
 
 __author__ = 'Luca Venturini'
 
 
-def print_toml_config(output, out):
+def print_toml_config(config, out):
+    config_dict = dataclasses.asdict(config)
+    for key in ["scoring", "cds_requirements", "requirements", "not_fragmentary", "as_requirements"]:
+        config_dict.pop(key, None)
 
-    schema = json_schema_interface.dump(MikadoConfiguration().Schema())
-    daijin_schema = marshmallow_jsonschema.JSONSchema().dump(DaijinConfiguration().Schema())
-
-    assert isinstance(schema, dict)
-    assert isinstance(daijin_schema, dict)
-    daijin_found = False
+    output = toml.dumps(config_dict)
 
     lines = []
-
-    level = schema
+    level = config
 
     for line in output.split("\n"):
         if line.startswith("["):
             keys = line.rstrip().replace("[", "").replace("]", "").split(".")
-            level = schema
-            for key in keys:
-                prop_key = "definitions" if "definitions" in level else "properties"
-                if key not in level[prop_key]:
-                    level = daijin_schema
-                    daijin_found = True
-                    prop_key = "definitions" if "definitions" in level else "properties"
-                    if key not in level[prop_key]:
-                        raise KeyError("Unknown key found: {}\n{}".format(key, level))
-                level = level[prop_key][key]
+            level = config
+            for key in keys[:-1]:
+                level = getattr(level, key)
+            metadata = level.__dataclass_fields__[keys[-1]].metadata
             comment = []
-            description = level.get("description", None)
+            description = metadata.get("description", None)
             if description:
                 comment += ["# " + _ for _ in textwrap.wrap(description)]
+            if hasattr(getattr(level, keys[-1]), "__dataclass_fields__"):
+                level = getattr(level, keys[-1])
             lines.append(line)
             lines.extend(comment)
         else:
             comment = []
             if "=" in line:
                 key = line.split("=")[0].strip()
-                if "Comment" in key:
-                    raise KeyError((line, key, level))
-                prop_key = "definitions" if "definitions" in level else "properties"
-                description = level[prop_key].get(key, dict()).get("description", None)
+                try:
+                    description = level.__dataclass_fields__[key].metadata.get("description", None)
+                except AttributeError:
+                    raise AttributeError(key, level)
+                except KeyError:
+                    description = None
                 if description:
                     _comment = textwrap.wrap(description)
                     if _comment:
@@ -64,66 +61,106 @@ def print_toml_config(output, out):
                 lines.extend(comment)
             lines.append(line.rstrip())
 
-    if daijin_found is True:
-        print(*["# " + _ for _ in textwrap.wrap(daijin_schema["title"])], sep="\n", file=out)
-    else:
-        print(*["# " + _ for _ in textwrap.wrap(schema["title"])], sep="\n", file=out)
+    if config.__doc__:
+        print(*["# " + _ for _ in textwrap.wrap(config.__doc__.strip())], sep="\n", file=out)
+        print("#", file=out)
 
     print(*lines, sep="\n", file=out)
 
 
-def print_config(output, out, format="yaml"):
+def print_config(config: Union[MikadoConfiguration, DaijinConfiguration], out, format="yaml"):
 
     """
     Function to print out the prepared configuration.
     :param output: prepared output, a huge string.
-    :type output: str
+    :type output: (MikadoConfiguration|DaijinConfiguration)
 
     :param out: output handle.
     """
 
-    comment = []
-    comment_level = -1
+    # Necessary otherwise we will be deleting fields from the *original* object!
+
+    if format == "toml":
+        print_toml_config(config, out)
+
+    config_dict = dataclasses.asdict(config)
+    for key in ["scoring", "cds_requirements", "requirements", "not_fragmentary", "as_requirements"]:
+        config_dict.pop(key, None)
 
     if format == "json":
-        import json
-        print(json.dumps(output, indent=4, sort_keys=True), file=out)
+        print(json.dumps(config_dict, indent=4, sort_keys=True), file=out)
+        return
 
-    # elif format == "yaml":
+    output = yaml.dump(config_dict, default_flow_style=False)
+
+    # TODO currently this does not print all comments. E.g. use_diamond does not have the correct explanation.
+    lines = []
+    nesting = []
+    comment = []
 
     for line in output.split("\n"):
-        # comment found
-        if line.lstrip().startswith(("Comment", "SimpleComment")) or comment:
-            level = sum(1 for _ in itertools.takewhile(str.isspace, line))
-            line = re.sub("Comment:", "", re.sub("SimpleComment:", "", line))
-            line = re.sub("^- ", "", line)
-            if comment:
-                if level > comment_level or line.lstrip().startswith("-"):
-                    comment.append(line.strip())
-                else:
-                    comment_line = " ".join([_ for _ in comment if _ != ''])
-                    comment_line = re.sub("'", "", re.sub(" - ", "\n- ", comment_line))
-                    for part in comment_line.split("\n"):
-                        for part_line in textwrap.wrap(part.rstrip(), 80, replace_whitespace=True,
-                                                      initial_indent=" "*comment_level + "# ",
-                                                      subsequent_indent=" "*comment_level + "# "):
-                            part_line = re.sub("# - ", "# ", part_line)
-                            print(part_line, file=out)
-                    if level < comment_level:
-                        print("{0}{{}}".format(" " * comment_level), file=out)
-                    comment = []
-                    comment_level = -1
-                    print(line.rstrip(), file=out)
-            else:
-                comment = [re.sub("(Comment|SimpleComment):", "", line.strip())]
-                comment_level = level
+        if line and line.startswith(line.lstrip()[0]):  # We are back at the head level
+            nesting = []
+        if line.endswith(":"):  # New level
+            spaces = sum(1 for _ in itertools.takewhile(str.isspace, line))
+            key = line.strip().rstrip(":")
+            while nesting and nesting[-1][1] >= spaces:
+                nesting = nesting[:-1]
+            level = config
+            for oldkey, _ in nesting:
+                _ = getattr(level, oldkey)
+                if not hasattr(_, "__dataclass_fields__"):
+                    break
+                level = _
+            try:
+                metadata = level.__dataclass_fields__[key].metadata
+            except KeyError:
+                raise KeyError(key, level)
+            except AttributeError:
+                raise AttributeError(key, level)
+            comment = []
+            description = metadata.get("description", None)
+            if description:
+                comment += ["# " + _ for _ in textwrap.wrap(description)]
+            lines.append(line)
+            nesting.append((key, spaces))
         else:
-            print(line.rstrip(), file=out)
+            spaces = sum(1 for _ in itertools.takewhile(str.isspace, line))
+            comment = [" " * spaces + _ for _ in comment]
+            lines.extend(comment)
+            comment = []
+            key = line.split(":")[0].strip()
+            level = config
+            if ":" in line:
+                for stop, (nest_level, _) in enumerate(nesting):
+                    _ = getattr(level, nest_level)
+                    if not hasattr(_, "__dataclass_fields__"):
+                        break
+                    elif key in _.__dataclass_fields__:
+                        level = _
+                        break
+                    level = _
+                try:
+                    description = level.__dataclass_fields__[key].metadata.get("description", None)
+                except AttributeError:
+                    raise AttributeError(key, level)
+                except KeyError:
+                    description = None
 
-    if comment:
-        for comment_line in comment:
-            print("{spaces}#{comment}".format(spaces=" "*comment_level, comment=comment_line),
-                  file=out)
+                if description:
+                    _comment = textwrap.wrap(description)
+                    if _comment:
+                        _comment[0] = key + ": " + _comment[0]
+                        comment += [" " * spaces + "# " + _ for _ in _comment]
+            lines.extend(comment)
+            comment = []
+            lines.append(line.rstrip())
+
+    if config.__doc__:
+        print(*["# " + _ for _ in textwrap.wrap(config.__doc__.strip())], sep="\n", file=out)
+        print("#", file=out)
+
+    print(*lines, sep="\n", file=out)
 
 
 def check_has_requirements(dictionary, schema, key=None, first_level=True):

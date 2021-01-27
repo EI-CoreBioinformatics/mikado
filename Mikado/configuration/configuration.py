@@ -1,4 +1,4 @@
-from marshmallow_dataclass import dataclass, List, Optional
+from marshmallow_dataclass import dataclass, Optional
 import copy
 from .picking_config import PickConfiguration
 from .prepare_config import PrepareConfiguration
@@ -18,6 +18,11 @@ class ReferenceConfiguration:
 
 @dataclass
 class MikadoConfiguration:
+
+    """
+    Configuration properties for Mikado.
+    """
+
     threads: int = field(default=1, metadata={
         "description": "Threads to be used per process",
         "validate": validate.Range(min=1),
@@ -31,28 +36,27 @@ class MikadoConfiguration:
         "validate": validate.OneOf(["spawn", "fork", "fork-server"])
     })
     log_settings: LoggingConfiguration = field(default_factory=LoggingConfiguration, metadata={
-
+        "name": "log_settings",
         "description": "Settings related to the verbosity of logs"
     })
     db_settings: DBConfiguration = field(default_factory=DBConfiguration, metadata={
-
+        "name": "db_settings",
         "description": "Settings related to DB connection"
     })
     serialise: SerialiseConfiguration = field(default_factory=SerialiseConfiguration, metadata={
-
+        "name": "serialise",
         "description": "Settings related to data serialisation"
     })
     prepare: PrepareConfiguration = field(default_factory=PrepareConfiguration, metadata={
-
+        "name": "prepare",
         "description": "Settings related to the input data preparation",
     })
     pick: PickConfiguration = field(default_factory=PickConfiguration, metadata={
-
+        "name": "pick",
         "description": "Settings related to the Mikado pick stage",
     })
     reference: ReferenceConfiguration = field(default_factory=ReferenceConfiguration, metadata={
-
-        "description": "Settings related to the reference genome"
+        "name": "reference",
     })
 
     # These fields are loaded *from the scoring configuration*

@@ -4,6 +4,10 @@ from marshmallow import validate
 from typing import List
 
 
+valid_as_ccodes = ("j", "e", "o", "h", "J", "C", "g", "G", "=", "n", "_")
+redundant_as_ccodes = ("j", "n", "O", "e", "o", "h", "J", "C", "c", "m", "mo", "=", "_", "x", "p", "P", "X", "I", "i")
+
+
 @dataclass
 class AlternativeSplicingConfiguration:
     report: bool = field(default=True, metadata={
@@ -32,11 +36,10 @@ class AlternativeSplicingConfiguration:
     })
     valid_ccodes: list = field(default_factory=lambda: ["j", "J", "G", "h"], metadata={
         "description": "AS event class codes considered as valid AS events. Valid codes are in categories 'Alternative splicing', 'Extension' (with junction F1 lower than 100%), and 'Overlap' (exluding m). Please run 'mikado util class_codes' or refer to the online documentation for an explanation of each code.",
-        "validate": validate.ContainsOnly(["j", "e", "o", "h", "J", "C", "g", "G", "=", "n", "_"])})
+        "validate": validate.ContainsOnly(list(valid_as_ccodes))})
     redundant_ccodes: list = field(default_factory=lambda: ["c", "m", "_", "=", "n"], metadata={
         "description": "AS event class codes considered as a duplicate of other transcripts in the locus. Please run 'mikado util class_codes' or refer to the online documentation for an explanation of each code.",
-        "validate": validate.ContainsOnly(
-            ["j", "n", "O", "e", "o", "h", "J", "C", "c", "m", "mo", "=", "_", "x", "p", "P", "X", "I", "i"])
+        "validate": validate.ContainsOnly(list(redundant_as_ccodes))
     })
     min_score_perc: float = field(default=0.5, metadata={
         "description": "Minimum percentage of the score associated to an AS event *compared to the primary transcript* for the AS event to be considered valid. Default: 0.5, or 50%.",
@@ -125,7 +128,7 @@ class ChimeraSplitConfiguration:
         "description": "Input sources for which Mikado will skip the splitting, e.g. ultra-reliable full cDNA sequences.",
         "validate": validate.Length(min=0)})
     blast_params: BlastParamsConfiguration = field(default_factory=BlastParamsConfiguration, metadata={
-
+        "name": "blast_params",
         "description": "Parameters for the BLAST check prior to splitting.",
     })
 
@@ -244,33 +247,34 @@ class PickConfiguration:
     })
     alternative_splicing: AlternativeSplicingConfiguration = field(default_factory=AlternativeSplicingConfiguration,
                                                                    metadata={
-
+        "name": "alternative_splicing",
         "description": "Parameters related to how Mikado will select and report alternative splicing events.",
     })
     output_format: OutputFormatConfiguration = field(default_factory=OutputFormatConfiguration, metadata={
-
+        "name": "output_format",
         "description": "Parameters related to the output format.",
     })
     orf_loading: OrfLoadingConfiguration = field(default_factory=OrfLoadingConfiguration, metadata={
+        "name": "orf_loading",
         "description": "Parameters related to ORF loading.",
     })
     chimera_split: ChimeraSplitConfiguration = field(default_factory=ChimeraSplitConfiguration, metadata={
-
+        "name": "chimera_split",
         "description": "Parameters related to the splitting of transcripts in the presence of two or more ORFs.",
     })
     run_options: RunOptionsConfiguration = field(default_factory=RunOptionsConfiguration, metadata={
-
+        "name": "run_options",
         "description": "Generic run options for Mikado pick.",
     })
     clustering: ClusteringConfiguration = field(default_factory=ClusteringConfiguration, metadata={
-
+        "name": "clustering",
         "description": "Parameters related to the clustering of transcripts into loci.",
     })
     fragments: FragmentsConfiguration = field(default_factory=FragmentsConfiguration, metadata={
-
+        "name": "fragments",
         "description": "Parameters related to the handling of fragments."
     })
     files: FilesConfiguration = field(default_factory=FilesConfiguration, metadata={
-
+        "name": "files",
         "description": "Input and output files for Mikado pick.",
     })

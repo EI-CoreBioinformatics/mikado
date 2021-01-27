@@ -9,9 +9,9 @@ def _serialise_tabular(self):
     else:
         assert isinstance(self.xml, (list, set))
 
-    assert isinstance(self.json_conf, (DaijinConfiguration, MikadoConfiguration))
-    matrix_name = self.json_conf.serialise.substitution_matrix
-    program = self.json_conf.serialise.blast_flavour
+    assert isinstance(self.configuration, (DaijinConfiguration, MikadoConfiguration))
+    matrix_name = self.configuration.serialise.substitution_matrix
+    program = self.configuration.serialise.blast_flavour
     qmult, tmult = self.get_multipliers(None, program)
 
     if self._xml_debug is False and (self.single_thread is True or self.procs == 1):

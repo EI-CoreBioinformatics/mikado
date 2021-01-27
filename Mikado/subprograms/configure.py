@@ -14,12 +14,9 @@ from ..exceptions import InvalidJson
 from ..utilities import comma_split, percentage, merge_dictionaries
 from ..utilities.namespace import Namespace
 from ..configuration.configurator import load_and_validate_config
-from ..configuration import print_config, print_toml_config
-import rapidjson as json
+from ..configuration import print_config
 import tempfile
 from ..utilities.log_utils import create_null_logger, create_default_logger
-import tomlkit
-import toml
 try:
     from yaml import CSafeLoader as yLoader
 except ImportError:
@@ -49,69 +46,6 @@ def get_key(new_dict, key, default):
         assert len(key) == 1
         new_dict[key[0]] = default[key[0]]
     return new_dict
-
-
-def create_simple_config(seed=None):
-
-    """
-    Method to create a stripped down configuration dictionary
-    containing only SimpleComments and required fields.
-    :return:
-    """
-
-    from ..configuration.configurator import load_and_validate_config, create_validator, merge_dictionaries
-    from ..configuration import check_has_requirements
-
-    default = load_and_validate_config("", simple=True)
-    validator = create_validator(simple=True)
-
-    del default["scoring"]
-    del default["requirements"]
-    del default["not_fragmentary"]
-    del default["as_requirements"]
-    del default["cds_requirements"]
-
-    new_dict = dict()
-    composite_keys = [(ckey[1:]) for ckey in
-                      check_has_requirements(default,
-                                             validator.schema["properties"])] + [["seed"]]
-
-    # Sort the composite keys by depth
-    for ckey in sorted(composite_keys, key=len, reverse=True):
-        defa = default
-        # Get to the latest position
-        for key in ckey:
-            try:
-                defa = defa[key]
-            except KeyError:
-                raise KeyError(key, defa)
-        val = defa
-        for k in reversed(ckey):
-            val = {k: val}
-
-        new_dict = merge_dictionaries(new_dict, val)
-
-    if seed is not None:
-        new_dict["seed"] = seed
-
-    return new_dict
-
-
-def _remove_comments(d: dict) -> dict:
-
-    nudict = dict()
-
-    if not isinstance(d, dict):
-        return d
-
-    for key, item in d.items():
-        if key == "Comment" or "comment" in key.lower():
-            continue
-        elif isinstance(item, dict):
-            nudict[key] = _remove_comments(item)
-        else:
-            nudict[key] = item
-    return nudict
 
 
 def __add_daijin_specs(args, config):
@@ -288,36 +222,21 @@ switch.")
 
     # Check that the configuration file is correct
     tempcheck = tempfile.NamedTemporaryFile("wt", suffix=".yaml", delete=False)
-    output = yaml.dump(dataclasses.asdict(config), default_flow_style=False)
-    print_config(output, tempcheck)
+    print_config(config, tempcheck)
     tempcheck.flush()
     try:
         load_and_validate_config(tempcheck.name)
     except InvalidJson as exc:
         raise InvalidJson("Created an invalid configuration file! Error:\n{}".format(exc))
 
-    if not isinstance(config, dict):
-        config = dataclasses.asdict(config)
-
-    for key in ["filename", "scoring", "as_requirements", "cds_requirements", "not_fragmentary", "requirements"]:
-        config.pop(key, None)
-
-    if args.json is True:
-        json.dump(config, args.out, sort_keys=True, indent=4)
-    elif args.yaml is True:
-        output = yaml.dump(config, default_flow_style=False)
-        print_config(output, args.out)
-    elif args.toml is True:
-        output = tomlkit.dumps(config)
-        print_toml_config(output, args.out)
-    elif args.out.name.endswith("json"):
-        json.dump(config, args.out, sort_keys=True, indent=4)
-    elif args.out.name.endswith("yaml"):
-        output = yaml.dump(config, default_flow_style=False)
-        print_config(output, args.out)
+    if args.json is True or args.out.name.endswith("json"):
+        format_name = "json"
+    elif args.yaml is True or args.out.name.endswith("yaml"):
+        format_name = "yaml"
     else:
-        output = toml.dumps(config)
-        print_toml_config(output, args.out)
+        format_name = "toml"
+
+    print_config(config, args.out, format=format_name)
 
 
 def configure_parser():

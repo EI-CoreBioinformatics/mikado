@@ -44,7 +44,7 @@ Chr1    TAIR10    exon    5928    8737    .    .    .    Parent=AT1G01020.1"""
         self.tr.id, self.tr.parent, self.tr.name = "AT1G01020.1", "AT1G01020", "AT1G01020.1"
         self.tr.add_exon((8571, 8666), "CDS")
         self.tr.finalize()
-        self.tr.json_conf.pick.chimera_split.blast_check = False
+        self.tr.configuration.pick.chimera_split.blast_check = False
 
         self.orf = parsers.bed12.BED12()
         self.orf.chrom = self.tr.id
@@ -520,7 +520,7 @@ class TestWheatRNA(unittest.TestCase):
         self.assertFalse(bed2.invalid)
 
         transcript.logger = create_default_logger("test_wheat_negative_orf", "DEBUG")
-        transcript.json_conf.pick.orf_loading.minimal_secondary_orf_length = 150
+        transcript.configuration.pick.orf_loading.minimal_secondary_orf_length = 150
         transcript.load_orfs([bed, bed2])
         self.assertEqual(len(transcript.internal_orfs), 2)
         transcript.finalize()
@@ -624,7 +624,7 @@ Triticum_aestivum_CS42_TGACv1_scaffold_018974_1AS\tCufflinks\texon\t72914\t76276
 
     def test_split(self):
         self.tr.load_orfs([self.bed1, self.bed2])
-        self.tr.json_conf.pick.chimera_split.blast_params.leniency = "LENIENT"
+        self.tr.configuration.pick.chimera_split.blast_params.leniency = "LENIENT"
         self.assertEqual(self.tr.number_internal_orfs, 2)
         logger = create_default_logger("splitter")
         logger.setLevel("ERROR")
@@ -706,7 +706,7 @@ Triticum_aestivum_CS42_TGACv1_scaffold_019715_1AS\tCufflinks\texon\t44187\t49369
     def test_split(self):
 
         self.tr.load_orfs([self.bed1, self.bed2, self.bed3])
-        self.tr.json_conf.pick.chimera_split.blast_params.leniency = "LENIENT"
+        self.tr.configuration.pick.chimera_split.blast_params.leniency = "LENIENT"
 
         new = sorted([_ for _ in self.tr.split_by_cds()], key=operator.attrgetter("start", "end"))
         self.assertEqual(len(new), 3)
@@ -816,7 +816,7 @@ Chr3\tCufflinks\texon\t2949168\t2952410\t.\t-\t.\tgene_id "cufflinks_star_at.106
         logger = create_default_logger("splitter")
         logger.setLevel("DEBUG")
         self.tr.logger = logger
-        self.tr.json_conf.pick.chimera_split.blast_params.leniency = "LENIENT"
+        self.tr.configuration.pick.chimera_split.blast_params.leniency = "LENIENT"
 
         new_transcripts = sorted([_ for _ in self.tr.split_by_cds()])
 

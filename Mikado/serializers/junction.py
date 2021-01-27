@@ -134,15 +134,15 @@ class JunctionSerializer:
     """
 
     def __init__(self, handle,
-                 json_conf=None,
+                 configuration=None,
                  logger=None):
 
         """
         :param handle: the file to be serialized.
         :type handle: str | io.IOBase | io.TextIOWrapper
 
-        :param json_conf: Optional configuration dictionary with db connection parameters.
-        :type json_conf: (MikadoConfiguration|DaijinConfiguration)
+        :param configuration: Optional configuration dictionary with db connection parameters.
+        :type configuration: (MikadoConfiguration|DaijinConfiguration)
         """
 
         self.bed12_parser = None
@@ -160,8 +160,8 @@ class JunctionSerializer:
             return
 
         self.bed12_parser = bed12.Bed12Parser(handle)
-        self.engine = connect(json_conf, logger=logger)
-        self.db_settings = copy(json_conf.db_settings)
+        self.engine = connect(configuration, logger=logger)
+        self.db_settings = copy(configuration.db_settings)
 
         session = Session(bind=self.engine, autocommit=False, autoflush=False, expire_on_commit=False)
         inspector = Inspector.from_engine(self.engine)
@@ -169,17 +169,17 @@ class JunctionSerializer:
             DBBASE.metadata.create_all(self.engine)  # @UndefinedVariable
 
         self.session = session
-        if json_conf is not None:
-            self.maxobjects = json_conf.serialise.max_objects
+        if configuration is not None:
+            self.maxobjects = configuration.serialise.max_objects
         else:
             self.maxobjects = 10000
 
-        if not json_conf.reference.genome_fai:
-            _ = pyfaidx.Fasta(json_conf.reference.genome)
+        if not configuration.reference.genome_fai:
+            _ = pyfaidx.Fasta(configuration.reference.genome)
             self.fai = _.faidx.indexname
             _.close()
         else:
-            self.fai = json_conf.reference.genome_fai
+            self.fai = configuration.reference.genome_fai
 
         if isinstance(self.fai, str):
             assert os.path.exists(self.fai), "File {fai} does not exist!".format(fai=self.fai)

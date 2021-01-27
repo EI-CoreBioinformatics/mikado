@@ -44,20 +44,20 @@ class BlastSerializer:
 
     def __init__(self, xml_name,
                  logger=None,
-                 json_conf=None):
+                 configuration=None):
         """Initializing method. Arguments:
 
         :param xml_name: The XML(s) to parse.
 
         Arguments:
 
-        :param json_conf: a configuration dictionary.
-        :type json_conf: (MikadoConfiguration|DaijinConfiguration)
+        :param configuration: a configuration dictionary.
+        :type configuration: (MikadoConfiguration|DaijinConfiguration)
 
 
         """
 
-        if json_conf is None:
+        if configuration is None:
             raise ValueError("No configuration provided!")
 
         if logger is not None:
@@ -69,35 +69,35 @@ class BlastSerializer:
 
         # Runtime arguments
 
-        self.procs = json_conf.threads
-        self.single_thread = json_conf.serialise.single_thread
-        self.json_conf = json_conf
+        self.procs = configuration.threads
+        self.single_thread = configuration.serialise.single_thread
+        self.configuration = configuration
         # pylint: disable=unexpected-argument,E1123
-        multiprocessing.set_start_method(self.json_conf.multiprocessing_method, force=True)
+        multiprocessing.set_start_method(self.configuration.multiprocessing_method, force=True)
         # pylint: enable=unexpected-argument,E1123
         self.logger.info("Number of dedicated workers: %d", self.procs)
         self.logging_queue = multiprocessing.Queue(-1)
         self.logger_queue_handler = logging_handlers.QueueHandler(self.logging_queue)
         self.queue_logger = logging.getLogger("parser")
         self.queue_logger.addHandler(self.logger_queue_handler)
-        self.queue_logger.setLevel(self.json_conf.log_settings.log_level)
+        self.queue_logger.setLevel(self.configuration.log_settings.log_level)
         self.queue_logger.propagate = False
         self.log_writer = logging_handlers.QueueListener(self.logging_queue, self.logger)
         self.log_writer.start()
 
-        self._max_target_seqs = json_conf.serialise.max_target_seqs
-        self.maxobjects = json_conf.serialise.max_objects
-        target_seqs = json_conf.serialise.files.blast_targets
-        query_seqs = json_conf.serialise.files.transcripts
+        self._max_target_seqs = configuration.serialise.max_target_seqs
+        self.maxobjects = configuration.serialise.max_objects
+        target_seqs = configuration.serialise.files.blast_targets
+        query_seqs = configuration.serialise.files.transcripts
 
         self.header = None
         if xml_name is None:
             self.logger.warning("No BLAST XML provided. Exiting.")
             return
 
-        self.engine = connect(json_conf)
+        self.engine = connect(configuration)
 
-        self._xml_debug = self.json_conf.serialise.files.blast_loading_debug
+        self._xml_debug = self.configuration.serialise.files.blast_loading_debug
         if self._xml_debug:
             self.logger.warning("Activating the XML debug mode")
             self.single_thread = True

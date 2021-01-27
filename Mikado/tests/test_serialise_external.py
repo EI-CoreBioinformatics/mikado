@@ -20,14 +20,14 @@ class TestExternal(unittest.TestCase):
 
     def setUp(self):
         self.dbfile = tempfile.mktemp(suffix=".db")
-        self.json_conf = configuration.configurator.load_and_validate_config(None)
-        self.json_conf.db_settings.dbtype = "sqlite"
-        self.json_conf.db_settings.db = self.dbfile
+        self.configuration = configuration.configurator.load_and_validate_config(None)
+        self.configuration.db_settings.dbtype = "sqlite"
+        self.configuration.db_settings.db = self.dbfile
         self.__create_session()
 
     def __create_session(self):
         self.engine = utilities.dbutils.connect(
-            self.json_conf, self.logger)
+            self.configuration, self.logger)
         self.sessionmaker = sqlalchemy.orm.sessionmaker(bind=self.engine)
         self.session = self.sessionmaker()
         DBBASE.metadata.create_all(self.engine)
@@ -95,7 +95,7 @@ class TestExternal(unittest.TestCase):
         with tempfile.NamedTemporaryFile() as temp_df:
             df.to_csv(temp_df.name, sep="\t", index_label="tid", mode="wt", header=True)
             temp_df.flush()
-            conf = self.json_conf.copy()
+            conf = self.configuration.copy()
             conf.serialise.files.transcripts = None
             serializer = ExternalSerializer(temp_df.name, conf)
             serializer.serialize()

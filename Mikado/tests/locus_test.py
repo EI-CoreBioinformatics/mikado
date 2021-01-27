@@ -227,11 +227,11 @@ class AbstractLocusTester(unittest.TestCase):
 
         self.assertTrue(self.transcript2.monoexonic)
         self.assertEqual(self.transcript2.chrom, gff_transcript2[0].chrom)
-        self.json_conf = configurator.load_and_validate_config(None)
-        self.assertIsNotNone(self.json_conf.scoring, self.json_conf)
+        self.configuration = configurator.load_and_validate_config(None)
+        self.assertIsNotNone(self.configuration.scoring, self.configuration)
 
-        self.transcript1.json_conf = self.json_conf
-        self.transcript2.json_conf = self.json_conf
+        self.transcript1.configuration = self.configuration
+        self.transcript2.configuration = self.configuration
 
     def test_not_implemented(self):
         with self.assertRaises(TypeError):
@@ -239,8 +239,8 @@ class AbstractLocusTester(unittest.TestCase):
 
     def test_equality(self):
         for child1, child2 in combinations_with_replacement([Superlocus, Sublocus, Monosublocus, Locus], 2):
-            obj1, obj2 = (child1(self.transcript1, json_conf=self.json_conf),
-                          child2(self.transcript1, json_conf=self.json_conf))
+            obj1, obj2 = (child1(self.transcript1, configuration=self.configuration),
+                          child2(self.transcript1, configuration=self.configuration))
             if child1 == child2:
                 self.assertEqual(obj1, obj2)
             else:
@@ -263,7 +263,7 @@ class AbstractLocusTester(unittest.TestCase):
         for child in [Superlocus, Sublocus, Monosublocus, Locus]:
             child1 = child(self.transcript1)
             # Check compiled in dictionary
-            self.assertIsInstance(child1.json_conf, (MikadoConfiguration, DaijinConfiguration))
+            self.assertIsInstance(child1.configuration, (MikadoConfiguration, DaijinConfiguration))
             obj = pickle.dumps(child1)
             nobj = pickle.loads(obj)
             self.assertEqual(child1, nobj)
@@ -317,7 +317,7 @@ class AbstractLocusTester(unittest.TestCase):
     def test_invalid_sublocus(self):
 
         with self.assertRaises((OSError, FileNotFoundError, exceptions.InvalidJson)):
-            _ = Sublocus(self.transcript1, json_conf="test")
+            _ = Sublocus(self.transcript1, configuration="test")
 
     def test_sublocus_from_sublocus(self):
 
@@ -399,7 +399,7 @@ Chr1\tfoo\texon\t501\t600\t.\t+\t.\tID=t1:exon3;Parent=t1""".split("\n")
         self.transcript2.logger = logger
         self.assertTrue(self.transcript1.monoexonic)
         slocus = Superlocus(self.transcript1,
-                            json_conf=self.my_json, logger=logger)
+                            configuration=self.my_json, logger=logger)
         slocus.add_transcript_to_locus(self.transcript2)
         self.assertEqual(len(slocus.transcripts), 2)
         self.assertEqual(slocus.strand, self.transcript1.strand)
@@ -435,7 +435,7 @@ Chr1\tfoo\texon\t801\t1000\t.\t-\t.\tID=tminus0:exon1;Parent=tminus0""".split("\
         self.assertGreater(transcript3.combined_cds_length, 0)
         self.my_json.pick.clustering.purge = True
         logger.setLevel("WARNING")
-        minusuperlocus = Superlocus(transcript3, json_conf=self.my_json)
+        minusuperlocus = Superlocus(transcript3, configuration=self.my_json)
         minusuperlocus.logger = logger
         minusuperlocus.define_subloci()
         self.assertGreater(len(minusuperlocus.subloci), 0)
@@ -455,7 +455,7 @@ Chr1\tfoo\texon\t801\t1000\t.\t-\t.\tID=tminus0:exon1;Parent=tminus0""".split("\
                 t2 = "1\t105\t2300\tID=T2;coding=False\t0\t{strand}\t105\t2300\t0\t1\t2195\t0".format(
                     strand=strand if strand else ".")
                 t2 = Transcript(BED12(t2))
-                sl = loci.Superlocus(t1, stranded=stranded, json_conf=None)
+                sl = loci.Superlocus(t1, stranded=stranded, configuration=None)
                 self.assertIn(t1.id, sl)
                 if not stranded or t2.strand == t1.strand:
                     sl.add_transcript_to_locus(t2)
@@ -534,7 +534,7 @@ Chr1\tfoo\texon\t801\t1000\t.\t-\t.\tID=tminus0:exon1;Parent=tminus0""".split("\
 
         jconf = configurator.load_and_validate_config(None)
 
-        loc = Superlocus(t1, json_conf=jconf)
+        loc = Superlocus(t1, configuration=jconf)
         loc.add_transcript_to_locus(t2)
         loc.add_transcript_to_locus(t3)
 
@@ -601,7 +601,7 @@ Chr1\tfoo\texon\t801\t1000\t.\t-\t.\tID=tminus0:exon1;Parent=tminus0""".split("\
         logger = create_default_logger(inspect.getframeinfo(inspect.currentframe())[2])
         for suspicious in (False, True):
             with self.subTest(suspicious=suspicious):
-                loc = Superlocus(t1, json_conf=jconf, logger=logger)
+                loc = Superlocus(t1, configuration=jconf, logger=logger)
                 t2.attributes["canonical_on_reverse_strand"] = suspicious
                 loc.add_transcript_to_locus(t2)
                 loc.add_transcript_to_locus(t3)
@@ -831,7 +831,7 @@ class ASeventsTester(unittest.TestCase):
         
         self.locus = Locus(self.t1)
         self.locus.logger = self.logger
-        self.locus.json_conf = self.conf
+        self.locus.configuration = self.conf
 
     def test_not_intersecting(self):
 
@@ -856,7 +856,7 @@ class ASeventsTester(unittest.TestCase):
         
         t1 = self.t1.copy()
         t1.strip_cds()
-        locus = Locus(t1, json_conf=self.conf, logger=self.logger)
+        locus = Locus(t1, configuration=self.conf, logger=self.logger)
         t2 = Transcript()
         t2.chrom = "Chr1"
         t2.strand = "+"
@@ -888,7 +888,7 @@ class ASeventsTester(unittest.TestCase):
         t2.add_exons([(401, 500), (601, 700), (1001, 1300), (1401, 1440)],
                      "CDS")
         t2.finalize()        
-        self.locus.json_conf.pick.alternative_splicing.cds_only = False
+        self.locus.configuration.pick.alternative_splicing.cds_only = False
 
         self.assertEqual(self.locus.is_alternative_splicing(t2)[:2], (True, "J"))
 
@@ -959,9 +959,9 @@ class ASeventsTester(unittest.TestCase):
 
         # self.locus.add_transcript_to_locus(t2)
         self.assertEqual(self.locus.is_alternative_splicing(t2)[:2], (True, "J"))
-        self.locus.json_conf.pick.clustering.cds_only = True
+        self.locus.configuration.pick.clustering.cds_only = True
         self.assertEqual(self.locus.is_alternative_splicing(t2)[:2], (True, "J"))
-        self.locus.json_conf.pick.alternative_splicing.cds_only = True
+        self.locus.configuration.pick.alternative_splicing.cds_only = True
         self.assertEqual(self.locus.is_alternative_splicing(t2)[:2], (False, "="))
 
     def test_redundant_cds_non_redundant_cdna(self):
@@ -1001,20 +1001,20 @@ class ASeventsTester(unittest.TestCase):
         t3.finalize()
 
         self.assertEqual(self.locus.is_alternative_splicing(t3)[:2], (True, "j"))
-        self.locus.json_conf.pick.clustering.cds_only = True
+        self.locus.configuration.pick.clustering.cds_only = True
         self.assertEqual(self.locus.is_alternative_splicing(t3)[:2], (True, "j"))
-        self.locus.json_conf.pick.alternative_splicing.cds_only = True
+        self.locus.configuration.pick.alternative_splicing.cds_only = True
         self.assertEqual(self.locus.is_alternative_splicing(t3)[:2], (False, "j"))
-        self.locus.json_conf.pick.clustering.cds_only = False
-        self.locus.json_conf.pick.alternative_splicing.cds_only = False
+        self.locus.configuration.pick.clustering.cds_only = False
+        self.locus.configuration.pick.alternative_splicing.cds_only = False
         self.locus.add_transcript_to_locus(t3)
         self.assertEqual(len(self.locus.transcripts), 3, self.locus.transcripts)
         self.locus.remove_transcript_from_locus(t3.id)
-        self.locus.json_conf.pick.clustering.cds_only = True
+        self.locus.configuration.pick.clustering.cds_only = True
         self.locus.add_transcript_to_locus(t3)
         self.assertEqual(len(self.locus.transcripts), 3, self.locus.transcripts)
         self.locus.remove_transcript_from_locus(t3.id)
-        self.locus.json_conf.pick.alternative_splicing.cds_only = True
+        self.locus.configuration.pick.alternative_splicing.cds_only = True
         self.locus.add_transcript_to_locus(t3)
         self.assertEqual(len(self.locus.transcripts), 2, self.locus.transcripts)
 
@@ -1393,7 +1393,7 @@ class MonoHolderTester(unittest.TestCase):
         ]
 
         superlocus = None
-        json_conf = configurator.load_and_validate_config(None)
+        configuration = configurator.load_and_validate_config(None)
 
         for transcript in transcripts:
             tr = Transcript()
@@ -1402,9 +1402,9 @@ class MonoHolderTester(unittest.TestCase):
             tr.add_exons(exons, features="exon")
             tr.add_exons(exons, features="CDS")
             tr.finalize()
-            subl = Sublocus(tr, json_conf=json_conf)
+            subl = Sublocus(tr, configuration=configuration)
             if superlocus is None:
-                superlocus = Superlocus(tr, json_conf=json_conf)
+                superlocus = Superlocus(tr, configuration=configuration)
             else:
                 superlocus.add_transcript_to_locus(tr, check_in_locus=False)
             superlocus.subloci.append(subl)
@@ -1413,8 +1413,8 @@ class MonoHolderTester(unittest.TestCase):
         superlocus.subloci_defined = True
         self.assertEqual(len(superlocus.subloci), len(transcripts))
         superlocus.logger = create_default_logger("test_holder_clustering", level="DEBUG")
-        self.assertFalse(superlocus.json_conf.pick.clustering.simple_overlap_for_monoexonic)
-        superlocus.json_conf.requirements = None
+        self.assertFalse(superlocus.configuration.pick.clustering.simple_overlap_for_monoexonic)
+        superlocus.configuration.requirements = None
         superlocus.calculate_mono_metrics()
         self.assertEqual(len(superlocus.monoholders), 1,
                          "\n".join([", ".join(list(_.transcripts.keys())) for _ in superlocus.monoholders]))
@@ -1452,9 +1452,9 @@ class MonoHolderTester(unittest.TestCase):
             with self.subTest(simple=simple):
                 jconf.pick.clustering.simple_overlap_for_monoexonic = simple
                 self.logger.setLevel("DEBUG")
-                slocus = Superlocus(t1, json_conf=jconf, logger=self.logger)
+                slocus = Superlocus(t1, configuration=jconf, logger=self.logger)
                 slocus.add_transcript_to_locus(t2)
-                locus = Locus(t1, json_conf=jconf)
+                locus = Locus(t1, configuration=jconf)
                 slocus.loci[locus.id] = locus
                 slocus.define_alternative_splicing()
                 self.assertEqual(len(slocus.loci[locus.id].transcripts), 1)
@@ -1477,19 +1477,19 @@ class TestLocus(unittest.TestCase):
         """Set up for the unit test."""
 
         # Mock dictionary to be used for the alternative splicing checks
-        self.json_conf = configurator.load_and_validate_config(None)
-        self.json_conf.pick.alternative_splicing.report = True
-        self.json_conf.pick.alternative_splicing.pad = True
-        self.json_conf.pick.alternative_splicing.max_isoforms = 3
-        self.json_conf.pick.alternative_splicing.keep_retained_introns = False
-        self.json_conf.pick.alternative_splicing.min_cds_overlap = 0
-        self.json_conf.pick.alternative_splicing.min_cdna_overlap = 0
-        self.json_conf.pick.alternative_splicing.min_score_perc = 0.1
-        self.json_conf.pick.alternative_splicing.valid_ccodes = ["j", "G", "g"]
-        self.json_conf.pick.alternative_splicing.redundant_ccodes = ["c", "=", "_", "m", "n"]
-        self.json_conf.pick.alternative_splicing.only_confirmed_introns = False
+        self.configuration = configurator.load_and_validate_config(None)
+        self.configuration.pick.alternative_splicing.report = True
+        self.configuration.pick.alternative_splicing.pad = True
+        self.configuration.pick.alternative_splicing.max_isoforms = 3
+        self.configuration.pick.alternative_splicing.keep_retained_introns = False
+        self.configuration.pick.alternative_splicing.min_cds_overlap = 0
+        self.configuration.pick.alternative_splicing.min_cdna_overlap = 0
+        self.configuration.pick.alternative_splicing.min_score_perc = 0.1
+        self.configuration.pick.alternative_splicing.valid_ccodes = ["j", "G", "g"]
+        self.configuration.pick.alternative_splicing.redundant_ccodes = ["c", "=", "_", "m", "n"]
+        self.configuration.pick.alternative_splicing.only_confirmed_introns = False
 
-        # self.json_conf = configurator.check_json(self.json_conf)
+        # self.configuration = configurator.check_json(self.configuration)
 
         t1 = """Chr1\tfoo\ttranscript\t1001\t3000\t.\t+\t.\tgene_id "Chr1.1"; transcript_id "Chr1.1.1";
         Chr1\tfoo\texon\t1001\t1300\t.\t+\t.\tgene_id "Chr1.1"; transcript_id "Chr1.1.1";
@@ -1575,7 +1575,7 @@ class TestLocus(unittest.TestCase):
         self.t1_retained.finalize()
 
         self.logger.setLevel(logging.WARNING)
-        self.json_conf.reference.genome = self.fai.filename.decode()
+        self.configuration.reference.genome = self.fai.filename.decode()
 
     def test_validity(self):
         """
@@ -1603,7 +1603,7 @@ class TestLocus(unittest.TestCase):
         """
 
         locus = loci.Locus(self.t1, logger=self.logger)
-        locus.json_conf = self.json_conf
+        locus.configuration = self.configuration
         self.assertEqual(len(locus.transcripts), 1)
 
     def test_exclude_contained(self):
@@ -1611,7 +1611,7 @@ class TestLocus(unittest.TestCase):
         """Test that we exclude a transcript with a contained class code (c)"""
 
         locus = loci.Locus(self.t1, logger=self.logger)
-        locus.json_conf = self.json_conf
+        locus.configuration = self.configuration
         self.assertEqual(len(locus.transcripts), 1)
         locus.add_transcript_to_locus(self.t1_contained)
         self.assertEqual(len(locus.transcripts), 1)
@@ -1622,8 +1622,8 @@ class TestLocus(unittest.TestCase):
         we explicitly ask for it"""
 
         locus = loci.Locus(self.t1, logger=self.logger)
-        locus.json_conf = self.json_conf.copy()
-        locus.json_conf.pick.alternative_splicing.valid_ccodes.append("c")
+        locus.configuration = self.configuration.copy()
+        locus.configuration.pick.alternative_splicing.valid_ccodes.append("c")
         self.assertEqual(len(locus.transcripts), 1)
         locus.add_transcript_to_locus(self.t1_contained)
         self.assertEqual(len(locus.transcripts), 2)
@@ -1634,7 +1634,7 @@ class TestLocus(unittest.TestCase):
         it passes the muster."""
 
         locus = loci.Locus(self.t1, logger=self.logger)
-        locus.json_conf = self.json_conf
+        locus.configuration = self.configuration
         self.assertEqual(len(locus.transcripts), 1)
         locus.add_transcript_to_locus(self.t1_as)
         self.assertEqual(len(locus.transcripts), 2)
@@ -1648,16 +1648,16 @@ class TestLocus(unittest.TestCase):
         """
 
         locus = loci.Locus(self.t1, logger=self.logger)
-        locus.json_conf = self.json_conf.copy()
+        locus.configuration = self.configuration.copy()
         self.assertEqual(len(locus.transcripts), 1)
 
-        locus.json_conf.pick.alternative_splicing.max_isoforms = 3
-        locus.json_conf.pick.alternative_splicing.valid_ccodes = ["n", "O", "h"]
+        locus.configuration.pick.alternative_splicing.max_isoforms = 3
+        locus.configuration.pick.alternative_splicing.valid_ccodes = ["n", "O", "h"]
         locus.add_transcript_to_locus(self.t1_as)
         self.assertEqual(len(locus.transcripts), 1)
 
-        locus.json_conf.pick.alternative_splicing.valid_ccodes.append("j")
-        locus.json_conf.pick.alternative_splicing.min_cds_overlap = 1
+        locus.configuration.pick.alternative_splicing.valid_ccodes.append("j")
+        locus.configuration.pick.alternative_splicing.min_cds_overlap = 1
 
         locus.add_transcript_to_locus(self.t1_as)
         self.assertEqual(len(locus.transcripts), 1)
@@ -1669,7 +1669,7 @@ class TestLocus(unittest.TestCase):
         logger = self.logger
         # logger.setLevel(logging.DEBUG)
         locus = loci.Locus(self.t1, logger=logger)
-        locus.json_conf = self.json_conf.copy()
+        locus.configuration = self.configuration.copy()
         self.assertEqual(len(locus.transcripts), 1)
         locus.add_transcript_to_locus(candidate)
         self.assertEqual(len(locus.transcripts), 1)
@@ -1681,11 +1681,11 @@ class TestLocus(unittest.TestCase):
         candidate = self.t1
         pickle.dumps(candidate)
 
-        json_conf = configurator.load_and_validate_config(None)
+        configuration = configurator.load_and_validate_config(None)
 
         for obj in Superlocus, Sublocus, Locus:
             with self.subTest(obj=obj):
-                locus = obj(candidate, json_conf=json_conf)
+                locus = obj(candidate, configuration=configuration)
                 pickle.dumps(locus)
 
     def test_double_orf(self):
@@ -1770,10 +1770,10 @@ class TestLocus(unittest.TestCase):
         conf.pick.alternative_splicing.min_cds_overlap = 0.75
 
         with self.subTest():
-            superlocus_one = Superlocus(t1, json_conf=conf)
+            superlocus_one = Superlocus(t1, configuration=conf)
             superlocus_one.add_transcript_to_locus(t1_1)
 
-            locus_one = Locus(t1, json_conf=conf)
+            locus_one = Locus(t1, configuration=conf)
             locus_one.logger = logger
             superlocus_one.loci[locus_one.id] = locus_one
             superlocus_one.loci_defined = True
@@ -1787,9 +1787,9 @@ class TestLocus(unittest.TestCase):
                                  cm.output)
 
         with self.subTest():
-            superlocus_two = Superlocus(t2, json_conf=conf)
+            superlocus_two = Superlocus(t2, configuration=conf)
             superlocus_two.add_transcript_to_locus(t2_1)
-            locus_two = Locus(t2, json_conf=conf)
+            locus_two = Locus(t2, configuration=conf)
             superlocus_two.loci[locus_two.id] = locus_two
             superlocus_two.loci_defined = True
             superlocus_two.logger = logger
@@ -1799,12 +1799,12 @@ class TestLocus(unittest.TestCase):
                         t2.id in superlocus_two.loci[_].transcripts][0]
             self.assertEqual(len(superlocus_two.loci[locus_id].transcripts), 2)
         with self.subTest():
-            superlocus = Superlocus(t1, json_conf=conf)
+            superlocus = Superlocus(t1, configuration=conf)
             superlocus.add_transcript_to_locus(t2, check_in_locus=False)
             superlocus.add_transcript_to_locus(t1_1)
             superlocus.add_transcript_to_locus(t2_1)
-            locus_one = Locus(t1_1, json_conf=conf, logger=logger)
-            locus_two = Locus(t2, json_conf=conf, logger=logger)
+            locus_one = Locus(t1_1, configuration=conf, logger=logger)
+            locus_two = Locus(t2, configuration=conf, logger=logger)
             superlocus.loci[locus_one.id] = locus_one
             superlocus.loci[locus_two.id] = locus_two
             self.assertEqual(len(superlocus.loci[locus_one.id].transcripts), 1)
@@ -2033,7 +2033,7 @@ Chr1	100	2682	ID=test_3;coding=True;phase=0	0	+	497	2474	0	7	234,201,41,164,106,
 
         for pred, retained in [(t2, True), (t3, False)]:
             with self.subTest(pred=pred, retained=retained):
-                sup = Superlocus(t1, json_conf=self.my_json)
+                sup = Superlocus(t1, configuration=self.my_json)
                 sup.add_transcript_to_locus(pred)
                 sup.find_retained_introns(pred)
                 self.assertEqual((len(sup.transcripts[pred.id].retained_introns) > 0),
@@ -2153,7 +2153,7 @@ Chr1	100	2682	ID=test_3;coding=True;phase=0	0	+	497	2474	0	7	234,201,41,164,106,
         for pred, retained in [(t2, True), (t3, False)]:
             with self.subTest(pred=pred, retained=retained):
                 logger.setLevel("WARNING")
-                sup = Superlocus(t1, json_conf=self.my_json, logger=logger)
+                sup = Superlocus(t1, configuration=self.my_json, logger=logger)
                 sup.add_transcript_to_locus(pred)
                 sup.find_retained_introns(pred)
                 self.assertEqual((len(sup.transcripts[pred.id].retained_introns) > 0),
@@ -2162,7 +2162,7 @@ Chr1	100	2682	ID=test_3;coding=True;phase=0	0	+	497	2474	0	7	234,201,41,164,106,
                 unpickled_t1 = pickle.loads(pickle.dumps(t1))
                 unpickled_other = pickle.loads(pickle.dumps(pred))
                 logger.setLevel("WARNING")
-                sup = Superlocus(unpickled_t1, json_conf=self.my_json, logger=logger)
+                sup = Superlocus(unpickled_t1, configuration=self.my_json, logger=logger)
                 sup.add_transcript_to_locus(unpickled_other)
                 sup.find_retained_introns(pred)
                 self.assertEqual((len(sup.transcripts[pred.id].retained_introns) > 0),
@@ -2193,7 +2193,7 @@ Chr1	100	2682	ID=test_3;coding=True;phase=0	0	+	497	2474	0	7	234,201,41,164,106,
         self.assertEqual(t2.combined_cds_end, 1420)
 
         logger = create_default_logger("test_real_retained_pos_truncated")
-        sup = Superlocus(t1, json_conf=self.my_json, logger=logger)
+        sup = Superlocus(t1, configuration=self.my_json, logger=logger)
         sup.add_transcript_to_locus(t2)
 
         sup.logger.setLevel("DEBUG")
@@ -2238,7 +2238,7 @@ Chr1	100	2682	ID=test_3;coding=True;phase=0	0	+	497	2474	0	7	234,201,41,164,106,
 
         for pred, retained in [(t2, True), (t3, False)]:
             with self.subTest(pred=pred, retained=retained):
-                sup = Superlocus(t1, json_conf=self.my_json)
+                sup = Superlocus(t1, configuration=self.my_json)
                 sup.add_transcript_to_locus(pred)
                 sup.find_retained_introns(pred)
                 self.assertEqual((len(sup.transcripts[pred.id].retained_introns) > 0),
@@ -2268,7 +2268,7 @@ Chr1	100	2682	ID=test_3;coding=True;phase=0	0	+	497	2474	0	7	234,201,41,164,106,
         t2.finalize()
         self.assertEqual(t2.combined_cds_end, 601)
 
-        sup = Superlocus(t1, json_conf=self.my_json)
+        sup = Superlocus(t1, configuration=self.my_json)
         sup.add_transcript_to_locus(t2)
         sup.find_retained_introns(t2)
 
@@ -2293,7 +2293,7 @@ Chr1	100	2682	ID=test_3;coding=True;phase=0	0	+	497	2474	0	7	234,201,41,164,106,
         t2.add_exons([(101, 500), (801, 1000), (1201, 1600)])
         t2.finalize()
 
-        sup = Superlocus(t1, json_conf=self.my_json)
+        sup = Superlocus(t1, configuration=self.my_json)
         sup.add_transcript_to_locus(t2)
 
         sup.logger = create_default_logger("test_real_retained_pos_noCDS", level="DEBUG")
@@ -2333,7 +2333,7 @@ Chr1	100	2682	ID=test_3;coding=True;phase=0	0	+	497	2474	0	7	234,201,41,164,106,
 
         for pred in [t2, t3]:
             with self.subTest(pred=pred):
-                sup = Superlocus(t1, json_conf=self.my_json)
+                sup = Superlocus(t1, configuration=self.my_json)
                 sup.add_transcript_to_locus(pred)
                 sup.find_retained_introns(pred)
                 if pred == t2:
@@ -2343,7 +2343,7 @@ Chr1	100	2682	ID=test_3;coding=True;phase=0	0	+	497	2474	0	7	234,201,41,164,106,
                 self.assertFalse(sup.transcripts[pred.id].cds_disrupted_by_ri)
                 unpickled_t1 = pickle.loads(pickle.dumps(t1))
                 unpickled_other = pickle.loads(pickle.dumps(pred))
-                sup = Superlocus(unpickled_t1, json_conf=self.my_json)
+                sup = Superlocus(unpickled_t1, configuration=self.my_json)
                 sup.add_transcript_to_locus(unpickled_other)
                 sup.find_retained_introns(unpickled_other)
                 if pred == t2:
@@ -2377,7 +2377,7 @@ Chr1	100	2682	ID=test_3;coding=True;phase=0	0	+	497	2474	0	7	234,201,41,164,106,
             [(3168568, 3168869),(3168954, 3169234),(3169327, 3169471),(3169589, 3170192)],
         features="CDS")
 
-        sup = Superlocus(t1, json_conf=self.my_json)
+        sup = Superlocus(t1, configuration=self.my_json)
         sup.add_transcript_to_locus(t2)
         sup.find_retained_introns(t2)
         self.assertGreater(sup.transcripts[t2.id].retained_intron_num, 0)
@@ -2405,7 +2405,7 @@ Chr1	100	2682	ID=test_3;coding=True;phase=0	0	+	497	2474	0	7	234,201,41,164,106,
         t2.finalize()
 
         with self.subTest():
-            sup = Superlocus(t1, json_conf=self.my_json)
+            sup = Superlocus(t1, configuration=self.my_json)
             sup.add_transcript_to_locus(t2)
             sup.logger = create_default_logger("test_real_retained_neg",
                                                level="DEBUG")
@@ -2415,7 +2415,7 @@ Chr1	100	2682	ID=test_3;coding=True;phase=0	0	+	497	2474	0	7	234,201,41,164,106,
         with self.subTest():
             unpickled_t1 = pickle.loads(pickle.dumps(t1))
             unpickled_other = pickle.loads(pickle.dumps(t2))
-            sup = Superlocus(unpickled_t1, json_conf=self.my_json)
+            sup = Superlocus(unpickled_t1, configuration=self.my_json)
             sup.add_transcript_to_locus(unpickled_other)
             sup.find_retained_introns(unpickled_other)
             self.assertEqual(sup.transcripts["t2"].retained_introns, ((401, 1000),))
@@ -2478,7 +2478,7 @@ Chr1	100	2682	ID=test_3;coding=True;phase=0	0	+	497	2474	0	7	234,201,41,164,106,
             unpickled_t1 = pickle.loads(pickle.dumps(t1))
             unpickled_alt = pickle.loads(pickle.dumps(alt))
             with self.subTest(alt=alt):
-                sup = Superlocus(t1, json_conf=self.my_json, logger=logger)
+                sup = Superlocus(t1, configuration=self.my_json, logger=logger)
                 logger.setLevel("DEBUG")
                 sup.find_retained_introns(alt)
                 self.assertEqual(alt.retained_intron_num, num_retained,
@@ -2487,7 +2487,7 @@ Chr1	100	2682	ID=test_3;coding=True;phase=0	0	+	497	2474	0	7	234,201,41,164,106,
                                  (alt.id, alt.retained_introns))
                 logger.setLevel("WARNING")
             with self.subTest(alt=alt):
-                sup = Superlocus(unpickled_t1, json_conf=self.my_json)
+                sup = Superlocus(unpickled_t1, configuration=self.my_json)
                 sup.find_retained_introns(unpickled_alt)
                 self.assertEqual(unpickled_alt.retained_intron_num, num_retained,
                                  unpickled_alt.retained_introns)
@@ -2553,7 +2553,7 @@ Chr1	100	2682	ID=test_3;coding=True;phase=0	0	+	497	2474	0	7	234,201,41,164,106,
         scores = list(sorted(scores.items(), key=operator.itemgetter(1), reverse=True))
         self.assertEqual(len(scores), 5)
 
-        locus = Locus(transcripts[scores[0][0]], json_conf=conf, logger=logger)
+        locus = Locus(transcripts[scores[0][0]], configuration=conf, logger=logger)
         for tid, score in scores[1:]:
             locus.add_transcript_to_locus(transcripts[tid], check_in_locus=False)
 
@@ -2588,7 +2588,7 @@ Chr1	100	2682	ID=test_3;coding=True;phase=0	0	+	497	2474	0	7	234,201,41,164,106,
                       ], features="CDS")
         t2.finalize()
 
-        sup = Superlocus(t1, json_conf=self.my_json)
+        sup = Superlocus(t1, configuration=self.my_json)
         sup.add_transcript_to_locus(t2)
 
         self.assertEqual(t2.cds_tree.find(301, 1000),
@@ -2646,7 +2646,7 @@ Chr1	100	2682	ID=test_3;coding=True;phase=0	0	+	497	2474	0	7	234,201,41,164,106,
                       ], features="CDS")
         t2.finalize()
 
-        sup = Superlocus(t1, json_conf=self.my_json)
+        sup = Superlocus(t1, configuration=self.my_json)
         sup.add_transcript_to_locus(t2)
 
         sup.find_retained_introns(t2)
@@ -2677,7 +2677,7 @@ Chr1	100	2682	ID=test_3;coding=True;phase=0	0	+	497	2474	0	7	234,201,41,164,106,
         #               ], features="CDS")
         t2.finalize()
 
-        sup = Superlocus(t1, json_conf=self.my_json)
+        sup = Superlocus(t1, configuration=self.my_json)
         sup.add_transcript_to_locus(t2)
 
         sup.find_retained_introns(t2)
@@ -2710,7 +2710,7 @@ Chr1	100	2682	ID=test_3;coding=True;phase=0	0	+	497	2474	0	7	234,201,41,164,106,
         self.assertEqual(len(t2.cds_tree), len(t2.combined_cds) + len(t2.combined_cds_introns))
         self.assertEqual(len(t2.cds_tree), 5)
 
-        sup = Superlocus(t1, json_conf=self.my_json)
+        sup = Superlocus(t1, configuration=self.my_json)
         sup.add_transcript_to_locus(t2)
 
         sup.find_retained_introns(t2)
@@ -2741,7 +2741,7 @@ Chr1	100	2682	ID=test_3;coding=True;phase=0	0	+	497	2474	0	7	234,201,41,164,106,
         #               ], features="CDS")
         t2.finalize()
 
-        sup = Superlocus(t1, json_conf=self.my_json)
+        sup = Superlocus(t1, configuration=self.my_json)
         sup.add_transcript_to_locus(t2)
 
         sup.find_retained_introns(t2)
@@ -2765,7 +2765,7 @@ Chr1	100	2682	ID=test_3;coding=True;phase=0	0	+	497	2474	0	7	234,201,41,164,106,
         t2.finalize()
 
         logger = create_default_logger("test_neg_delayed_cds", level="WARNING")
-        sup = Superlocus(t1, json_conf=self.my_json, logger=logger)
+        sup = Superlocus(t1, configuration=self.my_json, logger=logger)
         sup.add_transcript_to_locus(t2)
         sup.find_retained_introns(t2)
 
@@ -2794,7 +2794,7 @@ Chr1	100	2682	ID=test_3;coding=True;phase=0	0	+	497	2474	0	7	234,201,41,164,106,
                       ], features="CDS")
         t2.finalize()
 
-        sup = Superlocus(t1, json_conf=self.my_json, stranded=False)
+        sup = Superlocus(t1, configuration=self.my_json, stranded=False)
         sup.add_transcript_to_locus(t2)
 
         sup.find_retained_introns(t2)
@@ -2854,7 +2854,7 @@ Chr1	100	2682	ID=test_3;coding=True;phase=0	0	+	497	2474	0	7	234,201,41,164,106,
                     self.assertTrue(transcripts[tid].is_coding, tid)
                 sup = Superlocus(transcripts["t1"])
                 sup.logger = logger
-                sup.json_conf.pick.clustering.purge = False
+                sup.configuration.pick.clustering.purge = False
                 self.assertIn("t1", sup.transcripts.keys())
                 for tid in transcripts:
                     if tid == "t1":
@@ -2945,7 +2945,7 @@ class PicklingTest(unittest.TestCase):
         t3.finalize()
 
         self.t1, self.t2, self.t3 = t1, t2, t3
-        self.json_conf = configurator.load_and_validate_config(None)
+        self.configuration = configurator.load_and_validate_config(None)
 
     def test_transcript_pickling(self):
 
@@ -2963,7 +2963,7 @@ class PicklingTest(unittest.TestCase):
         for transcript in [self.t1, self.t2, self.t3]:
             for (loc_type, loc_name) in [(_, _.__name__) for _ in (Superlocus, Sublocus, Monosublocus, Locus)]:
                 with self.subTest(transcript=transcript, loc_type=loc_type, loc_name=loc_name):
-                    loc = loc_type(transcript, json_conf=self.json_conf)
+                    loc = loc_type(transcript, configuration=self.configuration)
                     pickled = pickle.dumps(transcript)
                     unpickled = pickle.loads(pickled)
                     self.assertEqual(transcript, unpickled)
@@ -2998,16 +2998,16 @@ class PaddingTester(unittest.TestCase):
         transcripts = self.load_from_bed("Mikado.tests", "pad_utr.bed12")
         locus = Locus(transcripts["mikado.Chr5G2.1"], logger=logger)
         # [locus._add_to_alternative_splicing_codes(code) for code in ("J", "j", "G", "h")]
-        self.assertIn("J", locus.json_conf.pick.alternative_splicing.valid_ccodes)
-        locus.json_conf.reference.genome = self.fai.filename.decode()
+        self.assertIn("J", locus.configuration.pick.alternative_splicing.valid_ccodes)
+        locus.configuration.reference.genome = self.fai.filename.decode()
         # We need to pad
-        locus.json_conf.pick.alternative_splicing.pad = True
-        locus.json_conf.pick.alternative_splicing.ts_distance = 10000
-        locus.json_conf.pick.alternative_splicing.ts_max_splices = 10
-        locus.json_conf.pick.alternative_splicing.ts_distance = 1000
-        locus.json_conf.pick.alternative_splicing.ts_max_splices = 10
-        locus.json_conf.pick.alternative_splicing.only_confirmed_introns = False
-        locus.json_conf.pick.alternative_splicing.min_cdna_overlap = 0.1
+        locus.configuration.pick.alternative_splicing.pad = True
+        locus.configuration.pick.alternative_splicing.ts_distance = 10000
+        locus.configuration.pick.alternative_splicing.ts_max_splices = 10
+        locus.configuration.pick.alternative_splicing.ts_distance = 1000
+        locus.configuration.pick.alternative_splicing.ts_max_splices = 10
+        locus.configuration.pick.alternative_splicing.only_confirmed_introns = False
+        locus.configuration.pick.alternative_splicing.min_cdna_overlap = 0.1
 
         locus.logger = create_default_logger("test_pad_utr", level="DEBUG")
         with self.assertLogs("test_pad_utr", "DEBUG") as cmo:
@@ -3024,17 +3024,17 @@ class PaddingTester(unittest.TestCase):
         transcripts = self.load_from_bed("Mikado.tests", "pad_three_neg.bed12")
         locus = Locus(transcripts["mikado.Chr5G486.1"], logger=logger)
         [locus._add_to_alternative_splicing_codes(code) for code in ("J", "j", "G", "h")]
-        self.assertIn("J", locus.json_conf.pick.alternative_splicing.valid_ccodes)
-        locus.json_conf.reference.genome = self.fai.filename.decode()
+        self.assertIn("J", locus.configuration.pick.alternative_splicing.valid_ccodes)
+        locus.configuration.reference.genome = self.fai.filename.decode()
         locus.add_transcript_to_locus(transcripts["mikado.Chr5G486.2"])
         # We need to pad
-        locus.json_conf.pick.alternative_splicing.pad = True
-        locus.json_conf.pick.alternative_splicing.ts_distance = 10000
-        locus.json_conf.pick.alternative_splicing.ts_max_splices = 10
-        locus.json_conf.pick.alternative_splicing.ts_distance = 1000
-        locus.json_conf.pick.alternative_splicing.ts_max_splices = 10
-        locus.json_conf.pick.alternative_splicing.only_confirmed_introns = False
-        locus.json_conf.pick.alternative_splicing.min_cdna_overlap = 0.1
+        locus.configuration.pick.alternative_splicing.pad = True
+        locus.configuration.pick.alternative_splicing.ts_distance = 10000
+        locus.configuration.pick.alternative_splicing.ts_max_splices = 10
+        locus.configuration.pick.alternative_splicing.ts_distance = 1000
+        locus.configuration.pick.alternative_splicing.ts_max_splices = 10
+        locus.configuration.pick.alternative_splicing.only_confirmed_introns = False
+        locus.configuration.pick.alternative_splicing.min_cdna_overlap = 0.1
         self.assertIn("mikado.Chr5G486.1", locus.transcripts.keys())
         self.assertIn("mikado.Chr5G486.2", locus.transcripts.keys())
         locus.logger.setLevel("DEBUG")
@@ -3052,12 +3052,12 @@ class PaddingTester(unittest.TestCase):
                 t1.add_exons([(100, 200), (300, 500), (700, 800), (900, 1000)])
                 t1.finalize()
                 loc = Locus(t1, logger=logger)
-                loc.json_conf.reference.genome = self.fai.filename.decode()
+                loc.configuration.reference.genome = self.fai.filename.decode()
                 # We need these to be padded
-                loc.json_conf.pick.alternative_splicing.ts_distance = 1000
-                loc.json_conf.pick.alternative_splicing.ts_max_splices = 10
-                loc.json_conf.pick.alternative_splicing.only_confirmed_introns = False
-                loc.json_conf.pick.alternative_splicing.min_cdna_overlap = 0.1
+                loc.configuration.pick.alternative_splicing.ts_distance = 1000
+                loc.configuration.pick.alternative_splicing.ts_max_splices = 10
+                loc.configuration.pick.alternative_splicing.only_confirmed_introns = False
+                loc.configuration.pick.alternative_splicing.min_cdna_overlap = 0.1
                 t2 = Transcript()
                 t2.chrom, t2.strand, t2.start, t2.end, t2.id, t2.parent = ["Chr5", strand, 299, 1000, "t2", "loc"]
                 t2.add_exons([(299, 400), (700, 800), (900, 1000)])
@@ -3115,7 +3115,7 @@ class PaddingTester(unittest.TestCase):
                 if coding is False:
                     primary.strip_cds()
                 locus = loci.Locus(primary)
-                locus.json_conf.reference.genome = genome
+                locus.configuration.reference.genome = genome
                 for t in transcripts:
                     if t == locus.primary_transcript_id:
                         continue
@@ -3142,8 +3142,8 @@ class PaddingTester(unittest.TestCase):
                             locus[transcript].combined_cds_start, locus[transcript].combined_cds_end)
 
                 locus.logger = logger
-                locus.json_conf.pick.alternative_splicing.ts_distance = pad_distance
-                locus.json_conf.pick.alternative_splicing.ts_max_splices = max_splice
+                locus.configuration.pick.alternative_splicing.ts_distance = pad_distance
+                locus.configuration.pick.alternative_splicing.ts_max_splices = max_splice
                 # locus.logger.setLevel("DEBUG")
                 locus.pad_transcripts()
                 locus.logger.setLevel("WARNING")
@@ -3199,7 +3199,7 @@ class PaddingTester(unittest.TestCase):
         logger = create_default_logger(inspect.getframeinfo(inspect.currentframe())[2], level="WARNING")
         self.assertIn('Human_coding_ENSP00000371111.2.m1', transcripts.keys(), transcripts.keys())
         locus = loci.Locus(transcripts['Human_coding_ENSP00000371111.2.m1'], logger=logger)
-        locus.json_conf.reference.genome = genome
+        locus.configuration.reference.genome = genome
         for t in transcripts:
             if t == locus.primary_transcript_id:
                 continue
@@ -3225,8 +3225,8 @@ class PaddingTester(unittest.TestCase):
             with self.subTest(pad_distance=pad_distance, max_splice=max_splice):
                 logger = create_default_logger("logger", level="WARNING")
                 locus.logger = logger
-                locus.json_conf.pick.alternative_splicing.ts_distance = pad_distance
-                locus.json_conf.pick.alternative_splicing.ts_max_splices = max_splice
+                locus.configuration.pick.alternative_splicing.ts_distance = pad_distance
+                locus.configuration.pick.alternative_splicing.ts_max_splices = max_splice
                 locus.logger.setLevel("DEBUG")
                 with self.assertLogs(logger, level="DEBUG") as pado:
                     locus.pad_transcripts()
@@ -3323,7 +3323,7 @@ class PaddingTester(unittest.TestCase):
                 if coding is False:
                     primary.strip_cds()
                 locus = loci.Locus(primary)
-                locus.json_conf.reference.genome = genome
+                locus.configuration.reference.genome = genome
                 for t in transcripts:
                     if t == locus.primary_transcript_id:
                         continue
@@ -3347,8 +3347,8 @@ class PaddingTester(unittest.TestCase):
                         locus[transcript].combined_cds_start, locus[transcript].combined_cds_end)
 
                 locus.logger = logger
-                locus.json_conf.pick.alternative_splicing.ts_distance = pad_distance
-                locus.json_conf.pick.alternative_splicing.ts_max_splices = max_splice
+                locus.configuration.pick.alternative_splicing.ts_distance = pad_distance
+                locus.configuration.pick.alternative_splicing.ts_max_splices = max_splice
                 locus.pad_transcripts()
 
                 # The .1 transcript can NEVER be expanded, it ends within an intron.
@@ -3399,7 +3399,7 @@ class PaddingTester(unittest.TestCase):
         for phase in (0, 1, 2):
             with self.subTest(phase=phase):
                 locus = Locus(transcripts["AT5G01030.1"], logger=logger)
-                locus.json_conf.reference.genome = genome
+                locus.configuration.reference.genome = genome
                 other = transcripts["AT5G01030.2"].deepcopy()
                 self.assertNotEqual(other.start, locus["AT5G01030.1"].start)
                 other.unfinalize()
@@ -3722,7 +3722,7 @@ class PaddingTester(unittest.TestCase):
         transcript.finalize()
         new = transcript.deepcopy()
         locus = Locus(transcript)
-        locus.json_conf.pick.alternative_splicing.only_confirmed_introns = False
+        locus.configuration.pick.alternative_splicing.only_confirmed_introns = False
         second = Transcript()
         second.id, second.chrom, second.strand = "test2", "Chr5", "+"
         second.add_exons([(101, 1000), (1301, 1600)])

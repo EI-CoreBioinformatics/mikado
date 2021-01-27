@@ -4,6 +4,7 @@
 This module defines the last object to be created during the picking,
 i.e. the locus.
 """
+from typing import Union
 
 import collections
 import itertools
@@ -13,33 +14,14 @@ import pysam
 from ..transcripts.transcript import Transcript
 from ..configuration.daijin_configuration import DaijinConfiguration
 from ..configuration.configuration import MikadoConfiguration
+# from ..configuration.picking_config import valid_as_ccodes, redundant_as_ccodes
 from ..transcripts.transcriptchecker import TranscriptChecker
-from .abstractlocus import Abstractlocus, rgetattr
+from .abstractlocus import Abstractlocus, rgetattr  # , default_configuration
 from ..parsers.GFF import GffLine
 from ..scales.assignment.assigner import Assigner
 from ..exceptions import InvalidTranscript
 import networkx as nx
-import io
-from pkg_resources import resource_stream
-import rapidjson as json
-import jsonschema
 import random
-from copy import deepcopy
-
-
-with io.TextIOWrapper(resource_stream("Mikado.configuration",
-                                      "configuration_blueprint.json")) as blue:
-        blue_print = json.loads(blue.read())
-
-
-_valid_ccodes = jsonschema.Draft7Validator(
-            blue_print["properties"]["pick"]["properties"]["alternative_splicing"]["properties"]["valid_ccodes"]
-        )
-
-
-_valid_redundant = jsonschema.Draft7Validator(
-            blue_print["properties"]["pick"]["properties"]["alternative_splicing"]["properties"]["redundant_ccodes"]
-        )
 
 
 class Locus(Abstractlocus):
@@ -48,7 +30,7 @@ class Locus(Abstractlocus):
     additional transcripts if they are valid splicing isoforms.
     """
 
-    def __init__(self, transcript=None, logger=None, json_conf=None,
+    def __init__(self, transcript=None, logger=None, configuration=None,
                  pad_transcripts=None, **kwargs):
         """
         Constructor class. Like all loci, also Locus is defined starting from a transcript.
@@ -61,7 +43,7 @@ class Locus(Abstractlocus):
         """
 
         self.counter = 0  # simple tag to avoid collisions
-        Abstractlocus.__init__(self, logger=logger, json_conf=json_conf, **kwargs)
+        Abstractlocus.__init__(self, logger=logger, configuration=configuration, **kwargs)
         if transcript is not None:
             transcript.attributes["primary"] = True
             if transcript.is_coding:
@@ -91,11 +73,11 @@ class Locus(Abstractlocus):
         self.__finalized = False
 
         self._reference_sources = set(source for source, is_reference in
-                                      zip(self.json_conf.prepare.files.labels,
-                                          self.json_conf.prepare.files.reference) if is_reference is True)
+                                      zip(self.configuration.prepare.files.labels,
+                                          self.configuration.prepare.files.reference) if is_reference is True)
 
         if pad_transcripts in (False, True):
-            self.json_conf.pick.alternative_splicing.pad = pad_transcripts
+            self.configuration.pick.alternative_splicing.pad = pad_transcripts
             assert self.perform_padding == pad_transcripts
 
         if self.perform_padding is True and self.reference_update is True:
@@ -148,7 +130,7 @@ class Locus(Abstractlocus):
 
             lines.append(transcript_instance.format(
                 "gff", with_cds=print_cds,
-                all_orfs=self.json_conf.pick.output_format.report_all_orfs
+                all_orfs=self.configuration.pick.output_format.report_all_orfs
             ).rstrip())
 
         return "\n".join(lines)
@@ -188,24 +170,24 @@ class Locus(Abstractlocus):
             self.filter_and_calculate_scores(check_requirements=check_requirements)
             self.logger.debug("Re-calculated metrics and scores for %s", self.id)
 
-        max_isoforms = self.json_conf.pick.alternative_splicing.max_isoforms
+        max_isoforms = self.configuration.pick.alternative_splicing.max_isoforms
         original = dict((tid, self.transcripts[tid].copy()) for tid in self.transcripts)
 
         # *Never* lose the primary transcript
         reference_sources = set(source for source, is_reference in zip(
-            self.json_conf.prepare.files.labels,
-            self.json_conf.prepare.files.reference
+            self.configuration.prepare.files.labels,
+            self.configuration.prepare.files.reference
         ))
         reference_transcripts = dict(
             (tid, self.transcripts[tid].is_reference or self.transcripts[tid].original_source in reference_sources)
             for tid in self.transcripts)
 
         order = sorted([(tid, self.transcripts[tid].score, self.transcripts[tid]) for tid in self.transcripts
-                       if tid != self.primary_transcript_id and
+                        if tid != self.primary_transcript_id and
                         (reference_transcripts[tid] is False or
-                         self.json_conf.pick.run_options.reference_update is False)],
+                         self.configuration.pick.run_options.reference_update is False)],
                        key=operator.itemgetter(1), reverse=True)
-        threshold = self.json_conf.pick.alternative_splicing.min_score_perc * self.primary_transcript.score
+        threshold = self.configuration.pick.alternative_splicing.min_score_perc * self.primary_transcript.score
 
         score_passing = [_ for _ in order if _[1] >= threshold]
         removed = set([_[0] for _ in order if _[1] < threshold])
@@ -380,12 +362,12 @@ it is marked as having 0 retained introns. This is an error.".format(transcript=
                     cds_disrupted.add(tid)
             if max(len(retained_introns), len(cds_disrupted)) == 0:
                 break
-            if self.json_conf.pick.alternative_splicing.keep_cds_disrupted_by_ri is False:
+            if self.configuration.pick.alternative_splicing.keep_cds_disrupted_by_ri is False:
                 self.logger.debug("Removing {} because their CDS is disrupted by retained introns".format(
                     ", ".join(list(cds_disrupted))))
                 to_remove.update(cds_disrupted)
                 retained_introns -= cds_disrupted
-            if self.json_conf.pick.alternative_splicing.keep_retained_introns is False:
+            if self.configuration.pick.alternative_splicing.keep_retained_introns is False:
                 self.logger.debug("Removing {} because they contain retained introns".format(
                     ", ".join(list(retained_introns))))
                 to_remove.update(retained_introns)
@@ -556,7 +538,7 @@ it is marked as having 0 retained introns. This is an error.".format(transcript=
                 (transcript.is_reference is True or transcript.original_source in self._reference_sources):
             reference_pass = True
 
-        if self.json_conf.pick.alternative_splicing.only_confirmed_introns is True and reference_pass is False:
+        if self.configuration.pick.alternative_splicing.only_confirmed_introns is True and reference_pass is False:
             to_check = (transcript.introns - transcript.verified_introns) - self.primary_transcript.introns
             to_be_added = len(to_check) == 0
             if not to_be_added:
@@ -567,7 +549,7 @@ it is marked as having 0 retained introns. This is an error.".format(transcript=
                     "s" * min(1, len(to_check) - 1))
 
         # Add a check similar to what we do for the minimum requirements and the fragments
-        if to_be_added and self.json_conf.as_requirements:
+        if to_be_added and self.configuration.as_requirements:
             to_be_added = self.__check_as_requirements(transcript, is_reference=reference_pass)
 
         if to_be_added is True:
@@ -599,14 +581,14 @@ it is marked as having 0 retained introns. This is an error.".format(transcript=
     def __check_as_requirements(self, transcript: Transcript, is_reference=False) -> bool:
 
         to_be_added = True
-        if is_reference is True and self.json_conf.pick.run_options.check_references is False:
+        if is_reference is True and self.configuration.pick.run_options.check_references is False:
             return True
         # TODO where are we going to put the as_requirements?
-        section = self.json_conf.as_requirements
+        section = self.configuration.as_requirements
 
         if "compiled" not in section or section["compiled"] is None:
             section["compiled"] = compile(section["expression"], "<json>", "eval")
-            self.json_conf.as_requirements = section
+            self.configuration.as_requirements = section
 
         evaluated = dict()
         for key in section["parameters"]:
@@ -633,37 +615,37 @@ it is marked as having 0 retained introns. This is an error.".format(transcript=
         """This method will use the expression in the "not_fragmentary" section
         of the configuration to determine whether it is itself a putative fragment."""
 
-        if not self.json_conf.pick.run_options.check_references and \
+        if not self.configuration.pick.run_options.check_references and \
                 any(self.transcripts[tid].is_reference is True for tid in self.transcripts):
             return False
 
         # TODO this needs to be changed
-        if "compiled" not in self.json_conf.not_fragmentary:
-            self.json_conf.not_fragmentary["compiled"] = compile(
-                self.json_conf.not_fragmentary["expression"], "<json>", "eval")
+        if "compiled" not in self.configuration.not_fragmentary:
+            self.configuration.not_fragmentary["compiled"] = compile(
+                self.configuration.not_fragmentary["expression"], "<json>", "eval")
 
         current_id = self.id[:]
 
         evaluated = dict()
-        for key in self.json_conf.not_fragmentary["parameters"]:
+        for key in self.configuration.not_fragmentary["parameters"]:
             value = rgetattr(self.primary_transcript,
-                             self.json_conf.not_fragmentary["parameters"][key]["name"])
+                             self.configuration.not_fragmentary["parameters"][key]["name"])
             if "external" in key:
                 value = value[0]
             try:
                 evaluated[key] = self.evaluate(value,
-                    self.json_conf.not_fragmentary["parameters"][key])
+                                               self.configuration.not_fragmentary["parameters"][key])
             except Exception as err:
                 self.logger.error(
                     """Exception while calculating putative fragments. Key: {}, \
                     Transcript value: {} (type {}) \
                     configuration value: {} (type {}).""".format(
-                        key, value, type(value), self.json_conf.not_fragmentary["parameters"][key],
-                        type(self.json_conf.not_fragmentary["parameters"][key])
+                        key, value, type(value), self.configuration.not_fragmentary["parameters"][key],
+                        type(self.configuration.not_fragmentary["parameters"][key])
                     ))
                 self.logger.exception(err)
                 raise err
-        if eval(self.json_conf.not_fragmentary["compiled"]) is True:
+        if eval(self.configuration.not_fragmentary["compiled"]) is True:
             self.logger.debug("%s cannot be a fragment according to the definitions, keeping it",
                               self.id)
             fragment = False
@@ -709,31 +691,21 @@ it is marked as having 0 retained introns. This is an error.".format(transcript=
 
         # We should get rid of the "max_distance" value here.
         max_distance = max(0,
-                           min(self.json_conf.pick.fragments.max_distance,
-                               self.json_conf.pick.clustering.flank))
+                           min(self.configuration.pick.fragments.max_distance,
+                               self.configuration.pick.clustering.flank))
 
         self.logger.debug("Comparison between {0} (strand {3}) and {1}: class code \"{2}\"".format(
             self.primary_transcript.id,
             other.primary_transcript.id,
             result.ccode[0],
             other.strand))
-        if (result.ccode[0] in self.json_conf.pick.fragments.valid_class_codes and
+        if (result.ccode[0] in self.configuration.pick.fragments.valid_class_codes and
                     result.distance[0] <= max_distance):
             self.logger.debug("{0} is a fragment (ccode {1})".format(
                 other.primary_transcript.id, result.ccode[0]))
             return True, result
 
         return False, None
-
-    def set_json_conf(self, jconf: dict):
-        """
-        Setter for the configuration dictionary.
-        :param jconf:
-        :type jconf: dict
-        """
-        if not isinstance(jconf, (MikadoConfiguration, DaijinConfiguration)):
-            raise TypeError("Invalid configuration of type {0}".format(type(jconf)))
-        self.json_conf = jconf
 
     def calculate_metrics(self, tid: str):
         """
@@ -748,7 +720,7 @@ it is marked as having 0 retained introns. This is an error.".format(transcript=
         self.logger.debug("Calculating metrics for %s", tid)
         self.transcripts[tid].finalize()
         if (self.transcripts[tid].number_internal_orfs <= 1 or
-                    self.json_conf.pick.output_format.report_all_orfs is False):
+                    self.configuration.pick.output_format.report_all_orfs is False):
             super().calculate_metrics(tid)
         else:
             super().calculate_metrics(tid)
@@ -824,7 +796,7 @@ it is marked as having 0 retained introns. This is an error.".format(transcript=
                     del self.scores[partial]
 
     def print_metrics(self):
-        if self.json_conf.pick.output_format.report_all_orfs is False:
+        if self.configuration.pick.output_format.report_all_orfs is False:
             yield from super().print_metrics()
         else:
             self.get_metrics()
@@ -847,7 +819,7 @@ it is marked as having 0 retained introns. This is an error.".format(transcript=
         """This method yields dictionary rows that are given to a csv.DictWriter class."""
         self.filter_and_calculate_scores()
         # TODO needs changing
-        score_keys = sorted(list(self.json_conf.scoring.keys()) + ["source_score"])
+        score_keys = sorted(list(self.configuration.scoring.keys()) + ["source_score"])
         keys = ["tid", "alias", "parent", "score"] + score_keys
 
         for tid in self.scores:
@@ -893,9 +865,9 @@ it is marked as having 0 retained introns. This is an error.".format(transcript=
 
         is_valid = True
 
-        valid_ccodes = self.json_conf.pick.alternative_splicing.valid_ccodes
-        redundant_ccodes = self.json_conf.pick.alternative_splicing.redundant_ccodes
-        cds_only = self.json_conf.pick.alternative_splicing.cds_only
+        valid_ccodes = self.configuration.pick.alternative_splicing.valid_ccodes
+        redundant_ccodes = self.configuration.pick.alternative_splicing.redundant_ccodes
+        cds_only = self.configuration.pick.alternative_splicing.cds_only
 
         if other.is_coding and not self.primary_transcript.is_coding:
             reason = "{} is coding, and cannot be added to a non-coding locus.".format(other.id)
@@ -917,10 +889,10 @@ it is marked as having 0 retained introns. This is an error.".format(transcript=
                 enough_overlap, overlap_reason = self._evaluate_transcript_overlap(
                     other._selected_orf_transcript,
                     self.primary_transcript._selected_orf_transcript,
-                    min_cdna_overlap=self.json_conf.pick.alternative_splicing.min_cdna_overlap,
-                    min_cds_overlap=self.json_conf.pick.alternative_splicing.min_cds_overlap,
+                    min_cdna_overlap=self.configuration.pick.alternative_splicing.min_cdna_overlap,
+                    min_cds_overlap=self.configuration.pick.alternative_splicing.min_cds_overlap,
                     comparison=main_result,
-                    check_references=self.json_conf.pick.run_options.check_references,
+                    check_references=self.configuration.pick.run_options.check_references,
                     fixed_perspective=True)
             else:
                 main_result, _ = Assigner.compare(other,
@@ -928,10 +900,10 @@ it is marked as having 0 retained introns. This is an error.".format(transcript=
                 enough_overlap, overlap_reason = self._evaluate_transcript_overlap(
                     other,
                     self.primary_transcript,
-                    min_cdna_overlap=self.json_conf.pick.alternative_splicing.min_cdna_overlap,
-                    min_cds_overlap=self.json_conf.pick.alternative_splicing.min_cds_overlap,
+                    min_cdna_overlap=self.configuration.pick.alternative_splicing.min_cdna_overlap,
+                    min_cds_overlap=self.configuration.pick.alternative_splicing.min_cds_overlap,
                     comparison=main_result,
-                    check_references=self.json_conf.pick.run_options.check_references,
+                    check_references=self.configuration.pick.run_options.check_references,
                     fixed_perspective=True)
 
             self.logger.debug(overlap_reason)
@@ -948,7 +920,7 @@ it is marked as having 0 retained introns. This is an error.".format(transcript=
                               other.id, overlap_reason)
             is_valid = False
 
-        if (is_valid and self.json_conf.pick.run_options.check_references is False and other.is_reference is True):
+        if (is_valid and self.configuration.pick.run_options.check_references is False and other.is_reference is True):
             pass
         elif is_valid:
             if others is None:
@@ -981,12 +953,12 @@ it is marked as having 0 retained introns. This is an error.".format(transcript=
         """
 
         try:
-            if isinstance(self.json_conf.reference.genome, pysam.FastaFile):
-                self.fai = self.json_conf.reference.genome
+            if isinstance(self.configuration.reference.genome, pysam.FastaFile):
+                self.fai = self.configuration.reference.genome
             else:
-                self.fai = pysam.FastaFile(self.json_conf.reference.genome)
+                self.fai = pysam.FastaFile(self.configuration.reference.genome)
         except KeyError:
-            raise KeyError(self.json_conf.keys())
+            raise KeyError(self.configuration.keys())
 
         five_graph = self.define_graph(objects=self.transcripts, inters=self._share_extreme, three_prime=False)
         three_graph = self.define_graph(objects=self.transcripts, inters=self._share_extreme, three_prime=True)
@@ -1374,11 +1346,11 @@ it is marked as having 0 retained introns. This is an error.".format(transcript=
 
     @property
     def ts_distance(self):
-        return self.json_conf.pick.alternative_splicing.ts_distance
+        return self.configuration.pick.alternative_splicing.ts_distance
 
     @property
     def ts_max_splices(self):
-        return self.json_conf.pick.alternative_splicing.ts_max_splices
+        return self.configuration.pick.alternative_splicing.ts_max_splices
 
     @property
     def has_reference_transcript(self):
@@ -1386,42 +1358,42 @@ it is marked as having 0 retained introns. This is an error.".format(transcript=
 
     @property
     def _redundant_ccodes(self):
-        return self.json_conf.pick.alternative_splicing.redundant_ccodes
+        return self.configuration.pick.alternative_splicing.redundant_ccodes
 
     def _get_alternative_splicing_codes(self):
         """Method to retrieve the currently valid alternative splicing event codes"""
-        return self.json_conf.pick.alternative_splicing.valid_ccodes
+        return self.configuration.pick.alternative_splicing.valid_ccodes
 
     def _add_to_alternative_splicing_codes(self, code):
         """Method to retrieve the currently valid alternative splicing event codes"""
-        codes = set(self.json_conf.pick.alternative_splicing.valid_ccodes)
+        codes = set(self.configuration.pick.alternative_splicing.valid_ccodes)
         codes.add(code)
-        self.json_conf.pick.alternative_splicing.valid_ccodes = list(codes)
-        _valid_ccodes.validate(self.json_conf.pick.alternative_splicing.valid_ccodes)
+        self.configuration.pick.alternative_splicing.valid_ccodes = list(codes)
+        # _valid_ccodes.validate(self.configuration.pick.alternative_splicing.valid_ccodes)
         self._remove_from_redundant_splicing_codes(code)
 
     def _add_to_redundant_splicing_codes(self, code):
         """Method to retrieve the currently valid alternative splicing event codes"""
-        codes = set(self.json_conf.pick.alternative_splicing.redundant_ccodes)
+        codes = set(self.configuration.pick.alternative_splicing.redundant_ccodes)
         codes.add(code)
-        self.json_conf.pick.alternative_splicing.redundant_ccodes = list(codes)
-        _valid_redundant.validate(self.json_conf.pick.alternative_splicing.redundant_ccodes)
+        self.configuration.pick.alternative_splicing.redundant_ccodes = list(codes)
+        # _valid_redundant.validate(self.configuration.pick.alternative_splicing.redundant_ccodes)
         self._remove_from_alternative_splicing_codes(code)
 
     def _remove_from_alternative_splicing_codes(self, *ccodes):
-        sub = self.json_conf.pick.alternative_splicing.valid_ccodes
+        sub = self.configuration.pick.alternative_splicing.valid_ccodes
         for ccode in ccodes:
             if ccode in sub:
                 sub.remove(ccode)
-        self.json_conf.pick.alternative_splicing.valid_ccodes = sub
+        self.configuration.pick.alternative_splicing.valid_ccodes = sub
 
     def _remove_from_redundant_splicing_codes(self, *ccodes):
         self.logger.debug("Removing from redundant ccodes: %s. Current: %s", ccodes,
-                          self.json_conf.pick.alternative_splicing.redundant_ccodes)
-        sub = self.json_conf.pick.alternative_splicing.redundant_ccodes
+                          self.configuration.pick.alternative_splicing.redundant_ccodes)
+        sub = self.configuration.pick.alternative_splicing.redundant_ccodes
         sub = [_ for _ in sub if _ not in ccodes]
         self.logger.debug("New redundant ccodes: %s", sub)
-        self.json_conf.pick.alternative_splicing.redundant_ccodes = sub
+        self.configuration.pick.alternative_splicing.redundant_ccodes = sub
 
         
 def expand_transcript(transcript: Transcript,

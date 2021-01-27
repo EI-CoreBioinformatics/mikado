@@ -19,10 +19,6 @@ from ..utilities.intervaltree import Interval, IntervalTree
 from ..utilities.log_utils import create_null_logger
 from sys import version_info
 from ..scales.contrast import compare as c_compare
-if version_info.minor < 5:
-    from sortedcontainers import SortedDict
-else:
-    from collections import OrderedDict as SortedDict
 import random
 import rapidjson as json
 from typing import Union
@@ -30,7 +26,7 @@ from ..configuration.configuration import MikadoConfiguration
 from ..configuration.daijin_configuration import DaijinConfiguration
 from ..configuration.configurator import load_and_validate_config, check_and_load_scoring
 
-json_conf = load_and_validate_config(None)
+default_configuration = load_and_validate_config(None)
 
 # I do not care that there are too many attributes: this IS a massive class!
 # pylint: disable=too-many-instance-attributes,too-many-public-methods
@@ -78,7 +74,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                                    "exons": "exons",
                                    "locus_verified_introns": "verified_introns"}
 
-    __json_conf = json_conf.copy()
+    __configuration = default_configuration.copy()
 
     @abc.abstractmethod
     def __init__(self,
@@ -86,7 +82,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                  logger=None,
                  source="",
                  verified_introns=None,
-                 json_conf=None,
+                 configuration=None,
                  use_transcript_scores=False,
                  flank=None):
 
@@ -120,7 +116,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         self._metrics = dict()
         self.__scores = dict()
         self.__internal_graph = networkx.DiGraph()
-        self.json_conf = json_conf
+        self.configuration = configuration
         if transcript_instance is not None and isinstance(transcript_instance, Transcript):
             self.add_transcript_to_locus(transcript_instance)
         self.__use_transcript_scores = use_transcript_scores
@@ -128,7 +124,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         if flank is not None:
             self.flank = flank
         else:
-            self.flank = self.json_conf.pick.clustering.flank
+            self.flank = self.configuration.pick.clustering.flank
 
     @abc.abstractmethod
     def __str__(self, *args, **kwargs):
@@ -189,7 +185,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         state = self.__dict__.copy()
         self.logger = logger
 
-        state["json_conf"] = self.json_conf.copy()
+        state["json_conf"] = self.configuration.copy()
 
         state["json_conf"].requirements.pop("compiled", None)
         state["json_conf"].cds_requirements.pop("compiled", None)
@@ -232,8 +228,8 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         self.__segmenttree = IntervalTree()
         self.__internal_graph = networkx.DiGraph()
         assert state["json_conf"] is not None
-        self.json_conf = state["json_conf"]
-        assert self.json_conf is not None
+        self.configuration = state["json_conf"]
+        assert self.configuration is not None
         try:
             nodes = json.loads(state["_Abstractlocus__internal_nodes"])
         except json.decoder.JSONDecodeError:
@@ -250,13 +246,13 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         except TypeError:
             raise TypeError(edges)
 
-        self.json_conf.requirements["compiled"] = compile(self.json_conf.requirements.get("expression", "True"),
+        self.configuration.requirements["compiled"] = compile(self.configuration.requirements.get("expression", "True"),
                                                           "<json>", "eval")
-        self.json_conf.cds_requirements["compiled"] = compile(self.json_conf.cds_requirements.get("expression", "True"),
+        self.configuration.cds_requirements["compiled"] = compile(self.configuration.cds_requirements.get("expression", "True"),
                                                               "<json>", "eval")
-        self.json_conf.as_requirements["compiled"] = compile(self.json_conf.as_requirements.get("expression", True),
+        self.configuration.as_requirements["compiled"] = compile(self.configuration.as_requirements.get("expression", True),
                                                              "<json>", "eval")
-        self.json_conf.not_fragmentary["compiled"] = compile(self.json_conf.not_fragmentary.get("expression", True),
+        self.configuration.not_fragmentary["compiled"] = compile(self.configuration.not_fragmentary.get("expression", True),
                                                              "<json>", "eval")
 
         # Set the logger to NullHandler
@@ -462,12 +458,12 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         # Choose one transcript randomly between those that have the maximum score
         if len(transcripts) == 1:
             return list(transcripts.keys())[0]
-        random.seed(self.json_conf.seed)
+        random.seed(self.configuration.seed)
         if self.reference_update is True:
             # We need to select only amongst the reference transcripts
             reference_sources = {source for source, is_reference in
-                                 zip(self.json_conf.prepare.files.labels,
-                                     self.json_conf.prepare.files.reference) if is_reference is True}
+                                 zip(self.configuration.prepare.files.labels,
+                                     self.configuration.prepare.files.reference) if is_reference is True}
             reference_tids = set()
             for tid, transcript in transcripts.items():
                 is_reference = transcript.original_source in reference_sources or transcript.is_reference is True
@@ -1270,9 +1266,9 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         self.get_metrics()
 
         if section_name == "cds_requirements":
-            section = self.json_conf.cds_requirements
+            section = self.configuration.cds_requirements
         elif section_name == "requirements":
-            section = self.json_conf.requirements
+            section = self.configuration.requirements
         else:
             raise KeyError("Invalid requirements section: {}".format(section_name))
 
@@ -1280,20 +1276,17 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             if "expression" not in section:
                 raise KeyError(section)
             section["compiled"] = compile(section["expression"], "<json>", "eval")
-            setattr(self.json_conf, section_name, section)
+            setattr(self.configuration, section_name, section)
 
         not_passing = set()
         reference_sources = {source for source, is_reference in
-                             zip(self.json_conf.prepare.files.labels,
-                                 self.json_conf.prepare.files.reference) if is_reference}
+                             zip(self.configuration.prepare.files.labels,
+                                 self.configuration.prepare.files.reference) if is_reference}
 
-        section = getattr(self.json_conf, section_name)
+        section = getattr(self.configuration, section_name)
         for tid in iter(tid for tid in self.transcripts if
                         tid not in previous_not_passing):
-            if self.transcripts[tid].json_conf is None:
-                self.transcripts[tid].json_conf = self.json_conf
-            elif self.transcripts[tid].json_conf.prepare.files.reference != self.json_conf.prepare.files.reference:
-                self.transcripts[tid].json_conf = self.json_conf
+            self.transcripts[tid].configuration = self.configuration
 
             is_reference = ((self.transcripts[tid].is_reference is True) or
                              self.transcripts[tid].original_source in reference_sources)
@@ -1301,12 +1294,12 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             if is_reference is False:
                 self.logger.debug("Transcript %s (source %s) is not a reference transcript (references: %s; in it: %s)",
                                   tid, self.transcripts[tid].original_source,
-                                  self.json_conf.prepare.files.reference,
-                                  self.transcripts[tid].original_source in self.json_conf.prepare.files.reference)
-            elif is_reference is True and self.json_conf.pick.run_options.check_references is False:
+                                  self.configuration.prepare.files.reference,
+                                  self.transcripts[tid].original_source in self.configuration.prepare.files.reference)
+            elif is_reference is True and self.configuration.pick.run_options.check_references is False:
                 self.logger.debug("Skipping %s from the requirement check as it is a reference transcript", tid)
                 continue
-            elif is_reference is True and self.json_conf.pick.run_options.check_references is True:
+            elif is_reference is True and self.configuration.pick.run_options.check_references is True:
                 self.logger.debug("Performing the requirement check for %s even if it is a reference transcript", tid)
 
             evaluated = dict()
@@ -1350,13 +1343,13 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
         self.get_metrics()
         self.logger.debug("Calculating scores for {0}".format(self.id))
-        if self.json_conf.requirements and check_requirements:
+        if self.configuration.requirements and check_requirements:
             self._check_requirements()
 
         if len(self.transcripts) == 0:
             self.logger.warning("No transcripts pass the muster for %s (requirements:\n%s)",
                                 self.id,
-                                self.json_conf.requirements)
+                                self.configuration.requirements)
             self.scores_calculated = True
             return
         self.scores = dict()
@@ -1366,7 +1359,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             # Add the score for the transcript source
             self.scores[tid]["source_score"] = self.transcripts[tid].source_score or 0
 
-        for param in self.json_conf.scoring:
+        for param in self.configuration.scoring:
             self._calculate_score(param)
 
         for tid in self.scores:
@@ -1447,9 +1440,9 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         :return:
         """
 
-        rescaling = self.json_conf.scoring[param]["rescaling"]
-        use_raw = self.json_conf.scoring[param]["use_raw"]
-        multiplier = self.json_conf.scoring[param]["multiplier"]
+        rescaling = self.configuration.scoring[param]["rescaling"]
+        use_raw = self.configuration.scoring[param]["use_raw"]
+        multiplier = self.configuration.scoring[param]["multiplier"]
 
         metrics = dict()
         for tid, transcript in self.transcripts.items():
@@ -1482,11 +1475,11 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         for tid in self.transcripts.keys():
             tid_metric = metrics[tid]
 
-            if "filter" in self.json_conf.scoring[param] and self.json_conf.scoring[param]["filter"]:
-                if "metric" not in self.json_conf.scoring[param]["filter"]:
+            if "filter" in self.configuration.scoring[param] and self.configuration.scoring[param]["filter"]:
+                if "metric" not in self.configuration.scoring[param]["filter"]:
                     metric_to_evaluate = tid_metric
                 else:
-                    metric_key = self.json_conf.scoring[param]["filter"]["metric"]
+                    metric_key = self.configuration.scoring[param]["filter"]["metric"]
                     if not rhasattr(self.transcripts[tid], metric_key):
                         raise KeyError("Asked for an invalid metric in filter: {}".format(metric_key))
                     if tid not in self._metrics and self.transcripts[tid].alias in self._metrics:
@@ -1497,7 +1490,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                     if "external" in metric_key:
                         metric_to_evaluate = metric_to_evaluate[0]
 
-                check = self.evaluate(metric_to_evaluate, self.json_conf.scoring[param]["filter"])
+                check = self.evaluate(metric_to_evaluate, self.configuration.scoring[param]["filter"])
                 if not check:
                     del metrics[tid]
             else:
@@ -1542,7 +1535,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                 use_raw = False
 
             if rescaling == "target":
-                target = self.json_conf.scoring[param]["value"]
+                target = self.configuration.scoring[param]["value"]
                 denominator = max(abs(x - target) for x in metrics.values())
             else:
                 target = None
@@ -1583,7 +1576,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                 self.scores[tid][param] = round(score, 2)
 
         # This MUST be true
-        if "filter" not in self.json_conf.scoring[param] and max(
+        if "filter" not in self.configuration.scoring[param] and max(
                 [self.scores[tid][param] for tid in self.transcripts.keys()]) == 0:
             self.logger.warning("All transcripts have a score of 0 for %s in %s",
                                 param, self.id)
@@ -1652,38 +1645,38 @@ class Abstractlocus(metaclass=abc.ABCMeta):
     # ##### Properties #######
 
     @property
-    def json_conf(self) -> Union[MikadoConfiguration,DaijinConfiguration]:
-        return self.__json_conf
+    def configuration(self) -> Union[MikadoConfiguration, DaijinConfiguration]:
+        return self.__configuration
 
-    @json_conf.setter
-    def json_conf(self, conf):
+    @configuration.setter
+    def configuration(self, conf):
         if conf is None or conf == "":
-            conf = json_conf.copy()
+            conf = default_configuration.copy()
         elif isinstance(conf, str) and conf != "":
             conf = load_and_validate_config(conf)
         elif not isinstance(conf, (MikadoConfiguration, DaijinConfiguration)):
             raise InvalidJson(
                 "Invalid configuration, type {}, expected MikadoConfiguration or DaijinConfiguration!".format(
                     type(conf)))
-        self.__json_conf = conf
+        self.__configuration = conf
         # Get the value for each attribute defined metric
         self._attribute_metrics = dict()
-        assert self.__json_conf.scoring is not None, (self.__json_conf.scoring, self.__json_conf.requirements)
-        for param in self.__json_conf.scoring:
+        assert self.__configuration.scoring is not None, (self.__configuration.scoring, self.__configuration.requirements)
+        for param in self.__configuration.scoring:
             if not param.startswith("attributes."):
                 continue
             self._attribute_metrics[param] = {
-                                      'default': self.json_conf.scoring[param]["default"],
-                                      'rtype': self.json_conf.scoring[param]['rtype'],
-                                      'use_raw': self.json_conf.scoring[param]['use_raw'],
-                                      'percentage': self.json_conf.scoring[param]['percentage']
+                                      'default': self.configuration.scoring[param]["default"],
+                                      'rtype': self.configuration.scoring[param]['rtype'],
+                                      'use_raw': self.configuration.scoring[param]['use_raw'],
+                                      'percentage': self.configuration.scoring[param]['percentage']
                                   }
 
     def check_configuration(self):
         """Method to be invoked to verify that the configuration is correct.
         Quite expensive to run, especially if done multiple times."""
 
-        self.json_conf = check_and_load_scoring(self.json_conf)
+        self.configuration = check_and_load_scoring(self.configuration)
 
     @property
     def stranded(self):
@@ -1803,13 +1796,13 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
     @property
     def _cds_only(self):
-        return self.json_conf.pick.clustering.cds_only
+        return self.configuration.pick.clustering.cds_only
 
     @_cds_only.setter
     def _cds_only(self, value):
         if value not in (True, False):
             raise ValueError(value)
-        self.json_conf.pick.clustering.cds_only = value
+        self.configuration.pick.clustering.cds_only = value
 
     @property
     def segmenttree(self):
@@ -1842,7 +1835,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
     def purge(self):
         """This property relates to pick/clustering/purge."""
 
-        return self.json_conf.pick.clustering.purge
+        return self.configuration.pick.clustering.purge
 
     @property
     def _use_transcript_scores(self):
@@ -1857,18 +1850,18 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
     @property
     def perform_padding(self):
-        return self.json_conf.pick.alternative_splicing.pad
+        return self.configuration.pick.alternative_splicing.pad
 
     def _set_padding(self, value):
         if value not in (False, True):
             raise ValueError
-        self.json_conf.pick.alternative_splicing.pad = value
+        self.configuration.pick.alternative_splicing.pad = value
 
     @property
     def only_reference_update(self):
-        return self.json_conf.pick.run_options.only_reference_update
+        return self.configuration.pick.run_options.only_reference_update
 
     @property
     def reference_update(self):
-        ref_update = self.json_conf.pick.run_options.reference_update
+        ref_update = self.configuration.pick.run_options.reference_update
         return ref_update or self.only_reference_update

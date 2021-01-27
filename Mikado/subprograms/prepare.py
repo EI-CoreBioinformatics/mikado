@@ -22,7 +22,7 @@ __author__ = 'Luca Venturini'
 
 
 def parse_list_file(cfg, list_file):
-    json_conf = {
+    configuration = {
         "pick": {
             "chimera_split": {
                 "skip": []
@@ -52,24 +52,24 @@ def parse_list_file(cfg, list_file):
         gff_name, label, stranded = fields[:3]
         if not os.path.exists(gff_name):
             raise ValueError("Invalid file name: {}".format(gff_name))
-        if label in json_conf["prepare"]["files"]["labels"]:
+        if label in configuration["prepare"]["files"]["labels"]:
             raise ValueError("Non-unique label specified: {}".format(label))
         if stranded.lower() not in ("true", "false"):
             raise ValueError("Malformed line for the list: {}".format(line))
-        if gff_name in json_conf["prepare"]["files"]["gff"]:
+        if gff_name in configuration["prepare"]["files"]["gff"]:
             raise ValueError("Repeated prediction file: {}".format(line))
-        elif label != '' and label in json_conf["prepare"]["files"]["labels"]:
+        elif label != '' and label in configuration["prepare"]["files"]["labels"]:
             raise ValueError("Repeated label: {}".format(line))
-        json_conf["prepare"]["files"]["gff"].append(gff_name)
-        json_conf["prepare"]["files"]["labels"].append(label)
+        configuration["prepare"]["files"]["gff"].append(gff_name)
+        configuration["prepare"]["files"]["labels"].append(label)
         if stranded.capitalize() == "True":
-            json_conf["prepare"]["files"]["strand_specific_assemblies"].append(gff_name)
+            configuration["prepare"]["files"]["strand_specific_assemblies"].append(gff_name)
         if len(fields) >= 4:
             try:
                 score = float(fields[3])
             except ValueError:
                 score = 0
-            json_conf["prepare"]["files"]["source_score"][label] = score
+            configuration["prepare"]["files"]["source_score"][label] = score
         for arr, pos, default in [("reference", 4, False), ("exclude_redundant", 5, False),
                                   ("strip_cds", 6, False), ("skip_split", 7, False)]:
             try:
@@ -81,26 +81,26 @@ def parse_list_file(cfg, list_file):
             except IndexError:
                 val = default
             if arr == "skip_split":
-                json_conf["pick"]["chimera_split"]["skip"].append(val)
+                configuration["pick"]["chimera_split"]["skip"].append(val)
             else:
-                json_conf["prepare"]["files"][arr].append(val)
+                configuration["prepare"]["files"][arr].append(val)
 
-    files_counter.update(json_conf["prepare"]["files"]["gff"])
+    files_counter.update(configuration["prepare"]["files"]["gff"])
     if files_counter.most_common()[0][1] > 1:
         raise InvalidJson(
             "Repeated elements among the input GFFs! Duplicated files: {}".format(
                 ", ".join(_[0] for _ in files_counter.most_common() if _[1] > 1)))
 
-    assert "exclude_redundant" in json_conf["prepare"]["files"]
+    assert "exclude_redundant" in configuration["prepare"]["files"]
 
-    cfg.prepare.files.gff = json_conf["prepare"]["files"]["gff"]
-    cfg.prepare.files.labels = json_conf["prepare"]["files"]["labels"]
-    cfg.prepare.files.strand_specific_assemblies = json_conf["prepare"]["files"]["strand_specific_assemblies"]
-    cfg.prepare.files.source_score = json_conf["prepare"]["files"]["source_score"]
-    cfg.prepare.files.reference = json_conf["prepare"]["files"]["reference"]
-    cfg.prepare.files.exclude_redundant = json_conf["prepare"]["files"]["exclude_redundant"]
-    cfg.prepare.files.strip_cds = json_conf["prepare"]["files"]["strip_cds"]
-    cfg.pick.chimera_split.skip = json_conf["pick"]["chimera_split"]["skip"]
+    cfg.prepare.files.gff = configuration["prepare"]["files"]["gff"]
+    cfg.prepare.files.labels = configuration["prepare"]["files"]["labels"]
+    cfg.prepare.files.strand_specific_assemblies = configuration["prepare"]["files"]["strand_specific_assemblies"]
+    cfg.prepare.files.source_score = configuration["prepare"]["files"]["source_score"]
+    cfg.prepare.files.reference = configuration["prepare"]["files"]["reference"]
+    cfg.prepare.files.exclude_redundant = configuration["prepare"]["files"]["exclude_redundant"]
+    cfg.prepare.files.strip_cds = configuration["prepare"]["files"]["strip_cds"]
+    cfg.pick.chimera_split.skip = configuration["pick"]["chimera_split"]["skip"]
 
     return cfg
 
@@ -207,7 +207,7 @@ def setup(args, logger=None):
 
     logger.debug("Starting to get prepare arguments")
     from ..configuration.configurator import load_and_validate_config
-    mikado_config = load_and_validate_config(args.json_conf)
+    mikado_config = load_and_validate_config(args.configuration)
     assert hasattr(mikado_config.reference, "genome"), mikado_config.reference
 
     if args.start_method:
@@ -389,7 +389,7 @@ def prepare_parser():
                         help="Output file. Default: mikado_prepared.gtf.")
     parser.add_argument("-of", "--out_fasta", default=None,
                         help="Output file. Default: mikado_prepared.fasta.")
-    parser.add_argument("--json-conf", dest="json_conf",
+    parser.add_argument("--configuration", "--json-conf", dest="configuration",
                         type=str, default="",
                         help="Configuration file.")
     parser.add_argument("-er", "--exclude-redundant", default=None,

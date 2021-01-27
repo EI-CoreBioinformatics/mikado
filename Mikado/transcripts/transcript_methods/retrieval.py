@@ -221,8 +221,8 @@ def __load_blast(transcript, data_dict=None, reverse=False):
     # if self.query_id is None:
     #     return
 
-    max_target_seqs = transcript.json_conf.pick.chimera_split.blast_params.max_target_seqs
-    maximum_evalue = transcript.json_conf.pick.chimera_split.blast_params.evalue
+    max_target_seqs = transcript.configuration.pick.chimera_split.blast_params.max_target_seqs
+    maximum_evalue = transcript.configuration.pick.chimera_split.blast_params.evalue
 
     if data_dict is None:
         blast_hits_query = [_.as_dict() for _ in transcript.blast_baked(transcript.session).params(
@@ -276,22 +276,22 @@ def _connect_to_db(transcript):
     """
 
     transcript.engine = dbutils.connect(
-        transcript.json_conf, transcript.logger)
+        transcript.configuration, transcript.logger)
 
     transcript.sessionmaker = sessionmaker()
     transcript.sessionmaker.configure(bind=transcript.engine)
     transcript.session = transcript.sessionmaker()
 
 
-def load_information_from_db(transcript, json_conf, introns=None, session=None,
+def load_information_from_db(transcript, configuration, introns=None, session=None,
                              data_dict=None):
     """This method will invoke the check for:
 
     :param transcript: the Transcript instance
     :type transcript: Mikado.loci_objects.transcript.Transcript
 
-    :param json_conf: Necessary configuration file
-    :type json_conf: dict
+    :param configuration: Necessary configuration file
+    :type json_conf: (MikadoConfiguration|DaijinConfiguration)
 
     :param introns: the verified introns in the Locus
     :type introns: None,set
@@ -307,7 +307,7 @@ def load_information_from_db(transcript, json_conf, introns=None, session=None,
     """
 
     transcript.logger.debug("Loading {0}".format(transcript.id))
-    transcript.json_conf = json_conf
+    transcript.configuration = configuration
 
     __load_verified_introns(transcript, data_dict, introns)
     if data_dict is not None:
@@ -393,8 +393,8 @@ def retrieve_from_dict(transcript, data_dict):
                             sorted(transcript.introns))
 
     # ORF data
-    trust_strand = transcript.json_conf.pick.orf_loading.strand_specific
-    min_cds_len = transcript.json_conf.pick.orf_loading.minimal_orf_length
+    trust_strand = transcript.configuration.pick.orf_loading.strand_specific
+    min_cds_len = transcript.configuration.pick.orf_loading.minimal_orf_length
 
     transcript.logger.debug("Retrieving ORF information from DB dictionary for %s",
                             transcript.id)
@@ -465,7 +465,7 @@ def find_overlapping_cds(transcript, candidates: list) -> list:
         candidates = list(corf for corf in candidates if corf.strand == "+")
 
     # Prepare the minimal secondary length parameter
-    minimal_secondary_orf_length = transcript.json_conf.pick.orf_loading.minimal_secondary_orf_length
+    minimal_secondary_orf_length = transcript.configuration.pick.orf_loading.minimal_secondary_orf_length
     transcript.logger.debug("Minimal orf loading: %d", minimal_secondary_orf_length)
 
     transcript.logger.debug("{0} input ORFs for {1}".format(len(candidates), transcript.id))
@@ -673,8 +673,8 @@ def retrieve_orfs(transcript):
     # if self.query_id is None:
     #     return []
 
-    trust_strand = transcript.json_conf.pick.orf_loading.strand_specific
-    min_cds_len = transcript.json_conf.pick.orf_loading.minimal_orf_length
+    trust_strand = transcript.configuration.pick.orf_loading.strand_specific
+    min_cds_len = transcript.configuration.pick.orf_loading.minimal_orf_length
 
     orf_results = transcript.orf_baked(transcript.session).params(query=transcript.id,
                                                                   cds_len=min_cds_len)

@@ -202,7 +202,7 @@ class TestPadding(unittest.TestCase):
                     json_conf.reference.genome = self.fai
                     json_conf.pick.alternative_splicing.only_confirmed_introns = False
                     json_conf.pick.run_options.only_reference_update = True
-                    locus = Locus(self.reference.copy(), logger=logger, json_conf=json_conf,
+                    locus = Locus(self.reference.copy(), logger=logger, configuration=json_conf,
                                   pad_transcripts=pad_transcripts)
                     self.assertTrue(locus[self.reference.id].is_reference)
                     self.assertEqual(locus.perform_padding, pad_transcripts)
@@ -251,7 +251,7 @@ class TestPadding(unittest.TestCase):
         t2_2.finalize()
         t1.is_reference = True
 
-        locus = Locus(t1, logger=logger, json_conf=json_conf)
+        locus = Locus(t1, logger=logger, configuration=json_conf)
         locus.add_transcript_to_locus(t2_1, check_in_locus=False)
         locus.add_transcript_to_locus(t2_2, check_in_locus=False)
         self.assertTrue(locus.primary_transcript_id == t1.id)
@@ -312,7 +312,7 @@ class TestPadding(unittest.TestCase):
         self.assertTrue(template2.is_coding)
 
         logger.setLevel("INFO")
-        locus = Locus(ref, json_conf=json_conf, logger=logger, pad_transcripts=True)
+        locus = Locus(ref, configuration=json_conf, logger=logger, pad_transcripts=True)
         locus.add_transcript_to_locus(template1)
         locus.add_transcript_to_locus(template2)
         self.assertIn(template2.id, locus)

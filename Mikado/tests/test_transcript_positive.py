@@ -90,7 +90,7 @@ class MonoBaseTester(unittest.TestCase):
 
     def test_split(self):
 
-        self.tr.json_conf.pick.chimera_split.blast_check = False
+        self.tr.configuration.pick.chimera_split.blast_check = False
         self.tr.load_orfs([self.bed3, self.bed1])
         splitted_transcripts = [l for l in self.tr.split_by_cds()]
         self.assertEqual(len(splitted_transcripts), 2)
@@ -627,7 +627,7 @@ Chr2    TAIR10    exon    629070    629176    .    +    .    Parent=AT2G02380.1"
 
         self.tr.strip_cds()
         self.tr.finalized = False
-        self.tr.json_conf.pick.chimera_split.blast_check = False
+        self.tr.configuration.pick.chimera_split.blast_check = False
 
         first_orf = parsers.bed12.BED12()
         first_orf.chrom = self.tr.id
@@ -782,7 +782,7 @@ Chr4\tCufflinks\texon\t15495994\t15495994\t.\t+\t.\tgene_id "cufflinks_star_at.1
     def test_split(self):
 
         self.tr.load_orfs([self.bed1, self.bed2])
-        self.tr.json_conf.pick.chimera_split.blast_check = False
+        self.tr.configuration.pick.chimera_split.blast_check = False
 
         self.assertEqual(self.tr.selected_cds_start, 15494127)
         self.assertEqual(self.tr.selected_cds_end, 15495994)

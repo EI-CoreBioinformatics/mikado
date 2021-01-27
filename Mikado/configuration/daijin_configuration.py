@@ -116,13 +116,13 @@ class AlnIndex:
 @dataclass
 class DaijinMikadoConfiguration:
     use_diamond: bool = field(default=True, metadata={
-        "description": "which mode(s) to run Mikado into. Default: permissive (split multiple ORF models unless there is strong BLAST evidence against the decision).",
-    })
-    use_prodigal: bool = field(default=True, metadata={
         "description": "use DIAMOND instead of NCBI BLASTX. Default: true",
     })
-    modes: List[str] = field(default_factory=lambda: ["stringent"], metadata={
+    use_prodigal: bool = field(default=True, metadata={
         "description": "Use Prodigal instead of TransDecoder for ORF calling. Default: true"
+    })
+    modes: List[str] = field(default_factory=lambda: ["stringent"], metadata={
+        "description": "which mode(s) to run Mikado into. Default: permissive (split multiple ORF models unless there is strong BLAST evidence against the decision).",
     })
 
 
@@ -147,25 +147,30 @@ class TGGConfiguration:
 
 @dataclass
 class DaijinConfiguration(MikadoConfiguration):
-    # Daijin specific sub-modules
-    load: ProgramLoader = field(default_factory=ProgramLoader, metadata={
 
+    """
+    Configuration properties for Daijin. This is an extended Mikado configuration file and can be given directly to
+Mikado itself.
+    """
+
+    load: ProgramLoader = field(default_factory=ProgramLoader, metadata={
+        "name": "load",
         "description": "Commands to use to load/select the versions of the programs to use. Leave an empty string if no loading is necessary.",
     })
     portcullis: Portcullis = field(default_factory=Portcullis, metadata={
-
+        "name": "portcullis",
         "description": "Options related to portcullis",
     })
     aln_index: AlnIndex = field(default_factory=AlnIndex, metadata={
-
+        "name": "aln_index",
         "description": "Options related to indexing.",
     })
     long_reads: LongReads = field(default_factory=LongReads, metadata={
-
+        "name": "long_reads",
         "description": "Parameters related to long reads to use for the assemblies.",
     })
     short_reads: ShortReads = field(default_factory=ShortReads, metadata={
-
+        "name": "short_reads",
         "description": "Parameters related to the reads to use for the assemblies.",
     })
     name: str = field(default="Daijin", metadata={
@@ -179,30 +184,30 @@ class DaijinConfiguration(MikadoConfiguration):
         "validate": validate.OneOf(["SLURM", "LSF", "local", "PBS", ""])
     })
     align_methods: AlignMethods = field(default_factory=AlignMethods, metadata={
-
+        "name": "align_methods",
         "description": "Aligners to use. Each aligner can be invoked multiple times: the per-aligner list includes the extra command line arguments to be passed to the program",
     })
     long_read_align_methods: LongReadAlign = field(default_factory=LongReadAlign, metadata={
-
+        "name": "long_read_align_methods",
         "description": "Aligners for long reads to use. Each aligner can be invoked multiple times: the per-aligner list includes the extra command line arguments to be passed to the program",
     })
     asm_methods: AsmMethods = field(default_factory=AsmMethods, metadata={
-
+        "name": "asm_methods",
         "description": "Short-read assemblers to use. Each assembler can be invoked multiple times: the per-aligner list includes the extra command line arguments to be passed to the program",
     })
     orf_calling: OrfCalling = field(default_factory=OrfCalling, metadata={
-
+        "name": "orf_calling",
         "description": "Parameters related to the ORF calling:",
     })
     blastx: BlastX = field(default_factory=BlastX, metadata={
-
+        "name": "blastx",
         "description": "Parameters related to how DIAMOND/BLASTX will be run"
     })
     mikado: DaijinMikadoConfiguration = field(default_factory=DaijinMikadoConfiguration, metadata={
         "description": "Parameters related to the Mikado execution.",
-
+        "name": "mikado",
     })
     tgg: TGGConfiguration = field(default_factory=TGGConfiguration, metadata={
         "description": "Options related to genome-guided Trinity.",
-
+        "name": "tgg",
     })

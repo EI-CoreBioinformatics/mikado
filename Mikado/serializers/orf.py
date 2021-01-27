@@ -195,7 +195,7 @@ class OrfSerializer:
 
     def __init__(self,
                  handle,
-                 json_conf=None,
+                 configuration=None,
                  logger=None):
 
         """Constructor function. Arguments:
@@ -212,42 +212,44 @@ class OrfSerializer:
         :param handle: the input BED12 file
         :type handle: (io.TextIOWrapper|str)
 
-        :param json_conf: a configuration dictionary
-        :type json_conf: (MikadoConfiguration|DaijinConfiguration)
+        :param configuration: a configuration dictionary
+        :type configuration: (MikadoConfiguration|DaijinConfiguration)
 
         """
 
         if logger is not None:
             self.logger = check_logger(logger)
 
-        fasta_index = json_conf.serialise.files.transcripts
-        self._max_regression = json_conf.serialise.max_regression
-        self._table = json_conf.serialise.codon_table
-        self.procs = json_conf.threads
-        self.single_thread = json_conf.serialise.single_thread
-        self.adjust_start = json_conf.serialise.start_adjustment
+        fasta_index = configuration.serialise.files.transcripts
+        self.logger.debug("Serialising ORFs for transcripts in %s", fasta_index)
+        self._max_regression = configuration.serialise.max_regression
+        self._table = configuration.serialise.codon_table
+        self.procs = configuration.threads
+        self.single_thread = configuration.serialise.single_thread
+        self.adjust_start = configuration.serialise.start_adjustment
         if self.single_thread:
             self.procs = 1
 
         if isinstance(fasta_index, str):
             assert os.path.exists(fasta_index)
             fasta_index = pysam.FastaFile(fasta_index)
-        elif fasta_index is None:
+        elif isinstance(fasta_index, bytes):
+            fasta_index = fasta_index.decode()
+            assert os.path.exists(fasta_index)
+            fasta_index = pysam.FastaFile(fasta_index)
+        elif fasta_index is None or not isinstance(fasta_index, pysam.FastaFile):
             exc = ValueError("A fasta index is needed for the serialization!")
             self.logger.exception(exc)
             return
-        else:
-            assert isinstance(fasta_index, pysam.FastaFile)
 
         self.fasta_index = fasta_index
-        assert isinstance(self.fasta_index, pysam.FastaFile)
 
         if isinstance(handle, str):
             self.is_bed12 = (".bed12" in handle or ".bed" in handle)
         else:
             self.is_bed12 = (".bed12" in handle.name or ".bed" in handle.name.endswith)
 
-        self.engine = connect(json_conf, logger)
+        self.engine = connect(configuration, logger)
 
         self._handle = handle
         Session = sessionmaker(bind=self.engine, autocommit=False, autoflush=False, expire_on_commit=False)
@@ -258,8 +260,8 @@ class OrfSerializer:
         if Orf.__tablename__ not in inspector.get_table_names():
             DBBASE.metadata.create_all(self.engine)
         self.session = session
-        self.maxobjects = json_conf.serialise.max_objects
-        self.log_level = json_conf.log_settings.log_level
+        self.maxobjects = configuration.serialise.max_objects
+        self.log_level = configuration.log_settings.log_level
 
     def load_fasta(self):
 
@@ -330,7 +332,7 @@ class OrfSerializer:
             else:
                 self.logger.critical(
                     "The provided ORFs do not match the transcripts provided and already present in the database.\
-Please check your input files.")
+Please check your input files. Rogue ID: %s", row.id)
                 raise InvalidSerialization
 
             # current_junction = Orf(row, current_query)

@@ -280,7 +280,7 @@ class Transcript:
         self.cds_intron_fraction = self.selected_cds_intron_fraction = 1
 
         # Json configuration
-        self.json_conf = None
+        self.configuration = None
 
         # Things that will be populated by querying the database
         self.loaded_bed12 = []
@@ -484,7 +484,7 @@ class Transcript:
             self.attributes[intern(key)] = val
 
         self.blast_hits = []
-        self.json_conf = None
+        self.configuration = None
 
         if transcript_row.is_transcript is False:
             if transcript_row.is_exon is False and transcript_row.feature not in ("match", "tss", "tts"):
@@ -623,14 +623,14 @@ class Transcript:
 
         self.logger = logger
 
-        if hasattr(self, "json_conf") and self.json_conf is not None:
-            state["json_conf"] = self.json_conf.copy()
-            if isinstance(state["json_conf"].reference.genome, pysam.FastaFile):
-                state["json_conf"][key] = state["json_conf"].reference.genome.filename
-            state["json_conf"].requirements.pop("compiled", None)
-            state["json_conf"].as_requirements.pop("compiled", None)
-            state["json_conf"].cds_requirements.pop("compiled", None)
-            state["json_conf"].not_fragmentary.pop("compiled", None)
+        if hasattr(self, "configuration") and self.configuration is not None:
+            state["configuration"] = self.configuration.copy()
+            if isinstance(state["configuration"].reference.genome, pysam.FastaFile):
+                state["configuration"][key] = state["configuration"].reference.genome.filename
+            state["configuration"].requirements.pop("compiled", None)
+            state["configuration"].as_requirements.pop("compiled", None)
+            state["configuration"].cds_requirements.pop("compiled", None)
+            state["configuration"].not_fragmentary.pop("compiled", None)
 
         if hasattr(self, "session"):
             if state["session"] is not None:
@@ -649,8 +649,8 @@ class Transcript:
         return state
 
     def __setstate__(self, state):
-        self.__json_conf = None
-        self.__json_conf = state.pop("json_conf", None)
+        self.__configuration = None
+        self.__configuration = state.pop("configuration", None)
         self.__dict__.update(state)
         self._calculate_cds_tree()
         self._calculate_segment_tree()
@@ -912,10 +912,10 @@ exon data is on a different chromosome, {exon_data.chrom}. \
     def is_reference(self):
         """Checks whether the transcript has been marked as reference by Mikado prepare"""
 
-        if self.__is_reference is None and self.json_conf is None:
+        if self.__is_reference is None and self.configuration is None:
             return False
         elif self.__is_reference is None:
-            self.__is_reference = (self.original_source in self.json_conf.prepare.files.reference)
+            self.__is_reference = (self.original_source in self.configuration.prepare.files.reference)
 
         return self.__is_reference
 
@@ -1212,12 +1212,12 @@ exon data is on a different chromosome, {exon_data.chrom}. \
                             self.id)
         return
 
-    def load_information_from_db(self, json_conf, introns=None, session=None,
+    def load_information_from_db(self, configuration, introns=None, session=None,
                                  data_dict=None):
         """This method will invoke the check for:
 
-        :param json_conf: Necessary configuration file
-        :type json_conf: dict
+        :param configuration: Necessary configuration file
+        :type configuration: (MikadoConfiguration|DaijinConfiguration)
 
         :param introns: the verified introns in the Locus
         :type introns: None,set
@@ -1233,7 +1233,7 @@ exon data is on a different chromosome, {exon_data.chrom}. \
         """
 
         retrieval.load_information_from_db(self,
-                                           json_conf,
+                                           configuration,
                                            introns=introns,
                                            session=session,
                                            data_dict=data_dict)
@@ -1635,30 +1635,30 @@ exon data is on a different chromosome, {exon_data.chrom}. \
         self.__logger = create_null_logger()
 
     @property
-    def json_conf(self):
+    def configuration(self):
         """
         Configuration dictionary. It can be None.
         :return:
         """
 
-        return self.__json_conf
+        return self.__configuration
 
-    @json_conf.setter
-    def json_conf(self, json_conf):
+    @configuration.setter
+    def configuration(self, configuration):
 
         """
         Setter for the configuration dictionary.
-        :param json_conf: None or a dictionary
-        :type json_conf: (None | dict)
+        :param configuration: None or a dictionary
+        :type configuration: (None | MikadoConfiguration | DaijinConfiguration)
         :return:
         """
 
-        assert isinstance(json_conf, (MikadoConfiguration, DaijinConfiguration)) or json_conf is None
-        if json_conf is None:
-            json_conf = load_and_validate_config(None)
-            assert isinstance(json_conf, (MikadoConfiguration, DaijinConfiguration))
+        assert isinstance(configuration, (MikadoConfiguration, DaijinConfiguration)) or configuration is None
+        if configuration is None:
+            configuration = load_and_validate_config(None)
+            assert isinstance(configuration, (MikadoConfiguration, DaijinConfiguration))
 
-        self.__json_conf = json_conf
+        self.__configuration = configuration
 
     @logger.deleter
     def logger(self):
@@ -2344,9 +2344,9 @@ index {3}, internal ORFs: {4}".format(
         """This property returns the codon table for the project. Default: 0 (Standard, but only ATG is considered
         a valid start codon)."""
 
-        if self.json_conf is None:
+        if self.configuration is None:
             return 0
-        return self.json_conf.serialise.codon_table
+        return self.configuration.serialise.codon_table
 
     @property
     def segmenttree(self):
@@ -2418,8 +2418,8 @@ index {3}, internal ORFs: {4}".format(
         """This metric returns a score that is assigned to the transcript
         in virtue of its origin."""
 
-        if self.json_conf is not None:
-            self.json_conf.prepare.files.source_score.get(self.original_source, 0)
+        if self.configuration is not None:
+            self.configuration.prepare.files.source_score.get(self.original_source, 0)
         else:
             return 0
 

@@ -16,7 +16,6 @@ import marshmallow
 from multiprocessing import get_start_method
 from logging import Logger
 import jsonschema
-import pkg_resources
 import yaml
 from pkg_resources import resource_stream, resource_filename
 from ..exceptions import InvalidJson, UnrecognizedRescaler
@@ -443,34 +442,6 @@ def check_db(json_conf: Union[MikadoConfiguration, DaijinConfiguration]):
                                                         json_conf.db_settings.db)
 
     return json_conf
-
-
-def create_validator(simple=False):
-
-    """Method to create a validator class (see extend_with_default).
-    The simple keyword (boolean) is used to determine whether to keep
-    only SimpleComment or full Comments from the schema.
-
-    :type simple: bool
-
-    :return validator
-    :rtype: jsonschema.Draft7Validator
-    """
-
-    validator = extend_with_default(jsonschema.Draft7Validator,
-                                    simple=simple)
-
-    resolver = jsonschema.RefResolver("file:///{}".format(os.path.abspath(
-        os.path.dirname(pkg_resources.resource_filename("Mikado.configuration", os.path.basename(__file__)))
-    )), None)
-
-    with io.TextIOWrapper(resource_stream("Mikado.configuration",
-                                          "configuration_blueprint.json")) as blue:
-        blue_print = json.loads(blue.read())
-
-    validator = validator(blue_print, resolver=resolver)
-
-    return validator
 
 
 def _check_scoring_file(json_conf: Union[MikadoConfiguration, DaijinConfiguration], logger: Logger) -> (Union[

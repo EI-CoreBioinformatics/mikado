@@ -561,7 +561,7 @@ class TestRetrieval(unittest.TestCase):
 
         conf.pick.orf_loading.minimal_secondary_orf_length = 50
 
-        self.tr.json_conf = conf
+        self.tr.configuration = conf
 
     def test_load_pos_and_neg(self):
         
@@ -584,7 +584,7 @@ class TestRetrieval(unittest.TestCase):
         with self.assertLogs("null", "DEBUG") as _:
             after_overlap_check = retrieval.find_overlapping_cds(self.tr, [b1, b2])
 
-        self.assertEqual(len(after_overlap_check), 2, self.tr.json_conf.pick.orf_loading)
+        self.assertEqual(len(after_overlap_check), 2, self.tr.configuration.pick.orf_loading)
         self.assertEqual(after_overlap_check,
                          [b1, b2],
                          [_.name for _ in after_overlap_check])

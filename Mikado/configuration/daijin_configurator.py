@@ -4,16 +4,13 @@ import os
 import io
 import tomlkit
 import yaml
-import toml
-import jsonschema
 from pkg_resources import resource_stream, resource_filename
-from .configurator import extend_with_default, check_all_requirements, check_scoring
+from .configurator import check_all_requirements, check_scoring
 from .configurator import create_cluster_config
-from . import print_config, print_toml_config, DaijinConfiguration
+from . import print_config, DaijinConfiguration
 from ..exceptions import InvalidJson
 from ..utilities.log_utils import create_default_logger
 import sys
-import jsonref
 import pysam
 try:
     from yaml import CSafeLoader as yLoader
@@ -34,26 +31,6 @@ def _substitute_conf(schema):
         else:
             continue
     return schema
-
-
-def create_daijin_validator(simple=True):
-
-    cname = resource_filename("Mikado.configuration", "configuration_blueprint.json")
-
-    # We have to repeate twice the ending configuration (bug in jsonref?)
-    baseuri = "file://" +  os.path.join(os.path.dirname(cname), os.path.basename(os.path.dirname(cname)))
-    with io.TextIOWrapper(resource_stream("Mikado.configuration",
-                                          "daijin_schema.json")) as blue:
-        blue_print = jsonref.load(blue,
-                                  jsonschema=True,
-                                  base_uri=baseuri)
-
-    # _substitute_conf(blue_print)
-    validator = extend_with_default(jsonschema.Draft7Validator,
-                                    simple=simple)
-    validator = validator(blue_print)
-
-    return validator
 
 
 def _parse_sample_sheet(sample_sheet, config: DaijinConfiguration, logger):
@@ -274,30 +251,22 @@ def create_daijin_config(args, config=None, level="ERROR", piped=False):
             for key, val in dataclasses.asdict(final_config.load).items():
                 print("{}: \"{}\"".format(key, val), file=out)
 
-    del final_config.as_requirements
-    del final_config.cds_requirements
-    del final_config.requirements
-    del final_config.not_fragmentary
-    del final_config.scoring
-
     if piped is True:
         return final_config
     else:
-        final_config = dataclasses.asdict(final_config)
-        [final_config.pop(key, None) for key in
-         ["cds_requirements", "as_requirements", "not_fragmentary", "scoring", "requirements"]]
-        if args.json is True:
-            json.dump(final_config, args.out)
-        elif args.yaml is True:
-            print_config(yaml.dump(final_config, default_flow_style=False), args.out)
-        elif args.toml is True:
-            print_toml_config(tomlkit.dumps(final_config), args.out)
-        elif args.out != sys.stdout and args.out.name.endswith("json"):
-            json.dump(final_config, args.out)
-        elif args.out != sys.stdout and args.out.name.endswith("yaml"):
-            print_config(yaml.dump(final_config, default_flow_style=False), args.out)
-        else:
-            print_toml_config(toml.dumps(final_config), args.out)
+        del final_config.cds_requirements
+        del final_config.as_requirements
+        del final_config.not_fragmentary
+        del final_config.scoring
+        del final_config.requirements
 
+        if args.json is True or (args.out != sys.stdout and args.out.name.endswith("json")):
+            format_name = "json"
+        elif args.yaml is True or (args.out != sys.stdout and args.out.name.endswith("yaml")):
+            format_name = "yaml"
+        else:
+            format_name = "toml"
+
+        print_config(final_config, args.out, format=format_name)
         args.out.close()
     return

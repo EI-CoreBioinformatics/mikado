@@ -47,7 +47,7 @@ class DBConfiguration:
     })
 
 
-def create_connector(json_conf, logger=None):
+def create_connector(configuration, logger=None):
     """Creator function for the database connection. It necessitates the following information from
     the json_conf dictionary:
 
@@ -63,7 +63,7 @@ def create_connector(json_conf, logger=None):
 
     These are controlled and added automatically by the json_utils functions.
 
-    :param json_conf: configuration dictionary
+    :param configuration: configuration dictionary
 
     :param logger: a logger instance
     :type logger: logging.Logger
@@ -77,7 +77,7 @@ def create_connector(json_conf, logger=None):
         logger = logging.Logger("null")
         logger.addHandler(logging.NullHandler())
 
-    db_settings = json_conf.db_settings
+    db_settings = configuration.db_settings
     assert isinstance(db_settings, DBConfiguration)
 
     func = None
@@ -126,12 +126,12 @@ def create_connector(json_conf, logger=None):
     return func
 
 
-def connect(json_conf, logger=None, **kwargs):
+def connect(configuration, logger=None, **kwargs):
 
     """
     Function to create an engine to connect to a DB with, using the
     configuration inside the provided json_conf.
-    :param json_conf:
+    :param configuration:
     :param logger:
     :return: sqlalchemy.engine.base.Engine
     """
@@ -150,11 +150,11 @@ def connect(json_conf, logger=None, **kwargs):
         finally:
             cursor.close()
 
-    if json_conf is None:
+    if configuration is None:
         return create_engine("sqlite:///:memory:", **kwargs)
 
-    db_connection = functools.partial(create_connector, json_conf, logger=logger)
-    engine = create_engine("{0}://".format(json_conf.db_settings.dbtype),
+    db_connection = functools.partial(create_connector, configuration, logger=logger)
+    engine = create_engine("{0}://".format(configuration.db_settings.dbtype),
                            creator=db_connection, **kwargs)
     DBBASE.metadata.create_all(engine, checkfirst=True)
 

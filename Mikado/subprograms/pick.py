@@ -25,16 +25,16 @@ def check_log_settings(args):
     """
 
     if args.log == "stderr":
-        args.json_conf.log_settings.log = None
+        args.configuration.log_settings.log = None
     elif args.log is not None:
-        args.json_conf.log_settings.log = args.log
+        args.configuration.log_settings.log = args.log
 
     if args.log_level is not None:
-        args.json_conf.log_settings.log_level = args.log_level
+        args.configuration.log_settings.log_level = args.log_level
     elif args.verbose is True:
-        args.json_conf.log_settings.log_level = "DEBUG"
+        args.configuration.log_settings.log_level = "DEBUG"
     elif args.noverbose is True:
-        args.json_conf.log_settings.log_level = "ERROR"
+        args.configuration.log_settings.log_level = "ERROR"
 
     return args
 
@@ -49,15 +49,15 @@ def check_run_options(args, logger=create_null_logger()):
     """
 
     if args.start_method is not None:
-        args.json_conf.multiprocessing_method = args.start_method
+        args.configuration.multiprocessing_method = args.start_method
 
     if args.procs is not None:
-        args.json_conf.threads = args.procs
+        args.configuration.threads = args.procs
 
-    args.json_conf.pick.run_options.single_thread = args.single
+    args.configuration.pick.run_options.single_thread = args.single
 
     if args.seed is not None:
-        args.json_conf.seed = args.seed
+        args.configuration.seed = args.seed
         # numpy.random.seed(args.seed % (2 ** 32 - 1))
         random.seed(args.seed % (2 ** 32 - 1))
     else:
@@ -65,149 +65,149 @@ def check_run_options(args, logger=create_null_logger()):
         random.seed(None)
 
     if args.no_cds is not False:
-        args.json_conf.pick.run_options.exclude_cds = True
+        args.configuration.pick.run_options.exclude_cds = True
     if args.no_purge is True:
-        args.json_conf.pick.run_options.purge = False
+        args.configuration.pick.run_options.purge = False
 
     if args.flank is not None:
-        args.json_conf.pick.run_options.flank = args.flank
+        args.configuration.pick.run_options.flank = args.flank
 
     if args.output_dir is not None:
-        args.json_conf.pick.files.output_dir = os.path.abspath(args.output_dir)
+        args.configuration.pick.files.output_dir = os.path.abspath(args.output_dir)
     else:
-        args.json_conf.pick.files.output_dir = os.path.abspath(args.json_conf.pick.files.output_dir)
+        args.configuration.pick.files.output_dir = os.path.abspath(args.configuration.pick.files.output_dir)
 
     if args.source is not None:
-        args.json_conf.pick.output_format.source = args.source
+        args.configuration.pick.output_format.source = args.source
     if args.prefix is not None:
-        args.json_conf.pick.output_format.id_prefix = args.prefix
+        args.configuration.pick.output_format.id_prefix = args.prefix
 
     if args.sqlite_db is not None:
         if not os.path.exists(args.sqlite_db):
             logger.critical("Mikado database %s not found. Exiting.", args.sqlite_db)
             sys.exit(1)
-        args.json_conf.db_settings.db = args.sqlite_db
-        args.json_conf.db_settings.dbtype = "sqlite"
+        args.configuration.db_settings.db = args.sqlite_db
+        args.configuration.db_settings.dbtype = "sqlite"
 
-    elif not (args.json_conf.db_settings.dbtype == "sqlite" and
-        not os.path.exists(args.json_conf.db_settings.db) and
-        os.path.abspath(args.json_conf.pick.files.output_dir) != os.path.dirname(
-                args.json_conf.db_settings.db)
+    elif not (args.configuration.db_settings.dbtype == "sqlite" and
+              not os.path.exists(args.configuration.db_settings.db) and
+              os.path.abspath(args.configuration.pick.files.output_dir) != os.path.dirname(
+                args.configuration.db_settings.db)
     ):
-        __compound = os.path.join(args.json_conf.pick.files.output_dir,
-                                  args.json_conf.db_settings.db)
-        __base = os.path.join(args.json_conf.pick.files.output_dir,
-                                  args.json_conf.db_settings.db)
+        __compound = os.path.join(args.configuration.pick.files.output_dir,
+                                  args.configuration.db_settings.db)
+        __base = os.path.join(args.configuration.pick.files.output_dir,
+                              args.configuration.db_settings.db)
         if os.path.exists(__compound):
-            args.json_conf.db_settings.db = __compound
+            args.configuration.db_settings.db = __compound
         elif os.path.exists(__base):
-            args.json_conf.db_settings.db = __base
+            args.configuration.db_settings.db = __base
         else:
             logger.critical("Mikado database {} not found. Exiting.", args.sqlite_db)
             sys.exit(1)
 
     if args.mode is not None:
         if args.mode == "nosplit":
-            args.json_conf.pick.chimera_split.execute = False
+            args.configuration.pick.chimera_split.execute = False
         else:
-            args.json_conf.pick.chimera_split.execute = True
+            args.configuration.pick.chimera_split.execute = True
             if args.mode == "split":
-                args.json_conf.pick.chimera_split.blast_check = False
+                args.configuration.pick.chimera_split.blast_check = False
             else:
-                args.json_conf.pick.chimera_split.blast_check = True
-                args.json_conf.pick.chimera_split.blast_params.leniency = args.mode.upper()
+                args.configuration.pick.chimera_split.blast_check = True
+                args.configuration.pick.chimera_split.blast_params.leniency = args.mode.upper()
 
     if args.pad is not None:
-        args.json_conf.pick.alternative_splicing.pad = args.pad
+        args.configuration.pick.alternative_splicing.pad = args.pad
 
     if args.min_clustering_cds_overlap is not None:
-        args.json_conf.pick.clustering.min_cds_overlap = args.min_clustering_cds_overlap
+        args.configuration.pick.clustering.min_cds_overlap = args.min_clustering_cds_overlap
 
     if args.min_clustering_cdna_overlap is not None:
-        args.json_conf.pick.clustering.min_cdna_overlap = args.min_clustering_cdna_overlap
+        args.configuration.pick.clustering.min_cdna_overlap = args.min_clustering_cdna_overlap
         if args.min_clustering_cds_overlap is None:
-            args.json_conf.pick.clustering.min_cds_overlap = args.min_clustering_cdna_overlap
+            args.configuration.pick.clustering.min_cds_overlap = args.min_clustering_cdna_overlap
 
     if args.pad_max_splices is not None:
-        args.json_conf.pick.alternative_splicing.ts_max_splices = True
+        args.configuration.pick.alternative_splicing.ts_max_splices = True
 
     if args.pad_max_distance is not None:
-        args.json_conf.pick.alternative_splicing.ts_distance = True
+        args.configuration.pick.alternative_splicing.ts_distance = True
 
     if args.intron_range is not None:
-        args.json_conf.pick.run_options.intron_range = tuple(sorted(args.intron_range))
+        args.configuration.pick.run_options.intron_range = tuple(sorted(args.intron_range))
 
     if args.max_intron_length is not None:
-        args.json_conf.prepare.max_intron_length = args.max_intron_length
+        args.configuration.prepare.max_intron_length = args.max_intron_length
 
     if args.cds_only is True:
-        args.json_conf.pick.clustering.cds_only = True
+        args.configuration.pick.clustering.cds_only = True
 
     if args.as_cds_only is True:
-        args.json_conf.pick.alternative_splicing.cds_only = True
+        args.configuration.pick.alternative_splicing.cds_only = True
 
     if args.gff:
-        args.json_conf.pick.files.input = args.gff
+        args.configuration.pick.files.input = args.gff
 
     if args.loci_out:
-        args.json_conf.pick.files.loci_out = args.loci_out if \
+        args.configuration.pick.files.loci_out = args.loci_out if \
             args.loci_out.split('.')[-1] in ("gff3", "gff") else \
             "{0}.gff3".format(args.loci_out)
 
     if args.monoloci_out:
-        args.json_conf.pick.files.monoloci_out = args.monoloci_out if \
+        args.configuration.pick.files.monoloci_out = args.monoloci_out if \
             args.monoloci_out.split('.')[-1] in ("gff3", "gff") else \
             "{0}.gff3".format(args.monoloci_out)
 
     if args.subloci_out:
-        args.json_conf.pick.files.subloci_out = args.subloci_out if \
+        args.configuration.pick.files.subloci_out = args.subloci_out if \
             args.subloci_out.split('.')[-1] in ("gff3", "gff") else \
             "{0}.gff3".format(args.subloci_out)
 
     if args.log:
-        args.json_conf.pick.files.log = args.log
+        args.configuration.pick.files.log = args.log
 
     if args.shm is True:
-        args.json_conf.pick.run_options.shm = True
+        args.configuration.pick.run_options.shm = True
 
     if args.only_reference_update is True:
-        args.json_conf.pick.run_options.only_reference_update = True
-        args.json_conf.pick.run_options.reference_update = True
+        args.configuration.pick.run_options.only_reference_update = True
+        args.configuration.pick.run_options.reference_update = True
 
     if args.reference_update is True:
-        args.json_conf.pick.run_options.reference_update = True
+        args.configuration.pick.run_options.reference_update = True
 
     if args.check_references is True:
-        args.json_conf.pick.run_options.check_references = True
+        args.configuration.pick.run_options.check_references = True
 
     if args.report_all_orfs is True:
-        args.json_conf.pick.run_options.report_all_orfs = True
+        args.configuration.pick.run_options.report_all_orfs = True
 
     if getattr(args, "fasta"):
         args.fasta.close()
-        args.json_conf.reference.genome = args.fasta.name
+        args.configuration.reference.genome = args.fasta.name
 
     if args.scoring_file is not None:
         if not os.path.exists(args.scoring_file) and os.path.isfile(args.scoring_file):
             raise ValueError("Invalid/inexistent scoring file: {}".format(args.scoring_file))
-        args.json_conf.pick.scoring_file = args.scoring_file
+        args.configuration.pick.scoring_file = args.scoring_file
 
-    if (args.json_conf.pick.alternative_splicing.pad and
-            not os.path.exists(args.json_conf.reference.genome)):
+    if (args.configuration.pick.alternative_splicing.pad and
+            not os.path.exists(args.configuration.reference.genome)):
         logger.critical("Transcript padding cannot function unless the genome file is specified. \
         Please either provide a valid genome file or disable the padding.")
         sys.exit(1)
 
     if args.keep_disrupted_cds is True:
-        args.json_conf.pick.alternative_splicing.keep_cds_disrupted_by_ri = True
+        args.configuration.pick.alternative_splicing.keep_cds_disrupted_by_ri = True
 
     if args.exclude_retained_introns is True:
-        args.json_conf.pick.alternative_splicing.keep_retained_introns = False
+        args.configuration.pick.alternative_splicing.keep_retained_introns = False
 
     if args.codon_table not in (False, None, True):
-        args.json_conf.serialise.codon_table = str(args.codon_table)
+        args.configuration.serialise.codon_table = str(args.codon_table)
 
-    args.json_conf = load_and_validate_config(args.json_conf, logger=logger)
+    args.configuration = load_and_validate_config(args.configuration, logger=logger)
     return args
 
 
@@ -221,8 +221,8 @@ def pick(args):
 
     logger = create_default_logger("pick_init")
 
-    args.json_conf.close()
-    args.json_conf = load_and_validate_config(args.json_conf.name, logger=logger)
+    args.configuration.close()
+    args.configuration = load_and_validate_config(args.configuration.name, logger=logger)
 
     try:
         args = check_log_settings(args)
@@ -252,7 +252,7 @@ def pick(args):
         regions = None
 
     from ..picking import Picker
-    creator = Picker(args.json_conf, commandline=" ".join(sys.argv), regions=regions)
+    creator = Picker(args.configuration, commandline=" ".join(sys.argv), regions=regions)
     creator()
     sys.exit(0)
 
@@ -261,8 +261,7 @@ def pick_parser():
     """
     Parser for the picking step.
     """
-    parser = argparse.ArgumentParser("Launcher of the Mikado pipeline.",
-                                     formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser = argparse.ArgumentParser(description="Launcher of the Mikado pipeline.")
     parser.add_argument("--fasta", type=argparse.FileType(),
                         help="Genome FASTA file. Required for transcript padding.")
     parser.add_argument("--start-method", dest="start_method",
@@ -274,7 +273,7 @@ during the run.")
     parser.add_argument("-p", "--procs", type=int, default=None,
                         help="""Number of processors to use. \
 Default: look in the configuration file (1 if undefined)""")
-    parser.add_argument("--json-conf", dest="json_conf",
+    parser.add_argument("--configuration", "--json-conf", dest="configuration",
                         type=argparse.FileType("r"), required=True,
                         help="JSON/YAML configuration file for Mikado.")
     parser.add_argument("--scoring-file", dest="scoring_file",

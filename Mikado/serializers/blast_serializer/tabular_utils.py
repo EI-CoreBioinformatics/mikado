@@ -396,7 +396,7 @@ def parse_tab_blast(self,
     if procs > 1:
         # We have to set up the processes before the forking.
         lock = mp.RLock()
-        conf = self.json_conf.copy()
+        conf = self.configuration.copy()
         params_file = tempfile.mktemp(suffix=".mgp")
 
         index_files = dict((idx, tempfile.mktemp(suffix=".csv")) for idx in
@@ -407,8 +407,8 @@ def parse_tab_blast(self,
                   "matrix_name": matrix_name,
                   "qmult": qmult,
                   "tmult": tmult,
-                  "sql_level": self.json_conf.log_settings.sql_level,
-                  "log_level": self.json_conf.log_settings.log_level,
+                  "sql_level": self.configuration.log_settings.sql_level,
+                  "log_level": self.configuration.log_settings.log_level,
                   "logging_queue": self.logging_queue,
                   "params_file": params_file}
         processes = [Preparer(index_files[idx], idx, **kwargs) for idx in range(procs)]

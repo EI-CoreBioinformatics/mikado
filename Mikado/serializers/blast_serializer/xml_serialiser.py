@@ -21,11 +21,11 @@ import struct
 struct_row = struct.Struct(">LLL")
 
 
-def xml_pickler(json_conf, filename, default_header,
+def xml_pickler(configuration, filename, default_header,
                 cache=None,
                 max_target_seqs=10):
     valid, _, exc = BlastOpener(filename).sniff(default_header=default_header)
-    engine = connect(json_conf, strategy="threadlocal")
+    engine = connect(configuration, strategy="threadlocal")
     session = Session(bind=engine)
 
     if not valid:
@@ -137,14 +137,14 @@ def _serialise_xmls(self):
         results = []
         if self._xml_debug is True:
             for num, filename in enumerate(self.xml):
-                results.append(xml_pickler(self.json_conf,
+                results.append(xml_pickler(self.configuration,
                                            filename, self.header,
                                            cache=None,
                                            max_target_seqs=self._max_target_seqs))
         else:
             pool = mp.Pool(self.procs)
             for num, filename in enumerate(self.xml):
-                args = (self.json_conf, filename, self.header)
+                args = (self.configuration, filename, self.header)
                 kwds = {"max_target_seqs": self._max_target_seqs, "cache": None}
                 pool.apply_async(xml_pickler, args=args, kwds=kwds, callback=results.append)
             pool.close()

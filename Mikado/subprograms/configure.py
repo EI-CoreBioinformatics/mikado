@@ -135,14 +135,6 @@ def create_config(args):
     if args.blast_targets is not None:
         config.serialise.files.blast_targets = args.blast_targets
 
-    # TODO: What does this do by removing the reference settings, {pick, serialise and prepare} files and db_settings?
-    if args.no_files is True:
-        for stage in ["pick", "prepare", "serialise"]:
-            if "files" in config[stage]:
-                del config[stage]["files"]
-        del config["reference"]
-        del config["db_settings"]
-
     if args.only_reference_update is True or args.reference_update is True:
         if len(config.prepare.files.reference) == 0:
             logger = create_default_logger("configure")
@@ -236,7 +228,7 @@ switch.")
     else:
         format_name = "toml"
 
-    print_config(config, args.out, format=format_name)
+    print_config(config, args.out, format=format_name, no_files=args.no_files)
 
 
 def configure_parser():

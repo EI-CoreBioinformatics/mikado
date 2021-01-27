@@ -18,10 +18,17 @@ import yaml
 __author__ = 'Luca Venturini'
 
 
-def print_toml_config(config, out):
+def print_toml_config(config, out, no_files=False):
     config_dict = dataclasses.asdict(config)
     for key in ["scoring", "cds_requirements", "requirements", "not_fragmentary", "as_requirements"]:
         config_dict.pop(key, None)
+
+    if no_files is True:
+        for stage in ["pick", "prepare", "serialise"]:
+            if "files" in config_dict[stage]:
+                del config_dict[stage]["files"]
+        del config_dict["reference"]
+        del config_dict["db_settings"]
 
     output = toml.dumps(config_dict)
 
@@ -68,7 +75,7 @@ def print_toml_config(config, out):
     print(*lines, sep="\n", file=out)
 
 
-def print_config(config: Union[MikadoConfiguration, DaijinConfiguration], out, format="yaml"):
+def print_config(config: Union[MikadoConfiguration, DaijinConfiguration], out, format="yaml", no_files=False):
 
     """
     Function to print out the prepared configuration.
@@ -81,11 +88,18 @@ def print_config(config: Union[MikadoConfiguration, DaijinConfiguration], out, f
     # Necessary otherwise we will be deleting fields from the *original* object!
 
     if format == "toml":
-        print_toml_config(config, out)
+        print_toml_config(config, out, no_files=no_files)
 
     config_dict = dataclasses.asdict(config)
     for key in ["scoring", "cds_requirements", "requirements", "not_fragmentary", "as_requirements"]:
         config_dict.pop(key, None)
+
+    if no_files is True:
+        for stage in ["pick", "prepare", "serialise"]:
+            if "files" in config_dict[stage]:
+                del config_dict[stage]["files"]
+        del config_dict["reference"]
+        del config_dict["db_settings"]
 
     if format == "json":
         print(json.dumps(config_dict, indent=4, sort_keys=True), file=out)

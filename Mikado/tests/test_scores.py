@@ -3,7 +3,7 @@ import unittest
 
 try:
     import rapidjson as json
-except ImportError:
+except (ImportError,ModuleNotFoundError):
     import json
 from pkg_resources import resource_stream
 

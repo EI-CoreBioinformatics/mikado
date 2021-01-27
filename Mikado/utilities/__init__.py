@@ -19,6 +19,7 @@ from .intervaltree import Interval, IntervalTree
 from collections import Counter
 
 from ..exceptions import InvalidJson
+import sys
 
 
 __author__ = 'Luca Venturini'
@@ -267,3 +268,10 @@ def percentage(value):
     while 1 < value <= 100:
         value /= 100
     return value
+
+
+def default_for_serialisation(obj):
+    if isinstance(obj, set):
+        return tuple(obj)
+    elif obj == float("inf"):
+        return sys.maxsize

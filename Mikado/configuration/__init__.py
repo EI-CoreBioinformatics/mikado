@@ -11,7 +11,7 @@ import itertools
 import textwrap
 try:
     import rapidjson as json
-except ImportError:
+except (ImportError,ModuleNotFoundError):
     import json
 import toml
 import dataclasses

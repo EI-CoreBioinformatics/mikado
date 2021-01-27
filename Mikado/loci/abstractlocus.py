@@ -9,21 +9,21 @@ import itertools
 import logging
 from sys import maxsize
 import networkx
-import numpy
 from ..transcripts.clique_methods import find_communities, define_graph
 from ..transcripts.transcript import Transcript
 from ..exceptions import NotInLocusError, InvalidJson
-from ..utilities import overlap, merge_ranges, rhasattr, rgetattr
+from ..utilities import overlap, merge_ranges, rhasattr, rgetattr, default_for_serialisation
 import operator
 from ..utilities.intervaltree import Interval, IntervalTree
 from ..utilities.log_utils import create_null_logger
-from sys import version_info
 from ..scales.contrast import compare as c_compare
 import random
+from functools import partial
 try:
     import rapidjson as json
-except ImportError:
+except (ImportError,ModuleNotFoundError):
     import json
+dumper = partial(json.dumps, default=default_for_serialisation)
 from typing import Union
 from ..configuration.configuration import MikadoConfiguration
 from ..configuration.daijin_configuration import DaijinConfiguration
@@ -204,9 +204,9 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
         if self.__internal_graph.nodes():
             try:
-                nodes = json.dumps(list(self.__internal_graph.nodes())[0], number_mode=json.NM_NATIVE)
+                nodes = dumper(list(self.__internal_graph.nodes())[0])
             except ValueError:
-                nodes = json.dumps(list(self.__internal_graph.nodes())[0])
+                nodes = dumper(list(self.__internal_graph.nodes())[0])
         else:
             nodes = "[]"
         state["_Abstractlocus__internal_nodes"] = nodes
@@ -215,9 +215,9 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         # Remember that the graph is in form [((start, end), (start, end)), etc.]
         # So that each edge is composed by a couple of tuples.
         try:
-            state["_Abstractlocus__internal_edges"] = json.dumps(edges, number_mode=json.NM_NATIVE)
+            state["_Abstractlocus__internal_edges"] = dumper(edges)
         except ValueError:
-            state["_Abstractlocus__internal_edges"] = json.dumps(edges)
+            state["_Abstractlocus__internal_edges"] = dumper(edges)
         if hasattr(self, "engine"):
             del state["engine"]
 

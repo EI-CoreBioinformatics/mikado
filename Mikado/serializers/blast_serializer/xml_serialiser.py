@@ -1,7 +1,10 @@
+from functools import partial
+from ...utilities import default_for_serialisation
 try:
     import rapidjson as json
-except ImportError:
+except (ImportError,ModuleNotFoundError):
     import json
+dumper = partial(json.dumps, default=default_for_serialisation)
 from ...parsers.blast_utils import BlastOpener
 from .xml_utils import _get_query_for_blast, _get_target_for_blast
 from xml.parsers.expat import ExpatError
@@ -61,10 +64,7 @@ def xml_pickler(configuration, filename, default_header,
                         qmult=qmult, tmult=tmult, off_by_one=off_by_one)
 
                     record = {"hits": hits, "hsps": hsps}
-                    try:
-                        jrecord = json.dumps(record, number_mode=json.NM_NATIVE)
-                    except ValueError:
-                        jrecord = json.dumps(record)
+                    jrecord = dumper(record)
                     write_start = dbhandle.tell()
                     write_length = dbhandle.write(msgpack.dumps(jrecord))
                     rows += struct_row.pack(query_counter, write_start, write_length)

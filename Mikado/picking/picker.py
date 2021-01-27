@@ -48,7 +48,7 @@ logging.captureWarnings(True)
 warnings.simplefilter("always")
 try:
     import rapidjson as json
-except ImportError:
+except (ImportError,ModuleNotFoundError):
     import json
 
 

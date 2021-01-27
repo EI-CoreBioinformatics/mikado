@@ -22,7 +22,7 @@ import msgpack
 from ._loci_serialiser import serialise_locus
 try:
     import rapidjson as json
-except ImportError:
+except (ImportError,ModuleNotFoundError):
     import json
 
 __author__ = 'Luca Venturini'

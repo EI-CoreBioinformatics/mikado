@@ -21,13 +21,13 @@ class Monosublocus(Abstractlocus):
 
     def __init__(self,
                  transcript_instance=None,
-                 json_conf=None,
+                 configuration=None,
                  logger=None,
                  verified_introns=None,
                  **kwargs):
 
         self.counter = 0  # simple tag to avoid collisions
-        Abstractlocus.__init__(self, json_conf=json_conf, logger=logger, verified_introns=verified_introns, **kwargs)
+        Abstractlocus.__init__(self, configuration=configuration, logger=logger, verified_introns=verified_introns, **kwargs)
         # this must be defined straight away
         if transcript_instance is not None:
             Abstractlocus.add_transcript_to_locus(self, transcript_instance)

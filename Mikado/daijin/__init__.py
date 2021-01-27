@@ -12,11 +12,12 @@ import argparse
 import datetime
 import time
 import json
+from dataclasses import asdict
 import yaml
 import snakemake
 from snakemake.utils import min_version
-from ..utilities.log_utils import create_default_logger
-from ..configuration.daijin_configurator import create_daijin_config, check_config
+from ..configuration import DaijinConfiguration
+from ..configuration.daijin_configurator import create_daijin_config
 import shutil
 import pkg_resources
 import functools
@@ -26,8 +27,6 @@ try:
     from yaml import CSafeLoader as yLoader
 except ImportError:
     from yaml import SafeLoader as yLoader
-# import logging
-# import logging.handlers
 
 system_hpc_yaml = pkg_resources.resource_filename("Mikado", os.path.join("daijin", "hpc.yaml"))
 
@@ -235,6 +234,8 @@ default. If one of --json, --yaml, --toml flags is specified, it will override t
                         default=False, help="Flag. If set, Daijin will use BLAST instead of DIAMOND.")
     mikado.add_argument("--use-transdecoder", dest="use_transdecoder", action="store_true",
                         default=False, help="Flag. If set, Daijin will use TransDecoder instead of Prodigal.")
+    mikado.add_argument("--no-files", action="store_true", default=False,
+                        help="Flag. If set, remove all file fields.")
     parser.set_defaults(func=create_daijin_config)
     return parser
 
@@ -268,7 +269,7 @@ def assemble_transcripts_pipeline(args):
 
     # print(doc["load"])
     # Check the configuration
-    check_config(doc)
+    _ = DaijinConfiguration.Schema().load(doc)
 
     # pylint: disable=invalid-name
 
@@ -450,7 +451,7 @@ def mikado_pipeline(args):
     else:
         loader = functools.partial(toml.load)
     with open(args.config, 'r') as _:
-        doc = loader(_)
+        daijin_config = loader(_)
 
     additional_config = {}
     if args.threads is not None:
@@ -462,12 +463,12 @@ def mikado_pipeline(args):
         else:
             loader = functools.partial(yaml.load, Loader=yLoader)
         with open(args.exe) as _:
-            doc["load"] = loader(_)
+            daijin_config["load"] = loader(_)
 
-    check_config(doc)
+    daijin_config = DaijinConfiguration.Schema().load(daijin_config)
 
     # pylint: disable=invalid-name
-    SCHEDULER = doc["scheduler"] if ("scheduler" in doc and doc["scheduler"]) else ""
+    SCHEDULER = daijin_config.scheduler if daijin_config.scheduler else ""
     CWD = os.path.abspath(".")
     # pylint: enable=invalid-name
 
@@ -507,7 +508,7 @@ def mikado_pipeline(args):
         hpc_conf = None
 
     yaml_file = open("daijin.{}.yaml".format(NOW), "wt")
-    yaml.dump(doc, yaml_file)
+    yaml.dump(asdict(daijin_config), yaml_file)
     yaml_file.flush()
     shutil.copystat(args.config, yaml_file.name)
 
@@ -530,8 +531,8 @@ def mikado_pipeline(args):
     else:
         latency = 1
 
-    BLASTX_CHUNKS = max(int(doc["blastx"]["chunks"]), doc["threads"])
-    if BLASTX_CHUNKS > doc["blastx"]["chunks"]:
+    BLASTX_CHUNKS = max(int(daijin_config.blastx.chunks), daijin_config.threads)
+    if BLASTX_CHUNKS > daijin_config.blastx.chunks:
         print("INFO: Increasing the number of chunks for DIAMOND/BLASTX to match the requested threads, \
 as Mikado serialise relies on having a number of chunks equal or greater than the number of requested threads.")
 
@@ -572,86 +573,3 @@ as Mikado serialise relies on having a number of chunks equal or greater than th
                                         os.path.join("daijin", "mikado.smk")),
         **kwds
     )
-
-    
-def main(call_args=None):
-
-    """
-    Main call function.
-    :param call_args: Arguments to use to launch the pipeline. If unspecified, the default behaviour
-    (using CL arguments) will be adopted.
-    :return:
-    """
-
-    if call_args is None:
-        call_args = sys.argv[1:]
-
-    parser = argparse.ArgumentParser(
-        """A Directed Acyclic pipeline for gene model reconstruction from RNA seq data.
-        Basically, a pipeline for driving Mikado. It will first align RNAseq reads against
-        a genome using multiple tools, then creates transcript assemblies using multiple tools,
-        and find junctions in the alignments using Portcullis.
-        This input is then passed into Mikado.
-        
-        WARNING: the "assemble" part of this pipeline will be soon DEPRECATED. 
-        """)
-
-    subparsers = parser.add_subparsers(
-        title="Pipelines",
-        help="""These are the pipelines that can be executed via daijin.""")
-
-    subparsers.add_parser("configure",
-                          help="Creates the configuration files for Daijin execution.")
-    subparsers.choices["configure"] = create_config_parser()
-    subparsers.choices["configure"].prog = "daijin configure"
-    subparsers.choices["configure"].set_defaults(func=create_daijin_config)
-
-    subparsers.add_parser("assemble",
-                          description="Creates transcript assemblies from RNAseq data.",
-                          help="""A pipeline that generates a variety of transcript assemblies
-                          using various aligners and assemblers, as well a producing
-                          a configuration file suitable for driving Mikado.
-                          WARNING: this part of the Daijin pipeline will be DEPRECATED in future releases
-                          as a new, more complete annotation pipeline is currently in development.""")
-    subparsers.choices["assemble"] = create_parser()
-    subparsers.choices["assemble"].add_argument(
-        "config",
-        help="Configuration file to use for running the transcript assembly pipeline.")
-    subparsers.choices["assemble"].prog = "daijin assemble"
-    subparsers.choices["assemble"].set_defaults(func=assemble_transcripts_pipeline)
-
-    subparsers.add_parser("mikado",
-                          description="Run full mikado pipeline",
-                          help="""Using a supplied configuration file that describes
-                          all input assemblies to use, it runs the Mikado pipeline,
-                          including prepare, BLAST, transdecoder, serialise and pick.""")
-    subparsers.choices["mikado"] = create_parser()
-    subparsers.choices["mikado"].add_argument(
-        "config",
-        help="Configuration file to use for running the Mikado step of the pipeline.")
-    subparsers.choices["mikado"].prog = "daijin mikado"
-    subparsers.choices["mikado"].set_defaults(func=mikado_pipeline)
-
-    try:
-        args = parser.parse_args(call_args)
-        if hasattr(args, "func"):
-            args.func(args)
-        else:
-            parser.print_help()
-    except KeyboardInterrupt:
-        raise KeyboardInterrupt
-    except BrokenPipeError:
-        pass
-    except Exception as exc:
-        logger = create_default_logger("main")
-        logger.error("Daijin crashed, cause:")
-        logger.exception(exc)
-        sys.exit(1)
-
-
-if __name__ == '__main__':
-    # pylint: disable=redefined-builtin
-    # noinspection PyShadowingBuiltins
-    __spec__ = "Mikado"
-    # pylint: enable=redefined-builtin
-    main()

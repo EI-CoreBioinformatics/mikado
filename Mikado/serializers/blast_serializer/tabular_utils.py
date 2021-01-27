@@ -1,3 +1,7 @@
+import copy
+
+from typing import Union
+
 from Bio.Align import substitution_matrices
 from functools import partial
 from .btop_parser import parse_btop
@@ -9,6 +13,8 @@ from .utils import load_into_db
 from collections import defaultdict
 import logging
 import logging.handlers
+
+from ...configuration import MikadoConfiguration, DaijinConfiguration
 from ...utilities.log_utils import create_null_logger, create_queue_logger
 from sqlalchemy.orm.session import Session
 from ...utilities.dbutils import connect as db_connect
@@ -320,7 +326,7 @@ class Preparer(mp.Process):
                  identifier: int,
                  params_file: str,
                  lock: mp.RLock,
-                 conf: dict,
+                 conf: Union[MikadoConfiguration,DaijinConfiguration],
                  maxobjects: int,
                  logging_queue=None,
                  log_level="DEBUG",
@@ -390,8 +396,7 @@ def parse_tab_blast(self,
     if procs > 1:
         # We have to set up the processes before the forking.
         lock = mp.RLock()
-        conf = dict()
-        conf["db_settings"] = self.json_conf["db_settings"].copy()
+        conf = self.configuration.copy()
         params_file = tempfile.mktemp(suffix=".mgp")
 
         index_files = dict((idx, tempfile.mktemp(suffix=".csv")) for idx in
@@ -402,8 +407,8 @@ def parse_tab_blast(self,
                   "matrix_name": matrix_name,
                   "qmult": qmult,
                   "tmult": tmult,
-                  "sql_level": self.json_conf["log_settings"]["sql_level"],
-                  "log_level": self.json_conf["log_settings"]["log_level"],
+                  "sql_level": self.configuration.log_settings.sql_level,
+                  "log_level": self.configuration.log_settings.log_level,
                   "logging_queue": self.logging_queue,
                   "params_file": params_file}
         processes = [Preparer(index_files[idx], idx, **kwargs) for idx in range(procs)]

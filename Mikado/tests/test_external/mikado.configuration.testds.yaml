@@ -110,7 +110,6 @@ pick:
     - o
   run_options:
     #  Generic run options.
-    #  - procs: number of processes to use. Default: 1
     #  - intron_range: A range where most of the introns (99%) should fall into. Transcripts
     #  with too many
     #   introns larger or smaller than what is defined in this range will be penalised
@@ -123,12 +122,10 @@ pick:
     intron_range:
     - 60
     - 900
-    procs: 1
     single_thread: false
   scoring_file: aphid.scoring.yaml
 prepare:
   #  Options related to the input data preparation.
-  #  - procs: Number of processes to use.
   #  - strand_specific: if set to True, transcripts will be assumed to be in the correct
   #  orientation, no strand flipping or removal
   #  - strip_cds: Boolean. It indicates whether to remove the CDS from the predictions
@@ -186,23 +183,25 @@ prepare:
     out_fasta: mikado_prepared.fasta
     output_dir: .
     reference:
-    - Agly_coding
-    - Apis_coding
-    - BtabMEAM1_coding
-    - BtabMED_coding
-    - Dnox_coding
-    - Mcer_coding
-    - Mikado_All_gold
-    - Mikado_PacBio_gold
-    - MperG006_coding
-    - MYZPE13164_run1
-    - MYZPE13164_run2
-    - MYZPE13164_run3
-    - Nlug_coding
-    - Pnig_coding
-    - Rmai_coding
-    - Rpad_coding
-    - Sfuc_coding
+    - true
+    - true
+    - true
+    - true
+    - true
+    - true
+    - true
+    - false
+    - true
+    - false
+    - true
+    - true
+    - true
+    - true
+    - true
+    - true
+    - true
+    - true
+    - true
     source_score:
       Agly_coding: 100.0
       Apis_coding: 100.0
@@ -246,7 +245,6 @@ prepare:
   minimum_cdna_length: 200
   max_intron_length: 1000000
   lenient: false
-  procs: 1
   strand_specific: false
 reference:
   genome: Myzus_persicae_O_v2.0.scaffolds.fa
@@ -261,7 +259,6 @@ serialise:
   #    on a 300bp sequence with an open ORF Mikado would look for an alternative in-frame
   #  start codon
   #    in the first 30 bps (10% of the cDNA).
-  #  - procs: Number of processors to use. Default: 1.
   files:
     blast_targets: []
     external_scores: ""
@@ -271,7 +268,6 @@ serialise:
     output_dir: Testds
     transcripts: mikado_prepared.testds.fasta
     xml: []
-  codon_table: 0
+  codon_table: "0"
   max_regression: 0.1
-  procs: 1
   substitution_matrix: blosum62

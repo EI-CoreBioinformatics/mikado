@@ -8,6 +8,7 @@ db_settings:
   #  dbport: Integer. It indicates the default port for the DB.
   db: mikado.db
   dbtype: sqlite
+multiprocessing_method: spawn
 pick:
   #  scoring_file: a scoring file for the analysis. Default: plant.yaml.
   alternative_splicing:
@@ -79,7 +80,6 @@ pick:
     #  - flank: integer, maximum flank to group transcripts together for analysis.
     #  Default: 0.
     intron_range: [60, 90]
-    procs: 1
     single_thread: false
   scoring_file: plant.yaml
 prepare:
@@ -108,7 +108,6 @@ prepare:
     - class.gtf
     - cufflinks.gtf
     - stringtie.gtf
-  procs: 1
   strand_specific: false
   minimum_cdna_length: 200
   max_intron_length: 1000000
@@ -140,10 +139,9 @@ serialise:
     - ''
   max_regression: 0
   substitution_matrix: blosum62
-  procs: 1
-  codon_table: 0
+  codon_table: "0"
 
-load: {blast: echo, class: echo, cufflinks: echo, gmap: echo, hisat: echo, mikado: echo,
+load: {blast: echo, class2: echo, cufflinks: echo, gmap: echo, hisat: echo, mikado: echo,
   portcullis: echo, samtools: echo, star: echo, stringtie: echo, tophat: echo, transdecoder: echo,
   trinity: echo}
 

@@ -1,13 +1,16 @@
-# import Mikado
-from .. import loci, configuration, transcripts
-from ..transcripts import Transcript
-from ..parsers.bed12 import BED12
-from ..utilities.log_utils import create_default_logger
-import unittest
-import rapidjson as json
 import io
+import unittest
+
+try:
+    import rapidjson as json
+except (ImportError,ModuleNotFoundError):
+    import json
 from pkg_resources import resource_stream
 
+from .. import loci, configuration, transcripts
+from ..parsers.bed12 import BED12
+from ..transcripts import Transcript
+from ..utilities.log_utils import create_default_logger
 
 with io.TextIOWrapper(resource_stream("Mikado.configuration",
                                       "requirements_blueprint.json")) as rs_blueprint:
@@ -42,7 +45,7 @@ class ScoreTester(unittest.TestCase):
         self.t3 = Transcript(b3)
         self.t3.finalize()
         self.assertTrue(self.t3.is_coding)
-        self.json_conf = loci.abstractlocus.json_conf
+        self.configuration = loci.abstractlocus.default_configuration
         reqs = {"requirements":
                     {"expression": ["cdna_length"],
                      "parameters": {
@@ -51,9 +54,9 @@ class ScoreTester(unittest.TestCase):
                      }
                 }
 
-        reqs = configuration.configurator.check_requirements(reqs, require_schema, "requirements")
-        self.json_conf["requirements"] = reqs["requirements"]
-        self.locus = loci.Superlocus(self.t1, json_conf=self.json_conf)
+        self.configuration.requirements = reqs["requirements"]
+        configuration.configurator.check_requirements(self.configuration.requirements, require_schema, "requirements")
+        self.locus = loci.Superlocus(self.t1, configuration=self.configuration)
         self.locus.add_transcript_to_locus(self.t2)
         self.locus.add_transcript_to_locus(self.t3)
 
@@ -63,8 +66,8 @@ class ScoreTester(unittest.TestCase):
             with self.subTest(multiplier=multiplier):
                 scoring = {"exon_num": {"rescaling": "max", "use_raw": False, "multiplier": multiplier}}
                 logger = create_default_logger("test_exon_num_max", level="WARNING")
-                self.locus.json_conf["scoring"] = scoring
-                self.assertEqual(self.locus.json_conf["scoring"]["exon_num"]["multiplier"], multiplier)
+                self.locus.configuration.scoring = scoring
+                self.assertEqual(self.locus.configuration.scoring["exon_num"]["multiplier"], multiplier)
                 self.assertIn("t3", self.locus.transcripts)
                 self.locus.logger = logger
                 self.locus.filter_and_calculate_scores()
@@ -72,7 +75,7 @@ class ScoreTester(unittest.TestCase):
                 self.assertIn("t3", self.locus.transcripts)
                 self.assertIn("t3", self.locus.scores, self.locus.scores)
                 self.assertEqual(self.locus.scores["t3"]["exon_num"], multiplier,
-                                 self.locus.json_conf["scoring"])
+                                 self.locus.configuration.scoring)
                 self.assertEqual(self.locus.scores["t2"]["exon_num"], 0.5 * multiplier, self.locus.scores)
                 self.locus.scores_calculated = False
 
@@ -84,7 +87,7 @@ class ScoreTester(unittest.TestCase):
 
                 logger = create_default_logger("test_exon_num_max", level="WARNING")
 
-                self.locus.json_conf["scoring"] = scoring
+                self.locus.configuration.scoring = scoring
                 self.assertIn("t3", self.locus.transcripts)
                 self.locus.logger = logger
                 self.locus.filter_and_calculate_scores()
@@ -104,7 +107,7 @@ class ScoreTester(unittest.TestCase):
 
                 logger = create_default_logger("test_exon_num_max", level="WARNING")
 
-                self.locus.json_conf["scoring"] = scoring
+                self.locus.configuration.scoring = scoring
                 self.assertIn("t3", self.locus.transcripts)
                 self.locus.logger = logger
                 self.locus.filter_and_calculate_scores()
@@ -124,7 +127,7 @@ class ScoreTester(unittest.TestCase):
 
                 logger = create_default_logger("test_exon_num_max", level="WARNING")
 
-                self.locus.json_conf["scoring"] = scoring
+                self.locus.configuration.scoring = scoring
                 self.assertIn("t3", self.locus.transcripts)
                 self.locus.logger = logger
                 self.locus.filter_and_calculate_scores()
@@ -145,7 +148,7 @@ class ScoreTester(unittest.TestCase):
 
                 logger = create_default_logger("test_exon_num_max", level="WARNING")
 
-                self.locus.json_conf["scoring"] = scoring
+                self.locus.configuration.scoring = scoring
                 self.assertIn("t3", self.locus.transcripts)
                 self.locus.logger = logger
                 self.locus.filter_and_calculate_scores()
@@ -166,7 +169,7 @@ class ScoreTester(unittest.TestCase):
 
                 logger = create_default_logger("test_exon_num_max", level="WARNING")
 
-                self.locus.json_conf["scoring"] = scoring
+                self.locus.configuration.scoring = scoring
                 self.assertIn("t3", self.locus.transcripts)
                 self.locus.logger = logger
                 self.locus.filter_and_calculate_scores()
@@ -187,7 +190,7 @@ class ScoreTester(unittest.TestCase):
 
                 logger = create_default_logger("test_exon_num_max", level="WARNING")
 
-                self.locus.json_conf["scoring"] = scoring
+                self.locus.configuration.scoring = scoring
                 self.assertIn("t3", self.locus.transcripts)
                 self.locus.logger = logger
                 self.locus.filter_and_calculate_scores()
@@ -201,8 +204,8 @@ class ScoreTester(unittest.TestCase):
 
     def test_default_scores(self):
 
-        json_conf = loci.abstractlocus.json_conf
-        locus = loci.Superlocus(self.t1, use_transcript_scores=True, json_conf=json_conf)
+        json_conf = loci.abstractlocus.default_configuration
+        locus = loci.Superlocus(self.t1, use_transcript_scores=True, configuration=json_conf)
         locus.add_transcript_to_locus(self.t2)
         locus.add_transcript_to_locus(self.t3)
         self.assertTrue(locus._use_transcript_scores)
@@ -219,18 +222,21 @@ class ScoreTester(unittest.TestCase):
 class LocusMissedTester(unittest.TestCase):
 
     def setUp(self):
-        self.json_conf = loci.abstractlocus.json_conf
-        reqs = {"requirements":
-                    {"expression": ["cdna_length"],
-                     "parameters": {
-                         "cdna_length": {"operator": "gt", "value": 0}
-                     }
-                     }
+        self.configuration = loci.abstractlocus.default_configuration
+        reqs = {
+            "requirements": {
+                "expression": ["cdna_length"],
+                "parameters": {
+                    "cdna_length": {
+                        "operator": "gt", "value": 0}
                 }
+            }
+        }
 
-        reqs = configuration.configurator.check_requirements(reqs, require_schema, "requirements")
-        self.json_conf["requirements"] = reqs["requirements"]
-        self.json_conf["pick"]["alternative_splicing"]["pad"] = False
+        self.configuration.requirements = reqs["requirements"]
+        self.configuration.requirements = configuration.configurator.check_requirements(
+            self.configuration.requirements, require_schema, "requirements")
+        self.configuration.pick.alternative_splicing.pad = False
 
     def test_transcript_not_missed(self):
 
@@ -273,7 +279,7 @@ class LocusMissedTester(unittest.TestCase):
         self.assertEqual(sorted(t3.exons), [(801, 850), (951, 1050), (1101, 1200), (1301, 1500)])
         self.assertEqual([t3.combined_cds_start, t3.combined_cds_end], [821, 1370])
 
-        locus = loci.Superlocus(t1, use_transcript_scores=True, json_conf=self.json_conf, logger=logger)
+        locus = loci.Superlocus(t1, use_transcript_scores=True, configuration=self.configuration, logger=logger)
         locus.add_transcript_to_locus(t2)
         locus.add_transcript_to_locus(t3)
         locus.define_loci()
@@ -329,7 +335,7 @@ class LocusMissedTester(unittest.TestCase):
         self.assertEqual(sorted(t3.exons), [(801, 850), (951, 1050), (1101, 1200), (1301, 1500)])
         self.assertEqual([t3.combined_cds_start, t3.combined_cds_end], [821, 1370])
 
-        locus = loci.Superlocus(t1, use_transcript_scores=True, json_conf=self.json_conf, logger=logger)
+        locus = loci.Superlocus(t1, use_transcript_scores=True, configuration=self.configuration, logger=logger)
         locus.add_transcript_to_locus(t2)
         locus.add_transcript_to_locus(t3)
         locus.define_loci()

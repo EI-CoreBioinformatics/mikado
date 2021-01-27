@@ -1,4 +1,10 @@
-import rapidjson as json
+from functools import partial
+from ...utilities import default_for_serialisation
+try:
+    import rapidjson as json
+except (ImportError,ModuleNotFoundError):
+    import json
+dumper = partial(json.dumps, default=default_for_serialisation)
 from ...parsers.blast_utils import BlastOpener
 from .xml_utils import _get_query_for_blast, _get_target_for_blast
 from xml.parsers.expat import ExpatError
@@ -21,11 +27,11 @@ import struct
 struct_row = struct.Struct(">LLL")
 
 
-def xml_pickler(json_conf, filename, default_header,
+def xml_pickler(configuration, filename, default_header,
                 cache=None,
                 max_target_seqs=10):
     valid, _, exc = BlastOpener(filename).sniff(default_header=default_header)
-    engine = connect(json_conf, strategy="threadlocal")
+    engine = connect(configuration, strategy="threadlocal")
     session = Session(bind=engine)
 
     if not valid:
@@ -58,10 +64,7 @@ def xml_pickler(json_conf, filename, default_header,
                         qmult=qmult, tmult=tmult, off_by_one=off_by_one)
 
                     record = {"hits": hits, "hsps": hsps}
-                    try:
-                        jrecord = json.dumps(record, number_mode=json.NM_NATIVE)
-                    except ValueError:
-                        jrecord = json.dumps(record)
+                    jrecord = dumper(record)
                     write_start = dbhandle.tell()
                     write_length = dbhandle.write(msgpack.dumps(jrecord))
                     rows += struct_row.pack(query_counter, write_start, write_length)
@@ -137,14 +140,14 @@ def _serialise_xmls(self):
         results = []
         if self._xml_debug is True:
             for num, filename in enumerate(self.xml):
-                results.append(xml_pickler(self.json_conf,
+                results.append(xml_pickler(self.configuration,
                                            filename, self.header,
                                            cache=None,
                                            max_target_seqs=self._max_target_seqs))
         else:
             pool = mp.Pool(self.procs)
             for num, filename in enumerate(self.xml):
-                args = (self.json_conf, filename, self.header)
+                args = (self.configuration, filename, self.header)
                 kwds = {"max_target_seqs": self._max_target_seqs, "cache": None}
                 pool.apply_async(xml_pickler, args=args, kwds=kwds, callback=results.append)
             pool.close()

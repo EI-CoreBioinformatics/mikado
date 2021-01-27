@@ -33,6 +33,10 @@ if sys.version_info.major != 3:
     raise EnvironmentError("""Mikado is a pipeline specifically programmed for python3,
     and is not compatible with Python2. Please upgrade your python before proceeding!""")
 
+requirements = [line.rstrip() for line in open("requirements.txt", "rt")]
+if sys.version_info.minor < 7:
+    requirements.append(["dataclasses"])
+
 extensions = [Extension("Mikado.utilities.overlap",
                         sources=[path.join("Mikado", "utilities", "overlap.pyx")],
                         **numpy_nodepr_api),
@@ -84,9 +88,9 @@ setup(
     packages=find_packages(),
     scripts=glob.glob("util/*.py"),
     entry_points={"console_scripts": ["mikado = Mikado.__main__:main",
-                                      "daijin = Mikado.daijin:main",
+                                      "daijin = Mikado.daijin.__main__:main",
                                       ]},
-    install_requires=[line.rstrip() for line in open("requirements.txt", "rt")],
+    install_requires=requirements,
     extras_require={
         "postgresql": ["psycopg2"],
         "mysql": ["mysqlclient>=1.3.6"],

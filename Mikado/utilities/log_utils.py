@@ -5,8 +5,29 @@ Module which contains all functions related to logging.
 
 import logging
 import logging.handlers
+from marshmallow_dataclass import dataclass, Optional
+from dataclasses import field
+from marshmallow import validate
+
 
 __author__ = 'Luca Venturini'
+
+
+@dataclass
+class LoggingConfiguration:
+    log_level: str = field(default="INFO", metadata={
+        "name": "log_level",
+        "description": "Verbosity for SQL calls. Default: WARNING. In decreasing order: 'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'",
+        "validate": validate.OneOf(["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]),
+    })
+    sql_level: str = field(default="WARNING", metadata={
+        "name": "sql_level",
+        "description": "General verbosity. Default: INFO. In decreasing order: 'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'",
+        "validate": validate.OneOf(["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"])
+    })
+    log: Optional[str] = field(default=None, metadata={
+        "name": "log",
+    })
 
 
 formatter = logging.Formatter(
@@ -14,7 +35,6 @@ formatter = logging.Formatter(
 - {processName} - {message}",
         style="{"
         )
-
 
 null_logger = logging.getLogger("null")
 null_handler = logging.NullHandler()
@@ -115,14 +135,20 @@ def create_queue_logger(instance, prefix=""):
 def create_logger_from_conf(conf, name="mikado", mode="a"):
 
     logger = logging.getLogger(name)
-    handle = conf["log_settings"].get("log", None)
+    if isinstance(conf, LoggingConfiguration):
+        log_settings = conf
+    else:
+        log_settings = conf.log_settings
+    assert isinstance(log_settings, LoggingConfiguration)
+    handle = log_settings.log
+
     if handle is None:
         handler = logging.StreamHandler()
     else:
-        handler = logging.FileHandler(conf["log_settings"]['log'], mode=mode)
+        handler = logging.FileHandler(log_settings.log, mode=mode)
 
     handler.setFormatter(formatter)
-    logger.setLevel(conf["log_settings"]['log_level'])
+    logger.setLevel(log_settings.log_level)
     logger.addHandler(handler)
     logger.propagate = False
     return logger

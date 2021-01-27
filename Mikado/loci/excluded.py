@@ -17,15 +17,15 @@ class Excluded(Abstractlocus):
 
     __name__ = "excluded_transcripts"
 
-    def __init__(self, monosublocus_instance=None, json_conf=None, logger=None):
+    def __init__(self, monosublocus_instance=None, configuration=None, logger=None):
         """
         Constructor method
 
         :param monosublocus_instance:
         :type monosublocus_instance: Mikado.loci_objects.monosublocus.Monosublocus
 
-        :param json_conf: configuration file
-        :type json_conf: dict
+        :param configuration: configuration file
+        :type configuration: dict
 
         :param logger: logger instance
         :type logger: logging.Logger | None
@@ -34,7 +34,7 @@ class Excluded(Abstractlocus):
         Abstractlocus.__init__(self)
         self.splitted = False
         self.metrics_calculated = False
-        self.json_conf = json_conf
+        self.configuration = configuration
         self.logger = logger
         if isinstance(monosublocus_instance, Transcript):
             Abstractlocus.__init__(self, transcript_instance=monosublocus_instance)

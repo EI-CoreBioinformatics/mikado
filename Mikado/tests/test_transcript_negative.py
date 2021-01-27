@@ -9,7 +9,8 @@ import operator
 import re
 import logging
 from .. import parsers, loci, exceptions
-from ..utilities.log_utils import create_null_logger  # , create_default_logger
+from ..utilities.log_utils import create_null_logger
+from ..utilities.log_utils import create_default_logger
 
 
 class TranscriptTesterNegative(unittest.TestCase):
@@ -468,6 +469,9 @@ Chr1\tTAIR10\texon\t8571\t8737\t.\t-\t.\tgene_id "AT1G01020"; transcript_id "AT1
         self.assertEqual(self.tr.selected_cds_length, 603)
 
         new_transcripts = sorted(self.tr.split_by_cds(), key=operator.attrgetter("start"))
+        self.assertEqual(len(new_transcripts), 1)
+        self.tr.configuration.pick.chimera_split.blast_params.leniency = "LENIENT"
+        new_transcripts = sorted(self.tr.split_by_cds(), key=operator.attrgetter("start"))
 
         self.assertEqual(len(new_transcripts), 2)
         self.assertEqual(new_transcripts[0].five_utr_length, 0)
@@ -482,6 +486,7 @@ Chr1\tTAIR10\texon\t8571\t8737\t.\t-\t.\tgene_id "AT1G01020"; transcript_id "AT1
 
         self.assertEqual(new_transcripts[1].three_utr_length, 0)
         self.assertEqual(new_transcripts[1].end, 8737)
+
 
 class WheatTest(unittest.TestCase):
 
@@ -544,9 +549,10 @@ Triticum_aestivum_CS42_TGACv1_scaffold_018984_1AS\tta_complete\texon\t220411\t22
     def test_split(self):
 
         self.tr.load_orfs([self.bed1, self.bed2])
+        self.tr.configuration.pick.chimera_split.blast_params.leniency = "LENIENT"
         new_transcripts = sorted([_ for _ in self.tr.split_by_cds()],
                                  key=operator.attrgetter("start", "end"))
-        self.assertEqual(len(new_transcripts), 2)
+        self.assertEqual(len(new_transcripts), 2, self.tr.configuration.pick.chimera_split)
 
         self.assertEqual(new_transcripts[0].start, 217224)
         self.assertEqual(new_transcripts[0].end, 218527)

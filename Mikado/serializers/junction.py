@@ -24,6 +24,9 @@ from ..utilities.dbutils import DBBASE, Inspector, connect
 from ..parsers import bed12
 from ..utilities.log_utils import check_logger, create_default_logger
 import pyfaidx
+from copy import deepcopy as copy
+from ..configuration.configuration import MikadoConfiguration
+from ..configuration.daijin_configuration import DaijinConfiguration
 
 
 # pylint: disable=too-few-public-methods
@@ -131,15 +134,15 @@ class JunctionSerializer:
     """
 
     def __init__(self, handle,
-                 json_conf=None,
+                 configuration=None,
                  logger=None):
 
         """
         :param handle: the file to be serialized.
         :type handle: str | io.IOBase | io.TextIOWrapper
 
-        :param json_conf: Optional configuration dictionary with db connection parameters.
-        :type json_conf: dict | None
+        :param configuration: Optional configuration dictionary with db connection parameters.
+        :type configuration: (MikadoConfiguration|DaijinConfiguration)
         """
 
         self.bed12_parser = None
@@ -157,7 +160,8 @@ class JunctionSerializer:
             return
 
         self.bed12_parser = bed12.Bed12Parser(handle)
-        self.engine = connect(json_conf, logger=logger)
+        self.engine = connect(configuration, logger=logger)
+        self.db_settings = copy(configuration.db_settings)
 
         session = Session(bind=self.engine, autocommit=False, autoflush=False, expire_on_commit=False)
         inspector = Inspector.from_engine(self.engine)
@@ -165,24 +169,27 @@ class JunctionSerializer:
             DBBASE.metadata.create_all(self.engine)  # @UndefinedVariable
 
         self.session = session
-        if json_conf is not None:
-            self.maxobjects = json_conf["serialise"]["max_objects"]
+        if configuration is not None:
+            self.maxobjects = configuration.serialise.max_objects
         else:
             self.maxobjects = 10000
 
-        if "genome_fai" not in json_conf["reference"] or not json_conf["reference"]["genome_fai"]:
-            _ = pyfaidx.Fasta(json_conf["reference"]["genome"])
+        if not configuration.reference.genome_fai:
+            _ = pyfaidx.Fasta(configuration.reference.genome)
             self.fai = _.faidx.indexname
             _.close()
         else:
-            self.fai = json_conf["reference"]["genome_fai"]
+            self.fai = configuration.reference.genome_fai
 
         if isinstance(self.fai, str):
             assert os.path.exists(self.fai), "File {fai} does not exist!".format(fai=self.fai)
             self.fai = open(self.fai)
         else:
             if self.fai is not None:
-                assert isinstance(self.fai, io.TextIOWrapper), "The FAI index is not a valid file handle."
+                if not isinstance(self.fai, io.TextIOWrapper):
+                    msg = "The FAI index is not a valid file handle. Type: {}".format(type(self.fai))
+                    logger.critical(msg)
+                    raise TypeError(msg)
 
     def serialize(self):
         """
@@ -194,6 +201,7 @@ class JunctionSerializer:
             self.logger.warning("No input file specified. Exiting.")
             return
 
+        self.logger.debug("Starting to serialise junctions.")
         if self.fai is not None:
             self.session.begin(subtransactions=True)
             for line in self.fai:
@@ -211,9 +219,10 @@ class JunctionSerializer:
                 sequences[query.name] = query.chrom_id
             self.fai.close()
 
+        self.logger.debug("Serialised sequences.")
         objects = []
 
-        for row in self.bed12_parser:
+        for counter, row in enumerate(self.bed12_parser, 1):
             if row.header is True:
                 continue
             if row.chrom in sequences:
@@ -236,6 +245,7 @@ class JunctionSerializer:
                 objects = []
 
         self.session.bulk_save_objects(objects)
+        self.logger.debug("Serialised %s junctions into %s.", counter, self.db_settings)
         self.session.commit()
         self.close()
 

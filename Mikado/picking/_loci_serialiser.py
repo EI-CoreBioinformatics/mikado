@@ -1,15 +1,12 @@
 from ..loci import Superlocus
-# import sqlite3
-import rapidjson as json
+from functools import partial
+from ..utilities import default_for_serialisation
+try:
+    import rapidjson as json
+except (ImportError,ModuleNotFoundError):
+    import json
+dumper = partial(json.dumps, default=default_for_serialisation)
 import msgpack
-import sys
-
-
-def default_for_serialisation(obj):
-    if isinstance(obj, set):
-        return tuple(obj)
-    elif obj == float("inf"):
-        return sys.maxsize
 
 
 def serialise_locus(stranded_loci: [Superlocus],
@@ -23,8 +20,8 @@ def serialise_locus(stranded_loci: [Superlocus],
     subloci = []
     monoloci = []
     for stranded_locus in sorted(stranded_loci):
-        loci.append([json.dumps(locus.as_dict(),
-                                default=default_for_serialisation) for locus in stranded_locus.loci.values()])
+        loci.append([json.dumps(locus.as_dict(), default=default_for_serialisation)
+                     for locus in stranded_locus.loci.values()])
 
         if print_subloci is True:
             batch = []
@@ -48,8 +45,8 @@ def serialise_locus(stranded_loci: [Superlocus],
 
     loci = msgpack.dumps(loci)
     try:
-        subloci = msgpack.dumps(json.dumps(subloci, number_mode=json.NM_NATIVE))
-        monoloci = msgpack.dumps(json.dumps(monoloci, number_mode=json.NM_NATIVE))
+        subloci = msgpack.dumps(dumper(subloci))
+        monoloci = msgpack.dumps(dumper(monoloci))
     except ValueError:
         subloci = msgpack.dumps(subloci)
         monoloci = msgpack.dumps(monoloci)

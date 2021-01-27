@@ -3,7 +3,7 @@ import unittest
 import builtins
 from sqlalchemy.engine import reflection
 import itertools
-from ..configuration.configurator import to_json
+from ..configuration.configurator import load_and_validate_config
 from ..loci import Transcript
 from ..parsers.bed12 import BED12
 from ..parsers.GTF import GtfLine
@@ -551,18 +551,17 @@ class TestRetrieval(unittest.TestCase):
         self.tr.id = "test1"
         self.tr.parent = "gene1"
         self.tr.finalize()
-        conf = to_json(os.path.join(
+        conf = load_and_validate_config(os.path.join(
             os.path.dirname(__file__),
             "configuration.yaml"
         ))
-        self.assertTrue(conf["pick"]["chimera_split"]["blast_check"])
-        self.assertTrue(conf["pick"]["chimera_split"]["execute"])
-        self.assertEqual(conf["pick"]["chimera_split"]["blast_params"]["leniency"],
-                         "LENIENT")
+        self.assertTrue(conf.pick.chimera_split.blast_check)
+        self.assertTrue(conf.pick.chimera_split.execute)
+        self.assertEqual(conf.pick.chimera_split.blast_params.leniency, "LENIENT")
 
-        conf["pick"]["orf_loading"]["minimal_secondary_orf_length"] = 50
+        conf.pick.orf_loading.minimal_secondary_orf_length = 50
 
-        self.tr.json_conf = conf
+        self.tr.configuration = conf
 
     def test_load_pos_and_neg(self):
         
@@ -585,7 +584,7 @@ class TestRetrieval(unittest.TestCase):
         with self.assertLogs("null", "DEBUG") as _:
             after_overlap_check = retrieval.find_overlapping_cds(self.tr, [b1, b2])
 
-        self.assertEqual(len(after_overlap_check), 2, self.tr.json_conf["pick"]["orf_loading"])
+        self.assertEqual(len(after_overlap_check), 2, self.tr.configuration.pick.orf_loading)
         self.assertEqual(after_overlap_check,
                          [b1, b2],
                          [_.name for _ in after_overlap_check])

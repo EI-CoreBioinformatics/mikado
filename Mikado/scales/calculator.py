@@ -4,12 +4,11 @@ from ..loci import Gene
 from ..parsers.GFF import GFF3
 from ..utilities.log_utils import create_default_logger
 from collections import defaultdict
-import sklearn.utils.extmath
-import numpy
+import numpy as np
 from collections import Counter
 # pylint: disable=E1101
-numpy.seterr(all="ignore")  # Suppress warnings
-numpy.warnings.filterwarnings("ignore")
+np.seterr(all="ignore")  # Suppress warnings
+np.warnings.filterwarnings("ignore")
 # pylint: enable=E1101
 
 
@@ -23,50 +22,114 @@ def itemize(counter):
     """
 
     if len(counter) == 0:
-        return numpy.array([[], []])  # Empty 2dimensional array
+        return np.array([[], []])  # Empty 2dimensional array
     else:
-        return numpy.array(list(zip(*counter.items())))
+        return np.array(list(zip(*counter.items())))
 
 
-def weighted_percentile(a, percentile=numpy.array([75, 25]), weights=None):
+def weighted_mode(a, w, *, axis=0):
+    """Returns an array of the weighted modal (most common) value in a.
+    If there is more than one such value, only the first is returned.
+    The bin-count for the modal bins is also returned.
+    This is an extension of the algorithm in scipy.stats.mode.
+    Copied from sklearn source code on 26/01/2021.
+    Parameters
+    ----------
+    a : array-like
+        n-dimensional array of which to find mode(s).
+    w : array-like
+        n-dimensional array of weights for each value.
+    axis : int, default=0
+        Axis along which to operate. Default is 0, i.e. the first axis.
+    Returns
+    -------
+    vals : ndarray
+        Array of modal values.
+    score : ndarray
+        Array of weighted counts for each mode.
+    Examples
+    --------
+    >>> x = [4, 1, 4, 2, 4, 2]
+    >>> weights = [1, 1, 1, 1, 1, 1]
+    >>> weighted_mode(x, weights)
+    (array([4.]), array([3.]))
+    The value 4 appears three times: with uniform weights, the result is
+    simply the mode of the distribution.
+    >>> weights = [1, 3, 0.5, 1.5, 1, 2]  # deweight the 4's
+    >>> weighted_mode(x, weights)
+    (array([2.]), array([3.5]))
+    The value 2 has the highest score: it appears twice with weights of
+    1.5 and 2: the sum of these is 3.5.
+    See Also
+    --------
+    scipy.stats.mode
+    """
+    if axis is None:
+        a = np.ravel(a)
+        w = np.ravel(w)
+        axis = 0
+    else:
+        a = np.asarray(a)
+        w = np.asarray(w)
+
+    if a.shape != w.shape:
+        w = np.full(a.shape, w, dtype=w.dtype)
+
+    scores = np.unique(np.ravel(a))       # get ALL unique values
+    testshape = list(a.shape)
+    testshape[axis] = 1
+    oldmostfreq = np.zeros(testshape)
+    oldcounts = np.zeros(testshape)
+    for score in scores:
+        template = np.zeros(a.shape)
+        ind = (a == score)
+        template[ind] = w[ind]
+        counts = np.expand_dims(np.sum(template, axis), axis)
+        mostfrequent = np.where(counts > oldcounts, score, oldmostfreq)
+        oldcounts = np.maximum(counts, oldcounts)
+        oldmostfreq = mostfrequent
+    return mostfrequent, oldcounts
+
+
+def weighted_percentile(a, percentile=np.array([75, 25]), weights=None):
     """
     O(nlgn) implementation for weighted_percentile.
     From: http://stackoverflow.com/questions/21844024/weighted-percentile-using-numpy
     Kudos to SO user Nayyary http://stackoverflow.com/users/2004093/nayyarv
 
     :param a: array
-    :type a: (dict|list|numpy.array|set|tuple)
+    :type a: (dict|list|np.array|set|tuple)
 
     :param percentile: the percentiles to calculate.
-    :type percentile: (numpy.array|list|tuple)
+    :type percentile: (np.array|list|tuple)
 
     """
 
-    percentile = numpy.array(percentile)/100.0
+    percentile = np.array(percentile)/100.0
 
     if isinstance(a, (dict, Counter)):
         a, weigths = itemize(a)
     else:
-        assert isinstance(a, (list, set, tuple, numpy.ndarray)), (a, type(a))
-        if not isinstance(a, type(numpy.array)):
-            a = numpy.array(a)
+        assert isinstance(a, (list, set, tuple, np.ndarray)), (a, type(a))
+        if not isinstance(a, type(np.array)):
+            a = np.array(a)
         if weights is None:
-            weights = numpy.ones(len(a))
+            weights = np.ones(len(a))
 
-    a_indsort = numpy.argsort(a)
+    a_indsort = np.argsort(a)
     a_sort = a[a_indsort]
     weights_sort = weights[a_indsort]
-    ecdf = numpy.cumsum(weights_sort)
+    ecdf = np.cumsum(weights_sort)
 
     percentile_index_positions = percentile * (weights.sum() - 1) + 1
     # need the 1 offset at the end due to ecdf not starting at 0
-    locations = numpy.searchsorted(ecdf, percentile_index_positions)
+    locations = np.searchsorted(ecdf, percentile_index_positions)
 
-    out_percentiles = numpy.zeros(len(percentile_index_positions))
+    out_percentiles = np.zeros(len(percentile_index_positions))
 
     for i, empiricalLocation in enumerate(locations):
         # iterate across the requested percentiles
-        if ecdf[empiricalLocation-1] == numpy.floor(percentile_index_positions[i]):
+        if ecdf[empiricalLocation-1] == np.floor(percentile_index_positions[i]):
             # i.e. is the percentile in between 2 separate values
             uppWeight = percentile_index_positions[i] - ecdf[empiricalLocation-1]
             lowWeight = 1 - uppWeight
@@ -120,10 +183,10 @@ class Calculator:
         self.out = parsed_args.out
         self.genes = dict()
         self.coding_genes = []
-        self.__distances = numpy.array([])
+        self.__distances = np.array([])
         self.__positions = defaultdict(list)
         self.__coding_positions = defaultdict(list)
-        self.__coding_distances = numpy.array([])
+        self.__coding_distances = np.array([])
         self.__fieldnames = ['Stat', 'Total', 'Average', 'Mode', 'Min',
                              '1%', '5%', '10%', '25%', 'Median', '75%', '90%', '95%', '99%', 'Max']
         self.__rower = csv.DictWriter(self.out,
@@ -251,7 +314,7 @@ class Calculator:
             for index, position in enumerate(__ordered[:-1]):
                 distances.append(__ordered[index + 1][0] - position[1])
 
-        self.__distances = numpy.array(distances)
+        self.__distances = np.array(distances)
 
         distances = []
         for chromosome in self.__positions:
@@ -259,12 +322,12 @@ class Calculator:
             for index, position in enumerate(__ordered[:-1]):
                 distances.append(__ordered[index + 1][0] - position[1])
 
-        self.__coding_distances = numpy.array(distances)
+        self.__coding_distances = np.array(distances)
         self.writer()
         self.out.close()
 
     @staticmethod
-    def get_stats(row: dict, array: numpy.array) -> dict:
+    def get_stats(row: dict, array: np.array) -> dict:
         """
         Method to calculate the necessary statistic from a row of values.
         :param row: the output dictionary row.
@@ -286,7 +349,7 @@ class Calculator:
             row["Average"] = "{0:,.2f}".format(round(
                 sum(_[0] * _[1] for _ in zip(array, weights)) / sum(weights), 2))
 
-            mode = sklearn.utils.extmath.weighted_mode(array, weights)
+            mode = weighted_mode(array, weights)
             # mode = scipy.stats.mode(array, axis=None)
             row["Mode"] = mode[0][0]
         else:
@@ -529,12 +592,12 @@ class Calculator:
                              len(self.__stores["monoexonic_genes"])
                              )
         self.__write_statrow('Transcripts per gene',
-                             total=numpy.dot)
-        self.__write_statrow("Coding transcripts per gene", total=numpy.dot)
+                             total=np.dot)
+        self.__write_statrow("Coding transcripts per gene", total=np.dot)
 
-        self.__write_statrow('CDNA lengths', total=numpy.dot)
-        self.__write_statrow("CDNA lengths (mRNAs)", total=numpy.dot)
-        self.__write_statrow('CDS lengths', total=numpy.dot)
+        self.__write_statrow('CDNA lengths', total=np.dot)
+        self.__write_statrow("CDNA lengths (mRNAs)", total=np.dot)
+        self.__write_statrow('CDS lengths', total=np.dot)
         if self.only_coding is False:
             self.__write_statrow("CDS lengths (mRNAs)", total=False)
 
@@ -542,7 +605,7 @@ class Calculator:
 
         self.__write_statrow('Monoexonic transcripts', total=sum)
         self.__write_statrow('MonoCDS transcripts', total=sum)
-        self.__write_statrow('Exons per transcript', total=numpy.dot)
+        self.__write_statrow('Exons per transcript', total=np.dot)
 
         if self.only_coding is False:
             self.__write_statrow('Exons per transcript (mRNAs)',
@@ -561,12 +624,12 @@ class Calculator:
             self.__write_statrow("CDS exons per transcript (mRNAs)",
                                  total="CDS exon lengths")
 
-        self.__write_statrow("CDS exon lengths", total=numpy.dot)
-        self.__write_statrow("CDS Intron lengths", total=numpy.dot)
+        self.__write_statrow("CDS exon lengths", total=np.dot)
+        self.__write_statrow("CDS Intron lengths", total=np.dot)
         self.__write_statrow("5'UTR exon number", total=sum)
         self.__write_statrow("3'UTR exon number", total=sum)
-        self.__write_statrow("5'UTR length", total=numpy.dot)
-        self.__write_statrow("3'UTR length", total=numpy.dot)
+        self.__write_statrow("5'UTR length", total=np.dot)
+        self.__write_statrow("3'UTR length", total=np.dot)
         self.__write_statrow("Stop distance from junction",
                              total=False)
         self.__write_statrow("Intergenic distances", total=False)
@@ -589,7 +652,7 @@ class Calculator:
             total = "NA"
         elif total is True:
             if len(self.__arrays[stat]) == 2 and isinstance(
-                        self.__arrays[stat], numpy.ndarray):
+                        self.__arrays[stat], np.ndarray):
                 total = len(self.__arrays[stat][0])
             else:
                 total = len(self.__arrays[stat])
@@ -600,14 +663,14 @@ class Calculator:
                     total = sum(weights)
                 except ValueError:
                     total = "NA"
-            elif total is numpy.dot:
-                total = numpy.dot(self.__arrays[stat][0],
+            elif total is np.dot:
+                total = np.dot(self.__arrays[stat][0],
                                   self.__arrays[stat][1])
 
             elif not isinstance(total, int):
                 assert total in self.__arrays
                 if len(self.__arrays[total]) == 2 and isinstance(
-                        self.__arrays[total], numpy.ndarray):
+                        self.__arrays[total], np.ndarray):
 
                     total = len(self.__arrays[total][0])
                 else:

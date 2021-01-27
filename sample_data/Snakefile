@@ -5,11 +5,15 @@ import itertools
 import yaml
 from Mikado.utilities import path_join
 import Mikado.configuration.configurator
+from Mikado.configuration.daijin_configuration import DaijinConfiguration
+from Mikado.configuration.configuration import MikadoConfiguration
 import subprocess
 import gzip
 from snakemake import logger as snake_logger
 import pkg_resources
 import Mikado
+import dataclasses
+import marshmallow_dataclass
 
 prod_conda = pkg_resources.resource_filename("Mikado.daijin", os.path.join("envs", "prodigal.yaml"))
 swissprot = "uniprot_sprot_plants.fasta.gz"
@@ -31,14 +35,17 @@ if not os.path.exists(configname):
     subprocess.call(config_command, shell=True)
 
 snake_logger.info("Reading the configuration file")
+dschema = MikadoConfiguration.Schema()
+_config = dschema.dump(Mikado.configuration.configurator.load_and_validate_config(configname))
+
 try:
-    config = Mikado.configuration.configurator.to_json(configname)
+    config = _config
 except Exception as exc:
-    snake_logger.error("Error in reading the configuration file: {}".format(exc))
+    snake_logger.error("Error in reading the configuration file: {}\n{}".format(exc, _config))
     os.remove(configname)
     raise
 
-configfile: "configuration.yaml"
+# configfile: "configuration.yaml"
 
 rule complete:    
     input: "compare.stats", "compare_subloci.stats", "compare_input.stats", "check.ok",
@@ -72,7 +79,7 @@ rule test_json:
     message: "Checking the configuration"
     run:
         try:
-            __= Mikado.configuration.configurator.to_json(configname)
+            __= Mikado.configuration.configurator.load_and_validate_config(configname)
         except:
             os.remove(configname)
             raise

@@ -1,10 +1,15 @@
 import unittest
 from .. import parsers
+from ..utilities import default_for_serialisation
 import tempfile
+from functools import partial
 import os
-import rapidjson as json
+try:
+    import rapidjson as json
+    json.dumps = partial(json.dumps, number_mode=json.NM_NATIVE, default=default_for_serialisation)
+except (ImportError,ModuleNotFoundError):
+    import json
 from pkg_resources import resource_filename
-import gzip
 
 
 __author__ = 'Luca Venturini'
@@ -49,9 +54,9 @@ class TestParser(unittest.TestCase):
 
         for line in [gff_line, gtf_line]:
             with self.subTest(line=line):
-                seri = json.dumps(line.__dict__, number_mode=json.NM_NATIVE)
+                seri = json.dumps(line.__dict__)
                 self.assertIsInstance(seri, str)
-                unseri = json.loads(seri, number_mode=json.NM_NATIVE)
+                unseri = json.loads(seri)
                 self.assertIsInstance(unseri, dict)
 
     def test_name(self):

@@ -3,37 +3,38 @@
 """
 Module that defines the blueprint for all loci classes.
 """
-
+import dataclasses
 import abc
 import itertools
-import numpy as np
 import logging
 from sys import maxsize
 import networkx
-from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
-import numpy
 from ..transcripts.clique_methods import find_communities, define_graph
 from ..transcripts.transcript import Transcript
-from ..configuration.configurator import to_json, check_json
-from ..exceptions import NotInLocusError
-from ..utilities import overlap, merge_ranges, rhasattr, rgetattr
+from ..exceptions import NotInLocusError, InvalidJson
+from ..utilities import overlap, merge_ranges, rhasattr, rgetattr, default_for_serialisation
 import operator
 from ..utilities.intervaltree import Interval, IntervalTree
 from ..utilities.log_utils import create_null_logger
-from sys import version_info
 from ..scales.contrast import compare as c_compare
-if version_info.minor < 5:
-    from sortedcontainers import SortedDict
-else:
-    from collections import OrderedDict as SortedDict
 import random
-import rapidjson as json
+from functools import partial
+try:
+    import rapidjson as json
+except (ImportError,ModuleNotFoundError):
+    import json
+dumper = partial(json.dumps, default=default_for_serialisation)
 from typing import Union
+from ..configuration.configuration import MikadoConfiguration
+from ..configuration.daijin_configuration import DaijinConfiguration
+from ..configuration.configurator import load_and_validate_config, check_and_load_scoring
+
+
+default_configuration = load_and_validate_config(None)
+
 
 # I do not care that there are too many attributes: this IS a massive class!
 # pylint: disable=too-many-instance-attributes,too-many-public-methods
-json_conf = to_json(None)
-
 
 def to_bool(param: Union[str,bool,int,float]):
     if isinstance(param, bool):
@@ -67,8 +68,6 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
     # ##### Special methods #########
 
-    __json_conf = json_conf.copy()
-
     # This dictionary contains the correspondence between transcript attributes
     # and the relevant containers in Locus classes.
     __locus_to_transcript_attrs = {"splices": "splices",
@@ -80,13 +79,15 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                                    "exons": "exons",
                                    "locus_verified_introns": "verified_introns"}
 
+    __configuration = default_configuration.copy()
+
     @abc.abstractmethod
     def __init__(self,
                  transcript_instance=None,
                  logger=None,
                  source="",
                  verified_introns=None,
-                 json_conf=None,
+                 configuration=None,
                  use_transcript_scores=False,
                  flank=None):
 
@@ -115,13 +116,12 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         self.scores_calculated = False
         self.scores = dict()
         self.__segmenttree = IntervalTree()
-        self.__regressor = None
         self.session = None
         self.metrics_calculated = False
         self._metrics = dict()
         self.__scores = dict()
         self.__internal_graph = networkx.DiGraph()
-        self.json_conf = json_conf
+        self.configuration = configuration
         if transcript_instance is not None and isinstance(transcript_instance, Transcript):
             self.add_transcript_to_locus(transcript_instance)
         self.__use_transcript_scores = use_transcript_scores
@@ -129,7 +129,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         if flank is not None:
             self.flank = flank
         else:
-            self.flank = self.json_conf["pick"]["clustering"]["flank"]
+            self.flank = self.configuration.pick.clustering.flank
 
     @abc.abstractmethod
     def __str__(self, *args, **kwargs):
@@ -190,15 +190,12 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         state = self.__dict__.copy()
         self.logger = logger
 
-        if hasattr(self, "json_conf"):
-            # This removes unpicklable compiled attributes, eg in "requirements" or "as_requirements"
-            if "json_conf" not in state:
-                state["json_conf"] = self.json_conf.copy()
-            for key in self.json_conf:
-                if (isinstance(self.json_conf[key], dict) and
-                        self.json_conf[key].get("compiled", None) is not None):
-                    assert key in state["json_conf"]
-                    del state["json_conf"][key]["compiled"]
+        state["json_conf"] = self.configuration.copy()
+
+        state["json_conf"].requirements.pop("compiled", None)
+        state["json_conf"].cds_requirements.pop("compiled", None)
+        state["json_conf"].as_requirements.pop("compiled", None)
+        state["json_conf"].not_fragmentary.pop("compiled", None)
 
         if hasattr(self, "session"):
             if self.session is not None:
@@ -209,9 +206,9 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
         if self.__internal_graph.nodes():
             try:
-                nodes = json.dumps(list(self.__internal_graph.nodes())[0], number_mode=json.NM_NATIVE)
+                nodes = dumper(list(self.__internal_graph.nodes())[0])
             except ValueError:
-                nodes = json.dumps(list(self.__internal_graph.nodes())[0])
+                nodes = dumper(list(self.__internal_graph.nodes())[0])
         else:
             nodes = "[]"
         state["_Abstractlocus__internal_nodes"] = nodes
@@ -220,13 +217,14 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         # Remember that the graph is in form [((start, end), (start, end)), etc.]
         # So that each edge is composed by a couple of tuples.
         try:
-            state["_Abstractlocus__internal_edges"] = json.dumps(edges, number_mode=json.NM_NATIVE)
+            state["_Abstractlocus__internal_edges"] = dumper(edges)
         except ValueError:
-            state["_Abstractlocus__internal_edges"] = json.dumps(edges)
+            state["_Abstractlocus__internal_edges"] = dumper(edges)
         if hasattr(self, "engine"):
             del state["engine"]
 
         del state["_Abstractlocus__segmenttree"]
+        assert isinstance(state["json_conf"], (MikadoConfiguration, DaijinConfiguration))
         return state
 
     def __setstate__(self, state):
@@ -234,6 +232,9 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         self.__dict__.update(state)
         self.__segmenttree = IntervalTree()
         self.__internal_graph = networkx.DiGraph()
+        assert state["json_conf"] is not None
+        self.configuration = state["json_conf"]
+        assert self.configuration is not None
         try:
             nodes = json.loads(state["_Abstractlocus__internal_nodes"])
         except json.decoder.JSONDecodeError:
@@ -250,11 +251,15 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         except TypeError:
             raise TypeError(edges)
 
-        if hasattr(self, "json_conf"):
-            if "requirements" in self.json_conf and "expression" in self.json_conf["requirements"]:
-                self.json_conf["requirements"]["compiled"] = compile(
-                    self.json_conf["requirements"]["expression"],
-                    "<json>", "eval")
+        self.configuration.requirements["compiled"] = compile(self.configuration.requirements.get("expression", "True"),
+                                                          "<json>", "eval")
+        self.configuration.cds_requirements["compiled"] = compile(self.configuration.cds_requirements.get("expression", "True"),
+                                                              "<json>", "eval")
+        self.configuration.as_requirements["compiled"] = compile(self.configuration.as_requirements.get("expression", True),
+                                                             "<json>", "eval")
+        self.configuration.not_fragmentary["compiled"] = compile(self.configuration.not_fragmentary.get("expression", True),
+                                                             "<json>", "eval")
+
         # Set the logger to NullHandler
         _ = self.__segmenttree
         self.logger = None
@@ -264,12 +269,16 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         state = self.__getstate__()
         state["transcripts"] = dict((tid, state["transcripts"][tid].as_dict()) for tid in state["transcripts"])
         assert "metrics_calculated" in state
+        state["json_conf"] = dataclasses.asdict(state["json_conf"])
         return state
 
     def load_dict(self, state, load_transcripts=True):
         assert isinstance(state, dict)
+        try:
+            state["json_conf"] = MikadoConfiguration.Schema().load(state["json_conf"])
+        except:
+            state["json_conf"] = DaijinConfiguration.Schema().load(state["json_conf"])
         self.__setstate__(state)
-
         assert self.metrics_calculated is True
         if load_transcripts is True:
             self.transcripts = dict((tid, Transcript()) for tid in state["transcripts"])
@@ -454,13 +463,12 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         # Choose one transcript randomly between those that have the maximum score
         if len(transcripts) == 1:
             return list(transcripts.keys())[0]
-        # np.random.seed(self.json_conf["seed"])
-        random.seed(self.json_conf["seed"])
+        random.seed(self.configuration.seed)
         if self.reference_update is True:
             # We need to select only amongst the reference transcripts
             reference_sources = {source for source, is_reference in
-                                 zip(self.json_conf["prepare"]["files"]["labels"],
-                                     self.json_conf["prepare"]["files"]["reference"]) if is_reference is True}
+                                 zip(self.configuration.prepare.files.labels,
+                                     self.configuration.prepare.files.reference) if is_reference is True}
             reference_tids = set()
             for tid, transcript in transcripts.items():
                 is_reference = transcript.original_source in reference_sources or transcript.is_reference is True
@@ -718,7 +726,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                           internal_splices: set,
                           cds_introns: set,
                           coding=True,
-                          logger=create_null_logger()):
+                          logger=create_null_logger()) -> (bool, bool):
 
         """Private static method to verify whether a given exon is a retained intron in the current locus.
         The method is as follows:
@@ -741,10 +749,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         :param internal_splices: which of the two boundaries of the exon are actually internal (if any).
         :type internal_splices: set
 
-        :param terminal: whether the exon is at the 3' end.
-        :type terminal: bool
-
-        :rtype: bool
+        :rtype: (bool, bool)
         """
 
         is_retained = False
@@ -897,7 +902,6 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         # - OR is the last exon of the transcript and it ends within the intron of another transcript
 
         retained_introns = []
-        # consider_truncated = self.json_conf["pick"]["run_options"]["consider_truncated_for_retained"]
 
         cds_broken = False
 
@@ -1256,7 +1260,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
         self.logger.debug("Calculated metrics for {0}".format(tid))
 
-    def _check_not_passing(self, previous_not_passing=set(), section="requirements"):
+    def _check_not_passing(self, previous_not_passing=set(), section_name="requirements"):
         """
         This private method will identify all transcripts which do not pass
         the minimum muster specified in the configuration. It will *not* delete them;
@@ -1266,26 +1270,28 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
         self.get_metrics()
 
-        if ("compiled" not in self.json_conf[section] or
-                self.json_conf[section]["compiled"] is None):
-            if "expression" not in self.json_conf[section]:
-                raise KeyError(self.json_conf[section])
+        if section_name == "cds_requirements":
+            section = self.configuration.cds_requirements
+        elif section_name == "requirements":
+            section = self.configuration.requirements
+        else:
+            raise KeyError("Invalid requirements section: {}".format(section_name))
 
-            self.json_conf[section]["compiled"] = compile(
-                self.json_conf[section]["expression"], "<json>",
-                "eval")
+        if "compiled" not in section or section["compiled"] is None:
+            if "expression" not in section:
+                raise KeyError(section)
+            section["compiled"] = compile(section["expression"], "<json>", "eval")
+            setattr(self.configuration, section_name, section)
 
         not_passing = set()
         reference_sources = {source for source, is_reference in
-                             zip(self.json_conf["prepare"]["files"]["labels"],
-                                 self.json_conf["prepare"]["files"]["reference"]) if is_reference}
+                             zip(self.configuration.prepare.files.labels,
+                                 self.configuration.prepare.files.reference) if is_reference}
 
+        section = getattr(self.configuration, section_name)
         for tid in iter(tid for tid in self.transcripts if
                         tid not in previous_not_passing):
-            if self.transcripts[tid].json_conf is None:
-                self.transcripts[tid].json_conf = self.json_conf
-            elif self.transcripts[tid].json_conf["prepare"]["files"]["reference"] != self.json_conf["prepare"]["files"]["reference"]:
-                self.transcripts[tid].json_conf = self.json_conf
+            self.transcripts[tid].configuration = self.configuration
 
             is_reference = ((self.transcripts[tid].is_reference is True) or
                              self.transcripts[tid].original_source in reference_sources)
@@ -1293,28 +1299,23 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             if is_reference is False:
                 self.logger.debug("Transcript %s (source %s) is not a reference transcript (references: %s; in it: %s)",
                                   tid, self.transcripts[tid].original_source,
-                                  self.json_conf["prepare"]["files"]["reference"],
-                                  self.transcripts[tid].original_source in self.json_conf["prepare"]["files"][
-                                      "reference"])
-            elif is_reference is True and self.json_conf["pick"]["run_options"]["check_references"] is False:
+                                  self.configuration.prepare.files.reference,
+                                  self.transcripts[tid].original_source in self.configuration.prepare.files.reference)
+            elif is_reference is True and self.configuration.pick.run_options.check_references is False:
                 self.logger.debug("Skipping %s from the requirement check as it is a reference transcript", tid)
                 continue
-            elif is_reference is True and self.json_conf["pick"]["run_options"]["check_references"] is True:
+            elif is_reference is True and self.configuration.pick.run_options.check_references is True:
                 self.logger.debug("Performing the requirement check for %s even if it is a reference transcript", tid)
 
             evaluated = dict()
-            for key in self.json_conf[section]["parameters"]:
-                value = rgetattr(self.transcripts[tid],
-                                 self.json_conf[section]["parameters"][key]["name"])
+            for key in section["parameters"]:
+                value = rgetattr(self.transcripts[tid], section["parameters"][key]["name"])
                 if "external" in key:
                     value = value[0]
 
-                evaluated[key] = self.evaluate(
-                    value,
-                    self.json_conf[section]["parameters"][key])
+                evaluated[key] = self.evaluate(value, section["parameters"][key])
             # pylint: disable=eval-used
-            if eval(self.json_conf[section]["compiled"]) is False:
-
+            if eval(section["compiled"]) is False:
                 not_passing.add(tid)
         self.logger.debug("The following transcripts in %s did not pass the minimum check for requirements: %s",
                           self.id, ", ".join(list(not_passing)))
@@ -1347,13 +1348,13 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
         self.get_metrics()
         self.logger.debug("Calculating scores for {0}".format(self.id))
-        if "requirements" in self.json_conf and check_requirements:
+        if self.configuration.requirements and check_requirements:
             self._check_requirements()
 
         if len(self.transcripts) == 0:
             self.logger.warning("No transcripts pass the muster for %s (requirements:\n%s)",
                                 self.id,
-                                self.json_conf["requirements"])
+                                self.configuration.requirements)
             self.scores_calculated = True
             return
         self.scores = dict()
@@ -1361,67 +1362,37 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         for tid in self.transcripts:
             self.scores[tid] = dict()
             # Add the score for the transcript source
-            self.scores[tid]["source_score"] = self.transcripts[tid].source_score
+            self.scores[tid]["source_score"] = self.transcripts[tid].source_score or 0
 
-        if self.regressor is None:
-            for param in self.json_conf["scoring"]:
-                self._calculate_score(param)
+        for param in self.configuration.scoring:
+            self._calculate_score(param)
 
-            for tid in self.scores:
-                self.transcripts[tid].scores = self.scores[tid].copy()
+        for tid in self.scores:
+            self.transcripts[tid].scores = self.scores[tid].copy()
 
-            for tid in self.transcripts:
-                if tid in self._not_passing:
-                    self.logger.debug("Excluding %s as it does not pass minimum requirements",
-                                      tid)
-                    self.transcripts[tid].score = 0
-                else:
-                    self.transcripts[tid].score = sum(self.scores[tid].values())
-                    if self.transcripts[tid].score <= 0:
-                        self.logger.debug("Excluding %s as it has a score <= 0", tid)
-                        self.transcripts[tid].score = 0
-                        self._not_passing.add(tid)
-                assert self.transcripts[tid].score is not None
-
-                if tid in self._not_passing:
-                    pass
-                else:
-                    assert self.transcripts[tid].score == sum(self.scores[tid].values()), (
-                        tid, self.transcripts[tid].score, sum(self.scores[tid].values())
-                    )
-                self.scores[tid]["score"] = self.transcripts[tid].score
-
-        else:
-            valid_metrics = self.regressor.metrics
-            metric_rows = SortedDict()
-            for tid, transcript in sorted(self.transcripts.items(), key=operator.itemgetter(0)):
-                for param in valid_metrics:
-                    self.scores[tid][param] = "NA"
-                row = []
-                for attr in valid_metrics:
-                    val = getattr(transcript, attr)
-                    if isinstance(val, bool):
-                        if val:
-                            val = 1
-                        else:
-                            val = 0
-                    row.append(val)
-                # Necessary for sklearn ..
-                row = numpy.array(row)
-                # row = row.reshape(1, -1)
-                metric_rows[tid] = row
-            # scores = SortedDict.fromkeys(metric_rows.keys())
-            if isinstance(self.regressor, RandomForestClassifier):
-                # We have to pick the second probability (correct)
-                for tid in metric_rows:
-                    score = self.regressor.predict_proba(metric_rows[tid])[0][1]
-                    self.scores[tid]["score"] = score
-                    self.transcripts[tid].score = score
+        for tid in self.transcripts:
+            if tid in self._not_passing:
+                self.logger.debug("Excluding %s as it does not pass minimum requirements",
+                                  tid)
+                self.transcripts[tid].score = 0
             else:
-                pred_scores = self.regressor.predict(list(metric_rows.values()))
-                for pos, score in enumerate(pred_scores):
-                    self.scores[list(metric_rows.keys())[pos]]["score"] = score
-                    self.transcripts[list(metric_rows.keys())[pos]].score = score
+                try:
+                    self.transcripts[tid].score = sum(self.scores[tid].values())
+                except TypeError:
+                    raise TypeError(list(self.scores[tid].items()))
+                if self.transcripts[tid].score <= 0:
+                    self.logger.debug("Excluding %s as it has a score <= 0", tid)
+                    self.transcripts[tid].score = 0
+                    self._not_passing.add(tid)
+            assert self.transcripts[tid].score is not None
+
+            if tid in self._not_passing:
+                pass
+            else:
+                assert self.transcripts[tid].score == sum(self.scores[tid].values()), (
+                    tid, self.transcripts[tid].score, sum(self.scores[tid].values())
+                )
+            self.scores[tid]["score"] = self.transcripts[tid].score
 
         self.scores_calculated = True
 
@@ -1474,14 +1445,13 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         :return:
         """
 
-        rescaling = self.json_conf["scoring"][param]["rescaling"]
-        use_raw = self.json_conf["scoring"][param]["use_raw"]
-        multiplier = self.json_conf["scoring"][param]["multiplier"]
+        rescaling = self.configuration.scoring[param]["rescaling"]
+        use_raw = self.configuration.scoring[param]["use_raw"]
+        multiplier = self.configuration.scoring[param]["multiplier"]
 
         metrics = dict()
         for tid, transcript in self.transcripts.items():
             try:
-                # metric = rgetattr(self.transcripts[tid], param)
                 if tid not in self._metrics and transcript.alias in self._metrics:
                     if param in self._metrics[transcript.alias]:
                         metric = self._metrics[transcript.alias][param]
@@ -1510,12 +1480,11 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         for tid in self.transcripts.keys():
             tid_metric = metrics[tid]
 
-            if ("filter" in self.json_conf["scoring"][param] and
-                    self.json_conf["scoring"][param]["filter"] != {}):
-                if "metric" not in self.json_conf["scoring"][param]["filter"]:
+            if "filter" in self.configuration.scoring[param] and self.configuration.scoring[param]["filter"]:
+                if "metric" not in self.configuration.scoring[param]["filter"]:
                     metric_to_evaluate = tid_metric
                 else:
-                    metric_key = self.json_conf["scoring"][param]["filter"]["metric"]
+                    metric_key = self.configuration.scoring[param]["filter"]["metric"]
                     if not rhasattr(self.transcripts[tid], metric_key):
                         raise KeyError("Asked for an invalid metric in filter: {}".format(metric_key))
                     if tid not in self._metrics and self.transcripts[tid].alias in self._metrics:
@@ -1526,7 +1495,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                     if "external" in metric_key:
                         metric_to_evaluate = metric_to_evaluate[0]
 
-                check = self.evaluate(metric_to_evaluate, self.json_conf["scoring"][param]["filter"])
+                check = self.evaluate(metric_to_evaluate, self.configuration.scoring[param]["filter"])
                 if not check:
                     del metrics[tid]
             else:
@@ -1571,7 +1540,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                 use_raw = False
 
             if rescaling == "target":
-                target = self.json_conf["scoring"][param]["value"]
+                target = self.configuration.scoring[param]["value"]
                 denominator = max(abs(x - target) for x in metrics.values())
             else:
                 target = None
@@ -1612,7 +1581,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                 self.scores[tid][param] = round(score, 2)
 
         # This MUST be true
-        if "filter" not in self.json_conf["scoring"][param] and max(
+        if "filter" not in self.configuration.scoring[param] and max(
                 [self.scores[tid][param] for tid in self.transcripts.keys()]) == 0:
             self.logger.warning("All transcripts have a score of 0 for %s in %s",
                                 param, self.id)
@@ -1681,34 +1650,38 @@ class Abstractlocus(metaclass=abc.ABCMeta):
     # ##### Properties #######
 
     @property
-    def json_conf(self):
-        return self.__json_conf
+    def configuration(self) -> Union[MikadoConfiguration, DaijinConfiguration]:
+        return self.__configuration
 
-    @json_conf.setter
-    def json_conf(self, conf):
-        if conf is None:
-            conf = json_conf.copy()
-        elif isinstance(conf, str):
-            conf = to_json(conf)
-        elif not isinstance(conf, dict):
-            raise TypeError("Invalid configuration!")
-        self.__json_conf = conf
+    @configuration.setter
+    def configuration(self, conf):
+        if conf is None or conf == "":
+            conf = default_configuration.copy()
+        elif isinstance(conf, str) and conf != "":
+            conf = load_and_validate_config(conf)
+        elif not isinstance(conf, (MikadoConfiguration, DaijinConfiguration)):
+            raise InvalidJson(
+                "Invalid configuration, type {}, expected MikadoConfiguration or DaijinConfiguration!".format(
+                    type(conf)))
+        self.__configuration = conf
         # Get the value for each attribute defined metric
-        self._attribute_metrics = dict((param,
-                                  {
-                                      'default': self.json_conf["scoring"][param]["default"],
-                                      'rtype': self.json_conf['scoring'][param]['rtype'],
-                                      'use_raw': self.json_conf['scoring'][param]['use_raw'],
-                                      'percentage': self.json_conf['scoring'][param]['percentage']
+        self._attribute_metrics = dict()
+        assert self.__configuration.scoring is not None, (self.__configuration.scoring, self.__configuration.requirements)
+        for param in self.__configuration.scoring:
+            if not param.startswith("attributes."):
+                continue
+            self._attribute_metrics[param] = {
+                                      'default': self.configuration.scoring[param]["default"],
+                                      'rtype': self.configuration.scoring[param]['rtype'],
+                                      'use_raw': self.configuration.scoring[param]['use_raw'],
+                                      'percentage': self.configuration.scoring[param]['percentage']
                                   }
-                                  )
-                                 for param in self.__json_conf["scoring"] if param.startswith("attributes."))
 
     def check_configuration(self):
         """Method to be invoked to verify that the configuration is correct.
         Quite expensive to run, especially if done multiple times."""
 
-        self.json_conf = check_json(self.json_conf)
+        self.configuration = check_and_load_scoring(self.configuration)
 
     @property
     def stranded(self):
@@ -1778,21 +1751,13 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         :type logger: logging.Logger | Nonell
         """
 
-        # if self.__logger is not None:
-        #     self.__logger.disabled = True
-
         if logger is None:
             self.__logger = create_null_logger()
             self.__logger.propagate = False
         elif not isinstance(logger, logging.Logger):
             raise TypeError("Invalid logger: {0}".format(type(logger)))
         else:
-            # while len(logger.handlers) > 1:
-            #     logger.handlers.pop()
-            # logger.propagate = False
             self.__logger = logger
-
-        # self.__logger.setLevel("DEBUG")
 
     @logger.deleter
     def logger(self):
@@ -1836,13 +1801,13 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
     @property
     def _cds_only(self):
-        return self.json_conf["pick"]["clustering"]["cds_only"]
+        return self.configuration.pick.clustering.cds_only
 
     @_cds_only.setter
     def _cds_only(self, value):
         if value not in (True, False):
             raise ValueError(value)
-        self.json_conf["pick"]["clustering"]["cds_only"] = value
+        self.configuration.pick.clustering.cds_only = value
 
     @property
     def segmenttree(self):
@@ -1857,22 +1822,6 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         return IntervalTree.from_intervals(
                 [Interval(*_, value="exon") for _ in exons] + [Interval(*_, value="intron") for _ in introns]
             )
-
-    @property
-    def regressor(self):
-        return self.__regressor
-
-    @regressor.setter
-    def regressor(self, regr):
-
-        if isinstance(regr, dict) and isinstance(regr["scoring"], (RandomForestRegressor, RandomForestClassifier)):
-            self.__regressor = regr["scoring"]
-        elif regr is None or isinstance(regr, (RandomForestRegressor, RandomForestClassifier)):
-            self.__regressor = regr
-        else:
-            raise TypeError("Invalid regressor provided, type: %s", type(regr))
-
-        self.logger.debug("Set regressor")
 
     @property
     def locus_verified_introns(self):
@@ -1891,7 +1840,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
     def purge(self):
         """This property relates to pick/clustering/purge."""
 
-        return self.json_conf.get("pick", dict()).get("clustering", {}).get("purge", True)
+        return self.configuration.pick.clustering.purge
 
     @property
     def _use_transcript_scores(self):
@@ -1906,18 +1855,18 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
     @property
     def perform_padding(self):
-        return self.json_conf["pick"]["alternative_splicing"]["pad"]
+        return self.configuration.pick.alternative_splicing.pad
 
     def _set_padding(self, value):
         if value not in (False, True):
             raise ValueError
-        self.json_conf["pick"]["alternative_splicing"]["pad"] = value
+        self.configuration.pick.alternative_splicing.pad = value
 
     @property
     def only_reference_update(self):
-        return self.json_conf.get("pick", dict()).get("run_options", dict()).get("only_reference_update", False)
+        return self.configuration.pick.run_options.only_reference_update
 
     @property
     def reference_update(self):
-        ref_update = self.json_conf.get("pick", dict()).get("run_options", dict()).get("reference_update", False)
+        ref_update = self.configuration.pick.run_options.reference_update
         return ref_update or self.only_reference_update

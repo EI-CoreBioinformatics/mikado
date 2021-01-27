@@ -8,7 +8,7 @@ import unittest
 import pysam
 import pkg_resources
 from ..utilities.log_utils import create_null_logger, create_default_logger
-from ..configuration.configurator import to_json
+from ..configuration.configurator import load_and_validate_config
 from pytest import mark
 
 
@@ -129,7 +129,7 @@ class TestPadding(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.fai = pysam.FastaFile(pkg_resources.resource_filename("Mikado.tests", "chr5.fas.gz"))
+        cls.fai = pkg_resources.resource_filename("Mikado.tests", "chr5.fas.gz")
 
     def setUp(self):
         self.reference = "Chr5\t26574999\t26578625\tID=AT5G66600.3;coding=True;phase=0\t0\t-\t26575104\t26578315\t0\t11\t411,126,87,60,100,809,126,72,82,188,107\t0,495,711,885,1035,1261,2163,2378,2856,3239,3519"
@@ -198,11 +198,11 @@ class TestPadding(unittest.TestCase):
                     template.end = max([_[1] for _ in exons_to_add])
                     template.add_exons(exons_to_add)  # New exon, template at 5'
                     template.finalize()
-                    json_conf = to_json(None)
-                    json_conf["reference"]["genome"] = self.fai
-                    json_conf["pick"]["alternative_splicing"]["only_confirmed_introns"] = False
-                    json_conf["pick"]["run_options"]["only_reference_update"] = True
-                    locus = Locus(self.reference.copy(), logger=logger, json_conf=json_conf,
+                    json_conf = load_and_validate_config(None)
+                    json_conf.reference.genome = self.fai
+                    json_conf.pick.alternative_splicing.only_confirmed_introns = False
+                    json_conf.pick.run_options.only_reference_update = True
+                    locus = Locus(self.reference.copy(), logger=logger, configuration=json_conf,
                                   pad_transcripts=pad_transcripts)
                     self.assertTrue(locus[self.reference.id].is_reference)
                     self.assertEqual(locus.perform_padding, pad_transcripts)
@@ -226,11 +226,11 @@ class TestPadding(unittest.TestCase):
     def test_removal_after_padding(self):
 
         logger = create_default_logger("test_add_two_partials", "INFO")
-        json_conf = to_json(None)
-        json_conf["reference"]["genome"] = self.fai
-        json_conf["pick"]["alternative_splicing"]["only_confirmed_introns"] = False
-        json_conf["pick"]["alternative_splicing"]["keep_retained_introns"] = True
-        json_conf["pick"]["alternative_splicing"]["pad"] = True
+        json_conf = load_and_validate_config(None)
+        json_conf.reference.genome = self.fai
+        json_conf.pick.alternative_splicing.only_confirmed_introns = False
+        json_conf.pick.alternative_splicing.keep_retained_introns = True
+        json_conf.pick.alternative_splicing.pad = True
 
         t1 = Transcript(BED12(
             "Chr5\t26584779\t26587869\tID=AT5G66610.1;coding=True;phase=0\t0\t+\t26585222\t26587755\t0\t11\t\
@@ -251,7 +251,7 @@ class TestPadding(unittest.TestCase):
         t2_2.finalize()
         t1.is_reference = True
 
-        locus = Locus(t1, logger=logger, json_conf=json_conf)
+        locus = Locus(t1, logger=logger, configuration=json_conf)
         locus.add_transcript_to_locus(t2_1, check_in_locus=False)
         locus.add_transcript_to_locus(t2_2, check_in_locus=False)
         self.assertTrue(locus.primary_transcript_id == t1.id)
@@ -278,10 +278,10 @@ class TestPadding(unittest.TestCase):
 
         logger = create_null_logger("test_add_two_partials")
         logger.setLevel("INFO")
-        json_conf = to_json(None)
-        json_conf["reference"]["genome"] = self.fai
-        json_conf["pick"]["alternative_splicing"]["only_confirmed_introns"] = False
-        json_conf["pick"]["run_options"]["only_reference_update"] = True
+        json_conf = load_and_validate_config(None)
+        json_conf.reference.genome = self.fai
+        json_conf.pick.alternative_splicing.only_confirmed_introns = False
+        json_conf.pick.run_options.only_reference_update = True
 
         ref = Transcript(is_reference=True)
         ref.chrom, ref.strand, ref.id = "Chr5", "-", "AT5G66670.2"
@@ -312,7 +312,7 @@ class TestPadding(unittest.TestCase):
         self.assertTrue(template2.is_coding)
 
         logger.setLevel("INFO")
-        locus = Locus(ref, json_conf=json_conf, logger=logger, pad_transcripts=True)
+        locus = Locus(ref, configuration=json_conf, logger=logger, pad_transcripts=True)
         locus.add_transcript_to_locus(template1)
         locus.add_transcript_to_locus(template2)
         self.assertIn(template2.id, locus)

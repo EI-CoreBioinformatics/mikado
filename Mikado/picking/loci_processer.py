@@ -1,24 +1,28 @@
 from multiprocessing import Process
+from typing import Union
+
 from multiprocessing.managers import AutoProxy
 import logging
 from itertools import product
 import logging.handlers as logging_handlers
 import functools
+
+from ..configuration import MikadoConfiguration, DaijinConfiguration
 from ..utilities import dbutils
 from ..scales.assignment.assigner import Assigner
 from ..loci.superlocus import Superlocus
 from ._merge_loci_utils import __create_gene_counters, manage_index
 import collections
 import sys
-import pickle
 from ..transcripts import Transcript
 from ..exceptions import InvalidTranscript
 from ..parsers.GTF import GtfLine
+from ..configuration.configurator import load_and_validate_config
 import msgpack
 from ._loci_serialiser import serialise_locus
 try:
     import rapidjson as json
-except ImportError:
+except (ImportError,ModuleNotFoundError):
     import json
 
 __author__ = 'Luca Venturini'
@@ -112,7 +116,7 @@ def merge_loci(mapper,
     return
 
 
-def remove_fragments(stranded_loci, json_conf, logger):
+def remove_fragments(stranded_loci, configuration, logger):
 
     """This method checks which loci are possible fragments, according to the
     parameters provided in the configuration file, and tags/remove them according
@@ -121,8 +125,8 @@ def remove_fragments(stranded_loci, json_conf, logger):
     :param stranded_loci: a list of the loci to consider for fragment removal
     :type stranded_loci: list[Superlocus]
 
-    :param json_conf: the configuration dictionary
-    :type json_conf: dict
+    :param configuration: the configuration dictionary
+    :type configuration: (MikadoConfiguration|DaijinConfiguration)
 
     :param logger: the logger
     :type logger: logging.Logger
@@ -130,9 +134,6 @@ def remove_fragments(stranded_loci, json_conf, logger):
     """
 
     loci_to_check = {True: list(), False: list()}
-    # mcdl = json_conf["pick"]["run_options"]["fragments_maximal_cds"]
-    # mexons = json_conf["pick"]["run_options"]["fragments_maximal_exons"]
-    # mcdna = json_conf["pick"]["run_options"]["fragments_maximal_cdna"]
 
     total = 0
 
@@ -167,7 +168,7 @@ def remove_fragments(stranded_loci, json_conf, logger):
             comparisons[locus_to_check.id].append(comparison)
 
     for locus in comparisons:
-        if json_conf["pick"]["fragments"]["remove"] is True:
+        if configuration.pick.fragments.remove is True:
             # A bit convoluted: use the locus ID to find the correct superlocus, then delete the ID inside the SL.
             if locus not in stranded_loci_dict[loci_to_superloci[locus]].loci:
                 logger.error("Locus %s has been lost from superlocus %s!",
@@ -193,7 +194,7 @@ def remove_fragments(stranded_loci, json_conf, logger):
 
 def analyse_locus(slocus: Superlocus,
                   counter: int,
-                  json_conf: dict,
+                  configuration: Union[MikadoConfiguration,DaijinConfiguration],
                   logging_queue: AutoProxy,
                   engine=None,
                   data_dict=None) -> [Superlocus]:
@@ -205,8 +206,8 @@ def analyse_locus(slocus: Superlocus,
     :param counter: an integer which is used to create the proper name for the locus.
     :type counter: int
 
-    :param json_conf: the configuration dictionary
-    :type json_conf: dict
+    :param configuration: the configuration dictionary
+    :type configuration: (MikadoConfiguration|DaijinConfiguration)
 
     :param logging_queue: the logging queue
     :type logging_queue: multiprocessing.managers.AutoProxy
@@ -238,7 +239,7 @@ def analyse_locus(slocus: Superlocus,
 
     # We need to set this to the lowest possible level,
     # otherwise we overwrite the global configuration
-    logger.setLevel(json_conf["log_settings"]["log_level"])
+    logger.setLevel(configuration.log_settings.log_level)
     logger.propagate = False
     logger.debug("Started with %s, counter %d", slocus.id, counter)
     if slocus.stranded is True:
@@ -246,7 +247,7 @@ def analyse_locus(slocus: Superlocus,
         slocus.stranded = False
 
     slocus.logger = logger
-    slocus.source = json_conf["pick"]["output_format"]["source"]
+    slocus.source = configuration.pick.output_format.source
 
     try:
         slocus.load_all_transcript_data(engine=engine,
@@ -293,7 +294,7 @@ def analyse_locus(slocus: Superlocus,
                      stranded_locus.strand)
 
     # Check if any locus is a fragment, if so, tag/remove it
-    stranded_loci = sorted(list(remove_fragments(stranded_loci, json_conf, logger)))
+    stranded_loci = sorted(list(remove_fragments(stranded_loci, configuration, logger)))
     try:
         logger.debug("Size of the loci to send: {0}, for {1} loci".format(
             sys.getsizeof(stranded_loci),
@@ -313,7 +314,7 @@ class LociProcesser(Process):
     analyse them, and print them to the output files."""
 
     def __init__(self,
-                 json_conf,
+                 configuration,
                  locus_queue,
                  logging_queue,
                  status_queue,
@@ -321,40 +322,27 @@ class LociProcesser(Process):
                  tempdir="mikado_pick_tmp"
                  ):
 
-        # current_counter, gene_counter, current_chrom = shared_values
         super(LociProcesser, self).__init__()
-        json_conf = msgpack.loads(json_conf, raw=False)
+        configuration = load_and_validate_config(msgpack.loads(configuration, raw=False))
         self.logging_queue = logging_queue
         self.status_queue = status_queue
         self.__identifier = identifier  # Property directly unsettable
         self.name = "LociProcesser-{0}".format(self.identifier)
-        self.json_conf = json_conf
+        self.configuration = configuration
         self.engine = None
         self.handler = logging_handlers.QueueHandler(self.logging_queue)
         self.logger = logging.getLogger(self.name)
         self.logger.addHandler(self.handler)
-        self.logger.setLevel(self.json_conf["log_settings"]["log_level"])
+        self.logger.setLevel(self.configuration.log_settings.log_level)
 
         self.logger.propagate = False
         self._tempdir = tempdir
         self.locus_queue = locus_queue
-        self.regressor = None
-        # self.dump_db, self.dump_conn, self.dump_cursor = self._create_temporary_store(self._tempdir, self.identifier)
-
-        if self.json_conf["pick"]["scoring_file"].endswith((".pickle", ".model")):
-            with open(self.json_conf["pick"]["scoring_file"], "rb") as forest:
-                self.regressor = pickle.load(forest)
-            from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
-            if not isinstance(self.regressor["scoring"], (RandomForestRegressor, RandomForestClassifier)):
-                exc = TypeError("Invalid regressor provided, type: %s", type(self.regressor))
-                self.logger.critical(exc)
-                self.exitcode = 9
-                self.join()
         self.logger.debug("Starting Process %s", self.name)
 
         self.logger.debug("Starting the pool for {0}".format(self.name))
         try:
-            self.engine = dbutils.connect(self.json_conf, self.logger)
+            self.engine = dbutils.connect(self.configuration, self.logger)
         except KeyboardInterrupt:
             raise
         except EOFError:
@@ -364,7 +352,7 @@ class LociProcesser(Process):
             return
 
         self.analyse_locus = functools.partial(analyse_locus,
-                                               json_conf=self.json_conf,
+                                               configuration=self.configuration,
                                                engine=self.engine,
                                                logging_queue=self.logging_queue)
 
@@ -409,11 +397,11 @@ class LociProcesser(Process):
         self.handler = logging_handlers.QueueHandler(self.logging_queue)
         self.logger = logging.getLogger(self.name)
         self.logger.addHandler(self.handler)
-        self.logger.setLevel(self.json_conf["log_settings"]["log_level"])
+        self.logger.setLevel(self.configuration.log_settings.log_level)
         self.logger.propagate = False
-        self.engine = dbutils.connect(self.json_conf, self.logger)
+        self.engine = dbutils.connect(self.configuration, self.logger)
         self.analyse_locus = functools.partial(analyse_locus,
-                                               json_conf=self.json_conf,
+                                               configuration=self.configuration,
                                                engine=self.engine,
                                                logging_queue=self.logging_queue)
         # self.dump_db, self.dump_conn, self.dump_cursor = self._create_temporary_store(self._tempdir, self.identifier)
@@ -429,9 +417,12 @@ class LociProcesser(Process):
         """Start polling the queue, analyse the loci, and send them to the printer process."""
         self.logger.debug("Starting to parse data for {0}".format(self.name))
 
-        print_cds = (not self.json_conf["pick"]["run_options"]["exclude_cds"])
-        print_monoloci = (self.json_conf["pick"]["files"]["monoloci_out"] != "")
-        print_subloci = (self.json_conf["pick"]["files"]["subloci_out"] != "")
+        print_cds = (not self.configuration.pick.run_options.exclude_cds)
+
+        print_monoloci = (self.configuration.pick.files.monoloci_out is not None and
+                          len(self.configuration.pick.files.monoloci_out) > 0)
+        print_subloci = (self.configuration.pick.files.subloci_out is not None and
+                         len(self.configuration.pick.files.subloci_out) > 0)
 
         while True:
             vals = self.locus_queue.get()
@@ -458,10 +449,10 @@ class LociProcesser(Process):
                     chroms = set()
                     for tjson in transcripts:
                         definition = GtfLine(tjson["definition"]).as_dict()
-                        is_reference = definition["source"] in self.json_conf["prepare"]["files"]["reference"]
+                        is_reference = definition["source"] in self.configuration.prepare.files.reference
                         transcript = Transcript(logger=self.logger,
                                                 source=definition["source"],
-                                                intron_range=self.json_conf["pick"]["run_options"]["intron_range"],
+                                                intron_range=self.configuration.pick.run_options.intron_range,
                                                 is_reference=is_reference)
                         transcript.chrom, transcript.start, transcript.end = (definition["chrom"],
                                                                               definition["start"], definition["end"])
@@ -485,14 +476,12 @@ class LociProcesser(Process):
 
                     slocus = Superlocus(tobjects.pop(),
                                         stranded=False,
-                                        json_conf=self.json_conf,
-                                        source=self.json_conf["pick"]["output_format"]["source"])
+                                        configuration=self.configuration,
+                                        source=self.configuration.pick.output_format.source)
                     while len(tobjects) > 0:
                         slocus.add_transcript_to_locus(tobjects.pop(),
                                                        check_in_locus=False)
 
-                    if self.regressor is not None:
-                        slocus.regressor = self.regressor
                     stranded_loci = self.analyse_locus(slocus, counter)
 
                 serialise_locus(stranded_loci,

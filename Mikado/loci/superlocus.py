@@ -82,7 +82,7 @@ class Superlocus(Abstractlocus):
                  transcript_instance,
                  verified_introns=None,
                  stranded=True,
-                 json_conf=None,
+                 configuration=None,
                  source="",
                  logger=None,
                  **kwargs):
@@ -94,8 +94,8 @@ class Superlocus(Abstractlocus):
         :param stranded: boolean flag that indicates whether
         the Locus should use or ignore strand information
         :type stranded: bool
-        :param json_conf: a configuration dictionary derived from JSON/YAML config files
-        :type json_conf: dict
+        :param configuration: a configuration dictionary derived from JSON/YAML config files
+        :type configuration: (MikadoConfiguration|DaijinConfiguration)
         :param source: optional source for the locus
         :type source: str
         :param logger: the logger for the class
@@ -114,8 +114,7 @@ class Superlocus(Abstractlocus):
         The constructor method takes the following keyword arguments:
         - stranded    True if all transcripts inside the superlocus are required
         to be on the same strand
-        - json_conf    Required. A dictionary with the coniguration necessary
-        for scoring transcripts.
+        - configuration    Required. Configuration object for the run.
         - purge        Flag. If True, all loci holding only transcripts with a 0
         score will be deleted
         from further consideration.
@@ -124,14 +123,11 @@ class Superlocus(Abstractlocus):
         super().__init__(source=source,
                          transcript_instance=None,
                          verified_introns=verified_introns,
-                         json_conf=json_conf,
+                         configuration=configuration,
                          logger=logger,
                          **kwargs)
         self.approximation_level = 0
         self.feature = self.__name__
-        # if json_conf is None or not isinstance(json_conf, dict):
-        #     raise NoJsonConfigError("I am missing the configuration for prioritizing transcripts!")
-        self.__regressor = None
         self.stranded = stranded
         self.splices = set(self.splices)
         self.introns = set(self.introns)
@@ -151,7 +147,7 @@ class Superlocus(Abstractlocus):
         # Connection objects
         self.engine = self.sessionmaker = self.session = None
         # Excluded object
-        self.excluded = Excluded(json_conf=self.json_conf)
+        self.excluded = Excluded(configuration=self.configuration)
         self.__retained_sources = set()
         self.__data_loaded = False
         self.__lost = dict()
@@ -352,7 +348,7 @@ class Superlocus(Abstractlocus):
             self.add_transcript_to_locus(transcript, check_in_locus=False)
 
         # self.source = locus.source
-        self.json_conf = locus.json_conf
+        self.configuration = locus.configuration
         self.loci[locus.id] = locus
         self.loci_defined = True
 
@@ -374,8 +370,6 @@ class Superlocus(Abstractlocus):
 
     def load_dict(self, state, print_subloci=True, print_monoloci=True, load_transcripts=True):
         super().load_dict(state, load_transcripts=load_transcripts)
-        # self.json_conf = state["json_conf"]
-        # self.chrom, self.start, self.end, self.strand = (state["chrom"], state["start"], state["end"], state["strand"])
         self.loci = dict()
         for lid, stat in state["loci"].items():
             locus = Locus()
@@ -389,7 +383,7 @@ class Superlocus(Abstractlocus):
                 self.excluded.load_dict(state["excluded"])
                 self.subloci = []
                 for stat in state["subloci"]:
-                    sub = Sublocus(json_conf=self.json_conf)
+                    sub = Sublocus(configuration=self.configuration)
                     sub.load_dict(stat)
                     assert isinstance(sub, Sublocus)
                     self.subloci.append(sub)
@@ -439,7 +433,7 @@ class Superlocus(Abstractlocus):
                     strand = sorted(strand)
                     new_locus = Superlocus(strand[0],
                                            stranded=True,
-                                           json_conf=self.json_conf,
+                                           configuration=self.configuration,
                                            source=self.source,
                                            logger=self.logger
                                            )
@@ -452,7 +446,7 @@ class Superlocus(Abstractlocus):
                             new_loci.append(new_locus)
                             new_locus = Superlocus(cdna,
                                                    stranded=True,
-                                                   json_conf=self.json_conf,
+                                                   configuration=self.configuration,
                                                    source=self.source,
                                                    logger=self.logger
                                                    )
@@ -463,10 +457,7 @@ class Superlocus(Abstractlocus):
                 "Defined %d superloci by splitting by strand at %s.",
                 len(new_loci), self.id)
             for new_locus in iter(sorted(new_loci)):
-                if self.regressor is not None:
-                    new_locus.regressor = self.regressor
                 yield new_locus
-        # raise StopIteration
 
     # @profile
     def connect_to_db(self, engine):
@@ -480,7 +471,7 @@ class Superlocus(Abstractlocus):
         """
 
         if engine is None:
-            self.engine = dbutils.connect(self.json_conf)
+            self.engine = dbutils.connect(self.configuration)
         else:
             self.engine = engine
 
@@ -502,14 +493,14 @@ class Superlocus(Abstractlocus):
 
         self.logger.debug("Retrieving data for {0}".format(tid))
         self.transcripts[tid].logger = self.logger
-        self.transcripts[tid].json_conf = self.json_conf
-        self.transcripts[tid].load_information_from_db(self.json_conf,
+        self.transcripts[tid].default_configuration = self.configuration
+        self.transcripts[tid].load_information_from_db(self.configuration,
                                                        introns=self.locus_verified_introns,
                                                        session=self.session,
                                                        data_dict=data_dict)
         to_remove, to_add = False, dict()
 
-        if self.json_conf["pick"]["chimera_split"]["execute"] is True:
+        if self.configuration.pick.chimera_split.execute is True:
             if self.transcripts[tid].number_internal_orfs > 1:
                 new_tr = list(self.transcripts[tid].split_by_cds())
                 if len(new_tr) > 1:
@@ -540,7 +531,7 @@ class Superlocus(Abstractlocus):
 
         self.logger.debug("Querying the DB for introns, %d total", len(self.introns))
         if data_dict is None:
-            if self.json_conf["db_settings"]["db"] is None or self.json_conf["db_settings"]["db"] == "":
+            if not self.configuration.db_settings.db:
                 return  # No data to load
             # dbquery = self.db_baked(self.session).params(chrom_name=self.chrom).all()
 
@@ -628,7 +619,7 @@ class Superlocus(Abstractlocus):
             hsp_command = " ".join([
                 "select * from hsp where",
                 "hsp_evalue <= {0} and query_id in {1} order by query_id;"]).format(
-                self.json_conf["pick"]["chimera_split"]["blast_params"]["hsp_evalue"],
+                self.configuration.pick.chimera_split.blast_params.hsp_evalue,
                 "({0})".format(", ".join([str(_) for _ in query_ids.keys()]))
             )
 
@@ -647,8 +638,8 @@ class Superlocus(Abstractlocus):
                 "and hit_number <= {1} and query_id in {2}",
                 "order by query_id, evalue asc;"
             ]).format(
-                self.json_conf["pick"]["chimera_split"]["blast_params"]["evalue"],
-                self.json_conf["pick"]["chimera_split"]["blast_params"]["max_target_seqs"],
+                self.configuration.pick.chimera_split.blast_params.evalue,
+                self.configuration.pick.chimera_split.blast_params.max_target_seqs,
                 "({0})".format(", ".join([str(_) for _ in query_ids.keys()])))
 
             if len(targets) > 0:
@@ -819,7 +810,7 @@ class Superlocus(Abstractlocus):
         pass."""
 
         ichains = collections.defaultdict(list)
-        cds_only = self.json_conf["pick"]["clustering"]["cds_only"]
+        cds_only = self.configuration.pick.clustering.cds_only
         for transcript in self.transcripts.values():
             # Ordered by coordinates
             if cds_only:
@@ -885,7 +876,7 @@ class Superlocus(Abstractlocus):
 
         to_remove = set()
         done = set()
-        cds_only = self.json_conf["pick"]["clustering"]["cds_only"]
+        cds_only = self.configuration.pick.clustering.cds_only
         if cds_only:
             order = sorted(list(transcript_graph.nodes), key=lambda node: self.transcripts[node].selected_cds_start)
         else:
@@ -970,7 +961,7 @@ class Superlocus(Abstractlocus):
         self.subloci = []
 
         # First, check whether we need to remove CDS from anything.
-        for tid in super()._check_not_passing(section="cds_requirements"):
+        for tid in super()._check_not_passing(section_name="cds_requirements"):
             self.transcripts[tid].strip_cds(strand_specific=True)
             self.metrics_calculated = False
 
@@ -990,7 +981,6 @@ class Superlocus(Abstractlocus):
             self.subloci_defined = True
             return
 
-        # cds_only = self.json_conf["pick"]["clustering"]["cds_only"]
         self.logger.debug("Calculating the transcript graph for %d transcripts", len(self.transcripts))
         transcript_graph = self.define_graph()
 
@@ -1024,13 +1014,11 @@ class Superlocus(Abstractlocus):
             subl = [self.transcripts[x] for x in subl]
             subl = sorted(subl)
             new_sublocus = Sublocus(subl[0],
-                                    json_conf=self.json_conf,
+                                    configuration=self.configuration,
                                     logger=self.logger,
                                     use_transcript_scores=self._use_transcript_scores
                                     )
             new_sublocus.logger = self.logger
-            if self.regressor is not None:
-                new_sublocus.regressor = self.regressor
             for ttt in subl[1:]:
                 try:
                     new_sublocus.add_transcript_to_locus(ttt)
@@ -1214,14 +1202,14 @@ class Superlocus(Abstractlocus):
         for locus in sorted(loci):
             self.loci[locus.id] = locus
             self.loci[locus.id].logger = self.logger
-            self.loci[locus.id].set_json_conf(self.json_conf)
+            self.loci[locus.id].configuration = self.configuration
 
         self.loci_defined = True
 
         self.logger.debug("Looking for AS events in %s: %s",
                           self.id,
-                          self.json_conf["pick"]["alternative_splicing"]["report"])
-        if self.json_conf["pick"]["alternative_splicing"]["report"] is True:
+                          self.configuration.pick.alternative_splicing.report)
+        if self.configuration.pick.alternative_splicing.report is True:
             self.define_alternative_splicing()
 
         self.__find_lost_transcripts()
@@ -1230,7 +1218,7 @@ class Superlocus(Abstractlocus):
             for transcript in self.lost_transcripts.values():
                 if new_locus is None:
                     new_locus = Superlocus(transcript,
-                                           json_conf=self.json_conf,
+                                           configuration=self.configuration,
                                            use_transcript_scores=self._use_transcript_scores,
                                            stranded=self.stranded,
                                            verified_introns=self.locus_verified_introns,
@@ -1244,7 +1232,7 @@ class Superlocus(Abstractlocus):
             self.loci.update(new_locus.loci)
             self.__lost = new_locus.lost_transcripts
 
-        if self.json_conf["pick"]["run_options"]["only_reference_update"] is True:
+        if self.configuration.pick.run_options.only_reference_update is True:
             lids = list(self.loci.keys())[:]
             for lid in lids:
                 if self.loci[lid].has_reference_transcript is False:
@@ -1258,10 +1246,10 @@ class Superlocus(Abstractlocus):
     def __find_lost_transcripts(self):
 
         self.__lost = dict()
-        cds_only = self.json_conf["pick"]["clustering"]["cds_only"]
-        simple_overlap = self.json_conf["pick"]["clustering"]["simple_overlap_for_monoexonic"]
-        cdna_overlap = self.json_conf["pick"]["clustering"]["min_cdna_overlap"]
-        cds_overlap = self.json_conf["pick"]["clustering"]["min_cds_overlap"]
+        cds_only = self.configuration.pick.clustering.cds_only
+        simple_overlap = self.configuration.pick.clustering.simple_overlap_for_monoexonic
+        cdna_overlap = self.configuration.pick.clustering.min_cdna_overlap
+        cds_overlap = self.configuration.pick.clustering.min_cds_overlap
 
         loci_transcripts = set()
         for locus in self.loci.values():
@@ -1317,9 +1305,9 @@ class Superlocus(Abstractlocus):
         primary_transcripts = set(locus.primary_transcript_id for locus in self.loci.values())
         self.logger.debug("Primary transcripts: %s", primary_transcripts)
 
-        cds_only = self.json_conf["pick"]["clustering"]["cds_only"]
-        cds_overlap = self.json_conf["pick"]["alternative_splicing"]["min_cds_overlap"]
-        cdna_overlap = self.json_conf["pick"]["alternative_splicing"]["min_cdna_overlap"]
+        cds_only = self.configuration.pick.clustering.cds_only
+        cds_overlap = self.configuration.pick.alternative_splicing.min_cds_overlap
+        cdna_overlap = self.configuration.pick.alternative_splicing.min_cdna_overlap
 
         self.logger.debug("Defining the transcript graph")
         t_graph = self.define_as_graph(inters=MonosublocusHolder.is_intersecting,
@@ -1399,10 +1387,10 @@ class Superlocus(Abstractlocus):
             self.monosubloci,
             inters=MonosublocusHolder.in_locus,
             logger=self.logger,
-            cds_only=self.json_conf["pick"]["clustering"]["cds_only"],
-            min_cdna_overlap=self.json_conf["pick"]["clustering"]["min_cdna_overlap"],
-            min_cds_overlap=self.json_conf["pick"]["clustering"]["min_cds_overlap"],
-            simple_overlap_for_monoexonic=self.json_conf["pick"]["clustering"]["simple_overlap_for_monoexonic"])
+            cds_only=self.configuration.pick.clustering.cds_only,
+            min_cdna_overlap=self.configuration.pick.clustering.min_cdna_overlap,
+            min_cds_overlap=self.configuration.pick.clustering.min_cds_overlap,
+            simple_overlap_for_monoexonic=self.configuration.pick.clustering.simple_overlap_for_monoexonic)
 
         assert len(mono_graph.nodes()) == len(self.monosubloci)
 
@@ -1412,7 +1400,7 @@ class Superlocus(Abstractlocus):
             community = set(community)
             monosub = self.monosubloci[community.pop()]
             holder = MonosublocusHolder(monosub,
-                                        json_conf=self.json_conf,
+                                        configuration=self.configuration,
                                         logger=self.logger,
                                         use_transcript_scores=self._use_transcript_scores)
             while len(community) > 0:
@@ -1422,24 +1410,23 @@ class Superlocus(Abstractlocus):
 
         for monoholder in self.monoholders:
             # monoholder.scores_calculated = False
-            if self.regressor is not None:
-                monoholder.regressor = self.regressor
             monoholder.filter_and_calculate_scores(check_requirements=check_requirements)
 
     def compile_requirements(self):
         """Quick function to evaluate the filtering expression, if it is present."""
 
-        for section in ["requirements", "as_requirements", "cds_requirements"]:
-            if section in self.json_conf:
-                if "compiled" in self.json_conf[section]:
-                    return
-                else:
-                    self.json_conf[section]["compiled"] = compile(
-                        self.json_conf[section]["expression"],
-                        "<json>", "eval")
-                    return
+        # TODO this must be different
+        def compile_expression(section):
+            if "compiled" in section:
+                pass
             else:
-                continue
+                section["compiled"] = compile(section["expression"], "<json>", "eval")
+            return section
+
+        self.configuration.requirements = compile_expression(self.configuration.requirements)
+        self.configuration.not_fragmentary = compile_expression(self.configuration.not_fragmentary)
+        self.configuration.as_requirements = compile_expression(self.configuration.as_requirements)
+        self.configuration.cds_requirements = compile_expression(self.configuration.cds_requirements)
 
     # ############ Class methods ###########
 

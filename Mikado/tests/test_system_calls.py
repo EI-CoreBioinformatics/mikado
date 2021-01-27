@@ -1,3 +1,5 @@
+import dataclasses
+
 import csv
 import glob
 import gzip
@@ -12,7 +14,10 @@ import unittest
 import pkg_resources
 import pyfaidx
 import yaml
-from ..configuration import print_config
+from ..configuration.configurator import load_and_validate_config
+from Mikado.exceptions import InvalidJson
+from ..configuration import print_config, DaijinConfiguration
+
 try:
     from yaml import CSafeLoader as yLoader
 except ImportError:
@@ -29,7 +34,7 @@ from ..scales.calculator import Calculator
 from ..subprograms.prepare import prepare_launcher
 from ..subprograms.prepare import setup as prepare_setup
 from ..transcripts.transcript import Namespace
-from ..utilities.log_utils import create_null_logger, create_default_logger
+from ..utilities.log_utils import create_null_logger
 from ..parsers.GFF import GffLine
 import sqlite3
 import shutil
@@ -111,6 +116,7 @@ class PrepareCheck(unittest.TestCase):
                                                       ("tr_c58_g1_i4.mrna1.6", 4862),
                                                       ("tr_c58_g1_i6.mrna1.3", 4945),
                                                       ("tr_c58_g1_i8.mrna1", 1819),
+                                                      ("tr_c58_g1_i8.mrna2", 383),
                                                       ("tr_c113_g1_i1.mrna1.94", 379),
                                                       ("tr_c77_g1_i1.mrna1.153", 635),
                                                       ("tr_c109_g1_i1.mrna1.102", 310),
@@ -149,18 +155,19 @@ class PrepareCheck(unittest.TestCase):
                             "cl_cufflinks_star_at.23562.1": 1302,
                             "cl_cufflinks_star_at.23562.2": 1045}
 
-        cls._trinity_redundant = ["c58_g1_i10.mrna2", "c58_g1_i8.mrna2"]
+        cls._trinity_redundant = ["c58_g1_i8.mrna2", "c58_g1_i10.mrna2"]
 
         cls.maxDiff = None
 
     def setUp(self):
 
-        self.conf = configurator.to_json(None)
-        self.conf["seed"] = 1066
-        self.conf["reference"]["genome"] = self.fai.filename.decode()
-        assert isinstance(self.conf["reference"]["genome"], str)
+        self.conf = configurator.load_and_validate_config(None)
+        self.conf.filename = "nofile"  # FIXME: Filename is added dynamically to this obj and not validated
+        self.conf.seed = 1066
+        self.conf.reference.genome = self.fai.filename.decode()
+        assert isinstance(self.conf.reference.genome, str)
         self.logger = create_null_logger("prepare")
-        self.conf["prepare"]["exclude_redundant"] = False
+        self.conf.prepare.exclude_redundant = False
 
     def tearDown(self):
         logging.shutdown()
@@ -168,21 +175,21 @@ class PrepareCheck(unittest.TestCase):
     @mark.slow
     def test_varying_max_intron(self):
 
-        self.conf["prepare"]["files"]["labels"].append("tr")
+        self.conf.prepare.files.labels.append("tr")
         dir = tempfile.TemporaryDirectory(prefix="test_varying_max_intron")
-        self.conf["prepare"]["files"]["output_dir"] = dir.name
+        self.conf.prepare.files.output_dir = dir.name
         args = Namespace()
-        args.json_conf = self.conf
+        args.configuration = self.conf
         test_file = "trinity.gtf"
-        self.conf["prepare"]["files"]["gff"] = [pkg_resources.resource_filename("Mikado.tests",
+        self.conf.prepare.files.gff = [pkg_resources.resource_filename("Mikado.tests",
                                                                                 test_file)]
-        self.conf["prepare"]["files"]["strip_cds"] = [False]
+        self.conf.prepare.files.strip_cds = [False]
 
         for max_intron in (20, 200, 1000, 5000):
             with self.subTest(max_intron=max_intron):
-                self.conf["prepare"]["max_intron_length"] = max_intron
-                prepare.prepare(args, self.logger)
-                gtf = os.path.join(self.conf["prepare"]["files"]["output_dir"], "mikado_prepared.gtf")
+                self.conf.prepare.max_intron_length = max_intron
+                prepare.prepare(args.configuration, self.logger)
+                gtf = os.path.join(self.conf.prepare.files.output_dir, "mikado_prepared.gtf")
                 self.assertGreater(os.stat(gtf).st_size, 0, test_file)
                 transcripts = dict()
                 for row in to_gff(gtf):
@@ -199,14 +206,15 @@ class PrepareCheck(unittest.TestCase):
     @mark.slow
     def test_prepare_trinity_gff(self):
 
-        self.conf["prepare"]["files"]["labels"].append("tr")
+        self.conf.prepare.files.labels.append("tr")
         dir = tempfile.TemporaryDirectory(prefix="test_prepare_trinity_gff")
-        self.conf["prepare"]["files"]["output_dir"] = dir.name
+        self.conf.prepare.files.output_dir = dir.name
         args = Namespace()
-        args.json_conf = self.conf
+        args.configuration = self.conf
         args.procs = 1
         args.single_thread = True
         args.seed = 10
+        self.conf.seed = 10
 
         for test_file in ("trinity.gff3",
                           "trinity.match_matchpart.gff3",
@@ -214,41 +222,41 @@ class PrepareCheck(unittest.TestCase):
                           "trinity.gtf",
                           "trinity.no_transcript_feature.gtf"):
             with self.subTest(test_file=test_file):
-                self.conf["prepare"]["files"]["strip_cds"] = [False]
-                self.conf["prepare"]["files"]["gff"] = [pkg_resources.resource_filename("Mikado.tests",
+                self.conf.prepare.files.strip_cds = [False]
+                self.conf.prepare.files.gff = [pkg_resources.resource_filename("Mikado.tests",
                                                                                         test_file)]
 
                 with self.assertLogs(self.logger) as cm:
                     try:
-                        prepare.prepare(args, self.logger)
+                        prepare.prepare(args.configuration, self.logger)
                     except OSError:
                         raise OSError(cm.output)
 
                 # Now that the program has run, let's check the output
-                fasta = os.path.join(self.conf["prepare"]["files"]["output_dir"],
+                fasta = os.path.join(self.conf.prepare.files.output_dir,
                                                 "mikado_prepared.fasta")
                 self.assertGreater(os.stat(fasta).st_size, 0, (test_file, cm.output))
                 fa = pyfaidx.Fasta(fasta)
                 res = dict((_, len(fa[_])) for _ in fa.keys())
                 fa.close()
                 check = dict(_ for _ in self.trinity_res.items())
-                check.pop(self.conf["prepare"]["files"]["labels"][0] + "_" + self._trinity_redundant[0])
+                check.pop(self.conf.prepare.files.labels[0] + "_" + self._trinity_redundant[0])
                 self.assertEqual(res, check)
-                os.remove(os.path.join(self.conf["prepare"]["files"]["output_dir"],
+                os.remove(os.path.join(self.conf.prepare.files.output_dir,
                                        "mikado_prepared.fasta.fai"))
         dir.cleanup()
 
     @mark.slow
     def test_prepare_trinity_and_cufflinks(self):
 
-        self.conf["prepare"]["files"]["labels"] = ["cl", "tr"]
+        self.conf.prepare.files.labels = ["cl", "tr"]
 
-        self.conf["prepare"]["files"]["gff"] = [None, None]
-        self.conf["prepare"]["files"]["strip_cds"] = [False, True]
+        self.conf.prepare.files.gff = [None, None]
+        self.conf.prepare.files.strip_cds = [False, True]
         dir = tempfile.TemporaryDirectory(prefix="test_prepare_trinity_and_cufflinks")
-        self.conf["prepare"]["files"]["output_dir"] = dir.name
-        self.conf["prepare"]["files"]["out_fasta"] = "mikado_prepared.fasta"
-        self.conf["prepare"]["files"]["out"] = "mikado_prepared.gtf"
+        self.conf.prepare.files.output_dir = dir.name
+        self.conf.prepare.files.out_fasta = "mikado_prepared.fasta"
+        self.conf.prepare.files.out = "mikado_prepared.gtf"
         args = Namespace()
 
         for cuff_file, test_file in itertools.product(
@@ -257,35 +265,33 @@ class PrepareCheck(unittest.TestCase):
                   "trinity.no_transcript_feature.gtf"))):
             for proc in (1, ):
                 with self.subTest(test_file=test_file, cuff_file=cuff_file, proc=proc):
-                    self.conf["prepare"]["files"]["gff"][0] = pkg_resources.resource_filename("Mikado.tests",
+                    self.conf.prepare.files.gff[0] = pkg_resources.resource_filename("Mikado.tests",
                                                                                               cuff_file)
-                    self.conf["prepare"]["files"]["gff"][1] = pkg_resources.resource_filename("Mikado.tests",
+                    self.conf.prepare.files.gff[1] = pkg_resources.resource_filename("Mikado.tests",
                                                                                               test_file)
-                    self.conf["prepare"]["files"]["out_fasta"] = "mikado_prepared.fasta"
-                    self.conf["prepare"]["files"]["out"] = "mikado_prepared.gtf"
-                    args.strip_cds = True
-                    args.json_conf = self.conf
-                    args.seed = 10
-                    args.json_conf["threads"] = proc
-                    args.exclude_redundant = False
-                    prepare.prepare(args, self.logger)
+                    self.conf.prepare.files.out_fasta = "mikado_prepared.fasta"
+                    self.conf.prepare.files.out = "mikado_prepared.gtf"
+                    args.configuration = self.conf
+                    args.configuration.seed = 10
+                    args.configuration.threads = proc
+                    args.configuration.prepare.exclude_redundant = False
+                    args.configuration.prepare.strip_cds = True
+                    prepare.prepare(args.configuration, self.logger)
 
                     # Now that the program has run, let's check the output
-                    self.assertTrue(os.path.exists(os.path.join(self.conf["prepare"]["files"]["output_dir"],
+                    self.assertTrue(os.path.exists(os.path.join(self.conf.prepare.files.output_dir,
                                                                 "mikado_prepared.fasta")))
-                    self.assertGreater(os.stat(os.path.join(self.conf["prepare"]["files"]["output_dir"],
+                    self.assertGreater(os.stat(os.path.join(self.conf.prepare.files.output_dir,
                                                             "mikado_prepared.fasta")).st_size, 0)
 
-                    fa = pysam.FastaFile(os.path.join(self.conf["prepare"]["files"]["output_dir"],
-                                                      "mikado_prepared.fasta"))
+                    fa = pysam.FastaFile(os.path.join(self.conf.prepare.files.output_dir, "mikado_prepared.fasta"))
                     res = dict((name, length) for name, length in zip(fa.references, fa.lengths))
                     fa.close()
                     precal = self.trinity_res.copy()
                     precal.update(self.cuff_results)
                     precal.pop("tr_" + self._trinity_redundant[0])
                     self.assertEqual(res, precal)
-                    os.remove(os.path.join(self.conf["prepare"]["files"]["output_dir"],
-                                           "mikado_prepared.fasta.fai"))
+                    os.remove(os.path.join(self.conf.prepare.files.output_dir, "mikado_prepared.fasta.fai"))
         dir.cleanup()
 
     @mark.slow
@@ -293,7 +299,7 @@ class PrepareCheck(unittest.TestCase):
 
         rev_strand = {"+": "-", "-": "+"}
 
-        self.conf["prepare"]["files"]["labels"] = ["ann"]
+        self.conf.prepare.files.labels = ["ann"]
         folder = tempfile.TemporaryDirectory(prefix="test_prepare_with_cds")
         ann_gff3 = pkg_resources.resource_filename("Mikado.tests", "annotation.gff3")
         rev_ann_gff3 = tempfile.NamedTemporaryFile(suffix=".gff3", mode="wt", dir=folder.name)
@@ -306,27 +312,27 @@ class PrepareCheck(unittest.TestCase):
                 print(line, file=rev_ann_gff3)
         rev_ann_gff3.flush()
 
-        self.conf["prepare"]["files"]["gff"] = []
-        self.conf["prepare"]["files"]["output_dir"] = folder.name
-        self.conf["prepare"]["files"]["out_fasta"] = "mikado_prepared.fasta"
-        self.conf["prepare"]["files"]["out"] = "mikado_prepared.gtf"
+        self.conf.prepare.files.gff = []
+        self.conf.prepare.files.output_dir = folder.name
+        self.conf.prepare.files.out_fasta = "mikado_prepared.fasta"
+        self.conf.prepare.files.out = "mikado_prepared.gtf"
         args = Namespace()
-        args.json_conf = self.conf
+        args.configuration = self.conf
 
         for fname in [ann_gff3, rev_ann_gff3.name]:
             for strip in (True, False):
                 for proc in (1, ):
                     with self.subTest(fname=fname, strip=strip, proc=proc):
-                        self.conf["prepare"]["files"]["gff"] = [fname]
-                        args.json_conf["prepare"]["strip_cds"] = False
-                        self.conf["prepare"]["files"]["strip_cds"] = [strip]
-                        args.json_conf["threads"] = proc
+                        self.conf.prepare.files.gff = [fname]
+                        args.configuration.prepare.strip_cds = False
+                        self.conf.prepare.files.strip_cds = [strip]
+                        args.configuration.threads = proc
                         with self.assertLogs(self.logger, "INFO") as cm:
                             try:
-                                prepare.prepare(args, logger=self.logger)
+                                prepare.prepare(args.configuration, logger=self.logger)
                             except SystemExit:
                                 raise SystemExit("\n".join(cm.output))
-                        fasta = os.path.join(self.conf["prepare"]["files"]["output_dir"], "mikado_prepared.fasta")
+                        fasta = os.path.join(self.conf.prepare.files.output_dir, "mikado_prepared.fasta")
                         self.assertTrue(os.path.exists(fasta), "\n".join(cm.output))
                         if strip is True or (strip is False and fname == ann_gff3):
                             self.assertGreater(os.stat(fasta).st_size, 0, "\n".join(cm.output))
@@ -338,7 +344,7 @@ class PrepareCheck(unittest.TestCase):
                                              str(strip) + " " + str(fname) + "\n" + "\n".join(cm.output))
 
                         # Now verify that no model has CDS
-                        gtf = os.path.join(self.conf["prepare"]["files"]["output_dir"], "mikado_prepared.gtf")
+                        gtf = os.path.join(self.conf.prepare.files.output_dir, "mikado_prepared.gtf")
                         models = dict()
                         with to_gff(gtf) as file_gtf:
                             for line in file_gtf:
@@ -362,22 +368,22 @@ class PrepareCheck(unittest.TestCase):
         exon structure but different CDS does function properly."""
 
         gtf = pkg_resources.resource_filename("Mikado.tests", "cds_test_1.gtf")
-        self.conf["prepare"]["files"]["gff"] = [gtf]
-        self.conf["prepare"]["files"]["labels"] = [""]
-        self.conf["prepare"]["files"]["strip_cds"] = [False]
-        self.conf["prepare"]["files"]["out_fasta"] = "mikado_prepared.fasta"
-        self.conf["prepare"]["files"]["out"] = "mikado_prepared.gtf"
-        self.conf["prepare"]["files"]["log"] = "prepare.log"
-        self.conf["prepare"]["strip_cds"] = False
+        self.conf.prepare.files.gff = [gtf]
+        self.conf.prepare.files.labels = [""]
+        self.conf.prepare.files.strip_cds = [False]
+        self.conf.prepare.files.out_fasta = "mikado_prepared.fasta"
+        self.conf.prepare.files.out = "mikado_prepared.gtf"
+        self.conf.prepare.files.log = "prepare.log"
+        self.conf.prepare.strip_cds = False
 
         args = Namespace(default=None)
         args.strip_cds = False
-        args.json_conf = self.conf.copy()
-        del args.json_conf["prepare"]["files"]["output_dir"]
+        args.configuration = self.conf.copy()
+        del args.configuration.prepare.files.output_dir
         args.log = None
         for b in (False, True):
             with self.subTest(b=b):
-                self.conf["prepare"]["files"]["exclude_redundant"] = [b]
+                self.conf.prepare.files.exclude_redundant = [b]
                 folder = tempfile.TemporaryDirectory()
                 args.output_dir = folder.name
                 args.seed = 10
@@ -385,21 +391,22 @@ class PrepareCheck(unittest.TestCase):
                 args.gffs = None
                 args.strand_specific_assemblies = None
                 args.labels = None
-                args.json_conf = self.conf
+                args.configuration = self.conf
                 args.exclude_redundant = b
                 args.out, args.out_fasta = None, None
-                args.json_conf["prepare"]["files"]["log"] = "prepare.log"
-                if isinstance(args.json_conf["reference"]["genome"], bytes):
-                    args.json_conf["reference"]["genome"] = args.json_conf["reference"]["genome"].decode()
+                args.configuration.prepare.files.log = "prepare.log"
+                if isinstance(args.configuration.reference.genome, bytes):
+                    args.configuration.reference.genome = args.configuration.reference.genome.decode()
                 args.log = open(os.path.join(args.output_dir, "prepare.log"), "wt")
                 self.logger.setLevel("DEBUG")
-                args, _ = prepare_setup(args)
+                args, *_ = prepare_setup(args)
+                self.assertIsNotNone(args)
                 self.assertEqual(args.output_dir, folder.name)
-                self.assertEqual(args.json_conf["prepare"]["files"]["output_dir"], folder.name)
-                self.assertIn(os.path.dirname(args.json_conf["prepare"]["files"]["out_fasta"]),
-                              (folder.name, ""), args.json_conf)
-                self.assertIn(os.path.dirname(args.json_conf["prepare"]["files"]["out"]),
-                              (folder.name, ""), args.json_conf)
+                self.assertEqual(args.configuration.prepare.files.output_dir, folder.name)
+                self.assertIn(os.path.dirname(args.configuration.prepare.files.out_fasta),
+                              (folder.name, ""), args.configuration)
+                self.assertIn(os.path.dirname(args.configuration.prepare.files.out),
+                              (folder.name, ""), args.configuration)
 
                 with self.assertRaises(SystemExit) as exi:
                     prepare_launcher(args)
@@ -412,9 +419,11 @@ class PrepareCheck(unittest.TestCase):
                                                   "prepare.log")).read())
                 fa = pyfaidx.Fasta(os.path.join(folder.name,
                                                 "mikado_prepared.fasta"))
-                logged = [_ for _ in open(args.json_conf["prepare"]["files"]["log"])]
-                self.assertFalse("AT5G01530.1" in fa.keys(), (b, sorted(list(fa.keys()))))
-                self.assertTrue("AT5G01530.2" in fa.keys())
+                logged = [_ for _ in open(os.path.join(args.configuration.prepare.files.output_dir,
+                                                       args.configuration.prepare.files.log))]
+                self.assertFalse("AT5G01530.1" in fa.keys(), (b, sorted(list(fa.keys())),
+                                                              print(*logged, sep="\n", file=open("/tmp/log", "wt"))))
+                self.assertTrue("AT5G01530.2" in fa.keys(), print(*logged, sep="\n", file=open("/tmp/log", "wt")))
                 if b is False:
                     self.assertEqual(len(fa.keys()), 4)
                     self.assertEqual(sorted(fa.keys()), sorted(["AT5G01530."+str(_) for _ in [0, 2, 3, 4]]))
@@ -453,7 +462,6 @@ class PrepareCheck(unittest.TestCase):
                                              transcript.has_stop_codon))
                             self.assertEqual(transcript.is_complete,
                                              transcript.has_start_codon and transcript.has_stop_codon)
-                    # self.assertIn("AT5G01530.3", transcripts)
                     a5 = transcripts["AT5G01530.2"]
                     self.assertTrue(a5.is_coding)
                     self.assertIn("has_start_codon", a5.attributes)
@@ -470,39 +478,40 @@ class PrepareCheck(unittest.TestCase):
         exon structure but different CDS does function properly."""
 
         gtf = pkg_resources.resource_filename("Mikado.tests", "cds_test_2.gtf")
-        self.conf["prepare"]["files"]["gff"] = [gtf]
+        self.conf.prepare.files.gff = [gtf]
         dir = tempfile.TemporaryDirectory(prefix="test_negative_cdna_redundant_cds_not")
-        self.conf["prepare"]["files"]["output_dir"] = dir.name
-        self.conf["prepare"]["files"]["labels"] = [""]
-        self.conf["prepare"]["files"]["out_fasta"] = "mikado_prepared.fasta"
-        self.conf["prepare"]["files"]["strip_cds"] = [False]
-        self.conf["prepare"]["files"]["out"] = "mikado_prepared.gtf"
-        self.conf["prepare"]["files"]["log"] = "prepare.log"
-        self.conf["prepare"]["strip_cds"] = False
-        self.conf["prepare"]["minimum_cdna_length"] = 150  # Necessary for testing A5
+        self.conf.prepare.files.output_dir = dir.name
+        self.conf.prepare.files.labels = [""]
+        self.conf.prepare.files.out_fasta = "mikado_prepared.fasta"
+        self.conf.prepare.files.strip_cds = [False]
+        self.conf.prepare.files.out = "mikado_prepared.gtf"
+        self.conf.prepare.files.log = "prepare.log"
+        self.conf.prepare.strip_cds = False
+        self.conf.prepare.minimum_cdna_length = 150  # Necessary for testing A5
 
         args = Namespace()
         args.strip_cds = False
-        args.json_conf = self.conf
+        args.configuration = self.conf
         for b in (False, True):
             with self.subTest(b=b):
-                self.conf["prepare"]["files"]["exclude_redundant"] = [b]
+                self.conf.prepare.files.exclude_redundant = [b]
                 folder = tempfile.TemporaryDirectory()
-                args.json_conf = self.conf
-                args.json_conf["seed"] = 10
+                args.configuration = self.conf
+                args.configuration.seed = 10
                 args.exclude_redundant = b
                 args.output_dir = folder.name
                 args.log = None
                 args.gff = None
                 args.list = None
                 args.strand_specific_assemblies = None
-                if isinstance(args.json_conf["reference"]["genome"], bytes):
-                    args.json_conf["reference"]["genome"] = args.json_conf["reference"]["genome"].decode()
-                args, _ = prepare_setup(args)
-                prepare.prepare(args, self.logger)
-                self.assertTrue(os.path.exists(os.path.join(self.conf["prepare"]["files"]["output_dir"],
+                if isinstance(args.configuration.reference.genome, bytes):
+                    args.configuration.reference.genome = args.configuration.reference.genome.decode()
+                args, mikado_config, _ = prepare_setup(args)
+                assert hasattr(mikado_config.reference, "genome"), args.configuration.reference
+                prepare.prepare(mikado_config, self.logger)
+                self.assertTrue(os.path.exists(os.path.join(self.conf.prepare.files.output_dir,
                                                             "mikado_prepared.fasta")))
-                fa = pyfaidx.Fasta(os.path.join(self.conf["prepare"]["files"]["output_dir"],
+                fa = pyfaidx.Fasta(os.path.join(self.conf.prepare.files.output_dir,
                                                 "mikado_prepared.fasta"))
                 if b is False:
                     self.assertEqual(len(fa.keys()), 5)
@@ -515,7 +524,7 @@ class PrepareCheck(unittest.TestCase):
                     self.assertNotIn("AT5G01015.3", fa.keys())
                     self.assertIn("AT5G01015.4", fa.keys())
 
-                gtf_file = os.path.join(self.conf["prepare"]["files"]["output_dir"], "mikado_prepared.gtf")
+                gtf_file = os.path.join(self.conf.prepare.files.output_dir, "mikado_prepared.gtf")
 
                 coding_count = 0
                 with to_gff(gtf_file) as gtf:
@@ -582,27 +591,27 @@ class PrepareCheck(unittest.TestCase):
     def test_truncated_cds(self):
         files = ["test_truncated_cds.gff3"]
         files = [pkg_resources.resource_filename("Mikado.tests", filename) for filename in files]
-        self.conf["prepare"]["files"]["gff"] = files
-        self.conf["prepare"]["files"]["strip_cds"] = [False] * len(files)
-        self.conf["prepare"]["files"]["labels"] = [""]
+        self.conf.prepare.files.gff = files
+        self.conf.prepare.files.strip_cds = [False] * len(files)
+        self.conf.prepare.files.labels = [""]
         dir = tempfile.TemporaryDirectory(prefix="test_truncated_cds")
-        self.conf["prepare"]["files"]["output_dir"] = dir.name
-        self.conf["prepare"]["files"]["out_fasta"] = "mikado_prepared.fasta"
-        self.conf["prepare"]["files"]["out"] = "mikado_prepared.gtf"
-        self.conf["prepare"]["strip_cds"] = False
+        self.conf.prepare.files.output_dir = dir.name
+        self.conf.prepare.files.out_fasta = "mikado_prepared.fasta"
+        self.conf.prepare.files.out = "mikado_prepared.gtf"
+        self.conf.prepare.strip_cds = False
 
-        self.conf["reference"]["genome"] = pkg_resources.resource_filename("Mikado.tests",
+        self.conf.reference.genome = pkg_resources.resource_filename("Mikado.tests",
                                                                            "test_truncated_cds.fa")
         args = Namespace()
         args.strip_cds = False
-        args.json_conf = self.conf
-        prepare.prepare(args, self.logger)
-        self.assertTrue(os.path.exists(os.path.join(self.conf["prepare"]["files"]["output_dir"],
+        args.configuration = self.conf
+        prepare.prepare(args.configuration, self.logger)
+        self.assertTrue(os.path.exists(os.path.join(self.conf.prepare.files.output_dir,
                                                     "mikado_prepared.fasta")))
-        fa = pyfaidx.Fasta(os.path.join(self.conf["prepare"]["files"]["output_dir"],
+        fa = pyfaidx.Fasta(os.path.join(self.conf.prepare.files.output_dir,
                                         "mikado_prepared.fasta"))
         self.assertEqual(len(fa.keys()), 1)
-        gtf_file = os.path.join(self.conf["prepare"]["files"]["output_dir"], "mikado_prepared.gtf")
+        gtf_file = os.path.join(self.conf.prepare.files.output_dir, "mikado_prepared.gtf")
         with to_gff(gtf_file) as gtf_handle:
             lines = [line for line in gtf_handle]
         cds = [_ for _ in lines if _.feature == "CDS"]
@@ -619,14 +628,14 @@ class PrepareCheck(unittest.TestCase):
         # Chr5	TAIR10	exon	209881	210445	.	+	.	gene_id "AT5G01530"; transcript_id "AT5G01530.0";
 
         dir = tempfile.TemporaryDirectory(prefix="test_source_selection")
-        self.conf["prepare"]["files"]["output_dir"] = dir.name
-        self.conf["prepare"]["files"]["out_fasta"] = "mikado_prepared.fasta"
-        self.conf["prepare"]["files"]["out"] = "mikado_prepared.gtf"
-        self.conf["prepare"]["strip_cds"] = False
-        self.conf["prepare"]["exclude_redundant"] = True
-        self.conf["threads"] = 1
+        self.conf.prepare.files.output_dir = dir.name
+        self.conf.prepare.files.out_fasta = "mikado_prepared.fasta"
+        self.conf.prepare.files.out = "mikado_prepared.gtf"
+        self.conf.prepare.strip_cds = False
+        self.conf.prepare.exclude_redundant = True
+        self.conf.threads = 1
 
-        self.conf["reference"]["genome"] = self.fai.filename.decode()
+        self.conf.reference.genome = self.fai.filename.decode()
 
         t = Transcript()
         t.chrom, t.start, t.end, t.strand = "Chr5", 208937, 210445, "+"
@@ -646,9 +655,9 @@ class PrepareCheck(unittest.TestCase):
         print(t2.format("gtf"), file=t2_file)
         t2_file.flush()
 
-        self.conf["prepare"]["files"]["gff"] = [t_file.name, t2_file.name]
-        self.conf["prepare"]["files"]["labels"] = ["T1", "T2"]
-        self.conf["prepare"]["files"]["strip_cds"] = [True, True]
+        self.conf.prepare.files.gff = [t_file.name, t2_file.name]
+        self.conf.prepare.files.labels = ["T1", "T2"]
+        self.conf.prepare.files.strip_cds = [True, True]
 
         rounds = {
             0: [0, 0, "rand"],
@@ -667,13 +676,13 @@ class PrepareCheck(unittest.TestCase):
         for round in rounds:
             with self.subTest(round=round, msg="Starting round {} ({})".format(round, rounds[round])):
                 t1, t2, res = rounds[round]
-                self.conf["prepare"]["files"]["source_score"] = {"T1": t1, "T2": t2}
+                self.conf.prepare.files.source_score = {"T1": t1, "T2": t2}
                 args = Namespace()
                 args.strip_cds = False
-                args.json_conf = self.conf
-                prepare.prepare(args, self.logger)
-                self.assertGreater(os.stat(self.conf["prepare"]["files"]["out_fasta"]).st_size, 0)
-                fa = pyfaidx.Fasta(self.conf["prepare"]["files"]["out_fasta"])
+                args.configuration = self.conf
+                prepare.prepare(args.configuration, self.logger)
+                self.assertGreater(os.stat(self.conf.prepare.files.out_fasta).st_size, 0)
+                fa = pyfaidx.Fasta(self.conf.prepare.files.out_fasta)
                 self.assertEqual(len(fa.keys()), 1, round)
                 if res != "rand":
                     key = list(fa.keys())[0]
@@ -683,20 +692,20 @@ class PrepareCheck(unittest.TestCase):
     def test_reference_selection(self):
 
         dir = tempfile.TemporaryDirectory(prefix="test_reference_selection")
-        self.conf["prepare"]["files"]["output_dir"] = outdir = dir.name
-        self.conf["prepare"]["files"]["out_fasta"] = "mikado_prepared.fasta"
-        self.conf["prepare"]["files"]["out"] = "mikado_prepared.gtf"
-        self.conf["prepare"]["files"]["strip_cds"] = [False, False]
-        self.conf["prepare"]["files"]["exclude_redundant"] = [False, False]
-        self.conf["prepare"]["strip_cds"] = False
-        self.conf["prepare"]["exclude_redundant"] = True
+        self.conf.prepare.files.output_dir = outdir = dir.name
+        self.conf.prepare.files.out_fasta = "mikado_prepared.fasta"
+        self.conf.prepare.files.out = "mikado_prepared.gtf"
+        self.conf.prepare.files.strip_cds = [False, False]
+        self.conf.prepare.files.exclude_redundant = [False, False]
+        self.conf.prepare.strip_cds = False
+        self.conf.prepare.exclude_redundant = True
 
-        self.conf["reference"]["genome"] = self.fai.filename.decode()
+        self.conf.reference.genome = self.fai.filename.decode()
 
         t = Transcript()
         # This is *key*. Transcript T1 should never be selected, unless we are having a "lenient" analysis.
         # However, by flagging T1 as a "reference" transcript, we should retain it
-        self.conf["prepare"]["lenient"] = False
+        self.conf.prepare.lenient = False
         t.chrom, t.start, t.end, t.strand = "Chr5", 208937, 210445, "-"
         t.add_exons([(208937, 209593), (209881, 210445)])
         t.id = "file1.1"
@@ -731,45 +740,45 @@ class PrepareCheck(unittest.TestCase):
             print(t2.format(fformat), file=t2_file)
             t2_file.flush()
 
-            self.conf["prepare"]["files"]["gff"] = [t_file.name, t2_file.name]
-            self.conf["prepare"]["files"]["strand_specific_assemblies"] = [t_file.name, t2_file.name]
-            self.conf["prepare"]["files"]["labels"] = ["T1", "T2"]
+            self.conf.prepare.files.gff = [t_file.name, t2_file.name]
+            self.conf.prepare.files.strand_specific_assemblies = [t_file.name, t2_file.name]
+            self.conf.prepare.files.labels = ["T1", "T2"]
 
             for round in rounds:
                 for iteration in range(2):  # Repeat each test 2 times, not more for time length reasons
                     with self.subTest(round=round, format=format, iteration=iteration,
                                       msg="Starting round {} ({})".format(round, rounds[round])):
                         t1_score, t2_score, is_ref, res, corr_strand = rounds[round]
-                        self.conf["threads"] = 1
-                        self.conf["prepare"]["files"]["source_score"] = {"T1": t1_score,
+                        self.conf.threads = 1
+                        self.conf.prepare.files.source_score = {"T1": t1_score,
                                                                          "T2": t2_score}
-                        self.conf["prepare"]["files"]["reference"] = []
+                        self.conf.prepare.files.reference = []
                         for label in is_ref:
                             if label == "T1":
-                                self.conf["prepare"]["files"]["reference"].append(t_file.name)
+                                self.conf.prepare.files.reference.append(t_file.name)
                             elif label == "T2":
-                                self.conf["prepare"]["files"]["reference"].append(t2_file.name)
+                                self.conf.prepare.files.reference.append(t2_file.name)
 
                         args = Namespace()
                         args.strip_cds = False
-                        args.json_conf = self.conf
+                        args.configuration = self.conf
                         with self.assertLogs(self.logger, "INFO") as cm:
-                            prepare.prepare(args, self.logger)
-                        self.assertGreater(os.stat(self.conf["prepare"]["files"]["out_fasta"]).st_size, 0,
+                            prepare.prepare(args.configuration, self.logger)
+                        self.assertGreater(os.stat(self.conf.prepare.files.out_fasta).st_size, 0,
                                            (round, fformat, iteration, "\n".join(cm.output)))
                         fa = pyfaidx.Fasta(os.path.join(outdir, os.path.basename(
-                            self.conf["prepare"]["files"]["out_fasta"])))
+                            self.conf.prepare.files.out_fasta)))
                         if res != "rand":
                             key = sorted(list(fa.keys()))
                             self.assertEqual(key, res, round)
                         else:
                             self.assertEqual(len(fa.keys()), 1, (round, fa.keys(), res))
                         gtf = os.path.join(outdir, os.path.basename(
-                            self.conf["prepare"]["files"]["out"]))
+                            self.conf.prepare.files.out))
                         strand = [_.strand for _ in to_gff(gtf)]
                         self.assertEqual(len(set(strand)), 1, strand)
                         self.assertEqual(set(strand).pop(), corr_strand,
-                                         (round, self.conf["prepare"]["files"]["reference"],
+                                         (round, self.conf.prepare.files.reference,
                                           set(strand), corr_strand))
 
     @mark.slow
@@ -778,7 +787,7 @@ class PrepareCheck(unittest.TestCase):
         t = Transcript()
         # This is *key*. Transcript T1 should never be selected, unless we are having a "lenient" analysis.
         # However, by flagging T1 as a "reference" transcript, we should retain it
-        self.conf["prepare"]["lenient"] = False
+        self.conf.prepare.lenient = False
         t.chrom, t.start, t.end, t.strand = "Chr5", 208937, 210445, "+"
         t.add_exons([(208937, 209593), (209881, 210445)])
         t.add_exons([(209084, 209593), (209881, 210243)], features=["CDS"] * 2)
@@ -793,12 +802,12 @@ class PrepareCheck(unittest.TestCase):
         t2.parent = "file2"
 
         dir = tempfile.TemporaryDirectory(prefix="test_reference_cds_kept")
-        self.conf["prepare"]["files"]["output_dir"] = outdir = dir.name
-        self.conf["prepare"]["files"]["out_fasta"] = "mikado_prepared.fasta"
-        self.conf["prepare"]["files"]["out"] = "mikado_prepared.gtf"
-        self.conf["prepare"]["strip_cds"] = True
-        self.conf["prepare"]["exclude_redundant"] = True
-        self.conf["reference"]["genome"] = self.fai.filename.decode()
+        self.conf.prepare.files.output_dir = outdir = dir.name
+        self.conf.prepare.files.out_fasta = "mikado_prepared.fasta"
+        self.conf.prepare.files.out = "mikado_prepared.gtf"
+        self.conf.prepare.strip_cds = True
+        self.conf.prepare.exclude_redundant = True
+        self.conf.reference.genome = self.fai.filename.decode()
 
         rounds = {
             # Standard cases. I expect the transcripts to be reversed, and one to be picked
@@ -822,43 +831,43 @@ class PrepareCheck(unittest.TestCase):
             print(t2.format(fformat), file=t2_file)
             t2_file.flush()
 
-            self.conf["prepare"]["files"]["gff"] = [t_file.name, t2_file.name]
-            self.conf["prepare"]["files"]["strand_specific_assemblies"] = [t_file.name, t2_file.name]
-            self.conf["prepare"]["files"]["labels"] = ["T1", "T2"]
-            self.conf["prepare"]["files"]["exclude_redundant"] = [True, True]
-            self.conf["prepare"]["files"]["strip_cds"] = [True, True]
+            self.conf.prepare.files.gff = [t_file.name, t2_file.name]
+            self.conf.prepare.files.strand_specific_assemblies = [t_file.name, t2_file.name]
+            self.conf.prepare.files.labels = ["T1", "T2"]
+            self.conf.prepare.files.exclude_redundant = [True, True]
+            self.conf.prepare.files.strip_cds = [True, True]
 
             for round in rounds:
                 for iteration in range(2):  # Repeat each test 2 times for time length reasons
                     with self.subTest(round=round, format=format, iteration=iteration,
                                       msg="Starting round {} ({})".format(round, rounds[round])):
                         t1_score, t2_score, is_ref, res, coding = rounds[round]
-                        self.conf["prepare"]["files"]["source_score"] = {"T1": t1_score,
+                        self.conf.prepare.files.source_score = {"T1": t1_score,
                                                                          "T2": t2_score}
-                        self.conf["prepare"]["files"]["reference"] = []
-                        self.conf["threads"] = 1
+                        self.conf.prepare.files.reference = []
+                        self.conf.threads = 1
                         for label in is_ref:
                             if label == "T1":
-                                self.conf["prepare"]["files"]["reference"].append(t_file.name)
+                                self.conf.prepare.files.reference.append(t_file.name)
                             elif label == "T2":
-                                self.conf["prepare"]["files"]["reference"].append(t2_file.name)
+                                self.conf.prepare.files.reference.append(t2_file.name)
 
                         args = Namespace()
                         args.strip_cds = False
-                        args.json_conf = self.conf
+                        args.configuration = self.conf
                         with self.assertLogs(self.logger, "INFO") as cm:
-                            prepare.prepare(args, self.logger)
-                        self.assertGreater(os.stat(self.conf["prepare"]["files"]["out_fasta"]).st_size, 0,
+                            prepare.prepare(args.configuration, self.logger)
+                        self.assertGreater(os.stat(self.conf.prepare.files.out_fasta).st_size, 0,
                                            (round, fformat, iteration, "\n".join(cm.output)))
                         fa = pyfaidx.Fasta(os.path.join(outdir, os.path.basename(
-                            self.conf["prepare"]["files"]["out_fasta"])))
+                            self.conf.prepare.files.out_fasta)))
                         if res != "rand":
                             key = sorted(list(fa.keys()))
                             self.assertEqual(key, res, (round, rounds[round], cm.output))
                         else:
                             self.assertEqual(len(fa.keys()), 1, (round, fa.keys(), res))
                         gtf = os.path.join(outdir, os.path.basename(
-                            self.conf["prepare"]["files"]["out"]))
+                            self.conf.prepare.files.out))
                         with_cds = set()
                         for line in to_gff(gtf):
                             if line.feature == "CDS":
@@ -1092,7 +1101,7 @@ class ConfigureCheck(unittest.TestCase):
         namespace.blast_targets = []
         namespace.junctions = []
         namespace.new_scoring = None
-        namespace.seed = None
+        namespace.seed = 0
         namespace.min_clustering_cds_overlap = 0.2
         namespace.min_clustering_cdna_overlap = 0.2
         dir = tempfile.TemporaryDirectory()
@@ -1101,10 +1110,9 @@ class ConfigureCheck(unittest.TestCase):
             namespace.out = out_handle
             sub_configure.create_config(namespace)
         self.assertGreater(os.stat(out).st_size, 0)
-        conf = configuration.configurator.to_json(out)
-        conf = configuration.configurator.check_json(conf)
-        conf = configuration.configurator.check_json(conf)
-        self.assertNotIn("asm_methods", conf)
+        conf = configuration.configurator.load_and_validate_config(out)
+        conf = configuration.configurator.check_and_load_scoring(conf)
+        conf = configuration.configurator.check_and_load_scoring(conf)
         dir.cleanup()
 
     def test_seed(self):
@@ -1114,41 +1122,68 @@ class ConfigureCheck(unittest.TestCase):
         namespace.reference = ""
         namespace.external = None
         namespace.threads = 1
+        namespace.multiprocessing_method = "spawn"
         namespace.blast_targets = []
         namespace.junctions = []
         namespace.new_scoring = None
         namespace.min_clustering_cds_overlap = 0.2
         namespace.min_clustering_cdna_overlap = 0.2
-        dir = tempfile.TemporaryDirectory()
-        out = os.path.join(dir.name, "configuration.yaml")
-        for trial in (None, 1066, 175108):
-            with self.subTest(trial=trial):
-                namespace.mode = ["permissive"]
-                namespace.seed = trial
-                with open(out, "w") as out_handle:
-                    namespace.out = out_handle
-                    sub_configure.create_config(namespace)
-                self.assertGreater(os.stat(out).st_size, 0)
-                conf = configuration.configurator.to_json(out)
-                conf = configuration.configurator.check_json(conf)
-                conf = configuration.configurator.check_json(conf)
-                self.assertNotIn("asm_methods", conf)
-                if trial is not None:
-                    self.assertEqual(conf["seed"], trial)
-                else:
-                    self.assertNotEqual(conf["seed"], trial)
-                    self.assertIsInstance(conf["seed"], int)
+        with tempfile.TemporaryDirectory() as folder:
+            out = os.path.join(folder, "configuration.yaml")
+            for trial in (1066, 175108):  # (None, 1066, 175108):
+                with self.subTest(trial=trial):
+                    namespace.mode = ["permissive"]
+                    namespace.seed = trial
+                    assert namespace.seed is not False
+                    namespace.multiprocessing_method = "spawn"
+                    with open(out, "w") as out_handle:
+                        namespace.out = out_handle
+                        sub_configure.create_config(namespace)
+                    self.assertGreater(os.stat(out).st_size, 0)
+                    conf = configuration.configurator.load_and_validate_config(out)
+                    conf = configuration.configurator.check_and_load_scoring(conf)
+                    conf = configuration.configurator.check_and_load_scoring(conf)
+                    if trial is not None:
+                        self.assertEqual(conf.seed, trial)
+                    else:
+                        self.assertNotEqual(conf.seed, trial)
+                        self.assertIsInstance(conf.seed, int)
 
-        for mistake in (False, "hello", 10.5, b"890"):
-            with self.subTest(mistake=mistake):
-                namespace.mode = ["permissive"]
-                with self.assertRaises(OSError):
-                    namespace.seed = mistake
+            with self.subTest(mistake=False):
+                with self.assertRaises((OSError, InvalidJson)):
+                    namespace.seed = False
+                    namespace.daijin = False
+                    namespace.mode = ["permissive"]
                     with open(out, "w") as out_handle:
                         namespace.out = out_handle
                         sub_configure.create_config(namespace)
 
-        dir.cleanup()
+            with self.subTest(mistake="hello"):
+                with self.assertRaises((OSError, InvalidJson)):
+                    namespace.seed = "hello"
+                    namespace.daijin = False
+                    namespace.mode = ["permissive"]
+                    with open(out, "w") as out_handle:
+                        namespace.out = out_handle
+                        sub_configure.create_config(namespace)
+
+            with self.subTest(mistake=b"890"):
+                with self.assertRaises((OSError, InvalidJson)):
+                    namespace.seed = b"890"
+                    namespace.daijin = False
+                    namespace.mode = ["permissive"]
+                    with open(out, "w") as out_handle:
+                        namespace.out = out_handle
+                        sub_configure.create_config(namespace)
+
+            with self.subTest(mistake=10.5):
+                with self.assertRaises((OSError, InvalidJson)):
+                    namespace.seed = 10.5
+                    namespace.daijin = False
+                    namespace.mode = ["permissive"]
+                    with open(out, "w") as out_handle:
+                        namespace.out = out_handle
+                        sub_configure.create_config(namespace)
 
     def test_mikado_config_full(self):
         namespace = Namespace(default=False)
@@ -1172,10 +1207,9 @@ class ConfigureCheck(unittest.TestCase):
             namespace.out = out_handle
             sub_configure.create_config(namespace)
         self.assertGreater(os.stat(out).st_size, 0)
-        conf = configuration.configurator.to_json(out)
-        conf = configuration.configurator.check_json(conf)
-        conf = configuration.configurator.check_json(conf)
-        self.assertNotIn("asm_methods", conf)
+        conf = configuration.configurator.load_and_validate_config(out)
+        conf = configuration.configurator.check_and_load_scoring(conf)
+        conf = configuration.configurator.check_and_load_scoring(conf)
         dir.cleanup()
 
     def test_mikado_config_daijin(self):
@@ -1194,20 +1228,24 @@ class ConfigureCheck(unittest.TestCase):
         namespace.seed = None
         namespace.min_clustering_cds_overlap = 0.2
         namespace.min_clustering_cdna_overlap = 0.2
+        namespace.blast_chunks = 10
+        namespace.scheduler = ""
         dir = tempfile.TemporaryDirectory()
         out = os.path.join(dir.name, "configuration.yaml")
         with open(out, "w") as out_handle:
             namespace.out = out_handle
             sub_configure.create_config(namespace)
         self.assertGreater(os.stat(out).st_size, 0)
-        conf = configuration.configurator.to_json(out)
-        conf = configuration.configurator.check_json(conf)
-        conf = configuration.configurator.check_json(conf)
+        conf = configuration.configurator.load_and_validate_config(out)
+        conf = configuration.configurator.check_and_load_scoring(conf)
+        conf = configuration.configurator.check_and_load_scoring(conf)
         dir.cleanup()
 
     def test_mikado_config_daijin_set_from_mode(self):
         namespace = Namespace(default=False)
         namespace.scoring = None
+        namespace.blast_chunks = 10
+        namespace.scheduler = ""
         namespace.intron_range = None
         namespace.reference = pkg_resources.resource_filename("Mikado.tests", "chr5.fas.gz")
         namespace.external = None
@@ -1228,18 +1266,15 @@ class ConfigureCheck(unittest.TestCase):
             namespace.out = out_handle
             sub_configure.create_config(namespace)
         self.assertGreater(os.stat(out).st_size, 0)
-        conf = configuration.configurator.to_json(out)
-        conf = configuration.configurator.check_json(conf)
-        conf = configuration.configurator.check_json(conf)
+        conf = configuration.configurator.load_and_validate_config(out)
+        conf = configuration.configurator.check_and_load_scoring(conf)
+        conf = configuration.configurator.check_and_load_scoring(conf)
         dir.cleanup()
 
     @unittest.skipUnless((sys.version_info.minor > 4),
                          "Due to a bug in JSONSCHEMA, Daijin configure fails with Python versions lower than 3.5.")
     @mark.slow
     def test_daijin_config(self):
-
-        # Check the basic function actually functions
-        _ = daijin_configurator.create_daijin_base_config()
 
         namespace = Namespace(default=False)
         namespace.r1 = []
@@ -1271,15 +1306,17 @@ class ConfigureCheck(unittest.TestCase):
                 namespace.scoring = scorers[np.random.choice(len(scorers))]
 
                 out = os.path.join(dir.name, "configuration.yaml")
+                config = DaijinConfiguration()
                 with open(out, "wt") as out_handle:
                     namespace.out = out_handle
-                    daijin_configurator.create_daijin_config(namespace, level="ERROR")
+                    daijin_configurator.create_daijin_config(namespace, config, level="ERROR")
                 self.assertGreater(os.stat(out).st_size, 0)
 
                 with open(out) as out_handle:
                     config = yaml.load(out_handle, Loader=yLoader)
 
-                daijin_configurator.check_config(config)
+                config = load_and_validate_config(config)
+                self.assertIsInstance(config, DaijinConfiguration)
                 dir.cleanup()
 
 
@@ -1290,8 +1327,8 @@ class PickTest(unittest.TestCase):
 
     def setUp(self):
         
-        self.json_conf = configurator.to_json(None)
-        self.json_conf["reference"]["genome"] = self.fai.filename.decode()
+        self.configuration = configurator.load_and_validate_config(None)
+        self.configuration.reference.genome = self.fai.filename.decode()
 
     @classmethod
     def setUpClass(cls):
@@ -1310,21 +1347,21 @@ class PickTest(unittest.TestCase):
     @mark.slow
     def test_single_proc(self):
 
-        self.json_conf["threads"] = 1
-        self.json_conf["db_settings"]["db"] = pkg_resources.resource_filename("Mikado.tests", "mikado.db")
+        self.configuration.threads = 1
+        self.configuration.db_settings.db = pkg_resources.resource_filename("Mikado.tests", "mikado.db")
 
-        self.json_conf["pick"]["files"]["input"] = pkg_resources.resource_filename("Mikado.tests",
+        self.configuration.pick.files.input = pkg_resources.resource_filename("Mikado.tests",
                                                                                    "mikado_prepared.gtf")
         dir = tempfile.TemporaryDirectory()
-        self.json_conf["pick"]["files"]["output_dir"] = dir.name
-        self.json_conf["pick"]["files"]["loci_out"] = "mikado.monoproc.loci.gff3"
-        self.json_conf["pick"]["files"]["subloci_out"] = "mikado.monoproc.subloci.gff3"
-        self.json_conf["pick"]["files"]["monoloci_out"] = "mikado.monoproc.monoloci.gff3"
-        self.json_conf["pick"]["files"]["log"] = "mikado.monoproc.log"
-        self.json_conf["pick"]["alternative_splicing"]["pad"] = False
-        self.json_conf["log_settings"]["log_level"] = "WARNING"
+        self.configuration.pick.files.output_dir = dir.name
+        self.configuration.pick.files.loci_out = "mikado.monoproc.loci.gff3"
+        self.configuration.pick.files.subloci_out = "mikado.monoproc.subloci.gff3"
+        self.configuration.pick.files.monoloci_out = "mikado.monoproc.monoloci.gff3"
+        self.configuration.pick.files.log = "mikado.monoproc.log"
+        self.configuration.pick.alternative_splicing.pad = False
+        self.configuration.log_settings.log_level = "WARNING"
 
-        pick_caller = picker.Picker(json_conf=self.json_conf)
+        pick_caller = picker.Picker(configuration=self.configuration)
         with self.assertRaises(SystemExit), self.assertLogs("main_logger", "INFO") as cm:
             pick_caller()
         self.assertTrue(os.path.exists(os.path.join(dir.name, "mikado.monoproc.loci.gff3")))
@@ -1340,20 +1377,20 @@ class PickTest(unittest.TestCase):
 
     @mark.slow
     def test_multi_proc(self):
-        self.json_conf["threads"] = 2
-        self.json_conf["pick"]["files"]["input"] = pkg_resources.resource_filename("Mikado.tests",
+        self.configuration.threads = 2
+        self.configuration.pick.files.input = pkg_resources.resource_filename("Mikado.tests",
                                                                               "mikado_prepared.gtf")
         dir = tempfile.TemporaryDirectory()
-        self.json_conf["pick"]["files"]["output_dir"] = dir.name
-        self.json_conf["pick"]["files"]["loci_out"] = "mikado.multiproc.loci.gff3"
-        self.json_conf["pick"]["files"]["subloci_out"] = "mikado.multiproc.subloci.gff3"
-        self.json_conf["pick"]["files"]["monoloci_out"] = "mikado.multiproc.monoloci.gff3"
-        self.json_conf["pick"]["files"]["log"] = "mikado.multiproc.log"
-        self.json_conf["db_settings"]["db"] = pkg_resources.resource_filename("Mikado.tests", "mikado.db")
-        self.json_conf["pick"]["alternative_splicing"]["pad"] = False
-        self.json_conf["log_settings"]["log_level"] = "WARNING"
+        self.configuration.pick.files.output_dir = dir.name
+        self.configuration.pick.files.loci_out = "mikado.multiproc.loci.gff3"
+        self.configuration.pick.files.subloci_out = "mikado.multiproc.subloci.gff3"
+        self.configuration.pick.files.monoloci_out = "mikado.multiproc.monoloci.gff3"
+        self.configuration.pick.files.log = "mikado.multiproc.log"
+        self.configuration.db_settings.db = pkg_resources.resource_filename("Mikado.tests", "mikado.db")
+        self.configuration.pick.alternative_splicing.pad = False
+        self.configuration.log_settings.log_level = "WARNING"
 
-        pick_caller = picker.Picker(json_conf=self.json_conf)
+        pick_caller = picker.Picker(configuration=self.configuration)
         with self.assertRaises(SystemExit), self.assertLogs("main_logger", "INFO"):
             pick_caller()
         self.assertTrue(os.path.exists(os.path.join(dir.name, "mikado.multiproc.loci.gff3")))
@@ -1369,31 +1406,30 @@ class PickTest(unittest.TestCase):
     @mark.slow
     def test_subprocess(self):
                 
-        self.json_conf["pick"]["files"]["input"] = pkg_resources.resource_filename("Mikado.tests",
+        self.configuration.pick.files.input = pkg_resources.resource_filename("Mikado.tests",
                                                                                    "mikado_prepared.gtf")
         dir = tempfile.TemporaryDirectory()
-        self.json_conf["pick"]["files"]["output_dir"] = dir.name
-        self.json_conf["pick"]["files"]["loci_out"] = "mikado.subproc.loci.gff3"
-        self.json_conf["pick"]["files"]["subloci_out"] = "mikado.subproc.subloci.gff3"
-        self.json_conf["pick"]["files"]["monoloci_out"] = "mikado.subproc.monoloci.gff3"
-        self.json_conf["pick"]["alternative_splicing"]["pad"] = False
-        self.json_conf["pick"]["files"]["log"] = "mikado.subproc.log"
-        self.json_conf["db_settings"]["db"] = str(pkg_resources.resource_filename("Mikado.tests", "mikado.db"))
-        self.json_conf["log_settings"]["log_level"] = "WARNING"
+        self.configuration.pick.files.output_dir = dir.name
+        self.configuration.pick.files.loci_out = "mikado.subproc.loci.gff3"
+        self.configuration.pick.files.subloci_out = "mikado.subproc.subloci.gff3"
+        self.configuration.pick.files.monoloci_out = "mikado.subproc.monoloci.gff3"
+        self.configuration.pick.alternative_splicing.pad = False
+        self.configuration.pick.files.log = "mikado.subproc.log"
+        self.configuration.db_settings.db = str(pkg_resources.resource_filename("Mikado.tests", "mikado.db"))
+        self.configuration.log_settings.log_level = "WARNING"
 
         for num in (1, 2):
             with self.subTest(num=num):
-                self.json_conf["pick"]["threads"] = num
-                self.json_conf["pick"]["run_options"]["single_thread"] = (num == 1)
+                self.configuration.pick.run_options.single_thread = (num == 1)
                 json_file = os.path.join(dir.name, "mikado.yaml")
 
                 # Printing out would crash without removing these compiled bits
-                self.json_conf["requirements"].pop("compiled", None)
-                self.json_conf["as_requirements"].pop("compiled", None)
-                self.json_conf["not_fragmentary"].pop("compiled", None)
+                self.configuration.requirements.pop("compiled", None)
+                self.configuration.as_requirements.pop("compiled", None)
+                self.configuration.not_fragmentary.pop("compiled", None)
 
                 with open(json_file, "wt") as json_handle:
-                    print_config(yaml.dump(self.json_conf, default_flow_style=False), json_handle)
+                    print_config(self.configuration, json_handle, format="yaml")
 
                 sys.argv = ["mikado", "pick", "--json-conf", json_file, "--seed", "1078"]
                 with self.assertRaises(SystemExit):
@@ -1414,37 +1450,36 @@ class PickTest(unittest.TestCase):
     @unittest.skipUnless(os.path.exists("/dev/shm") and os.access("/dev/shm", os.W_OK),
                          "/dev/shm not present or not writeable")
     def test_subprocess_shm(self):
-        self.json_conf["pick"]["files"]["input"] = pkg_resources.resource_filename("Mikado.tests",
+        self.configuration.pick.files.input = pkg_resources.resource_filename("Mikado.tests",
                                                                                    "mikado_prepared.gtf")
         dir = tempfile.TemporaryDirectory()
-        self.json_conf["pick"]["files"]["output_dir"] = dir.name
-        self.json_conf["pick"]["files"]["loci_out"] = "mikado.subproc.loci.gff3"
-        self.json_conf["pick"]["files"]["subloci_out"] = "mikado.subproc.subloci.gff3"
-        self.json_conf["pick"]["files"]["monoloci_out"] = "mikado.subproc.monoloci.gff3"
-        self.json_conf["pick"]["alternative_splicing"]["pad"] = False
-        self.json_conf["pick"]["files"]["log"] = "mikado.subproc.log"
-        self.json_conf["db_settings"]["db"] = str(pkg_resources.resource_filename("Mikado.tests", "mikado.db"))
-        self.json_conf["log_settings"]["log_level"] = "WARNING"
+        self.configuration.pick.files.output_dir = dir.name
+        self.configuration.pick.files.loci_out = "mikado.subproc.loci.gff3"
+        self.configuration.pick.files.subloci_out = "mikado.subproc.subloci.gff3"
+        self.configuration.pick.files.monoloci_out = "mikado.subproc.monoloci.gff3"
+        self.configuration.pick.alternative_splicing.pad = False
+        self.configuration.pick.files.log = "mikado.subproc.log"
+        self.configuration.db_settings.db = str(pkg_resources.resource_filename("Mikado.tests", "mikado.db"))
+        self.configuration.log_settings.log_level = "WARNING"
 
         for num, shm in itertools.product((1, 2), (True,)):
             with self.subTest(num=num, shm=shm):
 
-                self.json_conf["pick"]["threads"] = num
-                self.json_conf["pick"]["run_options"]["single_thread"] = (num == 1)
+                self.configuration.pick.run_options.single_thread = (num == 1)
                 json_file = os.path.join(dir.name, "mikado.yaml")
 
                 # Printing out would crash without removing these compiled bits
-                self.json_conf["requirements"].pop("compiled", None)
-                self.json_conf["as_requirements"].pop("compiled", None)
-                self.json_conf["not_fragmentary"].pop("compiled", None)
+                self.configuration.requirements.pop("compiled", None)
+                self.configuration.as_requirements.pop("compiled", None)
+                self.configuration.not_fragmentary.pop("compiled", None)
 
                 with open(json_file, "wt") as json_handle:
-                    print_config(yaml.dump(self.json_conf, default_flow_style=False), json_handle)
+                    print_config(self.configuration, json_handle, format="yaml")
 
                 log = "pick.log"
                 if os.path.exists(os.path.join(dir.name, log)):
                     os.remove(os.path.join(dir.name, log))
-                sys.argv = ["mikado", "pick", "--json-conf", json_file, "--seed", "1078", "--log", log]
+                sys.argv = ["mikado", "pick", "--configuration", json_file, "--seed", "1078", "--log", log]
                 if shm is True:
                     sys.argv.append("--shm")
                 with self.assertRaises(SystemExit):
@@ -1471,34 +1506,33 @@ class PickTest(unittest.TestCase):
     def test_different_scoring(self):
 
         dir = tempfile.TemporaryDirectory()
-        self.json_conf["pick"]["files"]["output_dir"] = os.path.abspath(dir.name)
-        self.json_conf["pick"]["files"]["input"] = pkg_resources.resource_filename("Mikado.tests",
+        # assert self.configuration.scoring is not None
+        self.configuration.pick.files.output_dir = os.path.abspath(dir.name)
+        self.configuration.pick.files.input = pkg_resources.resource_filename("Mikado.tests",
                                                                                    "mikado_prepared.gtf")
 
-        self.json_conf["pick"]["files"]["loci_out"] = "mikado.test_diff.loci.gff3"
-        self.json_conf["pick"]["files"]["subloci_out"] = "mikado.test_diff.subloci.gff3"
-        self.json_conf["pick"]["files"]["monoloci_out"] = "mikado.test_diff.monoloci.gff3"
-        self.json_conf["pick"]["files"]["log"] = "mikado.test_diff.log"
-        self.json_conf["pick"]["alternative_splicing"]["pad"] = False
-        self.json_conf["log_settings"]["log_level"] = "DEBUG"
+        self.configuration.pick.files.loci_out = "mikado.test_diff.loci.gff3"
+        self.configuration.pick.files.subloci_out = "mikado.test_diff.subloci.gff3"
+        self.configuration.pick.files.monoloci_out = "mikado.test_diff.monoloci.gff3"
+        self.configuration.pick.files.log = "mikado.test_diff.log"
+        self.configuration.pick.alternative_splicing.pad = False
+        self.configuration.log_settings.log_level = "DEBUG"
 
-        self.assertEqual(os.path.basename(self.json_conf["pick"]["scoring_file"]),
-                         "plant.yaml")
+        self.assertEqual(os.path.basename(self.configuration.pick.scoring_file), "plant.yaml")
         shutil.copy(pkg_resources.resource_filename("Mikado.tests", "mikado.db"),
-                    os.path.join(self.json_conf["pick"]["files"]["output_dir"], "mikado.db"))
-        self.json_conf["db_settings"]["db"] = os.path.join(self.json_conf["pick"]["files"]["output_dir"],
-                                                           "mikado.db")
-        json_file = os.path.join(self.json_conf["pick"]["files"]["output_dir"], "mikado.yaml")
+                    os.path.join(self.configuration.pick.files.output_dir, "mikado.db"))
+        self.configuration.db_settings.db = os.path.join(self.configuration.pick.files.output_dir, "mikado.db")
+        json_file = os.path.join(self.configuration.pick.files.output_dir, "mikado.yaml")
         with open(json_file, "wt") as json_handle:
-            print_config(yaml.dump(self.json_conf, default_flow_style=False), json_handle)
+            print_config(self.configuration, json_handle, format="yaml")
         sys.argv = ["mikado", "pick", "--json-conf", json_file, "--single", "--seed", "1078"]
         with self.assertRaises(SystemExit):
             pkg_resources.load_entry_point("Mikado", "console_scripts", "mikado")()
 
         import csv
-        with open(os.path.join(self.json_conf["pick"]["files"]["output_dir"], "mikado.test_diff.loci.scores.tsv")) as tsv:
+        with open(os.path.join(self.configuration.pick.files.output_dir, "mikado.test_diff.loci.scores.tsv")) as tsv:
             reader = csv.DictReader(tsv, delimiter="\t")
-            score_names = [_ for _ in self.json_conf["scoring"]]
+            score_names = [_ for _ in self.configuration.scoring]
             score_header = [_ for _ in reader.fieldnames if _ not in
                             ("tid", "alias", "parent", "score", "source_score")]
             self.assertEqual(sorted(score_names), sorted(score_header))
@@ -1507,29 +1541,26 @@ class PickTest(unittest.TestCase):
     @mark.slow
     def test_different_scoring_2(self):
 
-        self.json_conf["pick"]["files"]["input"] = pkg_resources.resource_filename("Mikado.tests",
-                                                                                   "mikado_prepared.gtf")
+        self.configuration.pick.files.input = pkg_resources.resource_filename("Mikado.tests", "mikado_prepared.gtf")
 
-        self.json_conf["pick"]["files"]["loci_out"] = "mikado.test_diff.loci.gff3"
-        self.json_conf["pick"]["files"]["subloci_out"] = "mikado.test_diff.subloci.gff3"
-        self.json_conf["pick"]["files"]["monoloci_out"] = "mikado.test_diff.monoloci.gff3"
-        self.json_conf["pick"]["files"]["log"] = "mikado.test_diff.log"
-        self.json_conf["pick"]["alternative_splicing"]["pad"] = False
-        self.json_conf["log_settings"]["log_level"] = "DEBUG"
+        self.configuration.pick.files.loci_out = "mikado.test_diff.loci.gff3"
+        self.configuration.pick.files.subloci_out = "mikado.test_diff.subloci.gff3"
+        self.configuration.pick.files.monoloci_out = "mikado.test_diff.monoloci.gff3"
+        self.configuration.pick.files.log = "mikado.test_diff.log"
+        self.configuration.pick.alternative_splicing.pad = False
+        self.configuration.log_settings.log_level = "DEBUG"
 
-        self.assertEqual(os.path.basename(self.json_conf["pick"]["scoring_file"]),
-                         "plant.yaml")
+        self.assertEqual(os.path.basename(self.configuration.pick.scoring_file), "plant.yaml")
 
         outdir = tempfile.TemporaryDirectory()
         shutil.copy(pkg_resources.resource_filename("Mikado.tests", "mikado.db"),
                     os.path.join(outdir.name, "mikado.db"))
-        self.json_conf["db_settings"]["db"] = os.path.join(outdir.name, "mikado.db")
-        self.json_conf["pick"]["files"]["output_dir"] = os.path.join(outdir.name)
+        self.configuration.db_settings.db = os.path.join(outdir.name, "mikado.db")
+        self.configuration.pick.files.output_dir = os.path.join(outdir.name)
         json_file = os.path.join(outdir.name, "mikado.yaml")
         with open(json_file, "wt") as json_handle:
-            print_config(yaml.dump(self.json_conf, default_flow_style=False),
-                                                      json_handle)
-        self.json_conf["pick"]["files"]["output_dir"] = os.path.join(outdir.name)
+            print_config(self.configuration, json_handle, format="yaml")
+        self.configuration.pick.files.output_dir = os.path.join(outdir.name)
         scoring_file = pkg_resources.resource_filename("Mikado.tests", "scoring_only_cds.yaml")
         sys.argv = ["mikado", "pick", "--json-conf", json_file, "--single",
                     "--scoring-file", scoring_file, "--seed", "1078"]
@@ -1538,8 +1569,7 @@ class PickTest(unittest.TestCase):
             pkg_resources.load_entry_point("Mikado", "console_scripts", "mikado")()
 
         import csv
-        with open(os.path.join(self.json_conf["pick"]["files"]["output_dir"],
-                               "mikado.test_diff.loci.scores.tsv")) as tsv:
+        with open(os.path.join(self.configuration.pick.files.output_dir, "mikado.test_diff.loci.scores.tsv")) as tsv:
             reader = csv.DictReader(tsv, delimiter="\t")
             score_header = [_ for _ in reader.fieldnames if _ not in
                             ("tid", "alias", "parent", "score", "source_score")]
@@ -1564,15 +1594,15 @@ class PickTest(unittest.TestCase):
         temp_gtf.write(gtf)
         temp_gtf.flush()
 
-        self.json_conf["pick"]["files"]["input"] = temp_gtf.name
-        self.json_conf["db_settings"]["db"] = os.path.join(dir.name, "mikado.db")
-        self.json_conf["pick"]["files"]["output_dir"] = dir.name
-        self.json_conf["log_settings"]["log_level"] = "WARNING"
-        self.json_conf["pick"]["alternative_splicing"]["pad"] = False  # Necessary!
-        del self.json_conf["scoring"]
-        del self.json_conf["requirements"]
-        del self.json_conf["as_requirements"]
-        del self.json_conf["not_fragmentary"]
+        self.configuration.pick.files.input = temp_gtf.name
+        self.configuration.db_settings.db = os.path.join(dir.name, "mikado.db")
+        self.configuration.pick.files.output_dir = dir.name
+        self.configuration.log_settings.log_level = "WARNING"
+        self.configuration.pick.alternative_splicing.pad = False  # Necessary!
+        # del self.configuration["scoring"]
+        # del self.configuration["requirements"]
+        # del self.configuration["as_requirements"]
+        # del self.configuration["not_fragmentary"]
         scoring = dict()
 
         scoring["requirements"] = dict()
@@ -1605,25 +1635,23 @@ class PickTest(unittest.TestCase):
         scoring_file = tempfile.NamedTemporaryFile(suffix=".yaml", delete=True, mode="wt", dir=dir.name)
         yaml.dump(scoring, scoring_file)
         scoring_file.flush()
-        self.json_conf["pick"]["scoring_file"] = scoring_file.name
+        self.configuration.pick.scoring_file = scoring_file.name
 
         for purging in (False, True):
             with self.subTest(purging=purging):
-                self.json_conf["pick"]["files"]["loci_out"] = "mikado.purging_{}.loci.gff3".format(purging)
-                self.json_conf["pick"]["files"]["log"] = os.path.join(
-                    dir.name,
-                    "mikado.purging_{}.log".format(purging))
-                self.json_conf["pick"]["clustering"]["purge"] = purging
-                self.json_conf["pick"]["scoring_file"] = scoring_file.name
-                self.json_conf = configurator.check_json(self.json_conf)
-                self.assertEqual(len(self.json_conf["scoring"].keys()), 1, self.json_conf["scoring"].keys())
+                self.configuration.pick.files.loci_out = "mikado.purging_{}.loci.gff3".format(purging)
+                self.configuration.pick.files.log = os.path.join(dir.name, "mikado.purging_{}.log".format(purging))
+                self.configuration.pick.clustering.purge = purging
+                self.configuration.pick.scoring_file = scoring_file.name
+                self.configuration = configurator.check_and_load_scoring(self.configuration)
+                self.assertEqual(len(self.configuration.scoring.keys()), 1, self.configuration.scoring.keys())
 
-                pick_caller = picker.Picker(json_conf=self.json_conf)
+                pick_caller = picker.Picker(configuration=self.configuration)
                 with self.assertRaises(SystemExit), self.assertLogs("main_logger", "INFO"):
                     pick_caller()
 
                 with to_gff(os.path.join(dir.name,
-                                         self.json_conf["pick"]["files"]["loci_out"])) as gff:
+                                         self.configuration.pick.files.loci_out)) as gff:
                     lines = [line for line in gff if line.header is False]
                 self.assertGreater(len(lines), 0)
                 self.assertTrue(any([_ for _ in lines if _.attributes.get("alias", "") == "foo2.1"]),
@@ -1663,27 +1691,27 @@ class PickTest(unittest.TestCase):
         scoring_file = tempfile.NamedTemporaryFile(suffix=".yaml", delete=True, mode="wt", dir=folder.name)
         yaml.dump(scoring, scoring_file)
         scoring_file.flush()
-        self.json_conf["pick"]["scoring_file"] = scoring_file.name
+        self.configuration.pick.scoring_file = scoring_file.name
 
         for purging in (False, True):
             with self.subTest(purging=purging):
-                self.json_conf["pick"]["files"]["loci_out"] = "mikado.purging_{}.loci.gff3".format(purging)
-                self.json_conf["pick"]["files"]["subloci_out"] = "mikado.purging_{}.subloci.gff3".format(purging)
-                self.json_conf["pick"]["files"]["log"] = os.path.join(
+                self.configuration.pick.files.loci_out = "mikado.purging_{}.loci.gff3".format(purging)
+                self.configuration.pick.files.subloci_out = "mikado.purging_{}.subloci.gff3".format(purging)
+                self.configuration.pick.files.log = os.path.join(
                     folder.name,
                     "mikado.purging_{}.log".format(purging))
-                self.json_conf["pick"]["clustering"]["purge"] = purging
-                self.json_conf["pick"]["scoring_file"] = scoring_file.name
-                self.json_conf = configurator.check_json(self.json_conf)
-                self.assertEqual(len(self.json_conf["scoring"].keys()), 2,
-                                 self.json_conf["scoring"].keys())
+                self.configuration.pick.clustering.purge = purging
+                self.configuration.pick.scoring_file = scoring_file.name
+                self.configuration = configurator.check_and_load_scoring(self.configuration)
+                self.assertEqual(len(self.configuration.scoring.keys()), 2,
+                                 self.configuration.scoring.keys())
 
-                pick_caller = picker.Picker(json_conf=self.json_conf)
+                pick_caller = picker.Picker(configuration=self.configuration)
                 with self.assertRaises(SystemExit), self.assertLogs("main_logger", "INFO"):
                     pick_caller()
 
                 with to_gff(os.path.join(folder.name,
-                                         self.json_conf["pick"]["files"]["loci_out"])) as gff:
+                                         self.configuration.pick.files.loci_out)) as gff:
                     lines = [line for line in gff if line.header is False]
                 self.assertGreater(len(lines), 0)
                 self.assertTrue(any([_ for _ in lines if _.attributes.get("alias", "") == "foo2.1"]))
@@ -1722,7 +1750,7 @@ class PickTest(unittest.TestCase):
         scoring_file = tempfile.NamedTemporaryFile(suffix=".yaml", delete=True, mode="wt", dir=dir.name)
         yaml.dump(scoring, scoring_file)
         scoring_file.flush()
-        self.json_conf["pick"]["scoring_file"] = scoring_file.name
+        self.configuration.pick.scoring_file = scoring_file.name
 
         temp_gtf = tempfile.NamedTemporaryFile(mode="wt", suffix=".gtf", delete=True, dir=dir.name)
 
@@ -1730,24 +1758,24 @@ class PickTest(unittest.TestCase):
 
         temp_gtf.write(gtf)
         temp_gtf.flush()
-        self.json_conf["pick"]["files"]["input"] = temp_gtf.name
+        self.configuration.pick.files.input = temp_gtf.name
 
         for purging in (False, True):
             with self.subTest(purging=purging):
-                self.json_conf["pick"]["files"]["loci_out"] = "mikado.purging_{}.loci.gff3".format(purging)
-                self.json_conf["pick"]["files"]["subloci_out"] = "mikado.purging_{}.subloci.gff3".format(purging)
-                self.json_conf["pick"]["files"]["log"] = "mikado.purging_{}.log".format(purging)
-                self.json_conf["pick"]["clustering"]["purge"] = purging
-                self.json_conf["pick"]["scoring_file"] = scoring_file.name
-                self.json_conf = configurator.check_json(self.json_conf)
-                self.assertEqual(len(self.json_conf["scoring"].keys()), 2, self.json_conf["scoring"].keys())
+                self.configuration.pick.files.loci_out = "mikado.purging_{}.loci.gff3".format(purging)
+                self.configuration.pick.files.subloci_out = "mikado.purging_{}.subloci.gff3".format(purging)
+                self.configuration.pick.files.log = "mikado.purging_{}.log".format(purging)
+                self.configuration.pick.clustering.purge = purging
+                self.configuration.pick.scoring_file = scoring_file.name
+                self.configuration = configurator.check_and_load_scoring(self.configuration)
+                self.assertEqual(len(self.configuration.scoring.keys()), 2, self.configuration.scoring.keys())
 
-                pick_caller = picker.Picker(json_conf=self.json_conf)
+                pick_caller = picker.Picker(configuration=self.configuration)
                 with self.assertRaises(SystemExit), self.assertLogs("main_logger", "INFO"):
                     pick_caller()
 
                 with to_gff(os.path.join(dir.name,
-                                         self.json_conf["pick"]["files"]["loci_out"])) as gff:
+                                         self.configuration.pick.files.loci_out)) as gff:
                     lines = [line for line in gff if line.header is False]
                 self.assertGreater(len(lines), 0)
                 self.assertTrue(any([_ for _ in lines if _.attributes.get("alias", "") == "foo2.1"]),
@@ -1771,8 +1799,8 @@ class PickTest(unittest.TestCase):
 class SerialiseChecker(unittest.TestCase):
 
     def setUp(self):
-        self.json_conf = configurator.to_json(None)
-        self.json_conf["reference"]["genome"] = self.fai.filename.decode()
+        self.configuration = configurator.load_and_validate_config(None)
+        self.configuration.reference.genome = self.fai.filename.decode()
 
     @classmethod
     def setUpClass(cls):
@@ -1796,12 +1824,11 @@ class SerialiseChecker(unittest.TestCase):
             uni_out_handle.write(uni.read())
 
         with open(json_file, "wt") as json_handle:
-            print_config(yaml.dump(self.json_conf, default_flow_style=False),
-                                                      json_handle)
+            print_config(self.configuration, json_handle, format="yaml")
         # Set up the command arguments
         for procs in (1,):
             with self.subTest(proc=procs):
-                sys.argv = [str(_) for _ in ["mikado", "serialise", "--json-conf", json_file,
+                sys.argv = [str(_) for _ in ["mikado", "serialise", "--configuration", json_file,
                             "--transcripts", transcripts, "--blast_targets", uni_out,
                             "--orfs", orfs, "--junctions", junctions, "--xml", xml, "-od", dir.name,
                             "-p", procs, "-mo", mobjects, "--log", os.path.basename(log), "--seed", "1078",
@@ -1847,8 +1874,7 @@ class SerialiseChecker(unittest.TestCase):
                     uni_out_handle.write(uni.read())
 
                 with open(json_file, "wt") as json_handle:
-                    print_config(yaml.dump(self.json_conf, default_flow_style=False),
-                                               json_handle)
+                    print_config(self.configuration, json_handle, format="yaml")
                 sys.argv = [str(_) for _ in ["mikado", "serialise", "--json-conf", json_file,
                             "--transcripts", transcripts, "--blast_targets", uni_out,
                             "--orfs", orfs, "--junctions", junctions, "--xml", xml, "-od", dir.name,
@@ -1896,6 +1922,17 @@ class SerialiseChecker(unittest.TestCase):
             logs[name] = logged
 
         def prep_dbs(name):
+            import sqlalchemy.exc
+            try:
+                hsp = pd.read_sql(sql="hsp", con=name)
+            except sqlalchemy.exc.OperationalError:
+                try:
+                    with sqlite3.connect(name) as conn:
+                        tables = conn.execute("select sql from sqlite_master where type = 'table'").fetchall()
+                    raise sqlite3.OperationalError(tables)
+                except sqlite3.OperationalError:
+                    raise sqlite3.OperationalError(logs)
+
             hsp, hit, query, target = [pd.read_sql(table, name) for table in ["hsp", "hit", "query", "target"]]
             hit = hit.join(target.set_index("target_id"), on=["target_id"], how="inner").join(
                 query.set_index("query_id"), on=["query_id"], how="inner")
@@ -1951,13 +1988,13 @@ class SerialiseChecker(unittest.TestCase):
                 db = os.path.join(dir.name, "mikado.db")
                 log = "failed_serialise.log"
                 uni_out = os.path.join(dir.name, "uniprot_sprot_plants.fasta")
-                self.json_conf["serialise"]["files"]["log"] = os.path.basename(log)
-                self.json_conf["multiprocessing_method"] = "fork"
+                self.configuration.serialise.files.log = os.path.basename(log)
+                self.configuration.multiprocessing_method = "fork"
                 with gzip.open(uniprot, "rb") as uni, open(uni_out, "wb") as uni_out_handle:
                     uni_out_handle.write(uni.read())
 
                 with open(json_file, "wt") as json_handle:
-                    print_config(yaml.dump(self.json_conf, default_flow_style=False), json_handle)
+                    print_config(self.configuration, json_handle, format="yaml")
                 with self.subTest(proc=procs):
                     sys.argv = [str(_) for _ in ["mikado", "serialise", "--json-conf", json_file,
                                                  "--transcripts", transcripts, "--blast_targets", uni_out,

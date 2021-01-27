@@ -37,7 +37,7 @@ class MonosublocusHolder(Sublocus, Abstractlocus):
 
     # pylint: disable=super-init-not-called
     def __init__(self, transcript_instance=None,
-                 json_conf=None, logger=None,
+                 configuration=None, logger=None,
                  verified_introns=None, **kwargs):
 
         # I know what I am doing by NOT calling the Sublocus super but rather
@@ -45,7 +45,7 @@ class MonosublocusHolder(Sublocus, Abstractlocus):
         Abstractlocus.__init__(self,
                                transcript_instance=None,
                                verified_introns=verified_introns,
-                               json_conf=json_conf,
+                               configuration=configuration,
                                logger=logger,
                                **kwargs)
         self._not_passing = set()
@@ -91,12 +91,12 @@ class MonosublocusHolder(Sublocus, Abstractlocus):
         if check_in_locus is True and self.in_locus(
                 self,
                 transcript,
-                flank=self.json_conf["pick"]["clustering"]["flank"],
+                flank=self.configuration.pick.clustering.flank,
                 logger=self.logger,
-                cds_only=self.json_conf["pick"]["clustering"]["cds_only"],
-                min_cdna_overlap=self.json_conf["pick"]["clustering"]["min_cdna_overlap"],
-                min_cds_overlap=self.json_conf["pick"]["clustering"]["min_cds_overlap"],
-                simple_overlap_for_monoexonic=self.json_conf["pick"]["clustering"]["simple_overlap_for_monoexonic"]
+                cds_only=self.configuration.pick.clustering.cds_only,
+                min_cdna_overlap=self.configuration.pick.clustering.min_cdna_overlap,
+                min_cds_overlap=self.configuration.pick.clustering.min_cds_overlap,
+                simple_overlap_for_monoexonic=self.configuration.pick.clustering.simple_overlap_for_monoexonic
         ) is False:
 
                 self.logger.debug("%s is not a valid intersection for %s", transcript.id, self.id)
@@ -175,7 +175,7 @@ class MonosublocusHolder(Sublocus, Abstractlocus):
 
             lines.append(transcript_instance.format(
                 "gff",
-                all_orfs=self.json_conf["pick"]["output_format"]["report_all_orfs"],
+                all_orfs=self.configuration.pick.output_format.report_all_orfs,
                 with_cds=print_cds).rstrip())
 
         return "\n".join(lines)
@@ -214,10 +214,10 @@ class MonosublocusHolder(Sublocus, Abstractlocus):
             self.transcripts,
             inters=self.is_intersecting,
             logger=self.logger,
-            cds_only=self.json_conf["pick"]["clustering"]["cds_only"],
-            min_cdna_overlap=self.json_conf["pick"]["clustering"]["min_cdna_overlap"],
-            min_cds_overlap=self.json_conf["pick"]["clustering"]["min_cds_overlap"],
-            simple_overlap_for_monoexonic=self.json_conf["pick"]["clustering"]["simple_overlap_for_monoexonic"]
+            cds_only=self.configuration.pick.clustering.cds_only,
+            min_cdna_overlap=self.configuration.pick.clustering.min_cdna_overlap,
+            min_cds_overlap=self.configuration.pick.clustering.min_cds_overlap,
+            simple_overlap_for_monoexonic=self.configuration.pick.clustering.simple_overlap_for_monoexonic
         )
 
         loci = []
@@ -232,7 +232,7 @@ class MonosublocusHolder(Sublocus, Abstractlocus):
                 to_remove.add(selected_tid)
                 to_remove.update(set(graph.neighbors(selected_tid)))
                 if purge is False or selected_transcript.score > 0:
-                    new_locus = Locus(selected_transcript, logger=self.logger, json_conf=self.json_conf,
+                    new_locus = Locus(selected_transcript, logger=self.logger, configuration=self.configuration,
                                       use_transcript_scores=self._use_transcript_scores)
                     loci.append(new_locus)
             self.logger.debug("Removing {0} transcripts from {1}".format(len(to_remove), self.id))
@@ -240,8 +240,6 @@ class MonosublocusHolder(Sublocus, Abstractlocus):
 
         for locus in sorted(loci):
             self.loci[locus.id] = locus
-            if self.regressor is not None:
-                self.loci[locus.id].regressor = self.regressor
         self.splitted = True
         return
 

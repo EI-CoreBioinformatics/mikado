@@ -92,15 +92,15 @@ class External(DBBASE):
 class ExternalSerializer:
 
     def __init__(self, handle,
-                 json_conf=None,
+                 configuration=None,
                  logger=None, delimiter="\t"):
 
         """
         :param handle: the file to be serialized.
         :type handle: str | io.IOBase | io.TextIOWrapper
 
-        :param json_conf: Optional configuration dictionary with db connection parameters.
-        :type json_conf: dict | None
+        :param configuration: Optional configuration dictionary with db connection parameters.
+        :type configuration: dict | MikadoConfiguration | DaijinConfiguration | None
         """
 
         if logger is not None:
@@ -116,7 +116,7 @@ class ExternalSerializer:
             self.close()
             return
 
-        fasta_index = json_conf["serialise"]["files"]["transcripts"]
+        fasta_index = configuration.serialise.files.transcripts
         if isinstance(fasta_index, (str, bytes)):
             if isinstance(fasta_index, bytes):
                 fasta_index = fasta_index.decode()
@@ -163,7 +163,7 @@ class ExternalSerializer:
 
         self.data.fillna(0, inplace=True)
 
-        self.engine = connect(json_conf, logger=logger)
+        self.engine = connect(configuration, logger=logger)
 
         session = Session(bind=self.engine, autocommit=False, autoflush=False, expire_on_commit=False)
         inspector = Inspector.from_engine(self.engine)
@@ -171,8 +171,8 @@ class ExternalSerializer:
             DBBASE.metadata.create_all(self.engine)  # @UndefinedVariable
 
         self.session = session
-        if json_conf is not None:
-            self.maxobjects = json_conf["serialise"]["max_objects"]
+        if configuration is not None:
+            self.maxobjects = configuration.serialise.max_objects
         else:
             self.maxobjects = 10000
 

@@ -23,20 +23,20 @@ class TestLoadJunction(unittest.TestCase):
 
     def setUp(self):
         self.dbfile = tempfile.mktemp(suffix=".db")
-        self.json_conf = configuration.configurator.to_json(None)
-        self.json_conf["db_settings"]["dbtype"] = "sqlite"
-        self.json_conf["db_settings"]["db"] = self.dbfile
-        self.json_conf["reference"]["genome_fai"] = os.path.join(
+        self.configuration = configuration.configurator.load_and_validate_config(None)
+        self.configuration.db_settings.dbtype = "sqlite"
+        self.configuration.db_settings.db = self.dbfile
+        self.configuration.reference.genome_fai = os.path.join(
             os.path.dirname(__file__),
             "genome.fai")
-        self.session = utilities.dbutils.connect(self.json_conf)
+        self.session = utilities.dbutils.connect(self.configuration)
         self.junction_file = os.path.join(
             os.path.dirname(__file__),
             "junctions.bed"
         )
         self.junction_serialiser = serializers.junction.JunctionSerializer(
             self.junction_file,
-            json_conf=self.json_conf,
+            configuration=self.configuration,
             # logger=self.logger
         )
 
@@ -62,7 +62,7 @@ class TestLoadJunction(unittest.TestCase):
 
     def __create_session(self):
         engine = utilities.dbutils.connect(
-            self.json_conf, self.logger)
+            self.configuration, self.logger)
         sessionmaker = sqlalchemy.orm.sessionmaker(bind=engine)
         session = sessionmaker()
         return session
@@ -103,24 +103,24 @@ class TestLoadJunction(unittest.TestCase):
     def test_serialise_low_maxobject(self):
 
         self.dbfile = tempfile.mktemp(suffix=".db")
-        self.json_conf = configuration.configurator.to_json(None)
-        self.json_conf["db_settings"]["dbtype"] = "sqlite"
-        self.json_conf["db_settings"]["db"] = self.dbfile
-        self.json_conf["reference"]["genome_fai"] = os.path.join(
+        self.configuration = configuration.configurator.load_and_validate_config(None)
+        self.configuration.db_settings.dbtype = "sqlite"
+        self.configuration.db_settings.db = self.dbfile
+        self.configuration.reference.genome_fai = os.path.join(
             os.path.dirname(__file__),
             "genome.fai")
-        self.session = utilities.dbutils.connect(self.json_conf)
+        self.session = utilities.dbutils.connect(self.configuration)
         self.junction_file = os.path.join(
             os.path.dirname(__file__),
             "junctions.bed"
         )
 
-        self.json_conf["serialise"]["max_objects"] = 100
+        self.configuration.serialise.max_objects = 100
 
         self.logger.setLevel("DEBUG")
         self.junction_serialiser = serializers.junction.JunctionSerializer(
             self.junction_file,
-            json_conf=self.json_conf,
+            configuration=self.configuration,
             logger=self.logger,
 
         )
@@ -181,7 +181,7 @@ class TestLoadJunction(unittest.TestCase):
 
         with serializers.junction.JunctionSerializer(
                 self.junction_file,
-                json_conf=self.json_conf,
+                configuration=self.configuration,
                 logger=None
                 ) as jser:
             self.assertIsInstance(jser.logger, logging.Logger)
@@ -197,7 +197,7 @@ class TestLoadJunction(unittest.TestCase):
         with self.assertLogs("test_exiting", level="WARNING") as cm:
             _ = serializers.junction.JunctionSerializer(
                 None,
-                json_conf=self.json_conf,
+                configuration=self.configuration,
                 logger=nlogger
                 )
             _()
@@ -211,24 +211,37 @@ class TestLoadJunction(unittest.TestCase):
 
         db = tempfile.mktemp(suffix=".db")
         genome_file = tempfile.NamedTemporaryFile("wb", suffix=".fa.gz", prefix="Chr5", dir=".")
-        jconf = self.json_conf.copy()
-        jconf["db_settings"]["db"] = db
-        jconf["reference"]["genome_fai"] = None
+        jconf = self.configuration.copy()
+        jconf.db_settings.db = db
+        jconf.reference.genome_fai = None
         with resource_stream("Mikado.tests", "chr5.fas.gz") as _:
             genome_file.write(_.read())
         genome_file.flush()
 
-        jconf["reference"]["genome"] = genome_file.name
+        jconf.reference.genome = genome_file.name
 
-        seri = serializers.junction.JunctionSerializer(
-                self.junction_file,
-                json_conf=self.json_conf,
-                logger=self.logger
-                )
-        seri()
-        genome_file.close()
-        os.remove("{}.fai".format(genome_file.name))
-        # genome_file.delete()
+        logger = utilities.log_utils.create_default_logger("test_no_fai", "DEBUG")
+        with self.assertLogs("test_no_fai", level="DEBUG") as cmo:
+            seri = serializers.junction.JunctionSerializer(
+                    self.junction_file,
+                    configuration=jconf,
+                    logger=logger
+                    )
+            self.assertEqual(seri.db_settings.db, db)
+            seri()
+            genome_file.close()
+        # Now check that there are junctions in the temp database
+        import sqlite3
+        with sqlite3.connect(db) as conn:
+            try:
+                result = conn.execute("select count(*) from junctions").fetchone()[0]
+            except sqlite3.OperationalError:
+                msg = "Failed to obtain data from {}".format(db)
+                raise sqlite3.OperationalError([msg] + cmo.output)
+        self.assertGreater(result, 0)
+
+        if os.path.exists("{}.fai".format(genome_file.name)):
+            os.remove("{}.fai".format(genome_file.name))
 
     def test_invalid_bed12(self):
 

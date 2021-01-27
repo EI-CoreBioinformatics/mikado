@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
+import itertools
 
+from Mikado.configuration import MikadoConfiguration
+from Mikado.utilities.log_utils import LoggingConfiguration, create_logger_from_conf
 from .. import utilities
 import unittest
 import os
@@ -36,6 +39,46 @@ class UtilTester(unittest.TestCase):
         tester.cache.clear()
         self.assertNotIn("(20,){}", tester.cache)
         self.assertNotIn("(10,){}", tester.cache)
+
+    def test_region_string(self):
+        for error in [10, None, False]:
+            with self.assertRaises(AttributeError):
+                utilities.to_region(error)
+        with self.assertRaises(TypeError):
+            utilities.to_region(b"Chr1:100-4000")
+        chroms = ("Chr1", "Chr4", "Chr5")
+        starts = (100, 500, 1000, 5000)
+        ends = (500, 800, 1500, 10000)
+        ini_seps = (":", "-")
+        seps = ("-", "..", "foo")
+
+        for chrom, start, end, ini_sep, sep in itertools.product(chroms, starts, ends, ini_seps, seps):
+            to_fail = (end < start) or (sep not in ("-", "..")) or (ini_sep != ":")
+            string = "{chrom}{ini_sep}{start}{sep}{end}".format(**locals())
+            with self.subTest(chrom=chrom, start=start, end=end, sep=sep):
+                if to_fail:
+                    with self.assertRaises(ValueError):
+                        utilities.to_region(string)
+                else:
+                    uchrom, ustart, uend = utilities.to_region(string)
+                    self.assertEqual(chrom, uchrom)
+                    self.assertEqual(start, ustart)
+                    self.assertEqual(end, uend)
+
+    def test_percentage(self):
+        for incorrect in [None, "a", b"a"]:
+            with self.assertRaises((TypeError, ValueError)):
+                utilities.percentage(incorrect)
+        for incorrect in [-1, -0.1, 101, 10**4]:
+            with self.assertRaises(ValueError):
+                utilities.percentage(incorrect)
+        for num in [0.4, 0.3, 30, 36, 80.4, 100, 1.1, 1]:
+            unum = utilities.percentage(num)
+            if num > 1:
+                self.assertEqual(unum, num / 100)
+            else:
+                self.assertEqual(unum, num)
+            self.assertIsInstance(unum, float)
 
     def test_grouper(self):
 
@@ -183,6 +226,38 @@ class LogUtilsTester(unittest.TestCase):
                          {10: 20, 20:40,
                           30: 10},  # 30 is updated to the value of dictionary b
                          merged)
+
+    def test_logger_from_conf(self):
+        with tempfile.TemporaryDirectory() as folder:
+            for logger_name, (mode, level, initialiser, streaming) in enumerate(
+                    itertools.product(["a", "w"], ["WARNING", "INFO", "DEBUG"],
+                                      (LoggingConfiguration, MikadoConfiguration),
+                                      (False, True))):
+                with tempfile.NamedTemporaryFile(mode="wt", dir=folder, suffix=".log") as log:
+                    if streaming is True:
+                        name = None
+                    else:
+                        name = log.name
+                    if initialiser == LoggingConfiguration:
+                        conf = LoggingConfiguration()
+                        conf.log = name
+                        conf.log_level = level
+                    else:
+                        conf = MikadoConfiguration()
+                        conf.log_settings.log = name
+                        conf.log_settings.log_level = level
+
+                logger = create_logger_from_conf(conf, name="test_logger_from_conf" + str(logger_name), mode=mode)
+                self.assertTrue(os.path.exists(log.name) or streaming)
+                self.assertTrue(os.path.exists(log.name) != streaming)  # Either we have created a streaming log or not
+                self.assertEqual(logging.getLevelName(logger.level), level, conf)
+                if streaming:
+                    self.assertIsInstance(logger.handlers[0], logging.StreamHandler)
+                else:
+                    self.assertIsInstance(logger.handlers[0], logging.FileHandler)
+                    self.assertEqual(logger.handlers[0].mode, mode)
+                if streaming is False and os.path.exists(log.name):
+                    os.remove(log.name)
 
 
 if __name__ == "__main__":

@@ -274,7 +274,7 @@ class PickConfiguration:
         "name": "fragments",
         "description": "Parameters related to the handling of fragments."
     })
-    files: FilesConfiguration = field(default_factory=FilesConfiguration, metadata={
+    files: Optional[FilesConfiguration] = field(default_factory=FilesConfiguration, metadata={
         "name": "files",
         "description": "Input and output files for Mikado pick.",
     })

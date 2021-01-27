@@ -131,25 +131,26 @@ def create_daijin_config(args, config=None, level="ERROR", piped=False):
 
     if args.seed is not None and isinstance(args.seed, int) and args.seed not in (True, False):
         config.seed = args.seed
-    if not os.path.exists(args.genome):
-        error = "The genome FASTA file {} does not exist!".format(args.genome)
+    if (args.genome is None or not os.path.exists(args.genome)) and not args.no_files:
+        error = "The genome FASTA file {} does not exist! No files: {}".format(args.genome, args.no_files)
         logger.critical(error)
         raise ValueError(error)
+    elif not args.no_files:
+        config.reference.genome = args.genome
+        logger.setLevel("INFO")
+        index_present = os.path.exists(config.reference.genome + ".fai")
+        if not index_present:
+            logger.info("Indexing the genome")
+        else:
+            logger.debug("Loading the reference index")
+        pysam.FastaFile(config.reference.genome)
+        if not index_present:
+            logger.info("Indexed the genome")
+        else:
+            logger.debug("Loaded the reference index")
 
-    config.reference.genome = args.genome
-    logger.setLevel("INFO")
-    index_present = os.path.exists(config.reference.genome + ".fai")
-    if not index_present:
-        logger.info("Indexing the genome")
-    else:
-        logger.debug("Loading the reference index")
-    pysam.FastaFile(config.reference.genome)
-    if not index_present:
-        logger.info("Indexed the genome")
-    else:
-        logger.debug("Loaded the reference index")
-    logger.setLevel(level)
-    config.reference.transcriptome = args.transcriptome
+        logger.setLevel(level)
+        config.reference.transcriptome = args.transcriptome
 
     config.name = args.name
     if args.out_dir is None:
@@ -254,12 +255,6 @@ def create_daijin_config(args, config=None, level="ERROR", piped=False):
     if piped is True:
         return final_config
     else:
-        del final_config.cds_requirements
-        del final_config.as_requirements
-        del final_config.not_fragmentary
-        del final_config.scoring
-        del final_config.requirements
-
         if args.json is True or (args.out != sys.stdout and args.out.name.endswith("json")):
             format_name = "json"
         elif args.yaml is True or (args.out != sys.stdout and args.out.name.endswith("yaml")):
@@ -267,6 +262,6 @@ def create_daijin_config(args, config=None, level="ERROR", piped=False):
         else:
             format_name = "toml"
 
-        print_config(final_config, args.out, format=format_name)
+        print_config(final_config, args.out, format=format_name, no_files=args.no_files)
         args.out.close()
     return

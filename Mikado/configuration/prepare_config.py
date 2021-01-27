@@ -1,8 +1,7 @@
 from dataclasses import field
 from typing import List
-
 from marshmallow import validate
-from marshmallow_dataclass import dataclass
+from marshmallow_dataclass import dataclass, Optional
 
 
 @dataclass
@@ -99,7 +98,7 @@ class PrepareConfiguration:
         "name": "canonical",
         "description": "Accepted canonical splicing junctions for the organism in examination.",
     })
-    files: PrepareFilesConfiguration = field(default_factory=PrepareFilesConfiguration, metadata={
+    files: Optional[PrepareFilesConfiguration] = field(default_factory=PrepareFilesConfiguration, metadata={
         "name": "files",
         "description": "Options related to the input and output files.",
         "required": True

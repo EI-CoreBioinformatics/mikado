@@ -234,6 +234,8 @@ default. If one of --json, --yaml, --toml flags is specified, it will override t
                         default=False, help="Flag. If set, Daijin will use BLAST instead of DIAMOND.")
     mikado.add_argument("--use-transdecoder", dest="use_transdecoder", action="store_true",
                         default=False, help="Flag. If set, Daijin will use TransDecoder instead of Prodigal.")
+    mikado.add_argument("--no-files", action="store_true", default=False,
+                        help="Flag. If set, remove all file fields.")
     parser.set_defaults(func=create_daijin_config)
     return parser
 

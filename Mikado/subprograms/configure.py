@@ -78,6 +78,7 @@ def __add_daijin_specs(args, config):
     namespace.scoring = args.scoring
     namespace.new_scoring = getattr(args, "new_scoring", None)
     namespace.full = args.full
+    namespace.no_files = args.no_files
     config = create_daijin_config(namespace, config, level="ERROR", piped=True)
     config.blastx.chunks = args.blast_chunks
     config.mikado.use_diamond = (not args.use_blast)

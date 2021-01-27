@@ -45,7 +45,7 @@ class FilesConfiguration:
 
 @dataclass
 class SerialiseConfiguration:
-    files: FilesConfiguration = field(default_factory=FilesConfiguration, metadata={
+    files: Optional[FilesConfiguration] = field(default_factory=FilesConfiguration, metadata={
         "name": "files",
         "description": "Options related to input files for serialise",
     })

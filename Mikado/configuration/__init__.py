@@ -89,6 +89,7 @@ def print_config(config: Union[MikadoConfiguration, DaijinConfiguration], out, f
 
     if format == "toml":
         print_toml_config(config, out, no_files=no_files)
+        return
 
     config_dict = dataclasses.asdict(config)
     for key in ["scoring", "cds_requirements", "requirements", "not_fragmentary", "as_requirements"]:

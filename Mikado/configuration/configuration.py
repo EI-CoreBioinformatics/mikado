@@ -39,7 +39,7 @@ class MikadoConfiguration:
         "name": "log_settings",
         "description": "Settings related to the verbosity of logs"
     })
-    db_settings: DBConfiguration = field(default_factory=DBConfiguration, metadata={
+    db_settings: Optional[DBConfiguration] = field(default_factory=DBConfiguration, metadata={
         "name": "db_settings",
         "description": "Settings related to DB connection"
     })
@@ -55,7 +55,7 @@ class MikadoConfiguration:
         "name": "pick",
         "description": "Settings related to the Mikado pick stage",
     })
-    reference: ReferenceConfiguration = field(default_factory=ReferenceConfiguration, metadata={
+    reference: Optional[ReferenceConfiguration] = field(default_factory=ReferenceConfiguration, metadata={
         "name": "reference",
     })
 

@@ -1,11 +1,13 @@
 import io
 import unittest
 
-import rapidjson as json
+try:
+    import rapidjson as json
+except ImportError:
+    import json
 from pkg_resources import resource_stream
 
 from .. import loci, configuration, transcripts
-from ..configuration import MikadoConfiguration
 from ..parsers.bed12 import BED12
 from ..transcripts import Transcript
 from ..utilities.log_utils import create_default_logger

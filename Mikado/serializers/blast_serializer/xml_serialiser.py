@@ -1,4 +1,7 @@
-import rapidjson as json
+try:
+    import rapidjson as json
+except ImportError:
+    import json
 from ...parsers.blast_utils import BlastOpener
 from .xml_utils import _get_query_for_blast, _get_target_for_blast
 from xml.parsers.expat import ExpatError

@@ -1,4 +1,7 @@
-import rapidjson as json
+try:
+    import rapidjson as json
+except ImportError:
+    import json
 import msgpack
 from ..loci import Superlocus
 from ..loci import Locus

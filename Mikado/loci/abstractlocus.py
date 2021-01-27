@@ -20,7 +20,10 @@ from ..utilities.log_utils import create_null_logger
 from sys import version_info
 from ..scales.contrast import compare as c_compare
 import random
-import rapidjson as json
+try:
+    import rapidjson as json
+except ImportError:
+    import json
 from typing import Union
 from ..configuration.configuration import MikadoConfiguration
 from ..configuration.daijin_configuration import DaijinConfiguration

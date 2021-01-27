@@ -9,7 +9,10 @@ from .daijin_configuration import DaijinConfiguration
 from . import configurator
 import itertools
 import textwrap
-import rapidjson as json
+try:
+    import rapidjson as json
+except ImportError:
+    import json
 import toml
 import dataclasses
 import yaml

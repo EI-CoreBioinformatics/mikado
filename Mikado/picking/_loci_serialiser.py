@@ -1,6 +1,9 @@
 from ..loci import Superlocus
 # import sqlite3
-import rapidjson as json
+try:
+    import rapidjson as json
+except ImportError:
+    import json
 import msgpack
 import sys
 

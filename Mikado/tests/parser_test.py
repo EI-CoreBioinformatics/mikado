@@ -2,9 +2,11 @@ import unittest
 from .. import parsers
 import tempfile
 import os
-import rapidjson as json
+try:
+    import rapidjson as json
+except ImportError:
+    import json
 from pkg_resources import resource_filename
-import gzip
 
 
 __author__ = 'Luca Venturini'

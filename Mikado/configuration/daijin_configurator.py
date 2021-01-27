@@ -1,5 +1,8 @@
 import dataclasses
-import rapidjson as json
+try:
+    import rapidjson as json
+except ImportError:
+    import json
 import os
 import io
 import tomlkit

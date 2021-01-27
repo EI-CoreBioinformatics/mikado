@@ -13,7 +13,6 @@ import logging
 import queue
 import time
 import sys
-import rapidjson as json
 import operator
 import random
 import zlib

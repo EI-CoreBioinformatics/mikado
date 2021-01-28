@@ -14,6 +14,10 @@
    :target: https://www.python.org/downloads/release/python-360/
 .. |python_37_badge| image:: https://img.shields.io/badge/python-3.7-blue.svg
    :target: https://www.python.org/downloads/release/python-371/
+.. |python_38_badge| image:: https://img.shields.io/badge/python-3.8-blue.svg
+   :target: https://www.python.org/downloads/release/python-371/
+.. |python_39_badge| image:: https://img.shields.io/badge/python-3.9-blue.svg
+   :target: https://www.python.org/downloads/release/python-371/
 .. |travis_status| image:: https://travis-ci.org/lucventurini/mikado.svg?branch=master
     :target: https://travis-ci.org/lucventurini/mikado
 .. |coverage| image:: https://codecov.io/gh/lucventurini/mikado/branch/master/graph/badge.svg
@@ -30,10 +34,11 @@
 Mikado: pick your transcript
 ############################
 
-|releases| |downloads| |conda downloads| |python_36_badge| |python_37_badge| |travis_status| |coverage|
+|releases| |downloads| |conda downloads| |python_36_badge| |python_37_badge| |python_38_badge| |python_39_badge| |travis_status| |coverage|
 
 :Authors:
     Venturini Luca,
+    Yanes Luis,
     Caim Shabhonam,
     Mapleson Daniel,
     Kaithakottil Gemy George,

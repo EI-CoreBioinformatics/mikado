@@ -1,3 +1,8 @@
+# Version 2.0
+
+Official second 
+
+
 # Version 2.0 - public release candidate 1 (prc1)
 
 This is the second major release of Mikado. It contains **backwards-incompatible changes** to the data structures used in the program;

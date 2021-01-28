@@ -23,7 +23,6 @@ pytest>=5.4.1
 rapidjson>=1.0.0
 intervaltree
 toml>=0.10.0
-tomlkit>=0.5.8
 pyfaidx>=0.5.8
 dataclasses; python_version < '3.7'
 marshmallow

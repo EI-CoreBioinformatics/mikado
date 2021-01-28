@@ -22,8 +22,21 @@ __author__ = 'Luca Venturini'
 
 
 def print_toml_config(config, out, no_files=False):
+
+    """Function to print out the configuration in TOML format, adding the descriptions as comments preceded by #.
+    :param config: configuration
+    :type config: (MikadoConfiguration|DaijinConfiguration)
+
+    :param out: output handle
+    :type out: io.TextIOWrapper
+
+    :param no_files: boolean. If on, sections pertaining to files will be deleted from the output.
+    :type no_files: bool
+    """
+
     config_dict = dataclasses.asdict(config)
     for key in ["scoring", "cds_requirements", "requirements", "not_fragmentary", "as_requirements"]:
+        # Necessary otherwise we will be deleting fields from the *original* object!
         config_dict.pop(key, None)
 
     if no_files is True:
@@ -79,16 +92,20 @@ def print_toml_config(config, out, no_files=False):
 
 
 def print_config(config: Union[MikadoConfiguration, DaijinConfiguration], out, format="yaml", no_files=False):
-
     """
-    Function to print out the prepared configuration.
-    :param output: prepared output, a huge string.
-    :type output: (MikadoConfiguration|DaijinConfiguration)
+    Function to print out the configuration in TOML format, adding the descriptions as comments preceded by #.
+    :param config: configuration
+    :type config: (MikadoConfiguration|DaijinConfiguration)
 
-    :param out: output handle.
+    :param out: output handle
+    :type out: io.TextIOWrapper
+
+    :param format: one of yaml, json or toml (case-insensitive)
+    :type format: str
+
+    :param no_files: boolean. If on, sections pertaining to files will be deleted from the output.
+    :type no_files: bool
     """
-
-    # Necessary otherwise we will be deleting fields from the *original* object!
 
     if not isinstance(format, str) or format.lower() not in ("yaml", "json", "toml"):
         raise ValueError("Unknown format: {}. I can only accept yaml, json or toml as options.")
@@ -101,6 +118,7 @@ def print_config(config: Union[MikadoConfiguration, DaijinConfiguration], out, f
         print_yaml_config(config, out, no_files=no_files)
     elif format == "json":
         config_dict = dataclasses.asdict(config)
+        # Necessary otherwise we will be deleting fields from the *original* object!
         for key in ["scoring", "cds_requirements", "requirements", "not_fragmentary", "as_requirements"]:
             config_dict.pop(key, None)
 
@@ -115,9 +133,21 @@ def print_config(config: Union[MikadoConfiguration, DaijinConfiguration], out, f
 
 
 def print_yaml_config(config, out, no_files=False):
+    """
+    Function to print out the configuration in YAML format, adding the descriptions as comments preceded by #.
+    :param config: configuration
+    :type config: (MikadoConfiguration|DaijinConfiguration)
+
+    :param out: output handle
+    :type out: io.TextIOWrapper
+
+    :param no_files: boolean. If on, sections pertaining to files will be deleted from the output.
+    :type no_files: bool
+    """
 
     config_dict = dataclasses.asdict(config)
     for key in ["scoring", "cds_requirements", "requirements", "not_fragmentary", "as_requirements"]:
+        # Necessary otherwise we will be deleting fields from the *original* object!
         config_dict.pop(key, None)
 
     if no_files is True:
@@ -197,41 +227,3 @@ def print_yaml_config(config, out, no_files=False):
         print("#", file=out)
 
     print(*lines, sep="\n", file=out)
-
-
-def check_has_requirements(dictionary, schema, key=None, first_level=True):
-
-    """
-    Method to find all keys that
-    :param dictionary:
-    :param schema:
-    :param key:
-    :return:
-    """
-
-    required = []
-
-    for new_key, value in dictionary.items():
-        if isinstance(value, dict):
-            assert "properties" in schema[new_key], new_key
-            if "required" in schema[new_key]:
-                for req in schema[new_key]["required"]:
-                    required.append((key, new_key, req))
-
-            for k in check_has_requirements(value, schema[new_key]["properties"],
-                                            key=new_key,
-                                            first_level=False):
-                if k is None:
-                    continue
-                nkey = [key]
-                nkey.extend(k)
-                nkey = tuple(nkey)
-                required.append(nkey)
-        elif first_level is True:
-            if new_key in schema:
-                if "required" in schema[new_key] and schema[new_key]["required"] is True:
-                    required.append([new_key])
-        else:
-            continue
-
-    return required

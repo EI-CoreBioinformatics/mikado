@@ -7,9 +7,6 @@ From: conda/miniconda3
     python -c "import numpy"
     mikado --help
 
-%files
-    environment.yml /
-
 %environment
     export PYTHONDONTWRITEBYTECODE=true
 
@@ -19,9 +16,11 @@ From: conda/miniconda3
 
     export PYTHONDONTWRITEBYTECODE=true
     apt update && apt-get install -qq -y git wget zlib1g-dev g++ && apt clean
-    git clone https://github.com/EI-CoreBioinformatics/mikado.git /usr/local/src/mikado
+    git clone --depth 1 --branch master https://github.com/EI-CoreBioinformatics/mikado.git /usr/local/src/mikado
     cd /usr/local/src/mikado
+    conda update conda -n base -y
     conda env update --prune -n base -f environment.yml && conda clean -afy
+    conda install -n base -c bioconda -c conda-forge -y bioconda::portcullis prodigal diamond samtools
     python3 setup.py bdist_wheel && pip install --prefix /usr/local dist/*whl
 
     echo '#!/bin/bash' >> /usr/local/bin/show_commit_hash
@@ -35,7 +34,7 @@ From: conda/miniconda3
         done
     cd /usr/local/src;
     rm -rf mikado;
-	
+
 %apprun snakemake
 	snakemake "@"
 
@@ -53,3 +52,6 @@ From: conda/miniconda3
 
 %apprun diamond
     diamond "@"
+
+%apprun portcullis
+    portcullis "@"

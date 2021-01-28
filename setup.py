@@ -63,6 +63,7 @@ extensions = [Extension("Mikado.utilities.overlap",
 
 setup(
     name="Mikado",
+    python_requires=">=3.6",
     version=version,
     description="A Python3 annotation program to select the best gene model in each locus",
     long_description=long_description,
@@ -78,9 +79,10 @@ setup(
         "Operating System :: POSIX :: Linux",
         "Framework :: Pytest",
         "Intended Audience :: Science/Research",
-        "Programming Language :: Python :: 3.5",
         "Programming Language :: Python :: 3.6",
         'Programming Language :: Python :: 3.7'
+        "Programming Language :: Python :: 3.8",
+        'Programming Language :: Python :: 3.9'
     ],
     ext_modules=cythonize(extensions, compiler_directives = {"language_level": "3"}),
     zip_safe=False,

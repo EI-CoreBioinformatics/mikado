@@ -36,7 +36,9 @@ default_configuration = load_and_validate_config(None)
 # I do not care that there are too many attributes: this IS a massive class!
 # pylint: disable=too-many-instance-attributes,too-many-public-methods
 
-def to_bool(param: Union[str,bool,int,float]):
+def to_bool(param: Union[str, bool, int, float]):
+    """Function to convert a items to booleans."""
+
     if isinstance(param, bool):
         return param
     elif isinstance(param, (int, float)):
@@ -56,8 +58,7 @@ def to_bool(param: Union[str,bool,int,float]):
 
 class Abstractlocus(metaclass=abc.ABCMeta):
     """This abstract class defines the basic features of any Locus-like object.
-    It also defines methods/properties that are needed throughout the program,
-    e.g. the Bron-Kerbosch algorithm for defining cliques, or the find_retained_introns method.
+    It also defines methods/properties that are needed throughout the program.
     """
 
     __name__ = "Abstractlocus"
@@ -90,6 +91,25 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                  configuration=None,
                  use_transcript_scores=False,
                  flank=None):
+        """
+        Generic initialisation method for all locus classes.
+        :param transcript_instance: either None or a valid Transcript instance.
+        :type transcript_instance: (None|Transcript)
+        :param logger: logging instance to use. A default mock one will be created, if absent
+        :type logger: (None|logging.Logger)
+        :param source: the source field to use in GFF/GTF output.
+        :type source: str
+        :param verified_introns: either None or a container of introns verified as reliable by an external program,
+        e.g. Portcullis
+        :type verified_introns: (None|set|list|tuple)
+        :param configuration: either None or a valid configuration object.
+        :type configuration: (None|DaijinConfiguration|MikadoConfiguration)
+        :param use_transcript_scores: boolean. If true, the class will use the score already attached to the transcript
+        (e.g. coming from the GFF file) rather than calculating them.
+        :type use_transcript_scores: bool
+        :param flank: None or integer. This parameter 
+        """
+
 
         # Mock values
         self.__source = source

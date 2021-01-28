@@ -107,7 +107,10 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         :param use_transcript_scores: boolean. If true, the class will use the score already attached to the transcript
         (e.g. coming from the GFF file) rather than calculating them.
         :type use_transcript_scores: bool
-        :param flank: None or integer. This parameter 
+        :param flank: None or integer. This parameter is used by the class to determine whether a transcript not
+        directly overlapping any of the transcripts of the locus should nonetheless be considered as part of it. If no
+        value is provided, the class will use the value coming from the configuration.
+        :type flank: (None|int)
         """
 
 
@@ -156,6 +159,8 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         """Printing method for the locus class. Each child class must have its own defined method."""
 
     def __repr__(self):
+        """Simplified representation for all locus classes. This will print out:
+        type of the class (locus, Superlocus, etc), chromosome, start, end, strand, list of the names of transcripts."""
 
         if len(self.transcripts) > 0:
             transcript_list = ",".join(list(self.transcripts.keys()))
@@ -170,6 +175,10 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                           transcript_list])
 
     def __eq__(self, other):
+
+        """Two loci are equal if they have the same start, end, chromosome, strand, introns, splices and exons.
+         They also must be either both stranded or both not yet stranded."""
+
         if not isinstance(self, type(other)):
             return False
 
@@ -203,7 +212,12 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         return (self == other) or (self > other)
 
     def __getstate__(self):
-        """Method to allow serialisation - we remove the byte-compiled eval expression."""
+        """Method to allow serialisation of loci objects. To do so, we need to:
+        - remove the logger
+        - removed the compiled "eval" expressions from the configuration
+        - remove the database connections, if present
+        - dump the C structures like the internal nodes.
+        """
 
         logger = self.logger
         del self.logger
@@ -271,20 +285,22 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         except TypeError:
             raise TypeError(edges)
 
-        self.configuration.requirements["compiled"] = compile(self.configuration.requirements.get("expression", "True"),
-                                                          "<json>", "eval")
-        self.configuration.cds_requirements["compiled"] = compile(self.configuration.cds_requirements.get("expression", "True"),
-                                                              "<json>", "eval")
-        self.configuration.as_requirements["compiled"] = compile(self.configuration.as_requirements.get("expression", True),
-                                                             "<json>", "eval")
-        self.configuration.not_fragmentary["compiled"] = compile(self.configuration.not_fragmentary.get("expression", True),
-                                                             "<json>", "eval")
+        self.configuration.requirements["compiled"] = compile(
+            self.configuration.requirements.get("expression", "True"), "<json>", "eval")
+        self.configuration.cds_requirements["compiled"] = compile(
+            self.configuration.cds_requirements.get("expression", "True"), "<json>", "eval")
+        self.configuration.as_requirements["compiled"] = compile(
+            self.configuration.as_requirements.get("expression", True), "<json>", "eval")
+        self.configuration.not_fragmentary["compiled"] = compile(
+            self.configuration.not_fragmentary.get("expression", True), "<json>", "eval")
 
-        # Set the logger to NullHandler
+        # Recalculate the segment tree
         _ = self.__segmenttree
         self.logger = None
 
-    def as_dict(self):
+    def as_dict(self) -> dict:
+        """Method to convert the locus instance to a dictionary, allowing it to be dumped as JSON or through
+        msgpack."""
         self.get_metrics()
         state = self.__getstate__()
         state["transcripts"] = dict((tid, state["transcripts"][tid].as_dict()) for tid in state["transcripts"])
@@ -292,7 +308,13 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         state["json_conf"] = dataclasses.asdict(state["json_conf"])
         return state
 
-    def load_dict(self, state, load_transcripts=True):
+    def load_dict(self, state: dict, load_transcripts=True):
+        """Method to recreate a locus object from a dumped dictionary, created through as_dict.
+        :param state: the dictionary to load values from
+        :param load_transcripts: boolean. If False, transcripts will be left in their dump state rather than be
+        converted back to Transcript objects.
+        """
+
         assert isinstance(state, dict)
         try:
             state["json_conf"] = MikadoConfiguration.Schema().load(state["json_conf"])
@@ -312,6 +334,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         return iter(self.transcripts.keys())
 
     def __getitem__(self, item):
+        """Locus objects will function as dictionaries of transcripts, indexed on the basis of the transcript ID."""
 
         return self.transcripts[item]
 
@@ -323,7 +346,16 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                 flank=0,
                 positive=False) -> int:
 
-        """:param first_interval: a tuple of integers
+        """
+        This static method returns the overlap between two intervals.
+
+        Values<=0 indicate no overlap.
+
+        The optional "flank" argument (default 0) allows to expand a locus upstream and downstream.
+        As a static method, it can be used also outside of any instance - "abstractlocus.overlap()" will function.
+        Input: two 2-tuples of integers.
+
+        :param first_interval: a tuple of integers
         :type first_interval: [int,int]
 
         :param second_interval: a tuple of integers
@@ -334,16 +366,6 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
         :param positive: if True, negative overlaps will return 0. Otherwise, the negative overlap is returned.
         :type positive: bool
-
-        This static method returns the overlap between two intervals.
-
-        Values<=0 indicate no overlap.
-
-        The optional "flank" argument (default 0) allows to expand a locus
-        upstream and downstream.
-        As a static method, it can be used also outside of any instance -
-        "abstractlocus.overlap()" will function.
-        Input: two 2-tuples of integers.
         """
 
         return overlap(first_interval, second_interval, flank, positive=positive)
@@ -352,14 +374,15 @@ class Abstractlocus(metaclass=abc.ABCMeta):
     def evaluate(param: str, conf: dict) -> bool:
 
         """
+        This static method will evaluate whether a certain parameter respects the conditions laid out in the
+        requirements dictionary (usually retrieved from the MikadoConfiguration configuration object).
+        See the documentation for details of available operators.
+
         :param param: string to be checked according to the expression in the configuration
         :type param: str
 
         :param conf: a dictionary containing the expressions to evaluate
         :type conf: dict
-
-        This static method evaluates a single parameter using the requested
-        operation from the JSON dict file.
         """
 
         if conf["operator"] == "eq":
@@ -389,14 +412,8 @@ class Abstractlocus(metaclass=abc.ABCMeta):
     # #### Class methods ########
 
     @classmethod
-    def in_locus(cls, locus_instance, transcript, flank=0) -> bool:
+    def in_locus(cls, locus_instance, transcript: Transcript, flank=0) -> bool:
         """
-        :param locus_instance: an inheritor of this class
-        :param transcript: a transcript instance
-
-        :param flank: an optional extending parameter to check for neighbours
-        :type flank: int
-
         Function to determine whether a transcript should be added or not to the locus_instance.
         This is a class method, i.e. it can be used also unbound from any
         specific instance of the class.
@@ -404,7 +421,15 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         Arguments:
         - a "locus_instance" object
         - a "transcript" object (it must possess the "finalize" method)
-        - flank - optional keyword"""
+        - flank - optional keyword
+
+        :param locus_instance: an inheritor of this class
+        :param transcript: a transcript instance
+        :type transcript: Transcript
+
+        :param flank: an optional extending parameter to check for neighbours
+        :type flank: int
+        """
 
         if not isinstance(transcript, Transcript):
             raise TypeError("I can only perform this operation on transcript classes, not {}".format(
@@ -429,15 +454,6 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
     def define_graph(self, objects: dict, inters=None, **kwargs) -> networkx.Graph:
         """
-        :param objects: a dictionary of objects to be grouped into a graph
-        :type objects: dict
-
-        :param inters: the intersecting function to be used to define the graph
-        :type inters: callable
-
-        :param kwargs: optional arguments to be passed to the inters function
-        :type kwargs: dict
-
         This function will compute the graph which will later be used by find_communities.
         The method takes as mandatory inputs the following:
             - "objects" a dictionary of objects that form the graph
@@ -445,8 +461,17 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
         It will then return a graph.
         The method accepts also kwargs that can be passed to the inters function.
-        WARNING: the kwargs option is really stupid and does not check
-        for correctness of the arguments!
+        WARNING: the kwargs option is does not check for correctness of the arguments!
+
+        :param objects: a dictionary of objects to be grouped into a graph
+        :type objects: dict
+
+        :param inters: the intersecting function to be used to define the graph. If None is specified, this method
+        will use the default "is_intersecting" function defined for each of the children of AbstractLocus.
+        :type inters: (None|callable)
+
+        :param kwargs: optional arguments to be passed to the inters function
+        :type kwargs: dict
         """
 
         if inters is None:
@@ -454,30 +479,24 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
         return define_graph(objects, inters, **kwargs)
 
-    def find_communities(self, graph: networkx.Graph) -> list:
+    def find_communities(self, graph: networkx.Graph) -> set:
         """
+        This function is a wrapper around the networkX methods to find communities inside a graph.
+        The method takes as input a precomputed graph and returns a set of the available communities
 
         :param graph: a Graph instance from networkx
         :type graph: networkx.Graph
-
-        This function is a wrapper around the networkX methods to find
-        cliques and communities inside a graph.
-        The method takes as input a precomputed graph and returns
-        two lists:
-            - cliques
-            - communities
         """
 
         return find_communities(graph, self.logger)
 
     def choose_best(self, transcripts: dict) -> str:
         """
-        :param transcripts: the dictionary of transcripts of the instance
-        :type transcripts: dict
-
         Given a transcript dictionary, this function will choose the one with the highest score.
         If multiple transcripts have exactly the same score, one will be chosen randomly.
 
+        :param transcripts: the dictionary of transcripts of the instance
+        :type transcripts: dict
         """
 
         # Choose one transcript randomly between those that have the maximum score
@@ -507,22 +526,20 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
     # ###### Class instance methods  #######
 
-    def add_transcript_to_locus(self, transcript, check_in_locus=True, **kwargs):
+    def add_transcript_to_locus(self, transcript: Transcript, check_in_locus=True, **kwargs):
         """
-        :param transcript
-        :type transcript: Mikado.loci_objects.transcript.Transcript
-
-        :param check_in_locus: flag to indicate whether the function
-        should check the transcript before adding it
-        or instead whether to trust the assignment to be correct
-        :type check_in_locus: bool
-
-        This method checks that a transcript is contained within the superlocus
-        (using the "in_superlocus" class method)
-        and upon a successful check extends the superlocus with the new transcript.
+        This method checks that a transcript is contained within the locus
+        (using the "in_locus" class method) and upon a successful check extends the locus with the new transcript.
         More precisely, it updates the boundaries (start and end) it adds the transcript
         to the internal "transcripts" store, and finally it extends
         the splices and introns with those found inside the transcript.
+
+        :param transcript
+        :type transcript: Transcript
+
+        :param check_in_locus: flag to indicate whether the function should check the transcript before adding it
+        or instead whether to trust the assignment to be correct.
+        :type check_in_locus: bool
         """
 
         transcript.finalize()
@@ -603,12 +620,13 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
     def remove_transcript_from_locus(self, tid: str):
         """
+        This method will remove a transcript from an Abstractlocus-like instance and reset appropriately
+        all derived attributes (e.g. introns, start, end, etc.).
+        If the transcript ID is not present in the locus, the function will return silently after emitting a DEBUG
+        message.
+
         :param tid: name of the transcript to remove
         :type tid: str
-
-         This method will remove a transcript from an Abstractlocus-like
-         instance and reset appropriately all derived attributes
-         (e.g. introns, start, end, etc.).
         """
 
         if tid not in self.transcripts:
@@ -762,12 +780,22 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
         :param exon: the exon to be considered.
         :type exon: (tuple|Interval)
-
-        :param frags: a list of intervals that are non-coding within the exon.
+        :param strand: strand of the locus. Necessary to determine whether the CDS has been disrupted.
+        :type strand: (None|str)
+        :param segmenttree: the interval-tree structure of the *introns* present in the locus.
+        :type segmenttree: IntervalTree
+        :param digraph: a directed graph joining exons to introns.
+        :type digraph: networkx.DiGraph
+        :param frags: a list of intervals that are non-coding within the exon. E.g. if an exon of a monoexonic
+        coding transcript is at coordinates (101, 1000) and its CDS is (301, 600), this list should be
+        [(101, 300), (601, 1000)], ie the UTR.
         :type frags: list[(tuple|Interval)]
-
+        :param introns: set of introns of the locus
+        :type introns: set
         :param internal_splices: which of the two boundaries of the exon are actually internal (if any).
         :type internal_splices: set
+        :cds_introns: set of introns in the locus that are between coding exons.
+        :type cds_introns: set
 
         :rtype: (bool, bool)
         """
@@ -876,30 +904,15 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
     def find_retained_introns(self, transcript: Transcript):
 
-        """This method checks the number of exons that are possibly retained
-        introns for a given transcript.
-        A retained intron is defined as an exon which:
-        - spans completely an intron of another model *between coding exons*
-        - is not completely coding itself
-        - has at least part of its non-coding sections *within the intron*
-
-        If the "pick/run_options/consider_truncated_for_retained" flag in the configuration is set to true,
-         an exon will be considered as a retained intron event also if:
-         - it is the last exon of the transcript
-         - it ends *within* an intron of another model *between coding exons*
-         - is not completely coding itself
-         - if the model is coding, the exon has *part* of the non-coding section lying inside the intron
-         (ie the non-coding section must not be starting in the exonic part).
-
-        The results are stored inside the transcript instance, in the "retained_introns" tuple.
-
-        If the transcript is non-coding, then all intron retentions are considered as valid: even those spanning introns
-        across non-coding exons of a coding model.
+        """This method checks the number of exons that are possibly retained introns for a given transcript.
+        An exon is considered to be a retained intron if either it completely spans another intron or is terminal
+        at the 3' end and ends within the intron of another transcript.
+        Additionally, this method will check whether the CDS of the transcript has been disrupted by the retained intron
+        event by verifying whether at least one exon has the CDS ending within a coding intron of another transcript.
 
         :param transcript: a Transcript instance
         :type transcript: Transcript
-        :returns : None
-        :rtype : None"""
+        """
 
         # self.logger.debug("Starting to calculate retained introns for %s", transcript.id)
         if self.stranded is False:
@@ -985,15 +998,17 @@ class Abstractlocus(metaclass=abc.ABCMeta):
          :param other:
          :type other: Transcript
 
-        :param min_cdna_overlap: float. This is the minimum cDNA overlap for two transcripts to be considered as intersecting,
-         even when all other conditions fail.
+        :param min_cdna_overlap: float. This is the minimum cDNA overlap for two transcripts to be considered as
+        intersecting, even when all other conditions fail.
         :type min_cdna_overlap: float
 
-        :param min_cds_overlap: float. This is the minimum CDS overlap for two transcripts to be considered as intersecting,
-         even when all other conditions fail.
+        :param min_cds_overlap: float. This is the minimum CDS overlap for two transcripts to be considered as
+        intersecting, even when all other conditions fail.
         :type min_cds_overlap: float
 
         :param comparison: default None. If one is provided, it should be a pre-calculated output of Mikado compare.
+        :param check_references: boolean. If set to False and both transcripts are marked as reference, the comparison
+        will yield True. This is to ensure that we gather up reference transcripts as AS events during the locus stage.
 
         :param fixed_perspective: boolean. If True, the method will consider the second transcript as the "reference" and
         therefore the cDNA and CDS overlap percentages will be calculated using its ratio. Otherwise, the method will
@@ -1065,7 +1080,13 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
         return intersecting, reason
 
-    def _create_metrics_row(self, tid, metrics, transcript):
+    def _create_metrics_row(self, tid: str, metrics: dict, transcript: Transcript) -> dict:
+        """Private method to create the metrics row to print out.
+        :param tid: the transcript ID to print
+        :param metrics: the dictionary of pre-calculated metrics
+        :param transcript: the transcript instance to check
+        """
+
         row = dict()
         for num, key in enumerate(self.available_metrics):
 
@@ -1106,10 +1127,6 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
         """This method yields dictionary "rows" that will be given to a csv.DictWriter class."""
 
-        # Check that rower is an instance of the csv.DictWriter class
-
-        # The rower is an instance of the DictWriter class from the standard CSV module
-
         self.get_metrics()
 
         for tid, transcript in sorted(self.transcripts.items(), key=operator.itemgetter(1)):
@@ -1131,9 +1148,6 @@ class Abstractlocus(metaclass=abc.ABCMeta):
     def get_metrics(self):
 
         """Quick wrapper to calculate the metrics for all the transcripts."""
-
-        # if self.metrics_calculated is True:
-        #     return
 
         if self.metrics_calculated is True:
             return
@@ -1169,12 +1183,11 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
     def calculate_metrics(self, tid: str):
         """
-        :param tid: the name of the transcript to be analysed
-        :type tid: str
-
         This function will calculate the metrics for a transcript which are relative in nature
         i.e. that depend on the other transcripts in the sublocus. Examples include the fraction
         of introns or exons in the sublocus, or the number/fraction of retained introns.
+        :param tid: the name of the transcript to be analysed
+        :type tid: str
         """
 
         if self.metrics_calculated is True:
@@ -1280,11 +1293,14 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
         self.logger.debug("Calculated metrics for {0}".format(tid))
 
-    def _check_not_passing(self, previous_not_passing=set(), section_name="requirements"):
+    def _check_not_passing(self, previous_not_passing=(), section_name="requirements") -> set:
         """
         This private method will identify all transcripts which do not pass
         the minimum muster specified in the configuration. It will *not* delete them;
         how to deal with them is left to the specifics of the subclass.
+
+        :param previous_not_passing: transcripts already known not to pass the checks and which will be skipped.
+        :param section_name: section of the configuration to use. Either "requirements" or "cds_requirements".
         :return:
         """
 
@@ -1345,11 +1361,15 @@ class Abstractlocus(metaclass=abc.ABCMeta):
     def filter_and_calculate_scores(self, check_requirements=True):
         """
         Function to calculate a score for each transcript, given the metrics derived
-        with the calculate_metrics method and the scoring scheme provided in the JSON configuration.
+        with the calculate_metrics method and the scoring scheme provided in the configuration.
         If any requirements have been specified, all transcripts which do not pass them
         will be either purged according to the configuration file ('pick.clustering.purge')
         or assigned a score of 0 and subsequently ignored.
         Scores are rounded to the nearest integer.
+
+        :param check_requirements: boolean, default True. If False, transcripts will not be checked for the minimum
+        requirements.
+        :type check_requirements: bool
         """
 
         if self.scores_calculated is True:
@@ -1461,7 +1481,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         """
         Private method that calculates a score for each transcript,
         given a target parameter.
-        :param param:
+        :param param: the metric to calculate the score for.
         :return:
         """
 
@@ -1618,7 +1638,11 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         return graph
 
     @staticmethod
-    def add_path_to_graph(transcript, graph):
+    def add_path_to_graph(transcript: Transcript, graph: networkx.DiGraph):
+        """Static method to add the exon-intron path to the weighted graph of the locus.
+        The weight corresponds to how many transcripts contain a specific exon-intron junction.
+        """
+
         weights = networkx.get_node_attributes(graph, "weight")
 
         segments = sorted(list(transcript.exons) + list(transcript.introns), reverse=(transcript.strand == "-"))
@@ -1634,6 +1658,10 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
     @staticmethod
     def remove_path_from_graph(transcript: Transcript, graph: networkx.DiGraph):
+        """Static method to remove from the locus graph the exon-intron graph of a transcript.
+        Exon-intron junctions whose weight will be reduced to 0 in the graph (because no other transcript contains
+        that particular junction) will be removed from the graph.
+        """
 
         weights = networkx.get_node_attributes(graph, "weight")
         segments = sorted(list(transcript.exons) + list(transcript.introns), reverse=(transcript.strand == "-"))
@@ -1657,15 +1685,9 @@ class Abstractlocus(metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def is_intersecting(cls, *args, **kwargs):
         """
-
-        :param args: positional arguments
-        :param kwargs: keyword arguments
-
         This class method defines how two transcript objects will be considered as overlapping.
-        It is used by the BronKerbosch method, and must be implemented
-        at the class level for each child object.
+        It must be implemented at the class level for each child object.
         """
-        raise NotImplementedError("The is_intersecting method should be defined for each child!")
 
     # ##### Properties #######
 
@@ -1724,6 +1746,8 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
     @property
     def flank(self):
+        """The flank parameter, ie how far transcripts from the locus to be considered as potential inclusions."""
+
         return self.__flank
 
     @flank.setter
@@ -1796,6 +1820,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
     @property
     def _internal_graph(self):
+        """The exon-intron directed graph representation for the locus."""
         return self.__internal_graph
 
     @source.setter
@@ -1812,8 +1837,8 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         self.__source = value
 
     @property
-    def score(self):
-
+    def score(self) -> Union[None, float]:
+        """Either None (if no transcript is present) or the top score for the transcripts in the locus."""
         if len(self.transcripts):
             return max(_.score for _ in self.transcripts.values())
         else:
@@ -1831,20 +1856,24 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
     @property
     def segmenttree(self):
+        """The interval tree structure derived from the exons and introns of the locus."""
+
         if len(self.__segmenttree) != len(self.exons) + len(self.introns):
             self.__segmenttree = self._calculate_segment_tree(self.exons, self.introns)
 
         return self.__segmenttree
 
     @staticmethod
-    def _calculate_segment_tree(exons, introns):
-
+    def _calculate_segment_tree(exons: Union[list, tuple, set], introns: Union[list, tuple, set]):
+        """Private method to calculate the exon-intron interval tree from the transcripts. It gets automatically called
+        after a transcript is added to the locus."""
         return IntervalTree.from_intervals(
                 [Interval(*_, value="exon") for _ in exons] + [Interval(*_, value="intron") for _ in introns]
             )
 
     @property
     def locus_verified_introns(self):
+        """The introns marked as reliable by other programs, e.g. Portcullis"""
         return self.__locus_verified_introns
 
     @locus_verified_introns.setter
@@ -1858,7 +1887,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
     @property
     def purge(self):
-        """This property relates to pick/clustering/purge."""
+        """Alias for self.configuration.pick.clustering.purge."""
 
         return self.configuration.pick.clustering.purge
 
@@ -1875,18 +1904,23 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
     @property
     def perform_padding(self):
+        """Alias for self.configuration.pick.alternative_splicing.pad"""
         return self.configuration.pick.alternative_splicing.pad
 
     def _set_padding(self, value):
+        """Set the perform_padding property."""
         if value not in (False, True):
             raise ValueError
         self.configuration.pick.alternative_splicing.pad = value
 
     @property
     def only_reference_update(self):
+        """Alias for self.configuration.pick.run_options.only_reference_update"""
         return self.configuration.pick.run_options.only_reference_update
 
     @property
     def reference_update(self):
+        """Alias for self.configuration.pick.run_options.reference_update.
+        If only_reference_update is True, it will override this value."""
         ref_update = self.configuration.pick.run_options.reference_update
         return ref_update or self.only_reference_update

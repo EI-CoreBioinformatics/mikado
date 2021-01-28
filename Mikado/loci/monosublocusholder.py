@@ -78,16 +78,6 @@ class MonosublocusHolder(Sublocus, Abstractlocus):
         :type check_in_locus: bool
         """
 
-        #
-        # monosublocus: Abstractlocus,
-        # transcript: Transcript,
-        # flank = 0,
-        # logger = None,
-        # cds_only = False,
-        # min_cdna_overlap = 0.2,
-        # min_cds_overlap = 0.2,
-        # classic_method = False
-
         if check_in_locus is True and self.in_locus(
                 self,
                 transcript,
@@ -116,32 +106,32 @@ class MonosublocusHolder(Sublocus, Abstractlocus):
                         min_cdna_overlap=0.2,
                         min_cds_overlap=0.2,
                         simple_overlap_for_monoexonic=True) -> bool:
+        """Alias for the Sublocus.is_intersecting method"""
+
         return Sublocus.is_intersecting(transcript, other, cds_only=cds_only,
                                         logger=logger, min_cdna_overlap=min_cdna_overlap,
                                         min_cds_overlap=min_cds_overlap,
                                         simple_overlap_for_monoexonic=simple_overlap_for_monoexonic)
 
-    def add_monosublocus(self, monosublocus_instance: Monosublocus,
-                         check_in_locus=True):
+    def add_monosublocus(self, monosublocus_instance: Monosublocus, check_in_locus=True):
         """Wrapper to extract the transcript from the monosubloci and pass it to the constructor.
 
-        :param monosublocus_instance
+        :param monosublocus_instance: the instance to add
         :type monosublocus_instance: Monosublocus
+
+        :param check_in_locus: boolean flag - should we perform checks to verify the monosublocus is compatible?
         """
+
         assert len(monosublocus_instance.transcripts) == 1
-        # if len(self.transcripts) == 0:
-        #     check_in_locus = False
-        # else:
-        #     check_in_locus = True
         for tid in monosublocus_instance.transcripts:
             self.add_transcript_to_locus(monosublocus_instance.transcripts[tid],
                                          check_in_locus=check_in_locus)
 
     def __str__(self, print_cds=False, source_in_name=True):
-        """This special method is explicitly *not* implemented;
-        this Locus object is not meant for printing, only for computation!
-
-        :param print_cds: flag. Ignored.
+        """
+        Method to print out the sublocus lines in GFF format.
+        :param print_cds: flag. Should we print the CDS?
+        :param source_in_name: boolean flag. Should we add the original source of the transcript to the ID?
         """
 
         lines = []
@@ -222,7 +212,6 @@ class MonosublocusHolder(Sublocus, Abstractlocus):
 
         loci = []
         while len(graph) > 0:
-            # cliques = self.find_cliques(graph)
             communities = self.find_communities(graph)
             to_remove = set()
             for locus_comm in communities:

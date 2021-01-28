@@ -1020,8 +1020,7 @@ it is marked as having 0 retained introns. This is an error.".format(transcript=
             self.exons.update(self[tid].exons)
         return templates
 
-    def _find_communities_boundaries(self, five_graph, three_graph) -> Dict[str, List[Union[bool, Transcript],
-                                                                                      Union[bool, Transcript]]]:
+    def _find_communities_boundaries(self, five_graph, three_graph) -> Dict[str, List[Union[bool, Transcript]]]:
 
         """This private method will navigate the 5' and 3' graph to assign a template for expansion to each target.
         It returns a dictionary where each transcript in the locus is assigned a bi-tuple - one item is the

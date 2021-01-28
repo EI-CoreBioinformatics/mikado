@@ -59,7 +59,7 @@ def print_toml_config(config, out, no_files=False):
                 level = getattr(level, key)
             metadata = level.__dataclass_fields__[keys[-1]].metadata
             comment = []
-            description = metadata.get("description", None)
+            description = metadata.get("metadata", dict()).get("description", None)
             if description:
                 comment += ["# " + _ for _ in textwrap.wrap(description)]
             if hasattr(getattr(level, keys[-1]), "__dataclass_fields__"):
@@ -71,7 +71,8 @@ def print_toml_config(config, out, no_files=False):
             if "=" in line:
                 key = line.split("=")[0].strip()
                 try:
-                    description = level.__dataclass_fields__[key].metadata.get("description", None)
+                    meta = level.__dataclass_fields__[key].metadata
+                    description = meta.get("metadata", dict()).get("description", None)
                 except AttributeError:
                     raise AttributeError(key, level)
                 except KeyError:
@@ -185,7 +186,7 @@ def print_yaml_config(config, out, no_files=False):
             except AttributeError:
                 raise AttributeError(key, level)
             comment = []
-            description = metadata.get("description", None)
+            description = metadata.get("metadata", dict()).get("description", None)
             if description:
                 comment += ["# " + _ for _ in textwrap.wrap(description)]
             lines.append(line)
@@ -207,7 +208,8 @@ def print_yaml_config(config, out, no_files=False):
                         break
                     level = _
                 try:
-                    description = level.__dataclass_fields__[key].metadata.get("description", None)
+                    meta = level.__dataclass_fields__[key].metadata
+                    description = meta.get("metadata", dict()).get("description", None)
                 except AttributeError:
                     raise AttributeError(key, level)
                 except KeyError:

@@ -21,7 +21,6 @@ sqlalchemy-utils>=0.34.1
 tabulate>=0.8.5
 pytest>=5.4.1
 rapidjson>=1.0.0
-intervaltree
 toml>=0.10.0
 pyfaidx>=0.5.8
 dataclasses; python_version < '3.7'

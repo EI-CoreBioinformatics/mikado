@@ -34,7 +34,7 @@
 Mikado: pick your transcript
 ############################
 
-|releases| |downloads| |conda downloads| |python_36_badge| |python_37_badge| |python_38_badge| |python_39_badge| |travis_status| |coverage|
+|releases| |downloads| |conda downloads| |python_36_badge| |python_37_badge| |python_38_badge| |python_39_badge| |gh_action_status| |coverage|
 
 :Authors:
     Venturini Luca,

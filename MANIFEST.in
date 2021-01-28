@@ -2,6 +2,7 @@ include DESCRIPTION.md
 include README.md
 include AUTHORS
 include CHANGELOG.md
+include LICENSE.txt
 include requirements.txt
 recursive-include Mikado *pyx
 recursive-include Mikado *pxd

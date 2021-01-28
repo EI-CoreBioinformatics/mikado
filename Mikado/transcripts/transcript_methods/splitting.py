@@ -4,16 +4,11 @@ multiple transcripts, if the conditions are met (multiple ORFs present and BLAST
 supporting them being part of the same transcript).
 """
 
-from sys import version_info
-
 from ...configuration.daijin_configuration import DaijinConfiguration
-if version_info.minor < 5:
-    from sortedcontainers import SortedDict
-else:
-    from collections import OrderedDict as SortedDict
+from collections import OrderedDict as SortedDict
 import collections
 import operator
-from ...utilities.intervaltree import IntervalTree, Interval
+from ...utilities import IntervalTree
 from ...utilities import overlap
 from ...exceptions import InvalidTranscript
 from ...parsers.blast_utils import merge

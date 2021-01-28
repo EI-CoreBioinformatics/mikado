@@ -11,7 +11,7 @@ import os
 from ..utilities.log_utils import create_default_logger, create_null_logger
 import random
 from ..utilities import to_region, percentage
-from ..utilities.intervaltree import IntervalTree, Interval
+from ..utilities import IntervalTree, Interval
 from ..configuration.configurator import load_and_validate_config
 
 

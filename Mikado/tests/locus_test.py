@@ -19,7 +19,7 @@ from ..transcripts.reference_gene import Gene
 from ..utilities.log_utils import create_null_logger, create_default_logger
 from ..utilities import overlap
 import itertools
-from ..utilities.intervaltree import Interval
+from ..utilities import Interval
 from .. import loci
 import pickle
 import inspect

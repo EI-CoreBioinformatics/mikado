@@ -20,7 +20,7 @@ from ..accountant import Accountant
 from ..contrast import compare as c_compare
 from ..resultstorer import ResultStorer
 from ...exceptions import InvalidTranscript, InvalidCDS
-from ...utilities.intervaltree import IntervalTree
+from ...utilities import IntervalTree
 import msgpack
 import tempfile
 from ..reference_preparation.gene_dict import GeneDict

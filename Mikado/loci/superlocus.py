@@ -34,7 +34,7 @@ from collections import OrderedDict as SortedDict
 from .locus import Locus
 from .excluded import Excluded
 from typing import Union
-from ..utilities.intervaltree import Interval, IntervalTree
+from ..utilities import Interval, IntervalTree
 from itertools import combinations
 import random
 

@@ -10,15 +10,11 @@ from . import dbutils
 from . import log_utils
 import collections
 import gzip
-import numpy
-import json
 from itertools import zip_longest
 from .overlap import overlap
 from . import intervaltree
-from .intervaltree import Interval, IntervalTree
-from collections import Counter
-
-from ..exceptions import InvalidJson
+from .f1 import calc_f1
+from .intervaltree import Interval, IntervalTree, IntervalNode
 import sys
 
 

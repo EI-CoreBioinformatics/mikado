@@ -32,7 +32,7 @@ from .transcript_methods import splitting, retrieval
 from .transcript_methods.finalizing import finalize
 from .transcript_methods.printing import create_lines_cds
 from .transcript_methods.printing import create_lines_no_cds, create_lines_bed, as_bed12
-from ..utilities.intervaltree import Interval, IntervalTree
+from ..utilities import Interval, IntervalTree
 from ..utilities.namespace import Namespace
 from ..configuration.configuration import MikadoConfiguration
 from ..configuration.daijin_configuration import DaijinConfiguration
@@ -1326,6 +1326,10 @@ exon data is on a different chromosome, {exon_data.chrom}. \
 
         """
         Method to recreate a transcript object from a JSON dump or a dictionary.
+        :param state: the dumped Transcript object
+        :param trust_orf: boolean flag. If set to True, the ORF will be accepted even if it is formally invalid.
+        :param accept_undefined_multi: boolean flag. If True, the transcript will be valid even if it multiexonic
+        but with an undefined strand.
         :return:
         """
 

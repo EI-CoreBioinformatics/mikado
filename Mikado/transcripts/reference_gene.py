@@ -10,6 +10,8 @@ import copy
 import logging
 import operator
 from sys import intern
+from typing import Union, Iterable
+
 from .transcript import Transcript
 from .transcriptcomputer import TranscriptComputer
 from ..exceptions import InvalidTranscript, InvalidCDS
@@ -28,8 +30,20 @@ class Gene:
 
     __name__ = "gene"
 
-    def __init__(self, transcr: [None, Transcript], gid=None, logger=create_null_logger(),
+    def __init__(self, transcr: Union[None, Transcript], gid=None, logger=create_null_logger(),
                  only_coding=False, use_computer=False):
+
+        """Class describing a generic Gene object.
+        :param transcr: either None or the transcript to initialise the Gene with.
+        :type transcr: (None|Transcript)
+        :param gid: the gene ID
+        :type transcr: (None|str)
+        :type logger: (None|logging.Logger)
+        :param only_coding: boolean flag. If True, only accept coding transcripts
+        :param use_computer: boolean flag. If True, use the TranscriptComputer class instead of the vanilla Transcript
+        class. This is necessary for calculating statistics (see `mikado util stats`)
+        """
+
 
         self.transcripts = dict()
         self.__logger = None
@@ -113,6 +127,7 @@ class Gene:
             return item in self.transcripts.values()
 
     def keys(self):
+        """Keys of the transcript dictionary"""
         return self.transcripts.keys()
 
     @property
@@ -179,7 +194,7 @@ class Gene:
 
     def add_exon(self, row):
         """
-
+        Add an exon to the transcripts of the class. The exon should have clearly marked its origin.
         :param row:
         :type row: (GtfLine | GffLine)
         :return:
@@ -315,7 +330,17 @@ class Gene:
 
         return state
 
-    def load_dict(self, state, exclude_utr=False, protein_coding=False, trust_orf=False):
+    def load_dict(self, state: dict, exclude_utr=False, protein_coding=False, trust_orf=False):
+
+        """
+        Method to reconstitute a Gene object from a dictionary/JSON-like dump
+        :param state: Gene dump
+        :type state: dict
+        :param exclude_utr: whether to remove UTRs from incoming transcripts.
+        :param protein_coding: Whether to only consider coding transcripts for this gene
+        :param trust_orf: parameter to be passed to Transcript.load_dict
+        :return:
+        """
 
         for key in ["chrom", "source", "start", "end", "strand", "id"]:
             setattr(self, key, state[key])
@@ -373,7 +398,7 @@ class Gene:
     def __str__(self):
         return self.format("gff3")
 
-    def __iter__(self) -> Transcript:
+    def __iter__(self) -> Iterable[Transcript]:
         """Iterate over the transcripts attached to the gene."""
         return iter(self.transcripts.values())
 
@@ -417,6 +442,16 @@ class Gene:
         return False
 
     def format(self, format_name, transcriptomic=False):
+
+        """Method for creating the necessary lines to be printed.
+        Accepted formats are gff, gff3 (equivalent), bed12, bed (equivalent), gtf.
+
+        :param format_name: the name of the format to create
+        :type format_name: str
+        :param transcriptomic: whether to create lines in genomic (False) or transcriptomic (True) coordinates.
+        :type transcriptomic: bool
+
+        """
 
         if format_name not in ("gff", "gtf", "gff3", "bed12", "bed"):
             raise ValueError(

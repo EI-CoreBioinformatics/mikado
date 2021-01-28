@@ -14,9 +14,9 @@ from ..transcripts.transcript import Transcript
 from ..exceptions import NotInLocusError, InvalidJson
 from ..utilities import overlap, merge_ranges, rhasattr, rgetattr, default_for_serialisation
 import operator
-from ..utilities.intervaltree import Interval, IntervalTree
+from ..utilities import Interval, IntervalTree
 from ..utilities.log_utils import create_null_logger
-from ..scales.contrast import compare as c_compare
+from ..scales import c_compare
 import random
 from functools import partial
 try:

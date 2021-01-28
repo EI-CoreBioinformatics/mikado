@@ -326,6 +326,11 @@ we will not reverse it")
 
     def check_orf(self):
 
+        """
+        Method to check that the transcript ORF makes sense (no internal stop codons and the like).
+        If it fails, the transcript will have its ORF removed.
+        """
+
         self.has_start_codon = False
         self.has_stop_codon = False
 
@@ -417,7 +422,7 @@ we will not reverse it")
     @property
     def fasta(self):
         """
-        This property calculates and returns the FASTA sequence associated with
+        This property calculates and returns the FASTA sequence (with header) associated with
         the transcript instance.
         The FASTA sequence itself will be formatted to be in lines with 60 characters
         (the standard).

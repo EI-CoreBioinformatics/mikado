@@ -15,7 +15,8 @@ From: alpine
 
     export PYTHONDONTWRITEBYTECODE=true
     apk add --update --no-cache ncurses libbz2 xz zlib
-    apk add --virtual=deps --update --no-cache ncurses-dev musl-dev g++ make zlib-dev bzip2-dev xz-dev curl-dev tar autoconf automake wget
+    apk add --virtual=deps --update --no-cache ncurses-dev musl-dev g++ make zlib-dev bzip2-dev xz-dev curl-dev \
+        tar autoconf automake wget rapidjson
     export hts_version=1.11;
     wget https://github.com/samtools/samtools/releases/download/${hts_version}/samtools-${hts_version}.tar.bz2 -P /usr/local/src/
     cd /usr/local/src/ && tar xjvf samtools-${hts_version}.tar.bz2 
@@ -53,11 +54,5 @@ From: alpine
 %apprun daijin
     daijin "@"
 
-%apprun prodigal
-    prodigal "@"
-
 %apprun samtools
     samtools "@"
-
-%apprun diamond
-    diamond "@"

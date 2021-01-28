@@ -30,7 +30,7 @@ except ImportError:
 
 system_hpc_yaml = pkg_resources.resource_filename("Mikado", os.path.join("daijin", "hpc.yaml"))
 
-min_version("3.5")
+min_version("3.6")
 
 TIME_START = time.time()
 NOW = datetime.datetime.fromtimestamp(TIME_START).strftime('%Y-%m-%d_%H:%M:%S')
@@ -246,7 +246,7 @@ def assemble_transcripts_pipeline(args):
     """
     This section of Daijin is focused on creating the necessary configuration for
     driving the pipeline.
-    :param args:
+    :param args: CLI arguments from argparse
     :return:
     """
     if args.config.endswith("json"):
@@ -440,7 +440,7 @@ def mikado_pipeline(args):
 
     """
     This function launches the sub-section dedicated to the Mikado pipeline.
-    :param args:
+    :param args: argparse Namespace
     :return:
     """
 

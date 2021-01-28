@@ -4,8 +4,7 @@
 This module defines the last object to be created during the picking,
 i.e. the locus.
 """
-from typing import Union
-
+from typing import Union, Dict, List
 import collections
 import itertools
 import operator
@@ -217,7 +216,7 @@ class Locus(Abstractlocus):
                 self.logger.debug("No transcripts with retained introns found.")
             if self.perform_padding is True and len(self.transcripts) > 1:
                 self.logger.debug("Starting padding procedure for %s", self.id)
-                failed = self.__launch_padding()
+                failed = self.launch_padding()
                 if failed:
                     # Restart the padding procedure
                     continue
@@ -256,7 +255,9 @@ class Locus(Abstractlocus):
         self._finalized = True
         return
 
-    def __launch_padding(self):
+    def launch_padding(self):
+
+        """Method to launch the padding procedure."""
 
         self.logger.debug("Launched padding for %s", self.id)
         failed = False
@@ -341,6 +342,9 @@ class Locus(Abstractlocus):
         return failed
 
     def _remove_retained_introns(self):
+        """Method to remove from the locus any transcript that has retained introns and/or their CDS disrupted by
+        a retained intron event."""
+
         self.logger.debug("Now checking the retained introns for %s", self.id)
         removed = set()
         while True:
@@ -385,6 +389,9 @@ it is marked as having 0 retained introns. This is an error.".format(transcript=
         return removed
 
     def __remove_redundant_after_padding(self):
+
+        """Private method to remove duplicate copies of transcripts after the padding procedure."""
+
 
         # First thing: calculate the class codes
         to_remove = set()
@@ -469,10 +476,6 @@ it is marked as having 0 retained introns. This is an error.".format(transcript=
                 self.remove_transcript_from_locus(tid)
 
         return to_remove
-
-    def as_dict(self):
-        # self.calculate_scores()
-        return super().as_dict()
 
     def remove_transcript_from_locus(self, tid: str):
 
@@ -579,6 +582,13 @@ it is marked as having 0 retained introns. This is an error.".format(transcript=
         self.locus_verified_introns.update(transcript.verified_introns)
 
     def __check_as_requirements(self, transcript: Transcript, is_reference=False) -> bool:
+        """Private method to evaluate a transcript for inclusion in the locus.
+        This method uses the "as_requirements" section of the configuration file to perform the
+        evaluation.
+        Please note that if "check_references" is False and the transcript is marked as reference, this function
+        will always evaluate to True (ie the transcript is valid).
+        """
+
 
         to_be_added = True
         if is_reference is True and self.configuration.pick.run_options.check_references is False:
@@ -604,8 +614,7 @@ it is marked as having 0 retained introns. This is an error.".format(transcript=
         return to_be_added
 
     def is_intersecting(self, *args):
-        """Not implemented: this function makes no sense for a single-transcript container.
-        :param args: any argument to this nethod will be ignored.
+        """Not implemented: See the alternative splicing definition functions.
         """
         raise NotImplementedError("""Loci do not use this method, but rather
         assess whether a transcript is a splicing isoform or not.""")
@@ -659,15 +668,14 @@ it is marked as having 0 retained introns. This is an error.".format(transcript=
         assert self.id == current_id
         return fragment
 
-    def other_is_fragment(self,
-                          other):
+    def other_is_fragment(self, other):
         """
+        If the 'other' locus is marked as a potential fragment (see 'is_putative_fragment'), then this function
+        will check whether the other locus is within the distance and with the correct comparison class code to be
+        marked as a fragment.
+
         :param other: another Locus to compare against
         :type other: Locus
-
-        This function checks whether another *monoexonic* Locus
-        *on the opposite strand* is a fragment,by checking its classification
-        according to Assigner.compare.
         """
 
         if not isinstance(self, type(other)):
@@ -709,12 +717,12 @@ it is marked as having 0 retained introns. This is an error.".format(transcript=
 
     def calculate_metrics(self, tid: str):
         """
-        :param tid: the name of the transcript to be analysed
-        :type tid: str
-
         This function will calculate the metrics for a transcript which are relative in nature
         i.e. that depend on the other transcripts in the sublocus. Examples include the fraction
         of introns or exons in the sublocus, or the number/fraction of retained introns.
+
+        :param tid: the name of the transcript to be analysed
+        :type tid: str
         """
 
         self.logger.debug("Calculating metrics for %s", tid)
@@ -796,6 +804,8 @@ it is marked as having 0 retained introns. This is an error.".format(transcript=
                     del self.scores[partial]
 
     def print_metrics(self):
+        """Overloading of the base method as in loci we might want to print data for the double ORFs."""
+
         if self.configuration.pick.output_format.report_all_orfs is False:
             yield from super().print_metrics()
         else:
@@ -853,7 +863,6 @@ it is marked as having 0 retained introns. This is an error.".format(transcript=
         transcript.
         To do so, it compares the candidate against all transcripts in the Locus, and calculates
         the class code using scales.Assigner.compare.
-        If all the matches are "n" or "j", the transcript is considered as an AS event.
 
         :param other: another transcript to compare against
         :type other: Transcript
@@ -950,6 +959,11 @@ it is marked as having 0 retained introns. This is an error.".format(transcript=
     def pad_transcripts(self) -> set:
 
         """
+        This method will perform the padding of the transcripts.
+        In a nutshell:
+        - First, check which transcripts are compatible at the 5' and 3' end. Assign a "template" for each expansion.
+        Note that the same transcript might be the template at the 5' but marked as extendable at the 3', or viceversa.
+        - Call "expand_transcript" on each couple of template-target.
         """
 
         try:
@@ -958,7 +972,7 @@ it is marked as having 0 retained introns. This is an error.".format(transcript=
             else:
                 self.fai = pysam.FastaFile(self.configuration.reference.genome)
         except KeyError:
-            raise KeyError(self.configuration.keys())
+            raise KeyError(self.configuration.reference)
 
         five_graph = self.define_graph(objects=self.transcripts, inters=self._share_extreme, three_prime=False)
         three_graph = self.define_graph(objects=self.transcripts, inters=self._share_extreme, three_prime=True)
@@ -1006,7 +1020,13 @@ it is marked as having 0 retained introns. This is an error.".format(transcript=
             self.exons.update(self[tid].exons)
         return templates
 
-    def _find_communities_boundaries(self, five_graph, three_graph):
+    def _find_communities_boundaries(self, five_graph, three_graph) -> Dict[str, List[Union[bool, Transcript]]]:
+
+        """This private method will navigate the 5' and 3' graph to assign a template for expansion to each target.
+        It returns a dictionary where each transcript in the locus is assigned a bi-tuple - one item is the
+        template at the 5', the other the template at the 3'.
+        If no valid template is found, the corresponding item will be the boolean False.
+        """
 
         five_found = set()
 
@@ -1052,7 +1072,15 @@ it is marked as having 0 retained introns. This is an error.".format(transcript=
 
         return __to_modify
 
-    def define_graph(self, objects: dict, inters=None, three_prime=False):
+    def define_graph(self, objects: dict, inters=None, three_prime=False) -> nx.DiGraph:
+
+        """Method to determine the internal graph representation to be used to determine padding templates.
+
+        :param objects: the dictionary containing the transcripts
+        :param inters: the "is_intersecting" function to use (must evaluate to boolean). If None is provided, the
+        method _share_extreme will be used.
+        :param three_prime: whether to construct the graph for the 5' (False) or 3' (True) ending.
+        """
 
         graph = nx.DiGraph()
         graph.add_nodes_from(objects.keys())
@@ -1109,6 +1137,19 @@ it is marked as having 0 retained introns. This is an error.".format(transcript=
 
     def _share_five_prime(self, first: Transcript, second: Transcript):
 
+        """
+        Method to determine whether two transcripts are compatible for expansion at the 5'.
+        To be compatible:
+        - their starts must be different
+        - the number of splicing junctions to add must be at most the parameter "ts_max_splices"
+        - the total number of bases to be added must be at most "ts_max_distance"
+
+        :param first:
+        :param second:
+        :return:
+        """
+
+
         reason = None
         ts_splices = 0
         ts_distance = 0
@@ -1156,6 +1197,18 @@ it is marked as having 0 retained introns. This is an error.".format(transcript=
         return decision
 
     def _share_three_prime(self, first: Transcript, second: Transcript):
+
+        """
+        Method to determine whether two transcripts are compatible for expansion at the 3'.
+        To be compatible:
+        - their starts must be different
+        - the number of splicing junctions to add must be at most the parameter "ts_max_splices"
+        - the total number of bases to be added must be at most "ts_max_distance"
+
+        :param first:
+        :param second:
+        :return:
+        """
 
         if second.end == first.end:
             self.logger.debug("%s and %s end at the same coordinate. No expanding.", first.id, second.id)
@@ -1284,16 +1337,6 @@ it is marked as having 0 retained introns. This is an error.".format(transcript=
         self.scores_calculated = False
         self.metrics_calculated = False
 
-        # if self.scores_calculated is True:
-        #     for tid in mapper:
-        #         self.scores[mapper[tid]] = self.scores.pop(tid)
-        #         self._metrics[mapper[tid]] = self._metrics.pop(tid)
-        # if self.metrics_calculated is True:
-        #     for index in range(len(self.metric_lines_store)):
-        #         self.metric_lines_store[index]["tid"] = mapper[self.metric_lines_store[index]["tid"]]
-        #         self.metric_lines_store[index]["parent"] = self.id
-
-
     # pylint: enable=invalid-name,arguments-differ
 
     @property
@@ -1346,14 +1389,17 @@ it is marked as having 0 retained introns. This is an error.".format(transcript=
 
     @property
     def ts_distance(self):
+        """Alias for self.configuration.pick.alternative_splicing.ts_distance"""
         return self.configuration.pick.alternative_splicing.ts_distance
 
     @property
     def ts_max_splices(self):
+        """Alias for self.configuration.pick.alternative_splicing.ts_max_splices"""
         return self.configuration.pick.alternative_splicing.ts_max_splices
 
     @property
     def has_reference_transcript(self):
+        """Checks whether any transcript in the locus is marked as reference."""
         return any(self.transcripts[transcript].is_reference for transcript in self)
 
     @property
@@ -1434,8 +1480,6 @@ def expand_transcript(transcript: Transcript,
     transcript.strip_cds()
     transcript.unfinalize()
     assert strand == transcript.strand
-    downstream = 0
-    down_exons = []
 
     upstream, up_exons, new_first_exon, up_remove = _enlarge_start(transcript, backup, start_transcript)
     downstream, up_exons, down_exons, down_remove = _enlarge_end(transcript,

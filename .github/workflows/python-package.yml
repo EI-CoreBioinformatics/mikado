@@ -1,6 +1,6 @@
 # This workflow will install Python dependencies, run tests and lint with a variety of Python versions
 # For more information see: https://help.github.com/actions/language-and-framework-guides/using-python-with-github-actions
-name: Python package
+name: Mikado
 on:
   [ push, pull_request ]
 jobs:
@@ -46,7 +46,7 @@ jobs:
       run: |
         mamba install -y -c conda-forge -n test -- pytest-cov
         gcc --help
-        mamba install -n test -c bioconda -c conda-forge -y stringtie scallop gmap star hisat2 prodigal blast diamond transdecoder conda-forge::gnuplot kallisto samtools gffread
+        mamba install -n test -c bioconda -c conda-forge -y bioconda::portcullis stringtie scallop gmap star hisat2 prodigal blast diamond transdecoder conda-forge::gnuplot kallisto samtools gffread
         pip install -r requirements.txt
         pip install Cython
         python setup.py develop

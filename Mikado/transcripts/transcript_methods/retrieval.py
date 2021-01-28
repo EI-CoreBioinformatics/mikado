@@ -5,10 +5,10 @@ from the database/dictionary provided during the pick operation.
 
 import operator
 from itertools import groupby
-
+from typing import List
 from sqlalchemy import and_
 from sqlalchemy.orm.session import sessionmaker
-
+from ...parsers.bed12 import BED12
 from ...serializers.junction import Junction
 from ..clique_methods import define_graph, find_cliques, find_communities
 from ...utilities import dbutils
@@ -309,7 +309,7 @@ def load_information_from_db(transcript, configuration, introns=None, session=No
     transcript.logger.debug("Loading {0}".format(transcript.id))
     transcript.configuration = configuration
 
-    __load_verified_introns(transcript, data_dict, introns)
+    __load_verified_introns(transcript, verified_introns=introns)
     if data_dict is not None:
         retrieve_from_dict(transcript, data_dict)
     else:
@@ -373,7 +373,7 @@ def load_information_from_db(transcript, configuration, introns=None, session=No
     transcript.logger.debug("Loaded data for %s", transcript.id)
 
 
-def retrieve_from_dict(transcript, data_dict):
+def retrieve_from_dict(transcript, data_dict: dict):
     """
     Method to retrieve transcript data directly from a dictionary.
 
@@ -381,7 +381,7 @@ def retrieve_from_dict(transcript, data_dict):
     :type transcript: Mikado.loci_objects.transcript.Transcript
 
     :param data_dict: the dictionary with loaded data from DB
-    :type data_dict: (None | dict)
+    :type data_dict: dict
     """
 
     transcript.logger.debug(
@@ -443,20 +443,20 @@ def retrieve_from_dict(transcript, data_dict):
                             transcript.id)
 
 
-def find_overlapping_cds(transcript, candidates: list) -> list:
+def find_overlapping_cds(transcript, candidates: list) -> List[BED12]:
     """
-    Wrapper for the Abstractlocus method, used for finding overlapping ORFs.
-    It will pass to the function the class's "is_overlapping_cds" method
-    (which would be otherwise be inaccessible from the Abstractlocus class method).
-    As we are interested only in the communities, not the cliques,
-    this wrapper discards the cliques
-    (first element of the Abstractlocus.find_communities results)
+    Method to identify overlapping ORFs using a clique-algorithm. If any is found, ORFs are discarded until
+    all ORFs are isolated from each other.
+    This method will also discard ORFs that are marked as invalid by the BED12 class and/or do not meet the minimum
+    requirements set up in the configuration.
+
+    In case of overlapping ORFs, Mikado will prefere
 
     :param transcript: the Transcript instance
-    :type transcript: Mikado.loci_objects.transcript.Transcript
+    :type transcript: Mikado.transcripts.Transcript
 
     :param candidates: candidate ORFs to analyse
-    :type candidates: list[Mikado.serializers.orf.Orf]
+    :type candidates: list[BED12]
 
     """
 
@@ -551,11 +551,6 @@ def __create_internal_orf(transcript, orf):
         assert transcript.start <= current_end < current_start <= transcript.end, (
             transcript.start, current_end, current_start, transcript.end
         )
-        # This is not true in the case of truncated ORFs!
-        # assert (current_start - current_end + 1) % 3 == 0, (
-        #     current_end, current_start,
-        #     current_start - current_end + 1
-        # )
         cds_exons.append(("exon", transcript.exons[0]))
         if current_end > transcript.start:
             cds_exons.append(("UTR", tuple([transcript.start, current_end - 1])))
@@ -600,33 +595,28 @@ def __create_internal_orf(transcript, orf):
     return cds_exons
 
 
-def __load_verified_introns(transcript, data_dict=None, introns=None):
+def __load_verified_introns(transcript, verified_introns=None):
 
-    """This method will load verified junctions from the external
-    (usually the superlocus class).
+    """This method will load verified junctions from outside.
+    Verified introns can either be given as a set or alternatively they will be retrieved by opening
+    a connection to the Mikado database, using the information provided in the configuration.
 
     :param transcript: the Transcript instance
     :type transcript: Mikado.loci_objects.transcript.Transcript
 
-    :param data_dict: the dictionary with data to load
-    :type data_dict: (dict | None)
-
-    :param introns: verified introns
-    :type introns: (set | None)
+    :param verified_introns: verified introns
+    :type verified_introns: (set | None)
     """
 
     transcript.logger.debug("Checking introns; candidates %s", transcript.introns)
-    if data_dict is None:
+    if verified_introns is None:
         transcript.logger.debug("Checking introns using the database for %s",
                                 transcript.id)
 
         for intron in transcript.introns:
-            # Disable checks as the hybridproperties confuse
-            # both pycharm and pylint
+            # Disable checks as the hybridproperties confuse both pycharm and pylint
             # noinspection PyCallByClass,PyTypeChecker
             # pylint: disable=no-value-for-parameter
-            # chrom_id = self.session.query(Chrom).filter(Chrom.name == self.chrom).one().chrom_id
-            # import sqlalchemy
             for ver_intron in transcript.session.query(Junction).filter(and_(
                     Junction.chrom == transcript.chrom,
                     intron[0] == Junction.junction_start,
@@ -639,17 +629,17 @@ def __load_verified_introns(transcript, data_dict=None, introns=None):
 
     else:
         transcript.logger.debug("Checking introns using data structure for %s; introns: %s",
-                                transcript.id, introns)
+                                transcript.id, verified_introns)
         for intron in transcript.introns:
             transcript.logger.debug("Checking intron %s%s:%d-%d for %s",
                                     transcript.chrom, transcript.strand,
                                     intron[0], intron[1], transcript.id)
-            if (intron[0], intron[1], transcript.strand) in introns:
+            if (intron[0], intron[1], transcript.strand) in verified_introns:
                 transcript.logger.debug("Verified intron %s%s:%d-%d for %s",
                                         transcript.chrom, transcript.strand,
                                         intron[0], intron[1], transcript.id)
                 transcript.verified_introns.add(intron)
-            elif (intron[0], intron[1], None) in introns:
+            elif (intron[0], intron[1], None) in verified_introns:
                 transcript.logger.debug("Verified intron %s%s:%d-%d for %s",
                                         transcript.chrom, None,
                                         intron[0], intron[1], transcript.id)
@@ -669,9 +659,6 @@ def retrieve_orfs(transcript):
     :type transcript: Mikado.loci_objects.transcript.Transcript
 
     """
-
-    # if self.query_id is None:
-    #     return []
 
     trust_strand = transcript.configuration.pick.orf_loading.strand_specific
     min_cds_len = transcript.configuration.pick.orf_loading.minimal_orf_length

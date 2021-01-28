@@ -1,13 +1,16 @@
 import dataclasses
+from typing import Union
+
+from argparse import Namespace
+
 try:
     import rapidjson as json
 except (ImportError, ModuleNotFoundError):
     import json
 import os
 import io
-import tomlkit
 import yaml
-from pkg_resources import resource_stream, resource_filename
+from pkg_resources import resource_stream
 from .configurator import check_all_requirements, check_scoring
 from .configurator import create_cluster_config
 from . import print_config, DaijinConfiguration
@@ -21,24 +24,15 @@ except ImportError:
     from yaml import SafeLoader as yLoader
 
 
-def _substitute_conf(schema):
-    """Hack to solve my resolution JSON problems. It will change the $ref to the absolute location
-    of this file."""
-    base = resource_filename("Mikado", "configuration")
+def _parse_sample_sheet(sample_sheet, config: DaijinConfiguration, logger) -> DaijinConfiguration:
 
-    for key in schema:
-        if key == "$ref":
-            schema[key] = "file://" + base + "/" + schema[key]
-        elif isinstance(schema[key], dict):
-            schema[key] = _substitute_conf(schema[key])
-        else:
-            continue
-    return schema
-
-
-def _parse_sample_sheet(sample_sheet, config: DaijinConfiguration, logger):
-
-    """Mini-function to parse the sample sheet."""
+    """Mini-function to parse the sample sheet for Daijin.
+    :param sample_sheet: file name of the sample sheet in tabular format
+    :type sample_sheet: str
+    :param config: configuration object
+    :param logger: logger instance
+    :rtype DaijinConfiguration
+    """
 
     config.short_reads.r1 = []
     config.short_reads.r2 = []
@@ -87,9 +81,13 @@ def _parse_sample_sheet(sample_sheet, config: DaijinConfiguration, logger):
     return config
 
 
-def _parse_reads_from_cli(args, config: DaijinConfiguration, logger):
+def _parse_reads_from_cli(args, config: DaijinConfiguration, logger) -> DaijinConfiguration:
 
-    """Small function to infer the reads from the CLI."""
+    """Small function to infer the reads from the CLI.
+    :param args: namespace coming from argparse
+    :param config: initialised configuration object
+    :param logger: logger instance
+    """
 
     if len(args.r1) != len(args.r2):
         exc = InvalidJson(
@@ -125,7 +123,19 @@ def _parse_reads_from_cli(args, config: DaijinConfiguration, logger):
     return config
 
 
-def create_daijin_config(args, config=None, level="ERROR", piped=False):
+def create_daijin_config(args: Namespace, config=None, level="ERROR", piped=False) -> Union[DaijinConfiguration, None]:
+
+    """
+    Function to create the Daijin configuration object given the CLI arguments.
+    :param args: argparse Namespace to use
+    :param config: either None or a pre-existing DaijinConfiguration object to update
+    :type config: (None|DaijinConfiguration)
+    :param level: logging level to use.
+    :type level: str
+    :param piped: boolean flag. If true, the updated DaijinConfiguration will be returned. Otherwise, the function
+    will write the configuration file to the output file specified in the args Namespace.
+    :return: (None|DaijinConfiguration)
+    """
 
     logger = create_default_logger("daijin_config", level=level)
 
@@ -189,7 +199,8 @@ def create_daijin_config(args, config=None, level="ERROR", piped=False):
     if failed:
         sys.exit(1)
 
-    # TODO: This is probably something about initialisation, check against DaijinConfiguration object
+    # Methods that need to be used need to have at least one item in the list of execution parameters to be used.
+    # Here we are telling Daijin that it will have to run these programs at least once with default parameters.
     for method in args.aligners:
         setattr(config.align_methods, method, [""])
     for method in args.asm_methods:

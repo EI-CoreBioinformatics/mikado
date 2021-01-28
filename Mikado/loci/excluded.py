@@ -73,7 +73,7 @@ class Excluded(Abstractlocus):
         it should not be printed out directly!"""
         raise NotImplementedError(message)
 
-    def filter_and_calculate_scores(self):
+    def filter_and_calculate_scores(self, check_requirements=True):
         """
         Suppress the method from the base class
         """
@@ -89,6 +89,5 @@ class Excluded(Abstractlocus):
 
     @classmethod
     def is_intersecting(cls):
-        """Present to fulfill the contract with Abstractlocus, but
-        it only raises a NotImplementedError"""
+        """Present to fulfill the contract with Abstractlocus, but it only raises a NotImplementedError"""
         raise NotImplementedError()

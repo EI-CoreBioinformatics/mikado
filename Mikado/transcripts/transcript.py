@@ -14,7 +14,7 @@ import re
 from ast import literal_eval
 from sys import intern, maxsize
 import operator
-import intervaltree
+from typing import List
 from sqlalchemy import and_
 from sqlalchemy import bindparam
 from sqlalchemy.ext import baked
@@ -32,7 +32,7 @@ from .transcript_methods import splitting, retrieval
 from .transcript_methods.finalizing import finalize
 from .transcript_methods.printing import create_lines_cds
 from .transcript_methods.printing import create_lines_no_cds, create_lines_bed, as_bed12
-from ..utilities.intervaltree import Interval, IntervalTree
+from ..utilities import Interval, IntervalTree
 from ..utilities.namespace import Namespace
 from ..configuration.configuration import MikadoConfiguration
 from ..configuration.daijin_configuration import DaijinConfiguration
@@ -683,10 +683,6 @@ class Transcript:
                 raise TypeError((exon_data, _gtype))
             if feature is None:
                 feature = "exon"
-        elif _gtype is intervaltree.Interval:
-            start, end = exon_data[0], exon_data[1]
-            if feature is None:
-                feature = "exon"
         elif _gtype is Interval:
             start, end = exon_data.start, exon_data.end
             if feature is None:
@@ -800,6 +796,8 @@ exon data is on a different chromosome, {exon_data.chrom}. \
         :param all_orfs: boolean flags that indicates whether all ORFs of a transcript
         should be printed, or only the primary one (default).
         :type: all_orfs: bool
+        :param transcriptomic: boolean flag. If True, the transcript will be printed in transcriptomic coordinates
+        rather than genomic.
         :return: the formatted string
         :rtype: str
         """
@@ -829,7 +827,7 @@ exon data is on a different chromosome, {exon_data.chrom}. \
 
         return "\n".join(lines)
 
-    def get_internal_orf_beds(self):
+    def get_internal_orf_beds(self) -> List[BED12]:
         """This method will return all internal ORFs as BED12 objects"""
 
         if hasattr(self, "cdna"):
@@ -977,6 +975,7 @@ exon data is on a different chromosome, {exon_data.chrom}. \
 
     @property
     def framed_codons(self):
+        """Return the list of codons as calculated by self.frames."""
 
         codons = list(zip(*[sorted(self.frames[0]), sorted(self.frames[1]), sorted(self.frames[2])]))
         if self.strand == "-":
@@ -1021,7 +1020,7 @@ exon data is on a different chromosome, {exon_data.chrom}. \
 
         return self.__internal_orf_transcripts
 
-    def split_by_cds(self):
+    def split_by_cds(self) -> List:
         """This method is used for transcripts that have multiple ORFs.
         It will split them according to the CDS information into multiple transcripts.
         UTR information will be retained only if no ORF is down/upstream.
@@ -1032,7 +1031,7 @@ exon data is on a different chromosome, {exon_data.chrom}. \
 
         return
 
-    def as_bed12(self):
+    def as_bed12(self) -> BED12:
 
         """
         Method to return a BED12 representation of the transcript object.
@@ -1047,6 +1046,7 @@ exon data is on a different chromosome, {exon_data.chrom}. \
 
         """
         Function to remove an exon properly from a Transcript instance.
+        This method will fail if the transcript has already been finalised.
         :param exon: remove an exon from a Transcript.
         :return:
         """
@@ -1181,8 +1181,8 @@ exon data is on a different chromosome, {exon_data.chrom}. \
         return copy.deepcopy(self)
 
     def finalize(self):
-        """Function to calculate the internal introns from the exons.
-        In the first step, it will sort the exons by their internal coordinates.
+        """Function to calculate internal properties and mark the transcript as ready for analysis.
+        Please see Mikado.transcripts.transcript_methods.finalizing.finalize for details.
         """
 
         if self.finalized is True:
@@ -1194,6 +1194,10 @@ exon data is on a different chromosome, {exon_data.chrom}. \
 
     def unfinalize(self):
 
+        """Function to mark the transcript as not ready for analysis and delete some of its internal properties.
+        Necessary for those cases where we need to change the transcript post-hoc, e.g. because the analysis
+        revealed that the CDS is malformed."""
+
         if self.finalized is False:
             return
 
@@ -1204,7 +1208,8 @@ exon data is on a different chromosome, {exon_data.chrom}. \
         self.finalized = False
 
     def reverse_strand(self):
-        """Method to reverse the strand"""
+        """Method to reverse the strand of a transcript.
+        WARNING: this will strip it of its CDS."""
         if self.strand == "+":
             self.strand = "-"
         elif self.strand == "-":
@@ -1218,7 +1223,7 @@ exon data is on a different chromosome, {exon_data.chrom}. \
 
     def load_information_from_db(self, configuration, introns=None, session=None,
                                  data_dict=None):
-        """This method will invoke the check for:
+        """This method will load information regarding the transcript from the provided database.
 
         :param configuration: Necessary configuration file
         :type configuration: (MikadoConfiguration|DaijinConfiguration)
@@ -1319,6 +1324,15 @@ exon data is on a different chromosome, {exon_data.chrom}. \
 
     def load_dict(self, state, trust_orf=False, accept_undefined_multi=False):
 
+        """
+        Method to recreate a transcript object from a JSON dump or a dictionary.
+        :param state: the dumped Transcript object
+        :param trust_orf: boolean flag. If set to True, the ORF will be accepted even if it is formally invalid.
+        :param accept_undefined_multi: boolean flag. If True, the transcript will be valid even if it multiexonic
+        but with an undefined strand.
+        :return:
+        """
+
         for key in ["chrom", "source",
                     "start", "end", "strand", "score",
                     "parent", "id"]:
@@ -1395,6 +1409,9 @@ exon data is on a different chromosome, {exon_data.chrom}. \
         self.finalize()
 
     def __get_calculated_stats(self):
+        """Private method to get the statistics calculated post-hoc.
+        Necessary for the serialisation."""
+
         d = dict()
         self.finalize()
         d["exon_num"] = self.exon_num
@@ -1434,6 +1451,8 @@ exon data is on a different chromosome, {exon_data.chrom}. \
         return d
 
     def __load_calculated_stats(self, state):
+        """Private method to reload the calculated stats from a dictionary dump."""
+
         self.__exon_num = state["exon_num"]
         self.__three_utr = state["three_utr"]
         self.__five_utr = state["five_utr"]
@@ -1508,8 +1527,10 @@ exon data is on a different chromosome, {exon_data.chrom}. \
     # ###################Class methods#####################################
 
     @classmethod
-    def is_overlapping_cds(cls, first, second):
+    def is_overlapping_cds(cls, first: BED12, second: BED12):
         """
+        Method to check whether two CDS overlap. These must be two valid BED12 objects.
+
         :param first: first ORF to check for overlap
         :param second: second ORF to check for overlap
         :rtype bool
@@ -1523,6 +1544,7 @@ exon data is on a different chromosome, {exon_data.chrom}. \
     @classmethod
     def is_intersecting(cls, first, second):
         """
+        Method to check whether two intervals intersect.
         :param first: first exon to check
         :type first: tuple([int, int])
 
@@ -1557,16 +1579,12 @@ exon data is on a different chromosome, {exon_data.chrom}. \
         return rend - lend
 
     @classmethod
-    def find_communities(cls, objects: list) -> list:
+    def find_communities(cls, objects: list) -> set:
         """
-
+        Method to find the communities within a list of objects.
         :param objects: a list of objects to analyse
         :type objects: list,set
 
-        Wrapper for the clique_methods functions.
-        As we are interested only in the communities, not the cliques,
-        this wrapper discards the cliques
-        (first element of the Abstractlocus.find_communities results)
         """
         data = dict((obj, obj) for obj in objects)
         communities = find_communities(define_graph(data, inters=cls.is_intersecting))
@@ -2109,21 +2127,6 @@ exon data is on a different chromosome, {exon_data.chrom}. \
 
         return self._combined_cds_introns
 
-        # if self.number_internal_orfs < 2:
-        #     return self.selected_cds_introns
-        # if self.number_internal_orfs == 0 or len(self.combined_cds) < 2:
-        #     return set()
-        #
-        # cintrons = []
-        # for position in range(len(self.combined_cds) - 1):
-        #     former = self.combined_cds[position]
-        #     latter = self.combined_cds[position + 1]
-        #     junc = intervaltree.Interval(former[1] + 1, latter[0] - 1)
-        #     if junc in self.introns:
-        #         cintrons.append(junc)
-        # cintrons = set(cintrons)
-        # return cintrons
-
     @property
     def selected_cds_introns(self):
         """This property returns the introns which are located between
@@ -2331,7 +2334,7 @@ index {3}, internal ORFs: {4}".format(
     def _calculate_cds_tree(self):
 
         """
-        :rtype: intervaltree.IntervalTree
+        :rtype: IntervalTree
         """
 
         self.__cds_tree = IntervalTree()
@@ -2357,7 +2360,8 @@ index {3}, internal ORFs: {4}".format(
     def segmenttree(self):
 
         """
-        :rtype: intervaltree.IntervalTree
+        Returns an intervaltree created with the exons and introns of the transcript.
+        :rtype: IntervalTree
         """
 
         if len(self.__segmenttree) != self.exon_num + len(self.introns):
@@ -2543,18 +2547,15 @@ index {3}, internal ORFs: {4}".format(
 
     @Metric
     def highest_cds_exons_num(self):
-        """Returns the number of CDS segments in the selected ORF
-        (irrespective of the number of exons involved)"""
+        """Returns the number of CDS segments in the selected ORF (irrespective of the number of exons involved)"""
         return self.__highest_cds_exons_num
-        # return len(list(filter(lambda x: x[0] == "CDS", self.selected_internal_orf)))
 
     highest_cds_exons_num.category = "CDS"
     highest_cds_exons_num.rtype = "int"
 
     @Metric
     def selected_cds_exons_fraction(self):
-        """Returns the fraction of CDS segments in the selected ORF
-        (irrespective of the number of exons involved)"""
+        """Returns the fraction of CDS segments in the selected ORF (irrespective of the number of exons involved)"""
         return self.__selected_cds_exons_fraction
 
     selected_cds_exons_fraction.category = "CDS"
@@ -2710,6 +2711,8 @@ index {3}, internal ORFs: {4}".format(
     utr_length.rtype = "int"
 
     def _set_basic_lengths(self):
+
+        """Private method to calculate the lengths of cdna, combined_cds, etc."""
 
         self.__exon_num = len(self.exons)
         if len(self.combined_cds) == 0:

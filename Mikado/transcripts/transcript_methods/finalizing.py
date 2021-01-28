@@ -3,8 +3,8 @@ This module provides the functions needed to check a transcript for consinstency
 e.g. reliability of the CDS/UTR, sanity of borders, etc.
 """
 
-from ...utilities.intervaltree import Interval, IntervalTree
-from ...utilities.overlap import overlap
+from ...utilities import Interval, IntervalTree
+from ...utilities import overlap
 from collections import defaultdict
 import operator
 # from sys import intern
@@ -65,7 +65,6 @@ def __basic_final_checks(transcript):
     _exons = [tuple([int(exon[0]), int(exon[1])]) for exon in _exons]
 
     new_exons = []
-    # invalid = False
 
     # Set the start and end automatically if none has been explicitly provided
     if transcript.start is None:
@@ -258,12 +257,10 @@ def __calculate_introns(transcript):
         for first, second in zip(transcript.selected_cds[:-1],
                                  transcript.selected_cds[1:]):
             assert first != second, (transcript.id, transcript.selected_cds)
-            # assert first[1] < second[0], (first, second)
             first, second = sorted([first, second])
             intron = tuple([first[1] + 1, second[0] - 1])
             if intron not in transcript.introns:
                 continue
-            # assert intron in transcript.introns, (transcript.id, intron, first, second)
             cds_introns.append(intron)
 
         cintrons = set(cds_introns)

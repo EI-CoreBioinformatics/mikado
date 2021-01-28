@@ -8,7 +8,6 @@ and is used to define all the possible children (subloci, monoloci, loci, etc.)
 
 # Core imports
 import collections
-from sys import version_info
 import networkx
 from sqlalchemy import bindparam
 from sqlalchemy.engine import Engine
@@ -25,20 +24,17 @@ from ..serializers.blast_serializer import Hit, Query, Target
 from ..serializers.external import External
 from ..serializers.junction import Junction, Chrom
 from ..serializers.orf import Orf
+from ..transcripts import Transcript
 from ..utilities import dbutils, grouper
 from ..scales.assignment.assigner import Assigner
 import bisect
 from sys import maxsize
 import functools
-
-if version_info.minor < 5:
-    from sortedcontainers import SortedDict
-else:
-    from collections import OrderedDict as SortedDict
+from collections import OrderedDict as SortedDict
 from .locus import Locus
 from .excluded import Excluded
 from typing import Union
-from ..utilities.intervaltree import Interval, IntervalTree
+from ..utilities import Interval, IntervalTree
 from itertools import combinations
 import random
 
@@ -73,8 +69,6 @@ class Superlocus(Abstractlocus):
     ))
 
     _complex_limit = (5000, 5000)
-
-    # Junction.strand == bindparam("strand")))
 
     # ###### Special methods ############
 
@@ -159,7 +153,7 @@ class Superlocus(Abstractlocus):
         else:
             self.logger.warning("Creating an empty superlocus as no transcript was provided!")
 
-    def __create_locus_lines(self, superlocus_line, new_id, print_cds=True):
+    def __create_locus_lines(self, superlocus_line: GffLine, new_id: str, print_cds=True):
 
         """
         Private method to prepare the lines for printing out loci
@@ -185,7 +179,7 @@ class Superlocus(Abstractlocus):
                 lines.append(locus_instance.__str__(print_cds=print_cds).rstrip())
         return lines
 
-    def __create_monolocus_holder_lines(self, superlocus_line, new_id, print_cds=True):
+    def __create_monolocus_holder_lines(self, superlocus_line: GffLine, new_id: str, print_cds=True):
 
         """
         Private method to prepare the lines for printing out monosubloci
@@ -212,7 +206,7 @@ class Superlocus(Abstractlocus):
 
         return lines
 
-    def __create_monolocus_lines(self, superlocus_line, new_id, print_cds=True):
+    def __create_monolocus_lines(self, superlocus_line: GffLine, new_id: str, print_cds=True):
 
         """
         Private method to prepare the lines for printing out monosubloci
@@ -239,7 +233,7 @@ class Superlocus(Abstractlocus):
 
         return lines
 
-    def __create_sublocus_lines(self, superlocus_line, new_id, print_cds=True):
+    def __create_sublocus_lines(self, superlocus_line: GffLine, new_id: str, print_cds=True):
         """
         Private method to prepare the lines for printing out subloci
         into GFF/GTF files.
@@ -281,11 +275,6 @@ class Superlocus(Abstractlocus):
     def __str__(self, level=None, print_cds=True):
 
         """
-        :param level: level which we wish to print for. Can be "loci", "subloci", "monosubloci"
-        :type level: str
-        :param print_cds: flag. If set to False, only the exonic information will be printed.
-        :type print_cds: bool
-
         This function will return the desired level of children loci.
         The keyword level accepts the following four values:
         - "None" - print whatever is available.
@@ -294,6 +283,11 @@ class Superlocus(Abstractlocus):
         - "subloci" - print the subloci.
 
         The function will then return the desired location in GFF3-compliant format.
+
+        :param level: level which we wish to print for. Can be "loci", "subloci", "monosubloci"
+        :type level: str
+        :param print_cds: flag. If set to False, only the exonic information will be printed.
+        :type print_cds: bool
         """
 
         if abs(self.start) == float("inf") or abs(self.start) == maxsize:
@@ -343,6 +337,7 @@ class Superlocus(Abstractlocus):
     # pylint: enable=arguments-differ
 
     def add_locus(self, locus: Locus):
+        """Method to add a Locus instance to the Superlocus instance."""
 
         for transcript in locus.transcripts.values():
             self.add_transcript_to_locus(transcript, check_in_locus=False)
@@ -353,6 +348,12 @@ class Superlocus(Abstractlocus):
         self.loci_defined = True
 
     def as_dict(self, with_subloci=True, with_monoholders=True):
+        """
+        Method to dump a superlocus into a dictionary representation.
+        :param with_subloci: boolean. Should we include the subloci in the dump?
+        :param with_monoholders: boolean. Should we include the monoholders in the dump?
+        :return:
+        """
 
         state = super().as_dict()
         state["start"], state["end"] = self.start, self.end
@@ -369,6 +370,8 @@ class Superlocus(Abstractlocus):
         return state
 
     def load_dict(self, state, print_subloci=True, print_monoloci=True, load_transcripts=True):
+        """Method to reconstitute a Superlocus from a dumped dictionary."""
+
         super().load_dict(state, load_transcripts=load_transcripts)
         self.loci = dict()
         for lid, stat in state["loci"].items():
@@ -459,8 +462,7 @@ class Superlocus(Abstractlocus):
             for new_locus in iter(sorted(new_loci)):
                 yield new_locus
 
-    # @profile
-    def connect_to_db(self, engine):
+    def connect_to_db(self, engine: Engine):
 
         """
         :param engine: the connection pool
@@ -479,7 +481,6 @@ class Superlocus(Abstractlocus):
         self.sessionmaker.configure(bind=self.engine)
         self.session = self.sessionmaker()
 
-    # @asyncio.coroutine
     def load_transcript_data(self, tid, data_dict):
         """
         :param tid: the name of the transcript to retrieve data for.
@@ -513,9 +514,8 @@ class Superlocus(Abstractlocus):
 
         del data_dict
         return to_remove, to_add
-        # @profile
 
-    def _load_introns(self, data_dict):
+    def _load_introns(self, data_dict: dict):
 
         """Private method to load the intron data into the locus.
         :param data_dict: Dictionary containing the preloaded data, if available.
@@ -573,6 +573,17 @@ class Superlocus(Abstractlocus):
                                                      data_dict["junctions"][key]))
 
     def _create_data_dict(self, engine, tid_keys):
+
+        """Private method to retrieve data from the database and prepare it to be passed to the transcript
+        instances.
+
+        :param engine: the sqlalchemy engine to use
+        :type engine: sqlalchemy.engine.Engine
+
+        :param tid_keys: the transcript IDs inside the locus
+        :type tid_keys: (set|list|tuple)
+
+        """
 
         assert engine is not None
 
@@ -1245,6 +1256,13 @@ class Superlocus(Abstractlocus):
 
     def __find_lost_transcripts(self):
 
+        """Private method to identify, after defining loci, all transcripts that are not intersecting any
+        of the resulting genes and that therefore could constitute "lost" genes.
+        This could happen if e.g. a valid transcript is deselected in the first stage ("sublocus") as it intersects a
+        longer transcript, which will itself be subsequently deselected in comparison with another shorter one. This
+        would leave the first transcript stranded.
+        """
+
         self.__lost = dict()
         cds_only = self.configuration.pick.clustering.cds_only
         simple_overlap = self.configuration.pick.clustering.simple_overlap_for_monoexonic
@@ -1415,7 +1433,6 @@ class Superlocus(Abstractlocus):
     def compile_requirements(self):
         """Quick function to evaluate the filtering expression, if it is present."""
 
-        # TODO this must be different
         def compile_expression(section):
             if "compiled" in section:
                 pass
@@ -1435,7 +1452,7 @@ class Superlocus(Abstractlocus):
 
     def define_graph(self) -> networkx.Graph:
 
-        """Overloading of the original method to avoid being a O(n**2) algorithm."""
+        """Calculate the internal exon-intron graph for the object."""
 
         graph = networkx.Graph()
 
@@ -1443,7 +1460,6 @@ class Superlocus(Abstractlocus):
         # memory usage to increase too much
         keys = set.difference(set(self.transcripts.keys()), set(self._excluded_transcripts))
 
-        # objects = dict((tid, self.transcripts[tid]) for tid in keys)
         graph.add_nodes_from(keys)
 
         monos = []
@@ -1491,7 +1507,16 @@ class Superlocus(Abstractlocus):
                         min_cds_overlap=0.2,
                         simple_overlap_for_monoexonic=True):
 
-        """This method will try to build the AS graph using a O(nlogn) rather than O(n^2) algorithm."""
+        """This method will try to build the AS graph using a O(nlogn) rather than O(n^2) algorithm.
+
+        :param inters: the "is_intersecting" function to use.
+        :param cds_only: whether to only consider the CDS to verify if two transcripts are intersecting
+        :type cds_only: bool
+        :param simple_overlap_for_monoexonic: boolean flag. If set to True (default) then a monoexonic transcript
+        will be considered as intersecting the other transcript if even a single base is overlapping.
+        :param min_cdna_overlap: minimum cDNA overlap for two transcripts
+        :param min_cds_overlap: minimum CDS overlap (if *both* transcripts are coding).
+        """
 
         method = functools.partial(inters, cds_only=cds_only, min_cdna_overlap=min_cdna_overlap,
                                    min_cds_overlap=min_cds_overlap,
@@ -1529,28 +1554,24 @@ class Superlocus(Abstractlocus):
         return graph
 
     @classmethod
-    def is_intersecting(cls, transcript, other, cds_only=False):
+    def is_intersecting(cls, transcript: Transcript, other: Transcript, cds_only=False) -> bool:
         """
+        When comparing two transcripts, for the definition of subloci inside superloci we follow these rules:
+
+        If both are multiexonic, the function verifies whether there is at least one intron in common.
+        If both are monoexonic, the function verifies whether there is some overlap between them.
+        If one is monoexonic and the other is not, the function will return False by definition.
+
         :rtype : bool
         :param transcript: a transcript for which we wish to verify
         whether it is intersecting with another transcript or not.
-        :type transcript: Mikado.loci_objects.transcript.Transcript
+        :type transcript: Transcript
         :param other: the transcript which will be used for the comparison.
-        :type other: Mikado.loci_objects.transcript.Transcript
+        :type other: Transcript
 
-        :param cds_only: boolean flag. If enabled, only CDS exons/intron
-        will be considered when deciding whether two transcripts are part
-        of the same Locus or not.
+        :param cds_only: boolean flag. If enabled, only CDS exons/intron will be considered when deciding whether
+        two transcripts are part of the same Locus or not.
         :type cds_only: bool
-
-
-        When comparing two transcripts, for the definition of subloci inside
-        superloci we follow these rules:
-
-        If both are multiexonic, the function verifies whether there is at
-        least one intron in common.
-        If both are monoexonic, the function verifies whether there is some overlap between them.
-        If one is monoexonic and the other is not, the function will return False by definition.
         """
 
         transcript.finalize()
@@ -1573,11 +1594,6 @@ class Superlocus(Abstractlocus):
                     (transcript.start, transcript.end),
                     (other.start, other.end), positive=False) > 0)
             else:
-                # intersecting = any([cls.overlap(cds_comb[0],
-                #                                 cds_comb[1],
-                #                                 positive=False) > 0] for cds_comb in itertools.product(
-                #     transcript.internal_orf_boundaries,
-                #     other.internal_orf_boundaries))
                 intersecting = (cls.overlap(
                     (transcript.selected_cds_start, transcript.selected_cds_end),
                     (other.selected_cds_start, other.selected_cds_end), positive=False) > 0)

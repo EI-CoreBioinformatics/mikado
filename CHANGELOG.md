@@ -1,3 +1,10 @@
+# Version 2.0
+
+Official second release of Mikado. **All users are advised to update as soon as possible**.
+
+See https://github.com/EI-CoreBioinformatics/mikado/milestone/22?closed=1 for a non-comprehensive list of all the issues closed in 
+relation to this release.
+
 # Version 2.0 - public release candidate 1 (prc1)
 
 This is the second major release of Mikado. It contains **backwards-incompatible changes** to the data structures used in the program;

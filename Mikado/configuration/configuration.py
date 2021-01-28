@@ -24,15 +24,15 @@ class MikadoConfiguration:
     """
 
     threads: int = field(default=1, metadata={
-        "description": "Threads to be used per process",
+        "metadata": {"description": "Threads to be used per process"},
         "validate": validate.Range(min=1),
     })
     seed: int = field(default=0, metadata={
-        "description": "Random number generator seed, to ensure reproducibility across runs",
+        "metadata": {"description": "Random number generator seed, to ensure reproducibility across runs"},
         "validate": validate.Range(min=0, max=2**32 - 1),
     })
     multiprocessing_method: Optional[str] = field(default="spawn", metadata={
-        "description": "Which method (fork, spawn, forkserver) Mikado should use for multiprocessing",
+        "metadata": {"description": "Which method (fork, spawn, forkserver) Mikado should use for multiprocessing"},
         "validate": validate.OneOf(["spawn", "fork", "fork-server"])
     })
     log_settings: LoggingConfiguration = field(default_factory=LoggingConfiguration, metadata={
@@ -49,11 +49,11 @@ class MikadoConfiguration:
     })
     prepare: PrepareConfiguration = field(default_factory=PrepareConfiguration, metadata={
         "name": "prepare",
-        "description": "Settings related to the input data preparation",
+        "metadata": {"description": "Settings related to the input data preparation"},
     })
     pick: PickConfiguration = field(default_factory=PickConfiguration, metadata={
         "name": "pick",
-        "description": "Settings related to the Mikado pick stage",
+        "metadata": {"description": "Settings related to the Mikado pick stage"},
     })
     reference: Optional[ReferenceConfiguration] = field(default_factory=ReferenceConfiguration, metadata={
         "name": "reference",

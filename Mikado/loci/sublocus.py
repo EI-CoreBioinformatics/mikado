@@ -13,7 +13,7 @@ from .abstractlocus import Abstractlocus
 from .excluded import Excluded
 from .monosublocus import Monosublocus
 from ..parsers.GFF import GffLine
-from ..scales.contrast import compare as c_compare
+from ..scales import c_compare
 from ..utilities.log_utils import create_null_logger
 from ..utilities import overlap
 

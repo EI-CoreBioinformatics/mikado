@@ -1,5 +1,5 @@
 Bootstrap: docker
-From: conda/miniconda3
+From: continuumio/miniconda3
 
 %test
     export PATH="/usr/local/bin:$PATH:/usr/local/conda/bin/"

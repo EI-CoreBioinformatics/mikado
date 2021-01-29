@@ -1,0 +1,40 @@
+Bootstrap: docker
+From: continuumio/miniconda3
+
+%test
+    export PATH="/usr/local/bin:$PATH:/usr/local/conda/bin/"
+    python --version
+    python -c "import numpy"
+    mikado --help
+
+%environment
+    export PYTHONDONTWRITEBYTECODE=true
+
+%post
+
+    ### Install your packages ###
+
+    export PYTHONDONTWRITEBYTECODE=true
+    conda update conda -n base -y && conda install -c conda-forge -n base -y mamba
+    mamba install -n base -c bioconda -c conda-forge -y bioconda::mikado==2.0 bioconda::portcullis prodigal diamond samtools
+
+%apprun snakemake
+	snakemake "@"
+
+%apprun mikado
+	mikado "@"
+
+%apprun daijin
+    daijin "@"
+
+%apprun prodigal
+    prodigal "@"
+
+%apprun samtools
+    samtools "@"
+
+%apprun diamond
+    diamond "@"
+
+%apprun portcullis
+    portcullis "@"

@@ -71,7 +71,10 @@ def print_toml_config(config, out, no_files=False, full=True):
             comment = []
             if "=" in line:
                 key = line.split("=")[0].strip()
-                description = level.Schema._declared_fields[key].metadata.get("description")
+                meta = level.Schema._declared_fields.get(key)
+                description = None
+                if meta:
+                    description = meta.metadata.get("description")
                 if description:
                     _comment = textwrap.wrap(description)
                     if _comment:

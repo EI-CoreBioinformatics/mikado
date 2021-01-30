@@ -64,7 +64,7 @@ extensions = [Extension("Mikado.utilities.overlap",
 setup(
     name="Mikado",
     python_requires=">=3.6",
-    version="2.0.0",
+    version="2.0.1",
     description="A Python3 annotation program to select the best gene model in each locus",
     long_description=long_description,
     url="https://github.com/EI-CoreBioinformatics/mikado",

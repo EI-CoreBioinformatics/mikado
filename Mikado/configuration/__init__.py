@@ -57,13 +57,15 @@ def print_toml_config(config, out, no_files=False):
             level = config
             for key in keys[:-1]:
                 level = getattr(level, key)
-            metadata = level.__dataclass_fields__[keys[-1]].metadata
+            metadata = level.Schema._declared_fields[keys[-1]].metadata
             comment = []
             description = metadata.get("metadata", dict()).get("description", None)
             if description:
                 comment += ["# " + _ for _ in textwrap.wrap(description)]
-            if hasattr(getattr(level, keys[-1]), "__dataclass_fields__"):
-                level = getattr(level, keys[-1])
+            dataclassObject = getattr(level, keys[-1])
+            if hasattr(dataclassObject, "Schema"):
+                if hasattr(dataclassObject.Schema, "_declared_fields"):
+                    level = getattr(level, keys[-1])
             lines.append(line)
             lines.extend(comment)
         else:

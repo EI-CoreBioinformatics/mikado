@@ -1,5 +1,5 @@
-from dataclasses import dataclass, field
-from marshmallow_dataclass import List, Optional, Union
+from dataclasses import field
+from marshmallow_dataclass import dataclass, List, Optional, Union
 from marshmallow import validate
 
 

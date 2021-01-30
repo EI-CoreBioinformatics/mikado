@@ -1,8 +1,8 @@
 from .resultstorer import ResultStorer
 from ..transcripts import Transcript
-from ..utilities import calc_f1, intervaltree
-from ..utilities cimport intervaltree
-from ..utilities import overlap
+from ..utilities.overlap cimport c_overlap
+from ..utilities.intervaltree cimport Interval, IntervalTree
+from ..utilities.f1 cimport calc_f1
 import cython
 
 
@@ -59,8 +59,8 @@ cdef str __assign_monoexonic_ccode(prediction, reference, long nucl_overlap, dou
         if nucl_precision < 1 and nucl_overlap > 0:
             index = -1
             for intron in sorted(reference.introns):
-                over = overlap(i_start, i_end, p_start, p_end, flank=0, positive=True)
                 i_start, i_end = intron[0], intron[1]
+                over = c_overlap(i_start, i_end, p_start, p_end, flank=0, positive=True)
                 if over > 0:
                     index += 1
                     if index > 1:
@@ -100,7 +100,7 @@ cdef str __assign_monoexonic_ccode(prediction, reference, long nucl_overlap, dou
             ccode = "n"
         elif nucl_overlap > 0:
             ccode = "G"  # Reverse generic overlap
-        elif overlap(p_start, p_end, r_start, r_end, 0, 1) > 0:
+        elif c_overlap(p_start, p_end, r_start, r_end, 0, 1) > 0:
             ccode = "ri"
         else:
             ccode = "p"
@@ -142,7 +142,7 @@ cdef str __assign_multiexonic_ccode(prediction, reference, long nucl_overlap, do
         long over
         set r_splices, p_splices
         set r_introns, p_introns
-        intervaltree.IntervalTree r_segtree, p_segtree
+        IntervalTree r_segtree, p_segtree
         long intron_start, intron_end
         bint start_in, end_ind
         long min_splice, max_splice, splice
@@ -214,7 +214,7 @@ cdef str __assign_multiexonic_ccode(prediction, reference, long nucl_overlap, do
             ccode = "o"
             for intron in p_introns:
                 for ref_intron in r_introns:
-                    if overlap(ref_intron[0], ref_intron[1],
+                    if c_overlap(ref_intron[0], ref_intron[1],
                                  intron[0], intron[1],
                                  0, 1) > 0:
                         # corr_exons.append((ref_index, pred_index))
@@ -297,9 +297,9 @@ cpdef tuple compare(prediction, reference, bint lenient=False, bint strict_stran
         double nucl_recall, nucl_precision, nucl_f1
         double exon_recall, exon_precision, exon_f1
         double junction_recall, junction_precision, junction_f1
-        intervaltree.IntervalTree r_tree, p_tree
+        IntervalTree r_tree, p_tree
         int r_splice_start, r_splice_end
-        intervaltree.Interval p_splice
+        Interval p_splice
         long r_exon_num, p_exon_num
         long p_start, p_end, r_start, r_end
         double recalled_exons
@@ -341,7 +341,7 @@ cpdef tuple compare(prediction, reference, bint lenient=False, bint strict_stran
         for other_exon in r_tree.find(exon[0], exon[1] + 1, 0, 0, fuzzymatch, 1000, "exon"):
             other_exon_a, other_exon_b = other_exon[0], other_exon[1] + 1
             __ref_exons.add((other_exon[0], other_exon[1]))
-            nucl_overlap += overlap(exon_a, exon_b,
+            nucl_overlap += c_overlap(exon_a, exon_b,
                                       other_exon_a, other_exon_b,
                                       flank=0,
                                       positive=1)

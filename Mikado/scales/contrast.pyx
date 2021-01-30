@@ -1,8 +1,7 @@
 from .resultstorer import ResultStorer
 from ..transcripts import Transcript
-from ..utilities.overlap cimport c_overlap
-from ..utilities.intervaltree cimport Interval, IntervalTree
-from ..utilities.f1 cimport calc_f1
+from ..utilities import Interval, IntervalTree
+from ..utilities import calc_f1
 import cython
 
 

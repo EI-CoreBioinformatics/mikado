@@ -1,18 +1,18 @@
 # coding: utf-8
 
 """This initializer contains the base declaration for all the DB classes of the module."""
-from marshmallow_dataclass import dataclass, Optional
+import functools
+import logging
+import sqlite3
 from dataclasses import field
+
 from marshmallow import validate
+from marshmallow_dataclass import dataclass, Optional
+from sqlalchemy import event
+from sqlalchemy.engine import create_engine, Engine
 from sqlalchemy.engine.reflection import Inspector
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.engine import create_engine, Engine
-from sqlalchemy import event
 from sqlalchemy_utils import database_exists, create_database
-import sqlite3
-import logging
-import functools
-
 
 Inspector = Inspector
 DBBASE = declarative_base()
@@ -21,29 +21,24 @@ DBBASE = declarative_base()
 @dataclass
 class DBConfiguration:
     db: str = field(default="mikado.db", metadata={
-        "name": "db",
-        "description": "the DB to connect to. Required. Default: mikado.db",
+                "metadata": {"description": "the DB to connect to. Required. Default: mikado.db"}
     })
     dbtype: str = field(default="sqlite", metadata={
-        "name": "dbtype",
-        "description": "Type of DB to use. Choices: sqlite, postgresql, mysql. Default: sqlite.",
-        "validate": validate.OneOf(["sqlite", "mysql", "postgresql"])
+                "metadata": {"description": "Type of DB to use. Choices: sqlite, postgresql, mysql. Default: sqlite.",
+                     "validate": validate.OneOf(["sqlite", "mysql", "postgresql"])}
     })
     dbhost: str = field(default="localhost", metadata={
-        "name": "dbhost",
-        "description": "Host of the database. Unused if dbtype is sqlite. Default: localhost",
+                "metadata": {"description": "Host of the database. Unused if dbtype is sqlite. Default: localhost"}
     })
     dbuser: Optional[str] = field(default=None, metadata={
-        "name": "dbuser",
-        "description": "DB user. Unused if dbtype is sqlite. Default: empty string",
+                "metadata": {"description": "DB user. Unused if dbtype is sqlite. Default: empty string"}
     })
     dbpasswd: Optional[str] = field(default=None, metadata={
-        "name": "dbpasswd",
-        "description": "DB password for the user. Unused if dbtype is sqlite. Default: empty string.",
+                "metadata": {"description": "DB password for the user. Unused if dbtype is sqlite. Default: empty string."}
     })
     dbport: Optional[int] = field(default=None, metadata={
-        "name": "dbport",
-        "description": "Integer. It indicates the default port for the DB. Unused if dbtype is sqlite. Default: 0",
+                "metadata": {
+            "description": "Integer. It indicates the default port for the DB. Unused if dbtype is sqlite. Default: 0"}
     })
 
 
@@ -127,7 +122,6 @@ def create_connector(configuration, logger=None):
 
 
 def connect(configuration, logger=None, **kwargs):
-
     """
     Function to create an engine to connect to a DB with, using the
     configuration inside the provided json_conf.

@@ -23,10 +23,10 @@ DBs=[swissprot]
 zipDBs=["{0}.gz".format(db) for db in DBs]
 
 configname = "configuration.yaml"
-config_command = "mikado configure --use-transdecoder --seed 1149199520 --list list.txt --reference chr5.fas.gz --mode permissive --daijin -t 3 \
+config_command = "mikado configure --use-transdecoder --seed 1149199520 --list list.txt --reference \"../tests/chr5.fas.gz\" --mode permissive --daijin -t 3 \
         --subloci-out mikado.subloci.gff3 --scoring plant.yaml --junctions junctions.bed -bt {swiss} -bc 1 {configname}".format(configname=configname, swiss=swissprot)
 toml_name = "configuration.toml"
-toml_command = "mikado configure --use-transdecoder --seed 1149199520 --list list.txt --reference chr5.fas.gz --mode permissive --daijin -t 3 \
+toml_command = "mikado configure --use-transdecoder --seed 1149199520 --list list.txt --reference \"../tests/chr5.fas.gz\" --mode permissive --daijin -t 3 \
         --subloci-out mikado.subloci.gff3 --scoring plant.yaml --junctions junctions.bed -bt {swiss} -bc 1 {configname}".format(configname=toml_name, swiss=swissprot)
 
 if not os.path.exists(configname):
@@ -36,7 +36,7 @@ if not os.path.exists(configname):
 
 snake_logger.info("Reading the configuration file")
 dschema = MikadoConfiguration.Schema()
-_config = dschema.dump(Mikado.configuration.configurator.load_and_validate_config(configname))
+_config = Mikado.configuration.configurator.load_and_validate_config(configname)
 
 try:
     config = _config
@@ -385,7 +385,7 @@ rule clean:
                                     glob.glob("uniprot*fasta"), glob.glob("*loci*"),
 				                    ["daijin.yaml", "Daijin", "daijin_logs", "daijin_test"],
                                     ["mikado_prepared.gtf", "mikado_prepared.fasta", "mikado.prodigal.gff3"],
-                                    glob.glob("compare*"), glob.glob(config["db_settings"]["db"]),
+                                    glob.glob("compare*"), glob.glob(config.db_settings.db),
                                     glob.glob("*.log"), glob.glob("*xml"), ["chr5.fas"],
 				                    glob.glob("*.ok"),
                                     ["refmap_check.ok", "refmap_check_pc.ok",

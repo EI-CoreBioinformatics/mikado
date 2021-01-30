@@ -1,0 +1,17 @@
+- name: Dajin
+  tags:
+    - integration
+  command: >-
+    cd tests
+    snakemake --jobs 5 --cores 5
+  files:
+    - path: "sample_data/Daijin/5-mikado/all.done"
+    - path: "sample_data/Daijin/5-mikado/prepare.log"
+      must_not_contain:
+        - "ERROR"
+    - path: "sample_data/Daijin/5-mikado/mikado_serialise.log"
+      must_not_contain:
+        - "ERROR"
+    - path: "sample_data/Daijin/5-mikado/pick/permissive/mikado-permissive.pick.log"
+      must_not_contain:
+        - "ERROR"

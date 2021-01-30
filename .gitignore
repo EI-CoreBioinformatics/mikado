@@ -83,15 +83,14 @@ sample_data/Untitled1.ipynb
 sample_data/Untitled.ipynb
 Mikado/utilities/intervaltree.c
 Mikado/utilities/intervaltree.cpython-3*.so
-Mikado/tests/sample_data/diamond.xml.gz
-Mikado/tests/fusion_test/fusion_test.log
+tests/sample_data/diamond.xml.gz
+tests/fusion_test/fusion_test.log
 sample_data/diamond.xml.gz
 Mikado/*/*.c
 Mikado/*/*.so
 Mikado/*/*/*.c
 Mikado/*/*/*.so
 Mikado/utilities/overlap.c
-sample_data/Daijin
 .eggs/
 .ipynb_checkpoints/
 Untitled*ipynb

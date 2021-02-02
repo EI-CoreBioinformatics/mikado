@@ -650,7 +650,6 @@ def prepare(mikado_config: MikadoConfiguration, logger):
 
         rows = rows.merge(shelve_table, on="shelf", how="left")
         random.seed(mikado_config.seed)
-        import sys; print(mikado_config.seed, file=sys.stderr)
 
         shelves = dict((shelf_name, open(shelf_name, "rb")) for shelf_name in shelve_table["shelf"].unique())
 

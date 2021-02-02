@@ -26,8 +26,10 @@ configname = "configuration.yaml"
 config_command = "mikado configure --use-transdecoder --seed 1149199520 --list list.txt --reference chr5.fas.gz --mode permissive --daijin -t 3 \
         --subloci-out mikado.subloci.gff3 --scoring plant.yaml --junctions junctions.bed -bt {swiss} -bc 1 {configname}".format(configname=configname, swiss=swissprot)
 toml_name = "configuration.toml"
-toml_command = "mikado configure --use-transdecoder --seed 1149199520 --list list.txt --reference chr5.fas.gz --mode permissive --daijin -t 3 \
-        --subloci-out mikado.subloci.gff3 --scoring plant.yaml --junctions junctions.bed -bt {swiss} -bc 1 {configname}".format(configname=toml_name, swiss=swissprot)
+toml_command_template = "mikado configure --use-transdecoder --seed 1149199520 --list list.txt --reference chr5.fas.gz --mode permissive {daijin} -t 3 \
+        -od {outdir}  --subloci-out mikado.subloci.gff3 --scoring plant.yaml --junctions junctions.bed -bt {swiss} -bc 1 {configname}"
+
+toml_command = toml_command_template.format(configname=toml_name, swiss=swissprot, daijin="--daijin", outdir="Daijin")
 
 if not os.path.exists(configname):
     snake_logger.info("Creating the configuration file")
@@ -48,7 +50,7 @@ except Exception as exc:
 # configfile: "configuration.yaml"
 
 rule complete:    
-    input: "compare.stats", "compare_subloci.stats", "compare_input.stats", "check.ok",
+    input: "compare.stats", "compare_subloci.stats", "compare_input.stats", "check.ok", "manual.ok",
            "daijin_test/mikado.yaml", "check_metrics.ok", "g11.ok", "refmap_check.ok", "refmap_check_pc.ok",
            "external.ok", "alias_check.ok"
     output: touch("finished.ok")
@@ -108,6 +110,41 @@ rule daijin:
     message: "daijin mikado --jobs 2 --cores 4 --threads 2 -nd --nolock configuration.toml"
     # shell: "daijin mikado --jobs 2 --cores 4 --threads 2 -nd --nolock configuration.yaml"
     shell: "daijin mikado --jobs 2 --cores 4 --threads 2 -nd --nolock configuration.toml"
+
+
+rule mikado_configure_manual:
+     input: "class.gtf", "cufflinks.gtf", "stringtie.gtf", "trinity.gff3", "mikado.bed", "configuration.toml", swissprot
+     output: "configuration.manual.toml"
+     shell: toml_command_template.format(configname="{output}", swiss=swissprot, daijin="", outdir="manual")
+
+
+rule mikado_prepare_manual:
+    input: rules.mikado_configure_manual.output
+    output:
+      gtf="manual/mikado_prepared.gtf",
+      fasta="manual/mikado_prepared.fasta"
+    shell: "mikado prepare --configuration {input}"
+
+
+rule mikado_serialise_manual:
+    input:
+      gtf=rules.mikado_prepare_manual.output.gtf,
+      fasta=rules.mikado_prepare_manual.output.fasta,
+      config=rules.mikado_configure_manual.output
+    output: "manual/mikado.db"
+    shell: "mikado serialise --configuration {input.config}"
+
+
+rule mikado_pick_manual:
+    input:
+      config=rules.mikado_configure_manual.output,
+      gtf=rules.mikado_prepare_manual.output.gtf,
+      db=rules.mikado_serialise_manual.output
+    output:
+      gff="manual/mikado.loci.gff3",
+      ok=touch("manual.ok")
+    shell: "mikado pick --configuration {input.config}"
+
 
 rule index_reference:
     input: reference="reference.gff3"

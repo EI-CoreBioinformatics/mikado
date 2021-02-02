@@ -213,6 +213,11 @@ switch.")
     if args.exclude_retained_introns is True:
         config.pick.alternative_splicing.keep_retained_introns = False
 
+    if args.out_dir is not None:
+        config.prepare.files.output_dir = args.out_dir
+        config.serialise.files.output_dir = args.out_dir
+        config.pick.files.output_dir = args.out_dir
+
     # Check that the configuration file is correct
     tempcheck = tempfile.NamedTemporaryFile("wt", suffix=".yaml", delete=False)
     print_config(config, tempcheck)
@@ -229,7 +234,7 @@ switch.")
     else:
         format_name = "toml"
 
-    print_config(config, args.out, format=format_name, no_files=args.no_files)
+    print_config(config, args.out, output_format=format_name, no_files=args.no_files)
 
 
 def configure_parser():

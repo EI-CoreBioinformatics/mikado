@@ -211,6 +211,8 @@ def setup(args):
         args.configuration.db_settings.dbtype = "sqlite"
     if args.output_dir is not None:
         args.configuration.serialise.files.output_dir = args.output_dir
+
+    if args.configuration.serialise.files.output_dir != ".":
         if args.configuration.db_settings.dbtype == "sqlite":
             args.configuration.db_settings.db = os.path.basename(
                 args.configuration.db_settings.db)

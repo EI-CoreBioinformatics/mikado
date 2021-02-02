@@ -10,12 +10,12 @@ import os
 import argparse
 import logging
 import logging.handlers
-
 from ..configuration import MikadoConfiguration, DaijinConfiguration
 from ..utilities import path_join
 from ..utilities.log_utils import formatter
 from ..exceptions import InvalidJson
 from collections import Counter
+from typing import Union
 
 
 __author__ = 'Luca Venturini'
@@ -105,7 +105,7 @@ def parse_list_file(cfg, list_file):
     return cfg
 
 
-def parse_prepare_options(args, mikado_config):
+def parse_prepare_options(args, mikado_config) -> Union[DaijinConfiguration, MikadoConfiguration]:
     if args.codon_table not in (None, False, True):
         mikado_config.serialise.codon_table = str(args.codon_table)
 
@@ -295,7 +295,6 @@ def prepare_launcher(args):
 
     from ..preparation.prepare import prepare
     args, mikado_config, logger = setup(args)
-    print(mikado_config.seed, file=sys.stderr)
     assert isinstance(mikado_config, (MikadoConfiguration, DaijinConfiguration))
     if not hasattr(mikado_config.reference, "genome"):
         raise InvalidJson("Invalid configuration; reference: {}".format(mikado_config.reference))

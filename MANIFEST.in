@@ -11,3 +11,5 @@ exclude util/analyse_metrics.py util/create_model.py util/self_training.py
 recursive-include Mikado *smk *json *yaml
 recursive-include Mikado/tests *
 recursive-exclude docs/ *
+recursive-include Mikado/tests *
+recursive-exclude tests/__pycache__ *

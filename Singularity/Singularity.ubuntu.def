@@ -54,6 +54,7 @@ From: ubuntu:20.04
     # Prodigal
     export prod_version=2.6.3
     curl -L https://github.com/hyattpd/Prodigal/releases/download/v2.6.3/prodigal.linux > /usr/local/bin/prodigal
+    chmod +x /usr/local/bin/prodigal
 
     # Create global folder
     mkdir -p /global && cd /global

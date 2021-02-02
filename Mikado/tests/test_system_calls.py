@@ -14,9 +14,10 @@ import unittest
 import pkg_resources
 import pyfaidx
 import yaml
-from ..configuration.configurator import load_and_validate_config
+from Mikado.configuration.configurator import load_and_validate_config
 from Mikado.exceptions import InvalidJson
-from ..configuration import print_config, DaijinConfiguration
+from Mikado.daijin import mikado_pipeline, assemble_transcripts_pipeline
+from Mikado.configuration import print_config, DaijinConfiguration
 
 try:
     from yaml import CSafeLoader as yLoader
@@ -1271,8 +1272,6 @@ class ConfigureCheck(unittest.TestCase):
         conf = configuration.configurator.check_and_load_scoring(conf)
         dir.cleanup()
 
-    @unittest.skipUnless((sys.version_info.minor > 4),
-                         "Due to a bug in JSONSCHEMA, Daijin configure fails with Python versions lower than 3.5.")
     @mark.slow
     def test_daijin_config(self):
 
@@ -1318,6 +1317,99 @@ class ConfigureCheck(unittest.TestCase):
                 config = load_and_validate_config(config)
                 self.assertIsInstance(config, DaijinConfiguration)
                 dir.cleanup()
+
+
+class DaijinTest(unittest.TestCase):
+    """This test case will check that daijin can load configurations and snakemake correctly.
+    All the tests will be done in 'dry-run' mode."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.fai = pysam.FastaFile(pkg_resources.resource_filename("Mikado.tests", "chr5.fas.gz"))
+
+    def test_mikado_dry_run(self):
+        namespace = Namespace(default=False)
+        namespace.r1 = []
+        namespace.r2 = []
+        namespace.samples = []
+        namespace.strandedness = []
+        namespace.asm_methods = []
+        namespace.aligners = []
+        namespace.modes = ["nosplit"]
+        namespace.cluster_config = None
+        namespace.scheduler = ""
+        namespace.flank = None
+        namespace.intron_range = None
+        namespace.prot_db = []
+        namespace.genome = self.fai.filename.decode()
+        namespace.transcriptome = ""
+        namespace.name = "Daijin"
+        namespace.threads = 1
+        namespace.full = False
+        namespace.seed = None
+        namespace.long_aln_methods = []
+        namespace.dryrun = True
+        folder = tempfile.TemporaryDirectory()
+        namespace.out_dir = folder.name
+        scorers = sorted(pkg_resources.resource_listdir("Mikado.configuration", "scoring_files"))
+        namespace.scoring = scorers[np.random.choice(len(scorers))]
+        out = os.path.join(folder.name, "configuration.yaml")
+        config = DaijinConfiguration()
+        with open(out, "wt") as out_handle:
+            namespace.out = out_handle
+            daijin_configurator.create_daijin_config(namespace, config, level="ERROR")
+        # Now the dry run
+        namespace.config = out_handle.name
+        mikado_pipeline(namespace)
+
+    def test_assemble_dry_run(self):
+        # "daijin configure -as stringtie scallop -lal gmap --scheduler local -al \
+        # hisat gsnap --sample-sheet samples.txt -o {output} -g {input.genome} -od daijin_test \
+        #  --prot-db {input.prots} --scoring plant.yaml"
+        namespace = Namespace(default=False)
+        folder = tempfile.TemporaryDirectory()
+        file_list = os.path.join(folder.name, "samples.txt")
+        # ERR588038.R1.fq.gz      ERR588038.R2.fq.gz      ERR588038       fr-firststrand  False
+        # SRR5037293.pacbio.fastq.gz              SRR5037293      fr-firststrand  True
+        r1 = pkg_resources.resource_filename("Mikado.tests", "ERR588038.R1.fq.gz")
+        r2 = pkg_resources.resource_filename("Mikado.tests", "ERR588038.R2.fq.gz")
+        pb = pkg_resources.resource_filename("Mikado.tests", "SRR5037293.pacbio.fastq.gz")
+        with open(file_list, "wt") as flist:
+            print(r1, r2, "ERR588038", "fr-firststrand", False, sep="\t", file=flist)
+            print(pb, "", "SRR5037293", "fr-firststrand", True, sep="\t", file=flist)
+
+        namespace.r1 = [r1]
+        namespace.r2 = [r2]
+        namespace.samples = ["ERR588038"]
+        namespace.strandedness = ["fr-firststrand"]
+        namespace.asm_methods = ["stringtie", "scallop"]
+        namespace.aligners = ["hisat", "gsnap"]
+        namespace.modes = ["nosplit"]
+        namespace.cluster_config = None
+        namespace.scheduler = "local"
+        namespace.flank = None
+        namespace.intron_range = None
+        namespace.prot_db = []
+        namespace.genome = self.fai.filename.decode()
+        namespace.transcriptome = ""
+        namespace.name = "Daijin"
+        namespace.threads = 1
+        namespace.full = False
+        namespace.seed = None
+        namespace.long_aln_methods = []
+        namespace.dryrun = True
+        namespace.out_dir = folder.name
+        out = os.path.join(folder.name, "configuration.yaml")
+        config = DaijinConfiguration()
+        with open(out, "wt") as out_handle:
+            namespace.out = out_handle
+            daijin_configurator.create_daijin_config(namespace, config, level="ERROR")
+        # Now the dry run
+        namespace.config = out_handle.name
+        assemble_transcripts_pipeline(namespace)
+        namespace.r1, namespace.r2 = [], []
+        namespace.sample_sheet = file_list
+        assemble_transcripts_pipeline(namespace)
 
 
 @mark.slow

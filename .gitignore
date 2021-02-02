@@ -6,6 +6,7 @@
 #*
 .coverage
 *.coverage.*
+.snakemake
 htmlcov
 sample_data/*loci*
 sample_data/*zip

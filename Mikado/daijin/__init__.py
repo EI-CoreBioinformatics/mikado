@@ -385,7 +385,7 @@ def assemble_transcripts_pipeline(args):
     else:
         hpc_conf = None
 
-    yaml_file = open("daijin.{}.yaml".format(NOW), "wt")
+    yaml_file = open(os.path.join(doc["out_dir"], "daijin.{}.yaml".format(NOW)), "wt")
     yaml.dump(doc, yaml_file)
     yaml_file.flush()
     shutil.copystat(args.config, yaml_file.name)
@@ -507,7 +507,7 @@ def mikado_pipeline(args):
     else:
         hpc_conf = None
 
-    yaml_file = open("daijin.{}.yaml".format(NOW), "wt")
+    yaml_file = open(os.path.join(daijin_config.out_dir, "daijin.{}.yaml".format(NOW)), "wt")
     yaml.dump(asdict(daijin_config), yaml_file)
     yaml_file.flush()
     shutil.copystat(args.config, yaml_file.name)

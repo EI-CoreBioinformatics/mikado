@@ -209,7 +209,7 @@ def create_daijin_config(args: Namespace, config=None, level="ERROR", piped=Fals
         setattr(config.long_read_align_methods, method, [""])
 
     # Set and eventually copy the scoring file.
-    if args.scoring is not None:
+    if args.scoring:
         if args.copy_scoring is not False:
             with open(args.copy_scoring, "wt") as out:
                 with resource_stream("Mikado", os.path.join("configuration",
@@ -219,7 +219,7 @@ def create_daijin_config(args: Namespace, config=None, level="ERROR", piped=Fals
                         print(line.decode(), file=out, end="")
             args.scoring = os.path.abspath(args.copy_scoring)
         config.pick.scoring_file = args.scoring
-    elif args.new_scoring is not None:
+    elif args.new_scoring:
         if os.path.exists(args.new_scoring):
             # Check it's a valid scoring file
             with open(args.new_scoring) as _:

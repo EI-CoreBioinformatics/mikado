@@ -8,7 +8,7 @@ import subprocess
 import re
 
 
-diamond_pat = re.compile("^diamond version (\S*)[$|\s]*")
+diamond_pat = re.compile(r"^diamond version (\S*)[$|\s]*")
 
 @functools.lru_cache(maxsize=4, typed=True)
 def diamond_to_correct(command):

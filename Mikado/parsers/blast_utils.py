@@ -230,7 +230,7 @@ def merge(intervals: [(int, int)], query_length=None, offset=1):
     intervals.sort()
     starts = intervals[:, 0]
     ends = np.maximum.accumulate(intervals[:, 1])
-    valid = np.zeros(len(intervals) + 1, dtype=np.bool)
+    valid = np.zeros(len(intervals) + 1, dtype=bool)
     valid[0], valid[1:-1], valid[-1] = True, starts[1:] >= ends[:-1], True
     intervals = np.vstack((starts[:][valid[:-1]], ends[:][valid[1:]])).T
     total_length_covered = int(abs(intervals[:, 1] - intervals[:, 0] + offset).sum())

@@ -222,7 +222,7 @@ def merge(intervals: [(int, int)], query_length=None, offset=1):
         raise ValueError("Invalid offset - only 0 and 1 allowed: {}".format(offset))
 
     try:
-        intervals = np.array(sorted([sorted(_) for _ in intervals], key=itemgetter(0)), dtype=np.int)
+        intervals = np.array(sorted([sorted(_) for _ in intervals], key=itemgetter(0)), dtype=int)
         if intervals.shape[1] != 2:
             raise ValueError("Invalid shape for intervals: {}".format(intervals.shape))
     except (TypeError, ValueError):

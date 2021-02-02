@@ -15,8 +15,8 @@ btop_pattern = re.compile(r"(\d+|\D{2,2})")
 @cython.cdivision(True)
 @cython.boundscheck(False)
 cpdef parse_btop(str btop, Py_ssize_t qpos, Py_ssize_t spos,
-                 np.ndarray[dtype=np.int, ndim=2, cast=True] query_array,
-                 np.ndarray[dtype=np.int, ndim=2, cast=True] target_array,
+                 np.ndarray[dtype=int, ndim=2, cast=True] query_array,
+                 np.ndarray[dtype=int, ndim=2, cast=True] target_array,
                  dict matrix, long qmult=3, long tmult=1):
 
     """Parse the BTOP lines of tabular BLASTX/DIAMOND output.

@@ -713,9 +713,7 @@ exon data is on a different chromosome, {exon_data.chrom}. \
 {exon_data}".format(exon_data=exon_data, self=self))
             phase = exon_data.phase
 
-        assert isinstance(start,
-                          (int, np.int, np.int32, np.int64)) and isinstance(end,
-                                                                            (int, np.int, np.int32, np.int64))
+        assert isinstance(start, (int, np.int32, np.int64)) and isinstance(end, (int, np.int32, np.int64))
         if feature.upper().endswith("CDS"):
             store = self.combined_cds
             if phase is not None:

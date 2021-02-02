@@ -30,7 +30,7 @@ class BtopTester(unittest.TestCase):
                     mslength = (ssize - spos) // tmult
                     for mlength in range(1, int(min(mqlength, mslength))):
                         with self.subTest(qsize=qsize, ssize=ssize, qpos=qpos, spos=spos, mlength=mlength):
-                            qar, sar = np.zeros([3, qsize], dtype=np.int), np.zeros([3, ssize], dtype=np.int)
+                            qar, sar = np.zeros([3, qsize], dtype=int), np.zeros([3, ssize], dtype=int)
                             sm = str(mlength)
                             qar, sar, tot, match = parse_btop(sm, qpos, spos, qar, sar, matrix, qmult=qmult, tmult=tmult)
                             qfound = np.where(qar > 0)
@@ -65,7 +65,7 @@ class BtopTester(unittest.TestCase):
                         for score in (-1, 0, 1):
                             with self.subTest():
                                 match = "AT" * mlength
-                                qar, sar = np.zeros([3, qsize], dtype=np.int), np.zeros([3, ssize], dtype=np.int)
+                                qar, sar = np.zeros([3, qsize], dtype=int), np.zeros([3, ssize], dtype=int)
                                 qar, sar, tot, match = parse_btop(match, qpos, spos, qar, sar, {"AT": score},
                                                            qmult=qmult, tmult=tmult)
                                 qfound = np.where(qar > 0)
@@ -107,7 +107,7 @@ class BtopTester(unittest.TestCase):
                                 sm += gap
                                 if mlength - gap_pos - 1:
                                     sm += str(mlength - gap_pos)
-                                qar, sar = np.zeros([3, qsize], dtype=np.int), np.zeros([3, ssize], dtype=np.int)
+                                qar, sar = np.zeros([3, qsize], dtype=int), np.zeros([3, ssize], dtype=int)
                                 qar, sar, tot, match = parse_btop(sm, qpos, spos, qar, sar, dict(), qmult=qmult, tmult=tmult)
                                 qfound = np.where(qar > 0)
                                 sfound = np.where(sar > 0)

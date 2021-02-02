@@ -314,7 +314,7 @@ def prepare_hit(hit, query_id, target_id, off_by_one=False, as_list=False, **kwa
     hit_dict["query_id"] = query_id
     hit_dict["target_id"] = target_id
 
-    query_array = np.zeros([2, int(qlength)], dtype=np.int)
+    query_array = np.zeros([2, int(qlength)], dtype=int)
 
     for counter, hsp in enumerate(hit.hsps):
         if hsp.query_start + off_by_one - 1 > qlength:

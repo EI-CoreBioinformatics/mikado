@@ -1,6 +1,7 @@
 from dataclasses import field
 from typing import List
 
+import marshmallow
 from marshmallow import validate
 from marshmallow_dataclass import dataclass, Optional
 
@@ -261,6 +262,7 @@ class FragmentsConfiguration:
 class FilesConfiguration:
     output_dir: str = field(default=".", metadata={
         "metadata": {"description": "Output directory for mikado pick"},
+        "validate": validate.Length(min=1)
     })
     input: str = field(default="mikado_prepared.gtf", metadata={
         "metadata": {"description": "Input GTF/GFF3/BED12 file. Default: mikado_prepared.gtf"},

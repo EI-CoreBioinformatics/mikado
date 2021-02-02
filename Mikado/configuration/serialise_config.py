@@ -34,7 +34,7 @@ class FilesConfiguration:
     blast_targets: List[str] = field(default_factory=lambda: [], metadata={
                 "metadata": {"description": "FASTA file(s) with the BLAST targets."},
     })
-    output_dir: str = field(default=".", metadata={})
+    output_dir: str = field(default=".", metadata={"validate": validate.Length(min=1)})
 
 
 @dataclass

@@ -1,8 +1,6 @@
 from dataclasses import field
-
 from marshmallow import validate
 from marshmallow_dataclass import dataclass, Optional, List
-
 from .configuration import MikadoConfiguration
 
 
@@ -179,7 +177,8 @@ Mikado itself.
         "metadata": {"description": "Name to be used for the project"}
     })
     out_dir: str = field(default="Daijin", metadata={
-        "metadata": {"description": "Output directory for the project"}
+        "metadata": {"description": "Output directory for the project"},
+        "validate": validate.Length(min=1)
     })
     scheduler: Optional[str] = field(default=None, metadata={
         "metadata": {

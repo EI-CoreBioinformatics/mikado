@@ -213,7 +213,7 @@ switch.")
     if args.exclude_retained_introns is True:
         config.pick.alternative_splicing.keep_retained_introns = False
 
-    if args.out_dir is not None:
+    if args.out_dir:
         config.prepare.files.output_dir = args.out_dir
         config.serialise.files.output_dir = args.out_dir
         config.pick.files.output_dir = args.out_dir

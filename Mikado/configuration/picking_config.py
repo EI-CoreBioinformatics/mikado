@@ -286,7 +286,7 @@ class PickConfiguration:
     })
     alternative_splicing: AlternativeSplicingConfiguration = field(default_factory=AlternativeSplicingConfiguration,
                                                                    metadata={
-                                                                                                                                              "metadata": {
+                                                                       "metadata": {
                                                                            "description": "Parameters related to how Mikado will select and report alternative splicing events."},
                                                                    })
     output_format: OutputFormatConfiguration = field(default_factory=OutputFormatConfiguration, metadata={

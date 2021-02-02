@@ -1,7 +1,5 @@
 from dataclasses import field
 from typing import List
-
-import marshmallow
 from marshmallow import validate
 from marshmallow_dataclass import dataclass, Optional
 
@@ -22,12 +20,12 @@ class AlternativeSplicingConfiguration:
     min_cds_overlap: float = field(default=0.5, metadata={
         "metadata": {
             "description": "Minimum CDS overlap threshold (for coding transcripts) to be cleared for two transcripts to be considered AS events of each other.",
-            "validate": validate.Range(min=0, max=1)}
+            }, "validate": validate.Range(min=0, max=1)
     })
     min_cdna_overlap: float = field(default=0.6, metadata={
         "metadata": {
             "description": "Minimum cDNA overlap threshold to be cleared for two transcripts to be considered AS events of each other.",
-            "validate": validate.Range(min=0, max=1)}
+            }, "validate": validate.Range(min=0, max=1)
     })
     keep_retained_introns: bool = field(default=True, metadata={
         "metadata": {"description": "Keep or discard AS events with a retained intron. Default: true"},
@@ -37,41 +35,48 @@ class AlternativeSplicingConfiguration:
             "description": "Keep or discard AS events with their CDS disrupted by a retained intron event, ie either having their stop codon or ending with a truncated CDS within the intron of another transcript. Default: false."},
     })
     max_isoforms: int = field(default=10, metadata={
-        "metadata": {"description": "Maximum number of isoforms to report per locus. Default: 10.",
-                     "validate": validate.Range(min=1)}
+        "metadata": {"description": "Maximum number of isoforms to report per locus. Default: 10.",},
+        "validate": validate.Range(min=1)
     })
     valid_ccodes: list = field(default_factory=lambda: ["j", "J", "G", "h"], metadata={
         "metadata": {
-            "description": "AS event class codes considered as valid AS events. Valid codes are in categories 'Alternative splicing', 'Extension' (with junction F1 lower than 100%), and 'Overlap' (exluding m). Please run 'mikado util class_codes' or refer to the online documentation for an explanation of each code.",
-            "validate": validate.ContainsOnly(list(valid_as_ccodes))}
+            "description": "AS event class codes considered as valid AS events. Valid codes are in categories \
+'Alternative splicing', 'Extension' (with junction F1 lower than 100%), and 'Overlap' (exluding m). \
+Please run 'mikado util class_codes' or refer to the online documentation for an explanation of each code.",},
+        "validate": validate.ContainsOnly(list(valid_as_ccodes))
     })
     redundant_ccodes: list = field(default_factory=lambda: ["c", "m", "_", "=", "n"], metadata={
         "metadata": {
-            "description": "AS event class codes considered as a duplicate of other transcripts in the locus. Please run 'mikado util class_codes' or refer to the online documentation for an explanation of each code.",
-            "validate": validate.ContainsOnly(list(redundant_as_ccodes))}
+            "description": "AS event class codes considered as a duplicate of other transcripts in the locus. \
+Please run 'mikado util class_codes' or refer to the online documentation for an explanation of each code."},
+        "validate": validate.ContainsOnly(list(redundant_as_ccodes))
     })
     min_score_perc: float = field(default=0.5, metadata={
         "metadata": {
-            "description": "Minimum percentage of the score associated to an AS event *compared to the primary transcript* for the AS event to be considered valid. Default: 0.5, or 50%.",
-            "validate": validate.Range(min=0, max=1)}
+            "description": "Minimum percentage of the score associated to an AS event *compared to the primary \
+transcript* for the AS event to be considered valid. Default: 0.5, or 50%.",},
+            "validate": validate.Range(min=0, max=1)
     })
     only_confirmed_introns: bool = field(default=True, metadata={
-        "metadata": {
-            "description": "Boolean flag. If set to true (default), Mikado will only report AS events whose introns *not in common with the primary transcript* are verified by the junctions provided to serialise (usually Portcullis reliable junctions)."},
+        "metadata": {"description": "Boolean flag. If set to true (default), Mikado will only report AS \
+events whose introns *not in common with the primary transcript* are verified by the junctions provided to \
+serialise (usually Portcullis reliable junctions)."},
     })
     ts_distance: int = field(default=2000, metadata={
         "metadata": {
-            "description": "When padding, this value indicates how many bps can be added to *either* of the 5' or 3' section of the transcript, excluding introns.",
-            "validate": validate.Range(min=0)}
+            "description": "When padding, this value indicates how many bps can be added to *either* of the 5' or 3' \
+section of the transcript, excluding introns.",},
+        "validate": validate.Range(min=0)
     })
     pad: bool = field(default=True, metadata={
-        "metadata": {
-            "description": "Boolean flag. If set to true, Mikado will pad transcripts. Please refer to the online documentation."},
+        "metadata": {"description": "Boolean flag. If set to true, Mikado will pad transcripts. \
+Please refer to the online documentation."},
     })
     ts_max_splices: int = field(default=2, metadata={
         "metadata": {
-            "description": "When padding, this value indicates the maximum number of splicing junctions that can be added to *either* of the 5' or 3' section of the transcript.",
-            "validate": validate.Range(min=0)}
+            "description": "When padding, this value indicates the maximum number of splicing junctions \
+that can be added to *either* of the 5' or 3' section of the transcript."},
+            "validate": validate.Range(min=0)
     })
 
 
@@ -85,7 +90,8 @@ class OutputFormatConfiguration:
     })
     report_all_orfs: bool = field(default=False, metadata={
         "metadata": {
-            "description": "Boolean switch. If set to true, Mikado will report all ORFs associated with a transcript in the final loci file."},
+            "description": "Boolean switch. If set to true, Mikado will report all ORFs associated with a \
+transcript in the final loci file."},
     })
 
 
@@ -93,49 +99,54 @@ class OutputFormatConfiguration:
 class OrfLoadingConfiguration:
     minimal_secondary_orf_length: int = field(default=200, metadata={
         "metadata": {
-            "description": "Minimum length of a *secondary* ORF to be loaded after the first, in bp. Default: 200 bps",
-            "validate": validate.Range(min=0)}
+            "description": "Minimum length of a *secondary* ORF to be loaded after the first, in bp. Default: 200 bps"},
+        "validate": validate.Range(min=0)
     })
     minimal_orf_length: int = field(default=50, metadata={
         "metadata": {
-            "description": "Minimum length in bps of an ORF to be loaded, as the primary ORF, onto a transcript. Default: 50 bps",
-            "validate": validate.Range(min=0)}
+            "description": "Minimum length in bps of an ORF to be loaded, as the primary ORF, onto a transcript. \
+Default: 50 bps"},
+        "validate": validate.Range(min=0)
     })
     strand_specific: bool = field(default=True, metadata={
         "metadata": {
-            "description": "Boolean flag. If set to true, monoexonic transcripts with an available ORF on the opposite strand will still not be reversed."},
+            "description": "Boolean flag. If set to true, monoexonic transcripts with an available ORF \
+on the opposite strand will still not be reversed."},
     })
 
 
 @dataclass
 class BlastParamsConfiguration:
     evalue: float = field(default=1e-06, metadata={
-        "metadata": {"description": "Minimum evalue for the whole hit. Default: 1e-6",
-                     "validate": validate.Range(min=0)}
+        "metadata": {"description": "Minimum evalue for the whole hit. Default: 1e-6"},
+        "validate": validate.Range(min=0)
     })
     hsp_evalue: float = field(default=1e-06, metadata={
         "metadata": {
-            "description": "Minimum evalue for any HSP hit (some might be discarded even if the whole hit is valid). Default: 1e-6",
-            "validate": validate.Range(min=0)}
+            "description": "Minimum evalue for any HSP hit (some might be discarded even if the whole hit is valid). Default: 1e-6"},
+        "validate": validate.Range(min=0)
     })
     leniency: str = field(default="STRINGENT", metadata={
         "metadata": {
-            "description": "One of 'STRINGENT', 'LENIENT', 'PERMISSIVE'. Please refer to the online documentation for details. Default: STRINGENT",
-            "validate": validate.OneOf(["STRINGENT", "LENIENT", "PERMISSIVE"])}
+            "description": "One of 'STRINGENT', 'LENIENT', 'PERMISSIVE'. Please refer to the online documentation \
+for details. Default: STRINGENT"},
+        "validate": validate.OneOf(["STRINGENT", "LENIENT", "PERMISSIVE"])
     })
     max_target_seqs: int = field(default=3, metadata={
-        "metadata": {"description": "Maximum number of hits to consider. Default: 3",
-                     "validate": validate.Range(min=1)}
+        "metadata": {"description": "Maximum number of hits to consider. Default: 3"},
+        "validate": validate.Range(min=1)
     })
     minimal_hsp_overlap: float = field(default=0.5, metadata={
         "metadata": {
-            "description": "Minimum overlap of the ORF with the HSP (*not* reciprocal). Default: 0.8, i.e. 80%",
-            "validate": validate.Range(min=0, max=1)}
+            "description": "Minimum overlap of the ORF with the HSP (*not* reciprocal). Default: 0.8, i.e. 80%"},
+        "validate": validate.Range(min=0, max=1)
     })
     min_overlap_duplication: float = field(default=0.8, metadata={
         "metadata": {
-            "description": "min_overlap_duplication: minimum overlap (in %) for two ORFs to consider them as target duplications. This means that if two ORFs have no HSPs in common, but the coverage of their disjoint HSPs covers more than this percentage of the length of the *target*, they represent most probably a duplicated gene.",
-            "validate": validate.Range(min=0, max=1)}
+            "description": "min_overlap_duplication: minimum overlap (in %) for two ORFs to consider them as \
+target duplications. This means that if two ORFs have no HSPs in common, but the coverage of their disjoint \
+HSPs covers more than this percentage of the length of the *target*, they represent most probably a duplicated gene."},
+        "validate": validate.Range(min=0, max=1)
     })
 
 
@@ -150,8 +161,9 @@ class ChimeraSplitConfiguration:
     })
     skip: List[bool] = field(default_factory=lambda: [], metadata={
         "metadata": {
-            "description": "Input sources for which Mikado will skip the splitting, e.g. ultra-reliable full cDNA sequences.",
-            "validate": validate.Length(min=0)}
+            "description": "Input sources for which Mikado will skip the splitting, e.g. ultra-reliable \
+full cDNA sequences."},
+        "validate": validate.Length(min=0)
     })
     blast_params: BlastParamsConfiguration = field(default_factory=BlastParamsConfiguration, metadata={
                 "metadata": {"description": "Parameters for the BLAST check prior to splitting."},
@@ -180,16 +192,19 @@ class RunOptionsConfiguration:
 
     shm: bool = field(default=False, metadata={
         "metadata": {
-            "description": "boolean flag. If set and the DB is sqlite, it will be copied onto the /dev/shm faux partition, for a potentially faster execution."},
+            "description": "boolean flag. If set and the DB is sqlite, it will be copied onto the /dev/shm faux \
+partition, for a potentially faster execution."},
     })
     exclude_cds: bool = field(default=False, metadata={
         "metadata": {
-            "description": "boolean flag. If set, the CDS information will not be printed in Mikado output. Default: false"},
+            "description": "boolean flag. If set, the CDS information will not be printed in Mikado output. \
+Default: false"},
     })
     intron_range: List[int] = field(default_factory=lambda: [60, 10000], metadata={
         "metadata": {
-            "description": "A range where most of the introns (99%) should fall into. Transcripts with too many introns larger or smaller than what is defined in this range will be penalised in the scoring. Default: [60, 900]",
-            "validate": [validate.Length(min=2, max=2), Unique]}
+            "description": "A range where most of the introns (99%) should fall into. Transcripts with too many \
+introns larger or smaller than what is defined in this range will be penalised in the scoring. Default: [60, 900]"},
+        "validate": [validate.Length(min=2, max=2), Unique]
     })
     reference_update: bool = field(default=False, metadata={
         "metadata": {
@@ -197,11 +212,13 @@ class RunOptionsConfiguration:
     })
     only_reference_update: bool = field(default=False, metadata={
         "metadata": {
-            "description": "Boolean flag. If set, Mikado will run in reference-update mode, see documentation. Additionally, Mikado will ignore any locus where there is not at least one reference transcript."},
+            "description": "Boolean flag. If set, Mikado will run in reference-update mode, see documentation. \
+Additionally, Mikado will ignore any locus where there is not at least one reference transcript."},
     })
     check_references: bool = field(default=False, metadata={
         "metadata": {
-            "description": "boolean flag. If set to true, transcripts marked as reference will still be checked for compliance with the requirements established in the scoring file."},
+            "description": "boolean flag. If set to true, transcripts marked as reference will still \
+be checked for compliance with the requirements established in the scoring file."},
     })
     single_thread: bool = field(default=False, metadata={
         "metadata": {
@@ -217,8 +234,9 @@ class ClusteringConfiguration:
     })
     min_cds_overlap: float = field(default=0.2, metadata={
         "metadata": {
-            "description": "Minimal CDS overlap for the second clustering, in percentage between 0 and 1. Default: 0.2, or 20%",
-            "validate": validate.Range(min=0, max=1)}
+            "description": "Minimal CDS overlap for the second clustering, in percentage between 0 and 1. \
+Default: 0.2, or 20%",
+        "validate": validate.Range(min=0, max=1)}
     })
     min_cdna_overlap: float = field(default=0.2, metadata={
         "metadata": {
@@ -227,15 +245,17 @@ class ClusteringConfiguration:
     })
     purge: bool = field(default=True, metadata={
         "metadata": {
-            "description": "Boolean, it specifies whether to remove transcripts which fail the minimum requirements check, or if instead to just assign them a score of 0 (potentially retaining them in the final output)."},
+            "description": "Boolean, it specifies whether to remove transcripts which fail the minimum requirements \
+check, or if instead to just assign them a score of 0 (potentially retaining them in the final output)."},
     })
     flank: int = field(default=200, metadata={
-        "metadata": {"description": "Maximum distance for transcripts to be clustered within the same superlocus.",
-                     "validate": validate.Range(min=0)}
+        "metadata": {"description": "Maximum distance for transcripts to be clustered within the same superlocus."},
+        "validate": validate.Range(min=0)
     })
     simple_overlap_for_monoexonic: bool = field(default=False, metadata={
         "metadata": {
-            "description": "boolean. Disabled by default. If set to true, then any overlap, even minimal, will suffice to incude monoexonic transcripts in a locus."},
+            "description": "boolean. Disabled by default. If set to true, then any overlap, even minimal, \
+will suffice to incude monoexonic transcripts in a locus."},
     })
 
 
@@ -243,18 +263,21 @@ class ClusteringConfiguration:
 class FragmentsConfiguration:
     remove: bool = field(default=True, metadata={
         "metadata": {
-            "description": "boolean. Whether to remove fragments or leave them, properly tagged, in the output file. Default: remove them."}
+            "description": "boolean. Whether to remove fragments or leave them, properly tagged, in the output file. \
+Default: remove them."}
     })
     max_distance: int = field(default=2000, metadata={
-        "metadata": {
-            "description": "Maximum distance of a putative fragment from a valid gene, for it to be considered by this filter.",
-            "validate": validate.Range(min=0)}
+        "metadata": {"description": "Maximum distance of a putative fragment from a valid gene, for it \
+to be considered by this filter."},
+            "validate": validate.Range(min=0)
     })
     valid_class_codes: List[str] = field(
         default_factory=lambda: ["p", "P", "x", "X", "i", "m", "_", "e", "o"], metadata={
             "metadata": {
-                "description": "Which class codes will be considered as fragments. Default: (p, P, x, X, i, m, _). Choices: '_' plus any class code with category 'Intronic', 'Fragment', or 'Overlap'. Please refer to the online documentation or run 'mikado util class_codes for details.",
-                "validate": validate.ContainsOnly(["p", "P", "i", "I", "ri", "rI", "x", "X", "m", "_", "e", "o"])}
+                "description": "Which class codes will be considered as fragments. Default: (p, P, x, X, i, m, _). \
+Choices: '_' plus any class code with category 'Intronic', 'Fragment', or 'Overlap'. \
+Please refer to the online documentation or run 'mikado util class_codes for details."},
+            "validate": validate.ContainsOnly(["p", "P", "i", "I", "ri", "rI", "x", "X", "m", "_", "e", "o"])
         })
 
 
@@ -286,11 +309,11 @@ class PickConfiguration:
     scoring_file: str = field(default="plant.yaml", metadata={
         "metadata": {"description": "Scoring file to be used by Mikado."},
     })
-    alternative_splicing: AlternativeSplicingConfiguration = field(default_factory=AlternativeSplicingConfiguration,
-                                                                   metadata={
-                                                                       "metadata": {
-                                                                           "description": "Parameters related to how Mikado will select and report alternative splicing events."},
-                                                                   })
+    alternative_splicing: AlternativeSplicingConfiguration = field(
+        default_factory=AlternativeSplicingConfiguration,
+        metadata={"metadata": {
+            "description": "Parameters related to how Mikado will select and report alternative splicing events."},
+        })
     output_format: OutputFormatConfiguration = field(default_factory=OutputFormatConfiguration, metadata={
                 "metadata": {"description": "Parameters related to the output format."},
     })
@@ -299,7 +322,8 @@ class PickConfiguration:
     })
     chimera_split: ChimeraSplitConfiguration = field(default_factory=ChimeraSplitConfiguration, metadata={
                 "metadata": {
-            "description": "Parameters related to the splitting of transcripts in the presence of two or more ORFs."},
+                    "description": "Parameters related to the splitting of transcripts \
+in the presence of two or more ORFs."},
     })
     run_options: RunOptionsConfiguration = field(default_factory=RunOptionsConfiguration, metadata={
                 "metadata": {"description": "Generic run options for Mikado pick."},

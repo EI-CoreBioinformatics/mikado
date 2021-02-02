@@ -24,8 +24,8 @@ class DBConfiguration:
                 "metadata": {"description": "the DB to connect to. Required. Default: mikado.db"}
     })
     dbtype: str = field(default="sqlite", metadata={
-                "metadata": {"description": "Type of DB to use. Choices: sqlite, postgresql, mysql. Default: sqlite.",
-                     "validate": validate.OneOf(["sqlite", "mysql", "postgresql"])}
+                "metadata": {"description": "Type of DB to use. Choices: sqlite, postgresql, mysql. Default: sqlite."},
+                "validate": validate.OneOf(["sqlite", "mysql", "postgresql"])
     })
     dbhost: str = field(default="localhost", metadata={
                 "metadata": {"description": "Host of the database. Unused if dbtype is sqlite. Default: localhost"}
@@ -34,11 +34,11 @@ class DBConfiguration:
                 "metadata": {"description": "DB user. Unused if dbtype is sqlite. Default: empty string"}
     })
     dbpasswd: Optional[str] = field(default=None, metadata={
-                "metadata": {"description": "DB password for the user. Unused if dbtype is sqlite. Default: empty string."}
+                "metadata": {"description": "DB password for the user. Unused if dbtype is sqlite. Default: null"}
     })
     dbport: Optional[int] = field(default=None, metadata={
                 "metadata": {
-            "description": "Integer. It indicates the default port for the DB. Unused if dbtype is sqlite. Default: 0"}
+                    "description": "Integer. It indicates the default port for the DB. Unused if dbtype is sqlite."}
     })
 
 

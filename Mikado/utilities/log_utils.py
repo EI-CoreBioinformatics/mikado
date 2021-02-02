@@ -17,12 +17,12 @@ class LoggingConfiguration:
     log_level: str = field(default="INFO", metadata={
                 "metadata": {
             "description": "Verbosity for SQL calls. Default: WARNING. In decreasing order: 'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'",
-            "validate": validate.OneOf(["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"])}
+            }, "validate": validate.OneOf(["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"])
     })
     sql_level: str = field(default="WARNING", metadata={
                 "metadata": {
             "description": "General verbosity. Default: INFO. In decreasing order: 'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'",
-            "validate": validate.OneOf(["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"])}
+            }, "validate": validate.OneOf(["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"])
     })
     log: Optional[str] = field(default=None, metadata={
             })

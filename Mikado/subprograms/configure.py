@@ -215,7 +215,7 @@ switch.")
 
     # Check that the configuration file is correct
     tempcheck = tempfile.NamedTemporaryFile("wt", suffix=".yaml", delete=False)
-    print_config(config, tempcheck)
+    print_config(config, tempcheck, full=args.full)
     tempcheck.flush()
     try:
         load_and_validate_config(tempcheck.name)
@@ -229,7 +229,7 @@ switch.")
     else:
         format_name = "toml"
 
-    print_config(config, args.out, format=format_name, no_files=args.no_files)
+    print_config(config, args.out, output_format=format_name, no_files=args.no_files)
 
 
 def configure_parser():

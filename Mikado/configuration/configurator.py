@@ -6,8 +6,6 @@ This module defines the functionalities needed to verify the integrity and compl
 of Mikado configuration files. Missing values are replaced with default ones,
 while existing values are checked for type and consistency.
 """
-import dataclasses
-
 import io
 import json
 import os.path

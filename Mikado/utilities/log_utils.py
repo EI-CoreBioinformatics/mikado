@@ -2,13 +2,12 @@
 Module which contains all functions related to logging.
 """
 
-
 import logging
 import logging.handlers
-from marshmallow_dataclass import dataclass, Optional
 from dataclasses import field
-from marshmallow import validate
 
+from marshmallow import validate
+from marshmallow_dataclass import dataclass, Optional
 
 __author__ = 'Luca Venturini'
 
@@ -16,25 +15,24 @@ __author__ = 'Luca Venturini'
 @dataclass
 class LoggingConfiguration:
     log_level: str = field(default="INFO", metadata={
-        "name": "log_level",
-        "description": "Verbosity for SQL calls. Default: WARNING. In decreasing order: 'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'",
-        "validate": validate.OneOf(["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]),
+                "metadata": {
+            "description": "Verbosity for SQL calls. Default: WARNING. In decreasing order: 'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'",
+            "validate": validate.OneOf(["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"])}
     })
     sql_level: str = field(default="WARNING", metadata={
-        "name": "sql_level",
-        "description": "General verbosity. Default: INFO. In decreasing order: 'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'",
-        "validate": validate.OneOf(["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"])
+                "metadata": {
+            "description": "General verbosity. Default: INFO. In decreasing order: 'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'",
+            "validate": validate.OneOf(["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"])}
     })
     log: Optional[str] = field(default=None, metadata={
-        "name": "log",
-    })
+            })
 
 
 formatter = logging.Formatter(
-        "{asctime} - {name} - {filename}:{lineno} - {levelname} - {funcName} \
+    "{asctime} - {name} - {filename}:{lineno} - {levelname} - {funcName} \
 - {processName} - {message}",
-        style="{"
-        )
+    style="{"
+)
 
 null_logger = logging.getLogger("null")
 null_handler = logging.NullHandler()
@@ -133,7 +131,6 @@ def create_queue_logger(instance, prefix=""):
 
 
 def create_logger_from_conf(conf, name="mikado", mode="a"):
-
     logger = logging.getLogger(name)
     if isinstance(conf, LoggingConfiguration):
         log_settings = conf

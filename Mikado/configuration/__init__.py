@@ -21,7 +21,7 @@ import yaml
 __author__ = 'Luca Venturini'
 
 
-def print_toml_config(config, out, no_files=False):
+def print_toml_config(config, out, no_files=False, full=True):
 
     """Function to print out the configuration in TOML format, adding the descriptions as comments preceded by #.
     :param config: configuration
@@ -57,12 +57,13 @@ def print_toml_config(config, out, no_files=False):
             level = config
             for key in keys[:-1]:
                 level = getattr(level, key)
-            metadata = level.__dataclass_fields__[keys[-1]].metadata
+            metadata = level.Schema._declared_fields[keys[-1]].metadata
             comment = []
-            description = metadata.get("metadata", dict()).get("description", None)
+            description = metadata.get('description', None)
             if description:
                 comment += ["# " + _ for _ in textwrap.wrap(description)]
-            if hasattr(getattr(level, keys[-1]), "__dataclass_fields__"):
+            dataclassObject = getattr(level, keys[-1])
+            if hasattr(dataclassObject, "Schema"):
                 level = getattr(level, keys[-1])
             lines.append(line)
             lines.extend(comment)
@@ -70,19 +71,17 @@ def print_toml_config(config, out, no_files=False):
             comment = []
             if "=" in line:
                 key = line.split("=")[0].strip()
-                try:
-                    meta = level.__dataclass_fields__[key].metadata
-                    description = meta.get("metadata", dict()).get("description", None)
-                except AttributeError:
-                    raise AttributeError(key, level)
-                except KeyError:
-                    description = None
+                meta = level.Schema._declared_fields.get(key)
+                description = None
+                if meta:
+                    description = meta.metadata.get("description")
                 if description:
                     _comment = textwrap.wrap(description)
                     if _comment:
                         _comment[0] = key + ": " + _comment[0]
                         comment += ["# " + _ for _ in _comment]
                 lines.extend(comment)
+            # if level.Schema._declared_fields[key].required or full:
             lines.append(line.rstrip())
 
     if config.__doc__:
@@ -92,7 +91,8 @@ def print_toml_config(config, out, no_files=False):
     print(*lines, sep="\n", file=out)
 
 
-def print_config(config: Union[MikadoConfiguration, DaijinConfiguration], out, format="yaml", no_files=False):
+def print_config(config: Union[MikadoConfiguration, DaijinConfiguration], out,
+                 output_format="yaml", no_files=False, full=True):
     """
     Function to print out the configuration in TOML format, adding the descriptions as comments preceded by #.
     :param config: configuration
@@ -101,23 +101,23 @@ def print_config(config: Union[MikadoConfiguration, DaijinConfiguration], out, f
     :param out: output handle
     :type out: io.TextIOWrapper
 
-    :param format: one of yaml, json or toml (case-insensitive)
-    :type format: str
+    :param output_format: one of yaml, json or toml (case-insensitive)
+    :type output_format: str
 
     :param no_files: boolean. If on, sections pertaining to files will be deleted from the output.
     :type no_files: bool
     """
 
-    if not isinstance(format, str) or format.lower() not in ("yaml", "json", "toml"):
+    if not isinstance(output_format, str) or output_format.lower() not in ("yaml", "json", "toml"):
         raise ValueError("Unknown format: {}. I can only accept yaml, json or toml as options.")
 
-    format = format.lower()
+    output_format = output_format.lower()
 
-    if format == "toml":
-        print_toml_config(config, out, no_files=no_files)
-    elif format == "yaml":
-        print_yaml_config(config, out, no_files=no_files)
-    elif format == "json":
+    if output_format == "toml":
+        print_toml_config(config, out, no_files=no_files, full=full)
+    elif output_format == "yaml":
+        print_yaml_config(config, out, no_files=no_files, full=full)
+    elif output_format == "json":
         config_dict = dataclasses.asdict(config)
         # Necessary otherwise we will be deleting fields from the *original* object!
         for key in ["scoring", "cds_requirements", "requirements", "not_fragmentary", "as_requirements"]:
@@ -133,7 +133,7 @@ def print_config(config: Union[MikadoConfiguration, DaijinConfiguration], out, f
         print(json.dumps(config_dict, indent=4, sort_keys=True), file=out)
 
 
-def print_yaml_config(config, out, no_files=False):
+def print_yaml_config(config, out, no_files=False, full=True):
     """
     Function to print out the configuration in YAML format, adding the descriptions as comments preceded by #.
     :param config: configuration
@@ -176,17 +176,15 @@ def print_yaml_config(config, out, no_files=False):
             level = config
             for oldkey, _ in nesting:
                 _ = getattr(level, oldkey)
-                if not hasattr(_, "__dataclass_fields__"):
-                    break
                 level = _
             try:
-                metadata = level.__dataclass_fields__[key].metadata
+                field_dc = level.Schema._declared_fields[key]
             except KeyError:
                 raise KeyError(key, level)
             except AttributeError:
                 raise AttributeError(key, level)
             comment = []
-            description = metadata.get("metadata", dict()).get("description", None)
+            description = field_dc.metadata.get("description", None)
             if description:
                 comment += ["# " + _ for _ in textwrap.wrap(description)]
             lines.append(line)
@@ -201,15 +199,15 @@ def print_yaml_config(config, out, no_files=False):
             if ":" in line:
                 for stop, (nest_level, _) in enumerate(nesting):
                     _ = getattr(level, nest_level)
-                    if not hasattr(_, "__dataclass_fields__"):
+                    if not hasattr(_, "Schema"):
                         break
-                    elif key in _.__dataclass_fields__:
+                    elif key in _.Schema._declared_fields:
                         level = _
                         break
                     level = _
                 try:
-                    meta = level.__dataclass_fields__[key].metadata
-                    description = meta.get("metadata", dict()).get("description", None)
+                    meta = level.Schema._declared_fields[key].metadata
+                    description = meta.get("description", None)
                 except AttributeError:
                     raise AttributeError(key, level)
                 except KeyError:
@@ -229,3 +227,4 @@ def print_yaml_config(config, out, no_files=False):
         print("#", file=out)
 
     print(*lines, sep="\n", file=out)
+

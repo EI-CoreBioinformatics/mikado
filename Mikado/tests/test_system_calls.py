@@ -1429,7 +1429,7 @@ class PickTest(unittest.TestCase):
                 self.configuration.not_fragmentary.pop("compiled", None)
 
                 with open(json_file, "wt") as json_handle:
-                    print_config(self.configuration, json_handle, format="yaml")
+                    print_config(self.configuration, json_handle, output_format="yaml")
 
                 sys.argv = ["mikado", "pick", "--json-conf", json_file, "--seed", "1078"]
                 with self.assertRaises(SystemExit):
@@ -1474,7 +1474,7 @@ class PickTest(unittest.TestCase):
                 self.configuration.not_fragmentary.pop("compiled", None)
 
                 with open(json_file, "wt") as json_handle:
-                    print_config(self.configuration, json_handle, format="yaml")
+                    print_config(self.configuration, json_handle, output_format="yaml")
 
                 log = "pick.log"
                 if os.path.exists(os.path.join(dir.name, log)):
@@ -1524,7 +1524,7 @@ class PickTest(unittest.TestCase):
         self.configuration.db_settings.db = os.path.join(self.configuration.pick.files.output_dir, "mikado.db")
         json_file = os.path.join(self.configuration.pick.files.output_dir, "mikado.yaml")
         with open(json_file, "wt") as json_handle:
-            print_config(self.configuration, json_handle, format="yaml")
+            print_config(self.configuration, json_handle, output_format="yaml")
         sys.argv = ["mikado", "pick", "--json-conf", json_file, "--single", "--seed", "1078"]
         with self.assertRaises(SystemExit):
             pkg_resources.load_entry_point("Mikado", "console_scripts", "mikado")()
@@ -1559,7 +1559,7 @@ class PickTest(unittest.TestCase):
         self.configuration.pick.files.output_dir = os.path.join(outdir.name)
         json_file = os.path.join(outdir.name, "mikado.yaml")
         with open(json_file, "wt") as json_handle:
-            print_config(self.configuration, json_handle, format="yaml")
+            print_config(self.configuration, json_handle, output_format="yaml")
         self.configuration.pick.files.output_dir = os.path.join(outdir.name)
         scoring_file = pkg_resources.resource_filename("Mikado.tests", "scoring_only_cds.yaml")
         sys.argv = ["mikado", "pick", "--json-conf", json_file, "--single",
@@ -1824,7 +1824,7 @@ class SerialiseChecker(unittest.TestCase):
             uni_out_handle.write(uni.read())
 
         with open(json_file, "wt") as json_handle:
-            print_config(self.configuration, json_handle, format="yaml")
+            print_config(self.configuration, json_handle, output_format="yaml")
         # Set up the command arguments
         for procs in (1,):
             with self.subTest(proc=procs):
@@ -1874,7 +1874,7 @@ class SerialiseChecker(unittest.TestCase):
                     uni_out_handle.write(uni.read())
 
                 with open(json_file, "wt") as json_handle:
-                    print_config(self.configuration, json_handle, format="yaml")
+                    print_config(self.configuration, json_handle, output_format="yaml")
                 sys.argv = [str(_) for _ in ["mikado", "serialise", "--json-conf", json_file,
                             "--transcripts", transcripts, "--blast_targets", uni_out,
                             "--orfs", orfs, "--junctions", junctions, "--xml", xml, "-od", dir.name,
@@ -1994,7 +1994,7 @@ class SerialiseChecker(unittest.TestCase):
                     uni_out_handle.write(uni.read())
 
                 with open(json_file, "wt") as json_handle:
-                    print_config(self.configuration, json_handle, format="yaml")
+                    print_config(self.configuration, json_handle, output_format="yaml")
                 with self.subTest(proc=procs):
                     sys.argv = [str(_) for _ in ["mikado", "serialise", "--json-conf", json_file,
                                                  "--transcripts", transcripts, "--blast_targets", uni_out,

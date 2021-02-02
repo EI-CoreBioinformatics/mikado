@@ -220,7 +220,7 @@ switch.")
 
     # Check that the configuration file is correct
     tempcheck = tempfile.NamedTemporaryFile("wt", suffix=".yaml", delete=False)
-    print_config(config, tempcheck)
+    print_config(config, tempcheck, full=args.full)
     tempcheck.flush()
     try:
         load_and_validate_config(tempcheck.name)

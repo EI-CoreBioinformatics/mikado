@@ -745,4 +745,4 @@ Parameters:
 Technical details
 ~~~~~~~~~~~~~~~~~
 
-The configuration file obeys a specific JSON schema which can be found at :download:`Mikado/configuration/configuration_blueprint.json <configuration_blueprint.json>`. Every time a Mikado utility is launched, it checks the configuration file against the schema to validate it. The schema contains non-standard "Comment" and "SimpleComment" string arrays which are used at runtime to generate the comment strings in the YAML output.
+The configuration file obeys a specific schema defined by the :class:`Mikado.configuration.daijin_configuration` or the :class:`Mikado.configuration.configuration`. Every time a Mikado utility is launched, it checks the configuration file against the schema defined by those classes to validate it.

@@ -136,6 +136,8 @@ serialise:
   # for an alternative in-frame start codon in the first 30 bps (10% of
   # the cDNA).
   max_regression: 0.2
+  codon_table: 0
+  substitution_matrix: blosum62
 # threads: Threads to be used per process
 threads: 1
 

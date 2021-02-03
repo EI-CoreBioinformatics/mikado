@@ -72,7 +72,7 @@ pick:
       #  - evalue: Minimum evalue for the whole hit. Default: 1e-6
       #  - leniency: One of STRINGENT, LENIENT, PERMISSIVE. Default: LENIENT
       #  - max_target_seqs: maximum number of hits to consider. Default: 3
-      {}
+      leniency: LENIENT
     execute: false
   clustering:
     #  Parameters related to the clustering of transcripts into loci.

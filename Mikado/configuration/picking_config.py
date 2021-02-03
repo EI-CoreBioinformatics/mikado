@@ -132,7 +132,8 @@ class BlastParamsConfiguration:
         "metadata": {
             "description": "One of 'STRINGENT', 'LENIENT', 'PERMISSIVE'. Please refer to the online documentation \
 for details. Default: STRINGENT"},
-        "validate": validate.OneOf(["STRINGENT", "LENIENT", "PERMISSIVE"])
+        "validate": validate.OneOf(["STRINGENT", "LENIENT", "PERMISSIVE"]),
+        "required": True
     })
     max_target_seqs: int = field(default=3, metadata={
         "metadata": {"description": "Maximum number of hits to consider. Default: 3"},

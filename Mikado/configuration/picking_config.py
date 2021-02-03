@@ -158,6 +158,7 @@ class ChimeraSplitConfiguration:
     })
     execute: bool = field(default=True, metadata={
         "metadata": {"description": "Whether to split multi-ORF transcripts at all. Boolean."},
+        "required": True
     })
     skip: List[bool] = field(default_factory=lambda: [], metadata={
         "metadata": {

@@ -124,7 +124,7 @@ class TestParser(unittest.TestCase):
 
         gff_line = "Chr1\tmikado\tgene\t1000\t2000\t.\t+\t0\tID=\"transcript:foo.1\";"
         gff_line = parsers.GFF.GffLine(gff_line)
-        self.assertFalse(gff_line.is_gene)
+        self.assertTrue(gff_line.is_gene)
         gff_line.id = "gene:foo.1"
         self.assertTrue(gff_line.is_gene)
         gff_line.feature = "gene_ens"

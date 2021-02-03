@@ -170,14 +170,7 @@ class GtfLine(GFAnnotation):
 
     def _set_is_transcript(self):
 
-        # if self.feature is None:
-        #     return False
-        # if "transcript" == self.feature or "RNA" in self.feature:
-        #     return True
-        # return False
-
-        return (self.feature is not None) and (self.transcript_pattern.search(
-            self.feature) is not None)
+        return (self.feature is not None) and (self.transcript_pattern.search(self.feature) is not None)
 
     def __set_transcript(self):
         if self.header is True:

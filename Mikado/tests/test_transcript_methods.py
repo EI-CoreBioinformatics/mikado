@@ -558,7 +558,6 @@ class TestRetrieval(unittest.TestCase):
         self.assertTrue(conf.pick.chimera_split.blast_check)
         self.assertTrue(conf.pick.chimera_split.execute)
         self.assertEqual(conf.pick.chimera_split.blast_params.leniency, "LENIENT")
-
         conf.pick.orf_loading.minimal_secondary_orf_length = 50
 
         self.tr.configuration = conf

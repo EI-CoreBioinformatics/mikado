@@ -9,6 +9,7 @@
 #  - pick: settings related to the Mikado pick stage
 #  - multiprocessing_method: which method (fork, spawn, forkserver) Mikado should
 #  use for multiprocessing.
+threads: 1
 db_settings:
   #  Settings related to DB connection. Parameters:
   #  db: the DB to connect to. Required. Default: mikado.db
@@ -17,7 +18,7 @@ db_settings:
   #  dbuser: DB user. Default: 
   #  dbpasswd: DB password for the user. Default: 
   #  dbport: Integer. It indicates the default port for the DB.
-  db: /ei/workarea/group-ga/Projects/CB-GENANNO-444_Myzus_persicae_clone_O_v2_annotation/Analysis/mikado-2.0rc4/annotation_run1/mikado.db
+  db: mikado.db
   dbtype: sqlite
 pick:
   #  Parameters related to the Mikado pick stage.
@@ -268,6 +269,6 @@ serialise:
     output_dir: Testds
     transcripts: mikado_prepared.testds.fasta
     xml: []
-  codon_table: "0"
+  codon_table: 0
   max_regression: 0.1
   substitution_matrix: blosum62

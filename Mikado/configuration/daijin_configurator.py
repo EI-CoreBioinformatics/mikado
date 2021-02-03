@@ -271,6 +271,6 @@ def create_daijin_config(args: Namespace, config=None, level="ERROR", piped=Fals
         else:
             format_name = "toml"
 
-        print_config(final_config, args.out, output_format=format_name, no_files=args.no_files)
+        print_config(final_config, args.out, output_format=format_name, no_files=args.no_files, full=args.full)
         args.out.close()
     return

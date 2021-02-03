@@ -20,31 +20,32 @@ DBBASE = declarative_base()
 
 @dataclass
 class DBConfiguration:
-    db: str = field(default="mikado.db", metadata={
-                "metadata": {"description": "the DB to connect to. Required. Default: mikado.db",
-                             "full": True}
-    })
-    dbtype: str = field(default="sqlite", metadata={
-                "metadata": {"description": "Type of DB to use. Choices: sqlite, postgresql, mysql. Default: sqlite.",
-                             "full": False},
-                "validate": validate.OneOf(["sqlite", "mysql", "postgresql"])
+    db: str = field(default="mikado.db",
+                    metadata={"metadata": {"description": "the DB to connect to. Required. Default: mikado.db"},
+                              "required": True,
+                              "validate": validate.Length(min=1)}
+                    )
+    dbtype: str = field(default="sqlite",
+                        metadata={
+                            "metadata": {
+                                "description": "Type of DB to use. Choices: sqlite, postgresql, mysql. Default: sqlite."
+                            },
+                            "required": True,
+                            "validate": validate.OneOf(["sqlite", "mysql", "postgresql"])
     })
     dbhost: str = field(default="localhost", metadata={
-                "metadata": {"description": "Host of the database. Unused if dbtype is sqlite. Default: localhost",
-                             "full": False}
+                "metadata": {"description": "Host of the database. Unused if dbtype is sqlite. Default: localhost"}
     })
     dbuser: Optional[str] = field(default=None, metadata={
-                "metadata": {"description": "DB user. Unused if dbtype is sqlite. Default: empty string",
-                             "full": False}
+                "metadata": {"description": "DB user. Unused if dbtype is sqlite. Default: empty string"}
     })
     dbpasswd: Optional[str] = field(default=None, metadata={
-                "metadata": {"description": "DB password for the user. Unused if dbtype is sqlite. Default: null",
-                             "full": False}
+                "metadata": {"description": "DB password for the user. Unused if dbtype is sqlite. Default: null"}
     })
     dbport: Optional[int] = field(default=None, metadata={
                 "metadata": {
-                    "description": "Integer. It indicates the default port for the DB. Unused if dbtype is sqlite.",
-                    "full": False}
+                    "description": "Integer. It indicates the default port for the DB. Unused if dbtype is sqlite."
+                }
     })
 
 

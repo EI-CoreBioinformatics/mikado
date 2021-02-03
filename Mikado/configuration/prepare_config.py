@@ -10,19 +10,17 @@ class PrepareFilesConfiguration:
                                                    "validate": validate.Length(min=1)})
     out: str = field(default="mikado_prepared.gtf", metadata={
         "metadata": {"description": "Output GTF file."},
-                     "required": True}
+        "validate": validate.Length(min=1)}
     )
     out_fasta: str = field(default="mikado_prepared.fasta", metadata={
-        "metadata": {
-            "required": True
-        }
+        "validate": validate.Length(min=1)
     })
     log: str = field(default="prepare.log", metadata={
         "metadata": {"description": "Log file."}
     })
     gff: List[str] = field(default_factory=lambda: [], metadata={
-        "metadata": {"description": "List of the input files.",
-                     "required": True}
+        "metadata": {"description": "List of the input files."},
+        "required": True
     })
     labels: List[str] = field(default_factory=lambda: [], metadata={
         "metadata": {
@@ -33,6 +31,7 @@ be the same length as the 'gff' content above."},
         "metadata": {
             "description": "List of input assemblies to be considered as strand specific. Any 'reference' \
 input is automatically marked as strand-specific."},
+        "required": True
     })
     reference: List[bool] = field(default_factory=lambda: [], metadata={
         "metadata": {

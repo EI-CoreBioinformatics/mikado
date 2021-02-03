@@ -11,7 +11,8 @@ redundant_as_ccodes = ("j", "n", "O", "e", "o", "h", "J", "C", "c", "m", "mo", "
 class AlternativeSplicingConfiguration:
     report: bool = field(default=True, metadata={
         "metadata": {
-            "description": "Boolean flag, about whether Mikado should find and report AS events or simply define one transcript per locus."}
+            "description": "Boolean flag, about whether Mikado should find and report AS events \
+or simply define one transcript per locus."}
     })
     cds_only: bool = field(default=False, metadata={
         "metadata": {
@@ -71,6 +72,7 @@ section of the transcript, excluding introns.",},
     pad: bool = field(default=True, metadata={
         "metadata": {"description": "Boolean flag. If set to true, Mikado will pad transcripts. \
 Please refer to the online documentation."},
+        "required": True
     })
     ts_max_splices: int = field(default=2, metadata={
         "metadata": {
@@ -155,6 +157,7 @@ class ChimeraSplitConfiguration:
     blast_check: bool = field(default=True, metadata={
         "metadata": {
             "description": "Whether to use BLAST information to take a decision. See blast_params for details."},
+        "required": True
     })
     execute: bool = field(default=True, metadata={
         "metadata": {"description": "Whether to split multi-ORF transcripts at all. Boolean."},
@@ -191,6 +194,22 @@ class RunOptionsConfiguration:
                 raise validate.ValidationError(self._format_error(value))
             return value
 
+    class MinLength(validate.Validator):
+        message = "{input} contains values below 1"
+        def __init__(self, error=None):
+            self.error = error
+
+        def _repr_args(self):
+            return ""
+
+        def _format_error(self, value):
+            return self.message.format(input=value)
+
+        def __call__(self, value):
+            if min(value) < 1:
+                raise validate.ValidationError(self._format_error(value))
+            return value
+
     shm: bool = field(default=False, metadata={
         "metadata": {
             "description": "boolean flag. If set and the DB is sqlite, it will be copied onto the /dev/shm faux \
@@ -205,7 +224,8 @@ Default: false"},
         "metadata": {
             "description": "A range where most of the introns (99%) should fall into. Transcripts with too many \
 introns larger or smaller than what is defined in this range will be penalised in the scoring. Default: [60, 900]"},
-        "validate": [validate.Length(min=2, max=2), Unique]
+        "validate": [validate.Length(min=2, max=2), Unique, MinLength],
+        "required": True
     })
     reference_update: bool = field(default=False, metadata={
         "metadata": {
@@ -293,6 +313,7 @@ class FilesConfiguration:
     })
     input: str = field(default="mikado_prepared.gtf", metadata={
         "metadata": {"description": "Input GTF/GFF3/BED12 file. Default: mikado_prepared.gtf"},
+        "required": True
     })
     loci_out: str = field(default="mikado.loci.gff3", metadata={
         "metadata": {"description": "Main output GFF3 file from Mikado pick. Default: mikado.loci.gff3"},
@@ -312,6 +333,7 @@ class FilesConfiguration:
 class PickConfiguration:
     scoring_file: str = field(default="plant.yaml", metadata={
         "metadata": {"description": "Scoring file to be used by Mikado."},
+        "required": True
     })
     alternative_splicing: AlternativeSplicingConfiguration = field(
         default_factory=AlternativeSplicingConfiguration,

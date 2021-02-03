@@ -27,6 +27,7 @@ class MikadoConfiguration:
     threads: int = field(default=1, metadata={
         "metadata": {"description": "Threads to be used per process"},
         "validate": validate.Range(min=1),
+        "required": True
     })
     seed: int = field(default=0, metadata={
         "metadata": {"description": "Random number generator seed, to ensure reproducibility across runs"},

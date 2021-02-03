@@ -576,7 +576,7 @@ rule align_star_index:
         indexdir=os.path.join(ALIGN_DIR_FULL, "star", "index"),
         load=loadPre(config, "star"),
         trans="--sjdbGTFfile {}".format(os.path.abspath(REF_TRANS)) if REF_TRANS else "",
-        extra=config["aln_index"].get("star", ""),
+        extra=config.get("aln_index", dict()).get("star", ""),
         dir=os.path.join(ALIGN_DIR, "star"),
         genome=os.path.abspath(os.path.join(REF_DIR, "genome.fa"))
     log: os.path.join(ALIGN_DIR_FULL, "logs", "star", "star.index.log")

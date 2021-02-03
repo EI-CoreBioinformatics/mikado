@@ -1165,10 +1165,11 @@ class ConfigureCheck(unittest.TestCase):
                         self.assertIsInstance(conf.seed, int)
 
             with self.subTest(mistake=False):
-                with self.assertRaises((OSError, InvalidJson)):
+                with self.assertRaises(OSError):
                     namespace.seed = False
                     namespace.daijin = False
                     namespace.mode = ["permissive"]
+                    self.assertFalse(namespace.seed)
                     with open(out, "w") as out_handle:
                         namespace.out = out_handle
                         sub_configure.create_config(namespace)
@@ -1213,7 +1214,7 @@ class ConfigureCheck(unittest.TestCase):
         namespace.new_scoring = None
         namespace.full = True
         namespace.daijin = False
-        namespace.seed = None
+        namespace.seed = 0
         namespace.min_clustering_cds_overlap = 0.2
         namespace.min_clustering_cdna_overlap = 0.2
         dir = tempfile.TemporaryDirectory()
@@ -1230,6 +1231,7 @@ class ConfigureCheck(unittest.TestCase):
     def test_mikado_config_daijin(self):
         namespace = Namespace(default=False)
         namespace.scoring = None
+        namespace.seed = 0
         namespace.intron_range = None
         namespace.reference = pkg_resources.resource_filename("Mikado.tests", "chr5.fas.gz")
         namespace.external = None
@@ -1240,7 +1242,6 @@ class ConfigureCheck(unittest.TestCase):
         namespace.new_scoring = None
         namespace.full = True
         namespace.daijin = True
-        namespace.seed = None
         namespace.min_clustering_cds_overlap = 0.2
         namespace.min_clustering_cdna_overlap = 0.2
         namespace.blast_chunks = 10
@@ -1272,7 +1273,7 @@ class ConfigureCheck(unittest.TestCase):
         namespace.new_scoring = None
         namespace.full = True
         namespace.daijin = False
-        namespace.seed = None
+        namespace.seed = 0
         namespace.min_clustering_cds_overlap = 0.2
         namespace.min_clustering_cdna_overlap = 0.2
         dir = tempfile.TemporaryDirectory()

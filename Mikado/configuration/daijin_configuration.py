@@ -8,17 +8,23 @@ from .configuration import MikadoConfiguration
 class ShortReads:
     r1: List[str] = field(default_factory=lambda: [], metadata={
         "metadata": {"description": "Array of left read files."},
+        "required": True
     })
     r2: List[str] = field(default_factory=lambda: [], metadata={
         "metadata": {
-            "description": "Array of right read files. It must be of the same length of r1; if one or more of the samples are single-end reads, add an empty string."},
+            "description": "Array of right read files. It must be of the same length of r1; if one or more of the \
+samples are single-end reads, add an empty string."},
+        "required": True
     })
     samples: List[str] = field(default_factory=lambda: [], metadata={
         "metadata": {"description": "Array of the sample names. It must be of the same length of r1."},
+        "required": True
     })
     strandedness: List[str] = field(default_factory=lambda: [], metadata={
         "metadata": {
-            "description": "Array of strand-specificity of the samples. It must be of the same length of r1. Valid values: fr-firststrand, fr-secondstrand, fr-unstranded."},
+            "description": "Array of strand-specificity of the samples. It must be of the same length of r1. \
+Valid values: fr-firststrand, fr-secondstrand, fr-unstranded."},
+        "required": True
     })
 
 
@@ -108,8 +114,8 @@ class ProgramLoader:
 
 @dataclass
 class Portcullis:
-    do: bool = field(default=True)
-    canonical_juncs: str = field(default="C,S")
+    do: bool = field(default=True, metadata={"required": True})
+    canonical_juncs: str = field(default="C,S", metadata={"required": True})
 
 
 @dataclass
@@ -127,7 +133,10 @@ class DaijinMikadoConfiguration:
     })
     modes: List[str] = field(default_factory=lambda: ["stringent"], metadata={
         "metadata": {
-            "description": "which mode(s) to run Mikado into. Default: permissive (split multiple ORF models unless there is strong BLAST evidence against the decision)."},
+            "description": "which mode(s) to run Mikado into. Default: permissive (split multiple ORF models \
+unless there is strong BLAST evidence against the decision)."},
+        "validate": validate.ContainsOnly(["nosplit", "split", "lenient", "stringent", "permissive"]),
+        "required": True
     })
 
 
@@ -175,10 +184,13 @@ Mikado itself.
                 "metadata": {"description": "Parameters related to the reads to use for the assemblies."},
     })
     name: str = field(default="Daijin", metadata={
-        "metadata": {"description": "Name to be used for the project"}
+        "metadata": {"description": "Name to be used for the project"},
+        "required": True,
+        "validate": validate.Length(min=1)
     })
     out_dir: str = field(default="Daijin", metadata={
         "metadata": {"description": "Output directory for the project"},
+        "required": True,
         "validate": validate.Length(min=1)
     })
     scheduler: Optional[str] = field(default=None, metadata={

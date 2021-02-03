@@ -75,7 +75,7 @@ def select_attribute_for_output(final_config_level: dict, attr_parent, attr_name
     elif not is_nested:
         callable_and_equal_to_default = (callable(attr_parent.Schema._declared_fields[attr_name].default) and
                                          attr_parent.Schema._declared_fields[attr_name].default() == attr_value)
-        if callable_and_equal_to_default and not is_nested:
+        if callable_and_equal_to_default and not is_required:
             return
         else:
             final_config_level[attr_name] = attr_value
@@ -190,8 +190,6 @@ def print_yaml_config(config_dict: dict, config: Union[DaijinConfiguration, Mika
     """
 
     output = yaml.dump(config_dict, default_flow_style=False)
-
-    # TODO currently this does not print all comments. E.g. use_diamond does not have the correct explanation.
     lines = []
     nesting = []
     comment = []
@@ -237,16 +235,12 @@ def print_yaml_config(config_dict: dict, config: Union[DaijinConfiguration, Mika
                         break
                     level = _
                 try:
-                    default = level.Schema._declared_fields[key].default
                     meta = level.Schema._declared_fields[key].metadata
-                    required = level.Schema._declared_fields[key].required
                     description = meta.get("description", None)
                 except AttributeError:
                     raise AttributeError(key, level)
                 except KeyError:
-                    default = None
                     description = None
-                    required = False
 
                 if description:
                     _comment = textwrap.wrap(description)
@@ -254,12 +248,8 @@ def print_yaml_config(config_dict: dict, config: Union[DaijinConfiguration, Mika
                         _comment[0] = key + ": " + _comment[0]
                         comment += [" " * spaces + "# " + _ for _ in _comment]
 
-            if key and not key.startswith("- "):
-                if getattr(level, key) != default or required:
-                    lines.extend(comment)
-                    lines.append(line.rstrip())
-            else:
-                lines.append(line.rstrip())
+            lines.extend(comment)
+            lines.append(line.rstrip())
             comment = []
 
     if config.__doc__:

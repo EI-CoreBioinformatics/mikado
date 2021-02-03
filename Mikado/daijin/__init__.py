@@ -137,7 +137,7 @@ for the "mikado" part of daijin.""")
                         type=str, default=None,
                         help="Cluster configuration file to write to.")
     parser.add_argument("--full", action="store_true", default=False)
-    parser.add_argument("--seed", type=int, default=None,
+    parser.add_argument("--seed", type=int, default=0,
                         help="Random seed number.")
     output_format = parser.add_mutually_exclusive_group()
     output_format.add_argument("-j", "--json", action="store_true", default=False,

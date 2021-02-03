@@ -73,6 +73,11 @@ def create_config(args):
     :return:
     """
 
+    if isinstance(args.seed, bool) or args.seed is None:
+        raise OSError("Invalid seed: {}".format(args.seed))
+    elif not (isinstance(args.seed, int) and 0 <= args.seed <= 2 ** 32 - 1):
+        raise OSError("Invalid seed: {}".format(args.seed))
+
     if len(args.mode) > 1:
         args.daijin = True
 
@@ -98,9 +103,6 @@ def create_config(args):
     elif not args.gff:
         args.gff = []
     config = parse_prepare_options(args, config)
-
-    if args.seed is not None and not (isinstance(args.seed, int) and 0 <= args.seed <= 2 ** 32 - 1):
-        raise OSError("Invalid seed: {}".format(args.seed))
 
     if args.seed is not None:
         try:
@@ -196,14 +198,15 @@ switch.")
         config.pick.files.output_dir = args.out_dir
 
     # Check that the configuration file is correct
-    tempcheck = tempfile.NamedTemporaryFile("wt", suffix=".yaml", delete=False)
-    print_config(config, tempcheck, full=args.full)
+    tempcheck = tempfile.NamedTemporaryFile("wt", suffix=".json", delete=False)
+    print_config(config, tempcheck, full=args.full, output_format="json")
     tempcheck.flush()
     try:
         load_and_validate_config(tempcheck.name)
     except InvalidJson as exc:
         raise InvalidJson("Created an invalid configuration file! Error:\n{}".format(exc))
 
+    # Print out the final configuration file
     if args.json is True or args.out.name.endswith("json"):
         format_name = "json"
     elif args.yaml is True or args.out.name.endswith("yaml"):
@@ -211,7 +214,7 @@ switch.")
     else:
         format_name = "toml"
 
-    print_config(config, args.out, output_format=format_name, no_files=args.no_files)
+    print_config(config, args.out, output_format=format_name, no_files=args.no_files, full=args.full)
 
 
 def configure_parser():
@@ -229,9 +232,8 @@ def configure_parser():
                      for fname in glob.iglob(os.path.join(scoring_folder, "**", "*yaml"), recursive=True)]
 
     parser = argparse.ArgumentParser(description="Configuration utility for Mikado")
-                                     #formatter_class=argparse.RawTextHelpFormatter)
     parser.add_argument("--full", action="store_true", default=False)
-    parser.add_argument("--seed", type=int, default=None,
+    parser.add_argument("--seed", type=int, default=0,
                         help="Random seed number.")
     preparer = parser.add_argument_group("Options related to the prepare stage.")
     preparer.add_argument("--minimum-cdna-length", default=None, type=int, dest="minimum_cdna_length",

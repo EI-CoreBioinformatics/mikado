@@ -3,7 +3,7 @@ This module defines the functions needed to check the sanity of the configuratio
 plus the JSON schemas for the configuration and scoring files.
 """
 from typing import Union
-
+from marshmallow import fields
 from .configuration import MikadoConfiguration
 from .daijin_configuration import DaijinConfiguration
 from . import configurator
@@ -18,7 +18,79 @@ import yaml
 __author__ = 'Luca Venturini'
 
 
-def print_toml_config(config, out, no_files=False, full=True):
+def print_config(config: Union[MikadoConfiguration, DaijinConfiguration], out,
+                 output_format="yaml", no_files=False, full=True):
+    """
+    Function to print out the configuration in TOML format, adding the descriptions as comments preceded by #.
+    :param config: configuration
+    :type config: (MikadoConfiguration|DaijinConfiguration)
+
+    :param out: output handle
+    :type out: io.TextIOWrapper
+
+    :param output_format: one of yaml, json or toml (case-insensitive)
+    :type output_format: str
+
+    :param no_files: boolean. If on, sections pertaining to files will be deleted from the output.
+    :type no_files: bool
+    """
+
+    if not isinstance(output_format, str) or output_format.lower() not in ("yaml", "json", "toml"):
+        raise ValueError("Unknown format: {}. I can only accept yaml, json or toml as options.")
+
+    output_format = output_format.lower()
+
+    if not full:
+        filtered_config_ = filter_config(config)
+
+    if output_format == "toml":
+        print_toml_config(config, out, no_files=no_files)
+    elif output_format == "yaml":
+        print_yaml_config(config, out, no_files=no_files)
+    elif output_format == "json":
+        config_dict = dataclasses.asdict(config)
+        # Necessary otherwise we will be deleting fields from the *original* object!
+        for key in ["scoring", "cds_requirements", "requirements", "not_fragmentary", "as_requirements"]:
+            config_dict.pop(key, None)
+
+        if no_files is True:
+            for stage in ["pick", "prepare", "serialise"]:
+                if "files" in config_dict[stage]:
+                    del config_dict[stage]["files"]
+            del config_dict["reference"]
+            del config_dict["db_settings"]
+
+        print(json.dumps(config_dict, indent=4, sort_keys=True), file=out)
+
+
+def select_attribute_for_output(final_config_level, attr_parent, attr_name, attr_value):
+    if type(attr_parent.Schema._declared_fields[attr_name]) == fields.Nested:
+        final_config_level[attr_name] = dict()
+        for key, value in dataclasses.asdict(attr_value).items():
+            select_attribute_for_output(final_config_level[attr_name], attr_value, key, getattr(attr_value, key))
+    if attr_parent.Schema._declared_fields[attr_name].default == attr_value:
+        return
+    elif callable(attr_parent.Schema._declared_fields[attr_name].default) and \
+            attr_parent.Schema._declared_fields[attr_name].default() == attr_value:
+        return
+    else:
+        final_config_level[attr_name] = attr_value
+
+
+def filter_config(config):
+    config_dict = dataclasses.asdict(config)
+    for key in ["scoring", "cds_requirements", "requirements", "not_fragmentary", "as_requirements"]:
+        config_dict.pop(key, None)
+    filtered_config = dict()
+
+    # Recursive method here
+    for key, value in config_dict.items():
+        select_attribute_for_output(filtered_config, config, key, getattr(config, key))
+
+    return filtered_config
+
+
+def print_toml_config(config, out, no_files=False):
 
     """Function to print out the configuration in TOML format, adding the descriptions as comments preceded by #.
     :param config: configuration
@@ -69,6 +141,7 @@ def print_toml_config(config, out, no_files=False, full=True):
             if "=" in line:
                 key = line.split("=")[0].strip()
                 meta = level.Schema._declared_fields.get(key)
+
                 description = None
                 if meta:
                     description = meta.metadata.get("description")
@@ -88,49 +161,7 @@ def print_toml_config(config, out, no_files=False, full=True):
     print(*lines, sep="\n", file=out)
 
 
-def print_config(config: Union[MikadoConfiguration, DaijinConfiguration], out,
-                 output_format="yaml", no_files=False, full=True):
-    """
-    Function to print out the configuration in TOML format, adding the descriptions as comments preceded by #.
-    :param config: configuration
-    :type config: (MikadoConfiguration|DaijinConfiguration)
-
-    :param out: output handle
-    :type out: io.TextIOWrapper
-
-    :param output_format: one of yaml, json or toml (case-insensitive)
-    :type output_format: str
-
-    :param no_files: boolean. If on, sections pertaining to files will be deleted from the output.
-    :type no_files: bool
-    """
-
-    if not isinstance(output_format, str) or output_format.lower() not in ("yaml", "json", "toml"):
-        raise ValueError("Unknown format: {}. I can only accept yaml, json or toml as options.")
-
-    output_format = output_format.lower()
-
-    if output_format == "toml":
-        print_toml_config(config, out, no_files=no_files, full=full)
-    elif output_format == "yaml":
-        print_yaml_config(config, out, no_files=no_files, full=full)
-    elif output_format == "json":
-        config_dict = dataclasses.asdict(config)
-        # Necessary otherwise we will be deleting fields from the *original* object!
-        for key in ["scoring", "cds_requirements", "requirements", "not_fragmentary", "as_requirements"]:
-            config_dict.pop(key, None)
-
-        if no_files is True:
-            for stage in ["pick", "prepare", "serialise"]:
-                if "files" in config_dict[stage]:
-                    del config_dict[stage]["files"]
-            del config_dict["reference"]
-            del config_dict["db_settings"]
-
-        print(json.dumps(config_dict, indent=4, sort_keys=True), file=out)
-
-
-def print_yaml_config(config, out, no_files=False, full=True):
+def print_yaml_config(config, out, no_files=False):
     """
     Function to print out the configuration in YAML format, adding the descriptions as comments preceded by #.
     :param config: configuration
@@ -203,21 +234,30 @@ def print_yaml_config(config, out, no_files=False, full=True):
                         break
                     level = _
                 try:
+                    default = level.Schema._declared_fields[key].default
                     meta = level.Schema._declared_fields[key].metadata
+                    required = level.Schema._declared_fields[key].required
                     description = meta.get("description", None)
                 except AttributeError:
                     raise AttributeError(key, level)
                 except KeyError:
+                    default = None
                     description = None
+                    required = False
 
                 if description:
                     _comment = textwrap.wrap(description)
                     if _comment:
                         _comment[0] = key + ": " + _comment[0]
                         comment += [" " * spaces + "# " + _ for _ in _comment]
-            lines.extend(comment)
+
+            if key and not key.startswith("- "):
+                if getattr(level, key) != default or required or full:
+                    lines.extend(comment)
+                    lines.append(line.rstrip())
+            else:
+                lines.append(line.rstrip())
             comment = []
-            lines.append(line.rstrip())
 
     if config.__doc__:
         print(*["# " + _ for _ in textwrap.wrap(config.__doc__.strip())], sep="\n", file=out)

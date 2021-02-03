@@ -2,6 +2,7 @@
 #  - short_reads: this section deals with RNA-Seq short read input data.
 #  - name: name of the species under analysis.
 #  - reference: reference data to use. A reference genome is required.
+threads: 1
 blastx:
   chunks: 1
   evalue: 1.0e-07

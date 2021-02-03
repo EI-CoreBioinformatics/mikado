@@ -235,13 +235,16 @@ class ClusteringConfiguration:
     min_cds_overlap: float = field(default=0.2, metadata={
         "metadata": {
             "description": "Minimal CDS overlap for the second clustering, in percentage between 0 and 1. \
-Default: 0.2, or 20%",
-        "validate": validate.Range(min=0, max=1)}
+Default: 0.2, or 20%"
+        },
+        "validate": validate.Range(min=0, max=1)
     })
     min_cdna_overlap: float = field(default=0.2, metadata={
         "metadata": {
-            "description": "Minimal cDNA overlap for the second clustering, in percentage between 0 and 1. Default: 0.2, or 20%.",
-            "validate": validate.Range(min=0, max=1)}
+            "description": "Minimal cDNA overlap for the second clustering, in percentage between 0 and 1. \
+Default: 0.2, or 20%."
+        },
+        "validate": validate.Range(min=0, max=1)
     })
     purge: bool = field(default=True, metadata={
         "metadata": {

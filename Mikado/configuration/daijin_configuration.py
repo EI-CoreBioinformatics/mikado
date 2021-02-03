@@ -33,8 +33,8 @@ class LongReads:
 @dataclass
 class OrfCalling:
     min_protein_len: int = field(default=30, metadata={
-        "metadata": {"description": "minimum length of called proteins (in AAs). Default: 30 (90 nts)",
-                     "validate": validate.Range(min=0)}
+        "metadata": {"description": "minimum length of called proteins (in AAs). Default: 30 (90 nts)"},
+        "validate": validate.Range(min=0)
     })
     execute: bool = field(default=True, metadata={
         "metadata": {"description": "boolean flag. Default: true, ie execute the ORF calling."}
@@ -48,17 +48,18 @@ class BlastX:
             "description": "FASTA file(s) to be used as database for the homology search. Multiple files can be provided and they will be merged into a single database before running."},
     })
     evalue: float = field(default=1e-7, metadata={
-        "metadata": {"description": "Maximum e-value. Default 1e-7",
-                     "validate": validate.Range(min=0)}
+        "metadata": {"description": "Maximum e-value. Default 1e-7"},
+        "validate": validate.Range(min=0)
     })
     max_target_seqs: int = field(default=10, metadata={
-        "metadata": {"description": "Maximum number of targets that the homology will report. Default: 10",
-                     "validate": validate.Range(min=1)}
+        "metadata": {"description": "Maximum number of targets that the homology will report. Default: 10"},
+        "validate": validate.Range(min=1)
     })
     chunks: int = field(default=10, metadata={
         "metadata": {
-            "description": "Number of chunks to divide the search into. Must be equal or greater than the number of processes.",
-            "validate": validate.Range(min=1)}
+            "description": "Number of chunks to divide the search into. Must be equal or greater than the number of processes."
+        },
+        "validate": validate.Range(min=1)
     })
 
 
@@ -133,20 +134,20 @@ class DaijinMikadoConfiguration:
 @dataclass
 class TGGConfiguration:
     max_mem: int = field(default=6000, metadata={
-        "metadata": {"description": "Maximum memory to be used for the assembly. Default: 6000Mb",
-                     "validate": validate.Range(min=1000)}
+        "metadata": {"description": "Maximum memory to be used for the assembly. Default: 6000Mb"},
+        "validate": validate.Range(min=1000)
     })
     npaths: int = field(default=0, metadata={
         "metadata": {
             "description": "Number of alignments per sequence, using GMAP. Default: 0 (one alignment per sequence, exclude chimeric)."}
     })
     identity: float = field(default=0.95, metadata={
-        "metadata": {"description": "minimum identity for any alignment. Default: 95%",
-                     "validate": validate.Range(min=0.0, max=1.0)}
+        "metadata": {"description": "minimum identity for any alignment. Default: 95%"},
+        "validate": validate.Range(min=0.0, max=1.0)
     })
     coverage: float = field(default=0.70, metadata={
-        "metadata": {"description": "minimum coverage for any alignment. Default: 70%",
-                     "validate": validate.Range(min=0.0, max=1.0)}
+        "metadata": {"description": "minimum coverage for any alignment. Default: 70%"},
+        "validate": validate.Range(min=0.0, max=1.0)
     })
 
 
@@ -182,8 +183,9 @@ Mikado itself.
     })
     scheduler: Optional[str] = field(default=None, metadata={
         "metadata": {
-            "description": "Scheduler to be used for the project. Set to null if you plan to use DRMAA or are using a local machine.",
-            "validate": validate.OneOf(["SLURM", "LSF", "local", "PBS", ""])}
+            "description": "Scheduler to be used for the project. Set to null if you plan to use DRMAA or are using a local machine."
+        },
+        "validate": validate.OneOf(["SLURM", "LSF", "local", "PBS", ""])
     })
     align_methods: AlignMethods = field(default_factory=AlignMethods, metadata={
                 "metadata": {

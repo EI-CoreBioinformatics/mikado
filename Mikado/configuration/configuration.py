@@ -25,16 +25,16 @@ class MikadoConfiguration:
     """
 
     threads: int = field(default=1, metadata={
-        "metadata": {"description": "Threads to be used per process",
-                     "validate": validate.Range(min=1)}
+        "metadata": {"description": "Threads to be used per process"},
+        "validate": validate.Range(min=1)
     })
     seed: int = field(default=0, metadata={
-        "metadata": {"description": "Random number generator seed, to ensure reproducibility across runs",
-                     "validate": validate.Range(min=0, max=2 ** 32 - 1)}
+        "metadata": {"description": "Random number generator seed, to ensure reproducibility across runs"},
+        "validate": validate.Range(min=0, max=2 ** 32 - 1)
     })
     multiprocessing_method: Optional[str] = field(default="spawn", metadata={
-        "metadata": {"description": "Which method (fork, spawn, forkserver) Mikado should use for multiprocessing",
-                     "validate": validate.OneOf(["spawn", "fork", "fork-server"])}
+        "metadata": {"description": "Which method (fork, spawn, forkserver) Mikado should use for multiprocessing"},
+        "validate": validate.OneOf(["spawn", "fork", "fork-server"])
     })
     log_settings: LoggingConfiguration = field(default_factory=LoggingConfiguration, metadata={
                 "metadata": {"description": "Settings related to the verbosity of logs"}

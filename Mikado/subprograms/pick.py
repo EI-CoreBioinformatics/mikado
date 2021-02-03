@@ -58,11 +58,6 @@ def check_run_options(args, logger=create_null_logger()):
 
     if args.seed is not None:
         args.configuration.seed = args.seed
-        # numpy.random.seed(args.seed % (2 ** 32 - 1))
-        random.seed(args.seed % (2 ** 32 - 1))
-    else:
-        # numpy.random.seed(None)
-        random.seed(None)
 
     if args.no_cds is not False:
         args.configuration.pick.run_options.exclude_cds = True

@@ -8,26 +8,27 @@ import unittest
 import os.path
 import logging
 import pkg_resources
-from ..configuration import configurator, MikadoConfiguration, DaijinConfiguration
-from .. import exceptions
-from ..parsers import GFF  # ,GTF, bed12
-from ..parsers.GTF import GtfLine
-from ..transcripts.transcript import Transcript
-from ..loci import Superlocus, Abstractlocus, Locus, Monosublocus, MonosublocusHolder, Sublocus, Excluded
-from ..loci.locus import expand_transcript
-from ..transcripts.reference_gene import Gene
-from ..utilities.log_utils import create_null_logger, create_default_logger
-from ..utilities import overlap
+from Mikado.configuration import configurator, MikadoConfiguration, DaijinConfiguration
+from Mikado import exceptions
+from Mikado.parsers import GFF  # ,GTF, bed12
+from Mikado.parsers.GTF import GtfLine
+from Mikado.transcripts.transcript import Transcript
+from Mikado.loci import Superlocus, Abstractlocus, Locus, Monosublocus, MonosublocusHolder, Sublocus, Excluded
+from Mikado.loci.locus import expand_transcript
+from Mikado.transcripts.reference_gene import Gene
+from Mikado.utilities.log_utils import create_null_logger, create_default_logger
+from Mikado.utilities.overlap import overlap
 import itertools
-from ..utilities import Interval
-from .. import loci
+from Mikado.utilities import Interval
+from Mikado import loci
+from Mikado.loci.abstractlocus import to_bool
 import pickle
 import inspect
-from ..parsers.bed12 import BED12
+from Mikado.parsers.bed12 import BED12
 import pysam
 from pytest import mark
 from itertools import combinations_with_replacement
-from ..scales.assignment.assigner import Assigner
+from Mikado.scales.assignment.assigner import Assigner
 logging.getLogger("matplotlib").setLevel(logging.WARNING)
 
 
@@ -43,6 +44,20 @@ class OverlapTester(unittest.TestCase):
                          100)
         self.assertEqual(Abstractlocus.overlap((100, 200), (100, 200)),
                          overlap((100, 200), (100, 200)))
+
+
+class ToBoolTester(unittest.TestCase):
+
+    def test_bool(self):
+        for param in (1, True, "True", "tRue", "true", 1.0):
+            with self.subTest(param=param):
+                self.assertEqual(to_bool(param), True)
+        for param in (0, False, "False", "faLse", "false", 0.0):
+            with self.subTest(param=param):
+                self.assertEqual(to_bool(param), False)
+        for param in (2, 5.5, "hello", dict(), "Falsee", "Trrue"):
+            with self.subTest(param=param), self.assertRaises((AttributeError, TypeError, ValueError)):
+                to_bool(param)
 
 
 class ExcludedTester(unittest.TestCase):
@@ -71,9 +86,18 @@ class ExcludedTester(unittest.TestCase):
 
         excluded.remove_transcript_from_locus(transcript2.id)
         self.assertNotIn(transcript2.id, excluded)
+        self.assertEqual(repr(excluded), "{name}\t{chrom}\t{start}\t{end}\t{strand}\t{transcripts}".format(
+            name="excluded_transcripts",
+            chrom=excluded.chrom, start=26603003, end=26604376, strand="-",
+            transcripts="AT5G66650.1"))
         monosub = Monosublocus(transcript2)
         excluded.add_monosublocus(monosub)
         self.assertIn(transcript2.id, excluded)
+        # test repr
+        self.assertEqual(repr(excluded), "{name}\t{chrom}\t{start}\t{end}\t{strand}\t{transcripts}".format(
+            name="excluded_transcripts",
+            chrom=excluded.chrom, start=26603003, end=26612891, strand="-",
+            transcripts="AT5G66650.1,AT5G66670.1"))
 
 
 class RefGeneTester(unittest.TestCase):
@@ -229,9 +253,27 @@ class AbstractLocusTester(unittest.TestCase):
         self.assertEqual(self.transcript2.chrom, gff_transcript2[0].chrom)
         self.configuration = configurator.load_and_validate_config(None)
         self.assertIsNotNone(self.configuration.scoring, self.configuration)
-
         self.transcript1.configuration = self.configuration
         self.transcript2.configuration = self.configuration
+
+    def test_removal(self):
+        for cls in [Superlocus, Sublocus, Monosublocus, Locus]:
+            obj = cls(self.transcript1, configuration=self.configuration)
+            if cls != Monosublocus:
+                obj.add_transcript_to_locus(self.transcript2, check_in_locus=False)
+            self.assertEqual(obj.start, min(self.transcript2.start, self.transcript1.start))
+            self.assertEqual(obj.chrom, "Chr1")
+            obj._remove_all()
+            self.assertEqual(obj.chrom, None)
+            self.assertEqual(obj.start, float("Inf"))
+            self.assertEqual(obj.end, float("-Inf"))
+            self.assertEqual(len(obj.transcripts), 0)
+
+    def test_invalid_conf(self):
+        for cls in [Superlocus, Sublocus, Monosublocus, Locus]:
+            for invalid in ([], ("hello",), 10, "I_do_not_exist.yaml"):
+                with self.subTest(cls=cls, invalid=invalid), self.assertRaises(exceptions.InvalidJson):
+                    cls(self.transcript1, configuration=invalid)
 
     def test_not_implemented(self):
         with self.assertRaises(TypeError):

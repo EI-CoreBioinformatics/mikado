@@ -7,10 +7,7 @@ import logging
 import logging.handlers
 from .. import exceptions
 from sys import intern
-try:
-    import rapidjson as json
-except (ImportError,ModuleNotFoundError):
-    import json
+import rapidjson as json
 import msgpack
 import os
 from ..transcripts import Transcript

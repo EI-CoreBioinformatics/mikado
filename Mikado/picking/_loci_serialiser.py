@@ -1,10 +1,7 @@
 from ..loci import Superlocus
 from functools import partial
 from ..utilities import default_for_serialisation
-try:
-    import rapidjson as json
-except (ImportError,ModuleNotFoundError):
-    import json
+import rapidjson as json
 dumper = partial(json.dumps, default=default_for_serialisation)
 import msgpack
 

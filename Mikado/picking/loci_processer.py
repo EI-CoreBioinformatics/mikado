@@ -20,10 +20,7 @@ from ..parsers.GTF import GtfLine
 from ..configuration.configurator import load_and_validate_config
 import msgpack
 from ._loci_serialiser import serialise_locus
-try:
-    import rapidjson as json
-except (ImportError,ModuleNotFoundError):
-    import json
+import rapidjson as json
 
 __author__ = 'Luca Venturini'
 

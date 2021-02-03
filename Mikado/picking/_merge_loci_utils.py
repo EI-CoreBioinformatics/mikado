@@ -1,9 +1,5 @@
-try:
-    import rapidjson as json
-    decoder = json.Decoder()
-except (ImportError,ModuleNotFoundError):
-    import json
-    decoder = json.JSONDecoder().decode
+import rapidjson as json
+decoder = json.Decoder()
 import msgpack
 from ..loci import Superlocus
 from ..loci import Locus

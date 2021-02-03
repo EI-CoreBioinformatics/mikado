@@ -1,9 +1,6 @@
 from functools import partial
 from ...utilities import default_for_serialisation
-try:
-    import rapidjson as json
-except (ImportError,ModuleNotFoundError):
-    import json
+import rapidjson as json
 dumper = partial(json.dumps, default=default_for_serialisation)
 from ...parsers.blast_utils import BlastOpener
 from .xml_utils import _get_query_for_blast, _get_target_for_blast

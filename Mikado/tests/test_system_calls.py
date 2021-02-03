@@ -1,5 +1,3 @@
-import dataclasses
-
 import csv
 import glob
 import gzip
@@ -13,12 +11,13 @@ import tempfile
 import unittest
 import pkg_resources
 import pyfaidx
+import toml
 import yaml
 from Mikado.configuration.configurator import load_and_validate_config
 from Mikado.exceptions import InvalidJson
 from Mikado.daijin import mikado_pipeline, assemble_transcripts_pipeline
-from Mikado.configuration import print_config, DaijinConfiguration
-
+from Mikado.configuration import print_config, DaijinConfiguration, MikadoConfiguration
+import rapidjson as json
 try:
     from yaml import CSafeLoader as yLoader
 except ImportError:
@@ -1105,16 +1104,31 @@ class ConfigureCheck(unittest.TestCase):
         namespace.seed = 0
         namespace.min_clustering_cds_overlap = 0.2
         namespace.min_clustering_cdna_overlap = 0.2
-        dir = tempfile.TemporaryDirectory()
-        out = os.path.join(dir.name, "configuration.yaml")
-        with open(out, "w") as out_handle:
-            namespace.out = out_handle
-            sub_configure.create_config(namespace)
-        self.assertGreater(os.stat(out).st_size, 0)
-        conf = configuration.configurator.load_and_validate_config(out)
-        conf = configuration.configurator.check_and_load_scoring(conf)
-        conf = configuration.configurator.check_and_load_scoring(conf)
-        dir.cleanup()
+        namespace.no_files = True
+        namespace.scheduler = ""
+        namespace.mode = ["stringent"]
+        namespace.blast_chunks = 10
+        folder = tempfile.TemporaryDirectory()
+
+        for output_format in ("json", "yaml", "toml", "config"):
+            with self.subTest(output_format=output_format):
+                out = os.path.join(folder.name, "configuration.{}".format(output_format))
+                with open(out, "w") as out_handle:
+                    namespace.out = out_handle
+                    sub_configure.create_config(namespace)
+                self.assertGreater(os.stat(out).st_size, 0)
+                if output_format in ("toml", "config"):
+                    raw = toml.load(open(out))
+                elif output_format == "yaml":
+                    raw = yaml.load(open(out), Loader=yaml.SafeLoader)
+                else:
+                    raw = json.load(open(out))
+                self.assertIn("threads", raw)
+                loaded_raw = MikadoConfiguration.Schema().load(raw)
+                conf = configuration.configurator.load_and_validate_config(out)
+                conf = configuration.configurator.check_and_load_scoring(conf)
+                conf = configuration.configurator.check_and_load_scoring(conf)
+        folder.cleanup()
 
     def test_seed(self):
         namespace = Namespace(default=False)

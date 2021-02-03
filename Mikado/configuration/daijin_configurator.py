@@ -1,12 +1,7 @@
 import dataclasses
 from typing import Union
-
 from argparse import Namespace
-
-try:
-    import rapidjson as json
-except (ImportError, ModuleNotFoundError):
-    import json
+import rapidjson as json
 import os
 import io
 import yaml

@@ -5,10 +5,7 @@ import collections
 import msgpack
 from ...transcripts import Gene
 import os
-try:
-    import rapidjson as json
-except (ImportError,ModuleNotFoundError):
-    import json
+import rapidjson as json
 import sys
 import tempfile
 import shutil

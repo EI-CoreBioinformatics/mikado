@@ -26,28 +26,6 @@ from .prepare import parse_prepare_options
 __author__ = 'Luca Venturini'
 
 
-def get_key(new_dict, key, default):
-
-    """
-    Recursive method to get a nested key from inside the "default" dict
-    and transfer it, keeping the tree structure, inside the
-    new_dict
-    :param new_dict: dictionary to transfer the key to
-    :param key: composite key
-    :param default: dictionary to extract the key from
-    :return: new_dict (with updated structure)
-    """
-
-    if isinstance(default[key[0]], dict):
-        assert len(key) > 1
-        new_dict.setdefault(key[0], new_dict.get(key[0], dict()))
-        new_dict = get_key(new_dict[key[0]], key[1:], default[key[0]])
-    else:
-        assert len(key) == 1
-        new_dict[key[0]] = default[key[0]]
-    return new_dict
-
-
 def __add_daijin_specs(args, config):
     from ..configuration.daijin_configurator import create_cluster_config, create_daijin_config
     namespace = Namespace(default=False)
@@ -171,24 +149,23 @@ switch.")
         config.pick.alternative_splicing.cds_only = True
 
     if args.daijin is False and args.mode is not None and len(args.mode) == 1:
-        args.mode = args.mode.pop()
-        if args.mode == "nosplit":
+        mode = args.mode.pop()
+        if mode == "nosplit":
             config.pick.chimera_split.execute = False
         else:
             config.pick.chimera_split.execute = True
-            if args.mode == "split":
+            if mode == "split":
                 config.pick.chimera_split.blast_check = False
             else:
                 config.pick.chimera_split.blast_check = True
-                config.pick.chimera_split.blast_params.leniency = args.mode.upper()
+                config.pick.chimera_split.blast_params.leniency = mode.upper()
 
     if args.skip_split:
         if not all(_ in config.prepare.files.labels for _ in args.skip_split):
             raise InvalidJson("Some of the labels to skip for splitting are invalid: {}".format(
                 [_ for _ in args.skip_split if _ not in config.prepare.files.labels]
             ))
-        config.pick.chimera_split.skip = list(set(config.pick.chimera_split.skip.extend(
-            args.skip_split)))
+        config.pick.chimera_split.skip = list(set(config.pick.chimera_split.skip.extend(args.skip_split)))
 
     if args.pad is not None:
         config.pick.alternative_splicing.pad = args.pad

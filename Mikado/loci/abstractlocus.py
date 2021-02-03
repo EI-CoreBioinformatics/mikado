@@ -19,10 +19,7 @@ from ..utilities.log_utils import create_null_logger
 from ..scales import c_compare
 import random
 from functools import partial
-try:
-    import rapidjson as json
-except (ImportError,ModuleNotFoundError):
-    import json
+import rapidjson as json
 dumper = partial(json.dumps, default=default_for_serialisation)
 from typing import Union
 from ..configuration.configuration import MikadoConfiguration
@@ -239,10 +236,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             state["session"] = None
 
         if self.__internal_graph.nodes():
-            try:
-                nodes = dumper(list(self.__internal_graph.nodes())[0])
-            except ValueError:
-                nodes = dumper(list(self.__internal_graph.nodes())[0])
+            nodes = dumper(list(self.__internal_graph.nodes())[0])
         else:
             nodes = "[]"
         state["_Abstractlocus__internal_nodes"] = nodes
@@ -250,10 +244,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         edges = [edge for edge in self.__internal_graph.edges()]
         # Remember that the graph is in form [((start, end), (start, end)), etc.]
         # So that each edge is composed by a couple of tuples.
-        try:
-            state["_Abstractlocus__internal_edges"] = dumper(edges)
-        except ValueError:
-            state["_Abstractlocus__internal_edges"] = dumper(edges)
+        state["_Abstractlocus__internal_edges"] = dumper(edges)
         if hasattr(self, "engine"):
             del state["engine"]
 
@@ -668,11 +659,13 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         self.logger.warning("Removing all transcripts from %s", self.id)
         self.__internal_graph = networkx.DiGraph()
         self.transcripts = dict()
+        self.chrom = None
         self.start, self.end, self.strand = float("Inf"), float("-Inf"), None
         self.stranded = False
         self.initialized = False
         self.metrics_calculated = False
         self.scores_calculated = False
+        self._calculate_graph([])
 
     @staticmethod
     def _exon_to_be_considered(exon,

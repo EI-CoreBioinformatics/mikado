@@ -625,8 +625,10 @@ def load_and_validate_config(raw_configuration: Union[None, MikadoConfiguration,
                     config = yaml.load(json_file, Loader=yaml.Loader)
                 elif raw_configuration.endswith(".toml"):
                     config = toml.load(json_file)
-                else:
+                elif raw_configuration.endswith(".json"):
                     config = json.loads(json_file.read())
+                else:
+                    config = toml.load(json_file)
             assert isinstance(config, (dict, MikadoConfiguration, DaijinConfiguration)), (config, type(config))
             if isinstance(config, dict):
                 try:

@@ -46,10 +46,7 @@ from ..configuration.configuration import MikadoConfiguration
 from ..configuration.daijin_configuration import DaijinConfiguration
 logging.captureWarnings(True)
 warnings.simplefilter("always")
-try:
-    import rapidjson as json
-except (ImportError,ModuleNotFoundError):
-    import json
+import rapidjson as json
 
 
 # pylint: disable=too-many-instance-attributes
@@ -100,12 +97,8 @@ class Picker:
         # self.setup_logger()
         self.logger.info("Starting to analyse input file %s", self.input_file)
         self.logger.info("Random seed: %s", self.configuration.seed)
-        if self.configuration.seed is not None:
-            random.seed((self.configuration.seed) % (2 ** 32 - 1))
-        else:
-            random.seed(None)
+        random.seed((self.configuration.seed) % (2 ** 32 - 1))
         self.logger.debug("Multiprocessing method: %s", self.configuration.multiprocessing_method)
-
         # pylint: enable=no-member
         self.manager = self.context.Manager()
 

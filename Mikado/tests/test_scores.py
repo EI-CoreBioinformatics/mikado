@@ -1,16 +1,12 @@
 import io
 import unittest
-
-try:
-    import rapidjson as json
-except (ImportError,ModuleNotFoundError):
-    import json
+import rapidjson as json
 from pkg_resources import resource_stream
-
 from .. import loci, configuration, transcripts
 from ..parsers.bed12 import BED12
 from ..transcripts import Transcript
 from ..utilities.log_utils import create_default_logger
+
 
 with io.TextIOWrapper(resource_stream("Mikado.configuration",
                                       "requirements_blueprint.json")) as rs_blueprint:

@@ -807,7 +807,7 @@ exon data is on a different chromosome, {exon_data.chrom}. \
 
         self.finalize()  # Necessary to sort the exons
         if format_name in ("bed", "bed12"):
-            lines = [create_lines_bed(self, transcriptomic=transcriptomic)]
+            lines = [create_lines_bed(self, transcriptomic=transcriptomic, with_cds=with_cds)]
         else:
             to_gtf = (format_name == "gtf")
             if with_cds is True:

@@ -143,7 +143,7 @@ class TestSplitMonoexonic(unittest.TestCase):
         self.assertFalse(sl.configuration.pick.chimera_split.blast_check)
         self.assertEqual(len(sl.transcripts), 1)
         sl.logger.setLevel("DEBUG")
-        sl.load_all_transcript_data(data_dict=dict())
+        sl.load_all_transcript_data()
         self.assertEqual(len(sl.transcripts), 2)
 
     def test_lenient_split(self):
@@ -161,7 +161,7 @@ class TestSplitMonoexonic(unittest.TestCase):
                          len(splitting.check_split_by_blast(self.transcript, cds_boundaries)))
         sl = loci.Superlocus(self.transcript, configuration=self.transcript.configuration)
         self.assertEqual(len(sl.transcripts), 1)
-        sl.load_all_transcript_data(data_dict=dict())
+        sl.load_all_transcript_data()
         self.assertEqual(len(sl.transcripts), 1)
 
     def test_stringent_split(self):
@@ -179,7 +179,7 @@ class TestSplitMonoexonic(unittest.TestCase):
                          len(splitting.check_split_by_blast(self.transcript, cds_boundaries)))
         sl = loci.Superlocus(self.transcript, configuration=self.transcript.configuration)
         self.assertEqual(len(sl.transcripts), 1)
-        sl.load_all_transcript_data(data_dict=dict())
+        sl.load_all_transcript_data()
         self.assertEqual(len(sl.transcripts), 1)
 
     def test_permissive_split(self):
@@ -198,7 +198,7 @@ class TestSplitMonoexonic(unittest.TestCase):
         self.assertEqual(2, len(splitting.check_split_by_blast(self.transcript, cds_boundaries)))
         sl = loci.Superlocus(self.transcript, configuration=self.transcript.configuration)
         self.assertEqual(len(sl.transcripts), 1)
-        sl.load_all_transcript_data(data_dict=dict())
+        sl.load_all_transcript_data()
         self.assertEqual(len(sl.transcripts), 2)
 
     @staticmethod
@@ -239,7 +239,7 @@ class TestSplitMonoexonic(unittest.TestCase):
         self.assertEqual(2, len(list(splitting.split_by_cds(self.transcript))))
         sl = loci.Superlocus(self.transcript, configuration=self.transcript.configuration)
         self.assertEqual(len(sl.transcripts), 1)
-        sl.load_all_transcript_data(data_dict=dict())
+        sl.load_all_transcript_data()
         self.assertEqual(len(sl.transcripts), 2)
 
     def test_stringent_split_twohits(self):
@@ -253,7 +253,7 @@ class TestSplitMonoexonic(unittest.TestCase):
         self.assertEqual(2, len(list(splitting.split_by_cds(self.transcript))))
         sl = loci.Superlocus(self.transcript, configuration=self.transcript.configuration)
         self.assertEqual(len(sl.transcripts), 1)
-        sl.load_all_transcript_data(data_dict=dict())
+        sl.load_all_transcript_data()
         self.assertEqual(len(sl.transcripts), 2)
 
     def test_no_splitting_by_source(self):
@@ -267,7 +267,7 @@ class TestSplitMonoexonic(unittest.TestCase):
                     final = 2
                 self.assertEqual(final, len(list(splitting.split_by_cds(self.transcript))))
                 sl = loci.Superlocus(self.transcript, configuration=self.transcript.configuration)
-                sl.load_all_transcript_data(data_dict=dict())
+                sl.load_all_transcript_data()
                 self.assertEqual(len(sl.transcripts), final)
 
     def test_one_orf(self):
@@ -287,7 +287,7 @@ class TestSplitMonoexonic(unittest.TestCase):
         self.assertEqual(2, len(list(splitting.split_by_cds(self.transcript))))
         sl = loci.Superlocus(self.transcript, configuration=self.transcript.configuration)
         self.assertEqual(len(sl.transcripts), 1)
-        sl.load_all_transcript_data(data_dict=dict())
+        sl.load_all_transcript_data()
         self.assertEqual(len(sl.transcripts), 2)
 
     def test_lenient_split_twohits(self):
@@ -301,7 +301,7 @@ class TestSplitMonoexonic(unittest.TestCase):
         self.assertEqual(2, len(list(splitting.split_by_cds(self.transcript))))
         sl = loci.Superlocus(self.transcript, configuration=self.transcript.configuration)
         self.assertEqual(len(sl.transcripts), 1)
-        sl.load_all_transcript_data(data_dict=dict())
+        sl.load_all_transcript_data()
         self.assertEqual(len(sl.transcripts), 2)
 
     @staticmethod
@@ -341,7 +341,7 @@ class TestSplitMonoexonic(unittest.TestCase):
         self.assertEqual(1, len(list(splitting.split_by_cds(self.transcript))))
         sl = loci.Superlocus(self.transcript, configuration=self.transcript.configuration)
         self.assertEqual(len(sl.transcripts), 1)
-        sl.load_all_transcript_data(data_dict=dict())
+        sl.load_all_transcript_data()
         self.assertEqual(len(sl.transcripts), 1)
 
     def test_spanning_hit_nocheck(self):
@@ -357,7 +357,7 @@ class TestSplitMonoexonic(unittest.TestCase):
         self.assertEqual(2, len(list(splitting.split_by_cds(self.transcript))))
         sl = loci.Superlocus(self.transcript, configuration=self.transcript.configuration)
         self.assertEqual(len(sl.transcripts), 1)
-        sl.load_all_transcript_data(data_dict=dict())
+        sl.load_all_transcript_data()
         self.assertEqual(len(sl.transcripts), 2)
 
     def test_deleted_hits(self):
@@ -520,7 +520,7 @@ class TestWithPhase(unittest.TestCase):
 
         sl = loci.Superlocus(self.transcript, configuration=self.transcript.configuration)
         self.assertEqual(len(sl.transcripts), 1)
-        sl.load_all_transcript_data(data_dict=dict())
+        sl.load_all_transcript_data()
         self.assertEqual(len(sl.transcripts), 2)
 
     def test_negative_orf_gtg(self):

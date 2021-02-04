@@ -107,6 +107,8 @@ class GffLine(GFAnnotation):
                     mid = None
         if not name:
             name = attributes.get("name", None)
+            if not name:
+                name = attributes.get("Name", None)
         attrs = []
         if mid is not None:
             attrs.append("ID={0}".format(mid))

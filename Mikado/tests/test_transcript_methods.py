@@ -355,6 +355,120 @@ class TestAsBed12(unittest.TestCase):
                                    ))
 
 
+class TestPrintTranscriptomic(unittest.TestCase):
+    
+    def setUp(self):
+        transcript_lines = """
+Chr5\t26581217\t26581531\tID=st_Stringtie_STAR.21709.1;coding=False\t0\t+\t26581217\t26581218\t0\t1\t314\t0
+Chr5\t26584773\t26587782\tID=at_AT5G66610.2;coding=True;phase=0\t0\t+\t26585222\t26587755\t0\t10\t106,54,545,121,78,105,213,63,119,496\t0,446,571,1208,1443,1646,1864,2160,2310,2513
+Chr5\t26574999\t26578012\tID=at_AT5G66600.2;coding=True;phase=0\t0\t-\t26575104\t26577954\t0\t9\t411,126,87,60,100,809,126,72,157\t0,495,711,885,1035,1261,2163,2378,2856
+Chr5\t26574999\t26578625\tID=at_AT5G66600.3;coding=True;phase=0\t0\t-\t26575104\t26578315\t0\t11\t411,126,87,60,100,809,126,72,82,188,107\t0,495,711,885,1035,1261,2163,2378,2856,3239,3519
+        """
+
+        self.transcripts = dict() 
+        for line in transcript_lines.split("\n"):
+            if line.strip() == "":
+                continue
+            transcript = Transcript(BED12(line))
+            transcript.finalize()
+            transcript.parent = transcript.id + "_gene"
+            self.transcripts[transcript.id] = transcript
+
+        self.assertEqual(len(self.transcripts), 4)
+
+    def test_bed12(self):
+
+        results = {
+            "st_Stringtie_STAR.21709.1": [
+                "st_Stringtie_STAR.21709.1\t0\t314\tID=st_Stringtie_STAR.21709.1;coding=False\t0\t+\t0\t1\t0\t1\t314\t0",
+                "st_Stringtie_STAR.21709.1\t0\t314\tID=st_Stringtie_STAR.21709.1;coding=False\t0\t+\t0\t1\t0\t1\t314\t0"
+            ],
+            "at_AT5G66610.2": [
+                "at_AT5G66610.2\t0\t1900\tID=at_AT5G66610.2;coding=True;phase=0\t0\t+\t109\t1873\t0\t10\t106,54,545,121,78,105,213,63,119,496\t0,106,160,705,826,904,1009,1222,1285,1404",
+                "at_AT5G66610.2\t0\t1900\tID=at_AT5G66610.2;coding=False\t0\t+\t0\t1\t0\t10\t106,54,545,121,78,105,213,63,119,496\t0,106,160,705,826,904,1009,1222,1285,1404",
+            ],
+            "at_AT5G66600.2": [
+                "at_AT5G66600.2\t0\t1948\tID=at_AT5G66600.2;coding=True;phase=0\t0\t+\t58\t1843\t0\t9\t157,72,126,809,100,60,87,126,411\t0,157,229,355,1164,1264,1324,1411,1537",
+                "at_AT5G66600.2\t0\t1948\tID=at_AT5G66600.2;coding=False\t0\t+\t0\t1\t0\t9\t157,72,126,809,100,60,87,126,411\t0,157,229,355,1164,1264,1324,1411,1537"
+            ],
+            "at_AT5G66600.3": [
+                "at_AT5G66600.3\t0\t2168\tID=at_AT5G66600.3;coding=True;phase=0\t0\t+\t218\t2063\t0\t11\t107,188,82,72,126,809,100,60,87,126,411\t0,107,295,377,449,575,1384,1484,1544,1631,1757",
+                "at_AT5G66600.3\t0\t2168\tID=at_AT5G66600.3;coding=False\t0\t+\t0\t1\t0\t11\t107,188,82,72,126,809,100,60,87,126,411\t0,107,295,377,449,575,1384,1484,1544,1631,1757"
+            ]
+        }
+
+        for tid, transcript in self.transcripts.items():
+            with self.subTest(tid=tid):
+                with_cds = transcript.format(format_name="bed12", with_cds=True, transcriptomic=True)
+                without_cds = transcript.format(format_name="bed12", with_cds=False, transcriptomic=True)
+                self.assertEqual(with_cds, results[tid][0])
+                self.assertEqual(without_cds, results[tid][1])
+
+    def test_gff3(self):
+
+        results = {
+            "st_Stringtie_STAR.21709.1": [
+                """st_Stringtie_STAR.21709.1\tbed12\ttranscript\t1\t314\t0.0\t+\t.\tID=st_Stringtie_STAR.21709.1;Parent=st_Stringtie_STAR.21709.1_gene;Name=st_Stringtie_STAR.21709.1
+st_Stringtie_STAR.21709.1\tbed12\texon\t1\t314\t.\t+\t.\tID=st_Stringtie_STAR.21709.1.exon1;Parent=st_Stringtie_STAR.21709.1""",
+                """st_Stringtie_STAR.21709.1\tbed12\ttranscript\t1\t314\t0.0\t+\t.\tID=st_Stringtie_STAR.21709.1;Parent=st_Stringtie_STAR.21709.1_gene;Name=st_Stringtie_STAR.21709.1
+st_Stringtie_STAR.21709.1\tbed12\texon\t1\t314\t.\t+\t.\tID=st_Stringtie_STAR.21709.1.exon1;Parent=st_Stringtie_STAR.21709.1"""
+            ],
+            "at_AT5G66610.2":
+                [
+                    """at_AT5G66610.2\tbed12\tmRNA\t1\t1900\t0.0\t+\t.\tID=at_AT5G66610.2;Parent=at_AT5G66610.2_gene;Name=at_AT5G66610.2
+at_AT5G66610.2\tbed12\texon\t1\t1900\t.\t+\t.\tID=at_AT5G66610.2.exon1;Parent=at_AT5G66610.2
+at_AT5G66610.2\tbed12\tfive_prime_UTR\t1\t109\t.\t+\t.\tID=at_AT5G66610.2.five_prime_UTR1;Parent=at_AT5G66610.2
+at_AT5G66610.2\tbed12\tCDS\t110\t1873\t.\t+\t0\tID=at_AT5G66610.2.CDS1;Parent=at_AT5G66610.2
+at_AT5G66610.2\tbed12\tthree_prime_UTR\t1874\t1900\t.\t+\t.\tID=at_AT5G66610.2.three_prime_UTR1;Parent=at_AT5G66610.2""",
+                    """at_AT5G66610.2\tbed12\ttranscript\t1\t1900\t0.0\t+\t.\tID=at_AT5G66610.2;Parent=at_AT5G66610.2_gene;Name=at_AT5G66610.2
+at_AT5G66610.2\tbed12\texon\t1\t1900\t.\t+\t.\tID=at_AT5G66610.2.exon1;Parent=at_AT5G66610.2"""
+                ],
+            "at_AT5G66600.2": ["""at_AT5G66600.2\tbed12\tmRNA\t1\t1948\t0.0\t+\t.\tID=at_AT5G66600.2;Parent=at_AT5G66600.2_gene;Name=at_AT5G66600.2
+at_AT5G66600.2\tbed12\texon\t1\t1948\t.\t+\t.\tID=at_AT5G66600.2.exon1;Parent=at_AT5G66600.2
+at_AT5G66600.2\tbed12\tfive_prime_UTR\t1\t58\t.\t+\t.\tID=at_AT5G66600.2.five_prime_UTR1;Parent=at_AT5G66600.2
+at_AT5G66600.2\tbed12\tCDS\t59\t1843\t.\t+\t0\tID=at_AT5G66600.2.CDS1;Parent=at_AT5G66600.2
+at_AT5G66600.2\tbed12\tthree_prime_UTR\t1844\t1948\t.\t+\t.\tID=at_AT5G66600.2.three_prime_UTR1;Parent=at_AT5G66600.2""",
+                 """at_AT5G66600.2\tbed12\ttranscript\t1\t1948\t0.0\t+\t.\tID=at_AT5G66600.2;Parent=at_AT5G66600.2_gene;Name=at_AT5G66600.2
+at_AT5G66600.2\tbed12\texon\t1\t1948\t.\t+\t.\tID=at_AT5G66600.2.exon1;Parent=at_AT5G66600.2"""],
+            "at_AT5G66600.3": ["""at_AT5G66600.3\tbed12\tmRNA\t1\t2168\t0.0\t+\t.\tID=at_AT5G66600.3;Parent=at_AT5G66600.3_gene;Name=at_AT5G66600.3
+at_AT5G66600.3\tbed12\texon\t1\t2168\t.\t+\t.\tID=at_AT5G66600.3.exon1;Parent=at_AT5G66600.3
+at_AT5G66600.3\tbed12\tfive_prime_UTR\t1\t218\t.\t+\t.\tID=at_AT5G66600.3.five_prime_UTR1;Parent=at_AT5G66600.3
+at_AT5G66600.3\tbed12\tCDS\t219\t2063\t.\t+\t0\tID=at_AT5G66600.3.CDS1;Parent=at_AT5G66600.3
+at_AT5G66600.3\tbed12\tthree_prime_UTR\t2064\t2168\t.\t+\t.\tID=at_AT5G66600.3.three_prime_UTR1;Parent=at_AT5G66600.3""",
+                 """at_AT5G66600.3\tbed12\ttranscript\t1\t2168\t0.0\t+\t.\tID=at_AT5G66600.3;Parent=at_AT5G66600.3_gene;Name=at_AT5G66600.3
+at_AT5G66600.3\tbed12\texon\t1\t2168\t.\t+\t.\tID=at_AT5G66600.3.exon1;Parent=at_AT5G66600.3"""]
+        }
+
+        self.maxDiff = None
+        for tid, transcript in self.transcripts.items():
+            with self.subTest(tid=tid):
+                with_cds = transcript.format(format_name="gff3", with_cds=True, transcriptomic=True).strip()
+                without_cds = transcript.format(format_name="gff3", with_cds=False, transcriptomic=True).strip()
+                self.assertEqual(with_cds, results[tid][0])
+                self.assertEqual(without_cds, results[tid][1])
+
+#     def test_gtf(self):
+#         output = """
+# Chr5    bed12   transcript      26581218        26581531        0.0     +       .       gene_id "gene_1"; transcript_id "st_Stringtie_STAR.21709.1"; Name "st_Stringtie_STAR.21709.1";
+# Chr5    bed12   exon    26581218        26581531        .       +       .       gene_id "gene_1"; transcript_id "st_Stringtie_STAR.21709.1";
+# at_AT5G66610.2  bed12   mRNA    1       1900    0.0     +       .       gene_id "gene_2"; transcript_id "at_AT5G66610.2"; Name "at_AT5G66610.2";
+# at_AT5G66610.2  bed12   exon    1       1900    0.0     +       .       gene_id "gene_2"; transcript_id "at_AT5G66610.2"; Name "at_AT5G66610.2";
+# Chr5    bed12   5UTR    1       109     .       +       .       gene_id "gene_2"; transcript_id "at_AT5G66610.2";
+# Chr5    bed12   CDS     110     1873    .       +       0       gene_id "gene_2"; transcript_id "at_AT5G66610.2";
+# Chr5    bed12   3UTR    1874    1900    .       +       .       gene_id "gene_2"; transcript_id "at_AT5G66610.2";
+# at_AT5G66600.2  bed12   mRNA    1       1948    0.0     +       .       gene_id "gene_3"; transcript_id "at_AT5G66600.2"; Name "at_AT5G66600.2";
+# at_AT5G66600.2  bed12   exon    1       1948    0.0     +       .       gene_id "gene_3"; transcript_id "at_AT5G66600.2"; Name "at_AT5G66600.2";
+# Chr5    bed12   3UTR    1       58      .       -       .       gene_id "gene_3"; transcript_id "at_AT5G66600.2";
+# Chr5    bed12   CDS     59      1843    .       -       0       gene_id "gene_3"; transcript_id "at_AT5G66600.2";
+# Chr5    bed12   5UTR    1844    1948    .       -       .       gene_id "gene_3"; transcript_id "at_AT5G66600.2";
+# at_AT5G66600.3  bed12   mRNA    1       2168    0.0     +       .       gene_id "gene_4"; transcript_id "at_AT5G66600.3"; Name "at_AT5G66600.3";
+# at_AT5G66600.3  bed12   exon    1       2168    0.0     +       .       gene_id "gene_4"; transcript_id "at_AT5G66600.3"; Name "at_AT5G66600.3";
+# Chr5    bed12   3UTR    1       218     .       -       .       gene_id "gene_4"; transcript_id "at_AT5G66600.3";
+# Chr5    bed12   CDS     219     2063    .       -       0       gene_id "gene_4"; transcript_id "at_AT5G66600.3";
+# Chr5    bed12   5UTR    2064    2168    .       -       .       gene_id "gene_4"; transcript_id "at_AT5G66600.3";
+#     """
+
+
 class TestPrintIntrons(unittest.TestCase):
 
     def test_not_coding(self):

@@ -1910,17 +1910,6 @@ class WrongSplitting(unittest.TestCase):
 
 class WrongLoadingAndIntersecting(unittest.TestCase):
 
-    def test_wrong_loading(self):
-        t1 = Transcript(BED12("Chr1\t100\t1000\tID=t1;coding=False\t0\t+\t100\t1000\t0\t1\t900\t0"))
-        sl = Superlocus(t1, stranded=True)
-        with self.assertRaises(ValueError):
-            sl.load_all_transcript_data(engine=None, data_dict=None)
-
-    @unittest.skip
-    def test_already_loaded(self):
-        t1 = Transcript(BED12("Chr1\t100\t1000\tID=t1;coding=False\t0\t+\t100\t1000\t0\t1\t900\t0"))
-        sl = Superlocus(t1, stranded=True)
-
     def test_wrong_intersecting(self):
         t1 = Transcript(BED12("Chr1\t100\t1000\tID=t1;coding=False\t0\t+\t100\t1000\t0\t1\t900\t0"))
         sl = Superlocus(t1, stranded=True)

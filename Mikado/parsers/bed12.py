@@ -1425,6 +1425,9 @@ Exons: {self.blocks}\n""".format(self=self)
             bsizes = np.flip(self.block_sizes)
             tStart, tEnd = self.block_sizes.sum() - tEnd, self.block_sizes.sum() - tStart
 
+        if coding is False:
+            tStart, tEnd = 0, 1
+
         bstarts = np.concatenate([np.zeros(1, dtype=np.int64), bsizes[:-1].cumsum()])
         if not (len(bstarts) == len(bsizes) == self.block_count):
             raise ValueError("""In {self.id} ({self.chrom}:{self.start}-{self.end}) there is a discrepancy between block \

@@ -247,8 +247,7 @@ def analyse_locus(slocus: Superlocus,
     slocus.source = configuration.pick.output_format.source
 
     try:
-        slocus.load_all_transcript_data(engine=engine,
-                                        data_dict=data_dict)
+        slocus.load_all_transcript_data(engine=engine)
     except KeyboardInterrupt:
         raise
     except Exception as exc:

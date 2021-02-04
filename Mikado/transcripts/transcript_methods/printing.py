@@ -110,7 +110,10 @@ def __create_exon_line(transcript, segment, counter, cds_begin,
         parent = transcript.parent
     else:
         chrom, source, strand = transcript["chrom"], transcript["source"], transcript["strand"]
-        parent = transcript["parent"]
+        try:
+            parent = transcript["parent"]
+        except KeyError:
+            raise KeyError((type(transcript), transcript))
 
     if not source:
         source = "Mikado"
@@ -138,7 +141,10 @@ def __create_exon_line(transcript, segment, counter, cds_begin,
         except IndexError:
             raise IndexError(segment)
     else:
-        counter[segment[0]] = counter.get(segment[0], 0) + 1
+        try:
+            counter[segment[0]] = counter.get(segment[0], 0) + 1
+        except AttributeError:
+            raise AttributeError((segment, counter))
         index = counter[segment[0]]
         feature = segment[0]
 
@@ -200,7 +206,8 @@ def create_lines_cds(transcript,
     transcript_counter = 0
 
     if transcript.is_coding is False:
-        lines = create_lines_no_cds(transcript, to_gtf=to_gtf, with_introns=with_introns)
+        lines = create_lines_no_cds(transcript, to_gtf=to_gtf, with_introns=with_introns,
+                                    transcriptomic=transcriptomic)
     else:
         if all_orfs is True:
             iterable = transcript.internal_orfs
@@ -243,7 +250,7 @@ def create_lines_cds(transcript,
                     parent_line["attributes"]["parent"] = transcript.parent
                     parent_line["attributes"]["ID"] = tid
 
-                parent_line["attributes"]["name"] = tid
+                parent_line["attributes"]["Name"] = transcript.name
 
                 exon_lines = __create_cds_lines(transcript,
                                                 cds_run,
@@ -254,11 +261,12 @@ def create_lines_cds(transcript,
                 lines.append(constructor(parent_line))
                 lines.extend(exon_lines)
             else:
-
                 parent_line = dict(
                     (attr, getattr(transcript, attr))
                     for attr in ["source", "feature", "score", "attributes"]
                 )
+
+                parent_line["parent"] = transcript.parent
 
                 if parent_line["score"] is None:
                     parent_line["score"] = "."
@@ -268,7 +276,14 @@ def create_lines_cds(transcript,
                 parent_line["end"] = transcript.cdna_length
                 parent_line["strand"] = "+"
                 parent_line["phase"] = "."
+                if to_gtf is True:
+                    parent_line["attributes"]["gene_id"] = transcript.parent
+                    parent_line["attributes"]["transcript_id"] = tid
+                else:
+                    parent_line["attributes"]["parent"] = transcript.parent
+                    parent_line["attributes"]["ID"] = tid
                 # data["id = tid
+                parent_line["attributes"]["Name"] = transcript.name
                 # parent_line.parent = "{}_gene".format(tid)
 
                 if to_gtf is True:
@@ -284,6 +299,21 @@ def create_lines_cds(transcript,
                 new_cds_run = []
 
                 cds = sorted([_ for _ in cds_run if _[0] == "CDS"])
+                exon_line = parent_line.copy()
+                exon_line["attributes"].pop("Name", None)
+                exon_line["attributes"].pop("name", None)
+                exon_line["feature"] = "exon"
+                exon_line["score"] = "."
+
+                if to_gtf is True:
+                    lines.append(
+                        constructor(exon_line, gene=transcript.parent, transcript=tid)
+                    )
+                else:
+                    lines.append(
+                        constructor(exon_line, parent=transcript.id, mid=tid + ".exon1",
+                                    name=transcript.name)
+                    )
 
                 if transcript.strand == "+":
                     cds_start = cds[0][1][0]
@@ -312,16 +342,18 @@ def create_lines_cds(transcript,
                                                 new_cds_run,
                                                 tid,
                                                 to_gtf=to_gtf,
-                                                with_introns=False)
+                                                with_introns=with_introns)
                 lines.extend(exon_lines)
 
     return lines
 
 
-def as_bed12(transcript, transcriptomic=False):
+def as_bed12(transcript, transcriptomic=False, with_cds=True):
     """
     Method to create a BED12 object for printing
     :param transcript: Mikado.loci.transcript.Transcript
+    :param transcriptomic: boolean switch
+    :param with_cds: boolean switch
     :return:
     """
 
@@ -333,7 +365,7 @@ def as_bed12(transcript, transcriptomic=False):
     bed12.start = transcript.start
     bed12.end = transcript.end
 
-    if transcript.is_coding is True:
+    if transcript.is_coding is True and with_cds is True:
         if transcript.strand != "-":
             try:
                 phase = transcript.phases[transcript.selected_cds[0]]
@@ -363,7 +395,7 @@ def as_bed12(transcript, transcriptomic=False):
     bed12.name = name
     bed12.score = transcript.score if transcript.score else 0
     bed12.strand = transcript.strand
-    if transcript.is_coding:
+    if transcript.is_coding and with_cds is True:
         bed12.coding = True
         first_exon = [_ for _ in transcript.selected_cds if transcript.selected_cds_start in _]
         assert len(first_exon) == 1
@@ -371,7 +403,9 @@ def as_bed12(transcript, transcriptomic=False):
         bed12.thick_start = transcript.selected_cds[0][0]
         bed12.thick_end = transcript.selected_cds[-1][1]
     else:
-        bed12.thick_start = bed12.thick_end = bed12.start
+        bed12.thick_start = bed12.thick_end = bed12.start = 0
+        bed12.coding = False
+
     bed12.block_count = transcript.exon_num
     bed12.block_sizes = [exon[1] - exon[0] + 1 for exon in transcript.exons]
     _introns = np.concatenate([np.array([intron[1] - intron[0] + 1 for intron in sorted(transcript.introns)],
@@ -382,20 +416,22 @@ def as_bed12(transcript, transcriptomic=False):
     assert bed12.block_starts[0] == 0, bed12.block_starts
     if transcriptomic:
         bed12 = bed12.to_transcriptomic(alias=transcript.alias, start_adjustment=False,
-                                        coding=transcript.is_coding)
+                                        coding=(transcript.is_coding and with_cds))
         bed12.chrom = transcript.id
     return bed12
 
 
-def create_lines_bed(transcript, transcriptomic=False):
+def create_lines_bed(transcript, transcriptomic=False, with_cds=True):
 
     """
     Method to return the BED12 format of the transcript.
     :param transcript:
+    :param transcriptomic: boolean switch
+    :param with_cds: boolean switch
     :return:
     """
 
-    return str(as_bed12(transcript, transcriptomic=transcriptomic))
+    return str(as_bed12(transcript, transcriptomic=transcriptomic, with_cds=with_cds))
 
 
 def create_lines_no_cds(transcript,
@@ -473,12 +509,11 @@ def create_lines_no_cds(transcript,
             "feature": transcript.feature,
             "start": 1,
             "end": transcript.cdna_length,
-            "score": transcript.score if transcript.score else ".",
+            "score": transcript.score if transcript.score is not None else ".",
             "strand": "+",
             "phase": ".",
             "attributes": transcript.attributes
         }
-
 
         if to_gtf is True:
             parent_line["attributes"]["transcript_id"] = transcript.id
@@ -487,17 +522,24 @@ def create_lines_no_cds(transcript,
             parent_line["attributes"]["ID"] = transcript.id
             parent_line["attributes"]["Parent"] = transcript.parent
 
-        parent_line["attributes"]["Name"] = transcript.name
+        if parent_line["feature"] == "mRNA":
+            parent_line["feature"] = "transcript"
 
+        parent_line["attributes"]["Name"] = transcript.id
         lines = [constructor(parent_line)]
+        assert "Name" in lines[0], lines[0]
+
+        exon_line = parent_line.copy()
+        exon_line["parent"] = transcript.id
+        exon_line["score"] = "."
 
         line_creator = functools.partial(__create_exon_line,
-                                         transcript,
+                                         exon_line,
                                          **{"to_gtf": to_gtf,
                                             "tid": transcript.id,
                                             "cds_begin": False})
 
-        exon_line, _, _ = line_creator(("exon", (1, transcript.cdna_length)), 0)
+        exon_line, _, _ = line_creator(("exon", (1, transcript.cdna_length)), dict())
         lines.append(exon_line)
 
     return lines

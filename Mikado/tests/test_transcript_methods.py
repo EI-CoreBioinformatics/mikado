@@ -372,6 +372,7 @@ Chr5\t26574999\t26578625\tID=at_AT5G66600.3;coding=True;phase=0\t0\t-\t26575104\
             transcript = Transcript(BED12(line))
             transcript.finalize()
             transcript.parent = transcript.id + "_gene"
+            transcript.name = transcript.id
             self.transcripts[transcript.id] = transcript
 
         self.assertEqual(len(self.transcripts), 4)

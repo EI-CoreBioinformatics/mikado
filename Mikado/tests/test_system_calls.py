@@ -739,9 +739,9 @@ class PrepareCheck(unittest.TestCase):
 
             t_file = tempfile.NamedTemporaryFile(mode="wt", suffix=".{}".format(fformat))
             t2_file = tempfile.NamedTemporaryFile(mode="wt", suffix=".{}".format(fformat))
-            print(t.format(fformat), file=t_file)
+            print(t.format(fformat, transcriptomic=False), file=t_file)
             t_file.flush()
-            print(t2.format(fformat), file=t2_file)
+            print(t2.format(fformat, transcriptomic=False), file=t2_file)
             t2_file.flush()
 
             self.conf.prepare.files.gff = [t_file.name, t2_file.name]
@@ -767,7 +767,15 @@ class PrepareCheck(unittest.TestCase):
                         args.strip_cds = False
                         args.configuration = self.conf
                         with self.assertLogs(self.logger, "INFO") as cm:
-                            prepare.prepare(args.configuration, self.logger)
+                            try:
+                                prepare.prepare(args.configuration, self.logger)
+                            except SystemExit:
+                                print(t.format(fformat))
+                                print()
+                                print(t2.format(fformat))
+                                print()
+                                print(*cm.output, sep="\n")
+                                raise
                         self.assertGreater(os.stat(self.conf.prepare.files.out_fasta).st_size, 0,
                                            (round, fformat, iteration, "\n".join(cm.output)))
                         fa = pyfaidx.Fasta(os.path.join(outdir, os.path.basename(

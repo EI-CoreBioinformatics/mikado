@@ -250,7 +250,7 @@ def create_lines_cds(transcript,
                     parent_line["attributes"]["parent"] = transcript.parent
                     parent_line["attributes"]["ID"] = tid
 
-                parent_line["attributes"]["Name"] = transcript.name
+                parent_line["attributes"]["Name"] = tid  # transcript.name
 
                 exon_lines = __create_cds_lines(transcript,
                                                 cds_run,
@@ -283,7 +283,7 @@ def create_lines_cds(transcript,
                     parent_line["attributes"]["parent"] = transcript.parent
                     parent_line["attributes"]["ID"] = tid
                 # data["id = tid
-                parent_line["attributes"]["Name"] = transcript.name
+                parent_line["attributes"]["Name"] = tid  # transcript.name
                 # parent_line.parent = "{}_gene".format(tid)
 
                 if to_gtf is True:
@@ -403,7 +403,8 @@ def as_bed12(transcript, transcriptomic=False, with_cds=True):
         bed12.thick_start = transcript.selected_cds[0][0]
         bed12.thick_end = transcript.selected_cds[-1][1]
     else:
-        bed12.thick_start = bed12.thick_end = bed12.start = 0
+        bed12.thick_start = bed12.start
+        bed12.thick_end = bed12.end
         bed12.coding = False
 
     bed12.block_count = transcript.exon_num
@@ -527,7 +528,7 @@ def create_lines_no_cds(transcript,
 
         parent_line["attributes"]["Name"] = transcript.id
         lines = [constructor(parent_line)]
-        assert "Name" in lines[0], lines[0]
+        # assert "Name" in lines[0], lines[0]
 
         exon_line = parent_line.copy()
         exon_line["parent"] = transcript.id

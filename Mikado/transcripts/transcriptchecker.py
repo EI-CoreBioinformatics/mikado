@@ -350,7 +350,7 @@ we will not reverse it")
                 orfs = list(self.get_internal_orf_beds())
             except AssertionError as exc:  # Invalid ORFs found
                 if self.strip_faulty_cds is False:
-                    raise InvalidTranscript("Invalid ORF(s) for %s. Discarding it. Error: %s", self.id, exc)
+                    raise InvalidTranscript("Invalid ORF(s) for {}. Discarding it. Error: {}".format(self.id, exc))
                 else:
                     self.logger.warning("Invalid ORF(s) for %s. Stripping it of its CDS. Error: %s",
                                         self.id, exc)

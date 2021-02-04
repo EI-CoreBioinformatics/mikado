@@ -78,7 +78,7 @@ def create_config(args):
     elif not (isinstance(args.seed, int) and 0 <= args.seed <= 2 ** 32 - 1):
         raise OSError("Invalid seed: {}".format(args.seed))
 
-    if len(args.mode) > 1:
+    if isinstance(args.mode, list) and len(args.mode) > 1:
         args.daijin = True
 
     if args.daijin is not False:
@@ -87,7 +87,7 @@ def create_config(args):
         config = MikadoConfiguration()
 
     if args.external is not None:
-        other = dataclasses.asdict(load_and_validate_config(args.external))
+        other = dataclasses.asdict(load_and_validate_config(args.external, external=True))
         config = dataclasses.asdict(config)
         config = merge_dictionaries(config, other)
         config = load_and_validate_config(config)

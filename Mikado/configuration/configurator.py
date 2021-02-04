@@ -9,6 +9,7 @@ while existing values are checked for type and consistency.
 import io
 import json
 import os.path
+import pprint
 import re
 import marshmallow
 from multiprocessing import get_start_method
@@ -588,12 +589,16 @@ def check_and_load_scoring(configuration: Union[DaijinConfiguration, MikadoConfi
 
 
 def load_and_validate_config(raw_configuration: Union[None, MikadoConfiguration, DaijinConfiguration,
-                             str, dict], logger=None) -> Union[MikadoConfiguration, DaijinConfiguration]:
+                             str, dict], logger=None, external=False) -> Union[MikadoConfiguration, DaijinConfiguration]:
     """
     Function to serialise the JSON for configuration and check its consistency.
 
     :param raw_configuration: either the file name of the configuration or an initialised object to check and finalise.
     :type raw_configuration: (str | None | dict | MikadoConfiguration | DaijinConfiguration)
+
+    :param external: boolean. If True, presume the file might be an old/incomplete configuration to pass in values.
+    Therefore, accept also *partial* configuration files.
+    :type external: bool
 
     :param logger: optional logger to be used.
     :type logger: Logger
@@ -609,9 +614,9 @@ def load_and_validate_config(raw_configuration: Union[None, MikadoConfiguration,
             config = raw_configuration
         elif isinstance(raw_configuration, dict):
             try:
-                config = MikadoConfiguration.Schema().load(raw_configuration)
+                config = MikadoConfiguration.Schema().load(raw_configuration, partial=external)
             except marshmallow.exceptions.ValidationError:
-                config = DaijinConfiguration.Schema().load(raw_configuration)
+                config = DaijinConfiguration.Schema().load(raw_configuration, partial=external)
         elif raw_configuration is None or raw_configuration == '' or raw_configuration == dict():
             config = MikadoConfiguration()
         else:
@@ -632,15 +637,26 @@ def load_and_validate_config(raw_configuration: Union[None, MikadoConfiguration,
             assert isinstance(config, (dict, MikadoConfiguration, DaijinConfiguration)), (config, type(config))
             if isinstance(config, dict):
                 try:
-                    config = MikadoConfiguration.Schema().load(config)
-                except:
-                    config = DaijinConfiguration.Schema().load(config)
+                    config = MikadoConfiguration.Schema().load(config, partial=external)
+                except marshmallow.exceptions.ValidationError:
+                    pass
+                if isinstance(config, dict):
+                    try:
+                        config = DaijinConfiguration.Schema().load(config, partial=external)
+                    except marshmallow.exceptions.ValidationError as exc:
+                        logger.critical("The configuration file is invalid. Validation errors:\n%s",
+                                        pprint.pformat(exc.messages))
+                        logger.critical(exc)
+                        raise
+
             config.filename = raw_configuration
 
         assert isinstance(config, (MikadoConfiguration, DaijinConfiguration)), type(config)
         config = check_and_load_scoring(config, logger=logger)
+    except KeyboardInterrupt:
+        raise
     except Exception as exc:
-        logger.exception(exc)
+        logger.exception("Loading the configuration file failed with error:\n%s\n\n\n", exc)
         raise InvalidJson("The configuration file passed is invalid. Please double check.")
 
     if config.seed == 0 or config.seed is None:

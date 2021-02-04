@@ -1130,6 +1130,18 @@ class ConfigureCheck(unittest.TestCase):
                 conf = configuration.configurator.check_and_load_scoring(conf)
         folder.cleanup()
 
+    def test_external_file(self):
+        ext_file = pkg_resources.resource_filename("Mikado.tests", "external.yaml")
+        for external in (True, False):
+            with self.subTest(external=external):
+                if external == False:
+                    with self.assertRaises(InvalidJson):
+                        load_and_validate_config(ext_file, external=external)
+                else:
+                    config = load_and_validate_config(ext_file, external=external)
+                    self.assertIsInstance(config, (MikadoConfiguration, DaijinConfiguration))
+                    self.assertEqual(config.pick.alternative_splicing.max_isoforms, 15)
+
     def test_seed(self):
         namespace = Namespace(default=False)
         namespace.scoring = None

@@ -18,6 +18,9 @@ from Mikado.exceptions import InvalidJson
 from Mikado.daijin import mikado_pipeline, assemble_transcripts_pipeline
 from Mikado.configuration import print_config, DaijinConfiguration, MikadoConfiguration
 import rapidjson as json
+
+from Mikado.subprograms.serialise import serialise
+
 try:
     from yaml import CSafeLoader as yLoader
 except ImportError:
@@ -381,12 +384,13 @@ class PrepareCheck(unittest.TestCase):
         args.configuration = self.conf.copy()
         del args.configuration.prepare.files.output_dir
         args.log = None
-        for b in (False, True):
-            with self.subTest(b=b):
+        for b, proc in itertools.product((False, True), (1, 3)):
+            with self.subTest(b=b, proc=proc):
                 self.conf.prepare.files.exclude_redundant = [b]
                 folder = tempfile.TemporaryDirectory()
                 args.output_dir = folder.name
                 args.seed = 10
+                args.procs = proc
                 args.list = None
                 args.gffs = None
                 args.strand_specific_assemblies = None
@@ -1945,7 +1949,7 @@ class SerialiseChecker(unittest.TestCase):
         with open(json_file, "wt") as json_handle:
             print_config(self.configuration, json_handle, output_format="yaml")
         # Set up the command arguments
-        for procs in (1,):
+        for procs in (1, ):
             with self.subTest(proc=procs):
                 sys.argv = [str(_) for _ in ["mikado", "serialise", "--configuration", json_file,
                             "--transcripts", transcripts, "--blast_targets", uni_out,
@@ -2028,17 +2032,30 @@ class SerialiseChecker(unittest.TestCase):
         logs = dict()
         dbs = dict()
         base = tempfile.TemporaryDirectory()
+        args = Namespace(default=None)
+        args.seed = 1078
+        args.max_objects = 1000
+        args.output_dir = base.name
+        args.transcripts = queries
+        args.blast_targets = prots
+
         for name, blast in zip(["xml", "tsv"], [xml, tsv]):
-            db = "{}.db".format(name)
-            log = "{}.log".format(name)
-            sys.argv = [str(_) for _ in ["mikado", "serialise", "-od", base.name,
-                                         "--transcripts", queries, "--blast_targets", prots,
-                                         "--xml", xml, "-mo", 1000, "--log", log, "--seed", "1078",
-                                         db]]
-            pkg_resources.load_entry_point("Mikado", "console_scripts", "mikado")()
-            dbs[name] = os.path.join(base.name, db)
-            logged = [_.rstrip() for _ in open(os.path.join(base.name, log))]
-            logs[name] = logged
+            with self.subTest(name=name, blast=blast):
+                args.db = "{}.db".format(name)
+                args.log = "{}.log".format(name)
+                args.xml = blast
+                print(args.xml)
+                print(args.transcripts)
+                print(args.blast_targets)
+                serialise(args)
+                # sys.argv = [str(_) for _ in ["mikado", "serialise", "-od", base.name,
+                #                              "--transcripts", queries, "--blast_targets", prots,
+                #                              "--xml", xml, "-mo", 1000, "--log", log, "--seed", "1078",
+                #                              db]]
+                # pkg_resources.load_entry_point("Mikado", "console_scripts", "mikado")()
+                dbs[name] = os.path.join(base.name, args.db)
+                logged = [_.rstrip() for _ in open(os.path.join(base.name, args.log))]
+                logs[name] = logged
 
         def prep_dbs(name):
             import sqlalchemy.exc

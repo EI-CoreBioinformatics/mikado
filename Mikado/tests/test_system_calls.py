@@ -2037,7 +2037,7 @@ class SerialiseChecker(unittest.TestCase):
         args.max_objects = 1000
         args.output_dir = base.name
         args.transcripts = queries
-        args.blast_targets = prots
+        args.blast_targets = [prots]
 
         for name, blast in zip(["xml", "tsv"], [xml, tsv]):
             with self.subTest(name=name, blast=blast):

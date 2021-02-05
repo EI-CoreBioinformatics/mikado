@@ -1,9 +1,7 @@
 import copy
 from dataclasses import field
-
 from marshmallow import validate
 from marshmallow_dataclass import dataclass, Optional
-
 from .picking_config import PickConfiguration
 from .prepare_config import PrepareConfiguration
 from .serialise_config import SerialiseConfiguration

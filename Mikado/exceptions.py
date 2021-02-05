@@ -4,6 +4,8 @@
 Custom exceptions for Mikado.
 """
 
+from marshmallow import ValidationError
+
 
 class NotInLocusError(AssertionError):
     """
@@ -48,7 +50,7 @@ class UnrecognizedRescaler(ValueError):
     pass
 
 
-class InvalidJson(KeyError):
+class InvalidJson(ValidationError, KeyError):
     """
     Exception to be raised when the JSON/YAML is invalid.
     """

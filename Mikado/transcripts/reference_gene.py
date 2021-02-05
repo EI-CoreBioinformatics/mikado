@@ -13,7 +13,7 @@ from sys import intern
 from typing import Union, Iterable
 
 from .transcript import Transcript
-from .transcriptcomputer import TranscriptComputer
+from Mikado.transcripts.transcriptcomputer import TranscriptComputer
 from ..exceptions import InvalidTranscript, InvalidCDS
 from ..parsers.GFF import GffLine
 from ..parsers.GTF import GtfLine

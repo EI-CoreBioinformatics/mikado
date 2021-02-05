@@ -1,5 +1,5 @@
 import csv
-from ..transcripts.transcriptcomputer import TranscriptComputer
+from Mikado.transcripts.transcriptcomputer import TranscriptComputer
 from ..loci import Gene
 from ..parsers.GFF import GFF3
 from ..utilities.log_utils import create_default_logger

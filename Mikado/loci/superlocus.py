@@ -938,7 +938,6 @@ class Superlocus(Abstractlocus):
         if self.subloci_defined is True:
             return
 
-        self.compile_requirements()
         self.subloci = []
 
         # First, check whether we need to remove CDS from anything.
@@ -994,6 +993,10 @@ class Superlocus(Abstractlocus):
                 continue
             subl = [self.transcripts[x] for x in subl]
             subl = sorted(subl)
+            assert self.configuration.scoring is not None
+            assert hasattr(self.configuration.scoring.requirements, "parameters")
+            self.logger.debug("Scoring file: %s", self.configuration.pick.scoring_file)
+            self.logger.debug(self.configuration.scoring.requirements._expression)
             new_sublocus = Sublocus(subl[0],
                                     configuration=self.configuration,
                                     logger=self.logger,
@@ -1050,6 +1053,7 @@ class Superlocus(Abstractlocus):
         self.monosubloci = dict()
         # Extract the relevant transcripts
         for sublocus_instance in sorted(self.subloci):
+            sublocus_instance.logger = self.logger
             sublocus_instance.define_monosubloci(purge=self.purge, check_requirements=check_requirements)
             for transcript in sublocus_instance.excluded.transcripts.values():
                 self.excluded.add_transcript_to_locus(transcript)
@@ -1399,21 +1403,6 @@ class Superlocus(Abstractlocus):
         for monoholder in self.monoholders:
             # monoholder.scores_calculated = False
             monoholder.filter_and_calculate_scores(check_requirements=check_requirements)
-
-    def compile_requirements(self):
-        """Quick function to evaluate the filtering expression, if it is present."""
-
-        def compile_expression(section):
-            if "compiled" in section:
-                pass
-            else:
-                section["compiled"] = compile(section["expression"], "<json>", "eval")
-            return section
-
-        self.configuration.requirements = compile_expression(self.configuration.requirements)
-        self.configuration.not_fragmentary = compile_expression(self.configuration.not_fragmentary)
-        self.configuration.as_requirements = compile_expression(self.configuration.as_requirements)
-        self.configuration.cds_requirements = compile_expression(self.configuration.cds_requirements)
 
     # ############ Class methods ###########
 

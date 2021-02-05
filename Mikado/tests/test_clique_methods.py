@@ -2,7 +2,7 @@ import unittest
 
 import networkx
 
-from ..transcripts.clique_methods import find_cliques, find_communities
+from Mikado._transcripts.clique_methods import find_cliques, find_communities
 
 
 class TestCliques(unittest.TestCase):

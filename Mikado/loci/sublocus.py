@@ -329,7 +329,7 @@ class Sublocus(Abstractlocus):
     def print_scores(self):
         """This method yields dictionary rows that are given to a csv.DictWriter class."""
         self.filter_and_calculate_scores()
-        score_keys = sorted(list(self.configuration.scoring.keys()) + ["source_score"])
+        score_keys = sorted(list(self.configuration.scoring.scoring.keys()) + ["source_score"])
         keys = ["tid", "alias", "parent", "score"] + sorted(score_keys)
 
         for tid in self.scores:

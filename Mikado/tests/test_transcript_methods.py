@@ -1,6 +1,5 @@
 import os
 import unittest
-import builtins
 from sqlalchemy.engine import reflection
 import itertools
 from ..configuration.configurator import load_and_validate_config
@@ -9,7 +8,7 @@ from ..parsers.bed12 import BED12
 from ..parsers.GTF import GtfLine
 from ..parsers.GFF import GffLine
 from ..transcripts.transcript import Metric
-from ..transcripts.transcript_methods import retrieval
+from Mikado.transcripts.transcript_methods import retrieval
 from ..utilities.log_utils import create_default_logger
 
 

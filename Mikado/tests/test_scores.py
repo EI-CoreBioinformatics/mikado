@@ -1,16 +1,9 @@
-import io
 import unittest
-import rapidjson as json
-from pkg_resources import resource_stream
 from .. import loci, configuration, transcripts
+from .._transcripts.scoring_configuration import Requirements, MinMaxScore
 from ..parsers.bed12 import BED12
 from ..transcripts import Transcript
 from ..utilities.log_utils import create_default_logger
-
-
-with io.TextIOWrapper(resource_stream("Mikado.configuration",
-                                      "requirements_blueprint.json")) as rs_blueprint:
-    require_schema = json.loads(rs_blueprint.read())
 
 
 class ScoreTester(unittest.TestCase):
@@ -42,16 +35,14 @@ class ScoreTester(unittest.TestCase):
         self.t3.finalize()
         self.assertTrue(self.t3.is_coding)
         self.configuration = loci.abstractlocus.default_configuration
-        reqs = {"requirements":
-                    {"expression": ["cdna_length"],
-                     "parameters": {
-                         "cdna_length": {"operator": "gt", "value": 0}
-                     }
-                     }
+        reqs = {"expression": ["cdna_length"],
+                "parameters": {"cdna_length": {"operator": "gt", "value": 0}}
                 }
 
-        self.configuration.requirements = reqs["requirements"]
-        configuration.configurator.check_requirements(self.configuration.requirements, require_schema, "requirements")
+        # self.configuration.requirements = reqs["requirements"]
+        self.configuration.scoring.requirements = Requirements.Schema().load(reqs)
+        self.configuration.check()
+
         self.locus = loci.Superlocus(self.t1, configuration=self.configuration)
         self.locus.add_transcript_to_locus(self.t2)
         self.locus.add_transcript_to_locus(self.t3)
@@ -159,13 +150,13 @@ class ScoreTester(unittest.TestCase):
 
         for multiplier in (1, 2, 3):
             with self.subTest(multiplier=multiplier):
-                scoring = {"combined_cds_length": {"rescaling": "max", "use_raw": False, "multiplier": multiplier,
-                                                   "filter": {"operator": "gt", "value": 2, "metric": "exon_num"}
-                                                   }}
+                scoring = {"rescaling": "max", "use_raw": False, "multiplier": multiplier,
+                           "filter": {"operator": "gt", "value": 2, "metric": "exon_num"}}
 
                 logger = create_default_logger("test_exon_num_max", level="WARNING")
 
-                self.locus.configuration.scoring = scoring
+                self.locus.configuration.scoring.scoring = {"combined_cds_length": MinMaxScore.Schema().load(scoring)}
+                self.locus.configuration = self.locus.configuration
                 self.assertIn("t3", self.locus.transcripts)
                 self.locus.logger = logger
                 self.locus.filter_and_calculate_scores()
@@ -220,18 +211,14 @@ class LocusMissedTester(unittest.TestCase):
     def setUp(self):
         self.configuration = loci.abstractlocus.default_configuration
         reqs = {
-            "requirements": {
                 "expression": ["cdna_length"],
                 "parameters": {
                     "cdna_length": {
                         "operator": "gt", "value": 0}
                 }
             }
-        }
 
-        self.configuration.requirements = reqs["requirements"]
-        self.configuration.requirements = configuration.configurator.check_requirements(
-            self.configuration.requirements, require_schema, "requirements")
+        self.configuration.scoring.requirements = Requirements.Schema().load(reqs)
         self.configuration.pick.alternative_splicing.pad = False
 
     def test_transcript_not_missed(self):

@@ -8,6 +8,7 @@ import unittest
 import os.path
 import logging
 import pkg_resources
+from Mikado._transcripts.scoring_configuration import NumBoolEqualityFilter, ScoringFile
 from Mikado.configuration import configurator, MikadoConfiguration, DaijinConfiguration
 from Mikado import exceptions
 from Mikado.parsers import GFF  # ,GTF, bed12
@@ -429,7 +430,7 @@ Chr1\tfoo\texon\t501\t600\t.\t+\t.\tID=t1:exon3;Parent=t1""".split("\n")
 
         self.my_json = configurator.load_and_validate_config(self.my_json)
         self.my_json.reference.genome = self.fai.filename.decode()
-        self.assertIsInstance(self.my_json.scoring, dict, self.my_json.scoring)
+        self.assertIsInstance(self.my_json.scoring, ScoringFile, self.my_json.scoring)
 
     def test_locus(self):
         """Basic testing of the Locus functionality."""
@@ -623,31 +624,26 @@ Chr1\tfoo\texon\t801\t1000\t.\t-\t.\tID=tminus0:exon1;Parent=tminus0""".split("\
         # with self.assertLogs(log, "DEBUG") as cm:
         #     jconf = configurator.check_json(jconf, logger=log)
 
-        jconf.requirements = dict()
-        jconf.requirements["parameters"] = dict()
-        jconf.requirements["expression"] = ["suspicious_splicing"]
-        jconf.requirements["parameters"]["suspicious_splicing"] = dict()
-        jconf.requirements["parameters"]["suspicious_splicing"]["operator"] = "ne"
-        jconf.requirements["parameters"]["suspicious_splicing"]["name"] = "suspicious_splicing"
-        jconf.requirements["parameters"]["suspicious_splicing"]["value"] = True
+        jconf.scoring.requirements.parameters = dict()
+        jconf.scoring.requirements.expression = ["suspicious_splicing"]
+        jconf.scoring.requirements.parameters["suspicious_splicing"] = NumBoolEqualityFilter.Schema().load(
+            {"operator": "ne", "name": "suspicious_splicing", "value": True})
 
         jconf.pick.alternative_splicing.report = False
+        jconf.scoring.check(minimal_orf_length=jconf.pick.orf_loading.minimal_orf_length)
         # Necessary to make sure that the externally-specified requirements are taken in
-        configurator.check_all_requirements(jconf)
-        self.assertEqual(jconf.requirements["expression"], "evaluated[\"suspicious_splicing\"]")
-
-        # jconf = configurator.check_json(jconf)
-
-        self.assertEqual(jconf.requirements["expression"], "evaluated[\"suspicious_splicing\"]", jconf.requirements)
+        self.assertEqual(jconf.scoring.requirements._expression, "evaluated[\"suspicious_splicing\"]")
 
         logger = create_default_logger(inspect.getframeinfo(inspect.currentframe())[2])
         for suspicious in (False, True):
             with self.subTest(suspicious=suspicious):
+                logger.setLevel("WARNING")
                 loc = Superlocus(t1, configuration=jconf, logger=logger)
                 t2.attributes["canonical_on_reverse_strand"] = suspicious
                 loc.add_transcript_to_locus(t2)
                 loc.add_transcript_to_locus(t3)
                 self.assertEqual(len(loc.transcripts), 3)
+                # loc.logger.setLevel("DEBUG")
                 loc.define_subloci()
                 self.assertEqual(len(loc.transcripts), 3 if not suspicious else 2)
 
@@ -699,7 +695,7 @@ Chr1\tfoo\texon\t801\t1000\t.\t-\t.\tID=tminus0:exon1;Parent=tminus0""".split("\
         t3.chrom, t3.start, t3.end, t3.strand, t3.id, = "Chr5", 999, 2002, "+", "t3"
         t3.add_exons([(999, 1200), (1500, 2002)])
         t3.finalize()
-        logger = create_default_logger("test_reducing_methods_one_2", level="DEBUG")
+        logger = create_default_logger("test_reducing_methods_one_2", level="WARNING")  # level="DEBUG")
         locus = Superlocus(t1, logger=logger)
         locus.add_transcript_to_locus(t2)
         locus.add_transcript_to_locus(t3)
@@ -1454,9 +1450,9 @@ class MonoHolderTester(unittest.TestCase):
 
         superlocus.subloci_defined = True
         self.assertEqual(len(superlocus.subloci), len(transcripts))
-        superlocus.logger = create_default_logger("test_holder_clustering", level="DEBUG")
+        superlocus.logger = create_default_logger("test_holder_clustering", level="WARNING")
         self.assertFalse(superlocus.configuration.pick.clustering.simple_overlap_for_monoexonic)
-        superlocus.configuration.requirements = None
+        superlocus.configuration.scoring.requirements = None
         superlocus.calculate_mono_metrics()
         self.assertEqual(len(superlocus.monoholders), 1,
                          "\n".join([", ".join(list(_.transcripts.keys())) for _ in superlocus.monoholders]))

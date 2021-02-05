@@ -5,7 +5,7 @@ Module that implements the Reid/Daid/Hurley algorithm for community finding.
 """
 
 import networkx
-from ..utilities.log_utils import create_null_logger
+from Mikado.utilities.log_utils import create_null_logger
 from collections import defaultdict
 from itertools import chain, combinations
 

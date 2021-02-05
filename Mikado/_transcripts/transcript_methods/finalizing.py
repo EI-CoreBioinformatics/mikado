@@ -3,12 +3,12 @@ This module provides the functions needed to check a transcript for consinstency
 e.g. reliability of the CDS/UTR, sanity of borders, etc.
 """
 
-from ...utilities import Interval, IntervalTree
-from ...utilities import overlap
+from Mikado.utilities import Interval, IntervalTree
+from Mikado.utilities import overlap
 from collections import defaultdict
 import operator
 # from sys import intern
-from ...exceptions import InvalidCDS, InvalidTranscript
+from Mikado.exceptions import InvalidCDS, InvalidTranscript
 
 __author__ = 'Luca Venturini'
 
@@ -281,7 +281,7 @@ def __calculate_introns(transcript):
         else:
             transcript._combined_cds_introns = transcript._selected_cds_introns.copy()
 
-    assert len(transcript._combined_cds_introns) >= len(transcript._selected_cds_introns)
+    assert len(transcript.combined_cds_introns) >= len(transcript.selected_cds_introns)
     return transcript
 
 

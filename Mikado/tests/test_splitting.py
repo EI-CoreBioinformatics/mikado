@@ -6,7 +6,7 @@ import unittest
 from sys import version_info
 import pysam
 from .. import loci, parsers, utilities, configuration
-from ..transcripts.transcript_methods import splitting
+from Mikado.transcripts.transcript_methods import splitting
 import tempfile
 from ..parsers import bed12
 from ..utilities.log_utils import create_default_logger

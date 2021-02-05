@@ -11,10 +11,8 @@ import operator
 from collections import defaultdict
 import pysam
 from ..transcripts.transcript import Transcript
-from ..configuration.daijin_configuration import DaijinConfiguration
-from ..configuration.configuration import MikadoConfiguration
 # from ..configuration.picking_config import valid_as_ccodes, redundant_as_ccodes
-from ..transcripts.transcriptchecker import TranscriptChecker
+from Mikado.transcripts.transcriptchecker import TranscriptChecker
 from .abstractlocus import Abstractlocus, rgetattr  # , default_configuration
 from ..parsers.GFF import GffLine
 from ..scales.assignment.assigner import Assigner
@@ -552,7 +550,7 @@ it is marked as having 0 retained introns. This is an error.".format(transcript=
                     "s" * min(1, len(to_check) - 1))
 
         # Add a check similar to what we do for the minimum requirements and the fragments
-        if to_be_added and self.configuration.as_requirements:
+        if to_be_added and self.configuration.scoring.as_requirements:
             to_be_added = self.__check_as_requirements(transcript, is_reference=reference_pass)
 
         if to_be_added is True:
@@ -594,21 +592,17 @@ it is marked as having 0 retained introns. This is an error.".format(transcript=
         if is_reference is True and self.configuration.pick.run_options.check_references is False:
             return True
         # TODO where are we going to put the as_requirements?
-        section = self.configuration.as_requirements
-
-        if "compiled" not in section or section["compiled"] is None:
-            section["compiled"] = compile(section["expression"], "<json>", "eval")
-            self.configuration.as_requirements = section
+        section = self.configuration.scoring.as_requirements
 
         evaluated = dict()
-        for key in section["parameters"]:
-            value = rgetattr(transcript, section["parameters"][key]["name"])
+        for key in section.parameters:
+            value = rgetattr(transcript, section.parameters[key].name)
             if "external" in key:
                 value = value[0]
 
-            evaluated[key] = self.evaluate(value, section["parameters"][key])
+            evaluated[key] = self.evaluate(value, section.parameters[key])
             # pylint: disable=eval-used
-        if eval(section["compiled"]) is False:
+        if eval(section.compiled) is False:
             self.logger.debug("%s fails the minimum requirements for AS events", transcript.id)
             to_be_added = False
         return to_be_added
@@ -828,8 +822,7 @@ it is marked as having 0 retained introns. This is an error.".format(transcript=
     def print_scores(self):
         """This method yields dictionary rows that are given to a csv.DictWriter class."""
         self.filter_and_calculate_scores()
-        # TODO needs changing
-        score_keys = sorted(list(self.configuration.scoring.keys()) + ["source_score"])
+        score_keys = sorted(list(self.configuration.scoring.scoring.keys()) + ["source_score"])
         keys = ["tid", "alias", "parent", "score"] + score_keys
 
         for tid in self.scores:

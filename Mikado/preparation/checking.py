@@ -4,7 +4,7 @@ import multiprocessing.queues
 import os
 import pysam
 import msgpack
-from ..transcripts.transcriptchecker import TranscriptChecker
+from Mikado.transcripts.transcriptchecker import TranscriptChecker
 from .. import exceptions
 from ..transcripts import Transcript
 from ..utilities.log_utils import create_null_logger, create_queue_logger

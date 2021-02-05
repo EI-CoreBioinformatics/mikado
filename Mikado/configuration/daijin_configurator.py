@@ -3,12 +3,12 @@ from typing import Union
 from argparse import Namespace
 import rapidjson as json
 import os
-import io
+import toml
 import yaml
 from pkg_resources import resource_stream
-from .configurator import check_all_requirements, check_scoring
 from .configurator import create_cluster_config
 from . import print_config, DaijinConfiguration
+from .._transcripts.scoring_configuration import ScoringFile
 from ..exceptions import InvalidJson
 from ..utilities.log_utils import create_default_logger
 import sys
@@ -223,23 +223,21 @@ def create_daijin_config(args: Namespace, config=None, level="ERROR", piped=Fals
                 else:
                     new_scoring = yaml.load(_, Loader=yLoader)
 
-                _ = check_all_requirements(new_scoring)
-                _ = check_scoring(new_scoring)
+                _ = ScoringFile.Schema().load(new_scoring)
+                _.check(minimal_orf_length=config.pick.orf_loading.minimal_orf_length)
 
         else:
-            with io.TextIOWrapper(resource_stream("Mikado.configuration",
-                                                  "scoring_blueprint.json")) as schema:
-                _ = json.load(schema.read())
-
-            ns = dict()
+            ns = ScoringFile()
             with open(args.new_scoring, "wt") as out:
-                ns["scoring"] = dict()
+                ns = dataclasses.asdict(ns)
                 for key in ["as_requirements", "requirements", "not_fragmentary"]:
-                    ns["as_requirements"] = {"parameters": {}, "expression": []}
+                    ns[key] = {"parameters": {}, "expression": []}
                 if args.new_scoring.endswith("json"):
                     json.dump(ns, out)
-                else:
+                elif args.new_scoring.endswith("yaml"):
                     yaml.dump(ns, out)
+                else:
+                    toml.dumps(ns, out)
             config.pick.scoring_file = args.new_scoring
 
     if args.flank is not None:

@@ -8,10 +8,10 @@ from itertools import groupby
 from typing import List
 from sqlalchemy import and_
 from sqlalchemy.orm.session import sessionmaker
-from ...parsers.bed12 import BED12
-from ...serializers.junction import Junction
-from ..clique_methods import define_graph, find_cliques, find_communities
-from ...utilities import dbutils
+from Mikado.parsers.bed12 import BED12
+from Mikado.serializers.junction import Junction
+from Mikado._transcripts.clique_methods import define_graph, find_cliques, find_communities
+from Mikado.utilities import dbutils
 
 __author__ = 'Luca Venturini'
 
@@ -201,7 +201,7 @@ def check_loaded_orfs(transcript, primary_phase=0):
         transcript.feature = "mRNA"
 
     transcript.phases = dict()
-    transcript._first_phase = primary_phase
+    transcript.__first_phase = primary_phase
     transcript._trust_orf = False
     transcript.finalize()
 

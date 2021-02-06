@@ -786,10 +786,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             [_._as_tuple() for _ in segmenttree.find(exon[0], exon[1], strict=False, value="intron")]
         )
 
-        logger.debug("Analysing exon %s with frags %s", exon, frags)
-
         if not found_introns:
-            logger.debug("No intron found for %s, returning False.", exon)
             return is_retained, cds_broken
 
         # logger.debug("Found introns for %s: %s", exon, found_introns)
@@ -815,7 +812,6 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             # logger.debug("Exon: %s; Frags: %s; Intron: %s; Before: %s; After: %s", exon, frags, intron, before, after)
             if len(before) == 0 and len(after) == 0:
                 # A retained intron must be overlapping some other exons!
-                logger.debug("No before/after exonic overlap found for exon %s vs intron %s. Skipping", exon, intron)
                 continue
             else:
                 if len(internal_splices) == 0:
@@ -835,29 +831,19 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                 else:
                     start_found = (exon[0] in set([e[0] for e in before - introns]))
                     end_found = (exon[1] in set([e[1] for e in after - introns]))
-                    logger.debug("Exon %s vs intron %s: strand %s, start found %s, end found %s (I.S. %s)",
-                                 exon, intron, strand, start_found, end_found, internal_splices)
                     if len(internal_splices) == 1:
                         if exon[0] in internal_splices:  # This means that the end is dangling
                             end_found = True
                         elif exon[1] in internal_splices:  # This means that the start is dangling
                             start_found = True
 
-                logger.debug(
-                    "Exon %s vs intron %s: strand %s, retained %s, start found %s, end found %s (I.S. %s); frags: %s",
-                    exon, intron, strand, start_found and end_found, start_found, end_found, internal_splices, frags)
                 if start_found and end_found:
-                    logger.debug("Exon %s is retained (for intron %s)", exon, intron)
                     # Now we have to check whether the CDS breaks within the intron
                     if intron in cds_introns:
                         for frag, intron in itertools.product(frags, [intron]):
                             cds_broken = cds_broken or (overlap(frag, intron, positive=True) > 0)
                             if cds_broken is True:
-                                logger.debug("Frag %s intersecting intron %s: CDS interrupted", frag, intron)
                                 break
-                            else:
-                                logger.debug("Frag %s of exon %s does not intersect intron %s.",
-                                             frag, exon, intron)
 
                 is_retained = is_retained or (start_found and end_found)
 
@@ -1325,8 +1311,12 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                 self.logger.critical("Attribute error: {}".format(section_name))  # , dataclasses.asdict(section)))
                 raise AttributeError
             for key in section.parameters:
+                if section.parameters[key].name is not None:
+                    name = section.parameters[key].name
+                else:
+                    name = key
                 try:
-                    value = rgetattr(self.transcripts[tid], section.parameters[key].name)
+                    value = rgetattr(self.transcripts[tid], name)
                 except AttributeError:
                     raise AttributeError((section_name, key, section.parameters[key]))
                 if "external" in key:

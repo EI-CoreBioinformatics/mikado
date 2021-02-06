@@ -70,8 +70,7 @@ class MikadoConfiguration:
     filename: Optional[str] = field(default=None)
 
     def copy(self):
-        self.check()
-        return self.Schema().load(copy.deepcopy(dataclasses.asdict(self)))
+        return copy.deepcopy(self)
 
     def check(self):
         if self.scoring is None or not hasattr(self.scoring.requirements, "parameters"):

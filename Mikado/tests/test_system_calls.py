@@ -1755,7 +1755,8 @@ class PickTest(unittest.TestCase):
                 self.configuration.pick.clustering.purge = purging
                 self.configuration.pick.scoring_file = scoring_file.name
                 self.configuration = configurator.check_and_load_scoring(self.configuration)
-                self.assertEqual(len(self.configuration.scoring.keys()), 1, self.configuration.scoring.keys())
+                self.assertEqual(len(self.configuration.scoring.scoring.keys()), 1,
+                                 self.configuration.scoring.scoring.keys())
 
                 pick_caller = picker.Picker(configuration=self.configuration)
                 with self.assertRaises(SystemExit), self.assertLogs("main_logger", "INFO"):
@@ -1814,8 +1815,8 @@ class PickTest(unittest.TestCase):
                 self.configuration.pick.clustering.purge = purging
                 self.configuration.pick.scoring_file = scoring_file.name
                 self.configuration = configurator.check_and_load_scoring(self.configuration)
-                self.assertEqual(len(self.configuration.scoring.keys()), 2,
-                                 self.configuration.scoring.keys())
+                self.assertEqual(len(self.configuration.scoring.scoring.keys()), 2,
+                                 self.configuration.scoring.scoring.keys())
 
                 pick_caller = picker.Picker(configuration=self.configuration)
                 with self.assertRaises(SystemExit), self.assertLogs("main_logger", "INFO"):
@@ -1879,7 +1880,8 @@ class PickTest(unittest.TestCase):
                 self.configuration.pick.clustering.purge = purging
                 self.configuration.pick.scoring_file = scoring_file.name
                 self.configuration = configurator.check_and_load_scoring(self.configuration)
-                self.assertEqual(len(self.configuration.scoring.keys()), 2, self.configuration.scoring.keys())
+                self.assertEqual(len(self.configuration.scoring.scoring.keys()), 2,
+                                 self.configuration.scoring.scoring.keys())
 
                 pick_caller = picker.Picker(configuration=self.configuration)
                 with self.assertRaises(SystemExit), self.assertLogs("main_logger", "INFO"):

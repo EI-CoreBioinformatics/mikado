@@ -207,7 +207,8 @@ class LocusMissedTester(unittest.TestCase):
                 "expression": ["cdna_length"],
                 "parameters": {
                     "cdna_length": {
-                        "operator": "gt", "value": 0}
+                        "operator": "gt", "value": 0,
+                    "name": "cdna_length"}
                 }
             }
 

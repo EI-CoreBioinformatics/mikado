@@ -52,12 +52,11 @@ def create_cluster_config(config: Union[MikadoConfiguration, DaijinConfiguration
             cluster_config = args.cluster_config
         else:
             cluster_config = "daijin_hpc.yaml"
-        with open(cluster_config, "wt") as out, \
-                resource_stream("Mikado", os.path.join("daijin", "hpc.yaml")) as original:
+        with open(cluster_config, "wb") as out, resource_stream("Mikado.daijin", "hpc.yaml") as original:
             for pos, line in enumerate(original):
-                print(line.decode(), file=out, end="")
+                out.write(line)
                 if pos == 0:
-                    print("    queue:", args.queue, file=out)
+                    out.write("    queue: {}\n".format(args.queue).encode())
 
 
 def check_db(configuration: Union[MikadoConfiguration, DaijinConfiguration]) -> Union[MikadoConfiguration,

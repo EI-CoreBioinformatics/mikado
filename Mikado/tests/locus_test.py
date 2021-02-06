@@ -621,8 +621,6 @@ Chr1\tfoo\texon\t801\t1000\t.\t-\t.\tID=tminus0:exon1;Parent=tminus0""".split("\
 
         jconf = configurator.load_and_validate_config(None)
         log = create_default_logger("tester", level="DEBUG")
-        # with self.assertLogs(log, "DEBUG") as cm:
-        #     jconf = configurator.check_json(jconf, logger=log)
 
         jconf.scoring.requirements.parameters = dict()
         jconf.scoring.requirements.expression = ["suspicious_splicing"]

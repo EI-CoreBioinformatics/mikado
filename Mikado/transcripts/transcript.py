@@ -11,6 +11,8 @@ from sqlalchemy import bindparam
 from sqlalchemy.ext import baked
 from sqlalchemy.sql.expression import desc, asc  # SQLAlchemy imports
 import pysam
+import functools
+import inspect
 default_config = MikadoConfiguration()
 
 
@@ -142,3 +144,37 @@ class Transcript(TranscriptBase):
 
         return retrieval.find_overlapping_cds(self, candidate_orfs)
 
+    # We need to overload this because otherwise we won't get the metrics from the base class.
+    @classmethod
+    @functools.lru_cache(maxsize=None, typed=True)
+    def get_available_metrics(cls) -> list:
+        """This function retrieves all metrics available for the class."""
+
+        metrics = TranscriptBase.get_available_metrics()
+        for member in inspect.getmembers(cls):
+            if not member[0].startswith("__") and member[0] in cls.__dict__ and isinstance(
+                    cls.__dict__[member[0]], Metric):
+                metrics.append(member[0])
+
+        _metrics = sorted(set([metric for metric in metrics]))
+        final_metrics = ["tid", "alias", "parent", "original_source", "score"] + _metrics
+        return final_metrics
+
+    # We need to overload this because otherwise we won't get the metrics from the base class.
+    @classmethod
+    @functools.lru_cache(maxsize=None, typed=True)
+    def get_modifiable_metrics(cls) -> list:
+
+        metrics = TranscriptBase.get_modifiable_metrics()
+        for member in inspect.getmembers(cls):
+            not_private = (not member[0].startswith("_" + cls.__name__ + "__") and not member[0].startswith("__"))
+            in_dict = (member[0] in cls.__dict__)
+            if in_dict:
+                is_metric = isinstance(cls.__dict__[member[0]], Metric)
+                has_fset = (getattr(cls.__dict__[member[0]], "fset", None) is not None)
+            else:
+                is_metric = None
+                has_fset = None
+            if all([not_private, in_dict, is_metric, has_fset]):
+                metrics.append(member[0])
+        return set(metrics)

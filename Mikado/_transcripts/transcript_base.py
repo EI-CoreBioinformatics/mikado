@@ -1494,9 +1494,8 @@ exon data is on a different chromosome, {exon_data.chrom}. \
                     cls.__dict__[member[0]], Metric):
                 metrics.append(member[0])
 
-        _metrics = sorted([metric for metric in metrics])
-        final_metrics = ["tid", "alias", "parent", "original_source", "score"] + _metrics
-        return final_metrics
+        _metrics = sorted(set([metric for metric in metrics]))
+        return _metrics
 
     @classmethod
     @functools.lru_cache(maxsize=None, typed=True)

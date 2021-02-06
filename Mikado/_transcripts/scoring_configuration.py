@@ -1,5 +1,7 @@
+import functools
+
 from marshmallow_dataclass import dataclass, List, Dict, Union, Optional
-from dataclasses import field
+from dataclasses import field, asdict
 from marshmallow import validate, pre_dump
 from .transcript_base import TranscriptBase
 available_metrics = TranscriptBase.get_available_metrics()
@@ -68,9 +70,7 @@ class MinMaxScore:
     rescaling: str = field(metadata={"required": True, "validate": validate.OneOf(["max", "min"])})
     filter: Optional[Union[SizeFilter, NumBoolEqualityFilter, RangeFilter, InclusionFilter]]
     use_raw: bool = field(default=False)
-    multiplier: Union[float, int] = field(default=1, metadata={
-        "validate": validate.Range(min=1e-6),
-        "required": False})
+    multiplier: Union[float, int] = field(default=1, metadata={"required": False})
     default: Optional[Union[float, int, bool]] = field(default=0, metadata={"required": False})
     rtype: Optional[str] = field(default="float", metadata={"validate": validate.OneOf(["float", "int", "bool"]),
                                                             "required": False})
@@ -84,9 +84,7 @@ class TargetScore:
     filter: Optional[Union[SizeFilter, NumBoolEqualityFilter, RangeFilter, InclusionFilter]]
     # Use_raw must be false for target scores
     use_raw: bool = field(default=False, metadata={"validate": validate.OneOf([False])})
-    multiplier: Union[float, int] = field(default=1, metadata={
-        "validate": validate.Range(min=1e-6),
-        "required": False})
+    multiplier: Union[float, int] = field(default=1, metadata={"required": False})
     default: Optional[Union[float, int, bool]] = field(default=0, metadata={"required": False})
     rtype: Optional[str] = field(default="float", metadata={"validate": validate.OneOf(["float", "int", "bool"]),
                                                             "required": False})
@@ -96,16 +94,11 @@ class TargetScore:
 @dataclass
 class Requirements:
     parameters: Dict[str, Union[SizeFilter, InclusionFilter, NumBoolEqualityFilter, RangeFilter]] = field(
-        metadata={"validate": validate.Length(min=1)}
+        metadata={"validate": validate.Length(min=1), "required": True}
     )
     expression: List[str] = field(default_factory=lambda: [])
 
-    _compiled = None
     _expression = None
-
-    @pre_dump
-    def _remove_eval(self):
-        self._compiled = None
 
     def _create_expression(self):
         if self._expression is not None:
@@ -173,17 +166,22 @@ class Requirements:
 
     @property
     def compiled(self):
-        if self._compiled is None:
-            self._create_expression()
+        # DO NOT TOUCH THIS. The compilation at each call, no lazy storing, is necessary to prevent
+        # multiprocessing madness (eval and pickle do not mix at all). The LRU cache hopefully speeds things up
+        # in the context of a single process
+        @functools.lru_cache(maxsize=10, typed=True)
+        def compiler(expression):
             try:
-                compile(self._expression, "<json>", "eval")
+                return compile(expression, "<json>", "eval")
             except SyntaxError:
                 raise InvalidJson("Invalid expression:\n{}".format(self._expression))
-            self._compiled = compile(self._expression, "<json>", "eval")
-        return self._compiled
+        if self._expression is None:
+            self._create_expression()
+            assert self._expression is not None
+        return compiler(self._expression)
 
-    def __getstate__(self):
-        self._compiled = None
+    def copy(self):
+        return self.Schema().load(asdict(self))
 
 
 @dataclass

@@ -70,11 +70,14 @@ class MikadoConfiguration:
     filename: Optional[str] = field(default=None)
 
     def copy(self):
+        self.check()
         return self.Schema().load(copy.deepcopy(dataclasses.asdict(self)))
 
     def check(self):
-        self.Schema().validate(dataclasses.asdict(self))
+        if self.scoring is None or not hasattr(self.scoring.requirements, "parameters"):
+            self.load_scoring()
         self.scoring.check(minimal_orf_length=self.pick.orf_loading.minimal_orf_length)
+        self.Schema().validate(dataclasses.asdict(self))
 
     def load_scoring(self, logger=None):
         """
@@ -130,7 +133,7 @@ class MikadoConfiguration:
                         # self = check_scoring(self)
                         # self = check_all_requirements(self)
                     except (InvalidJson, ValidationError) as exc:
-                        logger.warning("Invalid option: %s", option)
+                        logger.debug("Invalid option: %s", option)
                         logger.warning(exc)
                         continue
                     # self.scoring = dataclasses.asdict(checked.scoring)

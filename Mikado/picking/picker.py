@@ -455,7 +455,7 @@ class Picker:
         external_metrics = ["external.{}".format(_.source) for _ in session.query(ExternalSource.source).all()]
 
         score_keys = ["source_score"]
-        __scores = sorted(list(self.configuration.scoring.keys()))
+        __scores = sorted(list(self.configuration.scoring.scoring.keys()))
         # Check that the external scores are all present. If they are not, raise a warning.
         __externals = set([_ for _ in __scores if _.startswith("external.")])
         if __externals - set(external_metrics):

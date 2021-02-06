@@ -1245,9 +1245,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         self.transcripts[tid].retained_fraction = fraction
 
         self._metrics[tid] = dict((metric, rgetattr(self.transcripts[tid], metric))
-                                   for metric in self.available_metrics)
-
-        self.logger.warning("Metrics to evaluate: %s", self._attribute_metrics.keys())
+                                  for metric in self.available_metrics)
 
         for metric, values in self._attribute_metrics.items():
             # 11 == len('attributes.') removes 'attributes.' to keep the metric name same as in the file attributes
@@ -1327,7 +1325,10 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                 self.logger.critical("Attribute error: {}".format(section_name))  # , dataclasses.asdict(section)))
                 raise AttributeError
             for key in section.parameters:
-                value = rgetattr(self.transcripts[tid], section.parameters[key].name)
+                try:
+                    value = rgetattr(self.transcripts[tid], section.parameters[key].name)
+                except AttributeError:
+                    raise AttributeError((section_name, key, section.parameters[key]))
                 if "external" in key:
                     value = value[0]
 
@@ -1688,16 +1689,15 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             raise InvalidJson(
                 "Invalid configuration, type {}, expected MikadoConfiguration or DaijinConfiguration!".format(
                     type(conf)))
-        if conf.scoring is None:
-            self.logger.warning("Reloading conf, no scoring found")
-        elif not hasattr(conf.scoring.requirements, "parameters"):
-            self.logger.warning("Reloading conf, invalid requirements")
+        if conf.scoring is None or not hasattr(conf.scoring.requirements, "parameters"):
+            self.logger.warning("Reloading conf")
             check_and_load_scoring(conf)
-        conf.check()
+            conf.check()
         self.__configuration = conf
         # Get the value for each attribute defined metric
         self._attribute_metrics = dict()
-        assert self.__configuration.scoring is not None, (self.__configuration.scoring, self.__configuration.requirements)
+        assert self.__configuration.scoring is not None, (self.__configuration.scoring,
+                                                          self.__configuration.requirements)
         found_attributes = False
         self.logger.debug("Scoring parameters: %s", ",".join(list(self.__configuration.scoring.scoring.keys())))
         for param in self.__configuration.scoring.scoring:
@@ -1780,6 +1780,9 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         Logger instance for the class.
         :rtype : logging.Logger
         """
+        if self.__logger is None:
+            self.__logger = create_null_logger()
+            self.__logger.propagate = False
         return self.__logger
 
     @logger.setter

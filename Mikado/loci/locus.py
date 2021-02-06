@@ -622,33 +622,27 @@ it is marked as having 0 retained introns. This is an error.".format(transcript=
                 any(self.transcripts[tid].is_reference is True for tid in self.transcripts):
             return False
 
-        # TODO this needs to be changed
-        if "compiled" not in self.configuration.not_fragmentary:
-            self.configuration.not_fragmentary["compiled"] = compile(
-                self.configuration.not_fragmentary["expression"], "<json>", "eval")
-
         current_id = self.id[:]
 
         evaluated = dict()
-        for key in self.configuration.not_fragmentary["parameters"]:
-            value = rgetattr(self.primary_transcript,
-                             self.configuration.not_fragmentary["parameters"][key]["name"])
+        for key, params in self.configuration.scoring.not_fragmentary.parameters.items():
+            name = params.name
+            value = rgetattr(self.primary_transcript, name)
             if "external" in key:
                 value = value[0]
             try:
-                evaluated[key] = self.evaluate(value,
-                                               self.configuration.not_fragmentary["parameters"][key])
+                evaluated[key] = self.evaluate(value, params)
             except Exception as err:
                 self.logger.error(
                     """Exception while calculating putative fragments. Key: {}, \
                     Transcript value: {} (type {}) \
                     configuration value: {} (type {}).""".format(
-                        key, value, type(value), self.configuration.not_fragmentary["parameters"][key],
-                        type(self.configuration.not_fragmentary["parameters"][key])
+                        key, value, type(value), params,
+                        type(params)
                     ))
                 self.logger.exception(err)
                 raise err
-        if eval(self.configuration.not_fragmentary["compiled"]) is True:
+        if eval(self.configuration.scoring.not_fragmentary.compiled) is True:
             self.logger.debug("%s cannot be a fragment according to the definitions, keeping it",
                               self.id)
             fragment = False

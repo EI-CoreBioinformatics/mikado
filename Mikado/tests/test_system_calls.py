@@ -18,31 +18,29 @@ from Mikado.exceptions import InvalidJson
 from Mikado.daijin import mikado_pipeline, assemble_transcripts_pipeline
 from Mikado.configuration import print_config, DaijinConfiguration, MikadoConfiguration
 import rapidjson as json
-
 from Mikado.subprograms.serialise import serialise
-
 try:
     from yaml import CSafeLoader as yLoader
 except ImportError:
     from yaml import SafeLoader as yLoader
 from pytest import mark
-from .. import configuration
-from ..subprograms import configure as sub_configure
-from ..configuration import configurator, daijin_configurator
-from ..picking import picker
-from ..preparation import prepare
-from ..scales.compare import compare
-from ..scales.reference_preparation.indexing import load_index
-from ..scales.calculator import Calculator
-from ..subprograms.prepare import prepare_launcher
-from ..subprograms.prepare import setup as prepare_setup
-from ..transcripts.transcript import Namespace
-from ..utilities.log_utils import create_null_logger
-from ..parsers.GFF import GffLine
+from Mikado import configuration
+from Mikado.subprograms import configure as sub_configure
+from Mikado.configuration import configurator, daijin_configurator
+from Mikado.picking import picker
+from Mikado.preparation import prepare
+from Mikado.scales.compare import compare
+from Mikado.scales.reference_preparation.indexing import load_index
+from Mikado.scales.calculator import Calculator
+from Mikado.subprograms.prepare import prepare_launcher
+from Mikado.subprograms.prepare import setup as prepare_setup
+from Mikado.transcripts.transcript import Namespace
+from Mikado.utilities.log_utils import create_null_logger
+from Mikado.parsers.GFF import GffLine
 import sqlite3
 import shutil
-from ..parsers import to_gff
-from ..transcripts import Transcript
+from Mikado.parsers import to_gff
+from Mikado.transcripts import Transcript
 import threading
 from time import sleep
 import pysam
@@ -54,16 +52,23 @@ class ConvertCheck(unittest.TestCase):
     @mark.slow
     def test_convert_from_bam(self):
 
+        from Mikado.subprograms.util.convert import convert_parser, launch
         bam_inp = pkg_resources.resource_filename("Mikado.tests", "test_mRNA.bam")
         for outp in ("gff3", "gtf", "bed12"):
             with self.subTest(outp=outp):
                 outfile = tempfile.NamedTemporaryFile(mode="wt")
                 outfile.close()
-                sys.argv = ["", "util", "convert", "-of", outp, bam_inp, outfile.name]
-                # with self.assertRaises(SystemExit):
-                pkg_resources.load_entry_point("Mikado", "console_scripts", "mikado")()
+                # sys.argv = ["", "util", "convert", "-of", outp, bam_inp, outfile.name]
+                argv = ["-of", outp, bam_inp, outfile.name]
+                parser = convert_parser()
+                args = parser.parse_args(argv)
+                launch(args)
+                # pkg_resources.load_entry_point("Mikado", "console_scripts", "mikado")()
                 self.assertGreater(os.stat(outfile.name).st_size, 0)
                 lines = [_ for _ in open(outfile.name)]
+                if outp == "gff3":
+                    self.assertEqual(len(lines), 1826)
+                print(os.stat(outfile.name).st_size, len(lines))
                 self.assertTrue(any(["TraesCS2B02G055500.1" in line for line in lines]))
 
     @mark.slow
@@ -1335,15 +1340,17 @@ class ConfigureCheck(unittest.TestCase):
         namespace.seed = None
         namespace.long_aln_methods = []
 
+        scorers = []
+        score__folder = pkg_resources.resource_filename("Mikado.configuration", "scoring_files")
+        for root, _, files in os.walk(score__folder):
+            for fname in files:
+                scorers.append(os.path.join(root, fname))
+
         for iteration in range(20):
-            with self.subTest(iteration=iteration):
-                dir = tempfile.TemporaryDirectory()
-                namespace.out_dir = dir.name
-                scorers = sorted(pkg_resources.resource_listdir("Mikado.configuration", "scoring_files"))
-
+            with self.subTest(iteration=iteration), tempfile.TemporaryDirectory() as folder:
+                namespace.out_dir = folder
                 namespace.scoring = scorers[np.random.choice(len(scorers))]
-
-                out = os.path.join(dir.name, "configuration.yaml")
+                out = os.path.join(folder, "configuration.yaml")
                 config = DaijinConfiguration()
                 with open(out, "wt") as out_handle:
                     namespace.out = out_handle
@@ -1355,7 +1362,6 @@ class ConfigureCheck(unittest.TestCase):
 
                 config = load_and_validate_config(config)
                 self.assertIsInstance(config, DaijinConfiguration)
-                dir.cleanup()
 
 
 class DaijinTest(unittest.TestCase):
@@ -1483,99 +1489,88 @@ class PickTest(unittest.TestCase):
 
         self.configuration.pick.files.input = pkg_resources.resource_filename("Mikado.tests",
                                                                                    "mikado_prepared.gtf")
-        dir = tempfile.TemporaryDirectory()
-        self.configuration.pick.files.output_dir = dir.name
-        self.configuration.pick.files.loci_out = "mikado.monoproc.loci.gff3"
-        self.configuration.pick.files.subloci_out = "mikado.monoproc.subloci.gff3"
-        self.configuration.pick.files.monoloci_out = "mikado.monoproc.monoloci.gff3"
-        self.configuration.pick.files.log = "mikado.monoproc.log"
-        self.configuration.pick.alternative_splicing.pad = False
-        self.configuration.log_settings.log_level = "WARNING"
+        with tempfile.TemporaryDirectory() as folder:
+            self.configuration.pick.files.output_dir = folder
+            self.configuration.pick.files.loci_out = "mikado.monoproc.loci.gff3"
+            self.configuration.pick.files.subloci_out = "mikado.monoproc.subloci.gff3"
+            self.configuration.pick.files.monoloci_out = "mikado.monoproc.monoloci.gff3"
+            self.configuration.pick.files.log = "mikado.monoproc.log"
+            self.configuration.pick.alternative_splicing.pad = False
+            self.configuration.log_settings.log_level = "WARNING"
 
-        pick_caller = picker.Picker(configuration=self.configuration)
-        with self.assertRaises(SystemExit), self.assertLogs("main_logger", "INFO") as cm:
-            pick_caller()
-        self.assertTrue(os.path.exists(os.path.join(dir.name, "mikado.monoproc.loci.gff3")))
-        with to_gff(os.path.join(dir.name, "mikado.monoproc.loci.gff3")) as inp_gff:
-            lines = [_ for _ in inp_gff if not _.header is True]
-            self.assertGreater(len(lines), 0)
-            self.assertGreater(len([_ for _ in lines if _.is_transcript is True]), 0)
-            self.assertGreater(len([_ for _ in lines if _.feature == "mRNA"]), 0,
-                               [_ for _ in cm.output if "WARNING" in _])
-            self.assertGreater(len([_ for _ in lines if _.feature == "CDS"]), 0)
-
-        dir.cleanup()
+            pick_caller = picker.Picker(configuration=self.configuration)
+            with self.assertRaises(SystemExit), self.assertLogs("main_logger", "INFO") as cm:
+                pick_caller()
+            self.assertTrue(os.path.exists(os.path.join(folder, "mikado.monoproc.loci.gff3")))
+            with to_gff(os.path.join(folder, "mikado.monoproc.loci.gff3")) as inp_gff:
+                lines = [_ for _ in inp_gff if not _.header is True]
+                self.assertGreater(len(lines), 0)
+                self.assertGreater(len([_ for _ in lines if _.is_transcript is True]), 0)
+                self.assertGreater(len([_ for _ in lines if _.feature == "mRNA"]), 0,
+                                   [_ for _ in cm.output if "WARNING" in _])
+                self.assertGreater(len([_ for _ in lines if _.feature == "CDS"]), 0)
 
     @mark.slow
     def test_multi_proc(self):
         self.configuration.threads = 2
         self.configuration.pick.files.input = pkg_resources.resource_filename("Mikado.tests",
                                                                               "mikado_prepared.gtf")
-        dir = tempfile.TemporaryDirectory()
-        self.configuration.pick.files.output_dir = dir.name
-        self.configuration.pick.files.loci_out = "mikado.multiproc.loci.gff3"
-        self.configuration.pick.files.subloci_out = "mikado.multiproc.subloci.gff3"
-        self.configuration.pick.files.monoloci_out = "mikado.multiproc.monoloci.gff3"
-        self.configuration.pick.files.log = "mikado.multiproc.log"
-        self.configuration.db_settings.db = pkg_resources.resource_filename("Mikado.tests", "mikado.db")
-        self.configuration.pick.alternative_splicing.pad = False
-        self.configuration.log_settings.log_level = "WARNING"
+        with tempfile.TemporaryDirectory() as folder:
+            self.configuration.pick.files.output_dir = folder
+            self.configuration.pick.files.loci_out = "mikado.multiproc.loci.gff3"
+            self.configuration.pick.files.subloci_out = "mikado.multiproc.subloci.gff3"
+            self.configuration.pick.files.monoloci_out = "mikado.multiproc.monoloci.gff3"
+            self.configuration.pick.files.log = "mikado.multiproc.log"
+            self.configuration.db_settings.db = pkg_resources.resource_filename("Mikado.tests", "mikado.db")
+            self.configuration.pick.alternative_splicing.pad = False
+            self.configuration.log_settings.log_level = "WARNING"
 
-        pick_caller = picker.Picker(configuration=self.configuration)
-        with self.assertRaises(SystemExit), self.assertLogs("main_logger", "INFO"):
-            pick_caller()
-        self.assertTrue(os.path.exists(os.path.join(dir.name, "mikado.multiproc.loci.gff3")))
-        with to_gff(os.path.join(dir.name, "mikado.multiproc.loci.gff3")) as inp_gff:
-            lines = [_ for _ in inp_gff if not _.header is True]
-            self.assertGreater(len(lines), 0)
-            self.assertGreater(len([_ for _ in lines if _.is_transcript is True]), 0)
-            self.assertGreater(len([_ for _ in lines if _.feature == "mRNA"]), 0)
-            self.assertGreater(len([_ for _ in lines if _.feature == "CDS"]), 0)
-
-        dir.cleanup()
+            pick_caller = picker.Picker(configuration=self.configuration)
+            with self.assertRaises(SystemExit), self.assertLogs("main_logger", "INFO"):
+                pick_caller()
+            self.assertTrue(os.path.exists(os.path.join(folder, "mikado.multiproc.loci.gff3")))
+            with to_gff(os.path.join(folder, "mikado.multiproc.loci.gff3")) as inp_gff:
+                lines = [_ for _ in inp_gff if not _.header is True]
+                self.assertGreater(len(lines), 0)
+                self.assertGreater(len([_ for _ in lines if _.is_transcript is True]), 0)
+                self.assertGreater(len([_ for _ in lines if _.feature == "mRNA"]), 0)
+                self.assertGreater(len([_ for _ in lines if _.feature == "CDS"]), 0)
 
     @mark.slow
     def test_subprocess(self):
                 
         self.configuration.pick.files.input = pkg_resources.resource_filename("Mikado.tests",
                                                                                    "mikado_prepared.gtf")
-        dir = tempfile.TemporaryDirectory()
-        self.configuration.pick.files.output_dir = dir.name
-        self.configuration.pick.files.loci_out = "mikado.subproc.loci.gff3"
-        self.configuration.pick.files.subloci_out = "mikado.subproc.subloci.gff3"
-        self.configuration.pick.files.monoloci_out = "mikado.subproc.monoloci.gff3"
-        self.configuration.pick.alternative_splicing.pad = False
-        self.configuration.pick.files.log = "mikado.subproc.log"
-        self.configuration.db_settings.db = str(pkg_resources.resource_filename("Mikado.tests", "mikado.db"))
-        self.configuration.log_settings.log_level = "WARNING"
+        with tempfile.TemporaryDirectory() as folder:
+            self.configuration.pick.files.output_dir = folder
+            self.configuration.pick.files.loci_out = "mikado.subproc.loci.gff3"
+            self.configuration.pick.files.subloci_out = "mikado.subproc.subloci.gff3"
+            self.configuration.pick.files.monoloci_out = "mikado.subproc.monoloci.gff3"
+            self.configuration.pick.alternative_splicing.pad = False
+            self.configuration.pick.files.log = "mikado.subproc.log"
+            self.configuration.db_settings.db = str(pkg_resources.resource_filename("Mikado.tests", "mikado.db"))
+            self.configuration.log_settings.log_level = "WARNING"
+    
+            for num in (1, 2):
+                with self.subTest(num=num):
+                    self.configuration.pick.run_options.single_thread = (num == 1)
+                    json_file = os.path.join(folder, "mikado.yaml")
 
-        for num in (1, 2):
-            with self.subTest(num=num):
-                self.configuration.pick.run_options.single_thread = (num == 1)
-                json_file = os.path.join(dir.name, "mikado.yaml")
-
-                # Printing out would crash without removing these compiled bits
-                self.configuration.requirements.pop("compiled", None)
-                self.configuration.as_requirements.pop("compiled", None)
-                self.configuration.not_fragmentary.pop("compiled", None)
-
-                with open(json_file, "wt") as json_handle:
-                    print_config(self.configuration, json_handle, output_format="yaml")
-
-                sys.argv = ["mikado", "pick", "--json-conf", json_file, "--seed", "1078"]
-                with self.assertRaises(SystemExit):
-                    pkg_resources.load_entry_point("Mikado", "console_scripts", "mikado")()
-
-                self.assertTrue(os.path.exists(os.path.join(dir.name, "mikado.subproc.loci.gff3")))
-                with to_gff(os.path.join(dir.name, "mikado.subproc.loci.gff3")) as inp_gff:
-                    lines = [_ for _ in inp_gff if not _.header is True]
-                    self.assertGreater(len(lines), 0)
-                    self.assertGreater(len([_ for _ in lines if _.is_transcript is True]), 0)
-                    self.assertGreater(len([_ for _ in lines if _.feature == "mRNA"]), 0)
-                    self.assertGreater(len([_ for _ in lines if _.feature == "CDS"]), 0)
-                [os.remove(_) for _ in glob.glob(os.path.join(dir.name, "mikado.subproc.") + "*")]
-
-        dir.cleanup()
+                    with open(json_file, "wt") as json_handle:
+                        print_config(self.configuration, json_handle, output_format="yaml")
+    
+                    sys.argv = ["mikado", "pick", "--json-conf", json_file, "--seed", "1078"]
+                    with self.assertRaises(SystemExit):
+                        pkg_resources.load_entry_point("Mikado", "console_scripts", "mikado")()
+    
+                    self.assertTrue(os.path.exists(os.path.join(folder, "mikado.subproc.loci.gff3")))
+                    with to_gff(os.path.join(folder, "mikado.subproc.loci.gff3")) as inp_gff:
+                        lines = [_ for _ in inp_gff if not _.header is True]
+                        self.assertGreater(len(lines), 0)
+                        self.assertGreater(len([_ for _ in lines if _.is_transcript is True]), 0)
+                        self.assertGreater(len([_ for _ in lines if _.feature == "mRNA"]), 0)
+                        self.assertGreater(len([_ for _ in lines if _.feature == "CDS"]), 0)
+                    [os.remove(_) for _ in glob.glob(os.path.join(folder, "mikado.subproc.") + "*")]
 
     @mark.slow
     @unittest.skipUnless(os.path.exists("/dev/shm") and os.access("/dev/shm", os.W_OK),
@@ -1583,8 +1578,6 @@ class PickTest(unittest.TestCase):
     def test_subprocess_shm(self):
         self.configuration.pick.files.input = pkg_resources.resource_filename("Mikado.tests",
                                                                                    "mikado_prepared.gtf")
-        dir = tempfile.TemporaryDirectory()
-        self.configuration.pick.files.output_dir = dir.name
         self.configuration.pick.files.loci_out = "mikado.subproc.loci.gff3"
         self.configuration.pick.files.subloci_out = "mikado.subproc.subloci.gff3"
         self.configuration.pick.files.monoloci_out = "mikado.subproc.monoloci.gff3"
@@ -1593,81 +1586,69 @@ class PickTest(unittest.TestCase):
         self.configuration.db_settings.db = str(pkg_resources.resource_filename("Mikado.tests", "mikado.db"))
         self.configuration.log_settings.log_level = "WARNING"
 
+        # folder = tempfile.mkdtemp()
         for num, shm in itertools.product((1, 2), (True,)):
-            with self.subTest(num=num, shm=shm):
-
+            with self.subTest(num=num, shm=shm), tempfile.TemporaryDirectory() as folder:
+                self.configuration.pick.files.output_dir = folder
                 self.configuration.pick.run_options.single_thread = (num == 1)
-                json_file = os.path.join(dir.name, "mikado.yaml")
-
-                # Printing out would crash without removing these compiled bits
-                self.configuration.requirements.pop("compiled", None)
-                self.configuration.as_requirements.pop("compiled", None)
-                self.configuration.not_fragmentary.pop("compiled", None)
+                json_file = os.path.join(folder, "mikado.yaml")
 
                 with open(json_file, "wt") as json_handle:
                     print_config(self.configuration, json_handle, output_format="yaml")
 
                 log = "pick.log"
-                if os.path.exists(os.path.join(dir.name, log)):
-                    os.remove(os.path.join(dir.name, log))
+                if os.path.exists(os.path.join(folder, log)):
+                    os.remove(os.path.join(folder, log))
                 sys.argv = ["mikado", "pick", "--configuration", json_file, "--seed", "1078", "--log", log]
                 if shm is True:
                     sys.argv.append("--shm")
                 with self.assertRaises(SystemExit):
                     pkg_resources.load_entry_point("Mikado", "console_scripts", "mikado")()
 
-                self.assertTrue(os.path.exists(os.path.join(dir.name, "mikado.subproc.loci.gff3")))
-                with to_gff(os.path.join(dir.name, "mikado.subproc.loci.gff3")) as inp_gff:
+                self.assertTrue(os.path.exists(os.path.join(folder, "mikado.subproc.loci.gff3")))
+                with to_gff(os.path.join(folder, "mikado.subproc.loci.gff3")) as inp_gff:
                     lines = [_ for _ in inp_gff if not _.header is True]
                     self.assertGreater(len(lines), 0)
                     self.assertGreater(len([_ for _ in lines if _.is_transcript is True]), 0)
                     self.assertGreater(len([_ for _ in lines if _.feature == "mRNA"]), 0)
                     self.assertGreater(len([_ for _ in lines if _.feature == "CDS"]), 0)
-                with open(os.path.join(dir.name, log)) as hlog:
+                with open(os.path.join(folder, log)) as hlog:
                     log_lines = [_.rstrip() for _ in hlog]
                 if shm is True:
                     self.assertTrue(any("Copying Mikado database into a SHM db" in _ for _ in log_lines))
 
-                [os.remove(_) for _ in glob.glob(os.path.join(dir.name, "mikado.subproc.") + "*")]
-
-        dir.cleanup()
-
-
     @mark.slow
     def test_different_scoring(self):
 
-        dir = tempfile.TemporaryDirectory()
-        # assert self.configuration.scoring is not None
-        self.configuration.pick.files.output_dir = os.path.abspath(dir.name)
-        self.configuration.pick.files.input = pkg_resources.resource_filename("Mikado.tests",
-                                                                                   "mikado_prepared.gtf")
+        with tempfile.TemporaryDirectory() as folder:
+            self.configuration.pick.files.output_dir = os.path.abspath(folder)
+            self.configuration.pick.files.input = pkg_resources.resource_filename("Mikado.tests",
+                                                                                       "mikado_prepared.gtf")
 
-        self.configuration.pick.files.loci_out = "mikado.test_diff.loci.gff3"
-        self.configuration.pick.files.subloci_out = "mikado.test_diff.subloci.gff3"
-        self.configuration.pick.files.monoloci_out = "mikado.test_diff.monoloci.gff3"
-        self.configuration.pick.files.log = "mikado.test_diff.log"
-        self.configuration.pick.alternative_splicing.pad = False
-        self.configuration.log_settings.log_level = "DEBUG"
+            self.configuration.pick.files.loci_out = "mikado.test_diff.loci.gff3"
+            self.configuration.pick.files.subloci_out = "mikado.test_diff.subloci.gff3"
+            self.configuration.pick.files.monoloci_out = "mikado.test_diff.monoloci.gff3"
+            self.configuration.pick.files.log = "mikado.test_diff.log"
+            self.configuration.pick.alternative_splicing.pad = False
+            self.configuration.log_settings.log_level = "DEBUG"
 
-        self.assertEqual(os.path.basename(self.configuration.pick.scoring_file), "plant.yaml")
-        shutil.copy(pkg_resources.resource_filename("Mikado.tests", "mikado.db"),
-                    os.path.join(self.configuration.pick.files.output_dir, "mikado.db"))
-        self.configuration.db_settings.db = os.path.join(self.configuration.pick.files.output_dir, "mikado.db")
-        json_file = os.path.join(self.configuration.pick.files.output_dir, "mikado.yaml")
-        with open(json_file, "wt") as json_handle:
-            print_config(self.configuration, json_handle, output_format="yaml")
-        sys.argv = ["mikado", "pick", "--json-conf", json_file, "--single", "--seed", "1078"]
-        with self.assertRaises(SystemExit):
-            pkg_resources.load_entry_point("Mikado", "console_scripts", "mikado")()
-
-        import csv
-        with open(os.path.join(self.configuration.pick.files.output_dir, "mikado.test_diff.loci.scores.tsv")) as tsv:
-            reader = csv.DictReader(tsv, delimiter="\t")
-            score_names = [_ for _ in self.configuration.scoring]
-            score_header = [_ for _ in reader.fieldnames if _ not in
-                            ("tid", "alias", "parent", "score", "source_score")]
-            self.assertEqual(sorted(score_names), sorted(score_header))
-        dir.cleanup()
+            self.assertEqual(os.path.basename(self.configuration.pick.scoring_file), "plant.yaml")
+            shutil.copy(pkg_resources.resource_filename("Mikado.tests", "mikado.db"),
+                        os.path.join(self.configuration.pick.files.output_dir, "mikado.db"))
+            self.configuration.db_settings.db = os.path.join(self.configuration.pick.files.output_dir, "mikado.db")
+            json_file = os.path.join(self.configuration.pick.files.output_dir, "mikado.yaml")
+            with open(json_file, "wt") as json_handle:
+                print_config(self.configuration, json_handle, output_format="yaml")
+            sys.argv = ["mikado", "pick", "--json-conf", json_file, "--single", "--seed", "1078"]
+            with self.assertRaises(SystemExit):
+                pkg_resources.load_entry_point("Mikado", "console_scripts", "mikado")()
+            import csv
+            with open(os.path.join(self.configuration.pick.files.output_dir, "mikado.test_diff.loci.scores.tsv")) as tsv:
+                reader = csv.DictReader(tsv, delimiter="\t")
+                score_names = [_ for _ in self.configuration.scoring.scoring]
+                score_header = [_ for _ in reader.fieldnames if _ not in
+                                ("tid", "alias", "parent", "score", "source_score")]
+                self.assertEqual(sorted(score_names), sorted(score_header))
 
     @mark.slow
     def test_different_scoring_2(self):
@@ -1682,31 +1663,30 @@ class PickTest(unittest.TestCase):
         self.configuration.log_settings.log_level = "DEBUG"
 
         self.assertEqual(os.path.basename(self.configuration.pick.scoring_file), "plant.yaml")
+        with tempfile.TemporaryDirectory() as outdir:
 
-        outdir = tempfile.TemporaryDirectory()
-        shutil.copy(pkg_resources.resource_filename("Mikado.tests", "mikado.db"),
-                    os.path.join(outdir.name, "mikado.db"))
-        self.configuration.db_settings.db = os.path.join(outdir.name, "mikado.db")
-        self.configuration.pick.files.output_dir = os.path.join(outdir.name)
-        json_file = os.path.join(outdir.name, "mikado.yaml")
-        with open(json_file, "wt") as json_handle:
-            print_config(self.configuration, json_handle, output_format="yaml")
-        self.configuration.pick.files.output_dir = os.path.join(outdir.name)
-        scoring_file = pkg_resources.resource_filename("Mikado.tests", "scoring_only_cds.yaml")
-        sys.argv = ["mikado", "pick", "--json-conf", json_file, "--single",
-                    "--scoring-file", scoring_file, "--seed", "1078"]
+            shutil.copy(pkg_resources.resource_filename("Mikado.tests", "mikado.db"),
+                        os.path.join(outdir, "mikado.db"))
+            self.configuration.db_settings.db = os.path.join(outdir, "mikado.db")
+            self.configuration.pick.files.output_dir = os.path.join(outdir)
+            json_file = os.path.join(outdir, "mikado.yaml")
+            with open(json_file, "wt") as json_handle:
+                print_config(self.configuration, json_handle, output_format="yaml")
+            self.configuration.pick.files.output_dir = os.path.join(outdir)
+            scoring_file = pkg_resources.resource_filename("Mikado.tests", "scoring_only_cds.yaml")
+            sys.argv = ["mikado", "pick", "--json-conf", json_file, "--single",
+                        "--scoring-file", scoring_file, "--seed", "1078"]
 
-        with self.assertRaises(SystemExit):
-            pkg_resources.load_entry_point("Mikado", "console_scripts", "mikado")()
+            with self.assertRaises(SystemExit):
+                pkg_resources.load_entry_point("Mikado", "console_scripts", "mikado")()
 
-        import csv
-        with open(os.path.join(self.configuration.pick.files.output_dir, "mikado.test_diff.loci.scores.tsv")) as tsv:
-            reader = csv.DictReader(tsv, delimiter="\t")
-            score_header = [_ for _ in reader.fieldnames if _ not in
-                            ("tid", "alias", "parent", "score", "source_score")]
-            self.assertEqual(score_header, ["selected_cds_length"])
+            import csv
+            with open(os.path.join(self.configuration.pick.files.output_dir, "mikado.test_diff.loci.scores.tsv")) as tsv:
+                reader = csv.DictReader(tsv, delimiter="\t")
+                score_header = [_ for _ in reader.fieldnames if _ not in
+                                ("tid", "alias", "parent", "score", "source_score")]
+                self.assertEqual(score_header, ["selected_cds_length"])
 
-        outdir.cleanup()
 
     def __get_purgeable_gff(self):
 
@@ -1994,13 +1974,13 @@ class SerialiseChecker(unittest.TestCase):
         mobjects = 300  # Let's test properly the serialisation for BLAST
 
         # Set up the command arguments
-        for procs in (1, 3,):
-            with self.subTest(proc=procs):
-                dir = tempfile.TemporaryDirectory(suffix="test_subprocess_multi_{}".format(procs))
-                json_file = os.path.join(dir.name, "mikado.yaml")
-                db = os.path.join(dir.name, "mikado.db")
-                log = os.path.join(dir.name, "serialise.log")
-                uni_out = os.path.join(dir.name, "uniprot_sprot_plants.fasta")
+        for procs in (1, 3):
+            with self.subTest(proc=procs), \
+                    tempfile.TemporaryDirectory(suffix="test_subprocess_multi_{}".format(procs)) as folder:
+                json_file = os.path.join(folder, "mikado.yaml")
+                db = os.path.join(folder, "mikado.db")
+                log = os.path.join(folder, "serialise.log")
+                uni_out = os.path.join(folder, "uniprot_sprot_plants.fasta")
                 with gzip.open(uniprot, "rb") as uni, open(uni_out, "wb") as uni_out_handle:
                     uni_out_handle.write(uni.read())
 
@@ -2008,7 +1988,7 @@ class SerialiseChecker(unittest.TestCase):
                     print_config(self.configuration, json_handle, output_format="yaml")
                 sys.argv = [str(_) for _ in ["mikado", "serialise", "--json-conf", json_file,
                             "--transcripts", transcripts, "--blast_targets", uni_out,
-                            "--orfs", orfs, "--junctions", junctions, "--xml", xml, "-od", dir.name,
+                            "--orfs", orfs, "--junctions", junctions, "--xml", xml, "-od", folder,
                             "-p", procs, "-mo", mobjects, "--log", os.path.basename(log),
                                              "--seed", "1078", os.path.basename(db)]]
                 pkg_resources.load_entry_point("Mikado", "console_scripts", "mikado")()
@@ -2029,7 +2009,6 @@ class SerialiseChecker(unittest.TestCase):
                                  "\n".join(logged))
                 self.assertEqual(cursor.execute("select count(distinct(query_id)) from orf").fetchall()[0][0], 81)
                 os.remove(db)
-                dir.cleanup()
 
     @mark.slow
     def test_xml_vs_tsv(self):

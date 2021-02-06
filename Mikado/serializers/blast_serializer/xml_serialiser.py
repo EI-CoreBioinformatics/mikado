@@ -132,8 +132,7 @@ def _serialise_xmls(self):
                 self.logger.error("%s is an invalid BLAST file, saving what's available", filename)
         _, _ = load_into_db(self, hits, hsps, force=True)
     elif self._xml_debug is True or self.procs > 1:
-        self.logger.debug("Creating a pool with %d processes",
-                          min(self.procs, len(self.xml)))
+        self.logger.warning("Creating a pool with %d processes", min(self.procs, len(self.xml)))
         results = []
         if self._xml_debug is True:
             for num, filename in enumerate(self.xml):

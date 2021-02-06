@@ -4,7 +4,7 @@
 """Quick script to automate the generation of metrics definition from the files."""
 
 import sys
-from ..._transcripts import TranscriptBase
+from ...transcripts import Transcript
 import argparse
 import tabulate
 import textwrap
@@ -23,7 +23,7 @@ def launch(args):
     :param args: the argparse Namespace.
     """
 
-    metric_names = TranscriptBaseBase.get_available_metrics()
+    metric_names = Transcript.get_available_metrics()
     print(file=args.out)
     metrics = ["tid", "parent", "score", "external_scores"]
     metrics.extend(
@@ -36,16 +36,16 @@ def launch(args):
                 ", ".join(sorted(metric for metric in args.metric if metric not in metrics))))
         metrics = args.metric
     elif len(args.category) > 0:
-        metrics = [metric for metric in TranscriptBase.get_available_metrics() if
-                   getattr(getattr(TranscriptBase, metric), "category", "Descriptive") in args.category]
+        metrics = [metric for metric in Transcript.get_available_metrics() if
+                   getattr(getattr(Transcript, metric), "category", "Descriptive") in args.category]
 
     rows = []
 
     for metric in metrics:
-        docstring = getdoc(getattr(TranscriptBase, metric))
-        category = getattr(getattr(TranscriptBase, metric), "category", "Descriptive")
-        usable_raw = getattr(getattr(TranscriptBase, metric), "usable_raw", False)
-        rtype = getattr(getattr(TranscriptBase, metric), "rtype", "str")
+        docstring = getdoc(getattr(Transcript, metric))
+        category = getattr(getattr(Transcript, metric), "category", "Descriptive")
+        usable_raw = getattr(getattr(Transcript, metric), "usable_raw", False)
+        rtype = getattr(getattr(Transcript, metric), "rtype", "str")
 
         if metric == "external_scores":
             usable_raw = True
@@ -124,8 +124,8 @@ def metric_parser():
                         help="Available categories to select from.",
                         default=[], nargs="+",
                         choices=sorted(set(
-                            [_ for _ in [getattr(getattr(TranscriptBase, metric), "category", "Descriptive") for metric in
-                             TranscriptBase.get_available_metrics()] if _ is not None] + ["Descriptive"])))
+                            [_ for _ in [getattr(getattr(Transcript, metric), "category", "Descriptive") for metric in
+                             Transcript.get_available_metrics()] if _ is not None] + ["Descriptive"])))
     parser.add_argument("metric", nargs="*")
     parser.set_defaults(func=launch)
     return parser

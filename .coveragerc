@@ -1,8 +1,0 @@
-[run]
-omit =
-      setup.py
-      Mikado/tests/*
-      Mikado/subprograms/util/awk_gtf.py
-      Mikado/subprograms/util/class_codes.py
-      Mikado/subprograms/util/metrics.py
-

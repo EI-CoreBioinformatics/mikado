@@ -1,1 +1,1 @@
-from .transcript_base import TranscriptBase
+from .transcript_base import TranscriptBase, Namespace

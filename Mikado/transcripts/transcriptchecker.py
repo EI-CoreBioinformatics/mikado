@@ -5,7 +5,7 @@ This module defines a child of the Transcript class, which is used
 to verify that e.g. the assigned strand is correct.
 """
 
-from ..transcripts.transcript import Transcript
+from .transcript import Transcript
 from ..exceptions import IncorrectStrandError, InvalidTranscript, InvalidCDS
 from collections import Counter
 from itertools import zip_longest

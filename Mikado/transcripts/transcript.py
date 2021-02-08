@@ -1,4 +1,4 @@
-from .._transcripts.transcript_base import TranscriptBase, Namespace, Metric
+from .._transcripts.transcript_base import TranscriptBase, Metric
 from ..configuration.configuration import MikadoConfiguration
 from ..configuration.daijin_configuration import DaijinConfiguration
 from .transcript_methods import splitting, retrieval

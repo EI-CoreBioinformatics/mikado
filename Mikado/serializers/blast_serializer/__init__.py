@@ -10,4 +10,5 @@ from .hsp import Hsp, prepare_hsp
 from .hit import Hit, prepare_hit
 from .blast_serialiser import BlastSerializer
 
+
 __author__ = 'Luca Venturini'

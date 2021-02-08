@@ -1,5 +1,5 @@
 from collections import namedtuple
-from ..transcripts.transcript import Transcript
+from .transcript import Transcript
 from ..exceptions import InvalidCDS
 
 

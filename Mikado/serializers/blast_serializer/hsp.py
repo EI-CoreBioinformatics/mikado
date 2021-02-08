@@ -8,7 +8,8 @@ from sqlalchemy.orm import relationship, column_property
 from sqlalchemy import select
 from sqlalchemy.ext.hybrid import hybrid_property  # hybrid_method
 from ...utilities.dbutils import DBBASE
-from . import Query, Target
+from .query import Query
+from .target import Target
 from .aln_string_parser import prepare_aln_strings
 
 

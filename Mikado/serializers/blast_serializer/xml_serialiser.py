@@ -11,7 +11,9 @@ from sqlalchemy.orm.session import Session
 import msgpack
 import tempfile
 import os
-from . import Query, Target, prepare_hit, InvalidHit
+from .query import Query
+from .target import Target
+from .hit import prepare_hit, InvalidHit
 from .xml_utils import get_multipliers, get_off_by_one
 from .utils import load_into_db
 import multiprocessing as mp

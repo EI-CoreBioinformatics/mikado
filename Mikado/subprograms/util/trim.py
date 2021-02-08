@@ -273,8 +273,7 @@ def launch(args):
     """
 
     from ...parsers import to_gff
-    from ...loci import Transcript
-    from ...transcripts.reference_gene import Gene
+    from ...transcripts import Transcript, Gene
 
     args.gff = to_gff(args.gff)
     args.logger = create_default_logger("trimmer")

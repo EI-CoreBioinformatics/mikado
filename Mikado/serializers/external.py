@@ -15,7 +15,7 @@ from sqlalchemy.orm import column_property
 from sqlalchemy.orm.session import Session  # sessionmaker
 from sqlalchemy import select
 from ..utilities.dbutils import DBBASE, Inspector, connect
-from .blast_serializer import Query
+from .blast_serializer.query import Query
 from ..utilities.log_utils import check_logger, create_default_logger
 import numbers
 import pandas as pd

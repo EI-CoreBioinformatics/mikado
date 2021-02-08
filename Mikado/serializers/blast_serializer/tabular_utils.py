@@ -18,7 +18,8 @@ from ...configuration import MikadoConfiguration, DaijinConfiguration
 from ...utilities.log_utils import create_null_logger, create_queue_logger
 from sqlalchemy.orm.session import Session
 from ...utilities.dbutils import connect as db_connect
-from . import Hit, Hsp
+from .hit import Hit
+from .hsp import Hsp
 import os
 import tempfile
 import msgpack

@@ -34,7 +34,7 @@ from Mikado.scales.reference_preparation.indexing import load_index
 from Mikado.scales.calculator import Calculator
 from Mikado.subprograms.prepare import prepare_launcher
 from Mikado.subprograms.prepare import setup as prepare_setup
-from Mikado.transcripts.transcript import Namespace
+from Mikado.utilities.namespace import Namespace
 from Mikado.utilities.log_utils import create_null_logger
 from Mikado.parsers.GFF import GffLine
 import sqlite3

@@ -9,7 +9,9 @@ from sqlalchemy.orm import relationship, column_property, backref
 from sqlalchemy import select
 from sqlalchemy.ext.hybrid import hybrid_property  # hybrid_method
 from ...utilities.dbutils import DBBASE
-from . import Query, Target, Hsp, prepare_hsp
+from .query import Query
+from .target import Target
+from .hsp import Hsp, prepare_hsp
 import numpy as np
 from ...parsers.blast_utils import merge
 

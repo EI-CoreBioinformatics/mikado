@@ -7,7 +7,8 @@ import toml
 import yaml
 from pkg_resources import resource_stream
 from .configurator import create_cluster_config
-from . import print_config, DaijinConfiguration
+from . import print_config
+from .daijin_configuration import DaijinConfiguration
 from .._transcripts.scoring_configuration import ScoringFile
 from ..exceptions import InvalidJson
 from ..utilities.log_utils import create_default_logger

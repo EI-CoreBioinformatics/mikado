@@ -5,11 +5,11 @@ This module defines a child of the Transcript class, which is used
 to verify that e.g. the assigned strand is correct.
 """
 
-from Mikado.transcripts.transcript import Transcript
-from Mikado.exceptions import IncorrectStrandError, InvalidTranscript, InvalidCDS
+from ..transcripts.transcript import Transcript
+from ..exceptions import IncorrectStrandError, InvalidTranscript, InvalidCDS
 from collections import Counter
 from itertools import zip_longest
-from Mikado.parsers.bed12 import BED12
+from ..parsers.bed12 import BED12
 import pyfaidx
 from Bio import Seq
 

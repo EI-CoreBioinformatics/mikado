@@ -3,12 +3,11 @@ This module provides the functions needed to check a transcript for consinstency
 e.g. reliability of the CDS/UTR, sanity of borders, etc.
 """
 
-from Mikado.utilities import Interval, IntervalTree
-from Mikado.utilities import overlap
+from ...utilities import Interval, IntervalTree
+from ...utilities import overlap
 from collections import defaultdict
 import operator
-# from sys import intern
-from Mikado.exceptions import InvalidCDS, InvalidTranscript
+from ...exceptions import InvalidCDS, InvalidTranscript
 
 __author__ = 'Luca Venturini'
 

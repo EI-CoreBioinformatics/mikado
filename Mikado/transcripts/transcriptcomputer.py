@@ -1,6 +1,6 @@
 from collections import namedtuple
-from Mikado.transcripts.transcript import Transcript
-from Mikado.exceptions import InvalidCDS
+from ..transcripts.transcript import Transcript
+from ..exceptions import InvalidCDS
 
 
 class TranscriptComputer(Transcript):

@@ -12,7 +12,7 @@ from collections import defaultdict
 import pysam
 from ..transcripts.transcript import Transcript
 # from ..configuration.picking_config import valid_as_ccodes, redundant_as_ccodes
-from Mikado.transcripts.transcriptchecker import TranscriptChecker
+from ..transcripts.transcriptchecker import TranscriptChecker
 from .abstractlocus import Abstractlocus, rgetattr  # , default_configuration
 from ..parsers.GFF import GffLine
 from ..scales.assignment.assigner import Assigner

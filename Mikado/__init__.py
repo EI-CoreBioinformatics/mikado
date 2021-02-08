@@ -6,7 +6,7 @@ Mikado is a Python suite whose purpose is to find and resolve genic loci in a
 genomic annotation. This is the library it relies onto.
 """
 
-from Mikado.version import __version__
+from .version import __version__
 
 __title__ = "Mikado"
 __author__ = 'Luca Venturini'

@@ -8,10 +8,10 @@ from itertools import groupby
 from typing import List
 from sqlalchemy import and_
 from sqlalchemy.orm.session import sessionmaker
-from Mikado.parsers.bed12 import BED12
-from Mikado.serializers.junction import Junction
-from Mikado._transcripts.clique_methods import define_graph, find_cliques, find_communities
-from Mikado.utilities import dbutils
+from ...parsers.bed12 import BED12
+from ...serializers.junction import Junction
+from ..._transcripts.clique_methods import define_graph, find_cliques, find_communities
+from ...utilities import dbutils
 
 __author__ = 'Luca Venturini'
 

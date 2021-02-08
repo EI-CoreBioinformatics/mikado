@@ -4,16 +4,16 @@ multiple transcripts, if the conditions are met (multiple ORFs present and BLAST
 supporting them being part of the same transcript).
 """
 
-from Mikado.configuration.daijin_configuration import DaijinConfiguration
+from ...configuration.daijin_configuration import DaijinConfiguration
 from collections import OrderedDict as SortedDict
 import collections
 import operator
-from Mikado.utilities import IntervalTree
-from Mikado.utilities import overlap
-from Mikado.exceptions import InvalidTranscript
-from Mikado.parsers.blast_utils import merge
-from Mikado.parsers.bed12 import BED12
-from Mikado.configuration.configuration import MikadoConfiguration
+from ...utilities import IntervalTree
+from ...utilities import overlap
+from ...exceptions import InvalidTranscript
+from ...parsers.blast_utils import merge
+from ...parsers.bed12 import BED12
+from ...configuration.configuration import MikadoConfiguration
 
 
 __author__ = 'Luca Venturini'

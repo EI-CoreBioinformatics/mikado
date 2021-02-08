@@ -15,17 +15,17 @@ from ast import literal_eval
 from sys import intern, maxsize
 import operator
 from typing import List
-from Mikado.exceptions import ModificationError, InvalidTranscript, CorruptIndex
-from Mikado.parsers.GFF import GffLine
-from Mikado.parsers.GTF import GtfLine
-from Mikado.parsers.bed12 import BED12
-from Mikado._transcripts.clique_methods import find_communities, define_graph
-from Mikado.utilities.log_utils import create_null_logger
+from ..exceptions import ModificationError, InvalidTranscript, CorruptIndex
+from ..parsers.GFF import GffLine
+from ..parsers.GTF import GtfLine
+from ..parsers.bed12 import BED12
+from .._transcripts.clique_methods import find_communities, define_graph
+from ..utilities.log_utils import create_null_logger
 from .transcript_methods.finalizing import finalize
 from .transcript_methods.printing import create_lines_cds
 from .transcript_methods.printing import create_lines_no_cds, create_lines_bed, as_bed12
-from Mikado.utilities import Interval, IntervalTree
-from Mikado.utilities.namespace import Namespace
+from ..utilities import Interval, IntervalTree
+from ..utilities.namespace import Namespace
 from collections.abc import Hashable
 import numpy as np
 import pprint

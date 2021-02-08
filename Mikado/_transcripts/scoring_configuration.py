@@ -5,7 +5,7 @@ from dataclasses import field, asdict
 from marshmallow import validate, pre_dump
 from .transcript_base import TranscriptBase
 available_metrics = TranscriptBase.get_available_metrics()
-from Mikado.exceptions import InvalidJson
+from ..exceptions import InvalidJson
 import re
 
 

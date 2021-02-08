@@ -3,6 +3,7 @@ This package contains all the modules necessary for BLAST serialisation and anal
 """
 
 from ...exceptions import InvalidHit
+from .btop_parser import parse_btop
 from .query import Query
 from .target import Target
 from .hsp import Hsp, prepare_hsp

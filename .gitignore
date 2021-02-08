@@ -25,6 +25,9 @@ sample_data/daijin_test
 sample_data/chr5.fas.gz.fai
 sample_data/daijin.yaml
 sample_data/daijin_exe.yaml
+sample_data/configuration.manual.toml
+sample_data/daijin.toml
+sample_data/manual/
 Chr*
 */*~
 sample_data/*.ok

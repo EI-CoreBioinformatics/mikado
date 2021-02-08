@@ -497,7 +497,6 @@ class Superlocus(Abstractlocus):
         self.transcripts[tid].default_configuration = self.configuration
         self.transcripts[tid].load_information_from_db(self.configuration,
                                                        introns=self.locus_verified_introns,
-                                                       session=self.session,
                                                        data_dict=data_dict)
         to_remove, to_add = False, dict()
 

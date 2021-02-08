@@ -283,8 +283,7 @@ def _connect_to_db(transcript):
     transcript.session = transcript.sessionmaker()
 
 
-def load_information_from_db(transcript, configuration, introns=None, session=None,
-                             data_dict=None):
+def load_information_from_db(transcript, configuration, introns=None, data_dict=None):
     """This method will invoke the check for:
 
     :param transcript: the Transcript instance
@@ -295,9 +294,6 @@ def load_information_from_db(transcript, configuration, introns=None, session=No
 
     :param introns: the verified introns in the Locus
     :type introns: None,set
-
-    :param session: an SQLAlchemy session
-    :type session: sqlalchemy.orm.session
 
     :param data_dict: a dictionary containing the information directly
     :type data_dict: dict

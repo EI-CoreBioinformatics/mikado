@@ -63,6 +63,7 @@ class RangeFilter:
         "validate": [validate.Length(min=2, max=2), Unique]})
     operator: str = field(metadata={"required": True, "validate": validate.OneOf("within", "not within")})
     metric: Optional[str] = field(metadata={"required": False}, default=None)
+    name: Optional[str] = field(default=None)
 
 
 @dataclass
@@ -100,26 +101,21 @@ class Requirements:
 
     _expression = None
 
-    def _create_expression(self):
-        if self._expression is not None:
-            return
-        if len(self.expression) == 0:
-            expression = " and ".join(list(self.parameters.keys()))
-            keys = self.parameters.keys()
+    @staticmethod
+    def _create_expression(expression: list, parameters: dict):
+        if len(expression) == 0:
+            expression = " and ".join(list(parameters.keys()))
+            keys = parameters.keys()
         else:
-            expression = " ".join(self.expression)
-
+            expression = " ".join(expression)
             keys = set([key for key in key_pattern.findall(expression) if key not in ("and", "or", "not", "xor")])
-
-            diff_params = set.difference(set(keys), set(self.parameters.keys()))
-
+            diff_params = set.difference(set(keys), set(parameters.keys()))
             if len(diff_params) > 0:
                 raise InvalidJson("Expression and required parameters mismatch:\n\t{0}".format(
                     "\n\t".join(list(diff_params))))
-
         for key in keys:  # Create the final expression
             expression = re.sub(r"\b{}\b".format(key), "evaluated[\"{0}\"]".format(key), expression)
-        self._expression = expression
+        return expression
 
     def _check_parameters(self):
         # Check that the parameters are valid
@@ -158,10 +154,9 @@ class Requirements:
 
     def _check_my_requirements(self):
         """Check that the provided parameters are as expected"""
-        self._expression = self._compiled = None
+        self._expression = None
         assert hasattr(self, "parameters"), (type(self), self.__dict__)
         self._check_parameters()
-        self._create_expression()
         _ = self.compiled
 
     @property
@@ -175,9 +170,7 @@ class Requirements:
                 return compile(expression, "<json>", "eval")
             except SyntaxError:
                 raise InvalidJson("Invalid expression:\n{}".format(self._expression))
-        if self._expression is None:
-            self._create_expression()
-            assert self._expression is not None
+        self._expression = self._create_expression(self.expression, self.parameters)
         return compiler(self._expression)
 
     def copy(self):

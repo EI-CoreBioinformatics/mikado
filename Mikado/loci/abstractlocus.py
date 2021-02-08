@@ -10,7 +10,8 @@ import logging
 from sys import maxsize
 import networkx
 from .._transcripts.clique_methods import find_communities, define_graph
-from .._transcripts.scoring_configuration import SizeFilter, InclusionFilter, NumBoolEqualityFilter, ScoringFile
+from .._transcripts.scoring_configuration import SizeFilter, InclusionFilter, NumBoolEqualityFilter, ScoringFile, \
+    RangeFilter
 from ..transcripts import Transcript
 from ..exceptions import NotInLocusError, InvalidJson
 from ..utilities import overlap, merge_ranges, rhasattr, rgetattr, default_for_serialisation
@@ -347,7 +348,8 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         return overlap(first_interval, second_interval, flank, positive=positive)
 
     @staticmethod
-    def evaluate(param: str, conf: Union[SizeFilter, InclusionFilter, NumBoolEqualityFilter]) -> bool:
+    def evaluate(param: Union[str, int, bool, float],
+                 conf: Union[SizeFilter, InclusionFilter, NumBoolEqualityFilter, RangeFilter]) -> bool:
 
         """
         This static method will evaluate whether a certain parameter respects the conditions laid out in the

@@ -2,20 +2,23 @@
 
 
 import tempfile
+
+import pkg_resources
+
 from ..parsers import blast_utils
 import unittest
 import os
 import gzip
 import subprocess
 from ..serializers.blast_serializer import xml_utils as seri_blast_utils
-from ..serializers.blast_serializer import xml_serialiser as seri_blast_xml
 from ..serializers.blast_serializer.tabular_utils import matrices
-from ..serializers.blast_serializer.btop_parser import parse_btop
+from ..serializers.blast_serializer import parse_btop
 import numpy as np
 import time
 import itertools
 from pytest import mark
 from collections import namedtuple
+from shutil import which
 
 
 class BtopTester(unittest.TestCase):
@@ -233,49 +236,47 @@ class BlastBasics(unittest.TestCase):
         with self.assertRaises(ValueError):
             opener.sniff()
 
-    @unittest.skip
+    @unittest.skipUnless(which("blast_formatter") is not None and which("makeblastdb") is not None,
+                         "This test can be performed only if NCBI+ is installed")
+    @mark.slow
     def test_asn(self):
 
+        folder = tempfile.TemporaryDirectory()
+
+        # valid_asn = tempfile.NamedTemporaryFile(suffix=".asn", mode="wb")
+        valid_asn = os.path.join(folder.name, "mikado.blast.asn")
+        comp_asn = os.path.join(folder.name, "mikado.blast.asn.gz")
+        with pkg_resources.resource_stream("Mikado.tests", "mikado.blast.asn.gz") as compressed_asn, \
+                open(valid_asn, "wb") as valid_out, open(comp_asn, "wb") as comp_out:
+            stream = compressed_asn.read()
+            comp_out.write(stream)
+            valid_out.write(gzip.decompress(stream))
+
+        uni_out = os.path.join(folder.name, "uniprot_sprot_plants.fasta")
+        with pkg_resources.resource_stream("Mikado.tests", "uniprot_sprot_plants.fasta.gz") as uni, \
+                open(uni_out, "wb") as uni_handle:
+            uni_handle.write(gzip.decompress(uni.read()))
+
         master = os.getcwd()
-        os.chdir(os.path.dirname(__file__))
-
-        valid_asn = "mikado.blast.asn"
-
-        with gzip.open("{0}.gz".format(valid_asn), "rt") as comp_asn:
-            with open(valid_asn, "wt") as asn:
-                for line in comp_asn:
-                    asn.write(line)
-
-        with open("uniprot_sprot_plants.fasta", "wt") as uni_out:
-            with gzip.open("uniprot_sprot_plants.fasta.gz", "rt") as uni:
-                for line in uni:
-                    uni_out.write(line)
+        os.chdir(folder.name)
         subprocess.call(
-            "makeblastdb -in uniprot_sprot_plants.fasta -dbtype=prot".format(
-                os.path.dirname(__file__)
-            ),
+            "makeblastdb -in {uni_out} -dbtype=prot".format(uni_out=uni_out),
             shell=True, stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
 
         valid, header, exc = blast_utils.BlastOpener(valid_asn).sniff()
         self.assertTrue(valid, (valid, exc))
         self.assertIsNone(exc, exc)
 
-        valid, header, exc = blast_utils.BlastOpener("{0}.gz".format(valid_asn)).sniff()
+        valid, header, exc = blast_utils.BlastOpener("mikado.blast.asn.gz").sniff()
         self.assertTrue(valid, (valid, exc))
         self.assertIsNone(exc, exc)
-        with blast_utils.BlastOpener("{0}.gz".format(valid_asn)) as gzasn:
+        with blast_utils.BlastOpener(comp_asn) as gzasn:
             self.assertFalse(gzasn.closed)
             self.assertTrue(gzasn.open)
-            record = next(gzasn)
+            _ = next(gzasn)
 
         # This should fix the issue of blast_formatter crashing
         time.sleep(1)
-
-        for fname in os.listdir("."):
-            if "uniprot_sprot_plants.fasta" in fname and not fname.endswith(".gz"):
-                os.remove(fname)
-
-        os.remove(valid_asn)
         os.chdir(master)
 
 

@@ -98,8 +98,7 @@ class Transcript(TranscriptBase):
 
         return
 
-    def load_information_from_db(self, configuration, introns=None, session=None,
-                                 data_dict=None):
+    def load_information_from_db(self, configuration, introns=None, data_dict=None):
         """This method will load information regarding the transcript from the provided database.
 
         :param configuration: Necessary configuration file
@@ -107,9 +106,6 @@ class Transcript(TranscriptBase):
 
         :param introns: the verified introns in the Locus
         :type introns: None,set
-
-        :param session: an SQLAlchemy session
-        :type session: sqlalchemy.orm.session
 
         :param data_dict: a dictionary containing the information directly
         :type data_dict: dict
@@ -121,7 +117,6 @@ class Transcript(TranscriptBase):
         retrieval.load_information_from_db(self,
                                            configuration,
                                            introns=introns,
-                                           session=session,
                                            data_dict=data_dict)
 
     def load_orfs(self, candidate_orfs):

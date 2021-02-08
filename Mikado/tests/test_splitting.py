@@ -2,6 +2,7 @@
 
 import logging
 import operator
+import os
 import unittest
 from sys import version_info
 import pysam
@@ -81,7 +82,8 @@ class TestSplitMonoexonic(unittest.TestCase):
         self.transcript.configuration.pick.chimera_split.blast_params.hsp_evalue = 0.0001
         self.transcript.configuration.pick.chimera_split.blast_params.evalue = 0.0001
         self.transcript.configuration.pick.orf_loading.minimal_secondary_orf_length = 50
-
+        self.db_folder = tempfile.TemporaryDirectory()
+        self.transcript.configuration.db_settings.db = os.path.join(self.db_folder.name, "mikado.db")
         self.transcript.load_orfs([self.bed1, self.bed2])
         self.assertTrue(self.transcript.is_coding)
         self.assertEqual(self.transcript.number_internal_orfs,
@@ -399,6 +401,8 @@ class TestWithPhase(unittest.TestCase):
         self.transcript.configuration = configuration.configurator.load_and_validate_config("")
         self.transcript.configuration.pick.chimera_split.blast_check = False
         self.assertIsNotNone(self.transcript.configuration)
+        self.db_folder = tempfile.TemporaryDirectory()
+        self.transcript.configuration.db_settings.db = os.path.join(self.db_folder.name, "mikado.db")
 
     def testPositive(self):
 

@@ -27,8 +27,7 @@ class Locus(Abstractlocus):
     additional transcripts if they are valid splicing isoforms.
     """
 
-    def __init__(self, transcript=None, logger=None, configuration=None,
-                 pad_transcripts=None, **kwargs):
+    def __init__(self, transcript=None, logger=None, configuration=None, **kwargs):
         """
         Constructor class. Like all loci, also Locus is defined starting from a transcript.
 
@@ -68,14 +67,12 @@ class Locus(Abstractlocus):
         self.__id = None
         self.fai = None
         self.__finalized = False
-
         self._reference_sources = set(source for source, is_reference in
                                       zip(self.configuration.prepare.files.labels,
                                           self.configuration.prepare.files.reference) if is_reference is True)
 
-        if pad_transcripts in (False, True):
-            self.configuration.pick.alternative_splicing.pad = pad_transcripts
-            assert self.perform_padding == pad_transcripts
+        self.valid_ccodes = self.configuration.pick.alternative_splicing.valid_ccodes[:]
+        self.redundant_ccodes = self.configuration.pick.alternative_splicing.redundant_ccodes[:]
 
         if self.perform_padding is True and self.reference_update is True:
             self._add_to_alternative_splicing_codes("=")
@@ -232,6 +229,7 @@ class Locus(Abstractlocus):
                 break
 
         for tid in self.transcripts:
+            # For each transcript check if they have been padded
             assert tid in original
             backup = original[tid]
             transcript = self.transcripts[tid]
@@ -415,10 +413,6 @@ it is marked as having 0 retained introns. This is an error.".format(transcript=
                 self.logger.debug("Comparing ichain %s, %s vs %s: nF1 %s", ichain, t1, t2, class_codes[(t1, t2)].n_f1)
 
         for couple, comparison in class_codes.items():
-            # if self[couple[0]].is_reference and self[couple[1]].is_reference:
-            #     self.logger.debug("Both %s and %s are references, continuing", couple[0], couple[1])
-            #     continue
-
             removal = None
             if comparison.n_f1[0] == 100:
                 try:
@@ -861,8 +855,8 @@ it is marked as having 0 retained introns. This is an error.".format(transcript=
 
         is_valid = True
 
-        valid_ccodes = self.configuration.pick.alternative_splicing.valid_ccodes
-        redundant_ccodes = self.configuration.pick.alternative_splicing.redundant_ccodes
+        valid_ccodes = self.valid_ccodes
+        redundant_ccodes = self.redundant_ccodes
         cds_only = self.configuration.pick.alternative_splicing.cds_only
 
         if other.is_coding and not self.primary_transcript.is_coding:
@@ -1389,44 +1383,34 @@ it is marked as having 0 retained introns. This is an error.".format(transcript=
         """Checks whether any transcript in the locus is marked as reference."""
         return any(self.transcripts[transcript].is_reference for transcript in self)
 
-    @property
-    def _redundant_ccodes(self):
-        return self.configuration.pick.alternative_splicing.redundant_ccodes
-
-    def _get_alternative_splicing_codes(self):
-        """Method to retrieve the currently valid alternative splicing event codes"""
-        return self.configuration.pick.alternative_splicing.valid_ccodes
-
     def _add_to_alternative_splicing_codes(self, code):
         """Method to retrieve the currently valid alternative splicing event codes"""
-        codes = set(self.configuration.pick.alternative_splicing.valid_ccodes)
+        codes = set(self.valid_ccodes)
         codes.add(code)
-        self.configuration.pick.alternative_splicing.valid_ccodes = list(codes)
-        # _valid_ccodes.validate(self.configuration.pick.alternative_splicing.valid_ccodes)
+        self.valid_ccodes = list(codes)
         self._remove_from_redundant_splicing_codes(code)
 
     def _add_to_redundant_splicing_codes(self, code):
         """Method to retrieve the currently valid alternative splicing event codes"""
-        codes = set(self.configuration.pick.alternative_splicing.redundant_ccodes)
+        codes = set(self.redundant_ccodes)
         codes.add(code)
-        self.configuration.pick.alternative_splicing.redundant_ccodes = list(codes)
-        # _valid_redundant.validate(self.configuration.pick.alternative_splicing.redundant_ccodes)
+        self.redundant_ccodes = list(codes)
         self._remove_from_alternative_splicing_codes(code)
 
     def _remove_from_alternative_splicing_codes(self, *ccodes):
-        sub = self.configuration.pick.alternative_splicing.valid_ccodes
+        sub = self.valid_ccodes
         for ccode in ccodes:
             if ccode in sub:
                 sub.remove(ccode)
-        self.configuration.pick.alternative_splicing.valid_ccodes = sub
+        self.valid_ccodes = sub
 
     def _remove_from_redundant_splicing_codes(self, *ccodes):
         self.logger.debug("Removing from redundant ccodes: %s. Current: %s", ccodes,
-                          self.configuration.pick.alternative_splicing.redundant_ccodes)
-        sub = self.configuration.pick.alternative_splicing.redundant_ccodes
+                          self.redundant_ccodes)
+        sub = self.redundant_ccodes
         sub = [_ for _ in sub if _ not in ccodes]
         self.logger.debug("New redundant ccodes: %s", sub)
-        self.configuration.pick.alternative_splicing.redundant_ccodes = sub
+        self.redundant_ccodes = sub
 
         
 def expand_transcript(transcript: Transcript,

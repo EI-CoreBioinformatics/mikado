@@ -69,6 +69,9 @@ class MikadoConfiguration:
     _loaded_scoring = None
     filename: Optional[str] = field(default=None)
 
+    def __post_init__(self):
+        self.check()
+
     def copy(self):
         return copy.deepcopy(self)
 
@@ -99,8 +102,6 @@ class MikadoConfiguration:
         elif self._loaded_scoring != self.pick.scoring_file:
             logger.debug("Overwriting the scoring self using '%s' as scoring file", self.pick.scoring_file)
             self.scoring_file = None
-        # elif self.scoring is not None:
-        #     return
         else:
             logger.debug("Restarting")
 
@@ -109,6 +110,13 @@ class MikadoConfiguration:
                                                 self.pick.scoring_file)),
                    os.path.abspath(os.path.join(resource_filename("Mikado.configuration", "scoring_files"),
                                                 self.pick.scoring_file))]
+
+        if self.filename is not None:
+            options.append(os.path.join(os.path.dirname(os.path.abspath(self.filename)),
+                                        os.path.basename(self.pick.scoring_file)))
+            if not os.path.isabs(self.pick.scoring_file):
+                options.append(os.path.join(os.path.dirname(os.path.abspath(self.filename)),
+                                            self.pick.scoring_file))
 
         found = False
 

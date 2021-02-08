@@ -1186,7 +1186,6 @@ class Superlocus(Abstractlocus):
         for locus in sorted(loci):
             self.loci[locus.id] = locus
             self.loci[locus.id].logger = self.logger
-            self.loci[locus.id].configuration = self.configuration
 
         self.loci_defined = True
 

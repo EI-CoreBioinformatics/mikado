@@ -10,9 +10,6 @@ import numpy as np
 from ._locus_line_creator import _create_locus_lines
 
 
-
-
-
 def manage_index(index, data, source):
     index, (chrom, gene_counter, gene_max) = index[0], index[1]
     orig_gene_counter = gene_counter

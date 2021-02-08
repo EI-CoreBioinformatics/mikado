@@ -1659,7 +1659,7 @@ class TestLocus(unittest.TestCase):
 
         locus = loci.Locus(self.t1, logger=self.logger)
         locus.configuration = self.configuration.copy()
-        locus.configuration.pick.alternative_splicing.valid_ccodes.append("c")
+        locus._add_to_alternative_splicing_codes("c")
         self.assertEqual(len(locus.transcripts), 1)
         locus.add_transcript_to_locus(self.t1_contained)
         self.assertEqual(len(locus.transcripts), 2)
@@ -1683,16 +1683,16 @@ class TestLocus(unittest.TestCase):
         - we ask for perfect (100%) CDS overlap
         """
 
-        locus = loci.Locus(self.t1, logger=self.logger)
-        locus.configuration = self.configuration.copy()
-        self.assertEqual(len(locus.transcripts), 1)
+        configuration = self.configuration.copy()
+        configuration.pick.alternative_splicing.max_isoforms = 3
+        configuration.pick.alternative_splicing.valid_ccodes = ["n", "O", "h"]
 
-        locus.configuration.pick.alternative_splicing.max_isoforms = 3
-        locus.configuration.pick.alternative_splicing.valid_ccodes = ["n", "O", "h"]
+        locus = loci.Locus(self.t1, logger=self.logger, configuration=configuration)
+        self.assertEqual(len(locus.transcripts), 1)
         locus.add_transcript_to_locus(self.t1_as)
         self.assertEqual(len(locus.transcripts), 1)
 
-        locus.configuration.pick.alternative_splicing.valid_ccodes.append("j")
+        locus._add_to_alternative_splicing_codes("j")
         locus.configuration.pick.alternative_splicing.min_cds_overlap = 1
 
         locus.add_transcript_to_locus(self.t1_as)

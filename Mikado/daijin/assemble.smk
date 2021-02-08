@@ -390,11 +390,11 @@ def getTrinityVersion(command):
     cmd = "{} Trinity --version && set -u".format(command)
     output = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE).stdout.read().decode()
     try:
-        version = [_ for _ in output.split("\n") if re.match("Trinity version:", _)][0]
+        version = [_ for _ in output.split("\n") if re.match(r"Trinity version:", _)][0]
     except IndexError as exc:
         print("Error in getTrinityVersion")
         raise IndexError(exc)
-    version = re.sub("Trinity version: [^_]*_(r|v)", "", version)
+    version = re.sub(r"Trinity version: [^_]*_(r|v)", "", version)
     return version
 
 

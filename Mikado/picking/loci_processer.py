@@ -20,7 +20,7 @@ from ..parsers.GTF import GtfLine
 from ..configuration.configurator import load_and_validate_config
 import msgpack
 from ._loci_serialiser import serialise_locus
-import rapidjson as json
+
 
 __author__ = 'Luca Venturini'
 
@@ -84,7 +84,7 @@ def merge_loci(mapper,
             if print_subloci and minibatch[1]:
                 sub_lines, sub_metrics_rows, sub_scores_rows = minibatch[1]
                 if sub_lines != '':
-                        print(sub_lines, file=sub_out)
+                    print(sub_lines, file=sub_out)
 
                 for row in sub_metrics_rows:
                     try:
@@ -193,8 +193,7 @@ def analyse_locus(slocus: Superlocus,
                   counter: int,
                   configuration: Union[MikadoConfiguration,DaijinConfiguration],
                   logging_queue: AutoProxy,
-                  engine=None,
-                  data_dict=None) -> [Superlocus]:
+                  engine=None) -> [Superlocus]:
 
     """
     :param slocus: a superlocus instance
@@ -211,9 +210,6 @@ def analyse_locus(slocus: Superlocus,
 
     :param engine: an optional engine to connect to the database.
     :type data_dict: sqlalchemy.engine.engine
-
-    :param data_dict: a dictionary of preloaded data
-    :type data_dict: (None|dict)
 
     This function takes as input a "superlocus" instance and the pipeline configuration.
     It also accepts as optional keywords a dictionary with the CDS information
@@ -262,7 +258,6 @@ def analyse_locus(slocus: Superlocus,
         logger.warning(
             "%s had all transcripts failing checks, ignoring it",
             slocus.id)
-        # printer_dict[counter] = []
         return []
 
     # Split the superlocus in the stranded components
@@ -325,6 +320,11 @@ class LociProcesser(Process):
         self.__identifier = identifier  # Property directly unsettable
         self.name = "LociProcesser-{0}".format(self.identifier)
         self.configuration = configuration
+        for section in (self.configuration.scoring.requirements, self.configuration.scoring.as_requirements,
+                        self.configuration.scoring.cds_requirements, self.configuration.scoring.not_fragmentary):
+            # Compile the expression
+            _ = section.compiled
+
         self.engine = None
         self.handler = logging_handlers.QueueHandler(self.logging_queue)
         self.logger = logging.getLogger(self.name)

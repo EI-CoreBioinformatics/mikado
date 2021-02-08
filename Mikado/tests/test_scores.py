@@ -214,6 +214,7 @@ class LocusMissedTester(unittest.TestCase):
 
         self.configuration.scoring.requirements = Requirements.Schema().load(reqs)
         self.configuration.pick.alternative_splicing.pad = False
+        self.configuration.check()
 
     def test_transcript_not_missed(self):
 
@@ -227,7 +228,6 @@ class LocusMissedTester(unittest.TestCase):
         t1 = transcripts.Transcript(b1, logger=logger)
         t1.finalize()
         self.assertEqual(sorted(t1.exons), [(101, 300), (401,500)])
-
         b2 = BED12("1\t100\t1500\tID=t2;coding=True\t25\t+\t200\t901\t.\t4\t200,150,400,200\t0,300,700,1200",
                    coding=True)
         self.assertFalse(b2.invalid, b2.invalid_reason)

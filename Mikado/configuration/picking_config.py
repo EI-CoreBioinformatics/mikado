@@ -39,6 +39,14 @@ or simply define one transcript per locus."}
         "metadata": {"description": "Maximum number of isoforms to report per locus. Default: 10.",},
         "validate": validate.Range(min=1)
     })
+    # Note: valid and redundant class codes will be changed TEMPORARILY AT RUN TIME, FOR EACH LOCUS CLASS,
+    # if the padding is enabled. Briefly, locus classes will need to *initially* accept into the locus transcripts that
+    # would normally be considered redundant (e.g. '=' or 'n') as they could act as templates. Note that normally these
+    # additional class codes would *not* be valid choices as AS events.
+    # AFTER the padding is completed, these extra class-codes will be removed from the valid class codes list and
+    # re-added to the redundant class code list, therefore enabling the removal of redundancy from the final locus.
+    # This happens during the __init__ of Locus in Mikado/loci/locus.py (adding of valid class codes) and later they are
+    # removed before the finalisation. Note that these modified codes are a *copy* of the codes of the configuration.
     valid_ccodes: list = field(default_factory=lambda: ["j", "J", "G", "h"], metadata={
         "metadata": {
             "description": "AS event class codes considered as valid AS events. Valid codes are in categories \

@@ -1396,7 +1396,11 @@ class DaijinTest(unittest.TestCase):
         namespace.dryrun = True
         folder = tempfile.TemporaryDirectory()
         namespace.out_dir = folder.name
-        scorers = sorted(pkg_resources.resource_listdir("Mikado.configuration", "scoring_files"))
+        score__folder = pkg_resources.resource_filename("Mikado.configuration", "scoring_files")
+        scorers = []
+        for root, _, files in os.walk(score__folder):
+            for fname in files:
+                scorers.append(os.path.join(root, fname))
         namespace.scoring = scorers[np.random.choice(len(scorers))]
         out = os.path.join(folder.name, "configuration.yaml")
         config = DaijinConfiguration()
@@ -2157,7 +2161,7 @@ class SerialiseChecker(unittest.TestCase):
             with self.subTest(procs=procs):
                 dir = tempfile.TemporaryDirectory(suffix="test_serialise_external")
                 log = "serialise.log"
-                sys.argv = [str(_) for _ in ["mikado", "serialise", "--json-conf", external_conf,
+                sys.argv = [str(_) for _ in ["mikado", "serialise", "--configuration", external_conf,
                                              "--transcripts", fasta, "-od", dir.name,
                                              "-l", log,
                                              "--external-scores", external_scores,

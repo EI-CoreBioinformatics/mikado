@@ -2,7 +2,7 @@ import functools
 
 from marshmallow_dataclass import dataclass, List, Dict, Union, Optional
 from dataclasses import field, asdict
-from marshmallow import validate, pre_dump
+from marshmallow import validate
 from .transcript_base import TranscriptBase
 available_metrics = TranscriptBase.get_available_metrics()
 from ..exceptions import InvalidJson
@@ -152,11 +152,13 @@ class Requirements:
                     "\n\t".join(parameters_not_found)
                 ))
 
+    # If the requirements are changed at run time, this *needs* to be called again
     def _check_my_requirements(self):
         """Check that the provided parameters are as expected"""
         self._expression = None
         assert hasattr(self, "parameters"), (type(self), self.__dict__)
         self._check_parameters()
+        self._expression = self._create_expression(self.expression, self.parameters)
         _ = self.compiled
 
     @property
@@ -170,7 +172,6 @@ class Requirements:
                 return compile(expression, "<json>", "eval")
             except SyntaxError:
                 raise InvalidJson("Invalid expression:\n{}".format(self._expression))
-        self._expression = self._create_expression(self.expression, self.parameters)
         return compiler(self._expression)
 
     def copy(self):
@@ -195,6 +196,8 @@ class ScoringFile:
             if section is not None:
                 continue
             if section_name == "cds_requirements":
+                # If no CDS requirement section is present, presume that the only req. is that the ORF
+                # is equal or longer than the "minimal_orf_length" (taken from pick.orf_loading)
                 mock = {
                     "parameters": {"selected_cds_length": {
                         "operator": "ge",
@@ -207,6 +210,7 @@ class ScoringFile:
                 setattr(self, section_name, self.requirements.copy())
 
     def _check_scoring(self):
+        """Method to check that the specified metrics are correct"""
         parameters_found = set()
         parameters_not_found = []
         double_parameters = []

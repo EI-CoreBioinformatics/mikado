@@ -1684,7 +1684,6 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         if conf.scoring is None or not hasattr(conf.scoring.requirements, "parameters"):
             self.logger.warning("Reloading conf")
             check_and_load_scoring(conf)
-            conf.check()
         self.__configuration = conf
         # Get the value for each attribute defined metric
         self._attribute_metrics = dict()
@@ -1837,12 +1836,6 @@ class Abstractlocus(metaclass=abc.ABCMeta):
     def _cds_only(self):
         return self.configuration.pick.clustering.cds_only
 
-    @_cds_only.setter
-    def _cds_only(self, value):
-        if value not in (True, False):
-            raise ValueError(value)
-        self.configuration.pick.clustering.cds_only = value
-
     @property
     def segmenttree(self):
         """The interval tree structure derived from the exons and introns of the locus."""
@@ -1895,12 +1888,6 @@ class Abstractlocus(metaclass=abc.ABCMeta):
     def perform_padding(self):
         """Alias for self.configuration.pick.alternative_splicing.pad"""
         return self.configuration.pick.alternative_splicing.pad
-
-    def _set_padding(self, value):
-        """Set the perform_padding property."""
-        if value not in (False, True):
-            raise ValueError
-        self.configuration.pick.alternative_splicing.pad = value
 
     @property
     def only_reference_update(self):

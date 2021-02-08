@@ -117,9 +117,11 @@ def check_and_load_scoring(configuration: Union[DaijinConfiguration, MikadoConfi
 
     try:
         configuration.load_scoring(logger=logger)
+        configuration.check()
         configuration = check_db(configuration)
         if not configuration.multiprocessing_method:
             configuration.multiprocessing_method = get_start_method()
+
     except Exception as exc:
         logger.exception(exc)
         raise
@@ -182,20 +184,19 @@ def load_and_validate_config(raw_configuration: Union[None, MikadoConfiguration,
                     config = json.loads(json_file.read())
                 else:
                     config = toml.load(json_file)
-            assert isinstance(config, (dict, MikadoConfiguration, DaijinConfiguration)), (config, type(config))
-            if isinstance(config, dict):
+            assert isinstance(config, dict), (config, type(config))
+            config["filename"] = raw_configuration
+            try:
+                config = MikadoConfiguration.Schema().load(config, partial=external)
+            except marshmallow.exceptions.ValidationError as mikado_exc:
                 try:
-                    config = MikadoConfiguration.Schema().load(config, partial=external)
-                except marshmallow.exceptions.ValidationError:
-                    pass
-                if isinstance(config, dict):
-                    try:
-                        config = DaijinConfiguration.Schema().load(config, partial=external)
-                    except marshmallow.exceptions.ValidationError as exc:
-                        logger.critical("The configuration file is invalid. Validation errors:\n%s",
-                                        pprint.pformat(exc.messages))
-                        logger.critical(exc)
-                        raise
+                    config = DaijinConfiguration.Schema().load(config, partial=external)
+                except marshmallow.exceptions.ValidationError as exc:
+                    logger.critical("The configuration file is invalid. Validation errors:\n%s\n%s\n\n",
+                                    pprint.pformat(mikado_exc.messages),
+                                    pprint.pformat(exc.messages))
+                    logger.critical(exc)
+                    raise
 
             config.filename = raw_configuration
             if config.scoring is None:

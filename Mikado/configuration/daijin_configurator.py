@@ -225,7 +225,6 @@ def create_daijin_config(args: Namespace, config=None, level="ERROR", piped=Fals
 
                 _ = ScoringFile.Schema().load(new_scoring)
                 _.check(minimal_orf_length=config.pick.orf_loading.minimal_orf_length)
-
         else:
             ns = ScoringFile()
             with open(args.new_scoring, "wt") as out:

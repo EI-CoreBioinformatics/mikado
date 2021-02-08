@@ -514,7 +514,7 @@ class Picker:
     # actually file handlers. I cannot trim them down for now.
     # pylint: disable=too-many-locals
 
-    def _submit_locus(self, slocus, counter, data_dict=None, engine=None):
+    def _submit_locus(self, slocus, counter, engine=None):
         """
         Private method to submit / start the analysis of a superlocus in input.
         :param slocus: the locus to analyse.
@@ -534,7 +534,6 @@ class Picker:
                              counter=counter,
                              configuration=self.configuration,
                              logging_queue=self.logging_queue,
-                             data_dict=data_dict,
                              engine=engine)
 
     def __unsorted_interrupt(self, row, current_transcript):
@@ -932,8 +931,7 @@ class Picker:
 
         self.engine = dbutils.connect(configuration=self.configuration, logger=self.logger)
 
-        submit_locus = functools.partial(self._submit_locus, **{"data_dict": None,
-                                                                "engine": self.engine})
+        submit_locus = functools.partial(self._submit_locus, **{"engine": self.engine})
 
         counter = -1
         invalid = False

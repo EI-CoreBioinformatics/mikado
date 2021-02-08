@@ -20,7 +20,7 @@ class TestConfigurator(unittest.TestCase):
             name="cdna_length", value=50, operator="ge")
         self.configuration.scoring.requirements.parameters["selected_cds_length"] = SizeFilter(
             name="cdna_length", value=200, operator="ge")
-        self.configuration.scoring.requirements._check_parameters()
+        self.configuration.scoring.requirements._check_my_requirements()
         values = {"cdna_length": 100, "selected_cds_length": 150}
         evaluated = dict()
         evaluated["cdna_length"] = Abstractlocus.evaluate(
@@ -30,8 +30,10 @@ class TestConfigurator(unittest.TestCase):
         evaluated["selected_cds_length"] = Abstractlocus.evaluate(
             values["selected_cds_length"],
             self.configuration.scoring.requirements.parameters["selected_cds_length"])
+        self.configuration.scoring.requirements._check_my_requirements()
         self.assertFalse(evaluated["selected_cds_length"])
         self.assertTrue(eval(self.configuration.scoring.requirements.compiled))
         # Now we are changing the contents of the expression
         self.configuration.scoring.requirements.expression = ["selected_cds_length"]
+        self.configuration.scoring.requirements._check_my_requirements()
         self.assertFalse(eval(self.configuration.scoring.requirements.compiled))

@@ -80,7 +80,6 @@ class Transcript(TranscriptBase):
         return state
 
     def __setstate__(self, state):
-        # self.configuration = state.pop("configuration", None)
         self.__dict__.update(state)
         self._calculate_cds_tree()
         self._calculate_segment_tree()

@@ -1389,12 +1389,10 @@ the length of the *imputed* old sequence ({lold}) does not tally up with the new
             return self
         self.coding = coding
 
-        # Now we have to calculate the thickStart, thickEnd ..
-        tStart, tEnd = None, None
-        seen = 0
-
         # Find the exon(s) in which the thick start and thick end are located and calculate their *transcriptomic*
         # coordinates
+        tStart, tEnd = None, None
+        seen = 0
         for block in self.blocks:
             if tStart and tEnd:
                 # We have calculated them
@@ -1405,6 +1403,7 @@ the length of the *imputed* old sequence ({lold}) does not tally up with the new
                 tEnd = seen + self.thick_end - block[0] + 1
             seen += block[1] - block[0] + 1
 
+        # Check thick start and end are defined
         error = ""
         if tStart is None:
             error += """The thick start of {self.id} ({self.chrom}:{self.start}-{self.end}) is invalid as it is outside of the defined exons.
@@ -1440,6 +1439,9 @@ This is invalid""".format(self=self, lbstarts=len(bstarts), lbsizes=len(bsizes),
 
         if alias is not None:
             new_name += ";alias={}".format(alias)
+
+        if not self.coding:
+            tStart, tEnd = 0, 1
 
         new = list((self.name.split(";")[0],
                     0,

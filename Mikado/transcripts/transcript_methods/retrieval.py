@@ -10,7 +10,7 @@ from sqlalchemy import and_
 from sqlalchemy.orm.session import sessionmaker
 from ...parsers.bed12 import BED12
 from ...serializers.junction import Junction
-from ..clique_methods import define_graph, find_cliques, find_communities
+from ..._transcripts.clique_methods import define_graph, find_cliques, find_communities
 from ...utilities import dbutils
 
 __author__ = 'Luca Venturini'
@@ -201,7 +201,7 @@ def check_loaded_orfs(transcript, primary_phase=0):
         transcript.feature = "mRNA"
 
     transcript.phases = dict()
-    transcript._first_phase = primary_phase
+    transcript.__first_phase = primary_phase
     transcript._trust_orf = False
     transcript.finalize()
 
@@ -283,8 +283,7 @@ def _connect_to_db(transcript):
     transcript.session = transcript.sessionmaker()
 
 
-def load_information_from_db(transcript, configuration, introns=None, session=None,
-                             data_dict=None):
+def load_information_from_db(transcript, configuration, introns=None, data_dict=None):
     """This method will invoke the check for:
 
     :param transcript: the Transcript instance
@@ -295,9 +294,6 @@ def load_information_from_db(transcript, configuration, introns=None, session=No
 
     :param introns: the verified introns in the Locus
     :type introns: None,set
-
-    :param session: an SQLAlchemy session
-    :type session: sqlalchemy.orm.session
 
     :param data_dict: a dictionary containing the information directly
     :type data_dict: dict
@@ -310,65 +306,7 @@ def load_information_from_db(transcript, configuration, introns=None, session=No
     transcript.configuration = configuration
 
     __load_verified_introns(transcript, verified_introns=introns)
-    if data_dict is not None:
-        retrieve_from_dict(transcript, data_dict)
-    else:
-        if session is None:
-            _connect_to_db(transcript)
-        else:
-            transcript.session = session
-        candidate_orfs = []
-        if transcript.is_reference is False:
-            transcript.logger.debug("Retrieving the ORFs for %s", transcript.id)
-            ext_results = transcript.external_baked(transcript.session).params(query=transcript.id).all()
-            for row in ext_results:
-                if row.rtype == "int":
-                    score = int(row.score)
-                elif row.rtype == "bool":
-                    score = bool(int(row.score))
-                elif row.rtype == "complex":
-                    score = complex(row.score)
-                elif row.rtype == "float":
-                    score = float(row.score)
-                else:
-                    raise ValueError("Invalid rtype: {}".format(row.rtype))
-
-                transcript.external_scores[row.source] = (score, row.valid_raw)
-
-            for row in transcript.external_sources(transcript.session).all():
-                if row.source not in transcript.external_scores:
-                    if row.rtype in ("int", "complex", "float"):
-                        score = 0
-                    elif row.rtype == "bool":
-                        score = False
-                    else:
-                        raise ValueError("Invalid rtype: {}".format(row.rtype))
-                    transcript.external_scores[row.source] = (score, row.valid_raw)
-
-            for orf in retrieve_orfs(transcript):
-                candidate_orfs.append(orf)
-            transcript.logger.debug("Retrieved the ORFs for %s", transcript.id)
-
-            transcript.logger.debug("Loading the ORFs for %s", transcript.id)
-            old_strand = transcript.strand
-            load_orfs(transcript, candidate_orfs)
-
-            if transcript.monoexonic is False:
-                is_reversed = False
-            elif old_strand != transcript.strand and ((old_strand is None and transcript.strand == "-")
-                or (old_strand is not None)):
-                is_reversed = True
-            else:
-                is_reversed = False
-            transcript.logger.debug("Loaded the ORFs for %s", transcript.id)
-
-        else:
-            transcript.logger.debug("Skipping ORF loading for reference %s", transcript.id)
-            is_reversed = False
-
-        transcript.logger.debug("Loading the BLAST data for %s", transcript.id)
-        __load_blast(transcript, reverse=is_reversed)
-        transcript.logger.debug("Loaded the BLAST data for %s", transcript.id)
+    retrieve_from_dict(transcript, data_dict)
     # Finally load introns, separately
     transcript.logger.debug("Loaded data for %s", transcript.id)
 
@@ -648,48 +586,6 @@ def __load_verified_introns(transcript, verified_introns=None):
     transcript.logger.debug("Found these introns for %s: %s",
                             transcript.id, transcript.verified_introns)
     return
-
-
-def retrieve_orfs(transcript):
-
-    """This method will look up the ORFs loaded inside the database.
-    During the selection, the function will also remove overlapping ORFs.
-
-    :param transcript: the Transcript instance
-    :type transcript: Mikado.loci_objects.transcript.Transcript
-
-    """
-
-    trust_strand = transcript.configuration.pick.orf_loading.strand_specific
-    min_cds_len = transcript.configuration.pick.orf_loading.minimal_orf_length
-
-    orf_results = transcript.orf_baked(transcript.session).params(query=transcript.id,
-                                                                  cds_len=min_cds_len)
-    transcript.logger.debug("Retrieving ORFs from database for %s",
-                            transcript.id)
-
-    assert orf_results is not None
-
-    if (transcript.monoexonic is False) or (transcript.monoexonic is True and trust_strand is True and
-                                            transcript.strand is not None):
-        # Remove negative strand ORFs for multiexonic transcripts,
-        # or monoexonic strand-specific transcripts
-        assert orf_results is not None
-        candidate_orfs = list(orf for orf in orf_results if orf.strand != "-")
-    else:
-        candidate_orfs = orf_results.all()
-
-    transcript.logger.debug("Found %d ORFs for %s",
-                            len(candidate_orfs), transcript.id)
-    assert isinstance(candidate_orfs, list)
-
-    if len(candidate_orfs) == 0:
-        return []
-    else:
-        result = [orf.as_bed12() for orf in candidate_orfs]
-        for orf in result:
-            assert orf.chrom == transcript.id, (orf.chrom, transcript.id)
-        return result
 
 
 def orf_sorter(orf):

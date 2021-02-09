@@ -10,7 +10,8 @@ import collections
 import logging
 import operator
 from logging import handlers as log_handlers
-from ..transcripts import Transcript, Namespace
+from ..transcripts import Transcript
+from ..utilities.namespace import Namespace
 from ..utilities import calc_f1
 from .resultstorer import ResultStorer
 from ..utilities import IntervalTree

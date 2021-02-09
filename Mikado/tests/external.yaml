@@ -1,0 +1,81 @@
+pick:
+  alternative_splicing:
+    keep_cds_disrupted_by_ri: false
+    keep_retained_introns: true
+    max_isoforms: 15
+    min_cdna_overlap: 0.6
+    min_cds_overlap: 0.5
+    min_score_perc: 0.5
+    only_confirmed_introns: true
+    pad: true
+    redundant_ccodes:
+    - c
+    - m
+    - _
+    - '='
+    - n
+    report: true
+    ts_distance: 2000
+    ts_max_splices: 2
+    valid_ccodes:
+    - j
+    - J
+    - G
+    - h
+  chimera_split:
+    blast_check: true
+    blast_params:
+      evalue: 1.0e-06
+      hsp_evalue: 1.0e-06
+      leniency: STRINGENT
+      max_target_seqs: 3
+      min_overlap_duplication: 0.8
+      minimal_hsp_overlap: 0.5
+    execute: true
+    skip: []
+  clustering:
+    cds_only: false
+    flank: 200
+    min_cdna_overlap: 0.2
+    min_cds_overlap: 0.2
+    purge: true
+    simple_overlap_for_monoexonic: true
+  files:
+    input: 'mikado_prepared.gtf'
+    loci_out: 'mikado.loci.gff3'
+    log: 'pick.log'
+    monoloci_out: 'mikado.monoloci.gff3'
+    output_dir: .
+    subloci_out: 'mikado.subloci.gff3'
+  fragments:
+    max_distance: 2000
+    remove: true
+    valid_class_codes:
+    - p
+    - P
+    - x
+    - X
+    - i
+    - m
+    - _
+    - e
+    - o
+  run_options:
+    check_references: true
+    exclude_cds: false
+    intron_range:
+    - 60
+    - 50000
+    only_reference_update: false
+    shm: false
+    single_thread: false
+prepare:
+  canonical:
+  - - GT
+    - AG
+  - - GC
+    - AG
+  - - AT
+    - AC
+  max_intron_length: 1000000
+  minimum_cdna_length: 200

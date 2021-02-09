@@ -4,7 +4,7 @@ import tempfile
 import unittest
 import pkg_resources
 import pyfaidx
-from ..transcripts.transcriptchecker import TranscriptChecker
+from Mikado.transcripts.transcriptchecker import TranscriptChecker
 import pysam
 from ..parsers.GTF import GtfLine
 from ..transcripts.transcript import Transcript

@@ -2,6 +2,7 @@
 #  - short_reads: this section deals with RNA-Seq short read input data.
 #  - name: name of the species under analysis.
 #  - reference: reference data to use. A reference genome is required.
+threads: 1
 blastx:
   chunks: 1
   evalue: 1.0e-07
@@ -60,7 +61,7 @@ pick:
       #  - evalue: Minimum evalue for the whole hit. Default: 1e-6
       #  - leniency: One of STRINGENT, LENIENT, PERMISSIVE. Default: STRINGENT
       #  - max_target_seqs: maximum number of hits to consider. Default: 3
-      {}
+      leniency: STRINGENT
     execute: true
   clustering:
     #  Parameters related to the clustering of transcripts into loci.

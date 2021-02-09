@@ -15,7 +15,8 @@ import sys
 from collections import namedtuple
 from functools import partial
 from logging import handlers as log_handlers
-from ...transcripts.transcript import Transcript, Namespace
+from ...transcripts.transcript import Transcript
+from ...utilities.namespace import Namespace
 from ..accountant import Accountant
 from ..contrast import compare as c_compare
 from ..resultstorer import ResultStorer

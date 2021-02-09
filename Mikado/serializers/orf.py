@@ -15,7 +15,7 @@ from sqlalchemy.orm.session import sessionmaker
 from sqlalchemy import select
 from ..utilities.dbutils import DBBASE, Inspector, connect
 from ..parsers import bed12  # , GFF
-from .blast_serializer import Query
+from .blast_serializer.query import Query
 from ..utilities.log_utils import create_null_logger, check_logger
 import pandas as pd
 from ..exceptions import InvalidSerialization

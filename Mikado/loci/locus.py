@@ -11,8 +11,6 @@ import operator
 from collections import defaultdict
 import pysam
 from ..transcripts.transcript import Transcript
-from ..configuration.daijin_configuration import DaijinConfiguration
-from ..configuration.configuration import MikadoConfiguration
 # from ..configuration.picking_config import valid_as_ccodes, redundant_as_ccodes
 from ..transcripts.transcriptchecker import TranscriptChecker
 from .abstractlocus import Abstractlocus, rgetattr  # , default_configuration
@@ -29,8 +27,7 @@ class Locus(Abstractlocus):
     additional transcripts if they are valid splicing isoforms.
     """
 
-    def __init__(self, transcript=None, logger=None, configuration=None,
-                 pad_transcripts=None, **kwargs):
+    def __init__(self, transcript=None, logger=None, configuration=None, **kwargs):
         """
         Constructor class. Like all loci, also Locus is defined starting from a transcript.
 
@@ -70,14 +67,12 @@ class Locus(Abstractlocus):
         self.__id = None
         self.fai = None
         self.__finalized = False
-
         self._reference_sources = set(source for source, is_reference in
                                       zip(self.configuration.prepare.files.labels,
                                           self.configuration.prepare.files.reference) if is_reference is True)
 
-        if pad_transcripts in (False, True):
-            self.configuration.pick.alternative_splicing.pad = pad_transcripts
-            assert self.perform_padding == pad_transcripts
+        self.valid_ccodes = self.configuration.pick.alternative_splicing.valid_ccodes[:]
+        self.redundant_ccodes = self.configuration.pick.alternative_splicing.redundant_ccodes[:]
 
         if self.perform_padding is True and self.reference_update is True:
             self._add_to_alternative_splicing_codes("=")
@@ -234,6 +229,7 @@ class Locus(Abstractlocus):
                 break
 
         for tid in self.transcripts:
+            # For each transcript check if they have been padded
             assert tid in original
             backup = original[tid]
             transcript = self.transcripts[tid]
@@ -417,10 +413,6 @@ it is marked as having 0 retained introns. This is an error.".format(transcript=
                 self.logger.debug("Comparing ichain %s, %s vs %s: nF1 %s", ichain, t1, t2, class_codes[(t1, t2)].n_f1)
 
         for couple, comparison in class_codes.items():
-            # if self[couple[0]].is_reference and self[couple[1]].is_reference:
-            #     self.logger.debug("Both %s and %s are references, continuing", couple[0], couple[1])
-            #     continue
-
             removal = None
             if comparison.n_f1[0] == 100:
                 try:
@@ -552,7 +544,7 @@ it is marked as having 0 retained introns. This is an error.".format(transcript=
                     "s" * min(1, len(to_check) - 1))
 
         # Add a check similar to what we do for the minimum requirements and the fragments
-        if to_be_added and self.configuration.as_requirements:
+        if to_be_added and self.configuration.scoring.as_requirements:
             to_be_added = self.__check_as_requirements(transcript, is_reference=reference_pass)
 
         if to_be_added is True:
@@ -594,21 +586,17 @@ it is marked as having 0 retained introns. This is an error.".format(transcript=
         if is_reference is True and self.configuration.pick.run_options.check_references is False:
             return True
         # TODO where are we going to put the as_requirements?
-        section = self.configuration.as_requirements
-
-        if "compiled" not in section or section["compiled"] is None:
-            section["compiled"] = compile(section["expression"], "<json>", "eval")
-            self.configuration.as_requirements = section
+        section = self.configuration.scoring.as_requirements
 
         evaluated = dict()
-        for key in section["parameters"]:
-            value = rgetattr(transcript, section["parameters"][key]["name"])
+        for key in section.parameters:
+            value = rgetattr(transcript, section.parameters[key].name)
             if "external" in key:
                 value = value[0]
 
-            evaluated[key] = self.evaluate(value, section["parameters"][key])
+            evaluated[key] = self.evaluate(value, section.parameters[key])
             # pylint: disable=eval-used
-        if eval(section["compiled"]) is False:
+        if eval(section.compiled) is False:
             self.logger.debug("%s fails the minimum requirements for AS events", transcript.id)
             to_be_added = False
         return to_be_added
@@ -628,33 +616,27 @@ it is marked as having 0 retained introns. This is an error.".format(transcript=
                 any(self.transcripts[tid].is_reference is True for tid in self.transcripts):
             return False
 
-        # TODO this needs to be changed
-        if "compiled" not in self.configuration.not_fragmentary:
-            self.configuration.not_fragmentary["compiled"] = compile(
-                self.configuration.not_fragmentary["expression"], "<json>", "eval")
-
         current_id = self.id[:]
 
         evaluated = dict()
-        for key in self.configuration.not_fragmentary["parameters"]:
-            value = rgetattr(self.primary_transcript,
-                             self.configuration.not_fragmentary["parameters"][key]["name"])
+        for key, params in self.configuration.scoring.not_fragmentary.parameters.items():
+            name = params.name
+            value = rgetattr(self.primary_transcript, name)
             if "external" in key:
                 value = value[0]
             try:
-                evaluated[key] = self.evaluate(value,
-                                               self.configuration.not_fragmentary["parameters"][key])
+                evaluated[key] = self.evaluate(value, params)
             except Exception as err:
                 self.logger.error(
                     """Exception while calculating putative fragments. Key: {}, \
                     Transcript value: {} (type {}) \
                     configuration value: {} (type {}).""".format(
-                        key, value, type(value), self.configuration.not_fragmentary["parameters"][key],
-                        type(self.configuration.not_fragmentary["parameters"][key])
+                        key, value, type(value), params,
+                        type(params)
                     ))
                 self.logger.exception(err)
                 raise err
-        if eval(self.configuration.not_fragmentary["compiled"]) is True:
+        if eval(self.configuration.scoring.not_fragmentary.compiled) is True:
             self.logger.debug("%s cannot be a fragment according to the definitions, keeping it",
                               self.id)
             fragment = False
@@ -828,8 +810,7 @@ it is marked as having 0 retained introns. This is an error.".format(transcript=
     def print_scores(self):
         """This method yields dictionary rows that are given to a csv.DictWriter class."""
         self.filter_and_calculate_scores()
-        # TODO needs changing
-        score_keys = sorted(list(self.configuration.scoring.keys()) + ["source_score"])
+        score_keys = sorted(list(self.configuration.scoring.scoring.keys()) + ["source_score"])
         keys = ["tid", "alias", "parent", "score"] + score_keys
 
         for tid in self.scores:
@@ -874,8 +855,8 @@ it is marked as having 0 retained introns. This is an error.".format(transcript=
 
         is_valid = True
 
-        valid_ccodes = self.configuration.pick.alternative_splicing.valid_ccodes
-        redundant_ccodes = self.configuration.pick.alternative_splicing.redundant_ccodes
+        valid_ccodes = self.valid_ccodes
+        redundant_ccodes = self.redundant_ccodes
         cds_only = self.configuration.pick.alternative_splicing.cds_only
 
         if other.is_coding and not self.primary_transcript.is_coding:
@@ -1402,44 +1383,34 @@ it is marked as having 0 retained introns. This is an error.".format(transcript=
         """Checks whether any transcript in the locus is marked as reference."""
         return any(self.transcripts[transcript].is_reference for transcript in self)
 
-    @property
-    def _redundant_ccodes(self):
-        return self.configuration.pick.alternative_splicing.redundant_ccodes
-
-    def _get_alternative_splicing_codes(self):
-        """Method to retrieve the currently valid alternative splicing event codes"""
-        return self.configuration.pick.alternative_splicing.valid_ccodes
-
     def _add_to_alternative_splicing_codes(self, code):
         """Method to retrieve the currently valid alternative splicing event codes"""
-        codes = set(self.configuration.pick.alternative_splicing.valid_ccodes)
+        codes = set(self.valid_ccodes)
         codes.add(code)
-        self.configuration.pick.alternative_splicing.valid_ccodes = list(codes)
-        # _valid_ccodes.validate(self.configuration.pick.alternative_splicing.valid_ccodes)
+        self.valid_ccodes = list(codes)
         self._remove_from_redundant_splicing_codes(code)
 
     def _add_to_redundant_splicing_codes(self, code):
         """Method to retrieve the currently valid alternative splicing event codes"""
-        codes = set(self.configuration.pick.alternative_splicing.redundant_ccodes)
+        codes = set(self.redundant_ccodes)
         codes.add(code)
-        self.configuration.pick.alternative_splicing.redundant_ccodes = list(codes)
-        # _valid_redundant.validate(self.configuration.pick.alternative_splicing.redundant_ccodes)
+        self.redundant_ccodes = list(codes)
         self._remove_from_alternative_splicing_codes(code)
 
     def _remove_from_alternative_splicing_codes(self, *ccodes):
-        sub = self.configuration.pick.alternative_splicing.valid_ccodes
+        sub = self.valid_ccodes
         for ccode in ccodes:
             if ccode in sub:
                 sub.remove(ccode)
-        self.configuration.pick.alternative_splicing.valid_ccodes = sub
+        self.valid_ccodes = sub
 
     def _remove_from_redundant_splicing_codes(self, *ccodes):
         self.logger.debug("Removing from redundant ccodes: %s. Current: %s", ccodes,
-                          self.configuration.pick.alternative_splicing.redundant_ccodes)
-        sub = self.configuration.pick.alternative_splicing.redundant_ccodes
+                          self.redundant_ccodes)
+        sub = self.redundant_ccodes
         sub = [_ for _ in sub if _ not in ccodes]
         self.logger.debug("New redundant ccodes: %s", sub)
-        self.configuration.pick.alternative_splicing.redundant_ccodes = sub
+        self.redundant_ccodes = sub
 
         
 def expand_transcript(transcript: Transcript,

@@ -260,9 +260,14 @@ def perform_check(keys, shelve_names, mikado_config: MikadoConfiguration, logger
             if chrom not in mikado_config.reference.genome.references:
                 raise KeyError("Invalid chromosome name! {}, {}, {}, {}".format(tid, shelf_name, chrom, key))
 
+            try:
+                seq = str(mikado_config.reference.genome.fetch(chrom, key[0] - 1, key[1]))
+            except ValueError:
+                raise ValueError(tobj)
+
             transcript_object = partial_checker(
                 tobj,
-                str(mikado_config.reference.genome.fetch(chrom, key[0] - 1, key[1])),
+                seq,
                 key[0], key[1],
                 lenient=mikado_config.prepare.lenient,
                 is_reference=tobj["is_reference"],
@@ -650,7 +655,6 @@ def prepare(mikado_config: MikadoConfiguration, logger):
 
         rows = rows.merge(shelve_table, on="shelf", how="left")
         random.seed(mikado_config.seed)
-        import sys; print(mikado_config.seed, file=sys.stderr)
 
         shelves = dict((shelf_name, open(shelf_name, "rb")) for shelf_name in shelve_table["shelf"].unique())
 

@@ -2,7 +2,7 @@ import argparse
 import sys
 from multiprocessing.spawn import freeze_support
 import logging
-from Mikado.version import __version__
+from .version import __version__
 
 
 def main(call_args=None):

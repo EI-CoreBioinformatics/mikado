@@ -1,23 +1,30 @@
 from dataclasses import field
-from marshmallow_dataclass import dataclass, Optional, List
 from marshmallow import validate
+from marshmallow_dataclass import dataclass, Optional, List
 from .configuration import MikadoConfiguration
-import copy
 
 
 @dataclass
 class ShortReads:
     r1: List[str] = field(default_factory=lambda: [], metadata={
         "metadata": {"description": "Array of left read files."},
+        "required": True
     })
     r2: List[str] = field(default_factory=lambda: [], metadata={
-        "metadata": {"description": "Array of right read files. It must be of the same length of r1; if one or more of the samples are single-end reads, add an empty string."},
+        "metadata": {
+            "description": "Array of right read files. It must be of the same length of r1; if one or more of the \
+samples are single-end reads, add an empty string."},
+        "required": True
     })
     samples: List[str] = field(default_factory=lambda: [], metadata={
         "metadata": {"description": "Array of the sample names. It must be of the same length of r1."},
+        "required": True
     })
     strandedness: List[str] = field(default_factory=lambda: [], metadata={
-        "metadata": {"description": "Array of strand-specificity of the samples. It must be of the same length of r1. Valid values: fr-firststrand, fr-secondstrand, fr-unstranded."},
+        "metadata": {
+            "description": "Array of strand-specificity of the samples. It must be of the same length of r1. \
+Valid values: fr-firststrand, fr-secondstrand, fr-unstranded."},
+        "required": True
     })
 
 
@@ -36,14 +43,15 @@ class OrfCalling:
         "validate": validate.Range(min=0)
     })
     execute: bool = field(default=True, metadata={
-        "description": "boolean flag. Default: true, ie execute the ORF calling."
+        "metadata": {"description": "boolean flag. Default: true, ie execute the ORF calling."}
     })
 
 
 @dataclass
 class BlastX:
     prot_db: Optional[List[str]] = field(default_factory=lambda: [], metadata={
-        "metadata": {"description": "FASTA file(s) to be used as database for the homology search. Multiple files can be provided and they will be merged into a single database before running."},
+        "metadata": {
+            "description": "FASTA file(s) to be used as database for the homology search. Multiple files can be provided and they will be merged into a single database before running."},
     })
     evalue: float = field(default=1e-7, metadata={
         "metadata": {"description": "Maximum e-value. Default 1e-7"},
@@ -54,7 +62,9 @@ class BlastX:
         "validate": validate.Range(min=1)
     })
     chunks: int = field(default=10, metadata={
-        "metadata": {"description": "Number of chunks to divide the search into. Must be equal or greater than the number of processes."},
+        "metadata": {
+            "description": "Number of chunks to divide the search into. Must be equal or greater than the number of processes."
+        },
         "validate": validate.Range(min=1)
     })
 
@@ -104,8 +114,8 @@ class ProgramLoader:
 
 @dataclass
 class Portcullis:
-    do: bool = field(default=True)
-    canonical_juncs: str = field(default="C,S")
+    do: bool = field(default=True, metadata={"required": True})
+    canonical_juncs: str = field(default="C,S", metadata={"required": True})
 
 
 @dataclass
@@ -119,10 +129,14 @@ class DaijinMikadoConfiguration:
         "metadata": {"description": "use DIAMOND instead of NCBI BLASTX. Default: true"},
     })
     use_prodigal: bool = field(default=True, metadata={
-        "description": "Use Prodigal instead of TransDecoder for ORF calling. Default: true"
+        "metadata": {"description": "Use Prodigal instead of TransDecoder for ORF calling. Default: true"}
     })
     modes: List[str] = field(default_factory=lambda: ["stringent"], metadata={
-        "metadata": {"description": "which mode(s) to run Mikado into. Default: permissive (split multiple ORF models unless there is strong BLAST evidence against the decision)."},
+        "metadata": {
+            "description": "which mode(s) to run Mikado into. Default: permissive (split multiple ORF models \
+unless there is strong BLAST evidence against the decision)."},
+        "validate": validate.ContainsOnly(["nosplit", "split", "lenient", "stringent", "permissive"]),
+        "required": True
     })
 
 
@@ -133,7 +147,8 @@ class TGGConfiguration:
         "validate": validate.Range(min=1000)
     })
     npaths: int = field(default=0, metadata={
-        "description": "Number of alignments per sequence, using GMAP. Default: 0 (one alignment per sequence, exclude chimeric)."
+        "metadata": {
+            "description": "Number of alignments per sequence, using GMAP. Default: 0 (one alignment per sequence, exclude chimeric)."}
     })
     identity: float = field(default=0.95, metadata={
         "metadata": {"description": "minimum identity for any alignment. Default: 95%"},
@@ -147,67 +162,64 @@ class TGGConfiguration:
 
 @dataclass
 class DaijinConfiguration(MikadoConfiguration):
-
     """
     Configuration properties for Daijin. This is an extended Mikado configuration file and can be given directly to
 Mikado itself.
     """
 
     load: ProgramLoader = field(default_factory=ProgramLoader, metadata={
-        "name": "load",
-        "metadata": {"description": "Commands to use to load/select the versions of the programs to use. Leave an empty string if no loading is necessary."},
+                "metadata": {
+            "description": "Commands to use to load/select the versions of the programs to use. Leave an empty string if no loading is necessary."},
     })
     portcullis: Portcullis = field(default_factory=Portcullis, metadata={
-        "name": "portcullis",
-        "metadata": {"description": "Options related to portcullis"},
+                "metadata": {"description": "Options related to portcullis"},
     })
     aln_index: AlnIndex = field(default_factory=AlnIndex, metadata={
-        "name": "aln_index",
-        "metadata": {"description": "Options related to indexing."},
+                "metadata": {"description": "Options related to indexing."},
     })
     long_reads: LongReads = field(default_factory=LongReads, metadata={
-        "name": "long_reads",
-        "metadata": {"description": "Parameters related to long reads to use for the assemblies."},
+                "metadata": {"description": "Parameters related to long reads to use for the assemblies."},
     })
     short_reads: ShortReads = field(default_factory=ShortReads, metadata={
-        "name": "short_reads",
-        "metadata": {"description": "Parameters related to the reads to use for the assemblies."},
+                "metadata": {"description": "Parameters related to the reads to use for the assemblies."},
     })
     name: str = field(default="Daijin", metadata={
-        "description": "Name to be used for the project"
+        "metadata": {"description": "Name to be used for the project"},
+        "required": True,
+        "validate": validate.Length(min=1)
     })
     out_dir: str = field(default="Daijin", metadata={
-        "description": "Output directory for the project"
+        "metadata": {"description": "Output directory for the project"},
+        "required": True,
+        "validate": validate.Length(min=1)
     })
     scheduler: Optional[str] = field(default=None, metadata={
-        "metadata": {"description": "Scheduler to be used for the project. Set to null if you plan to use DRMAA or are using a local machine."},
+        "metadata": {
+            "description": "Scheduler to be used for the project. Set to null if you plan to use DRMAA or are using a local machine."
+        },
         "validate": validate.OneOf(["SLURM", "LSF", "local", "PBS", ""])
     })
     align_methods: AlignMethods = field(default_factory=AlignMethods, metadata={
-        "name": "align_methods",
-        "metadata": {"description": "Aligners to use. Each aligner can be invoked multiple times: the per-aligner list includes the extra command line arguments to be passed to the program"},
+                "metadata": {
+            "description": "Aligners to use. Each aligner can be invoked multiple times: the per-aligner list includes the extra command line arguments to be passed to the program"},
     })
     long_read_align_methods: LongReadAlign = field(default_factory=LongReadAlign, metadata={
-        "name": "long_read_align_methods",
-        "metadata": {"description": "Aligners for long reads to use. Each aligner can be invoked multiple times: the per-aligner list includes the extra command line arguments to be passed to the program"},
+                "metadata": {
+            "description": "Aligners for long reads to use. Each aligner can be invoked multiple times: the per-aligner list includes the extra command line arguments to be passed to the program"},
     })
     asm_methods: AsmMethods = field(default_factory=AsmMethods, metadata={
-        "name": "asm_methods",
-        "metadata": {"description": "Short-read assemblers to use. Each assembler can be invoked multiple times: the per-aligner list includes the extra command line arguments to be passed to the program"},
+                "metadata": {
+            "description": "Short-read assemblers to use. Each assembler can be invoked multiple times: the per-aligner list includes the extra command line arguments to be passed to the program"},
     })
     orf_calling: OrfCalling = field(default_factory=OrfCalling, metadata={
-        "name": "orf_calling",
-        "metadata": {"description": "Parameters related to the ORF calling:"},
+                "metadata": {"description": "Parameters related to the ORF calling:"},
     })
     blastx: BlastX = field(default_factory=BlastX, metadata={
-        "name": "blastx",
-        "description": "Parameters related to how DIAMOND/BLASTX will be run"
+                "metadata": {"description": "Parameters related to how DIAMOND/BLASTX will be run"}
     })
     mikado: DaijinMikadoConfiguration = field(default_factory=DaijinMikadoConfiguration, metadata={
         "metadata": {"description": "Parameters related to the Mikado execution."},
-        "name": "mikado",
-    })
+            })
     tgg: TGGConfiguration = field(default_factory=TGGConfiguration, metadata={
         "metadata": {"description": "Options related to genome-guided Trinity."},
-        "name": "tgg",
-    })
+            })

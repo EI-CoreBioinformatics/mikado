@@ -11,7 +11,6 @@ from . import test_db_utils
 from . import test_external_scores
 from . import test_gene
 from . import test_invalid_orfs
-from . import test_json
 from . import test_metrics
 from . import test_modifications
 from . import test_scores

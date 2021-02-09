@@ -1,9 +1,5 @@
-try:
-    import rapidjson as json
-    decoder = json.Decoder()
-except (ImportError,ModuleNotFoundError):
-    import json
-    decoder = json.JSONDecoder().decode
+import rapidjson as json
+decoder = json.Decoder()
 import msgpack
 from ..loci import Superlocus
 from ..loci import Locus
@@ -12,9 +8,6 @@ import collections
 import itertools
 import numpy as np
 from ._locus_line_creator import _create_locus_lines
-
-
-
 
 
 def manage_index(index, data, source):

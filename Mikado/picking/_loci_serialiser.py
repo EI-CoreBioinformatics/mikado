@@ -1,10 +1,7 @@
 from ..loci import Superlocus
 from functools import partial
 from ..utilities import default_for_serialisation
-try:
-    import rapidjson as json
-except (ImportError,ModuleNotFoundError):
-    import json
+import rapidjson as json
 dumper = partial(json.dumps, default=default_for_serialisation)
 import msgpack
 
@@ -26,6 +23,9 @@ def serialise_locus(stranded_loci: [Superlocus],
         if print_subloci is True:
             batch = []
             batch.append(stranded_locus.__str__(level="subloci", print_cds=print_cds))
+            for sublocus in stranded_locus.subloci:
+                assert sublocus.scores_calculated is True, (sublocus.id, sublocus.scores_calculated)
+
             sub_metrics_rows = [_ for _ in stranded_locus.print_subloci_metrics() if _ != {} and "tid" in _]
             sub_scores_rows = [_ for _ in stranded_locus.print_subloci_scores() if _ != {} and "tid" in _]
             batch.append(sub_metrics_rows)

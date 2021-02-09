@@ -9,8 +9,10 @@ import itertools
 import logging
 from sys import maxsize
 import networkx
-from ..transcripts.clique_methods import find_communities, define_graph
-from ..transcripts.transcript import Transcript
+from .._transcripts.clique_methods import find_communities, define_graph
+from .._transcripts.scoring_configuration import SizeFilter, InclusionFilter, NumBoolEqualityFilter, ScoringFile, \
+    RangeFilter
+from ..transcripts import Transcript
 from ..exceptions import NotInLocusError, InvalidJson
 from ..utilities import overlap, merge_ranges, rhasattr, rgetattr, default_for_serialisation
 import operator
@@ -19,17 +21,12 @@ from ..utilities.log_utils import create_null_logger
 from ..scales import c_compare
 import random
 from functools import partial
-try:
-    import rapidjson as json
-except (ImportError,ModuleNotFoundError):
-    import json
+import rapidjson as json
 dumper = partial(json.dumps, default=default_for_serialisation)
 from typing import Union
 from ..configuration.configuration import MikadoConfiguration
 from ..configuration.daijin_configuration import DaijinConfiguration
 from ..configuration.configurator import load_and_validate_config, check_and_load_scoring
-
-
 default_configuration = load_and_validate_config(None)
 
 
@@ -226,11 +223,6 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
         state["json_conf"] = self.configuration.copy()
 
-        state["json_conf"].requirements.pop("compiled", None)
-        state["json_conf"].cds_requirements.pop("compiled", None)
-        state["json_conf"].as_requirements.pop("compiled", None)
-        state["json_conf"].not_fragmentary.pop("compiled", None)
-
         if hasattr(self, "session"):
             if self.session is not None:
                 self.session.expunge_all()
@@ -239,10 +231,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             state["session"] = None
 
         if self.__internal_graph.nodes():
-            try:
-                nodes = dumper(list(self.__internal_graph.nodes())[0])
-            except ValueError:
-                nodes = dumper(list(self.__internal_graph.nodes())[0])
+            nodes = dumper(list(self.__internal_graph.nodes())[0])
         else:
             nodes = "[]"
         state["_Abstractlocus__internal_nodes"] = nodes
@@ -250,10 +239,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         edges = [edge for edge in self.__internal_graph.edges()]
         # Remember that the graph is in form [((start, end), (start, end)), etc.]
         # So that each edge is composed by a couple of tuples.
-        try:
-            state["_Abstractlocus__internal_edges"] = dumper(edges)
-        except ValueError:
-            state["_Abstractlocus__internal_edges"] = dumper(edges)
+        state["_Abstractlocus__internal_edges"] = dumper(edges)
         if hasattr(self, "engine"):
             del state["engine"]
 
@@ -284,15 +270,6 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             self.__internal_graph.add_edges_from(edges)
         except TypeError:
             raise TypeError(edges)
-
-        self.configuration.requirements["compiled"] = compile(
-            self.configuration.requirements.get("expression", "True"), "<json>", "eval")
-        self.configuration.cds_requirements["compiled"] = compile(
-            self.configuration.cds_requirements.get("expression", "True"), "<json>", "eval")
-        self.configuration.as_requirements["compiled"] = compile(
-            self.configuration.as_requirements.get("expression", True), "<json>", "eval")
-        self.configuration.not_fragmentary["compiled"] = compile(
-            self.configuration.not_fragmentary.get("expression", True), "<json>", "eval")
 
         # Recalculate the segment tree
         _ = self.__segmenttree
@@ -371,7 +348,8 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         return overlap(first_interval, second_interval, flank, positive=positive)
 
     @staticmethod
-    def evaluate(param: str, conf: dict) -> bool:
+    def evaluate(param: Union[str, int, bool, float],
+                 conf: Union[SizeFilter, InclusionFilter, NumBoolEqualityFilter, RangeFilter]) -> bool:
 
         """
         This static method will evaluate whether a certain parameter respects the conditions laid out in the
@@ -385,28 +363,29 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         :type conf: dict
         """
 
-        if conf["operator"] == "eq":
-            comparison = (float(param) == float(conf["value"]))
-        elif conf["operator"] == "ne":
-            comparison = (float(param) != float(conf["value"]))
-        elif conf["operator"] == "gt":
-            comparison = (float(param) > float(conf["value"]))
-        elif conf["operator"] == "lt":
-            comparison = (float(param) < float(conf["value"]))
-        elif conf["operator"] == "ge":
-            comparison = (float(param) >= float(conf["value"]))
-        elif conf["operator"] == "le":
-            comparison = (float(param) <= float(conf["value"]))
-        elif conf["operator"] == "in":
-            comparison = (param in conf["value"])
-        elif conf["operator"] == "not in":
-            comparison = (param not in conf["value"])
-        elif conf["operator"] == "within":
-            comparison = (param in range(*sorted([conf["value"][0], conf["value"][1] + 1])))
-        elif conf["operator"] == "not within":
-            comparison = (param not in range(*sorted([conf["value"][0], conf["value"][1] + 1])))
+        comparison_operator = conf.operator
+        if comparison_operator == "eq":
+            comparison = (float(param) == float(conf.value))
+        elif comparison_operator == "ne":
+            comparison = (float(param) != float(conf.value))
+        elif comparison_operator == "gt":
+            comparison = (float(param) > float(conf.value))
+        elif comparison_operator == "lt":
+            comparison = (float(param) < float(conf.value))
+        elif comparison_operator == "ge":
+            comparison = (float(param) >= float(conf.value))
+        elif comparison_operator == "le":
+            comparison = (float(param) <= float(conf.value))
+        elif comparison_operator == "in":
+            comparison = (param in conf.value)
+        elif comparison_operator == "not in":
+            comparison = (param not in conf.value)
+        elif comparison_operator == "within":
+            comparison = (param in range(*sorted([conf.value[0], conf.value[1] + 1])))
+        elif comparison_operator == "not within":
+            comparison = (param not in range(*sorted([conf.value[0], conf.value[1] + 1])))
         else:
-            raise ValueError("Unknown operator: {0}".format(conf["operator"]))
+            raise ValueError("Unknown operator: {0}".format(comparison_operator))
         return comparison
 
     # #### Class methods ########
@@ -668,11 +647,13 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         self.logger.warning("Removing all transcripts from %s", self.id)
         self.__internal_graph = networkx.DiGraph()
         self.transcripts = dict()
+        self.chrom = None
         self.start, self.end, self.strand = float("Inf"), float("-Inf"), None
         self.stranded = False
         self.initialized = False
         self.metrics_calculated = False
         self.scores_calculated = False
+        self._calculate_graph([])
 
     @staticmethod
     def _exon_to_be_considered(exon,
@@ -807,10 +788,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             [_._as_tuple() for _ in segmenttree.find(exon[0], exon[1], strict=False, value="intron")]
         )
 
-        logger.debug("Analysing exon %s with frags %s", exon, frags)
-
         if not found_introns:
-            logger.debug("No intron found for %s, returning False.", exon)
             return is_retained, cds_broken
 
         # logger.debug("Found introns for %s: %s", exon, found_introns)
@@ -836,7 +814,6 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             # logger.debug("Exon: %s; Frags: %s; Intron: %s; Before: %s; After: %s", exon, frags, intron, before, after)
             if len(before) == 0 and len(after) == 0:
                 # A retained intron must be overlapping some other exons!
-                logger.debug("No before/after exonic overlap found for exon %s vs intron %s. Skipping", exon, intron)
                 continue
             else:
                 if len(internal_splices) == 0:
@@ -856,29 +833,19 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                 else:
                     start_found = (exon[0] in set([e[0] for e in before - introns]))
                     end_found = (exon[1] in set([e[1] for e in after - introns]))
-                    logger.debug("Exon %s vs intron %s: strand %s, start found %s, end found %s (I.S. %s)",
-                                 exon, intron, strand, start_found, end_found, internal_splices)
                     if len(internal_splices) == 1:
                         if exon[0] in internal_splices:  # This means that the end is dangling
                             end_found = True
                         elif exon[1] in internal_splices:  # This means that the start is dangling
                             start_found = True
 
-                logger.debug(
-                    "Exon %s vs intron %s: strand %s, retained %s, start found %s, end found %s (I.S. %s); frags: %s",
-                    exon, intron, strand, start_found and end_found, start_found, end_found, internal_splices, frags)
                 if start_found and end_found:
-                    logger.debug("Exon %s is retained (for intron %s)", exon, intron)
                     # Now we have to check whether the CDS breaks within the intron
                     if intron in cds_introns:
                         for frag, intron in itertools.product(frags, [intron]):
                             cds_broken = cds_broken or (overlap(frag, intron, positive=True) > 0)
                             if cds_broken is True:
-                                logger.debug("Frag %s intersecting intron %s: CDS interrupted", frag, intron)
                                 break
-                            else:
-                                logger.debug("Frag %s of exon %s does not intersect intron %s.",
-                                             frag, exon, intron)
 
                 is_retained = is_retained or (start_found and end_found)
 
@@ -1266,7 +1233,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         self.transcripts[tid].retained_fraction = fraction
 
         self._metrics[tid] = dict((metric, rgetattr(self.transcripts[tid], metric))
-                                   for metric in self.available_metrics)
+                                  for metric in self.available_metrics)
 
         for metric, values in self._attribute_metrics.items():
             # 11 == len('attributes.') removes 'attributes.' to keep the metric name same as in the file attributes
@@ -1307,24 +1274,20 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         self.get_metrics()
 
         if section_name == "cds_requirements":
-            section = self.configuration.cds_requirements
+            section = self.configuration.scoring.cds_requirements
         elif section_name == "requirements":
-            section = self.configuration.requirements
+            section = self.configuration.scoring.requirements
         else:
             raise KeyError("Invalid requirements section: {}".format(section_name))
 
-        if "compiled" not in section or section["compiled"] is None:
-            if "expression" not in section:
-                raise KeyError(section)
-            section["compiled"] = compile(section["expression"], "<json>", "eval")
-            setattr(self.configuration, section_name, section)
-
+        assert hasattr(section, "parameters"), section.__dict__
+        self.logger.debug("Epression: %s", section.expression)
         not_passing = set()
         reference_sources = {source for source, is_reference in
                              zip(self.configuration.prepare.files.labels,
                                  self.configuration.prepare.files.reference) if is_reference}
 
-        section = getattr(self.configuration, section_name)
+        # section = getattr(self.configuration, section_name)
         for tid in iter(tid for tid in self.transcripts if
                         tid not in previous_not_passing):
             self.transcripts[tid].configuration = self.configuration
@@ -1344,14 +1307,26 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                 self.logger.debug("Performing the requirement check for %s even if it is a reference transcript", tid)
 
             evaluated = dict()
-            for key in section["parameters"]:
-                value = rgetattr(self.transcripts[tid], section["parameters"][key]["name"])
+            try:
+                _ = section.parameters
+            except:
+                self.logger.critical("Attribute error: {}".format(section_name))  # , dataclasses.asdict(section)))
+                raise AttributeError
+            for key in section.parameters:
+                if section.parameters[key].name is not None:
+                    name = section.parameters[key].name
+                else:
+                    name = key
+                try:
+                    value = rgetattr(self.transcripts[tid], name)
+                except AttributeError:
+                    raise AttributeError((section_name, key, section.parameters[key]))
                 if "external" in key:
                     value = value[0]
 
-                evaluated[key] = self.evaluate(value, section["parameters"][key])
+                evaluated[key] = self.evaluate(value, section.parameters[key])
             # pylint: disable=eval-used
-            if eval(section["compiled"]) is False:
+            if eval(section.compiled) is False:
                 not_passing.add(tid)
         self.logger.debug("The following transcripts in %s did not pass the minimum check for requirements: %s",
                           self.id, ", ".join(list(not_passing)))
@@ -1388,13 +1363,13 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
         self.get_metrics()
         self.logger.debug("Calculating scores for {0}".format(self.id))
-        if self.configuration.requirements and check_requirements:
+        if self.configuration.scoring.requirements and check_requirements:
             self._check_requirements()
 
         if len(self.transcripts) == 0:
             self.logger.warning("No transcripts pass the muster for %s (requirements:\n%s)",
                                 self.id,
-                                self.configuration.requirements)
+                                self.configuration.scoring.requirements)
             self.scores_calculated = True
             return
         self.scores = dict()
@@ -1404,7 +1379,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             # Add the score for the transcript source
             self.scores[tid]["source_score"] = self.transcripts[tid].source_score or 0
 
-        for param in self.configuration.scoring:
+        for param in self.configuration.scoring.scoring:
             self._calculate_score(param)
 
         for tid in self.scores:
@@ -1485,9 +1460,9 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         :return:
         """
 
-        rescaling = self.configuration.scoring[param]["rescaling"]
-        use_raw = self.configuration.scoring[param]["use_raw"]
-        multiplier = self.configuration.scoring[param]["multiplier"]
+        rescaling = self.configuration.scoring.scoring[param].rescaling
+        use_raw = self.configuration.scoring.scoring[param].use_raw
+        multiplier = self.configuration.scoring.scoring[param].multiplier
 
         metrics = dict()
         for tid, transcript in self.transcripts.items():
@@ -1519,12 +1494,13 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
         for tid in self.transcripts.keys():
             tid_metric = metrics[tid]
-
-            if "filter" in self.configuration.scoring[param] and self.configuration.scoring[param]["filter"]:
-                if "metric" not in self.configuration.scoring[param]["filter"]:
+            # Check the filtering expression
+            param_conf = self.configuration.scoring.scoring[param]
+            if param_conf.filter is not None:
+                if param_conf.filter.metric is None:
                     metric_to_evaluate = tid_metric
                 else:
-                    metric_key = self.configuration.scoring[param]["filter"]["metric"]
+                    metric_key = param_conf.filter.metric
                     if not rhasattr(self.transcripts[tid], metric_key):
                         raise KeyError("Asked for an invalid metric in filter: {}".format(metric_key))
                     if tid not in self._metrics and self.transcripts[tid].alias in self._metrics:
@@ -1535,7 +1511,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                     if "external" in metric_key:
                         metric_to_evaluate = metric_to_evaluate[0]
 
-                check = self.evaluate(metric_to_evaluate, self.configuration.scoring[param]["filter"])
+                check = self.evaluate(metric_to_evaluate, param_conf.filter)
                 if not check:
                     del metrics[tid]
             else:
@@ -1580,7 +1556,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                 use_raw = False
 
             if rescaling == "target":
-                target = self.configuration.scoring[param]["value"]
+                target = self.configuration.scoring.scoring[param].value
                 denominator = max(abs(x - target) for x in metrics.values())
             else:
                 target = None
@@ -1621,10 +1597,23 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                 self.scores[tid][param] = round(score, 2)
 
         # This MUST be true
-        if "filter" not in self.configuration.scoring[param] and max(
-                [self.scores[tid][param] for tid in self.transcripts.keys()]) == 0:
-            self.logger.warning("All transcripts have a score of 0 for %s in %s",
-                                param, self.id)
+        debug = self.configuration.log_settings.log_level == "DEBUG"
+        if self.configuration.scoring.scoring[param].filter is None and max(
+                [self.scores[tid][param] for tid in self.transcripts.keys()]) == 0 and debug:
+            message = """All transcripts have a score of 0 for {} in {}. This is an error!
+Metrics: {}
+Scores: {}
+Scoring configuration: {}
+""".format(param, self.id, metrics.items(),
+           dict((tid, self.scores[tid][param]) for tid in self.transcripts.keys()),
+           self.configuration.scoring.scoring[param],)
+            if rescaling == "target":
+                target = self.configuration.scoring.scoring[param].value
+                message += f"Denominator: {denominator}\n"
+                message += f"Formula for denominator: max(abs(x - {target}) for x in {metrics.values()})\n"
+                for tid, tid_metric in metrics.items():
+                    message += f"Formula for {tid}:\t1 - abs({tid_metric} - {target}) / {denominator}\n"
+            self.logger.debug(message)
 
     @classmethod
     def _calculate_graph(cls, transcripts):
@@ -1705,19 +1694,28 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             raise InvalidJson(
                 "Invalid configuration, type {}, expected MikadoConfiguration or DaijinConfiguration!".format(
                     type(conf)))
+        if conf.scoring is None or not hasattr(conf.scoring.requirements, "parameters"):
+            self.logger.warning("Reloading conf")
+            check_and_load_scoring(conf)
         self.__configuration = conf
         # Get the value for each attribute defined metric
         self._attribute_metrics = dict()
-        assert self.__configuration.scoring is not None, (self.__configuration.scoring, self.__configuration.requirements)
-        for param in self.__configuration.scoring:
+        assert self.__configuration.scoring is not None, (self.__configuration.scoring,
+                                                          self.__configuration.requirements)
+        found_attributes = False
+        self.logger.debug("Scoring parameters: %s", ",".join(list(self.__configuration.scoring.scoring.keys())))
+        for param in self.__configuration.scoring.scoring:
             if not param.startswith("attributes."):
                 continue
+            found_attributes = True
+            self.logger.debug("Adding parameter %s", param)
             self._attribute_metrics[param] = {
-                                      'default': self.configuration.scoring[param]["default"],
-                                      'rtype': self.configuration.scoring[param]['rtype'],
-                                      'use_raw': self.configuration.scoring[param]['use_raw'],
-                                      'percentage': self.configuration.scoring[param]['percentage']
+                                      'default': self.configuration.scoring.scoring[param].default,
+                                      'rtype': self.configuration.scoring.scoring[param].rtype,
+                                      'use_raw': self.configuration.scoring.scoring[param].use_raw,
+                                      'percentage': self.configuration.scoring.scoring[param].percentage
                                   }
+        self.logger.debug("Found attributes: %s", found_attributes)
 
     def check_configuration(self):
         """Method to be invoked to verify that the configuration is correct.
@@ -1786,6 +1784,9 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         Logger instance for the class.
         :rtype : logging.Logger
         """
+        if self.__logger is None:
+            self.__logger = create_null_logger()
+            self.__logger.propagate = False
         return self.__logger
 
     @logger.setter
@@ -1848,12 +1849,6 @@ class Abstractlocus(metaclass=abc.ABCMeta):
     def _cds_only(self):
         return self.configuration.pick.clustering.cds_only
 
-    @_cds_only.setter
-    def _cds_only(self, value):
-        if value not in (True, False):
-            raise ValueError(value)
-        self.configuration.pick.clustering.cds_only = value
-
     @property
     def segmenttree(self):
         """The interval tree structure derived from the exons and introns of the locus."""
@@ -1906,12 +1901,6 @@ class Abstractlocus(metaclass=abc.ABCMeta):
     def perform_padding(self):
         """Alias for self.configuration.pick.alternative_splicing.pad"""
         return self.configuration.pick.alternative_splicing.pad
-
-    def _set_padding(self, value):
-        """Set the perform_padding property."""
-        if value not in (False, True):
-            raise ValueError
-        self.configuration.pick.alternative_splicing.pad = value
 
     @property
     def only_reference_update(self):

@@ -26,8 +26,10 @@ configname = "configuration.yaml"
 config_command = "mikado configure --use-transdecoder --seed 1149199520 --list list.txt --reference chr5.fas.gz --mode permissive --daijin -t 3 \
         --subloci-out mikado.subloci.gff3 --scoring plant.yaml --junctions junctions.bed -bt {swiss} -bc 1 {configname}".format(configname=configname, swiss=swissprot)
 toml_name = "configuration.toml"
-toml_command = "mikado configure --use-transdecoder --seed 1149199520 --list list.txt --reference chr5.fas.gz --mode permissive --daijin -t 3 \
-        --subloci-out mikado.subloci.gff3 --scoring plant.yaml --junctions junctions.bed -bt {swiss} -bc 1 {configname}".format(configname=toml_name, swiss=swissprot)
+toml_command_template = "mikado configure --use-transdecoder --seed 1149199520 --list list.txt --reference chr5.fas.gz --mode permissive {daijin} -t 3 \
+        -od {outdir}  --subloci-out mikado.subloci.gff3 --scoring plant.yaml --junctions junctions.bed -bt {swiss} -bc 1 {configname}"
+
+toml_command = toml_command_template.format(configname=toml_name, swiss=swissprot, daijin="--daijin", outdir="Daijin")
 
 if not os.path.exists(configname):
     snake_logger.info("Creating the configuration file")
@@ -48,7 +50,7 @@ except Exception as exc:
 # configfile: "configuration.yaml"
 
 rule complete:    
-    input: "compare.stats", "compare_subloci.stats", "compare_input.stats", "check.ok",
+    input: "compare.stats", "compare_subloci.stats", "compare_input.stats", "check.ok", "manual.ok",
            "daijin_test/mikado.yaml", "check_metrics.ok", "g11.ok", "refmap_check.ok", "refmap_check_pc.ok",
            "external.ok", "alias_check.ok"
     output: touch("finished.ok")
@@ -109,6 +111,41 @@ rule daijin:
     # shell: "daijin mikado --jobs 2 --cores 4 --threads 2 -nd --nolock configuration.yaml"
     shell: "daijin mikado --jobs 2 --cores 4 --threads 2 -nd --nolock configuration.toml"
 
+
+rule mikado_configure_manual:
+     input: "class.gtf", "cufflinks.gtf", "stringtie.gtf", "trinity.gff3", "mikado.bed", "configuration.toml", swissprot
+     output: "configuration.manual.toml"
+     shell: toml_command_template.format(configname="{output}", swiss=swissprot, daijin="", outdir="manual")
+
+
+rule mikado_prepare_manual:
+    input: rules.mikado_configure_manual.output
+    output:
+      gtf="manual/mikado_prepared.gtf",
+      fasta="manual/mikado_prepared.fasta"
+    shell: "mikado prepare --configuration {input}"
+
+
+rule mikado_serialise_manual:
+    input:
+      gtf=rules.mikado_prepare_manual.output.gtf,
+      fasta=rules.mikado_prepare_manual.output.fasta,
+      config=rules.mikado_configure_manual.output
+    output: "manual/mikado.db"
+    shell: "mikado serialise --configuration {input.config}"
+
+
+rule mikado_pick_manual:
+    input:
+      config=rules.mikado_configure_manual.output,
+      gtf=rules.mikado_prepare_manual.output.gtf,
+      db=rules.mikado_serialise_manual.output
+    output:
+      gff="manual/mikado.loci.gff3",
+      ok=touch("manual.ok")
+    shell: "mikado pick --configuration {input.config}"
+
+
 rule index_reference:
     input: reference="reference.gff3"
     output: "reference.gff3.midx"
@@ -159,9 +196,9 @@ rule check_refmap:
         refmap = pd.read_csv(input["refmap"], delimiter="\t", index_col=0)
         assert refmap.location.str.contains("^Chr5:", regex=True).all()
         # Account for the non-protein coding
-        assert refmap.loc[~refmap.index.str.contains("AT5G66650")].ccode.str.contains("^(=|_)$", regex=True).all()
-        assert refmap.loc[refmap.index.str.contains("AT5G66650")].ccode.str.contains("^(f,=|f,_)$", regex=True).all()
-        assert (refmap.tid.index == refmap.tid.str.replace("^at_", "")).all(), refmap.tid
+        assert refmap.loc[~refmap.index.str.contains("AT5G66650")].ccode.str.contains(r"^(=|_)$", regex=True).all()
+        assert refmap.loc[refmap.index.str.contains("AT5G66650")].ccode.str.contains(r"^(f,=|f,_)$", regex=True).all()
+        assert (refmap.tid.index == refmap.tid.str.replace(r"^at_", "")).all(), refmap.tid
 
 rule check_refmap_pc:
     input:
@@ -170,10 +207,9 @@ rule check_refmap_pc:
     run:
         import pandas as pd
         refmap = pd.read_csv(input["refmap"], delimiter="\t", index_col=0)
-        assert refmap.location.str.contains("^Chr5:", regex=True).all()
-        # Account for the non-protein coding
-        assert refmap.loc[~refmap.index.str.contains("AT5G66650")].ccode.str.contains("^(=|_)$", regex=True).all()
-        checker = refmap.loc[~refmap.index.str.contains("AT5G66650")].tid.str.replace("^at_", "", regex=True)
+        assert refmap.location.str.contains(r"^Chr5:", regex=True).all()
+        assert refmap.loc[~refmap.index.str.contains("AT5G66650")].ccode.str.contains(r"^(=|_)$", regex=True).all()
+        checker = refmap.loc[~refmap.index.str.contains("AT5G66650")].tid.str.replace(r"^at_", "", regex=True)
         assert (checker == checker.index).all()
 
 
@@ -205,7 +241,7 @@ rule check_pick:
       fai = len([_ for _ in open(input["fai"])])
       import pandas as pd
       metrics = pd.read_csv(input["metrics"], delimiter="\t")
-      found_split = metrics[metrics.columns[0]].str.contains(".split").any()
+      found_split = metrics[metrics.columns[0]].str.contains(r".split").any()
       no_dups = (metrics[metrics.columns[0]].drop_duplicates().shape[0] == metrics.shape[0])
       total = metrics[metrics.columns[0]].str.replace("\.split[0-9]*", "", regex=True).drop_duplicates().shape[0]
       found_excluded = metrics[metrics.columns[2]].str.contains("excluded").any()
@@ -374,20 +410,22 @@ rule check_g11:
                 if line[0] != ">" and "*" in line:
                     print(line)
                     raise ValueError(line)
-        touch(output)
+
 
 rule clean:
     run:
         import shutil
         for filename in itertools.chain(glob.glob("*.ok"), glob.glob("uniprot*.fasta.p*"),
                                     glob.glob("daijin_*.stats"),
+				    glob.glob("*manual*"),				    
                                     glob.glob("*midx"), glob.glob("*fai"),
+				    glob.glob("daijin*yaml"),
                                     glob.glob("uniprot*fasta"), glob.glob("*loci*"),
 				                    ["daijin.yaml", "Daijin", "daijin_logs", "daijin_test"],
                                     ["mikado_prepared.gtf", "mikado_prepared.fasta", "mikado.prodigal.gff3"],
                                     glob.glob("compare*"), glob.glob(config["db_settings"]["db"]),
                                     glob.glob("*.log"), glob.glob("*xml"), ["chr5.fas"],
-				                    glob.glob("*.ok"),
+		                    glob.glob("*.ok"),
                                     ["refmap_check.ok", "refmap_check_pc.ok",
                                     "configuration.yaml", "configuration.toml", "daijin.toml", "daijin.yaml"]):
             if os.path.exists(filename) and filename not in (".", ".."):

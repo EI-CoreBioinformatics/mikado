@@ -58,11 +58,6 @@ def check_run_options(args, logger=create_null_logger()):
 
     if args.seed is not None:
         args.configuration.seed = args.seed
-        # numpy.random.seed(args.seed % (2 ** 32 - 1))
-        random.seed(args.seed % (2 ** 32 - 1))
-    else:
-        # numpy.random.seed(None)
-        random.seed(None)
 
     if args.no_cds is not False:
         args.configuration.pick.run_options.exclude_cds = True
@@ -148,6 +143,20 @@ def check_run_options(args, logger=create_null_logger()):
 
     if args.gff:
         args.configuration.pick.files.input = args.gff
+        if not os.path.exists(args.gff):
+            raise ValueError("The input file {} does not exist. Please double check!".format(args.gff))
+
+    prep_gtf = os.path.join(args.configuration.prepare.files.output_dir, args.configuration.prepare.files.out)
+    if not os.path.exists(args.configuration.pick.files.input):
+        if os.path.exists(prep_gtf):
+            args.configuration.pick.files.input = prep_gtf
+        elif os.path.exists(args.configuration.prepare.files.out):
+            args.configuration.pick.files.input = args.configuration.prepare.files.out
+        else:
+            msg = "I tried to infer the input file from the prepare option, but failed. Please point me to the correct file \
+through the command line or by correcting the configuration file."
+            logger.critical(msg)
+            raise ValueError(msg)
 
     if args.loci_out:
         args.configuration.pick.files.loci_out = args.loci_out if \

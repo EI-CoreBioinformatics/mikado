@@ -497,7 +497,6 @@ class Superlocus(Abstractlocus):
         self.transcripts[tid].default_configuration = self.configuration
         self.transcripts[tid].load_information_from_db(self.configuration,
                                                        introns=self.locus_verified_introns,
-                                                       session=self.session,
                                                        data_dict=data_dict)
         to_remove, to_add = False, dict()
 
@@ -515,7 +514,7 @@ class Superlocus(Abstractlocus):
         del data_dict
         return to_remove, to_add
 
-    def _load_introns(self, data_dict: dict):
+    def _load_introns(self):
 
         """Private method to load the intron data into the locus.
         :param data_dict: Dictionary containing the preloaded data, if available.
@@ -530,49 +529,33 @@ class Superlocus(Abstractlocus):
             return
 
         self.logger.debug("Querying the DB for introns, %d total", len(self.introns))
-        if data_dict is None:
-            if not self.configuration.db_settings.db:
-                return  # No data to load
-            # dbquery = self.db_baked(self.session).params(chrom_name=self.chrom).all()
+        if not self.configuration.db_settings.db:
+            return  # No data to load
+        # dbquery = self.db_baked(self.session).params(chrom_name=self.chrom).all()
 
-            ver_introns = self.engine.execute(" ".join([
-                "select junction_start, junction_end, strand from junctions where",
-                "chrom_id = (select chrom_id from chrom where name = \"{chrom}\")",
-                "and junction_start > {start} and junction_end < {end}"]).format(
-                    chrom=self.chrom, start=self.start, end=self.end
-            ))
-            ver_introns = dict(((junc.junction_start, junc.junction_end), junc.strand)
-                               for junc in ver_introns)
+        ver_introns = self.engine.execute(" ".join([
+            "select junction_start, junction_end, strand from junctions where",
+            "chrom_id = (select chrom_id from chrom where name = \"{chrom}\")",
+            "and junction_start > {start} and junction_end < {end}"]).format(
+                chrom=self.chrom, start=self.start, end=self.end
+        ))
+        ver_introns = dict(((junc.junction_start, junc.junction_end), junc.strand)
+                           for junc in ver_introns)
 
-            self.logger.debug("Found %d verifiable introns for %s",
-                              len(ver_introns), self.id)
+        self.logger.debug("Found %d verifiable introns for %s",
+                          len(ver_introns), self.id)
 
-            for intron in self.introns:
-                self.logger.debug("Checking %s%s:%d-%d",
-                                  self.chrom, self.strand, intron[0], intron[1])
-                if (intron[0], intron[1]) in ver_introns:
-                    self.logger.debug("Verified intron %s:%d-%d",
-                                      self.chrom, intron[0], intron[1])
-                    self.locus_verified_introns.add((intron[0],
-                                                     intron[1],
-                                                     ver_introns[(intron[0], intron[1])]))
-        else:
-            for intron in self.introns:
-                self.logger.debug("Checking %s%s:%d-%d",
-                                  self.chrom, self.strand, intron[0], intron[1])
-                key = (self.chrom, intron[0], intron[1])
-                # Ignore the strand 'cause we are loading BEFORE splitting by strand
-                if key in data_dict["junctions"]:
-                    self.logger.debug("Verified intron %s%s:%d-%d",
-                                      self.chrom,
-                                      data_dict["junctions"][key],
-                                      intron[0], intron[1])
-                    # Start, Stop, Strand
-                    self.locus_verified_introns.add((intron[0],
-                                                     intron[1],
-                                                     data_dict["junctions"][key]))
+        for intron in self.introns:
+            self.logger.debug("Checking %s%s:%d-%d",
+                              self.chrom, self.strand, intron[0], intron[1])
+            if (intron[0], intron[1]) in ver_introns:
+                self.logger.debug("Verified intron %s:%d-%d",
+                                  self.chrom, intron[0], intron[1])
+                self.locus_verified_introns.add((intron[0],
+                                                 intron[1],
+                                                 ver_introns[(intron[0], intron[1])]))
 
-    def _create_data_dict(self, engine, tid_keys):
+    def _create_data_dict(self, engine, tid_keys) -> dict:
 
         """Private method to retrieve data from the database and prepare it to be passed to the transcript
         instances.
@@ -585,14 +568,14 @@ class Superlocus(Abstractlocus):
 
         """
 
-        assert engine is not None
-
         data_dict = dict()
         self.logger.debug("Starting to load hits and orfs for %d transcripts",
                           len(tid_keys))
         data_dict["hits"] = collections.defaultdict(list)
         data_dict["orfs"] = collections.defaultdict(list)
         data_dict["external"] = collections.defaultdict(dict)
+        if engine is None:
+            return data_dict
 
         for tid_group in grouper(tid_keys, 100):
             query_ids = dict((query.query_id, query) for query in
@@ -683,7 +666,7 @@ class Superlocus(Abstractlocus):
 
         return data_dict
 
-    def load_all_transcript_data(self, engine=None, data_dict=None):
+    def load_all_transcript_data(self, engine=None):
 
         """
         This method will load data into the transcripts instances,
@@ -693,11 +676,6 @@ class Superlocus(Abstractlocus):
 
         :param engine: a connection engine
         :type engine: Engine
-
-        :param data_dict: the dictionary to use for data retrieval, if specified.
-        If None, a DB connection will be established to retrieve the necessary data.
-        :type data_dict: (None | dict)
-
         """
 
         if self.__data_loaded is True:
@@ -708,32 +686,23 @@ class Superlocus(Abstractlocus):
             self.approximation_level = 1
             self.reduce_method_one(None)
 
-        if data_dict is None and engine is None:
-            raise ValueError("Both engine and data_dict are void.")
-        elif data_dict is None:
-            self.connect_to_db(engine)
-
-        self.logger.debug("Type of data dict: %s",
-                          type(data_dict))
-        if isinstance(data_dict, dict):
-            self.logger.debug("Length of data dict: %s", len(data_dict))
+        self.connect_to_db(engine)
 
         tid_keys = list(self.transcripts.keys())
         to_remove, to_add = set(), dict()
         # This will function even if data_dict is None
-        self._load_introns(data_dict)
+        self._load_introns()
 
-        if data_dict is None:
-            data_dict = self._create_data_dict(engine, tid_keys)
+        data_dict = self._create_data_dict(engine, tid_keys)
 
-            self.logger.debug("Verified %d introns for %s",
-                              len(self.locus_verified_introns),
-                              self.id)
+        self.logger.debug("Verified %d introns for %s",
+                          len(self.locus_verified_introns),
+                          self.id)
 
-            self.logger.debug("Finished retrieving data for %d transcripts",
-                              len(tid_keys))
-            self.session.close()
-            sasession.close_all_sessions()
+        self.logger.debug("Finished retrieving data for %d transcripts",
+                          len(tid_keys))
+        self.session.close()
+        sasession.close_all_sessions()
 
         for tid in tid_keys:
             remove_flag, new_transcripts = self.load_transcript_data(tid, data_dict)
@@ -968,7 +937,6 @@ class Superlocus(Abstractlocus):
         if self.subloci_defined is True:
             return
 
-        self.compile_requirements()
         self.subloci = []
 
         # First, check whether we need to remove CDS from anything.
@@ -1024,6 +992,10 @@ class Superlocus(Abstractlocus):
                 continue
             subl = [self.transcripts[x] for x in subl]
             subl = sorted(subl)
+            assert self.configuration.scoring is not None
+            assert hasattr(self.configuration.scoring.requirements, "parameters")
+            self.logger.debug("Scoring file: %s", self.configuration.pick.scoring_file)
+            self.logger.debug(self.configuration.scoring.requirements._expression)
             new_sublocus = Sublocus(subl[0],
                                     configuration=self.configuration,
                                     logger=self.logger,
@@ -1080,6 +1052,7 @@ class Superlocus(Abstractlocus):
         self.monosubloci = dict()
         # Extract the relevant transcripts
         for sublocus_instance in sorted(self.subloci):
+            sublocus_instance.logger = self.logger
             sublocus_instance.define_monosubloci(purge=self.purge, check_requirements=check_requirements)
             for transcript in sublocus_instance.excluded.transcripts.values():
                 self.excluded.add_transcript_to_locus(transcript)
@@ -1213,7 +1186,6 @@ class Superlocus(Abstractlocus):
         for locus in sorted(loci):
             self.loci[locus.id] = locus
             self.loci[locus.id].logger = self.logger
-            self.loci[locus.id].configuration = self.configuration
 
         self.loci_defined = True
 
@@ -1429,21 +1401,6 @@ class Superlocus(Abstractlocus):
         for monoholder in self.monoholders:
             # monoholder.scores_calculated = False
             monoholder.filter_and_calculate_scores(check_requirements=check_requirements)
-
-    def compile_requirements(self):
-        """Quick function to evaluate the filtering expression, if it is present."""
-
-        def compile_expression(section):
-            if "compiled" in section:
-                pass
-            else:
-                section["compiled"] = compile(section["expression"], "<json>", "eval")
-            return section
-
-        self.configuration.requirements = compile_expression(self.configuration.requirements)
-        self.configuration.not_fragmentary = compile_expression(self.configuration.not_fragmentary)
-        self.configuration.as_requirements = compile_expression(self.configuration.as_requirements)
-        self.configuration.cds_requirements = compile_expression(self.configuration.cds_requirements)
 
     # ############ Class methods ###########
 

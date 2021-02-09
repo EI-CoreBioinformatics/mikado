@@ -1,8 +1,11 @@
 import unittest
+
+from .. import create_default_logger
+from .._transcripts.scoring_configuration import ScoringFile, MinMaxScore
 from ..loci import Transcript, Superlocus
 import pkg_resources
 import os
-from ..configuration.configurator import load_and_validate_config, check_scoring
+from ..configuration.configurator import load_and_validate_config
 
 
 class ExternalTester(unittest.TestCase):
@@ -41,13 +44,16 @@ class ExternalTester(unittest.TestCase):
     def test_real(self):
         self.transcript.attributes["tpm"] = 10
 
-        self.conf.scoring["attributes.tpm"] = {"rescaling": "max", "default": 0, "rtype": "float"}
+        checked_conf = self.conf.copy()
+        self.assertTrue(hasattr(self.conf.scoring.requirements, "parameters"))
+        self.assertTrue(hasattr(checked_conf.scoring.requirements, "parameters"))
+        checked_conf.scoring.scoring["attributes.tpm"] = MinMaxScore.Schema().load(
+            {"rescaling": "max", "default": 0, "rtype": "float"})
+        # self.assertIn('attributes.tpm', checked_conf.scoring.scoring)
 
-        checked_conf = check_scoring(self.conf)
-
-        self.assertIn('attributes.tpm', checked_conf.scoring)
-
-        sup = Superlocus(self.transcript, configuration=checked_conf)
+        logger = create_default_logger(name="test_real", level="WARNING")
+        sup = Superlocus(self.transcript, configuration=checked_conf, logger=logger)
+        self.assertIn("attributes.tpm", sup.configuration.scoring.scoring)
         sup.get_metrics()
         self.assertIn("attributes.tpm", sup._metrics[self.transcript.id])
         self.assertEqual(sup._metrics[self.transcript.id]["attributes.tpm"], 10)
@@ -61,11 +67,11 @@ class ExternalTester(unittest.TestCase):
 
         self.transcript.attributes["tpm"] = 10
 
-        self.conf.scoring["attributes.tpm"] = {"rescaling": "max", "default": 0, "rtype": "float", 'multiplier': 4}
+        checked_conf = self.conf.copy()
+        checked_conf.scoring.scoring["attributes.tpm"] = MinMaxScore.Schema().load(
+            {"rescaling": "max", "default": 0, "rtype": "float", 'multiplier': 4})
 
-        checked_conf = check_scoring(self.conf)
-
-        self.assertIn('attributes.tpm', checked_conf.scoring)
+        self.assertIn('attributes.tpm', checked_conf.scoring.scoring)
 
         sup = Superlocus(self.transcript, configuration=checked_conf)
         tid = self.transcript.id
@@ -76,10 +82,11 @@ class ExternalTester(unittest.TestCase):
     def test_default_attribute_score(self):
         self.transcript.attributes["foo"] = True
 
-        self.conf.scoring["attributes.foo"] = {"rescaling": "max", "default": False, "rtype": "bool"}
-        checked_conf = check_scoring(self.conf)
+        checked_conf = self.conf.copy()
+        checked_conf.scoring.scoring["attributes.foo"] = MinMaxScore.Schema().load(
+            {"rescaling": "max", "rtype": "bool", "default": False})
 
-        self.assertIn('attributes.foo', checked_conf.scoring)
+        self.assertIn('attributes.foo', checked_conf.scoring.scoring)
 
         sup = Superlocus(self.transcript, configuration=checked_conf)
         sup.get_metrics()
@@ -93,9 +100,10 @@ class ExternalTester(unittest.TestCase):
 
     def test_error_attribute(self):
         self.transcript.attributes["tpm"] = "10a"
-        self.conf.scoring["attributes.tpm"] = {"rescaling": "max", "default": 0, "rtype": "float"}
-        checked_conf = check_scoring(self.conf)
-        self.assertIn('attributes.tpm', checked_conf.scoring)
+        checked_conf = self.conf.copy()
+        checked_conf.scoring.scoring["attributes.tpm"] = MinMaxScore.Schema().load(
+            {"rescaling": "max", "default": 0, "rtype": "float", 'multiplier': 4})
+        self.assertIn('attributes.tpm', checked_conf.scoring.scoring)
         sup = Superlocus(self.transcript, configuration=checked_conf)
         with self.assertRaises(ValueError):
             sup.get_metrics()
@@ -104,12 +112,12 @@ class ExternalTester(unittest.TestCase):
 
         self.transcript.attributes["tpm"] = 10
 
-        self.conf.scoring["attributes.tpm"] = {"rescaling": "max", "default": 0, "rtype": "float", 'multiplier': 4,
-                                               'use_raw': True}
+        checked_conf = self.conf.copy()
+        checked_conf.scoring.scoring["attributes.tpm"] = MinMaxScore.Schema().load(
+            {"rescaling": "max", "default": 0, "rtype": "float", 'multiplier': 4,
+             'use_raw': True})
 
-        checked_conf = check_scoring(self.conf)
-
-        self.assertIn('attributes.tpm', checked_conf.scoring)
+        self.assertIn('attributes.tpm', checked_conf.scoring.scoring)
 
         sup = Superlocus(self.transcript, configuration=checked_conf)
         tid = self.transcript.id
@@ -121,12 +129,12 @@ class ExternalTester(unittest.TestCase):
 
         self.transcript.attributes["tpm"] = 10
 
-        self.conf.scoring["attributes.tpm"] = {"rescaling": "max", "default": 0, "rtype": "float", 'multiplier': 4,
-                                                'use_raw': True, 'percentage': True}
+        checked_conf = self.conf.copy()
+        checked_conf.scoring.scoring["attributes.tpm"] = MinMaxScore.Schema().load(
+            {"rescaling": "max", "default": 0, "rtype": "float", 'multiplier': 4,
+             'use_raw': True, 'percentage': True})
 
-        checked_conf = check_scoring(self.conf)
-
-        self.assertIn('attributes.tpm', checked_conf.scoring)
+        self.assertIn('attributes.tpm', checked_conf.scoring.scoring)
 
         sup = Superlocus(self.transcript, configuration=checked_conf)
         tid = self.transcript.id

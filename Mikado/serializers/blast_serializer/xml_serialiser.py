@@ -1,9 +1,6 @@
 from functools import partial
 from ...utilities import default_for_serialisation
-try:
-    import rapidjson as json
-except (ImportError,ModuleNotFoundError):
-    import json
+import rapidjson as json
 dumper = partial(json.dumps, default=default_for_serialisation)
 from ...parsers.blast_utils import BlastOpener
 from .xml_utils import _get_query_for_blast, _get_target_for_blast
@@ -14,7 +11,9 @@ from sqlalchemy.orm.session import Session
 import msgpack
 import tempfile
 import os
-from . import Query, Target, prepare_hit, InvalidHit
+from .query import Query
+from .target import Target
+from .hit import prepare_hit, InvalidHit
 from .xml_utils import get_multipliers, get_off_by_one
 from .utils import load_into_db
 import multiprocessing as mp
@@ -135,8 +134,7 @@ def _serialise_xmls(self):
                 self.logger.error("%s is an invalid BLAST file, saving what's available", filename)
         _, _ = load_into_db(self, hits, hsps, force=True)
     elif self._xml_debug is True or self.procs > 1:
-        self.logger.debug("Creating a pool with %d processes",
-                          min(self.procs, len(self.xml)))
+        self.logger.warning("Creating a pool with %d processes", min(self.procs, len(self.xml)))
         results = []
         if self._xml_debug is True:
             for num, filename in enumerate(self.xml):

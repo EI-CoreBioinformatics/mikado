@@ -1,0 +1,64 @@
+name: Upload to PyPI and TestPyPI
+on:
+  release:
+    types: [published]
+jobs:
+  build-and-publish:
+    name: Build the Mikado release and publish to TestPyPI
+    runs-on: ubuntu-18.04
+    steps:
+      - uses: actions/checkout@master
+      - name: Set up Python 3.8
+        uses: actions/setup-python@v1
+        with:
+          python-version: 3.8
+      - uses: actions/checkout@v2
+      - name: Cache conda
+        id: cache-miniconda
+        uses: actions/cache@v1
+        env:
+          CACHE_NUMBER: 0
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          path: ~/conda_pkgs_dir
+          key:
+            ${{ runner.os }}-conda-${{ hashFiles('./environment.yml') }}
+      - name: Install system development tools
+        run: |
+          export DEBIAN_FRONTEND=noninteractive
+          sudo apt update
+          sudo apt install -y build-essential zlib1g-dev zlib1g
+      - uses: conda-incubator/setup-miniconda@v2
+        with:
+          python-version: ${{ matrix.python-version }}
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          miniconda-version: "latest"
+          environment-file: ./environment.yml
+          mamba-version: "*"
+          use-mamba: true
+          channels: bioconda, conda-forge, defaults
+          use-only-tar-bz2: true # IMPORTANT: This needs to be set for caching to work properly!
+          auto-update-conda: true
+          activate-environment: "test"
+          auto-activate-base: false
+      - name: Install dependencies
+        run: |
+          gcc --help
+          pip install -r requirements.txt
+          pip install Cython
+      - name: Install Mikado
+        run: >-
+          python -m pip install build --user
+      - name: Build sdist
+        run: >-
+          python -m build --sdist --outdir dist/
+      - name: Publish to TestPyPI
+        uses: pypa/gh-action-pypi-publish@master
+        with:
+          password: ${{ secrets.TEST_PYPI_API_TOKEN }}
+          repository_url: https://test.pypi.org/legacy/
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@master
+        with:
+          password: ${{ secrets.PYPI_API_TOKEN }}
+          repository_url: https://upload.pypi.org/legacy/

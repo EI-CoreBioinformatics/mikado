@@ -20,10 +20,7 @@ from ..parsers.GTF import GtfLine
 from ..configuration.configurator import load_and_validate_config
 import msgpack
 from ._loci_serialiser import serialise_locus
-try:
-    import rapidjson as json
-except (ImportError,ModuleNotFoundError):
-    import json
+
 
 __author__ = 'Luca Venturini'
 
@@ -87,7 +84,7 @@ def merge_loci(mapper,
             if print_subloci and minibatch[1]:
                 sub_lines, sub_metrics_rows, sub_scores_rows = minibatch[1]
                 if sub_lines != '':
-                        print(sub_lines, file=sub_out)
+                    print(sub_lines, file=sub_out)
 
                 for row in sub_metrics_rows:
                     try:
@@ -196,8 +193,7 @@ def analyse_locus(slocus: Superlocus,
                   counter: int,
                   configuration: Union[MikadoConfiguration,DaijinConfiguration],
                   logging_queue: AutoProxy,
-                  engine=None,
-                  data_dict=None) -> [Superlocus]:
+                  engine=None) -> [Superlocus]:
 
     """
     :param slocus: a superlocus instance
@@ -214,9 +210,6 @@ def analyse_locus(slocus: Superlocus,
 
     :param engine: an optional engine to connect to the database.
     :type data_dict: sqlalchemy.engine.engine
-
-    :param data_dict: a dictionary of preloaded data
-    :type data_dict: (None|dict)
 
     This function takes as input a "superlocus" instance and the pipeline configuration.
     It also accepts as optional keywords a dictionary with the CDS information
@@ -250,8 +243,7 @@ def analyse_locus(slocus: Superlocus,
     slocus.source = configuration.pick.output_format.source
 
     try:
-        slocus.load_all_transcript_data(engine=engine,
-                                        data_dict=data_dict)
+        slocus.load_all_transcript_data(engine=engine)
     except KeyboardInterrupt:
         raise
     except Exception as exc:
@@ -266,7 +258,6 @@ def analyse_locus(slocus: Superlocus,
         logger.warning(
             "%s had all transcripts failing checks, ignoring it",
             slocus.id)
-        # printer_dict[counter] = []
         return []
 
     # Split the superlocus in the stranded components
@@ -275,6 +266,8 @@ def analyse_locus(slocus: Superlocus,
     # Define the loci
     logger.debug("Divided into %d loci", len(stranded_loci))
 
+    failed = 0
+    original_size = len(stranded_loci)
     for stranded_locus in stranded_loci:
         stranded_locus.logger = logger
         try:
@@ -287,14 +280,18 @@ def analyse_locus(slocus: Superlocus,
             logger.exception(exc)
             logger.error("Removing failed locus %s", stranded_locus.name)
             stranded_loci.remove(stranded_locus)
+            assert stranded_locus not in stranded_loci
+            failed += 1
         logger.debug("Defined loci for %s:%f-%f, strand: %s",
                      stranded_locus.chrom,
                      stranded_locus.start,
                      stranded_locus.end,
                      stranded_locus.strand)
 
+    assert len(stranded_loci) + failed == original_size, (len(stranded_loci), failed, original_size)
     # Check if any locus is a fragment, if so, tag/remove it
-    stranded_loci = sorted(list(remove_fragments(stranded_loci, configuration, logger)))
+    if len(stranded_loci) > 0:
+        stranded_loci = sorted(list(remove_fragments(stranded_loci, configuration, logger)))
     try:
         logger.debug("Size of the loci to send: {0}, for {1} loci".format(
             sys.getsizeof(stranded_loci),
@@ -329,6 +326,11 @@ class LociProcesser(Process):
         self.__identifier = identifier  # Property directly unsettable
         self.name = "LociProcesser-{0}".format(self.identifier)
         self.configuration = configuration
+        for section in (self.configuration.scoring.requirements, self.configuration.scoring.as_requirements,
+                        self.configuration.scoring.cds_requirements, self.configuration.scoring.not_fragmentary):
+            # Compile the expression
+            _ = section.compiled
+
         self.engine = None
         self.handler = logging_handlers.QueueHandler(self.logging_queue)
         self.logger = logging.getLogger(self.name)
@@ -484,14 +486,21 @@ class LociProcesser(Process):
 
                     stranded_loci = self.analyse_locus(slocus, counter)
 
-                serialise_locus(stranded_loci,
-                                self.status_queue,
-                                counter,
-                                print_cds=print_cds,
-                                print_monosubloci=print_monoloci,
-                                print_subloci=print_subloci)
                 if len(stranded_loci) == 0:
                     self.logger.warning("No loci left for index %d", counter)
+                else:
+                    try:
+                        serialise_locus(stranded_loci,
+                                        self.status_queue,
+                                        counter,
+                                        print_cds=print_cds,
+                                        print_monosubloci=print_monoloci,
+                                        print_subloci=print_subloci)
+                    except KeyboardInterrupt:
+                        raise
+                    except Exception as exc:
+                        self.logger.exception(exc)
+                        raise
                 self.locus_queue.task_done()
 
         return

@@ -2,11 +2,12 @@
 
 import logging
 import operator
+import os
 import unittest
 from sys import version_info
 import pysam
 from .. import loci, parsers, utilities, configuration
-from ..transcripts.transcript_methods import splitting
+from Mikado.transcripts.transcript_methods import splitting
 import tempfile
 from ..parsers import bed12
 from ..utilities.log_utils import create_default_logger
@@ -81,7 +82,8 @@ class TestSplitMonoexonic(unittest.TestCase):
         self.transcript.configuration.pick.chimera_split.blast_params.hsp_evalue = 0.0001
         self.transcript.configuration.pick.chimera_split.blast_params.evalue = 0.0001
         self.transcript.configuration.pick.orf_loading.minimal_secondary_orf_length = 50
-
+        self.db_folder = tempfile.TemporaryDirectory()
+        self.transcript.configuration.db_settings.db = os.path.join(self.db_folder.name, "mikado.db")
         self.transcript.load_orfs([self.bed1, self.bed2])
         self.assertTrue(self.transcript.is_coding)
         self.assertEqual(self.transcript.number_internal_orfs,
@@ -143,7 +145,7 @@ class TestSplitMonoexonic(unittest.TestCase):
         self.assertFalse(sl.configuration.pick.chimera_split.blast_check)
         self.assertEqual(len(sl.transcripts), 1)
         sl.logger.setLevel("DEBUG")
-        sl.load_all_transcript_data(data_dict=dict())
+        sl.load_all_transcript_data()
         self.assertEqual(len(sl.transcripts), 2)
 
     def test_lenient_split(self):
@@ -161,7 +163,7 @@ class TestSplitMonoexonic(unittest.TestCase):
                          len(splitting.check_split_by_blast(self.transcript, cds_boundaries)))
         sl = loci.Superlocus(self.transcript, configuration=self.transcript.configuration)
         self.assertEqual(len(sl.transcripts), 1)
-        sl.load_all_transcript_data(data_dict=dict())
+        sl.load_all_transcript_data()
         self.assertEqual(len(sl.transcripts), 1)
 
     def test_stringent_split(self):
@@ -179,7 +181,7 @@ class TestSplitMonoexonic(unittest.TestCase):
                          len(splitting.check_split_by_blast(self.transcript, cds_boundaries)))
         sl = loci.Superlocus(self.transcript, configuration=self.transcript.configuration)
         self.assertEqual(len(sl.transcripts), 1)
-        sl.load_all_transcript_data(data_dict=dict())
+        sl.load_all_transcript_data()
         self.assertEqual(len(sl.transcripts), 1)
 
     def test_permissive_split(self):
@@ -198,7 +200,7 @@ class TestSplitMonoexonic(unittest.TestCase):
         self.assertEqual(2, len(splitting.check_split_by_blast(self.transcript, cds_boundaries)))
         sl = loci.Superlocus(self.transcript, configuration=self.transcript.configuration)
         self.assertEqual(len(sl.transcripts), 1)
-        sl.load_all_transcript_data(data_dict=dict())
+        sl.load_all_transcript_data()
         self.assertEqual(len(sl.transcripts), 2)
 
     @staticmethod
@@ -239,7 +241,7 @@ class TestSplitMonoexonic(unittest.TestCase):
         self.assertEqual(2, len(list(splitting.split_by_cds(self.transcript))))
         sl = loci.Superlocus(self.transcript, configuration=self.transcript.configuration)
         self.assertEqual(len(sl.transcripts), 1)
-        sl.load_all_transcript_data(data_dict=dict())
+        sl.load_all_transcript_data()
         self.assertEqual(len(sl.transcripts), 2)
 
     def test_stringent_split_twohits(self):
@@ -253,7 +255,7 @@ class TestSplitMonoexonic(unittest.TestCase):
         self.assertEqual(2, len(list(splitting.split_by_cds(self.transcript))))
         sl = loci.Superlocus(self.transcript, configuration=self.transcript.configuration)
         self.assertEqual(len(sl.transcripts), 1)
-        sl.load_all_transcript_data(data_dict=dict())
+        sl.load_all_transcript_data()
         self.assertEqual(len(sl.transcripts), 2)
 
     def test_no_splitting_by_source(self):
@@ -267,7 +269,7 @@ class TestSplitMonoexonic(unittest.TestCase):
                     final = 2
                 self.assertEqual(final, len(list(splitting.split_by_cds(self.transcript))))
                 sl = loci.Superlocus(self.transcript, configuration=self.transcript.configuration)
-                sl.load_all_transcript_data(data_dict=dict())
+                sl.load_all_transcript_data()
                 self.assertEqual(len(sl.transcripts), final)
 
     def test_one_orf(self):
@@ -287,7 +289,7 @@ class TestSplitMonoexonic(unittest.TestCase):
         self.assertEqual(2, len(list(splitting.split_by_cds(self.transcript))))
         sl = loci.Superlocus(self.transcript, configuration=self.transcript.configuration)
         self.assertEqual(len(sl.transcripts), 1)
-        sl.load_all_transcript_data(data_dict=dict())
+        sl.load_all_transcript_data()
         self.assertEqual(len(sl.transcripts), 2)
 
     def test_lenient_split_twohits(self):
@@ -301,7 +303,7 @@ class TestSplitMonoexonic(unittest.TestCase):
         self.assertEqual(2, len(list(splitting.split_by_cds(self.transcript))))
         sl = loci.Superlocus(self.transcript, configuration=self.transcript.configuration)
         self.assertEqual(len(sl.transcripts), 1)
-        sl.load_all_transcript_data(data_dict=dict())
+        sl.load_all_transcript_data()
         self.assertEqual(len(sl.transcripts), 2)
 
     @staticmethod
@@ -341,7 +343,7 @@ class TestSplitMonoexonic(unittest.TestCase):
         self.assertEqual(1, len(list(splitting.split_by_cds(self.transcript))))
         sl = loci.Superlocus(self.transcript, configuration=self.transcript.configuration)
         self.assertEqual(len(sl.transcripts), 1)
-        sl.load_all_transcript_data(data_dict=dict())
+        sl.load_all_transcript_data()
         self.assertEqual(len(sl.transcripts), 1)
 
     def test_spanning_hit_nocheck(self):
@@ -357,7 +359,7 @@ class TestSplitMonoexonic(unittest.TestCase):
         self.assertEqual(2, len(list(splitting.split_by_cds(self.transcript))))
         sl = loci.Superlocus(self.transcript, configuration=self.transcript.configuration)
         self.assertEqual(len(sl.transcripts), 1)
-        sl.load_all_transcript_data(data_dict=dict())
+        sl.load_all_transcript_data()
         self.assertEqual(len(sl.transcripts), 2)
 
     def test_deleted_hits(self):
@@ -399,6 +401,8 @@ class TestWithPhase(unittest.TestCase):
         self.transcript.configuration = configuration.configurator.load_and_validate_config("")
         self.transcript.configuration.pick.chimera_split.blast_check = False
         self.assertIsNotNone(self.transcript.configuration)
+        self.db_folder = tempfile.TemporaryDirectory()
+        self.transcript.configuration.db_settings.db = os.path.join(self.db_folder.name, "mikado.db")
 
     def testPositive(self):
 
@@ -520,7 +524,7 @@ class TestWithPhase(unittest.TestCase):
 
         sl = loci.Superlocus(self.transcript, configuration=self.transcript.configuration)
         self.assertEqual(len(sl.transcripts), 1)
-        sl.load_all_transcript_data(data_dict=dict())
+        sl.load_all_transcript_data()
         self.assertEqual(len(sl.transcripts), 2)
 
     def test_negative_orf_gtg(self):

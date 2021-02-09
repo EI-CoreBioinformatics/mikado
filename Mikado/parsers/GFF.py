@@ -107,6 +107,8 @@ class GffLine(GFAnnotation):
                     mid = None
         if not name:
             name = attributes.get("name", None)
+            if not name:
+                name = attributes.get("Name", None)
         attrs = []
         if mid is not None:
             attrs.append("ID={0}".format(mid))
@@ -232,8 +234,6 @@ class GffLine(GFAnnotation):
             return False
         if self.feature.endswith("transcript") or "RNA" in self.feature.upper():
             return True
-        # elif self.id is not None and "transcript:" in self.id and self.parent is not None:
-        #     return True
         elif self.feature.endswith("_gene_segment"):  # Necessary for V_gene_segment, C_gene_segment, etc.
             return True
         return False

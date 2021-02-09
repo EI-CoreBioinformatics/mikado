@@ -46,10 +46,7 @@ from ..configuration.configuration import MikadoConfiguration
 from ..configuration.daijin_configuration import DaijinConfiguration
 logging.captureWarnings(True)
 warnings.simplefilter("always")
-try:
-    import rapidjson as json
-except (ImportError,ModuleNotFoundError):
-    import json
+import rapidjson as json
 
 
 # pylint: disable=too-many-instance-attributes
@@ -100,12 +97,8 @@ class Picker:
         # self.setup_logger()
         self.logger.info("Starting to analyse input file %s", self.input_file)
         self.logger.info("Random seed: %s", self.configuration.seed)
-        if self.configuration.seed is not None:
-            random.seed((self.configuration.seed) % (2 ** 32 - 1))
-        else:
-            random.seed(None)
+        random.seed((self.configuration.seed) % (2 ** 32 - 1))
         self.logger.debug("Multiprocessing method: %s", self.configuration.multiprocessing_method)
-
         # pylint: enable=no-member
         self.manager = self.context.Manager()
 
@@ -462,7 +455,7 @@ class Picker:
         external_metrics = ["external.{}".format(_.source) for _ in session.query(ExternalSource.source).all()]
 
         score_keys = ["source_score"]
-        __scores = sorted(list(self.configuration.scoring.keys()))
+        __scores = sorted(list(self.configuration.scoring.scoring.keys()))
         # Check that the external scores are all present. If they are not, raise a warning.
         __externals = set([_ for _ in __scores if _.startswith("external.")])
         if __externals - set(external_metrics):
@@ -521,7 +514,7 @@ class Picker:
     # actually file handlers. I cannot trim them down for now.
     # pylint: disable=too-many-locals
 
-    def _submit_locus(self, slocus, counter, data_dict=None, engine=None):
+    def _submit_locus(self, slocus, counter, engine=None):
         """
         Private method to submit / start the analysis of a superlocus in input.
         :param slocus: the locus to analyse.
@@ -541,7 +534,6 @@ class Picker:
                              counter=counter,
                              configuration=self.configuration,
                              logging_queue=self.logging_queue,
-                             data_dict=data_dict,
                              engine=engine)
 
     def __unsorted_interrupt(self, row, current_transcript):
@@ -939,8 +931,7 @@ class Picker:
 
         self.engine = dbutils.connect(configuration=self.configuration, logger=self.logger)
 
-        submit_locus = functools.partial(self._submit_locus, **{"data_dict": None,
-                                                                "engine": self.engine})
+        submit_locus = functools.partial(self._submit_locus, **{"engine": self.engine})
 
         counter = -1
         invalid = False

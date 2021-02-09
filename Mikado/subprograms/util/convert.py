@@ -39,6 +39,7 @@ def launch(args):
     mock_gene_counter = 0
     _line_counter = 0
 
+    done = 0
     for line in parser:
         _line_counter += 1
         if line.header is True:
@@ -60,6 +61,7 @@ def launch(args):
                 ))
             transcript.parent = gene
             print(Gene(transcript).format(out_format, transcriptomic=args.transcriptomic), file=args.out)
+            done += 1
             continue
 
         elif isinstance(line, BED12) or (line.is_exon is False and line.gene is None):
@@ -95,6 +97,10 @@ def launch(args):
 
     if current is not None:
         print(current.format(out_format, transcriptomic=args.transcriptomic), file=args.out)
+
+    if not args.out == sys.stdout:
+        args.out.flush()
+        args.out.close()
 
 
 def convert_parser():

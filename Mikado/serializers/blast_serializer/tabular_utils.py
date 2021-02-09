@@ -18,7 +18,8 @@ from ...configuration import MikadoConfiguration, DaijinConfiguration
 from ...utilities.log_utils import create_null_logger, create_queue_logger
 from sqlalchemy.orm.session import Session
 from ...utilities.dbutils import connect as db_connect
-from . import Hit, Hsp
+from .hit import Hit
+from .hsp import Hsp
 import os
 import tempfile
 import msgpack
@@ -130,14 +131,14 @@ def prepare_tab_hsp(key,
     # We must start from 1, otherwise MySQL crashes as its indices start from 1 not 0
     hsp_dict["query_id"], hsp_dict["target_id"] = key
     try:
-        query_array = np.zeros([3, int(hsp[columns["qlength"]])], dtype=np.int)
+        query_array = np.zeros([3, int(hsp[columns["qlength"]])], dtype=int)
     except (IndexError,TypeError):
         try:
             raise IndexError((hsp[columns["qlength"]], type(hsp[columns["qlength"]])))
         except IndexError:
             raise IndexError(columns)
 
-    target_array = np.zeros([3, int(hsp[columns["slength"]])], dtype=np.int)
+    target_array = np.zeros([3, int(hsp[columns["slength"]])], dtype=int)
     matrix = matrices.get(matrix_name, matrices["blosum62"])
     if hsp[columns["qstart"]] < 0:
         raise ValueError(hsp.qstart)

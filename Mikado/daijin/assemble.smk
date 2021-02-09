@@ -390,11 +390,11 @@ def getTrinityVersion(command):
     cmd = "{} Trinity --version && set -u".format(command)
     output = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE).stdout.read().decode()
     try:
-        version = [_ for _ in output.split("\n") if re.match("Trinity version:", _)][0]
+        version = [_ for _ in output.split("\n") if re.match(r"Trinity version:", _)][0]
     except IndexError as exc:
         print("Error in getTrinityVersion")
         raise IndexError(exc)
-    version = re.sub("Trinity version: [^_]*_(r|v)", "", version)
+    version = re.sub(r"Trinity version: [^_]*_(r|v)", "", version)
     return version
 
 
@@ -492,7 +492,7 @@ rule align_tophat:
         r1=lambda wildcards: INPUT_1_MAP[wildcards.sample],
         index=rules.align_tophat_index.output
     output:
-        link=os.path.join(ALIGN_DIR, "output", "tophat-{sample}-{run,\d+}.bam")
+        link=os.path.join(ALIGN_DIR, "output", r"tophat-{sample}-{run,\d+}.bam")
     params: 
         outdir=os.path.join(ALIGN_DIR, "tophat", "{sample}-{run}"),
         bam=os.path.join(ALIGN_DIR, "tophat", "{sample}-{run}", "accepted_hits.bam"),
@@ -547,8 +547,8 @@ rule align_gsnap:
         r1=lambda wildcards: INPUT_1_MAP[wildcards.sample],
         index=rules.gsnap_index.output
     output:
-        bam=os.path.join(ALIGN_DIR, "gsnap", "{sample}-{run,\d+}", "gsnap.bam"),
-        link=os.path.join(ALIGN_DIR, "output", "gsnap-{sample}-{run,\d+}.bam")
+        bam=os.path.join(ALIGN_DIR, "gsnap", r"{sample}-{run,\d+}", "gsnap.bam"),
+        link=os.path.join(ALIGN_DIR, "output", r"gsnap-{sample}-{run,\d+}.bam")
     params: 
         load=loadPre(config, "gmap"),
         load_sam=loadPre(config, "samtools"),
@@ -576,7 +576,7 @@ rule align_star_index:
         indexdir=os.path.join(ALIGN_DIR_FULL, "star", "index"),
         load=loadPre(config, "star"),
         trans="--sjdbGTFfile {}".format(os.path.abspath(REF_TRANS)) if REF_TRANS else "",
-        extra=config["aln_index"].get("star", ""),
+        extra=config.get("aln_index", dict()).get("star", ""),
         dir=os.path.join(ALIGN_DIR, "star"),
         genome=os.path.abspath(os.path.join(REF_DIR, "genome.fa"))
     log: os.path.join(ALIGN_DIR_FULL, "logs", "star", "star.index.log")
@@ -591,8 +591,8 @@ rule align_star:
         r1=lambda wildcards: INPUT_1_MAP[wildcards.sample],
         index=rules.align_star_index.output
     output:
-        bam=os.path.join(ALIGN_DIR, "star", "{sample}-{run,\d+}", "Aligned.out.bam"),
-        link=os.path.join(ALIGN_DIR, "output", "star-{sample}-{run,\d+}.bam")
+        bam=os.path.join(ALIGN_DIR, "star", r"{sample}-{run,\d+}", "Aligned.out.bam"),
+        link=os.path.join(ALIGN_DIR, "output", r"star-{sample}-{run,\d+}.bam")
     params:
         outdir=os.path.join(ALIGN_DIR_FULL, "star", "{sample}-{run}"),
         indexdir=os.path.join(ALIGN_DIR_FULL, "star", "index"),
@@ -636,8 +636,8 @@ rule align_hisat:
         r1=lambda wildcards: INPUT_1_MAP[wildcards.sample],
         index=rules.align_hisat_index.output
     output:
-        bam=os.path.join(ALIGN_DIR, "hisat", "{sample}-{run,\d+}", "hisat.bam"),
-        link=os.path.join(ALIGN_DIR, "output", "hisat-{sample}-{run,\d+}.bam")
+        bam=os.path.join(ALIGN_DIR, "hisat", r"{sample}-{run,\d+}", "hisat.bam"),
+        link=os.path.join(ALIGN_DIR, "output", r"hisat-{sample}-{run,\d+}.bam")
     params:
         indexdir=os.path.join(ALIGN_DIR, "hisat", "index", NAME),
         load=loadPre(config, "hisat"),
@@ -728,7 +728,7 @@ rule asm_cufflinks:
         align=rules.align_all.output,
         ref=rules.uncompress_genome.output.genome
     output: 
-        gtf=os.path.join(ASM_DIR, "output", "cufflinks-{run2,\d+}-{alrun}.gtf")
+        gtf=os.path.join(ASM_DIR, "output", r"cufflinks-{run2,\d+}-{alrun}.gtf")
     params: 
         outdir=os.path.join(ASM_DIR, "cufflinks", "cufflinks-{run2}-{alrun}"),
         gtf=os.path.join(ASM_DIR, "cufflinks", "cufflinks-{run2}-{alrun}", "transcripts.gtf"),
@@ -758,7 +758,7 @@ rule asm_scallop:
         bam=os.path.join(ALIGN_DIR, "output", "{alrun}.sorted.bam"),
         align=rules.align_all.output,
     output:
-        gtf=os.path.join(ASM_DIR, "output", "scallop-{run2,\d+}-{alrun}.gtf")
+        gtf=os.path.join(ASM_DIR, "output", r"scallop-{run2,\d+}-{alrun}.gtf")
     params:
         outdir=os.path.join(ASM_DIR, "scallop", "scallop-{run2}-{alrun}"),
         gtf=os.path.join(ASM_DIR, "scallop", "scallop-{run2}-{alrun}", "transcripts.gtf"),
@@ -783,7 +783,7 @@ rule asm_trinitygg:
         bam=os.path.join(ALIGN_DIR, "output", "{alrun}.sorted.bam"),
         align=rules.align_all.output,
         ref=rules.uncompress_genome.output.genome
-    output: os.path.join(ASM_DIR, "trinity", "trinity-{run2,\d+}-{alrun}", "Trinity-GG.fasta")
+    output: os.path.join(ASM_DIR, "trinity", r"trinity-{run2,\d+}-{alrun}", "Trinity-GG.fasta")
     params: 
         outdir=os.path.join(ASM_DIR, "trinity", "trinity-{run2}-{alrun}"),
         tempdir=os.path.join(ASM_DIR, "trinity", "trinity-{run2}-{alrun}", "trinity_build"),
@@ -806,7 +806,7 @@ rule asm_map_trinitygg:
         transcripts=rules.asm_trinitygg.output,
         index=rules.gmap_index.output
     output: 
-        gff=os.path.join(ASM_DIR, "output", "trinity-{run2,\d+}-{alrun}.gff")
+        gff=os.path.join(ASM_DIR, "output", r"trinity-{run2,\d+}-{alrun}.gff")
     params: 
         load=loadPre(config, "gmap"),
         gff=os.path.join(ASM_DIR, "trinity", "trinity-{run2}-{alrun}", "trinity-{run2}-{alrun}.gff"),
@@ -829,8 +829,8 @@ rule asm_stringtie:
         bam=os.path.join(ALIGN_DIR, "output", "{alrun}.sorted.bam"),
         align=rules.align_all.output
     output:
-        link=os.path.join(ASM_DIR, "output", "stringtie-{run2,\d+}-{alrun}.gtf"),
-        gtf=os.path.join(ASM_DIR, "stringtie", "stringtie-{run2,\d+}-{alrun}", "stringtie-{run2}-{alrun}.gtf")
+        link=os.path.join(ASM_DIR, "output", r"stringtie-{run2,\d+}-{alrun}.gtf"),
+        gtf=os.path.join(ASM_DIR, "stringtie", r"stringtie-{run2,\d+}-{alrun}", r"stringtie-{run2}-{alrun}.gtf")
     params:
         load=loadPre(config, "stringtie"),
         extra=lambda wildcards: config["asm_methods"]["stringtie"][int(wildcards.run2)],
@@ -853,8 +853,8 @@ rule asm_class:
         align=rules.align_all.output,
         ref=rules.uncompress_genome.output.genome
     output:
-        link=os.path.join(ASM_DIR, "output", "class-{run2,\d+}-{alrun}.gtf"),
-        gtf=os.path.join(ASM_DIR, "class", "class-{run2,\d+}-{alrun}", "class-{run2}-{alrun}.gtf")
+        link=os.path.join(ASM_DIR, "output", r"class-{run2,\d+}-{alrun}.gtf"),
+        gtf=os.path.join(ASM_DIR, "class", r"class-{run2,\d+}-{alrun}", r"class-{run2}-{alrun}.gtf")
     params:
         outdir=os.path.join(ASM_DIR, "class", "class-{run2}-{alrun}"),
         load=loadPre(config, "class"),

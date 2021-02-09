@@ -4,11 +4,8 @@ from ..utilities import default_for_serialisation
 import tempfile
 from functools import partial
 import os
-try:
-    import rapidjson as json
-    json.dumps = partial(json.dumps, number_mode=json.NM_NATIVE, default=default_for_serialisation)
-except (ImportError,ModuleNotFoundError):
-    import json
+import rapidjson as json
+json.dumps = partial(json.dumps, number_mode=json.NM_NATIVE, default=default_for_serialisation)
 from pkg_resources import resource_filename
 
 

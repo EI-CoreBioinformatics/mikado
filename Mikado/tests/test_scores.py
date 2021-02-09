@@ -1,20 +1,9 @@
-import io
 import unittest
-
-try:
-    import rapidjson as json
-except (ImportError,ModuleNotFoundError):
-    import json
-from pkg_resources import resource_stream
-
-from .. import loci, configuration, transcripts
+from .. import loci, transcripts
+from .._transcripts.scoring_configuration import Requirements, MinMaxScore, TargetScore
 from ..parsers.bed12 import BED12
 from ..transcripts import Transcript
 from ..utilities.log_utils import create_default_logger
-
-with io.TextIOWrapper(resource_stream("Mikado.configuration",
-                                      "requirements_blueprint.json")) as rs_blueprint:
-    require_schema = json.loads(rs_blueprint.read())
 
 
 class ScoreTester(unittest.TestCase):
@@ -45,17 +34,15 @@ class ScoreTester(unittest.TestCase):
         self.t3 = Transcript(b3)
         self.t3.finalize()
         self.assertTrue(self.t3.is_coding)
-        self.configuration = loci.abstractlocus.default_configuration
-        reqs = {"requirements":
-                    {"expression": ["cdna_length"],
-                     "parameters": {
-                         "cdna_length": {"operator": "gt", "value": 0}
-                     }
-                     }
+        self.configuration = loci.abstractlocus.default_configuration.copy()
+        reqs = {"expression": ["cdna_length"],
+                "parameters": {"cdna_length": {"operator": "gt", "value": 0}}
                 }
 
-        self.configuration.requirements = reqs["requirements"]
-        configuration.configurator.check_requirements(self.configuration.requirements, require_schema, "requirements")
+        # self.configuration.requirements = reqs["requirements"]
+        self.configuration.scoring.requirements = Requirements.Schema().load(reqs)
+        self.configuration.check()
+
         self.locus = loci.Superlocus(self.t1, configuration=self.configuration)
         self.locus.add_transcript_to_locus(self.t2)
         self.locus.add_transcript_to_locus(self.t3)
@@ -64,10 +51,10 @@ class ScoreTester(unittest.TestCase):
 
         for multiplier in (1, 2, 3):
             with self.subTest(multiplier=multiplier):
-                scoring = {"exon_num": {"rescaling": "max", "use_raw": False, "multiplier": multiplier}}
                 logger = create_default_logger("test_exon_num_max", level="WARNING")
-                self.locus.configuration.scoring = scoring
-                self.assertEqual(self.locus.configuration.scoring["exon_num"]["multiplier"], multiplier)
+                self.locus.configuration.scoring.scoring["exon_num"] = MinMaxScore.Schema().load(
+                    {"rescaling": "max", "use_raw": False, "multiplier": multiplier})
+                self.assertEqual(self.locus.configuration.scoring.scoring["exon_num"].multiplier, multiplier)
                 self.assertIn("t3", self.locus.transcripts)
                 self.locus.logger = logger
                 self.locus.filter_and_calculate_scores()
@@ -83,11 +70,9 @@ class ScoreTester(unittest.TestCase):
 
         for multiplier in (1, 2, 3):
             with self.subTest(multiplier=multiplier):
-                scoring = {"exon_num": {"rescaling": "min", "use_raw": False, "multiplier": multiplier}}
-
                 logger = create_default_logger("test_exon_num_max", level="WARNING")
-
-                self.locus.configuration.scoring = scoring
+                self.locus.configuration.scoring.scoring["exon_num"] = MinMaxScore.Schema().load(
+                    {"rescaling": "min", "use_raw": False, "multiplier": multiplier})
                 self.assertIn("t3", self.locus.transcripts)
                 self.locus.logger = logger
                 self.locus.filter_and_calculate_scores()
@@ -102,12 +87,10 @@ class ScoreTester(unittest.TestCase):
 
         for multiplier in (1, 2, 3):
             with self.subTest(multiplier=multiplier):
-                scoring = {"exon_num": {"rescaling": "target", "value": 2,
-                           "use_raw": False, "multiplier": multiplier}}
-
                 logger = create_default_logger("test_exon_num_max", level="WARNING")
 
-                self.locus.configuration.scoring = scoring
+                self.locus.configuration.scoring.scoring["exon_num"] = TargetScore.Schema().load(
+                    {"rescaling": "target", "value": 2, "use_raw": False, "multiplier": multiplier})
                 self.assertIn("t3", self.locus.transcripts)
                 self.locus.logger = logger
                 self.locus.filter_and_calculate_scores()
@@ -122,12 +105,11 @@ class ScoreTester(unittest.TestCase):
 
         for multiplier in (1, 2, 3):
             with self.subTest(multiplier=multiplier):
-                scoring = {"exon_num": {"rescaling": "target", "value": 1,
-                                        "use_raw": False, "multiplier": multiplier}}
-
                 logger = create_default_logger("test_exon_num_max", level="WARNING")
 
-                self.locus.configuration.scoring = scoring
+                self.locus.configuration.scoring.scoring["exon_num"] = TargetScore.Schema().load(
+                    {"rescaling": "target", "value": 1,
+                     "use_raw": False, "multiplier": multiplier})
                 self.assertIn("t3", self.locus.transcripts)
                 self.locus.logger = logger
                 self.locus.filter_and_calculate_scores()
@@ -142,13 +124,11 @@ class ScoreTester(unittest.TestCase):
 
         for multiplier in (1, 2, 3):
             with self.subTest(multiplier=multiplier):
-                scoring = {"exon_num": {"rescaling": "max", "use_raw": False, "multiplier": multiplier,
-                                        "filter": {"operator": "gt", "value": 2}
-                                        }}
-
                 logger = create_default_logger("test_exon_num_max", level="WARNING")
 
-                self.locus.configuration.scoring = scoring
+                self.locus.configuration.scoring.scoring["exon_num"] = MinMaxScore.Schema().load(
+                    {"rescaling": "max", "use_raw": False, "multiplier": multiplier,
+                     "filter": {"operator": "gt", "value": 2}})
                 self.assertIn("t3", self.locus.transcripts)
                 self.locus.logger = logger
                 self.locus.filter_and_calculate_scores()
@@ -163,13 +143,13 @@ class ScoreTester(unittest.TestCase):
 
         for multiplier in (1, 2, 3):
             with self.subTest(multiplier=multiplier):
-                scoring = {"combined_cds_length": {"rescaling": "max", "use_raw": False, "multiplier": multiplier,
-                                                   "filter": {"operator": "gt", "value": 2, "metric": "exon_num"}
-                                                   }}
+                scoring = {"rescaling": "max", "use_raw": False, "multiplier": multiplier,
+                           "filter": {"operator": "gt", "value": 2, "metric": "exon_num"}}
 
                 logger = create_default_logger("test_exon_num_max", level="WARNING")
 
-                self.locus.configuration.scoring = scoring
+                self.locus.configuration.scoring.scoring = {"combined_cds_length": MinMaxScore.Schema().load(scoring)}
+                self.locus.configuration = self.locus.configuration
                 self.assertIn("t3", self.locus.transcripts)
                 self.locus.logger = logger
                 self.locus.filter_and_calculate_scores()
@@ -184,13 +164,13 @@ class ScoreTester(unittest.TestCase):
 
         for multiplier in (1, 2, 3):
             with self.subTest(multiplier=multiplier):
-                scoring = {"combined_cds_length": {"rescaling": "max", "use_raw": False, "multiplier": multiplier,
-                                                   "filter": {"operator": "lt", "value": 3, "metric": "exon_num"}
-                                                   }}
-
                 logger = create_default_logger("test_exon_num_max", level="WARNING")
 
-                self.locus.configuration.scoring = scoring
+                self.locus.configuration.scoring.scoring["combined_cds_length"] = MinMaxScore.Schema().load(
+                    {"rescaling": "max", "use_raw": False, "multiplier": multiplier,
+                     "filter": {"operator": "lt", "value": 3, "metric": "exon_num"}
+                     }
+                )
                 self.assertIn("t3", self.locus.transcripts)
                 self.locus.logger = logger
                 self.locus.filter_and_calculate_scores()
@@ -224,19 +204,17 @@ class LocusMissedTester(unittest.TestCase):
     def setUp(self):
         self.configuration = loci.abstractlocus.default_configuration
         reqs = {
-            "requirements": {
                 "expression": ["cdna_length"],
                 "parameters": {
                     "cdna_length": {
-                        "operator": "gt", "value": 0}
+                        "operator": "gt", "value": 0,
+                    "name": "cdna_length"}
                 }
             }
-        }
 
-        self.configuration.requirements = reqs["requirements"]
-        self.configuration.requirements = configuration.configurator.check_requirements(
-            self.configuration.requirements, require_schema, "requirements")
+        self.configuration.scoring.requirements = Requirements.Schema().load(reqs)
         self.configuration.pick.alternative_splicing.pad = False
+        self.configuration.check()
 
     def test_transcript_not_missed(self):
 
@@ -250,7 +228,6 @@ class LocusMissedTester(unittest.TestCase):
         t1 = transcripts.Transcript(b1, logger=logger)
         t1.finalize()
         self.assertEqual(sorted(t1.exons), [(101, 300), (401,500)])
-
         b2 = BED12("1\t100\t1500\tID=t2;coding=True\t25\t+\t200\t901\t.\t4\t200,150,400,200\t0,300,700,1200",
                    coding=True)
         self.assertFalse(b2.invalid, b2.invalid_reason)

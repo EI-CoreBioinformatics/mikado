@@ -26,28 +26,6 @@ from .prepare import parse_prepare_options
 __author__ = 'Luca Venturini'
 
 
-def get_key(new_dict, key, default):
-
-    """
-    Recursive method to get a nested key from inside the "default" dict
-    and transfer it, keeping the tree structure, inside the
-    new_dict
-    :param new_dict: dictionary to transfer the key to
-    :param key: composite key
-    :param default: dictionary to extract the key from
-    :return: new_dict (with updated structure)
-    """
-
-    if isinstance(default[key[0]], dict):
-        assert len(key) > 1
-        new_dict.setdefault(key[0], new_dict.get(key[0], dict()))
-        new_dict = get_key(new_dict[key[0]], key[1:], default[key[0]])
-    else:
-        assert len(key) == 1
-        new_dict[key[0]] = default[key[0]]
-    return new_dict
-
-
 def __add_daijin_specs(args, config):
     from ..configuration.daijin_configurator import create_cluster_config, create_daijin_config
     namespace = Namespace(default=False)
@@ -95,7 +73,12 @@ def create_config(args):
     :return:
     """
 
-    if len(args.mode) > 1:
+    if isinstance(args.seed, bool) or args.seed is None:
+        raise OSError("Invalid seed: {}".format(args.seed))
+    elif not (isinstance(args.seed, int) and 0 <= args.seed <= 2 ** 32 - 1):
+        raise OSError("Invalid seed: {}".format(args.seed))
+
+    if isinstance(args.mode, list) and len(args.mode) > 1:
         args.daijin = True
 
     if args.daijin is not False:
@@ -104,7 +87,7 @@ def create_config(args):
         config = MikadoConfiguration()
 
     if args.external is not None:
-        other = dataclasses.asdict(load_and_validate_config(args.external))
+        other = dataclasses.asdict(load_and_validate_config(args.external, external=True))
         config = dataclasses.asdict(config)
         config = merge_dictionaries(config, other)
         config = load_and_validate_config(config)
@@ -120,9 +103,6 @@ def create_config(args):
     elif not args.gff:
         args.gff = []
     config = parse_prepare_options(args, config)
-
-    if args.seed is not None and not (isinstance(args.seed, int) and 0 <= args.seed <= 2 ** 32 - 1):
-        raise OSError("Invalid seed: {}".format(args.seed))
 
     if args.seed is not None:
         try:
@@ -171,24 +151,23 @@ switch.")
         config.pick.alternative_splicing.cds_only = True
 
     if args.daijin is False and args.mode is not None and len(args.mode) == 1:
-        args.mode = args.mode.pop()
-        if args.mode == "nosplit":
+        mode = args.mode.pop()
+        if mode == "nosplit":
             config.pick.chimera_split.execute = False
         else:
             config.pick.chimera_split.execute = True
-            if args.mode == "split":
+            if mode == "split":
                 config.pick.chimera_split.blast_check = False
             else:
                 config.pick.chimera_split.blast_check = True
-                config.pick.chimera_split.blast_params.leniency = args.mode.upper()
+                config.pick.chimera_split.blast_params.leniency = mode.upper()
 
     if args.skip_split:
         if not all(_ in config.prepare.files.labels for _ in args.skip_split):
             raise InvalidJson("Some of the labels to skip for splitting are invalid: {}".format(
                 [_ for _ in args.skip_split if _ not in config.prepare.files.labels]
             ))
-        config.pick.chimera_split.skip = list(set(config.pick.chimera_split.skip.extend(
-            args.skip_split)))
+        config.pick.chimera_split.skip = list(set(config.pick.chimera_split.skip.extend(args.skip_split)))
 
     if args.pad is not None:
         config.pick.alternative_splicing.pad = args.pad
@@ -213,15 +192,21 @@ switch.")
     if args.exclude_retained_introns is True:
         config.pick.alternative_splicing.keep_retained_introns = False
 
+    if args.out_dir:
+        config.prepare.files.output_dir = args.out_dir
+        config.serialise.files.output_dir = args.out_dir
+        config.pick.files.output_dir = args.out_dir
+
     # Check that the configuration file is correct
-    tempcheck = tempfile.NamedTemporaryFile("wt", suffix=".yaml", delete=False)
-    print_config(config, tempcheck)
+    tempcheck = tempfile.NamedTemporaryFile("wt", suffix=".json", delete=False)
+    print_config(config, tempcheck, full=args.full, output_format="json")
     tempcheck.flush()
     try:
         load_and_validate_config(tempcheck.name)
     except InvalidJson as exc:
         raise InvalidJson("Created an invalid configuration file! Error:\n{}".format(exc))
 
+    # Print out the final configuration file
     if args.json is True or args.out.name.endswith("json"):
         format_name = "json"
     elif args.yaml is True or args.out.name.endswith("yaml"):
@@ -229,7 +214,7 @@ switch.")
     else:
         format_name = "toml"
 
-    print_config(config, args.out, format=format_name, no_files=args.no_files)
+    print_config(config, args.out, output_format=format_name, no_files=args.no_files, full=args.full)
 
 
 def configure_parser():
@@ -247,9 +232,8 @@ def configure_parser():
                      for fname in glob.iglob(os.path.join(scoring_folder, "**", "*yaml"), recursive=True)]
 
     parser = argparse.ArgumentParser(description="Configuration utility for Mikado")
-                                     #formatter_class=argparse.RawTextHelpFormatter)
     parser.add_argument("--full", action="store_true", default=False)
-    parser.add_argument("--seed", type=int, default=None,
+    parser.add_argument("--seed", type=int, default=0,
                         help="Random seed number.")
     preparer = parser.add_argument_group("Options related to the prepare stage.")
     preparer.add_argument("--minimum-cdna-length", default=None, type=int, dest="minimum_cdna_length",

@@ -1,19 +1,15 @@
 import dataclasses
 from typing import Union
-
 from argparse import Namespace
-
-try:
-    import rapidjson as json
-except (ImportError, ModuleNotFoundError):
-    import json
+import rapidjson as json
 import os
-import io
+import toml
 import yaml
 from pkg_resources import resource_stream
-from .configurator import check_all_requirements, check_scoring
 from .configurator import create_cluster_config
-from . import print_config, DaijinConfiguration
+from . import print_config
+from .daijin_configuration import DaijinConfiguration
+from .._transcripts.scoring_configuration import ScoringFile
 from ..exceptions import InvalidJson
 from ..utilities.log_utils import create_default_logger
 import sys
@@ -209,7 +205,7 @@ def create_daijin_config(args: Namespace, config=None, level="ERROR", piped=Fals
         setattr(config.long_read_align_methods, method, [""])
 
     # Set and eventually copy the scoring file.
-    if args.scoring is not None:
+    if args.scoring:
         if args.copy_scoring is not False:
             with open(args.copy_scoring, "wt") as out:
                 with resource_stream("Mikado", os.path.join("configuration",
@@ -219,7 +215,7 @@ def create_daijin_config(args: Namespace, config=None, level="ERROR", piped=Fals
                         print(line.decode(), file=out, end="")
             args.scoring = os.path.abspath(args.copy_scoring)
         config.pick.scoring_file = args.scoring
-    elif args.new_scoring is not None:
+    elif args.new_scoring:
         if os.path.exists(args.new_scoring):
             # Check it's a valid scoring file
             with open(args.new_scoring) as _:
@@ -228,23 +224,20 @@ def create_daijin_config(args: Namespace, config=None, level="ERROR", piped=Fals
                 else:
                     new_scoring = yaml.load(_, Loader=yLoader)
 
-                _ = check_all_requirements(new_scoring)
-                _ = check_scoring(new_scoring)
-
+                _ = ScoringFile.Schema().load(new_scoring)
+                _.check(minimal_orf_length=config.pick.orf_loading.minimal_orf_length)
         else:
-            with io.TextIOWrapper(resource_stream("Mikado.configuration",
-                                                  "scoring_blueprint.json")) as schema:
-                _ = json.load(schema.read())
-
-            ns = dict()
+            ns = ScoringFile()
             with open(args.new_scoring, "wt") as out:
-                ns["scoring"] = dict()
+                ns = dataclasses.asdict(ns)
                 for key in ["as_requirements", "requirements", "not_fragmentary"]:
-                    ns["as_requirements"] = {"parameters": {}, "expression": []}
+                    ns[key] = {"parameters": {}, "expression": []}
                 if args.new_scoring.endswith("json"):
                     json.dump(ns, out)
-                else:
+                elif args.new_scoring.endswith("yaml"):
                     yaml.dump(ns, out)
+                else:
+                    toml.dumps(ns, out)
             config.pick.scoring_file = args.new_scoring
 
     if args.flank is not None:
@@ -276,6 +269,6 @@ def create_daijin_config(args: Namespace, config=None, level="ERROR", piped=Fals
         else:
             format_name = "toml"
 
-        print_config(final_config, args.out, format=format_name, no_files=args.no_files)
+        print_config(final_config, args.out, output_format=format_name, no_files=args.no_files, full=args.full)
         args.out.close()
     return

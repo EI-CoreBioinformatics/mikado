@@ -1,3 +1,16 @@
+# Version 2.0.1
+
+BugFix release.
+
+- Fixed a bug that caused Mikado configure (but not daijin configure, or "mikado configure --daijin") to print out invalid configuration files.
+- Restored the functionality of "--full" - now Mikado can print out both partial (but still valid) or fully-fledged configuration files.
+- Configured bumpversion
+- Corrected a small bug in parsing EnsEMBL GFF3
+- Cured some deprecation warning messages from marshmallow and numpy
+- Small bug fix in the CLIs of mikado/daijin configure.
+- Default value of the seed is now 0 (ie: undefined, a random one will be selected). Only integers are allowed values.
+- Small bugfixes/extensions in the test suite.
+
 # Version 2.0
 
 Official second release of Mikado. **All users are advised to update as soon as possible**.

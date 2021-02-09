@@ -11,7 +11,10 @@ import pysam
 from ...utilities.dbutils import connect
 from ...utilities.log_utils import create_null_logger, check_logger
 from ...configuration import MikadoConfiguration, DaijinConfiguration
-from . import Query, Target, Hsp, Hit
+from .query import Query
+from .target import Target
+from .hsp import Hsp
+from .hit import Hit
 from .utils import load_into_db
 from .xml_utils import get_multipliers
 from .xml_serialiser import _serialise_xmls

@@ -148,11 +148,14 @@ class Sublocus(Abstractlocus):
         self.excluded = Excluded()
         self.excluded.load_dict(state["excluded"])
 
-    def add_transcript_to_locus(self, transcript: Transcript, **kwargs):
+    def add_transcript_to_locus(self, transcript: Transcript, check_in_locus=True, **kwargs):
 
         """
         :param transcript: the transcript which might be putatively added to the Locus.
         :type transcript: Transcript
+
+        :param check_in_locus: whether to check that the transcript is compatible. Boolean, default True.
+        :type check_in_locus: bool
 
         :param kwargs: eventual keyword arguments are ignored.
 
@@ -200,7 +203,7 @@ class Sublocus(Abstractlocus):
                                            self._is_transcript_monoexonic(transcript)),
                                        "\n".join([_.format("bed12") + "\t{}".format(
                                            self._is_transcript_monoexonic(_)) for _ in self.transcripts.values()])))
-        super().add_transcript_to_locus(transcript)
+        super().add_transcript_to_locus(transcript, check_in_locus=check_in_locus)
         # add the verified introns from the outside
         self.logger.debug("Added %s to %s", transcript.id, self.id)
         # Update the id
@@ -318,7 +321,8 @@ class Sublocus(Abstractlocus):
         :return:
         """
 
-        self.filter_and_calculate_scores()
+        # self.filter_and_calculate_scores()
+        self.get_metrics()
         self.metric_lines_store = [_ for _ in self.prepare_metrics()]
         for row in self.metric_lines_store:
             yield row
@@ -326,7 +330,7 @@ class Sublocus(Abstractlocus):
     def print_scores(self):
         """This method yields dictionary rows that are given to a csv.DictWriter class."""
         self.filter_and_calculate_scores()
-        score_keys = sorted(list(self.configuration.scoring.keys()) + ["source_score"])
+        score_keys = sorted(list(self.configuration.scoring.scoring.keys()) + ["source_score"])
         keys = ["tid", "alias", "parent", "score"] + sorted(score_keys)
 
         for tid in self.scores:

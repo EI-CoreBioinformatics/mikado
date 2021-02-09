@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<config>
+    <source_groups>
+        <source_group_83e30e31-d07a-40d3-a69f-77f91ce915e3>
+            <exclude_filters>
+                <exclude_filter>Mikado/tests</exclude_filter>
+            </exclude_filters>
+            <name>Python Source Group</name>
+            <source_extensions>
+                <source_extension>.py</source_extension>
+            </source_extensions>
+            <source_paths>
+                <source_path>Mikado</source_path>
+            </source_paths>
+            <status>enabled</status>
+            <type>Python Source Group</type>
+        </source_group_83e30e31-d07a-40d3-a69f-77f91ce915e3>
+    </source_groups>
+    <version>8</version>
+</config>

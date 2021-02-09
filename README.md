@@ -51,6 +51,11 @@ If you plan to generate the alignment and assembly part as well through Daijin, 
     - [Portcullis] is optional, but highly recommended to retrieve high-quality junctions from the data 
 - If you have long-read RNA-Seq data:
     - At least one long-read RNA-Seq aligner, current choice between [STAR] and [GMAP]
+
+## Development guide
+
+We provide source trail files ([https://www.sourcetrail.com/](https://www.sourcetrail.com/)) to aid in development.
+As required by the SourceTrail application, these files are present in the master directory, as "Mikado.srctrl*".
     
 ## Citing Mikado
 

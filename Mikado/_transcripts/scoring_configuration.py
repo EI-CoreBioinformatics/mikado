@@ -15,7 +15,7 @@ key_pattern = re.compile(r"([^ ()]+)")
 @dataclass
 class SizeFilter:
     operator: str = field(metadata={"required": True, "validate": validate.OneOf(["gt", "ge", "lt", "le"])})
-    value: Union[float, int] = field(metadata={"required": True})
+    value: float = field(metadata={"required": True})
     metric: Optional[str] = field(metadata={"required": False}, default=None)
     name: Optional[str] = field(default=None)
     source: Optional[str] = field(default=None)
@@ -23,7 +23,7 @@ class SizeFilter:
 
 @dataclass
 class NumBoolEqualityFilter:
-    value: Union[float, bool, int] = field(metadata={"required": True})
+    value: Union[float, bool] = field(metadata={"required": True})
     operator: str = field(metadata={"required": True, "validate": validate.OneOf(["ne", "eq"])})
     metric: Optional[str] = field(metadata={"required": False}, default=None)
     name: Optional[str] = field(default=None)
@@ -58,7 +58,7 @@ class RangeFilter:
                 raise validate.ValidationError(self._format_error(value))
             return value
 
-    value: List[Union[float, int]] = field(metadata={
+    value: List[float] = field(metadata={
         "required": True,
         "validate": [validate.Length(min=2, max=2), Unique]})
     operator: str = field(metadata={"required": True, "validate": validate.OneOf("within", "not within")})
@@ -71,8 +71,8 @@ class MinMaxScore:
     rescaling: str = field(metadata={"required": True, "validate": validate.OneOf(["max", "min"])})
     filter: Optional[Union[SizeFilter, NumBoolEqualityFilter, RangeFilter, InclusionFilter]]
     use_raw: bool = field(default=False)
-    multiplier: Union[float, int] = field(default=1, metadata={"required": False})
-    default: Optional[Union[float, int, bool]] = field(default=0, metadata={"required": False})
+    multiplier: float = field(default=1, metadata={"required": False})
+    default: Optional[Union[float, bool]] = field(default=0, metadata={"required": False})
     rtype: Optional[str] = field(default="float", metadata={"validate": validate.OneOf(["float", "int", "bool"]),
                                                             "required": False})
     percentage: Optional[bool] = field(default=False)
@@ -81,12 +81,12 @@ class MinMaxScore:
 @dataclass
 class TargetScore:
     rescaling: str = field(metadata={"required": True, "validate": validate.OneOf(["target"])})
-    value: Union[float, int, bool] = field(metadata={"required": True})
+    value: Union[float, bool] = field(metadata={"required": True})
     filter: Optional[Union[SizeFilter, NumBoolEqualityFilter, RangeFilter, InclusionFilter]]
     # Use_raw must be false for target scores
     use_raw: bool = field(default=False, metadata={"validate": validate.OneOf([False])})
-    multiplier: Union[float, int] = field(default=1, metadata={"required": False})
-    default: Optional[Union[float, int, bool]] = field(default=0, metadata={"required": False})
+    multiplier: float = field(default=1, metadata={"required": False})
+    default: Optional[Union[float, bool]] = field(default=0, metadata={"required": False})
     rtype: Optional[str] = field(default="float", metadata={"validate": validate.OneOf(["float", "int", "bool"]),
                                                             "required": False})
     percentage: Optional[bool] = field(default=False)

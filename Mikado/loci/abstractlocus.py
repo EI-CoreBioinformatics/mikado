@@ -1597,8 +1597,9 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                 self.scores[tid][param] = round(score, 2)
 
         # This MUST be true
+        debug = self.configuration.log_settings.log_level == "DEBUG"
         if self.configuration.scoring.scoring[param].filter is None and max(
-                [self.scores[tid][param] for tid in self.transcripts.keys()]) == 0:
+                [self.scores[tid][param] for tid in self.transcripts.keys()]) == 0 and debug:
             message = """All transcripts have a score of 0 for {} in {}. This is an error!
 Metrics: {}
 Scores: {}
@@ -1612,8 +1613,6 @@ Scoring configuration: {}
                 message += f"Formula for denominator: max(abs(x - {target}) for x in {metrics.values()})\n"
                 for tid, tid_metric in metrics.items():
                     message += f"Formula for {tid}:\t1 - abs({tid_metric} - {target}) / {denominator}\n"
-
-            # raise ValueError(error_message)
             self.logger.debug(message)
 
     @classmethod

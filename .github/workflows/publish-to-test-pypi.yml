@@ -42,10 +42,10 @@ jobs:
           activate-environment: "test"
           auto-activate-base: false
       - name: Install dependencies
-          run: |
-            gcc --help
-            pip install -r requirements.txt
-            pip install Cython
+        run: |
+          gcc --help
+          pip install -r requirements.txt
+          pip install Cython
       - name: Install Mikado
         run: >-
           python -m pip install build --user

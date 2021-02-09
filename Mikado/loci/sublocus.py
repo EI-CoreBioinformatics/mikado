@@ -321,7 +321,8 @@ class Sublocus(Abstractlocus):
         :return:
         """
 
-        self.filter_and_calculate_scores()
+        # self.filter_and_calculate_scores()
+        self.get_metrics()
         self.metric_lines_store = [_ for _ in self.prepare_metrics()]
         for row in self.metric_lines_store:
             yield row

@@ -1599,8 +1599,22 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         # This MUST be true
         if self.configuration.scoring.scoring[param].filter is None and max(
                 [self.scores[tid][param] for tid in self.transcripts.keys()]) == 0:
-            self.logger.warning("All transcripts have a score of 0 for %s in %s",
-                                param, self.id)
+            message = """All transcripts have a score of 0 for {} in {}. This is an error!
+Metrics: {}
+Scores: {}
+Scoring configuration: {}
+""".format(param, self.id, metrics.items(),
+           dict((tid, self.scores[tid][param]) for tid in self.transcripts.keys()),
+           self.configuration.scoring.scoring[param],)
+            if rescaling == "target":
+                target = self.configuration.scoring.scoring[param].value
+                message += f"Denominator: {denominator}\n"
+                message += f"Formula for denominator: max(abs(x - {target}) for x in {metrics.values()})\n"
+                for tid, tid_metric in metrics.items():
+                    message += f"Formula for {tid}:\t1 - abs({tid_metric} - {target}) / {denominator}\n"
+
+            # raise ValueError(error_message)
+            self.logger.debug(message)
 
     @classmethod
     def _calculate_graph(cls, transcripts):

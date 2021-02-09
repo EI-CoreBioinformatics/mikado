@@ -266,6 +266,8 @@ def analyse_locus(slocus: Superlocus,
     # Define the loci
     logger.debug("Divided into %d loci", len(stranded_loci))
 
+    failed = 0
+    original_size = len(stranded_loci)
     for stranded_locus in stranded_loci:
         stranded_locus.logger = logger
         try:
@@ -278,14 +280,18 @@ def analyse_locus(slocus: Superlocus,
             logger.exception(exc)
             logger.error("Removing failed locus %s", stranded_locus.name)
             stranded_loci.remove(stranded_locus)
+            assert stranded_locus not in stranded_loci
+            failed += 1
         logger.debug("Defined loci for %s:%f-%f, strand: %s",
                      stranded_locus.chrom,
                      stranded_locus.start,
                      stranded_locus.end,
                      stranded_locus.strand)
 
+    assert len(stranded_loci) + failed == original_size, (len(stranded_loci), failed, original_size)
     # Check if any locus is a fragment, if so, tag/remove it
-    stranded_loci = sorted(list(remove_fragments(stranded_loci, configuration, logger)))
+    if len(stranded_loci) > 0:
+        stranded_loci = sorted(list(remove_fragments(stranded_loci, configuration, logger)))
     try:
         logger.debug("Size of the loci to send: {0}, for {1} loci".format(
             sys.getsizeof(stranded_loci),
@@ -480,14 +486,21 @@ class LociProcesser(Process):
 
                     stranded_loci = self.analyse_locus(slocus, counter)
 
-                serialise_locus(stranded_loci,
-                                self.status_queue,
-                                counter,
-                                print_cds=print_cds,
-                                print_monosubloci=print_monoloci,
-                                print_subloci=print_subloci)
                 if len(stranded_loci) == 0:
                     self.logger.warning("No loci left for index %d", counter)
+                else:
+                    try:
+                        serialise_locus(stranded_loci,
+                                        self.status_queue,
+                                        counter,
+                                        print_cds=print_cds,
+                                        print_monosubloci=print_monoloci,
+                                        print_subloci=print_subloci)
+                    except KeyboardInterrupt:
+                        raise
+                    except Exception as exc:
+                        self.logger.exception(exc)
+                        raise
                 self.locus_queue.task_done()
 
         return

@@ -58,7 +58,7 @@ Default: blosum62, the default for both BLAST and DIAMOND."},
 which should be the sane presumption in most instances."},
                 "validate": validate.OneOf(choices=["blastx", "blastp"])
     })
-    codon_table: Union[str, int] = field(default=0, metadata={
+    codon_table: Union[int, str] = field(default=0, metadata={
                 "metadata": {
                     "description": "codon table to use for verifying/modifying the ORFs. Default: 0, ie the universal \
 codon table but enforcing ATG as the only valid start codon."},

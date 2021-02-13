@@ -25,16 +25,16 @@ class Excluded(Abstractlocus):
         :type monosublocus_instance: Mikado.loci_objects.monosublocus.Monosublocus
 
         :param configuration: configuration file
-        :type configuration: dict
+        :type configuration: (MikadoConfiguration|DaijinConfiguration)
 
         :param logger: logger instance
         :type logger: logging.Logger | None
         """
 
-        Abstractlocus.__init__(self)
+        Abstractlocus.__init__(self, configuration=configuration)
         self.splitted = False
         self.metrics_calculated = False
-        self.configuration = configuration
+        # self.configuration = configuration
         self.logger = logger
         if isinstance(monosublocus_instance, Transcript):
             Abstractlocus.__init__(self, transcript_instance=monosublocus_instance)

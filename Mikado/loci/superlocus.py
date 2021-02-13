@@ -382,7 +382,7 @@ class Superlocus(Abstractlocus):
         if print_subloci is True or print_monoloci is True:
 
             if print_subloci is True:
-                self.excluded = Excluded()
+                self.excluded = Excluded(configuration=self.configuration)
                 self.excluded.load_dict(state["excluded"])
                 self.subloci = []
                 for stat in state["subloci"]:
@@ -1151,7 +1151,7 @@ class Superlocus(Abstractlocus):
             for row in self.loci[locus].print_scores():
                 yield row
 
-    def define_loci(self, check_requirements=True):
+    def define_loci(self, check_requirements=True, depth=0):
         """This is the final method in the pipeline. It creates a container
         for all the monosubloci (an instance of the class MonosublocusHolder)
         and retrieves the loci it calculates internally."""
@@ -1196,7 +1196,9 @@ class Superlocus(Abstractlocus):
             self.define_alternative_splicing()
 
         self.__find_lost_transcripts()
-        while len(self.lost_transcripts) > 0:
+        loops = 0
+        while len(self.lost_transcripts) > 0 and depth < 5 and loops < 5:
+            loops += 1
             new_locus = None
             for transcript in self.lost_transcripts.values():
                 if new_locus is None:
@@ -1211,7 +1213,7 @@ class Superlocus(Abstractlocus):
                 else:
                     new_locus.add_transcript_to_locus(transcript,
                                                       check_in_locus=False)
-            new_locus.define_loci(check_requirements=check_requirements)
+            new_locus.define_loci(check_requirements=check_requirements, depth=depth+1)
             self.loci.update(new_locus.loci)
             self.__lost = new_locus.lost_transcripts
 

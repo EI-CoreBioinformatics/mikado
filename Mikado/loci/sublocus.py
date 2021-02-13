@@ -145,7 +145,7 @@ class Sublocus(Abstractlocus):
             s = Monosublocus()
             s.load_dict(stat)
             self.monosubloci.append(s)
-        self.excluded = Excluded()
+        self.excluded = Excluded(configuration=self.configuration)
         self.excluded.load_dict(state["excluded"])
 
     def add_transcript_to_locus(self, transcript: Transcript, check_in_locus=True, **kwargs):

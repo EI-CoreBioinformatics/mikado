@@ -382,7 +382,7 @@ class Superlocus(Abstractlocus):
         if print_subloci is True or print_monoloci is True:
 
             if print_subloci is True:
-                self.excluded = Excluded()
+                self.excluded = Excluded(configuration=self.configuration)
                 self.excluded.load_dict(state["excluded"])
                 self.subloci = []
                 for stat in state["subloci"]:

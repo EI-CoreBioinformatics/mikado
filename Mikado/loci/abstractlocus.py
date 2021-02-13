@@ -1231,8 +1231,13 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         fraction = retained_bases / self.transcripts[tid].cdna_length
         self.transcripts[tid].retained_fraction = fraction
 
-        self._metrics[tid] = dict((metric, rgetattr(self.transcripts[tid], metric))
-                                  for metric in self.available_metrics)
+        self._metrics[tid] = dict()
+
+        for metric in self.available_metrics:
+            if "." in metric:
+                self._metrics[tid][metric] = rgetattr(self.transcripts[tid], metric)
+            else:
+                self._metrics[tid][metric] = getattr(self.transcripts[tid], metric)
 
         for metric, values in self._attribute_metrics.items():
             # 11 == len('attributes.') removes 'attributes.' to keep the metric name same as in the file attributes
@@ -1317,7 +1322,10 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                 else:
                     name = key
                 try:
-                    value = rgetattr(self.transcripts[tid], name)
+                    if "." in name:
+                        value = rgetattr(self.transcripts[tid], name)
+                    else:
+                        value = getattr(self.transcripts[tid], name)
                 except AttributeError:
                     raise AttributeError((section_name, key, section.parameters[key]))
                 if "external" in key:
@@ -1681,6 +1689,8 @@ Scoring configuration: {}
 
     @property
     def configuration(self) -> Union[MikadoConfiguration, DaijinConfiguration]:
+        if self.__configuration is None:
+            self.__configuration = MikadoConfiguration()
         return self.__configuration
 
     @configuration.setter

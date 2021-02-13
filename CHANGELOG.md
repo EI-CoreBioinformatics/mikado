@@ -1,3 +1,10 @@
+# Version 2.0.2
+
+Bugfix release.
+
+- Fix infinite recursion bug when trying to recover lost transcripts
+- Fix performance regression by passing the configuration to Excluded locus objects.
+
 # Version 2.0.1
 
 BugFix release.

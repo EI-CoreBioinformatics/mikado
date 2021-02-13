@@ -1,6 +1,7 @@
 import unittest
 from .. import loci, transcripts
 from .._transcripts.scoring_configuration import Requirements, MinMaxScore, TargetScore
+from ..configuration import MikadoConfiguration
 from ..parsers.bed12 import BED12
 from ..transcripts import Transcript
 from ..utilities.log_utils import create_default_logger
@@ -34,7 +35,7 @@ class ScoreTester(unittest.TestCase):
         self.t3 = Transcript(b3)
         self.t3.finalize()
         self.assertTrue(self.t3.is_coding)
-        self.configuration = loci.abstractlocus.default_configuration.copy()
+        self.configuration = MikadoConfiguration()
         reqs = {"expression": ["cdna_length"],
                 "parameters": {"cdna_length": {"operator": "gt", "value": 0}}
                 }
@@ -184,7 +185,7 @@ class ScoreTester(unittest.TestCase):
 
     def test_default_scores(self):
 
-        json_conf = loci.abstractlocus.default_configuration
+        json_conf = MikadoConfiguration()
         locus = loci.Superlocus(self.t1, use_transcript_scores=True, configuration=json_conf)
         locus.add_transcript_to_locus(self.t2)
         locus.add_transcript_to_locus(self.t3)
@@ -202,7 +203,7 @@ class ScoreTester(unittest.TestCase):
 class LocusMissedTester(unittest.TestCase):
 
     def setUp(self):
-        self.configuration = loci.abstractlocus.default_configuration
+        self.configuration = MikadoConfiguration()
         reqs = {
                 "expression": ["cdna_length"],
                 "parameters": {

@@ -27,7 +27,6 @@ from typing import Union
 from ..configuration.configuration import MikadoConfiguration
 from ..configuration.daijin_configuration import DaijinConfiguration
 from ..configuration.configurator import load_and_validate_config, check_and_load_scoring
-default_configuration = load_and_validate_config(None)
 
 
 # I do not care that there are too many attributes: this IS a massive class!
@@ -76,8 +75,6 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                                    "selected_cds_exons": "selected_cds",
                                    "exons": "exons",
                                    "locus_verified_introns": "verified_introns"}
-
-    __configuration = default_configuration.copy()
 
     @abc.abstractmethod
     def __init__(self,
@@ -132,6 +129,8 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             setattr(self, locattr, set())
         if verified_introns is not None:
             self.locus_verified_introns = verified_introns
+
+        self.__configuration = None
 
         self.scores_calculated = False
         self.scores = dict()
@@ -1687,7 +1686,7 @@ Scoring configuration: {}
     @configuration.setter
     def configuration(self, conf):
         if conf is None or conf == "":
-            conf = default_configuration.copy()
+            conf = MikadoConfiguration()
         elif isinstance(conf, str) and conf != "":
             conf = load_and_validate_config(conf)
         elif not isinstance(conf, (MikadoConfiguration, DaijinConfiguration)):

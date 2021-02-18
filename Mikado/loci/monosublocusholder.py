@@ -224,6 +224,7 @@ class MonosublocusHolder(Sublocus, Abstractlocus):
                     new_locus = Locus(selected_transcript, logger=self.logger, configuration=self.configuration,
                                       use_transcript_scores=self._use_transcript_scores)
                     loci.append(new_locus)
+
             self.logger.debug("Removing {0} transcripts from {1}".format(len(to_remove), self.id))
             graph.remove_nodes_from(to_remove)  # Remove nodes from graph, iterate
 

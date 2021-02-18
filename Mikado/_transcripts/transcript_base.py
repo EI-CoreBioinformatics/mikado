@@ -604,10 +604,14 @@ class TranscriptBase:
             del state["blast_baked"]
             del state["query_baked"]
 
+        state["__hit_num"] = len(self.blast_hits)
+
         return state
 
     def __setstate__(self, state):
+        hit_num = state.pop("__hit_num")
         self.__dict__.update(state)
+        assert len(self.blast_hits) == hit_num
         self._calculate_cds_tree()
         self._calculate_segment_tree()
         # Set the logger to NullHandler
@@ -1174,6 +1178,8 @@ exon data is on a different chromosome, {exon_data.chrom}. \
             raise ValueError((self.id, mmetrics))
 
         state["external"] = dict((key, value) for key, value in self.external_scores.items())
+        state["blast_hits"] = self.blast_hits[:]
+        state["verified_introns"] = self.__verified_introns.copy()
 
         for key in ["chrom", "source", "start", "end", "strand", "score", "attributes"]:
 
@@ -1237,18 +1243,24 @@ exon data is on a different chromosome, {exon_data.chrom}. \
 
         self.external_scores.update(state.get("external", dict()))
         self.__original_source = self.source
+        self.blast_hits = state.pop("blast_hits")
         self.attributes = state["attributes"].copy()
 
         self.exons = []
         self.combined_cds = []
         for exon in state["exons"]:
             if len(exon) != 2:
-                raise CorruptIndex("Invalid exonic values of {}".format(self.id))
+                raise CorruptIndex("Invalid exonic values for {}: {}".format(self.id, exon))
             self.exons.append(tuple(exon))
         for intron in state["introns"]:
             if len(intron) != 2:
-                raise CorruptIndex("Invalid intronic values of {}".format(self.id))
+                raise CorruptIndex("Invalid intronic values for {}: {}".format(self.id, intron))
             self.introns.add(tuple(intron))
+        for intron in state["verified_introns"]:
+            if len(intron) != 2:
+                raise CorruptIndex("Invalid intronic values for {}: {}".format(self.id, intron))
+            self.__verified_introns.add(tuple(intron))
+
         self.splices = set(state["splices"])
 
         self._trust_orf = trust_orf

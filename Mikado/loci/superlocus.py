@@ -1135,13 +1135,6 @@ class Superlocus(Abstractlocus):
             return []
         for locus in self.loci:
             for row in self.loci[locus].print_metrics():
-                tid = row["tid"]
-                blast_score = row["blast_score"]
-                alias = row["alias"]
-                assert (self.transcripts[alias].blast_score == blast_score
-                        == self.loci[locus].transcripts[tid].blast_score), (
-                    self.transcripts[alias].blast_score, blast_score, locus[tid].blast_score
-                )
                 yield row
 
     def print_loci_scores(self):

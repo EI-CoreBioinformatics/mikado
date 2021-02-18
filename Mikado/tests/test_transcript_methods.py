@@ -893,6 +893,34 @@ Chr5	TAIR10	exon	5256	5576	.	-	.	Parent=AT5G01015.1"""
         self.assertTrue(any(s.str.contains(
             "ORF 2 of test.1 is invalid. Exception:")), cmo.output)
 
+    def test_as_and_load_dict_verified_introns(self):
+        self.t1.verified_introns = {(5577, 5696)}
+        self.t1.proportion_verified_introns_inlocus = 1.0
+        t1_state = self.t1.as_dict()
+        new_t = Transcript()
+        new_t.load_dict(t1_state)
+        assert new_t.verified_introns == self.t1.verified_introns
+
+    def test_as_and_load_dict_blast_hits(self):
+        hit = dict()
+        hit["evalue"] = 10**-6
+        hit["hsps"] = []
+        hit["target"] = "target1"
+        hit["target_length"] = 636
+        hit["query_start"] = 1
+        hit["query_end"] = 636
+        hit["target_cov"] = 100
+        hit["bits"] = 1200
+        hit["query_cov"] = 100
+        hit["evalue"] = 10**(-6)
+        hit["global_identity"] = 100
+        hit["query_aligned_length"] = 636 - 1
+        hit["target_aligned_length"] = 636 - 1
+        self.t1.blast_hits.append(hit)
+        t1_state = self.t1.as_dict()
+        new_t = Transcript()
+        new_t.load_dict(t1_state)
+        assert new_t.blast_hits == self.t1.blast_hits
 
 if __name__ == '__main__':
     unittest.main()

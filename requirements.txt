@@ -24,3 +24,4 @@ dataclasses; python_version < '3.7'
 marshmallow
 marshmallow-dataclass
 typeguard  # Necessary for mashmallow apparently
+quicksect>=0.2.2

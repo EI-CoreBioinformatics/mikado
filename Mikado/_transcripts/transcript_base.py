@@ -1179,7 +1179,6 @@ exon data is on a different chromosome, {exon_data.chrom}. \
 
         state["external"] = dict((key, value) for key, value in self.external_scores.items())
         state["blast_hits"] = self.blast_hits[:]
-        state["verified_introns"] = self.__verified_introns.copy()
 
         for key in ["chrom", "source", "start", "end", "strand", "score", "attributes"]:
 
@@ -1192,6 +1191,7 @@ exon data is on a different chromosome, {exon_data.chrom}. \
         for exon in self.exons:
             state["exons"].append([exon[0], exon[1]])
         state["introns"] = list((intron[0], intron[1]) for intron in self.introns)
+        state["verified_introns"] = list((intron[0], intron[1]) for intron in self.__verified_introns)
 
         state["orfs"] = dict()
         state["selected_orf"] = self.selected_internal_orf_index

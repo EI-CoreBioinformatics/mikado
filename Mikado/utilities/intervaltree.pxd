@@ -25,8 +25,8 @@ cdef class IntervalNode:
     cdef IntervalNode _insert(IntervalNode self, Interval interval)
     cpdef intersect(IntervalNode self, int start, int stop)
     # cpdef right(self, Interval f, int n=1, int max_dist=25000)
-    cpdef left(IntervalNode self, Interval f, int num_intervals=?, int max_dist=?)
-    cpdef right(IntervalNode self, Interval f, int num_intervals=?, int max_dist=?)
+    cpdef left(IntervalNode self, Interval f, int n=?, int max_dist=?, bint overlap=?)
+    cpdef right(IntervalNode self, Interval f, int n=?, int max_dist=?, bint overlap=?)
     # cpdef left(self, Interval f, int n=1, int max_dist=25000)
     # cpdef IntervalNode insert(IntervalNode self, int start, int end, object value=*)
     cpdef bint fuzzy_equal(IntervalNode self, IntervalNode other, int fuzzy)
@@ -37,7 +37,7 @@ cdef class IntervalTree:
     cdef int num_intervals
     cpdef int size(IntervalTree self)
     cpdef find(IntervalTree self, int start, int end, bint strict=?,
-               bint contained_check=?, int max_distance=?, int num_intervals=?, object value=?)
+               bint contained_check=?, int max_distance=?, int n=?, object value=?)
     cpdef insert(IntervalTree self, int start, int end, object value=?)
     cpdef insert_interval(IntervalTree self, Interval interval)
     # cdef inline void set_stops(IntervalTree self)

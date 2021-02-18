@@ -9,10 +9,11 @@ and is used to define all the possible children (subloci, monoloci, loci, etc.)
 # Core imports
 import collections
 import networkx
+from Mikado.serializers.blast_serializer import Hsp
 from sqlalchemy import bindparam
 from sqlalchemy.engine import Engine
 from sqlalchemy.ext import baked
-from sqlalchemy.orm.session import sessionmaker
+from sqlalchemy.orm.session import sessionmaker, Session
 from sqlalchemy.orm import session as sasession
 from sqlalchemy.sql.expression import and_
 from .abstractlocus import Abstractlocus
@@ -42,6 +43,41 @@ import random
 # pylint: disable=too-many-instance-attributes
 
 
+bakery = baked.bakery()
+
+junction_baked = bakery(lambda session: session.query(Junction))
+junction_baked += lambda q: q.filter(and_(
+    Junction.chrom == bindparam("chrom"),
+    Junction.junction_start >= bindparam("junctionStart"),
+    Junction.junction_end <= bindparam("junctionEnd")
+))
+
+hit_baked = bakery(lambda session: session.query(Hit))
+hit_baked += lambda q: q.filter(and_(
+    Hit.query_id.in_(bindparam("queries", expanding=True)),
+    Hit.evalue <= bindparam("evalue"),
+    Hit.hit_number <= bindparam("hit_number")
+))
+
+hsp_baked = bakery(lambda session: session.query(Hsp))
+hsp_baked += lambda q: q.filter(and_(Hsp.hsp_evalue <= bindparam("hsp_evalue"),
+                                     Hsp.query_id.in_(bindparam("queries", expanding=True))))
+
+
+query_baked = bakery(lambda session: session.query(Query))
+query_baked += lambda q: q.filter(Query.query_name.in_(bindparam("tids", expanding=True)))
+
+target_baked = bakery(lambda session: session.query(Target))
+target_baked += lambda q: q.filter(Target.target_id.in_(bindparam("targets", expanding=True)))
+
+# external = self.session.query(External).filter(External.query_id.in_(query_ids.keys()))
+external_baked = bakery(lambda session: session.query(External))
+external_baked += lambda q: q.filter(External.query_id.in_(bindparam("queries", expanding=True)))
+
+orfs_baked = bakery(lambda session: session.query(Orf))
+orfs_baked += lambda q: q.filter(Orf.query_id.in_(bindparam("queries", expanding=True)))
+
+
 class Superlocus(Abstractlocus):
     """The superlocus class is used to define overlapping regions
     on the genome, and it receives as input transcript class instances.
@@ -49,24 +85,7 @@ class Superlocus(Abstractlocus):
 
     __name__ = "superlocus"
 
-    bakery = baked.bakery()
-    db_baked = bakery(lambda session: session.query(Chrom))
-    db_baked += lambda q: q.filter(Chrom.name == bindparam("chrom_name"))
 
-    junction_baked = bakery(lambda session: session.query(Junction))
-    junction_baked += lambda q: q.filter(and_(
-        Junction.chrom == bindparam("chrom"),
-        Junction.junction_start >= bindparam("junctionStart"),
-        Junction.junction_end <= bindparam("junctionEnd"),
-        Junction.strand == bindparam("strand")
-    ))
-
-    hit_baked = bakery(lambda session: session.query(Hit))
-    hit_baked += lambda q: q.filter(and_(
-        Hit.query_id == bindparam("query_id"),
-        Hit.evalue <= bindparam("evalue"),
-        Hit.hit_number <= bindparam("hit_number")
-    ))
 
     _complex_limit = (5000, 5000)
 
@@ -462,15 +481,24 @@ class Superlocus(Abstractlocus):
             for new_locus in iter(sorted(new_loci)):
                 yield new_locus
 
-    def connect_to_db(self, engine: Engine):
+    def connect_to_db(self, engine: Engine, session: Session):
 
         """
         :param engine: the connection pool
         :type engine: Engine
 
+        :param session: a preformed session
+        :type session: Session
+
         This method will connect to the database using the information
         contained in the JSON configuration.
         """
+
+        if isinstance(session, Session):
+            self.session = session
+            self.sessionmaker = sessionmaker()
+            self.sessionmaker.configure(bind=self.session.bind)
+            self.engine = self.session.bind
 
         if engine is None:
             self.engine = dbutils.connect(self.configuration)
@@ -531,16 +559,11 @@ class Superlocus(Abstractlocus):
         self.logger.debug("Querying the DB for introns, %d total", len(self.introns))
         if not self.configuration.db_settings.db:
             return  # No data to load
-        # dbquery = self.db_baked(self.session).params(chrom_name=self.chrom).all()
 
-        ver_introns = self.engine.execute(" ".join([
-            "select junction_start, junction_end, strand from junctions where",
-            "chrom_id = (select chrom_id from chrom where name = \"{chrom}\")",
-            "and junction_start > {start} and junction_end < {end}"]).format(
-                chrom=self.chrom, start=self.start, end=self.end
-        ))
         ver_introns = dict(((junc.junction_start, junc.junction_end), junc.strand)
-                           for junc in ver_introns)
+                             for junc in junction_baked(self.session).params(
+            chrom=self.chrom, junctionStart=self.start, junctionEnd=self.end
+        ))
 
         self.logger.debug("Found %d verifiable introns for %s",
                           len(ver_introns), self.id)
@@ -579,12 +602,12 @@ class Superlocus(Abstractlocus):
 
         for tid_group in grouper(tid_keys, 100):
             query_ids = dict((query.query_id, query) for query in
-                             self.session.query(Query).filter(
-                                 Query.query_name.in_(tid_group)))
+                             query_baked(self.session).params(tids=tid_group))
             # Retrieve the external scores
+            qids = list(query_ids.keys())
 
             if query_ids:
-                external = self.session.query(External).filter(External.query_id.in_(query_ids.keys()))
+                external = external_baked(self.session).params(queries=qids)
             else:
                 external = []
 
@@ -602,50 +625,27 @@ class Superlocus(Abstractlocus):
 
             # Load the ORFs from the table
             if query_ids:
-                orfs = self.session.query(Orf).filter(Orf.query_id.in_(query_ids.keys()))
-            else:
-                orfs = []
-
-            for orf in orfs:
-                data_dict["orfs"][orf.query].append(orf.as_bed12())
-
-            # Now retrieve the HSPs from the BLAST HSP table
-            hsp_command = " ".join([
-                "select * from hsp where",
-                "hsp_evalue <= {0} and query_id in {1} order by query_id;"]).format(
-                self.configuration.pick.chimera_split.blast_params.hsp_evalue,
-                "({0})".format(", ".join([str(_) for _ in query_ids.keys()]))
-            )
+                for orf in orfs_baked(self.session).params(queries=qids):
+                    data_dict["orfs"][orf.query].append(orf.as_bed12())
 
             hsps = dict()
             targets = set()
 
-            for hsp in engine.execute(hsp_command):
+            for hsp in hsp_baked(self.session).params(
+                    hsp_evalue=self.configuration.pick.chimera_split.blast_params.hsp_evalue,
+                    queries=qids):
                 if hsp.query_id not in hsps:
                     hsps[hsp.query_id] = collections.defaultdict(list)
                 hsps[hsp.query_id][hsp.target_id].append(hsp)
                 targets.add(hsp.target_id)
 
-            # Now that we have the HSPs, load the corresponding HITs
-            hit_command = " ".join([
-                "select * from hit where evalue <= {0}",
-                "and hit_number <= {1} and query_id in {2}",
-                "order by query_id, evalue asc;"
-            ]).format(
-                self.configuration.pick.chimera_split.blast_params.evalue,
-                self.configuration.pick.chimera_split.blast_params.max_target_seqs,
-                "({0})".format(", ".join([str(_) for _ in query_ids.keys()])))
-
-            if len(targets) > 0:
-                target_ids = dict()
-                for target_group in grouper(targets, 100):
-                    target_ids.update(dict((target.target_id, target) for target in
-                                      self.session.query(Target).filter(
-                                          Target.target_id.in_(target_group))))
-            else:
-                target_ids = dict()
+            target_ids = dict((target.target_id, target) for target in
+                              target_baked(self.session).params(targets=list(targets)))
             current_hit = None
-            for hit in engine.execute(hit_command):
+            for hit in hit_baked(self.session).params(
+                    evalue=self.configuration.pick.chimera_split.blast_params.evalue,
+                    hit_number=self.configuration.pick.chimera_split.blast_params.max_target_seqs,
+                    queries=qids):
                 if current_hit != hit.query_id:
                     current_hit = hit.query_id
                 current_counter = 0
@@ -666,7 +666,7 @@ class Superlocus(Abstractlocus):
 
         return data_dict
 
-    def load_all_transcript_data(self, engine=None):
+    def load_all_transcript_data(self, engine=None, session=None):
 
         """
         This method will load data into the transcripts instances,
@@ -686,7 +686,7 @@ class Superlocus(Abstractlocus):
             self.approximation_level = 1
             self.reduce_method_one(None)
 
-        self.connect_to_db(engine)
+        self.connect_to_db(engine, session)
 
         tid_keys = list(self.transcripts.keys())
         to_remove, to_add = set(), dict()

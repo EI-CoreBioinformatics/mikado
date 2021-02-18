@@ -2,6 +2,9 @@
 """
 Intersects ... faster.  Suports GenomicInterval datatype and multiple
 chromosomes.
+
+Copied from quicksect, by @brentp
+
 """
 import operator
 
@@ -138,10 +141,54 @@ cdef class IntervalTree:
 
     add_interval = insert_interval
 
+    def before(self, position, n=1, max_dist=2000):
+        """
+        Find `n` intervals that lie before `position` and are no
+        further than `max_dist` positions away
+        """
+        if self.root is None:
+            return []
+        assert isinstance(position, Interval)
+        return self.root.left(position, n, max_dist, overlap=False)
+
+    def after(self, position, n=1, max_dist=25000):
+        """
+        Find `n` intervals that lie after `position` and are no
+        further than `max_dist` positions away
+        """
+        if self.root is None:
+            return []
+        assert isinstance(position, Interval)
+        return self.root.right(position, n, max_dist, overlap=False)
+
     cpdef insert(self, int start, int end, value=None):
         return self.insert_interval(Interval(start, end, value))
 
     add = insert
+
+    def upstream_of_interval(self, interval, n=1, max_dist=2500):
+        """
+        Find `n` intervals that lie completely upstream of
+        `interval` and are no further than `max_dist` positions away
+        """
+        if self.root is None:
+            return []
+        if interval.strand == -1 or interval.strand == "-":
+            return self.root.right(interval, n, max_dist, overlap=False)
+        else:
+            return self.root.left(interval, n, max_dist, overlap=False)
+
+    def downstream_of_interval( self, interval, n=1, max_dist=2500):
+        """
+        Find `n` intervals that lie completely downstream of
+        `interval` and are no further than `max_dist` positions away
+        """
+        if self.root is None:
+            return []
+        if interval.strand == -1 or interval.strand == "-":
+            return self.root.left(interval, n, max_dist, overlap=False)
+        else:
+            return self.root.right(interval, n, max_dist, overlap=False)
 
     def traverse(self, fn):
         """
@@ -175,7 +222,7 @@ cdef class IntervalTree:
         return tree
 
     cpdef find(self, int start, int end, bint strict=0, bint contained_check=0, int max_distance=0,
-             int num_intervals=1000, object value=None):
+               int n=1000, object value=None):
         """
         Return a sorted list of all intervals overlapping [start,end).
         If strict is set to True, only matches which are completely contained will
@@ -186,11 +233,13 @@ cdef class IntervalTree:
             return []
 
         if max_distance == 0:
-            found=self.root.find( start, end )
+            found=self.root.find(start, end )
         else:
-            found = self.root.find( start, end )
-            found.extend(self.left(Interval(start, end), num_intervals=num_intervals, max_dist=max_distance))
-            found.extend(self.right(Interval(start, end), num_intervals=num_intervals, max_dist=max_distance))
+            found = self.root.find(start, end )
+            found.extend(self.left(Interval(start, end), n=n, max_dist=max_distance,
+                                   overlap=False))
+            found.extend(self.right(Interval(start, end), n=n, max_dist=max_distance,
+                                    overlap=False))
             # Emulate the behaviour of the intervaltree library
 
         if contained_check is True:
@@ -213,7 +262,7 @@ cdef class IntervalTree:
         elif value is not None:
             found = [_ for _ in found if _.value == value]
 
-        return found
+        return sorted(found)
 
     search = find
 
@@ -222,17 +271,17 @@ cdef class IntervalTree:
 
         return self.num_intervals
 
-    def left(self, Interval f, int num_intervals=1, int max_dist=25000):
+    def left(self, Interval f, int n=1, int max_dist=25000, overlap=True):
         if self.root is None:
             return []
         else:
-            return self.root.left(f, num_intervals, max_dist)
+            return self.root.left(f, n, max_dist, overlap)
 
-    def right(self, Interval f, int num_intervals=1, int max_dist=25000):
+    def right(self, Interval f, int n=1, int max_dist=25000, overlap=True):
         if self.root is None:
             return []
         else:
-            return self.root.right(f, num_intervals, max_dist)
+            return self.root.right(f, n, max_dist, overlap)
 
     def dump(self, fn):
         try:
@@ -525,41 +574,49 @@ cdef class IntervalNode:
             left = left.cright
         return [left, right]
 
-    cpdef left(self, Interval f, int num_intervals=1, int max_dist=25000):
+    cpdef left(self, Interval f, int n=1, int max_dist=25000, bint overlap=True):
         """find n features with a start > than f.end
         f: a Interval object
-        num_intervals: the number of features to return
+        n: the number of features to return
         max_dist: the maximum distance to look before giving up.
         """
         cdef list results = []
-        # use start - 1 becuase .left() assumes strictly left-of
-        self._seek_left(f.start - 1, results, num_intervals, max_dist)
-        if len(results) <= num_intervals: return results
+        cdef int position
+        if overlap is True:
+            position = f.end
+        else:
+            position = f.start - 1
+        self._seek_left(position, results, n, max_dist)
+        if len(results) <= n: return results
         r = results
         r.sort(key=operator.attrgetter('end'), reverse=True)
-        if distance(f, r[num_intervals]) != distance(f, r[num_intervals-1]):
-            return r[:num_intervals]
-        while num_intervals < len(r) and distance(r[num_intervals], f) == distance(r[num_intervals - 1], f):
-            num_intervals += 1
-        return r[:num_intervals]
+        if distance(f, r[n]) != distance(f, r[n-1]):
+            return r[:n]
+        while n < len(r) and distance(r[n], f) == distance(r[n - 1], f):
+            n += 1
+        return r[:n]
 
-    cpdef right(self, Interval f, int num_intervals=1, int max_dist=25000):
+    cpdef right(self, Interval f, int n=1, int max_dist=25000, bint overlap=1):
         """find n features with a stop < than f.start
         f: a Interval object
-        num_intervals: the number of features to return
+        n: the number of features to return
         max_dist: the maximum distance to look before giving up.
         """
         cdef list results = []
-        # use stop + 1 becuase .right() assumes strictly right-of
-        self._seek_right(f.end + 1, results, num_intervals, max_dist)
-        if len(results) <= num_intervals: return results
+        cdef int position
+        if overlap is True:
+            position = f.start
+        else:
+            position = f.end + 1
+        self._seek_right(position, results, n, max_dist)
+        if len(results) <= n: return results
         r = results
         r.sort(key=operator.attrgetter('start'))
-        if distance(f, r[num_intervals]) != distance(f, r[num_intervals-1]):
-            return r[:num_intervals]
-        while num_intervals < len(r) and distance(r[num_intervals], f) == distance(r[num_intervals - 1], f):
-            num_intervals += 1
-        return r[:num_intervals]
+        if distance(f, r[n]) != distance(f, r[n-1]):
+            return r[:n]
+        while n < len(r) and distance(r[n], f) == distance(r[n - 1], f):
+            n += 1
+        return r[:n]
 
     def __iter__(self):
             

@@ -22,7 +22,7 @@ from .sublocus import Sublocus
 from ..exceptions import NotInLocusError
 from ..parsers.GFF import GffLine
 from ..serializers.blast_serializer import Hit, Query, Target
-from ..serializers.external import External
+from ..serializers.external import External, ExternalSource
 from ..serializers.junction import Junction, Chrom
 from ..serializers.orf import Orf
 from ..transcripts import Transcript
@@ -71,9 +71,11 @@ query_baked += lambda q: q.filter(Query.query_name.in_(bindparam("tids", expandi
 target_baked = bakery(lambda session: session.query(Target))
 target_baked += lambda q: q.filter(Target.target_id.in_(bindparam("targets", expanding=True)))
 
-# external = self.session.query(External).filter(External.query_id.in_(query_ids.keys()))
+source_bakery = bakery(lambda session: session.query(ExternalSource))
 external_baked = bakery(lambda session: session.query(External))
-external_baked += lambda q: q.filter(External.query_id.in_(bindparam("queries", expanding=True)))
+external_baked += lambda q: q.filter(
+    External.query_id.in_(bindparam("queries", expanding=True)),
+    External.source_id.in_(bindparam("sources", expanding=True)))
 
 orfs_baked = bakery(lambda session: session.query(Orf))
 orfs_baked += lambda q: q.filter(Orf.query_id.in_(bindparam("queries", expanding=True)))
@@ -581,7 +583,23 @@ class Superlocus(Abstractlocus):
 
     async def get_external(self, qids):
         external = collections.defaultdict(dict)
-        for ext in external_baked(self.session).params(queries=qids):
+
+        sources = set()
+        sources.update({param for param in self.configuration.scoring.requirements.parameters.keys()
+                        if param.startswith("external")})
+        sources.update({param for param in self.configuration.scoring.not_fragmentary.parameters.keys()
+                        if param.startswith("external")})
+        sources.update({param for param in self.configuration.scoring.cds_requirements.parameters.keys()
+                        if param.startswith("external")})
+        sources.update({param for param in self.configuration.scoring.cds_requirements.parameters.keys()
+                        if param.startswith("external")})
+        sources.update({param for param in self.configuration.scoring.scoring.keys()
+                        if param.startswith("external")})
+        sources = {param.replace("external.", "") for param in sources}
+
+        sources = [source.source_id for source in source_bakery(self.session).params(sources=sources)]
+
+        for ext in external_baked(self.session).params(queries=qids, sources=sources):
             if ext.rtype == "int":
                 score = int(ext.score)
             elif ext.rtype == "float":

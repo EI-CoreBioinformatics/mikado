@@ -72,7 +72,7 @@ target_baked = bakery(lambda session: session.query(Target))
 target_baked += lambda q: q.filter(Target.target_id.in_(bindparam("targets", expanding=True)))
 
 source_bakery = bakery(lambda session: session.query(ExternalSource))
-external_baked = bakery(lambda session: session.query(External))
+external_baked = bakery(lambda session: session.query(External.source_id, External.query_id, External.score))
 external_baked += lambda q: q.filter(
     External.query_id.in_(bindparam("queries", expanding=True)),
     External.source_id.in_(bindparam("sources", expanding=True)))
@@ -602,6 +602,7 @@ class Superlocus(Abstractlocus):
         external = collections.defaultdict(dict)
         sources = await self.get_sources()
         for ext in external_baked(self.session).params(queries=qids, sources=list(sources.keys())):
+            print(ext)
             rtype = sources[ext.source_id].rtype
             if rtype == "int":
                 score = int(ext.score)

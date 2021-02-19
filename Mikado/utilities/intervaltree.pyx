@@ -17,28 +17,27 @@ cdef extern from "stdlib.h":
     int strlen(char *)
     int iabs(int)
 
+
+def __pyx_unpickle_IntervalTree(*args, **kwargs): # real signature unknown
+    pass
+
+# classes
+
 cdef class Interval:
     """
     Basic feature, with required integer start and end properties.
     Also accepts optional strand as +1 or -1 (used for up/downstream queries),
     a name, and any arbitrary data is sent in on the info keyword argument
-
-    >>> from bx.intervals.intersection import Interval
-
-    >>> f1 = Interval(23, 36)
-    >>> f2 = Interval(34, 48, value={'chr':12, 'anno':'transposon'})
-    >>> f2
-    Interval(34, 48, value={'anno': 'transposon', 'chr': 12})
-
     """
 
-    def __init__(self, int start, int end, object value=None, object chrom=None, object strand=None):
+    def __init__(self, int start, int end, object value=None, object chrom=None, object strand=None, data=None):
         assert start <= end, "start must be less than end"
         self.start  = start
         self.end   = end
         self.value = value
         self.chrom = chrom
         self.strand = strand
+        self.data = data
 
     def __repr__(self):
         fstr = "Interval(%d, %d" % (self.start, self.end)
@@ -84,13 +83,19 @@ cdef class Interval:
 
     def __getstate__(self):
 
-        return [self.start, self.end, self.value, self.chrom, self.strand]
+        return {"start": self.start, "end": self.end, "value": self.value,
+                "chrom": self.chrom, "strand": self.strand, "data": self.data}
 
     def __setstate__(self, state):
+        self.start, self.end, self.value, self.chrom, self.strand, self.data = (state["start"], state["end"],
+                                                                                state["value"], state["chrom"],
+                                                                                state["strand"], state["data"])
 
-        self.start, self.end, self.value, self.chrom, self.strand = state
+    def __reduce__(self):
+        args = self.__getstate__()
+        return type(self), (args["start"], args["end"]), args
 
-    cpdef tuple _as_tuple(self):
+    cpdef tuple _as_tuple(Interval self):
         return (self.start, self.end)
 
     def __hash__(self):
@@ -117,6 +122,16 @@ cpdef int distance(Interval f1, Interval f2):
 cdef class IntervalTree:
     # cdef IntervalNode root
 
+    property start:
+        def __get__(self):
+            self.set_stops()
+            return self.root.minstart
+
+    property end:
+        def __get__(self):
+            self.set_stops()
+            return self.root.maxstop
+
     def __init__(self):
         self.root = None
         self.num_intervals = 0
@@ -131,7 +146,7 @@ cdef class IntervalTree:
 
         self.root, self.num_intervals = state
 
-    cpdef insert_interval(self, Interval interval):
+    cpdef insert(self, Interval interval):
 
         if self.root is None:
             self.root = IntervalNode(interval)
@@ -139,7 +154,7 @@ cdef class IntervalTree:
             self.root = self.root.insert(interval)
         self.num_intervals += 1
 
-    add_interval = insert_interval
+    add = insert
 
     def before(self, position, n=1, max_dist=2000):
         """
@@ -160,11 +175,6 @@ cdef class IntervalTree:
             return []
         assert isinstance(position, Interval)
         return self.root.right(position, n, max_dist, overlap=False)
-
-    cpdef insert(self, int start, int end, value=None):
-        return self.insert_interval(Interval(start, end, value))
-
-    add = insert
 
     def upstream_of_interval(self, interval, n=1, max_dist=2500):
         """
@@ -207,7 +217,7 @@ cdef class IntervalTree:
 
         tree = IntervalTree()
         for iv in tuples:
-            tree.insert(*iv)
+            tree.insert(Interval(*iv))
         return tree
 
     @classmethod
@@ -218,7 +228,7 @@ cdef class IntervalTree:
 
         tree = IntervalTree()
         for iv in intervals:
-            tree.insert_interval(iv)
+            tree.insert(iv)
         return tree
 
     cpdef find(self, int start, int end, bint strict=0, bint contained_check=0, int max_distance=0,
@@ -266,6 +276,9 @@ cdef class IntervalTree:
 
     search = find
 
+    def __iter__(self):
+        return self.root.__iter__()
+
     def __len__(self):
         """Return the number of intervals in the tree."""
 
@@ -304,12 +317,14 @@ cdef class IntervalTree:
         while True:
             try:
                 feature = cPickle.load(fh)
-                self.insert_interval(feature)
+                self.insert(feature)
             except EOFError:
                 break
 
     cpdef int size(self):
         return self.num_intervals
+
+    cdef inline void set_stops(IntervalTree self): self.root.set_stops()
 
     def fuzzy_equal(self, other, fuzzymatch=0):
         if not isinstance(other, IntervalTree):
@@ -574,7 +589,7 @@ cdef class IntervalNode:
             left = left.cright
         return [left, right]
 
-    cpdef left(self, Interval f, int n=1, int max_dist=25000, bint overlap=True):
+    cpdef left(self, Interval f, int n=1, int max_dist=25000, bint overlap=False):
         """find n features with a start > than f.end
         f: a Interval object
         n: the number of features to return
@@ -596,7 +611,7 @@ cdef class IntervalNode:
             n += 1
         return r[:n]
 
-    cpdef right(self, Interval f, int n=1, int max_dist=25000, bint overlap=1):
+    cpdef right(self, Interval f, int n=1, int max_dist=25000, bint overlap=False):
         """find n features with a stop < than f.start
         f: a Interval object
         n: the number of features to return
@@ -619,14 +634,13 @@ cdef class IntervalNode:
         return r[:n]
 
     def __iter__(self):
-            
         if self.cleft is not EmptyNode:
-            yield self.cleft
-
-        yield self.interval
-
+            for iv in self.cleft:
+                yield iv
+        yield self
         if self.cright is not EmptyNode:
-            yield self.cright
+            for iv in self.cright:
+                yield iv
 
     def traverse(self, func):
         self._traverse(func)

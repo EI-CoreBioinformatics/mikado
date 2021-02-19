@@ -79,7 +79,7 @@ def _retrieve_data(shelf, shelf_name, tid, chrom, key, strand, score, write_star
         try:
             caught = [(i.value, merged_transcripts[i.value])
                       for i in chains[data["introns"]].find(data["start"], data["end"], contained_check=True,
-                                                            num_intervals=10**5)
+                                                            n=10**5)
                       if i.value in merged_transcripts]
         except AttributeError as exc:
             raise AttributeError("{}\n{}\n{}".format(exc, type(chains), type(chains[data["introns"]])))
@@ -207,7 +207,7 @@ def _analyse_chrom(chrom: str, keys: pd.DataFrame, shelves, logger):
                 [merged_transcripts.__delitem__(otid) for otid in others_to_remove]
             if to_keep is True or to_keep is None:
                 merged_transcripts[tid] = data
-                chains[data["introns"]].add_interval(Interval(data["start"], data["end"], value=tid))
+                chains[data["introns"]].add(Interval(data["start"], data["end"], value=tid))
                 logger.debug("Keeping %s in the dataset", tid)
 
     if not merged_transcripts and current is not None:

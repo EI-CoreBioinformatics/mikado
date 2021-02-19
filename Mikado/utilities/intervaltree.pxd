@@ -38,6 +38,7 @@ cdef class IntervalTree:
     cpdef int size(IntervalTree self)
     cpdef find(IntervalTree self, int start, int end, bint strict=?,
                bint contained_check=?, int max_distance=?, int n=?, object value=?)
-    cpdef insert(IntervalTree self, int start, int end, object value=?)
-    cpdef insert_interval(IntervalTree self, Interval interval)
+    # cpdef insert(IntervalTree self, int start, int end, object value=?)
+    cpdef insert(IntervalTree self, Interval interval)
+    cdef inline void set_stops(IntervalTree self)
     # cdef inline void set_stops(IntervalTree self)

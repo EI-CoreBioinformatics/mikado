@@ -5,7 +5,7 @@
 
 import numpy
 import unittest
-from ..utilities import Interval, IntervalTree, IntervalNode
+from ..utilities import Interval, IntervalTree, IntervalNode, distance
 import sys, os
 import unittest
 
@@ -70,64 +70,16 @@ class NeighborTestCase(unittest.TestCase):
             self.assertEqual(r[0].start, i + 10)
             self.assertEqual(r[1].start, i + 20)
 
-#
-#
-# class NeighborTestCase(unittest.TestCase):
-#
-#     def setUp(self):
-#         iv = IntervalTree()
-#         iv.insert(50, 59)
-#         for i in range(0, 110, 10):
-#             if i != 50:
-#                 iv.insert(i, i + 9)
-#             self.assertEqual(iv.right(Interval(i, i+1), n=1)[0].start, i)
-#         self.intervals = iv
-#
-#     def test_left(self):
-#         iv = self.intervals
-#         assert iv is not None
-#         self.assertEqual(str(iv.left(Interval(60, 61),
-#                                      n=2)), str([Interval(50, 59), Interval(40, 49)]))
-#
-#         for i in range(10, 100, 10):
-#             r = iv.left(Interval(i, i+1), max_dist=10, n=1, overlap=False)
-#             self.assertEqual(r[0].end,  i - 1)
-#
-#     def test_toomany(self):
-#         iv = self.intervals
-#         result = iv.left(Interval(60, 61), n=200, overlap=False)
-#         self.assertEqual(len(result), 6, (result, iv.traverse(print)))
-#
-#     def test_right(self):
-#         iv = self.intervals
-#         self.assertEqual(str(iv.left(Interval(60, 61),
-#                                      n=2)), str([Interval(50, 59), Interval(40, 49)]))
-#
-#         self.assertEqual(iv.right(Interval(1, 2), max_dist=100, n=1)[0].start, 10)
-#
-#         def get_right_start(b10):
-#             r = iv.right(Interval(b10, b10 + 1), n=1, overlap=False)
-#             assert len(r) == 1
-#             return r[0].start
-#
-#         for i in range(10, 100, 10):
-#             self.assertEqual(get_right_start(i), i + 10, (i, iv.right(Interval(i, i + 1), n=10)))
-#
-#         for i in range(10, 100, 10):
-#             r = iv.right(Interval(i-1, i), max_dist=20, n=1, overlap=True)
-#             self.assertEqual(len(r), 1, (Interval(i-1, i), iv.traverse(print)))
-#             self.assertEqual(r[0].start, i)
-
 
 class UpDownStreamTestCase(unittest.TestCase):
 
     def setUp(self):
         iv = IntervalTree()
-        iv.add_interval(Interval(50, 59))
+        iv.add(Interval(50, 59))
         for i in range(0, 110, 10):
             if i == 50: continue
             f = Interval(i, i + 9)
-            iv.add_interval(f)
+            iv.add(f)
         self.intervals = iv
 
     def test_upstream(self):
@@ -169,75 +121,21 @@ class UpDownStreamTestCase(unittest.TestCase):
             # self.assertEqual(r[1].start, i + 20)
 
 
-class LotsaTestCase(unittest.TestCase):
-    """ put lotsa data in the tree and make sure it works"""
-    def setUp(self):
-        iv = IntervalTree()
-        iv.insert(1, 2)
-        self.max = 1000000
-        for i in range(0, self.max, 10):
-            f = Interval(i, i)
-            iv.insert(f.start, f.end)
-
-        for i in range(600):
-            iv.insert_interval(Interval(0, 1))
-        self.intervals = iv
-
-    def test_count(self):
-        iv = self.intervals
-
-        r = iv.right(Interval(1, 2), n=33, overlap=False)
-        self.assertEqual(len(r), 33)
-
-        l = iv.left(Interval(1, 2), n=33, overlap=False)
-        self.assertEqual(len(l), 1)
-
-        u = iv.right(Interval(1, 2), n=9999, overlap=False, max_dist=2500)
-        self.assertEqual(len(u), 250, (iv.size(), len(set(u))))
-
-        # now increase max_dist
-        u = iv.right(Interval(1, 2), n=9999, max_dist=99999)
-        self.assertEqual(len(u), 9999)
-
-    def test_max_dist(self):
-        iv = self.intervals
-        r = iv.right(Interval(1, 2), max_dist=0, n=10)
-        self.assertEqual(len(r), 0)
-
-        for n, d in enumerate(range(10, 1000, 10)):
-            r = iv.right(Interval(1, 2), max_dist=d, n=10000, overlap=False)
-            self.assertEqual(len(r), n + 1)
-
-    def test_find(self):
-        iv = self.intervals
-        for t in range(25):
-            start = numpy.random.randint(0, self.max - 10000)
-            end = start + numpy.random.randint(100, 10000)
-
-            results = iv.find(start, end)
-            for feat in results:
-                self.assertTrue(
-                        (feat.end >= start and feat.end <= end)
-                            or
-                        (feat.start <= end and feat.start >= start)
-                        )
-
-
 class IntervalTreeTest(unittest.TestCase):
     def setUp(self):
 
         iv = IntervalTree()
         n = 0
         for i in range(1, 1000, 80):
-            iv.insert(i, i + 10, dict(value=i*i))
+            iv.insert(Interval(i, i + 10, data=dict(value=i*i)))
             # add is synonym for insert.
-            iv.add(i + 20, i + 30, dict(astr=str(i*i)))
+            iv.add(Interval(i + 20, i + 30, data=dict(astr=str(i*i))))
 
             # or insert/add an interval object with start, end attrs.
-            iv.insert_interval(Interval(i + 40, i + 50,
-                value=dict(astr=str(i*i))))
-            iv.add_interval(Interval(i + 60, i + 70,
-                value=dict(astr=str(i*i))))
+            iv.insert(Interval(i + 40, i + 50,
+                               data=dict(astr=str(i*i))))
+            iv.add(Interval(i + 60, i + 70,
+                            data=dict(astr=str(i*i))))
 
             n += 4
         self.intervals = self.iv = iv
@@ -265,7 +163,7 @@ class IntervalTreeTest(unittest.TestCase):
         self.assertEqual(None, iv.traverse(lambda x: x.append(1)))
 
     def test_public_interval(self):
-        fn = lambda ival: self.assertTrue(ival.value)
+        fn = lambda ival: self.assertTrue(ival.data)
         self.iv.traverse(fn)
 
     def test_multiple_values(self):
@@ -274,10 +172,10 @@ class IntervalTreeTest(unittest.TestCase):
         exons = [(100, 300), (501, 800), (1001, 1300), (1501, 1800)]
         for index, exon in enumerate(exons):
             interval = Interval(*exon, value="exon")
-            iv.insert_interval(interval)
+            iv.insert(interval)
             if index < len(exons) - 1:
                 intron = Interval(exon[1] + 1, exons[index+1][0] - 1, value="intron")
-                iv.insert_interval(intron)
+                iv.insert(intron)
 
         self.assertEqual(iv.find(200, 600),
                          [Interval(100, 300, value="exon"),
@@ -298,55 +196,6 @@ class IntervalTreeTest(unittest.TestCase):
                           [Interval(301, 500, value="intron")]
                           # Interval(501, 800, value="exon")]
                          )
-
-
-class NeighborTestCase(unittest.TestCase):
-
-    def setUp(self):
-        iv = IntervalNode(Interval(50, 59))
-        for i in range(0, 110, 10):
-            if i == 50: continue
-            f = Interval(i, i + 9)
-            iv = iv.insert(f)
-        self.intervals = iv
-
-    def test_left(self):
-        iv = self.intervals
-        self.assertEqual(str(iv.left(Interval(60, 70), n=2)), str([Interval(50, 59), Interval(40, 49)]))
-
-        for i in range(10, 100, 10):
-            f = Interval(i, i)
-            r = iv.left(f, max_dist=10, n=1)
-            self.assertEqual(r[0].end, i - 1)
-
-    def test_toomany(self):
-        iv = self.intervals
-        self.assertEqual(len(iv.left(Interval(60, 70), n=200)), 6)
-
-    def test_right(self):
-        iv = self.intervals
-        self.assertEqual(str(iv.left(Interval(60, 70), n=2)), str([Interval(50, 59), Interval(40, 49)]))
-
-        def get_right_start(b10):
-            r = iv.right(Interval(b10, b10 + 1), n=1)
-            assert len(r) == 1
-            return r[0].start
-
-        for i in range(10, 100, 10):
-            self.assertEqual(get_right_start(i), i + 10)
-
-        for i in range(0, 100, 10):
-            f = Interval(i - 1, i - 1)
-            r = iv.right(f, max_dist=10, n=1)
-            self.assertEqual(r[0].start, i)
-
-    def test_n(self):
-        iv = self.intervals
-        for i in range(0, 90, 10):
-            f = Interval(i + 1, i + 1)
-            r = iv.right(f, max_dist=20, n=2)
-            self.assertEqual(r[0].start, i + 10)
-            self.assertEqual(r[1].start, i + 20)
 
 
 class RelativeTestCase(unittest.TestCase):
@@ -510,8 +359,8 @@ class PickleTestCase(unittest.TestCase):
         for ichr in range(5):
             for i in range(10, 100, 6):
                 f = Interval(i - 4, i + 4)
-                af = sorted(a.find(f), key=operator.attrgetter('start'))
-                bf = sorted(b.find(f), key=operator.attrgetter('start'))
+                af = sorted(a.find(f.start, f.end), key=operator.attrgetter('start'))
+                bf = sorted(b.find(f.start, f.end), key=operator.attrgetter('start'))
 
                 assert len(bf) > 0
                 self.assertEqual(len(af), len(bf))
@@ -529,7 +378,7 @@ class EmptyTreeTestCase(unittest.TestCase):
         self.tree.search(46, 47)
 
     def test_find(self):
-        self.tree.find(Interval(46, 47))
+        self.tree.find(*Interval(46, 47))
 
     def test_left(self):
         self.tree.left(Interval(46, 47))
@@ -541,8 +390,8 @@ class EmptyTreeTestCase(unittest.TestCase):
 class TestIssue9(unittest.TestCase):
     def setUp(self):
         self.tree4 = IntervalTree()
-        self.tree4.insert(Interval(22, 33, data='example1'))
-        self.tree4.insert(Interval(22, 33, data='example2'))
+        self.tree4.insert(Interval(22, 33, value='example1'))
+        self.tree4.insert(Interval(22, 33, value='example2'))
 
     def test_right(self):
         self.assertEqual(0, len(self.tree4.right(Interval(44, 55))))

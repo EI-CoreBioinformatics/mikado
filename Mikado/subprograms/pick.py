@@ -253,7 +253,7 @@ def pick(args):
                     chrom, start, end = to_region(line)
                     if chrom not in regions:
                         regions[chrom] = IntervalTree()
-                    regions[chrom].add_interval(Interval(start, end))
+                    regions[chrom].add(Interval(start, end))
         else:
             chrom, start, end = to_region(args.regions)
             regions[chrom] = IntervalTree.from_intervals([Interval(start, end)])

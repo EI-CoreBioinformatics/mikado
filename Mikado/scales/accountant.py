@@ -12,7 +12,7 @@ import operator
 from logging import handlers as log_handlers
 from ..transcripts import Transcript
 from ..utilities.namespace import Namespace
-from ..utilities import calc_f1
+from ..utilities import calc_f1, Interval
 from .resultstorer import ResultStorer
 from ..utilities import IntervalTree
 import networkx as nx
@@ -287,7 +287,7 @@ class Accountant:
             ichain = IntervalTree.from_tuples(chain)
             evaluator[ichain] = chain
             graph.add_node(ichain)
-            positions.insert(ichain.start, ichain.end, value=ichain)
+            positions.insert(Interval(ichain.start, ichain.end, value=ichain))
 
         for ichain, chain in evaluator.items():
             found = positions.find(ichain.start, ichain.end)

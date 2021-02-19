@@ -1449,7 +1449,7 @@ class Superlocus(Abstractlocus):
 
         # Now the monoexonic
         monoexonic = IntervalTree()
-        [monoexonic.add_interval(interval) for interval in monos]
+        [monoexonic.add(interval) for interval in monos]
         monos = sorted(monos)
         for mono in monos:
             edges.update(set((mono.value, omono.value) for omono in
@@ -1495,7 +1495,7 @@ class Superlocus(Abstractlocus):
                 start, end = sorted([transcript.selected_cds_start, transcript.selected_cds_end])
             else:
                 start, end = transcript.start, transcript.end
-            itree.add_interval(Interval(start, end, transcript.id))
+            itree.add(Interval(start, end, transcript.id))
 
         for tid in self.transcripts:
             if tid in primaries:

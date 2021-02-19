@@ -14,7 +14,7 @@ from itertools import zip_longest
 from .overlap import overlap
 from . import intervaltree
 from .f1 import calc_f1
-from .intervaltree import Interval, IntervalTree, IntervalNode
+from .intervaltree import Interval, IntervalTree, IntervalNode, distance
 import sys
 
 

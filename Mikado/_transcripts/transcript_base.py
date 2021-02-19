@@ -1405,7 +1405,7 @@ exon data is on a different chromosome, {exon_data.chrom}. \
 
         """Method to use the segment tree to find all segments in the transcript upstream of a given interval."""
         return self.segmenttree.upstream_of_interval(Interval(start - offset, end),
-                                                     num_intervals=self.exon_num + len(self.introns),
+                                                     n=self.exon_num + len(self.introns),
                                                      max_dist=10 ** 9)
 
     def find_downstream(self, start, end, offset=0):
@@ -1413,7 +1413,7 @@ exon data is on a different chromosome, {exon_data.chrom}. \
         """Method to use the segment tree to find all segments in the transcript downstream of a given interval."""
 
         return self.segmenttree.downstream_of_interval(Interval(start - offset, end),
-                                                       num_intervals=self.exon_num + len(self.introns),
+                                                       n=self.exon_num + len(self.introns),
                                                        max_dist=10 ** 9)
 
     # ###################Class methods#####################################
@@ -2208,10 +2208,10 @@ index {3}, internal ORFs: {4}".format(
         self.__cds_tree = IntervalTree()
 
         for exon in self.combined_cds:
-            self.__cds_tree.add(exon[0], exon[1], value=Interval(exon[0], exon[1], value="CDS"))
+            self.__cds_tree.add(Interval(exon[0], exon[1], value=Interval(exon[0], exon[1], value="CDS")))
 
         for intron in self.combined_cds_introns:
-            self.__cds_tree.add(intron[0], intron[1], value=Interval(intron[0], intron[1], value="intron"))
+            self.__cds_tree.add(Interval(intron[0], intron[1], value=Interval(intron[0], intron[1], value="intron")))
 
         return
 
@@ -2242,13 +2242,13 @@ index {3}, internal ORFs: {4}".format(
         self.__segmenttree = IntervalTree()
         for exon in self.exons:
             try:
-                self.__segmenttree.add(exon[0], exon[1], value="exon")
+                self.__segmenttree.add(Interval(exon[0], exon[1], value="exon"))
             except AssertionError as exc:
                 raise AssertionError(f"Exon for {self.id} invalid: {exon}\n{exc}")
 
         for intron in self.introns:
             try:
-                self.__segmenttree.add(intron[0], intron[1], value="intron")
+                self.__segmenttree.add(Interval(intron[0], intron[1], value="intron"))
             except AssertionError as exc:
                 raise AssertionError(f"Intron for {self.id} invalid: {intron}\n{exc}")
 

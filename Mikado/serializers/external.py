@@ -65,8 +65,6 @@ class External(DBBASE):
     query_id = Column(Integer, ForeignKey(Query.query_id), unique=False)
     source_id = Column(Integer, ForeignKey(ExternalSource.source_id), unique=False)
     ext_constraint = PrimaryKeyConstraint("query_id", "source_id", name="source_key")
-    source = column_property(select([ExternalSource.source]).where(
-        ExternalSource.source_id == source_id))
     score = Column(String, nullable=False)
 
     query_object = relationship(Query, uselist=False,
@@ -86,6 +84,10 @@ class External(DBBASE):
     @hybrid_property
     def rtype(self):
         return self.source_object.rtype
+
+    @hybrid_property
+    def source(self):
+        return self.source_object.source
 
     __table_args__ = ((ext_constraint,
                       Index("external_query_idx", "query_id", unique=False),

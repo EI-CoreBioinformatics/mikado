@@ -68,10 +68,10 @@ class External(DBBASE):
     score = Column(String, nullable=False)
 
     query_object = relationship(Query, uselist=False,
-                                backref=backref("external"), lazy="joined", innerjoin=True)
+                                backref=backref("external"), lazy="select", innerjoin=True)
 
     source_object = relationship(ExternalSource, uselist=False,
-                                 backref=backref("external"), lazy="joined", innerjoin=True)
+                                 backref=backref("external"), lazy="select", innerjoin=True)
 
     @hybrid_property
     def query(self):

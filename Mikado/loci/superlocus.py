@@ -581,9 +581,7 @@ class Superlocus(Abstractlocus):
                                                  intron[1],
                                                  ver_introns[(intron[0], intron[1])]))
 
-    async def get_external(self, qids):
-        external = collections.defaultdict(dict)
-
+    async def get_sources(self):
         sources = set()
         sources.update({param for param in self.configuration.scoring.requirements.parameters.keys()
                         if param.startswith("external")})
@@ -598,7 +596,11 @@ class Superlocus(Abstractlocus):
         sources = {param.replace("external.", "") for param in sources}
 
         sources = [source.source_id for source in source_bakery(self.session).params(sources=sources)]
+        return sources
 
+    async def get_external(self, qids):
+        external = collections.defaultdict(dict)
+        sources = await self.get_sources()
         for ext in external_baked(self.session).params(queries=qids, sources=sources):
             if ext.rtype == "int":
                 score = int(ext.score)

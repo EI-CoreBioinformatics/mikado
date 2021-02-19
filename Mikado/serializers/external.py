@@ -11,7 +11,7 @@ import os
 import pyfaidx
 from sqlalchemy import Column, String, Integer, ForeignKey, Boolean
 from sqlalchemy.sql.schema import PrimaryKeyConstraint, Index
-from sqlalchemy.orm import column_property
+from sqlalchemy.orm import column_property, relationship, backref
 from sqlalchemy.orm.session import Session  # sessionmaker
 from sqlalchemy import select
 from ..utilities.dbutils import DBBASE, Inspector, connect
@@ -68,8 +68,14 @@ class External(DBBASE):
         ExternalSource.source_id == source_id))
     score = Column(String, nullable=False)
 
+    query_object = relationship(Query, uselist=False,
+                                backref=backref("external"), lazy="immediate")
+
     query = column_property(select([Query.query_name]).where(
         Query.query_id == query_id))
+
+    source_object = relationship(ExternalSource, uselist=False,
+                                 backref=backref("external"), lazy="immediate")
 
     valid_raw = column_property(select([ExternalSource.valid_raw]).where(
         ExternalSource.source_id == source_id))

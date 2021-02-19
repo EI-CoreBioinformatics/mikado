@@ -602,7 +602,6 @@ class Superlocus(Abstractlocus):
         external = collections.defaultdict(dict)
         sources = await self.get_sources()
         for ext in external_baked(self.session).params(queries=qids, sources=list(sources.keys())):
-            print(ext)
             rtype = sources[ext.source_id].rtype
             if rtype == "int":
                 score = int(ext.score)

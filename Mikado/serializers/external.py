@@ -10,6 +10,7 @@ will have a tag, and internally the files will be TAB-delimited
 import os
 import pyfaidx
 from sqlalchemy import Column, String, Integer, ForeignKey, Boolean
+from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.sql.schema import PrimaryKeyConstraint, Index
 from sqlalchemy.orm import column_property, relationship, backref
 from sqlalchemy.orm.session import Session  # sessionmaker
@@ -69,19 +70,22 @@ class External(DBBASE):
     score = Column(String, nullable=False)
 
     query_object = relationship(Query, uselist=False,
-                                backref=backref("external"), lazy="immediate")
-
-    query = column_property(select([Query.query_name]).where(
-        Query.query_id == query_id))
+                                backref=backref("external"), lazy="joined", innerjoin=True)
 
     source_object = relationship(ExternalSource, uselist=False,
-                                 backref=backref("external"), lazy="immediate")
+                                 backref=backref("external"), lazy="joined", innerjoin=True)
 
-    valid_raw = column_property(select([ExternalSource.valid_raw]).where(
-        ExternalSource.source_id == source_id))
+    @hybrid_property
+    def query(self):
+        return self.query_object.query_name
 
-    rtype = column_property(select([ExternalSource.rtype]).where(
-        ExternalSource.source_id == source_id))
+    @hybrid_property
+    def valid_raw(self):
+        return self.source_object.valid_raw
+
+    @hybrid_property
+    def rtype(self):
+        return self.source_object.rtype
 
     __table_args__ = ((ext_constraint,
                       Index("external_query_idx", "query_id", unique=False),

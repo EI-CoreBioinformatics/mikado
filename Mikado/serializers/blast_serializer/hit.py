@@ -52,12 +52,30 @@ class Hit(DBBASE):
     target_aligned_length = Column(Integer)
 
     query_object = relationship(Query, uselist=False,
-                                lazy="immediate",
+                                lazy="select",
+                                innerjoin=True,
                                 backref=backref("hits", cascade="all, delete-orphan"))
     target_object = relationship(Target,
                                  uselist=False,
-                                 lazy="immediate",
+                                 lazy="select",
+                                 innerjoin=True,
                                  backref=backref("hits", cascade="all, delete-orphan"))
+
+    @hybrid_property
+    def query(self):
+        return self.query_object.query_name
+
+    @hybrid_property
+    def query_length(self):
+        return self.query_object.query_length
+
+    @hybrid_property
+    def target(self):
+        return self.target_object.target_name
+
+    @hybrid_property
+    def target_length(self):
+        return self.target_object.target_length
 
     join_condition = "and_(Hit.query_id==Hsp.query_id, Hit.target_id==Hsp.target_id)"
     hsps = relationship(Hsp, uselist=True,
@@ -68,15 +86,6 @@ class Hit(DBBASE):
                         single_parent=True,
                         foreign_keys=[query_id, target_id],
                         primaryjoin=join_condition)
-
-    query = column_property(select([Query.query_name]).where(
-        Query.query_id == query_id))
-    query_length = column_property(select([Query.query_length]).where(
-        Query.query_id == query_id))
-    target = select([Target.target_name]).where(
-        Target.target_id == target_id)
-    target_length = select([Target.target_length]).where(
-        Target.target_id == target_id)
 
     __table_args__ = (qt_constraint, qt_index, query_index, target_index, evalue_index)
 

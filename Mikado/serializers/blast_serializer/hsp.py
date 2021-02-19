@@ -4,7 +4,7 @@ This module implements the HSP serialisation class.
 
 from sqlalchemy import Column, String, Integer, Float, ForeignKey, Index
 from sqlalchemy.sql.schema import PrimaryKeyConstraint, UniqueConstraint
-from sqlalchemy.orm import relationship, column_property
+from sqlalchemy.orm import relationship, column_property, backref
 from sqlalchemy import select
 from sqlalchemy.ext.hybrid import hybrid_property  # hybrid_method
 from ...utilities.dbutils import DBBASE
@@ -108,18 +108,6 @@ class Hsp(DBBASE):
     hsp_identity = Column(Float)
     hsp_positives = Column(Float)
     hsp_length = Column(Integer)
-
-    query_object = relationship(Query, uselist=False)
-    target_object = relationship(Target, uselist=False)
-
-    query = column_property(select([Query.query_name]).where(
-        Query.query_id == query_id))
-    query_length = column_property(select([Query.query_length]).where(
-        Query.query_id == query_id))
-    target = select([Target.target_name]).where(
-        Target.target_id == target_id)
-    target_length = select([Target.target_length]).where(
-        Target.target_id == target_id)
 
     __table_args__ = (pk_constraint, query_index, target_index, combined_index, hsp_evalue_index)
 

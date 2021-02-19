@@ -595,22 +595,24 @@ class Superlocus(Abstractlocus):
                         if param.startswith("external")})
         sources = {param.replace("external.", "") for param in sources}
 
-        sources = [source.source_id for source in source_bakery(self.session).params(sources=sources)]
+        sources = dict((source.source_id, source) for source in source_bakery(self.session).params(sources=sources))
         return sources
 
-    async def get_external(self, qids):
+    async def get_external(self, query_ids, qids):
         external = collections.defaultdict(dict)
         sources = await self.get_sources()
-        for ext in external_baked(self.session).params(queries=qids, sources=sources):
-            if ext.rtype == "int":
+        for ext in external_baked(self.session).params(queries=qids, sources=list(sources.keys())):
+            rtype = sources[ext.source_id].rtype
+            if rtype == "int":
                 score = int(ext.score)
-            elif ext.rtype == "float":
+            elif rtype == "float":
                 score = float(ext.score)
-            elif ext.rtype == "bool":
+            elif rtype == "bool":
                 score = bool(int(ext.score))
             else:
                 raise ValueError("Invalid rtype: {}".format(ext.rtype))
-            external[ext.query][ext.source] = (score, ext.valid_raw)
+            external[query_ids[ext.query_id].query_name][
+                sources[ext.source_id].source] = (score, sources[ext.source_id].valid_raw)
         return external
 
     async def get_hits(self, query_ids, qids):
@@ -683,7 +685,7 @@ class Superlocus(Abstractlocus):
         qids = list(query_ids.keys())
 
         data_dict["orfs"] = await self.get_orfs(qids)
-        data_dict["external"] = await self.get_external(qids)
+        data_dict["external"] = await self.get_external(query_ids, qids)
         data_dict["hits"] = await self.get_hits(query_ids=query_ids, qids=qids)
         return data_dict
 

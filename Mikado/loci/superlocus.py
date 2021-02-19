@@ -38,6 +38,7 @@ from typing import Union
 from ..utilities import Interval, IntervalTree
 from itertools import combinations
 import random
+import asyncio
 
 # The number of attributes is something I need
 # pylint: disable=too-many-instance-attributes
@@ -542,7 +543,7 @@ class Superlocus(Abstractlocus):
         del data_dict
         return to_remove, to_add
 
-    def _load_introns(self):
+    async def _load_introns(self):
 
         """Private method to load the intron data into the locus.
         :param data_dict: Dictionary containing the preloaded data, if available.
@@ -578,7 +579,65 @@ class Superlocus(Abstractlocus):
                                                  intron[1],
                                                  ver_introns[(intron[0], intron[1])]))
 
-    def _create_data_dict(self, engine, tid_keys) -> dict:
+    async def get_external(self, qids):
+        external = collections.defaultdict(dict)
+        for ext in external_baked(self.session).params(queries=qids):
+            if ext.rtype == "int":
+                score = int(ext.score)
+            elif ext.rtype == "float":
+                score = float(ext.score)
+            elif ext.rtype == "bool":
+                score = bool(int(ext.score))
+            else:
+                raise ValueError("Invalid rtype: {}".format(ext.rtype))
+            external[ext.query][ext.source] = (score, ext.valid_raw)
+        return external
+
+    async def get_hits(self, query_ids, qids):
+        hsps = dict()
+        targets = set()
+        hits = collections.defaultdict(list)
+        for hsp in hsp_baked(self.session).params(
+                hsp_evalue=self.configuration.pick.chimera_split.blast_params.hsp_evalue,
+                queries=qids):
+            if hsp.query_id not in hsps:
+                hsps[hsp.query_id] = collections.defaultdict(list)
+            hsps[hsp.query_id][hsp.target_id].append(hsp)
+            targets.add(hsp.target_id)
+
+        target_ids = dict((target.target_id, target) for target in
+                          target_baked(self.session).params(targets=list(targets)))
+        current_hit = None
+        for hit in hit_baked(self.session).params(
+                evalue=self.configuration.pick.chimera_split.blast_params.evalue,
+                hit_number=self.configuration.pick.chimera_split.blast_params.max_target_seqs,
+                queries=qids):
+            if current_hit != hit.query_id:
+                current_hit = hit.query_id
+            current_counter = 0
+
+            current_counter += 1
+
+            my_query = query_ids[hit.query_id]
+            my_target = target_ids[hit.target_id]
+
+            hits[my_query.query_name].append(
+                Hit.as_full_dict_static(
+                    hit,
+                    hsps[hit.query_id][hit.target_id],
+                    my_query,
+                    my_target
+                )
+            )
+        return hits
+
+    async def get_orfs(self, qids):
+        orfs = collections.defaultdict(list)
+        for orf in orfs_baked(self.session).params(queries=qids):
+            orfs[orf.query].append(orf.as_bed12())
+        return orfs
+
+    async def _create_data_dict(self, engine, tid_keys) -> dict:
 
         """Private method to retrieve data from the database and prepare it to be passed to the transcript
         instances.
@@ -594,76 +653,18 @@ class Superlocus(Abstractlocus):
         data_dict = dict()
         self.logger.debug("Starting to load hits and orfs for %d transcripts",
                           len(tid_keys))
-        data_dict["hits"] = collections.defaultdict(list)
-        data_dict["orfs"] = collections.defaultdict(list)
+
         data_dict["external"] = collections.defaultdict(dict)
         if engine is None:
             return data_dict
 
-        for tid_group in grouper(tid_keys, 100):
-            query_ids = dict((query.query_id, query) for query in
-                             query_baked(self.session).params(tids=tid_group))
-            # Retrieve the external scores
-            qids = list(query_ids.keys())
+        query_ids = dict((query.query_id, query) for query in
+                         query_baked(self.session).params(tids=tid_keys))
+        qids = list(query_ids.keys())
 
-            if query_ids:
-                external = external_baked(self.session).params(queries=qids)
-            else:
-                external = []
-
-            for ext in external:
-                if ext.rtype == "int":
-                    score = int(ext.score)
-                elif ext.rtype == "float":
-                    score = float(ext.score)
-                elif ext.rtype == "bool":
-                    score = bool(int(ext.score))
-                else:
-                    raise ValueError("Invalid rtype: {}".format(ext.rtype))
-
-                data_dict["external"][ext.query][ext.source] = (score, ext.valid_raw)
-
-            # Load the ORFs from the table
-            if query_ids:
-                for orf in orfs_baked(self.session).params(queries=qids):
-                    data_dict["orfs"][orf.query].append(orf.as_bed12())
-
-            hsps = dict()
-            targets = set()
-
-            for hsp in hsp_baked(self.session).params(
-                    hsp_evalue=self.configuration.pick.chimera_split.blast_params.hsp_evalue,
-                    queries=qids):
-                if hsp.query_id not in hsps:
-                    hsps[hsp.query_id] = collections.defaultdict(list)
-                hsps[hsp.query_id][hsp.target_id].append(hsp)
-                targets.add(hsp.target_id)
-
-            target_ids = dict((target.target_id, target) for target in
-                              target_baked(self.session).params(targets=list(targets)))
-            current_hit = None
-            for hit in hit_baked(self.session).params(
-                    evalue=self.configuration.pick.chimera_split.blast_params.evalue,
-                    hit_number=self.configuration.pick.chimera_split.blast_params.max_target_seqs,
-                    queries=qids):
-                if current_hit != hit.query_id:
-                    current_hit = hit.query_id
-                current_counter = 0
-
-                current_counter += 1
-
-                my_query = query_ids[hit.query_id]
-                my_target = target_ids[hit.target_id]
-
-                data_dict["hits"][my_query.query_name].append(
-                    Hit.as_full_dict_static(
-                        hit,
-                        hsps[hit.query_id][hit.target_id],
-                        my_query,
-                        my_target
-                    )
-                )
-
+        data_dict["orfs"] = await self.get_orfs(qids)
+        data_dict["external"] = await self.get_external(qids)
+        data_dict["hits"] = await self.get_hits(query_ids=query_ids, qids=qids)
         return data_dict
 
     def load_all_transcript_data(self, engine=None, session=None):
@@ -691,9 +692,10 @@ class Superlocus(Abstractlocus):
         tid_keys = list(self.transcripts.keys())
         to_remove, to_add = set(), dict()
         # This will function even if data_dict is None
-        self._load_introns()
-
+        intron_loader = self._load_introns()
         data_dict = self._create_data_dict(engine, tid_keys)
+        data_dict = asyncio.run(data_dict)
+        asyncio.run(intron_loader)
 
         self.logger.debug("Verified %d introns for %s",
                           len(self.locus_verified_introns),
@@ -701,8 +703,8 @@ class Superlocus(Abstractlocus):
 
         self.logger.debug("Finished retrieving data for %d transcripts",
                           len(tid_keys))
-        self.session.close()
-        sasession.close_all_sessions()
+        # self.session.close()
+        # sasession.close_all_sessions()
 
         for tid in tid_keys:
             remove_flag, new_transcripts = self.load_transcript_data(tid, data_dict)

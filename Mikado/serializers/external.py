@@ -9,8 +9,8 @@ will have a tag, and internally the files will be TAB-delimited
 
 import os
 import pyfaidx
-from sqlalchemy import Column, String, Integer, ForeignKey, Float, Boolean
-from sqlalchemy.sql.schema import PrimaryKeyConstraint
+from sqlalchemy import Column, String, Integer, ForeignKey, Boolean
+from sqlalchemy.sql.schema import PrimaryKeyConstraint, Index
 from sqlalchemy.orm import column_property
 from sqlalchemy.orm.session import Session  # sessionmaker
 from sqlalchemy import select
@@ -33,6 +33,7 @@ class ExternalSource(DBBASE):
     source = Column(String, unique=True)
     rtype = Column(String, unique=False)
     valid_raw = Column(Boolean)
+    __table_args__ = ((Index("external_source_idx", "source_id"),))
 
     def __init__(self, source, rtype, valid_raw):
 
@@ -76,7 +77,9 @@ class External(DBBASE):
     rtype = column_property(select([ExternalSource.rtype]).where(
         ExternalSource.source_id == source_id))
 
-    __table_args__ = (ext_constraint, )
+    __table_args__ = ((ext_constraint,
+                      Index("external_query_idx", "query_id", unique=False),
+                      Index("external_idx", "query_id", "source_id")))
 
     def __init__(self, query_id, source_id, score):
 

@@ -73,7 +73,7 @@ class MikadoConfiguration:
         self.check()
 
     def copy(self):
-        return copy.deepcopy(self)
+        return copy.copy(self)
 
     def check(self):
         if self.scoring is None or not hasattr(self.scoring.requirements, "parameters"):

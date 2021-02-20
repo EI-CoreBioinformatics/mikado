@@ -597,7 +597,7 @@ class Superlocus(Abstractlocus):
         sources = await self.get_sources()
         baked = External.__table__.select().where(and_(External.source_id.in_(list(sources.keys())),
                                                        External.query_id.in_(qids)))
-        for ext in self.session.execute(baked).fetchall():
+        for ext in self.session.execute(baked):
             source_id, query_id, score = ext.source_id, ext.query_id, ext.score
             if source_id not in sources or query_id not in qids:
                 continue

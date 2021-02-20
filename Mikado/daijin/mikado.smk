@@ -45,7 +45,6 @@ envdir = pkg_resources.resource_filename("Mikado.daijin", "envs")
 
 
 REF = config["reference"]["genome"]
-# TODO: this is hack that should be solved more neatly
 if "out_dir" in config:
     OUT_DIR = config["out_dir"]
 else:

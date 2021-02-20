@@ -67,27 +67,36 @@ class External(DBBASE):
     ext_constraint = PrimaryKeyConstraint("query_id", "source_id", name="source_key")
     score = Column(String, nullable=False)
 
-    query_object = relationship(Query, uselist=False,
-                                backref=backref("external"), lazy="select")
-
-    source_object = relationship(ExternalSource, uselist=False,
-                                 backref=backref("external"), lazy="select")
+    query_object = relationship(Query, uselist=False, backref=backref("external"), lazy="select")
+    source_object = relationship(ExternalSource, uselist=False, backref=backref("external"), lazy="select")
 
     @hybrid_property
     def query(self):
-        return self.query_object.query_name
+        if self.query_object:
+            return self.query_object.query_name
+        else:
+            return None
 
     @hybrid_property
     def valid_raw(self):
-        return self.source_object.valid_raw
+        if self.source_object:
+            return self.source_object.valid_raw
+        else:
+            return None
 
     @hybrid_property
     def rtype(self):
-        return self.source_object.rtype
+        if self.source_object:
+            return self.source_object.rtype
+        else:
+            return None
 
     @hybrid_property
     def source(self):
-        return self.source_object.source
+        if self.source_object:
+            return self.source_object.source
+        else:
+            return None
 
     __table_args__ = ((ext_constraint,
                       Index("external_query_idx", "query_id", unique=False),

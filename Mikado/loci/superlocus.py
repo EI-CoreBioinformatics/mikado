@@ -71,6 +71,8 @@ target_baked = bakery(lambda session: session.query(Target))
 target_baked += lambda q: q.filter(Target.target_id.in_(bindparam("targets", expanding=True)))
 
 source_bakery = bakery(lambda session: session.query(ExternalSource))
+source_bakery += lambda q: q.filter(ExternalSource.source == bindparam("sources", expanding=True))
+
 orfs_baked = bakery(lambda session: session.query(Orf))
 orfs_baked += lambda q: q.filter(Orf.query_id.in_(bindparam("queries", expanding=True)))
 

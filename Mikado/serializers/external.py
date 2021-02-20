@@ -99,7 +99,6 @@ class External(DBBASE):
             return None
 
     __table_args__ = ((ext_constraint,
-                      Index("external_query_idx", "query_id", unique=False),
                       Index("external_idx", "query_id", "source_id")))
 
     def __init__(self, query_id, source_id, score):

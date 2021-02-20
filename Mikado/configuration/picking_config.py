@@ -103,6 +103,13 @@ class OutputFormatConfiguration:
             "description": "Boolean switch. If set to true, Mikado will report all ORFs associated with a \
 transcript in the final loci file."},
     })
+    report_all_external_metrics: bool = field(default=False, metadata={
+        "metadata": {
+            "description": "Boolean switch. If set to True, Mikado will report for each transcript all available \
+external metrics, not just those requested for in the scoring file. On databases with many external scores \
+(e.g. in Minos), this could negatively affect performance."
+        }
+    })
 
 
 @dataclass

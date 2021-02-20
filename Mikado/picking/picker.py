@@ -452,22 +452,34 @@ class Picker:
                                creator=self.db_connection)
         session = sqlalchemy.orm.sessionmaker(bind=engine)()
 
-        external_metrics = ["external.{}".format(_.source) for _ in session.query(ExternalSource.source).all()]
-
         score_keys = ["source_score"]
-        __scores = sorted(list(self.configuration.scoring.scoring.keys()))
+        __scores = set(self.configuration.scoring.scoring.keys())
+
+        available_external_metrics = ["external.{}".format(_.source)
+                                      for _ in session.query(ExternalSource.source).all()]
+
+        requested_external = set()
+        requested_external.update({param for param in self.configuration.scoring.requirements.parameters.keys()
+                                   if param.startswith("external")})
+        requested_external.update({param for param in self.configuration.scoring.not_fragmentary.parameters.keys()
+                                   if param.startswith("external")})
+        requested_external.update({param for param in self.configuration.scoring.cds_requirements.parameters.keys()
+                                   if param.startswith("external")})
+        requested_external.update({param for param in self.configuration.scoring.cds_requirements.parameters.keys()
+                                   if param.startswith("external")})
+        requested_external.update({param for param in self.configuration.scoring.scoring.keys()
+                                   if param.startswith("external")})
+        
         # Check that the external scores are all present. If they are not, raise a warning.
-        __externals = set([_ for _ in __scores if _.startswith("external.")])
-        if __externals - set(external_metrics):
+        if requested_external - set(available_external_metrics):
             self.logger.error(
                 ("The following external metrics, found in the scoring file, are not present in the database. " +
                  "Please check their existence:\n" + "\n".join(
                             ["    - {metric}".format(metric=metric) for metric in sorted(
-                                __externals - set(external_metrics))]
+                                requested_external - set(available_external_metrics))]
                             ))
             )
             sys.exit(1)
-            # __scores = sorted(set(__scores) - (__externals - set(external_metrics)))
 
         score_keys += __scores
 
@@ -479,7 +491,11 @@ class Picker:
             ".gff.?$", "", self.locus_out)), "w")
 
         metrics = Superlocus.available_metrics[5:]
-        metrics.extend(external_metrics)
+        # Only report *used* external metrics, for performance
+        if self.configuration.pick.output_format.report_all_external_metrics is True:
+            metrics.extend(available_external_metrics)
+        else:
+            metrics.extend(requested_external)
         metrics = Superlocus.available_metrics[:5] + sorted(metrics)
         session.close()
         engine.dispose()

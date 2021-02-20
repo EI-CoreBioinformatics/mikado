@@ -5,6 +5,9 @@
 
 import numpy
 import unittest
+
+import pytest
+
 from ..utilities import Interval, IntervalTree, IntervalNode, distance
 import sys, os
 import unittest
@@ -213,6 +216,7 @@ class RelativeTestCase(unittest.TestCase):
         self.intervals = intervals
         self.tree = iv
 
+    @pytest.mark.triage
     def test_left(self):
         max_dist = 200
         n = 15
@@ -233,6 +237,7 @@ class RelativeTestCase(unittest.TestCase):
                 diff = set(bf).difference(tf)
                 self.assertTrue(len(diff) == 0, (diff))
 
+    @pytest.mark.triage
     def test_right(self):
         max_dist = 200
         n = 15
@@ -241,7 +246,6 @@ class RelativeTestCase(unittest.TestCase):
             for zz in range(random.randint(1, 6)):
                 s1 = random.randint(i + 1, i + 20)
                 f = Interval(s1, s1)
-
                 bf = brute_force_find_right(self.intervals, f, max_dist, n)
                 tf = iv.right(f, max_dist=max_dist, n=n)
                 if len(tf) == 0:

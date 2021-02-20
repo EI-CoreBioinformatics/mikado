@@ -327,7 +327,7 @@ class Picker:
 
         return
 
-    def __print_gff_headers(self, locus_out, score_keys):
+    def __print_gff_headers(self, locus_out, score_keys, metrics):
         """Private method to print the GFF headers of the output files.
         Moreover, it will determine whether to start output files for
         subloci and/or monoloci.
@@ -352,10 +352,6 @@ class Picker:
                                    creator=self.db_connection)
             session = sqlalchemy.orm.sessionmaker(bind=engine)()
             dbutils.DBBASE.metadata.create_all(engine)
-
-        metrics = Superlocus.available_metrics[5:]
-        metrics.extend(["external.{}".format(_.source) for _ in session.query(ExternalSource.source).all()])
-        metrics = Superlocus.available_metrics[:5] + sorted(metrics)
 
         if self.sub_out != '':
             assert isinstance(self.sub_out, str)
@@ -519,7 +515,7 @@ class Picker:
         locus_scores.name = locus_scores.handle.name
 
         locus_out = open(self.locus_out, 'w')
-        sub_files, mono_files = self.__print_gff_headers(locus_out, score_keys)
+        sub_files, mono_files = self.__print_gff_headers(locus_out, score_keys, metrics)
 
         return ((locus_metrics,
                  locus_scores,

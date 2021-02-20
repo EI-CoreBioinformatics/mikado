@@ -590,7 +590,11 @@ it is marked as having 0 retained introns. This is an error.".format(transcript=
 
         evaluated = dict()
         for key in section.parameters:
-            value = rgetattr(transcript, section.parameters[key].name)
+            name = section.parameters[key].name
+            if "." in name:
+                value = rgetattr(transcript, name)
+            else:
+                value = getattr(transcript, name)
             if "external" in key:
                 value = value[0]
 
@@ -621,7 +625,10 @@ it is marked as having 0 retained introns. This is an error.".format(transcript=
         evaluated = dict()
         for key, params in self.configuration.scoring.not_fragmentary.parameters.items():
             name = params.name
-            value = rgetattr(self.primary_transcript, name)
+            if "." in name:
+                value = rgetattr(self.primary_transcript, name)
+            else:
+                value = getattr(self.primary_transcript, name)
             if "external" in key:
                 value = value[0]
             try:

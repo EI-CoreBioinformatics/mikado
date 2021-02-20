@@ -1478,7 +1478,10 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                     if param in self._metrics[transcript.alias]:
                         metric = self._metrics[transcript.alias][param]
                     else:
-                        metric = rgetattr(self.transcripts[tid], param)
+                        if "." in param:
+                            metric = rgetattr(self.transcripts[tid], param)
+                        else:
+                            metric = getattr(self.transcripts[tid], param)
                         self._metrics[transcript.alias][param] = metric
                 else:
                     if tid not in self._metrics:
@@ -1486,7 +1489,10 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                     if param in self._metrics[tid]:
                         metric = self._metrics[tid][param]
                     else:
-                        metric = rgetattr(self.transcripts[tid], param)
+                        if "." in param:
+                            metric = rgetattr(self.transcripts[tid], param)
+                        else:
+                            metric = getattr(self.transcripts[tid], param)
                         self._metrics[tid][param] = metric
                 if isinstance(metric, (tuple, list)):
                     metric = metric[0]
@@ -1514,7 +1520,6 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                         metric_to_evaluate = self._metrics[self.transcripts[tid].alias][metric_key]
                     else:
                         metric_to_evaluate = self._metrics[tid][metric_key]
-                    # metric_to_evaluate = rgetattr(self.transcripts[tid], metric_key)
                     if "external" in metric_key:
                         metric_to_evaluate = metric_to_evaluate[0]
 

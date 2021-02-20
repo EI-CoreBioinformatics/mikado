@@ -578,20 +578,23 @@ class Superlocus(Abstractlocus):
                                                  ver_introns[(intron[0], intron[1])]))
 
     async def get_sources(self):
-        sources = set()
-        sources.update({param for param in self.configuration.scoring.requirements.parameters.keys()
-                        if param.startswith("external")})
-        sources.update({param for param in self.configuration.scoring.not_fragmentary.parameters.keys()
-                        if param.startswith("external")})
-        sources.update({param for param in self.configuration.scoring.cds_requirements.parameters.keys()
-                        if param.startswith("external")})
-        sources.update({param for param in self.configuration.scoring.cds_requirements.parameters.keys()
-                        if param.startswith("external")})
-        sources.update({param for param in self.configuration.scoring.scoring.keys()
-                        if param.startswith("external")})
-        sources = {param.replace("external.", "") for param in sources}
-
-        sources = dict((source.source_id, source) for source in source_bakery(self.session).params(sources=sources))
+        if self.configuration.pick.output_format.report_all_external_metrics is True:
+            sources = dict((source.source_id, source) for source in self.session.query(ExternalSource))
+        else:
+            sources = set()
+            sources.update({param for param in self.configuration.scoring.requirements.parameters.keys()
+                            if param.startswith("external")})
+            sources.update({param for param in self.configuration.scoring.not_fragmentary.parameters.keys()
+                            if param.startswith("external")})
+            sources.update({param for param in self.configuration.scoring.cds_requirements.parameters.keys()
+                            if param.startswith("external")})
+            sources.update({param for param in self.configuration.scoring.cds_requirements.parameters.keys()
+                            if param.startswith("external")})
+            sources.update({param for param in self.configuration.scoring.scoring.keys()
+                            if param.startswith("external")})
+            sources = {param.replace("external.", "") for param in sources}
+            sources = dict((source.source_id, source) for source in
+                           source_bakery(self.session).params(sources=list(sources)))
         return sources
 
     async def get_external(self, query_ids, qids):

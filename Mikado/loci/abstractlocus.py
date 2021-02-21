@@ -20,10 +20,10 @@ from ..utilities import Interval, IntervalTree
 from ..utilities.log_utils import create_null_logger
 from ..scales import c_compare
 import random
-from functools import partial
+from functools import partial, lru_cache
 import rapidjson as json
 dumper = partial(json.dumps, default=default_for_serialisation)
-from typing import Union
+from typing import Union, Dict
 from ..configuration.configuration import MikadoConfiguration
 from ..configuration.daijin_configuration import DaijinConfiguration
 from ..configuration.configurator import load_and_validate_config, check_and_load_scoring
@@ -787,6 +787,10 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             [_._as_tuple() for _ in segmenttree.find(exon[0], exon[1], strict=False, value="intron")]
         )
 
+        # Cached call. *WE NEED TO CHANGE THE TYPE OF INTRONS TO LIST OTHERWISE LRU CACHE WILL ERROR*
+        # As sets are not hashable!
+        ancestors, descendants = _get_intron_ancestors_descendants(tuple(introns), digraph)
+
         if not found_introns:
             return is_retained, cds_broken
 
@@ -802,11 +806,8 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                 elif coding is False:
                     break
 
-            before = {_ for _ in networkx.ancestors(digraph, intron) if
-                      _ not in introns and overlap(_, exon) > 0}
-
-            after = {_ for _ in networkx.descendants(digraph, intron) if
-                     _ not in introns and overlap(_, exon) > 0}
+            before = {_ for _ in ancestors[intron] if overlap(_, exon) > 0}
+            after = {_ for _ in descendants[intron] if overlap(_, exon) > 0}
 
             # Now we have to check whether the matched introns contain both coding and non-coding parts
             # Let us exclude any intron which is outside of the exonic span of interest.
@@ -913,11 +914,11 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                 continue
 
             result = self._is_exon_retained(
-                exon,
-                self.strand,
-                self.segmenttree,
-                self._internal_graph,
-                frags,
+                exon=exon,
+                strand=self.strand,
+                segmenttree=self.segmenttree,
+                digraph=self._internal_graph,
+                frags=frags,
                 internal_splices=internal_splices,
                 introns=self.introns,
                 cds_introns=self.combined_cds_introns,
@@ -1927,3 +1928,13 @@ Scoring configuration: {}
         If only_reference_update is True, it will override this value."""
         ref_update = self.configuration.pick.run_options.reference_update
         return ref_update or self.only_reference_update
+
+
+@lru_cache(maxsize=1000, typed=True)
+def _get_intron_ancestors_descendants(introns, internal_graph) -> [Dict[(tuple, set)], Dict[(tuple, set)]]:
+    ancestors, descendants = dict(), dict()
+    introns = set(introns)
+    for intron in introns:
+        ancestors[intron] = {_ for _ in networkx.ancestors(internal_graph, intron) if _ not in introns}
+        descendants[intron] = {_ for _ in networkx.descendants(internal_graph, intron) if _ not in introns}
+    return ancestors, descendants

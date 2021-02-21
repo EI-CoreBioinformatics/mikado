@@ -1294,6 +1294,8 @@ exon data is on a different chromosome, {exon_data.chrom}. \
                 setattr(self, metric, state[metric])
             except KeyError:
                 raise KeyError((self.id, metric))
+        self._calculate_cds_tree()
+        self._calculate_segment_tree()
         self.finalized = state["finalized"]
         if self.finalized:
             self.combined_utr = sorted([tuple(combi) for combi in state["combined_utr"]])
@@ -2194,8 +2196,12 @@ index {3}, internal ORFs: {4}".format(
         """
         This property returns an interval tree of the CDS segments.
         """
-        if len(self.__segmenttree) != len(self.combined_cds) + len(self.combined_cds_introns):
-            self._calculate_segment_tree()
+        if self.finalized and len(self.__cds_tree) != len(self.combined_cds) + len(self.combined_cds_introns):
+            raise InvalidTranscript("The CDS tree for {} is invalid, it has length {} instead of {}".format(
+                self.id, len(self.__cds_tree), len(self.combined_cds) + len(self.combined_cds_introns)
+            ))
+        elif self.finalized is False:
+            self._calculate_cds_tree()
 
         return self.__cds_tree
 

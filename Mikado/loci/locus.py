@@ -13,7 +13,7 @@ import pysam
 from ..transcripts.transcript import Transcript
 # from ..configuration.picking_config import valid_as_ccodes, redundant_as_ccodes
 from ..transcripts.transcriptchecker import TranscriptChecker
-from .abstractlocus import Abstractlocus, rgetattr  # , default_configuration
+from .abstractlocus import Abstractlocus
 from ..parsers.GFF import GffLine
 from ..scales.assignment.assigner import Assigner
 from ..exceptions import InvalidTranscript
@@ -591,10 +591,7 @@ it is marked as having 0 retained introns. This is an error.".format(transcript=
         evaluated = dict()
         for key in section.parameters:
             name = section.parameters[key].name
-            if "." in name:
-                value = rgetattr(transcript, name)
-            else:
-                value = getattr(transcript, name)
+            value = operator.attrgetter(name)(transcript)
             if "external" in key:
                 value = value[0]
 
@@ -625,10 +622,7 @@ it is marked as having 0 retained introns. This is an error.".format(transcript=
         evaluated = dict()
         for key, params in self.configuration.scoring.not_fragmentary.parameters.items():
             name = params.name
-            if "." in name:
-                value = rgetattr(self.primary_transcript, name)
-            else:
-                value = getattr(self.primary_transcript, name)
+            value = operator.attrgetter(name)(self.primary_transcript)
             if "external" in key:
                 value = value[0]
             try:

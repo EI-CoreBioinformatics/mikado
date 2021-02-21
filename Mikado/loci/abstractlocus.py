@@ -14,7 +14,7 @@ from .._transcripts.scoring_configuration import SizeFilter, InclusionFilter, Nu
     RangeFilter
 from ..transcripts import Transcript
 from ..exceptions import NotInLocusError, InvalidJson
-from ..utilities import overlap, merge_ranges, rhasattr, rgetattr, default_for_serialisation
+from ..utilities import overlap, merge_ranges, default_for_serialisation
 import operator
 from ..utilities import Interval, IntervalTree
 from ..utilities.log_utils import create_null_logger
@@ -1235,10 +1235,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         self._metrics[tid] = dict()
 
         for metric in self.available_metrics:
-            if "." in metric:
-                self._metrics[tid][metric] = rgetattr(self.transcripts[tid], metric)
-            else:
-                self._metrics[tid][metric] = getattr(self.transcripts[tid], metric)
+            self._metrics[tid][metric] = operator.attrgetter(metric)(self.transcripts[tid])
 
         for metric, values in self._attribute_metrics.items():
             # 11 == len('attributes.') removes 'attributes.' to keep the metric name same as in the file attributes
@@ -1323,10 +1320,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                 else:
                     name = key
                 try:
-                    if "." in name:
-                        value = rgetattr(self.transcripts[tid], name)
-                    else:
-                        value = getattr(self.transcripts[tid], name)
+                    value = operator.attrgetter(name)(self.transcripts[tid])
                 except AttributeError:
                     raise AttributeError((section_name, key, section.parameters[key]))
                 if "external" in key:
@@ -1479,10 +1473,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                     if param in self._metrics[transcript.alias]:
                         metric = self._metrics[transcript.alias][param]
                     else:
-                        if "." in param:
-                            metric = rgetattr(self.transcripts[tid], param)
-                        else:
-                            metric = getattr(self.transcripts[tid], param)
+                        metric = operator.attrgetter(param)(self.transcripts[tid])
                         self._metrics[transcript.alias][param] = metric
                 else:
                     if tid not in self._metrics:
@@ -1490,10 +1481,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                     if param in self._metrics[tid]:
                         metric = self._metrics[tid][param]
                     else:
-                        if "." in param:
-                            metric = rgetattr(self.transcripts[tid], param)
-                        else:
-                            metric = getattr(self.transcripts[tid], param)
+                        metric = operator.attrgetter(param)(self.transcripts[tid])
                         self._metrics[tid][param] = metric
                 if isinstance(metric, (tuple, list)):
                     metric = metric[0]
@@ -1501,7 +1489,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             except TypeError:
                 raise TypeError(param)
             except KeyError:
-                metric = rgetattr(self.transcripts[tid], param)
+                metric = operator.attrgetter(param)(self.transcripts[tid])
                 raise KeyError((tid, param, metric))
             except AttributeError:
                 raise AttributeError(param)
@@ -1515,8 +1503,6 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                     metric_to_evaluate = tid_metric
                 else:
                     metric_key = param_conf.filter.metric
-                    if not rhasattr(self.transcripts[tid], metric_key):
-                        raise KeyError("Asked for an invalid metric in filter: {}".format(metric_key))
                     if tid not in self._metrics and self.transcripts[tid].alias in self._metrics:
                         metric_to_evaluate = self._metrics[self.transcripts[tid].alias][metric_key]
                     else:
@@ -1541,7 +1527,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                 except (IndexError, TypeError, KeyError):
                     raise TypeError("No transcripts left!")
                 try:
-                    metric = rgetattr(transcript, param)
+                    metric = operator.attrgetter(param)(transcript)
                 except (IndexError, TypeError, KeyError):
                     raise TypeError("{param} not found in transcripts of {self.id}".format(**locals()))
                 try:

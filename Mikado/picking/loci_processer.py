@@ -31,6 +31,7 @@ __author__ = 'Luca Venturini'
 def merge_loci(mapper,
                out_handles,
                total,
+               configuration,
                logger=None,
                source="Mikado"):
 
@@ -64,7 +65,8 @@ def merge_loci(mapper,
     logger.info("We have a total of %d genes", total_genes)
     tot_loci = set()
     for index in sorted(mapper["results"]):
-        loci, batch = manage_index((index, new_common[index]), mapper["results"], source=source)
+        loci, batch = manage_index((index, new_common[index]), mapper["results"], source=source,
+                                   configuration=configuration)
         done += 1
         if loci and set(loci).issubset(tot_loci):
             raise ValueError("Duplicated loci! {}".format(loci))

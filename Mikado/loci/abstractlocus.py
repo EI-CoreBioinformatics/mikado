@@ -284,18 +284,23 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         state["json_conf"] = dataclasses.asdict(state["json_conf"])
         return state
 
-    def load_dict(self, state: dict, load_transcripts=True):
+    def load_dict(self, state: dict, load_transcripts=True, load_configuration=True):
         """Method to recreate a locus object from a dumped dictionary, created through as_dict.
         :param state: the dictionary to load values from
         :param load_transcripts: boolean. If False, transcripts will be left in their dump state rather than be
         converted back to Transcript objects.
+        :param load_configuration: boolean. If False, the locus class will presume that the existing configuration
+        is the correct one.
         """
 
         assert isinstance(state, dict)
-        try:
-            state["json_conf"] = MikadoConfiguration.Schema().load(state["json_conf"])
-        except:
-            state["json_conf"] = DaijinConfiguration.Schema().load(state["json_conf"])
+        if load_configuration is False:
+            state["json_conf"] = self.configuration
+        else:
+            try:
+                state["json_conf"] = MikadoConfiguration.Schema().load(state["json_conf"])
+            except:
+                state["json_conf"] = DaijinConfiguration.Schema().load(state["json_conf"])
         self.__setstate__(state)
         assert self.metrics_calculated is True
         if load_transcripts is True:

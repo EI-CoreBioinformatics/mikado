@@ -715,7 +715,8 @@ class Picker:
         # Merge loci
         merge_loci(mapper,
                    handles,
-                   total,
+                   total=total,
+                   configuration=self.configuration,
                    logger=self.logger,
                    source=self.configuration.pick.output_format.source)
 

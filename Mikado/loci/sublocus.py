@@ -138,8 +138,8 @@ class Sublocus(Abstractlocus):
         state["excluded"] = self.excluded.as_dict()
         return state
 
-    def load_dict(self, state):
-        super().load_dict(state)
+    def load_dict(self, state, load_transcripts=True, load_configuration=True):
+        super().load_dict(state, load_transcripts=load_transcripts, load_configuration=load_configuration)
         self.monosubloci = []
         for stat in state["monosubloci"]:
             s = Monosublocus()

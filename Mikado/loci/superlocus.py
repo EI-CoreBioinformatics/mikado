@@ -387,10 +387,11 @@ class Superlocus(Abstractlocus):
         state["excluded"] = self.excluded.as_dict()
         return state
 
-    def load_dict(self, state, print_subloci=True, print_monoloci=True, load_transcripts=True):
+    def load_dict(self, state, print_subloci=True, print_monoloci=True, load_transcripts=True,
+                  load_configuration=True):
         """Method to reconstitute a Superlocus from a dumped dictionary."""
 
-        super().load_dict(state, load_transcripts=load_transcripts)
+        super().load_dict(state, load_transcripts=load_transcripts, load_configuration=load_configuration)
         self.loci = dict()
         for lid, stat in state["loci"].items():
             locus = Locus()

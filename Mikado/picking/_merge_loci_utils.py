@@ -10,7 +10,7 @@ import numpy as np
 from ._locus_line_creator import _create_locus_lines
 
 
-def manage_index(index, data, source):
+def manage_index(index, data, source, configuration):
     index, (chrom, gene_counter, gene_max) = index[0], index[1]
     orig_gene_counter = gene_counter
     batch = []
@@ -26,11 +26,11 @@ def manage_index(index, data, source):
     mono_length = len(monolocus_dump)
 
     for pos, stranded_locus_json in enumerate(msgpack.loads(stranded_loci, raw=False)):
-        stranded_locus = Superlocus(None)
+        stranded_locus = Superlocus(None, configuration=configuration)
         for locus_string in stranded_locus_json:
             locus_dict = decoder(locus_string)
-            locus = Locus(None)
-            locus.load_dict(locus_dict)
+            locus = Locus(configuration=configuration)
+            locus.load_dict(locus_dict, load_configuration=False)
             if locus is not None:
                 stranded_locus.add_locus(locus)
         stranded_locus.source = source
@@ -38,8 +38,7 @@ def manage_index(index, data, source):
         if not stranded_locus.id.endswith(str(sys.maxsize)):
             loci.append(stranded_locus.id)
 
-        minibatch, gene_counter = _create_locus_lines(stranded_locus,
-                                                      gene_counter)
+        minibatch, gene_counter = _create_locus_lines(stranded_locus, gene_counter)
         minibatch = [minibatch]
 
         if pos < sub_length:

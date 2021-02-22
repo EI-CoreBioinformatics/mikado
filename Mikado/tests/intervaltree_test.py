@@ -1,7 +1,7 @@
 """
 
 """
-
+import tempfile
 
 import numpy
 import unittest
@@ -356,20 +356,20 @@ class PickleTestCase(unittest.TestCase):
                 f = Interval(i - 4, i + 4)
                 a.insert(f)
 
-        a.dump('a.pkl')
+        with tempfile.NamedTemporaryFile(suffix=".pkl") as dumpfile:
+            a.dump(dumpfile.name)
+            b = IntervalTree()
+            b.load(dumpfile.name)
+            for ichr in range(5):
+                for i in range(10, 100, 6):
+                    f = Interval(i - 4, i + 4)
+                    af = sorted(a.find(f.start, f.end), key=operator.attrgetter('start'))
+                    bf = sorted(b.find(f.start, f.end), key=operator.attrgetter('start'))
 
-        b = IntervalTree()
-        b.load('a.pkl')
-        for ichr in range(5):
-            for i in range(10, 100, 6):
-                f = Interval(i - 4, i + 4)
-                af = sorted(a.find(f.start, f.end), key=operator.attrgetter('start'))
-                bf = sorted(b.find(f.start, f.end), key=operator.attrgetter('start'))
-
-                assert len(bf) > 0
-                self.assertEqual(len(af), len(bf))
-                self.assertEqual(af[0].start, bf[0].start)
-                self.assertEqual(af[-1].start, bf[-1].start)
+                    assert len(bf) > 0
+                    self.assertEqual(len(af), len(bf))
+                    self.assertEqual(af[0].start, bf[0].start)
+                    self.assertEqual(af[-1].start, bf[-1].start)
 
 
 class EmptyTreeTestCase(unittest.TestCase):

@@ -23,8 +23,6 @@ class TChekerTester(unittest.TestCase):
 
         # Prepare the genome
         cls.fasta = pkg_resources.resource_filename("Mikado.tests", "chr5.fas.gz")
-        # cls.fasta_temp = tempfile.NamedTemporaryFile(mode="wb", delete=False, suffix=".fa.gz")
-        # cls.fasta_temp.write(pkg_resources.resource_stream("Mikado.tests", "chr5.fas.gz").read())
         cls.fasta = pysam.FastaFile(cls.fasta)
         cls._model = Transcript()
         cls._model.chrom = "Chr5"
@@ -369,7 +367,7 @@ class StopCodonChecker(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.__genomefile__ = tempfile.NamedTemporaryFile(mode="wb", delete=False, suffix=".fa", prefix="prepare")
+        cls.__genomefile__ = tempfile.NamedTemporaryFile(mode="wb", delete=True, suffix=".fa", prefix="prepare")
 
         with pkg_resources.resource_stream("Mikado.tests", "chr5.fas.gz") as _:
             cls.__genomefile__.write(gzip.decompress(_.read()))
@@ -379,9 +377,8 @@ class StopCodonChecker(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        cls.__genomefile__.close()
         cls.genome.close()
-        os.remove(cls.__genomefile__.name)
+        cls.__genomefile__.close()
         if os.path.exists(cls.__genomefile__.name + ".fai"):
             os.remove(cls.__genomefile__.name + ".fai")
 

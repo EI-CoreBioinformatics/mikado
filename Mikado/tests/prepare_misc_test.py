@@ -55,11 +55,11 @@ class MiscTest(unittest.TestCase):
     def test_normal(self):
         logger, listener, logging_queue = self.create_logger("test_normal")
 
-        with self.assertLogs(logger=logger, level="DEBUG") as cmo:
+        with self.assertLogs(logger=logger, level="DEBUG") as cmo, \
+                tempfile.NamedTemporaryFile(mode="wb", delete=True) as batch_file:
             # FASTA out and GTF out are just the file names, without the temporary directory
             # Moreover they will be complemented by the identifier!
 
-            batch_file = tempfile.NamedTemporaryFile(mode="wb", delete=False)
             proc = ProcRunner(checking.CheckingProcess,
                               batch_file.name,
                               logging_queue,
@@ -108,10 +108,13 @@ class MiscTest(unittest.TestCase):
         else:
             logger, listener, logging_queue = self.create_logger("test_wrong_initialisation", simple=True)
 
-        kwds = {"batch_file": tempfile.mkstemp(),
+        with tempfile.NamedTemporaryFile() as batch_file, tempfile.NamedTemporaryFile() as shelves:
+            pass
+
+        kwds = {"batch_file": batch_file.name,
                 "logging_queue": logging_queue,
                 "identifier": 0,
-                "shelve_stacks": [tempfile.mkstemp()],
+                "shelve_stacks": [shelves.name],
                 "fasta_out": self.fasta_out,
                 "gtf_out": self.gtf_out,
                 "tmpdir": tempfile.gettempdir(),
@@ -202,7 +205,9 @@ class MiscTest(unittest.TestCase):
 
         logger, listener, logging_queue = self.create_logger("test_example_model_through_process")
         logger.setLevel("DEBUG")
-        with self.assertLogs(logger=logger, level="DEBUG") as cmo:
+        with self.assertLogs(logger=logger, level="DEBUG") as cmo, \
+                tempfile.NamedTemporaryFile(delete=True, suffix=".db", mode="wb") as dumpdb, \
+                tempfile.NamedTemporaryFile(delete=True, mode="wb") as batch:
             # FASTA out and GTF out are just the file names, without the temporary directory
             # Moreover they will be complemented by the identifier!
             import msgpack
@@ -218,7 +223,6 @@ class MiscTest(unittest.TestCase):
             lines["features"]["exon"] = [(208937, 209593), (209881, 210445)]
             lines["strand_specific"] = True
             lines["is_reference"] = False
-            dumpdb = tempfile.NamedTemporaryFile(delete=False, suffix=".db", mode="wb")
             write_start = dumpdb.tell()
             dumpdb.write(zlib.compress(msgpack.dumps(lines)))
             write_length = dumpdb.tell() - write_start
@@ -226,9 +230,8 @@ class MiscTest(unittest.TestCase):
 
             keys = [(0, ((lines["tid"], dumpdb.name, write_start, write_length),
                          lines["chrom"], (lines["start"], lines["end"])))]
-            with tempfile.NamedTemporaryFile(delete=False, mode="wb") as batch:
-                msgpack.dump(keys, batch)
-
+            msgpack.dump(keys, batch)
+            batch.flush()
             proc = ProcRunner(checking.CheckingProcess,
                               batch.name,
                               logging_queue,

@@ -398,9 +398,8 @@ def parse_tab_blast(self,
         # We have to set up the processes before the forking.
         lock = mp.RLock()
         conf = self.configuration.copy()
-        params_file = tempfile.mktemp(suffix=".mgp")
-
-        index_files = dict((idx, tempfile.mktemp(suffix=".csv")) for idx in
+        params_file = tempfile.NamedTemporaryFile(suffix=".mgp", delete=True)
+        index_files = dict((idx, tempfile.NamedTemporaryFile(suffix=".csv", delete=True)) for idx in
                            range(procs))
         kwargs = {"conf": conf,
                   "maxobjects": max(int(self.maxobjects / procs), 1),
@@ -411,8 +410,8 @@ def parse_tab_blast(self,
                   "sql_level": self.configuration.log_settings.sql_level,
                   "log_level": self.configuration.log_settings.log_level,
                   "logging_queue": self.logging_queue,
-                  "params_file": params_file}
-        processes = [Preparer(index_files[idx], idx, **kwargs) for idx in range(procs)]
+                  "params_file": params_file.name}
+        processes = [Preparer(index_files[idx].name, idx, **kwargs) for idx in range(procs)]
 
     self.logger.info("Reading %s data", bname)
     # Compatibility with ASN files
@@ -467,26 +466,22 @@ def parse_tab_blast(self,
         # Now we have to write down everything inside the temporary files.
         # Params_name must contain: shape of the array, dtype of the array, columns
         params = {"columns": columns}
-        with open(params_file, "wb") as pfile:
-            pfile.write(msgpack.dumps(params))
-        assert os.path.exists(params_file)
+        params_file.write(msgpack.dumps(params))
+        params_file.flush()
         # Split the indices
         for idx, split in enumerate(np.array_split(np.array(list(groups.items()),
                                                             dtype=object), procs)):
-            with open(index_files[idx], "wb") as index:
-                for item in split:
-                    vals = (tuple(item[0]), values[item[1], :].tolist())
-                    msgpack.dump(vals, index)
+            index = index_files[idx]
+            for item in split:
+                vals = (tuple(item[0]), values[item[1], :].tolist())
+                msgpack.dump(vals, index)
             assert os.path.exists(index_files[idx])
             processes[idx].start()
-
         try:
             res = [proc.join() for proc in processes]
         except KeyboardInterrupt:
             raise KeyboardInterrupt
         except Exception:
             raise
-        finally:
-            os.remove(params_file)
 
     return

@@ -13,6 +13,7 @@ Bugfix and speed improvement release.
   - Using sqlalchemy bakeries for the SQLite queries, as well as LRU caches in various parts of Mikado.
   - Removed excessive copying in multiple parts of the program, especially regarding the configuration objects and during padding.
   - Using `operator.attrgetter` instead of a custom (and slower) recursive `getattr` function.
+- Removed unsafe calls to tempfile.mktemp and the like, for increased security according to CodeQL.
   
 
 # Version 2.0.2

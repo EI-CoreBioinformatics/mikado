@@ -303,12 +303,13 @@ def perform_check(keys, shelve_names, mikado_config: MikadoConfiguration, logger
         }
 
         working_processes = []
+        batch_files = []
         for idx, batch in enumerate(np.array_split(np.array(batches,
                                                             dtype=object), mikado_config.threads), 1):
-            batch_file = tempfile.NamedTemporaryFile(delete=False, mode="wb")
+            batch_file = tempfile.NamedTemporaryFile(delete=True, mode="wb")
             msgpack.dump(batch.tolist(), batch_file)
             batch_file.flush()
-            batch_file.close()
+            batch_files.append(batch_file)
 
             proc = CheckingProcess(
                 batch_file.name,
@@ -343,6 +344,7 @@ def perform_check(keys, shelve_names, mikado_config: MikadoConfiguration, logger
             "{0}-{1}".format(os.path.basename(mikado_config.prepare.files.out_fasta.name), _ + 1))
                          for _ in range(mikado_config.threads)]
         merge_partial(partial_fasta, mikado_config.prepare.files.out_fasta)
+        [batch_file.close() for batch_file in batch_files]
 
     mikado_config.prepare.files.out_fasta.close()
     mikado_config.prepare.files.out.close()

@@ -201,13 +201,13 @@ switch.")
         config.pick.files.output_dir = args.out_dir
 
     # Check that the configuration file is correct
-    tempcheck = tempfile.NamedTemporaryFile("wt", suffix=".json", delete=False)
-    print_config(config, tempcheck, full=args.full, output_format="json")
-    tempcheck.flush()
-    try:
-        load_and_validate_config(tempcheck.name)
-    except InvalidJson as exc:
-        raise InvalidJson("Created an invalid configuration file! Error:\n{}".format(exc))
+    with tempfile.NamedTemporaryFile("wt", suffix=".json", delete=True) as tempcheck:
+        print_config(config, tempcheck, full=args.full, output_format="json")
+        tempcheck.flush()
+        try:
+            load_and_validate_config(tempcheck.name)
+        except InvalidJson as exc:
+            raise InvalidJson("Created an invalid configuration file! Error:\n{}".format(exc))
 
     # Print out the final configuration file
     if args.json is True or args.out.name.endswith("json"):

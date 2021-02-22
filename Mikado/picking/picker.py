@@ -82,8 +82,9 @@ class Picker:
         self.configuration = configuration
 
         self.__load_configuration()
+        self.shm_db = None
+        self.setup_shm_db()
         self.__regions = regions
-
         self.procs = self.configuration.threads
 
         # Check the input file
@@ -102,7 +103,6 @@ class Picker:
         self.logger.debug("Multiprocessing method: %s", self.configuration.multiprocessing_method)
         # pylint: enable=no-member
         self.manager = self.context.Manager()
-
         self.db_connection = functools.partial(
             dbutils.create_connector,
             self.configuration,
@@ -222,20 +222,21 @@ class Picker:
         """
 
         if self.configuration.pick.run_options.shm is True:
+            shm_available = os.path.exists("/dev/shm") and os.access("/dev/shm", os.W_OK)
+            if shm_available is False:
+                self.main_logger.info("Mikado was asked to copy the database into /dev/shm, but it is either \
+not available or not writable for this user. Leaving the DB where it is.")
+                return
             self.main_logger.info("Copying Mikado database into a SHM db")
             assert self.configuration.db_settings.dbtype == "sqlite"
             # Create temporary file
-            temp = tempfile.mktemp(suffix=".db",
-                                   prefix="/dev/shm/")
-            if os.path.exists(temp):
-                os.remove(temp)
+            self.shm_db = tempfile.NamedTemporaryFile(suffix=".db", prefix="/dev/shm/")
             self.main_logger.debug("Copying {0} into {1}".format(
                 self.configuration.db_settings.db,
-                temp))
+                self.shm_db.name))
             try:
-                shutil.copy2(self.configuration.db_settings.db,
-                             temp)
-                self.configuration.db_settings.db = temp
+                shutil.copy2(self.configuration.db_settings.db, self.shm_db.name)
+                self.configuration.db_settings.db = self.shm_db.name
             except PermissionError:
                 self.main_logger.warning(
                     """Permission to write on /dev/shm denied.
@@ -306,10 +307,7 @@ class Picker:
                 "Analysis launched directly, without using the launch script.")
 
         # Create the shared DB if necessary
-        self.setup_shm_db()
-
-        self.log_writer = logging_handlers.QueueListener(
-            self.logging_queue, self.logger)
+        self.log_writer = logging_handlers.QueueListener(self.logging_queue, self.logger)
         self.log_writer.start()
 
         self.logger_queue_handler = logging_handlers.QueueHandler(self.logging_queue)
@@ -348,7 +346,8 @@ class Picker:
         except sqlalchemy.exc.OperationalError as _:
             self.logger.error("Empty database! Creating a mock one")
             self.configuration.db_settings.dbtype = "sqlite"
-            self.configuration.db_settings.db = tempfile.mktemp()
+            self.__db = tempfile.NamedTemporaryFile(suffix=".db", mode="wb")
+            self.configuration.db_settings.db = self.__db.name
             engine = create_engine("{0}://".format(self.configuration.db_settings.dbtype),
                                    creator=self.db_connection)
             session = sqlalchemy.orm.sessionmaker(bind=engine)()
@@ -1040,14 +1039,6 @@ class Picker:
         self.log_writer.stop()
         if self.queue_pool is not None:
             self.queue_pool.dispose()
-
-        # Clean up the DB copied to SHM
-        if self.configuration.pick.run_options.shm is True:
-            assert os.path.dirname(self.configuration.db_settings.db) == os.path.join("/dev", "shm"), (
-                self.configuration.db_settings.db, os.path.dirname(self.configuration.db_settings.db),
-                os.path.join("/dev", "shm"))
-            self.main_logger.debug("Removing shared memory DB %s", self.configuration.db_settings.db)
-            os.remove(self.configuration.db_settings.db)
         self.manager.shutdown()
 
     def __call__(self):

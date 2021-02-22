@@ -2,7 +2,7 @@
 import itertools
 
 from Mikado.configuration import MikadoConfiguration
-from Mikado.utilities.log_utils import LoggingConfiguration, create_logger_from_conf
+from Mikado.utilities.log_utils import LoggingConfiguration, create_logger_from_conf, create_default_logger
 from .. import utilities
 import unittest
 import os
@@ -91,40 +91,38 @@ class UtilTester(unittest.TestCase):
 
     def test_merger(self):
 
-        first_name = tempfile.mktemp(suffix=".tmp", dir=tempfile.tempdir)
-        second_name = tempfile.mktemp(suffix=".tmp", dir=tempfile.tempdir)
-        third_name = tempfile.mktemp(suffix=".tmp", dir=tempfile.tempdir)
-
-        with open(first_name, "wt") as first, open(second_name, "wt") as second,\
-                open(third_name, "wt") as third:
-
+        with tempfile.NamedTemporaryFile(suffix=".tmp", mode="wt", delete=False) as first, \
+                tempfile.NamedTemporaryFile(suffix=".tmp", mode="wt", delete=False) as second, \
+                tempfile.NamedTemporaryFile(suffix=".tmp", mode="wt", delete=False) as third,\
+                tempfile.NamedTemporaryFile(suffix=".out", mode="wt", delete=False) as out:
             print("1/first case", file=first)
             print("3/third case", file=first)
             print("4/fourth case", file=first)
             print("2/second case", file=second)
             print("5/fifth case", file=third)
             print("6/sixth case", file=second)
-
-        out_name = tempfile.mktemp(suffix=".out", dir=tempfile.tempdir)
-        with open(out_name, "wt") as out:
-            utilities.merge_partial([first.name,
-                                            second.name,
-                                            third.name], out)
-        with open(out_name) as out:
-            lines = [l for l in out]
-        self.assertEqual(lines[0], "first case\n")
-        self.assertEqual(lines[1], "second case\n")
-        self.assertEqual(lines[2], "third case\n")
-        self.assertEqual(lines[3], "fourth case\n")
-        self.assertEqual(lines[4], "fifth case\n")
-        self.assertEqual(lines[5], "sixth case\n")
-        # Verify the temporary files have been deleted correctly
-        self.assertFalse(os.path.exists(first_name))
-        self.assertFalse(os.path.exists(second_name))
-        self.assertFalse(os.path.exists(third_name))
-        self.assertTrue(os.path.exists(out_name))
-        os.remove(out_name)
-        self.assertFalse(os.path.exists(out_name))
+            first.flush()
+            second.flush()
+            third.flush()
+            logger = create_default_logger("test_merger", level="DEBUG")
+            utilities.merge_partial([first.name, second.name, third.name], out, logger=logger)
+            with open(out.name) as _:
+                lines = [l for l in _]
+            self.assertEqual(len(lines), 6, (out.name, lines))
+            self.assertEqual(lines[0], "first case\n", lines)
+            self.assertEqual(lines[1], "second case\n")
+            self.assertEqual(lines[2], "third case\n")
+            self.assertEqual(lines[3], "fourth case\n")
+            self.assertEqual(lines[4], "fifth case\n")
+            self.assertEqual(lines[5], "sixth case\n")
+            # Verify the temporary files have been deleted correctly
+            existing = []
+            for handle in (first, second, third):
+                if os.path.exists(handle.name):
+                    existing.append(handle.name)
+            self.assertEqual(len(existing), 0, [os.remove(name) for name in existing])
+            self.assertTrue(os.path.exists(out.name))
+            os.remove(out.name)
 
 
 class LogUtilsTester(unittest.TestCase):

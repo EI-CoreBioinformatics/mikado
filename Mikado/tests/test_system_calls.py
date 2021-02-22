@@ -55,9 +55,7 @@ class ConvertCheck(unittest.TestCase):
         from Mikado.subprograms.util.convert import convert_parser, launch
         bam_inp = pkg_resources.resource_filename("Mikado.tests", "test_mRNA.bam")
         for outp in ("gff3", "gtf", "bed12"):
-            with self.subTest(outp=outp):
-                outfile = tempfile.NamedTemporaryFile(mode="wt")
-                outfile.close()
+            with self.subTest(outp=outp), tempfile.NamedTemporaryFile(mode="wt") as outfile:
                 # sys.argv = ["", "util", "convert", "-of", outp, bam_inp, outfile.name]
                 argv = ["-of", outp, bam_inp, outfile.name]
                 parser = convert_parser()
@@ -75,9 +73,7 @@ class ConvertCheck(unittest.TestCase):
     def test_convert_from_problematic(self):
         probl = pkg_resources.resource_filename("Mikado.tests", "Chrysemys_picta_bellii_problematic.gff3")
         for outp in ("gtf", "bed12"):
-            with self.subTest(outp=outp):
-                outfile = tempfile.NamedTemporaryFile(mode="wt")
-                outfile.close()
+            with self.subTest(outp=outp), tempfile.NamedTemporaryFile(mode="wt") as outfile:
                 sys.argv = ["", "util", "convert", "-of", outp, probl, outfile.name]
                 # with self.assertRaises(SystemExit):
                 pkg_resources.load_entry_point("Mikado", "console_scripts", "mikado")()
@@ -89,17 +85,12 @@ class ConvertCheck(unittest.TestCase):
                 self.assertTrue(any(["id-LOC112059311" in line for line in lines]))
 
 
-# @mark.slow
 class PrepareCheck(unittest.TestCase):
 
     __genomefile__ = None
 
     @classmethod
     def setUpClass(cls):
-        # cls.__genomefile__ = tempfile.NamedTemporaryFile(mode="wb", delete=False, suffix=".fa.gz", prefix="prepare")
-        # cls.__genomefile__.write(pkg_resources.resource_stream("Mikado.tests", "chr5.fas.gz").read())
-        # cls.__genomefile__.flush()
-        # cls.fai = pyfaidx.Fasta(cls.__genomefile__.name)
         cls.fai = pysam.FastaFile(pkg_resources.resource_filename("Mikado.tests", "chr5.fas.gz"))
 
         cls.trinity_res = dict((_[0], _[1]) for _ in [("tr_c73_g1_i1.mrna1.160", 286),
@@ -261,46 +252,45 @@ class PrepareCheck(unittest.TestCase):
 
         self.conf.prepare.files.gff = [None, None]
         self.conf.prepare.files.strip_cds = [False, True]
-        dir = tempfile.TemporaryDirectory(prefix="test_prepare_trinity_and_cufflinks")
-        self.conf.prepare.files.output_dir = dir.name
         self.conf.prepare.files.out_fasta = "mikado_prepared.fasta"
         self.conf.prepare.files.out = "mikado_prepared.gtf"
         args = Namespace()
 
-        for cuff_file, test_file in itertools.product(
-                ("cufflinks.gtf", "cufflinks.no_transcript.gtf"),
-                (("trinity.gff3", "trinity.match_matchpart.gff3", "trinity.cDNA_match.gff3", "trinity.gtf",
-                  "trinity.no_transcript_feature.gtf"))):
-            for proc in (1, ):
-                with self.subTest(test_file=test_file, cuff_file=cuff_file, proc=proc):
-                    self.conf.prepare.files.gff[0] = pkg_resources.resource_filename("Mikado.tests",
-                                                                                              cuff_file)
-                    self.conf.prepare.files.gff[1] = pkg_resources.resource_filename("Mikado.tests",
-                                                                                              test_file)
-                    self.conf.prepare.files.out_fasta = "mikado_prepared.fasta"
-                    self.conf.prepare.files.out = "mikado_prepared.gtf"
-                    args.configuration = self.conf
-                    args.configuration.seed = 10
-                    args.configuration.threads = proc
-                    args.configuration.prepare.exclude_redundant = False
-                    args.configuration.prepare.strip_cds = True
-                    prepare.prepare(args.configuration, self.logger)
+        with tempfile.TemporaryDirectory(prefix="test_prepare_trinity_and_cufflinks") as folder:
+            self.conf.prepare.files.output_dir = folder
+            for cuff_file, test_file in itertools.product(
+                    ("cufflinks.gtf", "cufflinks.no_transcript.gtf"),
+                    (("trinity.gff3", "trinity.match_matchpart.gff3", "trinity.cDNA_match.gff3", "trinity.gtf",
+                      "trinity.no_transcript_feature.gtf"))):
+                for proc in (1, ):
+                    with self.subTest(test_file=test_file, cuff_file=cuff_file, proc=proc):
+                        self.conf.prepare.files.gff[0] = pkg_resources.resource_filename("Mikado.tests",
+                                                                                                  cuff_file)
+                        self.conf.prepare.files.gff[1] = pkg_resources.resource_filename("Mikado.tests",
+                                                                                                  test_file)
+                        self.conf.prepare.files.out_fasta = "mikado_prepared.fasta"
+                        self.conf.prepare.files.out = "mikado_prepared.gtf"
+                        args.configuration = self.conf
+                        args.configuration.seed = 10
+                        args.configuration.threads = proc
+                        args.configuration.prepare.exclude_redundant = False
+                        args.configuration.prepare.strip_cds = True
+                        prepare.prepare(args.configuration, self.logger)
 
-                    # Now that the program has run, let's check the output
-                    self.assertTrue(os.path.exists(os.path.join(self.conf.prepare.files.output_dir,
-                                                                "mikado_prepared.fasta")))
-                    self.assertGreater(os.stat(os.path.join(self.conf.prepare.files.output_dir,
-                                                            "mikado_prepared.fasta")).st_size, 0)
+                        # Now that the program has run, let's check the output
+                        self.assertTrue(os.path.exists(os.path.join(self.conf.prepare.files.output_dir,
+                                                                    "mikado_prepared.fasta")))
+                        self.assertGreater(os.stat(os.path.join(self.conf.prepare.files.output_dir,
+                                                                "mikado_prepared.fasta")).st_size, 0)
 
-                    fa = pysam.FastaFile(os.path.join(self.conf.prepare.files.output_dir, "mikado_prepared.fasta"))
-                    res = dict((name, length) for name, length in zip(fa.references, fa.lengths))
-                    fa.close()
-                    precal = self.trinity_res.copy()
-                    precal.update(self.cuff_results)
-                    precal.pop("tr_" + self._trinity_redundant[0])
-                    self.assertEqual(res, precal)
-                    os.remove(os.path.join(self.conf.prepare.files.output_dir, "mikado_prepared.fasta.fai"))
-        dir.cleanup()
+                        fa = pysam.FastaFile(os.path.join(self.conf.prepare.files.output_dir, "mikado_prepared.fasta"))
+                        res = dict((name, length) for name, length in zip(fa.references, fa.lengths))
+                        fa.close()
+                        precal = self.trinity_res.copy()
+                        precal.update(self.cuff_results)
+                        precal.pop("tr_" + self._trinity_redundant[0])
+                        self.assertEqual(res, precal)
+                        os.remove(os.path.join(self.conf.prepare.files.output_dir, "mikado_prepared.fasta.fai"))
 
     @mark.slow
     def test_prepare_with_cds(self):
@@ -390,10 +380,9 @@ class PrepareCheck(unittest.TestCase):
         del args.configuration.prepare.files.output_dir
         args.log = None
         for b, proc in itertools.product((False, True), (1, 3)):
-            with self.subTest(b=b, proc=proc):
+            with self.subTest(b=b, proc=proc), tempfile.TemporaryDirectory() as folder:
                 self.conf.prepare.files.exclude_redundant = [b]
-                folder = tempfile.TemporaryDirectory()
-                args.output_dir = folder.name
+                args.output_dir = folder
                 args.seed = 10
                 args.procs = proc
                 args.list = None
@@ -410,23 +399,23 @@ class PrepareCheck(unittest.TestCase):
                 self.logger.setLevel("DEBUG")
                 args, *_ = prepare_setup(args)
                 self.assertIsNotNone(args)
-                self.assertEqual(args.output_dir, folder.name)
-                self.assertEqual(args.configuration.prepare.files.output_dir, folder.name)
+                self.assertEqual(args.output_dir, folder)
+                self.assertEqual(args.configuration.prepare.files.output_dir, folder)
                 self.assertIn(os.path.dirname(args.configuration.prepare.files.out_fasta),
-                              (folder.name, ""), args.configuration)
+                              (folder, ""), args.configuration)
                 self.assertIn(os.path.dirname(args.configuration.prepare.files.out),
-                              (folder.name, ""), args.configuration)
+                              (folder, ""), args.configuration)
 
                 with self.assertRaises(SystemExit) as exi:
                     prepare_launcher(args)
-                self.assertTrue(os.path.exists(folder.name))
-                self.assertTrue(os.path.isdir(folder.name))
+                self.assertTrue(os.path.exists(folder))
+                self.assertTrue(os.path.isdir(folder))
                 self.assertEqual(exi.exception.code, 0)
-                self.assertTrue(os.path.exists(os.path.join(folder.name,
+                self.assertTrue(os.path.exists(os.path.join(folder,
                                                             "mikado_prepared.fasta")),
-                                open(os.path.join(folder.name,
+                                open(os.path.join(folder,
                                                   "prepare.log")).read())
-                fa = pyfaidx.Fasta(os.path.join(folder.name,
+                fa = pyfaidx.Fasta(os.path.join(folder,
                                                 "mikado_prepared.fasta"))
                 logged = [_ for _ in open(os.path.join(args.configuration.prepare.files.output_dir,
                                                        args.configuration.prepare.files.log))]
@@ -442,7 +431,7 @@ class PrepareCheck(unittest.TestCase):
                     self.assertIn("AT5G01530.2", fa.keys())
                     self.assertNotIn("AT5G01530.3", fa.keys())
                     self.assertIn("AT5G01530.4", fa.keys())
-                gtf_file = os.path.join(folder.name, "mikado_prepared.gtf")
+                gtf_file = os.path.join(folder, "mikado_prepared.gtf")
                 fa.close()
                 coding_count = 0
                 with to_gff(gtf_file) as gtf:
@@ -1590,7 +1579,6 @@ class PickTest(unittest.TestCase):
         self.configuration.db_settings.db = str(pkg_resources.resource_filename("Mikado.tests", "mikado.db"))
         self.configuration.log_settings.log_level = "WARNING"
 
-        # folder = tempfile.mkdtemp()
         for num, shm in itertools.product((1, 2), (True,)):
             with self.subTest(num=num, shm=shm), tempfile.TemporaryDirectory() as folder:
                 self.configuration.pick.files.output_dir = folder
@@ -2270,27 +2258,24 @@ class GrepTest(unittest.TestCase):
         with io.TextIOWrapper(pkg_resources.resource_stream("Mikado.tests", "trinity.ids")) as id_file:
             ids = [tuple(line.rstrip().split("\t")) for line in id_file]
 
-        id_temp_file = tempfile.NamedTemporaryFile("wt", suffix=".txt")
-        to_write = [ids[_] for _ in np.random.choice(len(ids), 10, replace=False)]
-        [print(*idline, sep="\t", file=id_temp_file) for idline in to_write]
-        id_temp_file.flush()
+        with tempfile.NamedTemporaryFile("wt", suffix=".txt") as id_temp_file:
+            to_write = [ids[_] for _ in np.random.choice(len(ids), 10, replace=False)]
+            [print(*idline, sep="\t", file=id_temp_file) for idline in to_write]
+            id_temp_file.flush()
 
-        for fname in files:
-            with self.subTest(fname=fname):
+            for fname in files:
                 form = os.path.splitext(fname)[1]
-                outfile = tempfile.NamedTemporaryFile("wt", suffix=form)
-                outfile.close()
-                self.assertFalse(os.path.exists(outfile.name))
-                sys.argv = ["mikado", "util", "grep", id_temp_file.name, fname, outfile.name]
-                pkg_resources.load_entry_point("Mikado", "console_scripts", "mikado")()
-                self.assertTrue(os.path.exists(outfile.name))
-                found = set()
-                with to_gff(outfile.name, input_format=form[1:]) as stream:
-                    for record in stream:
-                        if record.is_transcript:
-                            found.add(record.transcript)
-                self.assertEqual(len(found), 10)
-                self.assertEqual(found, set(_[0] for _ in to_write))
+                with self.subTest(fname=fname), tempfile.NamedTemporaryFile("wt", suffix=form) as outfile:
+                    sys.argv = ["mikado", "util", "grep", id_temp_file.name, fname, outfile.name]
+                    pkg_resources.load_entry_point("Mikado", "console_scripts", "mikado")()
+                    self.assertTrue(os.path.exists(outfile.name))
+                    found = set()
+                    with to_gff(outfile.name, input_format=form[1:]) as stream:
+                        for record in stream:
+                            if record.is_transcript:
+                                found.add(record.transcript)
+                    self.assertEqual(len(found), 10)
+                    self.assertEqual(found, set(_[0] for _ in to_write))
 
     @mark.slow
     def test_v_grep(self):
@@ -2298,28 +2283,25 @@ class GrepTest(unittest.TestCase):
         with io.TextIOWrapper(pkg_resources.resource_stream("Mikado.tests", "trinity.ids")) as id_file:
             ids = [tuple(line.rstrip().split("\t")) for line in id_file]
 
-        id_temp_file = tempfile.NamedTemporaryFile("wt", suffix=".txt")
-        to_write = [ids[_] for _ in np.random.choice(len(ids), 10, replace=False)]
-        others = [_ for _ in ids if _ not in to_write]
-        [print(*idline, sep="\t", file=id_temp_file) for idline in to_write]
-        id_temp_file.flush()
+        with tempfile.NamedTemporaryFile("wt", suffix=".txt") as id_temp_file:
+            to_write = [ids[_] for _ in np.random.choice(len(ids), 10, replace=False)]
+            others = [_ for _ in ids if _ not in to_write]
+            [print(*idline, sep="\t", file=id_temp_file) for idline in to_write]
+            id_temp_file.flush()
 
-        for fname in files:
-            with self.subTest(fname=fname):
+            for fname in files:
                 form = os.path.splitext(fname)[1]
-                outfile = tempfile.NamedTemporaryFile("wt", suffix=form)
-                outfile.close()
-                self.assertFalse(os.path.exists(outfile.name))
-                sys.argv = ["mikado", "util", "grep", "-v", id_temp_file.name, fname, outfile.name]
-                pkg_resources.load_entry_point("Mikado", "console_scripts", "mikado")()
-                self.assertTrue(os.path.exists(outfile.name))
-                found = set()
-                with to_gff(outfile.name, input_format=form[1:]) as stream:
-                    for record in stream:
-                        if record.is_transcript:
-                            found.add(record.transcript)
-                self.assertEqual(len(found), len(others))
-                self.assertEqual(found, set(_[0] for _ in others))
+                with self.subTest(fname=fname), tempfile.NamedTemporaryFile("wt", suffix=form) as outfile:
+                    sys.argv = ["mikado", "util", "grep", "-v", id_temp_file.name, fname, outfile.name]
+                    pkg_resources.load_entry_point("Mikado", "console_scripts", "mikado")()
+                    self.assertTrue(os.path.exists(outfile.name))
+                    found = set()
+                    with to_gff(outfile.name, input_format=form[1:]) as stream:
+                        for record in stream:
+                            if record.is_transcript:
+                                found.add(record.transcript)
+                    self.assertEqual(len(found), len(others))
+                    self.assertEqual(found, set(_[0] for _ in others))
 
     @mark.slow
     def test_problem_grep(self):
@@ -2327,11 +2309,8 @@ class GrepTest(unittest.TestCase):
         flist = pkg_resources.resource_filename("Mikado.tests", "Chrysemys_picta_bellii_problematic.list.txt")
 
         for flag in ("", "-v"):
-            with self.subTest(flag=flag):
-                form = os.path.splitext(fname)[1]
-                outfile = tempfile.NamedTemporaryFile("wt", suffix=form)
-                outfile.close()
-                self.assertFalse(os.path.exists(outfile.name))
+            form = os.path.splitext(fname)[1]
+            with self.subTest(flag=flag), tempfile.NamedTemporaryFile("wt", suffix=form) as outfile:
                 if flag:
                     sys.argv = ["mikado", "util", "grep", flag, flist, fname, outfile.name]
                 else:

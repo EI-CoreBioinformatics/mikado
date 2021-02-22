@@ -37,50 +37,45 @@ def xml_pickler(configuration, filename, default_header,
         err = "Invalid BLAST file: %s" % filename
         raise TypeError(err)
     directory = os.path.dirname(filename)
-    try:
-        dbname = tempfile.mktemp(suffix=".db", dir=directory)
-        dbhandle = open(dbname, "wb")
-    except (OSError, PermissionError):
-        dbname = tempfile.mktemp(suffix=".db")
-        dbhandle = open(dbname, "wb")
+    with tempfile.NamedTemporaryFile(suffix=".db", dir=directory, mode="wb", delete=False) as dbhandle:
+        dbname = dbhandle.name
+        if not isinstance(cache, dict) or set(cache.keys()) != {"query", "target"}:
+            cache = dict()
+            cache["query"] = dict((item.query_name, item.query_id) for item in session.query(Query))
+            cache["target"] = dict((item.target_name, item.target_id) for item in session.query(Target))
 
-    if not isinstance(cache, dict) or set(cache.keys()) != {"query", "target"}:
-        cache = dict()
-        cache["query"] = dict((item.query_name, item.query_id) for item in session.query(Query))
-        cache["target"] = dict((item.target_name, item.target_id) for item in session.query(Target))
+        rows = b""
+        try:
+            with BlastOpener(filename) as opened:
+                try:
+                    qmult, tmult = None, None
+                    for query_counter, record in enumerate(opened, start=1):
+                        if qmult is None:
+                            qmult, tmult = get_multipliers(record)
+                            off_by_one = get_off_by_one(record)
+                        hits, hsps, cache = objectify_record(
+                            record, [], [], cache, max_target_seqs=max_target_seqs,
+                            qmult=qmult, tmult=tmult, off_by_one=off_by_one)
 
-    rows = b""
-    try:
-        with BlastOpener(filename) as opened:
-            try:
-                qmult, tmult = None, None
-                for query_counter, record in enumerate(opened, start=1):
-                    if qmult is None:
-                        qmult, tmult = get_multipliers(record)
-                        off_by_one = get_off_by_one(record)
-                    hits, hsps, cache = objectify_record(
-                        record, [], [], cache, max_target_seqs=max_target_seqs,
-                        qmult=qmult, tmult=tmult, off_by_one=off_by_one)
+                        record = {"hits": hits, "hsps": hsps}
+                        jrecord = dumper(record)
+                        write_start = dbhandle.tell()
+                        write_length = dbhandle.write(msgpack.dumps(jrecord))
+                        rows += struct_row.pack(query_counter, write_start, write_length)
 
-                    record = {"hits": hits, "hsps": hsps}
-                    jrecord = dumper(record)
-                    write_start = dbhandle.tell()
-                    write_length = dbhandle.write(msgpack.dumps(jrecord))
-                    rows += struct_row.pack(query_counter, write_start, write_length)
+                except ExpatError as err:
+                    raise ExpatError("{} is an invalid BLAST file, sending back anything salvageable.\n{}".format(filename,
+                                                                                                                  err))
+        except xml.etree.ElementTree.ParseError as err:
+            # logger.error("%s is an invalid BLAST file, sending back anything salvageable", filename)
+            raise xml.etree.ElementTree.ParseError(
+                "{} is an invalid BLAST file, sending back anything salvageable.\n{}".format(filename, err))
+        except ValueError as err:
+            # logger.error("Invalid BLAST entry")
+            raise ValueError(
+                "{} is an invalid BLAST file, sending back anything salvageable.\n{}".format(filename, err))
 
-            except ExpatError as err:
-                raise ExpatError("{} is an invalid BLAST file, sending back anything salvageable.\n{}".format(filename,
-                                                                                                              err))
-    except xml.etree.ElementTree.ParseError as err:
-        # logger.error("%s is an invalid BLAST file, sending back anything salvageable", filename)
-        raise xml.etree.ElementTree.ParseError(
-            "{} is an invalid BLAST file, sending back anything salvageable.\n{}".format(filename, err))
-    except ValueError as err:
-        # logger.error("Invalid BLAST entry")
-        raise ValueError(
-            "{} is an invalid BLAST file, sending back anything salvageable.\n{}".format(filename, err))
-
-    return dbname, zlib.compress(rows)
+        return dbname, zlib.compress(rows)
 
 
 def _serialise_xmls(self):

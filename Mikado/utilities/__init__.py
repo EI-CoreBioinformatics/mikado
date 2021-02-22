@@ -124,7 +124,7 @@ def merge_partial(filenames, handle, logger=None, gzipped=False):
         raise IndexError
 
     total = max(current_lines.keys())
-
+    logger.debug("Merging %d lines into %s", total, handle.name)
     [_.close() for _ in fnames]
     [os.remove(_) for _ in filenames]
 
@@ -132,7 +132,8 @@ def merge_partial(filenames, handle, logger=None, gzipped=False):
         for line in current_lines[index]:
             print(line, file=handle, end="")
         del current_lines[index]
-
+    logger.debug("Merged %d lines into %s", total, handle.name)
+    handle.flush()
     return total
 
 

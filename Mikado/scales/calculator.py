@@ -458,7 +458,7 @@ class Calculator:
                 row["Coordinates"] = "{}:{}-{}".format(gene.chrom,
                                                        gene.transcripts[tid].start,
                                                        gene.transcripts[tid].end)
-                row["Strand"] = gene.strand
+                row["Strand"] = gene.strand if gene.strand else "."
                 row["Exon number"] = len(gene.transcripts[tid].exon_lengths)
                 row["cDNA length"] = gene.transcripts[tid].cdna_length
                 row["Intronic length"] = sum([_[1] - _[0] for _ in gene.transcripts[tid].introns])

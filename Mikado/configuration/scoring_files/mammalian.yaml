@@ -16,6 +16,10 @@ requirements:
     proportion_verified_introns_inlocus: {operator: gt, value: 0}
     proportion_verified_introns: {operator: gt, value: 0}
     is_complete: {operator: eq, value: true}
+cds_requirements:
+  expression: [combined_cds_length]
+  parameters:
+    combined_cds_length: {operator: ge, value: 0}
 as_requirements:
   expression: [cdna_length and three_utr_length and five_utr_length and utr_length and three_utr_num and five_utr_num and suspicious_splicing]
   parameters:

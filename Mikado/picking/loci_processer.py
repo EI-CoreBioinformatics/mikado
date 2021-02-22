@@ -1,3 +1,4 @@
+import zlib
 from multiprocessing import Process
 from typing import Union
 
@@ -6,6 +7,9 @@ import logging
 from itertools import product
 import logging.handlers as logging_handlers
 import functools
+
+from sqlalchemy.engine import Engine
+from sqlalchemy.orm import Session, sessionmaker
 
 from ..configuration import MikadoConfiguration, DaijinConfiguration
 from ..utilities import dbutils
@@ -28,6 +32,7 @@ __author__ = 'Luca Venturini'
 def merge_loci(mapper,
                out_handles,
                total,
+               configuration,
                logger=None,
                source="Mikado"):
 
@@ -36,7 +41,6 @@ def merge_loci(mapper,
     :param num_temp: number of temporary files.
     :param out_handles: The names of the output loci files.
     :param logger: logger to use
-    :param tempdir: Temporary directory where the temporary files are located.
     :return:
     """
 
@@ -62,7 +66,8 @@ def merge_loci(mapper,
     logger.info("We have a total of %d genes", total_genes)
     tot_loci = set()
     for index in sorted(mapper["results"]):
-        loci, batch = manage_index((index, new_common[index]), mapper["results"], source=source)
+        loci, batch = manage_index((index, new_common[index]), mapper["results"], source=source,
+                                   configuration=configuration)
         done += 1
         if loci and set(loci).issubset(tot_loci):
             raise ValueError("Duplicated loci! {}".format(loci))
@@ -193,7 +198,8 @@ def analyse_locus(slocus: Superlocus,
                   counter: int,
                   configuration: Union[MikadoConfiguration,DaijinConfiguration],
                   logging_queue: AutoProxy,
-                  engine=None) -> [Superlocus]:
+                  engine=None,
+                  session=None) -> [Superlocus]:
 
     """
     :param slocus: a superlocus instance
@@ -243,7 +249,7 @@ def analyse_locus(slocus: Superlocus,
     slocus.source = configuration.pick.output_format.source
 
     try:
-        slocus.load_all_transcript_data(engine=engine)
+        slocus.load_all_transcript_data(engine=engine, session=session)
     except KeyboardInterrupt:
         raise
     except Exception as exc:
@@ -316,7 +322,6 @@ class LociProcesser(Process):
                  logging_queue,
                  status_queue,
                  identifier,
-                 tempdir="mikado_pick_tmp"
                  ):
 
         super(LociProcesser, self).__init__()
@@ -332,31 +337,17 @@ class LociProcesser(Process):
             _ = section.compiled
 
         self.engine = None
+        self.session = None
         self.handler = logging_handlers.QueueHandler(self.logging_queue)
         self.logger = logging.getLogger(self.name)
         self.logger.addHandler(self.handler)
         self.logger.setLevel(self.configuration.log_settings.log_level)
 
         self.logger.propagate = False
-        self._tempdir = tempdir
         self.locus_queue = locus_queue
         self.logger.debug("Starting Process %s", self.name)
 
         self.logger.debug("Starting the pool for {0}".format(self.name))
-        try:
-            self.engine = dbutils.connect(self.configuration, self.logger)
-        except KeyboardInterrupt:
-            raise
-        except EOFError:
-            raise
-        except Exception as exc:
-            self.logger.exception(exc)
-            return
-
-        self.analyse_locus = functools.partial(analyse_locus,
-                                               configuration=self.configuration,
-                                               engine=self.engine,
-                                               logging_queue=self.logging_queue)
 
     @property
     def identifier(self):
@@ -366,6 +357,7 @@ class LociProcesser(Process):
 
         state = self.__dict__.copy()
         state["engine"] = None
+        state["session"] = None
         state["analyse_locus"] = None
         state["logger"].removeHandler(self.handler)
         del state["handler"]
@@ -385,6 +377,8 @@ class LociProcesser(Process):
         """Private method to flush and close all handles."""
         if self.engine is not None:
             self.engine.dispose()
+        if self.session is not None:
+            self.session.close_all()
         if hasattr(self, "dump_conn"):
             self.dump_conn.commit()
             self.dump_conn.close()
@@ -402,22 +396,60 @@ class LociProcesser(Process):
         self.logger.setLevel(self.configuration.log_settings.log_level)
         self.logger.propagate = False
         self.engine = dbutils.connect(self.configuration, self.logger)
-        self.analyse_locus = functools.partial(analyse_locus,
-                                               configuration=self.configuration,
-                                               engine=self.engine,
-                                               logging_queue=self.logging_queue)
-        # self.dump_db, self.dump_conn, self.dump_cursor = self._create_temporary_store(self._tempdir, self.identifier)
         self.handler = logging_handlers.QueueHandler(self.logging_queue)
         self.logger.addHandler(self.handler)
+        self.connect_to_db(engine=None, session=None)
 
     def join(self, timeout=None):
         self.__close_handles()
         # self.terminate()
         super().join(timeout=timeout)
 
+    def connect_to_db(self, engine: Union[Engine, None], session: Union[Session, None]):
+
+        """
+        :param engine: the connection pool
+        :type engine: Engine
+
+        :param session: a preformed session
+        :type session: Session
+
+        This method will connect to the database using the information
+        contained in the JSON configuration.
+        """
+
+        if isinstance(session, Session):
+            self.session = session
+            self.sessionmaker = sessionmaker()
+            self.sessionmaker.configure(bind=self.session.bind)
+            self.engine = self.session.bind
+
+        if engine is None:
+            self.engine = dbutils.connect(self.configuration)
+        else:
+            self.engine = engine
+
+        self.sessionmaker = sessionmaker()
+        self.sessionmaker.configure(bind=self.engine)
+        self.session = self.sessionmaker()
+
     def run(self):
         """Start polling the queue, analyse the loci, and send them to the printer process."""
+        try:
+            self.connect_to_db(None, None)
+        except KeyboardInterrupt:
+            raise
+        except EOFError:
+            raise
+        except Exception as exc:
+            self.logger.exception(exc)
+            return
         self.logger.debug("Starting to parse data for {0}".format(self.name))
+        self.analyse_locus = functools.partial(analyse_locus,
+                                               configuration=self.configuration,
+                                               engine=self.engine,
+                                               session=self.session,
+                                               logging_queue=self.logging_queue)
 
         print_cds = (not self.configuration.pick.run_options.exclude_cds)
 
@@ -426,6 +458,7 @@ class LociProcesser(Process):
         print_subloci = (self.configuration.pick.files.subloci_out is not None and
                          len(self.configuration.pick.files.subloci_out) > 0)
 
+        accumulator = []
         while True:
             vals = self.locus_queue.get()
             try:
@@ -435,6 +468,10 @@ class LociProcesser(Process):
 
             if counter == "EXIT":
                 self.logger.debug("EXIT received for %s", self.name)
+                accumulator = zlib.compress(msgpack.dumps(accumulator))
+                self.status_queue.put(accumulator)
+                self.logger.debug("Put all the remaining results into the queue for %s (size %s)", self.name,
+                                  sys.getsizeof(accumulator))
                 self.locus_queue.task_done()
                 self.locus_queue.put((counter, None))
                 break
@@ -489,13 +526,14 @@ class LociProcesser(Process):
                 if len(stranded_loci) == 0:
                     self.logger.warning("No loci left for index %d", counter)
                 else:
+                    if len(accumulator) >= 100:
+                        accumulator = zlib.compress(msgpack.dumps(accumulator))
+                        self.status_queue.put(accumulator)
+                        accumulator = []
                     try:
-                        serialise_locus(stranded_loci,
-                                        self.status_queue,
-                                        counter,
-                                        print_cds=print_cds,
-                                        print_monosubloci=print_monoloci,
-                                        print_subloci=print_subloci)
+                        accumulator = serialise_locus(
+                            stranded_loci, accumulator, counter, print_cds=print_cds,
+                            print_monosubloci=print_monoloci, print_subloci=print_subloci)
                     except KeyboardInterrupt:
                         raise
                     except Exception as exc:

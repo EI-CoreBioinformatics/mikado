@@ -79,7 +79,7 @@ def _retrieve_data(shelf, shelf_name, tid, chrom, key, strand, score, write_star
         try:
             caught = [(i.value, merged_transcripts[i.value])
                       for i in chains[data["introns"]].find(data["start"], data["end"], contained_check=True,
-                                                            num_intervals=10**5)
+                                                            n=10**5)
                       if i.value in merged_transcripts]
         except AttributeError as exc:
             raise AttributeError("{}\n{}\n{}".format(exc, type(chains), type(chains[data["introns"]])))
@@ -207,7 +207,7 @@ def _analyse_chrom(chrom: str, keys: pd.DataFrame, shelves, logger):
                 [merged_transcripts.__delitem__(otid) for otid in others_to_remove]
             if to_keep is True or to_keep is None:
                 merged_transcripts[tid] = data
-                chains[data["introns"]].add_interval(Interval(data["start"], data["end"], value=tid))
+                chains[data["introns"]].add(Interval(data["start"], data["end"], value=tid))
                 logger.debug("Keeping %s in the dataset", tid)
 
     if not merged_transcripts and current is not None:
@@ -303,12 +303,13 @@ def perform_check(keys, shelve_names, mikado_config: MikadoConfiguration, logger
         }
 
         working_processes = []
+        batch_files = []
         for idx, batch in enumerate(np.array_split(np.array(batches,
                                                             dtype=object), mikado_config.threads), 1):
-            batch_file = tempfile.NamedTemporaryFile(delete=False, mode="wb")
+            batch_file = tempfile.NamedTemporaryFile(delete=True, mode="wb")
             msgpack.dump(batch.tolist(), batch_file)
             batch_file.flush()
-            batch_file.close()
+            batch_files.append(batch_file)
 
             proc = CheckingProcess(
                 batch_file.name,
@@ -343,6 +344,7 @@ def perform_check(keys, shelve_names, mikado_config: MikadoConfiguration, logger
             "{0}-{1}".format(os.path.basename(mikado_config.prepare.files.out_fasta.name), _ + 1))
                          for _ in range(mikado_config.threads)]
         merge_partial(partial_fasta, mikado_config.prepare.files.out_fasta)
+        [batch_file.close() for batch_file in batch_files]
 
     mikado_config.prepare.files.out_fasta.close()
     mikado_config.prepare.files.out.close()

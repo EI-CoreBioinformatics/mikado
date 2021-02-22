@@ -13,6 +13,7 @@ import shutil
 import tempfile
 import random
 import logging
+import zlib
 from logging import handlers as logging_handlers
 import functools
 import multiprocessing
@@ -81,8 +82,9 @@ class Picker:
         self.configuration = configuration
 
         self.__load_configuration()
+        self.shm_db = None
+        self.setup_shm_db()
         self.__regions = regions
-
         self.procs = self.configuration.threads
 
         # Check the input file
@@ -101,7 +103,6 @@ class Picker:
         self.logger.debug("Multiprocessing method: %s", self.configuration.multiprocessing_method)
         # pylint: enable=no-member
         self.manager = self.context.Manager()
-
         self.db_connection = functools.partial(
             dbutils.create_connector,
             self.configuration,
@@ -221,20 +222,21 @@ class Picker:
         """
 
         if self.configuration.pick.run_options.shm is True:
+            shm_available = os.path.exists("/dev/shm") and os.access("/dev/shm", os.W_OK)
+            if shm_available is False:
+                self.main_logger.info("Mikado was asked to copy the database into /dev/shm, but it is either \
+not available or not writable for this user. Leaving the DB where it is.")
+                return
             self.main_logger.info("Copying Mikado database into a SHM db")
             assert self.configuration.db_settings.dbtype == "sqlite"
             # Create temporary file
-            temp = tempfile.mktemp(suffix=".db",
-                                   prefix="/dev/shm/")
-            if os.path.exists(temp):
-                os.remove(temp)
+            self.shm_db = tempfile.NamedTemporaryFile(suffix=".db", prefix="/dev/shm/")
             self.main_logger.debug("Copying {0} into {1}".format(
                 self.configuration.db_settings.db,
-                temp))
+                self.shm_db.name))
             try:
-                shutil.copy2(self.configuration.db_settings.db,
-                             temp)
-                self.configuration.db_settings.db = temp
+                shutil.copy2(self.configuration.db_settings.db, self.shm_db.name)
+                self.configuration.db_settings.db = self.shm_db.name
             except PermissionError:
                 self.main_logger.warning(
                     """Permission to write on /dev/shm denied.
@@ -305,10 +307,7 @@ class Picker:
                 "Analysis launched directly, without using the launch script.")
 
         # Create the shared DB if necessary
-        self.setup_shm_db()
-
-        self.log_writer = logging_handlers.QueueListener(
-            self.logging_queue, self.logger)
+        self.log_writer = logging_handlers.QueueListener(self.logging_queue, self.logger)
         self.log_writer.start()
 
         self.logger_queue_handler = logging_handlers.QueueHandler(self.logging_queue)
@@ -327,7 +326,7 @@ class Picker:
 
         return
 
-    def __print_gff_headers(self, locus_out, score_keys):
+    def __print_gff_headers(self, locus_out, score_keys, metrics):
         """Private method to print the GFF headers of the output files.
         Moreover, it will determine whether to start output files for
         subloci and/or monoloci.
@@ -347,15 +346,12 @@ class Picker:
         except sqlalchemy.exc.OperationalError as _:
             self.logger.error("Empty database! Creating a mock one")
             self.configuration.db_settings.dbtype = "sqlite"
-            self.configuration.db_settings.db = tempfile.mktemp()
+            self.__db = tempfile.NamedTemporaryFile(suffix=".db", mode="wb")
+            self.configuration.db_settings.db = self.__db.name
             engine = create_engine("{0}://".format(self.configuration.db_settings.dbtype),
                                    creator=self.db_connection)
             session = sqlalchemy.orm.sessionmaker(bind=engine)()
             dbutils.DBBASE.metadata.create_all(engine)
-
-        metrics = Superlocus.available_metrics[5:]
-        metrics.extend(["external.{}".format(_.source) for _ in session.query(ExternalSource.source).all()])
-        metrics = Superlocus.available_metrics[:5] + sorted(metrics)
 
         if self.sub_out != '':
             assert isinstance(self.sub_out, str)
@@ -452,22 +448,34 @@ class Picker:
                                creator=self.db_connection)
         session = sqlalchemy.orm.sessionmaker(bind=engine)()
 
-        external_metrics = ["external.{}".format(_.source) for _ in session.query(ExternalSource.source).all()]
-
         score_keys = ["source_score"]
-        __scores = sorted(list(self.configuration.scoring.scoring.keys()))
+        __scores = set(self.configuration.scoring.scoring.keys())
+
+        available_external_metrics = ["external.{}".format(_.source)
+                                      for _ in session.query(ExternalSource.source).all()]
+
+        requested_external = set()
+        requested_external.update({param for param in self.configuration.scoring.requirements.parameters.keys()
+                                   if param.startswith("external")})
+        requested_external.update({param for param in self.configuration.scoring.not_fragmentary.parameters.keys()
+                                   if param.startswith("external")})
+        requested_external.update({param for param in self.configuration.scoring.cds_requirements.parameters.keys()
+                                   if param.startswith("external")})
+        requested_external.update({param for param in self.configuration.scoring.cds_requirements.parameters.keys()
+                                   if param.startswith("external")})
+        requested_external.update({param for param in self.configuration.scoring.scoring.keys()
+                                   if param.startswith("external")})
+        
         # Check that the external scores are all present. If they are not, raise a warning.
-        __externals = set([_ for _ in __scores if _.startswith("external.")])
-        if __externals - set(external_metrics):
+        if requested_external - set(available_external_metrics):
             self.logger.error(
                 ("The following external metrics, found in the scoring file, are not present in the database. " +
                  "Please check their existence:\n" + "\n".join(
                             ["    - {metric}".format(metric=metric) for metric in sorted(
-                                __externals - set(external_metrics))]
+                                requested_external - set(available_external_metrics))]
                             ))
             )
             sys.exit(1)
-            # __scores = sorted(set(__scores) - (__externals - set(external_metrics)))
 
         score_keys += __scores
 
@@ -479,7 +487,11 @@ class Picker:
             ".gff.?$", "", self.locus_out)), "w")
 
         metrics = Superlocus.available_metrics[5:]
-        metrics.extend(external_metrics)
+        # Only report *used* external metrics, for performance
+        if self.configuration.pick.output_format.report_all_external_metrics is True:
+            metrics.extend(available_external_metrics)
+        else:
+            metrics.extend(requested_external)
         metrics = Superlocus.available_metrics[:5] + sorted(metrics)
         session.close()
         engine.dispose()
@@ -503,7 +515,7 @@ class Picker:
         locus_scores.name = locus_scores.handle.name
 
         locus_out = open(self.locus_out, 'w')
-        sub_files, mono_files = self.__print_gff_headers(locus_out, score_keys)
+        sub_files, mono_files = self.__print_gff_headers(locus_out, score_keys, metrics)
 
         return ((locus_metrics,
                  locus_scores,
@@ -647,17 +659,7 @@ class Picker:
         status_queue = self.manager.JoinableQueue(-1)
 
         handles = list(self.__get_output_files())
-        if self.configuration.pick.run_options.shm is True:
-            basetempdir = "/dev/shm"
-        else:
-            basetempdir = self.configuration.pick.files.output_dir
-
-        tempdirectory = tempfile.TemporaryDirectory(suffix="",
-                                                    prefix="mikado_pick_tmp",
-                                                    dir=basetempdir)
-        tempdir = tempdirectory.name
-        self.logger.info("Starting Mikado with multiple processes, temporary directory:\n\t%s",
-                         tempdir)
+        self.logger.info("Starting Mikado with multiple processes")
 
         self.logger.debug("Creating the worker processes")
 
@@ -665,8 +667,7 @@ class Picker:
                                            locus_queue,
                                            self.logging_queue,
                                            status_queue,
-                                           _,
-                                           tempdir)
+                                           _)
                              for _ in range(1, self.procs+1)]
         # Start all processes
         [_.start() for _ in working_processes]
@@ -689,24 +690,30 @@ class Picker:
         mapper["results"] = dict()
 
         while mapper["done"] != mapper["submit"]:
-            counter, chrom, num_genes, loci, subloci, monoloci = status_queue.get()
-            mapper["done"].add(counter)
-            if counter in mapper["results"]:
-                self.logger.fatal("%d double index found!", counter)
-                raise KeyError
+            results = status_queue.get()
+            if results[0] == "EXIT":
+                self.logger.error("We have not retrieved all loci!")
+                raise ValueError
+            results = msgpack.loads(zlib.decompress(results))
+            for result in results:
+                counter, chrom, num_genes, loci, subloci, monoloci = result
+                mapper["done"].add(counter)
+                if counter in mapper["results"]:
+                    self.logger.fatal("%d double index found!", counter)
+                    raise KeyError
 
-            mapper["results"][counter] = (chrom, num_genes, loci, subloci, monoloci)
-            if len(mapper["done"]) > percs[curr_perc]:
-                curr_perc += 1
-                while len(mapper["done"]) > percs[curr_perc]:
+                mapper["results"][counter] = (chrom, num_genes, loci, subloci, monoloci)
+                if len(mapper["done"]) > percs[curr_perc]:
                     curr_perc += 1
-                real_perc = round(len(mapper["done"]) * 100 / total)
-                self.logger.info("Done %s%% of loci (%s out of %s)", real_perc,
-                                 len(mapper["done"]), total)
-            chrom = mapper[counter]
-            mapper[chrom]["done"].add(counter)
-            if mapper[chrom]["done"] == mapper[chrom]["submit"]:
-                self.logger.info("Finished with chromosome %s", chrom)
+                    while len(mapper["done"]) > percs[curr_perc]:
+                        curr_perc += 1
+                    real_perc = round(len(mapper["done"]) * 100 / total)
+                    self.logger.info("Done %s%% of loci (%s out of %s)", real_perc,
+                                     len(mapper["done"]), total)
+                chrom = mapper[counter]
+                mapper[chrom]["done"].add(counter)
+                if mapper[chrom]["done"] == mapper[chrom]["submit"]:
+                    self.logger.info("Finished with chromosome %s", chrom)
 
         [_.join() for _ in working_processes]
         self.logger.info("Joined children processes; starting to merge partial files")
@@ -714,25 +721,13 @@ class Picker:
         # Merge loci
         merge_loci(mapper,
                    handles,
-                   total,
+                   total=total,
+                   configuration=self.configuration,
                    logger=self.logger,
                    source=self.configuration.pick.output_format.source)
 
         self.logger.info("Finished merging partial files")
-        try:
-            self.logger.debug("Cleaning up the temporary directory")
-            tempdirectory.cleanup()
-            self.logger.debug("Finished cleaning up")
-            pass
-        except (OSError, FileNotFoundError, FileExistsError) as exc:
-            self.logger.warning("Failed to clean up the temporary directory %s, error: %s",
-                                tempdir, exc)
-        except KeyboardInterrupt:
-            raise
-        except Exception as exc:
-            self.logger.exception("Failed to clean up the temporary directory %s, error: %s", exc)
-        finally:
-            return
+        return
 
     def __check_max_intron(self, current, invalids, row, max_intron):
         previous = None
@@ -1044,14 +1039,6 @@ class Picker:
         self.log_writer.stop()
         if self.queue_pool is not None:
             self.queue_pool.dispose()
-
-        # Clean up the DB copied to SHM
-        if self.configuration.pick.run_options.shm is True:
-            assert os.path.dirname(self.configuration.db_settings.db) == os.path.join("/dev", "shm"), (
-                self.configuration.db_settings.db, os.path.dirname(self.configuration.db_settings.db),
-                os.path.join("/dev", "shm"))
-            self.main_logger.debug("Removing shared memory DB %s", self.configuration.db_settings.db)
-            os.remove(self.configuration.db_settings.db)
         self.manager.shutdown()
 
     def __call__(self):

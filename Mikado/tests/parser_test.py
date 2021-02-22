@@ -24,24 +24,20 @@ class TestParser(unittest.TestCase):
 
     def test_with_construct(self):
 
-        gff_line = "Chr1\tmikado\ttranscript\t1000\t2000\t.\t+\t.\tID=foo.1.1; Parent=foo.1;"
         gtf_line = "Chr1\tmikado\ttranscript\t1000\t2000\t.\t+\t.\tgene_id \"foo.1\"; transcript_id \"foo.1.1\";"
+        with tempfile.NamedTemporaryFile("wt", suffix=".gtf", delete=True) as gtf_temp:
+            print(gtf_line, file=gtf_temp)
+            gtf_temp.flush()
 
-        gtf_temp = tempfile.NamedTemporaryFile("wt", suffix=".gtf", delete=False)
-        print(gtf_line, file=gtf_temp)
-        gtf_temp.flush()
+            gtf_temp_reader = open(gtf_temp.name, "rt")
+            gtf_temp_reader.close()
+            with self.assertRaises(ValueError):
+                with parsers.GTF.GTF(gtf_temp_reader) as gtf_reader:
+                    _ = next(gtf_reader)
 
-        gtf_temp_reader = open(gtf_temp.name, "rt")
-        gtf_temp_reader.close()
-        with self.assertRaises(ValueError):
-            with parsers.GTF.GTF(gtf_temp_reader) as gtf_reader:
-                _ = next(gtf_reader)
-
-        with self.assertRaises(ValueError):
-            with parsers.GFF.GFF3(gtf_temp_reader) as gtf_reader:
-                _ = next(gtf_reader)
-
-        os.remove(gtf_temp.name)
+            with self.assertRaises(ValueError):
+                with parsers.GFF.GFF3(gtf_temp_reader) as gtf_reader:
+                    _ = next(gtf_reader)
 
     def test_serialisation(self):
 
@@ -60,32 +56,32 @@ class TestParser(unittest.TestCase):
         gff_line = "Chr1\tmikado\ttranscript\t1000\t2000\t.\t+\t.\tID=foo.1.1; Parent=foo.1;"
         gtf_line = "Chr1\tmikado\ttranscript\t1000\t2000\t.\t+\t.\tgene_id \"foo.1\"; transcript_id \"foo.1.1\";"
 
-        gtf_temp = tempfile.NamedTemporaryFile("wt", suffix=".gtf")
-        gff_temp = tempfile.NamedTemporaryFile("wt", suffix=".gff3")
+        with tempfile.NamedTemporaryFile("wt", suffix=".gtf") as gtf_temp, \
+                tempfile.NamedTemporaryFile("wt", suffix=".gff3") as gff_temp:
 
-        print(gff_line, file=gff_temp)
-        print(gtf_line, file=gtf_temp)
+            print(gff_line, file=gff_temp)
+            print(gtf_line, file=gtf_temp)
 
-        gff_temp.flush()
-        gtf_temp.flush()
+            gff_temp.flush()
+            gtf_temp.flush()
 
-        with parsers.GTF.GTF(open(gtf_temp.name)) as gtf_reader:
-            self.assertEqual(gtf_temp.name, gtf_reader.name)
-            self.assertEqual(next(gtf_reader)._line, gtf_line)
-        self.assertTrue(gtf_reader.closed)
+            with parsers.GTF.GTF(open(gtf_temp.name)) as gtf_reader:
+                self.assertEqual(gtf_temp.name, gtf_reader.name)
+                self.assertEqual(next(gtf_reader)._line, gtf_line)
+            self.assertTrue(gtf_reader.closed)
 
-        with parsers.GFF.GFF3(open(gff_temp.name)) as gff_reader:
-            self.assertEqual(gff_temp.name, gff_reader.name)
-            self.assertEqual(next(gff_reader)._line, gff_line)
-        self.assertTrue(gff_reader.closed)
-        gtf_temp.close()
-        gff_temp.close()
+            with parsers.GFF.GFF3(open(gff_temp.name)) as gff_reader:
+                self.assertEqual(gff_temp.name, gff_reader.name)
+                self.assertEqual(next(gff_reader)._line, gff_line)
+            self.assertTrue(gff_reader.closed)
+            gtf_temp.close()
+            gff_temp.close()
 
-        with self.assertRaises(TypeError):
-            gtf_reader.closed = "foo"  # not a boolean
+            with self.assertRaises(TypeError):
+                gtf_reader.closed = "foo"  # not a boolean
 
-        with self.assertRaises(TypeError):
-            gff_reader.closed = "foo"  # not a boolean
+            with self.assertRaises(TypeError):
+                gff_reader.closed = "foo"  # not a boolean
 
     def test_phase_frame(self):
         gtf_line = "Chr1\tmikado\texon\t1000\t2000\t.\t+\t0\tgene_id \"foo.1\"; transcript_id \"foo.1.1\";"

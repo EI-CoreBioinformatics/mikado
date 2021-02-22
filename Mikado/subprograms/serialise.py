@@ -220,7 +220,8 @@ def setup(args):
     if args.log_level is not None:
         args.configuration.log_settings.log_level = args.log_level
 
-    args.configuration.serialise.force = args.force
+    if args.force is not None:
+        args.configuration.serialise.force = args.force
     args.configuration.serialise.max_regression = args.max_regression or args.configuration.serialise.max_regression
     args.configuration.serialise.start_adjustment = args.start_adjustment
     args.configuration.serialise.max_target_seqs = args.max_target_seqs or args.configuration.serialise.max_target_seqs
@@ -474,11 +475,14 @@ a valid start codon.""")
     generic.add_argument("-mo", "--max-objects", dest="max_objects",
                          type=int, default=None,  # So it can actually be set through the JSON
                          help="""Maximum number of objects to cache in memory before
-                         committing to the database. Default: 100,000 i.e.
-                         approximately 450MB RAM usage for Drosophila.""")
-    generic.add_argument("-f", "--force", action="store_true", default=False,
+committing to the database. Default: 100,000 i.e. approximately 450MB RAM usage for Drosophila.""")
+    forcing = parser.add_mutually_exclusive_group()
+    forcing.add_argument("--no-force", action="store_false", default=None, dest="force",
+                         help="""Flag. If set, do not drop the contents of an existing Mikado DB
+before beginning the serialisation.""")
+    forcing.add_argument("--force", action="store_true", default=None, dest="force",
                          help="""Flag. If set, an existing databse will be deleted (sqlite)
-                         or dropped (MySQL/PostGreSQL) before beginning the serialisation.""")
+or dropped (MySQL/PostGreSQL) before beginning the serialisation.""")
     # If None, the default configuration will be used (from the blueprint)
     generic.add_argument("--configuration", "--json-conf", default=None,
                          dest="configuration", type=str,

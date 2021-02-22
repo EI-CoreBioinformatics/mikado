@@ -9,11 +9,11 @@ and is used to define all the possible children (subloci, monoloci, loci, etc.)
 # Core imports
 import collections
 import networkx
+from Mikado.serializers.blast_serializer import Hsp
 from sqlalchemy import bindparam
 from sqlalchemy.engine import Engine
 from sqlalchemy.ext import baked
-from sqlalchemy.orm.session import sessionmaker
-from sqlalchemy.orm import session as sasession
+from sqlalchemy.orm.session import sessionmaker, Session
 from sqlalchemy.sql.expression import and_
 from .abstractlocus import Abstractlocus
 from .monosublocusholder import MonosublocusHolder
@@ -21,8 +21,8 @@ from .sublocus import Sublocus
 from ..exceptions import NotInLocusError
 from ..parsers.GFF import GffLine
 from ..serializers.blast_serializer import Hit, Query, Target
-from ..serializers.external import External
-from ..serializers.junction import Junction, Chrom
+from ..serializers.external import External, ExternalSource
+from ..serializers.junction import Junction
 from ..serializers.orf import Orf
 from ..transcripts import Transcript
 from ..utilities import dbutils, grouper
@@ -37,9 +37,44 @@ from typing import Union
 from ..utilities import Interval, IntervalTree
 from itertools import combinations
 import random
+import asyncio
 
 # The number of attributes is something I need
 # pylint: disable=too-many-instance-attributes
+
+
+bakery = baked.bakery()
+
+junction_baked = bakery(lambda session: session.query(Junction))
+junction_baked += lambda q: q.filter(and_(
+    Junction.chrom == bindparam("chrom"),
+    Junction.junction_start >= bindparam("junctionStart"),
+    Junction.junction_end <= bindparam("junctionEnd")
+))
+
+hit_baked = bakery(lambda session: session.query(Hit))
+hit_baked += lambda q: q.filter(and_(
+    Hit.query_id.in_(bindparam("queries", expanding=True)),
+    Hit.evalue <= bindparam("evalue"),
+    Hit.hit_number <= bindparam("hit_number")
+))
+
+hsp_baked = bakery(lambda session: session.query(Hsp))
+hsp_baked += lambda q: q.filter(and_(Hsp.hsp_evalue <= bindparam("hsp_evalue"),
+                                     Hsp.query_id.in_(bindparam("queries", expanding=True))))
+
+
+query_baked = bakery(lambda session: session.query(Query))
+query_baked += lambda q: q.filter(Query.query_name.in_(bindparam("tids", expanding=True)))
+
+target_baked = bakery(lambda session: session.query(Target))
+target_baked += lambda q: q.filter(Target.target_id.in_(bindparam("targets", expanding=True)))
+
+source_bakery = bakery(lambda session: session.query(ExternalSource))
+source_bakery += lambda q: q.filter(ExternalSource.source.in_(bindparam("sources", expanding=True)))
+
+orfs_baked = bakery(lambda session: session.query(Orf))
+orfs_baked += lambda q: q.filter(Orf.query_id.in_(bindparam("queries", expanding=True)))
 
 
 class Superlocus(Abstractlocus):
@@ -49,24 +84,7 @@ class Superlocus(Abstractlocus):
 
     __name__ = "superlocus"
 
-    bakery = baked.bakery()
-    db_baked = bakery(lambda session: session.query(Chrom))
-    db_baked += lambda q: q.filter(Chrom.name == bindparam("chrom_name"))
 
-    junction_baked = bakery(lambda session: session.query(Junction))
-    junction_baked += lambda q: q.filter(and_(
-        Junction.chrom == bindparam("chrom"),
-        Junction.junction_start >= bindparam("junctionStart"),
-        Junction.junction_end <= bindparam("junctionEnd"),
-        Junction.strand == bindparam("strand")
-    ))
-
-    hit_baked = bakery(lambda session: session.query(Hit))
-    hit_baked += lambda q: q.filter(and_(
-        Hit.query_id == bindparam("query_id"),
-        Hit.evalue <= bindparam("evalue"),
-        Hit.hit_number <= bindparam("hit_number")
-    ))
 
     _complex_limit = (5000, 5000)
 
@@ -369,10 +387,11 @@ class Superlocus(Abstractlocus):
         state["excluded"] = self.excluded.as_dict()
         return state
 
-    def load_dict(self, state, print_subloci=True, print_monoloci=True, load_transcripts=True):
+    def load_dict(self, state, print_subloci=True, print_monoloci=True, load_transcripts=True,
+                  load_configuration=True):
         """Method to reconstitute a Superlocus from a dumped dictionary."""
 
-        super().load_dict(state, load_transcripts=load_transcripts)
+        super().load_dict(state, load_transcripts=load_transcripts, load_configuration=load_configuration)
         self.loci = dict()
         for lid, stat in state["loci"].items():
             locus = Locus()
@@ -462,15 +481,24 @@ class Superlocus(Abstractlocus):
             for new_locus in iter(sorted(new_loci)):
                 yield new_locus
 
-    def connect_to_db(self, engine: Engine):
+    def connect_to_db(self, engine: Engine, session: Session):
 
         """
         :param engine: the connection pool
         :type engine: Engine
 
+        :param session: a preformed session
+        :type session: Session
+
         This method will connect to the database using the information
         contained in the JSON configuration.
         """
+
+        if isinstance(session, Session):
+            self.session = session
+            self.sessionmaker = sessionmaker()
+            self.sessionmaker.configure(bind=self.session.bind)
+            self.engine = self.session.bind
 
         if engine is None:
             self.engine = dbutils.connect(self.configuration)
@@ -514,7 +542,7 @@ class Superlocus(Abstractlocus):
         del data_dict
         return to_remove, to_add
 
-    def _load_introns(self):
+    async def _load_introns(self):
 
         """Private method to load the intron data into the locus.
         :param data_dict: Dictionary containing the preloaded data, if available.
@@ -531,16 +559,11 @@ class Superlocus(Abstractlocus):
         self.logger.debug("Querying the DB for introns, %d total", len(self.introns))
         if not self.configuration.db_settings.db:
             return  # No data to load
-        # dbquery = self.db_baked(self.session).params(chrom_name=self.chrom).all()
 
-        ver_introns = self.engine.execute(" ".join([
-            "select junction_start, junction_end, strand from junctions where",
-            "chrom_id = (select chrom_id from chrom where name = \"{chrom}\")",
-            "and junction_start > {start} and junction_end < {end}"]).format(
-                chrom=self.chrom, start=self.start, end=self.end
-        ))
         ver_introns = dict(((junc.junction_start, junc.junction_end), junc.strand)
-                           for junc in ver_introns)
+                             for junc in junction_baked(self.session).params(
+            chrom=self.chrom, junctionStart=self.start, junctionEnd=self.end
+        ))
 
         self.logger.debug("Found %d verifiable introns for %s",
                           len(ver_introns), self.id)
@@ -555,7 +578,93 @@ class Superlocus(Abstractlocus):
                                                  intron[1],
                                                  ver_introns[(intron[0], intron[1])]))
 
-    def _create_data_dict(self, engine, tid_keys) -> dict:
+    async def get_sources(self):
+        if self.configuration.pick.output_format.report_all_external_metrics is True:
+            sources = dict((source.source_id, source) for source in self.session.query(ExternalSource))
+        else:
+            sources = set()
+            sources.update({param for param in self.configuration.scoring.requirements.parameters.keys()
+                            if param.startswith("external")})
+            sources.update({param for param in self.configuration.scoring.not_fragmentary.parameters.keys()
+                            if param.startswith("external")})
+            sources.update({param for param in self.configuration.scoring.cds_requirements.parameters.keys()
+                            if param.startswith("external")})
+            sources.update({param for param in self.configuration.scoring.cds_requirements.parameters.keys()
+                            if param.startswith("external")})
+            sources.update({param for param in self.configuration.scoring.scoring.keys()
+                            if param.startswith("external")})
+            sources = {param.replace("external.", "") for param in sources}
+            sources = dict((source.source_id, source) for source in
+                           source_bakery(self.session).params(sources=list(sources)))
+        return sources
+
+    async def get_external(self, query_ids, qids):
+        external = collections.defaultdict(dict)
+        sources = await self.get_sources()
+        baked = External.__table__.select().where(and_(External.source_id.in_(list(sources.keys())),
+                                                       External.query_id.in_(qids)))
+        for ext in self.session.execute(baked):
+            source_id, query_id, score = ext.source_id, ext.query_id, ext.score
+            if source_id not in sources or query_id not in qids:
+                continue
+            rtype = sources[source_id].rtype
+            if rtype == "int":
+                score = int(score)
+            elif rtype == "float":
+                score = float(score)
+            elif rtype == "bool":
+                score = bool(int(score))
+            else:
+                raise ValueError("Invalid rtype: {}".format(sources[ext.source_id].rtype))
+            external[query_ids[ext.query_id].query_name][
+                sources[ext.source_id].source] = (score, sources[ext.source_id].valid_raw)
+        return external
+
+    async def get_hits(self, query_ids, qids):
+        hsps = dict()
+        targets = set()
+        hits = collections.defaultdict(list)
+        for hsp in hsp_baked(self.session).params(
+                hsp_evalue=self.configuration.pick.chimera_split.blast_params.hsp_evalue,
+                queries=qids):
+            if hsp.query_id not in hsps:
+                hsps[hsp.query_id] = collections.defaultdict(list)
+            hsps[hsp.query_id][hsp.target_id].append(hsp)
+            targets.add(hsp.target_id)
+
+        target_ids = dict((target.target_id, target) for target in
+                          target_baked(self.session).params(targets=list(targets)))
+        current_hit = None
+        for hit in hit_baked(self.session).params(
+                evalue=self.configuration.pick.chimera_split.blast_params.evalue,
+                hit_number=self.configuration.pick.chimera_split.blast_params.max_target_seqs,
+                queries=qids):
+            if current_hit != hit.query_id:
+                current_hit = hit.query_id
+            current_counter = 0
+
+            current_counter += 1
+
+            my_query = query_ids[hit.query_id]
+            my_target = target_ids[hit.target_id]
+
+            hits[my_query.query_name].append(
+                Hit.as_full_dict_static(
+                    hit,
+                    hsps[hit.query_id][hit.target_id],
+                    my_query,
+                    my_target
+                )
+            )
+        return hits
+
+    async def get_orfs(self, qids):
+        orfs = collections.defaultdict(list)
+        for orf in orfs_baked(self.session).params(queries=qids):
+            orfs[orf.query].append(orf.as_bed12())
+        return orfs
+
+    async def _create_data_dict(self, engine, tid_keys) -> dict:
 
         """Private method to retrieve data from the database and prepare it to be passed to the transcript
         instances.
@@ -571,9 +680,10 @@ class Superlocus(Abstractlocus):
         data_dict = dict()
         self.logger.debug("Starting to load hits and orfs for %d transcripts",
                           len(tid_keys))
-        data_dict["hits"] = collections.defaultdict(list)
-        data_dict["orfs"] = collections.defaultdict(list)
+
         data_dict["external"] = collections.defaultdict(dict)
+        data_dict["orfs"] = collections.defaultdict(list)
+        data_dict["hits"] = collections.defaultdict(list)
         if engine is None:
             return data_dict
 
@@ -581,92 +691,13 @@ class Superlocus(Abstractlocus):
             query_ids = dict((query.query_id, query) for query in
                              self.session.query(Query).filter(
                                  Query.query_name.in_(tid_group)))
-            # Retrieve the external scores
-
-            if query_ids:
-                external = self.session.query(External).filter(External.query_id.in_(query_ids.keys()))
-            else:
-                external = []
-
-            for ext in external:
-                if ext.rtype == "int":
-                    score = int(ext.score)
-                elif ext.rtype == "float":
-                    score = float(ext.score)
-                elif ext.rtype == "bool":
-                    score = bool(int(ext.score))
-                else:
-                    raise ValueError("Invalid rtype: {}".format(ext.rtype))
-
-                data_dict["external"][ext.query][ext.source] = (score, ext.valid_raw)
-
-            # Load the ORFs from the table
-            if query_ids:
-                orfs = self.session.query(Orf).filter(Orf.query_id.in_(query_ids.keys()))
-            else:
-                orfs = []
-
-            for orf in orfs:
-                data_dict["orfs"][orf.query].append(orf.as_bed12())
-
-            # Now retrieve the HSPs from the BLAST HSP table
-            hsp_command = " ".join([
-                "select * from hsp where",
-                "hsp_evalue <= {0} and query_id in {1} order by query_id;"]).format(
-                self.configuration.pick.chimera_split.blast_params.hsp_evalue,
-                "({0})".format(", ".join([str(_) for _ in query_ids.keys()]))
-            )
-
-            hsps = dict()
-            targets = set()
-
-            for hsp in engine.execute(hsp_command):
-                if hsp.query_id not in hsps:
-                    hsps[hsp.query_id] = collections.defaultdict(list)
-                hsps[hsp.query_id][hsp.target_id].append(hsp)
-                targets.add(hsp.target_id)
-
-            # Now that we have the HSPs, load the corresponding HITs
-            hit_command = " ".join([
-                "select * from hit where evalue <= {0}",
-                "and hit_number <= {1} and query_id in {2}",
-                "order by query_id, evalue asc;"
-            ]).format(
-                self.configuration.pick.chimera_split.blast_params.evalue,
-                self.configuration.pick.chimera_split.blast_params.max_target_seqs,
-                "({0})".format(", ".join([str(_) for _ in query_ids.keys()])))
-
-            if len(targets) > 0:
-                target_ids = dict()
-                for target_group in grouper(targets, 100):
-                    target_ids.update(dict((target.target_id, target) for target in
-                                      self.session.query(Target).filter(
-                                          Target.target_id.in_(target_group))))
-            else:
-                target_ids = dict()
-            current_hit = None
-            for hit in engine.execute(hit_command):
-                if current_hit != hit.query_id:
-                    current_hit = hit.query_id
-                current_counter = 0
-
-                current_counter += 1
-
-                my_query = query_ids[hit.query_id]
-                my_target = target_ids[hit.target_id]
-
-                data_dict["hits"][my_query.query_name].append(
-                    Hit.as_full_dict_static(
-                        hit,
-                        hsps[hit.query_id][hit.target_id],
-                        my_query,
-                        my_target
-                    )
-                )
-
+            qids = list(query_ids.keys())
+            data_dict["orfs"].update(await self.get_orfs(qids))
+            data_dict["external"].update(await self.get_external(query_ids, qids))
+            data_dict["hits"].update(await self.get_hits(query_ids=query_ids, qids=qids))
         return data_dict
 
-    def load_all_transcript_data(self, engine=None):
+    def load_all_transcript_data(self, engine=None, session=None):
 
         """
         This method will load data into the transcripts instances,
@@ -686,14 +717,15 @@ class Superlocus(Abstractlocus):
             self.approximation_level = 1
             self.reduce_method_one(None)
 
-        self.connect_to_db(engine)
+        self.connect_to_db(engine, session)
 
         tid_keys = list(self.transcripts.keys())
         to_remove, to_add = set(), dict()
         # This will function even if data_dict is None
-        self._load_introns()
-
+        intron_loader = self._load_introns()
         data_dict = self._create_data_dict(engine, tid_keys)
+        data_dict = asyncio.run(data_dict)
+        asyncio.run(intron_loader)
 
         self.logger.debug("Verified %d introns for %s",
                           len(self.locus_verified_introns),
@@ -701,8 +733,8 @@ class Superlocus(Abstractlocus):
 
         self.logger.debug("Finished retrieving data for %d transcripts",
                           len(tid_keys))
-        self.session.close()
-        sasession.close_all_sessions()
+        # self.session.close()
+        # sasession.close_all_sessions()
 
         for tid in tid_keys:
             remove_flag, new_transcripts = self.load_transcript_data(tid, data_dict)
@@ -1449,7 +1481,7 @@ class Superlocus(Abstractlocus):
 
         # Now the monoexonic
         monoexonic = IntervalTree()
-        [monoexonic.add_interval(interval) for interval in monos]
+        [monoexonic.add(interval) for interval in monos]
         monos = sorted(monos)
         for mono in monos:
             edges.update(set((mono.value, omono.value) for omono in
@@ -1495,7 +1527,7 @@ class Superlocus(Abstractlocus):
                 start, end = sorted([transcript.selected_cds_start, transcript.selected_cds_end])
             else:
                 start, end = transcript.start, transcript.end
-            itree.add_interval(Interval(start, end, transcript.id))
+            itree.add(Interval(start, end, transcript.id))
 
         for tid in self.transcripts:
             if tid in primaries:

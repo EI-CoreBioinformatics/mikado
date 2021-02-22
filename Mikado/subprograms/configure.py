@@ -132,6 +132,9 @@ switch.")
     if args.report_all_orfs is True:
         config.pick.output_format.report_all_orfs = True
 
+    if args.report_all_external_metrics is True:
+        args.configuration.pick.output_format.report_all_external_metrics = True
+
     if args.scoring is not None:
         if args.copy_scoring is not False:
             with open(args.copy_scoring, "wt") as out:
@@ -198,13 +201,13 @@ switch.")
         config.pick.files.output_dir = args.out_dir
 
     # Check that the configuration file is correct
-    tempcheck = tempfile.NamedTemporaryFile("wt", suffix=".json", delete=False)
-    print_config(config, tempcheck, full=args.full, output_format="json")
-    tempcheck.flush()
-    try:
-        load_and_validate_config(tempcheck.name)
-    except InvalidJson as exc:
-        raise InvalidJson("Created an invalid configuration file! Error:\n{}".format(exc))
+    with tempfile.NamedTemporaryFile("wt", suffix=".json", delete=True) as tempcheck:
+        print_config(config, tempcheck, full=args.full, output_format="json")
+        tempcheck.flush()
+        try:
+            load_and_validate_config(tempcheck.name)
+        except InvalidJson as exc:
+            raise InvalidJson("Created an invalid configuration file! Error:\n{}".format(exc))
 
     # Print out the final configuration file
     if args.json is True or args.out.name.endswith("json"):
@@ -297,6 +300,10 @@ NOTE: if not specified, and --min-cdna-overlap is specified on the command line,
 Default: 20%%.")
     picking.add_argument("--report-all-orfs", default=False, action="store_true",
                          help="Boolean switch. If set to true, all ORFs will be reported, not just the primary.")
+    picking.add_argument("--report-all-external-metrics", default=None,
+                         action="store_true",
+                         help="Boolean switch. If activated, Mikado will report all available external metrics, not just\
+those requested for in the scoring configuration. This might affect speed in Minos analyses.")
     picking.add_argument("--cds-only", dest="cds_only",
                          default=None, action="store_true",
                          help=""""Flag. If set, Mikado will only look for overlap in the coding features \

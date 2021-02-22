@@ -19,11 +19,15 @@ class TestExternal(unittest.TestCase):
     logger = utilities.log_utils.create_null_logger("test_external_serialise")
 
     def setUp(self):
-        self.dbfile = tempfile.mktemp(suffix=".db")
+        self.dbfile_handle = tempfile.NamedTemporaryFile(suffix=".db")
+        self.dbfile = self.dbfile_handle.name
         self.configuration = configuration.configurator.load_and_validate_config(None)
         self.configuration.db_settings.dbtype = "sqlite"
         self.configuration.db_settings.db = self.dbfile
         self.__create_session()
+
+    def tearDown(self) -> None:
+        self.dbfile_handle.close()
 
     def __create_session(self):
         self.engine = utilities.dbutils.connect(

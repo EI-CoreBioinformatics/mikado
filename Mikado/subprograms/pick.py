@@ -141,6 +141,9 @@ def check_run_options(args, logger=create_null_logger()):
     if args.as_cds_only is True:
         args.configuration.pick.alternative_splicing.cds_only = True
 
+    if args.report_all_external_metrics is True:
+        args.configuration.pick.output_format.report_all_external_metrics = True
+
     if args.gff:
         args.configuration.pick.files.input = args.gff
         if not os.path.exists(args.gff):
@@ -253,7 +256,7 @@ def pick(args):
                     chrom, start, end = to_region(line)
                     if chrom not in regions:
                         regions[chrom] = IntervalTree()
-                    regions[chrom].add_interval(Interval(start, end))
+                    regions[chrom].add(Interval(start, end))
         else:
             chrom, start, end = to_region(args.regions)
             regions[chrom] = IntervalTree.from_intervals([Interval(start, end)])
@@ -321,7 +324,10 @@ Regions should be provided in a WebApollo-like format: <chrom>:<start>..<end>"""
                         help="Prefix for the genes. Default: Mikado")
     output.add_argument('--source', type=str, default=None,
                         help='Source field to use for the output files.')
-
+    output.add_argument("--report-all-external-metrics", default=None,
+                        action="store_true",
+                        help="Boolean switch. If activated, Mikado will report all available external metrics, not just\
+those requested for in the scoring configuration. This might affect speed in Minos analyses.")
     parser.add_argument("--no_cds", action="store_true", default=False,
                         help="""Flag. If set, not CDS information will be printed out in the GFF output files.""")
 

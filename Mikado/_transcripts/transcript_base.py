@@ -583,8 +583,9 @@ class TranscriptBase:
             if key in ("_TranscriptBase__segmenttree", "_TranscriptBase__cds_tree",
                        "_Transcript__segmenttree", "_Transcript__cds_tree"):
                 continue
+            state[key] = item
             try:
-                state[key] = copy.deepcopy(item)
+                state[key] = copy.copy(item)
             except TypeError:
                 raise TypeError(key, item)
 
@@ -1306,6 +1307,8 @@ exon data is on a different chromosome, {exon_data.chrom}. \
                 setattr(self, metric, state[metric])
             except KeyError:
                 raise KeyError((self.id, metric))
+        self._calculate_cds_tree()
+        self._calculate_segment_tree()
         self.finalized = state["finalized"]
         if self.finalized:
             self.combined_utr = sorted([tuple(combi) for combi in state["combined_utr"]])
@@ -1417,7 +1420,7 @@ exon data is on a different chromosome, {exon_data.chrom}. \
 
         """Method to use the segment tree to find all segments in the transcript upstream of a given interval."""
         return self.segmenttree.upstream_of_interval(Interval(start - offset, end),
-                                                     num_intervals=self.exon_num + len(self.introns),
+                                                     n=self.exon_num + len(self.introns),
                                                      max_dist=10 ** 9)
 
     def find_downstream(self, start, end, offset=0):
@@ -1425,7 +1428,7 @@ exon data is on a different chromosome, {exon_data.chrom}. \
         """Method to use the segment tree to find all segments in the transcript downstream of a given interval."""
 
         return self.segmenttree.downstream_of_interval(Interval(start - offset, end),
-                                                       num_intervals=self.exon_num + len(self.introns),
+                                                       n=self.exon_num + len(self.introns),
                                                        max_dist=10 ** 9)
 
     # ###################Class methods#####################################
@@ -2206,8 +2209,12 @@ index {3}, internal ORFs: {4}".format(
         """
         This property returns an interval tree of the CDS segments.
         """
-        if len(self.__segmenttree) != len(self.combined_cds) + len(self.combined_cds_introns):
-            self._calculate_segment_tree()
+        if self.finalized and len(self.__cds_tree) != len(self.combined_cds) + len(self.combined_cds_introns):
+            raise InvalidTranscript("The CDS tree for {} is invalid, it has length {} instead of {}".format(
+                self.id, len(self.__cds_tree), len(self.combined_cds) + len(self.combined_cds_introns)
+            ))
+        elif self.finalized is False:
+            self._calculate_cds_tree()
 
         return self.__cds_tree
 
@@ -2220,10 +2227,10 @@ index {3}, internal ORFs: {4}".format(
         self.__cds_tree = IntervalTree()
 
         for exon in self.combined_cds:
-            self.__cds_tree.add(exon[0], exon[1], value=Interval(exon[0], exon[1], value="CDS"))
+            self.__cds_tree.add(Interval(exon[0], exon[1], value=Interval(exon[0], exon[1], value="CDS")))
 
         for intron in self.combined_cds_introns:
-            self.__cds_tree.add(intron[0], intron[1], value=Interval(intron[0], intron[1], value="intron"))
+            self.__cds_tree.add(Interval(intron[0], intron[1], value=Interval(intron[0], intron[1], value="intron")))
 
         return
 
@@ -2254,13 +2261,13 @@ index {3}, internal ORFs: {4}".format(
         self.__segmenttree = IntervalTree()
         for exon in self.exons:
             try:
-                self.__segmenttree.add(exon[0], exon[1], value="exon")
+                self.__segmenttree.add(Interval(exon[0], exon[1], value="exon"))
             except AssertionError as exc:
                 raise AssertionError(f"Exon for {self.id} invalid: {exon}\n{exc}")
 
         for intron in self.introns:
             try:
-                self.__segmenttree.add(intron[0], intron[1], value="intron")
+                self.__segmenttree.add(Interval(intron[0], intron[1], value="intron"))
             except AssertionError as exc:
                 raise AssertionError(f"Intron for {self.id} invalid: {intron}\n{exc}")
 

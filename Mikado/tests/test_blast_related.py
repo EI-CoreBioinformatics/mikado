@@ -188,40 +188,39 @@ class BlastBasics(unittest.TestCase):
 
     def test_sniff_invalid(self):
 
-        invalid_xml = tempfile.NamedTemporaryFile(delete=False)
-        invalid_xml.write(b"failing\n")
-        invalid_xml.close()
-        with self.assertRaises(ValueError):
-            valid, header, exc = blast_utils.BlastOpener(invalid_xml.name).sniff()
-
-        os.remove(invalid_xml.name)
+        with tempfile.NamedTemporaryFile(delete=True) as invalid_xml:
+            invalid_xml.write(b"failing\n")
+            invalid_xml.flush()
+            with self.assertRaises(ValueError):
+                valid, header, exc = blast_utils.BlastOpener(invalid_xml.name).sniff()
 
     def test_sniff_inexistent(self):
 
-        inexistent_xml = tempfile.mktemp()
-        with self.assertRaises(OSError):
-            valid, header, exc = blast_utils.BlastOpener(inexistent_xml).sniff()
+        with tempfile.NamedTemporaryFile(delete=True) as inexistent:
+            pass
 
+        with self.assertRaises(OSError):
+            valid, header, exc = blast_utils.BlastOpener(inexistent.name).sniff()
+
+    @mark.slow
     def test_sniff_gzip(self):
 
-        new = gzip.open(tempfile.mktemp(suffix=".xml.gz"), mode="wt")
-        valid_xml = os.path.join(
-            os.path.dirname(__file__),
-            "mikado.blast.xml"
-        )
-        with open(valid_xml) as vx:
-            for line in vx:
-                new.write(line)
-        new.flush()
+        with tempfile.NamedTemporaryFile(suffix=".xml.gz") as handle:
+            new = gzip.open(handle.name, mode="wb")
 
-        valid, header, exc = blast_utils.BlastOpener(new.name).sniff()
-        self.assertTrue(valid, (valid, exc))
-        self.assertIsNone(exc, exc)
+            with pkg_resources.resource_stream("Mikado.tests", "mikado.blast.xml") as valid_xml:
+                for line in valid_xml:
+                    new.write(line)
+            new.flush()
 
-        with gzip.open(new.name, mode="rt") as new_handle:
-            valid, header, exc = blast_utils.BlastOpener(new_handle).sniff()
+            valid, header, exc = blast_utils.BlastOpener(new.name).sniff()
             self.assertTrue(valid, (valid, exc))
             self.assertIsNone(exc, exc)
+
+            with gzip.open(new.name, mode="rt") as new_handle:
+                valid, header, exc = blast_utils.BlastOpener(new_handle).sniff()
+                self.assertTrue(valid, (valid, exc))
+                self.assertIsNone(exc, exc)
 
     def test_fail_closed(self):
 

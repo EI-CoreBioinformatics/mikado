@@ -292,5 +292,6 @@ class MonosublocusHolder(Sublocus, Abstractlocus):
         state = Abstractlocus.as_dict(self)
         return state
 
-    def load_dict(self, state):
-        Abstractlocus.load_dict(self, state)
+    def load_dict(self, state, load_transcripts=True, load_configuration=True):
+        Abstractlocus.load_dict(self, state, load_configuration=load_configuration,
+                                load_transcripts=load_transcripts)

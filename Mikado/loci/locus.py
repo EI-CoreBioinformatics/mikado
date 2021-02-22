@@ -13,7 +13,7 @@ import pysam
 from ..transcripts.transcript import Transcript
 # from ..configuration.picking_config import valid_as_ccodes, redundant_as_ccodes
 from ..transcripts.transcriptchecker import TranscriptChecker
-from .abstractlocus import Abstractlocus, rgetattr  # , default_configuration
+from .abstractlocus import Abstractlocus
 from ..parsers.GFF import GffLine
 from ..scales.assignment.assigner import Assigner
 from ..exceptions import InvalidTranscript
@@ -262,7 +262,7 @@ class Locus(Abstractlocus):
             backup[tid] = self.transcripts[tid].deepcopy()
 
         # The "templates" are the transcripts that we used to expand the others.
-        templates = self.pad_transcripts()
+        templates = self.pad_transcripts(backup)
         # First off, let us update the transcripts.
         tid_keys = list(self.transcripts.keys())
         for tid in tid_keys:
@@ -590,7 +590,8 @@ it is marked as having 0 retained introns. This is an error.".format(transcript=
 
         evaluated = dict()
         for key in section.parameters:
-            value = rgetattr(transcript, section.parameters[key].name)
+            name = section.parameters[key].name
+            value = operator.attrgetter(name)(transcript)
             if "external" in key:
                 value = value[0]
 
@@ -621,7 +622,7 @@ it is marked as having 0 retained introns. This is an error.".format(transcript=
         evaluated = dict()
         for key, params in self.configuration.scoring.not_fragmentary.parameters.items():
             name = params.name
-            value = rgetattr(self.primary_transcript, name)
+            value = operator.attrgetter(name)(self.primary_transcript)
             if "external" in key:
                 value = value[0]
             try:
@@ -937,7 +938,7 @@ it is marked as having 0 retained introns. This is an error.".format(transcript=
 
         return is_valid, main_ccode, main_result
 
-    def pad_transcripts(self) -> set:
+    def pad_transcripts(self, backup=None) -> set:
 
         """
         This method will perform the padding of the transcripts.
@@ -945,6 +946,10 @@ it is marked as having 0 retained introns. This is an error.".format(transcript=
         - First, check which transcripts are compatible at the 5' and 3' end. Assign a "template" for each expansion.
         Note that the same transcript might be the template at the 5' but marked as extendable at the 3', or viceversa.
         - Call "expand_transcript" on each couple of template-target.
+
+        Arguments:
+            :param backup: optional dictionary of hard-copies of the transcripts to pad. Will be generated on the fly
+            if None is provided.
         """
 
         try:
@@ -966,6 +971,8 @@ it is marked as having 0 retained introns. This is an error.".format(transcript=
 
         self.logger.debug("To modify: %s", __to_modify)
         templates = set()
+        if backup is None:
+            backup = dict((tid, self.transcripts[tid].deepcopy()) for tid in self.transcripts)
 
         # Now we can do the proper modification
         for tid in sorted(__to_modify.keys()):
@@ -980,7 +987,8 @@ it is marked as having 0 retained introns. This is an error.".format(transcript=
                               __to_modify[tid][1] if not __to_modify[tid][1] else __to_modify[tid][1].end,
                               self[tid].end)
             try:
-                new_transcript = expand_transcript(self[tid].deepcopy(),
+                new_transcript = expand_transcript(self.transcripts[tid],
+                                                   backup[tid],
                                                    __to_modify[tid][0],
                                                    __to_modify[tid][1],
                                                    self.fai,
@@ -1414,6 +1422,7 @@ it is marked as having 0 retained introns. This is an error.".format(transcript=
 
         
 def expand_transcript(transcript: Transcript,
+                      backup: Transcript,
                       start_transcript: [Transcript, bool],
                       end_transcript: [Transcript, bool],
                       fai: pysam.libcfaidx.FastaFile,
@@ -1443,7 +1452,6 @@ def expand_transcript(transcript: Transcript,
         start_transcript, end_transcript = end_transcript, start_transcript
 
     # Make a backup copy of the transcript
-    backup = transcript.deepcopy()
     # First get the ORFs
     # Remove the CDS and unfinalize
     logger.debug("Starting expansion of %s", transcript.id)

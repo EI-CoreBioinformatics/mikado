@@ -7,7 +7,7 @@ import msgpack
 
 
 def serialise_locus(stranded_loci: [Superlocus],
-                    queue,
+                    accumulator,
                     counter,
                     print_subloci=True,
                     print_cds=True,
@@ -44,19 +44,13 @@ def serialise_locus(stranded_loci: [Superlocus],
             monoloci.append(batch)
 
     loci = msgpack.dumps(loci)
-    try:
-        subloci = msgpack.dumps(dumper(subloci))
-        monoloci = msgpack.dumps(dumper(monoloci))
-    except ValueError:
-        subloci = msgpack.dumps(subloci)
-        monoloci = msgpack.dumps(monoloci)
-
+    subloci = msgpack.dumps(subloci)
+    monoloci = msgpack.dumps(monoloci)
     if not stranded_loci:
         chrom = ""
         num_genes = 0
     else:
         chrom = stranded_loci[0].chrom
         num_genes = sum(len(slid.loci) for slid in stranded_loci)
-    queue.put((counter, chrom, num_genes, loci, subloci, monoloci))
-
-    return
+    accumulator.append((counter, chrom, num_genes, loci, subloci, monoloci))
+    return accumulator

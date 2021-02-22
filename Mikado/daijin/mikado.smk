@@ -45,7 +45,6 @@ envdir = pkg_resources.resource_filename("Mikado.daijin", "envs")
 
 
 REF = config["reference"]["genome"]
-# TODO: this is hack that should be solved more neatly
 if "out_dir" in config:
     OUT_DIR = config["out_dir"]
 else:
@@ -391,7 +390,7 @@ rule mikado_serialise:
     # conda: os.path.join(envdir, "mikado.yaml")
     shell: "{params.load} mikado serialise {params.blast} {params.blast_target} --start-method=spawn \
 --transcripts={input.transcripts} --genome_fai={input.fai} --configuration={params.cfg} {params.no_start_adj} \
---force {params.orfs} -od {MIKADO_DIR} --procs={threads} -l {log}"
+{params.orfs} -od {MIKADO_DIR} --procs={threads} -l {log}"
 
 rule mikado_pick:
     input:

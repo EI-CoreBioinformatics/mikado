@@ -3,9 +3,7 @@ from ..configuration.configuration import MikadoConfiguration
 from ..configuration.daijin_configuration import DaijinConfiguration
 from .transcript_methods import splitting, retrieval
 from typing import List
-from ..serializers.blast_serializer import Query, Hit
-from ..serializers.external import External, ExternalSource
-from ..serializers.orf import Orf
+from ..serializers.blast_serializer import Hit
 from sqlalchemy import and_
 from sqlalchemy import bindparam
 from sqlalchemy.ext import baked
@@ -19,28 +17,12 @@ default_config = MikadoConfiguration()
 class Transcript(TranscriptBase):
     # Query baking to minimize overhead
     bakery = baked.bakery()
-    query_baked = bakery(lambda session: session.query(Query))
-    query_baked += lambda q: q.filter(Query.query_name == bindparam("query_name"))
-
     blast_baked = bakery(lambda session: session.query(Hit))
     blast_baked += lambda q: q.filter(and_(Hit.query == bindparam("query"),
                                            Hit.evalue <= bindparam("evalue")), )
 
     blast_baked += lambda q: q.order_by(asc(Hit.evalue))
     # blast_baked += lambda q: q.limit(bindparam("max_target_seqs"))
-
-    orf_baked = bakery(lambda session: session.query(Orf))
-    orf_baked += lambda q: q.filter(
-        Orf.query == bindparam("query"))
-    orf_baked += lambda q: q.filter(
-        Orf.cds_len >= bindparam("cds_len"))
-    orf_baked += lambda q: q.order_by(desc(Orf.cds_len))
-
-    # External scores
-    external_baked = bakery(lambda session: session.query(External))
-    external_baked += lambda q: q.filter()
-
-    external_sources = bakery(lambda session: session.query(ExternalSource))
 
     @property
     def configuration(self):

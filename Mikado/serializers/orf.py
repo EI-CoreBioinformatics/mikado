@@ -57,7 +57,7 @@ class Orf(DBBASE):
                       Index("query_index", "query_id"))
 
     query_object = relationship(Query, uselist=False,
-                                backref=backref("orfs"), lazy="immediate")
+                                backref=backref("orfs"), lazy="joined", innerjoin=True)
 
     query = column_property(select([Query.query_name]).where(
         Query.query_id == query_id))

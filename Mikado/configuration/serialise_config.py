@@ -121,7 +121,7 @@ the 5' Mikado will look for internal start codons. See 'max_regression'."},
 to keep per blasted sequence."},
                 "validate": validate.Range(min=1)
     })
-    force: bool = field(default=False, metadata={
+    force: bool = field(default=True, metadata={
                 "metadata": {"description": "Whether to drop and reload everything into the DB"},
     })
     single_thread: bool = field(default=False, metadata={})

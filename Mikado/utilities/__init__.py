@@ -14,7 +14,7 @@ from itertools import zip_longest
 from .overlap import overlap
 from . import intervaltree
 from .f1 import calc_f1
-from .intervaltree import Interval, IntervalTree, IntervalNode
+from .intervaltree import Interval, IntervalTree, IntervalNode, distance
 import sys
 
 
@@ -30,25 +30,6 @@ def comma_split(string):
     """Small utility to split a string based on comma. Useful for parsers."""
 
     return string.split(",")
-
-
-def rhasattr(obj, attr, *args):
-    """Recursive version of getattr.
-        Source: https://stackoverflow.com/questions/31174295/getattr-and-setattr-on-nested-objects"""
-
-    def _hasattr(obj, attr):
-        return hasattr(obj, attr, *args)
-
-    return functools.reduce(_hasattr, [obj] + attr.split("."))
-
-
-def rgetattr(obj, attr, *args):
-    """Recursive version of getattr.
-    Source: https://stackoverflow.com/questions/31174295/getattr-and-setattr-on-nested-objects"""
-
-    def _getattr(obj, attr):
-        return getattr(obj, attr, *args)
-    return functools.reduce(_getattr, [obj] + attr.split("."))
 
 
 def path_join(output_dir, output_file):
@@ -143,7 +124,7 @@ def merge_partial(filenames, handle, logger=None, gzipped=False):
         raise IndexError
 
     total = max(current_lines.keys())
-
+    logger.debug("Merging %d lines into %s", total, handle.name)
     [_.close() for _ in fnames]
     [os.remove(_) for _ in filenames]
 
@@ -151,7 +132,8 @@ def merge_partial(filenames, handle, logger=None, gzipped=False):
         for line in current_lines[index]:
             print(line, file=handle, end="")
         del current_lines[index]
-
+    logger.debug("Merged %d lines into %s", total, handle.name)
+    handle.flush()
     return total
 
 

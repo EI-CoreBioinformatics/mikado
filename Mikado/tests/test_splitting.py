@@ -556,25 +556,26 @@ ACACGTGTCCGCC"""
                               "CDS", "934","1137", "5.7", "-", "0",
                               "ID=12199_3;partial=00;start_type=GTG;rbs_motif=None;rbs_spacer=None;gc_cont=0.657;conf=78.73;score=5.69;cscore=7.02;sscore=-1.33;rscore=0.33;uscore=-0.91;tscore=-0.75;"
                               ])
-        temp_fa = tempfile.NamedTemporaryFile(mode="wt", suffix=".fa")
-        temp_gff = tempfile.NamedTemporaryFile(mode="wt", suffix=".gff3")
-        print("##gff-version\t3", file=temp_gff)
-        print(prodigal, file=temp_gff)
-        print(fasta, file=temp_fa)
-        temp_gff.flush()
-        temp_fa.flush()
-        handle = open(temp_gff.name, mode="rt")
-        fasta_index = pysam.FastaFile(temp_fa.name)
-        bed12_parser = bed12.Bed12Parser(handle,
-                                         fasta_index=fasta_index,
-                                         is_gff=True,
-                                         transcriptomic=True,
-                                         max_regression=1)
-        record = next(bed12_parser)
-        self.assertIsInstance(record, bed12.BED12)
-        self.assertFalse(record.has_start_codon)
-        self.assertFalse(record.invalid)
-        self.assertEqual(record.phase, 1, record)
+        with tempfile.NamedTemporaryFile(mode="wt", suffix=".fa") as temp_fa, \
+                tempfile.NamedTemporaryFile(mode="wt", suffix=".gff3") as temp_gff:
+            print("##gff-version\t3", file=temp_gff)
+            print(prodigal, file=temp_gff)
+            print(fasta, file=temp_fa)
+            temp_gff.flush()
+            temp_fa.flush()
+            handle = open(temp_gff.name, mode="rt")
+            fasta_index = pysam.FastaFile(temp_fa.name)
+            bed12_parser = bed12.Bed12Parser(handle,
+                                             fasta_index=fasta_index,
+                                             is_gff=True,
+                                             transcriptomic=True,
+                                             max_regression=1)
+            record = next(bed12_parser)
+            self.assertIsInstance(record, bed12.BED12)
+            self.assertFalse(record.has_start_codon)
+            self.assertFalse(record.invalid)
+            self.assertEqual(record.phase, 1, record)
+            os.remove(temp_fa.name + ".fai")
 
 
 if __name__ == "__main__":

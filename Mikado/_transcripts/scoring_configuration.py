@@ -12,6 +12,17 @@ import re
 key_pattern = re.compile(r"([^ ()]+)")
 
 
+# DO NOT TOUCH THIS. The compilation at each call, no lazy storing, is necessary to prevent
+# multiprocessing madness (eval and pickle do not mix at all). The LRU cache hopefully speeds things up
+# in the context of a single process
+@functools.lru_cache(maxsize=1000, typed=True)
+def compiler(expression):
+    try:
+        return compile(expression, "<json>", "eval")
+    except SyntaxError:
+        raise InvalidJson("Invalid expression:\n{}".format(expression))
+
+
 @dataclass
 class SizeFilter:
     operator: str = field(metadata={"required": True, "validate": validate.OneOf(["gt", "ge", "lt", "le"])})
@@ -163,15 +174,6 @@ class Requirements:
 
     @property
     def compiled(self):
-        # DO NOT TOUCH THIS. The compilation at each call, no lazy storing, is necessary to prevent
-        # multiprocessing madness (eval and pickle do not mix at all). The LRU cache hopefully speeds things up
-        # in the context of a single process
-        @functools.lru_cache(maxsize=10, typed=True)
-        def compiler(expression):
-            try:
-                return compile(expression, "<json>", "eval")
-            except SyntaxError:
-                raise InvalidJson("Invalid expression:\n{}".format(self._expression))
         return compiler(self._expression)
 
     def copy(self):

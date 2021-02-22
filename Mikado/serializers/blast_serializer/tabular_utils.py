@@ -376,7 +376,6 @@ class Preparer(mp.Process):
                 hits, hsps = load_into_db(self, hits, hsps, force=False, raw=True)
         _, _ = load_into_db(self, hits, hsps, force=True, raw=True)
         self.logger.debug("Finished %s", self.identifier)
-        os.remove(self.index_file)  # Clean it up
         return True
 
 
@@ -475,7 +474,7 @@ def parse_tab_blast(self,
             for item in split:
                 vals = (tuple(item[0]), values[item[1], :].tolist())
                 msgpack.dump(vals, index)
-            assert os.path.exists(index_files[idx])
+            assert os.path.exists(index_files[idx].name)
             processes[idx].start()
         try:
             res = [proc.join() for proc in processes]

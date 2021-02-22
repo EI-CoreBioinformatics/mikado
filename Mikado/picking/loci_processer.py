@@ -39,7 +39,6 @@ def merge_loci(mapper,
     :param num_temp: number of temporary files.
     :param out_handles: The names of the output loci files.
     :param logger: logger to use
-    :param tempdir: Temporary directory where the temporary files are located.
     :return:
     """
 
@@ -320,7 +319,6 @@ class LociProcesser(Process):
                  logging_queue,
                  status_queue,
                  identifier,
-                 tempdir="mikado_pick_tmp"
                  ):
 
         super(LociProcesser, self).__init__()
@@ -343,7 +341,6 @@ class LociProcesser(Process):
         self.logger.setLevel(self.configuration.log_settings.log_level)
 
         self.logger.propagate = False
-        self._tempdir = tempdir
         self.locus_queue = locus_queue
         self.logger.debug("Starting Process %s", self.name)
 
@@ -396,12 +393,6 @@ class LociProcesser(Process):
         self.logger.setLevel(self.configuration.log_settings.log_level)
         self.logger.propagate = False
         self.engine = dbutils.connect(self.configuration, self.logger)
-        # self.analyse_locus = functools.partial(analyse_locus,
-        #                                        configuration=self.configuration,
-        #                                        engine=self.engine,
-        #                                        session=self.session,
-        #                                        logging_queue=self.logging_queue)
-        # self.dump_db, self.dump_conn, self.dump_cursor = self._create_temporary_store(self._tempdir, self.identifier)
         self.handler = logging_handlers.QueueHandler(self.logging_queue)
         self.logger.addHandler(self.handler)
         self.connect_to_db(engine=None, session=None)

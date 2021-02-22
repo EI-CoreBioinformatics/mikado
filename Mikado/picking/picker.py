@@ -659,17 +659,7 @@ class Picker:
         status_queue = self.manager.JoinableQueue(-1)
 
         handles = list(self.__get_output_files())
-        if self.configuration.pick.run_options.shm is True:
-            basetempdir = "/dev/shm"
-        else:
-            basetempdir = self.configuration.pick.files.output_dir
-
-        tempdirectory = tempfile.TemporaryDirectory(suffix="",
-                                                    prefix="mikado_pick_tmp",
-                                                    dir=basetempdir)
-        tempdir = tempdirectory.name
-        self.logger.info("Starting Mikado with multiple processes, temporary directory:\n\t%s",
-                         tempdir)
+        self.logger.info("Starting Mikado with multiple processes")
 
         self.logger.debug("Creating the worker processes")
 
@@ -677,8 +667,7 @@ class Picker:
                                            locus_queue,
                                            self.logging_queue,
                                            status_queue,
-                                           _,
-                                           tempdir)
+                                           _)
                              for _ in range(1, self.procs+1)]
         # Start all processes
         [_.start() for _ in working_processes]
@@ -731,20 +720,7 @@ class Picker:
                    source=self.configuration.pick.output_format.source)
 
         self.logger.info("Finished merging partial files")
-        try:
-            self.logger.debug("Cleaning up the temporary directory")
-            tempdirectory.cleanup()
-            self.logger.debug("Finished cleaning up")
-            pass
-        except (OSError, FileNotFoundError, FileExistsError) as exc:
-            self.logger.warning("Failed to clean up the temporary directory %s, error: %s",
-                                tempdir, exc)
-        except KeyboardInterrupt:
-            raise
-        except Exception as exc:
-            self.logger.exception("Failed to clean up the temporary directory %s, error: %s", exc)
-        finally:
-            return
+        return
 
     def __check_max_intron(self, current, invalids, row, max_intron):
         previous = None

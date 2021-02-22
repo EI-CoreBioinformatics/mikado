@@ -4,6 +4,7 @@ Bugfix and speed improvement release.
 
 - Fix a bug that prevented Mikado from reporting the correct metrics/scores in the output of *loci* files. This bug only affected reporting, not the results themselves. See [issue 376](https://github.com/EI-CoreBioinformatics/mikado/issues/376)  
 - Fix a bug in printing out the statistics for an annotation file with `mikado util stats` ([issue 378](https://github.com/EI-CoreBioinformatics/mikado/issues/378))
+- When doing serialising, Mikado now by default will drop and reload everything. The previous default behaviour results in hard-to-parse errors and is not what is usually desired anyway.
 - Improved the performance of pick in multiple ways ([issue 375](https://github.com/EI-CoreBioinformatics/mikado/issues/375)):
   - now only external metrics that are requested in the scoring file will be printed out in the final `metrics` files. This reduces runtime in e.g. Minos. The new CLI switch `--report-all-external-metrics` (both in `configure` and `pick`) can be used to revert to the old behaviour.
   - the `external` table in the Mikado database now is indexed properly, increasing speed. 

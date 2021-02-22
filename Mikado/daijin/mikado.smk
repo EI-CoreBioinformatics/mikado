@@ -390,7 +390,7 @@ rule mikado_serialise:
     # conda: os.path.join(envdir, "mikado.yaml")
     shell: "{params.load} mikado serialise {params.blast} {params.blast_target} --start-method=spawn \
 --transcripts={input.transcripts} --genome_fai={input.fai} --configuration={params.cfg} {params.no_start_adj} \
---force {params.orfs} -od {MIKADO_DIR} --procs={threads} -l {log}"
+{params.orfs} -od {MIKADO_DIR} --procs={threads} -l {log}"
 
 rule mikado_pick:
     input:

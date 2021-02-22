@@ -583,8 +583,9 @@ class TranscriptBase:
             if key in ("_TranscriptBase__segmenttree", "_TranscriptBase__cds_tree",
                        "_Transcript__segmenttree", "_Transcript__cds_tree"):
                 continue
+            state[key] = item
             try:
-                state[key] = copy.deepcopy(item)
+                state[key] = copy.copy(item)
             except TypeError:
                 raise TypeError(key, item)
 

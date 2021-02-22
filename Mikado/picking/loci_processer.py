@@ -1,3 +1,4 @@
+import zlib
 from multiprocessing import Process
 from typing import Union
 
@@ -457,6 +458,7 @@ class LociProcesser(Process):
         print_subloci = (self.configuration.pick.files.subloci_out is not None and
                          len(self.configuration.pick.files.subloci_out) > 0)
 
+        accumulator = []
         while True:
             vals = self.locus_queue.get()
             try:
@@ -466,6 +468,10 @@ class LociProcesser(Process):
 
             if counter == "EXIT":
                 self.logger.debug("EXIT received for %s", self.name)
+                accumulator = zlib.compress(msgpack.dumps(accumulator))
+                self.status_queue.put(accumulator)
+                self.logger.debug("Put all the remaining results into the queue for %s (size %s)", self.name,
+                                  sys.getsizeof(accumulator))
                 self.locus_queue.task_done()
                 self.locus_queue.put((counter, None))
                 break
@@ -520,13 +526,14 @@ class LociProcesser(Process):
                 if len(stranded_loci) == 0:
                     self.logger.warning("No loci left for index %d", counter)
                 else:
+                    if len(accumulator) >= 100:
+                        accumulator = zlib.compress(msgpack.dumps(accumulator))
+                        self.status_queue.put(accumulator)
+                        accumulator = []
                     try:
-                        serialise_locus(stranded_loci,
-                                        self.status_queue,
-                                        counter,
-                                        print_cds=print_cds,
-                                        print_monosubloci=print_monoloci,
-                                        print_subloci=print_subloci)
+                        accumulator = serialise_locus(
+                            stranded_loci, accumulator, counter, print_cds=print_cds,
+                            print_monosubloci=print_monoloci, print_subloci=print_subloci)
                     except KeyboardInterrupt:
                         raise
                     except Exception as exc:

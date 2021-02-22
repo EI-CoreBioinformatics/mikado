@@ -13,6 +13,7 @@ import shutil
 import tempfile
 import random
 import logging
+import zlib
 from logging import handlers as logging_handlers
 import functools
 import multiprocessing
@@ -690,24 +691,30 @@ class Picker:
         mapper["results"] = dict()
 
         while mapper["done"] != mapper["submit"]:
-            counter, chrom, num_genes, loci, subloci, monoloci = status_queue.get()
-            mapper["done"].add(counter)
-            if counter in mapper["results"]:
-                self.logger.fatal("%d double index found!", counter)
-                raise KeyError
+            results = status_queue.get()
+            if results[0] == "EXIT":
+                self.logger.error("We have not retrieved all loci!")
+                raise ValueError
+            results = msgpack.loads(zlib.decompress(results))
+            for result in results:
+                counter, chrom, num_genes, loci, subloci, monoloci = result
+                mapper["done"].add(counter)
+                if counter in mapper["results"]:
+                    self.logger.fatal("%d double index found!", counter)
+                    raise KeyError
 
-            mapper["results"][counter] = (chrom, num_genes, loci, subloci, monoloci)
-            if len(mapper["done"]) > percs[curr_perc]:
-                curr_perc += 1
-                while len(mapper["done"]) > percs[curr_perc]:
+                mapper["results"][counter] = (chrom, num_genes, loci, subloci, monoloci)
+                if len(mapper["done"]) > percs[curr_perc]:
                     curr_perc += 1
-                real_perc = round(len(mapper["done"]) * 100 / total)
-                self.logger.info("Done %s%% of loci (%s out of %s)", real_perc,
-                                 len(mapper["done"]), total)
-            chrom = mapper[counter]
-            mapper[chrom]["done"].add(counter)
-            if mapper[chrom]["done"] == mapper[chrom]["submit"]:
-                self.logger.info("Finished with chromosome %s", chrom)
+                    while len(mapper["done"]) > percs[curr_perc]:
+                        curr_perc += 1
+                    real_perc = round(len(mapper["done"]) * 100 / total)
+                    self.logger.info("Done %s%% of loci (%s out of %s)", real_perc,
+                                     len(mapper["done"]), total)
+                chrom = mapper[counter]
+                mapper[chrom]["done"].add(counter)
+                if mapper[chrom]["done"] == mapper[chrom]["submit"]:
+                    self.logger.info("Finished with chromosome %s", chrom)
 
         [_.join() for _ in working_processes]
         self.logger.info("Joined children processes; starting to merge partial files")

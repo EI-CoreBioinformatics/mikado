@@ -17,11 +17,11 @@ def manage_index(index, data, source, configuration):
     chrom, num_genes, stranded_loci, sublocus_dump, monolocus_dump = data[index]
 
     loci = []
-    sublocus_dump = decoder(msgpack.loads(sublocus_dump, raw=False))
+    sublocus_dump = msgpack.loads(sublocus_dump, raw=False)
 
     sub_length = len(sublocus_dump)
 
-    monolocus_dump = decoder(msgpack.loads(monolocus_dump, raw=False))
+    monolocus_dump = msgpack.loads(monolocus_dump, raw=False)
 
     mono_length = len(monolocus_dump)
 

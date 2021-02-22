@@ -1,3 +1,19 @@
+# Version 2.1.0
+
+Bugfix and speed improvement release.
+
+- Fix a bug that prevented Mikado from reporting the correct metrics/scores in the output of *loci* files. This bug only affected reporting, not the results themselves. See [issue 376](https://github.com/EI-CoreBioinformatics/mikado/issues/376)  
+- Fix a bug in printing out the statistics for an annotation file with `mikado util stats` ([issue 378](https://github.com/EI-CoreBioinformatics/mikado/issues/378))
+- Improved the performance of pick in multiple ways ([issue 375](https://github.com/EI-CoreBioinformatics/mikado/issues/375)):
+  - now only external metrics that are requested in the scoring file will be printed out in the final `metrics` files. This reduces runtime in e.g. Minos. The new CLI switch `--report-all-external-metrics` (both in `configure` and `pick`) can be used to revert to the old behaviour.
+  - the `external` table in the Mikado database now is indexed properly, increasing speed. 
+  - batch and compress the results before sending them through a queue (@ljyanesm)
+  - @brentp enhanced the bcbio `intervaltree.pyx` into `quicksect`. Copied this new version of interval tree and adapted it to Mikado.
+  - Using sqlalchemy bakeries for the SQLite queries, as well as LRU caches in various parts of Mikado.
+  - Removed excessive copying in multiple parts of the program, especially regarding the configuration objects and during padding.
+  - Using `operator.attrgetter` instead of a custom (and slower) recursive `getattr` function.
+  
+
 # Version 2.0.2
 
 Bugfix release.

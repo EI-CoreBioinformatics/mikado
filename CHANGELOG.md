@@ -3,6 +3,7 @@
 Hotfix release:
 - **IMPORTANT** Mikado now uses correctly the scores associated to a given source.
 - **IMPORTANT** Mikado was not forwarding the original source to transcripts derived by chimera splitting. This compounded the issue above.
+- Corrected the issue that caused the issues above, ie transcripts where not dumping and reloading all relevant fields. Now implemented properly and tested with specific new routines. 
 - Corrected an issue that caused Mikado to erroneously calculate twice the metrics and scores of loci, therefore reporting some wrong ones in the output files.
   - affected metrics where e.g. `selected_cds_intron_fraction` and `combined_cds_intron_fraction`. 
 - Removed `quicksect` from the requirements.

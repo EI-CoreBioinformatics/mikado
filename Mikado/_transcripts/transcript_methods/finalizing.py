@@ -690,7 +690,7 @@ def finalize(transcript):
                 else:
                     raise InvalidCDS(exc)
 
-    transcript.__cdna_length = None
+    transcript._cdna_length = None
     __basic_final_checks(transcript)
     # Sort the exons by start then stop
 

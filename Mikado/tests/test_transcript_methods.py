@@ -10,7 +10,7 @@ from Mikado.configuration import MikadoConfiguration
 from sqlalchemy.engine import reflection
 import itertools
 
-from Mikado.utilities import Interval
+from Mikado.utilities import Interval, IntervalTree
 from ..configuration.configurator import load_and_validate_config
 from ..loci import Transcript
 from ..parsers.bed12 import BED12
@@ -997,6 +997,117 @@ Chr5	TAIR10	exon	5256	5576	.	-	.	Parent=AT5G01015.1"""
         new_t = Transcript()
         new_t.load_dict(t1_state)
         assert new_t.blast_hits == self.t1.blast_hits
+
+
+class TestPicklingAndToFromDict(unittest.TestCase):
+
+    def test_as_dict_and_load(self):
+        bed_line = "Chr5\t26584773\t26587782\tID=at_AT5G66610.2;coding=True;phase=0\t0\t+\t26585222\t26587755\t0\t10\t106,54,545,121,78,105,213,63,119,496\t0,446,571,1208,1443,1646,1864,2160,2310,2513"
+        original = Transcript(bed_line)
+        original.external.foo = 10
+
+        original.finalize()
+        recovered = Transcript()
+        dumped = original.as_dict()
+        recovered.load_dict(dumped, trust_orf=False)
+
+        missed_keys = []
+        new_keys = []
+        different_keys = []
+
+        for key in original.__dict__:
+            if not key in recovered.__dict__:
+                missed_keys.append(key)
+                continue
+            new, old = recovered.__dict__[key], original.__dict__[key]
+            if not isinstance(new, type(old)):
+                different_keys.append((key, str(new), str(old)))
+                continue
+            elif old != new:
+                if "external" in key:
+                    previous = dict((key, value) for key, value in old.items())
+                    now = dict((key, value) for key, value in new.items())
+                    different = False
+                    for key in set.union(set(previous.keys()), set(now.keys())):
+                        if key not in previous or key not in now or now[key] != previous[key]:
+                            different = True
+                            break
+                    if different:  # and max(len(now), len(previous)) > 0:
+                        different_keys.append((key, str(previous), str(now)))
+                elif isinstance(recovered.__dict__[key], IntervalTree):
+                    old_ivs = []
+                    new_ivs = []
+                    old.traverse(lambda iv: old_ivs.append(iv))
+                    new.traverse(lambda iv: new_ivs.append(iv))
+                    old_ivs = sorted(old_ivs)
+                    new_ivs = sorted(new_ivs)
+                    if old_ivs != new_ivs:
+                        different_keys.append((key, str(old_ivs), str(new_ivs)))
+                else:
+                    different_keys.append((key, str(old), str(new)))
+
+        for key in recovered.__dict__:
+            if not key in original.__dict__:
+                new_keys.append(key)
+
+        self.assertEqual(len(missed_keys), 0, "Missed keys: {}".format(", ".join([str(_) for _ in missed_keys])))
+        self.assertEqual(len(new_keys), 0, "New keys: {}".format(", ".join([str(_) for _ in new_keys])))
+        self.assertEqual(len(different_keys), 0, "New keys: {}".format(", ".join([str(_) for _ in different_keys])))
+
+    def test_pickling_comprehensive(self):
+        bed_line = "Chr5\t26584773\t26587782\tID=at_AT5G66610.2;coding=True;phase=0\t0\t+\t26585222\t26587755\t0\t10\t106,54,545,121,78,105,213,63,119,496\t0,446,571,1208,1443,1646,1864,2160,2310,2513"
+        original = Transcript(bed_line)
+        original.external.foo = 10
+
+        original.finalize()
+        recovered = pickle.loads(pickle.dumps(original))
+        missed_keys = []
+        new_keys = []
+        different_keys = []
+
+        for key in original.__dict__:
+            if not key in recovered.__dict__:
+                if key in ["engine", "session", "sessionmaker"]:
+                    # We expect these keys to be missing, they cannot be pickled and we are not trasmitting
+                    # the configuration.
+                    continue
+                missed_keys.append(key)
+                continue
+            new, old = recovered.__dict__[key], original.__dict__[key]
+            if not isinstance(new, type(old)):
+                different_keys.append((key, str(new), str(old)))
+                continue
+            elif old != new:
+                if "external" in key:
+                    previous = dict((key, value) for key, value in old.items())
+                    now = dict((key, value) for key, value in new.items())
+                    different = False
+                    for key in set.union(set(previous.keys()), set(now.keys())):
+                        if key not in previous or key not in now or now[key] != previous[key]:
+                            different = True
+                            break
+                    if different:  # and max(len(now), len(previous)) > 0:
+                        different_keys.append((key, str(previous), str(now)))
+                elif isinstance(recovered.__dict__[key], IntervalTree):
+                    old_ivs = []
+                    new_ivs = []
+                    old.traverse(lambda iv: old_ivs.append(iv))
+                    new.traverse(lambda iv: new_ivs.append(iv))
+                    old_ivs = sorted(old_ivs)
+                    new_ivs = sorted(new_ivs)
+                    if old_ivs != new_ivs:
+                        different_keys.append((key, str(old_ivs), str(new_ivs)))
+                else:
+                    different_keys.append((key, str(old), str(new)))
+
+        for key in recovered.__dict__:
+            if not key in original.__dict__:
+                new_keys.append(key)
+
+        self.assertEqual(len(missed_keys), 0, "Missed keys: {}".format(", ".join([str(_) for _ in missed_keys])))
+        self.assertEqual(len(new_keys), 0, "New keys: {}".format(", ".join([str(_) for _ in new_keys])))
+        self.assertEqual(len(different_keys), 0, "New keys: {}".format(", ".join([str(_) for _ in different_keys])))
+
 
 if __name__ == '__main__':
     unittest.main()

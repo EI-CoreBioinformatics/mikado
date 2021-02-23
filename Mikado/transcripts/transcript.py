@@ -26,6 +26,7 @@ class Transcript(TranscriptBase):
 
     def __init__(self, *args, configuration=None, **kwargs):
         super().__init__(*args, **kwargs)
+        self.__configuration = None
         self.configuration = configuration
 
     @property
@@ -51,8 +52,8 @@ class Transcript(TranscriptBase):
 
         if configuration is None:
             configuration = default_config.copy()
-            assert isinstance(configuration, (MikadoConfiguration, DaijinConfiguration))
 
+        assert isinstance(configuration, (MikadoConfiguration, DaijinConfiguration))
         self.__configuration = configuration
 
     def __getstate__(self):
@@ -66,10 +67,10 @@ class Transcript(TranscriptBase):
         return state
 
     def __setstate__(self, state):
+        self.configuration = state.pop("configuration", None)
         self.__dict__.update(state)
         self._calculate_cds_tree()
         self._calculate_segment_tree()
-        # Set the logger to NullHandler
         self.logger = None
 
     def split_by_cds(self) -> List:

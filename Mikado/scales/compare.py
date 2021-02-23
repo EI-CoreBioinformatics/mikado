@@ -92,11 +92,6 @@ def compare(args):
     :param args: the argparse Namespace
     """
 
-    # Flags for the parsing
-    # pylint: disable=no-member
-    # multiprocessing.set_start_method(method="spawn", force=True)
-    # pylint: enable=no-member
-
     if isinstance(args.out, str):
         _out_folder = os.path.dirname(args.out)
         if _out_folder:

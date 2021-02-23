@@ -1199,7 +1199,6 @@ exon data is on a different chromosome, {exon_data.chrom}. \
                 else:
                     to_store = [segment[0], [segment[1][0],
                                              segment[1][1]]]
-
                 state["orfs"][str(index)].append(to_store)
         state["parent"] = getattr(self, "parent")
         state["id"] = getattr(self, "id")

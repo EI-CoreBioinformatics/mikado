@@ -24,6 +24,11 @@ class Transcript(TranscriptBase):
     blast_baked += lambda q: q.order_by(asc(Hit.evalue))
     # blast_baked += lambda q: q.limit(bindparam("max_target_seqs"))
 
+    def __init__(self, *args, configuration=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.__configuration = None
+        self.configuration = configuration
+
     @property
     def configuration(self):
         """
@@ -47,8 +52,8 @@ class Transcript(TranscriptBase):
 
         if configuration is None:
             configuration = default_config.copy()
-            assert isinstance(configuration, (MikadoConfiguration, DaijinConfiguration))
 
+        assert isinstance(configuration, (MikadoConfiguration, DaijinConfiguration))
         self.__configuration = configuration
 
     def __getstate__(self):
@@ -62,10 +67,10 @@ class Transcript(TranscriptBase):
         return state
 
     def __setstate__(self, state):
+        self.configuration = state.pop("configuration", None)
         self.__dict__.update(state)
         self._calculate_cds_tree()
         self._calculate_segment_tree()
-        # Set the logger to NullHandler
         self.logger = None
 
     def split_by_cds(self) -> List:
@@ -139,7 +144,7 @@ class Transcript(TranscriptBase):
     # We need to overload this because otherwise we won't get the metrics from the base class.
     @classmethod
     @functools.lru_cache(maxsize=None, typed=True)
-    def get_modifiable_metrics(cls) -> list:
+    def get_modifiable_metrics(cls) -> set:
 
         metrics = TranscriptBase.get_modifiable_metrics()
         for member in inspect.getmembers(cls):

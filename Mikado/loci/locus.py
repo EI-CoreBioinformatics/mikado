@@ -156,6 +156,7 @@ class Locus(Abstractlocus):
             self.logger.debug("Starting to finalise AS for %s", self.id)
 
         if _scores is not None:
+            self.logger.warning("Loadin external scores: %s", _scores)
             self._load_scores(_scores)
         else:
             self.metrics_calculated = False
@@ -446,10 +447,8 @@ it is marked as having 0 retained introns. This is an error.".format(transcript=
 
         [self._add_to_redundant_splicing_codes(_) for _ in ("=", "_", "n", "c")]
         [self._remove_from_alternative_splicing_codes(_) for _ in ("=", "_", "n", "c")]
-
         order = sorted([(tid, self[tid].score) for tid in self if tid != self.primary_transcript_id],
                        key=operator.itemgetter(1))
-
         others = set(self.transcripts.keys())
 
         for tid, score in order:
@@ -969,7 +968,9 @@ it is marked as having 0 retained introns. This is an error.".format(transcript=
 
         __to_modify = self._find_communities_boundaries(five_graph, three_graph)
 
-        self.logger.debug("To modify: %s", __to_modify)
+        self.logger.debug("To modify: %s",
+                          dict((tid, [_ if not isinstance(_, Transcript) else _.id for _ in __to_modify[tid]]) for tid in __to_modify)
+                          )
         templates = set()
         if backup is None:
             backup = dict((tid, self.transcripts[tid].deepcopy()) for tid in self.transcripts)
@@ -987,8 +988,8 @@ it is marked as having 0 retained introns. This is an error.".format(transcript=
                               __to_modify[tid][1] if not __to_modify[tid][1] else __to_modify[tid][1].end,
                               self[tid].end)
             try:
-                new_transcript = expand_transcript(self.transcripts[tid],
-                                                   backup[tid],
+                new_transcript = expand_transcript(backup[tid],
+                                                   self.transcripts[tid],
                                                    __to_modify[tid][0],
                                                    __to_modify[tid][1],
                                                    self.fai,
@@ -1057,7 +1058,9 @@ it is marked as having 0 retained introns. This is an error.".format(transcript=
                 self.logger.debug("Putative 3' for %s: %s. Best: %s", ancestor, __putative[ancestor], best)
             three_graph.remove_nodes_from(set.union(sinks, __putative.keys()))
 
-        self.logger.debug("Communities for modifications: %s", __to_modify)
+        self.logger.debug("Communities for modifications: %s",
+                          dict((tid, [_ if not isinstance(_, Transcript) else _.id for _ in __to_modify[tid]])
+                               for tid in __to_modify))
 
         return __to_modify
 
@@ -1301,6 +1304,7 @@ it is marked as having 0 retained introns. This is an error.".format(transcript=
         self.primary_transcript.id = primary_id
         self.transcripts[primary_id] = self.primary_transcript
         self.primary_transcript_id = primary_id
+        assert self.transcripts[primary_id].selected_cds_introns == self.transcripts[old_primary].selected_cds_introns
         del self.transcripts[old_primary]
         self._orf_doubles[primary_id] = set([_.replace(old_primary, primary_id)
                                              for _ in self._orf_doubles.pop(old_primary, set())])
@@ -1323,8 +1327,26 @@ it is marked as having 0 retained introns. This is an error.".format(transcript=
             assert self._orf_doubles[new_id] is not None
             mapper[tid] = new_id
 
-        self.scores_calculated = False
-        self.metrics_calculated = False
+        if self.scores_calculated is True:
+            new_scores = dict()
+            for tid in mapper:
+                values = self.scores[tid].copy()
+                values["tid"] = mapper[tid]
+                values["alias"] = tid
+                new_scores[mapper[tid]] = values
+            self.scores = new_scores
+
+        if self.metrics_calculated is True:
+            new_metrics = dict()
+            for tid in mapper:
+                values = self._metrics[tid].copy()
+                values["tid"] = mapper[tid]
+                values["alias"] = tid
+                new_metrics[mapper[tid]] = values
+            self._metrics = new_metrics
+
+        # self.scores_calculated = False
+        # self.metrics_calculated = False
 
     # pylint: enable=invalid-name,arguments-differ
 

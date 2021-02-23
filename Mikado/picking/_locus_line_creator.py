@@ -30,5 +30,3 @@ def _create_locus_lines(stranded_locus: Superlocus,
     locus_scores_rows = [x for x in stranded_locus.print_loci_scores()]
     batch = [locus_lines, locus_metrics_rows, locus_scores_rows]
     return batch, gene_counter
-
-

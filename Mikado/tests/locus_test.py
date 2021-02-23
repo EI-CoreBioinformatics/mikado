@@ -3,7 +3,8 @@
 """
 Very basic, all too basic test for some functionalities of locus-like classes.
 """
-
+import operator
+import random
 import unittest
 import os.path
 import logging
@@ -370,6 +371,37 @@ class AbstractLocusTester(unittest.TestCase):
         self.assertTrue(s2.fixed_size)
         for attr in ["parent", "chrom", "start", "end", "strand", "attributes"]:
             self.assertEqual(getattr(s, attr), getattr(s2, attr))
+
+    def test_pickling_unpickling(self):
+
+        bed_line = "Chr5\t26585506\t26586850\tID=c58_g1_i2.mrna1.35;coding=False\t99.0\t+\t26585506\t26585507\t0\t5\t383,121,78,105,213\t0,475,710,913,1131"
+        conf = MikadoConfiguration()
+        conf.prepare.files.source_score = {"at": 5, "tr": -1, "pb": 1, "st": 0}
+        t = Transcript(bed_line, source="tr", configuration=conf)
+        t.finalize()
+        for metrics in t.get_available_metrics():
+            try:
+                rtype = operator.attrgetter("{metric}.rtype")(Transcript)
+            except AttributeError:
+                continue
+            if rtype == "float":
+                value = random.random()
+            elif rtype == "bool":
+                value = random.choice([True, False])
+            elif rtype == "int":
+                value = random.randint(0, 1000)
+            else:
+                continue
+            try:
+                setattr(t, metrics, value)
+            except AttributeError:
+                continue
+        for loctype in Sublocus, Monosublocus, Superlocus, Locus:
+            locus = loctype(t)
+            nocus = pickle.loads(pickle.dumps(locus))
+            for metric in t.get_available_metrics():
+                original, new = getattr(t, metric), getattr(locus[t.id], metric)
+                self.assertEqual(original, new, (metric, original, new))
 
 
 class LocusTester(unittest.TestCase):
@@ -1098,6 +1130,7 @@ class MonoHolderTester(unittest.TestCase):
                           "CDS")
         self.t1.finalize()
         self.assertIs(self.t1.is_coding, True)
+        self.assertTrue(hasattr(self.t1, "configuration"))
 
     def testCdsOverlap(self):
 
@@ -1330,6 +1363,8 @@ class MonoHolderTester(unittest.TestCase):
                 t2.add_exons([(t2.start, 1560), (2801, t2.end)])
                 t2.add_exons([(1402 + phase, 1560), (2801, 3850 + phase)], "CDS")
                 self.assertIs(t2.is_coding, True)
+                self.assertIsInstance(self.t1, Transcript)
+                self.assertIsInstance(t2, Transcript)
                 self.assertIs(MonosublocusHolder.is_intersecting(self.t1,
                                                                  t2,
                                                                  cds_only=True,

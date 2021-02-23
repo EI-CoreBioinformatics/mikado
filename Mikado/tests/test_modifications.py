@@ -1,3 +1,5 @@
+from Mikado._transcripts.scoring_configuration import SizeFilter
+
 from .. import utilities, exceptions
 from ..parsers.GFF import GffLine
 from ..loci import Transcript
@@ -222,15 +224,30 @@ class TestPadding(unittest.TestCase):
                                          (locus[self.reference.id].end, template.end))
                         self.assertNotIn(template.id, locus)
 
-    @mark.triage
     def test_removal_after_padding(self):
+
+        """Here we test that, given three transcripts, the first one will be expanded to be identical to the second;
+        the second will be removed as redundant; the third will be expanded to compatible with the padded first.
+        """
 
         logger = create_default_logger("test_add_two_partials", "INFO")
         json_conf = load_and_validate_config(None)
         json_conf.reference.genome = self.fai
+        json_conf.pick.alternative_splicing.min_cds_overlap = 0.2
+        json_conf.pick.alternative_splicing.min_cdna_overlap = 0.2
         json_conf.pick.alternative_splicing.only_confirmed_introns = False
         json_conf.pick.alternative_splicing.keep_retained_introns = True
         json_conf.pick.alternative_splicing.pad = True
+        json_conf.scoring.requirements.expression = ["cdna_length"]
+        json_conf.scoring.requirements.parameters = {"cdna_length": SizeFilter(operator="gt", value=0)}
+        json_conf.scoring.requirements._expression = json_conf.scoring.requirements._create_expression(
+            json_conf.scoring.requirements.expression,
+            json_conf.scoring.requirements.parameters)
+        json_conf.scoring.as_requirements.expression = ["cdna_length"]
+        json_conf.scoring.as_requirements.parameters = {"cdna_length": SizeFilter(operator="gt", value=0)}
+        json_conf.scoring.as_requirements._expression = json_conf.scoring.requirements._create_expression(
+            json_conf.scoring.requirements.expression,
+            json_conf.scoring.requirements.parameters)
 
         t1 = Transcript(BED12(
             "Chr5\t26584779\t26587869\tID=AT5G66610.1;coding=True;phase=0\t0\t+\t26585222\t26587755\t0\t11\t\
@@ -250,14 +267,13 @@ class TestPadding(unittest.TestCase):
         t2_1.finalize()
         t2_2.finalize()
         t1.is_reference = True
-
+        self.assertEqual(t1.start, 26584780)
         locus = Locus(t1, logger=logger, configuration=json_conf)
         locus.add_transcript_to_locus(t2_1, check_in_locus=False)
         locus.add_transcript_to_locus(t2_2, check_in_locus=False)
         self.assertTrue(locus.primary_transcript_id == t1.id)
-        # locus.logger.setLevel("DEBUG")
+        locus.logger.setLevel("DEBUG")
         locus.finalize_alternative_splicing(_scores={t1.id: 20, t2_1.id: 15, t2_2.id: 10})
-
         self.assertIn(t1.id, locus.transcripts)
         if t2_1.id in locus.transcripts:
             from ..scales import Assigner
@@ -269,10 +285,13 @@ class TestPadding(unittest.TestCase):
 
         self.assertIn(t2_2.id, locus.transcripts, "\n".join(tr.format("bed12") for tr in locus))
         self.assertTrue(locus[t2_2.id].attributes["padded"])
-        self.assertEqual(locus[t2_2.id].start, t1.start,
+        # self.assertTrue(locus[t1.id].attributes["padded"])
+        self.assertGreaterEqual(t1.start, locus[t1.id].start, locus[t1.id].format("bed12"))
+        self.assertEqual(locus[t2_2.id].start, locus[t1.id].start,
                          ((locus[t2_2.id].start, t1.start, t2_1.start, t2_2.start),
                           (locus[t2_2.id].end, t1.end, t2_1.end, t2_2.end)),
                          )
+        self.assertEqual(locus[t1.id].end, locus[t2_2.id].end)
 
     def test_add_two_partials(self):
 

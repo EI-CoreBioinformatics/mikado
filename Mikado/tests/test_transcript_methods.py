@@ -1,7 +1,16 @@
+import operator
 import os
+import pickle
 import unittest
+import random
+
+from Mikado.exceptions import InvalidTranscript, InvalidCDS
+
+from Mikado.configuration import MikadoConfiguration
 from sqlalchemy.engine import reflection
 import itertools
+
+from Mikado.utilities import Interval, IntervalTree
 from ..configuration.configurator import load_and_validate_config
 from ..loci import Transcript
 from ..parsers.bed12 import BED12
@@ -102,6 +111,73 @@ class TestMetricClass(unittest.TestCase):
                             return self.__test
 
                         test.rtype = invalid
+
+    def test_external_score(self):
+        conf = MikadoConfiguration()
+        conf.prepare.files.source_score = {"at": 5, "tr": -1, "pb": 1, "st": 0}
+        t = Transcript(configuration=conf)
+        for source in conf.prepare.files.source_score.keys():
+            t.original_source = source
+            self.assertEqual(t.source_score, conf.prepare.files.source_score[source])
+
+        t.original_source = "foo"
+        self.assertEqual(t.source_score, 0)
+
+    def test_pickling_unpickling_metrics(self):
+        bed_line = "Chr5\t26585506\t26586850\tID=c58_g1_i2.mrna1.35;coding=False\t99.0\t+\t26585506\t26585507\t0\t5\t383,121,78,105,213\t0,475,710,913,1131"
+        conf = MikadoConfiguration()
+        conf.prepare.files.source_score = {"at": 5, "tr": -1, "pb": 1, "st": 0}
+        t = Transcript(bed_line, source="tr", configuration=conf)
+        t.finalize()
+        for metrics in t.get_available_metrics():
+            try:
+                rtype = operator.attrgetter("{metric}.rtype")(Transcript)
+            except AttributeError:
+                continue
+            if rtype == "float":
+                value = random.random()
+            elif rtype == "bool":
+                value = random.choice([True, False])
+            elif rtype == "int":
+                value = random.randint(0, 1000)
+            try:
+                setattr(t, metrics, value)
+            except AttributeError:
+                continue
+        u = pickle.loads(pickle.dumps(t))
+        for metric in t.get_available_metrics():
+            original, new = getattr(t, metric), getattr(u, metric)
+            self.assertEqual(original, new, (metric, original, new))
+
+    def test_undefined_strand_multi(self):
+        bed_line = "Chr5\t26585506\t26586850\tID=c58_g1_i2.mrna1.35;coding=False\t99.0\t.\t26585506\t26585507\t0\t5\t383,121,78,105,213\t0,475,710,913,1131"
+        for tentative in [False, True]:
+            with self.subTest(tentative=tentative):
+                if tentative is False:
+                    with self.assertRaises(InvalidTranscript):
+                        t = Transcript(bed_line, source="tr", accept_undefined_multi=tentative)
+                else:
+                    t = Transcript(bed_line, source="tr", accept_undefined_multi=tentative)
+                    t.finalize()
+                    self.assertEqual(t.strand, None)
+
+    def test_cds_bridging_two_exons(self):
+        t = Transcript()
+        t.chrom, t.start, t.end, t.strand, t.id = "Chr1", 1001, 1500, "+", "foo"
+        t.exons = [(1001, 1200), (1301, 1500)]
+        t.combined_cds = [(1101, 1400)]
+        t.logger = create_default_logger("test_cds_bridging_two_exons", level="DEBUG")
+        with self.assertLogs("test_cds_bridging_two_exons") as cmo:
+            t.finalize()
+        self.assertFalse(t.is_coding, cmo.output)
+
+    def test_overlapping_exons(self):
+        t = Transcript()
+        t.chrom, t.start, t.end, t.strand, t.id = "Chr1", 1001, 1500, "+", "foo"
+        t.exons = [(1001, 1400), (1301, 1500)]
+        t.logger = create_default_logger("test_overlapping_exons", level="DEBUG")
+        with self.assertRaises(InvalidTranscript):
+            t.finalize()
 
     def test_category(self):
 
@@ -921,6 +997,117 @@ Chr5	TAIR10	exon	5256	5576	.	-	.	Parent=AT5G01015.1"""
         new_t = Transcript()
         new_t.load_dict(t1_state)
         assert new_t.blast_hits == self.t1.blast_hits
+
+
+class TestPicklingAndToFromDict(unittest.TestCase):
+
+    def test_as_dict_and_load(self):
+        bed_line = "Chr5\t26584773\t26587782\tID=at_AT5G66610.2;coding=True;phase=0\t0\t+\t26585222\t26587755\t0\t10\t106,54,545,121,78,105,213,63,119,496\t0,446,571,1208,1443,1646,1864,2160,2310,2513"
+        original = Transcript(bed_line)
+        original.external.foo = 10
+
+        original.finalize()
+        recovered = Transcript()
+        dumped = original.as_dict()
+        recovered.load_dict(dumped, trust_orf=False)
+
+        missed_keys = []
+        new_keys = []
+        different_keys = []
+
+        for key in original.__dict__:
+            if not key in recovered.__dict__:
+                missed_keys.append(key)
+                continue
+            new, old = recovered.__dict__[key], original.__dict__[key]
+            if not isinstance(new, type(old)):
+                different_keys.append((key, str(new), str(old)))
+                continue
+            elif old != new:
+                if "external" in key:
+                    previous = dict((key, value) for key, value in old.items())
+                    now = dict((key, value) for key, value in new.items())
+                    different = False
+                    for key in set.union(set(previous.keys()), set(now.keys())):
+                        if key not in previous or key not in now or now[key] != previous[key]:
+                            different = True
+                            break
+                    if different:  # and max(len(now), len(previous)) > 0:
+                        different_keys.append((key, str(previous), str(now)))
+                elif isinstance(recovered.__dict__[key], IntervalTree):
+                    old_ivs = []
+                    new_ivs = []
+                    old.traverse(lambda iv: old_ivs.append(iv))
+                    new.traverse(lambda iv: new_ivs.append(iv))
+                    old_ivs = sorted(old_ivs)
+                    new_ivs = sorted(new_ivs)
+                    if old_ivs != new_ivs:
+                        different_keys.append((key, str(old_ivs), str(new_ivs)))
+                else:
+                    different_keys.append((key, str(old), str(new)))
+
+        for key in recovered.__dict__:
+            if not key in original.__dict__:
+                new_keys.append(key)
+
+        self.assertEqual(len(missed_keys), 0, "Missed keys: {}".format(", ".join([str(_) for _ in missed_keys])))
+        self.assertEqual(len(new_keys), 0, "New keys: {}".format(", ".join([str(_) for _ in new_keys])))
+        self.assertEqual(len(different_keys), 0, "New keys: {}".format(", ".join([str(_) for _ in different_keys])))
+
+    def test_pickling_comprehensive(self):
+        bed_line = "Chr5\t26584773\t26587782\tID=at_AT5G66610.2;coding=True;phase=0\t0\t+\t26585222\t26587755\t0\t10\t106,54,545,121,78,105,213,63,119,496\t0,446,571,1208,1443,1646,1864,2160,2310,2513"
+        original = Transcript(bed_line)
+        original.external.foo = 10
+
+        original.finalize()
+        recovered = pickle.loads(pickle.dumps(original))
+        missed_keys = []
+        new_keys = []
+        different_keys = []
+
+        for key in original.__dict__:
+            if not key in recovered.__dict__:
+                if key in ["engine", "session", "sessionmaker"]:
+                    # We expect these keys to be missing, they cannot be pickled and we are not trasmitting
+                    # the configuration.
+                    continue
+                missed_keys.append(key)
+                continue
+            new, old = recovered.__dict__[key], original.__dict__[key]
+            if not isinstance(new, type(old)):
+                different_keys.append((key, str(new), str(old)))
+                continue
+            elif old != new:
+                if "external" in key:
+                    previous = dict((key, value) for key, value in old.items())
+                    now = dict((key, value) for key, value in new.items())
+                    different = False
+                    for key in set.union(set(previous.keys()), set(now.keys())):
+                        if key not in previous or key not in now or now[key] != previous[key]:
+                            different = True
+                            break
+                    if different:  # and max(len(now), len(previous)) > 0:
+                        different_keys.append((key, str(previous), str(now)))
+                elif isinstance(recovered.__dict__[key], IntervalTree):
+                    old_ivs = []
+                    new_ivs = []
+                    old.traverse(lambda iv: old_ivs.append(iv))
+                    new.traverse(lambda iv: new_ivs.append(iv))
+                    old_ivs = sorted(old_ivs)
+                    new_ivs = sorted(new_ivs)
+                    if old_ivs != new_ivs:
+                        different_keys.append((key, str(old_ivs), str(new_ivs)))
+                else:
+                    different_keys.append((key, str(old), str(new)))
+
+        for key in recovered.__dict__:
+            if not key in original.__dict__:
+                new_keys.append(key)
+
+        self.assertEqual(len(missed_keys), 0, "Missed keys: {}".format(", ".join([str(_) for _ in missed_keys])))
+        self.assertEqual(len(new_keys), 0, "New keys: {}".format(", ".join([str(_) for _ in new_keys])))
+        self.assertEqual(len(different_keys), 0, "New keys: {}".format(", ".join([str(_) for _ in different_keys])))
+
 
 if __name__ == '__main__':
     unittest.main()

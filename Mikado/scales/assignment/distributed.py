@@ -1,3 +1,5 @@
+import logging
+import logging.handlers
 import multiprocessing as mp
 from ...utilities.namespace import Namespace
 from .assigner import Assigner

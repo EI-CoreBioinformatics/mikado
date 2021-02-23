@@ -16,6 +16,10 @@ class Namespace:
         self.__values[item] = self.__dict__[item]
         return self.__values[item]
 
+    def __setitem__(self, key, value):
+        self.__dict__[key] =  value
+        self.__values[key] = value
+
     def __getstate__(self):
 
         default = self.default
@@ -35,6 +39,9 @@ class Namespace:
         self.__dict__.setdefault(item, self.default)
         self.__values[item] = self.__dict__[item]
         return self.__values[item]
+
+    # DO NOT IMPLEMENT THIS __setattr__ METHOD, IT LEADS TO ERRORS IN MULTIPROCESSING (SPAWN)
+    # def __setattr__(self, key, value)
 
     def update(self, dictionary):
         self.__dict__.update(dictionary)
@@ -56,5 +63,4 @@ class Namespace:
 
     def items(self):
         return self.__values.items()
-
 

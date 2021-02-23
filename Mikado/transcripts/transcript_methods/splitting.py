@@ -478,7 +478,7 @@ def __create_splitted_transcripts(transcript, cds_boundaries):
             sorted(cds_boundaries.items(), key=operator.itemgetter(0))):
         new_transcript = transcript.__class__()
         new_transcript.feature = "mRNA"
-        for attribute in ["chrom", "source", "score", "strand", "attributes"]:
+        for attribute in ["chrom", "source", "original_source", "score", "strand", "attributes"]:
             setattr(new_transcript, attribute, getattr(transcript, attribute))
         # Determine which ORFs I have on my right and left
         new_transcript.parent = transcript.parent

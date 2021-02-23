@@ -191,15 +191,14 @@ class TranscriptBase:
         self.__proportion_verified_introns_inlocus = 0
         self.__retained_fraction = 0
         self.__combined_cds_intron_fraction = self.__selected_cds_intron_fraction = 0
-        self.__non_overlapping_cds = set()
         self.__exons = set()
         self.__parent = []
         self.__combined_cds = []
         self.__exon_num = None
-
+        self.__configuration = None
         self.__combined_cds_length = 0
         self.__selected_cds = []
-        self.__cdna_length = None
+        self._cdna_length = None
         self._combined_cds_introns = set()
         self._selected_cds_introns = set()
         self.__selected_cds_locus_fraction = 0
@@ -219,6 +218,7 @@ class TranscriptBase:
 
         # Starting settings for everything else
         self.__chrom = None
+        self.__is_reference = False
         self.is_reference = is_reference
         self.feature = "transcript"
         self.__start, self.__end = None, None
@@ -229,7 +229,6 @@ class TranscriptBase:
         self.introns = set()
         self.splices = set()
         self.selected_internal_orf_index = None
-        self.non_overlapping_cds = None
         self.__verified_introns = set()
         self.segments = []
         self.intron_range = intron_range
@@ -242,9 +241,6 @@ class TranscriptBase:
         self.__cds_disrupted_by_ri = False
         self.exon_fraction = self.intron_fraction = 1
         self.cds_intron_fraction = self.selected_cds_intron_fraction = 1
-
-        # Json configuration
-        self.configuration = None
 
         # Things that will be populated by querying the database
         self.loaded_bed12 = []
@@ -448,8 +444,6 @@ class TranscriptBase:
             self.attributes[intern(key)] = val
 
         self.blast_hits = []
-        self.configuration = None
-
         if transcript_row.is_transcript is False:
             if transcript_row.is_exon is False and transcript_row.feature not in ("match", "tss", "tts"):
                 raise TypeError("Invalid GF line")
@@ -466,19 +460,8 @@ class TranscriptBase:
                 else:
                     self.id = transcript_row.transcript
                 self._possibly_without_exons = True
-                # if transcript_row.feature == "tts":  # Termination site, especially in Augustus
-                #     if self.strand == "-":
-                #         self.end = transcript_row.start
-                #     else:
-                #         self.end = transcript_row.end
-                # elif transcript_row.feature == "tss":  # Transcription start site, especially in Augustus
-                #     if self.strand == "-":
-                #         self.start = transcript_row.end
-                #     else:
-                #         self.start = transcript_row.start
-            elif transcript_row.is_exon is True and isinstance(transcript_row,
-                                                               GffLine) and transcript_row.feature not in (
-            "cDNA_match", "match"):
+            elif transcript_row.is_exon is True and isinstance(
+                    transcript_row, GffLine) and transcript_row.feature not in ("cDNA_match", "match"):
                 self.id = transcript_row.parent[0]
             else:
                 self.parent = transcript_row.gene
@@ -605,14 +588,10 @@ class TranscriptBase:
             del state["blast_baked"]
             del state["query_baked"]
 
-        state["__hit_num"] = len(self.blast_hits)
-
         return state
 
     def __setstate__(self, state):
-        hit_num = state.pop("__hit_num")
         self.__dict__.update(state)
-        assert len(self.blast_hits) == hit_num
         self._calculate_cds_tree()
         self._calculate_segment_tree()
         # Set the logger to NullHandler
@@ -904,6 +883,14 @@ exon data is on a different chromosome, {exon_data.chrom}. \
     is_reference.rtype = "bool"
 
     @property
+    def configuration(self):
+        """
+        Configuration dictionary. It can be None.
+        :return:
+        """
+        return self.__configuration
+
+    @property
     def frames(self):
         """This property will return a dictionary with three keys - the three possible frames, 0, 1 and 2 - and within
         each, a set of the positions that are in that frame. If the transcript does not have """
@@ -1073,7 +1060,7 @@ exon data is on a different chromosome, {exon_data.chrom}. \
         self.internal_orfs, self.combined_utr = [], []
         self.segments = []
         # Need to recalculate it
-        self.__cdna_length = None
+        self._cdna_length = None
         self.finalize()
         if not (self.combined_utr == self.three_utr == self.five_utr == []):
             raise ValueError(
@@ -1148,7 +1135,7 @@ exon data is on a different chromosome, {exon_data.chrom}. \
         self.internal_orfs = []
         self.__internal_orf_transcripts = []
         self.combined_utr = []
-        self.__cdna_length = None
+        self._cdna_length = None
         self.finalized = False
 
     def reverse_strand(self):
@@ -1193,9 +1180,15 @@ exon data is on a different chromosome, {exon_data.chrom}. \
             state["exons"].append([exon[0], exon[1]])
         state["introns"] = list((intron[0], intron[1]) for intron in self.introns)
         state["verified_introns"] = list((intron[0], intron[1]) for intron in self.__verified_introns)
+        state["combined_cds_introns"] = list((intron[0], intron[1]) for intron in self.combined_cds_introns)
+        state["selected_cds_introns"] = list((intron[0], intron[1]) for intron in self.selected_cds_introns)
+        state["original_source"] = self.__original_source
 
         state["orfs"] = dict()
         state["selected_orf"] = self.selected_internal_orf_index
+        state["selected_internal_orf_cds"] = []
+        for feature, (start, end), phase in self.__selected_internal_orf_cds:
+            state["selected_internal_orf_cds"].append([feature, [start, end], phase])
         for index, orf in enumerate(self.internal_orfs):
             state["orfs"][str(index)] = []
             for segment in orf:
@@ -1206,7 +1199,6 @@ exon data is on a different chromosome, {exon_data.chrom}. \
                 else:
                     to_store = [segment[0], [segment[1][0],
                                              segment[1][1]]]
-
                 state["orfs"][str(index)].append(to_store)
         state["parent"] = getattr(self, "parent")
         state["id"] = getattr(self, "id")
@@ -1216,6 +1208,11 @@ exon data is on a different chromosome, {exon_data.chrom}. \
         state["combined_cds"] = list(self.combined_cds)
         # Now let'add the things that we calculate with the basic lengths
         state["calculated"] = self.__get_calculated_stats()
+        state["feature"] = self.feature
+        state["segments"] = []
+        for segment in self.segments:
+            segment = [segment[0], [segment[1][0], segment[1][1]]]
+            state["segments"].append(segment)
 
         for metric in mmetrics:
             state[metric] = getattr(self, metric)
@@ -1233,7 +1230,7 @@ exon data is on a different chromosome, {exon_data.chrom}. \
         :return:
         """
 
-        for key in ["chrom", "source",
+        for key in ["chrom", "source", "feature",
                     "start", "end", "strand", "score",
                     "parent", "id"]:
             if key not in state:
@@ -1243,65 +1240,49 @@ exon data is on a different chromosome, {exon_data.chrom}. \
             setattr(self, key, state[key])
 
         self.external_scores.update(state.get("external", dict()))
-        self.__original_source = self.source
         self.blast_hits = state.pop("blast_hits")
         self.attributes = state["attributes"].copy()
 
         self.exons = []
         self.combined_cds = []
-        for exon in state["exons"]:
-            if len(exon) != 2:
-                raise CorruptIndex("Invalid exonic values for {}: {}".format(self.id, exon))
-            self.exons.append(tuple(exon))
-        for intron in state["introns"]:
-            if len(intron) != 2:
-                raise CorruptIndex("Invalid intronic values for {}: {}".format(self.id, intron))
-            self.introns.add(tuple(intron))
-        for intron in state["verified_introns"]:
-            if len(intron) != 2:
-                raise CorruptIndex("Invalid intronic values for {}: {}".format(self.id, intron))
-            self.__verified_introns.add(tuple(intron))
+        self._selected_cds_introns = set()
+        self._combined_cds_introns = set()
+        self.segments = []
+        self._cdna_length = None
+
+        for dump, store in zip(
+                ("exons", "introns", "verified_introns", "selected_cds_introns", "combined_cds_introns"),
+                (self.exons, self.introns, self.__verified_introns, self._selected_cds_introns,
+                 self._combined_cds_introns)):
+            for iv in state[dump]:
+                if len(iv) != 2:
+                    raise CorruptIndex("Invalid values for the {} for {}: {}".format(dump, self.id, iv))
+                if isinstance(store, set):
+                    store.add(tuple(iv))
+                else:
+                    store.append(tuple(iv))
+
+        for segment in state["segments"]:
+            if len(segment) != 2:
+                raise CorruptIndex("Invalid segment values for {}: {}".format(self.id, segment))
+            feature, (start, end) = segment
+            if not all([isinstance(feature, str), isinstance(start, int), isinstance(end, int)]):
+                raise CorruptIndex("Invalid segment values for {}: {}".format(self.id, segment))
+            self.segments.append((feature, (start, end)))
 
         self.splices = set(state["splices"])
-
         self._trust_orf = trust_orf
         self._accept_undefined_multi = accept_undefined_multi
         self.internal_orfs = []
-
         self.logger.debug("Starting to load the ORFs for %s", self.id)
-        try:
-            indices = dict((int(_), _) for _ in state["orfs"])
-            __phases = dict()
-            for index in sorted(indices.keys()):
-                orf = state["orfs"][indices[index]]
-                neworf = []
-
-                for segment in orf:
-                    if len(segment) == 3:
-                        assert segment[0] == "CDS"
-
-                        new_segment = (segment[0],
-                                       tuple(segment[1]),
-                                       int(segment[2]))
-                        self.combined_cds.append(new_segment[1])
-                        if index == 0:
-                            __phases[new_segment[1]] = new_segment[2]
-                    else:
-                        assert segment[0] != "CDS"
-                        new_segment = (segment[0],
-                                       tuple(segment[1]))
-                    neworf.append(new_segment)
-
-                self.internal_orfs.append(neworf)
-                self.phases = __phases
-            self.logger.debug("ORFs: %s", " ".join(str(_) for _ in self.internal_orfs))
-            self.selected_internal_orf_index = state["selected_orf"]
-        except (ValueError, IndexError):
-            raise CorruptIndex("Invalid values for ORFs of {}".format(self.id))
+        self.__check_and_load_dumped_orfs(state)
+        # state["external"] = dict((key, value) for key, value in self.external_scores.items())
+        for key, value in state["external"].items():
+            setattr(self.external_scores, key, value)
 
         calculated = state["calculated"]
-        del state["calculated"]
         self.__load_calculated_stats(calculated)
+        assert "_cdna_length" in self.__dict__
         for metric in self.get_modifiable_metrics():
             try:
                 setattr(self, metric, state[metric])
@@ -1316,12 +1297,47 @@ exon data is on a different chromosome, {exon_data.chrom}. \
             self.combined_utr = []
         self.finalize()
 
+    def __check_and_load_dumped_orfs(self, state):
+        """Private method to check that the dumped ORFs are as expected."""
+        try:
+            indices = dict((int(_), _) for _ in state["orfs"])
+            __phases = dict()
+            for index in sorted(indices.keys()):
+                orf = state["orfs"][indices[index]]
+                neworf = []
+
+                for segment in orf:
+                    if len(segment) == 3:
+                        assert segment[0] == "CDS"
+                        new_segment = (segment[0],
+                                       tuple(segment[1]),
+                                       int(segment[2]))
+                        self.combined_cds.append(new_segment[1])
+                        if index == 0:
+                            __phases[new_segment[1]] = new_segment[2]
+                    else:
+                        assert segment[0] != "CDS"
+                        new_segment = (segment[0],
+                                       tuple(segment[1]))
+                    neworf.append(new_segment)
+                self.internal_orfs.append(neworf)
+                self.phases = __phases
+            self.logger.debug("ORFs: %s", " ".join(str(_) for _ in self.internal_orfs))
+            self.selected_internal_orf_index = state["selected_orf"]
+        except (ValueError, IndexError):
+            raise CorruptIndex("Invalid values for ORFs of {}".format(self.id))
+        self.__selected_internal_orf_cds = []
+        for feature, (start, end), phase  in state["selected_internal_orf_cds"]:
+            self.__selected_internal_orf_cds.append((feature, (start, end), phase))
+        self.__selected_internal_orf_cds = tuple(self.__selected_internal_orf_cds)
+
     def __get_calculated_stats(self):
         """Private method to get the statistics calculated post-hoc.
         Necessary for the serialisation."""
 
         d = dict()
         self.finalize()
+        d["cdna_length"] = self.cdna_length
         d["exon_num"] = self.exon_num
         d["three_utr"] = self.three_utr
         d["five_utr"] = self.five_utr
@@ -1355,12 +1371,15 @@ exon data is on a different chromosome, {exon_data.chrom}. \
         d["selected_end_distance_from_tes"] = self.selected_end_distance_from_tes
         d["selected_start_distance_from_tss"] = self.selected_start_distance_from_tss
         d["start_distance_from_tss"] = self.start_distance_from_tss
-
+        d["selected_cds_intron_fraction"] = self.selected_cds_intron_fraction
+        d["combined_cds_intron_fraction"] = self.combined_cds_intron_fraction
+        d["original_source"] = self.original_source
         return d
 
     def __load_calculated_stats(self, state):
         """Private method to reload the calculated stats from a dictionary dump."""
 
+        self._cdna_length = state["cdna_length"]
         self.__exon_num = state["exon_num"]
         self._three_utr = state["three_utr"]
         self.__five_utr = state["five_utr"]
@@ -1385,7 +1404,6 @@ exon data is on a different chromosome, {exon_data.chrom}. \
         self.__max_intron_length = state["max_intron_length"]
         self.__highest_cds_exon_number = state["highest_cds_exon_number"]
         self.__selected_cds_exons_fraction = state["selected_cds_exons_fraction"]
-        self.__cdna_length = state["cdna_length"]
         self.__cds_not_maximal = state["cds_not_maximal"]
         self.__cds_not_maximal_fraction = state["cds_not_maximal_fraction"]
         self._end_distance_from_tes = state["end_distance_from_tes"]
@@ -1394,6 +1412,9 @@ exon data is on a different chromosome, {exon_data.chrom}. \
         self.__selected_end_distance_from_tes = state["selected_end_distance_from_tes"]
         self.__selected_start_distance_from_tss = state["selected_start_distance_from_tss"]
         self._start_distance_from_tss = state["start_distance_from_tss"]
+        self.__selected_cds_intron_fraction = state["selected_cds_intron_fraction"]
+        self.__combined_cds_intron_fraction = state["combined_cds_intron_fraction"]
+        self.__original_source = state["original_source"]
 
     def add_derived_child(self, name):
 
@@ -1712,6 +1733,14 @@ exon data is on a different chromosome, {exon_data.chrom}. \
         source value)."""
         return self.__original_source
 
+    @original_source.setter
+    def original_source(self, value):
+        if not (value is None or isinstance(value, (str, bytes))):
+            raise ValueError("Invalid source for {}: {} (type {})".format(
+                self.id, value, type(value)
+            ))
+        self.__original_source = value
+
     @property
     def gene(self):
 
@@ -1933,31 +1962,6 @@ exon data is on a different chromosome, {exon_data.chrom}. \
         return lengths
 
     @property
-    def non_overlapping_cds(self):
-        """This property returns a set containing the set union of all CDS segments
-        inside the internal CDSs. In the case of a transcript with no CDS, this is empty.
-        In the case where there is only one CDS, this returns the combined_cds holder.
-        In the case instead where there are multiple CDSs, the property will calculate
-        the set union of all CDS segments.
-        """
-        if self.__non_overlapping_cds is None:
-            self.finalize()
-            self.__non_overlapping_cds = set()
-            for internal_cds in self.internal_orfs:
-                segments = set([segment[1] for segment in internal_cds if
-                                segment[0] == "CDS"])
-                self.__non_overlapping_cds.update(segments)
-        return self.__non_overlapping_cds
-
-    @non_overlapping_cds.setter
-    def non_overlapping_cds(self, arg):
-        """
-        :param arg: the unioin of all non-overlapping CDS segments.
-        :type arg: set
-        Setter for the non_overlapping_cds property."""
-        self.__non_overlapping_cds = arg
-
-    @property
     def finalized(self):
         return self.__finalized
 
@@ -2171,18 +2175,7 @@ exon data is on a different chromosome, {exon_data.chrom}. \
         if self.strand == "-":
             return self.selected_cds[0][0]
         else:
-            try:
-                return self.selected_cds[-1][1]
-            except IndexError as exc:
-                self.logger.exception(
-                    "{0}, selected CDS: {1}, combined CDS: {2}, \
-index {3}, internal ORFs: {4}".format(
-                        exc,
-                        self.selected_cds,
-                        self.combined_cds,
-                        self.selected_internal_orf_index,
-                        self.internal_orfs))
-                raise
+            return self.selected_cds[-1][1]
 
     @property
     def monoexonic(self):
@@ -2209,11 +2202,7 @@ index {3}, internal ORFs: {4}".format(
         """
         This property returns an interval tree of the CDS segments.
         """
-        if self.finalized and len(self.__cds_tree) != len(self.combined_cds) + len(self.combined_cds_introns):
-            raise InvalidTranscript("The CDS tree for {} is invalid, it has length {} instead of {}".format(
-                self.id, len(self.__cds_tree), len(self.combined_cds) + len(self.combined_cds_introns)
-            ))
-        elif self.finalized is False:
+        if len(self.__cds_tree) != len(self.combined_cds) + len(self.combined_cds_introns):
             self._calculate_cds_tree()
 
         return self.__cds_tree
@@ -2260,16 +2249,10 @@ index {3}, internal ORFs: {4}".format(
 
         self.__segmenttree = IntervalTree()
         for exon in self.exons:
-            try:
-                self.__segmenttree.add(Interval(exon[0], exon[1], value="exon"))
-            except AssertionError as exc:
-                raise AssertionError(f"Exon for {self.id} invalid: {exon}\n{exc}")
+            self.__segmenttree.add(Interval(exon[0], exon[1], value="exon"))
 
         for intron in self.introns:
-            try:
-                self.__segmenttree.add(Interval(intron[0], intron[1], value="intron"))
-            except AssertionError as exc:
-                raise AssertionError(f"Intron for {self.id} invalid: {intron}\n{exc}")
+            self.__segmenttree.add(Interval(intron[0], intron[1], value="intron"))
 
     @property
     def derived_children(self):
@@ -2315,7 +2298,7 @@ index {3}, internal ORFs: {4}".format(
         in virtue of its origin."""
 
         if self.configuration is not None:
-            self.configuration.prepare.files.source_score.get(self.original_source, 0)
+            return self.configuration.prepare.files.source_score.get(self.original_source, 0)
         else:
             return 0
 
@@ -2380,19 +2363,14 @@ index {3}, internal ORFs: {4}".format(
     combined_utr_fraction.rtype = "float"
 
     def __calculate_cdna_length(self):
-        self.__cdna_length = int(sum([_[1] - _[0] + 1 for _ in self.exons]))
+        self._cdna_length = int(sum([_[1] - _[0] + 1 for _ in self.exons]))
 
     @Metric
     def cdna_length(self):
         """This property returns the length of the transcript."""
-        if self.__cdna_length is None and self.finalized is True:
-            raise AssertionError(
-                "A finalised transcript must have a defined cDNA length, yet for {sid} it is unset".format(
-                    sid=self.id))
-        if self.finalized is False or self.__cdna_length is None:
+        if self.finalized is False or self._cdna_length is None:
             self.__calculate_cdna_length()
-
-        return self.__cdna_length
+        return self._cdna_length
 
     cdna_length.category = "cDNA"
     cdna_length.rtype = "int"
@@ -2518,6 +2496,7 @@ index {3}, internal ORFs: {4}".format(
         return self.__five_utr_length
 
     five_utr_length.category = "UTR"
+    five_utr_length.rtype = "float"
 
     @Metric
     def five_utr_num(self):
@@ -3057,6 +3036,7 @@ when the transcript has at least one intron!""")
 
     combined_cds_intron_fraction.category = "Locus"
     combined_cds_intron_fraction.usable_raw = True
+    combined_cds_intron_fraction.rtype = "float"
 
     @Metric
     def selected_cds_intron_fraction(self):
@@ -3149,16 +3129,7 @@ when the transcript has at least one intron!""")
         This metric returns the number of introns of the transcript which are not validated
         by external data."""
 
-        num = len(set.difference(self.introns, self.verified_introns))
-        if num < 0:
-            # This is a clear error
-            self.logger.error("Erroneous number of verified introns for %s; total %d, verified %d, subtraction %d",
-                              self.id, len(self.introns), len(self.verified_introns), num)
-            self.logger.error("Introns for %s: %s; verified: %s. Resetting verified to 0.",
-                              self.id, self.introns, self.verified_introns)
-            num = len(self.introns)
-
-        return num
+        return len(set.difference(self.introns, self.verified_introns))
 
     non_verified_introns_num.category = "External"
     non_verified_introns_num.rtype = "int"
@@ -3431,6 +3402,5 @@ Verified introns: {self.verified_introns}".format(self=self))
         else:
             return min([_[1] - _[0] + 1 for _ in self.exons])
 
-    max_exon_length.category = "cDNA"
-    max_exon_length.rtype = "int"
-
+    min_exon_length.category = "cDNA"
+    min_exon_length.rtype = "int"

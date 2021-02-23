@@ -19,10 +19,6 @@ from Mikado.daijin import mikado_pipeline, assemble_transcripts_pipeline
 from Mikado.configuration import print_config, DaijinConfiguration, MikadoConfiguration
 import rapidjson as json
 from Mikado.subprograms.serialise import serialise
-try:
-    from yaml import CSafeLoader as yLoader
-except ImportError:
-    from yaml import SafeLoader as yLoader
 from pytest import mark
 from Mikado import configuration
 from Mikado.subprograms import configure as sub_configure
@@ -45,6 +41,10 @@ import threading
 from time import sleep
 import pysam
 import io
+try:
+    from yaml import CSafeLoader as yLoader
+except ImportError:
+    from yaml import SafeLoader as yLoader
 
 
 class ConvertCheck(unittest.TestCase):
@@ -1475,7 +1475,7 @@ class PickTest(unittest.TestCase):
             thread._stop()
 
     @mark.slow
-    def test_single_proc(self):
+    def test_single_and_multi_proc(self):
 
         self.configuration.threads = 1
         self.configuration.db_settings.db = pkg_resources.resource_filename("Mikado.tests", "mikado.db")
@@ -1495,6 +1495,10 @@ class PickTest(unittest.TestCase):
             with self.assertRaises(SystemExit), self.assertLogs("main_logger", "INFO") as cm:
                 pick_caller()
             self.assertTrue(os.path.exists(os.path.join(folder, "mikado.monoproc.loci.gff3")))
+            single_scores = pd.read_csv(os.path.join(folder, "mikado.monoproc.loci.scores.tsv"),
+                                        delimiter="\t").sort_values("alias")
+            single_metrics = pd.read_csv(os.path.join(folder, "mikado.monoproc.loci.metrics.tsv"),
+                                         delimiter="\t").sort_values("alias")
             with to_gff(os.path.join(folder, "mikado.monoproc.loci.gff3")) as inp_gff:
                 lines = [_ for _ in inp_gff if not _.header is True]
                 self.assertGreater(len(lines), 0)
@@ -1502,9 +1506,10 @@ class PickTest(unittest.TestCase):
                 self.assertGreater(len([_ for _ in lines if _.feature == "mRNA"]), 0,
                                    [_ for _ in cm.output if "WARNING" in _])
                 self.assertGreater(len([_ for _ in lines if _.feature == "CDS"]), 0)
+            self.assertTrue(np.array_equal(single_scores["score"].values, single_metrics["score"].values))
+            self.assertFalse(single_metrics["source_score"].isna().any())
+            self.assertFalse(single_scores["source_score"].isna().any())
 
-    @mark.slow
-    def test_multi_proc(self):
         self.configuration.threads = 2
         self.configuration.pick.files.input = pkg_resources.resource_filename("Mikado.tests",
                                                                               "mikado_prepared.gtf")
@@ -1516,8 +1521,7 @@ class PickTest(unittest.TestCase):
             self.configuration.pick.files.log = "mikado.multiproc.log"
             self.configuration.db_settings.db = pkg_resources.resource_filename("Mikado.tests", "mikado.db")
             self.configuration.pick.alternative_splicing.pad = False
-            self.configuration.log_settings.log_level = "WARNING"
-
+            self.configuration.log_settings.log_level = "INFO"
             pick_caller = picker.Picker(configuration=self.configuration)
             with self.assertRaises(SystemExit), self.assertLogs("main_logger", "INFO"):
                 pick_caller()
@@ -1528,6 +1532,21 @@ class PickTest(unittest.TestCase):
                 self.assertGreater(len([_ for _ in lines if _.is_transcript is True]), 0)
                 self.assertGreater(len([_ for _ in lines if _.feature == "mRNA"]), 0)
                 self.assertGreater(len([_ for _ in lines if _.feature == "CDS"]), 0)
+            log = [line for line in open(os.path.join(folder, self.configuration.pick.files.log))]
+            self.assertTrue(os.path.exists(os.path.join(folder, "mikado.multiproc.loci.gff3")))
+            self.assertGreater(os.stat(os.path.join(folder, "mikado.multiproc.loci.gff3")).st_size, 0,
+                               log)
+            self.assertGreater(os.stat(os.path.join(folder, "mikado.multiproc.loci.scores.tsv")).st_size, 0,
+                               [(name, os.stat(os.path.join(folder, name)).st_size) for name in os.listdir(folder)])
+            multi_scores = pd.read_csv(os.path.join(folder, "mikado.multiproc.loci.scores.tsv"),
+                                       delimiter="\t").sort_values("alias")
+            multi_metrics = pd.read_csv(os.path.join(folder, "mikado.multiproc.loci.metrics.tsv"),
+                                        delimiter="\t").sort_values("alias")
+            self.assertTrue(np.array_equal(multi_scores["score"].values, multi_metrics["score"].values))
+            self.assertFalse(multi_metrics["source_score"].isna().any())
+            self.assertFalse(multi_scores["source_score"].isna().any())
+        self.assertTrue(np.array_equal(multi_scores, single_scores))
+        self.assertTrue(np.array_equal(multi_metrics, single_metrics))
 
     @mark.slow
     def test_subprocess(self):

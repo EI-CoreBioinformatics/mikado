@@ -326,7 +326,7 @@ Regions should be provided in a WebApollo-like format: <chrom>:<start>..<end>"""
                         help='Source field to use for the output files.')
     output.add_argument("--report-all-external-metrics", default=None,
                         action="store_true",
-                        help="Boolean switch. If activated, Mikado will report all available external metrics, not just\
+                        help="Boolean switch. If activated, Mikado will report all available external metrics, not just \
 those requested for in the scoring configuration. This might affect speed in Minos analyses.")
     parser.add_argument("--no_cds", action="store_true", default=False,
                         help="""Flag. If set, not CDS information will be printed out in the GFF output files.""")

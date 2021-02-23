@@ -727,6 +727,8 @@ not available or not writable for this user. Leaving the DB where it is.")
                    source=self.configuration.pick.output_format.source)
 
         self.logger.info("Finished merging partial files")
+        for group in handles:
+            [_.close() for _ in group if _]
         return
 
     def __check_max_intron(self, current, invalids, row, max_intron):

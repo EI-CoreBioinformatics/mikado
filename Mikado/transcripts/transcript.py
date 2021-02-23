@@ -24,6 +24,10 @@ class Transcript(TranscriptBase):
     blast_baked += lambda q: q.order_by(asc(Hit.evalue))
     # blast_baked += lambda q: q.limit(bindparam("max_target_seqs"))
 
+    def __init__(self, *args, configuration=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.configuration = configuration
+
     @property
     def configuration(self):
         """
@@ -139,7 +143,7 @@ class Transcript(TranscriptBase):
     # We need to overload this because otherwise we won't get the metrics from the base class.
     @classmethod
     @functools.lru_cache(maxsize=None, typed=True)
-    def get_modifiable_metrics(cls) -> list:
+    def get_modifiable_metrics(cls) -> set:
 
         metrics = TranscriptBase.get_modifiable_metrics()
         for member in inspect.getmembers(cls):

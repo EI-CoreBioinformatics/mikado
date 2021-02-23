@@ -216,47 +216,6 @@ class RelativeTestCase(unittest.TestCase):
         self.intervals = intervals
         self.tree = iv
 
-    @pytest.mark.triage
-    def test_left(self):
-        max_dist = 200
-        n = 15
-        iv = self.tree
-        for i in range(11, 20000, 25):
-            for zz in range(random.randint(2, 5)):
-                s1 = random.randint(i + 1, i + 20)
-                f = Interval(s1, s1)
-
-                bf = brute_force_find_left(self.intervals, f, max_dist, n)
-                tf = iv.left(f, max_dist=max_dist, n=n)
-                if len(tf) == 0:
-                    assert len(bf) == 0, bf
-                    continue
-
-                mdist = max(distance(f, t) for t in tf)
-                self.assertTrue(set(bf).issuperset(tf))
-                diff = set(bf).difference(tf)
-                self.assertTrue(len(diff) == 0, (diff))
-
-    @pytest.mark.triage
-    def test_right(self):
-        max_dist = 200
-        n = 15
-        iv = self.tree
-        for i in range(11, 20000, 25):
-            for zz in range(random.randint(1, 6)):
-                s1 = random.randint(i + 1, i + 20)
-                f = Interval(s1, s1)
-                bf = brute_force_find_right(self.intervals, f, max_dist, n)
-                tf = iv.right(f, max_dist=max_dist, n=n)
-                if len(tf) == 0:
-                    assert len(bf) == 0, bf
-                    continue
-
-                mdist = max(distance(f, t) for t in tf)
-                self.assertTrue(set(bf).issuperset(tf))
-                diff = set(bf).difference(tf)
-                self.assertTrue(len(diff) == 0, (diff))
-
 
 class LotsaTestCase(unittest.TestCase):
     """ put lotsa data in the tree and make sure it works"""
@@ -313,28 +272,6 @@ class LotsaTestCase(unittest.TestCase):
 
 def brute_force_find(intervals, start, stop):
     return [i for i in intervals if i.end >= start and i.start <= stop]
-
-
-def brute_force_find_left(intervals, f, max_dist, n):
-    r = [x for x in brute_force_find(intervals, 0, f.start) \
-         if x.end < f.start and distance(x, f) <= max_dist]
-    r.sort(key=operator.attrgetter('end'), reverse=True)
-    if len(r) <= n: return r
-    i = n
-    while distance(r[i], f) == distance(r[i - 1], f):
-        i += 1
-    return r[:i]
-
-
-def brute_force_find_right(intervals, f, max_dist, n):
-    r = [x for x in brute_force_find(intervals, f.end, 99999999999) \
-         if x.start > f.start and distance(x, f) <= max_dist]
-    r.sort(key=operator.attrgetter('start'))
-    if len(r) <= n: return r
-    i = n
-    while distance(r[i], f) == distance(r[i - 1], f):
-        i += 1
-    return r[:i]
 
 
 class PickleTestCase(unittest.TestCase):

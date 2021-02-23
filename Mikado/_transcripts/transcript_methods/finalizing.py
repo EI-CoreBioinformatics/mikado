@@ -72,14 +72,6 @@ def __basic_final_checks(transcript):
         transcript.end = max(_[1] for _ in _exons)
 
     for exon in _exons:
-        if not isinstance(exon, tuple):
-            if (isinstance(exon, Interval) or
-                    (isinstance(exon, list) and len(exon) == 2 and
-                     isinstance(exon[0], int) and isinstance(exon[1], int))):
-                exon = tuple([exon])
-            else:
-                raise ValueError("Invalid exon: {0}, type {1}".format(
-                    exon, type(exon)))
         if exon[0] < transcript.start or exon[1] > transcript.end:
             exc = InvalidTranscript("{} for {} is an invalid exon (start {}, end {})".format(
                 exon, transcript.id, transcript.start, transcript.end))
@@ -89,16 +81,12 @@ def __basic_final_checks(transcript):
 
     transcript._set_exons(sorted(new_exons))
 
-    if len(transcript.exons) > 1 and transcript.strand is None:
-        if transcript._accept_undefined_multi is False:
-
-            exc = InvalidTranscript(
-                "Multiexonic transcripts must have a defined strand! Error for {0}".format(
-                    transcript.id))
-            transcript.logger.exception(exc)
-            raise exc
-        else:
-            transcript.strand = "?"
+    if len(transcript.exons) > 1 and transcript.strand is None and transcript._accept_undefined_multi is False:
+        exc = InvalidTranscript(
+            "Multiexonic transcripts must have a defined strand! Error for {0}".format(
+                transcript.id))
+        transcript.logger.exception(exc)
+        raise exc
 
     if transcript.combined_utr != [] and transcript.combined_cds == []:
 
@@ -746,9 +734,10 @@ def finalize(transcript):
         __check_phase_correctness(transcript, strip_faulty_cds=strip_faulty_cds)
         transcript.logger.debug("Calculating intron correctness for %s", transcript.id)
         __calculate_introns(transcript)
-    except (InvalidCDS, InvalidTranscript):
+    except InvalidCDS:
         if strip_faulty_cds is True:
             transcript.finalized = True
+            transcript.logger.debug("Invalid CDS for {}, stripping it", transcript.id)
             transcript.unfinalize()
             return
         else:

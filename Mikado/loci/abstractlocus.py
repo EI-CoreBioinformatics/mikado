@@ -1059,6 +1059,10 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         :param transcript: the transcript instance to check
         """
 
+        try:
+            self.filter_and_calculate_scores()
+        except NotImplementedError:
+            pass
         row = dict()
         for num, key in enumerate(self.available_metrics):
 
@@ -1066,15 +1070,18 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                 value = tid
             elif num == 2:  # Parent
                 value = self.id
+            elif key == "score":
+                value = self.scores.get(tid, dict()).get("score", None)
             else:
                 value = metrics.get(key, "NA")
                 # value = getattr(transcript, key, "NA")
+
             if isinstance(value, float):
                 value = round(value, 2)
             elif value is None or value == "":
                 if key == "score":
-                    value = self.scores.get(tid, dict()).get("score", None)
-                    self.transcripts[tid].score = value
+                    # value = self.scores.get(tid, dict()).get("score", None)
+                    # self.transcripts[tid].score = value
                     if isinstance(value, float):
                         value = round(value, 2)
                     elif value is None:

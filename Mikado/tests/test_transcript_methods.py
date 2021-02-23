@@ -1,7 +1,16 @@
+import operator
 import os
+import pickle
 import unittest
+import random
+
+from Mikado.exceptions import InvalidTranscript, InvalidCDS
+
+from Mikado.configuration import MikadoConfiguration
 from sqlalchemy.engine import reflection
 import itertools
+
+from Mikado.utilities import Interval
 from ..configuration.configurator import load_and_validate_config
 from ..loci import Transcript
 from ..parsers.bed12 import BED12
@@ -102,6 +111,73 @@ class TestMetricClass(unittest.TestCase):
                             return self.__test
 
                         test.rtype = invalid
+
+    def test_external_score(self):
+        conf = MikadoConfiguration()
+        conf.prepare.files.source_score = {"at": 5, "tr": -1, "pb": 1, "st": 0}
+        t = Transcript(configuration=conf)
+        for source in conf.prepare.files.source_score.keys():
+            t.original_source = source
+            self.assertEqual(t.source_score, conf.prepare.files.source_score[source])
+
+        t.original_source = "foo"
+        self.assertEqual(t.source_score, 0)
+
+    def test_pickling_unpickling_metrics(self):
+        bed_line = "Chr5\t26585506\t26586850\tID=c58_g1_i2.mrna1.35;coding=False\t99.0\t+\t26585506\t26585507\t0\t5\t383,121,78,105,213\t0,475,710,913,1131"
+        conf = MikadoConfiguration()
+        conf.prepare.files.source_score = {"at": 5, "tr": -1, "pb": 1, "st": 0}
+        t = Transcript(bed_line, source="tr", configuration=conf)
+        t.finalize()
+        for metrics in t.get_available_metrics():
+            try:
+                rtype = operator.attrgetter("{metric}.rtype")(Transcript)
+            except AttributeError:
+                continue
+            if rtype == "float":
+                value = random.random()
+            elif rtype == "bool":
+                value = random.choice([True, False])
+            elif rtype == "int":
+                value = random.randint(0, 1000)
+            try:
+                setattr(t, metrics, value)
+            except AttributeError:
+                continue
+        u = pickle.loads(pickle.dumps(t))
+        for metric in t.get_available_metrics():
+            original, new = getattr(t, metric), getattr(u, metric)
+            self.assertEqual(original, new, (metric, original, new))
+
+    def test_undefined_strand_multi(self):
+        bed_line = "Chr5\t26585506\t26586850\tID=c58_g1_i2.mrna1.35;coding=False\t99.0\t.\t26585506\t26585507\t0\t5\t383,121,78,105,213\t0,475,710,913,1131"
+        for tentative in [False, True]:
+            with self.subTest(tentative=tentative):
+                if tentative is False:
+                    with self.assertRaises(InvalidTranscript):
+                        t = Transcript(bed_line, source="tr", accept_undefined_multi=tentative)
+                else:
+                    t = Transcript(bed_line, source="tr", accept_undefined_multi=tentative)
+                    t.finalize()
+                    self.assertEqual(t.strand, None)
+
+    def test_cds_bridging_two_exons(self):
+        t = Transcript()
+        t.chrom, t.start, t.end, t.strand, t.id = "Chr1", 1001, 1500, "+", "foo"
+        t.exons = [(1001, 1200), (1301, 1500)]
+        t.combined_cds = [(1101, 1400)]
+        t.logger = create_default_logger("test_cds_bridging_two_exons", level="DEBUG")
+        with self.assertLogs("test_cds_bridging_two_exons") as cmo:
+            t.finalize()
+        self.assertFalse(t.is_coding, cmo.output)
+
+    def test_overlapping_exons(self):
+        t = Transcript()
+        t.chrom, t.start, t.end, t.strand, t.id = "Chr1", 1001, 1500, "+", "foo"
+        t.exons = [(1001, 1400), (1301, 1500)]
+        t.logger = create_default_logger("test_overlapping_exons", level="DEBUG")
+        with self.assertRaises(InvalidTranscript):
+            t.finalize()
 
     def test_category(self):
 

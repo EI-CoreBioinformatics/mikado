@@ -191,7 +191,6 @@ class TranscriptBase:
         self.__proportion_verified_introns_inlocus = 0
         self.__retained_fraction = 0
         self.__combined_cds_intron_fraction = self.__selected_cds_intron_fraction = 0
-        self.__non_overlapping_cds = set()
         self.__exons = set()
         self.__parent = []
         self.__combined_cds = []
@@ -229,7 +228,6 @@ class TranscriptBase:
         self.introns = set()
         self.splices = set()
         self.selected_internal_orf_index = None
-        self.non_overlapping_cds = None
         self.__verified_introns = set()
         self.segments = []
         self.intron_range = intron_range
@@ -1193,6 +1191,7 @@ exon data is on a different chromosome, {exon_data.chrom}. \
             state["exons"].append([exon[0], exon[1]])
         state["introns"] = list((intron[0], intron[1]) for intron in self.introns)
         state["verified_introns"] = list((intron[0], intron[1]) for intron in self.__verified_introns)
+        state["original_source"] = self.__original_source
 
         state["orfs"] = dict()
         state["selected_orf"] = self.selected_internal_orf_index
@@ -1243,7 +1242,6 @@ exon data is on a different chromosome, {exon_data.chrom}. \
             setattr(self, key, state[key])
 
         self.external_scores.update(state.get("external", dict()))
-        self.__original_source = self.source
         self.blast_hits = state.pop("blast_hits")
         self.attributes = state["attributes"].copy()
 
@@ -1355,7 +1353,9 @@ exon data is on a different chromosome, {exon_data.chrom}. \
         d["selected_end_distance_from_tes"] = self.selected_end_distance_from_tes
         d["selected_start_distance_from_tss"] = self.selected_start_distance_from_tss
         d["start_distance_from_tss"] = self.start_distance_from_tss
-
+        d["selected_cds_intron_fraction"] = self.selected_cds_intron_fraction
+        d["combined_cds_intron_fraction"] = self.combined_cds_intron_fraction
+        d["original_source"] = self.original_source
         return d
 
     def __load_calculated_stats(self, state):
@@ -1394,6 +1394,9 @@ exon data is on a different chromosome, {exon_data.chrom}. \
         self.__selected_end_distance_from_tes = state["selected_end_distance_from_tes"]
         self.__selected_start_distance_from_tss = state["selected_start_distance_from_tss"]
         self._start_distance_from_tss = state["start_distance_from_tss"]
+        self.__selected_cds_intron_fraction = state["selected_cds_intron_fraction"]
+        self.__combined_cds_intron_fraction = state["combined_cds_intron_fraction"]
+        self.__original_source = state["original_source"]
 
     def add_derived_child(self, name):
 
@@ -1712,6 +1715,14 @@ exon data is on a different chromosome, {exon_data.chrom}. \
         source value)."""
         return self.__original_source
 
+    @original_source.setter
+    def original_source(self, value):
+        if not (value is None or isinstance(value, (str, bytes))):
+            raise ValueError("Invalid source for {}: {} (type {})".format(
+                self.id, value, type(value)
+            ))
+        self.__original_source = value
+
     @property
     def gene(self):
 
@@ -1933,31 +1944,6 @@ exon data is on a different chromosome, {exon_data.chrom}. \
         return lengths
 
     @property
-    def non_overlapping_cds(self):
-        """This property returns a set containing the set union of all CDS segments
-        inside the internal CDSs. In the case of a transcript with no CDS, this is empty.
-        In the case where there is only one CDS, this returns the combined_cds holder.
-        In the case instead where there are multiple CDSs, the property will calculate
-        the set union of all CDS segments.
-        """
-        if self.__non_overlapping_cds is None:
-            self.finalize()
-            self.__non_overlapping_cds = set()
-            for internal_cds in self.internal_orfs:
-                segments = set([segment[1] for segment in internal_cds if
-                                segment[0] == "CDS"])
-                self.__non_overlapping_cds.update(segments)
-        return self.__non_overlapping_cds
-
-    @non_overlapping_cds.setter
-    def non_overlapping_cds(self, arg):
-        """
-        :param arg: the unioin of all non-overlapping CDS segments.
-        :type arg: set
-        Setter for the non_overlapping_cds property."""
-        self.__non_overlapping_cds = arg
-
-    @property
     def finalized(self):
         return self.__finalized
 
@@ -2171,18 +2157,7 @@ exon data is on a different chromosome, {exon_data.chrom}. \
         if self.strand == "-":
             return self.selected_cds[0][0]
         else:
-            try:
-                return self.selected_cds[-1][1]
-            except IndexError as exc:
-                self.logger.exception(
-                    "{0}, selected CDS: {1}, combined CDS: {2}, \
-index {3}, internal ORFs: {4}".format(
-                        exc,
-                        self.selected_cds,
-                        self.combined_cds,
-                        self.selected_internal_orf_index,
-                        self.internal_orfs))
-                raise
+            return self.selected_cds[-1][1]
 
     @property
     def monoexonic(self):
@@ -2209,11 +2184,7 @@ index {3}, internal ORFs: {4}".format(
         """
         This property returns an interval tree of the CDS segments.
         """
-        if self.finalized and len(self.__cds_tree) != len(self.combined_cds) + len(self.combined_cds_introns):
-            raise InvalidTranscript("The CDS tree for {} is invalid, it has length {} instead of {}".format(
-                self.id, len(self.__cds_tree), len(self.combined_cds) + len(self.combined_cds_introns)
-            ))
-        elif self.finalized is False:
+        if len(self.__cds_tree) != len(self.combined_cds) + len(self.combined_cds_introns):
             self._calculate_cds_tree()
 
         return self.__cds_tree
@@ -2260,16 +2231,10 @@ index {3}, internal ORFs: {4}".format(
 
         self.__segmenttree = IntervalTree()
         for exon in self.exons:
-            try:
-                self.__segmenttree.add(Interval(exon[0], exon[1], value="exon"))
-            except AssertionError as exc:
-                raise AssertionError(f"Exon for {self.id} invalid: {exon}\n{exc}")
+            self.__segmenttree.add(Interval(exon[0], exon[1], value="exon"))
 
         for intron in self.introns:
-            try:
-                self.__segmenttree.add(Interval(intron[0], intron[1], value="intron"))
-            except AssertionError as exc:
-                raise AssertionError(f"Intron for {self.id} invalid: {intron}\n{exc}")
+            self.__segmenttree.add(Interval(intron[0], intron[1], value="intron"))
 
     @property
     def derived_children(self):
@@ -2315,7 +2280,7 @@ index {3}, internal ORFs: {4}".format(
         in virtue of its origin."""
 
         if self.configuration is not None:
-            self.configuration.prepare.files.source_score.get(self.original_source, 0)
+            return self.configuration.prepare.files.source_score.get(self.original_source, 0)
         else:
             return 0
 
@@ -2385,13 +2350,8 @@ index {3}, internal ORFs: {4}".format(
     @Metric
     def cdna_length(self):
         """This property returns the length of the transcript."""
-        if self.__cdna_length is None and self.finalized is True:
-            raise AssertionError(
-                "A finalised transcript must have a defined cDNA length, yet for {sid} it is unset".format(
-                    sid=self.id))
         if self.finalized is False or self.__cdna_length is None:
             self.__calculate_cdna_length()
-
         return self.__cdna_length
 
     cdna_length.category = "cDNA"
@@ -2518,6 +2478,7 @@ index {3}, internal ORFs: {4}".format(
         return self.__five_utr_length
 
     five_utr_length.category = "UTR"
+    five_utr_length.rtype = "float"
 
     @Metric
     def five_utr_num(self):
@@ -3057,6 +3018,7 @@ when the transcript has at least one intron!""")
 
     combined_cds_intron_fraction.category = "Locus"
     combined_cds_intron_fraction.usable_raw = True
+    combined_cds_intron_fraction.rtype = "float"
 
     @Metric
     def selected_cds_intron_fraction(self):
@@ -3149,16 +3111,7 @@ when the transcript has at least one intron!""")
         This metric returns the number of introns of the transcript which are not validated
         by external data."""
 
-        num = len(set.difference(self.introns, self.verified_introns))
-        if num < 0:
-            # This is a clear error
-            self.logger.error("Erroneous number of verified introns for %s; total %d, verified %d, subtraction %d",
-                              self.id, len(self.introns), len(self.verified_introns), num)
-            self.logger.error("Introns for %s: %s; verified: %s. Resetting verified to 0.",
-                              self.id, self.introns, self.verified_introns)
-            num = len(self.introns)
-
-        return num
+        return len(set.difference(self.introns, self.verified_introns))
 
     non_verified_introns_num.category = "External"
     non_verified_introns_num.rtype = "int"
@@ -3431,6 +3384,5 @@ Verified introns: {self.verified_introns}".format(self=self))
         else:
             return min([_[1] - _[0] + 1 for _ in self.exons])
 
-    max_exon_length.category = "cDNA"
-    max_exon_length.rtype = "int"
-
+    min_exon_length.category = "cDNA"
+    min_exon_length.rtype = "int"

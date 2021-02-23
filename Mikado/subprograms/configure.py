@@ -302,7 +302,7 @@ Default: 20%%.")
                          help="Boolean switch. If set to true, all ORFs will be reported, not just the primary.")
     picking.add_argument("--report-all-external-metrics", default=None,
                          action="store_true",
-                         help="Boolean switch. If activated, Mikado will report all available external metrics, not just\
+                         help="Boolean switch. If activated, Mikado will report all available external metrics, not just \
 those requested for in the scoring configuration. This might affect speed in Minos analyses.")
     picking.add_argument("--cds-only", dest="cds_only",
                          default=None, action="store_true",

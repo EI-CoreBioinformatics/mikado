@@ -1130,6 +1130,7 @@ class MonoHolderTester(unittest.TestCase):
                           "CDS")
         self.t1.finalize()
         self.assertIs(self.t1.is_coding, True)
+        self.assertTrue(hasattr(self.t1, "configuration"))
 
     def testCdsOverlap(self):
 
@@ -1362,6 +1363,8 @@ class MonoHolderTester(unittest.TestCase):
                 t2.add_exons([(t2.start, 1560), (2801, t2.end)])
                 t2.add_exons([(1402 + phase, 1560), (2801, 3850 + phase)], "CDS")
                 self.assertIs(t2.is_coding, True)
+                self.assertIsInstance(self.t1, Transcript)
+                self.assertIsInstance(t2, Transcript)
                 self.assertIs(MonosublocusHolder.is_intersecting(self.t1,
                                                                  t2,
                                                                  cds_only=True,

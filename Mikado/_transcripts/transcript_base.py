@@ -195,7 +195,7 @@ class TranscriptBase:
         self.__parent = []
         self.__combined_cds = []
         self.__exon_num = None
-
+        self.__configuration = None
         self.__combined_cds_length = 0
         self.__selected_cds = []
         self._cdna_length = None
@@ -218,6 +218,7 @@ class TranscriptBase:
 
         # Starting settings for everything else
         self.__chrom = None
+        self.__is_reference = False
         self.is_reference = is_reference
         self.feature = "transcript"
         self.__start, self.__end = None, None
@@ -880,6 +881,14 @@ exon data is on a different chromosome, {exon_data.chrom}. \
 
     is_reference.category = "External"
     is_reference.rtype = "bool"
+
+    @property
+    def configuration(self):
+        """
+        Configuration dictionary. It can be None.
+        :return:
+        """
+        return self.__configuration
 
     @property
     def frames(self):

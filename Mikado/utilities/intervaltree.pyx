@@ -105,7 +105,7 @@ cpdef int distance(Interval f1, Interval f2):
     """\
     Distance between 2 features. The integer result is always positive or zero.
     If the features overlap or touch, it is zero.
-    >>> from quicksect import Interval, distance
+    >>> from Mikado.utilities import Interval, distance
     >>> distance(Interval(1, 2), Interval(12, 13))
     10
     >>> distance(Interval(1, 2), Interval(2, 3))
@@ -384,7 +384,7 @@ cdef class IntervalNode:
 
     Usage
     =====
-    >>> from quicksect import IntervalNode, Interval
+    >>> from Mikado.utilities import IntervalNode, Interval
     >>> tree = IntervalNode(Interval(0, 10))
 
     Add intervals, the only requirement is that the interval have integer

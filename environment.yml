@@ -34,4 +34,3 @@ dependencies:
   - typeguard>=2.9.1
   - conda-forge::toml>=0.10.0
   - bioconda::pyfaidx>=0.5.8
-  - quicksect>=0.2.2

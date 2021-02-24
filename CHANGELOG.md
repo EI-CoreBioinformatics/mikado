@@ -1,3 +1,9 @@
+# Version 2.1.2
+Removed Cython from the requirements.txt file. This allows to perform the tests correctly in a Conda environment (as Conda disallows installing Cython as part of a distributed package).
+As a result of this change, the preferred installation procedure from source has to be slightly amended:
+- either install using `pip wheel -w dist . && pip install dist/Mikado*whl`
+- or install with `python setup.py bdist_wheel` **after** having forcibly installed Cython, with `pip install Cython` or the like.
+
 # Version 2.1.1
 
 Hotfix release:

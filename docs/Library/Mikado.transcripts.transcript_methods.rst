@@ -7,8 +7,6 @@ Submodules
 .. toctree::
    :maxdepth: 4
 
-   Mikado.transcripts.transcript_methods.finalizing
-   Mikado.transcripts.transcript_methods.printing
    Mikado.transcripts.transcript_methods.retrieval
    Mikado.transcripts.transcript_methods.splitting
 

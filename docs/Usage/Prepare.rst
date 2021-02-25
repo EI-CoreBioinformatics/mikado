@@ -28,8 +28,9 @@ Available parameters:
 * *strand-specific*: If set, all assemblies will be treated as strand-specific.
 * *strand-specific-assemblies*: comma-separated list of strand specific assemblies.
 * *strip-cds*: some aligners (eg GMAP) will try calculate a CDS on the fly for alignments. Use this flag to discard all CDS information from all input transcripts.
+* *exclude-redundant*: if set, this flag instructs Mikado to look for and simplify redundant intron chains. By default, this option is disabled, or enabled on a per-sample basis. See :ref:`this section for an explanation of redundancy removal in Mikado <redundant-transcripts-in-prepare>`, and the section on the list input files below for an explanation on how to set this value on a per-sample basis (recommended).
 * *codon-table*: Mikado prepare will check the validity of the ORFs of input models. This value indicates which codon table Mikado should use for this purpose. See the section on :ref:`the checks on CDSs <orf-check-prepare>`.
-* *--strip-faulty-cds*: when encountering a transcript with an invalid ORF due to e.g. in-frame stop codons, Mikado will usually discard the whole transcript. If this flag is set, Mikado will instead remove the CDS information and leave the transcript in place.
+* *strip-faulty-cds*: when encountering a transcript with an invalid ORF due to e.g. in-frame stop codons, Mikado will usually discard the whole transcript. If this flag is set, Mikado will instead remove the CDS information and leave the transcript in place.
 * *list*: in alternative to specifying all the information on the command line, it is possible to give to Mikado a *tab-separated* file with details of the files to use. See :ref:`this section for details <input_file_list>`.
 * *log*: log file. Optional, by default Mikado will print to standard error.
 * *lenient*: flag. If set, multiexonic transcripts without any canonical splice site will be output as well. By default, they would be discarded.

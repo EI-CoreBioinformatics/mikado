@@ -323,9 +323,13 @@ Metrics belong to one of the following categories:
 
 * **Locus**: these metrics refer to features of the transcript in relationship to all other transcripts in its locus, eg how many of the introns present in the locus are present in the transcript. These metrics are calculated by Mikado during the picking phase, and as such their value can vary during the different stages as the transcripts are shifted to different groups.
 
-* **External**: these metrics are derived from accessory data that is recovered for the transcript during the run time. Examples include data regarding the number of introns confirmed by external programs such as PortCullis, or the BLAST score of the best hits.
+* **External**: these metrics are derived from accessory data that is recovered for the transcript during the run time. Examples include data regarding the number of introns confirmed by external programs such as Portcullis, or the BLAST score of the best hits.
 
-.. hint:: Starting from version 1 beta8, Mikado allows to use externally defined metrics for the transcripts. These can be accessed using the keyword "external.<name of the metrics>" within the configuration file. See the :ref:`relevant section <external-metrics>` for details.
+* **Attributes**: these metrics are extracted at runtime from attributes present in the input files. An example of this could be the TPM or FPKM values assigned to transcripts by rna expression analysis software.
+
+.. hint:: Starting from version 1 beta8, Mikado allows to use externally defined metrics for the transcripts. These can be accessed using the keyword "external.<name of the metrics>" within the *configuration* file. See the :ref:`relevant section <external-metrics>` for details.
+
+.. hint:: Starting from version 2, Mikado allows to use attribute defined metrics for the transcripts. These can be accessed using the keyword "attributes.<name of the metric>" within the *scoring* file. See the :ref:`relevant section <attributes-metrics>` for details.
 
 .. important:: Starting from Mikado 1 beta 8, it is possible to use metrics with values between 0 and 1 directly as scores, without rescaling. This feature is available only for metrics whose values naturally lie between 0 and 1, or that are boolean in nature.
 
@@ -667,6 +671,32 @@ As external metrics allow Mikado to accept any arbitrary metric for each transcr
 
 .. note:: also for external metrics, it is necessary to add a suffix to them if they are invoked more than once in an expression (see the :ref:`tutorial <scoring-tutorial-first-reqs>`). An invocation of e.g. "external.samples_expressed.mono" and "external.samples_expressed.multi", to distinguish between monoexonic and multiexonic transcripts, would be perfectly valid and actually *required* by Mikado. Notice the double use of the dot (".") as separator. Its usage as such is the reason that it cannot be present in the name of the metric itself (so, for example, "has.coverage.gaps" would be an invalid metric name).
 
+.. attributes-metrics:
+
+Attributes metrics
+------------------
+Starting from version 2, Mikado allows the usage of metrics defined in the attributes of the input files, these metrics behave as the rest of the metrics but they are gathered at runtime from the input datasets. It is important to note that these metrics must be equivalent in all the inputs and are by default initialised to "0" when a transcript does not have an attribute defining the metric. The default initialisation value can be overridden in the scoring file.
+
+Attribute metrics along with the required **rescaling** parameter, can define a *rtype* parameter as one of (float, int or bool) which will be used to cast the value of the attribute internally, and a *percentage* boolean which indicates that the values are in the 0-100 range and enables a transformation to the 0-1 range so that these can be used as 'raw' scores (see the :ref:`scoring algorithm section <_scoring_algorithm>`).
+
+An example for the usage of these metrics could be::
+
+        Chr5	Cufflinks	transcript	26581218	26583874	1000	-	.	gene_id "cufflinks_star_at.23551";transcript_id "cufflinks_star_at.23551.1";exon_number "1";FPKM "0.4343609420";conf_hi "0.577851";frac "0.751684";cov "11.982854";conf_lo "0.293994";percentage_score "42.42"
+        Chr5	Cufflinks	exon	26581218	26581528	.	-	.	gene_id "cufflinks_star_at.23551";transcript_id "cufflinks_star_at.23551.1";
+        Chr5	Cufflinks	exon	26583335	26583874	.	-	.	gene_id "cufflinks_star_at.23551";transcript_id "cufflinks_star_at.23551.1";
+
+
+If the scoring file defines:
+
+.. code-block:: yaml
+
+    scoring:
+        # [ ... other metrics ... ]
+        - attributes.FPKM: {rescaling: max}
+        - attributes.frac: {rescaling: max, use_raw: true}
+        - attributes.percentage_score: {rescaling: max, use_raw: true, percentage: true}
+
+The same scoring rules defined previously will apply to metrics obtained from the transcript's attributes.
 
 .. _padding:
 

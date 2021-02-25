@@ -22,10 +22,6 @@ Submodules
    Mikado.scales.class_codes
    Mikado.scales.compare
    Mikado.scales.contrast
-   Mikado.scales.contrast
-   Mikado.scales.contrast
-   Mikado.scales.f1
-   Mikado.scales.f1
    Mikado.scales.resultstorer
 
 Module contents

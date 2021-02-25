@@ -30,20 +30,27 @@ The fields in this file are as follows, for each row:
 .. <file> <label> <strandedness(def. False)> <score(optional, def. 0)> <is_reference(optional, def. False)>
                         <exclude_redundant(optional, def. True)> strandedness, is_reference and exclude_redundant must be boolean values (True, False) score must be a valid floating number.
 
-- File name of the input file. **Mandatory**
-    - The file name must specify a valid path (either absolute or relative) from the folder where Mikado configure is launched to the file itself.
-- Label for the input file. **Mandatory**
-    - Each label must be **unique** within the run.
-- Strandedness of the annotation file. Boolean (either True or False, capitalization is ignored). **Mandatory**.
-    - Reference files will be considered as stranded even if this value is set to False.
-- Score associated to the input file. Default 0. *Optional*. Floating numbers only.
-    - The score will be used to determine tie winners during Mikado prepare in case of redundancy. It will also be applied to transcripts during the pick stage. See :ref:`<this section later on <source_score>`
-- *is_reference*: boolean flag (either True or False, capitalization is ignored), default False.. "Reference" transcripts are treated slightly differently from the others in Mikado. Specifically:
-    - During the prepare stage, reference transcripts are never discarded on account of redundancy, short size, etc.; moreover, their strand will never be reversed on account of the internal Mikado checks.
-    - During the pick stage, reference transcripts can be given an additional boost in their scoring. Moreover, it is possible to instruct Mikado to only look for alternative splicing events of the reference transcripts.
-- *exclude_redundant*: boolean flag (either True or False, capitalization is ignored), default False. If set to True, Mikado prepare will remove any transcript in this annotation that is considered redundant (ie identical or contained within another transcript).
-    - By default, Mikado will remove only ***identical*** copies of transcripts across annotations. Datasets with this flag set will be treated as if they were going through GffRead_.
-- *skip_split*: boolean flag, default False. If set, Mikado will *not* break suspected chimeras, ie transcripts with more than one internal ORF, during the pick stage.
+
+#. File name of the input file. **Mandatory**
+    * The file name must specify a valid path (either absolute or relative) from the folder where Mikado configure is launched to the file itself.
+#. Label for the input file. **Mandatory**
+    *  Each label must be **unique** within the run.
+#. Strandedness of the annotation file. Boolean (either True or False, capitalization is ignored). **Mandatory**.
+    * Reference files will be considered as stranded even if this value is set to False.
+#. Score associated to the input file. Default 0. *Optional*. Floating numbers only.
+    * The score will be used to determine tie winners during Mikado prepare :ref:`in case of redundancy redundant-transcripts-in-prepare`. It will also be applied to transcripts during the pick stage. See :ref:`this section later on <source_score>`.
+#. *is_reference*: boolean flag (either True or False, capitalization is ignored), default False. *Optional*.
+    * "Reference" transcripts are treated slightly differently from the others in Mikado. Specifically:
+       * During the prepare stage, reference transcripts are never discarded on account of redundancy, short size, etc.; moreover, their strand will never be reversed on account of the internal Mikado checks.
+       * During the pick stage, reference transcripts can be given an additional boost in their scoring. Moreover, it is possible to instruct Mikado to only look for alternative splicing events of the reference transcripts.
+#. *exclude_redundant*: boolean flag (either True or False, capitalization is ignored), default False. *Optional*.
+    * If set to True, Mikado prepare will remove any transcript in this annotation that is considered redundant (ie identical or contained within another transcript).
+       * By default, Mikado will remove only ***identical*** copies of transcripts across annotations. Datasets with this flag set will be treated as if they were going through GffRead_.
+       * See the :ref:`this section for more details <redundant-transcripts-in-prepare>`.
+#. *strip_cds*: boolean flag (either True or False, capitalization is ignored), default False. *Optional*.
+    * If set to True, transcripts from this set will have their CDS removed. This is useful e.g. when analysing transcripts coming from GMAP.
+#. *skip_split* boolean flag (either True or False, capitalization is ignored), default False. *Optional*.
+    * If set to True, Mikado will *not* break suspected chimeras for these transcripts, ie transcripts with more than one internal ORF, during the pick stage.
 
 
 Usage
@@ -458,6 +465,7 @@ This section of the configuration file deals with the :ref:`picking stage of Mik
 Each subsection of the pick configuration will be explained in its own right.
 
 .. _source_score:
+
 Giving different priorities to transcripts from different assemblies
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 

@@ -45,3 +45,4 @@ References
 .. [BXPython]  https://bitbucket.org/james_taylor/bx-python/overview
 .. [Snakeviz]  https://jiffyclub.github.io/snakeviz/
 .. [PASA]  **Improving the Arabidopsis genome annotation using maximal transcript alignment assemblies** Haas, B.J., Delcher, A.L., Mount, S.M., Wortman, J.R., Smith Jr, R.K., Jr., Hannick, L.I., Maiti, R., Ronning, C.M., Rusch, D.B., Town, C.D. et al. *Nucleic Acids Res*, 2003, 31, 5654-5666. doi:10.1093/nar/gkg770
+.. [GffRead] **GFF Utilities: GffRead and GffCompare** Pertea, G. and Pertea, M. *F1000*, 2020, 9, ISCB Comm J-304. doi:10.12688/f1000research.23297.2

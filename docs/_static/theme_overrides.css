@@ -1,9 +1,8 @@
 /* override table width restrictions */
 
 .wy-nav-content {
-    /* padding: 1.618em 3.236em; */
     height: 100%;
-    max-width: 80%;
+    max-width: 80%; /* Tries to make the tables fit a bit nicer on the page */
     margin: auto;
 }
 
@@ -26,10 +25,11 @@ tt {
 
 
 body {
-    font-family: {{ theme_bodyfont }};
-    /*font-size: 150%;*/
-    background-color: {{ theme_footerbgcolor }};
     color: #000;
     margin: 0;
     padding: 0;
+}
+
+div.body {
+    max-width: 80%;
 }

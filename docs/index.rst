@@ -112,6 +112,7 @@ Credits
  - Luca Venturini (The software architect and developer)
  - Shabhonam Caim (Primary tester and analytic consultancy)
  - Daniel Mapleson (Developer of PortCullis and of the Daijin pipeline)
+ - Luis Yanes (Software developer)
  - Gemy Kaithakottil (Tester and analytic consultancy)
  - David Swarbreck (Annotation guru and ideator of the pipeline)
 

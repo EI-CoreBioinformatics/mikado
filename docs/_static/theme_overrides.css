@@ -33,3 +33,7 @@ body {
 div.body {
     max-width: 80%;
 }
+
+div.injected {
+    display: none;
+}

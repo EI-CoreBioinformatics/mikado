@@ -34,12 +34,19 @@ In the first step, we need to create a configuration file to drive Mikado. To do
     stringtie.gtf	st	True    1
     trinity.gff3	tr	False   -0.5
 
-In this file, the three fields define the following:
+In this file, the first three fields define the following:
 
 #. The file location and name (if no folder is specified, Mikado will look for each file in the current working directory)
 #. An alias associated with the file, which has to be unique
 #. A binary flag (``True`` / ``False``) indicating whether the assembly is strand-specific or not
-#. An optional fourth field which defines a score associated with that sample. All transcripts associated with the label will have their score corrected by the value on this field. So eg. in this example all Stringtie models will receive an additional point, and all Trinity models will be penalised by half a point. Class and Cufflinks have no special bonus or malus associated with them.
+
+These fields are then followed by a series of optional fields:
+
+#. A score associated with that sample. All transcripts associated with the label will have their score corrected by the value on this field. So eg. in this example all Stringtie models will receive an additional point, and all Trinity models will be penalised by half a point. Class and Cufflinks have no special bonus or malus associated with them.
+#. A binary flag defining whether the sample is a reference or not
+#. A binary flag defining whether to exclude redundant models or not
+#. A binary flag for only stripping CDS features when issues are found in these
+#. A binary flag for skipping the split step
 
 Then, we will decompress the chromosome FASTA file:
 

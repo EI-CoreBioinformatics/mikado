@@ -1,4 +1,4 @@
-from . import Parser
+from .parser import Parser
 import pysam
 
 from ..exceptions import InvalidParsingFormat

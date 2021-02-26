@@ -6,7 +6,7 @@ from .annotation_parser import AnnotationParser, loaders, load_into_storage
 from ..configuration import MikadoConfiguration
 from ..exceptions import InvalidJson, InvalidParsingFormat
 from ..utilities import Interval, IntervalTree
-from ..parsers import to_gff
+from ..parsers import parser_factory
 import operator
 import collections
 from .. import exceptions
@@ -403,7 +403,7 @@ def _load_exon_lines_single_thread(mikado_config, shelve_names, logger, min_leng
 
         logger.info("Starting with %s", gff_name)
         try:
-            gff_handle = to_gff(gff_name)
+            gff_handle = parser_factory(gff_name)
         except InvalidParsingFormat as exc:
             logger.exception("Invalid file: %s. Skipping it", gff_name)
             logger.exception(exc)

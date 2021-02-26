@@ -8,7 +8,7 @@ import os
 import subprocess
 import gzip
 import io
-from . import HeaderError
+from .parser import HeaderError
 from operator import itemgetter
 from Bio.SearchIO import parse as bio_parser
 import functools

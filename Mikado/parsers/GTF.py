@@ -4,13 +4,9 @@
 Generic parser for GTF files.
 """
 
-from . import Parser
+from .parser import Parser
 from .gfannotation import GFAnnotation
 import re
-
-
-# This class has exactly how many attributes I need it to have
-# pylint: disable=too-many-instance-attributes
 from ..exceptions import InvalidParsingFormat
 
 

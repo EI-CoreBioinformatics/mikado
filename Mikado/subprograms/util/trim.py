@@ -272,10 +272,10 @@ def launch(args):
     :param args: the argparse Namespace.
     """
 
-    from ...parsers import to_gff
+    from ...parsers import parser_factory
     from ...transcripts import Transcript, Gene
 
-    args.gff = to_gff(args.gff)
+    args.gff = parser_factory(args.gff)
     args.logger = create_default_logger("trimmer")
     args.logger.setLevel("WARN")
 

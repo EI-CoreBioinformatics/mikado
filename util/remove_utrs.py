@@ -30,7 +30,7 @@ def main():
 
     parser = argparse.ArgumentParser(__doc__)
     parser.add_argument("-f", "--format", default=None, choices=["gff3", "gtf"])
-    parser.add_argument("gff", type=Mikado.parsers.to_gff)
+    parser.add_argument("gff", type=Mikado.parsers.parser_factory)
     parser.add_argument("out", nargs="?", default=sys.stdout, type=argparse.FileType("wt"))
     args = parser.parse_args()
 

@@ -6,7 +6,7 @@
 Module to serialize GFF files.
 """
 
-from . import Parser
+from .parser import Parser
 from .gfannotation import GFAnnotation, _attribute_definition
 from sys import intern
 import re

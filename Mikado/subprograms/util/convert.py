@@ -6,16 +6,16 @@ from ...exceptions import InvalidTranscript
 
 def launch(args):
 
-    from ...parsers import to_gff
+    from ...parsers import parser_factory
     from ...parsers.bed12 import BED12
     from ...loci import Transcript, Gene
 
     if args.gf == "-":
         if args.in_format is None:
             raise ValueError("I need a format if it cannot be inferred from the string")
-        parser = to_gff(sys.stdin, input_format=args.in_format)
+        parser = parser_factory(sys.stdin, input_format=args.in_format)
     else:
-        parser = to_gff(args.gf, input_format=args.in_format)
+        parser = parser_factory(args.gf, input_format=args.in_format)
 
     current = None
     if parser.__annot_type__ == "gtf":

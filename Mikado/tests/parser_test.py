@@ -1,7 +1,7 @@
 import unittest
 
 from Mikado.exceptions import InvalidParsingFormat
-from Mikado.parsers import to_gff
+from Mikado.parsers import parser_factory
 from Mikado.parsers.GTF import GTF
 from Mikado.parsers.bam_parser import BamParser
 from .. import parsers
@@ -392,7 +392,7 @@ ENST00000532408
                     temp = tempfile.NamedTemporaryFile(suffix=".{}".format(fname), delete=False)
                     temp.write(resource_stream(*tests[key]["fname"]).read())
                     temp.flush()
-                    parser = to_gff(temp.name)
+                    parser = parser_factory(temp.name)
                     n = None
                     while n is None or n.header is True:
                         n = next(parser)

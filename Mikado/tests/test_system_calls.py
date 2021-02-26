@@ -35,7 +35,7 @@ from Mikado.utilities.log_utils import create_null_logger
 from Mikado.parsers.GFF import GffLine
 import sqlite3
 import shutil
-from Mikado.parsers import to_gff
+from Mikado.parsers import parser_factory
 from Mikado.transcripts import Transcript
 import threading
 from time import sleep
@@ -191,7 +191,7 @@ class PrepareCheck(unittest.TestCase):
                 gtf = os.path.join(self.conf.prepare.files.output_dir, "mikado_prepared.gtf")
                 self.assertGreater(os.stat(gtf).st_size, 0, test_file)
                 transcripts = dict()
-                for row in to_gff(gtf):
+                for row in parser_factory(gtf):
                     if row.is_transcript:
                         transcripts[row.transcript] = Transcript(row)
                     else:
@@ -346,7 +346,7 @@ class PrepareCheck(unittest.TestCase):
                         # Now verify that no model has CDS
                         gtf = os.path.join(self.conf.prepare.files.output_dir, "mikado_prepared.gtf")
                         models = dict()
-                        with to_gff(gtf) as file_gtf:
+                        with parser_factory(gtf) as file_gtf:
                             for line in file_gtf:
                                 if line.header:
                                     continue
@@ -440,7 +440,7 @@ class PrepareCheck(unittest.TestCase):
                 gtf_file = os.path.join(folder, "mikado_prepared.gtf")
                 fa.close()
                 coding_count = 0
-                with to_gff(gtf_file) as gtf:
+                with parser_factory(gtf_file) as gtf:
                     lines = [line for line in gtf]
                     transcripts = dict()
                     for line in lines:
@@ -531,7 +531,7 @@ class PrepareCheck(unittest.TestCase):
                 gtf_file = os.path.join(self.conf.prepare.files.output_dir, "mikado_prepared.gtf")
 
                 coding_count = 0
-                with to_gff(gtf_file) as gtf:
+                with parser_factory(gtf_file) as gtf:
                     lines = [line for line in gtf]
                     transcripts = dict()
                     for line in lines:
@@ -616,7 +616,7 @@ class PrepareCheck(unittest.TestCase):
                                         "mikado_prepared.fasta"))
         self.assertEqual(len(fa.keys()), 1)
         gtf_file = os.path.join(self.conf.prepare.files.output_dir, "mikado_prepared.gtf")
-        with to_gff(gtf_file) as gtf_handle:
+        with parser_factory(gtf_file) as gtf_handle:
             lines = [line for line in gtf_handle]
         cds = [_ for _ in lines if _.feature == "CDS"]
         self.assertEqual(len(cds), 1)
@@ -787,7 +787,7 @@ class PrepareCheck(unittest.TestCase):
                             self.assertEqual(len(fa.keys()), 1, (round, fa.keys(), res))
                         gtf = os.path.join(outdir, os.path.basename(
                             self.conf.prepare.files.out))
-                        strand = [_.strand for _ in to_gff(gtf)]
+                        strand = [_.strand for _ in parser_factory(gtf)]
                         self.assertEqual(len(set(strand)), 1, strand)
                         self.assertEqual(set(strand).pop(), corr_strand,
                                          (round, self.conf.prepare.files.reference,
@@ -881,7 +881,7 @@ class PrepareCheck(unittest.TestCase):
                         gtf = os.path.join(outdir, os.path.basename(
                             self.conf.prepare.files.out))
                         with_cds = set()
-                        for line in to_gff(gtf):
+                        for line in parser_factory(gtf):
                             if line.feature == "CDS":
                                 with_cds.add(line.transcript)
                             else:
@@ -913,7 +913,7 @@ class CompareCheck(unittest.TestCase):
             with self.subTest(ref=ref), tempfile.TemporaryDirectory() as folder:
                 temp_ref = os.path.join(folder, ref)
                 os.symlink(pkg_resources.resource_filename("Mikado.tests", ref), temp_ref)
-                namespace.reference = to_gff(temp_ref)
+                namespace.reference = parser_factory(temp_ref)
                 with self.assertLogs("main_compare") as ctx:
                     compare(namespace)
 
@@ -949,8 +949,8 @@ class CompareCheck(unittest.TestCase):
             with self.subTest(ref=ref, pred=pred), tempfile.TemporaryDirectory(
                     prefix="test_compare_trinity_{}_{}".format(os.path.splitext(ref)[-1],
                                                                os.path.splitext(pred)[-1])) as folder:
-                namespace.reference = to_gff(ref)
-                namespace.prediction = to_gff(pred)
+                namespace.reference = parser_factory(ref)
+                namespace.prediction = parser_factory(pred)
                 namespace.processes = 1
                 namespace.log = None
                 if pred != bam:
@@ -1008,8 +1008,8 @@ class CompareCheck(unittest.TestCase):
 
         for proc in (1, 3):
             with tempfile.TemporaryDirectory(prefix="test_compare_problematic_{}_".format(proc)) as folder:
-                namespace.reference = to_gff(problematic)
-                namespace.prediction = to_gff(problematic)
+                namespace.reference = parser_factory(problematic)
+                namespace.prediction = parser_factory(problematic)
                 namespace.processes = proc
                 namespace.log = None
                 namespace.out = os.path.join(folder, "compare_problematic")
@@ -1059,7 +1059,7 @@ class CompareFusionCheck(unittest.TestCase):
         pred_file = pkg_resources.resource_filename("Mikado.tests", os.path.join("fusion_test",
                                                                                  "fusion_test_pred.gtf"))
         with tempfile.TemporaryDirectory() as out, \
-                to_gff(ref_file) as reference, to_gff(pred_file) as prediction:
+                parser_factory(ref_file) as reference, parser_factory(pred_file) as prediction:
             args = Namespace()
             args.no_save_index = True
             args.reference = reference
@@ -1505,7 +1505,7 @@ class PickTest(unittest.TestCase):
                                         delimiter="\t").sort_values("alias")
             single_metrics = pd.read_csv(os.path.join(folder, "mikado.monoproc.loci.metrics.tsv"),
                                          delimiter="\t").sort_values("alias")
-            with to_gff(os.path.join(folder, "mikado.monoproc.loci.gff3")) as inp_gff:
+            with parser_factory(os.path.join(folder, "mikado.monoproc.loci.gff3")) as inp_gff:
                 lines = [_ for _ in inp_gff if not _.header is True]
                 self.assertGreater(len(lines), 0)
                 self.assertGreater(len([_ for _ in lines if _.is_transcript is True]), 0)
@@ -1532,7 +1532,7 @@ class PickTest(unittest.TestCase):
             with self.assertRaises(SystemExit), self.assertLogs("main_logger", "INFO"):
                 pick_caller()
             self.assertTrue(os.path.exists(os.path.join(folder, "mikado.multiproc.loci.gff3")))
-            with to_gff(os.path.join(folder, "mikado.multiproc.loci.gff3")) as inp_gff:
+            with parser_factory(os.path.join(folder, "mikado.multiproc.loci.gff3")) as inp_gff:
                 lines = [_ for _ in inp_gff if not _.header is True]
                 self.assertGreater(len(lines), 0)
                 self.assertGreater(len([_ for _ in lines if _.is_transcript is True]), 0)
@@ -1582,7 +1582,7 @@ class PickTest(unittest.TestCase):
                         pkg_resources.load_entry_point("Mikado", "console_scripts", "mikado")()
     
                     self.assertTrue(os.path.exists(os.path.join(folder, "mikado.subproc.loci.gff3")))
-                    with to_gff(os.path.join(folder, "mikado.subproc.loci.gff3")) as inp_gff:
+                    with parser_factory(os.path.join(folder, "mikado.subproc.loci.gff3")) as inp_gff:
                         lines = [_ for _ in inp_gff if not _.header is True]
                         self.assertGreater(len(lines), 0)
                         self.assertGreater(len([_ for _ in lines if _.is_transcript is True]), 0)
@@ -1623,7 +1623,7 @@ class PickTest(unittest.TestCase):
                     pkg_resources.load_entry_point("Mikado", "console_scripts", "mikado")()
 
                 self.assertTrue(os.path.exists(os.path.join(folder, "mikado.subproc.loci.gff3")))
-                with to_gff(os.path.join(folder, "mikado.subproc.loci.gff3")) as inp_gff:
+                with parser_factory(os.path.join(folder, "mikado.subproc.loci.gff3")) as inp_gff:
                     lines = [_ for _ in inp_gff if not _.header is True]
                     self.assertGreater(len(lines), 0)
                     self.assertGreater(len([_ for _ in lines if _.is_transcript is True]), 0)
@@ -1779,8 +1779,8 @@ class PickTest(unittest.TestCase):
                 with self.assertRaises(SystemExit), self.assertLogs("main_logger", "INFO"):
                     pick_caller()
 
-                with to_gff(os.path.join(dir.name,
-                                         self.configuration.pick.files.loci_out)) as gff:
+                with parser_factory(os.path.join(dir.name,
+                                                 self.configuration.pick.files.loci_out)) as gff:
                     lines = [line for line in gff if line.header is False]
                 self.assertGreater(len(lines), 0)
                 self.assertTrue(any([_ for _ in lines if _.attributes.get("alias", "") == "foo2.1"]),
@@ -1839,8 +1839,8 @@ class PickTest(unittest.TestCase):
                 with self.assertRaises(SystemExit), self.assertLogs("main_logger", "INFO"):
                     pick_caller()
 
-                with to_gff(os.path.join(folder.name,
-                                         self.configuration.pick.files.loci_out)) as gff:
+                with parser_factory(os.path.join(folder.name,
+                                                 self.configuration.pick.files.loci_out)) as gff:
                     lines = [line for line in gff if line.header is False]
                 self.assertGreater(len(lines), 0)
                 self.assertTrue(any([_ for _ in lines if _.attributes.get("alias", "") == "foo2.1"]))
@@ -1904,8 +1904,8 @@ class PickTest(unittest.TestCase):
                 with self.assertRaises(SystemExit), self.assertLogs("main_logger", "INFO"):
                     pick_caller()
 
-                with to_gff(os.path.join(dir.name,
-                                         self.configuration.pick.files.loci_out)) as gff:
+                with parser_factory(os.path.join(dir.name,
+                                                 self.configuration.pick.files.loci_out)) as gff:
                     lines = [line for line in gff if line.header is False]
                 self.assertGreater(len(lines), 0)
                 self.assertTrue(any([_ for _ in lines if _.attributes.get("alias", "") == "foo2.1"]),
@@ -2233,7 +2233,7 @@ class StatsTest(unittest.TestCase):
         namespace.tab_stats = None
         for filename in files:
             with self.subTest(filename=filename):
-                namespace.gff = to_gff(filename)
+                namespace.gff = parser_factory(filename)
                 dir = tempfile.TemporaryDirectory(prefix="test_stat")
                 with open(os.path.join(dir.name,
                                        "{}.txt".format(os.path.basename(filename))), "w") as out:
@@ -2260,7 +2260,7 @@ class StatsTest(unittest.TestCase):
         namespace.tab_stats = None
         for filename in files:
             with self.subTest(filename=filename):
-                namespace.gff = to_gff(filename)
+                namespace.gff = parser_factory(filename)
                 dir = tempfile.TemporaryDirectory(prefix="test_problematic")
                 with open(os.path.join(dir.name,
                                        "{}.txt".format(os.path.basename(filename))), "w") as out:
@@ -2295,7 +2295,7 @@ class GrepTest(unittest.TestCase):
                     pkg_resources.load_entry_point("Mikado", "console_scripts", "mikado")()
                     self.assertTrue(os.path.exists(outfile.name))
                     found = set()
-                    with to_gff(outfile.name, input_format=form[1:]) as stream:
+                    with parser_factory(outfile.name, input_format=form[1:]) as stream:
                         for record in stream:
                             if record.is_transcript:
                                 found.add(record.transcript)
@@ -2321,7 +2321,7 @@ class GrepTest(unittest.TestCase):
                     pkg_resources.load_entry_point("Mikado", "console_scripts", "mikado")()
                     self.assertTrue(os.path.exists(outfile.name))
                     found = set()
-                    with to_gff(outfile.name, input_format=form[1:]) as stream:
+                    with parser_factory(outfile.name, input_format=form[1:]) as stream:
                         for record in stream:
                             if record.is_transcript:
                                 found.add(record.transcript)
@@ -2353,7 +2353,7 @@ class GrepTest(unittest.TestCase):
                         print(line, rec)
                         others.append(rec)
 
-                with to_gff(outfile.name, input_format=form[1:]) as stream:
+                with parser_factory(outfile.name, input_format=form[1:]) as stream:
                     for record in stream:
                         if record.feature in ("exon", "CDS"):
                             continue

@@ -15,7 +15,7 @@ from .parse_bam_prediction import parse_prediction_bam
 from .parse_gff3_prediction import parse_prediction_gff3
 from .parse_gtf_prediction import parse_prediction_gtf
 from .parse_bed12 import parse_prediction_bed12
-from ...parsers import to_gff
+from ...parsers import parser_factory
 import gzip
 import csv
 import itertools
@@ -37,7 +37,7 @@ def parse_prediction(args, index, queue_logger):
 
     # start the class which will manage the statistics
     if hasattr(args, "self") and args.self is True:
-        args.prediction = to_gff(args.reference.name)
+        args.prediction = parser_factory(args.reference.name)
     __found_with_orf = set()
     queue = mp.JoinableQueue(100)
     returnqueue = mp.JoinableQueue(100)

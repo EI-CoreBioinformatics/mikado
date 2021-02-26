@@ -9,10 +9,9 @@ from time import sleep
 import os
 from Bio import Seq
 import Bio.SeqRecord
-from . import Parser
+from .parser import Parser
 from sys import intern
 import copy
-
 from ..exceptions import InvalidParsingFormat
 from ..parsers.GFF import GffLine
 from typing import Union

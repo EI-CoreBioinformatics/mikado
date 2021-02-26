@@ -147,11 +147,15 @@ def to_gff(string, input_format=None):
 
     # TODO: rename the function *and* add a sniffer
 
+    streaming = False
+
     if isinstance(string, io.TextIOWrapper):
         fname = "-"
+        streaming = True
     elif isinstance(string, (io.BytesIO, io.BufferedReader)):
         fname = "-"
         string = io.TextIOWrapper(string)
+        streaming = True
     else:
         fname = string
 
@@ -159,18 +163,27 @@ def to_gff(string, input_format=None):
 
     if input_format == "bam" or fname.endswith(".bam"):
         first = bam_parser.BamParser
+        input_format = "bam"
     elif input_format == "gtf" or".gtf" in fname:
         first = GTF.GTF
+        input_format = "gtf"
     elif input_format == "gff3" or ".gff" in fname or ".gff3" in fname:
         first = GFF.GFF3
+        input_format = "gff3"
     elif input_format == "bed12" or ".bed12" in fname or ".bed" in fname:
         first = bed12.Bed12Parser
+        input_format = "bed12"
     else:
         raise ValueError('Unrecognized format for {} (asked for {})'.format(fname, input_format))
 
+    if streaming:
+        return first(fname)
+
     for test in chain([first], [_ for _ in order if _ != first]):
         try:
-            parser = test(fname)
+            if streaming:
+                string.seek(0)
+            parser = test(string)
             for row in parser:
                 if test.__annot_type__ == "bam":
                     return test(fname)
@@ -181,4 +194,7 @@ def to_gff(string, input_format=None):
         except InvalidParsingFormat:
             continue
 
-    raise TypeError("Invalid file specified")
+    raise InvalidParsingFormat(
+        "Invalid file specified: {} should have been of format {}, but it could not be verified.".format(
+         fname if fname != "-" else "stream", input_format
+        ))

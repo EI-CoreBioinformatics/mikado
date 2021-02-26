@@ -1,13 +1,18 @@
 import unittest
+
+from Mikado.parsers import to_gff
+from Mikado.parsers.GTF import GTF
+from Mikado.parsers.bam_parser import BamParser
 from .. import parsers
+from ..parsers.GFF import GFF3
+from ..parsers.bed12 import Bed12Parser
 from ..utilities import default_for_serialisation
 import tempfile
 from functools import partial
 import os
 import rapidjson as json
 json.dumps = partial(json.dumps, number_mode=json.NM_NATIVE, default=default_for_serialisation)
-from pkg_resources import resource_filename
-
+from pkg_resources import resource_filename, resource_stream
 
 __author__ = 'Luca Venturini'
 
@@ -362,6 +367,37 @@ ENST00000524761
 ENST00000529606
 ENST00000532408
 """.split("\n"))
+
+    def test_incorrect_input_format(self):
+        """Test that to_gff is capable of correctly inferring the format."""
+
+        tests = {
+            "bam": {"fname": ("Mikado.tests", "test_mRNA.bam"), "answer": BamParser},
+            "gtf": {"fname": ("Mikado.tests", "cds_test_1.gtf"), "answer": GTF},
+            "gff3": {"fname": ("Mikado.tests", "trinity.gff3"), "answer": GFF3},
+            "bed12": {"fname": ("Mikado.tests", "trinity.bed12"), "answer": Bed12Parser}
+        }
+
+        def _get_first_line(parser):
+            if isinstance(parser, BamParser):
+                return next(parser)
+            for line in parser:
+                if line.header is True:
+                    continue
+                return line._line
+
+        for key in tests:
+            with self.subTest(format=key):
+                for fname in tests.keys():
+                    temp = tempfile.NamedTemporaryFile(suffix=".{}".format(fname), delete=False)
+                    temp.write(resource_stream(*tests[key]["fname"]).read())
+                    temp.flush()
+                    parser = to_gff(temp.name)
+                    n = None
+                    while n is None or n.header is True:
+                        n = next(parser)
+                    self.assertIsInstance(parser, tests[key]["answer"], (key, fname, _get_first_line(parser)))
+                    os.remove(temp.name)
 
 
 if __name__ == '__main__':

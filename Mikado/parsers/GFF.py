@@ -46,7 +46,13 @@ class GffLine(GFAnnotation):
         :return:
         """
 
-        infolist = self._attribute_pattern.findall(self._attr.rstrip().rstrip(";"))
+        attr = self._attr.rstrip().rstrip(";")
+        infolist = self._attribute_pattern.findall(attr)
+        if not infolist and attr:
+            raise InvalidParsingFormat(
+                "The attribute section of this line could not be parsed correctly. Is this a GFF3?\n{}".format(
+                    self._line))
+
         attribute_order = [key for key, val in infolist if key not in ("Parent", "parent", "id", "ID", "Id")]
         attributes = dict((key, _attribute_definition(val)) for key, val in infolist)
 
@@ -368,8 +374,14 @@ class GFF3(Parser):
 
         if self.closed:
             raise StopIteration
-        line = next(self._handle)
-        self.__line_counter += 1
+        try:
+            line = next(self._handle)
+            self.__line_counter += 1
+        except (ValueError, KeyError, TypeError, UnicodeError, AttributeError, AssertionError) as exc:
+            line = None
+            error = "Invalid line for file {name}, position {counter}:\n{line}Error: {exc}".format(
+                name=self.name, counter=self.__line_counter, line=line, exc=exc)
+            raise InvalidParsingFormat(error)
 
         if line[0] == "#":
             return GffLine(line, header=True)

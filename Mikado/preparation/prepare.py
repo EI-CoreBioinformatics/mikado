@@ -2,9 +2,9 @@ import os
 import tempfile
 import gc
 from .checking import create_transcript, CheckingProcess
-from .annotation_parser import AnnotationParser, loaders
+from .annotation_parser import AnnotationParser, loaders, load_into_storage
 from ..configuration import MikadoConfiguration
-from ..exceptions import InvalidJson
+from ..exceptions import InvalidJson, InvalidParsingFormat
 from ..utilities import Interval, IntervalTree
 from ..parsers import to_gff
 import operator
@@ -402,7 +402,15 @@ def _load_exon_lines_single_thread(mikado_config, shelve_names, logger, min_leng
             file_strip_cds = strip_cds
 
         logger.info("Starting with %s", gff_name)
-        gff_handle = to_gff(gff_name)
+        try:
+            gff_handle = to_gff(gff_name)
+        except InvalidParsingFormat as exc:
+            logger.exception("Invalid file: %s. Skipping it", gff_name)
+            logger.exception(exc)
+            previous_file_ids[gff_name] = set()
+            load_into_storage(new_shelf, [], min_length, logger, strip_cds=True,
+                              max_intron=3 * 10 ** 5)
+            continue
         found_ids = set.union(set(), *previous_file_ids.values())
         loader = loaders.get(gff_handle.__annot_type__, None)
         if loader is None:

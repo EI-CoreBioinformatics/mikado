@@ -1576,8 +1576,8 @@ class Bed12Parser(Parser):
                 return self.bed_next()
             else:
                 return self.gff_next()
-        except (ValueError, TypeError, KeyError, AssertionError):
-            raise InvalidParsingFormat("This is not a valid BED12 file")
+        except (ValueError, KeyError, TypeError, UnicodeError, AttributeError, AssertionError, InvalidParsingFormat) as exc:
+            raise InvalidParsingFormat("This is not a valid BED12 file! Exception: {}".format(exc))
 
     def __getstate__(self):
         state = super().__getstate__()

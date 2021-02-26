@@ -240,18 +240,14 @@ class JunctionSerializer:
             # Now generate as many junctions as block start/size are present in this bed row
             # These are the exons
             Exon = namedtuple('Exon', 'start end')
-            exons = [
-                Exon(row.start + int(p[0]) + 1, row.start + int(p[0]) + int(p[1]))
-                for i, p in enumerate(zip(row.block_starts, row.block_sizes), 1)
-            ]
-            introns = [(e0.end, e1.start - 2) for e0, e1 in zip(exons, exons[1:])]
+            exons = [Exon(int(block[0]), int(block[1])) for block in row.blocks]
+            introns = [(e0.end + 1, e1.start - 1) for e0, e1 in zip(exons, exons[1:])]
 
             for intron in introns:
                 current_junction = Junction(intron[0], intron[1], row.name, row.strand, row.score, current_chrom)
                 objects.append(current_junction)
-
-                assert (row.thick_start == intron[0], (row.thick_start, intron[0]))
-                assert (row.thick_end == intron[1], (row.thick_end, intron[1]))
+                assert row.thick_start == intron[0], (row.thick_start, intron[0])
+                assert row.thick_end == intron[1], (row.thick_end, intron[1])
 
             if len(objects) >= self.maxobjects:
                 self.logger.debug("Serializing %d objects", len(objects))

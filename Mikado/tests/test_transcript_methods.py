@@ -718,7 +718,7 @@ Chr1\tMikado\texon\t1701\t1999\t.\t-\t.\tID=test1.exon2;Parent=test1"""
         self.assertEqual(gff3, gff3_res)
 
         gff3_cds = [GffLine(_) for _ in gff3.split("\n") if GffLine(_).feature == "CDS"]
-        gtf_cds = [GtfLine(_) for _ in gtf.split("\n") if GffLine(_).feature == "CDS"]
+        gtf_cds = [GtfLine(_) for _ in gtf.split("\n") if GtfLine(_).feature == "CDS"]
         gff3_cds = dict(((_.start, _.end), _) for _ in gff3_cds)
         gtf_cds = dict(((_.start, _.end), _) for _ in gtf_cds)
 

@@ -15,7 +15,7 @@ from ast import literal_eval
 from sys import intern, maxsize
 import operator
 from typing import List
-from ..exceptions import ModificationError, InvalidTranscript, CorruptIndex
+from ..exceptions import ModificationError, InvalidTranscript, CorruptIndex, InvalidParsingFormat
 from ..parsers.GFF import GffLine
 from ..parsers.GTF import GtfLine
 from ..parsers.bed12 import BED12
@@ -274,17 +274,18 @@ class TranscriptBase:
         if isinstance(transcript_row, (str, bytes)):
             if isinstance(transcript_row, bytes):
                 transcript_row = transcript_row.decode()
-            _ = GffLine(transcript_row)
-            if _.header is False and _.is_transcript is True and _.id is not None:
-                transcript_row = _
-            else:
-                _ = GtfLine(transcript_row)
-                if _.header is False and _.is_transcript is True and _.id is not None:
+            for ftype in GffLine, GtfLine, BED12:
+                try:
+                    _ = ftype(transcript_row)
+                    if _.header is True:
+                        continue
                     transcript_row = _
-                else:
-                    _ = BED12(transcript_row)
-                    if _.header is False and _.name is not None:
-                        transcript_row = _
+                    break
+                except InvalidParsingFormat:
+                    continue
+
+            if isinstance(transcript_row, str):
+                raise InvalidParsingFormat("I cannot understand this line:\n{}".format(transcript_row))
 
         if isinstance(transcript_row, (GffLine, GtfLine)):
             self.__initialize_with_gf(transcript_row)

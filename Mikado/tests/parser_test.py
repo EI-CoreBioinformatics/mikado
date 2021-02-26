@@ -1,5 +1,6 @@
 import unittest
 
+from Mikado.exceptions import InvalidParsingFormat
 from Mikado.parsers import to_gff
 from Mikado.parsers.GTF import GTF
 from Mikado.parsers.bam_parser import BamParser
@@ -33,14 +34,13 @@ class TestParser(unittest.TestCase):
         with tempfile.NamedTemporaryFile("wt", suffix=".gtf", delete=True) as gtf_temp:
             print(gtf_line, file=gtf_temp)
             gtf_temp.flush()
-
             gtf_temp_reader = open(gtf_temp.name, "rt")
             gtf_temp_reader.close()
-            with self.assertRaises(ValueError):
+            with self.assertRaises(InvalidParsingFormat):
                 with parsers.GTF.GTF(gtf_temp_reader) as gtf_reader:
                     _ = next(gtf_reader)
 
-            with self.assertRaises(ValueError):
+            with self.assertRaises(InvalidParsingFormat):
                 with parsers.GFF.GFF3(gtf_temp_reader) as gtf_reader:
                     _ = next(gtf_reader)
 

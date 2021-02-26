@@ -14,7 +14,7 @@ import pyfaidx
 import toml
 import yaml
 from Mikado.configuration.configurator import load_and_validate_config
-from Mikado.exceptions import InvalidJson
+from Mikado.exceptions import InvalidJson, InvalidParsingFormat
 from Mikado.daijin import mikado_pipeline, assemble_transcripts_pipeline
 from Mikado.configuration import print_config, DaijinConfiguration, MikadoConfiguration
 import rapidjson as json
@@ -318,13 +318,14 @@ class PrepareCheck(unittest.TestCase):
         args.configuration = self.conf
 
         for fname in [ann_gff3, rev_ann_gff3.name]:
-            for strip in (True, False):
-                for proc in (1, ):
-                    with self.subTest(fname=fname, strip=strip, proc=proc):
+            for strip, strip_faulty_cds in itertools.product((True, False), (True, False)):
+                for proc in (1, 3):
+                    with self.subTest(fname=fname, strip=strip, proc=proc, strip_faulty_cds=strip_faulty_cds):
                         self.conf.prepare.files.gff = [fname]
                         args.configuration.prepare.strip_cds = False
                         self.conf.prepare.files.strip_cds = [strip]
                         args.configuration.threads = proc
+                        self.conf.prepare.strip_faulty_cds = strip_faulty_cds
                         with self.assertLogs(self.logger, "INFO") as cm:
                             try:
                                 prepare.prepare(args.configuration, logger=self.logger)
@@ -332,14 +333,15 @@ class PrepareCheck(unittest.TestCase):
                                 raise SystemExit("\n".join(cm.output))
                         fasta = os.path.join(self.conf.prepare.files.output_dir, "mikado_prepared.fasta")
                         self.assertTrue(os.path.exists(fasta), "\n".join(cm.output))
-                        if strip is True or (strip is False and fname == ann_gff3):
+                        if fname == ann_gff3 or strip is True or strip_faulty_cds is True:
                             self.assertGreater(os.stat(fasta).st_size, 0, "\n".join(cm.output))
                             fa = pyfaidx.Fasta(fasta)
                             self.assertEqual(len(fa.keys()), 2, "\n".join(cm.output))
                             fa.close()
                         else:
                             self.assertEqual(os.stat(fasta).st_size, 0,
-                                             str(strip) + " " + str(fname) + "\n" + "\n".join(cm.output))
+                                             str(strip) + " " + str(strip_faulty_cds) + " " + str(proc) + " " \
+                                             + str(rev_ann_gff3.name == fname) + "\n" + "\n".join(cm.output))
 
                         # Now verify that no model has CDS
                         gtf = os.path.join(self.conf.prepare.files.output_dir, "mikado_prepared.gtf")
@@ -354,10 +356,14 @@ class PrepareCheck(unittest.TestCase):
                                     models[line.parent[0]].add_exon(line)
                         [models[model].finalize() for model in models]
                         for model in models:
-                            if strip is False:
-                                self.assertTrue(models[model].is_coding, models[model].format("gtf"))
-                            else:
-                                self.assertFalse(models[model].is_coding, models[model].format("gtf"))
+                            if strip is False and rev_ann_gff3.name != fname and strip_faulty_cds is True:
+                                self.assertTrue(models[model].is_coding,
+                                                    (fname, strip_faulty_cds, strip,
+                                                    models[model].format("gtf"))
+                                                )
+                            elif strip is True:
+                                self.assertFalse(models[model].is_coding, (
+                                    fname, strip_faulty_cds, strip, models[model].format("gtf")))
         rev_ann_gff3.close()
 
     @mark.slow

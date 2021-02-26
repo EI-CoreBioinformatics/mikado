@@ -13,6 +13,8 @@ import re
 
 __author__ = 'Luca Venturini'
 
+from Mikado.exceptions import InvalidParsingFormat
+
 [intern(_) for _ in ["+", "-", "?", "true", "True", "false", "False"]]
 
 
@@ -80,10 +82,12 @@ class GFAnnotation(metaclass=abc.ABCMeta):
         self._fields = self._line.split('\t')
         self.header = header
 
-        if self.header or len(self._fields) != 9 or self._line == '' or self._line[0] == "#":
+        if self.header or self._line == '' or self._line[0] == "#":
             self.__feature = None
             self.header = True
             return
+        elif len(self._fields) != 9:
+            raise InvalidParsingFormat("Invalid GF line: {}".format(self._line))
 
         self.chrom, self.source = self._fields[0:2]
         try:

@@ -15,7 +15,7 @@ class BamParser(Parser):
         except KeyboardInterrupt:
             raise
         except (ValueError, TypeError):
-            raise InvalidParsingFormat("This is not a valid BAM file.")
+            raise InvalidParsingFormat("This is not a valid BAM file: {}.".format(handle))
 
     def __iter__(self):
         return self

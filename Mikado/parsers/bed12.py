@@ -376,7 +376,7 @@ class BED12:
                 self.__set_values_from_gff(fasta_length)
 
         elif not (isinstance(self._line, list) or isinstance(self._line, tuple)):
-            raise TypeError("I need an ordered array, not {0}".format(type(self._line)))
+            raise InvalidParsingFormat("I need an ordered array, not {0}".format(type(self._line)))
         else:
             self._fields = self._line
             self.__set_values_from_fields()

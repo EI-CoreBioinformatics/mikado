@@ -10,10 +10,12 @@ import abc
 import gzip
 import bz2
 from functools import partial
-
+import tempfile
+import os
 from ..exceptions import InvalidParsingFormat
 from ..utilities.file_type import filetype
 from itertools import chain
+import sys
 
 
 class HeaderError(Exception):
@@ -74,7 +76,9 @@ class Parser(metaclass=abc.ABCMeta):
         """
         Return the filename.
         """
-        return self._handle.name
+        if hasattr(self._handle, "name"):
+            return self._handle.name
+        return None
 
     @property
     def closed(self):
@@ -145,19 +149,16 @@ def to_gff(string, input_format=None):
     :rtype: (Mikado.parsers.GTF.GTF | Mikado.parsers.GFF.GFF3)
     """
 
-    # TODO: rename the function *and* add a sniffer
-
     streaming = False
-
-    if isinstance(string, io.TextIOWrapper):
+    if isinstance(string, (io.BytesIO, io.BufferedReader, io.TextIOWrapper)):
         fname = "-"
         streaming = True
-    elif isinstance(string, (io.BytesIO, io.BufferedReader)):
-        fname = "-"
-        string = io.TextIOWrapper(string)
-        streaming = True
-    else:
+    elif isinstance(string, (bytes, str)):
+        if isinstance(string, bytes):
+            string = string.decode()
         fname = string
+    else:
+        raise ValueError("Invalid input type: {}".format(type(string)))
 
     order = [GTF.GTF, GFF.GFF3, bed12.Bed12Parser, bam_parser.BamParser]
 
@@ -173,28 +174,40 @@ def to_gff(string, input_format=None):
     elif input_format == "bed12" or ".bed12" in fname or ".bed" in fname:
         first = bed12.Bed12Parser
         input_format = "bed12"
+    elif streaming is False:
+        # We will have to impute.
+        first = GTF.GTF
+        input_format = "gtf"
     else:
-        raise ValueError('Unrecognized format for {} (asked for {})'.format(fname, input_format))
+        raise InvalidParsingFormat(
+            "I cannot infer the correct file type from streaming. Please provide the correct file type.")
 
-    if streaming:
+    if streaming is False and os.stat(fname).st_size == 0 or streaming is True:
         return first(fname)
 
+    found = False
+    raised = dict()
     for test in chain([first], [_ for _ in order if _ != first]):
         try:
-            if streaming:
-                string.seek(0)
-            parser = test(string)
+            parser = test(fname)
             for row in parser:
-                if test.__annot_type__ == "bam":
-                    return test(fname)
-                elif row.header is False:
-                    return test(fname)
+                if test.__annot_type__ == "bam" or row.header is False:
+                    found = True
+                    break
                 else:
                     continue
-        except InvalidParsingFormat:
+            if found:
+                break
+        except InvalidParsingFormat as exc:
+            raised[test.__annot_type__] = exc
             continue
 
-    raise InvalidParsingFormat(
-        "Invalid file specified: {} should have been of format {}, but it could not be verified.".format(
-         fname if fname != "-" else "stream", input_format
-        ))
+    if found and test.__annot_type__ == "bam":
+        return test(fname)
+    elif found:
+        return test(string)
+    else:
+        raise InvalidParsingFormat(
+            "Invalid file specified: {} should have been of format {}, but it could not be verified. Error:\n{}".format(
+             fname if fname != "-" else "stream", input_format, raised[input_format]
+            ))

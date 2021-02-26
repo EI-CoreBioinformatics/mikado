@@ -11,6 +11,7 @@ import re
 
 # This class has exactly how many attributes I need it to have
 # pylint: disable=too-many-instance-attributes
+from ..exceptions import InvalidParsingFormat
 
 
 class GtfLine(GFAnnotation):
@@ -399,7 +400,7 @@ class GTF(Parser):
         except Exception as exc:
             error = "Invalid line for file {name}, line {counter}:\n{line}Error: {exc}\n".format(
                 name=self.name, counter=self.__line_counter, line=line, exc=exc)
-            raise ValueError(error)
+            raise InvalidParsingFormat(error)
 
     @property
     def file_format(self):

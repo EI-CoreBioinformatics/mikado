@@ -12,6 +12,8 @@ import Bio.SeqRecord
 from . import Parser
 from sys import intern
 import copy
+
+from ..exceptions import InvalidParsingFormat
 from ..parsers.GFF import GffLine
 from typing import Union
 import re
@@ -1569,10 +1571,13 @@ class Bed12Parser(Parser):
 
     def __next__(self, seq=None):
 
-        if self._is_bed12 is True:
-            return self.bed_next()
-        else:
-            return self.gff_next()
+        try:
+            if self._is_bed12 is True:
+                return self.bed_next()
+            else:
+                return self.gff_next()
+        except (ValueError, TypeError, KeyError, AssertionError):
+            raise InvalidParsingFormat("This is not a valid BED12 file")
 
     def __getstate__(self):
         state = super().__getstate__()

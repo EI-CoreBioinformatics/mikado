@@ -10,7 +10,10 @@ import abc
 import gzip
 import bz2
 from functools import partial
+
+from ..exceptions import InvalidParsingFormat
 from ..utilities.file_type import filetype
+from itertools import chain
 
 
 class HeaderError(Exception):
@@ -152,13 +155,30 @@ def to_gff(string, input_format=None):
     else:
         fname = string
 
+    order = [GTF.GTF, GFF.GFF3, bed12.Bed12Parser, bam_parser.BamParser]
+
     if input_format == "bam" or fname.endswith(".bam"):
-        return bam_parser.BamParser(string)
-    if input_format == "gtf" or".gtf" in fname:
-        return GTF.GTF(string)
+        first = bam_parser.BamParser
+    elif input_format == "gtf" or".gtf" in fname:
+        first = GTF.GTF
     elif input_format == "gff3" or ".gff" in fname or ".gff3" in fname:
-        return GFF.GFF3(string)
+        first = GFF.GFF3
     elif input_format == "bed12" or ".bed12" in fname or ".bed" in fname:
-        return bed12.Bed12Parser(string)
+        first = bed12.Bed12Parser
     else:
-        raise ValueError('Unrecognized format for {}'.format(fname))
+        raise ValueError('Unrecognized format for {} (asked for {})'.format(fname, input_format))
+
+    for test in chain([first], [_ for _ in order if _ != first]):
+        try:
+            parser = test(fname)
+            for row in parser:
+                if test.__annot_type__ == "bam":
+                    return test(fname)
+                elif row.header is False:
+                    return test(fname)
+                else:
+                    continue
+        except InvalidParsingFormat:
+            continue
+
+    raise TypeError("Invalid file specified")

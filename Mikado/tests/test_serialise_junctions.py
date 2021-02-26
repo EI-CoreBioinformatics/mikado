@@ -92,13 +92,41 @@ class TestLoadJunction(unittest.TestCase):
                     serializers.junction.Junction.chrom == "Chr5",
                     serializers.junction.Junction.start == 26510619,
                 )
-            ).count(), 1,
+            ).count(), 0,
             [str(_) for _ in
                 session.query(serializers.junction.Junction).filter(
                     and_(
                         serializers.junction.Junction.name == "portcullis_junc_0",
                     )
             )])
+
+        self.assertEqual(
+            session.query(serializers.junction.Junction).filter(
+                and_(
+                    serializers.junction.Junction.start == 26510752,
+                )
+            ).count(), 2,
+            [str(_) for _ in
+             session.query(serializers.junction.Junction).filter(
+                 and_(
+                     serializers.junction.Junction.start == 26510752,
+                 )
+             )])
+
+        self.assertEqual(
+            session.query(serializers.junction.Junction).filter(
+                and_(
+                    serializers.junction.Junction.chrom == "Chr5",
+                    serializers.junction.Junction.start == 26510752,
+                )
+            ).count(), 1,
+            [str(_) for _ in
+             session.query(serializers.junction.Junction).filter(
+                 and_(
+                     serializers.junction.Junction.chrom == "Chr5",
+                     serializers.junction.Junction.start == 26510752,
+                 )
+             )])
 
     def test_serialise_low_maxobject(self):
 

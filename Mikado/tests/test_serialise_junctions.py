@@ -67,6 +67,25 @@ class TestLoadJunction(unittest.TestCase):
         session = sessionmaker()
         return session
 
+    def test_zero_one_many(self):
+        from Mikado.transcripts import Transcript
+        junctions = []
+        transcripts = []
+        with parsers.bed12.Bed12Parser(os.path.join(
+                os.path.dirname(__file__), "zom_junctions.bed")) as parser:
+            for line in parser:
+                serializers.junction.JunctionSerializer.generate_introns(0, junctions, line)
+                transcripts.append(Transcript(line))
+
+        bed_introns = []
+        for junction in junctions:
+            bed_introns.append((junction.junction_start, junction.junction_end))
+        transcript_introns = []
+        for transcript in transcripts:
+            for intron in transcript.introns:
+                transcript_introns.append(intron)
+
+        assert set(bed_introns) == set(transcript_introns), (set(bed_introns), set(transcript_introns))
     def test_serialise(self):
 
         session = self.__create_session()

@@ -237,17 +237,7 @@ class JunctionSerializer:
                 sequences[current_chrom.name] = current_chrom.chrom_id
                 current_chrom = current_chrom.chrom_id
 
-            # Now generate as many junctions as block start/size are present in this bed row
-            # These are the exons
-            Exon = namedtuple('Exon', 'start end')
-            exons = [Exon(int(block[0]), int(block[1])) for block in row.blocks]
-            introns = [(e0.end + 1, e1.start - 1) for e0, e1 in zip(exons, exons[1:])]
-
-            for intron in introns:
-                current_junction = Junction(intron[0], intron[1], row.name, row.strand, row.score, current_chrom)
-                objects.append(current_junction)
-                assert row.thick_start == intron[0], (row.thick_start, intron[0])
-                assert row.thick_end == intron[1], (row.thick_end, intron[1])
+            self.generate_introns(current_chrom, objects, row)
 
             if len(objects) >= self.maxobjects:
                 self.logger.debug("Serializing %d objects", len(objects))
@@ -260,6 +250,17 @@ class JunctionSerializer:
         self.logger.debug("Serialised %s junctions into %s.", counter, self.db_settings)
         self.session.commit()
         self.close()
+
+    @staticmethod
+    def generate_introns(current_chrom, objects, row):
+        # Now generate as many junctions as block start/size are present in this bed row
+        # These are the exons
+        Exon = namedtuple('Exon', 'start end')
+        exons = [Exon(int(block[0]), int(block[1])) for block in row.blocks]
+        introns = [(e0.end + 1, e1.start - 1) for e0, e1 in zip(exons, exons[1:])]
+        for intron in introns:
+            current_junction = Junction(intron[0], intron[1], row.name, row.strand, row.score, current_chrom)
+            objects.append(current_junction)
 
     def __call__(self):
         """

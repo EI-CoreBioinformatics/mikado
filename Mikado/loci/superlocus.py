@@ -224,33 +224,6 @@ class Superlocus(Abstractlocus):
 
         return lines
 
-    def __create_monolocus_lines(self, superlocus_line: GffLine, new_id: str, print_cds=True):
-
-        """
-        Private method to prepare the lines for printing out monosubloci
-        into GFF/GTF files.
-        """
-
-        lines = []
-        self.define_monosubloci()
-        if len(self.monosubloci) > 0:
-            source = "{0}_monosubloci".format(self.source)
-            superlocus_line.source = source
-            lines.append(str(superlocus_line))
-            found = dict()
-            for monosublocus_instance in self.monosubloci:
-                monosublocus_instance.source = source
-                monosublocus_instance.parent = new_id
-                if monosublocus_instance.id in found:
-                    found[monosublocus_instance.id] += 1
-                    monosublocus_instance.counter = found[monosublocus_instance.id]
-                else:
-                    found[monosublocus_instance.id] = 0
-
-                lines.append(monosublocus_instance.__str__(print_cds=print_cds).rstrip())
-
-        return lines
-
     def __create_sublocus_lines(self, superlocus_line: GffLine, new_id: str, print_cds=True):
         """
         Private method to prepare the lines for printing out subloci

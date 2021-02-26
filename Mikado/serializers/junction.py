@@ -241,24 +241,17 @@ class JunctionSerializer:
             # These are the exons
             Exon = namedtuple('Exon', 'start end')
             exons = [
-                Exon(row.start + p[0] + 1, row.start + p[0] + p[1])
+                Exon(row.start + int(p[0]) + 1, row.start + int(p[0]) + int(p[1]))
                 for i, p in enumerate(zip(row.block_starts, row.block_sizes), 1)
             ]
-            if row.strand == '+':
-                exons.sort()
-            else:
-                exons.sort(reverse=True)
-
-            # these are the introns
-            introns = None
-            if row.strand == '+':
-                introns = [(e0.end + 1, e1.start - 1) for e0, e1 in zip(exons, exons[1:])]
-            else:
-                introns = [(e1.end + 1, e0.start - 1) for e0, e1 in zip(exons, exons[1:])]
+            introns = [(e0.end, e1.start - 2) for e0, e1 in zip(exons, exons[1:])]
 
             for intron in introns:
                 current_junction = Junction(intron[0], intron[1], row.name, row.strand, row.score, current_chrom)
                 objects.append(current_junction)
+
+                assert (row.thick_start == intron[0], (row.thick_start, intron[0]))
+                assert (row.thick_end == intron[1], (row.thick_end, intron[1]))
 
             if len(objects) >= self.maxobjects:
                 self.logger.debug("Serializing %d objects", len(objects))

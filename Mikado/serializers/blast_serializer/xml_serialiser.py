@@ -98,7 +98,7 @@ def _serialise_xmls(self):
             self.xml.remove(filename)
 
     cache = {"query": self.queries, "target": self.targets}
-    if self._xml_debug is False and (self.single_thread is True or self.procs == 1):
+    if self._blast_loading_debug is False and (self.single_thread is True or self.procs == 1):
         for filename in self.xml:
             valid, _, exc = BlastOpener(filename).sniff(default_header=self.header)
             if not valid:
@@ -128,10 +128,10 @@ def _serialise_xmls(self):
             except ExpatError:
                 self.logger.error("%s is an invalid BLAST file, saving what's available", filename)
         _, _ = load_into_db(self, hits, hsps, force=True)
-    elif self._xml_debug is True or self.procs > 1:
+    elif self._blast_loading_debug is True or self.procs > 1:
         self.logger.warning("Creating a pool with %d processes", min(self.procs, len(self.xml)))
         results = []
-        if self._xml_debug is True:
+        if self._blast_loading_debug is True:
             for num, filename in enumerate(self.xml):
                 results.append(xml_pickler(self.configuration,
                                            filename, self.header,

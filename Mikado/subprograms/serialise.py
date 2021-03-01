@@ -220,6 +220,9 @@ def setup(args):
     if args.log_level is not None:
         args.configuration.log_settings.log_level = args.log_level
 
+    if args.blast_loading_debug is True:
+        args.configuration.serialise.files.blast_loading_debug = True
+
     if args.force is not None:
         args.configuration.serialise.force = args.force
     args.configuration.serialise.max_regression = args.max_regression or args.configuration.serialise.max_regression
@@ -496,6 +499,9 @@ or dropped (MySQL/PostGreSQL) before beginning the serialisation.""")
                          choices=["DEBUG", "INFO", "WARN", "ERROR"],
                          help="Log level. Default: derived from the configuration; if absent, INFO")
     log_arguments.add_argument("--verbose", default=None, dest="log_level", action="store_const", const="DEBUG")
+    log_arguments.add_argument("--blast-loading-debug", default=None,
+                               dest="blast_loading_debug", action="store_true",
+                               help="Flag. If set, Mikado will switch on the debug mode for the XML/TSV loading.")
     log_arguments.add_argument("--quiet", default=None, dest="log_level", action="store_const", const="WARNING")
     generic.add_argument("db", type=str, default=None,
                          nargs='?',

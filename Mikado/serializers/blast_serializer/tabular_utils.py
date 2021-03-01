@@ -368,12 +368,16 @@ class Preparer(mp.Process):
         session = Session(bind=self.engine)
         self.session = session
         hits, hsps = [], []
+        done = 0
         with open(self.index_file, "rb") as index_handle:
             for key, rows in msgpack.Unpacker(index_handle, raw=False, strict_map_key=False):
+                done += 1
                 curr_hit, curr_hsps = prep_hit(key, rows)
                 hits.append(curr_hit)
                 hsps += curr_hsps
                 hits, hsps = load_into_db(self, hits, hsps, force=False, raw=True)
+
+        self.logger.debug("Finished %d hit entries", done)
         _, _ = load_into_db(self, hits, hsps, force=True, raw=True)
         self.logger.debug("Finished %s", self.identifier)
         return True
@@ -444,6 +448,7 @@ def parse_tab_blast(self,
     data = sanitize_blast_data(data, queries, targets, qmult=qmult, tmult=tmult)
     columns = dict((col, idx) for idx, col in enumerate(data.columns))
     groups = defaultdict(list)
+    # data.set_index(["qid", "sid"], drop=False, inplace=True)
     [groups[val].append(idx) for idx, val in enumerate(data.index)]
     values = data.values
 
@@ -468,14 +473,18 @@ def parse_tab_blast(self,
         params_file.write(msgpack.dumps(params))
         params_file.flush()
         # Split the indices
+        tot = 0
         for idx, split in enumerate(np.array_split(np.array(list(groups.items()),
                                                             dtype=object), procs)):
             index = index_files[idx]
             for item in split:
                 vals = (tuple(item[0]), values[item[1], :].tolist())
                 msgpack.dump(vals, index)
+                tot += 1
             assert os.path.exists(index_files[idx].name)
+            index_files[idx].flush()
             processes[idx].start()
+        self.logger.debug("Sent %d entries", tot)
         try:
             res = [proc.join() for proc in processes]
         except KeyboardInterrupt:

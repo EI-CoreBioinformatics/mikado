@@ -1,9 +1,12 @@
+import collections
 import csv
 import glob
 import gzip
 import itertools
 import logging
 import os
+import re
+
 import numpy as np
 import pandas as pd
 import sys
@@ -2035,8 +2038,8 @@ class SerialiseChecker(unittest.TestCase):
         tsv = pkg_resources.resource_filename("Mikado.tests", os.path.join("blast_data", "diamond.0.9.30.tsv.gz"))
         queries = pkg_resources.resource_filename("Mikado.tests", os.path.join("blast_data", "transcripts.fasta"))
         prots = pkg_resources.resource_filename("Mikado.tests", "uniprot_sprot_plants.fasta.gz")
-        logs = dict()
-        dbs = dict()
+        logs = collections.defaultdict(dict)
+        dbs = collections.defaultdict(dict)
         base = tempfile.TemporaryDirectory()
         args = Namespace(default=None)
         args.seed = 1078
@@ -2046,22 +2049,16 @@ class SerialiseChecker(unittest.TestCase):
         args.blast_targets = [prots]
 
         for name, blast in zip(["xml", "tsv"], [xml, tsv]):
-            with self.subTest(name=name, blast=blast):
-                args.db = "{}.db".format(name)
-                args.log = "{}.log".format(name)
-                args.xml = blast
-                print(args.xml)
-                print(args.transcripts)
-                print(args.blast_targets)
-                serialise(args)
-                # sys.argv = [str(_) for _ in ["mikado", "serialise", "-od", base.name,
-                #                              "--transcripts", queries, "--blast_targets", prots,
-                #                              "--xml", xml, "-mo", 1000, "--log", log, "--seed", "1078",
-                #                              db]]
-                # pkg_resources.load_entry_point("Mikado", "console_scripts", "mikado")()
-                dbs[name] = os.path.join(base.name, args.db)
-                logged = [_.rstrip() for _ in open(os.path.join(base.name, args.log))]
-                logs[name] = logged
+            for proc in (1, 3):
+                with self.subTest(name=name, blast=blast, proc=proc):
+                    args.db = "{}_{}.db".format(name, proc)
+                    args.log = "{}_{}.log".format(name, proc)
+                    args.xml = blast
+                    args.procs = proc
+                    serialise(args)
+                    dbs[name][proc] = os.path.join(base.name, args.db)
+                    logged = [_.rstrip() for _ in open(os.path.join(base.name, args.log))]
+                    logs[name][proc] = logged
 
         def prep_dbs(name):
             import sqlalchemy.exc
@@ -2084,26 +2081,47 @@ class SerialiseChecker(unittest.TestCase):
             hit.set_index(["query_name", "target_name"], inplace=True)
             return hit, hsp
 
-        xml_hit, xml_hsp = prep_dbs("sqlite:///" + dbs["xml"])
-        tsv_hit, tsv_hsp = prep_dbs("sqlite:///" + dbs["tsv"])
+        try:
+            xml_hit, xml_hsp = prep_dbs("sqlite:///" + dbs["xml"][1])
+        except KeyError:
+            raise KeyError(dbs)
+        xml_hit_multi, xml_hsp_multi = prep_dbs("sqlite:///" + dbs["xml"][3])
+        tsv_hit, tsv_hsp = prep_dbs("sqlite:///" + dbs["tsv"][1])
+        tsv_hit_multi, tsv_hsp_multi = prep_dbs("sqlite:///" + dbs["tsv"][3])
+
         hit = pd.merge(xml_hit, tsv_hit, left_index=True, right_index=True, suffixes=("_xml", "_tsv"))
+        hit_multi = pd.merge(xml_hit_multi, tsv_hit_multi, left_index=True, right_index=True, suffixes=["_xml_m",
+                                                                                                        "_tsv_m"])
+        hit = pd.merge(hit, hit_multi, left_index=True, right_index=True)
         hsp = pd.merge(xml_hsp, tsv_hsp, left_index=True, right_index=True, suffixes=("_xml", "_tsv"))
+        hsp_multi = pd.merge(xml_hsp_multi, tsv_hsp_multi, left_index=True, right_index=True, suffixes=("_xml_m",
+                                                                                                        "_tsv_m"))
+        hsp = pd.merge(hsp, hsp_multi, left_index=True, right_index=True)
+        self.assertTrue(xml_hit_multi.shape[0] == xml_hit.shape[0] == tsv_hit.shape[0] > 0)
+        self.assertTrue(tsv_hit_multi.shape[0] == tsv_hit.shape[0] > 0,
+                        (tsv_hit_multi.shape[0], tsv_hit.shape[0], logs["tsv"][3]))
+
         self.assertTrue(hit.shape[0] == xml_hit.shape[0] == tsv_hit.shape[0] > 0)
         self.assertTrue(hsp.shape[0] == xml_hsp.shape[0] == tsv_hsp.shape[0] > 0)
+        self.assertTrue(hsp.shape[0] == xml_hsp_multi.shape[0] == tsv_hsp_multi.shape[0] > 0)
         # Get the columns
-        hitcols, hspcols = dict(), dict()
+        hitcols, hspcols = collections.defaultdict(list), collections.defaultdict(list)
+        pat = re.compile(r"_(tsv|xml)($|_m$)")
         for d, df in zip([hitcols, hspcols], [hit, hsp]):
             for col in df.columns:
-                name = col[:-4]
-                if name not in d:
-                    d[name] = []
+                name = re.sub(pat, '', col)
                 d[name].append(col)
             failed = []
             for col in d:
                 if col in ("query_id", "target_id"):
                     continue
-                catch = df[d[col]].apply(lambda row: row[0] == row[1] or
-                                                     np.isclose(row[0], row[1], atol=.01, rtol=.01), axis=1)
+                if len(d[col]) == 1:
+                    raise ValueError(col)
+
+                with self.subTest(col=col):
+
+                    catch = df[d[col]].apply(lambda row: row[0] == row[1] or
+                                                         np.isclose(row[0], row[1], atol=.01, rtol=.01), axis=1)
                 if not (catch).all():
                     failed.append(col)
             self.assertEqual(len(failed), 0, failed)
@@ -2165,7 +2183,7 @@ class SerialiseChecker(unittest.TestCase):
 
     def test_serialise_external(self):
 
-        base = pkg_resources.resource_filename("Mikado.tests", "test_external")
+        base = pkg_resources.resource_filename("Mikado.tests", "test_external_aphid")
         external_conf = os.path.join(base, "mikado.configuration.testds.yaml")
         external_scores = os.path.join(base, "annotation_run1.metrics.testds.txt")
         fasta = os.path.join(base, "mikado_prepared.testds.fasta")

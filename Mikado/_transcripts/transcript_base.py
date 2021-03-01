@@ -1241,7 +1241,7 @@ exon data is on a different chromosome, {exon_data.chrom}. \
             setattr(self, key, state[key])
 
         self.external_scores.update(state.get("external", dict()))
-        self.blast_hits = state.pop("blast_hits")
+        self.blast_hits = state.pop("blast_hits", [])
         self.attributes = state["attributes"].copy()
 
         self.exons = []

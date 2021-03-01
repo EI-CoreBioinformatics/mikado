@@ -371,23 +371,27 @@ class Superlocus(Abstractlocus):
             locus.load_dict(stat)
             self.loci[lid] = locus
 
-        if print_subloci is True or print_monoloci is True:
+        if print_subloci is True:
+            self.excluded = Excluded(configuration=self.configuration)
+            self.excluded.load_dict(state["excluded"])
+            self.subloci = []
+            for stat in state["subloci"]:
+                sub = Sublocus(configuration=self.configuration)
+                sub.load_dict(stat)
+                assert isinstance(sub, Sublocus)
+                self.subloci.append(sub)
+        else:
+            self.subloci = []
+            self.excluded = Excluded(configuration=self.configuration)
 
-            if print_subloci is True:
-                self.excluded = Excluded(configuration=self.configuration)
-                self.excluded.load_dict(state["excluded"])
-                self.subloci = []
-                for stat in state["subloci"]:
-                    sub = Sublocus(configuration=self.configuration)
-                    sub.load_dict(stat)
-                    assert isinstance(sub, Sublocus)
-                    self.subloci.append(sub)
-            if print_monoloci is True:
-                self.monoholders = []
-                for stat in state["monoholders"]:
-                    sub = MonosublocusHolder()
-                    sub.load_dict(stat)
-                    self.monoholders.append(sub)
+        if print_monoloci is True:
+            self.monoholders = []
+            for stat in state["monoholders"]:
+                sub = MonosublocusHolder()
+                sub.load_dict(stat)
+                self.monoholders.append(sub)
+        else:
+            self.monoholders = []
         self.chrom, self.strand, self.start, self.end = state["chrom"], state["strand"], state["start"], state["end"]
         if len(self.loci) > 0 or len(self.transcripts) > 0:
             assert self.start != maxsize

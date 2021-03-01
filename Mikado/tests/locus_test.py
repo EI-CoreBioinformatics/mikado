@@ -8,6 +8,8 @@ import random
 import unittest
 import os.path
 import logging
+from copy import deepcopy
+
 import pkg_resources
 from Mikado._transcripts.scoring_configuration import NumBoolEqualityFilter, ScoringFile
 from Mikado.configuration import configurator, MikadoConfiguration, DaijinConfiguration
@@ -304,13 +306,85 @@ class AbstractLocusTester(unittest.TestCase):
             self.assertGreaterEqual(child1, child1)
 
     def test_serialisation(self):
-        for child in [Superlocus, Sublocus, Monosublocus, Locus]:
-            child1 = child(self.transcript1)
-            # Check compiled in dictionary
-            self.assertIsInstance(child1.configuration, (MikadoConfiguration, DaijinConfiguration))
-            obj = pickle.dumps(child1)
-            nobj = pickle.loads(obj)
-            self.assertEqual(child1, nobj)
+        for child in [Superlocus, Sublocus, Monosublocus, Locus, Excluded]:
+            with self.subTest(child=child):
+                child1 = child(self.transcript1)
+                # Check compiled in dictionary
+                self.assertIsInstance(child1.configuration, (MikadoConfiguration, DaijinConfiguration))
+                obj = pickle.dumps(child1)
+                nobj = pickle.loads(obj)
+                self.assertEqual(child1, nobj)
+                obj2 = child1.as_dict()
+                self.assertIsInstance(obj2, dict)
+                obj3 = child1.as_dict()
+                self.assertEqual(obj2, obj3)
+                nobj2 = child(None)
+                nobj2.load_dict(obj2)
+                self.assertEqual(child1, nobj2)
+
+    def test_slocus_dicts(self):
+
+        locus = Superlocus(self.transcript1)
+        locus.add_transcript_to_locus(self.transcript2, check_in_locus=False)
+        locus.subloci = [Sublocus(self.transcript1)]
+        l = Locus(self.transcript1)
+        locus.loci = {l.id: l}
+        ml = MonosublocusHolder(Monosublocus(self.transcript1))
+        locus.monoholders = [ml]
+        locus.excluded = Excluded(self.transcript2)
+        conf = locus.configuration.copy()
+        _without = locus.as_dict(with_subloci=False, with_monoholders=False)
+        self.assertEqual(_without["subloci"], [])
+        self.assertEqual(_without["monoholders"], [])
+        self.assertEqual(_without["excluded"], locus.excluded.as_dict())
+        self.assertEqual(_without["loci"], {l.id: l.as_dict()})
+        _with = locus.as_dict(with_subloci=True, with_monoholders=True)
+        self.assertEqual(_with["subloci"], [locus.subloci[0].as_dict()])
+        self.assertEqual(_with["monoholders"], [ml.as_dict()])
+        self.assertEqual(_with["excluded"], Excluded(self.transcript2).as_dict())
+        self.assertEqual(_with["loci"], {l.id: l.as_dict()})
+        self.assertIsInstance(_with["json_conf"], dict)
+        # Now test the reloading
+        # def load_dict(self, state, print_subloci=True, print_monoloci=True, load_transcripts=True,
+        #                   load_configuration=True):
+        conf.threads = 10
+        self.assertNotEqual(conf, locus.configuration)
+        num = 0
+        for print_subloci in (True, False):
+            for print_monoloci in (True, False):
+                for load_transcripts in (True, False):
+                    for load_configuration in (True, False):
+                        with self.subTest(
+                            print_subloci=print_subloci,
+                            print_monoloci=print_monoloci,
+                            load_transcripts=load_transcripts,
+                            load_configuration=load_configuration
+                        ):
+                            num += 1
+                            test = Superlocus(None, configuration=conf)
+                            self.assertIsInstance(_with["json_conf"], dict, num)
+                            test.load_dict(
+                                deepcopy(_with), print_subloci=print_subloci, print_monoloci=print_monoloci,
+                                load_transcripts=load_transcripts, load_configuration=load_configuration)
+                            if load_configuration is False:
+                                self.assertEqual(conf, test.configuration)
+                            else:
+                                self.assertEqual(locus.configuration, test.configuration)
+                            if load_transcripts is True:
+                                self.assertEqual(locus.transcripts, test.transcripts)
+                            else:
+                                self.assertEqual(test.transcripts, dict((tid, transcript.as_dict())
+                                                                        for tid, transcript in
+                                                                        locus.transcripts.items()))
+                            if print_subloci is True:
+                                self.assertEqual(locus.excluded, test.excluded)
+                                self.assertEqual(locus.subloci, test.subloci)
+                            else:
+                                self.assertEqual(test.subloci, [])
+                            if print_monoloci is True:
+                                self.assertEqual(test.monoholders, locus.monoholders)
+                            else:
+                                self.assertEqual(test.monoholders, [])
 
     def test_in_locus(self):
 

@@ -4,6 +4,17 @@ As a result of this change, the preferred installation procedure from source has
 - either install using `pip wheel -w dist . && pip install dist/Mikado*whl`
 - or install with `python setup.py bdist_wheel` **after** having forcibly installed Cython, with `pip install Cython` or the like.
 
+Other changes:
+- Fix [#381](https://github.com/EI-CoreBioinformatics/mikado/issues/381): now Mikado will be able to guess correctly 
+  the input file format, instead of relying on the file name extension or user's settings. Sniffing for files 
+  provided as a stream is *disabled* though.
+- Fix [#382](https://github.com/EI-CoreBioinformatics/mikado/issues/382): now Mikado can accept generic BED12 files 
+  as input junctions, not just Portcullis junctions. This allows e.g. a user to provide a ***set of gene models*** 
+  in BED12 format as sources of valid junctions.  
+- Slightly increased the unit-test coverage for the locus classes, e.g. properly covering the `as_dict` and `load_dict`
+  methods. Minor bugfixes related to the introduction of these unit-tests.
+- `Mikado.parsers.to_gff` has been renamed to `Mikado.parsers.parser_factory`.  
+
 # Version 2.1.1
 
 Hotfix release:

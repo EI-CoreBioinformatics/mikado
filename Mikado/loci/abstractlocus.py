@@ -8,6 +8,8 @@ import abc
 import itertools
 import logging
 from sys import maxsize
+
+import marshmallow
 import networkx
 from .._transcripts.clique_methods import find_communities, define_graph
 from .._transcripts.scoring_configuration import SizeFilter, InclusionFilter, NumBoolEqualityFilter, ScoringFile, \
@@ -243,6 +245,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             del state["engine"]
 
         del state["_Abstractlocus__segmenttree"]
+        del state["_Abstractlocus__internal_graph"]
         assert isinstance(state["json_conf"], (MikadoConfiguration, DaijinConfiguration))
         return state
 
@@ -299,8 +302,14 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         else:
             try:
                 state["json_conf"] = MikadoConfiguration.Schema().load(state["json_conf"])
-            except:
-                state["json_conf"] = DaijinConfiguration.Schema().load(state["json_conf"])
+            except marshmallow.exceptions.MarshmallowError:
+                try:
+                    state["json_conf"] = DaijinConfiguration.Schema().load(state["json_conf"])
+                except marshmallow.exceptions.MarshmallowError as exc:
+                    error = "Invalid input for the DaijinConfiguration schema!\nType: {}\n\n{}".format(
+                        type(state["json_conf"]), state["json_conf"]
+                    )
+                    raise marshmallow.exceptions.MarshmallowError(error)
         self.__setstate__(state)
         assert self.metrics_calculated is True
         if load_transcripts is True:

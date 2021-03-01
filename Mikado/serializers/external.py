@@ -145,8 +145,7 @@ class ExternalSerializer:
                 fasta_index = fasta_index.decode()
             if not os.path.exists(fasta_index):
                 error = """I cannot find the mikado prepared FASTA file with the transcripts to analyse.
-                Please run mikado serialise in the folder with the correct files, and/or modify the configuration
-                or the command line options."""
+Please run mikado serialise in the folder with the correct files, and/or modify the configuration or the command line options."""
                 self.logger.critical(error)
                 raise AssertionError(error)
             self.fasta_index = pyfaidx.Fasta(fasta_index)
@@ -163,24 +162,14 @@ class ExternalSerializer:
 
         try:
             self.data = pd.read_csv(self.handle, delimiter=delimiter, index_col=["tid"])
-        except ValueError:
-            self.data = pd.read_csv(self.handle, delimiter=delimiter)
-            if self.data.index.name is not None:
-                exc = ValueError("Invalid index name: {}. It should be tid or not specified.".format(
-                    self.data.index.name))
-                self.logger.exception(exc)
-                return
-            else:
-                self.data.index.name = "tid"
-        except KeyboardInterrupt:
-            raise KeyboardInterrupt
-        except Exception as exc:
-            self.logger.exception(exc)
+        except (ValueError, pd.errors.ParserError) as exc:
+            self.logger.critical("Invalid input file!")
+            self.logger.critical(exc)
             raise
 
         if len(self.data.columns) == 0:
-            error = TypeError("Not enough fields specified for the external file! Header: {}".format(
-                self.data.columns))
+            error = pd.errors.ParserError(
+                "Not enough fields specified for the external file! Header: {}".format(self.data.columns))
             self.logger.exception(error)
             raise error
 
@@ -194,10 +183,7 @@ class ExternalSerializer:
             DBBASE.metadata.create_all(self.engine)  # @UndefinedVariable
 
         self.session = session
-        if configuration is not None:
-            self.maxobjects = configuration.serialise.max_objects
-        else:
-            self.maxobjects = 10000
+        self.maxobjects = configuration.serialise.max_objects
 
     def serialize(self):
         """This function will load the external scores into the database."""
@@ -325,7 +311,7 @@ class ExternalSerializer:
                 if record in cache:
                     continue
                 objects.append(Query(record, len(self.fasta_index[record])))
-                assert record not in found, "The record {record} is duplicated in the FASTA index".format(record)
+                assert record not in found, "The record {record} is duplicated in the FASTA index".format(record=record)
                 found.add(record)
                 if len(objects) >= self.maxobjects:
                     done += len(objects)

@@ -264,7 +264,7 @@ class PrepareCheck(unittest.TestCase):
             for cuff_file, test_file in itertools.product(
                     ("cufflinks.gtf", "cufflinks.no_transcript.gtf"),
                     (("trinity.gff3", "trinity.match_matchpart.gff3", "trinity.cDNA_match.gff3", "trinity.gtf",
-                      "trinity.no_transcript_feature.gtf"))):
+                      "trinity.no_transcript_feature.gtf", "trinity.bam"))):
                 for proc in (1, 3):
                     with self.subTest(test_file=test_file, cuff_file=cuff_file, proc=proc):
                         self.conf.prepare.files.gff[0] = pkg_resources.resource_filename("Mikado.tests",

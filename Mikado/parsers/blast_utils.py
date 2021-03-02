@@ -236,7 +236,7 @@ def merge(intervals: [(int, int)], query_length=None, offset=1):
     intervals = np.vstack((starts[:][valid[:-1]], ends[:][valid[1:]])).T
     total_length_covered = int(abs(intervals[:, 1] - intervals[:, 0] + offset).sum())
 
-    assert query_length and total_length_covered > query_length, \
+    assert not (query_length and total_length_covered > query_length), \
         "Something went wrong, original length {}, total length {}".format(
             query_length, total_length_covered)
 

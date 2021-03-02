@@ -5,6 +5,7 @@ import tempfile
 
 import pkg_resources
 
+from Mikado.exceptions import InvalidParsingFormat
 from ..parsers import blast_utils
 import unittest
 import os
@@ -191,8 +192,8 @@ class BlastBasics(unittest.TestCase):
         with tempfile.NamedTemporaryFile(delete=True) as invalid_xml:
             invalid_xml.write(b"failing\n")
             invalid_xml.flush()
-            with self.assertRaises(ValueError):
-                valid, header, exc = blast_utils.BlastOpener(invalid_xml.name).sniff()
+            with self.assertRaises((ValueError, InvalidParsingFormat)):
+                _ = blast_utils.BlastOpener(invalid_xml.name).sniff()
 
     def test_sniff_inexistent(self):
 
@@ -200,7 +201,7 @@ class BlastBasics(unittest.TestCase):
             pass
 
         with self.assertRaises(OSError):
-            valid, header, exc = blast_utils.BlastOpener(inexistent.name).sniff()
+            _ = blast_utils.BlastOpener(inexistent.name).sniff()
 
     @mark.slow
     def test_sniff_gzip(self):

@@ -318,12 +318,16 @@ def parse_list_file(cfg: Union[MikadoConfiguration,DaijinConfiguration],
                 counter, stranded
             ))
         if len(fields) >= 4:
-            try:
-                score = float(fields[3])
-            except ValueError:
-                raise ValueError("Invalid score specified for {} at line no. {} (only int/floats accepted): {}".format(
-                    gff_name, counter, fields[3]
-                ))
+            score = fields[3]
+            if score == "":
+                score = 0
+            else:
+                try:
+                    score = float(fields[3])
+                except ValueError:
+                    raise ValueError("Invalid score specified for {} at line no. {} (only int/floats accepted): {}".format(
+                        gff_name, counter, fields[3]
+                    ))
             configuration["prepare"]["files"]["source_score"][label] = score
         else:
             configuration["prepare"]["files"]["source_score"][label] = 0

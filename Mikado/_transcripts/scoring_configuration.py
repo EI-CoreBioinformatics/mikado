@@ -5,7 +5,7 @@ from dataclasses import field, asdict
 from marshmallow import validate
 from .transcript_base import TranscriptBase
 available_metrics = TranscriptBase.get_available_metrics()
-from ..exceptions import InvalidJson
+from ..exceptions import InvalidConfiguration
 import re
 
 
@@ -20,7 +20,7 @@ def compiler(expression):
     try:
         return compile(expression, "<json>", "eval")
     except SyntaxError:
-        raise InvalidJson("Invalid expression:\n{}".format(expression))
+        raise InvalidConfiguration("Invalid expression:\n{}".format(expression))
 
 
 @dataclass
@@ -122,7 +122,7 @@ class Requirements:
             keys = set([key for key in key_pattern.findall(expression) if key not in ("and", "or", "not", "xor")])
             diff_params = set.difference(set(keys), set(parameters.keys()))
             if len(diff_params) > 0:
-                raise InvalidJson("Expression and required parameters mismatch:\n\t{0}".format(
+                raise InvalidConfiguration("Expression and required parameters mismatch:\n\t{0}".format(
                     "\n\t".join(list(diff_params))))
         for key in keys:  # Create the final expression
             expression = re.sub(r"\b{}\b".format(key), "evaluated[\"{0}\"]".format(key), expression)
@@ -158,7 +158,7 @@ class Requirements:
                 self.parameters[key].source = key_value
 
         if len(parameters_not_found) > 0:
-            raise InvalidJson(
+            raise InvalidConfiguration(
                 "The following parameters, selected for filtering, are invalid:\n\t{0}".format(
                     "\n\t".join(parameters_not_found)
                 ))
@@ -259,7 +259,7 @@ class ScoringFile:
                 err_message += """The following parameters cannot be used as raw scores, either
                     because they are not normalized on their own, or because a "target" rescaling has been asked for:
                     \t{0}""".format("\n\t".join(list(invalid_raw)))
-            raise InvalidJson(err_message)
+            raise InvalidConfiguration(err_message)
 
     def check(self, minimal_orf_length):
         self.requirements._check_my_requirements()

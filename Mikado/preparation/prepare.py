@@ -4,7 +4,7 @@ import gc
 from .checking import create_transcript, CheckingProcess
 from .annotation_parser import AnnotationParser, loaders, load_into_storage
 from ..configuration import MikadoConfiguration
-from ..exceptions import InvalidJson, InvalidParsingFormat
+from ..exceptions import InvalidConfiguration, InvalidParsingFormat
 from ..utilities import Interval, IntervalTree
 from ..parsers import parser_factory
 import operator
@@ -554,7 +554,7 @@ def prepare(mikado_config: MikadoConfiguration, logger):
     """
 
     if not hasattr(mikado_config.reference, "genome"):
-        raise InvalidJson("Invalid configuration; reference: {}".format(mikado_config))
+        raise InvalidConfiguration("Invalid configuration; reference: {}".format(mikado_config))
 
     if hasattr(mikado_config.reference.genome, "close"):
         mikado_config.reference.genome.close()

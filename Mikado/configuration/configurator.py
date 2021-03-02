@@ -15,7 +15,7 @@ from multiprocessing import get_start_method
 from logging import Logger
 import yaml
 from pkg_resources import resource_stream
-from ..exceptions import InvalidJson
+from ..exceptions import InvalidConfiguration
 from ..utilities.log_utils import create_default_logger
 import random
 import toml
@@ -70,11 +70,11 @@ def check_db(configuration: Union[MikadoConfiguration, DaijinConfiguration]) -> 
 
     if configuration.db_settings.dbtype in ("mysql", "postgresql"):
         if configuration.db_settings.dbhost is None:
-            raise InvalidJson(
+            raise InvalidConfiguration(
                 "No host specified for the {0} database!".format(
                     configuration.db_settings.dbtype))
         if configuration.db_settings.dbuser is None:
-            raise InvalidJson(
+            raise InvalidConfiguration(
                 "No user specified for the {0} database!".format(
                     configuration.db_settings.dbtype))
         if configuration.db_settings.dbport == 0:
@@ -173,7 +173,7 @@ def load_and_validate_config(raw_configuration: Union[None, MikadoConfiguration,
             assert isinstance(raw_configuration, str), raw_configuration
             raw_configuration = os.path.abspath(raw_configuration)
             if not os.path.exists(raw_configuration) or os.stat(raw_configuration).st_size == 0:
-                raise InvalidJson("JSON file {} not found!".format(raw_configuration))
+                raise InvalidConfiguration("JSON file {} not found!".format(raw_configuration))
             with open(raw_configuration) as json_file:
                 # YAML *might* try to load up the file as the proper object
                 if raw_configuration.endswith(".yaml"):
@@ -209,7 +209,7 @@ def load_and_validate_config(raw_configuration: Union[None, MikadoConfiguration,
         raise
     except Exception as exc:
         logger.exception("Loading the configuration file failed with error:\n%s\n\n\n", exc)
-        raise InvalidJson("The configuration file passed is invalid. Please double check.")
+        raise InvalidConfiguration("The configuration file passed is invalid. Please double check.")
 
     if config.seed == 0 or config.seed is None:
         config.seed = random.randint(1, 2 ** 32 - 1)

@@ -3,6 +3,8 @@ This module defines the functions needed to check the sanity of the configuratio
 plus the JSON schemas for the configuration and scoring files.
 """
 from typing import Union
+
+import os
 from marshmallow import fields
 from .configuration import MikadoConfiguration
 from .daijin_configuration import DaijinConfiguration
@@ -258,3 +260,101 @@ def print_yaml_config(config_dict: dict, config: Union[DaijinConfiguration, Mika
 
     print(*lines, sep="\n", file=out)
 
+
+def parse_list_file(cfg: Union[MikadoConfiguration,DaijinConfiguration],
+                    list_file: str) -> Union[MikadoConfiguration,DaijinConfiguration]:
+    configuration = {
+        "pick": {
+            "chimera_split": {
+                "skip": []
+            }
+        },
+        "prepare": {
+            "files": {
+                "gff": [],
+                "labels": [],
+                "strand_specific_assemblies": [],
+                "source_score": {},
+                "reference": [],
+                "exclude_redundant": [],
+                "strip_cds": [],
+                "skip": []
+            }
+        }
+    }
+
+    if isinstance(list_file, str):
+        list_file = open(list_file)
+
+    for counter, line in enumerate(list_file):
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue  # Skip empty lines or headers
+        fields = line.rstrip().split("\t")
+        try:
+            gff_name, label, stranded = fields[:3]
+        except (IndexError, ValueError):
+            raise IndexError(
+                "The input list file must contain, for each line, at a minimum file name, unique label and "
+                "strandedness. Line no. {} does not contain the expected fields.".format(counter))
+        if not os.path.exists(gff_name):
+            raise ValueError("Non-existent file name at line {}: {}".format(counter, gff_name))
+        if label in configuration["prepare"]["files"]["labels"]:
+            raise ValueError("Non-unique label specified at line {}: {}".format(counter, label))
+        if stranded.lower() not in ("true", "false"):
+            raise ValueError("Malformed line (no. {}) for the list: {}".format(counter, line))
+        if gff_name in configuration["prepare"]["files"]["gff"]:
+            raise ValueError("Repeated input file at line no. {}: {}".format(counter, line))
+        elif label != '' and label in configuration["prepare"]["files"]["labels"]:
+            raise ValueError("Repeated label at line {}: {}".format(counter, line))
+        configuration["prepare"]["files"]["gff"].append(gff_name)
+        configuration["prepare"]["files"]["labels"].append(label)
+        if stranded.capitalize() == "True":
+            configuration["prepare"]["files"]["strand_specific_assemblies"].append(gff_name)
+        elif stranded.capitalize() == "False":
+            pass
+        else:
+            raise ValueError("Invalid strandedness value at line no. {} (only True/False accepted): {}".format(
+                counter, stranded
+            ))
+        if len(fields) >= 4:
+            try:
+                score = float(fields[3])
+            except ValueError:
+                raise ValueError("Invalid score specified for {} at line no. {} (only int/floats accepted): {}".format(
+                    gff_name, counter, fields[3]
+                ))
+            configuration["prepare"]["files"]["source_score"][label] = score
+        else:
+            configuration["prepare"]["files"]["source_score"][label] = 0
+
+        for arr, pos, default in [("reference", 4, False), ("exclude_redundant", 5, False),
+                                  ("strip_cds", 6, False), ("skip_split", 7, False)]:
+            try:
+                val = fields[pos]
+                if val.lower() in ("false", "true"):
+                    val = eval(val.capitalize())
+                else:
+                    raise ValueError(
+                        "Malformed line (no. {}). The last fields should be either True or False. At line "
+                        "no. {}, the {} value (position {}) is instead {}.".format(counter, counter,
+                                                                                   arr, pos, val))
+            except IndexError:
+                val = default
+            if arr == "skip_split":
+                configuration["pick"]["chimera_split"]["skip"].append(val)
+            else:
+                configuration["prepare"]["files"][arr].append(val)
+
+    assert "exclude_redundant" in configuration["prepare"]["files"]
+
+    cfg.prepare.files.gff = configuration["prepare"]["files"]["gff"]
+    cfg.prepare.files.labels = configuration["prepare"]["files"]["labels"]
+    cfg.prepare.files.strand_specific_assemblies = configuration["prepare"]["files"]["strand_specific_assemblies"]
+    cfg.prepare.files.source_score = configuration["prepare"]["files"]["source_score"]
+    cfg.prepare.files.reference = configuration["prepare"]["files"]["reference"]
+    cfg.prepare.files.exclude_redundant = configuration["prepare"]["files"]["exclude_redundant"]
+    cfg.prepare.files.strip_cds = configuration["prepare"]["files"]["strip_cds"]
+    cfg.pick.chimera_split.skip = configuration["pick"]["chimera_split"]["skip"]
+
+    return cfg

@@ -23,6 +23,8 @@ __author__ = 'Luca Venturini'
 
 # Diamond default: qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore
 # BLASTX default: qaccver saccver pident length mismatch gapopen qstart qend sstart send evalue bitscore
+from ..exceptions import InvalidConfiguration
+
 blast_keys = "qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore ppos btop".split()
 
 

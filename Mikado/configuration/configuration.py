@@ -13,7 +13,7 @@ import os
 import yaml
 import toml
 import json
-from ..exceptions import InvalidJson
+from ..exceptions import InvalidConfiguration
 from pkg_resources import resource_filename
 try:
     from yaml import CSafeLoader as yLoader
@@ -139,7 +139,7 @@ class MikadoConfiguration:
                         self._loaded_scoring = self.pick.scoring_file
                         # self = check_scoring(self)
                         # self = check_all_requirements(self)
-                    except (InvalidJson, ValidationError) as exc:
+                    except (InvalidConfiguration, ValidationError) as exc:
                         logger.debug("Invalid option: %s", option)
                         logger.warning(exc)
                         continue
@@ -152,5 +152,5 @@ class MikadoConfiguration:
                 self.pick.scoring_file = option
                 break
         if not found:
-            raise InvalidJson("No scoring configuration file found. Options: {}".format(",".join(options)))
+            raise InvalidConfiguration("No scoring configuration file found. Options: {}".format(",".join(options)))
         return

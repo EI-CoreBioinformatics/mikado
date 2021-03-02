@@ -8,6 +8,7 @@ import os
 import subprocess
 import gzip
 import io
+from ..exceptions import InvalidParsingFormat
 from .parser import HeaderError
 from operator import itemgetter
 from Bio.SearchIO import parse as bio_parser
@@ -57,7 +58,7 @@ class BlastOpener:
                         shell=False, stdin=zcat.stdout, stdout=subprocess.PIPE)
                     self.__handle = io.TextIOWrapper(blast_formatter.stdout, encoding="UTF-8")
                 else:
-                    raise ValueError("Unrecognized file format for {}".format(self.__filename))
+                    raise InvalidParsingFormat("Unrecognized file format for {}".format(self.__filename))
             elif self.__filename.endswith(".xml"):
                 self.__handle = open(self.__filename)
             elif self.__filename.endswith(".asn"):
@@ -66,7 +67,7 @@ class BlastOpener:
                     shell=False, stdout=subprocess.PIPE)
                 self.__handle = io.TextIOWrapper(blast_formatter.stdout, encoding="UTF-8")
             else:
-                raise ValueError("Unrecognized file format: {}".format(self.__filename))
+                raise InvalidParsingFormat("Unrecognized file format: {}".format(self.__filename))
 
         if self.__handle is None:
             raise OSError("Failed to open file {}".format(self.__filename))
@@ -235,8 +236,8 @@ def merge(intervals: [(int, int)], query_length=None, offset=1):
     intervals = np.vstack((starts[:][valid[:-1]], ends[:][valid[1:]])).T
     total_length_covered = int(abs(intervals[:, 1] - intervals[:, 0] + offset).sum())
 
-    if query_length and total_length_covered > query_length:
-        raise AssertionError("Something went wrong, original length {}, total length {}".format(
-            query_length, total_length_covered))
+    assert query_length and total_length_covered > query_length, \
+        "Something went wrong, original length {}, total length {}".format(
+            query_length, total_length_covered)
 
     return [tuple([int(_[0]), int(_[1])]) for _ in intervals], total_length_covered

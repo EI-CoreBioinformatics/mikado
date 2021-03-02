@@ -17,7 +17,7 @@ import pyfaidx
 import toml
 import yaml
 from Mikado.configuration.configurator import load_and_validate_config
-from Mikado.exceptions import InvalidJson, InvalidParsingFormat
+from Mikado.exceptions import InvalidConfiguration, InvalidParsingFormat
 from Mikado.daijin import mikado_pipeline, assemble_transcripts_pipeline
 from Mikado.configuration import print_config, DaijinConfiguration, MikadoConfiguration
 import rapidjson as json
@@ -1041,6 +1041,92 @@ class CompareCheck(unittest.TestCase):
                         pass
                 self.assertEqual(counter, 4)
 
+    @mark.slow
+    def test_internal(self):
+        ref = pkg_resources.resource_filename("Mikado.tests", "reference.gff3")
+        namespace = Namespace(default=False)
+        namespace.distance = 2000
+        namespace.no_save_index = True
+        namespace.protein_coding = False
+        namespace.exclude_utr = False
+        namespace.self = False
+        namespace.gzip = False
+        namespace.internal = True
+        for proc in (1, 3):
+            with tempfile.TemporaryDirectory(prefix="test_internal_{}_".format(proc)) as folder, self.subTest(
+                    proc=proc):
+                namespace.reference = parser_factory(ref)
+                namespace.prediction = parser_factory(ref)
+                namespace.processes = proc
+                namespace.log = None
+                namespace.out = os.path.join(folder, "compare_internal")
+                self.assertTrue(os.path.exists(folder))
+                self.assertIsInstance(folder, str)
+                with self.assertLogs("main_compare", level="INFO") as cm:
+                    compare(namespace)
+                refmap = "{}.refmap".format(namespace.out)
+                tmap = "{}.tmap".format(namespace.out)
+                stats = "{}.stats".format(namespace.out)
+                # Stats and refmap should not exist
+                log = [str(_).rstrip() for _ in cm.records]
+                self.assertFalse(os.path.exists(refmap))
+                self.assertFalse(os.path.exists(stats))
+                self.assertTrue(os.path.exists(tmap))
+                self.assertGreater(os.stat(tmap).st_size, 0, "\n".join(log))
+
+                with open(tmap) as _:
+                    reader = csv.DictReader(_, delimiter="\t")
+                    for counter, line in enumerate(reader, start=1):
+                        self.assertNotIn(line["ccode"], ("=", "_"))
+                        self.assertEqual(line["ref_gene"], line["gid"])
+
+    def test_self(self):
+        ref = pkg_resources.resource_filename("Mikado.tests", "reference.gff3")
+        namespace = Namespace(default=False)
+        namespace.distance = 2000
+        namespace.no_save_index = True
+        namespace.protein_coding = False
+        namespace.exclude_utr = False
+        namespace.self = True
+        namespace.gzip = False
+        namespace.internal = False
+        transcripts = [_ for _ in parser_factory(ref) if _.is_transcript is True]
+        for proc in (1, 3):
+            with tempfile.TemporaryDirectory(prefix="test_self_{}_".format(proc)) as folder, self.subTest(
+                    proc=proc):
+                namespace.reference = parser_factory(ref)
+                namespace.prediction = parser_factory(ref)
+                namespace.processes = proc
+                namespace.log = None
+                namespace.out = os.path.join(folder, "compare_internal")
+                self.assertTrue(os.path.exists(folder))
+                self.assertIsInstance(folder, str)
+                with self.assertLogs("main_compare", level="INFO") as cm:
+                    compare(namespace)
+                refmap = "{}.refmap".format(namespace.out)
+                tmap = "{}.tmap".format(namespace.out)
+                stats = "{}.stats".format(namespace.out)
+                # Stats should not exist
+                log = [str(_).rstrip() for _ in cm.records]
+                self.assertFalse(os.path.exists(stats))
+                self.assertTrue(os.path.exists(refmap))
+                self.assertGreater(os.stat(refmap).st_size, 0, "\n".join(log))
+                self.assertTrue(os.path.exists(tmap))
+                self.assertGreater(os.stat(tmap).st_size, 0, "\n".join(log))
+
+                with open(refmap) as _:
+                    reader = csv.DictReader(_, delimiter="\t")
+                    for counter, line in enumerate(reader, start=1):
+                        self.assertNotIn(line["ccode"], ("=", "_"))
+
+                self.assertEqual(counter, len(transcripts))
+
+                with open(tmap) as _:
+                    reader = csv.DictReader(_, delimiter="\t")
+                    for counter, line in enumerate(reader, start=1):
+                        self.assertNotIn(line["ccode"], ("=", "_"))
+
+                self.assertEqual(counter, len(transcripts))
 
 class CompareFusionCheck(unittest.TestCase):
 
@@ -1150,7 +1236,7 @@ class ConfigureCheck(unittest.TestCase):
         for external in (True, False):
             with self.subTest(external=external):
                 if external == False:
-                    with self.assertRaises(InvalidJson):
+                    with self.assertRaises(InvalidConfiguration):
                         load_and_validate_config(ext_file, external=external)
                 else:
                     config = load_and_validate_config(ext_file, external=external)
@@ -1202,7 +1288,7 @@ class ConfigureCheck(unittest.TestCase):
                         sub_configure.create_config(namespace)
 
             with self.subTest(mistake="hello"):
-                with self.assertRaises((OSError, InvalidJson)):
+                with self.assertRaises((OSError, InvalidConfiguration)):
                     namespace.seed = "hello"
                     namespace.daijin = False
                     namespace.mode = ["permissive"]
@@ -1211,7 +1297,7 @@ class ConfigureCheck(unittest.TestCase):
                         sub_configure.create_config(namespace)
 
             with self.subTest(mistake=b"890"):
-                with self.assertRaises((OSError, InvalidJson)):
+                with self.assertRaises((OSError, InvalidConfiguration)):
                     namespace.seed = b"890"
                     namespace.daijin = False
                     namespace.mode = ["permissive"]
@@ -1220,7 +1306,7 @@ class ConfigureCheck(unittest.TestCase):
                         sub_configure.create_config(namespace)
 
             with self.subTest(mistake=10.5):
-                with self.assertRaises((OSError, InvalidJson)):
+                with self.assertRaises((OSError, InvalidConfiguration)):
                     namespace.seed = 10.5
                     namespace.daijin = False
                     namespace.mode = ["permissive"]

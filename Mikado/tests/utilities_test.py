@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
 import itertools
+import re
 
-from Mikado.configuration import MikadoConfiguration
+import pkg_resources
+
+from Mikado.configuration import MikadoConfiguration, parse_list_file
 from Mikado.utilities.log_utils import LoggingConfiguration, create_logger_from_conf, create_default_logger
-from .. import utilities
+from Mikado import utilities
 import unittest
 import os
 import tempfile
@@ -123,6 +126,163 @@ class UtilTester(unittest.TestCase):
             self.assertEqual(len(existing), 0, [os.remove(name) for name in existing])
             self.assertTrue(os.path.exists(out.name))
             os.remove(out.name)
+
+
+class ParseListFileTest(unittest.TestCase):
+
+    def setUp(self) -> None:
+        self.config = MikadoConfiguration()
+        self.ref = pkg_resources.resource_filename("Mikado.tests", "reference.gff3")
+        self.trinity = pkg_resources.resource_filename("Mikado.tests", "trinity.bed12")
+        self.pacbio = pkg_resources.resource_filename("Mikado.tests", "pacbio.bam")
+
+        self.files = {
+            "ref": {"filename": self.ref,
+                    "label": "ref", "stranded": True, "score": 10, "exclude_redundant": False,
+                    "strip_cds": False, "skip_split": True, "reference": True},
+            "pacbio": {"filename": self.pacbio,
+                       "label": "pacbio", "stranded": True, "score": 5, "exclude_redundant": True,
+                        "strip_cds": False, "skip_split": True, "reference": False},
+            "trinity": {"filename": self.trinity,
+                        "label": "trinity", "stranded": False, "score": -1, "exclude_redundant": True,
+                        "strip_cds": True, "skip_split": True, "reference": False},
+        }
+
+    def test_parse_failing_basic_list_file(self):
+        # 0 Filename
+        # 1 Label
+        # 2 Strandedness (True/False)
+        # 3 Score (Float)
+        # 4 Reference
+        # 5 Exclude redundant
+        # 6 strip cds
+        # 7 skip split
+
+        with tempfile.NamedTemporaryFile(mode="wt") as fail:
+            print(*[self.files[_]["filename"] for _ in self.files], sep="\n", file=fail)
+            fail.flush()
+            with self.assertRaises(IndexError):
+                parse_list_file(self.config, fail.name)
+
+        with tempfile.NamedTemporaryFile("wt") as fail:
+            for key, item in self.files.items():
+                print(item["filename"], item["label"], file=fail, sep="\t")
+            fail.flush()
+            with self.assertRaises(IndexError):
+                parse_list_file(self.config, fail.name)
+
+        with tempfile.NamedTemporaryFile("wt") as fail:
+            for key, item in self.files.items():
+                print(item["filename"], item["label"], "foo", file=fail, sep="\t")
+            fail.flush()
+            with self.assertRaises(ValueError):
+                parse_list_file(self.config, fail.name)
+
+        with tempfile.NamedTemporaryFile("wt") as fail:
+            for key, item in self.files.items():
+                # Double labels
+                print(item["filename"], self.files["pacbio"]["label"], item["stranded"], file=fail, sep="\t")
+            fail.flush()
+            with self.assertRaises(ValueError):
+                parse_list_file(self.config, fail.name)
+
+        with tempfile.NamedTemporaryFile("wt") as fail, tempfile.TemporaryDirectory() as tmp:
+            for key, item in self.files.items():
+                fname = os.path.join(tmp, os.path.basename(item["filename"]))
+                self.assertFalse(os.path.exists(fname))
+                print(fname, item["label"], item["stranded"], file=fail, sep="\t")
+            fail.flush()
+            with self.assertRaises(ValueError):
+                parse_list_file(self.config, fail.name)
+
+        with tempfile.NamedTemporaryFile("wt") as fail:
+            for key, item in self.files.items():
+                print(item["filename"], item["label"], item["stranded"], "wrong", file=fail, sep="\t")
+            fail.flush()
+            with self.assertRaises(ValueError) as exc:
+                parse_list_file(self.config, fail.name)
+            self.assertIsNotNone(re.search(r"Invalid score specified for", str(exc.exception)))
+
+    def test_valid(self):
+        # 0 Filename
+        # 1 Label
+        # 2 Strandedness (True/False)
+        # 3 Score (Float)
+        # 4 Reference
+        # 5 Exclude redundant
+        # 6 strip cds
+        # 7 skip split
+
+        with tempfile.NamedTemporaryFile(mode="wt") as out:
+            for _, item in self.files.items():
+                print(item["filename"], item["label"], item["stranded"], item["score"],
+                      item["reference"], item["exclude_redundant"], item["strip_cds"], item["skip_split"],
+                      sep="\t", file=out)
+            out.flush()
+            configuration = parse_list_file(self.config, out.name)
+
+        for arr in (configuration.prepare.files.source_score,
+                    configuration.prepare.files.reference,
+                    configuration.prepare.files.exclude_redundant,
+                    configuration.prepare.files.reference,
+                    configuration.prepare.files.strip_cds,
+                    configuration.pick.chimera_split.skip):
+            self.assertEqual(len(arr), 3)
+
+        for _, item in self.files.items():
+            label = item["label"]
+            self.assertIn(item["filename"], configuration.prepare.files.gff)
+            self.assertIn(item["label"], configuration.prepare.files.labels)
+            pos = configuration.prepare.files.gff.index(item["filename"])
+            self.assertEqual(pos,configuration.prepare.files.labels.index(item["label"]))
+            if item["stranded"] is True:
+                self.assertIn(item["filename"], configuration.prepare.files.strand_specific_assemblies)
+            else:
+                self.assertNotIn(item["filename"], configuration.prepare.files.strand_specific_assemblies)
+            self.assertEqual(item["score"], configuration.prepare.files.source_score[label])
+            self.assertEqual(item["exclude_redundant"], configuration.prepare.files.exclude_redundant[pos])
+            self.assertEqual(item["reference"], configuration.prepare.files.reference[pos])
+            self.assertEqual(item["strip_cds"], configuration.prepare.files.strip_cds[pos])
+            self.assertEqual(item["skip_split"], configuration.pick.chimera_split.skip[pos])
+
+    def test_default(self):
+        with tempfile.NamedTemporaryFile(mode="wt") as out:
+            # Test that header lines are skipped
+            print("# Filename label stranded", file=out)
+            print("", file=out)
+            for _, item in self.files.items():
+                print(item["filename"], item["label"], item["stranded"], sep="\t", file=out)
+            out.flush()
+            configuration = parse_list_file(self.config, out.name)
+
+        for name, arr in zip(("source_score", "reference", "exclude_redundant", "strip_cds", "skip_split"),
+                             (configuration.prepare.files.source_score,
+                              configuration.prepare.files.reference,
+                              configuration.prepare.files.exclude_redundant,
+                              configuration.prepare.files.strip_cds,
+                              configuration.pick.chimera_split.skip)):
+            self.assertEqual(len(arr), 3, name)
+
+        for _, item in self.files.items():
+            label = item["label"]
+            self.assertIn(item["filename"], configuration.prepare.files.gff)
+            self.assertIn(item["label"], configuration.prepare.files.labels)
+            pos = configuration.prepare.files.gff.index(item["filename"])
+            self.assertEqual(pos,configuration.prepare.files.labels.index(item["label"]))
+            if item["stranded"] is True:
+                self.assertIn(item["filename"], configuration.prepare.files.strand_specific_assemblies)
+            else:
+                self.assertNotIn(item["filename"], configuration.prepare.files.strand_specific_assemblies)
+
+        # for arr, pos, default in [("reference", 4, False), ("exclude_redundant", 5, False),
+        #                                   ("strip_cds", 6, False), ("skip_split", 7, False)]:
+
+        self.assertEqual(configuration.prepare.files.source_score,
+                         dict((label, 0) for label in configuration.prepare.files.labels))
+        self.assertEqual(configuration.prepare.files.reference, [False] * 3)
+        self.assertEqual(configuration.prepare.files.exclude_redundant, [False] * 3)
+        self.assertEqual(configuration.prepare.files.strip_cds, [False] * 3)
+        self.assertEqual(configuration.pick.chimera_split.skip, [False] * 3)
 
 
 class LogUtilsTester(unittest.TestCase):

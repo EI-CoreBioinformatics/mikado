@@ -19,7 +19,7 @@ class ModificationError(RuntimeError):
     pass
 
 
-class InvalidJson(ValidationError, KeyError):
+class InvalidConfiguration(ValidationError, KeyError):
     """
     Exception to be raised when the JSON/YAML is invalid.
     """

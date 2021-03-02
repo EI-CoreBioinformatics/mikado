@@ -10,7 +10,7 @@ import argparse
 import sys
 import dataclasses
 from ..configuration import DaijinConfiguration, MikadoConfiguration
-from ..exceptions import InvalidJson
+from ..exceptions import InvalidConfiguration
 from ..utilities import comma_split, percentage, merge_dictionaries
 from ..utilities.namespace import Namespace
 from ..configuration.configurator import load_and_validate_config
@@ -167,7 +167,7 @@ switch.")
 
     if args.skip_split:
         if not all(_ in config.prepare.files.labels for _ in args.skip_split):
-            raise InvalidJson("Some of the labels to skip for splitting are invalid: {}".format(
+            raise InvalidConfiguration("Some of the labels to skip for splitting are invalid: {}".format(
                 [_ for _ in args.skip_split if _ not in config.prepare.files.labels]
             ))
         config.pick.chimera_split.skip = list(set(config.pick.chimera_split.skip.extend(args.skip_split)))
@@ -206,8 +206,8 @@ switch.")
         tempcheck.flush()
         try:
             load_and_validate_config(tempcheck.name)
-        except InvalidJson as exc:
-            raise InvalidJson("Created an invalid configuration file! Error:\n{}".format(exc))
+        except InvalidConfiguration as exc:
+            raise InvalidConfiguration("Created an invalid configuration file! Error:\n{}".format(exc))
 
     # Print out the final configuration file
     if args.json is True or args.out.name.endswith("json"):

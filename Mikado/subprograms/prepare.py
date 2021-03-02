@@ -10,10 +10,10 @@ import os
 import argparse
 import logging
 import logging.handlers
-from ..configuration import MikadoConfiguration, DaijinConfiguration
+from ..configuration import MikadoConfiguration, DaijinConfiguration, parse_list_file
 from ..utilities import path_join
 from ..utilities.log_utils import formatter
-from ..exceptions import InvalidJson
+from ..exceptions import InvalidConfiguration
 from collections import Counter
 from typing import Union
 
@@ -21,88 +21,41 @@ from typing import Union
 __author__ = 'Luca Venturini'
 
 
-def parse_list_file(cfg, list_file):
-    configuration = {
-        "pick": {
-            "chimera_split": {
-                "skip": []
-            }
-        },
-        "prepare": {
-            "files": {
-                "gff": [],
-                "labels": [],
-                "strand_specific_assemblies": [],
-                "source_score": {},
-                "reference": [],
-                "exclude_redundant": [],
-                "strip_cds": [],
-                "skip": []
-            }
-        }
-    }
-
-    files_counter = Counter()
-
-    if isinstance(list_file, str):
-        list_file = open(list_file)
-
-    for line in list_file:
-        fields = line.rstrip().split("\t")
-        gff_name, label, stranded = fields[:3]
-        if not os.path.exists(gff_name):
-            raise ValueError("Invalid file name: {}".format(gff_name))
-        if label in configuration["prepare"]["files"]["labels"]:
-            raise ValueError("Non-unique label specified: {}".format(label))
-        if stranded.lower() not in ("true", "false"):
-            raise ValueError("Malformed line for the list: {}".format(line))
-        if gff_name in configuration["prepare"]["files"]["gff"]:
-            raise ValueError("Repeated prediction file: {}".format(line))
-        elif label != '' and label in configuration["prepare"]["files"]["labels"]:
-            raise ValueError("Repeated label: {}".format(line))
-        configuration["prepare"]["files"]["gff"].append(gff_name)
-        configuration["prepare"]["files"]["labels"].append(label)
-        if stranded.capitalize() == "True":
-            configuration["prepare"]["files"]["strand_specific_assemblies"].append(gff_name)
-        if len(fields) >= 4:
-            try:
-                score = float(fields[3])
-            except ValueError:
-                score = 0
-            configuration["prepare"]["files"]["source_score"][label] = score
-        for arr, pos, default in [("reference", 4, False), ("exclude_redundant", 5, False),
-                                  ("strip_cds", 6, False), ("skip_split", 7, False)]:
-            try:
-                val = fields[pos]
-                if val.lower() in ("false", "true"):
-                    val = eval(val.capitalize())
-                else:
-                    raise ValueError("Malformed line. The last two fields should be either True or False.")
-            except IndexError:
-                val = default
-            if arr == "skip_split":
-                configuration["pick"]["chimera_split"]["skip"].append(val)
-            else:
-                configuration["prepare"]["files"][arr].append(val)
-
-    files_counter.update(configuration["prepare"]["files"]["gff"])
-    if files_counter.most_common()[0][1] > 1:
-        raise InvalidJson(
+def parse_gff_args(mikado_config, args):
+    __gff_counter = Counter()
+    __gff_counter.update(args.gff)
+    if __gff_counter.most_common()[0][1] > 1:
+        raise InvalidConfiguration(
             "Repeated elements among the input GFFs! Duplicated files: {}".format(
-                ", ".join(_[0] for _ in files_counter.most_common() if _[1] > 1)))
-
-    assert "exclude_redundant" in configuration["prepare"]["files"]
-
-    cfg.prepare.files.gff = configuration["prepare"]["files"]["gff"]
-    cfg.prepare.files.labels = configuration["prepare"]["files"]["labels"]
-    cfg.prepare.files.strand_specific_assemblies = configuration["prepare"]["files"]["strand_specific_assemblies"]
-    cfg.prepare.files.source_score = configuration["prepare"]["files"]["source_score"]
-    cfg.prepare.files.reference = configuration["prepare"]["files"]["reference"]
-    cfg.prepare.files.exclude_redundant = configuration["prepare"]["files"]["exclude_redundant"]
-    cfg.prepare.files.strip_cds = configuration["prepare"]["files"]["strip_cds"]
-    cfg.pick.chimera_split.skip = configuration["pick"]["chimera_split"]["skip"]
-
-    return cfg
+                ", ".join(_[0] for _ in __gff_counter.most_common() if _[1] > 1)
+            ))
+    mikado_config.prepare.files.gff = args.gff
+    num_files = len(mikado_config.prepare.files.gff)
+    if args.strand_specific:
+        mikado_config.prepare.strand_specific = True
+    elif args.strand_specific_assemblies:
+        args.strand_specific_assemblies = args.strand_specific_assemblies.split(",")
+        if len(args.strand_specific_assemblies) > num_files:
+            raise ValueError("Incorrect number of strand-specific assemblies specified!")
+        for member in args.strand_specific_assemblies:
+            if member not in mikado_config.prepare.files.gff:
+                raise ValueError("Incorrect assembly file specified as strand-specific")
+        mikado_config.prepare.files.strand_specific_assemblies = args.strand_specific_assemblies
+    if args.labels:
+        args.labels = args.labels.split(",")
+        # Checks labels are unique
+        assert len(set(args.labels)) == len(args.labels)
+        assert not any([True for _ in args.labels if _.strip() == ''])
+        if len(args.labels) != num_files:
+            raise ValueError("Incorrect number of labels specified")
+        mikado_config.prepare.files.labels = args.labels
+    else:
+        if not mikado_config.prepare.files.labels:
+            args.labels = list(range(1, 1 + num_files))
+            mikado_config.prepare.files.labels = args.labels
+    mikado_config.prepare.files.exclude_redundant = [False] * len(mikado_config.prepare.files.gff)
+    mikado_config.prepare.files.reference = [False] * len(mikado_config.prepare.files.gff)
+    return mikado_config
 
 
 def parse_prepare_options(args, mikado_config) -> Union[DaijinConfiguration, MikadoConfiguration]:
@@ -141,39 +94,7 @@ def parse_prepare_options(args, mikado_config) -> Union[DaijinConfiguration, Mik
     if args.list:
         mikado_config = parse_list_file(mikado_config, args.list)
     elif args.gff and args.gff != [""] and args.gff != []:
-        __gff_counter = Counter()
-        __gff_counter.update(args.gff)
-        if __gff_counter.most_common()[0][1] > 1:
-            raise InvalidJson(
-                "Repeated elements among the input GFFs! Duplicated files: {}".format(
-                    ", ".join(_[0] for _ in __gff_counter.most_common() if _[1] > 1)
-                ))
-        mikado_config.prepare.files.gff = args.gff
-        num_files = len(mikado_config.prepare.files.gff)
-        if args.strand_specific:
-            mikado_config.prepare.strand_specific = True
-        elif args.strand_specific_assemblies:
-            args.strand_specific_assemblies = args.strand_specific_assemblies.split(",")
-            if len(args.strand_specific_assemblies) > num_files:
-                raise ValueError("Incorrect number of strand-specific assemblies specified!")
-            for member in args.strand_specific_assemblies:
-                if member not in mikado_config.prepare.files.gff:
-                    raise ValueError("Incorrect assembly file specified as strand-specific")
-            mikado_config.prepare.files.strand_specific_assemblies = args.strand_specific_assemblies
-        if args.labels:
-            args.labels = args.labels.split(",")
-            # Checks labels are unique
-            assert len(set(args.labels)) == len(args.labels)
-            assert not any([True for _ in args.labels if _.strip() == ''])
-            if len(args.labels) != num_files:
-                raise ValueError("Incorrect number of labels specified")
-            mikado_config.prepare.files.labels = args.labels
-        else:
-            if not mikado_config.prepare.files.labels:
-                args.labels = list(range(1, 1 + num_files))
-                mikado_config.prepare.files.labels = args.labels
-        mikado_config.prepare.files.exclude_redundant = [False] * len(mikado_config.prepare.files.gff)
-        mikado_config.prepare.files.reference = [False] * len(mikado_config.prepare.files.gff)
+        mikado_config = parse_gff_args(mikado_config, args)
 
     if not mikado_config.prepare.files.exclude_redundant:
         mikado_config.prepare.files.exclude_redundant = [False] * len(mikado_config.prepare.files.gff)
@@ -297,7 +218,7 @@ def prepare_launcher(args):
     args, mikado_config, logger = setup(args)
     assert isinstance(mikado_config, (MikadoConfiguration, DaijinConfiguration))
     if not hasattr(mikado_config.reference, "genome"):
-        raise InvalidJson("Invalid configuration; reference: {}".format(mikado_config.reference))
+        raise InvalidConfiguration("Invalid configuration; reference: {}".format(mikado_config.reference))
     try:
         prepare(mikado_config, logger)
         sys.exit(0)

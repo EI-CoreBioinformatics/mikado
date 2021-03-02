@@ -276,7 +276,7 @@ class AbstractLocusTester(unittest.TestCase):
     def test_invalid_conf(self):
         for cls in [Superlocus, Sublocus, Monosublocus, Locus]:
             for invalid in ([], ("hello",), 10, "I_do_not_exist.yaml"):
-                with self.subTest(cls=cls, invalid=invalid), self.assertRaises(exceptions.InvalidJson):
+                with self.subTest(cls=cls, invalid=invalid), self.assertRaises(exceptions.InvalidConfiguration):
                     cls(self.transcript1, configuration=invalid)
 
     def test_not_implemented(self):
@@ -434,7 +434,7 @@ class AbstractLocusTester(unittest.TestCase):
 
     def test_invalid_sublocus(self):
 
-        with self.assertRaises((OSError, FileNotFoundError, exceptions.InvalidJson)):
+        with self.assertRaises((OSError, FileNotFoundError, exceptions.InvalidConfiguration)):
             _ = Sublocus(self.transcript1, configuration="test")
 
     def test_sublocus_from_sublocus(self):

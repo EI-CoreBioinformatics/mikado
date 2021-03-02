@@ -357,7 +357,7 @@ class BED12:
             elif self.transcriptomic is False:
                 error = "GFF lines can be used as BED12-equivalents only in a transcriptomic context."
                 self.logger.error(error)
-                raise TypeError(error)
+                raise InvalidParsingFormat(error)
             else:
                 self.header = False
                 if sequence:
@@ -549,7 +549,7 @@ class BED12:
                                                     self._line.end, self._line.strand, self._line.id)
         intern(self.chrom)
         if self.name is None:
-            raise ValueError("{self} should have the name property defined".format(repr(self)))
+            raise InvalidParsingFormat("{self} should have the name property defined".format(self=repr(self)))
         self.start = 1
         self.end = fasta_length
         self.score = self._line.score
@@ -1352,8 +1352,6 @@ the length of the *imputed* old sequence ({lold}) does not tally up with the new
                 # Only get a multiple of three
                 coding_seq = coding_seq[:-((len(coding_seq)) % 3)]
             prot_seq = _translate_str(coding_seq, table=self.table, gap="N")
-            # print(coding_seq, prot_seq, self.table, sep="\n")
-            # raise ValueError()
             if "*" in prot_seq:
                 self.thick_end = self.thick_start + self.phase - 1 + (1 + prot_seq.find("*")) * 3
                 self.stop_codon = coding_seq[prot_seq.find("*") * 3:(1 + prot_seq.find("*")) * 3].upper()
@@ -1611,10 +1609,10 @@ class Bed12Parser(Parser):
                               table=self.__table,
                               logger=self.logger,
                               start_adjustment=self.start_adjustment)
-            except Exception as exc:
+            except (ValueError, TypeError, CodonTable.TranslationError, KeyError, InvalidParsingFormat) as exc:
                 error = "Invalid line for file {name}, line {counter}:\n{line}\nError: {exc}".format(
                     name=self.name, counter=self.__line_counter, line=line.rstrip(), exc=exc)
-                raise ValueError(error)
+                raise InvalidParsingFormat(error)
         return bed12
 
     def gff_next(self):
@@ -1629,10 +1627,10 @@ class Bed12Parser(Parser):
             self.__line_counter += 1
             try:
                 gff_line = GffLine(line)
-            except Exception as exc:
+            except (ValueError, TypeError, CodonTable.TranslationError, KeyError, InvalidParsingFormat) as exc:
                 error = "Invalid line for file {name}, line {counter}:\n{line}\nError: {exc}".format(
                     name=self.name, counter=self.__line_counter, line=line.rstrip(), exc=exc)
-                raise ValueError(error)
+                raise InvalidParsingFormat(error)
 
             if gff_line.feature != "CDS":
                 continue
@@ -1645,10 +1643,10 @@ class Bed12Parser(Parser):
                               table=self.__table,
                               start_adjustment=self.start_adjustment,
                               logger=self.logger)
-            except Exception as exc:
+            except (ValueError, TypeError, CodonTable.TranslationError, KeyError, InvalidParsingFormat) as exc:
                 error = "Invalid line for file {name}, line {counter}:\n{line}\nError: {exc}".format(
                     name=self.name, counter=self.__line_counter, line=line.rstrip(), exc=exc)
-                raise ValueError(error)
+                raise InvalidParsingFormat(error)
         # raise NotImplementedError("Still working on this!")
         return bed12
 
@@ -1761,8 +1759,8 @@ class Bed12ParseWrapper(mp.Process):
                           start_adjustment=self.start_adjustment,
                           coding=self.coding,
                           table=self.__table)
-        except Exception:
-            raise ValueError("Invalid line: {}".format(line))
+        except (ValueError, TypeError, CodonTable.TranslationError, KeyError, InvalidParsingFormat) as exc:
+            raise InvalidParsingFormat("Invalid line: {}".format(line))
         return bed12
 
     def gff_next(self, line, sequence):
@@ -1773,9 +1771,9 @@ class Bed12ParseWrapper(mp.Process):
 
         try:
             line = GffLine(line)
-        except Exception:
+        except (ValueError, TypeError, CodonTable.TranslationError, KeyError, InvalidParsingFormat) as exc:
             error = "Invalid line:\n{}".format(line)
-            raise ValueError(error)
+            raise InvalidParsingFormat(error)
 
         if line.feature != "CDS":
             return None
@@ -1830,5 +1828,5 @@ class Bed12ParseWrapper(mp.Process):
                 self.return_queue.put((num, msgpack.dumps(row.as_simple_dict())))
             except AttributeError:
                 pass
-            except ValueError:
-                raise ValueError(line)
+            except (ValueError, TypeError, CodonTable.TranslationError, KeyError, InvalidParsingFormat) as exc:
+                raise InvalidParsingFormat(line)

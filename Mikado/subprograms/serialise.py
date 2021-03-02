@@ -16,7 +16,7 @@ import logging.handlers
 from ..utilities import path_join, comma_split
 from ..utilities.log_utils import create_default_logger, formatter
 from ..utilities import dbutils
-from ..exceptions import InvalidJson
+from ..exceptions import InvalidConfiguration
 from ..exceptions import InvalidSerialization
 import random
 from ..utilities import blast_keys
@@ -72,7 +72,7 @@ def load_junctions(args, logger):
         return
 
     if not args.configuration.reference.genome:
-        exc = InvalidJson(
+        exc = InvalidConfiguration(
             "Missing the genome FAI file for serialising the junctions. \
 I cannot proceed with this step!")
         logger.exception(exc)

@@ -15,7 +15,7 @@ from .._transcripts.clique_methods import find_communities, define_graph
 from .._transcripts.scoring_configuration import SizeFilter, InclusionFilter, NumBoolEqualityFilter, ScoringFile, \
     RangeFilter
 from ..transcripts import Transcript
-from ..exceptions import NotInLocusError, InvalidJson
+from ..exceptions import NotInLocusError, InvalidConfiguration
 from ..utilities import overlap, merge_ranges, default_for_serialisation
 import operator
 from ..utilities import Interval, IntervalTree
@@ -1713,7 +1713,7 @@ Scoring configuration: {}
         elif isinstance(conf, str) and conf != "":
             conf = load_and_validate_config(conf)
         elif not isinstance(conf, (MikadoConfiguration, DaijinConfiguration)):
-            raise InvalidJson(
+            raise InvalidConfiguration(
                 "Invalid configuration, type {}, expected MikadoConfiguration or DaijinConfiguration!".format(
                     type(conf)))
         if conf.scoring is None or not hasattr(conf.scoring.requirements, "parameters"):

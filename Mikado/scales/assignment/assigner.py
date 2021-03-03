@@ -388,11 +388,7 @@ class Assigner:
                     results.extend(new_matches[gene])
                     del new_matches[gene]
 
-        if len(new_matches) == 0:
-            error = AssertionError("Filtered all results for %s. This is wrong!",
-                                   prediction.id)
-            self.logger.error(error)
-            raise error
+        assert len(new_matches) > 0, "Filtered all results for {}. This is wrong!".format(prediction.id)
 
         fused = collections.defaultdict(list)
         dubious = set()

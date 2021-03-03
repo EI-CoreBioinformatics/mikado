@@ -65,10 +65,13 @@ class ConvertCheck(unittest.TestCase):
                 args = parser.parse_args(argv)
                 launch(args)
                 # pkg_resources.load_entry_point("Mikado", "console_scripts", "mikado")()
+                outfile.flush()
                 self.assertGreater(os.stat(outfile.name).st_size, 0)
                 lines = [_ for _ in open(outfile.name)]
                 if outp == "gff3":
                     self.assertEqual(len(lines), 1826)
+                elif outp == "bed12":
+                    self.assertEqual(len(lines), 270)
                 print(os.stat(outfile.name).st_size, len(lines))
                 self.assertTrue(any(["TraesCS2B02G055500.1" in line for line in lines]))
 

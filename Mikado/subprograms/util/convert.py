@@ -29,7 +29,7 @@ def _convert_bam(parser, args, out_format):
             ))
         transcript.parent = gene
         print(Gene(transcript).format(out_format, transcriptomic=args.transcriptomic), file=args.out)
-        continue
+    return
 
 
 def _convert_gtf(parser: GTF, args, out_format):
@@ -77,6 +77,7 @@ def _convert_gtf(parser: GTF, args, out_format):
     elif current is not None:
         print(genes[current].format(out_format, transcriptomic=args.transcriptomic), file=args.out)
 
+    return
 
 def _convert_bed12(parser: Bed12Parser, args, out_format):
     mock_gene_counter = 0
@@ -88,6 +89,7 @@ def _convert_bed12(parser: Bed12Parser, args, out_format):
         gene = Gene(Transcript(line))
         print(gene.format(out_format, transcriptomic=args.transcriptomic), file=args.out)
 
+    return
 
 def _convert_gff(parser: GFF3, args, out_format):
     orphaned = dict()
@@ -123,7 +125,8 @@ def _convert_gff(parser: GFF3, args, out_format):
                         del orphaned[tid]
         elif line.is_transcript is True and args.assume_sorted is False:
             transcript = Transcript(line)
-            tid2gene[transcript.id] = transcript.parent[0]
+            if transcript.parent:
+                tid2gene[transcript.id] = transcript.parent[0]
             if transcript.id in orphaned:
                 assert transcript.chrom == orphaned[transcript.id].chrom
                 assert transcript.strand == orphaned[transcript.id].strand
@@ -134,7 +137,7 @@ def _convert_gff(parser: GFF3, args, out_format):
                 if orphaned[transcript.id].parent and orphaned[transcript.id].parent[0] in genes:
                     genes[orphaned[transcript.id].parent[0]].add(orphaned[transcript.id])
                     del orphaned[transcript.id]
-            elif transcript.parent[0] in genes:
+            elif transcript.parent and transcript.parent[0] in genes:
                 genes[transcript.parent[0]].add(transcript)
             else:
                 orphaned[transcript.id] = transcript
@@ -168,14 +171,20 @@ def _convert_gff(parser: GFF3, args, out_format):
 
     if args.assume_sorted is False:
         for tid in orphaned:
-            for parent in orphaned[tid].parent:
-                if parent in genes:
-                    genes[parent].add(orphaned[tid])
-                else:
-                    genes[parent] = Gene(orphaned[tid])
+            if not orphaned[tid].parent:
+                orphaned[tid].parent = "{}.gene".format(orphaned[tid].id)
+                genes[orphaned[tid].parent[0]] = orphaned[tid]
+            else:
+                for parent in orphaned[tid].parent:
+                    if parent in genes:
+                        genes[parent].add(orphaned[tid])
+                    else:
+                        genes[parent] = Gene(orphaned[tid])
 
         for gid, gene in genes.items():
             print(gene.format(out_format, transcriptomic=args.transcriptomic), file=args.out)
+
+    return
 
 
 def launch(args):
@@ -208,7 +217,6 @@ def launch(args):
 
     if parser.__annot_type__ == "bam":
         _convert_bam(parser, args, out_format)
-        return
     elif parser.__annot_type__ == "gtf":
         _convert_gtf(parser, args, out_format)
     elif parser.__annot_type__ == "bed12":

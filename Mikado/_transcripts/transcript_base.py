@@ -477,6 +477,11 @@ class TranscriptBase:
                 raise ValueError(transcript_row)
             self.feature = intern(transcript_row.feature)
 
+    def _set_expandable(self, val):
+        if not val in (True, False):
+            raise ValueError("Invalid value, it must be boolean")
+        self.__expandable = val
+
     def __repr__(self):
         return pprint.saferepr(self.__dict__)
 

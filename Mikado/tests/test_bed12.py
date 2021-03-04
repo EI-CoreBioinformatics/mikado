@@ -1,7 +1,85 @@
-from ..parsers.bed12 import BED12
+from ..parsers.bed12 import BED12, _translate_str, standard, get_tables
 from ..transcripts import Transcript
 import unittest
-# from Bio.Seq import Seq
+from Bio.Data import CodonTable
+
+
+class TestTranslate(unittest.TestCase):
+
+    """
+    >>>
+    >>> table = CodonTable.ambiguous_dna_by_id[1]
+    >>> _translate_str("AAA", table)
+    'K'
+    >>> _translate_str("TAR", table)
+    '*'
+    >>> _translate_str("TAN", table)
+    'X'
+    >>> _translate_str("TAN", table, pos_stop="@")
+    '@'
+    >>> _translate_str("TA?", table)
+
+    >>> _translate_str("ATGCCCTAG", table, cds=True)
+    'MP'
+    >>> _translate_str("AAACCCTAG", table, cds=True)
+    Traceback (most recent call last):
+       ...
+    Bio.Data.CodonTable.TranslationError: First codon 'AAA' is not a start codon
+    >>> _translate_str("ATGCCCTAGCCCTAG", table, cds=True)
+    """
+
+    def test_from_Bio(self):
+
+        self.assertEqual(_translate_str("TAN", standard, pos_stop="X"), "X")
+        for codon, amino in standard.forward_table.forward_table.items():
+            self.assertEqual(_translate_str(codon, standard), amino)
+
+        self.assertEqual(_translate_str("TAR", standard), "*")
+        self.assertEqual(_translate_str("TAR", standard, stop_symbol="?"), "?")
+
+        self.assertEqual(_translate_str("TAN", standard, pos_stop="U"), "U")
+        with self.assertRaises(CodonTable.TranslationError):
+            _translate_str("TA?", standard)
+
+        ncbi_standard = CodonTable.ambiguous_dna_by_id[1]
+        self.assertNotEqual(ncbi_standard.start_codons, standard.start_codons)
+        self.assertEqual(ncbi_standard.stop_codons, standard.stop_codons)
+        self.assertEqual(_translate_str("ATGCCCTAG", standard, cds=True), "MP*")
+        self.assertEqual(_translate_str("ATGCCCTAG", standard, to_stop=True), "MP")
+        with self.assertRaises(CodonTable.TranslationError):
+            _translate_str("AAACCCTAG", standard, cds=True)
+        with self.assertRaises(CodonTable.TranslationError) as exc:
+            _translate_str("ATGCCCTAGCCCTAG", standard, cds=True)
+        self.assertTrue(str(exc.exception).startswith("Extra in frame stop codon found."))
+
+    def test_ncbi_standard(self):
+        standard = CodonTable.ambiguous_dna_by_id[1]
+        for codon, amino in standard.forward_table.forward_table.items():
+            self.assertEqual(_translate_str(codon, standard), amino)
+
+        self.assertEqual(_translate_str("TAR", standard), "*")
+        self.assertEqual(_translate_str("TAR", standard, stop_symbol="?"), "?")
+
+        self.assertEqual(_translate_str("TAN", standard, pos_stop="U"), "U")
+        with self.assertRaises(CodonTable.TranslationError):
+            _translate_str("TA?", standard)
+
+        self.assertIn("CTG", standard.start_codons)
+        self.assertEqual(_translate_str("ATGCCCTAG", standard, cds=True), "MP*")
+        self.assertEqual(_translate_str("ATGCCCTAG", standard, to_stop=True), "MP")
+        self.assertEqual(_translate_str("CTGCCCTAG", standard, cds=True), "MP*")
+        self.assertEqual(_translate_str("CTGCCCTAG", standard, cds=True, to_stop=True), "MP")
+
+    def test_ambiguous(self):
+        ambigouous = None
+        for key, table in CodonTable.ambiguous_dna_by_id.items():
+            amb = 0 < len([c for c in table._codon_table.forward_table.keys() if c in table.stop_codons])
+            if amb:
+                amb = table
+                break
+        if ambigouous is None:
+            return  # Nothing to test
+
 
 class Bed12GenToTrans(unittest.TestCase):
 

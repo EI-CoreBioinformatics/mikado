@@ -33,15 +33,23 @@ import zlib
 import numpy as np
 import random
 import pprint as pp
+from Bio.Data import IUPACData
 
 
 backup_valid_letters = set(_ambiguous_dna_letters.upper() + _ambiguous_rna_letters.upper())
-standard = CodonTable.ambiguous_dna_by_id[1]
-standard.start_codons = ["ATG"]
+codons = copy.deepcopy(CodonTable.ambiguous_dna_by_id[1]._codon_table)
+codons.start_codons = ["ATG"]
+standard = CodonTable.AmbiguousCodonTable(codons,
+                                          IUPACData.ambiguous_dna_letters,
+                                          IUPACData.ambiguous_dna_values,
+                                          IUPACData.extended_protein_letters,
+                                          IUPACData.extended_protein_values)
+assert standard.start_codons == ["ATG"]
+assert CodonTable.ambiguous_dna_by_id[1].start_codons != ["ATG"]
 
 
 @functools.lru_cache(typed=True, maxsize=2**10)
-def get_tables(table, to_stop=False, gap=None):
+def get_tables(table, to_stop=False, gap=None, stop_symbol="*"):
     forward_table = table.forward_table.forward_table.copy()
     stop_codons = set(table.stop_codons)
     dual_coding = [c for c in stop_codons if c in forward_table]
@@ -60,9 +68,9 @@ def get_tables(table, to_stop=False, gap=None):
                       BiopythonWarning)
 
     for stop in stop_codons:
-        forward_table[stop] = "*"
+        forward_table[stop] = stop_symbol
     if gap is not None:
-        forward_table[gap * 3] = "*"
+        forward_table[gap * 3] = stop_symbol
 
     if table.nucleotide_alphabet is not None:
         valid_letters = set(table.nucleotide_alphabet.upper())
@@ -71,7 +79,6 @@ def get_tables(table, to_stop=False, gap=None):
         valid_letters = backup_valid_letters
 
     getter = np.vectorize(forward_table.get, otypes=["<U"])
-
     return forward_table, getter, valid_letters
 
 
@@ -137,6 +144,13 @@ def _translate_str(sequence, table, stop_symbol="*", to_stop=False, cds=False, p
     Bio.Data.CodonTable.TranslationError: Extra in frame stop codon found.
     """
 
+    # Check that the pos_stop is a single character
+    # By default this is the "X" character (equivalent to "N" for nucleotides)
+    if not (isinstance(pos_stop, (bytes, str)) and len(pos_stop) == 1):
+        raise ValueError("Pos_stop must be a single character, not {pos_stop}".format(pos_stop=pos_stop))
+    if isinstance(pos_stop, bytes):
+        pos_stop = pos_stop.decode()
+
     if cds and len(sequence) % 3 != 0:
         raise CodonTable.TranslationError("Sequence length {0} is not a multiple of three".format(
             len(sequence)
@@ -144,33 +158,25 @@ def _translate_str(sequence, table, stop_symbol="*", to_stop=False, cds=False, p
     elif gap is not None and (not isinstance(gap, str) or len(gap) > 1):
         raise TypeError("Gap character should be a single character string.")
 
-    forward_table, getter, valid_letters = get_tables(table, to_stop=to_stop, gap=gap)
+    forward_table, getter, valid_letters = get_tables(table, to_stop=to_stop, gap=gap, stop_symbol=stop_symbol)
 
     sequence = sequence.upper()
     if not valid_letters.issuperset(set(sequence)):
         raise CodonTable.TranslationError("Invalid letters in the sequence: {}".format(
-            set.difference(set(*sequence), valid_letters)
+            set.difference(set(sequence), valid_letters)
         ))
 
     amino_acids = getter(np.array(
         [sequence[start:start + 3] for start in range(0, len(sequence) - len(sequence) % 3, 3)], dtype="<U"))
 
     if cds and amino_acids[0] != "M":
-        raise CodonTable.TranslationError(
-            "First codon '{0}' is not a start codon".format(sequence[:3]))
+        if sequence[0:3] in table.start_codons:
+            amino_acids[0] = "M"
+        else:
+            raise CodonTable.TranslationError("First codon '{0}' is not a start codon".format(sequence[:3]))
 
-    nones = np.where(amino_acids == None)[0]
-
-    if nones.shape[0] > 0:
-        # Check that the pos_stop is a single character
-        # By default this is the "X" character (equivalent to "N" for nucleotides)
-        if not (isinstance(pos_stop, (bytes, str)) and len(pos_stop) == 1):
-            raise ValueError("Pos_stop must be a single character, not {pos_stop}".format(pos_stop=pos_stop))
-        if isinstance(pos_stop, bytes):
-            pos_stop = pos_stop.decode()
-        # Change all the positions where the aminoacid is undefined to the default "pos_stop" character
-        amino_acids[nones] = pos_stop
-
+    nones = np.where((amino_acids == "None") | (amino_acids is None))[0]
+    amino_acids[nones] = pos_stop
     _stop_locations = np.where(amino_acids == stop_symbol)[0]
     found_stops = _stop_locations.shape[0]
 

@@ -7,6 +7,7 @@ or multiexonic and with at least one intron in common.
 """
 
 import itertools
+import importlib
 import logging
 from ..transcripts.transcript import Transcript
 from .abstractlocus import Abstractlocus
@@ -82,7 +83,6 @@ class Sublocus(Abstractlocus):
 
         # This part is necessary to import modules
         if hasattr(self.configuration, "modules"):
-            import importlib
             for mod in self.configuration.modules:
                 globals()[mod] = importlib.import_module(mod)
 

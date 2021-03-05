@@ -8,7 +8,6 @@ import abc
 import itertools
 import logging
 from sys import maxsize
-
 import marshmallow
 import networkx
 from .._transcripts.clique_methods import find_communities, define_graph
@@ -641,8 +640,8 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             self.start = min(self.transcripts[_].start for _ in self.transcripts)
         else:
             # self.start, self.end, self.strand = float("Inf"), float("-Inf"), None
-            import sys
-            self.start, self.end, self.strand = sys.maxsize, -sys.maxsize, None
+
+            self.start, self.end, self.strand = maxsize, -maxsize, None
             self.stranded = False
             self.initialized = False
 

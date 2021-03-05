@@ -1,8 +1,9 @@
 from Mikado._transcripts.scoring_configuration import SizeFilter
-
-from .. import utilities, exceptions
-from ..parsers.GFF import GffLine
-from ..loci import Transcript
+from Mikado.scales.assignment import Assigner
+import itertools
+from Mikado import utilities
+from Mikado.parsers.GFF import GffLine
+from Mikado.loci import Transcript
 from ..loci.locus import Locus, expand_transcript
 from ..parsers.bed12 import BED12
 from ..subprograms.util.trim import trim_coding, trim_noncoding
@@ -11,7 +12,6 @@ import pysam
 import pkg_resources
 from ..utilities.log_utils import create_null_logger, create_default_logger
 from ..configuration.configurator import load_and_validate_config
-from pytest import mark
 
 
 __author__ = 'Luca Venturini'
@@ -276,8 +276,6 @@ class TestPadding(unittest.TestCase):
         locus.finalize_alternative_splicing(_scores={t1.id: 20, t2_1.id: 15, t2_2.id: 10})
         self.assertIn(t1.id, locus.transcripts)
         if t2_1.id in locus.transcripts:
-            from ..scales import Assigner
-            import itertools
             for tid1, tid2 in itertools.combinations(locus.transcripts.keys(), 2):
                 res, _ = Assigner.compare(locus[tid1], locus[tid2])
                 print(tid1, tid2, res.ccode)

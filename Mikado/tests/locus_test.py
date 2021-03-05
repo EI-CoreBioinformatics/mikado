@@ -2682,7 +2682,6 @@ Chr1	100	2682	ID=test_3;coding=True;phase=0	0	+	497	2474	0	7	234,201,41,164,106,
         conf.pick.alternative_splicing.pad = False
         logger = create_default_logger("test_issue_255", level="WARNING")
 
-        import operator
         scores = dict((tid, transcripts[tid].score) for tid in transcripts)
         scores = list(sorted(scores.items(), key=operator.itemgetter(1), reverse=True))
         self.assertEqual(len(scores), 5)

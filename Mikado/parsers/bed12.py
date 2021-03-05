@@ -72,11 +72,7 @@ def get_tables(table, to_stop=False, gap=None, stop_symbol="*"):
     if gap is not None:
         forward_table[gap * 3] = stop_symbol
 
-    if table.nucleotide_alphabet is not None:
-        valid_letters = set(table.nucleotide_alphabet.upper())
-    else:
-        # Assume the worst case, ambiguous DNA or RNA:
-        valid_letters = backup_valid_letters
+    valid_letters = set(table.nucleotide_alphabet.upper())
 
     getter = np.vectorize(forward_table.get, otypes=["<U"])
     return forward_table, getter, valid_letters
@@ -156,7 +152,7 @@ def _translate_str(sequence, table, stop_symbol="*", to_stop=False, cds=False, p
             len(sequence)
         ))
     elif gap is not None and (not isinstance(gap, str) or len(gap) > 1):
-        raise TypeError("Gap character should be a single character string.")
+        raise ValueError("Gap character should be a single character string.")
 
     forward_table, getter, valid_letters = get_tables(table, to_stop=to_stop, gap=gap, stop_symbol=stop_symbol)
 
@@ -182,11 +178,11 @@ def _translate_str(sequence, table, stop_symbol="*", to_stop=False, cds=False, p
 
     if cds and found_stops > 1:
         raise CodonTable.TranslationError(
-            "Extra in frame stop codon found. Sequence: {sequence}".format(sequence=sequence))
+            "Extra in-frame stop codon found. Sequence: {sequence}".format(sequence=sequence))
     elif cds and found_stops and _stop_locations[0] < len(amino_acids) - 1:
         raise CodonTable.TranslationError(
-            "Extra in frame stop codon. Sequence:\n{sequence}\n{spaces}^".format(
-            sequence=sequence, spaces=" " * _stop_locations[0]))
+            "Extra in-frame stop codon. Sequence:\n{sequence}\n{spaces}^^^".format(
+            sequence=sequence, spaces=" " * _stop_locations[0] * 3))
     if to_stop and found_stops > 0:
         amino_acids = amino_acids[:_stop_locations[0]]
 

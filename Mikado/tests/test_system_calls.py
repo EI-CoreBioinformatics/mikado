@@ -3,10 +3,10 @@ import csv
 import glob
 import gzip
 import itertools
+import copy
 import logging
 import os
 import re
-
 import numpy as np
 import pandas as pd
 import sys
@@ -260,6 +260,7 @@ class PrepareCheck(unittest.TestCase):
         self.conf.prepare.files.strip_cds = [False, True]
         self.conf.prepare.files.out_fasta = "mikado_prepared.fasta"
         self.conf.prepare.files.out = "mikado_prepared.gtf"
+        self.conf.multiprocessing_method = "spawn"
         args = Namespace()
 
         with tempfile.TemporaryDirectory(prefix="test_prepare_trinity_and_cufflinks") as folder:
@@ -270,15 +271,13 @@ class PrepareCheck(unittest.TestCase):
                       "trinity.no_transcript_feature.gtf", "trinity.bam"))):
                 for proc in (1, 3):
                     with self.subTest(test_file=test_file, cuff_file=cuff_file, proc=proc):
-                        self.conf.prepare.files.gff[0] = pkg_resources.resource_filename("Mikado.tests",
-                                                                                                  cuff_file)
-                        self.conf.prepare.files.gff[1] = pkg_resources.resource_filename("Mikado.tests",
-                                                                                                  test_file)
+                        self.conf.prepare.files.gff[0] = pkg_resources.resource_filename("Mikado.tests", cuff_file)
+                        self.conf.prepare.files.gff[1] = pkg_resources.resource_filename("Mikado.tests", test_file)
                         self.conf.prepare.files.out_fasta = "mikado_prepared.fasta"
                         self.conf.prepare.files.out = "mikado_prepared.gtf"
                         args.configuration = self.conf
                         args.configuration.seed = 10
-                        args.configuration.threads = proc
+                        args.configuration.threads = 1  # proc
                         args.configuration.prepare.exclude_redundant = False
                         args.configuration.prepare.strip_cds = True
                         prepare.prepare(args.configuration, self.logger)
@@ -1784,7 +1783,6 @@ class PickTest(unittest.TestCase):
             sys.argv = ["mikado", "pick", "--json-conf", json_file, "--single", "--seed", "1078"]
             with self.assertRaises(SystemExit):
                 pkg_resources.load_entry_point("Mikado", "console_scripts", "mikado")()
-            import csv
             with open(os.path.join(self.configuration.pick.files.output_dir, "mikado.test_diff.loci.scores.tsv")) as tsv:
                 reader = csv.DictReader(tsv, delimiter="\t")
                 score_names = [_ for _ in self.configuration.scoring.scoring]
@@ -1865,8 +1863,6 @@ class PickTest(unittest.TestCase):
         scoring["requirements"]["parameters"]["exon_num"]["name"] = "exon_num"
         scoring["requirements"]["parameters"]["exon_num"]["operator"] = "gt"
         scoring["requirements"]["parameters"]["exon_num"]["value"] = 1
-
-        import copy
         scoring["as_requirements"] = copy.deepcopy(scoring["requirements"])
         scoring["not_fragmentary"] = copy.deepcopy(scoring["requirements"].copy())
 

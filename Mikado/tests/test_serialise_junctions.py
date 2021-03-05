@@ -3,7 +3,7 @@
 import logging
 import os
 import unittest
-# import Mikado
+import sqlite3
 from .. import utilities, configuration, parsers, serializers
 import tempfile
 import sqlalchemy.orm
@@ -279,7 +279,6 @@ class TestLoadJunction(unittest.TestCase):
                 seri()
                 genome_file.close()
             # Now check that there are junctions in the temp database
-            import sqlite3
             with sqlite3.connect(db) as conn:
                 try:
                     result = conn.execute("select count(*) from junctions").fetchone()[0]

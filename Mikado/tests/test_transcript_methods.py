@@ -3,13 +3,11 @@ import os
 import pickle
 import unittest
 import random
-
+import pandas as pd
 from Mikado.exceptions import InvalidTranscript, InvalidCDS
-
 from Mikado.configuration import MikadoConfiguration
 from sqlalchemy.engine import reflection
 import itertools
-
 from Mikado.utilities import Interval, IntervalTree
 from ..configuration.configurator import load_and_validate_config
 from ..loci import Transcript
@@ -964,7 +962,6 @@ Chr5	TAIR10	exon	5256	5576	.	-	.	Parent=AT5G01015.1"""
         self.assertTrue(new_t.is_coding)
         self.assertEqual(new_t.number_internal_orfs, 2)
         self.assertNotIn(("CDS", (900, 1200), 0), new_t.as_dict()["orfs"].get(2, []))
-        import pandas as pd
         s = pd.Series(cmo.output)
         self.assertTrue(any(s.str.contains(
             "ORF 2 of test.1 is invalid. Exception:")), cmo.output)

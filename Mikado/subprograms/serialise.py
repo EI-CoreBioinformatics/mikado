@@ -22,6 +22,8 @@ import random
 from ..utilities import blast_keys
 from ..configuration import MikadoConfiguration, DaijinConfiguration
 import pysam
+import sqlalchemy
+from ..configuration import configurator
 
 
 __author__ = 'Luca Venturini'
@@ -182,8 +184,6 @@ def setup(args):
     :return:
     """
 
-    import sqlalchemy
-    from ..configuration import configurator
     args.configuration = configurator.load_and_validate_config(args.configuration)
     logger = create_default_logger("serialiser")
     # Get the log level from general settings

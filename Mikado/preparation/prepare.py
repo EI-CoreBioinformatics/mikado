@@ -20,6 +20,7 @@ from collections import defaultdict
 import logging
 from ..utilities import path_join, merge_partial, overlap
 import sqlite3
+import sys
 import pysam
 import numpy as np
 import random
@@ -473,7 +474,6 @@ def _load_exon_lines_multi(mikado_config, shelve_names, logger, min_length, stri
     rows = []
 
     retrieved = 0
-    import sys
     while retrieved < len(working_processes):
         if return_queue.empty():
             continue

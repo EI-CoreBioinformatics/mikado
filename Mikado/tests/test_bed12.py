@@ -38,6 +38,7 @@ class TestTranslate(unittest.TestCase):
         self.assertEqual(_translate_str("TAR", standard, stop_symbol="?"), "?")
 
         self.assertEqual(_translate_str("TAN", standard, pos_stop="U"), "U")
+        self.assertEqual(_translate_str("TAN", standard, pos_stop=b"U"), "U")
         with self.assertRaises(CodonTable.TranslationError):
             _translate_str("TA?", standard)
 
@@ -50,7 +51,23 @@ class TestTranslate(unittest.TestCase):
             _translate_str("AAACCCTAG", standard, cds=True)
         with self.assertRaises(CodonTable.TranslationError) as exc:
             _translate_str("ATGCCCTAGCCCTAG", standard, cds=True)
-        self.assertTrue(str(exc.exception).startswith("Extra in frame stop codon found."))
+        self.assertTrue(str(exc.exception).startswith("Extra in-frame stop codon found."),
+                        str(exc.exception))
+        with self.assertRaises(CodonTable.TranslationError) as exc:
+            _translate_str("ATGCCCTAGCCCTAT", standard, cds=True)
+        self.assertTrue(str(exc.exception).startswith("Extra in-frame stop codon. Sequence:"),
+                        str(exc.exception))
+        for invalid in (10, "AB", b"NT"):
+            with self.assertRaises(ValueError):
+                _translate_str("ATGCCCTAG", standard, cds=True, gap=invalid)
+
+        with self.assertRaises(CodonTable.TranslationError):
+            _translate_str("ATGC?G", standard)
+
+    def test_invalid_pos_stop(self):
+        for invalid in (10, "AB", b"NT"):
+            with self.subTest(invalid=invalid), self.assertRaises(ValueError):
+                _translate_str("ATGCCCTAG", standard, cds=True, pos_stop=invalid)
 
     def test_ncbi_standard(self):
         standard = CodonTable.ambiguous_dna_by_id[1]

@@ -72,7 +72,7 @@ class RangeFilter:
     value: List[float] = field(metadata={
         "required": True,
         "validate": [validate.Length(min=2, max=2), Unique]})
-    operator: str = field(metadata={"required": True, "validate": validate.OneOf("within", "not within")})
+    operator: str = field(metadata={"required": True, "validate": validate.OneOf(["within", "not within"])})
     metric: Optional[str] = field(metadata={"required": False}, default=None)
     name: Optional[str] = field(default=None)
 

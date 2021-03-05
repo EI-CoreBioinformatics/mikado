@@ -414,31 +414,20 @@ it is marked as having 0 retained introns. This is an error.".format(transcript=
                 self.logger.debug("Comparing ichain %s, %s vs %s: nF1 %s", ichain, t1, t2, class_codes[(t1, t2)].n_f1)
 
         for couple, comparison in class_codes.items():
-            removal = None
             if comparison.n_f1[0] == 100:
-                try:
-                    if couple[0] == self.primary_transcript_id:
-                        removal = couple[1]
-                    elif couple[1] == self.primary_transcript_id:
-                        removal = couple[0]
-                    elif self[couple[0]].is_reference and not self[couple[1]].is_reference:
-                        removal = couple[1]
-                    elif self[couple[1]].is_reference and not self[couple[0]].is_reference:
-                        removal = couple[0]
-                    elif self[couple[0]].score > self[couple[1]].score:
-                        removal = couple[1]
-                    elif self[couple[1]].score > self[couple[0]].score:
-                        removal = couple[0]
-                    else:
-                        # removal = np.random.choice(sorted(couple))
-                        removal = random.choice(sorted(couple))
-                except (TypeError, ValueError):
-                    raise ValueError((couple, self[couple[0]].score, self[couple[1]].score))
-                finally:
-                    if removal:
-                        to_remove.add(removal)
-                        self.logger.debug("Removing %s from locus %s because after padding it is redundant with %s",
-                                          removal, self.id, (set(couple) - {removal}).pop())
+                if self.primary_transcript_id in couple:
+                    removal = [_ for _ in couple if _ != self.primary_transcript_id][0]
+                elif len([_ for _ in couple if self[_].is_reference]) == 1:
+                    removal = [_ for _ in couple if self[_].is_reference is False][0]
+                elif self[couple[0]].score != self[couple[1]].score:
+                    removal = sorted([(_, self[_].score) for _ in couple],
+                                     key=operator.itemgetter(1), reverse=True)[1]
+                else:
+                    removal = random.choice(sorted(couple))
+                if removal:
+                    to_remove.add(removal)
+                    self.logger.debug("Removing %s from locus %s because after padding it is redundant with %s",
+                                      removal, self.id, (set(couple) - {removal}).pop())
 
         if to_remove:
             self.logger.debug("Removing from %s: %s", self.id, ", ".join(to_remove))

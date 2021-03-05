@@ -119,16 +119,6 @@ class TranscriptChecker(Transcript):
         return Seq.reverse_complement(string)
 
     @property
-    def is_reference(self):
-        return self.__is_reference
-
-    @is_reference.setter
-    def is_reference(self, value):
-        if value is not None and not isinstance(value, bool):
-            raise TypeError("This property only accepts boolean values")
-        self.__is_reference = value
-
-    @property
     def strand_specific(self):
         """
         Flag, set from the constructor. If True, transcript will not have their strand changed.
@@ -182,18 +172,9 @@ class TranscriptChecker(Transcript):
         The finalize method is called preliminarly before any operation.
         """
 
-        try:
-            self.finalize()
-        except (InvalidTranscript, InvalidCDS) as exc:
-            raise InvalidTranscript("{} cannot be finalised correctly. Discarding it. Error: {}".format(self.id, exc))
+        self.finalize()
 
-        if self.exons[0][0] - self.start != 0:
-            error = "First exon start and transcript start disagree in {}: {} vs {}".format(self.id,
-                                                                                            self.exons[0][0],
-                                                                                            self.start)
-            self.logger.error(error)
-            raise InvalidTranscript(error)
-        if self.exons[-1][1] - self.start + 1 != len(self.fasta_seq):
+        if self.end - self.start + 1 != len(self.fasta_seq):
             error = """For {}, the expected length derived from last exon vs transcript start ({} vs {}) is different
             from the length of the FASTA sequence: {} vs {}""".format(self.id,
                                                                       self.exons[-1][1],
@@ -345,41 +326,33 @@ we will not reverse it")
 
         if self.is_coding is False:
             return
-        else:
-            try:
-                orfs = list(self.get_internal_orf_beds())
-            except AssertionError as exc:  # Invalid ORFs found
-                if self.strip_faulty_cds is False:
-                    raise InvalidTranscript("Invalid ORF(s) for {}. Discarding it. Error: {}".format(self.id, exc))
-                else:
-                    self.logger.warning("Invalid ORF(s) for %s. Stripping it of its CDS. Error: %s",
-                                        self.id, exc)
-                    self.strip_cds()
-                return
 
-            if len(orfs) > 1:
-                self.logger.warning("Multiple ORFs found for %s. Only considering the primary.", self.id)
-            elif len(orfs) == 0:
-                raise IndexError("No ORFs retrieved!")
+        try:
+            orfs = list(self.get_internal_orf_beds())
+            assert len(orfs) >= 1
+        except AssertionError as exc:  # Invalid ORFs found
+            if self.strip_faulty_cds is False:
+                raise InvalidTranscript("Invalid ORF(s) for {}. Discarding it. Error: {}".format(self.id, exc))
+            else:
+                self.logger.warning("Invalid ORF(s) for %s. Stripping it of its CDS. Error: %s",
+                                    self.id, exc)
+                self.strip_cds()
+            return
 
-            orfs = self.find_overlapping_cds(orfs)
+        orfs = self.find_overlapping_cds(orfs)
+        assert len(orfs) >= 1
 
-            if len(orfs) > 1:
-                self.logger.warning("Multiple ORFs found for %s. Only considering the primary.", self.id)
-            elif len(orfs) == 0:
-                raise IndexError("No ORFs retrieved!")
-
-            orf = orfs[0]
+        for orf_counter, orf in enumerate(orfs, start=1):
             assert isinstance(orf, BED12)
-
-            if orf.invalid:
+            if orf.invalid and orf_counter == len(orfs):
                 if self.strip_faulty_cds is False:
                     raise InvalidTranscript("Invalid ORF(s) for %s. Discarding it. Reason: %s", self.id,
                                             orf.invalid_reason)
                 else:
                     self.logger.warning("Invalid ORF for %s (reason: %s)", self.id, orf.invalid_reason)
                     self.strip_cds(self.strand_specific)
-            else:
+                return
+            elif not orf.invalid:
                 self.logger.debug("%s %s a valid start codon, %s a valid stop codon",
                                   self.id, "has" if orf.has_start_codon else "does not have",
                                   "has" if orf.has_stop_codon else "does not have")
@@ -387,8 +360,7 @@ we will not reverse it")
                 self.has_stop_codon = orf.has_stop_codon
                 self.attributes["has_start_codon"] = orf.has_start_codon
                 self.attributes["has_stop_codon"] = orf.has_stop_codon
-
-            return
+                return
 
     @property
     def cdna(self) -> str:

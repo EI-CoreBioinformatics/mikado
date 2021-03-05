@@ -10,6 +10,7 @@ import logging
 from sys import maxsize
 import marshmallow
 import networkx
+from ..utilities import to_bool
 from .._transcripts.clique_methods import find_communities, define_graph
 from .._transcripts.scoring_configuration import SizeFilter, InclusionFilter, NumBoolEqualityFilter, ScoringFile, \
     RangeFilter
@@ -32,25 +33,6 @@ from ..configuration.configurator import load_and_validate_config, check_and_loa
 
 # I do not care that there are too many attributes: this IS a massive class!
 # pylint: disable=too-many-instance-attributes,too-many-public-methods
-
-def to_bool(param: Union[str, bool, int, float]):
-    """Function to convert a items to booleans."""
-
-    if isinstance(param, bool):
-        return param
-    elif isinstance(param, (int, float)):
-        if param == 1:
-            return True
-        elif param == 0:
-            return False
-    else:
-        lparam = param.lower()
-        if lparam == 'true':
-            return True
-        elif lparam == 'false':
-            return False
-
-    raise ValueError
 
 
 class Abstractlocus(metaclass=abc.ABCMeta):
@@ -256,21 +238,12 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         assert state["json_conf"] is not None
         self.configuration = state["json_conf"]
         assert self.configuration is not None
-        try:
-            nodes = json.loads(state["_Abstractlocus__internal_nodes"])
-        except json.decoder.JSONDecodeError:
-            raise json.decoder.JSONDecodeError(state["_Abstractlocus__internal_nodes"])
+        nodes = json.loads(state["_Abstractlocus__internal_nodes"])
         edges = []
         for edge in json.loads(state["_Abstractlocus__internal_edges"]):
             edges.append((tuple(edge[0]), tuple(edge[1])))
-        try:
-            self.__internal_graph.add_nodes_from(nodes)
-        except TypeError:
-            raise TypeError(nodes)
-        try:
-            self.__internal_graph.add_edges_from(edges)
-        except TypeError:
-            raise TypeError(edges)
+        self.__internal_graph.add_nodes_from(nodes)
+        self.__internal_graph.add_edges_from(edges)
 
         # Recalculate the segment tree
         _ = self.__segmenttree
@@ -296,19 +269,25 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         """
 
         assert isinstance(state, dict)
-        if load_configuration is False:
-            state["json_conf"] = self.configuration
-        else:
-            try:
-                state["json_conf"] = MikadoConfiguration.Schema().load(state["json_conf"])
-            except marshmallow.exceptions.MarshmallowError:
+        if load_configuration is True:
+            if isinstance(state["json_conf"], (MikadoConfiguration, DaijinConfiguration)):
+                self.configuration = state["json_conf"]
+            else:
                 try:
-                    state["json_conf"] = DaijinConfiguration.Schema().load(state["json_conf"])
-                except marshmallow.exceptions.MarshmallowError as exc:
-                    error = "Invalid input for the DaijinConfiguration schema!\nType: {}\n\n{}".format(
-                        type(state["json_conf"]), state["json_conf"]
-                    )
-                    raise marshmallow.exceptions.MarshmallowError(error)
+                    self.configuration = MikadoConfiguration.Schema().load(state["json_conf"])
+                except marshmallow.exceptions.MarshmallowError as exc1:
+                    try:
+                        self.configuration = DaijinConfiguration.Schema().load(state["json_conf"])
+                    except marshmallow.exceptions.MarshmallowError as exc2:
+                        error = "Invalid input for the DaijinConfiguration schema!\nType: {}\n\n{}\n\n" \
+                                "Error when loading as MikadoConfiguration : {}" \
+                                "\n\nError when loading as DaijinConfiguration: {}".format(
+                            type(state["json_conf"]), DaijinConfiguration.Schema().validate(state["json_conf"]),
+                            exc1, exc2
+                        )
+                        raise marshmallow.exceptions.MarshmallowError(error)
+
+        state["json_conf"] = self.configuration
         self.__setstate__(state)
         assert self.metrics_calculated is True
         if load_transcripts is True:
@@ -393,9 +372,11 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         elif comparison_operator == "not in":
             comparison = (param not in conf.value)
         elif comparison_operator == "within":
-            comparison = (param in range(*sorted([conf.value[0], conf.value[1] + 1])))
+            start, end = sorted([conf.value[0], conf.value[1]])
+            comparison = (start <= float(param) <= end)
         elif comparison_operator == "not within":
-            comparison = (param not in range(*sorted([conf.value[0], conf.value[1] + 1])))
+            start, end = sorted([conf.value[0], conf.value[1]])
+            comparison = (param < start or param > end)
         else:
             raise ValueError("Unknown operator: {0}".format(comparison_operator))
         return comparison
@@ -536,15 +517,10 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         transcript.finalize()
         self.monoexonic = self.monoexonic and self._is_transcript_monoexonic(transcript)
 
-        if "flank" in kwargs:
-            pass
-        else:
-            kwargs["flank"] = self.flank
-
         if self.initialized is True:
             if check_in_locus is False:
                 pass
-            elif not self.in_locus(self, transcript, **kwargs):
+            elif not self.in_locus(self, transcript, flank=self.flank, **kwargs):
                 raise NotInLocusError("""Trying to merge a Locus with an incompatible transcript!
                 Locus: {lchrom}:{lstart}-{lend} {lstrand} [{stids}]
                 Transcript: {tchrom}:{tstart}-{tend} {tstrand} {tid}
@@ -570,9 +546,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         for locattr, tranattr in self.__locus_to_transcript_attrs.items():
             getattr(self, locattr).update(set(getattr(transcript, tranattr)))
 
-        if transcript.monoexonic is False:
-            assert len(self.introns) > 0
-
+        assert transcript.monoexonic or len(self.introns) > 0
         self.add_path_to_graph(transcript, self._internal_graph)
         assert len(transcript.combined_cds) <= len(self.combined_cds_exons)
         assert len(self.locus_verified_introns) >= transcript.verified_introns_num
@@ -998,6 +972,19 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         :type fixed_perspective: bool
         """
 
+        if other.chrom != transcript.chrom:
+            intersecting = False
+            reason = f"{other.id} and {transcript.id} are not on the same chromosome. Discarding {other.id}"
+            return intersecting, reason
+        elif overlap((other.start, other.end), (transcript.start, transcript.end)) <= 0:
+            reason = f"{other.id} does not share a single basepair with {transcript.id}. Discarding it."
+            intersecting = False
+            return intersecting, reason
+        elif check_references is False and other.is_reference is True and transcript.is_reference is True:
+            intersecting = True
+            reason = "{} is a reference transcript being added to a reference locus. Keeping it.".format(other.id)
+            return intersecting, reason
+
         if comparison is None:
             comparison, _ = c_compare(other, transcript)
 
@@ -1038,12 +1025,8 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                 cds_overlap /= min(transcript.selected_cds_length, other.selected_cds_length)
             assert cds_overlap <= 1
 
-        if other.is_reference is True and check_references is False and transcript.is_reference is True:
-            intersecting = True
-            reason = "{} is a reference transcript being added to a reference locus. Keeping it.".format(other.id)
-        elif transcript.is_coding and other.is_coding:
+        if transcript.is_coding and other.is_coding:
             intersecting = (cdna_overlap >= min_cdna_overlap and cds_overlap >= min_cds_overlap)
-
             reason = "{} and {} {}share enough cDNA ({}%, min. {}%) and CDS ({}%, min. {}%), {}intersecting".format(
                 transcript.id, other.id,
                 "do not " if not intersecting else "",

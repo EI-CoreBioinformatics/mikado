@@ -6,6 +6,8 @@ and log creation.
 
 import os
 import functools
+from typing import Union
+
 from . import dbutils
 from . import log_utils
 import collections
@@ -255,3 +257,25 @@ def default_for_serialisation(obj):
         return tuple(obj)
     elif obj == float("inf"):
         return sys.maxsize
+
+
+def to_bool(param: Union[str, bool, int, float]):
+    """Function to convert a items to booleans."""
+
+    if isinstance(param, bool):
+        return param
+    elif isinstance(param, (int, float)):
+        if param == 1:
+            return True
+        elif param == 0:
+            return False
+    elif isinstance(param, (str, bytes)):
+        if isinstance(param, bytes):
+            param = param.decode()
+        lparam = param.lower()
+        if lparam == 'true' or lparam == "1":
+            return True
+        elif lparam == 'false' or lparam == "0":
+            return False
+
+    raise ValueError(f"Invalid boolean parameter: {param}")

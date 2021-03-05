@@ -3,15 +3,22 @@
 """
 Very basic, all too basic test for some functionalities of locus-like classes.
 """
+import dataclasses
 import operator
 import random
 import unittest
 import os.path
 import logging
+from collections import namedtuple
 from copy import deepcopy
 
+import marshmallow
 import pkg_resources
-from Mikado._transcripts.scoring_configuration import NumBoolEqualityFilter, ScoringFile
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+
+from Mikado._transcripts.scoring_configuration import NumBoolEqualityFilter, ScoringFile, SizeFilter, RangeFilter, \
+    InclusionFilter
 from Mikado.configuration import configurator, MikadoConfiguration, DaijinConfiguration
 from Mikado import exceptions
 from Mikado.parsers import GFF  # ,GTF, bed12
@@ -306,9 +313,14 @@ class AbstractLocusTester(unittest.TestCase):
             self.assertGreaterEqual(child1, child1)
 
     def test_serialisation(self):
+        engine = create_engine("sqlite://")
+        maker = sessionmaker(bind=engine)
+        session = maker()
         for child in [Superlocus, Sublocus, Monosublocus, Locus, Excluded]:
             with self.subTest(child=child):
                 child1 = child(self.transcript1)
+                child1.session = session
+                child1.sessionmaker = sessionmaker
                 # Check compiled in dictionary
                 self.assertIsInstance(child1.configuration, (MikadoConfiguration, DaijinConfiguration))
                 obj = pickle.dumps(child1)
@@ -321,6 +333,25 @@ class AbstractLocusTester(unittest.TestCase):
                 nobj2 = child(None)
                 nobj2.load_dict(obj2)
                 self.assertEqual(child1, nobj2)
+                # Now try to inject a daijin configuration
+                d = DaijinConfiguration()
+                obj2["json_conf"] = dataclasses.asdict(d)
+                assert isinstance(obj2["json_conf"], dict)
+                nobj2b = child(None)
+                nobj2b.load_dict(obj2, load_configuration=True)
+                self.assertIsInstance(nobj2b.configuration, DaijinConfiguration)
+                # Now avoid loading the configuration altogether
+                nobj2b = child(None, configuration=MikadoConfiguration())
+                seed = nobj2b.configuration.seed = child1.configuration.seed + 1
+                obj2["json_conf"] = dataclasses.asdict(d)
+                nobj2b.load_dict(obj2, load_configuration=False)
+                self.assertEqual(nobj2b.configuration.seed, seed)
+                self.assertIsInstance(nobj2b.configuration, MikadoConfiguration)
+                # Finally let's validate that an invalid configuration would be found out
+                obj2["json_conf"] = {"I am an invalid": "dictionary"}
+                with self.assertRaises(marshmallow.exceptions.MarshmallowError):
+                    nobj2b = child(None)
+                    nobj2b.load_dict(obj2, load_configuration=True)
 
     def test_slocus_dicts(self):
 
@@ -385,6 +416,69 @@ class AbstractLocusTester(unittest.TestCase):
                                 self.assertEqual(test.monoholders, locus.monoholders)
                             else:
                                 self.assertEqual(test.monoholders, [])
+
+    def test_evaluate(self):
+        """Test to verify the abstractlocus.evaluate static method"""
+        # param: Union[str, int, bool, float],
+        #                  conf: Union[SizeFilter, InclusionFilter, NumBoolEqualityFilter, RangeFilter]
+
+        # Params: eq, ne, gt, ge, lt, le, in, not in, within, not within
+
+        # eq, ne
+        for val in (2, 3.0, True):
+            for oval in (2, 3.0, True, 4.0, 5, False):
+                for op in ["ne", "eq"]:
+                    filt = NumBoolEqualityFilter.Schema().load({"value": val, "operator": op})
+                    for obj in [Superlocus, Locus, Sublocus, Monosublocus, MonosublocusHolder]:
+                        result = obj.evaluate(oval, filt)
+                        if (val == oval and op == "eq") or (val != oval and op == "ne"):
+                            self.assertTrue(result)
+                        else:
+                            self.assertFalse(result)
+        # ge, lt, le, gt
+        for val in (2, 3.0, 4):
+            for oval in (2, 3, 4, 5):
+                for op in ["gt", "ge", "lt", "le"]:
+                    filt = SizeFilter.Schema().load({"value": val, "operator": op})
+                    for obj in [Superlocus, Locus, Sublocus, Monosublocus, MonosublocusHolder]:
+                        result = obj.evaluate(oval, filt)
+                        if op == "lt":
+                            self.assertEqual(oval < val, result, (oval, val, op))
+                        elif op == "le":
+                            self.assertEqual(oval <= val, result, (oval, val, op))
+                        elif op == "ge":
+                            self.assertEqual(oval >= val, result, (oval, val, op))
+                        else:  # "gt"
+                            self.assertEqual(oval > val, result, (oval, val, op))
+
+        # within, not within
+        within = RangeFilter.Schema().load({"operator": "within", "value": [20, 10]})
+        without = RangeFilter.Schema().load({"operator": "not within", "value": [20, 10]})
+        for obj in [Superlocus, Locus, Sublocus, Monosublocus, MonosublocusHolder]:
+            self.assertTrue(obj.evaluate(15, within))
+            self.assertTrue(obj.evaluate(5, without))
+            self.assertFalse(obj.evaluate(15, without))
+            self.assertFalse(obj.evaluate(5, within))
+
+        # in, not in
+        within = InclusionFilter.Schema().load({"operator": "in", "value": ["valid_one", "valid_two", 10]})
+        without = InclusionFilter.Schema().load({"operator": "not in", "value": ["valid_one", "valid_two", 10]})
+        for obj in [Superlocus, Locus, Sublocus, Monosublocus, MonosublocusHolder]:
+            self.assertTrue(obj.evaluate("valid_one", within))
+            self.assertTrue(obj.evaluate("valid_three", without))
+            self.assertTrue(obj.evaluate(10, within))
+            self.assertTrue(obj.evaluate(15, without))
+            self.assertFalse(obj.evaluate("valid_one", without))
+            self.assertFalse(obj.evaluate("valid_three", within))
+            self.assertFalse(obj.evaluate(10, without))
+            self.assertFalse(obj.evaluate(15, within))
+
+        # Mock to demonstrate that ValueError is raised
+        _mock = namedtuple("mock", ["operator", "value"])
+        mock = _mock("foo", "hello")
+        for obj in [Superlocus, Locus, Sublocus, Monosublocus, MonosublocusHolder]:
+            with self.assertRaises(ValueError):
+                obj.evaluate(10, mock)
 
     def test_in_locus(self):
 
@@ -935,7 +1029,107 @@ Chr1\tfoo\texon\t801\t1000\t.\t-\t.\tID=tminus0:exon1;Parent=tminus0""".split("\
                 self.assertIn("t2", locus)
                 self.assertNotIn("t3", locus)
 
-    # def test_reducing_methods_two(self):
+    def test_choose_best(self):
+        conf = MikadoConfiguration()
+        conf.seed = 10
+        conf.prepare.files.labels = ["Foo", "Bar", "Baz"]
+        conf.prepare.files.reference = [False, True, True]
+        t1 = Transcript(source="Foo")
+        t1.chrom, t1.strand, t1.start, t1.end, t1.id = "Chr1", "+", 101, 1000, "Foo.1"
+        t1.add_exons([(101, 1000)])
+        t1.finalize()
+
+        t2 = Transcript(source="Bar")
+        t2.chrom, t2.strand, t2.start, t2.end, t2.id = "Chr1", "+", 101, 1000, "Foo.2"
+        t2.add_exons([(101, 1000)])
+        t2.finalize()
+
+        t3 = Transcript(source="Baz")
+        t3.chrom, t3.strand, t3.start, t3.end, t3.id = "Chr1", "+", 101, 1000, "Foo.3"
+        t3.add_exons([(101, 1000)])
+        t3.source = "Baz"
+        t3.finalize()
+
+        reference_sources = {source for source, is_reference in
+                             zip(conf.prepare.files.labels,
+                                 conf.prepare.files.reference) if is_reference is True}
+        self.assertEqual(reference_sources, {"Bar", "Baz"})
+        self.assertEqual(t1.original_source, "Foo")
+        self.assertEqual(t2.original_source, "Bar")
+        self.assertEqual(t3.original_source, "Baz")
+        self.assertTrue(t3.original_source in reference_sources and
+                        t2.original_source in reference_sources)
+
+        for locus_type in [Sublocus, Superlocus, Locus]:
+            locus = locus_type(t1, configuration=conf)
+            locus.configuration.pick.run_options.reference_update = False
+            locus.configuration.pick.run_options.only_reference_update = False
+            locus.configuration.prepare.files.reference = [False, True, True]
+            locus.add_transcript_to_locus(t2, check_in_locus=False)
+            locus.add_transcript_to_locus(t3, check_in_locus=False)
+            locus["Foo.1"].score = 10
+            locus["Foo.2"].score = 5
+            locus["Foo.3"].score = 1
+            self.assertEqual(locus.choose_best(locus.transcripts), "Foo.1")
+            locus.configuration.pick.run_options.reference_update = True
+            self.assertTrue(locus.reference_update)
+            self.assertEqual(locus.choose_best(locus.transcripts), "Foo.2")
+            locus.configuration.pick.run_options.reference_update = False
+            locus.configuration.pick.run_options.only_reference_update = True
+            self.assertEqual(locus.choose_best(locus.transcripts), "Foo.2")
+            locus.configuration.prepare.files.reference = [False, False, True]
+            self.assertEqual(locus.choose_best(locus.transcripts), "Foo.3")
+            locus.configuration.prepare.files.reference = [False, False, False]
+            self.assertEqual(locus.choose_best(locus.transcripts), "Foo.1")
+
+    def test_find_retained_introns_monoexonic(self):
+        t1 = Transcript(source="Foo")
+        t1.chrom, t1.strand, t1.start, t1.end, t1.id = "Chr1", "+", 101, 1000, "Foo.1"
+        t1.add_exons([(101, 1000)])
+        t1.finalize()
+        for locus_type in [Sublocus, Superlocus, Locus]:
+            t1.retained_introns = []
+            locus = locus_type(t1)
+            locus.find_retained_introns(locus[t1.id])
+            self.assertEqual(locus[t1.id].retained_introns, tuple([]))
+
+    def test_skip_evaluate_overlap(self):
+        t1 = Transcript(source="Foo")
+        t1.chrom, t1.strand, t1.start, t1.end, t1.id = "Chr1", "+", 101, 1000, "Foo.1"
+        t1.add_exons([(101, 1000)])
+        t1.finalize()
+
+        t2 = Transcript(source="Foo")
+        t2.chrom, t2.strand, t2.start, t2.end, t2.id = "Chr2", "+", 101, 1000, "Foo.2"
+        t2.add_exons([(101, 1000)])
+        t2.finalize()
+
+        t3 = Transcript(source="Foo")
+        t3.chrom, t3.strand, t3.start, t3.end, t3.id = "Chr1", "+", 1101, 2000, "Foo.3"
+        t3.add_exons([(1101, 2000)])
+        t3.finalize()
+
+        t4 = Transcript(source="Foo")
+        t4.chrom, t4.strand, t4.start, t4.end, t4.id = "Chr1", "+", 999, 2000, "Foo.4"
+        t4.add_exons([(999, 2000)])
+        t4.finalize()
+
+        t1.is_reference = True
+        t2.is_reference = True
+        t3.is_reference = True
+
+        for locus_type in [Sublocus, Superlocus, Locus]:
+            t4.is_reference = False
+            for t in (t2, t3, t4):
+                intersecting, reason = locus_type._evaluate_transcript_overlap(
+                    t1, t, min_cdna_overlap=1, min_cds_overlap=1, check_references=False
+                )
+                self.assertFalse(intersecting, reason)
+            t4.is_reference = True
+            intersecting, reason = locus_type._evaluate_transcript_overlap(
+                t1, t4, min_cdna_overlap=1, min_cds_overlap=1, check_references=False
+            )
+            self.assertTrue(intersecting, reason)
 
 
 class ASeventsTester(unittest.TestCase):
@@ -1831,7 +2025,10 @@ class TestLocus(unittest.TestCase):
         for obj in Superlocus, Sublocus, Locus:
             with self.subTest(obj=obj):
                 locus = obj(candidate, configuration=configuration)
-                pickle.dumps(locus)
+                dumped = pickle.dumps(locus)
+                recovered = pickle.loads(dumped)
+                self.assertIsInstance(recovered, obj)
+                self.assertEqual(recovered, locus)
 
     def test_double_orf(self):
 

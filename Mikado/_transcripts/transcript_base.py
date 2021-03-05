@@ -24,7 +24,7 @@ from ..utilities.log_utils import create_null_logger
 from .transcript_methods.finalizing import finalize
 from .transcript_methods.printing import create_lines_cds
 from .transcript_methods.printing import create_lines_no_cds, create_lines_bed, as_bed12
-from ..utilities import Interval, IntervalTree
+from ..utilities import Interval, IntervalTree, to_bool
 from ..utilities.namespace import Namespace
 from collections.abc import Hashable
 import numpy as np
@@ -863,23 +863,10 @@ exon data is on a different chromosome, {exon_data.chrom}. \
 
     @is_reference.setter
     def is_reference(self, value):
-        if isinstance(value, str):
-            if value.lower() == "true":
-                value = True
-            elif value.lower() == "none":
-                value = None
-            elif value.lower() == "false":
-                value = False
-            else:
-                pass
-        if not isinstance(value, bool) and value is not None:
-            if value == 1:
-                value = True
-            elif value == 0:
-                value = False
-            else:
-                raise ValueError("Invalid value: {} (type: {})".format(value, type(value)))
-        self.__is_reference = value
+        if value is not None:
+            self.__is_reference = to_bool(value)
+        else:
+            self.__is_reference = value
 
     @is_reference.deleter
     def is_reference(self):
@@ -2632,15 +2619,7 @@ exon data is on a different chromosome, {exon_data.chrom}. \
     def has_start_codon(self, value):
         """Setter. Checks that the argument is boolean."""
 
-        if not isinstance(value, bool) and value is not None:
-            if value == 1:
-                value = True
-            elif value == 0:
-                value = False
-            else:
-                raise TypeError(
-                    "Invalid value for has_start_codon: {0}".format(type(value)))
-        self.__has_start_codon = value
+        self.__has_start_codon = to_bool(value)
 
     has_start_codon.category = "CDS"
     has_start_codon.rtype = "bool"
@@ -2654,16 +2633,7 @@ exon data is on a different chromosome, {exon_data.chrom}. \
     def has_stop_codon(self, value):
         """Setter. Checks that the argument is boolean."""
 
-        if not isinstance(value, bool) and value is not None:
-            if value == 1:
-                value = True
-            elif value == 0:
-                value = False
-            else:
-                raise TypeError(
-                    "Invalid value for has_stop_codon: {0}".format(type(value)))
-
-        self.__has_stop_codon = value
+        self.__has_stop_codon = to_bool(value)
 
     has_stop_codon.category = "CDS"
     has_stop_codon.rtype = "bool"
@@ -2761,10 +2731,10 @@ when the transcript has at least one intron!""")
 
     @selected_cds_locus_fraction.setter
     def selected_cds_locus_fraction(self, value):
-        if not isinstance(value, (int, float)) and 0 <= value <= 1:
+        if not (isinstance(value, (int, float)) and 0 <= value <= 1):
             raise TypeError("The fraction should be a number between 0 and 1")
         elif self.selected_cds_length == 0 and value > 0:
-            raise ValueError("{} has no CDS, its CDS fraction cannot be greater than 0!")
+            raise ValueError(f"{self.id} has no CDS, its CDS fraction cannot be greater than 0!")
         self.__selected_cds_locus_fraction = value
 
     selected_cds_locus_fraction.category = "Locus"
@@ -2774,6 +2744,8 @@ when the transcript has at least one intron!""")
     @Metric
     def max_intron_length(self):
         """This property returns the greatest intron length for the transcript."""
+        if not hasattr(self, "__max_intron_length"):
+            self.__calculate_max_intron_length()
         return self.__max_intron_length
 
     max_intron_length.category = "Intron"
@@ -2788,6 +2760,8 @@ when the transcript has at least one intron!""")
     @Metric
     def min_intron_length(self):
         """This property returns the smallest intron length for the transcript."""
+        if not hasattr(self, "__min_intron_length"):
+            self.__calculate_min_intron_length()
         return self.__min_intron_length
 
     def __calculate_min_intron_length(self):
@@ -3119,7 +3093,7 @@ when the transcript has at least one intron!""")
     @Metric
     def proportion_verified_introns(self):
         """This metric returns, as a fraction, how many of the transcript introns
-        are validated by external data. Monoexonic transcripts are set to 1."""
+        are validated by external data."""
         if self.monoexonic is True:
             return 0
         else:
@@ -3175,8 +3149,9 @@ Verified introns: {self.verified_introns}".format(self=self))
 
     @Metric
     def proportion_verified_introns_inlocus(self):
-        """This metric returns, as a fraction, how many of the
-        verified introns inside the Locus are contained inside the transcript."""
+        """This metric returns, as a fraction, how many of the verified introns inside the Locus are contained
+        inside the transcript.
+        In loci without *any* verified introns, this metric will be set to 1."""
         return self.__proportion_verified_introns_inlocus
 
     @proportion_verified_introns_inlocus.setter
@@ -3205,9 +3180,6 @@ Verified introns: {self.verified_introns}".format(self=self))
 
         return sum(1 for intron in self.introns if
                    intron[1] - intron[0] + 1 > self.intron_range[1])
-        #
-        # return len(list(filter(lambda x: x[1]-x[0]+1 > self.intron_range[1],
-        #                        self.introns)))
 
     num_introns_greater_than_max.category = "Intron"
     num_introns_greater_than_max.rtype = "int"
@@ -3369,7 +3341,7 @@ Verified introns: {self.verified_introns}".format(self=self))
         mixed = bool(self.attributes.get("mixed_splices", False))
         canonical_on_reverse = self.attributes.get("canonical_on_reverse_strand", False)
         if not isinstance(canonical_on_reverse, bool):
-            canonical_on_reverse = literal_eval(canonical_on_reverse)
+            canonical_on_reverse = literal_eval(canonical_on_reverse.capitalize())
             self.attributes["canonical_on_reverse_strand"] = canonical_on_reverse
 
         return self.monoexonic is False and (canonical_on_reverse or mixed)

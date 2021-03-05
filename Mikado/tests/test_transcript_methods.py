@@ -804,6 +804,27 @@ Chr5	TAIR10	exon	5256	5576	.	-	.	Parent=AT5G01015.1"""
         self.t1.finalize()
         self.assertIs(self.t1.is_coding, True)
 
+    def test_exon_intron_lengths(self):
+
+        t = Transcript()
+        t.chrom, t.start, t.end, t.strand, t.id = "Chr1", 101, 1000, "+", "foo.1"
+        self.assertEqual(t.max_exon_length, 0)
+        self.assertEqual(t.min_exon_length, 0)
+        self.assertEqual(t.max_intron_length, 0)
+        self.assertEqual(t.min_intron_length, 0)
+        t.add_exons([(101, 1000)])
+        self.assertEqual(t.max_exon_length, 900)
+        self.assertEqual(t.min_exon_length, 900)
+        self.assertEqual(t.max_intron_length, 0)
+        self.assertEqual(t.min_intron_length, 0)
+
+    def test_suspicious_splicing(self):
+        t = Transcript()
+        t.chrom, t.start, t.end, t.strand, t.id = "Chr1", 101, 1000, "+", "foo.1"
+        t.attributes["canonical_on_reverse_strand"] = "True"
+        t.attributes["mixed_splices"] = False
+        self.assertTrue(t.suspicious_splicing)
+
     def test_frames(self):
 
         self.assertIsInstance(self.t1.frames, dict)
@@ -826,6 +847,46 @@ Chr5	TAIR10	exon	5256	5576	.	-	.	Parent=AT5G01015.1"""
 
         self.assertEqual(len(correct_frames), int(self.t1.combined_cds_length / 3), correct_frames)
         self.assertEqual(self.t1.framed_codons, correct_frames)
+
+    def test_wrong_proportions(self):
+        t = Transcript()
+        t.chrom, t.start, t.end, t.strand, t.id = "Chr1", 101, 1000, "+", "foo.1"
+        t.add_exons([(101, 1000)])
+        t.finalize()
+        for invalid in (10, -0.1, "a"):
+            with self.subTest(invalid=invalid):
+                with self.assertRaises(TypeError):
+                    t.proportion_verified_introns_inlocus = invalid
+                t.proportion_verified_introns_inlocus = 1
+                with self.assertRaises(TypeError):
+                    t.cds_disrupted_by_ri = invalid
+                t.cds_disrupted_by_ri = True
+                with self.assertRaises(TypeError):
+                    t.selected_cds_intron_fraction = invalid
+                with self.assertRaises(TypeError):
+                    t.combined_cds_intron_fraction = invalid
+                with self.assertRaises(TypeError):
+                    t.selected_cds_locus_fraction = invalid
+                with self.assertRaises(ValueError):
+                    # t is non-coding
+                    t.selected_cds_locus_fraction = .4
+
+    def test_set_codons(self):
+        t = Transcript()
+        t.chrom, t.start, t.end, t.strand, t.id = "Chr1", 101, 1000, "+", "foo.1"
+        t.add_exons([(101, 1000)])
+        t.add_exons([(101, 1000)], features=["CDS"])
+        t.finalize()
+        for valid in (0, "0", "false", False):
+            t.has_start_codon = valid
+            t.has_stop_codon = valid
+            self.assertFalse(t.has_start_codon)
+            self.assertFalse(t.has_stop_codon)
+        for valid in (1, "1", "true", "True"):
+            t.has_start_codon = valid
+            t.has_stop_codon = valid
+            self.assertTrue(t.has_start_codon)
+            self.assertTrue(t.has_stop_codon)
 
     def test_conversion(self):
 

@@ -27,6 +27,8 @@ import multiprocessing as mp
 import msgpack
 import logging
 import logging.handlers as logging_handlers
+
+from ..utilities import to_bool
 from ..utilities.log_utils import create_null_logger
 import pyfaidx
 import zlib
@@ -527,8 +529,8 @@ class BED12:
         self._parse_attributes(self.name)
         if len(self._fields) == 13:
             self._parse_attributes(self._fields[-1])
-        self.has_start_codon = None
-        self.has_stop_codon = None
+        self.has_start_codon = False
+        self.has_stop_codon = False
         self.start_codon = None
         self.stop_codon = None
         self.fasta_length = len(self)
@@ -559,8 +561,8 @@ class BED12:
         self.block_count = 1
         self.block_sizes = [self.thick_end - self.thick_start +1]
         self.block_starts = [self.thick_start]
-        self.has_start_codon = None
-        self.has_stop_codon = None
+        self.has_start_codon = False
+        self.has_stop_codon = False
         self.start_codon = None
         self.stop_codon = None
         self.fasta_length = fasta_length
@@ -926,9 +928,7 @@ class BED12:
         :type value: None
         """
 
-        if value not in (None, True, False):
-            raise ValueError()
-        self.__has_start = value
+        self.__has_start = to_bool(value)
 
     @property
     def has_stop_codon(self):
@@ -947,9 +947,7 @@ class BED12:
         :type value: bool
         :type value: None
         """
-        if value not in (None, True, False):
-            raise ValueError()
-        self.__has_stop = value
+        self.__has_stop = to_bool(value)
 
     @property
     def full_orf(self):

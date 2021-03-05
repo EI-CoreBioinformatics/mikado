@@ -1,16 +1,13 @@
 import zlib
 from multiprocessing import Process
 from typing import Union
-
 from multiprocessing.managers import AutoProxy
 import logging
 from itertools import product
 import logging.handlers as logging_handlers
 import functools
-
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
-
 from ..configuration import MikadoConfiguration, DaijinConfiguration
 from ..utilities import dbutils
 from ..scales.assignment.assigner import Assigner
@@ -19,7 +16,7 @@ from ._merge_loci_utils import __create_gene_counters, manage_index
 import collections
 import sys
 from ..transcripts import Transcript
-from ..exceptions import InvalidTranscript
+from ..exceptions import InvalidTranscript, InvalidConfiguration, InvalidCDS, NotInLocusError
 from ..parsers.GTF import GtfLine
 from ..configuration.configurator import load_and_validate_config
 import msgpack
@@ -247,14 +244,7 @@ def analyse_locus(slocus: Superlocus,
 
     slocus.logger = logger
     slocus.source = configuration.pick.output_format.source
-
-    try:
-        slocus.load_all_transcript_data(engine=engine, session=session)
-    except KeyboardInterrupt:
-        raise
-    except Exception as exc:
-        logger.error("Error while loading data for %s", slocus.id)
-        logger.exception(exc)
+    slocus.load_all_transcript_data(engine=engine, session=session)
     logger.debug("Loading transcript data for %s", slocus.id)
 
     # Load the CDS information if necessary
@@ -278,11 +268,7 @@ def analyse_locus(slocus: Superlocus,
         stranded_locus.logger = logger
         try:
             stranded_locus.define_loci()
-        except KeyboardInterrupt:
-            raise
-        except OSError:
-            raise
-        except Exception as exc:
+        except (InvalidTranscript, InvalidConfiguration, InvalidCDS, NotInLocusError) as exc:
             logger.exception(exc)
             logger.error("Removing failed locus %s", stranded_locus.name)
             stranded_loci.remove(stranded_locus)
@@ -298,13 +284,7 @@ def analyse_locus(slocus: Superlocus,
     # Check if any locus is a fragment, if so, tag/remove it
     if len(stranded_loci) > 0:
         stranded_loci = sorted(list(remove_fragments(stranded_loci, configuration, logger)))
-    try:
-        logger.debug("Size of the loci to send: {0}, for {1} loci".format(
-            sys.getsizeof(stranded_loci),
-            len(stranded_loci)))
-    except Exception as err:
-        logger.error(err)
-        pass
+    logger.debug("Size of the loci to send: {0}, for {1} loci".format(sys.getsizeof(stranded_loci), len(stranded_loci)))
     logger.debug("Finished with %s, counter %d", slocus.id, counter)
     logger.removeHandler(handler)
     handler.close()
@@ -363,10 +343,6 @@ class LociProcesser(Process):
         del state["handler"]
         if "logger" in state:
             del state["logger"]
-        if "dump_conn" in state:
-            del state["dump_conn"]
-        if "dump_cursor" in state:
-            del state["dump_cursor"]
         return state
 
     def terminate(self):
@@ -379,9 +355,6 @@ class LociProcesser(Process):
             self.engine.dispose()
         if self.session is not None:
             self.session.close_all()
-        if hasattr(self, "dump_conn"):
-            self.dump_conn.commit()
-            self.dump_conn.close()
 
     def close(self):
         self.__close_handles()
@@ -435,15 +408,7 @@ class LociProcesser(Process):
 
     def run(self):
         """Start polling the queue, analyse the loci, and send them to the printer process."""
-        try:
-            self.connect_to_db(None, None)
-        except KeyboardInterrupt:
-            raise
-        except EOFError:
-            raise
-        except Exception as exc:
-            self.logger.exception(exc)
-            return
+        self.connect_to_db(None, None)
         self.logger.debug("Starting to parse data for {0}".format(self.name))
         self.analyse_locus = functools.partial(analyse_locus,
                                                configuration=self.configuration,
@@ -497,10 +462,7 @@ class LociProcesser(Process):
                                                                               definition["start"], definition["end"])
                         chroms.add(transcript.chrom)
                         assert len(chroms) == 1, chroms
-                        try:
-                            transcript.id = definition["transcript"]
-                        except KeyError:
-                            raise KeyError(definition)
+                        transcript.id = definition["transcript"]
                         transcript.strand, transcript.feature = definition["strand"], definition["feature"]
                         transcript.attributes = definition["attributes"]
                         try:
@@ -530,15 +492,10 @@ class LociProcesser(Process):
                         accumulator = zlib.compress(msgpack.dumps(accumulator))
                         self.status_queue.put(accumulator)
                         accumulator = []
-                    try:
-                        accumulator = serialise_locus(
-                            stranded_loci, accumulator, counter, print_cds=print_cds,
-                            print_monosubloci=print_monoloci, print_subloci=print_subloci)
-                    except KeyboardInterrupt:
-                        raise
-                    except Exception as exc:
-                        self.logger.exception(exc)
-                        raise
+
+                    accumulator = serialise_locus(
+                        stranded_loci, accumulator, counter, print_cds=print_cds,
+                        print_monosubloci=print_monoloci, print_subloci=print_subloci)
                 self.locus_queue.task_done()
 
         return

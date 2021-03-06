@@ -6,6 +6,7 @@ Very basic, all too basic test for some functionalities of locus-like classes.
 import dataclasses
 import operator
 import random
+import re
 import unittest
 import os.path
 import logging
@@ -3348,6 +3349,95 @@ class PaddingTester(unittest.TestCase):
         locus.pad_transcripts()
         for tid in locus:
             self.assertEqual(locus[tid].end, locus.end, tid)
+
+    def test_remove_redundant(self):
+        """Test to verify that the routine to remove redundant transcripts after padding functions as desired"""
+        tmult = Transcript()
+        tmult.chrom, tmult.start, tmult.end, tmult.strand, tmult.id = "Chr1", 101, 2000, "+", "foo.1"
+        tmult.add_exons([(101, 500), (801, 1200), (1501, 2000)])
+        tmult.add_exons([(201, 500), (801, 1200), (1501, 1700)], features="CDS")
+        tmult.finalize()
+        tmult_a = tmult.copy()
+        tmult_a.id = "foo.1a"
+
+        tmono = Transcript()
+        tmono.chrom, tmono.start, tmono.end, tmono.strand, tmono.id = "Chr1", 601, 1800, "+", "bar.1"
+        tmono.add_exons([(601, 1800)])
+        # Note that the CDS *must be in-frame* with tmult
+        tmono.add_exons([(711, 1580)], features="CDS")
+        tmono.finalize()
+        tmono_a = tmono.copy()
+        tmono_a.id = "bar.1a"
+
+        conf = MikadoConfiguration()
+        comp = Assigner.compare(tmono, tmult)
+        rev_comp = Assigner.compare(tmult, tmono)
+
+        # Make sure that the transcripts can coexist
+        conf.pick.alternative_splicing.valid_ccodes.extend([comp[0].ccode[0], rev_comp[0].ccode[0]])
+        conf.pick.alternative_splicing.min_cds_overlap = 0.1
+        conf.pick.alternative_splicing.min_cdna_overlap = 0.1
+        conf.pick.alternative_splicing.min_score_perc = 0.01
+        conf.seed = 10
+
+        # Now for the real tests
+        logger = create_default_logger("test_remove_redundant", level="DEBUG")
+        for primary, is_reference, score in itertools.product([tmult.id, tmono.id], [False, True], [5, 10, 1]):
+            with self.subTest():
+                if primary == tmult.id:
+                    locus = Locus(tmult, configuration=conf)
+                    secondary = tmono.id
+                    alt_secondary = tmono_a.id
+                    locus.add_transcript_to_locus(tmono, check_in_locus=False)
+                else:
+                    locus = Locus(tmono, configuration=conf)
+                    secondary = tmult.id
+                    alt_secondary = tmult_a.id
+                    locus.add_transcript_to_locus(tmult, check_in_locus=False)
+
+                locus.primary_transcript_id = primary
+                random.seed(conf.seed)
+                locus.add_transcript_to_locus(tmono_a, check_in_locus=False)
+                locus.add_transcript_to_locus(tmult_a, check_in_locus=False)
+                self.assertIn(tmult.id, locus, (primary, is_reference, score))
+                self.assertIn(tmono.id, locus, (primary, is_reference, score))
+                self.assertIn(tmult_a.id, locus, (primary, is_reference, score))
+                self.assertIn(tmono_a.id, locus, (primary, is_reference, score))
+
+                locus[tmono.id].score = score
+                locus[tmono_a.id].score = 5
+                locus[tmult.id].score = score
+                locus[tmult_a.id].score = 5
+                locus[tmult.id].is_reference = locus[tmono.id].is_reference = is_reference
+
+                locus.logger = logger
+                locus._remove_redundant_after_padding()
+                self.assertTrue(len(locus.transcripts), 2)
+                if is_reference is False:
+                    if score == 5:
+                        self.assertEqual(locus.primary_transcript_id, primary)
+                        self.assertTrue(secondary in locus or alt_secondary in locus)
+                    elif score == 10:
+                        self.assertEqual(sorted(locus.transcripts.keys()), sorted([tmult.id, tmono.id]),
+                                         (primary, is_reference, score))
+                    elif score == 1:
+                        self.assertEqual(sorted(locus.transcripts.keys()), sorted([alt_secondary, primary]),
+                                         (primary, is_reference, score))
+                else:
+                    self.assertEqual(sorted(locus.transcripts.keys()), sorted([primary, secondary]),
+                                     (primary, is_reference, score))
+                # Check that calling again does nothing
+                current = list(sorted(locus.transcripts.keys()))[:]
+                locus._remove_redundant_after_padding()
+                self.assertTrue(current == list(sorted(locus.transcripts.keys())))
+
+        # Now check that a single transcript in a locus causes the function to return immediately
+        locus = Locus(tmult, configuration=conf, logger=logger)
+        with self.assertLogs(logger.name, level="DEBUG") as cmo:
+            locus._remove_redundant_after_padding()
+
+        self.assertTrue(any([re.search(r"only has one transcript, no redundancy removal needed.", output) is not None
+                             for output in cmo.output]))
 
     def test_ad_three_prime(self):
         logger = create_default_logger(inspect.getframeinfo(inspect.currentframe())[2], level="WARNING")

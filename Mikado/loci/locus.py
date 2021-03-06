@@ -217,7 +217,7 @@ class Locus(Abstractlocus):
                     # Restart the padding procedure
                     continue
                 else:
-                    removed.update(self.__remove_redundant_after_padding())
+                    removed.update(self._remove_redundant_after_padding())
                     self.primary_transcript.attributes.pop("ccode", None)
                     self.logger.debug("Updated removal set: %s", ", ".join(removed))
             missing = len(self.transcripts) - max_isoforms
@@ -385,14 +385,14 @@ it is marked as having 0 retained introns. This is an error.".format(transcript=
 
         return removed
 
-    def __remove_redundant_after_padding(self):
+    def _remove_redundant_after_padding(self):
 
         """Private method to remove duplicate copies of transcripts after the padding procedure."""
-
 
         # First thing: calculate the class codes
         to_remove = set()
         if len(self.transcripts) == 1:
+            self.logger.debug(f"{self.id} only has one transcript, no redundancy removal needed.")
             return to_remove
 
         self.logger.debug("Starting to remove redundant transcripts from %s", self.id)
@@ -421,7 +421,7 @@ it is marked as having 0 retained introns. This is an error.".format(transcript=
                     removal = [_ for _ in couple if self[_].is_reference is False][0]
                 elif self[couple[0]].score != self[couple[1]].score:
                     removal = sorted([(_, self[_].score) for _ in couple],
-                                     key=operator.itemgetter(1), reverse=True)[1]
+                                     key=operator.itemgetter(1), reverse=True)[1][0]
                 else:
                     removal = random.choice(sorted(couple))
                 if removal:

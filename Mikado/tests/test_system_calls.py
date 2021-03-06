@@ -31,7 +31,7 @@ from Mikado.preparation import prepare
 from Mikado.scales.compare import compare
 from Mikado.scales.reference_preparation.indexing import load_index
 from Mikado.scales.calculator import Calculator
-from Mikado.subprograms.prepare import prepare_launcher
+from Mikado.subprograms.prepare import prepare_launcher, parse_gff_args
 from Mikado.subprograms.prepare import setup as prepare_setup
 from Mikado.utilities.namespace import Namespace
 from Mikado.utilities.log_utils import create_null_logger
@@ -176,6 +176,50 @@ class PrepareCheck(unittest.TestCase):
 
     def tearDown(self):
         logging.shutdown()
+
+    def test_parsing_gffs_from_cli(self):
+        """"""
+        # parse_gff_args
+
+        args = Namespace(default=None)
+        args.gff = ["foo.gff", "foo.gff", "bar.gff"]
+        with self.assertRaises(InvalidConfiguration) as exc:
+            parse_gff_args(self.conf, args)
+        self.assertTrue(re.search(r"Repeated elements among the input GFFs", str(exc.exception)))
+        # Now test that
+        args.gff = ["foo.gff", "bar.gff"]
+        args.strand_specific_assemblies = "foo.gff,bar.gff,absent.gff"
+        with self.assertRaises(InvalidConfiguration) as exc:
+            parse_gff_args(self.conf, args)
+        self.assertTrue(re.search(r"Incorrect number of strand-specific assemblies specified!", str(exc.exception)),
+                        str(exc.exception))
+        args.strand_specific_assemblies = "foo.gff,absent.gff"
+        with self.assertRaises(InvalidConfiguration) as exc:
+            parse_gff_args(self.conf, args)
+        self.assertTrue(re.search(r"Incorrect assembly file specified as strand-specific", str(exc.exception)),
+                        str(exc.exception))
+        args.strand_specific_assemblies = "foo.gff"
+        args.labels = "foo,"
+        with self.assertRaises(InvalidConfiguration) as exc:
+            parse_gff_args(self.conf, args)
+        self.assertTrue(re.search(r"Empty labels provided!", str(exc.exception)), str(exc.exception))
+        args.labels = "foo,foo"
+        with self.assertRaises(InvalidConfiguration) as exc:
+            parse_gff_args(self.conf, args)
+        self.assertTrue(re.search(r"Duplicated labels detected", str(exc.exception)), str(exc.exception))
+        args.labels = "foo"
+        with self.assertRaises(InvalidConfiguration) as exc:
+            parse_gff_args(self.conf, args)
+        self.assertTrue(re.search(r"Incorrect number of labels specified", str(exc.exception)), str(exc.exception))
+        args.labels = None
+        conf = parse_gff_args(self.conf, args)
+        self.assertEqual(conf.prepare.files.labels, ["1", "2"])
+        self.assertEqual(conf.prepare.files.exclude_redundant, [False, False])
+        self.assertEqual(conf.prepare.files.reference, [False, False])
+        self.assertEqual(conf.prepare.files.strand_specific_assemblies, ["foo.gff"])
+
+    def test_parse_prepare_options(self):
+        """Tests for setting the values correctly from the command line argument parser."""
 
     @mark.slow
     def test_varying_max_intron(self):

@@ -578,6 +578,7 @@ class PrepareCheck(unittest.TestCase):
         args = Namespace()
         args.strip_cds = False
         args.configuration = self.conf
+        args.reference = None
         for b in (False, True):
             with self.subTest(b=b):
                 self.conf.prepare.files.exclude_redundant = [b]
@@ -1274,7 +1275,7 @@ class ConfigureCheck(unittest.TestCase):
         namespace = Namespace(default=False)
         namespace.scoring = None
         namespace.intron_range = None
-        namespace.reference = ""
+        namespace.reference = self.fai
         namespace.external = None
         namespace.mode = ["permissive"]
         namespace.threads = 1
@@ -1288,6 +1289,7 @@ class ConfigureCheck(unittest.TestCase):
         namespace.scheduler = ""
         namespace.mode = ["stringent"]
         namespace.blast_chunks = 10
+        namespace.exclude_redundant = False
         folder = tempfile.TemporaryDirectory()
 
         for output_format in ("json", "yaml", "toml", "config"):
@@ -1326,7 +1328,7 @@ class ConfigureCheck(unittest.TestCase):
         namespace = Namespace(default=False)
         namespace.scoring = None
         namespace.intron_range = None
-        namespace.reference = ""
+        namespace.reference = self.fai
         namespace.external = None
         namespace.threads = 1
         namespace.multiprocessing_method = "spawn"
@@ -1397,7 +1399,7 @@ class ConfigureCheck(unittest.TestCase):
         namespace = Namespace(default=False)
         namespace.scoring = None
         namespace.intron_range = None
-        namespace.reference = ""
+        namespace.reference = self.fai
         namespace.external = None
         namespace.mode = ["permissive"]
         namespace.threads = 1

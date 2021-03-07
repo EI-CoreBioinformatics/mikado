@@ -88,7 +88,8 @@ def parse_prepare_options(args, mikado_config) -> Union[DaijinConfiguration, Mik
         mikado_config = parse_gff_args(mikado_config, args)
 
     if getattr(args, "exclude_redundant", None) in (True, False):
-        mikado_config.prepare.exclude_redundant = [args.exclude_redundant] * len(mikado_config.prepare.files.gff)
+        mikado_config.prepare.exclude_redundant = args.exclude_redundant
+        mikado_config.prepare.files.exclude_redundant = [args.exclude_redundant] * len(mikado_config.prepare.files.gff)
     elif not mikado_config.prepare.files.exclude_redundant:
         mikado_config.prepare.files.exclude_redundant = [False] * len(mikado_config.prepare.files.gff)
     elif len(mikado_config.prepare.files.exclude_redundant) != len(mikado_config.prepare.files.gff):

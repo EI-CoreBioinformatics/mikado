@@ -6,6 +6,7 @@ and log creation.
 
 import os
 import functools
+import re
 from typing import Union
 
 from . import dbutils
@@ -215,7 +216,10 @@ def merge_ranges(ranges):
     yield current_start, current_stop
 
 
-def to_region(string):
+_reg_pat = re.compile(r"^([^:]*):(\d*)(?:-|\.\.)(\d*)$")
+
+
+def to_region(string: Union[str, bytes]) -> [str, int, int]:
 
     """
     Snippet to convert from Apollo-style region to a tuple of chrom, start, end
@@ -223,21 +227,18 @@ def to_region(string):
     :return:
     """
 
-    fields = string.split(":")
-    if len(fields) != 2:
-        raise ValueError("Invalid string!")
-    chrom, rest = fields
-    if ".." in rest:
-        separator = ".."
-    elif "-" in rest:
-        separator = "-"
-    else:
-        raise ValueError("Invalid string!")
-
-    start, end = [int(_) for _ in rest.split(separator)]
+    if not isinstance(string, (str, bytes)):
+        raise ValueError("Invalid region: {} (type {})".format(string, type(string)))
+    elif isinstance(string, bytes):
+        string = string.decode()
+    string = string.strip()
+    try:
+        chrom, start, end = _reg_pat.search(string).groups()
+        start, end = int(start), int(end)
+    except (ValueError, AttributeError, TypeError):
+        raise ValueError("Invalid string specified: {}".format(string))
     if end < start:
         raise ValueError("Start greater than end: {0}\t{1}".format(start, end))
-
     return chrom, start, end
 
 

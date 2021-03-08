@@ -83,18 +83,19 @@ def check_db(configuration: Union[MikadoConfiguration, DaijinConfiguration]) -> 
             else:
                 configuration.db_settings.dbport = 5432
     else:
-        if (configuration.db_settings.db is not None and
-                not os.path.isabs(configuration.db_settings.db)):
-            if os.path.exists(os.path.join(os.getcwd(),
-                                           configuration.db_settings.db)):
+        if configuration.db_settings.db is not None and not os.path.isabs(configuration.db_settings.db):
+            if os.path.exists(os.path.join(os.getcwd(), configuration.db_settings.db)):
+                configuration.db_settings.db = os.path.join(os.getcwd(), configuration.db_settings.db)
+            elif os.path.exists(
+                    os.path.join(os.path.dirname(configuration.filename or ""), configuration.db_settings.db)):
                 configuration.db_settings.db = os.path.join(
-                    os.getcwd(), configuration.db_settings.db)
-            elif os.path.exists(os.path.join(os.path.dirname(configuration.filename or ""), configuration.db_settings.db)):
+                    os.path.dirname(configuration.filename or ""), configuration.db_settings.db)
+            elif os.path.exists(os.path.join(os.path.dirname(configuration.filename or ""),
+                                             configuration.db_settings.db)):
                 configuration.db_settings.db = os.path.join(os.path.dirname(configuration.filename or ""),
-                                                        configuration.db_settings.db)
+                                                            configuration.db_settings.db)
             else:
-                configuration.db_settings.db = os.path.join(os.path.dirname(configuration.filename or ""),
-                                                        configuration.db_settings.db)
+                pass
 
     return configuration
 

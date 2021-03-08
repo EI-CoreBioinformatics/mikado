@@ -9,6 +9,8 @@ import glob
 import argparse
 import sys
 import dataclasses
+
+from ._utils import _set_pick_mode
 from ..configuration import DaijinConfiguration, MikadoConfiguration
 from ..exceptions import InvalidConfiguration
 from ..utilities import comma_split, percentage, merge_dictionaries
@@ -78,13 +80,8 @@ def create_config(args):
     elif not (isinstance(args.seed, int) and 0 <= args.seed <= 2 ** 32 - 1):
         raise OSError("Invalid seed: {}".format(args.seed))
 
-    if isinstance(args.mode, list) and len(args.mode) > 1:
-        args.daijin = True
-
-    if args.daijin is not False:
-        config = DaijinConfiguration()
-    else:
-        config = MikadoConfiguration()
+    args.daijin = args.daijin or [isinstance(args.mode, list) and len(args.mode) > 1]
+    config = DaijinConfiguration() if args.daijin is True else MikadoConfiguration()
 
     if args.external is not None:
         other = dataclasses.asdict(load_and_validate_config(args.external, external=True))
@@ -92,7 +89,7 @@ def create_config(args):
         config = merge_dictionaries(config, other)
         config = load_and_validate_config(config)
 
-    if args.daijin is not False:
+    if args.daijin is True:
         config = __add_daijin_specs(args, config)
 
     config.pick.files.subloci_out = args.subloci_out if args.subloci_out else ""
@@ -104,17 +101,13 @@ def create_config(args):
         args.gff = []
     config = parse_prepare_options(args, config)
 
-    if args.seed is not None:
-        try:
-            config.seed = args.seed
-        except Exception:
-            raise OSError
+    config.seed = args.seed if args.seed is not None else config.seed
 
-    if args.junctions is not None:
-        config.serialise.files.junctions = args.junctions
+    config.serialise.files.junctions = args.junctions if args.junctions is not None else \
+        config.serialise.files.junctions
 
-    if args.blast_targets is not None:
-        config.serialise.files.blast_targets = args.blast_targets
+    config.serialise.files.blast_targets = args.blast_targets if args.blast_targets is not None else \
+        config.serialise.files.blast_targets
 
     if args.only_reference_update is True or args.reference_update is True:
         if len(config.prepare.files.reference) == 0:
@@ -126,14 +119,15 @@ switch.")
         else:
             config.pick.run_options.only_reference_update = True
 
-    if args.check_references is True:
-        config.pick.run_options.check_references = True
+    config.pick.run_options.check_references = True if args.check_references is True else \
+        config.pick.run_options.check_references
 
-    if args.report_all_orfs is True:
-        config.pick.output_format.report_all_orfs = True
+    config.pick.output_format.report_all_orfs = True if args.report_all_orfs is True else \
+        config.pick.output_format.report_all_orfs
 
-    if args.report_all_external_metrics is True:
-        args.configuration.pick.output_format.report_all_external_metrics = True
+    config.pick.output_format.report_all_external_metrics = True if args.report_all_external_metrics else \
+        config.pick.output_format.report_all_external_metrics
+
 
     if args.scoring is not None:
         if args.copy_scoring is not False:
@@ -147,23 +141,12 @@ switch.")
 
         config.pick.scoring_file = args.scoring
 
-    if args.cds_only is True:
-        config.pick.clustering.cds_only = True
-
-    if args.as_cds_only is True:
-        config.pick.alternative_splicing.cds_only = True
+    config.pick.clustering.cds_only = True if args.cds_only is True else config.pick.clustering.cds_only
+    config.pick.alternative_splicing.cds_only = True if args.as_cds_only else config.pick.alternative_splicing.cds_only
 
     if args.daijin is False and args.mode is not None and len(args.mode) == 1:
         mode = args.mode.pop()
-        if mode == "nosplit":
-            config.pick.chimera_split.execute = False
-        else:
-            config.pick.chimera_split.execute = True
-            if mode == "split":
-                config.pick.chimera_split.blast_check = False
-            else:
-                config.pick.chimera_split.blast_check = True
-                config.pick.chimera_split.blast_params.leniency = mode.upper()
+        config = _set_pick_mode(config, mode)
 
     if args.skip_split:
         if not all(_ in config.prepare.files.labels for _ in args.skip_split):
@@ -172,28 +155,26 @@ switch.")
             ))
         config.pick.chimera_split.skip = list(set(config.pick.chimera_split.skip.extend(args.skip_split)))
 
-    if args.pad is not None:
-        config.pick.alternative_splicing.pad = args.pad
-
-    if args.min_clustering_cds_overlap is not None:
-        config.pick.clustering.min_cds_overlap = args.min_clustering_cds_overlap
+    config.pick.alternative_splicing.pad = args.pad if args.pad is not None else config.pick.alternative_splicing.pad
+    config.pick.clustering.min_cds_overlap = args.min_clustering_cds_overlap if args.min_clustering_cds_overlap is not \
+        None else config.pick.clustering.min_cds_overlap
 
     if args.min_clustering_cdna_overlap is not None:
         config.pick.clustering.min_cdna_overlap = args.min_clustering_cdna_overlap
         if args.min_clustering_cds_overlap is None:
             config.pick.clustering.min_cds_overlap = args.min_clustering_cdna_overlap
 
-    if args.intron_range is not None:
-        config.pick.run_options.intron_range = sorted(args.intron_range)
+    config.pick.run_options.intron_range = sorted(args.intron_range) if args.intron_range is not None else \
+        config.pick.run_options.intron_range
 
-    if args.codon_table not in (None, False, True):
-        config.serialise.codon_table = str(args.codon_table)
+    config.serialise.codon_table = str(args.codon_table) if args.codon_table not in (None, False, True) else \
+        config.serialise.codon_table
 
-    if args.keep_disrupted_cds is True:
-        config.pick.alternative_splicing.keep_cds_disrupted_by_ri = True
+    config.pick.alternative_splicing.keep_cds_disrupted_by_ri = True if args.keep_disrupted_cds is True else \
+        config.pick.alternative_splicing.keep_cds_disrupted_by_ri
 
-    if args.exclude_retained_introns is True:
-        config.pick.alternative_splicing.keep_retained_introns = False
+    config.pick.alternative_splicing.keep_retained_introns = False if args.exclude_retained_introns is True else \
+        config.pick.alternative_splicing.keep_retained_introns
 
     if args.out_dir:
         config.prepare.files.output_dir = args.out_dir

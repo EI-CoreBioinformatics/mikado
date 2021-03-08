@@ -697,8 +697,8 @@ def prepare(mikado_config: MikadoConfiguration, logger):
 
     logger.addHandler(logging.StreamHandler())
     if errored is False:
-        logger.info("""Mikado prepare has finished correctly with seed %s. The output %s FASTA file can now be used for BLASTX \
-    and/or ORF calling before the next step in the pipeline, `mikado serialise`.""",
+        logger.info("Mikado prepare has finished correctly with seed %s. The output %s FASTA file can now be "
+                    "used for BLASTX and/or ORF calling before the next step in the pipeline, `mikado serialise`.",
                     mikado_config.seed, mikado_config.prepare.files.out_fasta)
         logging.shutdown()
     else:

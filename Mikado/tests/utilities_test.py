@@ -43,12 +43,19 @@ class UtilTester(unittest.TestCase):
         self.assertNotIn("(20,){}", tester.cache)
         self.assertNotIn("(10,){}", tester.cache)
 
-    def test_region_string(self):
-        for error in [10, None, False]:
-            with self.assertRaises(AttributeError):
-                utilities.to_region(error)
-        with self.assertRaises(TypeError):
-            utilities.to_region(b"Chr1:100-4000")
+    def test_check_to_regions(self):
+        for invalid in [0, b"Chr1:100.1000", "Chr1:100.1000", "Chr1:1500-1000", None, "Chr1::1400-2000"]:
+            with self.assertRaises(ValueError), self.subTest(invalid=invalid):
+                utilities.to_region(invalid)
+
+        for reg, result in [("Chr1:1000-2000", ("Chr1", 1000, 2000)),
+                            ("ath_Chr1:1500-10000", ("ath_Chr1", 1500, 10000)),
+                            ("hello_chrom:5000..50000", ("hello_chrom", 5000, 50000))]:
+            chrom, start, end = utilities.to_region(reg)
+            self.assertEqual(result, (chrom, start, end))
+            chrom, start, end = utilities.to_region(reg.encode())
+            self.assertEqual(result, (chrom, start, end))
+
         chroms = ("Chr1", "Chr4", "Chr5")
         starts = (100, 500, 1000, 5000)
         ends = (500, 800, 1500, 10000)

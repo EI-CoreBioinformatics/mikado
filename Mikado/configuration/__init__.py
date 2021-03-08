@@ -28,7 +28,7 @@ def print_config(config: Union[MikadoConfiguration, DaijinConfiguration], out,
     :type config: (MikadoConfiguration|DaijinConfiguration)
 
     :param out: output handle
-    :type out: io.TextIOWrapper
+    :type out: [io.TextIOWrapper|io.TextIO]
 
     :param output_format: one of yaml, json or toml (case-insensitive)
     :type output_format: str

@@ -21,6 +21,8 @@ from Mikado.exceptions import InvalidConfiguration, InvalidParsingFormat
 from Mikado.daijin import mikado_pipeline, assemble_transcripts_pipeline
 from Mikado.configuration import print_config, DaijinConfiguration, MikadoConfiguration
 import rapidjson as json
+
+from Mikado.subprograms.pick import _parse_regions
 from Mikado.subprograms.serialise import serialise
 from pytest import mark
 from Mikado import configuration
@@ -33,6 +35,7 @@ from Mikado.scales.reference_preparation.indexing import load_index
 from Mikado.scales.calculator import Calculator
 from Mikado.subprograms.prepare import prepare_launcher, parse_gff_args
 from Mikado.subprograms.prepare import setup as prepare_setup
+from Mikado.utilities import to_region, IntervalTree
 from Mikado.utilities.namespace import Namespace
 from Mikado.utilities.log_utils import create_null_logger
 from Mikado.parsers.GFF import GffLine
@@ -467,96 +470,100 @@ class PrepareCheck(unittest.TestCase):
         args.configuration = self.conf.copy()
         del args.configuration.prepare.files.output_dir
         args.log = None
-        for b in (False, True):
-            with self.subTest(b=b), tempfile.TemporaryDirectory() as folder:
-                self.conf.prepare.files.exclude_redundant = [b]
-                args.output_dir = folder
-                args.seed = 10
-                args.procs = 1
-                args.list = None
-                args.gffs = None
-                args.strand_specific_assemblies = None
-                args.labels = None
-                args.configuration = self.conf
-                args.exclude_redundant = b
-                args.out, args.out_fasta = None, None
-                args.configuration.prepare.files.log = "prepare.log"
-                if isinstance(args.configuration.reference.genome, bytes):
-                    args.configuration.reference.genome = args.configuration.reference.genome.decode()
-                args.log = open(os.path.join(args.output_dir, "prepare.log"), "wt")
-                self.logger.setLevel("DEBUG")
-                args, *_ = prepare_setup(args)
-                self.assertIsNotNone(args)
-                self.assertEqual(args.output_dir, folder)
-                self.assertEqual(args.configuration.prepare.files.output_dir, folder)
-                self.assertIn(os.path.dirname(args.configuration.prepare.files.out_fasta),
-                              (folder, ""), args.configuration)
-                self.assertIn(os.path.dirname(args.configuration.prepare.files.out),
-                              (folder, ""), args.configuration)
+        # Keep them *OUTSIDE* otherwise weird disk errors might happen
+        with tempfile.TemporaryDirectory() as folder_a, tempfile.TemporaryDirectory() as folder_b:
+            for b, folder in [(True, folder_a), (False, folder_b)]:
+                os.makedirs(folder, exist_ok=True)
+                with self.subTest(b=b):
+                    os.makedirs(folder, exist_ok=True)
+                    self.conf.prepare.files.exclude_redundant = [b]
+                    args.output_dir = folder
+                    args.seed = 10
+                    args.procs = 1
+                    args.list = None
+                    args.gffs = None
+                    args.strand_specific_assemblies = None
+                    args.labels = None
+                    args.configuration = self.conf
+                    args.exclude_redundant = b
+                    args.out, args.out_fasta = None, None
+                    args.configuration.prepare.files.log = "prepare.log"
+                    if isinstance(args.configuration.reference.genome, bytes):
+                        args.configuration.reference.genome = args.configuration.reference.genome.decode()
+                    args.log = "prepare.log"  # os.path.join(args.output_dir, "prepare.log")
+                    self.logger.setLevel("DEBUG")
+                    assert os.path.exists(folder)
+                    _ = open(args.log, "wt").close()
+                    args, mikado_configuration, _logger = prepare_setup(args)
+                    self.assertIsNotNone(mikado_configuration)
+                    # self.assertEqual(args.output_dir, folder)
+                    self.assertEqual(mikado_configuration.prepare.files.output_dir, folder)
+                    self.assertIn(os.path.dirname(mikado_configuration.prepare.files.out_fasta),
+                                  (folder, ""), mikado_configuration)
+                    self.assertIn(os.path.dirname(mikado_configuration.prepare.files.out),
+                                  (folder, ""), mikado_configuration)
 
-                with self.assertRaises(SystemExit) as exi:
-                    prepare_launcher(args)
-                self.assertTrue(os.path.exists(folder))
-                self.assertTrue(os.path.isdir(folder))
-                self.assertEqual(exi.exception.code, 0)
-                self.assertTrue(os.path.exists(os.path.join(folder,
-                                                            "mikado_prepared.fasta")),
-                                open(os.path.join(folder,
-                                                  "prepare.log")).read())
-                fa = pyfaidx.Fasta(os.path.join(folder,
-                                                "mikado_prepared.fasta"))
-                logged = [_ for _ in open(os.path.join(args.configuration.prepare.files.output_dir,
-                                                       args.configuration.prepare.files.log))]
-                self.assertFalse("AT5G01530.1" in fa.keys(), (b, sorted(list(fa.keys())),
-                                                              print(*logged, sep="\n", file=open("/tmp/log", "wt"))))
-                self.assertTrue("AT5G01530.2" in fa.keys(), print(*logged, sep="\n", file=open("/tmp/log", "wt")))
-                if b is False:
-                    self.assertEqual(len(fa.keys()), 4)
-                    self.assertEqual(sorted(fa.keys()), sorted(["AT5G01530."+str(_) for _ in [0, 2, 3, 4]]))
-                else:
-                    self.assertEqual(len(fa.keys()), 3, (fa.keys(), logged))
-                    self.assertIn("AT5G01530.0", fa.keys())
-                    self.assertIn("AT5G01530.2", fa.keys())
-                    self.assertNotIn("AT5G01530.3", fa.keys())
-                    self.assertIn("AT5G01530.4", fa.keys())
-                gtf_file = os.path.join(folder, "mikado_prepared.gtf")
-                fa.close()
-                coding_count = 0
-                with parser_factory(gtf_file) as gtf:
-                    lines = [line for line in gtf]
-                    transcripts = dict()
-                    for line in lines:
-                        if line.is_transcript:
-                            transcript = Transcript(line)
-                            transcripts[transcript.id] = transcript
-                        elif line.is_exon:
-                            transcripts[line.transcript].add_exon(line)
-                    [transcripts[_].finalize() for _ in transcripts]
-                    for transcript in transcripts.values():
-                        if transcript.is_coding:
-                            coding_count += 1
-                            self.assertIn("has_start_codon", transcript.attributes, str(transcript.format("gtf")))
-                            self.assertIn("has_stop_codon", transcript.attributes, str(transcript.format("gtf")))
-                            self.assertEqual(transcript.attributes["has_start_codon"],
-                                             transcript.has_start_codon,
-                                             (transcript.id,
-                                              transcript.attributes["has_start_codon"],
-                                              transcript.has_start_codon))
-                            self.assertEqual(transcript.attributes["has_stop_codon"],
-                                             transcript.has_stop_codon,
-                                             (transcript.id, transcript.attributes["has_stop_codon"],
-                                             transcript.has_stop_codon))
-                            self.assertEqual(transcript.is_complete,
-                                             transcript.has_start_codon and transcript.has_stop_codon)
-                    a5 = transcripts["AT5G01530.2"]
-                    self.assertTrue(a5.is_coding)
-                    self.assertIn("has_start_codon", a5.attributes)
-                    self.assertIn("has_stop_codon", a5.attributes)
-                    self.assertTrue(a5.has_start_codon)
-                    self.assertTrue(a5.has_stop_codon)
-                    self.assertTrue(a5.is_complete)
+                    prepare.prepare(mikado_configuration, _logger)
+                    self.assertTrue(os.path.exists(folder))
+                    self.assertTrue(os.path.isdir(folder))
+                    self.assertTrue(os.path.exists(os.path.join(folder,
+                                                                "mikado_prepared.fasta")),
+                                    open(os.path.join(folder,
+                                                      "prepare.log")).read())
+                    fa = pyfaidx.Fasta(os.path.join(folder,
+                                                    "mikado_prepared.fasta"))
+                    logged = [_ for _ in open(os.path.join(mikado_configuration.prepare.files.output_dir,
+                                                           mikado_configuration.prepare.files.log))]
+                    self.assertFalse("AT5G01530.1" in fa.keys(), (b, sorted(list(fa.keys())),
+                                                                  print(*logged, sep="\n", file=open("/tmp/log", "wt"))))
+                    self.assertTrue("AT5G01530.2" in fa.keys(), print(*logged, sep="\n", file=open("/tmp/log", "wt")))
+                    if b is False:
+                        self.assertEqual(len(fa.keys()), 4)
+                        self.assertEqual(sorted(fa.keys()), sorted(["AT5G01530."+str(_) for _ in [0, 2, 3, 4]]))
+                    else:
+                        self.assertEqual(len(fa.keys()), 3, (fa.keys(), logged))
+                        self.assertIn("AT5G01530.0", fa.keys())
+                        self.assertIn("AT5G01530.2", fa.keys())
+                        self.assertNotIn("AT5G01530.3", fa.keys())
+                        self.assertIn("AT5G01530.4", fa.keys())
+                    gtf_file = os.path.join(folder, "mikado_prepared.gtf")
+                    fa.close()
+                    coding_count = 0
+                    with parser_factory(gtf_file) as gtf:
+                        lines = [line for line in gtf]
+                        transcripts = dict()
+                        for line in lines:
+                            if line.is_transcript:
+                                transcript = Transcript(line)
+                                transcripts[transcript.id] = transcript
+                            elif line.is_exon:
+                                transcripts[line.transcript].add_exon(line)
+                        [transcripts[_].finalize() for _ in transcripts]
+                        for transcript in transcripts.values():
+                            if transcript.is_coding:
+                                coding_count += 1
+                                self.assertIn("has_start_codon", transcript.attributes, str(transcript.format("gtf")))
+                                self.assertIn("has_stop_codon", transcript.attributes, str(transcript.format("gtf")))
+                                self.assertEqual(transcript.attributes["has_start_codon"],
+                                                 transcript.has_start_codon,
+                                                 (transcript.id,
+                                                  transcript.attributes["has_start_codon"],
+                                                  transcript.has_start_codon))
+                                self.assertEqual(transcript.attributes["has_stop_codon"],
+                                                 transcript.has_stop_codon,
+                                                 (transcript.id, transcript.attributes["has_stop_codon"],
+                                                 transcript.has_stop_codon))
+                                self.assertEqual(transcript.is_complete,
+                                                 transcript.has_start_codon and transcript.has_stop_codon)
+                        a5 = transcripts["AT5G01530.2"]
+                        self.assertTrue(a5.is_coding)
+                        self.assertIn("has_start_codon", a5.attributes)
+                        self.assertIn("has_stop_codon", a5.attributes)
+                        self.assertTrue(a5.has_start_codon)
+                        self.assertTrue(a5.has_stop_codon)
+                        self.assertTrue(a5.is_complete)
 
-                self.assertGreater(coding_count, 0)
+                    self.assertGreater(coding_count, 0)
 
     @mark.slow
     def test_negative_cdna_redundant_cds_not(self):
@@ -565,8 +572,6 @@ class PrepareCheck(unittest.TestCase):
 
         gtf = pkg_resources.resource_filename("Mikado.tests", "cds_test_2.gtf")
         self.conf.prepare.files.gff = [gtf]
-        dir = tempfile.TemporaryDirectory(prefix="test_negative_cdna_redundant_cds_not")
-        self.conf.prepare.files.output_dir = dir.name
         self.conf.prepare.files.labels = [""]
         self.conf.prepare.files.out_fasta = "mikado_prepared.fasta"
         self.conf.prepare.files.strip_cds = [False]
@@ -575,104 +580,105 @@ class PrepareCheck(unittest.TestCase):
         self.conf.prepare.strip_cds = False
         self.conf.prepare.minimum_cdna_length = 150  # Necessary for testing A5
 
-        args = Namespace()
-        args.strip_cds = False
-        args.configuration = self.conf
-        args.reference = None
-        for b in (False, True):
-            with self.subTest(b=b):
-                self.conf.prepare.files.exclude_redundant = [b]
-                folder = tempfile.TemporaryDirectory()
-                args.configuration = self.conf
-                args.configuration.seed = 10
-                args.exclude_redundant = b
-                args.output_dir = folder.name
-                args.log = None
-                args.gff = None
-                args.list = None
-                args.strand_specific_assemblies = None
-                if isinstance(args.configuration.reference.genome, bytes):
-                    args.configuration.reference.genome = args.configuration.reference.genome.decode()
-                args, mikado_config, _ = prepare_setup(args)
-                assert hasattr(mikado_config.reference, "genome"), args.configuration.reference
-                prepare.prepare(mikado_config, self.logger)
-                self.assertTrue(os.path.exists(os.path.join(self.conf.prepare.files.output_dir,
-                                                            "mikado_prepared.fasta")))
-                fa = pyfaidx.Fasta(os.path.join(self.conf.prepare.files.output_dir,
-                                                "mikado_prepared.fasta"))
-                if b is False:
-                    self.assertEqual(len(fa.keys()), 5)
-                    self.assertEqual(sorted(fa.keys()), sorted(["AT5G01015." + str(_) for _ in
-                                                                [0, 1, 3, 4, 5]]))
-                else:
-                    self.assertEqual(len(fa.keys()), 4, "\n".join(list(fa.keys())))
-                    self.assertIn("AT5G01015.0", fa.keys())
-                    self.assertTrue("AT5G01015.1" in fa.keys())
-                    self.assertNotIn("AT5G01015.3", fa.keys())
-                    self.assertIn("AT5G01015.4", fa.keys())
+        with tempfile.TemporaryDirectory(prefix="test_negative_cdna_redundant_cds_not") as folder:
+            self.conf.prepare.files.output_dir = folder
+            args = Namespace()
+            args.strip_cds = False
+            args.configuration = self.conf
+            args.reference = None
+            for b in (False, True):
+                with self.subTest(b=b):
+                    self.conf.prepare.files.exclude_redundant = [b]
+                    args.configuration = self.conf
+                    args.configuration.seed = 10
+                    args.exclude_redundant = b
+                    args.output_dir = folder
+                    args.out_fasta = None
+                    args.log = None
+                    args.gff = None
+                    args.list = None
+                    args.strand_specific_assemblies = None
+                    if isinstance(args.configuration.reference.genome, bytes):
+                        args.configuration.reference.genome = args.configuration.reference.genome.decode()
+                    args, mikado_config, _ = prepare_setup(args)
+                    assert hasattr(mikado_config.reference, "genome"), args.configuration.reference
+                    prepare.prepare(mikado_config, self.logger)
+                    self.assertTrue(os.path.exists(os.path.join(self.conf.prepare.files.output_dir,
+                                                                "mikado_prepared.fasta")))
+                    fa = pyfaidx.Fasta(os.path.join(self.conf.prepare.files.output_dir,
+                                                    "mikado_prepared.fasta"))
+                    if b is False:
+                        self.assertEqual(len(fa.keys()), 5)
+                        self.assertEqual(sorted(fa.keys()), sorted(["AT5G01015." + str(_) for _ in
+                                                                    [0, 1, 3, 4, 5]]))
+                    else:
+                        self.assertEqual(len(fa.keys()), 4, "\n".join(list(fa.keys())))
+                        self.assertIn("AT5G01015.0", fa.keys())
+                        self.assertTrue("AT5G01015.1" in fa.keys())
+                        self.assertNotIn("AT5G01015.3", fa.keys())
+                        self.assertIn("AT5G01015.4", fa.keys())
 
-                gtf_file = os.path.join(self.conf.prepare.files.output_dir, "mikado_prepared.gtf")
+                    gtf_file = os.path.join(self.conf.prepare.files.output_dir, "mikado_prepared.gtf")
 
-                coding_count = 0
-                with parser_factory(gtf_file) as gtf:
-                    lines = [line for line in gtf]
-                    transcripts = dict()
-                    for line in lines:
-                        if line.is_transcript:
-                            transcript = Transcript(line)
-                            transcripts[transcript.id] = transcript
-                        elif line.is_exon:
-                            transcripts[line.transcript].add_exon(line)
-                    [transcripts[_].finalize() for _ in transcripts]
-                    for transcript in transcripts.values():
-                        if transcript.is_coding:
-                            coding_count += 1
-                            self.assertIn("has_start_codon", transcript.attributes, str(transcript.format("gtf")))
-                            self.assertIn("has_stop_codon", transcript.attributes, str(transcript.format("gtf")))
-                            self.assertEqual(transcript.attributes["has_start_codon"],
-                                             transcript.has_start_codon,
-                                             (transcript.id,
-                                              transcript.attributes["has_start_codon"],
-                                              transcript.has_start_codon))
-                            self.assertEqual(transcript.attributes["has_stop_codon"],
-                                             transcript.has_stop_codon,
-                                             (transcript.id, transcript.attributes["has_stop_codon"],
-                                              transcript.has_stop_codon))
-                            self.assertEqual(transcript.is_complete,
-                                             transcript.has_start_codon and transcript.has_stop_codon)
+                    coding_count = 0
+                    with parser_factory(gtf_file) as gtf:
+                        lines = [line for line in gtf]
+                        transcripts = dict()
+                        for line in lines:
+                            if line.is_transcript:
+                                transcript = Transcript(line)
+                                transcripts[transcript.id] = transcript
+                            elif line.is_exon:
+                                transcripts[line.transcript].add_exon(line)
+                        [transcripts[_].finalize() for _ in transcripts]
+                        for transcript in transcripts.values():
+                            if transcript.is_coding:
+                                coding_count += 1
+                                self.assertIn("has_start_codon", transcript.attributes, str(transcript.format("gtf")))
+                                self.assertIn("has_stop_codon", transcript.attributes, str(transcript.format("gtf")))
+                                self.assertEqual(transcript.attributes["has_start_codon"],
+                                                 transcript.has_start_codon,
+                                                 (transcript.id,
+                                                  transcript.attributes["has_start_codon"],
+                                                  transcript.has_start_codon))
+                                self.assertEqual(transcript.attributes["has_stop_codon"],
+                                                 transcript.has_stop_codon,
+                                                 (transcript.id, transcript.attributes["has_stop_codon"],
+                                                  transcript.has_stop_codon))
+                                self.assertEqual(transcript.is_complete,
+                                                 transcript.has_start_codon and transcript.has_stop_codon)
 
-                    a_first = transcripts["AT5G01015.1"]
-                    self.assertTrue(a_first.is_coding)
-                    self.assertIn("has_start_codon", a_first.attributes)
-                    self.assertIn("has_stop_codon", a_first.attributes)
-                    self.assertTrue(a_first.has_start_codon)
-                    self.assertTrue(a_first.has_stop_codon)
-                    self.assertTrue(a_first.is_complete)
+                        a_first = transcripts["AT5G01015.1"]
+                        self.assertTrue(a_first.is_coding)
+                        self.assertIn("has_start_codon", a_first.attributes)
+                        self.assertIn("has_stop_codon", a_first.attributes)
+                        self.assertTrue(a_first.has_start_codon)
+                        self.assertTrue(a_first.has_stop_codon)
+                        self.assertTrue(a_first.is_complete)
 
-                    a0 = transcripts["AT5G01015.0"]
-                    self.assertFalse(a0.has_start_codon, a0.combined_cds_start)
-                    self.assertFalse(a0.has_stop_codon)
+                        a0 = transcripts["AT5G01015.0"]
+                        self.assertFalse(a0.has_start_codon, a0.combined_cds_start)
+                        self.assertFalse(a0.has_stop_codon)
 
-                    a4 = transcripts["AT5G01015.4"]
-                    self.assertEqual(a4.canonical_intron_proportion, 1)
-                    self.assertTrue(a4.has_start_codon,
-                                    "\n".join([str(line) for line in lines if line.transcript == "AT5G01015.4"]))
-                    self.assertFalse(a4.attributes["has_stop_codon"],
-                                     a4.attributes)
-                    self.assertFalse(a4.has_stop_codon,
-                                     (a4.attributes["has_stop_codon"],
-                                      "\n".join([str(line) for line in lines if line.transcript == "AT5G01015.4"])))
-                                     # "\n".join([str(line) for line in lines if line.transcript == "AT5G01015.4"]))
-                    
-                    a5 = transcripts["AT5G01015.5"]
-                    self.assertFalse(a5.has_start_codon,
-                                     "\n".join([str(line) for line in lines if line.transcript == "AT5G01015.5"]))
-                    self.assertTrue(a5.has_stop_codon,
-                                    "\n".join([str(line) for line in lines if line.transcript == "AT5G01015.5"]))
+                        a4 = transcripts["AT5G01015.4"]
+                        self.assertEqual(a4.canonical_intron_proportion, 1)
+                        self.assertTrue(a4.has_start_codon,
+                                        "\n".join([str(line) for line in lines if line.transcript == "AT5G01015.4"]))
+                        self.assertFalse(a4.attributes["has_stop_codon"],
+                                         a4.attributes)
+                        self.assertFalse(a4.has_stop_codon,
+                                         (a4.attributes["has_stop_codon"],
+                                          "\n".join([str(line) for line in lines if line.transcript == "AT5G01015.4"])))
+                                         # "\n".join([str(line) for line in lines if line.transcript == "AT5G01015.4"]))
 
-                self.assertGreater(coding_count, 0)
-                fa.close()
-                folder.cleanup()
+                        a5 = transcripts["AT5G01015.5"]
+                        self.assertFalse(a5.has_start_codon,
+                                         "\n".join([str(line) for line in lines if line.transcript == "AT5G01015.5"]))
+                        self.assertTrue(a5.has_stop_codon,
+                                        "\n".join([str(line) for line in lines if line.transcript == "AT5G01015.5"]))
+
+                    self.assertGreater(coding_count, 0)
+                    fa.close()
 
     @mark.slow
     def test_truncated_cds(self):
@@ -1275,7 +1281,7 @@ class ConfigureCheck(unittest.TestCase):
         namespace = Namespace(default=False)
         namespace.scoring = None
         namespace.intron_range = None
-        namespace.reference = self.fai
+        namespace.reference = self.fai.filename.decode()
         namespace.external = None
         namespace.mode = ["permissive"]
         namespace.threads = 1
@@ -1328,7 +1334,7 @@ class ConfigureCheck(unittest.TestCase):
         namespace = Namespace(default=False)
         namespace.scoring = None
         namespace.intron_range = None
-        namespace.reference = self.fai
+        namespace.reference = self.fai.filename.decode()
         namespace.external = None
         namespace.threads = 1
         namespace.multiprocessing_method = "spawn"
@@ -1399,7 +1405,7 @@ class ConfigureCheck(unittest.TestCase):
         namespace = Namespace(default=False)
         namespace.scoring = None
         namespace.intron_range = None
-        namespace.reference = self.fai
+        namespace.reference = self.fai.filename.decode()
         namespace.external = None
         namespace.mode = ["permissive"]
         namespace.threads = 1
@@ -1626,6 +1632,41 @@ class DaijinTest(unittest.TestCase):
         assemble_transcripts_pipeline(namespace)
 
 
+class PickUtilsTest(unittest.TestCase):
+    def test_check_regions_parsing(self):
+        self.assertEqual(_parse_regions(None), None)
+        it_d = _parse_regions("Chr1:1000-1500")
+        self.assertIsInstance(it_d["Chr1"], IntervalTree)
+        self.assertEqual((it_d["Chr1"].start, it_d["Chr1"].end), (1000, 1500))
+        it_d = _parse_regions("Chr1:1000..1500")
+        self.assertIsInstance(it_d["Chr1"], IntervalTree)
+        self.assertEqual((it_d["Chr1"].start, it_d["Chr1"].end), (1000, 1500))
+        with self.assertRaises(ValueError):
+            _ = _parse_regions("Chr1:1000.1500")
+
+        with tempfile.NamedTemporaryFile(suffix=".txt", mode="wt") as region_temp:
+            print("Chr1:1000-1500", file=region_temp)
+            print("Chr1:10000..15000", file=region_temp)
+            print("Chr2:30000..35000", file=region_temp)
+            print("Chr2:40000-45000", file=region_temp)
+            region_temp.flush()
+            regions = _parse_regions(region_temp.name)
+            self.assertEqual(sorted(regions.keys()), ["Chr1", "Chr2"])
+            self.assertEqual((regions["Chr1"].start, regions["Chr1"].end), (1000, 15000))
+            self.assertEqual((regions["Chr2"].start, regions["Chr2"].end), (30000, 45000))
+
+        with tempfile.NamedTemporaryFile(suffix=".txt", mode="wt") as region_err:
+            print("Chr1:1000-1500", file=region_err)
+            print("Chr1:10000..15000", file=region_err)
+            print("Chr2:30000..35000", file=region_err)
+            print("Chr2:40000-45000", file=region_err)
+            print("Chr2:50000.55000", file=region_err)
+            region_err.flush()
+            with self.assertRaises(ValueError) as exc:
+                _ = _parse_regions(region_err.name)
+            self.assertEqual(str(exc.exception).rstrip(), "Invalid region line, no. 5: Chr2:50000.55000")
+
+
 @mark.slow
 class PickTest(unittest.TestCase):
 
@@ -1807,7 +1848,7 @@ class PickTest(unittest.TestCase):
     @mark.slow
     def test_different_scoring(self):
 
-        with tempfile.TemporaryDirectory() as folder:
+        with tempfile.TemporaryDirectory(prefix="test_different_scoring") as folder:
             self.configuration.pick.files.output_dir = os.path.abspath(folder)
             self.configuration.pick.files.input = pkg_resources.resource_filename("Mikado.tests",
                                                                                        "mikado_prepared.gtf")
@@ -1849,8 +1890,7 @@ class PickTest(unittest.TestCase):
         self.configuration.log_settings.log_level = "DEBUG"
 
         self.assertEqual(os.path.basename(self.configuration.pick.scoring_file), "plant.yaml")
-        with tempfile.TemporaryDirectory() as outdir:
-
+        with tempfile.TemporaryDirectory(prefix="test_different_scoring_2") as outdir:
             shutil.copy(pkg_resources.resource_filename("Mikado.tests", "mikado.db"),
                         os.path.join(outdir, "mikado.db"))
             self.configuration.db_settings.db = os.path.join(outdir, "mikado.db")
@@ -1872,7 +1912,6 @@ class PickTest(unittest.TestCase):
                 score_header = [_ for _ in reader.fieldnames if _ not in
                                 ("tid", "alias", "parent", "score", "source_score")]
                 self.assertEqual(score_header, ["selected_cds_length"])
-
 
     def __get_purgeable_gff(self):
 
@@ -2112,43 +2151,42 @@ class SerialiseChecker(unittest.TestCase):
         uniprot = pkg_resources.resource_filename("Mikado.tests", "uniprot_sprot_plants.fasta.gz")
         mobjects = 300  # Let's test properly the serialisation for BLAST
 
-        dir = tempfile.TemporaryDirectory()
-        json_file = os.path.join(dir.name, "mikado.yaml")
-        db = os.path.join(dir.name, "mikado.db")
-        log = os.path.join(dir.name, "serialise.log")
-        uni_out = os.path.join(dir.name, "uniprot_sprot_plants.fasta")
-        with gzip.open(uniprot, "rb") as uni, open(uni_out, "wb") as uni_out_handle:
-            uni_out_handle.write(uni.read())
+        with tempfile.TemporaryDirectory(prefix="test_subprocess_single") as folder:
+            json_file = os.path.join(folder, "mikado.yaml")
+            db = os.path.join(folder, "mikado.db")
+            log = os.path.join(folder, "serialise.log")
+            uni_out = os.path.join(folder, "uniprot_sprot_plants.fasta")
+            with gzip.open(uniprot, "rb") as uni, open(uni_out, "wb") as uni_out_handle:
+                uni_out_handle.write(uni.read())
 
-        with open(json_file, "wt") as json_handle:
-            print_config(self.configuration, json_handle, output_format="yaml")
-        # Set up the command arguments
-        for procs in (1, ):
-            with self.subTest(proc=procs):
-                sys.argv = [str(_) for _ in ["mikado", "serialise", "--configuration", json_file,
-                            "--transcripts", transcripts, "--blast_targets", uni_out,
-                            "--orfs", orfs, "--junctions", junctions, "--xml", xml, "-od", dir.name,
-                            "-p", procs, "-mo", mobjects, "--log", os.path.basename(log), "--seed", "1078",
-                                             os.path.basename(db)]]
-                pkg_resources.load_entry_point("Mikado", "console_scripts", "mikado")()
-                logged = [_.rstrip() for _ in open(log)]
+            with open(json_file, "wt") as json_handle:
+                print_config(self.configuration, json_handle, output_format="yaml")
+            # Set up the command arguments
+            for procs in (1, ):
+                with self.subTest(proc=procs):
+                    sys.argv = [str(_) for _ in ["mikado", "serialise", "--configuration", json_file,
+                                "--transcripts", transcripts, "--blast_targets", uni_out,
+                                "--orfs", orfs, "--junctions", junctions, "--xml", xml, "-od", folder,
+                                "-p", procs, "-mo", mobjects, "--log", os.path.basename(log), "--seed", "1078",
+                                                 os.path.basename(db)]]
+                    pkg_resources.load_entry_point("Mikado", "console_scripts", "mikado")()
+                    logged = [_.rstrip() for _ in open(log)]
 
-                self.assertTrue(os.path.exists(db))
-                conn = sqlite3.connect(db)
-                cursor = conn.cursor()
-                self.assertEqual(cursor.execute("select count(*) from hit").fetchall()[0][0], 562, logged)
-                self.assertEqual(cursor.execute("select count(*) from hsp").fetchall()[0][0], 669)
-                self.assertEqual(cursor.execute("select count(distinct(query_id)) from hsp").fetchall()[0][0], 71)
-                self.assertEqual(cursor.execute("select count(distinct(query_id)) from hit").fetchall()[0][0], 71)
-                self.assertEqual(cursor.execute("select count(distinct(target_id)) from hsp").fetchall()[0][0], 32)
-                self.assertEqual(cursor.execute("select count(distinct(target_id)) from hit").fetchall()[0][0], 32)
-                self.assertEqual(cursor.execute("select count(*) from junctions").fetchall()[0][0], 372)
-                self.assertEqual(cursor.execute("select count(distinct(chrom_id)) from junctions").fetchall()[0][0], 2)
-                self.assertEqual(cursor.execute("select count(*) from orf").fetchall()[0][0], 168,
-                                 "\n".join(logged))
-                self.assertEqual(cursor.execute("select count(distinct(query_id)) from orf").fetchall()[0][0], 81)
-                os.remove(db)
-        dir.cleanup()
+                    self.assertTrue(os.path.exists(db))
+                    conn = sqlite3.connect(db)
+                    cursor = conn.cursor()
+                    self.assertEqual(cursor.execute("select count(*) from hit").fetchall()[0][0], 562, logged)
+                    self.assertEqual(cursor.execute("select count(*) from hsp").fetchall()[0][0], 669)
+                    self.assertEqual(cursor.execute("select count(distinct(query_id)) from hsp").fetchall()[0][0], 71)
+                    self.assertEqual(cursor.execute("select count(distinct(query_id)) from hit").fetchall()[0][0], 71)
+                    self.assertEqual(cursor.execute("select count(distinct(target_id)) from hsp").fetchall()[0][0], 32)
+                    self.assertEqual(cursor.execute("select count(distinct(target_id)) from hit").fetchall()[0][0], 32)
+                    self.assertEqual(cursor.execute("select count(*) from junctions").fetchall()[0][0], 372)
+                    self.assertEqual(cursor.execute("select count(distinct(chrom_id)) from junctions").fetchall()[0][0], 2)
+                    self.assertEqual(cursor.execute("select count(*) from orf").fetchall()[0][0], 168,
+                                     "\n".join(logged))
+                    self.assertEqual(cursor.execute("select count(distinct(query_id)) from orf").fetchall()[0][0], 81)
+                    os.remove(db)
 
     def test_subprocess_multi(self):
 
@@ -2160,41 +2198,40 @@ class SerialiseChecker(unittest.TestCase):
         mobjects = 300  # Let's test properly the serialisation for BLAST
 
         # Set up the command arguments
-        for procs in (1, 3):
-            with self.subTest(proc=procs), \
-                    tempfile.TemporaryDirectory(suffix="test_subprocess_multi_{}".format(procs)) as folder:
-                json_file = os.path.join(folder, "mikado.yaml")
-                db = os.path.join(folder, "mikado.db")
-                log = os.path.join(folder, "serialise.log")
-                uni_out = os.path.join(folder, "uniprot_sprot_plants.fasta")
-                with gzip.open(uniprot, "rb") as uni, open(uni_out, "wb") as uni_out_handle:
-                    uni_out_handle.write(uni.read())
-
-                with open(json_file, "wt") as json_handle:
-                    print_config(self.configuration, json_handle, output_format="yaml")
-                sys.argv = [str(_) for _ in ["mikado", "serialise", "--json-conf", json_file,
-                            "--transcripts", transcripts, "--blast_targets", uni_out,
-                            "--orfs", orfs, "--junctions", junctions, "--xml", xml, "-od", folder,
-                            "-p", procs, "-mo", mobjects, "--log", os.path.basename(log),
-                                             "--seed", "1078", os.path.basename(db)]]
-                pkg_resources.load_entry_point("Mikado", "console_scripts", "mikado")()
-                logged = [_.rstrip() for _ in open(log)]
-
-                self.assertTrue(os.path.exists(db))
-                conn = sqlite3.connect(db)
-                cursor = conn.cursor()
-                self.assertEqual(cursor.execute("select count(*) from hit").fetchall()[0][0], 562, logged)
-                self.assertEqual(cursor.execute("select count(*) from hsp").fetchall()[0][0], 669)
-                self.assertEqual(cursor.execute("select count(distinct(query_id)) from hsp").fetchall()[0][0], 71)
-                self.assertEqual(cursor.execute("select count(distinct(query_id)) from hit").fetchall()[0][0], 71)
-                self.assertEqual(cursor.execute("select count(distinct(target_id)) from hsp").fetchall()[0][0], 32)
-                self.assertEqual(cursor.execute("select count(distinct(target_id)) from hit").fetchall()[0][0], 32)
-                self.assertEqual(cursor.execute("select count(*) from junctions").fetchall()[0][0], 372)
-                self.assertEqual(cursor.execute("select count(distinct(chrom_id)) from junctions").fetchall()[0][0], 2)
-                self.assertEqual(cursor.execute("select count(*) from orf").fetchall()[0][0], 168,
-                                 "\n".join(logged))
-                self.assertEqual(cursor.execute("select count(distinct(query_id)) from orf").fetchall()[0][0], 81)
-                os.remove(db)
+        with tempfile.TemporaryDirectory(suffix="test_subprocess_multi_{}".format(1)) as folder_one, \
+                tempfile.TemporaryDirectory(suffix="test_subprocess_multi_{}".format(1)) as folder_three:
+            for procs, folder in [(1, folder_one), (3, folder_three)]:
+                with self.subTest(proc=procs):
+                    json_file = os.path.join(folder, "mikado.yaml")
+                    db = os.path.join(folder, "mikado.db")
+                    log = os.path.join(folder, "serialise.log")
+                    uni_out = os.path.join(folder, "uniprot_sprot_plants.fasta")
+                    with gzip.open(uniprot, "rb") as uni, open(uni_out, "wb") as uni_out_handle:
+                        uni_out_handle.write(uni.read())
+                    with open(json_file, "wt") as json_handle:
+                        print_config(self.configuration, json_handle, output_format="yaml")
+                    sys.argv = [str(_) for _ in ["mikado", "serialise", "--json-conf", json_file,
+                                "--transcripts", transcripts, "--blast_targets", uni_out,
+                                "--orfs", orfs, "--junctions", junctions, "--xml", xml, "-od", folder,
+                                "-p", procs, "-mo", mobjects, "--log", os.path.basename(log),
+                                                 "--seed", "1078", os.path.basename(db)]]
+                    pkg_resources.load_entry_point("Mikado", "console_scripts", "mikado")()
+                    logged = [_.rstrip() for _ in open(log)]
+                    self.assertTrue(os.path.exists(db))
+                    conn = sqlite3.connect(db)
+                    cursor = conn.cursor()
+                    self.assertEqual(cursor.execute("select count(*) from hit").fetchall()[0][0], 562, logged)
+                    self.assertEqual(cursor.execute("select count(*) from hsp").fetchall()[0][0], 669)
+                    self.assertEqual(cursor.execute("select count(distinct(query_id)) from hsp").fetchall()[0][0], 71)
+                    self.assertEqual(cursor.execute("select count(distinct(query_id)) from hit").fetchall()[0][0], 71)
+                    self.assertEqual(cursor.execute("select count(distinct(target_id)) from hsp").fetchall()[0][0], 32)
+                    self.assertEqual(cursor.execute("select count(distinct(target_id)) from hit").fetchall()[0][0], 32)
+                    self.assertEqual(cursor.execute("select count(*) from junctions").fetchall()[0][0], 372)
+                    self.assertEqual(cursor.execute("select count(distinct(chrom_id)) from junctions").fetchall()[0][0], 2)
+                    self.assertEqual(cursor.execute("select count(*) from orf").fetchall()[0][0], 168,
+                                     "\n".join(logged))
+                    self.assertEqual(cursor.execute("select count(distinct(query_id)) from orf").fetchall()[0][0], 81)
+                    os.remove(db)
 
     @mark.slow
     def test_xml_vs_tsv(self):
@@ -2204,91 +2241,92 @@ class SerialiseChecker(unittest.TestCase):
         prots = pkg_resources.resource_filename("Mikado.tests", "uniprot_sprot_plants.fasta.gz")
         logs = collections.defaultdict(dict)
         dbs = collections.defaultdict(dict)
-        base = tempfile.TemporaryDirectory()
-        args = Namespace(default=None)
-        args.seed = 1078
-        args.max_objects = 1000
-        args.output_dir = base.name
-        args.transcripts = queries
-        args.blast_targets = [prots]
 
-        for name, blast in zip(["xml", "tsv"], [xml, tsv]):
-            for proc in (1, 3):
-                with self.subTest(name=name, blast=blast, proc=proc):
-                    args.db = "{}_{}.db".format(name, proc)
-                    args.log = "{}_{}.log".format(name, proc)
-                    args.xml = blast
-                    args.procs = proc
-                    serialise(args)
-                    dbs[name][proc] = os.path.join(base.name, args.db)
-                    logged = [_.rstrip() for _ in open(os.path.join(base.name, args.log))]
-                    logs[name][proc] = logged
+        with tempfile.TemporaryDirectory(prefix="test_xml_vs_tsv") as test_xml_vs_tsv_folder:
+            assert "test_xml_vs_tsv" in test_xml_vs_tsv_folder
+            args = Namespace(default=None)
+            args.seed = 1078
+            args.max_objects = 1000
+            args.output_dir = test_xml_vs_tsv_folder
+            args.transcripts = queries
+            args.blast_targets = [prots]
+            for name, blast in zip(["xml", "tsv"], [xml, tsv]):
+                for proc in (1, 3):
+                    with self.subTest(name=name, blast=blast, proc=proc):
+                        args.db = "{}_{}.db".format(name, proc)
+                        args.log = "{}_{}.log".format(name, proc)
+                        args.xml = blast
+                        args.procs = proc
+                        serialise(args)
+                        dbs[name][proc] = os.path.join(test_xml_vs_tsv_folder, args.db)
+                        logged = [_.rstrip() for _ in open(os.path.join(test_xml_vs_tsv_folder, args.log))]
+                        logs[name][proc] = logged
 
-        def prep_dbs(name):
-            import sqlalchemy.exc
-            try:
-                hsp = pd.read_sql(sql="hsp", con=name)
-            except sqlalchemy.exc.OperationalError:
+            def prep_dbs(name):
+                import sqlalchemy.exc
                 try:
-                    with sqlite3.connect(name) as conn:
-                        tables = conn.execute("select sql from sqlite_master where type = 'table'").fetchall()
-                    raise sqlite3.OperationalError(tables)
-                except sqlite3.OperationalError:
-                    raise sqlite3.OperationalError(logs)
+                    _ = pd.read_sql(sql="hsp", con=name)
+                except sqlalchemy.exc.OperationalError:
+                    try:
+                        with sqlite3.connect(name) as conn:
+                            tables = conn.execute("select sql from sqlite_master where type = 'table'").fetchall()
+                        raise sqlite3.OperationalError(tables)
+                    except sqlite3.OperationalError:
+                        raise sqlite3.OperationalError(logs)
 
-            hsp, hit, query, target = [pd.read_sql(table, name) for table in ["hsp", "hit", "query", "target"]]
-            hit = hit.join(target.set_index("target_id"), on=["target_id"], how="inner").join(
-                query.set_index("query_id"), on=["query_id"], how="inner")
-            hsp = hsp.join(target.set_index("target_id"), on=["target_id"], how="inner").join(
-                query.set_index("query_id"), on=["query_id"], how="inner")
-            hsp.set_index(["query_name", "target_name", "counter"], inplace=True)
-            hit.set_index(["query_name", "target_name"], inplace=True)
-            return hit, hsp
+                hsp, hit, query, target = [pd.read_sql(table, name) for table in ["hsp", "hit", "query", "target"]]
+                hit = hit.join(target.set_index("target_id"), on=["target_id"], how="inner").join(
+                    query.set_index("query_id"), on=["query_id"], how="inner")
+                hsp = hsp.join(target.set_index("target_id"), on=["target_id"], how="inner").join(
+                    query.set_index("query_id"), on=["query_id"], how="inner")
+                hsp.set_index(["query_name", "target_name", "counter"], inplace=True)
+                hit.set_index(["query_name", "target_name"], inplace=True)
+                return hit, hsp
 
-        try:
-            xml_hit, xml_hsp = prep_dbs("sqlite:///" + dbs["xml"][1])
-        except KeyError:
-            raise KeyError(dbs)
-        xml_hit_multi, xml_hsp_multi = prep_dbs("sqlite:///" + dbs["xml"][3])
-        tsv_hit, tsv_hsp = prep_dbs("sqlite:///" + dbs["tsv"][1])
-        tsv_hit_multi, tsv_hsp_multi = prep_dbs("sqlite:///" + dbs["tsv"][3])
+            try:
+                xml_hit, xml_hsp = prep_dbs("sqlite:///" + dbs["xml"][1])
+            except KeyError:
+                raise KeyError(dbs)
+            xml_hit_multi, xml_hsp_multi = prep_dbs("sqlite:///" + dbs["xml"][3])
+            tsv_hit, tsv_hsp = prep_dbs("sqlite:///" + dbs["tsv"][1])
+            tsv_hit_multi, tsv_hsp_multi = prep_dbs("sqlite:///" + dbs["tsv"][3])
 
-        hit = pd.merge(xml_hit, tsv_hit, left_index=True, right_index=True, suffixes=("_xml", "_tsv"))
-        hit_multi = pd.merge(xml_hit_multi, tsv_hit_multi, left_index=True, right_index=True, suffixes=["_xml_m",
-                                                                                                        "_tsv_m"])
-        hit = pd.merge(hit, hit_multi, left_index=True, right_index=True)
-        hsp = pd.merge(xml_hsp, tsv_hsp, left_index=True, right_index=True, suffixes=("_xml", "_tsv"))
-        hsp_multi = pd.merge(xml_hsp_multi, tsv_hsp_multi, left_index=True, right_index=True, suffixes=("_xml_m",
-                                                                                                        "_tsv_m"))
-        hsp = pd.merge(hsp, hsp_multi, left_index=True, right_index=True)
-        self.assertTrue(xml_hit_multi.shape[0] == xml_hit.shape[0] == tsv_hit.shape[0] > 0)
-        self.assertTrue(tsv_hit_multi.shape[0] == tsv_hit.shape[0] > 0,
-                        (tsv_hit_multi.shape[0], tsv_hit.shape[0], logs["tsv"][3]))
+            hit = pd.merge(xml_hit, tsv_hit, left_index=True, right_index=True, suffixes=("_xml", "_tsv"))
+            hit_multi = pd.merge(xml_hit_multi, tsv_hit_multi, left_index=True, right_index=True, suffixes=["_xml_m",
+                                                                                                            "_tsv_m"])
+            hit = pd.merge(hit, hit_multi, left_index=True, right_index=True)
+            hsp = pd.merge(xml_hsp, tsv_hsp, left_index=True, right_index=True, suffixes=("_xml", "_tsv"))
+            hsp_multi = pd.merge(xml_hsp_multi, tsv_hsp_multi, left_index=True, right_index=True, suffixes=("_xml_m",
+                                                                                                            "_tsv_m"))
+            hsp = pd.merge(hsp, hsp_multi, left_index=True, right_index=True)
+            self.assertTrue(xml_hit_multi.shape[0] == xml_hit.shape[0] == tsv_hit.shape[0] > 0)
+            self.assertTrue(tsv_hit_multi.shape[0] == tsv_hit.shape[0] > 0,
+                            (tsv_hit_multi.shape[0], tsv_hit.shape[0], logs["tsv"][3]))
 
-        self.assertTrue(hit.shape[0] == xml_hit.shape[0] == tsv_hit.shape[0] > 0)
-        self.assertTrue(hsp.shape[0] == xml_hsp.shape[0] == tsv_hsp.shape[0] > 0)
-        self.assertTrue(hsp.shape[0] == xml_hsp_multi.shape[0] == tsv_hsp_multi.shape[0] > 0)
-        # Get the columns
-        hitcols, hspcols = collections.defaultdict(list), collections.defaultdict(list)
-        pat = re.compile(r"_(tsv|xml)($|_m$)")
-        for d, df in zip([hitcols, hspcols], [hit, hsp]):
-            for col in df.columns:
-                name = re.sub(pat, '', col)
-                d[name].append(col)
-            failed = []
-            for col in d:
-                if col in ("query_id", "target_id"):
-                    continue
-                if len(d[col]) == 1:
-                    raise ValueError(col)
+            self.assertTrue(hit.shape[0] == xml_hit.shape[0] == tsv_hit.shape[0] > 0)
+            self.assertTrue(hsp.shape[0] == xml_hsp.shape[0] == tsv_hsp.shape[0] > 0)
+            self.assertTrue(hsp.shape[0] == xml_hsp_multi.shape[0] == tsv_hsp_multi.shape[0] > 0)
+            # Get the columns
+            hitcols, hspcols = collections.defaultdict(list), collections.defaultdict(list)
+            pat = re.compile(r"_(tsv|xml)($|_m$)")
+            for d, df in zip([hitcols, hspcols], [hit, hsp]):
+                for col in df.columns:
+                    name = re.sub(pat, '', col)
+                    d[name].append(col)
+                failed = []
+                for col in d:
+                    if col in ("query_id", "target_id"):
+                        continue
+                    if len(d[col]) == 1:
+                        raise ValueError(col)
 
-                with self.subTest(col=col):
+                    with self.subTest(col=col):
 
-                    catch = df[d[col]].apply(lambda row: row[0] == row[1] or
-                                                         np.isclose(row[0], row[1], atol=.01, rtol=.01), axis=1)
-                if not (catch).all():
-                    failed.append(col)
-            self.assertEqual(len(failed), 0, failed)
+                        catch = df[d[col]].apply(lambda row: row[0] == row[1] or
+                                                             np.isclose(row[0], row[1], atol=.01, rtol=.01), axis=1)
+                    if not (catch).all():
+                        failed.append(col)
+                self.assertEqual(len(failed), 0, failed)
 
     def test_subprocess_multi_empty_orfs(self):
 
@@ -2305,45 +2343,44 @@ class SerialiseChecker(unittest.TestCase):
         mobjects = 300  # Let's test properly the serialisation for BLAST
 
         # Set up the command arguments
-        for procs in (3, 1):
-            with self.subTest(procs=procs):
-                dir = tempfile.TemporaryDirectory(prefix="has_to_fail")
-                json_file = os.path.join(dir.name, "mikado.yaml")
-                db = os.path.join(dir.name, "mikado.db")
-                log = "failed_serialise.log"
-                uni_out = os.path.join(dir.name, "uniprot_sprot_plants.fasta")
-                self.configuration.serialise.files.log = os.path.basename(log)
-                self.configuration.multiprocessing_method = "fork"
-                with gzip.open(uniprot, "rb") as uni, open(uni_out, "wb") as uni_out_handle:
-                    uni_out_handle.write(uni.read())
-
-                with open(json_file, "wt") as json_handle:
-                    print_config(self.configuration, json_handle, output_format="yaml")
-                with self.subTest(proc=procs):
-                    sys.argv = [str(_) for _ in ["mikado", "serialise", "--json-conf", json_file,
-                                                 "--transcripts", transcripts, "--blast_targets", uni_out,
-                                                 "--log", log,
-                                                 "-od", dir.name,
-                                                 "--orfs", tmp_orf.name, "--junctions", junctions, "--xml", xml,
-                                                 "-p", procs, "-mo", mobjects, db,
-                                                 "--seed", "1078"]]
-                    log = os.path.join(dir.name, log)
-                    with self.assertRaises(SystemExit):
-                        pkg_resources.load_entry_point("Mikado", "console_scripts", "mikado")()
-                    self.assertTrue("failed" in log)
-                    self.assertTrue(os.path.exists(log), log)
-                    self.assertTrue(os.stat(log).st_size > 0, log)
-                    logged = [_.rstrip() for _ in open(log)]
-                    self.assertGreater(len(logged), 0)
-                    self.assertFalse(os.path.exists(db), logged)
-                    self.assertTrue(any(
-                        "Mikado serialise failed due to problems with the input data. Please check the logs." in line
-                        for line in logged))
-                    self.assertTrue(any(
-                        "The provided ORFs do not match the transcripts provided and already present in the database."
-                        in line for line in logged),
-                    print("\n".join(logged)))
-                dir.cleanup()
+        with tempfile.TemporaryDirectory(prefix="has_to_fail") as folder_one, \
+                tempfile.TemporaryDirectory(prefix="has_to_fail") as folder_two:
+            for procs, folder in [(3, folder_one), (1, folder_two)]:
+                with self.subTest(procs=procs):
+                    json_file = os.path.join(folder, "mikado.yaml")
+                    db = os.path.join(folder, "mikado.db")
+                    log = "failed_serialise.log"
+                    uni_out = os.path.join(folder, "uniprot_sprot_plants.fasta")
+                    self.configuration.serialise.files.log = os.path.basename(log)
+                    self.configuration.multiprocessing_method = "fork"
+                    with gzip.open(uniprot, "rb") as uni, open(uni_out, "wb") as uni_out_handle:
+                        uni_out_handle.write(uni.read())
+                    with open(json_file, "wt") as json_handle:
+                        print_config(self.configuration, json_handle, output_format="yaml")
+                    with self.subTest(proc=procs):
+                        sys.argv = [str(_) for _ in ["mikado", "serialise", "--json-conf", json_file,
+                                                     "--transcripts", transcripts, "--blast_targets", uni_out,
+                                                     "--log", log,
+                                                     "-od", folder,
+                                                     "--orfs", tmp_orf.name, "--junctions", junctions, "--xml", xml,
+                                                     "-p", procs, "-mo", mobjects, db,
+                                                     "--seed", "1078"]]
+                        log = os.path.join(folder, log)
+                        with self.assertRaises(SystemExit):
+                            pkg_resources.load_entry_point("Mikado", "console_scripts", "mikado")()
+                        self.assertTrue("failed" in log)
+                        self.assertTrue(os.path.exists(log), log)
+                        self.assertTrue(os.stat(log).st_size > 0, log)
+                        logged = [_.rstrip() for _ in open(log)]
+                        self.assertGreater(len(logged), 0)
+                        self.assertFalse(os.path.exists(db), logged)
+                        self.assertTrue(any(
+                            "Mikado serialise failed due to problems with the input data. Please check the logs." in line
+                            for line in logged))
+                        self.assertTrue(any(
+                            "The provided ORFs do not match the transcripts provided and already present in the database."
+                            in line for line in logged),
+                        print("\n".join(logged)))
 
     def test_serialise_external(self):
 
@@ -2352,22 +2389,23 @@ class SerialiseChecker(unittest.TestCase):
         external_scores = os.path.join(base, "annotation_run1.metrics.testds.txt")
         fasta = os.path.join(base, "mikado_prepared.testds.fasta")
 
-        for procs in (1, 3):
-            with self.subTest(procs=procs):
-                dir = tempfile.TemporaryDirectory(suffix="test_serialise_external")
-                log = "serialise.log"
-                sys.argv = [str(_) for _ in ["mikado", "serialise", "--configuration", external_conf,
-                                             "--transcripts", fasta, "-od", dir.name,
-                                             "-l", log,
-                                             "--external-scores", external_scores,
-                                             "--seed", 10, "--procs", procs, "mikado.db"]]
-                log = os.path.join(dir.name, log)
-                pkg_resources.load_entry_point("Mikado", "console_scripts", "mikado")()
-                conn = sqlite3.connect(os.path.join(dir.name, "mikado.db"))
-                total = conn.execute("SELECT count(*) FROM external").fetchone()[0]
-                self.assertEqual(total, 190)
-                tot_sources = conn.execute("SELECT count(*) FROM external_sources").fetchone()[0]
-                self.assertEqual(tot_sources, 95)
+        with tempfile.TemporaryDirectory(prefix="test_serialise_external_1") as folder_one,\
+                tempfile.TemporaryDirectory(prefix="test_serialise_external_3") as folder_two:
+            for procs, folder in [(1, folder_one), (3, folder_two)]:
+                with self.subTest(procs=procs):
+                    log = "serialise.log"
+                    sys.argv = [str(_) for _ in ["mikado", "serialise", "--configuration", external_conf,
+                                                 "--transcripts", fasta, "-od", folder,
+                                                 "-l", log,
+                                                 "--external-scores", external_scores,
+                                                 "--seed", 10, "--procs", procs, "mikado.db"]]
+                    log = os.path.join(folder, log)
+                    pkg_resources.load_entry_point("Mikado", "console_scripts", "mikado")()
+                    conn = sqlite3.connect(os.path.join(folder, "mikado.db"))
+                    total = conn.execute("SELECT count(*) FROM external").fetchone()[0]
+                    self.assertEqual(total, 190)
+                    tot_sources = conn.execute("SELECT count(*) FROM external_sources").fetchone()[0]
+                    self.assertEqual(tot_sources, 95)
 
 
 class StatsTest(unittest.TestCase):

@@ -151,7 +151,6 @@ def create_logger_from_conf(conf, name="mikado", mode="a"):
     else:
         os.makedirs(os.path.dirname(os.path.abspath(log_settings.log)), exist_ok=True)
         handler = logging.FileHandler(log_settings.log, mode=mode)
-        assert handler.stream.name == log_settings.log, (handler.name, log_settings.log)
 
     handler.setFormatter(formatter)
     logger.setLevel(log_settings.log_level)

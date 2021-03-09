@@ -1268,7 +1268,6 @@ exon data is on a different chromosome, {exon_data.chrom}. \
         self.internal_orfs = []
         self.logger.debug("Starting to load the ORFs for %s", self.id)
         self.__check_and_load_dumped_orfs(state)
-        # state["external"] = dict((key, value) for key, value in self.external_scores.items())
         for key, value in state["external"].items():
             setattr(self.external_scores, key, value)
 

@@ -413,9 +413,6 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             raise TypeError("I cannot perform this operation on non-locus classes, this is a {}".format(
                 type(locus_instance)))
 
-        if not hasattr(locus_instance, "chrom"):
-            return False
-
         if locus_instance.chrom == transcript.chrom:
             if locus_instance.stranded is False or locus_instance.strand == transcript.strand:
                 lbound = (locus_instance.start, locus_instance.end)
@@ -446,9 +443,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         :type kwargs: dict
         """
 
-        if inters is None:
-            inters = self.is_intersecting
-
+        inters = self.is_intersecting if inters is None else inters
         return define_graph(objects, inters, **kwargs)
 
     def find_communities(self, graph: networkx.Graph) -> set:
@@ -1065,20 +1060,11 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                 value = self.scores.get(tid, dict()).get("score", None)
             else:
                 value = metrics.get(key, "NA")
-                # value = getattr(transcript, key, "NA")
 
             if isinstance(value, float):
                 value = round(value, 2)
             elif value is None or value == "":
-                if key == "score":
-                    # value = self.scores.get(tid, dict()).get("score", None)
-                    # self.transcripts[tid].score = value
-                    if isinstance(value, float):
-                        value = round(value, 2)
-                    elif value is None:
-                        value = "NA"
-                else:
-                    value = "NA"
+                value = "NA"
             row[key] = value
 
         for source in transcript.external_scores:
@@ -1100,19 +1086,13 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         self.get_metrics()
 
         for tid, transcript in sorted(self.transcripts.items(), key=operator.itemgetter(1)):
-            try:
-                if tid not in self._metrics and transcript.alias in self._metrics:
-                    metrics = self._metrics[transcript.alias]
-                else:
-                    metrics = self._metrics[tid]
-                yield self._create_metrics_row(tid, metrics, transcript)
-            except KeyError:
-                error = "Transcript {} is not present in the locus! Available transcripts:\n{}".format(
-                    tid,
-                    ", ".join(list(self._metrics.keys()))
-                )
-                self.logger.critical(error)
-                raise KeyError(error)
+            assert tid in self._metrics or transcript.alias in self._metrics, (tid, transcript.alias,
+                                                                               self._metrics.keys())
+            if tid not in self._metrics and transcript.alias in self._metrics:
+                metrics = self._metrics[transcript.alias]
+            else:
+                metrics = self._metrics[tid]
+            yield self._create_metrics_row(tid, metrics, transcript)
         return
 
     def get_metrics(self):
@@ -1186,14 +1166,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         _ = len(set.intersection(self.exons, self.transcripts[tid].exons))
         fraction = _ / len(self.exons)
 
-        try:
-            self.transcripts[tid].exon_fraction = fraction
-        except ValueError:
-            raise ValueError("Invalid fraction. Exons:\n{}\n{}".format(
-                self.transcripts[tid].exons,
-                self.exons
-            ))
-
+        self.transcripts[tid].exon_fraction = fraction
         self.logger.debug("Calculated exon fraction for %s", tid)
 
         if len(self.introns) > 0:
@@ -1312,11 +1285,6 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                 self.logger.debug("Performing the requirement check for %s even if it is a reference transcript", tid)
 
             evaluated = dict()
-            try:
-                _ = section.parameters
-            except:
-                self.logger.critical("Attribute error: {}".format(section_name))  # , dataclasses.asdict(section)))
-                raise AttributeError
             for key in section.parameters:
                 if section.parameters[key].name is not None:
                     name = section.parameters[key].name
@@ -1358,14 +1326,17 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             if test and self.transcripts[test.pop()].score is None:
                 for tid in self.transcripts:
                     if tid in self._excluded_transcripts:
-                        self.transcripts[tid] = 0
+                        self.transcripts[tid].score = 0
                     else:
-                        self.transcripts[tid] = self.scores[tid]["score"]
+                        assert isinstance(self.scores, dict)
+                        assert isinstance(self.scores[tid], dict)
+                        self.transcripts[tid].score = self.scores[tid]["score"]
                 return
             else:
                 self.logger.debug("Scores calculation already effectuated for %s", self.id)
                 return
 
+        assert self.scores_calculated is False
         self.get_metrics()
         self.logger.debug("Calculating scores for {0}".format(self.id))
         if self.configuration.scoring.requirements and check_requirements:
@@ -1657,15 +1628,11 @@ Scoring configuration: {}
         weights = networkx.get_node_attributes(graph, "weight")
         segments = sorted(list(transcript.exons) + list(transcript.introns), reverse=(transcript.strand == "-"))
         for segment in segments:
-            if segment in weights:
-                weights[segment] -= 1
-            else:
-                weights[segment] = 0
+            weights[segment] = weights.get(segment, 1) - 1
 
         nodes_to_remove = [interval for interval, weight in weights if weight == 0]
         graph.remove_nodes_from(nodes_to_remove)
-        for node in nodes_to_remove:
-            assert node not in graph.nodes()
+        assert all([node not in graph.nodes() for node in nodes_to_remove])
 
         networkx.set_node_attributes(graph,
                                      name="weight",
@@ -1836,7 +1803,7 @@ Scoring configuration: {}
         :type value: str
 
         """
-        if not value:
+        if value is None:
             value = "Mikado"
         assert isinstance(value, str)
         self.__source = value
@@ -1845,7 +1812,7 @@ Scoring configuration: {}
     def score(self) -> Union[None, float]:
         """Either None (if no transcript is present) or the top score for the transcripts in the locus."""
         if len(self.transcripts):
-            return max(_.score for _ in self.transcripts.values())
+            return max(_.score  if _.score is not None else 0 for _ in self.transcripts.values())
         else:
             return None
 

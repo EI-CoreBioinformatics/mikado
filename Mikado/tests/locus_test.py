@@ -268,6 +268,49 @@ class AbstractLocusTester(unittest.TestCase):
         self.transcript1.configuration = self.configuration
         self.transcript2.configuration = self.configuration
 
+    def test_create_metrics_row(self):
+
+        transcript = Transcript()
+        transcript.chrom, transcript.start, transcript.end, transcript.strand = "Chr1", 101, 1000, "+"
+        transcript.add_exons([(101, 500), (601, 1000)])
+        transcript.add_exons([(201, 500), (601, 900)], features="CDS")
+        transcript.id = "foo"
+        transcript.finalize()
+        transcript.is_reference = True
+        for locus in [Locus, Sublocus, Superlocus]:
+            for score, tpm in itertools.product([None, 10, 1.56789], [None, 10, 2.5689]):
+                transcript.score = score
+                transcript.external_scores["tpm"] = [tpm]
+                instance = locus(transcript)
+                # locus.scores[transcript.id] = score
+                instance.get_metrics()
+                instance.scores_calculated = True
+                instance.scores[transcript.id] = {"score": score}
+                self.assertTrue(instance.scores_calculated)
+                self.assertEqual(transcript.score, score)
+                row = instance._create_metrics_row(transcript.id, instance._metrics[transcript.id],
+                                                   transcript)
+                self.assertEqual(transcript.score, score)
+                self.assertIsInstance(row, dict)
+                self.assertIn("tid", row.keys())
+                if locus == Locus:
+                    self.assertEqual(row["alias"], transcript.id)
+                else:
+                    self.assertEqual(row["tid"], transcript.id)
+                self.assertIn("external.tpm", row)
+                if tpm is None:
+                    self.assertEqual(row["external.tpm"], "NA")
+                elif tpm == 10:
+                    self.assertEqual(row["external.tpm"], 10)
+                elif tpm == 2.5689:
+                    self.assertEqual(row["external.tpm"], 2.57)
+                if score is None:
+                    self.assertEqual(row["score"], "NA", locus)
+                elif score == 10:
+                    self.assertEqual(row["score"], 10, locus)
+                else:
+                    self.assertEqual(row["score"], 1.57, locus)
+
     def test_removal(self):
         for cls in [Superlocus, Sublocus, Monosublocus, Locus]:
             obj = cls(self.transcript1, configuration=self.configuration)
@@ -312,6 +355,75 @@ class AbstractLocusTester(unittest.TestCase):
             self.assertGreaterEqual(child2, child1)
             self.assertGreaterEqual(child2, child2)
             self.assertGreaterEqual(child1, child1)
+
+    def test_invalid_logger(self):
+        for locus in [Locus, Sublocus, Superlocus, Monosublocus, MonosublocusHolder]:
+            l = locus(None)
+            for invalid in [10, dict(), "hello", 5.0]:
+                with self.subTest(invalid=invalid):
+                    with self.assertRaises(TypeError):
+                        l.logger = invalid
+            l.logger = None
+            self.assertIs(l.logger, create_null_logger())
+
+    def test_invalid_source(self):
+        for locus in [Locus, Sublocus, Superlocus, Monosublocus, MonosublocusHolder]:
+            l = locus(None)
+            for invalid in [10, dict(), b"hello", 5.0]:
+                with self.subTest(invalid=invalid):
+                    with self.assertRaises(AssertionError):
+                        l.source = invalid
+            l.source = None
+            self.assertEqual(l.source, "Mikado")
+            l.source = "Test"
+            self.assertEqual(l.source, "Test")
+
+    def test_invalid_stranded(self):
+        for locus in [Locus, Sublocus, Superlocus, Monosublocus, MonosublocusHolder]:
+            l = locus(None)
+            for invalid in [10, dict(), b"hello", 5.0]:
+                with self.subTest(invalid=invalid):
+                    with self.assertRaises(ValueError):
+                        l.stranded = invalid
+            l.stranded = False
+            self.assertFalse(l.stranded)
+            l.stranded = True
+            self.assertTrue(l.stranded)
+
+    def test_invalid_flank(self):
+        for locus in [Locus, Sublocus, Superlocus, Monosublocus, MonosublocusHolder]:
+            l = locus(None)
+            for invalid in [-10, dict(), b"hello", 5.0]:
+                with self.subTest(invalid=invalid):
+                    with self.assertRaises(TypeError):
+                        l.flank = invalid
+            for valid in [0, 100, 1000]:
+                l.flank = valid
+                self.assertEqual(l.flank, valid)
+
+    def test_score(self):
+        t = Transcript()
+        t.chrom, t.start, t.end, t.id, t.score = "Chr1", 101, 1000, "foo", None
+        t.add_exons([(101, 1000)])
+        t2 = Transcript()
+        t2.chrom, t2.start, t2.end, t2.id, t2.score = "Chr1", 101, 1000, "foo2", 100
+        t2.add_exons([(101, 1000)])
+        for locus in [Locus, Sublocus, Superlocus]:
+            l = locus(None)
+            self.assertIsNone(l.score)
+            l = locus(t)
+            self.assertEqual(l.score, 0)
+            l.add_transcript_to_locus(t2, check_in_locus=False)
+            self.assertEqual(l.score, 100)
+
+            for invalid in [10, -5, dict(), None]:
+                with self.assertRaises(ValueError):
+                    l._use_transcript_scores = invalid
+
+            for valid in [False, True]:
+                l._use_transcript_scores = valid
+                self.assertEqual(valid, l._use_transcript_scores)
+                self.assertEqual(valid, l.scores_calculated)
 
     def test_serialisation(self):
         engine = create_engine("sqlite://")

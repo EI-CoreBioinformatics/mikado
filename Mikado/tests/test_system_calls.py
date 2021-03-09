@@ -534,10 +534,9 @@ class PrepareCheck(unittest.TestCase):
                     args.configuration.prepare.files.log = "prepare.log"
                     if isinstance(args.configuration.reference.genome, bytes):
                         args.configuration.reference.genome = args.configuration.reference.genome.decode()
-                    args.log = "prepare.log"  # os.path.join(args.output_dir, "prepare.log")
+                    args.log = "prepare.log"
                     self.logger.setLevel("DEBUG")
                     assert os.path.exists(folder)
-                    _ = open(args.log, "wt").close()
                     args, mikado_configuration, _logger = prepare_setup(args)
                     self.assertIsNotNone(mikado_configuration)
                     # self.assertEqual(args.output_dir, folder)

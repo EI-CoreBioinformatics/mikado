@@ -189,6 +189,8 @@ def _set_serialise_files_options(conf: Union[MikadoConfiguration, DaijinConfigur
         conf.serialise.files.blast_targets
     conf.reference.genome_fai = args.genome_fai if args.genome_fai else \
         conf.reference.genome_fai
+    conf.reference.genome = args.genome if args.genome else conf.reference.genome
+
     conf.serialise.files.output_dir = args.output_dir if args.output_dir is not None else \
         conf.serialise.files.output_dir
 
@@ -213,8 +215,9 @@ def _set_serialise_files_options(conf: Union[MikadoConfiguration, DaijinConfigur
                 _ = pysam.Fastafile(conf.reference.genome)
                 conf.reference.genome_fai = conf.reference.genome + ".fai"
             else:
-                logger.critical("Missing FAI file for junction loading!")
-                sys.exit(1)
+                exc = InvalidConfiguration("Missing FAI file for junction loading!")
+                logger.critical(exc)
+                raise exc
 
     return conf
 
@@ -403,6 +406,7 @@ a valid start codon.""")
 
     junctions = parser.add_argument_group()
     junctions.add_argument("--genome_fai", default=None)
+    junctions.add_argument("--genome", default=None)
     junctions.add_argument("--junctions", type=str, default=None)
 
     external_args = parser.add_argument_group()

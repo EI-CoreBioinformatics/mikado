@@ -5,6 +5,8 @@ import re
 import unittest
 import random
 import pandas as pd
+from pytest import mark
+
 from Mikado.exceptions import InvalidTranscript, InvalidCDS
 from Mikado._transcripts.transcript_methods.finalizing import _check_completeness, _check_internal_orf, \
     _check_phase_correctness, _calculate_phases, _calculate_introns, _basic_final_checks, _verify_boundaries, \
@@ -1291,6 +1293,20 @@ class FinalizeTests(unittest.TestCase):
         with self.assertRaises(InvalidTranscript) as exc:
             _basic_final_checks(transcript)
         self.assertIsNotNone(re.search(r"Overlapping exons found", str(exc.exception)))
+
+    @mark.triage
+    def test_check_with_double_internal_orf(self):
+        transcript = Transcript()
+        transcript.start, transcript.end, transcript.id, transcript.strand = 101, 1000, "foo", "+"
+        transcript.add_exons([(101, 470), (499, 1000)])
+        # Now add the internal ORFs
+        transcript.combined_cds = [(151, 450), (501, 560)]
+        transcript.internal_orfs.append([("CDS", (151, 450))])
+        transcript.internal_orfs.append([("CDS", (501, 560))])
+        with self.assertLogs(transcript.logger, level="DEBUG") as cmo:
+            transcript.finalize()
+        self.assertTrue(transcript.is_coding, cmo.output)
+        self.assertEqual(transcript.combined_cds, [(151, 450), (501, 560)])
 
 
 if __name__ == '__main__':

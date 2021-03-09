@@ -597,8 +597,12 @@ Chr2    TAIR10    exon    629070    629176    .    +    .    Parent=AT2G02380.1"
         self.tr.strand = "+"
         self.tr.finalize()
         self.tr.finalized = False
+        self.assertTrue(self.tr.end != 625880 or self.tr.start != 625878)
         self.tr.exons += [(625878, 625880)]
-        self.assertRaises(exceptions.InvalidTranscript, self.tr.finalize)
+        with self.assertLogs(self.tr.logger, "DEBUG") as cmo:
+            self.tr.finalize()
+        self.assertTrue(self.tr.end == 625880 or self.tr.start == 625878, cmo.output)
+        self.assertTrue(any([re.search(r"Modifying it", _) is not None for _ in cmo.output]))
 
     def test_complete(self):
 

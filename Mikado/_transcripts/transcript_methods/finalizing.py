@@ -2,6 +2,7 @@
 This module provides the functions needed to check a transcript for consinstency,
 e.g. reliability of the CDS/UTR, sanity of borders, etc.
 """
+import itertools
 
 from ...utilities import Interval, IntervalTree
 from ...utilities import overlap
@@ -505,18 +506,16 @@ def _check_phase_correctness(transcript, strip_faulty_cds=True):
 
     if min(len(segments), len(internal_orfs)) == 0:
         # transcript.logger.debug("Redefining segments for %s", transcript.id)
-        # Define exons
         segments = [("exon", tuple([e[0], e[1]])) for e in transcript.exons]
         # Define CDS
         if len(internal_orfs) > 0:
-            for orf in internal_orfs:
-                for segment in orf:
-                    if segment[0] == "exon":
-                        continue
-                    elif segment[0] == "UTR":
-                        segments.append(("UTR", (segment[1][0], segment[1][1])))
-                    elif segment[0] == "CDS":
-                        segments.append(("CDS", (segment[1][0], segment[1][1])))
+            for segment in itertools.chain(internal_orfs):
+                if segment[0] == "exon":
+                    continue
+                elif segment[0] == "UTR":
+                    segments.append(("UTR", (segment[1][0], segment[1][1])))
+                elif segment[0] == "CDS":
+                    segments.append(("CDS", (segment[1][0], segment[1][1])))
         else:
             segments.extend([("CDS", tuple([c[0], c[1]])) for c in transcript.combined_cds])
         # Define UTR segments
@@ -528,12 +527,11 @@ def _check_phase_correctness(transcript, strip_faulty_cds=True):
             internal_orfs = [segments]
         else:
             transcript.selected_internal_orf_index = None
-    elif len(internal_orfs) == 0:
-        exception = AssertionError("No internal ORF for {}".format(transcript.id))
-        transcript.logger.exception(exception)
-        raise exception
     else:
         pass
+
+    assert (transcript.combined_cds and internal_orfs) or (not transcript.combined_cds and not internal_orfs), (
+        transcript.combined_cds, internal_orfs, transcript.segments, transcript.internal_orfs)
 
     transcript.segments, transcript.internal_orfs = segments, internal_orfs
 

@@ -3827,8 +3827,9 @@ class PaddingTester(unittest.TestCase):
                 other.remove_exon((10644, 12665))
                 other.add_exon((other.start, 12665))
                 other.add_exon((other.start, 12665), feature="CDS", phase=phase)
-                other.finalize()
-                self.assertTrue(other.is_coding)
+                with self.assertLogs(other.logger, level="DEBUG") as cmo:
+                    other.finalize()
+                self.assertTrue(other.is_coding, cmo.output)
                 self.assertEqual(other.phases[(other.start, 12665)], phase)
                 self.assertEqual(other.combined_cds_start, other.start)
                 locus.add_transcript_to_locus(other)

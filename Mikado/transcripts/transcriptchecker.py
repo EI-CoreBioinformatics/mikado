@@ -4,6 +4,7 @@
 This module defines a child of the Transcript class, which is used
 to verify that e.g. the assigned strand is correct.
 """
+import functools
 
 from .transcript import Transcript
 from ..exceptions import IncorrectStrandError, InvalidTranscript, InvalidCDS
@@ -367,28 +368,23 @@ we will not reverse it")
 
         """This property calculates the cDNA sequence of the transcript."""
 
-        sequence = ''
+        return self.calculate_cdna(str(self.fasta_seq.seq), tuple(self.exons), self.cdna_length, self.strand,
+                                   self.start)
 
-        for exon in self.exons:
-            start = exon[0] - self.start
-            end = exon[1] + 1 - self.start
-            _ = str(self.fasta_seq[start:end].seq)
+    @staticmethod
+    @functools.lru_cache(maxsize=10, typed=True)
+    def calculate_cdna(fasta_seq, exons, cdna_length, strand, tstart):
+        sequence = ""
+        for exon in exons:
+            start = exon[0] - tstart
+            end = exon[1] + 1 - tstart
+            _ = fasta_seq[start:end]
+            assert len(_) == end - start, (len(_), end - start)
             sequence += _
 
-        # pylint: disable=no-member
-        if not isinstance(sequence, str):
-            if hasattr(sequence, "seq"):
-                sequence = str(sequence.seq)
-            else:
-                raise TypeError("Invalid object for sequence: {0} ({1})".format(
-                    type(sequence),
-                    repr(sequence)
-                ))
-        # pylint: enable=no-member
-
-        assert len(sequence) == self.cdna_length
-        if self.strand == "-":
-            sequence = self.rev_complement(sequence)
+        assert len(sequence) == cdna_length, (len(sequence), cdna_length)
+        if strand == "-":
+            sequence = TranscriptChecker.rev_complement(sequence)
         return sequence
 
     @property

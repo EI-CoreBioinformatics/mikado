@@ -797,7 +797,6 @@ exon data is on a different chromosome, {exon_data.chrom}. \
                         table=self.codon_table)
             assert row.invalid is False, ("\n".join([str(row), row.invalid_reason]))
             yield row
-
         else:
             for index, iorf in enumerate(self.internal_orfs):
                 new_row = row.copy()
@@ -2133,12 +2132,6 @@ exon data is on a different chromosome, {exon_data.chrom}. \
     def selected_cds(self):
         """This property return the CDS exons of the ORF selected as best
          inside the cDNA, in the form of duplices (start, end)"""
-
-        # if len(self.combined_cds) == 0:
-        #     self.__selected_cds = []
-        # else:
-        #     self.__selected_cds = [segment[1] for segment in self.selected_internal_orf if
-        #                            segment[0] == "CDS"]
 
         return self.__selected_cds
 

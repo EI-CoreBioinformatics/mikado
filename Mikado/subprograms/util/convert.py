@@ -35,13 +35,18 @@ def _convert_bam(parser, args, out_format):
 def _convert_gtf(parser: GTF, args, out_format):
     genes = dict()
     current = None
-    for line in parser:
+    found_ids = set()
+
+    for line_counter, line in enumerate(parser, start=1):
         if line.header is True:
             continue
         elif hasattr(line, "feature") and "superlocus" in line.feature or line.feature in ("chromosome", "region"):
             continue
         if line.gene in genes:
             if line.is_transcript is True and line.transcript in genes[line.gene]:
+                if args.assume_sorted is True:
+                    raise InvalidParsingFormat(
+                        f"The transcript at line no. {line_counter} has already appeared: the input is not sorted.")
                 gene = genes[line.gene]
                 assert isinstance(gene, Gene)
                 assert line.strand == gene.strand
@@ -50,8 +55,15 @@ def _convert_gtf(parser: GTF, args, out_format):
                 gene.transcripts[line.transcript]._set_expandable(False)
                 gene.transcripts[line.transcript].attributes.update(line.attributes)
             elif line.is_transcript is True:
+                if args.assume_sorted is True and line.transcript in found_ids:
+                    raise InvalidParsingFormat(
+                        f"The transcript at line no. {line_counter} has already appeared: the input is not sorted.")
                 genes[line.gene].add(Transcript(line))
             elif line.is_gene:
+                if line.gene in genes or line.gene in found_ids:
+                    if args.assume_sorted is True:
+                        raise InvalidParsingFormat(
+                            f"The transcript at line no. {line_counter} has already appeared: the input is not sorted.")
                 genes[line.gene].start, genes[line.gene].end = line.start, line.end
                 genes[line.gene].attributes.update(line.attributes)
             elif line.is_exon:
@@ -61,10 +73,17 @@ def _convert_gtf(parser: GTF, args, out_format):
                     genes[line.gene].add(Transcript(line))
         else:
             if line.is_gene:
+                if args.assume_sorted is True and line.gene in genes:
+                    raise InvalidParsingFormat(
+                        f"The gene at line no. {line_counter} has already appeared: the input is not sorted.")
                 genes[line.gene] = Gene(line)
             else:
+                if args.assume_sorted is True and line.gene in found_ids or line.transcript in found_ids:
+                    raise InvalidParsingFormat(
+                        f"The gene at line no. {line_counter} has already appeared: the input is not sorted.")
                 genes[line.gene] = Gene(Transcript(line))
 
+        found_ids.add(line.transcript)
         if current and current != line.gene and args.assume_sorted is True:
             print(genes[current].format(out_format, transcriptomic=args.transcriptomic), file=args.out)
             del genes[current]
@@ -79,6 +98,7 @@ def _convert_gtf(parser: GTF, args, out_format):
 
     return
 
+
 def _convert_bed12(parser: Bed12Parser, args, out_format):
     mock_gene_counter = 0
     for line in parser:
@@ -90,6 +110,7 @@ def _convert_bed12(parser: Bed12Parser, args, out_format):
         print(gene.format(out_format, transcriptomic=args.transcriptomic), file=args.out)
 
     return
+
 
 def _convert_gff(parser: GFF3, args, out_format):
     orphaned = dict()
@@ -196,7 +217,6 @@ def launch(args):
     else:
         parser = parser_factory(args.gf, input_format=args.in_format)
 
-    current = None
     if parser.__annot_type__ == "gtf":
         out_format = "gff3"
     elif parser.__annot_type__ in ("bed12", "gff3", "bam"):
@@ -204,8 +224,7 @@ def launch(args):
     else:
         raise TypeError("Invalid annotation type: {}".format(parser.__annot_type__))
 
-    if (args.out_format is not None and
-                args.out_format != out_format):
+    if args.out_format is not None and args.out_format != out_format:
         if args.out_format != parser.__annot_type__ or args.transcriptomic is True:
             out_format = args.out_format
         else:

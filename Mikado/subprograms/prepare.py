@@ -162,7 +162,8 @@ def setup(args, logger=None) -> (argparse.Namespace, Union[MikadoConfiguration, 
     if args.procs is not None and args.procs > 0:
         mikado_config.threads = args.procs
 
-    mikado_config, args, logger = check_log_settings_and_create_logger(mikado_config, args, level="prepare")
+    mikado_config, logger = check_log_settings_and_create_logger(mikado_config, args.log, args.log_level,
+                                                                 section="prepare")
     logger.info("Command line: %s",  " ".join(sys.argv))
     logger.info("Random seed: %s", mikado_config.seed)
 

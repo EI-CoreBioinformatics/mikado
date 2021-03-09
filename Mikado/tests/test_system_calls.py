@@ -21,12 +21,13 @@ from Mikado.exceptions import InvalidConfiguration, InvalidParsingFormat
 from Mikado.daijin import mikado_pipeline, assemble_transcripts_pipeline
 from Mikado.configuration import print_config, DaijinConfiguration, MikadoConfiguration
 import rapidjson as json
-
+from Mikado.subprograms._utils import _set_pick_mode, check_log_settings_and_create_logger
 from Mikado.subprograms.pick import _parse_regions
 from Mikado.subprograms.serialise import serialise
 from pytest import mark
 from Mikado import configuration
 from Mikado.subprograms import configure as sub_configure
+from Mikado.subprograms.util.convert import launch as convert_launch, convert_parser
 from Mikado.configuration import configurator, daijin_configurator
 from Mikado.picking import picker
 from Mikado.preparation import prepare
@@ -58,7 +59,6 @@ class ConvertCheck(unittest.TestCase):
     @mark.slow
     def test_convert_from_bam(self):
 
-        from Mikado.subprograms.util.convert import convert_parser, launch
         bam_inp = pkg_resources.resource_filename("Mikado.tests", "test_mRNA.bam")
         for outp in ("gff3", "gtf", "bed12"):
             with self.subTest(outp=outp), tempfile.NamedTemporaryFile(mode="wt") as outfile:
@@ -66,7 +66,7 @@ class ConvertCheck(unittest.TestCase):
                 argv = ["-of", outp, bam_inp, outfile.name]
                 parser = convert_parser()
                 args = parser.parse_args(argv)
-                launch(args)
+                convert_launch(args)
                 # pkg_resources.load_entry_point("Mikado", "console_scripts", "mikado")()
                 outfile.flush()
                 self.assertGreater(os.stat(outfile.name).st_size, 0)
@@ -84,7 +84,6 @@ class ConvertCheck(unittest.TestCase):
         for outp in ("gtf", "bed12"):
             with self.subTest(outp=outp), tempfile.NamedTemporaryFile(mode="wt") as outfile:
                 sys.argv = ["", "util", "convert", "-of", outp, probl, outfile.name]
-                # with self.assertRaises(SystemExit):
                 pkg_resources.load_entry_point("Mikado", "console_scripts", "mikado")()
                 self.assertGreater(os.stat(outfile.name).st_size, 0)
                 lines = [_ for _ in open(outfile.name)]
@@ -92,6 +91,51 @@ class ConvertCheck(unittest.TestCase):
                 self.assertTrue(any(["rna-NC_023890.1:1040..1107" in line for line in lines]))
                 self.assertTrue(any(["gene-LOC112059550" in line for line in lines]))
                 self.assertTrue(any(["id-LOC112059311" in line for line in lines]))
+
+    @mark.slow
+    def test_generic_convert_check(self):
+        # Test all possible combinations
+        gtf = pkg_resources.resource_filename("Mikado.tests", "trinity.gtf")
+        gff3 = pkg_resources.resource_filename("Mikado.tests", "trinity.gff3")
+        bed12 = pkg_resources.resource_filename("Mikado.tests", "trinity.bed12")
+        bam = pkg_resources.resource_filename("Mikado.tests", "trinity.bam")
+        for inp_file, inp_format in [(gtf, "gtf"), (gff3, "gff3"), (bed12, "bed12"), (bam, "bam")]:
+            for outp in ["gff3", "bed12", "gtf"]:
+                outfile = tempfile.NamedTemporaryFile(suffix=f".{outp}")
+                sys.argv = ["-of", outp, inp_file, outfile.name]
+                args = convert_parser().parse_args(sys.argv)
+                if outp == inp_format:
+                    with self.assertRaises(SystemExit) as exit:
+                        convert_launch(args)
+                    self.assertEqual(exit.exception.code, 1)
+                else:
+                    convert_launch(args)
+                    self.assertGreater(os.stat(outfile.name).st_size, 0)
+
+    @mark.slow
+    def test_unsorted_inputs(self):
+        gtf = pkg_resources.resource_filename("Mikado.tests", "trinity_unsorted.gtf")
+        gff3 = pkg_resources.resource_filename("Mikado.tests", "trinity_unsorted.gff3")
+        args = Namespace(default=None)
+
+        for inp_file, assume_sorted in itertools.product([gtf, gff3], [False, True]):
+            if inp_file == gtf:
+                outf = "gff3"
+            else:
+                outf = "gtf"
+            with self.subTest(assume_sorted=assume_sorted), \
+                    tempfile.NamedTemporaryFile(suffix=f".{outf}", mode="wt", delete=False) as out:
+                args.assume_sorted = assume_sorted
+                args.gf = inp_file
+                args.out = out
+                args.out_format = outf
+                if assume_sorted:
+                    with self.assertRaises(InvalidParsingFormat):
+                        convert_launch(args=args)
+                else:
+                    convert_launch(args)
+                    self.assertGreater(os.stat(out.name).st_size, 0)
+                os.remove(out.name)
 
 
 class PrepareCheck(unittest.TestCase):
@@ -583,6 +627,7 @@ class PrepareCheck(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="test_negative_cdna_redundant_cds_not") as folder:
             self.conf.prepare.files.output_dir = folder
             args = Namespace()
+            args.log_level = None
             args.strip_cds = False
             args.configuration = self.conf
             args.reference = None
@@ -1665,6 +1710,131 @@ class PickUtilsTest(unittest.TestCase):
             with self.assertRaises(ValueError) as exc:
                 _ = _parse_regions(region_err.name)
             self.assertEqual(str(exc.exception).rstrip(), "Invalid region line, no. 5: Chr2:50000.55000")
+
+    def test_set_mode(self):
+        conf = MikadoConfiguration()
+        for invalid in [10, None, "hello", "lenient2", "str1ngent"]:
+            with self.assertRaises(InvalidConfiguration):
+                _set_pick_mode(conf, "wrong")
+
+        for modebase in ["lenient", "stringent", "permissive", "nosplit", "split"]:
+            for mode in [modebase.lower(), modebase.upper(), modebase.capitalize()]:
+                with self.subTest(mode=mode):
+                    conf = _set_pick_mode(conf, mode)
+                    if mode.lower() == "nosplit":
+                        self.assertFalse(conf.pick.chimera_split.execute)
+                    else:
+                        self.assertTrue(conf.pick.chimera_split.execute)
+                    if mode.lower() in ["nosplit", "split"]:
+                        self.assertFalse(conf.pick.chimera_split.blast_check)
+                    else:
+                        self.assertTrue(conf.pick.chimera_split.blast_check)
+                        self.assertEqual(conf.pick.chimera_split.blast_params.leniency, mode.upper())
+
+    def test_create_log(self):
+        # Test for _utils.check_log_settings_and_create_logger
+        conf = MikadoConfiguration()
+        for invalid in [10, 50.0, dict(), None, b"nonexistent", b"pick2", "nonexistent", "pick2"]:
+            with self.subTest(invalid=invalid):
+                with self.assertRaises(InvalidConfiguration):
+                    check_log_settings_and_create_logger(invalid, None, "INFO", section=None)
+                if invalid is not None:
+                    with self.assertRaises((AttributeError, TypeError)):
+                        check_log_settings_and_create_logger(conf, None, "INFO", section=invalid)
+                if invalid is not None and not isinstance(invalid, (bytes, str)):
+                    with self.assertRaises(TypeError):
+                        check_log_settings_and_create_logger(conf, invalid, "INFO", section=None)
+                if invalid is not None:
+                    with self.assertRaises((TypeError, AttributeError, InvalidConfiguration)):
+                        check_log_settings_and_create_logger(conf, "mikado.log", invalid, section=None)
+
+        # Let's check that we are setting fields correctly now.
+        curr_dir = os.getcwd()
+        os.chdir(tempfile.gettempdir())
+        levels = []
+        [levels.extend([level.upper(), level.lower(), level.capitalize()]) for level in
+         ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]]
+
+        conf = MikadoConfiguration()
+        try:
+            for section, handle, level in itertools.product(
+                    [None, "prepare", "serialise", "pick"],
+                    [None, "stderr", "mikado.log", b"mikado.log", open("mikado.log", "wt"),
+                     "folder/mikado.log"],
+                    levels):
+                with self.subTest(section=section, level=level, handle=handle):
+                    conf.pick.files.output_dir = "pick"
+                    conf.pick.files.log = "pick.log"
+                    conf.prepare.files.output_dir = "prepare"
+                    conf.prepare.files.log = "prepare.log"
+                    conf.serialise.files.output_dir = "serialise"
+                    conf.serialise.files.log = "serialise.log"
+                    conf, logger = check_log_settings_and_create_logger(conf, handle, level, section)
+                    self.assertEqual(len(logger.handlers), 1)
+                    handler = logger.handlers[0]
+                    self.assertEqual(logger.level, logging.getLevelName(level.upper()), logger.level)
+                    if (section is None and handle is None) or handle == "stderr":
+                        self.assertIsInstance(handler, logging.StreamHandler)
+                        if section == "pick":
+                            self.assertIsNone(conf.pick.files.log)
+                        elif section == "serialise":
+                            self.assertIsNone(conf.serialise.files.log)
+                        elif section == "prepare":
+                            self.assertIsNone(conf.prepare.files.log)
+                    else:
+                        self.assertIsInstance(handler, logging.FileHandler)
+                        fname = handler.stream.name
+                        if handle is None:
+                            if section == "prepare":
+                                self.assertEqual(fname, os.path.join(os.getcwd(), "prepare", "prepare.log"))
+                            elif section == "serialise":
+                                self.assertEqual(fname, os.path.join(os.getcwd(), "serialise", "serialise.log"))
+                            elif section == "pick":
+                                self.assertEqual(fname, os.path.join(os.getcwd(), "pick", "pick.log"))
+                        else:
+                            if handle == b"mikado.log":
+                                check = "mikado.log"
+                            elif isinstance(handle, (io.BufferedWriter, io.TextIOWrapper)):
+                                check = "mikado.log"
+                            else:
+                                check = handle
+                            if section == "prepare":
+                                if not os.path.dirname(check):
+                                    self.assertEqual(fname, os.path.join(os.getcwd(), conf.prepare.files.output_dir,
+                                                                         check))
+                                else:
+                                    self.assertEqual(fname, os.path.join(os.getcwd(), handle))
+                                other = conf.prepare.files.log
+                            elif section == "serialise":
+                                if not os.path.dirname(check):
+                                    self.assertEqual(fname, os.path.join(os.getcwd(),
+                                                                         conf.serialise.files.output_dir,
+                                                                         check))
+                                else:
+                                    self.assertEqual(fname, os.path.join(os.getcwd(), handle))
+                                other = conf.serialise.files.log
+                            elif section == "pick":
+                                if not os.path.dirname(check):
+                                    self.assertEqual(fname, os.path.join(os.getcwd(),
+                                                                         conf.pick.files.output_dir,
+                                                                         check))
+                                else:
+                                    self.assertEqual(fname, os.path.join(os.getcwd(), handle))
+                                other = conf.pick.files.log
+                            else:
+                                other = None
+                            if other is not None:
+                                self.assertEqual(conf.log_settings.log, other)
+
+                        self.assertTrue(os.path.exists(fname))
+                        if os.path.dirname(fname) != tempfile.gettempdir():
+                            shutil.rmtree(os.path.dirname(fname))
+                        else:
+                            os.remove(fname)
+        except AssertionError:
+            raise
+        finally:
+            os.chdir(curr_dir)
 
 
 @mark.slow

@@ -250,7 +250,8 @@ def pick(args):
 
     logger = create_default_logger("logger_init", level="WARNING")
     mikado_configuration = load_and_validate_config(args.configuration, logger=logger)
-    mikado_configuration, args, logger = check_log_settings_and_create_logger(mikado_configuration, args, level="pick")
+    mikado_configuration, logger = check_log_settings_and_create_logger(mikado_configuration, args.log, args.log_level,
+                                                                        section="pick")
     mikado_configuration = check_run_options(mikado_configuration, args, logger=logger)
     regions = _parse_regions(args.regions)
     creator = Picker(mikado_configuration, commandline=" ".join(sys.argv), regions=regions)

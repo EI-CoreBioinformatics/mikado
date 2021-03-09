@@ -283,8 +283,9 @@ def setup(args):
     mikado_configuration = _set_serialise_files_options(args=args, conf=mikado_configuration, logger=logger)
     mikado_configuration = _set_serialise_run_options(mikado_configuration, args, logger=logger)
     mikado_configuration = configurator.load_and_validate_config(mikado_configuration)
-    mikado_configuration, args, logger = check_log_settings_and_create_logger(mikado_configuration, args,
-                                                                              level="serialise")
+    mikado_configuration, logger = check_log_settings_and_create_logger(mikado_configuration,
+                                                                        args.log, args.log_level,
+                                                                        section="serialise")
 
     logger.setLevel("INFO")
     logger.info("Command line: %s", " ".join(sys.argv))

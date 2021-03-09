@@ -137,6 +137,7 @@ def create_logger_from_conf(conf, name="mikado", mode="a"):
     logger = logging.getLogger(name)
     # Remove all previous handlers, if any is present. THIS IS NECESSARY TO PREVENT CLASHES IN THE UNIT-TESTS
     for handler in logger.handlers[:]:
+        handler.close()
         logger.removeHandler(handler)
 
     if isinstance(conf, LoggingConfiguration):

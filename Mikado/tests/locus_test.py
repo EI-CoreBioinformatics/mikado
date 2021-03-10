@@ -15,6 +15,7 @@ from copy import deepcopy
 
 import marshmallow
 import pkg_resources
+from numpy import arange
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
@@ -444,6 +445,62 @@ class AbstractLocusTester(unittest.TestCase):
         self.assertEqual(Abstractlocus._get_denominator(target_score, use_raw=False, metrics=metrics),
                          (.5, .5))
 
+    def test_get_score_for_metric(self):
+
+        # _get_score_for_metric(tid_metric, use_raw, target, denominator, param, min_val, max_val)
+
+        for invalid in [10, b"10", dict(), 100.0]:
+            with self.assertRaises(ValueError):
+                Abstractlocus._get_score_for_metric(invalid, use_raw=True,
+                                                    target=None, denominator=1, param="fraction",
+                                                    min_val=0, max_val=1)
+
+        max_score = MinMaxScore(rescaling="max", filter=None)
+        min_score = MinMaxScore(rescaling="min", filter=None)
+        target_score = TargetScore(rescaling="target", value=5, filter=None)
+
+        for num, denominator, rescaling in itertools.product(
+                arange(0, 1.05, .05), arange(.5, 10, .5), [max_score, min_score, target_score]):
+            if rescaling.rescaling == "target":
+                with self.assertRaises(ValueError) as exc:
+                    Abstractlocus._get_score_for_metric(num, use_raw=True,
+                                                        target=None, denominator=denominator, param=rescaling,
+                                                        min_val=0, max_val=1)
+            else:
+                self.assertEqual(Abstractlocus._get_score_for_metric(num, use_raw=True,
+                                            target=None, denominator=denominator, param=rescaling,
+                                            min_val=0, max_val=1), round(num / denominator, 2))
+
+        min_val = 0
+        max_val = 1.05
+        for num, denominator, multiplier in itertools.product(
+                list(arange(0, 1.05, .05)) + [True, False], arange(.5, 10, .5),
+                arange(.5, 10, .5)):
+            max_score = MinMaxScore(rescaling="max", filter=None, multiplier=multiplier)
+            min_score = MinMaxScore(rescaling="min", filter=None, multiplier=multiplier)
+            max_result = Abstractlocus._get_score_for_metric(num, use_raw=False,
+                                            target=None, denominator=denominator, param=max_score,
+                                            min_val=min_val, max_val=max_val)
+            self.assertEqual(max_result, round(multiplier * abs((num - min_val) / denominator), 2))
+            min_result = Abstractlocus._get_score_for_metric(num, use_raw=False,
+                                                             target=None, denominator=denominator, param=min_score,
+                                                             min_val=min_val, max_val=max_val)
+            self.assertEqual(min_result, round(multiplier * abs(1 - (num - min_val) / denominator), 2),
+                             (num, denominator, multiplier))
+
+        for num, denominator, target, multiplier in itertools.product(
+                list(arange(0, 1.05, .05)) + [True, False],
+                arange(.5, 10, .5), arange(.05, 1.05, .5), arange(.5, 10, .5)):
+            num, denominator, target, multiplier = float(num), float(denominator), float(target), float(multiplier)
+            target_score = TargetScore(rescaling="target", filter=None, multiplier=multiplier, value=target)
+            target_result = Abstractlocus._get_score_for_metric(num, use_raw=False,
+                                                                target=target, denominator=denominator,
+                                                                param=target_score,
+                                                                min_val=min_val, max_val=max_val)
+            # score = 1 - abs(tid_metric - target) / denominator
+            expected = round(multiplier * (1 - abs((num - target) / denominator)), 2)
+            self.assertEqual(target_result, expected, (num, denominator, multiplier, target))
+
     def test_check_usable_raw(self):
         # _check_usable_raw(transcript, param, use_raw, rescaling, logger=create_null_logger())
         for invalid in [b"cdna_length", 10, None, dict()]:
@@ -590,6 +647,44 @@ class AbstractLocusTester(unittest.TestCase):
                                                                     value=2000))
         param_metrics, _ = Abstractlocus._get_param_metrics(transcripts, metrics, param, param_conf)
         self.assertEqual({}, param_metrics)
+
+        # Fifth case. Considering external and attributes
+
+        t1.external_scores["tpm"] = [10, False]
+        t1.external_scores["fraction"] = [.5, True]
+        t1.attributes["FPKM"] = 10
+        t2.external_scores["tpm"] = [5, False]
+        t2.external_scores["fraction"] = [1, True]
+        t2.attributes["FPKM"] = 50
+
+        param_conf = MinMaxScore(rescaling="max", filter=SizeFilter(operator="gt",
+                                                                    metric="attributes.FPKM",
+                                                                    value=5))
+
+        param_metrics, restored_metrics = Abstractlocus._get_param_metrics(transcripts, metrics,
+                                                                           "external.tpm", param_conf)
+        self.assertEqual(param_metrics, {t1.id: t1.external_scores.tpm[0],
+                                         t2.id: t2.external_scores.tpm[0]})
+        param_conf = MinMaxScore(rescaling="max", filter=SizeFilter(operator="gt",
+                                                                    metric="attributes.FPKM",
+                                                                    value=50))
+
+        param_metrics, restored_metrics = Abstractlocus._get_param_metrics(transcripts, metrics,
+                                                                           "external.tpm", param_conf)
+        self.assertEqual(param_metrics, {})
+        param_conf = MinMaxScore(rescaling="max", filter=SizeFilter(operator="gt",
+                                                                    metric=None,
+                                                                    value=5))
+        param_metrics, restored_metrics = Abstractlocus._get_param_metrics(transcripts, metrics,
+                                                                           "external.tpm", param_conf)
+        self.assertEqual(param_metrics, {t1.id: t1.external_scores.tpm[0]})
+        param_conf = MinMaxScore(rescaling="max", filter=SizeFilter(operator="lt",
+                                                                    metric="external.fraction",
+                                                                    value=.6))
+        param_metrics, restored_metrics = Abstractlocus._get_param_metrics(transcripts, metrics,
+                                                                           "external.tpm", param_conf)
+        self.assertEqual(param_metrics, {t1.id: t1.external_scores.tpm[0]})
+
 
     def test_score(self):
         t = Transcript()

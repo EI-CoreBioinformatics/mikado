@@ -1439,7 +1439,10 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         if key in metrics and param in metrics[key]:
             metric = metrics[key][param]
         else:
-            metric = operator.attrgetter(param)(transcript)
+            if param.startswith("attributes."):
+                metric = transcript.attributes[param.lstrip("attributes.")]
+            else:
+                metric = operator.attrgetter(param)(transcript)
             metrics[key] = metrics.get(key, dict())
             metrics[key][param] = metric
         if isinstance(metric, (tuple, list)):
@@ -1501,6 +1504,8 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                 error = ValueError(
                     f"Only scores with values between 0 and 1 can be used raw. Please recheck your values.")
                 raise error
+            elif param.rescaling == "target":
+                raise ValueError(f"I cannot produce raw scores for targets.")
             score = tid_metric / denominator
         elif param.rescaling == "target":
             score = 1 - abs(tid_metric - target) / denominator

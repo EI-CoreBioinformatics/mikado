@@ -68,6 +68,7 @@ def test_get_external(event_loop):
     SessionMaker = sessionmaker(bind=engine)
     session = SessionMaker()
     session.add_all([int_source, float_source, bool_source, raw_int_source, raw_float_source, raw_bool_source])
+    session.commit()
     session.add_all([int_score, float_score, bool_score, raw_int_score, raw_float_score, raw_bool_score])
     session.commit()
 

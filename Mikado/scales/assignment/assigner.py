@@ -757,8 +757,7 @@ class Assigner:
         file, and the final statistics into the stats file.
         """
 
-        self.logger.debug("Finished parsing, total: %d transcript%s.", self.done, "s" if self.done > 1 else "")
-
+        self.logger.debug(f"Finished parsing, total: {self.done} transcript{'s' if self.done > 1 else ''}.")
         self.print_refmap()
         self.stat_calculator.print_stats()
         self.logger.info("Finished printing final stats")

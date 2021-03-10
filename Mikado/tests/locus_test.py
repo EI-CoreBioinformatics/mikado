@@ -19,7 +19,8 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from Mikado._transcripts.scoring_configuration import NumBoolEqualityFilter, ScoringFile, SizeFilter, RangeFilter, \
-    InclusionFilter
+    InclusionFilter, MinMaxScore, TargetScore
+from Mikado._transcripts.transcript_base import Metric
 from Mikado.configuration import configurator, MikadoConfiguration, DaijinConfiguration
 from Mikado import exceptions
 from Mikado.parsers import GFF  # ,GTF, bed12
@@ -400,6 +401,195 @@ class AbstractLocusTester(unittest.TestCase):
             for valid in [0, 100, 1000]:
                 l.flank = valid
                 self.assertEqual(l.flank, valid)
+
+    def test_calculate_score_empty_locus(self):
+        logger = create_default_logger("test_calculate_score_empty_locus", level="DEBUG")
+        for locus in [Locus, Sublocus, Superlocus, Monosublocus, MonosublocusHolder]:
+            l = locus(None, logger=logger)
+            for metric in l.available_metrics:
+                with self.assertLogs(logger, level="DEBUG") as cmo:
+                    l._calculate_score(metric)
+                self.assertTrue(any([re.search(r"No transcripts in.*\. Returning.", out) is not None for out in
+                                     cmo.output]))
+
+    def test_get_denominator(self):
+        # _get_denominator(param: Union[MinMaxScore, TargetScore],
+        #   use_raw: str, metrics: dict) -> (Union[float,int], Union[float, int, bool])
+        min_score = MinMaxScore(rescaling="min", filter=None)
+        metrics = {"foo.1": .5, "foo.2": .1, "foo.3": 1}
+        self.assertEqual(Abstractlocus._get_denominator(min_score, use_raw=False, metrics=dict()), (1, None))
+        self.assertEqual(Abstractlocus._get_denominator(min_score, use_raw=True, metrics=dict()), (1, None))
+        self.assertEqual(Abstractlocus._get_denominator(min_score, use_raw=True, metrics=metrics),
+                         (-1, None))
+        self.assertEqual(Abstractlocus._get_denominator(min_score, use_raw=False, metrics=metrics),
+                         (.9, None))
+        max_score = MinMaxScore(rescaling="max", filter=None)
+
+        self.assertEqual(Abstractlocus._get_denominator(max_score, use_raw=True, metrics=dict()),
+                         (1, None))
+        self.assertEqual(Abstractlocus._get_denominator(max_score, use_raw=False, metrics=dict()),
+                         (1, None))
+        self.assertEqual(Abstractlocus._get_denominator(max_score, use_raw=True, metrics=metrics),
+                         (1, None))
+        self.assertEqual(Abstractlocus._get_denominator(max_score, use_raw=False, metrics=metrics),
+                         (.9, None))
+
+        target_score = TargetScore(value=.5, rescaling="target", filter=None)
+        self.assertEqual(Abstractlocus._get_denominator(target_score, use_raw=True, metrics=dict()),
+                         (1, .5))
+        self.assertEqual(Abstractlocus._get_denominator(target_score, use_raw=False, metrics=dict()),
+                         (1, .5))
+        self.assertEqual(Abstractlocus._get_denominator(target_score, use_raw=True, metrics=metrics),
+                         (.5, .5))
+        self.assertEqual(Abstractlocus._get_denominator(target_score, use_raw=False, metrics=metrics),
+                         (.5, .5))
+
+    def test_check_usable_raw(self):
+        # _check_usable_raw(transcript, param, use_raw, rescaling, logger=create_null_logger())
+        for invalid in [b"cdna_length", 10, None, dict()]:
+            with self.assertRaises(TypeError) as exc:
+                Abstractlocus._check_usable_raw(None, invalid, False, "max")
+            self.assertIsNotNone(re.search(r"Invalid type of parameter", str(exc.exception)))
+            with self.assertRaises(TypeError) as exc:
+                Abstractlocus._check_usable_raw(invalid, "cdna_length", False, "max")
+            self.assertIsNotNone(re.search(r"Invalid transcript type", str(exc.exception)))
+        t = Transcript()
+        t.chrom, t.start, t.end, t.strand, t.id = "Chr1", 101, 1000, "+", "foo"
+        t.add_exons([(101, 500), (601, 1000)])
+        t.add_exons([(201, 500), (601, 900)], features="CDS")
+        t.finalize()
+        t.external_scores.tpm = [10, False]
+        t.external_scores.fraction = [.5, True]
+        t.attributes["FPKM"] = 10
+        logger = create_default_logger("test_check_usable_raw", level="WARNING")
+        for param in t.get_available_metrics():
+            for use_raw, rescaling in itertools.product([False, True], ["min", "max", "target"]):
+                metr = getattr(Transcript, param)
+                if not isinstance(metr, Metric):
+                    continue
+                usable_raw = metr.usable_raw
+                if use_raw is True and (usable_raw is False or rescaling == "target"):
+                    with self.assertLogs(logger, level="WARNING") as cmo:
+                        found_use_raw = Abstractlocus._check_usable_raw(t, param, use_raw=use_raw, rescaling=rescaling,
+                                                                  logger=logger)
+                    self.assertTrue(any(re.search(r"Switching to False", out) for out in cmo.output))
+                    self.assertFalse(found_use_raw)
+                else:
+                    found_use_raw = Abstractlocus._check_usable_raw(t, param, use_raw=use_raw, rescaling=rescaling,
+                                                                    logger=logger)
+                    self.assertEqual(use_raw, found_use_raw)
+
+        # Now external things
+        found_use_raw = Abstractlocus._check_usable_raw(t, "external.tpm",
+                                                        use_raw=False, rescaling="target", logger=logger)
+        self.assertFalse(found_use_raw)
+
+        found_use_raw = Abstractlocus._check_usable_raw(t, "external.tpm",
+                                                        use_raw=True, rescaling="max", logger=logger)
+        self.assertFalse(found_use_raw)
+
+        found_use_raw = Abstractlocus._check_usable_raw(t, "external.fraction",
+                                                        use_raw=False, rescaling="target", logger=logger)
+        self.assertFalse(found_use_raw)
+
+        found_use_raw = Abstractlocus._check_usable_raw(t, "external.fraction",
+                                                        use_raw=True, rescaling="max", logger=logger)
+        self.assertTrue(found_use_raw)
+
+        # Now attributes. Attributes are just returning use_raw
+        found_use_raw = Abstractlocus._check_usable_raw(t, "attributes.FPKM",
+                                                        use_raw=False, rescaling="max", logger=logger)
+        self.assertFalse(found_use_raw)
+        found_use_raw = Abstractlocus._check_usable_raw(t, "attributes.FPKM",
+                                                        use_raw=True, rescaling="max", logger=logger)
+        self.assertTrue(found_use_raw)
+
+        found_use_raw = Abstractlocus._check_usable_raw(t, "attributes.FPKM",
+                                                        use_raw=False, rescaling="target", logger=logger)
+        self.assertFalse(found_use_raw)
+        found_use_raw = Abstractlocus._check_usable_raw(t, "attributes.FPKM",
+                                                        use_raw=True, rescaling="target", logger=logger)
+        self.assertFalse(found_use_raw)
+
+    def test_get_param_metrics(self):
+        """"""
+        
+        param = "combined_cds_length"
+
+        t1 = Transcript()
+        t1.chrom, t1.start, t1.end, t1.strand, t1.id = "Chr1", 101, 1000, "+", "foo"
+        # cDNA 800 bps, CDS 60 bps
+        t1.add_exons([(101, 500), (601, 1000)])
+        t1.add_exons([(471, 500), (601, 630)], features="CDS")
+        t1.finalize()
+
+        # cDNA 210 bps, CDS 210 bps
+        t2 = Transcript()
+        t2.chrom, t2.start, t2.end, t2.strand, t2.id = "Chr1", 451, 710, "+", "bar"
+        t2.add_exons([(451, 500), (551, 710)])
+        t2.add_exons([(451, 500), (551, 710)], features="CDS")
+        t2.finalize()
+
+        self.assertEqual(operator.attrgetter(param)(t1), t1.combined_cds_length)
+        self.assertEqual(operator.attrgetter(param)(t2), t2.combined_cds_length)
+        self.assertEqual(t1.combined_cds_length, 60)
+        self.assertEqual(t2.combined_cds_length, 210)
+
+        transcripts = {"foo": t1, "bar": t2}
+        metrics = {t1.id: {param: t1.combined_cds_length},
+                   t2.id: {param: t2.combined_cds_length}}
+
+        param_conf = MinMaxScore(rescaling="max", filter=None)
+
+        # First case: raise errors if the dictionary is not a dictionary ...
+        for invalid in [None, 10, b"20", list()]:
+            with self.assertRaises(AttributeError):
+                Abstractlocus._get_param_metrics(invalid, metrics, param, param_conf)
+            with self.assertRaises((AttributeError, TypeError)):
+                Abstractlocus._get_param_metrics(transcripts, invalid, param, param_conf)
+            with self.assertRaises((AttributeError, TypeError)):
+                Abstractlocus._get_param_metrics(transcripts, metrics, invalid, param_conf)
+            with self.assertRaises((AttributeError, TypeError)):
+                Abstractlocus._get_param_metrics(transcripts, metrics, param, invalid)
+
+        # Second case: no filter. Presume that the metrics come back.
+        param_metrics, restored_metrics = Abstractlocus._get_param_metrics(transcripts, dict(), param, param_conf)
+        self.assertEqual(restored_metrics, metrics)
+        self.assertEqual({t1.id: t1.combined_cds_length, t2.id: t2.combined_cds_length}, param_metrics)
+        param_metrics, _ = Abstractlocus._get_param_metrics(transcripts, metrics, param, param_conf)
+        self.assertEqual({t1.id: t1.combined_cds_length, t2.id: t2.combined_cds_length},
+                         param_metrics)
+        # Third case. Now we have a filter but without a name, so we are presuming that it applies to
+        # combined_cds_length.
+        param_conf = MinMaxScore(rescaling="max", filter=SizeFilter(operator="gt",
+                                                                    value=150))
+        param_metrics, _ = Abstractlocus._get_param_metrics(transcripts, metrics, param, param_conf)
+        self.assertEqual(param_metrics, {t2.id: t2.combined_cds_length})
+        param_conf = MinMaxScore(rescaling="max", filter=SizeFilter(operator="gt",
+                                                                    value=300))
+        param_metrics, _ = Abstractlocus._get_param_metrics(transcripts, metrics, param, param_conf)
+        self.assertEqual(param_metrics, {})
+
+        # Fourth case, now we are filtering on a different parameter, cdna_length
+        param_conf = MinMaxScore(rescaling="max", filter=SizeFilter(operator="gt",
+                                                                    metric="cdna_length",
+                                                                    value=10))
+        self.assertEqual(param_conf.filter.metric, "cdna_length")
+        param_metrics, _ = Abstractlocus._get_param_metrics(transcripts, metrics, param, param_conf)
+        self.assertEqual({t1.id: t1.combined_cds_length, t2.id: t2.combined_cds_length},
+                         param_metrics)
+        param_conf = MinMaxScore(rescaling="max", filter=SizeFilter(operator="gt",
+                                                                    metric="cdna_length",
+                                                                    value=300))
+        self.assertEqual(param_conf.filter.metric, "cdna_length")
+        param_metrics, _ = Abstractlocus._get_param_metrics(transcripts, metrics, param, param_conf)
+        self.assertEqual({t1.id: t1.combined_cds_length},
+                         param_metrics)
+        param_conf = MinMaxScore(rescaling="max", filter=SizeFilter(operator="gt",
+                                                                    metric="cdna_length",
+                                                                    value=2000))
+        param_metrics, _ = Abstractlocus._get_param_metrics(transcripts, metrics, param, param_conf)
+        self.assertEqual({}, param_metrics)
 
     def test_score(self):
         t = Transcript()

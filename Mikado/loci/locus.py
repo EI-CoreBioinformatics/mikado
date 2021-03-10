@@ -940,14 +940,10 @@ it is marked as having 0 retained introns. This is an error.".format(transcript=
             if None is provided.
         """
 
-        try:
-            if isinstance(self.configuration.reference.genome, pysam.FastaFile):
-                self.fai = self.configuration.reference.genome
-            else:
-                self.fai = pysam.FastaFile(self.configuration.reference.genome)
-        except KeyError:
-            raise KeyError(self.configuration.reference)
-
+        if isinstance(self.configuration.reference.genome, pysam.FastaFile):
+            self.fai = self.configuration.reference.genome
+        else:
+            self.fai = pysam.FastaFile(self.configuration.reference.genome)
         five_graph = self.define_graph(objects=self.transcripts, inters=self._share_extreme, three_prime=False)
         three_graph = self.define_graph(objects=self.transcripts, inters=self._share_extreme, three_prime=True)
 
@@ -976,18 +972,12 @@ it is marked as having 0 retained introns. This is an error.".format(transcript=
                               self[tid].start,
                               __to_modify[tid][1] if not __to_modify[tid][1] else __to_modify[tid][1].end,
                               self[tid].end)
-            try:
-                new_transcript = expand_transcript(backup[tid],
-                                                   self.transcripts[tid],
-                                                   __to_modify[tid][0],
-                                                   __to_modify[tid][1],
-                                                   self.fai,
-                                                   self.logger)
-            except KeyboardInterrupt:
-                raise
-            except Exception as exc:
-                self.logger.exception(exc)
-                raise
+            new_transcript = expand_transcript(backup[tid],
+                                               self.transcripts[tid],
+                                               __to_modify[tid][0],
+                                               __to_modify[tid][1],
+                                               self.fai,
+                                               self.logger)
             if (new_transcript.start == self.transcripts[tid].end) and (new_transcript.end == self.transcripts[tid].end):
                 self.logger.debug("No expansion took place for %s!", tid)
             else:

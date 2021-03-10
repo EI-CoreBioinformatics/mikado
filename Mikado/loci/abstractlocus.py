@@ -5,6 +5,7 @@ Module that defines the blueprint for all loci classes.
 """
 import dataclasses
 import abc
+import functools
 import itertools
 import logging
 from sys import maxsize
@@ -13,7 +14,7 @@ import networkx
 from ..utilities import to_bool
 from .._transcripts.clique_methods import find_communities, define_graph
 from .._transcripts.scoring_configuration import SizeFilter, InclusionFilter, NumBoolEqualityFilter, ScoringFile, \
-    RangeFilter
+    RangeFilter, MinMaxScore, TargetScore
 from ..transcripts import Transcript
 from ..exceptions import NotInLocusError, InvalidConfiguration
 from ..utilities import overlap, merge_ranges, default_for_serialisation
@@ -1399,8 +1400,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         previous_not_passing = set()
         beginning = len(self.transcripts)
         while True:
-            not_passing = self._check_not_passing(
-                previous_not_passing=previous_not_passing)
+            not_passing = self._check_not_passing(previous_not_passing=previous_not_passing)
 
             if len(not_passing) == 0:
                 self.metrics_calculated = True
@@ -1417,16 +1417,127 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                     self._excluded_transcripts[tid] = self.transcripts[tid]
                     self.remove_transcript_from_locus(tid)
 
-            if not self.purge:
-                assert len(self.transcripts) == beginning
+            assert self.purge or (not self.purge and len(self.transcripts) == beginning)
 
             if len(self.transcripts) == 0 or self.metrics_calculated is True:
                 return
             elif self.purge and len(not_passing) > 0:
                 assert self._not_passing
+            self.get_metrics()
+
+    @staticmethod
+    def _get_metric_for_tid(metrics, tid, transcript, param):
+        if not isinstance(param, str):
+            raise TypeError(f"Invalid type of parameter: {param}, type {type(param)}")
+        if tid not in metrics and transcript.alias in metrics:
+            key = transcript.alias
+        else:
+            key = tid
+
+        # "attributes.{key}" values are present in the metrics dictionary *already*, we put them there during the
+        # "get_metrics" phase.
+        if key in metrics and param in metrics[key]:
+            metric = metrics[key][param]
+        else:
+            metric = operator.attrgetter(param)(transcript)
+            metrics[key] = metrics.get(key, dict())
+            metrics[key][param] = metric
+        if isinstance(metric, (tuple, list)):
+            metric = metric[0]
+        return metric, metrics
+
+    @staticmethod
+    def _check_usable_raw(transcript: Transcript, param: str, use_raw: bool,
+                          rescaling, logger=create_null_logger()):
+        if not isinstance(param, str):
+            raise TypeError(f"Invalid type of parameter: {param}, type {type(param)}")
+        elif not isinstance(transcript, Transcript):
+            raise TypeError(f"Invalid transcript type: {type(Transcript)}")
+
+        if param.startswith('attributes'):
+            usable_raw = use_raw
+        elif param.startswith("external"):
+            usable_raw = operator.attrgetter(param)(transcript)[1]
+        else:
+            # We have to check the property *definition*, so we are getting it *from the class*, not from the instance
+            # The instance property is just a value. The *class* property is a property object that we can query.
+            usable_raw = operator.attrgetter(param)(Transcript).usable_raw
+
+        assert usable_raw in (False, True)
+        if use_raw is True and usable_raw is False:
+            logger.warning(f"The \"{param}\" metric cannot be used as a raw score. Switching to False")
+            use_raw = False
+        elif use_raw is True and rescaling == "target":
+            logger.warning(
+                f"I cannot use a raw score for {param} when looking for a target. Switching to False")
+            use_raw = False
+        return use_raw
+
+    @staticmethod
+    def _get_denominator(param: Union[MinMaxScore, TargetScore],
+                         use_raw: bool, metrics: dict) -> (Union[float,int], Union[float, int, bool]):
+
+        target = param.value if param.rescaling == "target" else None
+        if len(metrics) == 0:
+            return 1, target
+        if param.rescaling == "target":
+            denominator = max(abs(x - target) for x in metrics.values())
+        else:
+            if use_raw is True and param.rescaling == "max":
+                denominator = 1
+            elif use_raw is True and param.rescaling == "min":
+                denominator = -1
             else:
-                # Recalculate the metrics
-                self.get_metrics()
+                denominator = (max(metrics.values()) - min(metrics.values()))
+        if denominator == 0:
+            denominator = 1
+        return denominator, target
+
+    @staticmethod
+    def _get_score_for_metric(tid_metric, use_raw, target, denominator, param, min_val, max_val):
+        score = 0
+        if use_raw is True:
+            if not (isinstance(tid_metric, (float, int)) and 0 <= tid_metric <= 1):
+                error = ValueError(
+                    f"Only scores with values between 0 and 1 can be used raw. Please recheck your values.")
+                raise error
+            score = tid_metric / denominator
+        elif param.rescaling == "target":
+            score = 1 - abs(tid_metric - target) / denominator
+        else:
+            if min_val == max_val:
+                score = 1
+            elif param.rescaling == "max":
+                score = abs((tid_metric - min_val) / denominator)
+            elif param.rescaling == "min":
+                score = abs(1 - (tid_metric - min_val) / denominator)
+
+        score *= param.multiplier
+        return round(score, 2)
+
+    @classmethod
+    def _get_param_metrics(cls, transcripts: dict, all_metrics: dict, param: str,
+                           param_conf: Union[MinMaxScore, TargetScore]) -> (dict, dict):
+        """Private class method to retrieve all the values for a particular metric ("param")
+        for all transcripts in a locus.
+        It returns a dictionary (indexed by tid) of metric values ('metrics') as well as
+        a potentially updated dictionary of all metrics.
+        If a transcript metric does *not* pass the muster, it will be absent from the first
+        dictionary."""
+        param_metrics = dict()
+        filter_metric = param_conf.filter.metric if param_conf.filter is not None else None
+        same_metric = (filter_metric is None or filter_metric == param)
+        for tid, transcript in transcripts.items():
+            param_metrics[tid], all_metrics = cls._get_metric_for_tid(all_metrics, tid, transcript, param)
+            if param_conf.filter is not None:
+                if not same_metric:
+                    metric_to_evaluate, all_metrics = cls._get_metric_for_tid(all_metrics, tid, transcript,
+                                                                              filter_metric)
+                else:
+                    metric_to_evaluate = param_metrics[tid]
+                if not cls.evaluate(metric_to_evaluate, param_conf.filter):
+                    del param_metrics[tid]
+        return param_metrics, all_metrics
 
     def _calculate_score(self, param):
         """
@@ -1436,155 +1547,52 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         :return:
         """
 
+        if len(self.transcripts) == 0:
+            self.logger.debug(f"No transcripts in {self.id}. Returning.")
+            self.scores = dict()
+            return
+
         rescaling = self.configuration.scoring.scoring[param].rescaling
-        use_raw = self.configuration.scoring.scoring[param].use_raw
-        multiplier = self.configuration.scoring.scoring[param].multiplier
+        param_conf = self.configuration.scoring.scoring[param]
+        use_raw = self._check_usable_raw(next(iter(self.transcripts.values())),
+                                         param, self.configuration.scoring.scoring[param].use_raw,
+                                         rescaling, self.logger)
 
-        metrics = dict()
-        for tid, transcript in self.transcripts.items():
-            try:
-                if tid not in self._metrics and transcript.alias in self._metrics:
-                    if param in self._metrics[transcript.alias]:
-                        metric = self._metrics[transcript.alias][param]
-                    else:
-                        metric = operator.attrgetter(param)(self.transcripts[tid])
-                        self._metrics[transcript.alias][param] = metric
-                else:
-                    if tid not in self._metrics:
-                        self._metrics[tid] = dict()
-                    if param in self._metrics[tid]:
-                        metric = self._metrics[tid][param]
-                    else:
-                        metric = operator.attrgetter(param)(self.transcripts[tid])
-                        self._metrics[tid][param] = metric
-                if isinstance(metric, (tuple, list)):
-                    metric = metric[0]
-                metrics[tid] = metric
-            except TypeError:
-                raise TypeError(param)
-            except KeyError:
-                metric = operator.attrgetter(param)(self.transcripts[tid])
-                raise KeyError((tid, param, metric))
-            except AttributeError:
-                raise AttributeError(param)
+        # Assign a score of 0 to all transcripts.
+        for tid in self.transcripts:
+            self.scores[tid] = self.scores.get(tid, dict())
+            self.scores[tid][param] = 0
 
-        for tid in self.transcripts.keys():
-            tid_metric = metrics[tid]
-            # Check the filtering expression
-            param_conf = self.configuration.scoring.scoring[param]
-            if param_conf.filter is not None:
-                if param_conf.filter.metric is None:
-                    metric_to_evaluate = tid_metric
-                else:
-                    metric_key = param_conf.filter.metric
-                    if tid not in self._metrics and self.transcripts[tid].alias in self._metrics:
-                        metric_to_evaluate = self._metrics[self.transcripts[tid].alias][metric_key]
-                    else:
-                        metric_to_evaluate = self._metrics[tid][metric_key]
-                    if "external" in metric_key:
-                        metric_to_evaluate = metric_to_evaluate[0]
+        # Create a dictionary of this particular metric, per transcript. Update the general
+        # self._metrics dictionary as well. Contextually, evaluate the metric for filters.
+        param_metrics, self._metrics = self._get_param_metrics(
+            transcripts=self.transcripts,
+            all_metrics=self._metrics,
+            param=param, param_conf=param_conf)
 
-                check = self.evaluate(metric_to_evaluate, param_conf.filter)
-                if not check:
-                    del metrics[tid]
-            else:
-                continue
+        denominator, target = self._get_denominator(self.configuration.scoring.scoring[param], use_raw, param_metrics)
 
-        if len(metrics) == 0:
-            for tid in self.transcripts:
-                self.scores[tid][param] = 0
-        else:
-            if param.startswith("external"):
-                # Take any transcript and verify
-                try:
-                    transcript = self.transcripts[list(self.transcripts.keys())[0]]
-                except (IndexError, TypeError, KeyError):
-                    raise TypeError("No transcripts left!")
-                try:
-                    metric = operator.attrgetter(param)(transcript)
-                except (IndexError, TypeError, KeyError):
-                    raise TypeError("{param} not found in transcripts of {self.id}".format(**locals()))
-                try:
-                    usable_raw = metric[1]
-                    if usable_raw not in (True, False):
-                        raise TypeError
-                except (IndexError, TypeError, KeyError):
-                    raise TypeError(
-                        "Value of {param} is {metric}. It should be a tuple with a boolean second element".format(
-                            **locals()))
-            elif param.startswith('attributes'):
-                usable_raw = use_raw
+        if len(param_metrics) > 0:
+            min_val, max_val = min(param_metrics.values()), max(param_metrics.values())
+            for tid, tid_metric in param_metrics.items():
+                self.scores[tid][param] = self._get_score_for_metric(tid_metric, use_raw, target, denominator,
+                                                                     param_conf, min_val, max_val)
 
-            else:
-                usable_raw = getattr(Transcript, param).usable_raw
-
-            assert usable_raw in (False, True)
-            if use_raw is True and usable_raw is False:
-                self.logger.warning("The \"%s\" metric cannot be used as a raw score for %s, switching to False",
-                                    param, self.id)
-                use_raw = False
-            if use_raw is True and rescaling == "target":
-                self.logger.warning("I cannot use a raw score for %s in %s when looking for a target. Switching to False",
-                                    param, self.id)
-                use_raw = False
-
-            if rescaling == "target":
-                target = self.configuration.scoring.scoring[param].value
-                denominator = max(abs(x - target) for x in metrics.values())
-            else:
-                target = None
-                if use_raw is True and rescaling == "max":
-                    denominator = 1
-                elif use_raw is True and rescaling == "min":
-                    denominator = -1
-                else:
-                    try:
-                        denominator = (max(metrics.values()) - min(metrics.values()))
-                    except TypeError:
-                        raise TypeError([param, metrics])
-            if denominator == 0:
-                denominator = 1
-
-            for tid in self.transcripts.keys():
-                score = 0
-                if tid in metrics:
-                    tid_metric = metrics[tid]
-                    if use_raw is True:
-                        if not isinstance(tid_metric, (float, int)) and 0 <= tid_metric <= 1:
-                            error = ValueError(
-                                "Only scores with values between 0 and 1 can be used raw. Please recheck your values.")
-                            self.logger.exception(error)
-                            raise error
-                        score = tid_metric / denominator
-                    elif rescaling == "target":
-                        score = 1 - abs(tid_metric - target) / denominator
-                    else:
-                        if min(metrics.values()) == max(metrics.values()):
-                            score = 1
-                        elif rescaling == "max":
-                            score = abs((tid_metric - min(metrics.values())) / denominator)
-                        elif rescaling == "min":
-                            score = abs(1 - (tid_metric - min(metrics.values())) / denominator)
-
-                score *= multiplier
-                self.scores[tid][param] = round(score, 2)
-
-        # This MUST be true
         debug = self.configuration.log_settings.log_level == "DEBUG"
-        if self.configuration.scoring.scoring[param].filter is None and max(
-                [self.scores[tid][param] for tid in self.transcripts.keys()]) == 0 and debug:
-            message = """All transcripts have a score of 0 for {} in {}. This is an error!
-Metrics: {}
-Scores: {}
-Scoring configuration: {}
-""".format(param, self.id, metrics.items(),
-           dict((tid, self.scores[tid][param]) for tid in self.transcripts.keys()),
-           self.configuration.scoring.scoring[param],)
+        max_score = max([self.scores[tid][param] for tid in self.scores])
+        if debug and self.configuration.scoring.scoring[param].filter is None and max_score == 0:
+            current_scores = dict((tid, self.scores[tid][param]) for tid in self.transcripts.keys())
+            param_conf = self.configuration.scoring.scoring[param]
+            message = f"""All transcripts have a score of 0 for {param} in {self.id}. This is an error!
+Metrics: {param_metrics.items()}
+Scores: {current_scores}
+Scoring configuration: {param_conf}
+"""
             if rescaling == "target":
                 target = self.configuration.scoring.scoring[param].value
                 message += f"Denominator: {denominator}\n"
-                message += f"Formula for denominator: max(abs(x - {target}) for x in {metrics.values()})\n"
-                for tid, tid_metric in metrics.items():
+                message += f"Formula for denominator: max(abs(x - {target}) for x in {param_metrics.values()})\n"
+                for tid, tid_metric in param_metrics.items():
                     message += f"Formula for {tid}:\t1 - abs({tid_metric} - {target}) / {denominator}\n"
             self.logger.debug(message)
 

@@ -13,12 +13,13 @@ import logging
 from collections import namedtuple
 from copy import deepcopy
 
+import io
 import marshmallow
 import pkg_resources
+import pytest
 from numpy import arange
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-
 from Mikado._transcripts.scoring_configuration import NumBoolEqualityFilter, ScoringFile, SizeFilter, RangeFilter, \
     InclusionFilter, MinMaxScore, TargetScore
 from Mikado._transcripts.transcript_base import Metric
@@ -112,6 +113,114 @@ class ExcludedTester(unittest.TestCase):
             name="excluded_transcripts",
             chrom=excluded.chrom, start=26603003, end=26612891, strand="-",
             transcripts="AT5G66650.1,AT5G66670.1"))
+
+
+class SuperlocusTester(unittest.TestCase):
+
+    def test_find_lost_transcripts(self):
+        conf = MikadoConfiguration()
+        # With this scoring, we are giving a score of 10 to transcripts with a CDS and a cDNA length >= 300.
+        # We are giving a negative score to any transcript shorter than 300 bps, coding or not
+        conf.scoring.scoring = {
+            "cdna_length": MinMaxScore(rescaling="min", multiplier=-5,
+                                       filter=SizeFilter(value=300, operator="le")),
+            "combined_cds_length": MinMaxScore(rescaling="max", multiplier=10,
+                                               filter=SizeFilter(value=300, operator="ge"))
+        }
+        conf.scoring.requirements.expression = ["cdna_length"]
+        conf.scoring.requirements.parameters = {"cdna_length": SizeFilter(value=1, operator="ge")}
+        conf.scoring.requirements._check_my_requirements()
+
+        conf.scoring.cds_requirements.expression = ["cdna_length"]
+        conf.scoring.cds_requirements.parameters = {"cdna_length": SizeFilter(value=1, operator="ge")}
+        conf.scoring.cds_requirements._check_my_requirements()
+
+        conf.pick.clustering.flank = 500
+
+        t1 = Transcript(configuration=conf)
+        t1.chrom, t1.start, t1.end, t1.strand, t1.id = "Chr1", 1101, 2000, "+", "valid"
+        t1.add_exons([(1101, 1500), (1601, 2000)])
+        t1.add_exons([(1201, 1500), (1601, 1900)], features="CDS")
+        t1.finalize()
+        self.assertGreater(t1.cdna_length, 300)
+        self.assertGreater(t1.combined_cds_length, 300)
+
+        t2 = Transcript(configuration=conf)
+        t2.chrom, t2.start, t2.end, t2.strand, t2.id = "Chr1", 700, 900, "+", "invalid.1"
+        t2.add_exons([(700, 900)])
+        t2.finalize()
+
+        t3 = Transcript(configuration=conf)
+        t3.chrom, t3.start, t3.end, t3.strand, t3.id = "Chr1", 2100, 2310, "+", "invalid.2"
+        t3.add_exons([(2100, 2310)])
+        t3.add_exons([(2100, 2310)], features="CDS")
+        t3.finalize()
+
+        logger = create_default_logger("test_find_lost_transcripts")
+        sl = Superlocus(t1, configuration=conf, flank=conf.pick.clustering.flank, logger=logger)
+        sl.add_transcript_to_locus(t2)
+        sl.add_transcript_to_locus(t3)
+        self.assertTrue(sorted(sl.transcripts.keys()), sorted([t1.id, t2.id, t3.id]))
+        sl.filter_and_calculate_scores()
+        self.assertTrue(sorted(sl.transcripts.keys()), sorted([t1.id, t2.id, t3.id]))
+        self.assertGreater(sl.scores[t1.id]["score"], 0, sl.scores[t1.id])
+        self.assertLessEqual(sl.scores[t2.id]["score"], 0)
+        self.assertLessEqual(sl.scores[t3.id]["score"], 0)
+
+        locus = Locus(t1)
+        sl.loci[locus.id] = locus
+        sl._find_lost_transcripts()
+        self.assertEqual(sl.lost_transcripts, dict())
+        sl.configuration.pick.clustering.purge = False
+        sl.logger.setLevel("DEBUG")
+        sl._find_lost_transcripts()
+        self.assertEqual(sorted(list(sl.lost_transcripts.keys())), sorted([t2.id, t3.id]))
+        sl.loci = dict()
+        sl.configuration.pick.clustering.purge = True
+        sl.define_loci()
+        self.assertEqual(len(sl.loci), 1)
+        sl = Superlocus(t1, configuration=conf, flank=conf.pick.clustering.flank, logger=logger)
+        sl.add_transcript_to_locus(t2)
+        sl.add_transcript_to_locus(t3)
+        sl.logger.setLevel("DEBUG")
+        sl.configuration.pick.clustering.purge = False
+        sl.define_loci()
+        self.assertEqual(len(sl.loci), 3)
+
+    def test_sl_is_intersecting(self):
+        
+        t1 = Transcript()
+        t1.chrom, t1.start, t1.end, t1.strand, t1.id = "Chr1", 1101, 2000, "+", "multi.1"
+        t1.add_exons([(1101, 1500), (1601, 2000)])
+        t1.add_exons([(1201, 1500), (1601, 1900)], features="CDS")
+        t1.finalize()
+
+        t2 = Transcript()
+        t2.chrom, t2.start, t2.end, t2.strand, t2.id = "Chr1", 1001, 2200, "+", "multi.2"
+        t2.add_exons([(1001, 1500), (1601, 2200)])
+        t2.add_exons([(1201, 1500), (1601, 1900)], features="CDS")
+        t2.finalize()
+
+        t3 = Transcript()
+        t3.chrom, t3.start, t3.end, t3.strand, t3.id = "Chr1", 901, 2200, "+", "multi.3"
+        t3.add_exons([(901, 1500), (1601, 2200)])
+        t3.finalize()
+        self.assertEqual(t3.selected_cds_introns, set())
+
+        t4 = Transcript()
+        t4.chrom, t4.start, t4.end, t4.strand, t4.id = "Chr1", 901, 2700, "+", "multi.4"
+        t4.add_exons([(901, 1500), (1601, 2100), (2201, 2700)])
+        t4.add_exons([(1801, 2100), (2201, 2500)], features="CDS")
+        t4.finalize()
+        self.assertEqual(t4.selected_cds_introns, {(2101, 2200)}, (t4.selected_cds_introns, t4.is_coding))
+
+        for prod in itertools.chain(itertools.combinations([t1, t2, t3], 2), [(t3, t4)]):
+            self.assertTrue(Superlocus.is_intersecting(*prod, cds_only=False))
+            self.assertTrue(Superlocus.is_intersecting(*prod, cds_only=True))
+
+        for prod in [(t1, t4), (t2, t4)]:
+            self.assertTrue(Superlocus.is_intersecting(*prod, cds_only=False))
+            self.assertFalse(Superlocus.is_intersecting(*prod, cds_only=True))
 
 
 class RefGeneTester(unittest.TestCase):
@@ -238,6 +347,10 @@ class RefGeneTester(unittest.TestCase):
 
 
 class AbstractLocusTester(unittest.TestCase):
+
+    @pytest.fixture(autouse=True)
+    def inject_fixtures(self, caplog):
+        self._caplog = caplog
 
     def setUp(self):
         gff_transcript1 = """Chr1\tfoo\ttranscript\t101\t400\t.\t+\t.\tID=t0
@@ -685,7 +798,6 @@ class AbstractLocusTester(unittest.TestCase):
                                                                            "external.tpm", param_conf)
         self.assertEqual(param_metrics, {t1.id: t1.external_scores.tpm[0]})
 
-
     def test_score(self):
         t = Transcript()
         t.chrom, t.start, t.end, t.id, t.score = "Chr1", 101, 1000, "foo", None
@@ -877,6 +989,33 @@ class AbstractLocusTester(unittest.TestCase):
         for obj in [Superlocus, Locus, Sublocus, Monosublocus, MonosublocusHolder]:
             with self.assertRaises(ValueError):
                 obj.evaluate(10, mock)
+
+    def test_calculate_metrics(self):
+        logger = create_default_logger("test_calculate_metrics", level="DEBUG")
+        stream = io.StringIO()
+        logger.addHandler(logging.StreamHandler(stream))
+        for locus_class in [Locus, Sublocus, Superlocus, Monosublocus]:
+            locus = locus_class(self.transcript1, logger=logger)
+            self.assertFalse(locus.metrics_calculated)
+            with self.assertLogs(logger, level="DEBUG"):
+                locus.calculate_metrics(self.transcript1.id)
+            self.assertFalse(locus.metrics_calculated)
+            _ = stream.getvalue()
+            with self._caplog.at_level(logging.DEBUG, logger=logger.name):
+                locus.get_metrics()
+            self.assertGreater(len(stream.getvalue()), 0, self._caplog.text)
+            self._caplog.clear()
+            self.assertTrue(locus.metrics_calculated)
+            stream.close()
+            locus.logger.removeHandler(stream)
+            stream = io.StringIO()
+            locus.logger.addHandler(logging.StreamHandler(stream))
+            with self._caplog.at_level(logging.DEBUG, logger=logger.name) as cmo:
+                locus.get_metrics()
+            logged = stream.getvalue()
+            self.assertEqual(len(logged), 0, logged)
+            self._caplog.clear()
+        stream.close()
 
     def test_in_locus(self):
 
@@ -2828,7 +2967,7 @@ Chr1	100	2682	ID=test_3;coding=True;phase=0	0	+	497	2474	0	7	234,201,41,164,106,
         transcripts = [Transcript(bed) for bed in beds]
         [transcript.finalize() for transcript in transcripts]
 
-        sstart = 0  # min(_.start for _ in transcripts)
+        sstart = 0
         for transcript in transcripts:
             print(transcript.id, end="\t")
             print(transcript.start - sstart, transcript.end - sstart, transcript.combined_cds_start - sstart,

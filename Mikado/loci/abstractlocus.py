@@ -1145,12 +1145,8 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             return
 
         self.logger.debug("Calculating metrics for %s", tid)
-        # The transcript must be finalized before we can calculate the score.
-
-        if len(self.locus_verified_introns) == 0 and self.transcripts[tid].verified_introns_num > 0:
-            raise ValueError("Locus {} has 0 verified introns, but its transcript {} has {}!".format(
-                self.id, tid, len(self.transcripts[tid].verified_introns)))
-
+        self.transcripts[tid].finalize()
+        assert (self.transcripts[tid].verified_introns_num <= len(self.locus_verified_introns))
         if len(self.locus_verified_introns) > 0:
             verified = len(
                 set.intersection(self.transcripts[tid].verified_introns,
@@ -1160,9 +1156,6 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             self.transcripts[tid].proportion_verified_introns_inlocus = fraction
         else:
             self.transcripts[tid].proportion_verified_introns_inlocus = 1
-
-        assert (not (len(self.locus_verified_introns) and self.transcripts[tid].verified_introns_num > 0) or
-                (self.transcripts[tid].proportion_verified_introns_inlocus > 0))
 
         _ = len(set.intersection(self.exons, self.transcripts[tid].exons))
         fraction = _ / len(self.exons)
@@ -1368,10 +1361,8 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                                   tid)
                 self.transcripts[tid].score = 0
             else:
-                try:
-                    self.transcripts[tid].score = sum(self.scores[tid].values())
-                except TypeError:
-                    raise TypeError(list(self.scores[tid].items()))
+                self.transcripts[tid].score = sum(self.scores[tid].values())
+
                 if self.transcripts[tid].score <= 0:
                     self.logger.debug("Excluding %s as it has a score <= 0", tid)
                     self.transcripts[tid].score = 0
@@ -1384,6 +1375,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                 assert self.transcripts[tid].score == sum(self.scores[tid].values()), (
                     tid, self.transcripts[tid].score, sum(self.scores[tid].values())
                 )
+            self.logger.debug(f"Assigning a score of {self.transcripts[tid].score} to {tid}")
             self.scores[tid]["score"] = self.transcripts[tid].score
 
         self.scores_calculated = True
@@ -1401,7 +1393,6 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         beginning = len(self.transcripts)
         while True:
             not_passing = self._check_not_passing(previous_not_passing=previous_not_passing)
-
             if len(not_passing) == 0:
                 self.metrics_calculated = True
                 return
@@ -1416,6 +1407,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                     self.logger.debug("Excluding %s from %s because of failed requirements", tid, self.id)
                     self._excluded_transcripts[tid] = self.transcripts[tid]
                     self.remove_transcript_from_locus(tid)
+                    assert self.metrics_calculated is False
 
             assert self.purge or (not self.purge and len(self.transcripts) == beginning)
 
@@ -1557,6 +1549,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             self.scores = dict()
             return
 
+        self.logger.debug(f"Calculating the score for {param}")
         rescaling = self.configuration.scoring.scoring[param].rescaling
         param_conf = self.configuration.scoring.scoring[param]
         use_raw = self._check_usable_raw(next(iter(self.transcripts.values())),
@@ -1575,6 +1568,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             all_metrics=self._metrics,
             param=param, param_conf=param_conf)
 
+        self.logger.debug(f"Param_metrics for {self.id}, param {param}: {param_metrics}")
         denominator, target = self._get_denominator(self.configuration.scoring.scoring[param], use_raw, param_metrics)
 
         if len(param_metrics) > 0:
@@ -1585,6 +1579,8 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
         debug = self.configuration.log_settings.log_level == "DEBUG"
         max_score = max([self.scores[tid][param] for tid in self.scores])
+        _scores = dict((tid, self.scores[tid][param]) for tid in self.scores)
+        self.logger.debug(f"Scores for {self.id}, param {param}: {_scores}")
         if debug and self.configuration.scoring.scoring[param].filter is None and max_score == 0:
             current_scores = dict((tid, self.scores[tid][param]) for tid in self.transcripts.keys())
             param_conf = self.configuration.scoring.scoring[param]

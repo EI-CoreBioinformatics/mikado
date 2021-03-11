@@ -1011,33 +1011,7 @@ class Superlocus(Abstractlocus):
                                     use_transcript_scores=self._use_transcript_scores
                                     )
             new_sublocus.logger = self.logger
-            for ttt in subl[1:]:
-                try:
-                    new_sublocus.add_transcript_to_locus(ttt)
-                except NotInLocusError as orig_exc:
-                    exc_text = """Sublocus: {0}
-                    Offending transcript:{1}
-                    In locus manual check: {2}
-                    Original exception: {3}""".format(
-                        "{0} {1}:{2}-{3} {4}".format(
-                            subl[0].id, subl[0].chrom, subl[0].start,
-                            subl[0].end, subl[0].exons),
-                        "{0} {1}:{2}-{3} {4}".format(ttt.id, ttt.chrom,
-                                                     ttt.start, ttt.end, ttt.exons),
-                        "Chrom {0} Strand {1} overlap {2}".format(
-                            new_sublocus.chrom == ttt.chrom,
-                            "{0}/{1}/{2}".format(
-                                new_sublocus.strand,
-                                ttt.strand,
-                                new_sublocus.strand == ttt.strand
-                            ),
-                            self.overlap((subl[0].start, subl[1].end),
-                                         (ttt.start, ttt.end)) > 0
-                        ),
-                        orig_exc
-                    )
-                    raise NotInLocusError(exc_text)
-
+            [new_sublocus.add_transcript_to_locus(ttt) for ttt in subl[1:]]
             new_sublocus.parent = self.id
             new_sublocus.metrics_calculated = False
             new_sublocus.get_metrics()
@@ -1160,7 +1134,7 @@ class Superlocus(Abstractlocus):
             for row in self.loci[locus].print_scores():
                 yield row
 
-    def define_loci(self, check_requirements=True, depth=0):
+    def define_loci(self, check_requirements=True):
         """This is the final method in the pipeline. It creates a container
         for all the monosubloci (an instance of the class MonosublocusHolder)
         and retrieves the loci it calculates internally."""
@@ -1187,7 +1161,7 @@ class Superlocus(Abstractlocus):
 
         loci = []
         for monoholder in self.monoholders:
-            monoholder.define_loci(purge=self.purge, check_requirements=check_requirements)
+            monoholder.define_loci(check_requirements=check_requirements)
             for locus_instance in monoholder.loci:
                 monoholder.loci[locus_instance].parent = self.id
                 loci.append(monoholder.loci[locus_instance])
@@ -1204,10 +1178,8 @@ class Superlocus(Abstractlocus):
         if self.configuration.pick.alternative_splicing.report is True:
             self.define_alternative_splicing()
 
-        self.__find_lost_transcripts()
-        loops = 0
-        while len(self.lost_transcripts) > 0 and depth < 5 and loops < 5:
-            loops += 1
+        self._find_lost_transcripts()
+        while len(self.lost_transcripts):
             new_locus = None
             for transcript in self.lost_transcripts.values():
                 if new_locus is None:
@@ -1222,7 +1194,7 @@ class Superlocus(Abstractlocus):
                 else:
                     new_locus.add_transcript_to_locus(transcript,
                                                       check_in_locus=False)
-            new_locus.define_loci(check_requirements=check_requirements, depth=depth+1)
+            new_locus.define_loci(check_requirements=check_requirements)
             self.loci.update(new_locus.loci)
             self.__lost = new_locus.lost_transcripts
 
@@ -1237,13 +1209,16 @@ class Superlocus(Abstractlocus):
 
         return
 
-    def __find_lost_transcripts(self):
+    def _find_lost_transcripts(self):
 
         """Private method to identify, after defining loci, all transcripts that are not intersecting any
         of the resulting genes and that therefore could constitute "lost" genes.
         This could happen if e.g. a valid transcript is deselected in the first stage ("sublocus") as it intersects a
         longer transcript, which will itself be subsequently deselected in comparison with another shorter one. This
         would leave the first transcript stranded.
+        WARNING: if a transcript's score has fallen at or below 0, and self.purge is False, transcripts will *not*
+        be recovered by this method. Mikado will presume that excluding them was the correct thing to do and ignore
+        them henceforth.
         """
 
         self.__lost = dict()
@@ -1282,7 +1257,8 @@ class Superlocus(Abstractlocus):
                     to_remove.add(tid)
             not_loci_transcripts = set.difference(not_loci_transcripts, to_remove)
 
-        self.__lost.update({tid: self.transcripts[tid] for tid in not_loci_transcripts})
+        self.__lost.update({tid: self.transcripts[tid] for tid in not_loci_transcripts
+                            if (self.purge is False or self.transcripts[tid].score > 0)})
 
         if len(self.__lost):
             self.logger.debug("Lost %s transcripts from %s; starting the recovery process: TIDs: %s",
@@ -1321,15 +1297,8 @@ class Superlocus(Abstractlocus):
 
         loci_cliques = dict()
         for lid, locus_instance in self.loci.items():
-            try:
-                neighbors = set(t_graph.neighbors(locus_instance.primary_transcript_id))
-            except networkx.exception.NetworkXError:
-                raise networkx.exception.NetworkXError(
-                    "{} {}".format(
-                    # locus_instance.primary_transcript.attributes["Alias"],
-                    locus_instance.primary_transcript_id,
-                    list(t_graph.nodes)
-                ))
+            assert locus_instance.primary_transcript_id in t_graph.nodes()
+            neighbors = set(t_graph.neighbors(locus_instance.primary_transcript_id))
             loci_cliques[lid] = neighbors
             self.logger.debug("Neighbours for %s: %s", lid, neighbors)
 
@@ -1548,23 +1517,22 @@ class Superlocus(Abstractlocus):
             return False  # We do not want intersection with oneself
 
         if transcript.monoexonic is False and other.monoexonic is False:
-            if cds_only is False or transcript.is_coding is False or other.is_coding is False:
-                intersection = set.intersection(transcript.introns, other.introns)
-            else:
+            if all([cds_only, transcript.is_coding, other.is_coding]):
                 intersection = set.intersection(transcript.selected_cds_introns,
                                                 other.selected_cds_introns)
-            intersecting = (len(intersection) > 0)
-
-        elif transcript.monoexonic is True and other.monoexonic is True:
-
-            if cds_only is False or transcript.is_coding is False or other.is_coding is False:
-                intersecting = (cls.overlap(
-                    (transcript.start, transcript.end),
-                    (other.start, other.end), positive=False) > 0)
             else:
+                intersection = set.intersection(transcript.introns, other.introns)
+
+            intersecting = (len(intersection) > 0)
+        elif transcript.monoexonic is True and other.monoexonic is True:
+            if all([cds_only, transcript.is_coding, other.is_coding]):
                 intersecting = (cls.overlap(
                     (transcript.selected_cds_start, transcript.selected_cds_end),
                     (other.selected_cds_start, other.selected_cds_end), positive=False) > 0)
+            else:
+                intersecting = (cls.overlap(
+                    (transcript.start, transcript.end),
+                    (other.start, other.end), positive=False) > 0)
         else:
             intersecting = False
 

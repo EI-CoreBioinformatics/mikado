@@ -4,7 +4,7 @@
 This module defines the last object to be created during the picking,
 i.e. the locus.
 """
-from typing import Union, Dict, List
+from typing import Union, Dict, List, Set
 import collections
 import itertools
 import operator
@@ -200,9 +200,9 @@ class Locus(Abstractlocus):
             iteration += 1
             self.logger.debug("Starting iteration %s", iteration)
             if _scores is None:
-                    self.metrics_calculated = False
-                    self.scores_calculated = False
-                    self.filter_and_calculate_scores(check_requirements=check_requirements)
+                self.metrics_calculated = False
+                self.scores_calculated = False
+                self.filter_and_calculate_scores(check_requirements=check_requirements)
             else:
                 pass
             with_retained = self._remove_retained_introns()
@@ -229,6 +229,14 @@ class Locus(Abstractlocus):
             else:
                 break
 
+        self._mark_padded_transcripts(original)
+        # Now that we have added the padding ... time to remove redundant alternative splicing events.
+        self.logger.debug("%s has %d transcripts (%s)", self.id, len(self.transcripts),
+                          ", ".join(list(self.transcripts.keys())))
+        self._finalized = True
+        return
+
+    def _mark_padded_transcripts(self, original):
         for tid in self.transcripts:
             # For each transcript check if they have been padded
             assert tid in original
@@ -245,12 +253,6 @@ class Locus(Abstractlocus):
                     transcript.attributes["cds_padded"] = False
                 message += "."
                 self.logger.info(message.format(**locals()))
-
-        # Now that we have added the padding ... time to remove redundant alternative splicing events.
-        self.logger.debug("%s has %d transcripts (%s)", self.id, len(self.transcripts),
-                          ", ".join(list(self.transcripts.keys())))
-        self._finalized = True
-        return
 
     def launch_padding(self):
 
@@ -277,26 +279,29 @@ class Locus(Abstractlocus):
         self.logger.debug("Recalculated metrics after padding in %s", self.id)
 
         self._not_passing = set()
-        self._check_requirements()
-        if self.primary_transcript_id in self._not_passing or set.intersection(templates, self._not_passing):
+        self._check_requirements()  # Populate self._not_passing with things that fail the requirements
+        # If we would have to remove the primary transcript we have done something wrong
+        if self.primary_transcript_id in self._not_passing or len(set.intersection(templates, self._not_passing)) > 0:
             self.logger.debug(
                 "Either the primary or some template transcript has not passed the muster. Removing, restarting.")
             if self._not_passing == {self.primary_transcript_id}:
                 self.logger.info("The primary transcript %s is invalidated by the other transcripts in the locus.\
                 Leaving only the main transcript in %s.", self.primary_transcript_id, self.id)
                 self._not_passing = set(self.transcripts.keys()) - {self.primary_transcript_id}
-            # Templates are clearly wrong. Remove them
+            # Remove transcripts *except the primary* that do not pass the muster
             for tid in self._not_passing - {self.primary_transcript_id}:
                 self.remove_transcript_from_locus(tid)
+            # Restore the *non-failed* transcripts *and* the primary transcript to their original state
             for tid in set(backup.keys()) - (self._not_passing - {self.primary_transcript_id}):
-                self.logger.debug("Swapping the old transcript for %s", tid)
                 self._swap_transcript(self.transcripts[tid], backup[tid])
             self.metrics_calculated = False
             self.scores_calculated = False
             self.filter_and_calculate_scores()
+            # Signal to the master function that we have to redo the cycle
             failed = True
             return failed
 
+        # Order the transcripts by score. The primary is *not* in this list
         order = sorted([(tid, self.transcripts[tid].score) for tid in self.transcripts
                         if tid != self.primary_transcript_id],
                        key=operator.itemgetter(1), reverse=True)
@@ -321,9 +326,9 @@ class Locus(Abstractlocus):
                 removed.add(tid)
 
         removed.update(self._remove_retained_introns())
+
         # Now let us check whether we have removed any template transcript.
         # If we have, remove the offending ones and restart
-
         if len(set.intersection(set.union(set(templates), {self.primary_transcript_id}), removed)) > 0:
             self.logger.debug("Removed: %s; Templates: %s; Primary: %s", ",".join(removed), ",".join(templates),
                               self.primary_transcript_id)
@@ -338,7 +343,7 @@ class Locus(Abstractlocus):
 
         return failed
 
-    def _remove_retained_introns(self):
+    def _remove_retained_introns(self) -> Set[str]:
         """Method to remove from the locus any transcript that has retained introns and/or their CDS disrupted by
         a retained intron event."""
 
@@ -351,15 +356,14 @@ class Locus(Abstractlocus):
             for tid, transcript in self.transcripts.items():
                 if tid == self.primary_transcript_id:
                     continue
+                # This function will *only* modify the transcript instances, specifically *only* the
+                # "cds_disrupted_by_ri" and "retained_introns_num" properties
                 self.find_retained_introns(transcript)
                 self.transcripts[tid].attributes["retained_intron"] = (transcript.retained_intron_num > 0)
                 if transcript.retained_intron_num > 0:
                     retained_introns.add(tid)
+                assert transcript.cds_disrupted_by_ri is False or transcript.retained_intron_num > 0
                 if transcript.cds_disrupted_by_ri is True:
-                    if transcript.retained_intron_num <= 0:
-                        raise AssertionError(
-                            "Transcript {transcript.id} is marked as having its CDS disrupted by a retained intron event, yet \
-it is marked as having 0 retained introns. This is an error.".format(transcript=transcript))
                     cds_disrupted.add(tid)
             if max(len(retained_introns), len(cds_disrupted)) == 0:
                 break

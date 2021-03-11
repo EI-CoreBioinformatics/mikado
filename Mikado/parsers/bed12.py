@@ -27,7 +27,6 @@ import multiprocessing as mp
 import msgpack
 import logging
 import logging.handlers as logging_handlers
-
 from ..utilities import to_bool
 from ..utilities.log_utils import create_null_logger
 import pyfaidx
@@ -38,7 +37,6 @@ import pprint as pp
 from Bio.Data import IUPACData
 
 
-backup_valid_letters = set(_ambiguous_dna_letters.upper() + _ambiguous_rna_letters.upper())
 codons = copy.deepcopy(CodonTable.ambiguous_dna_by_id[1]._codon_table)
 codons.start_codons = ["ATG"]
 standard = CodonTable.AmbiguousCodonTable(codons,
@@ -48,6 +46,7 @@ standard = CodonTable.AmbiguousCodonTable(codons,
                                           IUPACData.extended_protein_values)
 assert standard.start_codons == ["ATG"]
 assert CodonTable.ambiguous_dna_by_id[1].start_codons != ["ATG"]
+CodonTable.ambiguous_dna_by_id[0] = standard
 
 
 @functools.lru_cache(typed=True, maxsize=2**10)
@@ -431,10 +430,7 @@ class BED12:
             self.__table = standard
             self.__table_index = 0
         elif isinstance(table, int):
-            if table == 0:
-                self.__table = standard
-            else:
-                self.__table = CodonTable.ambiguous_dna_by_id[table]
+            self.__table = CodonTable.ambiguous_dna_by_id[table]
             self.__table_index = 0
         elif isinstance(table, str):
             self.__table = CodonTable.ambiguous_dna_by_name[table]

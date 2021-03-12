@@ -527,7 +527,7 @@ class PrepareCheck(unittest.TestCase):
                     args.procs = 1
                     args.list = None
                     args.gffs = None
-                    args.strand_specific_assemblies = None
+                    args.strand_specific_assemblies = []
                     args.labels = None
                     args.configuration = self.conf
                     args.exclude_redundant = b
@@ -538,6 +538,8 @@ class PrepareCheck(unittest.TestCase):
                     args.log = "prepare.log"
                     self.logger.setLevel("DEBUG")
                     assert os.path.exists(folder)
+                    self.assertEqual(args.strand_specific_assemblies, [])
+                    self.assertEqual(args.configuration.prepare.files.strand_specific_assemblies, [])
                     args, mikado_configuration, _logger = prepare_setup(args)
                     self.assertIsNotNone(mikado_configuration)
                     # self.assertEqual(args.output_dir, folder)
@@ -2427,6 +2429,7 @@ class SerialiseChecker(unittest.TestCase):
                         args.log = "{}_{}.log".format(name, proc)
                         args.xml = blast
                         args.procs = proc
+                        args.start_adjustment = True
                         serialise(args)
                         dbs[name][proc] = os.path.join(test_xml_vs_tsv_folder, args.db)
                         logged = [_.rstrip() for _ in open(os.path.join(test_xml_vs_tsv_folder, args.log))]

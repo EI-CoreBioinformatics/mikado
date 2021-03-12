@@ -360,6 +360,11 @@ def perform_check(keys, shelve_names, mikado_config: MikadoConfiguration, logger
 row_columns = ["chrom", "start", "end", "strand", "tid", "write_start", "write_length", "shelf"]
 
 
+def _get_strand_specific_assemblies_boolean_vector(mikado_config):
+    return [(member in mikado_config.prepare.files.strand_specific_assemblies)
+            for member in mikado_config.prepare.files.gff]
+
+
 def _load_exon_lines_single_thread(mikado_config, shelve_names, logger, min_length, strip_cds, max_intron):
 
     logger.info("Starting to load lines from %d files (single-threaded)",
@@ -373,7 +378,7 @@ def _load_exon_lines_single_thread(mikado_config, shelve_names, logger, min_leng
     to_do = list(zip(
             shelve_names,
             mikado_config.prepare.files.labels,
-            mikado_config.prepare.files.strand_specific_assemblies,
+            _get_strand_specific_assemblies_boolean_vector(mikado_config),
             mikado_config.prepare.files.reference,
             mikado_config.prepare.files.exclude_redundant,
             mikado_config.prepare.files.strip_cds,
@@ -384,7 +389,7 @@ def _load_exon_lines_single_thread(mikado_config, shelve_names, logger, min_leng
             (
                 shelve_names,
                 mikado_config.prepare.files.labels,
-                mikado_config.prepare.files.strand_specific_assemblies,
+                _get_strand_specific_assemblies_boolean_vector(mikado_config),
                 mikado_config.prepare.files.reference,
                 mikado_config.prepare.files.exclude_redundant,
                 mikado_config.prepare.files.strip_cds,
@@ -459,7 +464,7 @@ def _load_exon_lines_multi(mikado_config, shelve_names, logger, min_length, stri
                       exclude_redundant, file_strip_cds, gff_name) in enumerate(zip(
             shelve_names,
             mikado_config.prepare.files.labels,
-            mikado_config.prepare.files.strand_specific_assemblies,
+            _get_strand_specific_assemblies_boolean_vector(mikado_config),
             mikado_config.prepare.files.reference,
             mikado_config.prepare.files.exclude_redundant,
             mikado_config.prepare.files.strip_cds,
@@ -581,12 +586,7 @@ def prepare(mikado_config: MikadoConfiguration, logger):
     )
 
     if mikado_config.prepare.strand_specific is True:
-        mikado_config.prepare.files.strand_specific_assemblies = [True] * len(
-            mikado_config.prepare.files.gff)
-    else:
-        mikado_config.prepare.files.strand_specific_assemblies = [
-            (member in mikado_config.prepare.files.strand_specific_assemblies)
-            for member in mikado_config.prepare.files.gff]
+        mikado_config.prepare.files.strand_specific_assemblies = mikado_config.prepare.files.gff[:]
 
     ref_len = len(mikado_config.prepare.files.reference)
     file_len = len(mikado_config.prepare.files.gff)

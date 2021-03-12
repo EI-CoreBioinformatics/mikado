@@ -6,7 +6,7 @@ import os
 import toml
 import yaml
 from pkg_resources import resource_stream
-from .configurator import create_cluster_config
+from .configurator import create_cluster_config, load_and_validate_config
 from . import print_config
 from .daijin_configuration import DaijinConfiguration
 from .._transcripts.scoring_configuration import ScoringFile
@@ -253,6 +253,8 @@ def create_daijin_config(args: Namespace, config=None, level="ERROR", piped=Fals
     config.mikado.use_prodigal = (not args.use_transdecoder)
 
     final_config = config.copy()
+
+    final_config = load_and_validate_config(final_config)
 
     if args.exe:
         with open(args.exe, "wt") as out:

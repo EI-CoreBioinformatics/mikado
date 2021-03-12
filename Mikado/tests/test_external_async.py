@@ -3,6 +3,8 @@ import itertools
 from Mikado._transcripts.scoring_configuration import MinMaxScore, SizeFilter
 from Mikado.configuration.configurator import load_and_validate_config
 from Mikado.loci import Superlocus
+from Mikado.parsers.bed12 import BED12
+from Mikado.serializers.blast_serializer import Target, Hit, Hsp
 from Mikado.serializers.external import External, ExternalSource
 from Mikado.serializers.blast_serializer.query import Query
 from Mikado.serializers.orf import Orf
@@ -195,4 +197,43 @@ class AsyncJunctionTest(unittest.TestCase):
 class AsyncOrfLoading(unittest.TestCase):
 
     def test_load_orfs(self):
-        """"""
+
+        transcript_line = 'Chr1\t100\t2000\tID=foo;coding=True;phase=0'\
+                          '\t0\t+\t300\t1850\t0\t4\t400,400,400,200\t0,500,1100,1700'
+        transcript = Transcript(transcript_line)
+        orf = transcript.orfs[0].to_transcriptomic()
+        transcript2 = transcript.copy()
+        transcript2.unfinalize()
+        transcript2.chrom = "Chr2"
+        transcript2.id = "foo.2"
+        transcript2.finalize()
+        other_orf = transcript2.orfs[0].to_transcriptomic()
+        engine = create_engine("sqlite:///:memory:")
+        db.metadata.create_all(engine)
+        SessionMaker = sessionmaker(bind=engine)
+        session = SessionMaker()
+        query = Query(transcript.id, transcript.cdna_length)
+        query2 = Query(transcript2.id, transcript2.cdna_length)
+        session.add_all([query, query2])
+        session.commit()
+        serialized_orf = Orf(orf, query.query_id)
+        self.assertEqual(serialized_orf.thick_end, orf.thick_end)
+        self.assertEqual(serialized_orf.cds_len, orf.cds_len)
+        serialized_other_orf = Orf(other_orf, query2.query_id)
+        session.add_all([serialized_orf, serialized_other_orf])
+        session.commit()
+        sup = Superlocus(transcript)
+        sup.session = session
+        sup_orfs = asyncio.run(sup.get_orfs([query.query_id]))
+        self.assertEqual(len(sup_orfs), 1)
+        self.assertIn(transcript.id, sup_orfs)
+        self.assertEqual(len(sup_orfs[transcript.id]), 1)
+        self.assertIsInstance(sup_orfs[transcript.id][0], BED12, type(sup_orfs[transcript.id][0]))
+        self.assertTrue(sup_orfs[transcript.id][0] == orf, "\n" + "\n".join(
+            [str(orf), str(sup_orfs[transcript.id][0])]))
+
+
+# TODO: Create a test for the BLAST hits/hsps
+
+class AsyncBlastTest(unittest.TestCase):
+    """Test for the functionality of loading a BLAST hit from a Superlocus object."""

@@ -10,10 +10,17 @@ Other changes:
   provided as a stream is *disabled* though.
 - Fix [#382](https://github.com/EI-CoreBioinformatics/mikado/issues/382): now Mikado can accept generic BED12 files 
   as input junctions, not just Portcullis junctions. This allows e.g. a user to provide a ***set of gene models*** 
-  in BED12 format as sources of valid junctions.  
-- Slightly increased the unit-test coverage for the locus classes, e.g. properly covering the `as_dict` and `load_dict`
-  methods. Minor bugfixes related to the introduction of these unit-tests.
+  in BED12 format as sources of valid junctions.
+- Fix [#387](https://github.com/EI-CoreBioinformatics/mikado/issues/387): now Mikado will always use a static seed, 
+  rather than generating a new one per call unless specifically instructed to do so. The old behaviour can still be 
+  replicated by either setting the `seed` parameter to `null` (ie `None`) in the configuration file, or by 
+  specifying `--random-seed` during the command invocation.
+- General increase in code unit-test coverage; in particular:  
+  - Slightly increased the unit-test coverage for the locus classes, e.g. properly covering the `as_dict` and `load_dict`
+    methods. Minor bugfixes related to the introduction of these unit-tests.
 - `Mikado.parsers.to_gff` has been renamed to `Mikado.parsers.parser_factory`.
+- The code related to the transcript padding has been moved to the submodule `Mikado.transcripts.pad`, rather than 
+  being part of the `Mikado.loci.locus` submodule.
 - Mikado will error informatively if the scoring configuration file is malformed.
 
 # Version 2.1.1

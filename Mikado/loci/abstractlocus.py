@@ -258,6 +258,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         state["transcripts"] = dict((tid, state["transcripts"][tid].as_dict()) for tid in state["transcripts"])
         assert "metrics_calculated" in state
         state["json_conf"] = dataclasses.asdict(state["json_conf"])
+        assert state["json_conf"]["seed"] is not None
         return state
 
     def load_dict(self, state: dict, load_transcripts=True, load_configuration=True):

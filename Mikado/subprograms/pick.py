@@ -133,7 +133,13 @@ def _set_conf_values_from_args(conf: Union[DaijinConfiguration, MikadoConfigurat
 
     conf.multiprocessing_method = args.start_method if args.start_method else conf.multiprocessing_method
     conf.threads = args.procs if args.procs is not None else conf.threads
-    conf.seed = args.seed if args.seed is not None else conf.seed
+    if args.random_seed is True:
+        conf.seed = None
+    elif args.seed is not None:
+        conf.seed = args.seed
+    else:
+        pass
+
     conf.pick.scoring_file = args.scoring_file if args.scoring_file is not None else conf.pick.scoring_file
 
     conf.prepare.max_intron_length = args.max_intron_length if args.max_intron_length is not None else \
@@ -402,8 +408,10 @@ multithreading apparatus. Useful for debugging purposes only.""")
                          either of the ORFs lacks a BLAST hit (but not both).
                         - permissive: like lenient, but also split when both ORFs lack BLAST hits
                         - split: split multi-orf transcripts regardless of what BLAST data is available.""")
-    parser.add_argument("--seed", type=int, default=None,
-                        help="Random seed number.")
+    seed_group = parser.add_mutually_exclusive_group()
+    seed_group.add_argument("--seed", type=int, default=None, help="Random seed number. Default: 0.")
+    seed_group.add_argument("--random-seed", action="store_true", default=False,
+                            help="Generate a new random seed number (instead of the default of 0)")
     parser.add_argument("gff", nargs="?", default=None)
     parser.set_defaults(func=pick)
     return parser

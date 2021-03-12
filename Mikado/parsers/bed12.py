@@ -34,6 +34,7 @@ import zlib
 import numpy as np
 import random
 import pprint as pp
+from math import modf
 from Bio.Data import IUPACData
 
 
@@ -46,7 +47,15 @@ standard = CodonTable.AmbiguousCodonTable(codons,
                                           IUPACData.extended_protein_values)
 assert standard.start_codons == ["ATG"]
 assert CodonTable.ambiguous_dna_by_id[1].start_codons != ["ATG"]
-CodonTable.ambiguous_dna_by_id[0] = standard
+
+ambiguous_dna_by_id = dict()
+ambiguous_dna_by_name = dict()
+for key, table in CodonTable.ambiguous_dna_by_name.items():
+    ambiguous_dna_by_name[key] = table
+
+for key, table in CodonTable.ambiguous_dna_by_id.items():
+    ambiguous_dna_by_id[key] = table
+ambiguous_dna_by_id[0] = standard
 
 
 @functools.lru_cache(typed=True, maxsize=2**10)
@@ -421,26 +430,41 @@ class BED12:
 
     @table.setter
     def table(self, table):
-        # We are going to receive a string, so we need first to convert to integer
-        try:
+        if isinstance(table, bool):  # Boolean can be considered as int so this requires special handling
+            raise ValueError(f"Invalid table specified: {table} (type {type(table)})")
+        elif table is not None and not isinstance(table, (int, float, bytes, str)):
+            raise ValueError(f"Invalid table specified: {table} (type {type(table)})")
+        elif isinstance(table, (str, bytes)):
+            table = table.decode() if isinstance(table, bytes) else table
+            if table.isdigit() is True:
+                table = int(table)
+            elif re.search(r"^[0-9]*\.[0-9]$", table):
+                table = float(table)
+                if modf(table) != 0:
+                    raise ValueError(f"Invalid table specified: {table}")
+                table = int(table)
+        elif isinstance(table, float):
+            if modf(table) != 0:
+                raise ValueError(f"Invalid table specified: {table}")
             table = int(table)
-        except (ValueError, TypeError):
-            pass
+
         if table is None:
             self.__table = standard
             self.__table_index = 0
         elif isinstance(table, int):
-            self.__table = CodonTable.ambiguous_dna_by_id[table]
-            self.__table_index = 0
+            if table not in ambiguous_dna_by_id.keys():
+                raise ValueError(f"Invalid table code specified: {table}. Available codes: "
+                                 f"{', '.join([str(_) for _ in ambiguous_dna_by_id.keys()])}")
+            self.__table = ambiguous_dna_by_id[table]
+            assert self.__table.start_codons == ["ATG"] if table == 0 else True, f"Invalid codons for table 0: " \
+                                                                                 f"{self.__table.start_codons}"
+            self.__table_index = table
         elif isinstance(table, str):
-            self.__table = CodonTable.ambiguous_dna_by_name[table]
-            self.__table_index = self.__table._codon_table.id
-        elif isinstance(table, bytes):
-            self.__table = CodonTable.ambiguous_dna_by_name[table.decode()]
-            self.__table_index = self.__table._codon_table.id
-        else:
-            raise ValueError("Invalid table: {} (type: {})".format(
-                    table, type(table)))
+            if table not in ambiguous_dna_by_name.keys():
+                raise ValueError(f"Invalid table name specified: {table}. Available table: "
+                                 f"{', '.join([str(_) for _ in ambiguous_dna_by_name.keys()])}")
+            self.__table = ambiguous_dna_by_name[table]
+            self.__table_index = ambiguous_dna_by_name[table].id
         return
 
     @parent.setter
@@ -1399,19 +1423,11 @@ the length of the *imputed* old sequence ({lold}) does not tally up with the new
             seen += block[1] - block[0] + 1
 
         # Check thick start and end are defined
-        error = ""
-        if tStart is None:
-            error += """The thick start of {self.id} ({self.chrom}:{self.start}-{self.end}) is invalid as it is outside of the defined exons.
-Thick start: {self.thick_start}
-Exons: {self.blocks}\n""".format(self=self)
 
-        if tStart is None or tEnd is None:
-            error += """The thick end of {self.id} ({self.chrom}:{self.start}-{self.end}) is invalid as it is outside of the defined exons.
-Thick end: {self.thick_end}
-Exons: {self.blocks}\n""".format(self=self)
-
-        if error:
-            raise ValueError(error)
+        assert tStart is not None and tEnd is not None, f"The thick start, thick end of {self.id} are invalid " \
+                                                        f"as they are outside of the defined exons.\nThick start: " \
+                                                        f"{self.thick_start}\nThick end: {self.thick_end}\n" \
+                                                        f"Exons: {self.blocks}"
 
         if self.strand == "+":
             bsizes = self.block_sizes[:]
@@ -1462,9 +1478,7 @@ This is invalid""".format(self=self, lbstarts=len(bstarts), lbsizes=len(bsizes),
                     transcriptomic=True,
                     lenient=lenient,
                     start_adjustment=start_adjustment)
-        if not isinstance(new, type(self)):
-            raise TypeError("The new object is of type {tnew} instead of {tself}!".format(tnew=type(new),
-                                                                                          tself=type(self)))
+        assert isinstance(new, type(self)), f"The new object is of type {type(new)} instead of {type(self)}!"
         return new
 
     @property
@@ -1570,7 +1584,7 @@ class Bed12Parser(Parser):
             else:
                 return self.gff_next()
         except (ValueError, KeyError, TypeError, UnicodeError, AttributeError, AssertionError, InvalidParsingFormat) as exc:
-            raise InvalidParsingFormat("This is not a valid BED12 file! Exception: {}".format(exc))
+            raise InvalidParsingFormat(f"This is not a valid BED12 file! Exception: {exc}")
 
     def __getstate__(self):
         state = super().__getstate__()

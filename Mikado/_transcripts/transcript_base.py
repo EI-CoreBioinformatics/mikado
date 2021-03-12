@@ -827,8 +827,8 @@ exon data is on a different chromosome, {exon_data.chrom}. \
                 new_row.thick_start = utr + 1
                 new_row.thick_end = new_row.thick_start + cds_len - 1
                 new_row.name = "{}_orf{}".format(self.tid, index)
-                new_row.block_starts = [row.thick_start]
-                new_row.block_sizes = [cds_len]
+                new_row.block_starts = [0]
+                new_row.block_sizes = [self.cdna_length]
                 new_row.phase = phase
                 # self.logger.debug(new_row)
                 new_row = BED12(new_row,
@@ -848,6 +848,10 @@ exon data is on a different chromosome, {exon_data.chrom}. \
                     raise AssertionError(exc)
 
                 yield new_row
+
+    @property
+    def orfs(self) -> List[BED12]:
+        return list(self.get_internal_orf_beds())
 
     @Metric
     def is_reference(self):

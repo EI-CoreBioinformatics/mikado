@@ -118,24 +118,16 @@ def check_and_load_scoring(configuration: Union[DaijinConfiguration, MikadoConfi
 
     try:
         configuration.load_scoring(logger=logger)
-        configuration.check()
+        configuration.check(logger=logger)
         configuration = check_db(configuration)
         if not configuration.multiprocessing_method:
             configuration.multiprocessing_method = get_start_method()
-
-    except Exception as exc:
+    except InvalidConfiguration as exc:
         logger.exception(exc)
         raise
 
-    seed = configuration.seed
-
-    if seed != 0:
-        # numpy.random.seed(seed % (2 ** 32 - 1))
-        random.seed(seed % (2 ** 32 - 1))
-    else:
-        # numpy.random.seed(None)
-        random.seed(None)
-
+    assert configuration.seed is not None
+    random.seed(configuration.seed % (2 ** 32 - 1))
     return configuration
 
 
@@ -211,10 +203,6 @@ def load_and_validate_config(raw_configuration: Union[None, MikadoConfiguration,
     except Exception as exc:
         logger.exception("Loading the configuration file failed with error:\n%s\n\n\n", exc)
         raise InvalidConfiguration("The configuration file passed is invalid. Please double check.")
-
-    if config.seed == 0 or config.seed is None:
-        config.seed = random.randint(1, 2 ** 32 - 1)
-        logger.info("Random seed: {}", config.seed)
 
     random.seed(config.seed % (2 ** 32 - 1))
 

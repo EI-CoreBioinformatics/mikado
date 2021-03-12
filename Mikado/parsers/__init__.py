@@ -74,6 +74,8 @@ def parser_factory(string, input_format=None):
                     continue
             if found:
                 break
+            else:
+                raised[test.__annot_type__] = "No valid line found."
         except InvalidParsingFormat as exc:
             raised[test.__annot_type__] = exc
             continue
@@ -83,6 +85,7 @@ def parser_factory(string, input_format=None):
     elif found:
         return test(string)
     else:
+
         raise InvalidParsingFormat(
             "Invalid file specified: {} should have been of format {}, but it could not be verified. Error:\n{}".format(
              fname if fname != "-" else "stream", input_format, raised[input_format]

@@ -1,6 +1,7 @@
 import copy
 import dataclasses
 from dataclasses import field
+import random
 from marshmallow import validate, ValidationError
 from marshmallow_dataclass import dataclass, Optional
 from .picking_config import PickConfiguration
@@ -41,8 +42,10 @@ class MikadoConfiguration:
         "required": True
     })
     seed: int = field(default=0, metadata={
-        "metadata": {"description": "Random number generator seed, to ensure reproducibility across runs"},
-        "validate": validate.Range(min=0, max=2 ** 32 - 1)
+        "metadata": {"description": "Random number generator seed, to ensure reproducibility across runs. Set to None"
+                     "('null' in YAML/JSON/TOML files) to let Mikado select a random seed every time."},
+        "validate": validate.Range(min=0, max=2 ** 32 - 1),
+        "allow_none": True, "required": True
     })
     multiprocessing_method: Optional[str] = field(default="spawn", metadata={
         "metadata": {"description": "Which method (fork, spawn, forkserver) Mikado should use for multiprocessing"},
@@ -75,11 +78,18 @@ class MikadoConfiguration:
     def copy(self):
         return copy.copy(self)
 
-    def check(self):
+    def check(self, logger=create_null_logger()):
+        if self.seed is None:
+            self.seed = random.randint(0, 2 ** 32 - 1)
+            logger.info(f"Random seed: {self.seed}")
         if self.scoring is None or not hasattr(self.scoring.requirements, "parameters"):
-            self.load_scoring()
+            self.load_scoring(logger=logger)
         self.scoring.check(minimal_orf_length=self.pick.orf_loading.minimal_orf_length)
-        self.Schema().validate(dataclasses.asdict(self))
+        errors = self.Schema().validate(dataclasses.asdict(self))
+        if len(errors) > 0:
+            exc = InvalidConfiguration(f"The configuration is invalid, please double check. Errors:\n{errors}")
+            logger.critical(exc)
+            raise exc
 
     def load_scoring(self, logger=None):
         """

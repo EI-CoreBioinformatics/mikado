@@ -289,7 +289,14 @@ def setup(args):
 
     logger.setLevel("INFO")
     logger.info("Command line: %s", " ".join(sys.argv))
-    mikado_configuration.seed = args.seed if args.seed is not None else mikado_configuration.seed
+    if args.random_seed is True:
+        mikado_configuration.seed = None
+    elif args.seed is not None:
+        mikado_configuration.seed = args.seed
+    else:
+        pass
+
+    mikado_configuration.check()
     random.seed(mikado_configuration.seed)
     logger.info("Random seed: %s", mikado_configuration.seed)
     logger.setLevel(mikado_configuration.log_settings.log_level)
@@ -449,7 +456,9 @@ or dropped (MySQL/PostGreSQL) before beginning the serialisation.""")
     generic.add_argument("db", type=str, default=None,
                          nargs='?',
                          help="Optional output database. Default: derived from configuration")
-    generic.add_argument("--seed", type=int, default=None,
-                         help="Random seed number.")
+    seed_group = parser.add_mutually_exclusive_group()
+    seed_group.add_argument("--seed", type=int, default=None, help="Random seed number. Default: 0.")
+    seed_group.add_argument("--random-seed", action="store_true", default=False,
+                            help="Generate a new random seed number (instead of the default of 0)")
     parser.set_defaults(func=serialise)
     return parser

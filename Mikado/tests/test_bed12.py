@@ -97,6 +97,27 @@ class TestTranslate(unittest.TestCase):
         if ambigouous is None:
             return  # Nothing to test
 
+    def test_set_table(self):
+        b = BED12()
+        for invalid in (True, list(), "Inexistent", b"Standard2"):
+            with self.assertRaises(ValueError):
+                b.table = invalid
+        self.assertNotIn(0, CodonTable.ambiguous_dna_by_id.keys())
+        for num in range(0, max(CodonTable.ambiguous_dna_by_id.keys()) + 10):
+            if num in CodonTable.ambiguous_dna_by_id.keys():
+                b.table = num
+                self.assertEqual(b.table, CodonTable.ambiguous_dna_by_id[num])
+            elif num == 0:
+                b.table = num
+                self.assertEqual(b.table, standard)
+            else:
+                with self.assertRaises(ValueError):
+                    b.table = num
+
+        for valid in list(CodonTable.ambiguous_dna_by_name.keys()):
+            b.table = valid
+            self.assertEqual(b.table, CodonTable.ambiguous_dna_by_name[valid])
+
 
 class Bed12GenToTrans(unittest.TestCase):
 

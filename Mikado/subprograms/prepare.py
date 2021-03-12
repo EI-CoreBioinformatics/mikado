@@ -120,8 +120,14 @@ def parse_prepare_options(args, mikado_config) -> Union[DaijinConfiguration, Mik
     mikado_config.serialise.codon_table = str(args.codon_table) if (
             getattr(args, "codon_table", None) not in (None, False, True)) else mikado_config.serialise.codon_table
 
-    mikado_config.seed = args.seed if args.seed is not None else mikado_config.seed
+    if args.random_seed is True:
+        mikado_config.seed = None
+    elif args.seed is not None:
+        mikado_config.seed = args.seed
+    else:
+        pass
 
+    mikado_config.check()
     assert isinstance(mikado_config.reference.genome, str)
     return mikado_config
 
@@ -284,8 +290,10 @@ ignoring the per-sample instructions.")
     cds_stripping.add_argument("--strip-faulty-cds", default=None, action="store_true",
                         help="Flag. If set, transcripts with an incorrect CDS will be retained but \
 with their CDS stripped. Default behaviour: the whole transcript will be considered invalid and discarded.")
-    parser.add_argument("--seed", type=int, default=None,
-                        help="Random seed number.")
+    seed_group = parser.add_mutually_exclusive_group()
+    seed_group.add_argument("--seed", type=int, default=None, help="Random seed number. Default: 0.")
+    seed_group.add_argument("--random-seed", action="store_true", default=False,
+                            help="Generate a new random seed number (instead of the default of 0)")
     parser.add_argument("gff", help="Input GFF/GTF file(s).", nargs="*")
     parser.set_defaults(func=prepare_launcher)
     return parser

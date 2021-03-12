@@ -33,7 +33,7 @@ import functools
 from collections import OrderedDict as SortedDict
 from .locus import Locus
 from .excluded import Excluded
-from typing import Union
+from typing import Union, List, Dict
 from ..utilities import Interval, IntervalTree
 from itertools import combinations
 import random
@@ -160,7 +160,6 @@ class Superlocus(Abstractlocus):
         self.engine = self.sessionmaker = self.session = None
         # Excluded object
         self.excluded = Excluded(configuration=self.configuration)
-        self.__retained_sources = set()
         self.__data_loaded = False
         self.__lost = dict()
         if transcript_instance is not None:
@@ -236,10 +235,8 @@ class Superlocus(Abstractlocus):
         self.define_subloci()
         found = dict()
         for sublocus_instance in self.subloci:
-            try:
-                sublocus_instance.source = source
-            except AttributeError:
-                raise AttributeError(sublocus_instance)
+            assert hasattr(sublocus_instance, "source"), sublocus_instance
+            sublocus_instance.source = source
             sublocus_instance.parent = new_id
             if sublocus_instance.id in found:
                 found[sublocus_instance.id] += 1
@@ -260,8 +257,7 @@ class Superlocus(Abstractlocus):
         :param level: level which we wish to print for. Can be "loci", "subloci", "monosubloci"
         :return: formatted GFF strings
         """
-        return self.__str__(print_cds=print_cds,
-                            level=level)
+        return self.__str__(print_cds=print_cds, level=level)
 
     def __str__(self, level=None, print_cds=True):
 
@@ -284,6 +280,8 @@ class Superlocus(Abstractlocus):
         if abs(self.start) == float("inf") or abs(self.start) == maxsize:
             return ''
 
+        assert level in (None, "loci", "subloci", "monosubloci"), f"Unrecognized level: {level}"
+
         superlocus_line = GffLine('')
         superlocus_line.chrom = self.chrom
         superlocus_line.feature = self.__name__
@@ -296,16 +294,10 @@ class Superlocus(Abstractlocus):
         superlocus_line.id, superlocus_line.name = new_id, self.name
         if self.approximation_level > 0:
             superlocus_line.attributes["approximation_level"] = self.approximation_level
-        if len(self.__retained_sources) > 0:
-            superlocus_line.attributes["retained_sources"] = ",".join(
-                sorted(list(self.__retained_sources))
-            )
 
         lines = []
-        if level not in (None, "loci", "subloci", "monosubloci"):
-            raise ValueError("Unrecognized level: {0}".format(level))
 
-        elif level == "loci" or (level is None and self.loci_defined is True):
+        if level == "loci" or (level is None and self.loci_defined is True):
             lines = self.__create_locus_lines(
                 superlocus_line,
                 new_id,
@@ -315,9 +307,6 @@ class Superlocus(Abstractlocus):
             lines = self.__create_monolocus_holder_lines(superlocus_line,
                                                          new_id,
                                                          print_cds=print_cds)
-            # lines = self.__create_monolocus_lines(superlocus_line,
-            #                                       new_id,
-            #                                       print_cds=print_cds)
         elif level == "subloci" or (level is None and self.monosubloci_defined is False):
             lines = self.__create_sublocus_lines(superlocus_line,
                                                  new_id,
@@ -584,17 +573,15 @@ class Superlocus(Abstractlocus):
                                                        External.query_id.in_(qids)))
         for ext in self.session.execute(baked):
             source_id, query_id, score = ext.source_id, ext.query_id, ext.score
-            if source_id not in sources or query_id not in qids:
-                continue
+            assert source_id in sources and query_id in qids
             rtype = sources[source_id].rtype
+            assert rtype in ("int", "float", "bool"), f"Invalid rtype: {rtype}"
             if rtype == "int":
                 score = int(score)
             elif rtype == "float":
                 score = float(score)
             elif rtype == "bool":
                 score = bool(int(score))
-            else:
-                raise ValueError("Invalid rtype: {}".format(sources[ext.source_id].rtype))
             external[query_ids[ext.query_id].query_name][
                 sources[ext.source_id].source] = (score, sources[ext.source_id].valid_raw)
         return external
@@ -637,7 +624,7 @@ class Superlocus(Abstractlocus):
             )
         return hits
 
-    async def get_orfs(self, qids):
+    async def get_orfs(self, qids) -> Dict[str, List]:
         orfs = collections.defaultdict(list)
         for orf in orfs_baked(self.session).params(queries=qids):
             orfs[orf.query].append(orf.as_bed12())

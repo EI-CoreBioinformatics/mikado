@@ -101,7 +101,10 @@ def create_config(args):
         args.gff = []
     config = parse_prepare_options(args, config)
 
-    config.seed = args.seed if args.seed is not None else config.seed
+    if args.random_seed is True:
+        config.seed = None
+    else:
+        config.seed = args.seed
 
     config.serialise.files.junctions = args.junctions if args.junctions is not None else \
         config.serialise.files.junctions
@@ -127,7 +130,6 @@ switch.")
 
     config.pick.output_format.report_all_external_metrics = True if args.report_all_external_metrics else \
         config.pick.output_format.report_all_external_metrics
-
 
     if args.scoring is not None:
         if args.copy_scoring is not False:
@@ -181,6 +183,8 @@ switch.")
         config.serialise.files.output_dir = args.out_dir
         config.pick.files.output_dir = args.out_dir
 
+    config.check()
+
     # Check that the configuration file is correct
     with tempfile.NamedTemporaryFile("wt", suffix=".json", delete=True) as tempcheck:
         print_config(config, tempcheck, full=args.full, output_format="json")
@@ -217,8 +221,10 @@ def configure_parser():
 
     parser = argparse.ArgumentParser(description="Configuration utility for Mikado")
     parser.add_argument("--full", action="store_true", default=False)
-    parser.add_argument("--seed", type=int, default=0,
-                        help="Random seed number.")
+    seed_group = parser.add_mutually_exclusive_group()
+    seed_group.add_argument("--seed", type=int, default=0, help="Random seed number. Default: 0.")
+    seed_group.add_argument("--random-seed", action="store_true", default=False,
+                            help="Generate a new random seed number (instead of the default of 0)")
     preparer = parser.add_argument_group("Options related to the prepare stage.")
     preparer.add_argument("--minimum-cdna-length", default=None, type=int, dest="minimum_cdna_length",
                           help="Minimum cDNA length for transcripts.")

@@ -516,6 +516,7 @@ class AbstractLocusTester(unittest.TestCase):
         self.assertIsNotNone(self.configuration.scoring, self.configuration)
         self.transcript1.configuration = self.configuration
         self.transcript2.configuration = self.configuration
+        self.assertEqual(self.transcript1.configuration.seed, self.transcript2.configuration.seed)
 
     def test_create_metrics_row(self):
 
@@ -999,6 +1000,7 @@ class AbstractLocusTester(unittest.TestCase):
 
     def test_slocus_dicts(self):
 
+        self.assertEqual(self.transcript1.configuration.seed, self.transcript2.configuration.seed)
         locus = Superlocus(self.transcript1)
         locus.add_transcript_to_locus(self.transcript2, check_in_locus=False)
         locus.subloci = [Sublocus(self.transcript1)]
@@ -1006,7 +1008,7 @@ class AbstractLocusTester(unittest.TestCase):
         locus.loci = {l.id: l}
         ml = MonosublocusHolder(Monosublocus(self.transcript1))
         locus.monoholders = [ml]
-        locus.excluded = Excluded(self.transcript2)
+        locus.excluded = Excluded(self.transcript2, configuration=locus.configuration)
         conf = locus.configuration.copy()
         _without = locus.as_dict(with_subloci=False, with_monoholders=False)
         self.assertEqual(_without["subloci"], [])
@@ -1014,9 +1016,15 @@ class AbstractLocusTester(unittest.TestCase):
         self.assertEqual(_without["excluded"], locus.excluded.as_dict())
         self.assertEqual(_without["loci"], {l.id: l.as_dict()})
         _with = locus.as_dict(with_subloci=True, with_monoholders=True)
+        self.assertIsNotNone(_with["json_conf"]["seed"])
+        self.assertEqual(_with["json_conf"]["seed"], conf.seed)
         self.assertEqual(_with["subloci"], [locus.subloci[0].as_dict()])
         self.assertEqual(_with["monoholders"], [ml.as_dict()])
-        self.assertEqual(_with["excluded"], Excluded(self.transcript2).as_dict())
+        self.assertEqual(conf.seed, locus.configuration.seed)
+        self.assertEqual(conf.seed, self.transcript2.configuration.seed)
+        excl = Excluded(self.transcript2, configuration=conf)
+        self.assertEqual(excl.configuration.seed, locus.configuration.seed)
+        self.assertEqual(_with["excluded"], Excluded(self.transcript2, configuration=conf).as_dict())
         self.assertEqual(_with["loci"], {l.id: l.as_dict()})
         self.assertIsInstance(_with["json_conf"], dict)
         # Now test the reloading
@@ -4234,11 +4242,11 @@ class PaddingTester(unittest.TestCase):
                 locus.logger = logger
                 locus.configuration.pick.alternative_splicing.ts_distance = pad_distance
                 locus.configuration.pick.alternative_splicing.ts_max_splices = max_splice
-                # locus.logger.setLevel("DEBUG")
+                locus.logger.setLevel("DEBUG")
                 locus.pad_transcripts()
                 locus.logger.setLevel("WARNING")
-
-                self.assertEqual(locus[best].start, transcripts["AT5G01030.2"].start)
+                self.assertEqual(transcripts["AT5G01030.2"].start, 9869)
+                self.assertEqual(locus[best].start, 9869)
                 self.assertIn(best, locus)
                 if max_splice < 2 or pad_distance <= 250:
                     with self.assertLogs(logger, "DEBUG") as cm:

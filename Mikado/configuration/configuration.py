@@ -97,7 +97,7 @@ class MikadoConfiguration:
             logger = create_null_logger("check_scoring")
         if self.pick.scoring_file is None:
             if self._loaded_scoring != self.pick.scoring_file:            
-                logger.debug("Resetting the scoring to its previous value")
+                logger.warning(f"Resetting the scoring to its previous value ({self._loaded_scoring})")
                 self.pick.scoring_file = self._loaded_scoring
         elif self._loaded_scoring != self.pick.scoring_file:
             logger.debug("Overwriting the scoring self using '%s' as scoring file", self.pick.scoring_file)
@@ -137,13 +137,11 @@ class MikadoConfiguration:
                         checked = ScoringFile.Schema().load(scoring)
                         checked.check(minimal_orf_length=self.pick.orf_loading.minimal_orf_length)
                         self._loaded_scoring = self.pick.scoring_file
-                        # self = check_scoring(self)
-                        # self = check_all_requirements(self)
                     except (InvalidConfiguration, ValidationError) as exc:
-                        logger.debug("Invalid option: %s", option)
-                        logger.warning(exc)
-                        continue
-                    # self.scoring = dataclasses.asdict(checked.scoring)
+                        msg = f"The configuration file {option} is invalid:\n"
+                        msg += str(exc)
+                        logger.critical(msg)
+                        raise InvalidConfiguration(msg)
                     self.scoring = checked
                     found = True
                     self.pick.scoring_file = option

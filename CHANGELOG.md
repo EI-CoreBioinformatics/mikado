@@ -13,7 +13,8 @@ Other changes:
   in BED12 format as sources of valid junctions.  
 - Slightly increased the unit-test coverage for the locus classes, e.g. properly covering the `as_dict` and `load_dict`
   methods. Minor bugfixes related to the introduction of these unit-tests.
-- `Mikado.parsers.to_gff` has been renamed to `Mikado.parsers.parser_factory`.  
+- `Mikado.parsers.to_gff` has been renamed to `Mikado.parsers.parser_factory`.
+- Mikado will error informatively if the scoring configuration file is malformed.
 
 # Version 2.1.1
 

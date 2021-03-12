@@ -99,10 +99,19 @@ class Junction(DBBASE):
         self.score = score
 
     def __str__(self):
-        return "{chrom}\t{start}\t{end}".format(
+        return "{chrom}\t{start}\t{end}\t{strand}".format(
             chrom=self.chrom,
             start=self.start,
-            end=self.end
+            end=self.end,
+            strand=self.strand
+        )
+
+    def __repr__(self):
+        return "{chrom}\t{start}\t{end}\t{strand}".format(
+            chrom=self.chrom,
+            start=self.start,
+            end=self.end,
+            strand=self.strand
         )
 
     @hybrid_method

@@ -527,9 +527,7 @@ class Superlocus(Abstractlocus):
         """
 
         if len(self.introns) == 0:
-            if self.monoexonic is False:
-                raise ValueError("%s is multiexonic but has no introns defined!",
-                                 self.id)
+            assert self.monoexonic is True, f"{self.id} is multiexonic but has no introns defined!"
             self.logger.debug("No introns for %s", self.id)
             return
 
@@ -537,10 +535,10 @@ class Superlocus(Abstractlocus):
         if not self.configuration.db_settings.db:
             return  # No data to load
 
-        ver_introns = dict(((junc.junction_start, junc.junction_end), junc.strand)
-                             for junc in junction_baked(self.session).params(
-            chrom=self.chrom, junctionStart=self.start, junctionEnd=self.end
-        ))
+        ver_introns = collections.defaultdict(set)
+        for junc in junction_baked(self.session).params(chrom=self.chrom,
+                                                        junctionStart=self.start, junctionEnd=self.end):
+            ver_introns[(junc.junction_start, junc.junction_end)].add(junc.strand)
 
         self.logger.debug("Found %d verifiable introns for %s",
                           len(ver_introns), self.id)
@@ -549,11 +547,15 @@ class Superlocus(Abstractlocus):
             self.logger.debug("Checking %s%s:%d-%d",
                               self.chrom, self.strand, intron[0], intron[1])
             if (intron[0], intron[1]) in ver_introns:
-                self.logger.debug("Verified intron %s:%d-%d",
-                                  self.chrom, intron[0], intron[1])
-                self.locus_verified_introns.add((intron[0],
-                                                 intron[1],
-                                                 ver_introns[(intron[0], intron[1])]))
+                if self.stranded is False:
+                    for strand in ver_introns[(intron[0], intron[1])]:
+                        self.locus_verified_introns.add((intron[0],
+                                                         intron[1],
+                                                         strand))
+                elif self.strand in ver_introns[(intron[0], intron[1])]:
+                    self.locus_verified_introns.add((intron[0],
+                                                     intron[1],
+                                                     self.strand))
 
     async def get_sources(self):
         if self.configuration.pick.output_format.report_all_external_metrics is True:
@@ -566,7 +568,7 @@ class Superlocus(Abstractlocus):
                             if param.startswith("external")})
             sources.update({param for param in self.configuration.scoring.cds_requirements.parameters.keys()
                             if param.startswith("external")})
-            sources.update({param for param in self.configuration.scoring.cds_requirements.parameters.keys()
+            sources.update({param for param in self.configuration.scoring.as_requirements.parameters.keys()
                             if param.startswith("external")})
             sources.update({param for param in self.configuration.scoring.scoring.keys()
                             if param.startswith("external")})

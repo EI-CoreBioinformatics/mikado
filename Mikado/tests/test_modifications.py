@@ -4,7 +4,7 @@ import itertools
 from Mikado import utilities
 from Mikado.parsers.GFF import GffLine
 from Mikado.loci import Transcript
-from ..loci.locus import Locus, expand_transcript
+from ..loci.locus import Locus, pad_transcript
 from ..parsers.bed12 import BED12
 from ..subprograms.util.trim import trim_coding, trim_noncoding
 import unittest
@@ -159,19 +159,19 @@ class TestPadding(unittest.TestCase):
         template.finalize()
         fai = pysam.FastaFile(pkg_resources.resource_filename("Mikado.tests", "chr5.fas.gz"))
 
-        new5 = expand_transcript(self.reference, self.reference.deepcopy(), None, template, fai, logger)
+        new5 = pad_transcript(self.reference, self.reference.deepcopy(), None, template, fai, logger)
         self.assertIn((26574970, 26575410), new5.exons)
         self.assertIn((26574650, 26574820), new5.exons)
         self.assertEqual(template.start, new5.start)
         self.assertEqual(self.reference.end, new5.end)
 
-        new3 = expand_transcript(self.reference, self.reference.deepcopy(), template, None, fai, logger)
+        new3 = pad_transcript(self.reference, self.reference.deepcopy(), template, None, fai, logger)
         self.assertIn((26578519, 26578725), new3.exons)
         self.assertIn((26579325, 26579700), new3.exons)
         self.assertEqual(self.reference.start, new3.start)
         self.assertEqual(template.end, new5.end)
 
-        new53 = expand_transcript(self.reference, self.reference.deepcopy(), template, template, fai, logger)
+        new53 = pad_transcript(self.reference, self.reference.deepcopy(), template, template, fai, logger)
         self.assertIn((26574970, 26575410), new53.exons)
         self.assertIn((26574650, 26574820), new53.exons)
         self.assertIn((26578519, 26578725), new53.exons)

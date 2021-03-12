@@ -4,12 +4,12 @@ from ..exceptions import InvalidTranscript
 from .transcriptchecker import TranscriptChecker
 
 
-def expand_transcript(transcript: Transcript,
-                      backup: Transcript,
-                      start_transcript: [Transcript, bool],
-                      end_transcript: [Transcript, bool],
-                      fai: pysam.libcfaidx.FastaFile,
-                      logger):
+def pad_transcript(transcript: Transcript,
+                   backup: Transcript,
+                   start_transcript: [Transcript, bool],
+                   end_transcript: [Transcript, bool],
+                   fai: pysam.libcfaidx.FastaFile,
+                   logger):
 
     """This method will enlarge the coordinates and exon structure of a transcript, given:
     :param transcript: the transcript to modify.

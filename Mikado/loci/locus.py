@@ -10,7 +10,7 @@ import itertools
 import operator
 from collections import defaultdict
 import pysam
-from ..transcripts.expansion import expand_transcript
+from ..transcripts.pad import pad_transcript
 from ..transcripts.transcript import Transcript
 from .abstractlocus import Abstractlocus
 from ..parsers.GFF import GffLine
@@ -973,12 +973,12 @@ class Locus(Abstractlocus):
                               self[tid].start,
                               __to_modify[tid][1] if not __to_modify[tid][1] else __to_modify[tid][1].end,
                               self[tid].end)
-            new_transcript = expand_transcript(backup[tid],
-                                               self.transcripts[tid],
-                                               __to_modify[tid][0],
-                                               __to_modify[tid][1],
-                                               self.fai,
-                                               self.logger)
+            new_transcript = pad_transcript(backup[tid],
+                                            self.transcripts[tid],
+                                            __to_modify[tid][0],
+                                            __to_modify[tid][1],
+                                            self.fai,
+                                            self.logger)
             if (new_transcript.start == self.transcripts[tid].end) and \
                     (new_transcript.end == self.transcripts[tid].end):
                 self.logger.debug("No expansion took place for %s!", tid)

@@ -29,7 +29,7 @@ from Mikado.parsers import GFF  # ,GTF, bed12
 from Mikado.parsers.GTF import GtfLine
 from Mikado.transcripts.transcript import Transcript
 from Mikado.loci import Superlocus, Abstractlocus, Locus, Monosublocus, MonosublocusHolder, Sublocus, Excluded
-from Mikado.loci.locus import expand_transcript
+from Mikado.loci.locus import pad_transcript
 from Mikado.transcripts.reference_gene import Gene
 from Mikado.utilities.log_utils import create_null_logger, create_default_logger
 from Mikado.utilities.overlap import overlap
@@ -4538,9 +4538,9 @@ class PaddingTester(unittest.TestCase):
                 start = template_one if case % 2 == 0 else False
                 end = template_one if case > 0 else False
 
-                expanded_one = expand_transcript(transcript,
-                                                 transcript.deepcopy(),
-                                                 start, end, self.fai, logger=logger)
+                expanded_one = pad_transcript(transcript,
+                                              transcript.deepcopy(),
+                                              start, end, self.fai, logger=logger)
                 if start:
                     self.assertEqual(expanded_one.start, template_one.start)
                 else:
@@ -4562,9 +4562,9 @@ class PaddingTester(unittest.TestCase):
                 start = template_two if case % 2 == 0 else False
                 end = template_two if case > 0 else False
 
-                expanded_one = expand_transcript(transcript,
-                                                 transcript.deepcopy(),
-                                                 start, end, self.fai, logger=logger)
+                expanded_one = pad_transcript(transcript,
+                                              transcript.deepcopy(),
+                                              start, end, self.fai, logger=logger)
                 if start:
                     self.assertEqual(expanded_one.start, template_two.start)
                 else:
@@ -4586,9 +4586,9 @@ class PaddingTester(unittest.TestCase):
                 start = template_three if case % 2 == 0 else False
                 end = template_three if case > 0 else False
 
-                expanded_one = expand_transcript(transcript,
-                                                 transcript.deepcopy(),
-                                                 start, end, self.fai, logger=logger)
+                expanded_one = pad_transcript(transcript,
+                                              transcript.deepcopy(),
+                                              start, end, self.fai, logger=logger)
                 if start:
                     self.assertEqual(expanded_one.start, start.start)
                     self.assertIn((1501, 1700), expanded_one.exons)
@@ -4622,9 +4622,9 @@ class PaddingTester(unittest.TestCase):
                 start = template_one if case % 2 == 0 else False
                 end = template_one if case > 0 else False
 
-                expanded_one = expand_transcript(transcript,
-                                                 transcript.deepcopy(),
-                                                 start, end, self.fai, logger=logger)
+                expanded_one = pad_transcript(transcript,
+                                              transcript.deepcopy(),
+                                              start, end, self.fai, logger=logger)
                 if start:
                     self.assertEqual(expanded_one.start, template_one.start)
                 else:
@@ -4646,9 +4646,9 @@ class PaddingTester(unittest.TestCase):
                 start = template_two if case % 2 == 0 else False
                 end = template_two if case > 0 else False
 
-                expanded_one = expand_transcript(transcript,
-                                                 transcript.deepcopy(),
-                                                 start, end, self.fai, logger=logger)
+                expanded_one = pad_transcript(transcript,
+                                              transcript.deepcopy(),
+                                              start, end, self.fai, logger=logger)
                 if start:
                     self.assertEqual(expanded_one.start, template_two.start)
                 else:
@@ -4670,9 +4670,9 @@ class PaddingTester(unittest.TestCase):
                 start = template_three if case % 2 == 0 else False
                 end = template_three if case > 0 else False
 
-                expanded_one = expand_transcript(transcript,
-                                                 transcript.deepcopy(),
-                                                 start, end, self.fai, logger=logger)
+                expanded_one = pad_transcript(transcript,
+                                              transcript.deepcopy(),
+                                              start, end, self.fai, logger=logger)
                 if start:
                     self.assertEqual(expanded_one.start, start.start)
                     self.assertIn((1501, 1700), expanded_one.exons)
@@ -4712,8 +4712,8 @@ class PaddingTester(unittest.TestCase):
         # Now let us expand on both ends
 
         with self.subTest():
-            expanded = expand_transcript(transcript, transcript.deepcopy(), template, template,
-                                         fai=self.fai, logger=logger)
+            expanded = pad_transcript(transcript, transcript.deepcopy(), template, template,
+                                      fai=self.fai, logger=logger)
             self.assertEqual(expanded.exons,
                              [(12751151, 12751579),
                               (12751669, 12751808), (12751895, 12752032),
@@ -4734,7 +4734,7 @@ class PaddingTester(unittest.TestCase):
         with self.subTest():
             backup = transcript.deepcopy()
             logger = create_null_logger()
-            expand_transcript(transcript, transcript.deepcopy(), template, template, self.fai, logger=logger)
+            pad_transcript(transcript, transcript.deepcopy(), template, template, self.fai, logger=logger)
             self.assertEqual(
                 transcript.exons,
                 [(99726, 100220), (100640, 102000)]
@@ -4750,7 +4750,7 @@ class PaddingTester(unittest.TestCase):
         logger = create_null_logger(level="DEBUG")
         with self.assertLogs(logger=logger, level="DEBUG") as cm:
 
-            expand_transcript(transcript, backup, None, None, self.fai, logger)
+            pad_transcript(transcript, backup, None, None, self.fai, logger)
             self.assertEqual(transcript, backup)
 
         self.assertIn("DEBUG:null:test does not need to be expanded, exiting", cm.output)
@@ -4776,7 +4776,7 @@ class PaddingTester(unittest.TestCase):
 
         logger = create_null_logger()
         with self.assertLogs(logger=logger, level="DEBUG"):
-            expand_transcript(transcript, backup, start_transcript, False, self.fai, logger)
+            pad_transcript(transcript, backup, start_transcript, False, self.fai, logger)
             self.assertNotEqual(transcript, backup)
             self.assertEqual(transcript.exons,
                              [(194741, 195337), (195406, 195511),

@@ -597,8 +597,8 @@ class Locus(Abstractlocus):
     def is_intersecting(self, *args):
         """Not implemented: See the alternative splicing definition functions.
         """
-        raise NotImplementedError("""Loci do not use this method, but rather
-        assess whether a transcript is a splicing isoform or not.""")
+        raise NotImplementedError("""Loci do not use this method, but rather assess whether a transcript is a 
+        splicing isoform or not.""")
 
     def is_putative_fragment(self):
 

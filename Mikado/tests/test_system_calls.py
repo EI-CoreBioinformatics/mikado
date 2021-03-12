@@ -18,7 +18,8 @@ import toml
 import yaml
 from Mikado.configuration.configurator import load_and_validate_config
 from Mikado.exceptions import InvalidConfiguration, InvalidParsingFormat
-from Mikado.daijin import mikado_pipeline, assemble_transcripts_pipeline
+from Mikado.daijin.mikado import mikado_pipeline
+from Mikado.daijin.assemble import assemble_transcripts_pipeline
 from Mikado.configuration import print_config, DaijinConfiguration, MikadoConfiguration
 import rapidjson as json
 from Mikado.subprograms._utils import _set_pick_mode, check_log_settings_and_create_logger

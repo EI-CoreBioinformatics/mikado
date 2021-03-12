@@ -222,6 +222,140 @@ class SuperlocusTester(unittest.TestCase):
             self.assertTrue(Superlocus.is_intersecting(*prod, cds_only=False))
             self.assertFalse(Superlocus.is_intersecting(*prod, cds_only=True))
 
+        t5 = Transcript()
+        t5.chrom, t5.start, t5.end, t5.strand, t5.id = "Chr1", 1101, 1630, "+", "mono.1"
+        t5.add_exon((1101, 1630))
+        t5.add_exon((1101, 1530), feature="CDS")
+        t5.finalize()
+
+        t6 = Transcript()
+        t6.chrom, t6.start, t6.end, t6.strand, t6.id = "Chr1", 1101, 1530, "+", "mono.2"
+        t6.add_exon((1101, 1530))
+        t6.finalize()
+
+        t7 = Transcript()
+        t7.chrom, t7.start, t7.end, t7.strand, t7.id = "Chr1", 1400, 1800, "+", "mono.3"
+        t7.add_exon((1400, 1800))
+        t7.add_exon((1591, 1800), feature="CDS")
+        t7.finalize()
+
+        t8 = Transcript()
+        t8.chrom, t8.start, t8.end, t8.strand, t8.id = "Chr1", 1801, 2110, "+", "mono.4"
+        t8.add_exon((1801, 2110))
+        t8.add_exon((1801, 2100), feature="CDS")
+        t8.finalize()
+        
+        for mono in [t5, t6, t7]:
+            self.assertFalse(Superlocus.is_intersecting(mono, t8, cds_only=False))
+            self.assertFalse(Superlocus.is_intersecting(mono, t8, cds_only=True))
+
+        for prod in itertools.combinations([t5, t6, t7], 2):
+            self.assertTrue(Superlocus.is_intersecting(*prod, cds_only=False))
+            # CDS-only is activated only when both are coding
+            if prod[0].is_coding and prod[1].is_coding:
+                self.assertFalse(Superlocus.is_intersecting(*prod, cds_only=True))
+            else:
+                self.assertTrue(Superlocus.is_intersecting(*prod, cds_only=True))
+
+        # Now check that monoexonic and multi-exonic transcripts never intersect
+        for prod in itertools.product([t1, t2, t3, t4], [t5, t6, t7, t8]):
+            self.assertFalse(Superlocus.is_intersecting(*prod, cds_only=False))
+            self.assertFalse(Superlocus.is_intersecting(*prod, cds_only=True))
+
+    def test_define_graph(self):
+        t1 = Transcript()
+        t1.chrom, t1.start, t1.end, t1.strand, t1.id = "Chr1", 1101, 2000, "+", "multi.1"
+        t1.add_exons([(1101, 1500), (1601, 2000)])
+        t1.add_exons([(1201, 1500), (1601, 1900)], features="CDS")
+        t1.finalize()
+
+        t2 = Transcript()
+        t2.chrom, t2.start, t2.end, t2.strand, t2.id = "Chr1", 1001, 2200, "+", "multi.2"
+        t2.add_exons([(1001, 1500), (1601, 2200)])
+        t2.add_exons([(1201, 1500), (1601, 1900)], features="CDS")
+        t2.finalize()
+
+        t3 = Transcript()
+        t3.chrom, t3.start, t3.end, t3.strand, t3.id = "Chr1", 901, 2200, "+", "multi.3"
+        t3.add_exons([(901, 1500), (1601, 2200)])
+        t3.finalize()
+        self.assertEqual(t3.selected_cds_introns, set())
+
+        t4 = Transcript()
+        t4.chrom, t4.start, t4.end, t4.strand, t4.id = "Chr1", 901, 2700, "+", "multi.4"
+        t4.add_exons([(901, 1500), (1601, 2100), (2201, 2700)])
+        t4.add_exons([(1801, 2100), (2201, 2500)], features="CDS")
+        t4.finalize()
+        self.assertEqual(t4.selected_cds_introns, {(2101, 2200)}, (t4.selected_cds_introns, t4.is_coding))
+
+        t5 = Transcript()
+        t5.chrom, t5.start, t5.end, t5.strand, t5.id = "Chr1", 1101, 1630, "+", "mono.1"
+        t5.add_exon((1101, 1630))
+        t5.add_exon((1101, 1530), feature="CDS")
+        t5.finalize()
+
+        t6 = Transcript()
+        t6.chrom, t6.start, t6.end, t6.strand, t6.id = "Chr1", 1101, 1530, "+", "mono.2"
+        t6.add_exon((1101, 1530))
+        t6.finalize()
+
+        t7 = Transcript()
+        t7.chrom, t7.start, t7.end, t7.strand, t7.id = "Chr1", 1400, 1800, "+", "mono.3"
+        t7.add_exon((1400, 1800))
+        t7.add_exon((1591, 1800), feature="CDS")
+        t7.finalize()
+
+        t8 = Transcript()
+        t8.chrom, t8.start, t8.end, t8.strand, t8.id = "Chr1", 1801, 2110, "+", "mono.4"
+        t8.add_exon((1801, 2110))
+        t8.add_exon((1801, 2100), feature="CDS")
+        t8.finalize()
+
+        # This is monoexonic for the CDS *but* Multiexonic for the cDNA
+        t9 = Transcript()
+        t9.chrom, t9.start, t9.end, t9.strand, t9.id = "Chr1", 1121, 2000, "+", "mono_multi"
+        t9.add_exons([(1121, 1500), (1601, 2000)])
+        t9.add_exons([(1121, 1490)], features="CDS")
+        t9.finalize()
+        self.assertTrue(t9.is_coding)
+
+        sl = Superlocus(t1, flank=2000)
+        sl.configuration.pick.clustering.cds_only = False
+        [sl.add_transcript_to_locus(t) for t in [t2, t3, t4, t5, t6, t7, t8, t9]]
+        self.assertEqual(len(sl.transcripts), 9)
+        graph = sl.define_graph()
+        multi_ids = [t.id for t in [t1, t2, t3, t4, t9]]
+        mono_ids = [t.id for t in [t5, t6, t7, t8]]
+        self.assertTrue(all(edge in graph.edges() for edge in itertools.combinations(multi_ids, 2)))
+        self.assertTrue(all(edge in graph.edges() for edge in itertools.combinations(mono_ids[:3], 2)))
+        self.assertTrue(not any(edge in graph.edges() for edge in itertools.product(mono_ids[:3], [t8.id])))
+        self.assertTrue(not any(edge in graph.edges() for edge in itertools.product(multi_ids,
+                                                                                    mono_ids)))
+        sl.configuration.pick.clustering.cds_only = True
+        graph = sl.define_graph()
+        self.assertFalse(all(edge in graph.edges() for edge in itertools.combinations(multi_ids, 2)))
+
+        for comb in itertools.combinations(multi_ids, 2):
+            if set.issubset(set(comb), {t1.id, t2.id, t3.id}):
+                self.assertIn(comb, graph.edges())
+            else:
+                self.assertNotIn(comb, graph.edges())
+
+        for comb in itertools.combinations(mono_ids, 2):
+            if t5.id in comb and t6.id in comb:
+                self.assertIn(comb, graph.edges())
+            else:
+                self.assertNotIn(comb, graph.edges())
+
+        for comb in itertools.product(mono_ids, [t9.id]):
+            if set.issubset(set(comb), {t5.id, t6.id, t9.id}):
+                self.assertIn(comb, graph.edges())
+            else:
+                self.assertNotIn(comb, graph.edges())
+
+        self.assertTrue(not any(edge in graph.edges() for edge in itertools.product([t.id for t in [t1, t2, t3, t4]],
+                                                                                    [t9.id] + mono_ids)))
+
 
 class RefGeneTester(unittest.TestCase):
 

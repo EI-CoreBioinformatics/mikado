@@ -51,14 +51,3 @@ cdef long c_overlap(long start, long end, long ostart, long oend, long flank, bi
         return 0
     else:
         return result
-
-# def overlap_positive(int start, int end, int ostart, int oend, int flank):
-#
-#    """This function quickly computes the overlap between two
-#    ranges, with an optional flank, and a minimum result of 0."""
-#
-#    cdef int result = overlap(start, end, ostart, oend, flank)
-#    if result < 0:
-#        return 0
-#    else:
-#        return result

@@ -1,9 +1,10 @@
 import argparse
 import sys
-
-from ..import create_default_logger
+from ..utilities.log_utils import create_default_logger
 from ..configuration.daijin_configurator import create_daijin_config
-from ..daijin import mikado_pipeline, create_parser, assemble_transcripts_pipeline, create_config_parser
+from .mikado import mikado_pipeline
+from .assemble import assemble_transcripts_pipeline
+from . import create_parser, create_config_parser
 
 
 def main(call_args=None):

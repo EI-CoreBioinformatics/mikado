@@ -7,7 +7,7 @@ from .picking_config import PickConfiguration
 from .prepare_config import PrepareConfiguration
 from .serialise_config import SerialiseConfiguration
 from ..utilities.dbutils import DBConfiguration
-from ..utilities.log_utils import LoggingConfiguration, create_null_logger
+from ..utilities.log_utils import LoggingConfiguration, create_null_logger, create_default_logger
 from Mikado._transcripts.scoring_configuration import ScoringFile
 import os
 import yaml
@@ -94,11 +94,11 @@ class MikadoConfiguration:
         """
 
         if logger is None:
-            logger = create_null_logger("check_scoring")
+            logger = create_default_logger("check_scoring", level="WARNING")
         if self.pick.scoring_file is None:
             if self._loaded_scoring != self.pick.scoring_file:            
                 logger.warning(f"Resetting the scoring to its previous value ({self._loaded_scoring})")
-                self.pick.scoring_file = self._loaded_scoring
+                self.pick.scoring_file = self._loaded_scoring = os.path.abspath(self._loaded_scoring)
         elif self._loaded_scoring != self.pick.scoring_file:
             logger.debug("Overwriting the scoring self using '%s' as scoring file", self.pick.scoring_file)
             self.scoring_file = None
@@ -147,7 +147,8 @@ class MikadoConfiguration:
                     self.pick.scoring_file = option
             if found is True:
                 logger.info("Found the correct option: %s", option)
-                self.pick.scoring_file = option
+                self.pick.scoring_file = os.path.abspath(option)
+                self._loaded_scoring = os.path.abspath(option)
                 break
         if not found:
             raise InvalidConfiguration("No scoring configuration file found. Options: {}".format(",".join(options)))

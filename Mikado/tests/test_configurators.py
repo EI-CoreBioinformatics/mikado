@@ -1,7 +1,13 @@
+import shutil
 import unittest
+from dataclasses import asdict
 
 import marshmallow
+import tempfile
 
+import pkg_resources
+
+from .. import create_default_logger
 from ..configuration import configurator
 from .._transcripts.scoring_configuration import SizeFilter, TargetScore
 from ..configuration.configuration import *
@@ -87,3 +93,34 @@ class TestConfigurator(unittest.TestCase):
         self.assertTrue(mammalian.scoring.requirements.compiled == plant.scoring.requirements.compiled
                         != insect.scoring.requirements.compiled)
         self.assertTrue(mammalian.scoring.requirements.parameters != plant.scoring.requirements.parameters)
+
+    def test_load_invalid_scoring(self):
+        erroneous = tempfile.NamedTemporaryFile(suffix=".yaml", mode="wt")
+        plant = MikadoConfiguration(pick=PickConfiguration(scoring_file="plant.yaml"))
+        err_scoring = copy.deepcopy(plant.scoring)
+        key = next(iter(err_scoring.scoring.keys()))
+        err_scoring.scoring[key].rescaling = "invalid"
+        key = next(iter(err_scoring.requirements.parameters.keys()))
+        del err_scoring.requirements.parameters[key]
+        yaml.dump(asdict(err_scoring), erroneous)
+        erroneous.flush()
+        plant.pick.scoring_file = erroneous.name
+        logger = create_default_logger("test_load_invalid_scoring", level="DEBUG")
+        with self.assertRaises(InvalidConfiguration):
+            plant.load_scoring(logger=logger)
+        current = os.getcwd()
+        os.chdir(os.path.dirname(erroneous.name))
+        plant.scoring_file = os.path.basename(erroneous.name)
+        self.assertFalse(os.path.exists("plant.yaml"))
+        os.link(erroneous.name, "plant.yaml")
+        plant._loaded_scoring = None
+        plant.pick.scoring_file = "plant.yaml"
+        with self.assertRaises(InvalidConfiguration):
+            plant.load_scoring(logger=logger)
+        os.remove(os.path.join(tempfile.gettempdir(), "plant.yaml"))
+        plant._loaded_scoring = None
+        plant.load_scoring(logger=logger)
+        self.assertEqual(plant._loaded_scoring,
+                         pkg_resources.resource_filename("Mikado.configuration", os.path.join("scoring_files",
+                                                                                              "plant.yaml")))
+        os.chdir(current)

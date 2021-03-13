@@ -155,10 +155,6 @@ def setup(args, logger=None) -> (argparse.Namespace, Union[MikadoConfiguration, 
         logger.exception(exc)
         raise exc
 
-    if mikado_config.log_settings.log is not None:
-        _ = open(os.path.join(mikado_config.prepare.files.output_dir,
-                              os.path.basename(mikado_config.log_settings.log)), "wt").close()
-
     if len(mikado_config.prepare.files.gff) == 0:
         parser = prepare_parser()
         logger.error("No input files found!")

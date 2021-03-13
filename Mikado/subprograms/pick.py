@@ -62,16 +62,6 @@ def _set_pick_output_options(conf: Union[DaijinConfiguration, MikadoConfiguratio
         conf.pick.files.subloci_out = args.subloci_out if pat.search(args.subloci_out) else "{0}.gff3".format(
             args.subloci_out)
 
-    if args.output_dir is not None:
-        conf.pick.files.output_dir = os.path.abspath(args.output_dir)
-    else:
-        conf.pick.files.output_dir = os.path.abspath(conf.pick.files.output_dir)
-    try:
-        os.makedirs(conf.pick.files.output_dir, exist_ok=True)
-    except OSError:
-        exc = OSError("I cannot create the output directory {}. Aborting.".format(conf.pick.files.output_dir))
-        logger.critical(exc)
-        raise exc
     return conf
 
 
@@ -254,8 +244,20 @@ def pick(args):
 
     """
 
-    logger = create_default_logger("logger_init", level="WARNING")
+    logger = create_default_logger("pick", level="WARNING")
     mikado_configuration = load_and_validate_config(args.configuration, logger=logger)
+    # Create the output directory. Necessary to do it here to avoid the logger being put in the wrong place.
+    if args.output_dir is not None:
+        mikado_configuration.pick.files.output_dir = os.path.abspath(args.output_dir)
+    else:
+        mikado_configuration.pick.files.output_dir = os.path.abspath(mikado_configuration.pick.files.output_dir)
+    try:
+        os.makedirs(mikado_configuration.pick.files.output_dir, exist_ok=True)
+    except OSError:
+        exc = OSError("I cannot create the output directory {}. Aborting.".format(
+            mikado_configuration.pick.files.output_dir))
+        logger.critical(exc)
+        raise exc
     mikado_configuration, logger = check_log_settings_and_create_logger(mikado_configuration, args.log, args.log_level,
                                                                         section="pick")
     mikado_configuration = check_run_options(mikado_configuration, args, logger=logger)
@@ -308,6 +310,9 @@ Transcripts with intron lengths outside of this range will be penalised. Default
 Mikado pick will only consider regions included in this string/file.
 Regions should be provided in a WebApollo-like format: <chrom>:<start>..<end>""")
     output = parser.add_argument_group("Options related to the output files.")
+    output.add_argument("-od", "--output-dir", dest="output_dir",
+                        type=str, default=None,
+                        help="Output directory. Default: current working directory")
     output.add_argument("--subloci-out", type=str, default=None, dest="subloci_out")
     output.add_argument("--monoloci-out", type=str, default=None, dest="monoloci_out")
     output.add_argument("--loci-out", type=str, default=None, dest="loci_out",
@@ -381,9 +386,6 @@ updating an *ab-initio* results with data from RNASeq, protein alignments, etc.
                         default=None, type=str,
                         help="Location of an SQLite database to overwrite what is specified \
 in the configuration file.")
-    parser.add_argument("-od", "--output-dir", dest="output_dir",
-                        type=str, default=None,
-                        help="Output directory. Default: current working directory")
     parser.add_argument("--single", action="store_true", default=False,
                         help="""Flag. If set, Creator will be launched with a single process, without involving the
 multithreading apparatus. Useful for debugging purposes only.""")

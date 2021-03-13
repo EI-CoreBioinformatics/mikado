@@ -851,6 +851,8 @@ exon data is on a different chromosome, {exon_data.chrom}. \
 
     @property
     def orfs(self) -> List[BED12]:
+        """This property returns a list of the internal ORFs of the transcript (as BED12 transcriptomic objects).
+        Internally it calls TranscriptBase.get_internal_orf_beds."""
         return list(self.get_internal_orf_beds())
 
     @Metric

@@ -822,6 +822,9 @@ class BED12:
     def __repr__(self):
         return pp.saferepr(self.__dict__)
 
+    def __hash__(self):
+        return hash(frozenset(self.__getstate__()))
+
     def __str__(self):
 
         if self.header is True:

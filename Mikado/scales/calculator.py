@@ -210,14 +210,14 @@ class Calculator:
 
         for record in self.gff:
             if self.atype == "bed12":
+                if not record.parent:
+                    record.parent = "{}.gene".format(record.id)
                 current_gene = Gene(record, gid=record.parent[0], only_coding=self.only_coding,
                                     logger=self.__logger, use_computer=True)
                 transcript2gene[record.id] = record.parent[0]
                 current_gene.transcripts[record.id] = TranscriptComputer(record, logger=self.__logger)
                 assert current_gene.id not in genes, f"Duplicated ID found: {current_gene.id}"
                 genes[current_gene.id] = current_gene
-                if not record.parent:
-                    record.parent = "{}.gene".format(record.id)
             elif self.atype == "bam":
                 transcript = TranscriptComputer(record, logger=self.__logger)
                 transcript.parent = transcript.id + "_gene"

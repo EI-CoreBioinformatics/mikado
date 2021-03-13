@@ -11,6 +11,10 @@ Other changes:
 - Fix [#382](https://github.com/EI-CoreBioinformatics/mikado/issues/382): now Mikado can accept generic BED12 files 
   as input junctions, not just Portcullis junctions. This allows e.g. a user to provide a ***set of gene models*** 
   in BED12 format as sources of valid junctions.
+- Fix [#384](https://github.com/EI-CoreBioinformatics/mikado/issues/384): now Mikado convert deals properly with 
+  unsorted GTFs/GFFs. 
+- Fix [#386](https://github.com/EI-CoreBioinformatics/mikado/issues/386): dealing better with unsorted GFFs/GTFs for 
+  the stats utility.
 - Fix [#387](https://github.com/EI-CoreBioinformatics/mikado/issues/387): now Mikado will always use a static seed, 
   rather than generating a new one per call unless specifically instructed to do so. The old behaviour can still be 
   replicated by either setting the `seed` parameter to `null` (ie `None`) in the configuration file, or by 

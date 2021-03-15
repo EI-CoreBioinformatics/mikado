@@ -2492,13 +2492,12 @@ class SerialiseChecker(unittest.TestCase):
                         continue
                     if len(d[col]) == 1:
                         raise ValueError(col)
-
                     with self.subTest(col=col):
-
                         catch = df[d[col]].apply(lambda row: row[0] == row[1] or
                                                              np.isclose(row[0], row[1], atol=.01, rtol=.01), axis=1)
                     if not (catch).all():
-                        failed.append(col)
+                        failed_rows = df.loc[~catch, d[col]]
+                        failed.append((col, failed_rows.head()))
                 self.assertEqual(len(failed), 0, failed)
 
     def test_subprocess_multi_empty_orfs(self):

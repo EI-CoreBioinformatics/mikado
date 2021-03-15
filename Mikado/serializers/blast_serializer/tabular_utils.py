@@ -87,7 +87,7 @@ def get_queries(engine):
     queries = pd.read_sql_table("query", engine, index_col="query_name")
     queries.columns = ["qid", "qlength"]
     queries["qid"] = queries["qid"].astype(int)
-    queries.index = queries.index.str.replace(id_pattern, "\\1")
+    # queries.index = queries.index.str.replace(id_pattern, "\\1")
     assert queries.qid.drop_duplicates().shape[0] == queries.shape[0], \
         "Duplicated IDs found in the Mikado query database!"
     return queries
@@ -100,7 +100,6 @@ def get_targets(engine):
     assert targets.sid.drop_duplicates().shape[0] == targets.shape[0], \
         "Duplicated IDs found in the Mikado target database!"
 
-    targets.index = targets.index.str.replace(id_pattern, "\\1")
     if targets[targets.slength.isna()].shape[0] > 0:
         raise KeyError("Unbound targets!")
     return targets
@@ -257,35 +256,40 @@ def prepare_tab_hit(key: tuple,
     return hit_list, hsps
 
 
-id_pattern = re.compile(r"^[^\|]*\|([^\|]*)\|.*")
-
-
 def sanitize_blast_data(data: pd.DataFrame, queries: pd.DataFrame, targets: pd.DataFrame,
                         qmult=3, tmult=1):
 
     if data[data.btop.isna()].shape[0] > 0:
         raise ValueError(data.loc[0])
 
-    data["qseqid"] = data["qseqid"].str.replace(id_pattern, "\\1")
-    data["sseqid"] = data["sseqid"].str.replace(id_pattern, "\\1")
-
+    assert "qid" in queries.columns or "qid" == queries.index.name, queries.head()
+    assert "sid" in targets.columns or "sid" == targets.index.name, targets.head()
     data = data.join(queries, on=["qseqid"]).join(targets, on=["sseqid"]).join(
         data.groupby(["qseqid", "sseqid"]).agg(
             min_evalue=pd.NamedAgg("evalue", np.min),
             max_bitscore=pd.NamedAgg("bitscore", np.max)
         )[["min_evalue", "max_bitscore"]], on=["qseqid", "sseqid"])
 
+    # Check the joins were successful
+    if any(data.qid.isna()):
+        raise KeyError("The tabular file passed in and the queries in the database differ. Please rerun BLAST and "
+                       "Mikado serialise with the correct query file.")
+
+    if any(data.sid.isna()):
+        raise KeyError("The tabular file passed in and the targets in the database differ. Please rerun BLAST and "
+                       "Mikado serialise with the correct target file.")
+
     for col in ["qstart", "qend", "sstart", "send", "qlength", "slength"]:
         if col != "slength":
             err_val = (col, data[data[col].isna()].shape[0], data.shape[0])
         else:
             err_val = (col, data[["sseqid"]].head())
-        assert ~(data[col].isna().any()), \
+        if data[col].isna().any():
+            raise ValueError(
             "Column {col} contains {nnan} NaN values out of {tot}. Head: {err_val}\
 Please make sure you have run BLAST asking for the following fields:\
-{blast_keys} \
-".format(col=col, nnan=np.where(data[col].isna())[0].shape[0], tot=data.shape[0], err_val=err_val,
-         blast_keys=blast_keys)
+{blast_keys}".format(col=col, nnan=np.where(data[col].isna())[0].shape[0], tot=data.shape[0], err_val=err_val,
+         blast_keys=blast_keys))
         try:
             data[col] = data[col].astype(int).values
         except ValueError as exc:

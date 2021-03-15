@@ -46,3 +46,6 @@ References
 .. [Snakeviz]  https://jiffyclub.github.io/snakeviz/
 .. [PASA]  **Improving the Arabidopsis genome annotation using maximal transcript alignment assemblies** Haas, B.J., Delcher, A.L., Mount, S.M., Wortman, J.R., Smith Jr, R.K., Jr., Hannick, L.I., Maiti, R., Ronning, C.M., Rusch, D.B., Town, C.D. et al. *Nucleic Acids Res*, 2003, 31, 5654-5666. doi:10.1093/nar/gkg770
 .. [GffRead] **GFF Utilities: GffRead and GffCompare** Pertea, G. and Pertea, M. *F1000*, 2020, 9, ISCB Comm J-304. doi:10.12688/f1000research.23297.2
+.. [Prodigal] **Prodigal: prokaryotic gene recognition and translation initiation site identification.** Hyatt, D.,
+   Chen, GL., LoCascio, P.F. et al. BMC Bioinformatics 11, 119 (2010). doi:10.1186/1471-2105-11-119
+.. [TransDecoder] https://github.com/TransDecoder/TransDecoder/wiki

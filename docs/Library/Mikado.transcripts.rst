@@ -15,6 +15,7 @@ Submodules
 .. toctree::
    :maxdepth: 4
 
+   Mikado.transcripts.pad
    Mikado.transcripts.reference_gene
    Mikado.transcripts.transcript
    Mikado.transcripts.transcriptchecker

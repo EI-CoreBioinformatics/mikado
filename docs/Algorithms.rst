@@ -353,6 +353,9 @@ Metrics belong to one of the following categories:
 |                                     | will set a default value of 0 into the Namespace and      |             |             |              |
 |                                     | return it.                                                |             |             |              |
 +-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
+| alias                               | This property returns the alias of the transcript, if     | Descriptive | str         | False        |
+|                                     | present, else its ID                                      |             |             |              |
++-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
 | best_bits                           | Metric that returns the best BitS associated with the     | External    | float       | False        |
 |                                     | transcript.                                               |             |             |              |
 +-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
@@ -379,6 +382,9 @@ Metrics belong to one of the following categories:
 +-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
 | cdna_length                         | This property returns the length of the transcript.       | cDNA        | int         | False        |
 +-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
+| cds_disrupted_by_ri                 | This property describes whether the CDS is interrupted    | Locus       | bool        | True         |
+|                                     | within a retained intron.                                 |             |             |              |
++-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
 | cds_not_maximal                     | This property returns the length of the CDS excluded from | CDS         | int         | False        |
 |                                     | the selected ORF.                                         |             |             |              |
 +-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
@@ -389,7 +395,7 @@ Metrics belong to one of the following categories:
 | combined_cds_fraction               | This property return the percentage of the CDS part of    | CDS         | float       | True         |
 |                                     | the transcript vs. the cDNA length                        |             |             |              |
 +-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
-| combined_cds_intron_fraction        | This property returns the fraction of CDS introns of the  | Locus       |             | True         |
+| combined_cds_intron_fraction        | This property returns the fraction of CDS introns of the  | Locus       | float       | True         |
 |                                     | transcript vs. the total number of CDS introns in the     |             |             |              |
 |                                     | Locus. If the transcript is by itself, it returns 1.      |             |             |              |
 +-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
@@ -431,7 +437,7 @@ Metrics belong to one of the following categories:
 | exon_num                            | This property returns the number of exons of the          | cDNA        | int         | False        |
 |                                     | transcript.                                               |             |             |              |
 +-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
-| five_utr_length                     | Returns the length of the 5' UTR of the selected ORF.     | UTR         |             | False        |
+| five_utr_length                     | Returns the length of the 5' UTR of the selected ORF.     | UTR         | float       | False        |
 +-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
 | five_utr_num                        | This property returns the number of 5' UTR segments for   | UTR         | int         | False        |
 |                                     | the selected ORF.                                         |             |             |              |
@@ -458,13 +464,16 @@ Metrics belong to one of the following categories:
 +-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
 | is_complete                         | Boolean. True if the selected ORF has both start and end. | CDS         | bool        | False        |
 +-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
+| is_reference                        | Checks whether the transcript has been marked as          | External    | bool        | False        |
+|                                     | reference by Mikado prepare                               |             |             |              |
++-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
 | max_exon_length                     | This metric will return the length of the biggest exon in | cDNA        | int         | False        |
 |                                     | the transcript.                                           |             |             |              |
 +-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
 | max_intron_length                   | This property returns the greatest intron length for the  | Intron      | int         | False        |
 |                                     | transcript.                                               |             |             |              |
 +-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
-| min_exon_length                     | This metric will return the length of the biggest exon in |             |             | False        |
+| min_exon_length                     | This metric will return the length of the biggest exon in | cDNA        | int         | False        |
 |                                     | the transcript.                                           |             |             |              |
 +-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
 | min_intron_length                   | This property returns the smallest intron length for the  | Intron      | int         | False        |
@@ -486,13 +495,17 @@ Metrics belong to one of the following categories:
 +-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
 | only_non_canonical_splicing         | This metric will return True if the canonical_number is 0 | Intron      | bool        | False        |
 +-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
+| original_source                     | This property returns the original source assigned to the | Descriptive | str         | False        |
+|                                     | transcript (before Mikado assigns its own final source    |             |             |              |
+|                                     | value).                                                   |             |             |              |
++-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
 | proportion_verified_introns         | This metric returns, as a fraction, how many of the       | External    | float       | True         |
 |                                     | transcript introns are validated by external data.        |             |             |              |
-|                                     | Monoexonic transcripts are set to 1.                      |             |             |              |
 +-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
 | proportion_verified_introns_inlocus | This metric returns, as a fraction, how many of the       | Locus       | float       | True         |
 |                                     | verified introns inside the Locus are contained inside    |             |             |              |
-|                                     | the transcript.                                           |             |             |              |
+|                                     | the transcript. In loci without *any* verified introns,   |             |             |              |
+|                                     | this metric will be set to 1.                             |             |             |              |
 +-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
 | retained_fraction                   | This property returns the fraction of the cDNA which is   | Locus       | float       | True         |
 |                                     | contained in retained introns.                            |             |             |              |
@@ -549,7 +562,7 @@ Metrics belong to one of the following categories:
 |                                     | transcript only if it is contained within the new         |             |             |              |
 |                                     | transcript. This WILL screw up a bit the homology score.  |             |             |              |
 +-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
-| source_score                        | This metric returns a score that is assigned to the       | External    | int         | False        |
+| source_score                        | This metric returns a score that is assigned to the       | External    | float       | False        |
 |                                     | transcript in virtue of its origin.                       |             |             |              |
 +-------------------------------------+-----------------------------------------------------------+-------------+-------------+--------------+
 | start_distance_from_tss             | This property returns the distance of the start of the    | CDS         | int         | False        |
